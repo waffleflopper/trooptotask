@@ -596,7 +596,7 @@ describe('/auth/setup-account actions', () => {
 			status: 400,
 			data: {
 				error:
-					'That password was rejected by account security rules. Use at least 12 characters with uppercase, lowercase, and a number. Request a fresh setup link, then try again.'
+					'That password was rejected by account security rules. Choose a different, unique password with at least 12 characters, including uppercase, lowercase, and a number. Request a fresh setup link, then try again.'
 			}
 		});
 	});

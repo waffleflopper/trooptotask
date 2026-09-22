@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CheckCircle2, Circle, ExternalLink, LoaderCircle, Sparkles } from '@lucide/svelte';
+	import { CheckCircle2, Circle, ExternalLink } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -15,17 +15,9 @@
 	const items = $derived(ctx.gettingStartedItems);
 	const completedCount = $derived(items.filter((item) => item.complete).length);
 	const progress = $derived(items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0);
-	const starterPack = $derived(ctx.firstStarterConfigurationPack);
-	const applyState = $derived(ctx.starterPackApplyState);
-	const applyingStarterPack = $derived(applyState.status === 'pending');
 
 	function dismiss() {
 		void ctx.dismissGettingStarted();
-	}
-
-	function applyStarterPack() {
-		if (!starterPack || applyingStarterPack) return;
-		void ctx.applyStarterConfigurationPack(starterPack.id);
 	}
 </script>
 
@@ -48,53 +40,7 @@
 		<Progress value={progress} aria-label="Workspace setup progress" />
 	</Card.Header>
 	<Card.Content>
-		{#if starterPack}
-			<div class="mb-4 rounded-sm border border-dashed bg-background/60 p-3">
-				<div class="flex flex-wrap items-start justify-between gap-3">
-					<div class="min-w-0">
-						<div class="flex items-center gap-2 text-sm font-semibold text-foreground">
-							<Sparkles class="size-4 text-primary" aria-hidden="true" />
-							<span>{starterPack.name}</span>
-							<Badge variant={starterPack.isFullyApplied ? 'success' : 'secondary'}>
-								{starterPack.isFullyApplied ? 'Applied' : 'Optional'}
-							</Badge>
-						</div>
-						<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{starterPack.description}</p>
-						<p class="mt-1 text-xs leading-relaxed text-muted-foreground">{starterPack.editableCopy}</p>
-					</div>
-					{#if starterPack.canApply && !starterPack.isFullyApplied}
-						<Button type="button" size="sm" onclick={applyStarterPack} disabled={applyingStarterPack}>
-							{#if applyingStarterPack}
-								<LoaderCircle class="size-4 animate-spin" aria-hidden="true" />
-								Applying
-							{:else}
-								<Sparkles class="size-4" aria-hidden="true" />
-								Apply Pack
-							{/if}
-						</Button>
-					{:else if !starterPack.canApply && !starterPack.isFullyApplied}
-						<Badge variant="secondary">Configure access needed</Badge>
-					{/if}
-				</div>
-				<ul class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-					{#each starterPack.artifacts as artifact (artifact.family)}
-						<li class="min-w-0 rounded-sm bg-muted/40 p-2">
-							<div class="text-xs font-medium text-foreground">{artifact.label}</div>
-							<div class="mt-1 truncate text-xs text-muted-foreground" title={artifact.names.join(', ')}>
-								{artifact.names.join(', ')}
-							</div>
-						</li>
-					{/each}
-				</ul>
-				{#if applyState.status === 'success' && applyState.message}
-					<p class="mt-3 text-xs font-medium text-success-foreground" role="status" aria-live="polite">
-						{applyState.message}
-					</p>
-				{:else if applyState.status === 'error' && applyState.message}
-					<p class="mt-3 text-xs font-medium text-destructive" role="alert">{applyState.message}</p>
-				{/if}
-			</div>
-		{/if}
+		<!-- First Week Operations is temporarily hidden while its setup tracking is repaired. -->
 		<ul class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
 			{#each items as item (item.id)}
 				<li class="rounded-sm border bg-background/60 p-3">

@@ -6,6 +6,9 @@ import {
 	type AccountSetupCompletionStore
 } from './accountSetupCompletion';
 import { createAccountSetupLinkService } from './accountSetupLinks';
+import { createSupabaseAccountSetupAuthAdapter } from './accountSetupCompletionSupabase';
+import { createAccountSetupRouteFlow } from './accountSetupRouteFlow';
+import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './validation';
 
 function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCompletionStore & {
 	links: AccountSetupLinkRecord[];
@@ -351,6 +354,72 @@ describe('Account Setup completion', () => {
 		expect(store.links[0].failedAt).toBeInstanceOf(Date);
 		expect(store.links[0].failureReason).toBe('account-create-failed');
 		expect(store.links[0].usedAt).toBeNull();
+	});
+
+	it('explains a provider password rejection and completes a fresh setup with a different password', async () => {
+		const store = makeStore(approvedRequest);
+		await addSetupToken(store);
+		const createUser = vi
+			.fn()
+			.mockResolvedValueOnce({
+				data: { user: null },
+				error: {
+					code: 'weak_password',
+					message: 'Password has appeared in a data breach.',
+					status: 422
+				}
+			})
+			.mockResolvedValueOnce({ data: { user: { id: 'user-123' } }, error: null });
+		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
+		const auth = createSupabaseAccountSetupAuthAdapter(
+			{
+				auth: { admin: { createUser } },
+				from: () => ({ upsert: async () => ({ error: null }) })
+			} as never,
+			{ auth: { signInWithPassword } } as never
+		);
+		const service = createAccountSetupCompletionService(store, auth);
+		const flow = createAccountSetupRouteFlow({
+			store: () => store,
+			setupLinks: () => createAccountSetupLinkService(store),
+			completion: () => service,
+			checkCompletionRateLimit: vi.fn().mockResolvedValue({ limited: false }),
+			audit: vi.fn()
+		});
+		const input = {
+			setupSession: { setupLinkId: 'link-1', accessRequestId: 'request-1', expiresAt: Date.now() + 600000 },
+			password: 'SyntheticPassword123!',
+			confirmPassword: 'SyntheticPassword123!',
+			clientIp: '192.0.2.1',
+			userAgent: 'test'
+		};
+
+		expect(await flow.completeSetup(input)).toMatchObject({
+			type: 'failure',
+			status: 400,
+			error: expect.stringContaining(PASSWORD_PROVIDER_REJECTION_MESSAGE)
+		});
+		expect(store.completions).toEqual([]);
+		expect(signInWithPassword).not.toHaveBeenCalled();
+		expect(store.links[0].failedAt).toBeInstanceOf(Date);
+		expect(await flow.completeSetup(input)).toMatchObject({ type: 'failure' });
+		expect(createUser).toHaveBeenCalledTimes(1);
+
+		await addSetupToken(store, 'fresh-setup-token');
+		expect(
+			await flow.completeSetup({
+				...input,
+				setupSession: { ...input.setupSession, setupLinkId: 'link-2' },
+				password: 'DifferentSynthetic456!',
+				confirmPassword: 'DifferentSynthetic456!'
+			})
+		).toEqual({ type: 'redirect', path: '/dashboard', clearSession: true });
+		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+		expect(store.links[1].usedAt).toBeInstanceOf(Date);
+		expect(signInWithPassword).toHaveBeenCalledWith({
+			email: 'person@example.com',
+			password: 'DifferentSynthetic456!'
+		});
 	});
 
 	it('marks the claimed setup link failed when approval is withdrawn after claim starts', async () => {

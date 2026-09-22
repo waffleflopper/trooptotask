@@ -60,24 +60,17 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 	}
 
 	if (input.canManageAssignments) {
-		const planningItems: NonNullable<WorkspaceToolbarAction['menuItems']> = [];
-		if (input.canManageConfig) {
-			planningItems.push({
-				label: 'Duty Rosters (alpha)',
-				href: `/org/${orgRouteSegment}/duty-rosters`
-			});
-		}
-		planningItems.push({
-			label: 'Assignment Planner',
-			href: `/org/${orgRouteSegment}/calendar/assignments`
-		});
-
 		items.push({
 			id: 'planning',
 			label: 'Planning',
 			icon: 'calendar-days',
 			displayMode: 'full',
-			menuItems: planningItems
+			menuItems: [
+				{
+					label: 'Assignment Planner',
+					href: `/org/${orgRouteSegment}/calendar/assignments`
+				}
+			]
 		});
 	}
 

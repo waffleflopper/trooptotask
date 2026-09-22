@@ -85,7 +85,8 @@ export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavIt
 			label: 'Duty Rosters',
 			badgeLabel: 'Beta',
 			icon: 'duty-roster',
-			visible: canView('calendar'),
+			// Temporarily hidden while Duty Rosters bugs are addressed; retain route breadcrumbs.
+			visible: false,
 			exactMatch: false
 		},
 		{

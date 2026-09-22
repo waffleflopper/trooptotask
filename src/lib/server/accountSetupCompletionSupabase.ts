@@ -12,19 +12,14 @@ function isExistingUserError(error: unknown): boolean {
 		typeof error === 'object' && error && 'code' in error && typeof error.code === 'string'
 			? error.code.toLowerCase()
 			: '';
-	const status =
-		typeof error === 'object' && error && 'status' in error && typeof error.status === 'number' ? error.status : null;
+	if (code) {
+		return code === 'user_already_exists' || code === 'email_exists';
+	}
 	const message =
 		typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
 			? error.message.toLowerCase()
 			: '';
-	return (
-		code === 'user_already_exists' ||
-		code === 'email_exists' ||
-		status === 422 ||
-		message.includes('already been registered') ||
-		message.includes('already exists')
-	);
+	return message.includes('already been registered') || message.includes('already exists');
 }
 
 export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient): AccountSetupCompletionStore {

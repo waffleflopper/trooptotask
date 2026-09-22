@@ -33,7 +33,6 @@ describe('getOrgNavigation', () => {
 		});
 
 		expect(nav.find((item) => item.id === 'calendar')?.visible).toBe(true);
-		expect(nav.find((item) => item.id === 'duty-rosters')?.visible).toBe(true);
 		expect(nav.find((item) => item.id === 'personnel')?.visible).toBe(false);
 		expect(nav.find((item) => item.id === 'training')?.visible).toBe(true);
 		expect(nav.find((item) => item.id === 'critical-tasks')?.visible).toBe(true);
@@ -61,28 +60,6 @@ describe('getOrgNavigation', () => {
 		);
 		expect(withCriticalTasks.find((item) => item.id === 'critical-tasks')).not.toHaveProperty('badgeLabel');
 		expect(withoutCriticalTasks.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
-	});
-
-	it('shows replacement Duty Rosters as a primary navigation item after Calendar', () => {
-		const withCalendar = getOrgNavigation('org-1', {
-			...baseCapabilities,
-			calendar: 'view'
-		});
-		const withoutCalendar = getOrgNavigation('org-1', baseCapabilities);
-
-		expect(withCalendar).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					id: 'duty-rosters',
-					href: '/org/org-1/duty-rosters',
-					label: 'Duty Rosters',
-					badgeLabel: 'Beta',
-					visible: true
-				})
-			])
-		);
-		expect(withCalendar.map((item) => item.id).slice(1, 4)).toEqual(['calendar', 'duty-rosters', 'personnel']);
-		expect(withoutCalendar.find((item) => item.id === 'duty-rosters')?.visible).toBe(false);
 	});
 
 	it('treats replacement Duty Rosters child routes as active for the nav item', () => {

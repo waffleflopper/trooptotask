@@ -1,6 +1,6 @@
 # Billing schema preflight and recovery plan
 
-Phase 04 / [D02 #1310](https://github.com/waffleflopper/trooptotask/issues/1310), final owner plan **04-02b**. [D01 #1309](https://github.com/waffleflopper/trooptotask/issues/1309) supplied the unchanged pre-retirement catalog and read-only SQL assertions; D02 supplies the [atomic forward migration](../../../supabase/migrations/20260921000100_retire_commercial_schema.sql), complete test/consumer cutover and verified target artifacts. Production catalog, record disposition, backup restore, deployed callers and provider shutdown are **UNVERIFIED / PENDING OWNER EXECUTION**. Local preflight success does not authorize deletion or certify production readiness.
+Phase 04 / [D02 #1310](https://github.com/waffleflopper/trooptotask/issues/1310), final owner plan **04-02b**. [D01 #1309](https://github.com/waffleflopper/trooptotask/issues/1309) supplied the unchanged pre-retirement catalog and read-only SQL assertions; D02 supplies the [atomic forward migration](../../../supabase/migrations/20260921000100_retire_commercial_schema.sql), complete test/consumer cutover and verified target artifacts. D02 is merged through [PR #1313](https://github.com/waffleflopper/trooptotask/pull/1313) at `4ec5e26b0bfd7da490ecd9c10db7e45341018fbb`. Robert reports the hosted migration completed and working successfully; this is **OWNER-REPORTED**, not independently verified hosted catalog/ledger or retained-flow evidence. See the [current integrated handoff](../RELEASE.md#integrated-billing-schema-handoff--04-03). Record disposition, backup restore, deployed callers, provider shutdown and secret cleanup remain separately unverified. Do not repeat the migration based on this runbook. Local preflight success does not authorize deletion or certify production readiness.
 
 ## Exact proposed destruction
 
@@ -84,11 +84,11 @@ The D01 read-only preflight and D02 embedded assertions remain byte-equivalent a
 
 **After destructive commit:** reversing DDL or redeploying an older binary cannot recreate deleted records. Stop affected traffic/writes and choose a reviewed compatible roll-forward, or restore the verified pre-change backup/PITR into the owner-approved recovery target with its compatible app/config. Account for every write since the restore point (reconciliation/replay, accepted data loss, duplicate side effects and authentication/storage consistency). Unknown recovery compatibility, unverified restore or undispositioned writes block recovery claims and the destructive release. Do not overwrite the live database based on this plan.
 
-D03 verifies integrated repository readiness; phase acceptance never means production cleanup occurred. Actual hosted operations remain **PENDING OWNER EXECUTION** until separately authorized evidence exists.
+D03 verifies integrated repository readiness; phase acceptance does not certify production cleanup. The owner-reported migration success above does not independently establish other hosted operations; those remain pending owner execution or evidence.
 
 ## Owner command sequence after verified merge
 
-These are **owner-run remote operations**, not commands executed by the agent. Complete the ordered release/recovery prerequisites above first. This sequence was checked against installed Supabase CLI **2.101.0** and its [official CLI reference](https://supabase.com/docs/reference/cli/supabase-db-push). The remote catalog and migration history have not been inspected here.
+These are **owner-run remote operations** for a separately authorized target still awaiting retirement, not commands executed by the agent or a direction to repeat the reported completed migration. Complete the ordered release/recovery prerequisites above first. This sequence was checked against installed Supabase CLI **2.101.0** and its [official CLI reference](https://supabase.com/docs/reference/cli/supabase-db-push). The remote catalog and migration history have not been inspected here.
 
 1. **Use the merged revision in a new worktree.** Replace `MERGED_D02_SHA` with the verified merge commit from the finished PR; choose another unused directory if this one exists. Run subsequent commands from that worktree. No dependency installation, seed loading or local database startup is needed for these operator commands.
 

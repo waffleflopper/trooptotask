@@ -91,8 +91,7 @@ describe('GET /api/calendar-range', () => {
 					id: 'da1',
 					assignmentTypeId: 'at1'
 				})
-			],
-			advancedDutyEvents: []
+			]
 		});
 		expect((result as Record<string, unknown>).assignmentTypes).toBeUndefined();
 		expect((result as Record<string, unknown>).pinnedGroups).toBeUndefined();

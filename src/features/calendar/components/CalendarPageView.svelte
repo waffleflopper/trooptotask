@@ -228,7 +228,6 @@
 			onAdd={(entry) => ctx.handleAddAvailability(entry)}
 			onRemove={(id) => ctx.handleRemoveAvailability(id)}
 			onClose={() => ctx.closeAvailabilityModal()}
-			dutyEvents={ctx.advancedDutyEvents}
 		/>
 	{:catch}
 		<span class="sr-only">Availability editor failed to load.</span>
@@ -246,7 +245,6 @@
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 			onClose={() => ctx.closeAssignmentModal()}
-			dutyEvents={ctx.advancedDutyEvents}
 		/>
 	{:catch}
 		<span class="sr-only">Daily assignment editor failed to load.</span>

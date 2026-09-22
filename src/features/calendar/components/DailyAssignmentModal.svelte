@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Group } from '$lib/stores/groups.svelte';
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
-	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -18,7 +17,6 @@
 		assignments: DailyAssignment[];
 		personnelByGroup: GroupData[];
 		groups: readonly Group[];
-		dutyEvents?: DutyEvent[];
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => void;
 		onRemoveAssignment: (date: string, typeId: string) => void;
 		onClose: () => void;
@@ -30,33 +28,10 @@
 		assignments,
 		personnelByGroup,
 		groups,
-		dutyEvents = [],
 		onSetAssignment,
 		onRemoveAssignment,
 		onClose
 	}: Props = $props();
-
-	function eventCoversDate(event: DutyEvent, d: string): boolean {
-		const startDate = event.coverageStart.slice(0, 10);
-		const endDateRaw = event.coverageEnd.slice(0, 10);
-		const endTime = event.coverageEnd.slice(11, 19);
-		const endDate = endTime === '00:00:00' ? null : endDateRaw;
-		if (d < startDate) return false;
-		if (!endDate) return d === startDate;
-		return d <= endDate;
-	}
-
-	function formatCoverage(event: DutyEvent): string {
-		const fmt = (iso: string) => {
-			const [datePart, timePart] = iso.split('T');
-			const [y, m, day] = datePart.split('-');
-			const [h, min] = (timePart ?? '').split(':');
-			const d = new Date(Number(y), Number(m) - 1, Number(day));
-			const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-			return `${label} ${h}:${min}`;
-		};
-		return `${fmt(event.coverageStart)} – ${fmt(event.coverageEnd)}`;
-	}
 
 	const dateStr = $derived(formatDate(date));
 	const dateDisplay = $derived(
@@ -69,7 +44,6 @@
 	);
 
 	const assignmentsForDate = $derived(assignments.filter((a) => a.date === dateStr));
-	const dutyEventsForDate = $derived(dutyEvents.filter((e) => eventCoversDate(e, dateStr)));
 	const activeAssignmentTypes = $derived(assignmentTypes.filter((type) => !type.archivedAt));
 	const personnelOptions = $derived(
 		personnelByGroup.flatMap((grp) =>
@@ -103,20 +77,6 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body class="space-y-4">
-			{#if dutyEventsForDate.length > 0}
-				<div class="flex flex-col gap-2 border-b pb-4">
-					<h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Advanced duty events</h4>
-					{#each dutyEventsForDate as event (event.id)}
-						<div class="flex flex-col gap-0.5">
-							<span class="text-sm font-medium">{event.templateName}</span>
-							<span class="text-muted-foreground text-xs"
-								>{formatCoverage(event)} · {event.fillSummary.filledSlots} of {event.fillSummary.totalSlots} filled</span
-							>
-						</div>
-					{/each}
-				</div>
-			{/if}
-
 			<div class="flex flex-col gap-3">
 				{#each activeAssignmentTypes as type (type.id)}
 					{@const options = type.assignTo === 'personnel' ? personnelOptions : groupOptions}

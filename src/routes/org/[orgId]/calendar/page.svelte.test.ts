@@ -89,7 +89,7 @@ function makeBootstrap(): CalendarWorkspaceResult {
 			assignmentTypes: [],
 			dailyAssignments: [],
 			pinnedGroups: [],
-			advancedDutyEvents: [],
+
 			personnel: [
 				{
 					id: 'p1',
@@ -158,8 +158,7 @@ describe('calendar page', () => {
 			rangeEnd: '2026-08-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		});
 		mergeCalendarRangeIntoStoresMock.mockReset();
 		calendarStore.goToMonth(2026, 3);
@@ -219,8 +218,7 @@ describe('calendar page', () => {
 			rangeEnd: '2026-08-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		});
 	});
 
@@ -231,8 +229,7 @@ describe('calendar page', () => {
 			rangeEnd: '2026-08-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		});
 
 		render(Page, {

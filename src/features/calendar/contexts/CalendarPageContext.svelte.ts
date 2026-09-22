@@ -115,11 +115,6 @@ export class CalendarPageContext {
 		return this.#workspaceData?.activeOnboardingPersonnelIds ?? this.#data.activeOnboardingPersonnelIds ?? [];
 	}
 
-	// ---- derived: advanced duty events -------------------------------------
-	get advancedDutyEvents() {
-		return this.#workspaceData?.advancedDutyEvents ?? [];
-	}
-
 	// ---- derived: permission flags -----------------------------------------
 
 	get isHydrating(): boolean {

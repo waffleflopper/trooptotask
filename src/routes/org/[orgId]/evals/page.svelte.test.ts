@@ -29,8 +29,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 			members: 'configure',
 			criticalTasks: 'configure',
 			ratingScheme: 'configure',
-			reports: 'configure',
-			dutyRoster: 'configure'
+			reports: 'configure'
 		},
 		hasCapability: vi.fn(() => true),
 		affordanceForFeatureAction: vi.fn(() => ({

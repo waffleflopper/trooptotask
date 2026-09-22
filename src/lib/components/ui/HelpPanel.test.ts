@@ -20,7 +20,6 @@ describe('HelpPanel', () => {
 
 		const dialog = await screen.findByRole('dialog', { name: 'Calendar help' });
 		expect(dialog.textContent).toContain('Track availability, holidays, daily assignments, and calendar reporting.');
-		expect(dialog.textContent).toContain('Use assignment types for repeatable duties.');
 		expect(screen.queryByRole('link', { name: /Open full platform guide/i })).toBeNull();
 	});
 

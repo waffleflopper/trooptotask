@@ -1,5 +1,5 @@
 /**
- * Assignment type entity — maps `assignment_types` (the named duty slots, e.g., "CQ", "SDO").
+ * Assignment type entity — maps `assignment_types` (named Calendar assignments, e.g., "CQ", "SDO").
  * Calendar configuration policy decisions authorize mutations.
  * `assignTo` controls whether this type assigns to individual `personnel` or a `group`.
  * `exemptPersonnelIds` is a Postgres array of UUIDs stored directly on the row.

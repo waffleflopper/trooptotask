@@ -92,8 +92,6 @@ export interface DailyAssignment {
 	date: string;
 	assignmentTypeId: string;
 	assigneeId: string;
-	dutyRosterTemplateRunId?: string | null;
-	dutyRosterTemplateRunRowDate?: string | null;
 }
 
 export const DEFAULT_STATUS_TYPES: StatusType[] = [

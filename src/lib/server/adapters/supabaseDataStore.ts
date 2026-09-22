@@ -9,6 +9,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
+import { fail } from '../core/errors';
 import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination';
 
 type DistinctAuditLogActionsRpcClient = {
@@ -30,6 +31,18 @@ function getOrgColumn(table: string): string {
 		default:
 			return 'organization_id';
 	}
+}
+
+function throwMutationError(table: string, error: { code?: string; message: string }): never {
+	if (
+		table === 'daily_assignments' &&
+		error.code === '23505' &&
+		error.message.includes('unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key"')
+	) {
+		// The conflicting slot may be hidden by RLS; expose neither its row nor provider details.
+		fail(409, 'This assignment slot is unavailable. Refresh the Calendar and try again.');
+	}
+	throw new Error(error.message);
 }
 
 function formatPostgrestFilterValue(value: unknown): string {
@@ -285,7 +298,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 				.select(select ?? '*')
 				.single();
 
-			if (error) throw new Error(error.message);
+			if (error) throwMutationError(table, error);
 			return row as T;
 		},
 
@@ -305,7 +318,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 				.select(select ?? '*')
 				.single();
 
-			if (error) throw new Error(error.message);
+			if (error) throwMutationError(table, error);
 			return row as T;
 		},
 
@@ -368,7 +381,7 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 				.insert(withOrg)
 				.select(select ?? '*');
 
-			if (error) throw new Error(error.message);
+			if (error) throwMutationError(table, error);
 			return (data ?? []) as T[];
 		},
 

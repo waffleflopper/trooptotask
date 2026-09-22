@@ -31,9 +31,7 @@ const linked: DailyAssignment = {
 	id: 'linked',
 	date: '2026-03-15',
 	assignmentTypeId: 'person-type',
-	assigneeId: 'p-alpha',
-	dutyRosterTemplateRunId: 'old-run',
-	dutyRosterTemplateRunRowDate: '2026-03-15'
+	assigneeId: 'p-alpha'
 };
 const group: DailyAssignment = {
 	id: 'manual-group',
@@ -83,9 +81,7 @@ describe('Calendar persisted range preservation', () => {
 				id: 'linked',
 				date: '2026-03-15',
 				assignmentTypeId: 'person-type',
-				assigneeId: 'p-bravo',
-				dutyRosterTemplateRunId: 'old-run',
-				dutyRosterTemplateRunRowDate: '2026-03-15'
+				assigneeId: 'p-bravo'
 			},
 			group
 		]);

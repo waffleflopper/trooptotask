@@ -100,16 +100,12 @@ describe('calendarRenderState', () => {
 			assignment({ id: 'manual' }),
 			assignment({
 				id: 'linked',
-				date: '2026-03-02',
-				dutyRosterTemplateRunId: 'old-run',
-				dutyRosterTemplateRunRowDate: '2026-03-02'
+				date: '2026-03-02'
 			}),
 			assignment({
 				id: 'edited-generated',
 				date: '2026-03-03',
-				assigneeId: 'person-2',
-				dutyRosterTemplateRunId: 'old-run',
-				dutyRosterTemplateRunRowDate: '2026-03-03'
+				assigneeId: 'person-2'
 			})
 		];
 		const input = {

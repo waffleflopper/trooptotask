@@ -90,18 +90,14 @@ const retainedSlots = [
 		organization_id: 'test-org',
 		date: '2026-03-15',
 		assignmentTypeId: 'person-type',
-		assigneeId: 'p-alpha',
-		dutyRosterTemplateRunId: 'old-run',
-		dutyRosterTemplateRunRowDate: '2026-03-15'
+		assigneeId: 'p-alpha'
 	},
 	{
 		id: 'edited-generated',
 		organization_id: 'test-org',
 		date: '2026-03-31',
 		assignmentTypeId: 'person-type',
-		assigneeId: 'p-bravo',
-		dutyRosterTemplateRunId: 'old-run',
-		dutyRosterTemplateRunRowDate: '2026-03-31'
+		assigneeId: 'p-bravo'
 	}
 ];
 
@@ -203,12 +199,13 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 				organization_id: 'test-org',
 				date: '2026-03-15',
 				assignmentTypeId: 'person-type',
-				assigneeId: 'p-bravo',
-				dutyRosterTemplateRunId: 'old-run',
-				dutyRosterTemplateRunRowDate: '2026-03-15'
+				assigneeId: 'p-bravo'
 			},
 			retainedSlots[3]
 		]);
+		expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(
+			savedSlots.slice(0, 7).map((row) => (row.id === 'linked' ? { ...row, assignee_id: 'p-bravo' } : row))
+		);
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
 				action: 'daily_assignment.updated',
@@ -226,6 +223,7 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 			'synthetic write failure'
 		);
 		expect((await fetchCalendarRangeData(ctx, range)).dailyAssignments).toEqual(retainedSlots);
+		expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(savedSlots.slice(0, 7));
 		expect(ctx.auditPort.events).toEqual([]);
 	});
 });

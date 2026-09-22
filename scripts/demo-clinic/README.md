@@ -18,7 +18,7 @@ All dates are relative to `CURRENT_DATE` when the seed runs. Fake ICTL codes and
 
 ## Owner-run live import
 
-The SQL is ready for review, but **has not been run against live**. Local verification and limitations are recorded in [EVIDENCE](../../docs/stabilization/EVIDENCE.md#clinic-demo-seed-and-temporary-duty-roster-navigation-removal).
+**Owner-reported live import completed on 2026-09-22:** Robert ran this seed for Innovation 2026 and reported 52 total Personnel, 50 demo Personnel, 3 Groups, and successful `verify.sql` results. The agent did not access the live database. Do not repeat the completed import; the sequence below documents the procedure. Local verification and limitations are recorded in [EVIDENCE](../../docs/stabilization/EVIDENCE.md#clinic-demo-seed-and-temporary-duty-roster-navigation-removal).
 
 1. In the intended Supabase project's SQL editor, run [preflight.sql](preflight.sql). Confirm the Organization name/ID, the existing two people, the standard Groups, nine active rank codes, and zero existing demo Personnel.
 2. Run the **entire** [seed.sql](seed.sql) as one batch. It contains its own transaction. Successful output reports 50 demo Personnel, the total roster count and total Group count. With the reported starting data, expect 52 people and 3 Groups.

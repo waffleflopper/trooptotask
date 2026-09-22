@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	assertOrganizationDataExportManifestIsSafe,
-	getOrganizationDataExportReadableSheets,
-	getOrganizationDataExportSections,
 	ORGANIZATION_DATA_EXPORT_AREA_KEYS,
 	ORGANIZATION_DATA_EXPORT_SECTIONS
 } from './organizationDataExportManifest';
@@ -37,22 +35,13 @@ describe('Organization Data Export manifest', () => {
 					areaLabel: 'Evals'
 				}),
 				expect.objectContaining({
-					key: 'dutyRosterTemplateRuns',
-					areaKey: 'duty-rosters',
-					areaLabel: 'Duty Rosters'
+					key: 'dailyAssignments',
+					table: 'daily_assignments',
+					areaKey: 'calendar',
+					areaLabel: 'Calendar'
 				})
 			])
 		);
 		expect(ORGANIZATION_DATA_EXPORT_SECTIONS.every((section) => allowedAreaKeys.has(section.areaKey))).toBe(true);
-	});
-
-	it('filters raw and readable sections through the same selection Interface', () => {
-		const rawSections = getOrganizationDataExportSections({ mode: 'areas', areas: ['personnel'] });
-		const readableSheets = getOrganizationDataExportReadableSheets({ mode: 'areas', areas: ['personnel'] });
-
-		expect(new Set(rawSections.map((section) => section.areaKey))).toEqual(new Set(['personnel']));
-		expect(readableSheets.map((sheet) => sheet.name)).toContain('Personnel');
-		expect(readableSheets.map((sheet) => sheet.name)).toContain('Personnel Documents');
-		expect(readableSheets.map((sheet) => sheet.name)).not.toContain('Training Records');
 	});
 });

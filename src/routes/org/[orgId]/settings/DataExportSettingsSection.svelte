@@ -40,6 +40,9 @@
 				<p class="text-sm text-muted-foreground">
 					JSON for backups and integrations. Excel for a human-readable workbook with named sheets.
 				</p>
+				<p class="text-sm text-muted-foreground">
+					Includes Calendar, personnel, training, onboarding, and sign-in rosters.
+				</p>
 			</div>
 			<div class="flex flex-wrap items-center gap-2">
 				<Button size="sm" onclick={() => onExportOrganization('json')} disabled={exportingOrgJson || exportingOrgExcel}>
@@ -55,9 +58,6 @@
 					{#if exportingOrgExcel}<Spinner />{/if}
 					{exportingOrgExcel ? 'Generating...' : 'Export Excel'}
 				</Button>
-				<span class="basis-full text-sm text-muted-foreground">
-					Full organization exports include roster, training, onboarding, calendar, and duty data.
-				</span>
 			</div>
 		</div>
 

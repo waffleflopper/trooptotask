@@ -57,8 +57,7 @@ function payload(overrides: Partial<OrganizationExportPayload['sections']> = {})
 describe('Organization Data Export workbook', () => {
 	it('plans all readable and raw sheets for the current full export path', () => {
 		const plan = buildOrganizationDataExportWorkbookPlan({
-			payload: payload(),
-			selection: { mode: 'all' }
+			payload: payload()
 		});
 
 		expect(plan.inventorySheet.rows.length).toBeGreaterThan(30);
@@ -69,33 +68,20 @@ describe('Organization Data Export workbook', () => {
 
 	it('includes area keys in the workbook inventory sheet', () => {
 		const plan = buildOrganizationDataExportWorkbookPlan({
-			payload: payload(),
-			selection: { mode: 'areas', areas: ['personnel'] }
+			payload: payload()
 		});
 
 		expect(plan.inventorySheet.columns.map((column) => column.key)).toContain('areaKey');
-		expect(new Set(plan.inventorySheet.rows.map((row) => row.areaKey))).toEqual(new Set(['personnel']));
+		expect(new Set(plan.inventorySheet.rows.map((row) => row.areaKey))).toContain('personnel');
 	});
 
-	it('can narrow the workbook plan to a selected export area', () => {
-		const plan = buildOrganizationDataExportWorkbookPlan({
-			payload: payload(),
-			selection: { mode: 'areas', areas: ['personnel'] }
-		});
-		const readableSheetNames = plan.readableSheets.map((sheet) => sheet.name);
-		const rawSheetNames = plan.rawArchiveSheets.map((sheet) => sheet.name);
-		const inventoryAreas = new Set(plan.inventorySheet.rows.map((row) => row.area));
+	it('keeps retained personnel and Calendar sheets in the full plan', () => {
+		const plan = buildOrganizationDataExportWorkbookPlan({ payload: payload() });
 		const personnel = plan.readableSheets.find((sheet) => sheet.name === 'Personnel');
 
-		expect(readableSheetNames).toContain('Personnel');
-		expect(readableSheetNames).toContain('Personnel Documents');
-		expect(readableSheetNames).not.toContain('Training Records');
-		expect(readableSheetNames).not.toContain('Calendar');
-		expect(rawSheetNames).toContain('Raw - Personnel');
-		expect(rawSheetNames).toContain('Raw - Sign-in Rosters');
-		expect(rawSheetNames).not.toContain('Raw - Personnel Trainings');
-		expect(rawSheetNames).not.toContain('Raw - Availability Entries');
-		expect([...inventoryAreas]).toEqual(['Personnel']);
+		expect(plan.readableSheets.map((sheet) => sheet.name)).toContain('Calendar');
+		expect(plan.rawArchiveSheets.map((sheet) => sheet.name)).toContain('Raw - Sign-in Rosters');
+		expect(plan.rawArchiveSheets.map((sheet) => sheet.name)).toContain('Raw - Availability Entries');
 		expect(personnel?.columns.map((column) => column.header)).toContain('Duty Role');
 		expect(personnel?.rows[0]).toMatchObject({
 			group: 'Alpha',
@@ -106,8 +92,7 @@ describe('Organization Data Export workbook', () => {
 
 	it('keeps empty readable sheets visible with the existing no-records column', () => {
 		const plan = buildOrganizationDataExportWorkbookPlan({
-			payload: payload({ leaderNotes: [] }),
-			selection: { mode: 'areas', areas: ['personnel'] }
+			payload: payload({ leaderNotes: [] })
 		});
 		const leaderNotes = plan.readableSheets.find((sheet) => sheet.name === 'Leader Notes');
 
@@ -119,18 +104,17 @@ describe('Organization Data Export workbook', () => {
 	it('preserves structured raw archive values as JSON strings', () => {
 		const plan = buildOrganizationDataExportWorkbookPlan({
 			payload: payload({
-				dutyRosterTemplateRuns: [
+				auditLogs: [
 					{
-						id: 'run-1',
-						snapshot_payload: { rows: [{ date: '2026-05-20', da6: 'D1' }] }
+						id: 'audit-1',
+						details: { changed: ['name', 'color'] }
 					}
 				]
-			}),
-			selection: { mode: 'areas', areas: ['duty-rosters'] }
+			})
 		});
-		const rawRuns = plan.rawArchiveSheets.find((sheet) => sheet.name === 'Raw - Duty Roster Template Runs');
+		const rawAudits = plan.rawArchiveSheets.find((sheet) => sheet.name === 'Raw - Audit Logs');
 
-		expect(rawRuns?.rows[0]?.snapshot_payload).toBe('{"rows":[{"date":"2026-05-20","da6":"D1"}]}');
+		expect(rawAudits?.rows[0]?.details).toBe('{"changed":["name","color"]}');
 	});
 
 	it('falls back to personnel id when a malformed person has no label fields', () => {
@@ -144,8 +128,7 @@ describe('Organization Data Export workbook', () => {
 						status_type_id: 'status-1'
 					}
 				]
-			}),
-			selection: { mode: 'areas', areas: ['calendar'] }
+			})
 		});
 		const calendar = plan.readableSheets.find((sheet) => sheet.name === 'Calendar');
 
@@ -154,12 +137,11 @@ describe('Organization Data Export workbook', () => {
 
 	it('returns a dated workbook filename owned by the export use case', async () => {
 		const result = await buildOrganizationDataExportWorkbook({
-			payload: payload(),
-			selection: { mode: 'areas', areas: ['training'] }
+			payload: payload()
 		});
 
 		expect(result.filename).toBe('org-export-org-1-2026-05-20.xlsx');
 		expect(result.workbook.getWorksheet('Training Records')).toBeDefined();
-		expect(result.workbook.getWorksheet('Personnel')).toBeUndefined();
+		expect(result.workbook.getWorksheet('Personnel')).toBeDefined();
 	});
 });

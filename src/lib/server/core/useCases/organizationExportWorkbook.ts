@@ -6,16 +6,14 @@ import {
 	type WorkbookRow
 } from '$lib/export/workbook';
 import {
-	getOrganizationDataExportReadableSheets,
-	getOrganizationDataExportSections,
-	type OrganizationDataExportLabels,
-	type OrganizationDataExportSelection
+	ORGANIZATION_DATA_EXPORT_READABLE_SHEETS,
+	ORGANIZATION_DATA_EXPORT_SECTIONS,
+	type OrganizationDataExportLabels
 } from './organizationDataExportManifest';
 import { type OrganizationExportPayload } from './organizationExport';
 
 export interface OrganizationDataExportWorkbookInput {
 	payload: OrganizationExportPayload;
-	selection?: OrganizationDataExportSelection;
 }
 
 export interface OrganizationDataExportWorkbookResult {
@@ -60,9 +58,8 @@ export async function buildOrganizationDataExportWorkbook(
 export function buildOrganizationDataExportWorkbookPlan(
 	input: OrganizationDataExportWorkbookInput
 ): OrganizationDataExportWorkbookPlan {
-	const selection = input.selection ?? { mode: 'all' };
-	const rawSections = getOrganizationDataExportSections(selection);
-	const readableSheets = getOrganizationDataExportReadableSheets(selection);
+	const rawSections = ORGANIZATION_DATA_EXPORT_SECTIONS;
+	const readableSheets = ORGANIZATION_DATA_EXPORT_READABLE_SHEETS;
 	const labels = buildLabels(input.payload.sections);
 
 	return {
@@ -103,6 +100,11 @@ function buildLabels(sections: OrganizationExportPayload['sections']): Organizat
 		groups: buildLabelMap(sections.groups ?? [], 'name'),
 		statusTypes: buildLabelMap(sections.statusTypes ?? [], 'name'),
 		assignmentTypes: buildLabelMap(sections.assignmentTypes ?? [], 'name'),
+		assignmentTargets: new Map(
+			(sections.assignmentTypes ?? [])
+				.filter((row) => typeof row.id === 'string' && typeof row.assign_to === 'string')
+				.map((row) => [row.id as string, row.assign_to as string])
+		),
 		trainingTypes: buildLabelMap(sections.trainingTypes ?? [], 'name'),
 		criticalTasks: buildLabelMap(sections.ictTasks ?? [], 'title'),
 		extendedInfoByPerson: new Map(

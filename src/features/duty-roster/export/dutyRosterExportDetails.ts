@@ -1,4 +1,3 @@
-import type { DA6Data, RosterHistoryEntry } from '../stores/dutyRosterHistory.svelte';
 import type { Da6Matrix, DutyRosterExportModel } from '../run';
 import {
 	manualSelectionForDate,
@@ -14,16 +13,6 @@ export type SnapshotBrowserExportInput = {
 	da6?: Da6Matrix;
 };
 
-export type HistoryBrowserExportInput = {
-	history: {
-		roster: RosterHistoryEntry[];
-		typeName: string;
-		startDate: string;
-		endDate: string;
-		da6?: DA6Data;
-	};
-};
-
 export type TemplatePreviewBrowserExportInput = {
 	templatePreview: DutyRosterTemplatePreview;
 	statusLabel: 'Draft';
@@ -36,7 +25,6 @@ export type AcceptedSnapshotBrowserExportInput = {
 
 export type BrowserExportInput =
 	| SnapshotBrowserExportInput
-	| HistoryBrowserExportInput
 	| TemplatePreviewBrowserExportInput
 	| AcceptedSnapshotBrowserExportInput;
 
@@ -53,32 +41,7 @@ export interface BrowserExportDetails {
 		reason?: string | null;
 		warnings?: string[];
 	}>;
-	da6: Da6Matrix | DA6Data | null;
-}
-
-function buildDa6Data(da6: Da6Matrix | DA6Data | undefined): DA6Data | null {
-	if (!da6) return null;
-	if ('personnel' in da6 && 'dates' in da6) {
-		return da6;
-	}
-
-	return {
-		personnel: da6.rows.map((row) => ({
-			id: row.personnelId,
-			name: `${row.display.lastName}, ${row.display.firstName}`,
-			rank: row.display.rank,
-			group: row.display.groupName
-		})),
-		dates: da6.columns.map((column, columnIndex) => ({
-			date: column.date,
-			positions: da6.rows.map((row) => {
-				const cell = row.cells[columnIndex];
-				if (!cell) return null;
-				return cell.queuePosition;
-			}),
-			assigned: da6.rows.map((row) => Boolean(row.cells[columnIndex]?.assigned))
-		}))
-	};
+	da6: Da6Matrix | null;
 }
 
 function personnelByIdFromDa6(da6: Da6Matrix): Map<string, DutyRosterTemplatePreviewPersonnel> {
@@ -148,31 +111,6 @@ export function getDutyRosterExportDetails(input: BrowserExportInput): BrowserEx
 				warnings: row.warnings.map((warning) => warning.message)
 			})),
 			da6: input.acceptedSnapshot.da6
-		};
-	}
-
-	if ('history' in input) {
-		return {
-			typeName: input.history.typeName,
-			statusLabel: null,
-			startDate: input.history.startDate,
-			endDate: input.history.endDate,
-			rosterRows: input.history.roster.map((row) => ({
-				date: row.date,
-				assignee: row.assigneeId
-					? {
-							id: row.assigneeId,
-							rank: row.assigneeRank ?? '',
-							lastName: row.assigneeName ?? '',
-							firstName: '',
-							groupId: null,
-							groupName: row.assigneeGroup ?? '',
-							archivedAt: null
-						}
-					: null,
-				reason: row.reason ?? null
-			})),
-			da6: buildDa6Data(input.history.da6)
 		};
 	}
 

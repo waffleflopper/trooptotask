@@ -80,12 +80,13 @@ scan. Duty Roster metrics remain until their phase-05 retirement.
 
 Organization creation still seeds only the basic day-one defaults such as
 Groups, availability statuses, assignment types, and federal holidays. Starter
-configuration packs are opt-in from the first-run setup path and must not be
-silently applied during Organization creation.
+configuration packs remain opt-in through the retained API; the dashboard
+entry was removed in #1315. They must not be silently applied during
+Organization creation.
 
 The First Week Operations starter pack creates editable workflow configuration
-artifacts: starter Training Types, an onboarding template with ordered steps,
-and a Duty Roster template scaffold. Treat those artifacts as setup progress
+artifacts: starter Training Types and an onboarding template with ordered steps.
+Treat those artifacts as setup progress
 for activation-health support views, not as proof that a workflow is high
 quality, formally reviewed, command-ready, certified, or doctrinally complete.
 

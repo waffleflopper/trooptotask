@@ -6,7 +6,6 @@ export { AvailabilityEntryEntity } from './availabilityEntry';
 export { SpecialDayEntity } from './specialDay';
 export { DailyAssignmentEntity } from './dailyAssignment';
 export { PersonnelTrainingEntity } from './personnelTraining';
-export { RosterHistoryEntity } from './rosterHistory';
 export { RatingSchemeEntryEntity } from './ratingSchemeEntry';
 export { PinnedGroupsEntity } from './pinnedGroups';
 export { PersonnelEntity } from './personnel';

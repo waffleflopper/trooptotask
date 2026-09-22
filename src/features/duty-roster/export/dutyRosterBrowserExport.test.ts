@@ -106,51 +106,6 @@ describe('exportDutyRosterForBrowser', () => {
 		}
 	});
 
-	it('renders legacy assigned DA6 cells from explicit assigned markers instead of queue position 1', async () => {
-		const workbook = await buildDutyRosterWorkbook({
-			history: {
-				typeName: 'Staff Duty',
-				startDate: '2026-05-01',
-				endDate: '2026-05-01',
-				roster: [],
-				da6: {
-					personnel: [
-						{ id: 'alpha', name: 'Alpha, Avery', rank: 'SGT', group: 'Alpha' },
-						{ id: 'bravo', name: 'Bravo, Blake', rank: 'SGT', group: 'Alpha' }
-					],
-					dates: [{ date: '2026-05-01', positions: [1, 2], assigned: [false, true] }]
-				}
-			}
-		});
-		const parsed = new ExcelJS.Workbook();
-		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
-		const sheet = parsed.getWorksheet('DA Form 6 Reference');
-
-		expect(sheet?.getCell('C2').value).toBe(1);
-		expect(sheet?.getCell('C3').value).toBe('X');
-	});
-
-	it('keeps print HTML assigned DA6 cells from explicit assigned markers instead of queue position 1', async () => {
-		const html = buildDutyRosterBrowserExportHtml({
-			history: {
-				typeName: 'Staff Duty',
-				startDate: '2026-05-01',
-				endDate: '2026-05-01',
-				roster: [],
-				da6: {
-					personnel: [
-						{ id: 'alpha', name: 'Alpha, Avery', rank: 'SGT', group: 'Alpha' },
-						{ id: 'bravo', name: 'Bravo, Blake', rank: 'SGT', group: 'Alpha' }
-					],
-					dates: [{ date: '2026-05-01', positions: [1, 2], assigned: [false, true] }]
-				}
-			}
-		});
-
-		expect(html).toContain('<td class="da6-position">1</td>');
-		expect(html).toContain('<td class="da6-assigned">X</td>');
-	});
-
 	it('downloads a native xlsx filename through the shared browser path', async () => {
 		const snapshot = buildDutyRosterRunSnapshot(runInput());
 		const click = vi.fn(() => {

@@ -7,7 +7,6 @@ import {
 	type WorkbookRow,
 	type Worksheet
 } from '$lib/export/workbook';
-import type { DA6Data } from '../stores/dutyRosterHistory.svelte';
 import type { Da6Matrix } from '../run';
 import { da6CellGlyph } from '../components/shared/da6MatrixCell';
 import {
@@ -110,46 +109,6 @@ function addDa6MatrixSheet(workbook: Workbook, da6: Da6Matrix): void {
 	});
 }
 
-function addLegacyDa6Sheet(workbook: Workbook, da6: DA6Data): void {
-	if (da6.dates.length === 0) return;
-	const columns: WorkbookColumn[] = [
-		{ header: 'Rank', key: 'rank', width: 10 },
-		{ header: 'Name', key: 'name', width: 28 },
-		...da6.dates.map((date) => ({
-			header: formatShortDate(date.date),
-			key: date.date,
-			width: 10
-		}))
-	];
-	const rows = da6.personnel.map((person, index) => ({
-		rank: person.rank,
-		name: person.name,
-		...Object.fromEntries(
-			da6.dates.map((date) => {
-				const position = date.positions[index];
-				const assigned = date.assigned?.[index] ?? position === 1;
-				if (position === null) return [date.date, '-'];
-				return [date.date, assigned ? 'X' : position];
-			})
-		)
-	}));
-	const sheet = addTableSheet(workbook, { name: 'DA Form 6 Reference', columns, rows });
-	da6.personnel.forEach((_, rowIndex) => {
-		da6.dates.forEach((date, columnIndex) => {
-			const position = date.positions[rowIndex];
-			const assigned = date.assigned?.[rowIndex] ?? position === 1;
-			const cell = sheet.getRow(rowIndex + 2).getCell(columnIndex + 3);
-			cell.alignment = { horizontal: 'center' };
-			if (assigned) {
-				cell.font = { bold: true };
-				cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6F6D5' } };
-			} else if (position === null) {
-				cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7FAFC' } };
-			}
-		});
-	});
-}
-
 export async function buildDutyRosterWorkbook(input: BrowserExportInput): Promise<Workbook> {
 	const details = getDutyRosterExportDetails(input);
 	const workbook = await createWorkbook();
@@ -163,10 +122,8 @@ export async function buildDutyRosterWorkbook(input: BrowserExportInput): Promis
 	});
 	styleRosterRows(rosterSheet, details);
 
-	if (details.da6 && 'rows' in details.da6) {
+	if (details.da6) {
 		addDa6MatrixSheet(workbook, details.da6);
-	} else if (details.da6) {
-		addLegacyDa6Sheet(workbook, details.da6);
 	}
 
 	return workbook;

@@ -2,10 +2,7 @@ import type { PolicyReasonCode } from '$lib/access/policyEvaluator';
 
 export type StarterConfigurationPackId = 'first-week-operations';
 
-export type StarterConfigurationPackArtifactFamilyId =
-	| 'training-types'
-	| 'onboarding-template'
-	| 'duty-roster-template';
+export type StarterConfigurationPackArtifactFamilyId = 'training-types' | 'onboarding-template';
 
 export interface StarterConfigurationPackArtifactPreview {
 	family: StarterConfigurationPackArtifactFamilyId;

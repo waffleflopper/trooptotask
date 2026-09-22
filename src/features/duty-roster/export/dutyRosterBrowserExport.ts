@@ -1,4 +1,3 @@
-import type { DA6Data } from '../stores/dutyRosterHistory.svelte';
 import type { Da6Matrix } from '../run';
 import { da6CellGlyph } from '../components/shared/da6MatrixCell';
 import {
@@ -100,48 +99,10 @@ function renderDa6Matrix(da6: Da6Matrix): string {
 	`;
 }
 
-function renderLegacyDa6Grid(da6: DA6Data | null): string {
-	if (!da6 || da6.dates.length === 0) return '';
-
-	const headerCells = da6.dates.map((date) => `<th>${formatShortDate(date.date)}</th>`).join('');
-	const bodyRows = da6.personnel
-		.map((person, index) => {
-			const cells = da6.dates
-				.map((date) => {
-					const position = date.positions[index];
-					const assigned = date.assigned?.[index] ?? position === 1;
-					if (position === null) {
-						return '<td class="da6-unavail">&mdash;</td>';
-					}
-					if (assigned) {
-						return '<td class="da6-assigned">X</td>';
-					}
-					return `<td class="da6-position">${position}</td>`;
-				})
-				.join('');
-			return `<tr><td>${escapeHtml(person.rank)}</td><td>${escapeHtml(person.name)}</td>${cells}</tr>`;
-		})
-		.join('');
-
-	return `
-		<h2>DA Form 6 Reference</h2>
-		<p>Queue position per date. <b>X</b> = assigned duty, number = queue position, <b>&mdash;</b> = unavailable.</p>
-		<table>
-			<tr>
-				<th>Rank</th>
-				<th>Name</th>
-				${headerCells}
-			</tr>
-			${bodyRows}
-		</table>
-	`;
-}
-
 export function buildDutyRosterBrowserExportHtml(input: BrowserExportInput): string {
 	const details = getDutyRosterExportDetails(input);
 	const statusTitle = details.statusLabel ? `${details.statusLabel} ` : '';
-	const da6Markup =
-		details.da6 && 'rows' in details.da6 ? renderDa6Matrix(details.da6) : renderLegacyDa6Grid(details.da6);
+	const da6Markup = details.da6 ? renderDa6Matrix(details.da6) : '';
 
 	return `
 			<html>
@@ -154,7 +115,6 @@ export function buildDutyRosterBrowserExportHtml(input: BrowserExportInput): str
 				.unavailable { background-color: #fed7d7; color: #c53030; }
 				.da6-assigned { background-color: #c6f6d5; font-weight: bold; text-align: center; }
 				.da6-position { text-align: center; color: #718096; }
-				.da6-unavail { text-align: center; color: #a0aec0; background-color: #f7fafc; }
 			</style>
 		</head>
 		<body>

@@ -143,3 +143,9 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
   - implement the repair at the owned workflow and SQL transition boundaries with concurrency-safe provenance rules; preserve unrelated approvals, another Organization's grant and existing accounts
 - Recommended next slice:
   - task **11-01** in [TODO](../stabilization/TODO.md), after its prerequisites: test fatal setup issuance failure, renewal, rejection/rescind, concurrent invitations and independent approvals with deterministic clocks and failure cases. A blocked invitation must not unintentionally retain revocable platform entry. Billing removal makes the retained bridge unconditional and does not close F01; this entry remains unresolved until the repair and acceptance evidence exist.
+
+## D-11 Onboarding Template Personnel Coupling (Repaired Locally)
+
+- The original template/step policies borrowed Personnel read/edit helpers, denying independently authorized Onboarding configurators and allowing Personnel-only callers.
+- [05-01-02-R01](../stabilization/EVIDENCE.md#task-05-01-02-r01-onboarding-template-policy-repair) replaces only those policies with independent Onboarding read/configure checks, Organization-only mutations, retained Group reads and same-tenant references. Authenticated template updates are limited to name/description. Existing rows and Personnel helpers remain intact.
+- This implements the existing feature-lane and scope decisions; it does not change the default architecture, operational onboarding policies or governance baseline. Local verification does not mean hosted policy deployment; the forward migration requires separately authorized operator execution.

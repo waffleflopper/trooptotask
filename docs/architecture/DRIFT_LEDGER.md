@@ -79,7 +79,7 @@ The scoped Dashboard browser check exposed an unconditional Training summary req
 - Current-state truth:
   - several page contexts, views, and flows are large coordination-heavy modules
   - the dashboard client surface now has a feature-owned read-model boundary that centralizes hydrated-store joins, grouping preferences, and tab-facing display rows while leaving existing route/provider/authz boundaries unchanged
-  - the calendar page now has a feature-owned range coordinator for client-side range expansion, store merging, retry state, and advanced duty event hydration
+  - the calendar page now has a feature-owned range coordinator for client-side range expansion, store merging, and retry state; computed Duty Roster event hydration was removed in phase 05 D02
   - calendar reports now compose the shared Report Workspace and shared report-run/filter-selection primitives instead of maintaining five separate report chrome implementations
   - the Personnel detail artifact creation flows now compose a client-side `ArtifactDraft` seam for Follow-Ups, Leader Notes, Documents, and Counseling Records instead of keeping four cloned submit/state flows in the workspace
   - the bulk Availability Status surfaces now keep Availability Status Import rules (personnel matching, row validation, status resolution, record building) in a string-free reason-coded feature module, submit through the availability store's chunked batch seam instead of component-owned fetch, and share one Roster Picker instead of duplicated grouped-selection plumbing in the add and remove components
@@ -91,7 +91,7 @@ The scoped Dashboard browser check exposed an unconditional Training summary req
 - Guardrail until fixed:
   - use explicit architecture-review slices for deepening instead of incidental churn
 - Recommended next slice:
-  - Duty Roster generation/routes/exports are removed in phase 05 D01; complete Calendar duty hydration removal in D02 and remaining metadata/integrations in D03, then deepen retained Calendar, Personnel and Training modules through their queued tasks
+  - after the phase 05 Duty Roster runtime cutover, deepen retained Calendar, Personnel and Training modules through their queued tasks; phase 06 owns duty-only schema retirement
 
 ## D-08 Route-Level Membership And Settings Logic (Resolved For Org Settings Governance)
 

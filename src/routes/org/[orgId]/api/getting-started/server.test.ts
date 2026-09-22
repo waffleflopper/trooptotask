@@ -1,23 +1,61 @@
 import { describe, expect, it, vi } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import type { UseCaseContext } from '$lib/server/core/ports';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _getConfig, _postConfig } from './+server';
 
 describe('GET /api/getting-started', () => {
-	it('uses policy-first route configs for dashboard support and own preference writes', () => {
-		expect('permission' in _getConfig).toBe(false);
-		expect('permission' in _postConfig).toBe(false);
-		expect('permission' in _deleteConfig).toBe(false);
-		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.viewDashboard);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.updateOwnPreferences);
-		expect(_deleteConfig.policyAction).toBe(POLICY_ACTION_CATALOG.identity.updateOwnPreferences);
+	it.each([
+		['GET', (ctx: UseCaseContext) => handleUseCaseRequest(_getConfig, ctx, undefined)],
+		['POST', (ctx: UseCaseContext) => handleUseCaseRequest(_postConfig, ctx, undefined)],
+		['DELETE', (ctx: UseCaseContext) => handleUseCaseRequest(_deleteConfig, ctx, undefined)]
+	] as const)('%s rejects anonymous access before reading or writing support data', async (_method, request) => {
+		const ctx = createTestContext({ auth: { userId: '' } });
+		const reads = vi.spyOn(ctx.store, 'findManyWithCount');
+		const preferences = vi.spyOn(ctx.store, 'findOne');
+		await expect(request(ctx)).rejects.toMatchObject({
+			status: 403,
+			message: 'Unauthorized'
+		});
+		expect(reads).not.toHaveBeenCalled();
+		expect(preferences).not.toHaveBeenCalled();
 	});
 
-	it('returns workspace support metadata and logs timing', async () => {
+	it('dismisses and restores only the current user’s Organization preference', async () => {
+		const ctx = createTestContext();
+		const own = { id: 'own', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, dismissed_at: null };
+		const other = { id: 'other', organization_id: ctx.auth.orgId, user_id: 'other-user', dismissed_at: null };
+		const foreign = { id: 'foreign', organization_id: 'foreign-org', user_id: ctx.auth.userId, dismissed_at: null };
+		ctx.store.seed('getting_started_progress', [own, other, foreign]);
+
+		await handleUseCaseRequest(_postConfig, ctx, undefined);
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+			gettingStartedDismissed: true
+		});
+		await expect(ctx.store.findOne('getting_started_progress', ctx.auth.orgId, { id: 'other' })).resolves.toEqual(
+			other
+		);
+		await expect(ctx.store.findOne('getting_started_progress', 'foreign-org', { id: 'foreign' })).resolves.toEqual(
+			foreign
+		);
+
+		await handleUseCaseRequest(_deleteConfig, ctx, undefined);
+		await expect(ctx.store.findOne('getting_started_progress', ctx.auth.orgId, { id: 'own' })).resolves.toEqual(own);
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+			gettingStartedDismissed: false
+		});
+	});
+
+	it('returns retained scoped support even when Duty Roster storage is unavailable', async () => {
 		const ctx = createTestContext();
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-		const findManyWithCountSpy = vi.spyOn(ctx.store, 'findManyWithCount');
+		const findManyWithCount = ctx.store.findManyWithCount.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findManyWithCount').mockImplementation((table, ...args) => {
+			if (['duty_roster_templates', 'duty_roster_template_runs', 'duty_roster_history'].includes(table)) {
+				throw new Error('Duty Roster storage is unavailable');
+			}
+			return findManyWithCount(table, ...args);
+		});
 
 		ctx.store.seed('training_types', [
 			{
@@ -44,7 +82,8 @@ describe('GET /api/getting-started', () => {
 		]);
 		ctx.store.seed('onboarding_template_steps', [
 			{ id: 'step-1', organization_id: ctx.auth.orgId, title: 'Step 1' },
-			{ id: 'step-2', organization_id: ctx.auth.orgId, title: 'Step 2' }
+			{ id: 'step-2', organization_id: ctx.auth.orgId, title: 'Step 2' },
+			{ id: 'foreign-step', organization_id: 'foreign-org', title: 'Foreign' }
 		]);
 		ctx.store.seed('rating_scheme_entries', [
 			{ id: 'rating-1', organization_id: ctx.auth.orgId, rated_person_id: 'p1', rating_period_end: '2026-01-01' }
@@ -53,12 +92,6 @@ describe('GET /api/getting-started', () => {
 			{ id: 'member-1', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, role: 'owner' },
 			{ id: 'member-2', organization_id: ctx.auth.orgId, user_id: 'user-2', role: 'member' }
 		]);
-		ctx.store.seed('duty_roster_templates', [
-			{ id: 'template-1', organization_id: ctx.auth.orgId, status: 'active' },
-			{ id: 'template-archived', organization_id: ctx.auth.orgId, status: 'archived' }
-		]);
-		ctx.store.seed('duty_roster_template_runs', [{ id: 'run-1', organization_id: ctx.auth.orgId }]);
-		ctx.store.seed('duty_roster_history', [{ id: 'history-1', organization_id: ctx.auth.orgId }]);
 		ctx.store.seed('getting_started_progress', [
 			{
 				id: 'progress-1',
@@ -75,9 +108,6 @@ describe('GET /api/getting-started', () => {
 			onboardingTemplateStepCount: 2,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 2,
-			dutyRosterTemplateCount: 2,
-			dutyRosterRunCount: 1,
-			dutyRosterHistoryCount: 1,
 			gettingStartedDismissed: true,
 			starterConfigurationPacks: [
 				expect.objectContaining({
@@ -94,16 +124,6 @@ describe('GET /api/getting-started', () => {
 				})
 			]
 		});
-		expect(findManyWithCountSpy).toHaveBeenCalledWith(
-			'training_types',
-			ctx.auth.orgId,
-			undefined,
-			expect.objectContaining({
-				select: 'id',
-				range: { from: 0, to: 0 },
-				count: 'estimated'
-			})
-		);
 		expect(consoleInfoSpy).toHaveBeenCalledWith(
 			'[dashboard-load]',
 			expect.objectContaining({
@@ -111,36 +131,6 @@ describe('GET /api/getting-started', () => {
 				phase: 'support',
 				status: 'ok',
 				durationMs: expect.any(Number)
-			})
-		);
-		expect(findManyWithCountSpy).toHaveBeenCalledWith(
-			'duty_roster_template_runs',
-			ctx.auth.orgId,
-			undefined,
-			expect.objectContaining({
-				select: 'id',
-				range: { from: 0, to: 0 },
-				count: 'estimated'
-			})
-		);
-		expect(findManyWithCountSpy).toHaveBeenCalledWith(
-			'duty_roster_templates',
-			ctx.auth.orgId,
-			undefined,
-			expect.objectContaining({
-				select: 'id',
-				range: { from: 0, to: 0 },
-				count: 'estimated'
-			})
-		);
-		expect(findManyWithCountSpy).toHaveBeenCalledWith(
-			'duty_roster_history',
-			ctx.auth.orgId,
-			undefined,
-			expect.objectContaining({
-				select: 'id',
-				range: { from: 0, to: 0 },
-				count: 'estimated'
 			})
 		);
 	});

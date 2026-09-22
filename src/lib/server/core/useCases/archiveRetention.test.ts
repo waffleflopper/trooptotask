@@ -10,11 +10,29 @@ const NOW = new Date('2026-05-30T12:00:00.000Z');
 function buildPorts() {
 	const store = createInMemoryDataStore();
 	const storage = createTestStoragePort();
+	const assignmentTypes = {
+		async deleteExpiredUnreferenced(orgId: string, ids: string[], cutoff: string): Promise<number> {
+			const candidates = await store.findMany<{ id: string }>('assignment_types', orgId, undefined, {
+				inFilters: { id: ids },
+				rangeFilters: [{ column: 'archived_at', op: 'lt', value: cutoff }],
+				isNull: { archived_at: false }
+			});
+			const references = await store.findMany<{ assignment_type_id: string }>('daily_assignments', orgId, undefined, {
+				inFilters: { assignment_type_id: candidates.map((row) => row.id) }
+			});
+			const referencedIds = new Set(references.map((row) => row.assignment_type_id));
+			return store.deleteManyByIds(
+				'assignment_types',
+				orgId,
+				candidates.map((row) => row.id).filter((id) => !referencedIds.has(id))
+			);
+		}
+	};
 	store.seed('organization_memberships', [
 		{ id: 'membership-1', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' },
 		{ id: 'membership-2', organization_id: 'org-2', user_id: 'admin-2', role: 'admin' }
 	]);
-	return { store, storage };
+	return { store, storage, assignmentTypes };
 }
 
 function isoMonthsAgo(months: number): string {
@@ -87,11 +105,6 @@ function seedRetentionRows(ports: ReturnType<typeof buildPorts>) {
 		{ id: 'assignment-recent', organization_id: 'org-1', archived_at: recent },
 		{ id: 'assignment-active', organization_id: 'org-1', archived_at: null }
 	]);
-	ports.store.seed('duty_roster_templates', [
-		{ id: 'template-expired', organization_id: 'org-1', status: 'archived', archived_at: expired },
-		{ id: 'template-recent', organization_id: 'org-1', status: 'archived', archived_at: recent },
-		{ id: 'template-active', organization_id: 'org-1', status: 'active', archived_at: null }
-	]);
 	ports.storage.files.push(
 		{
 			bucket: PERSONNEL_DOCUMENTS_BUCKET,
@@ -128,7 +141,7 @@ describe('cleanupArchivedRecords', () => {
 
 		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
 
-		expect(result.deletedCount).toBe(8);
+		expect(result.deletedCount).toBe(7);
 		expect(result.orgsAffected).toBe(1);
 		expect(result.families).toEqual(
 			expect.arrayContaining([
@@ -138,8 +151,7 @@ describe('cleanupArchivedRecords', () => {
 				expect.objectContaining({ key: 'personnel-documents', deletedCount: 1 }),
 				expect.objectContaining({ key: 'leader-notes', deletedCount: 1 }),
 				expect.objectContaining({ key: 'critical-tasks', deletedCount: 1 }),
-				expect.objectContaining({ key: 'assignment-types', deletedCount: 1 }),
-				expect.objectContaining({ key: 'duty-roster-templates', deletedCount: 1 })
+				expect.objectContaining({ key: 'assignment-types', deletedCount: 1 })
 			])
 		);
 
@@ -150,7 +162,6 @@ describe('cleanupArchivedRecords', () => {
 		await expect(idsFor(ports, 'leader_notes')).resolves.toEqual(['note-active', 'note-recent']);
 		await expect(idsFor(ports, 'ict_tasks')).resolves.toEqual(['ict-active', 'ict-recent']);
 		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['assignment-active', 'assignment-recent']);
-		await expect(idsFor(ports, 'duty_roster_templates')).resolves.toEqual(['template-active', 'template-recent']);
 	});
 
 	it('removes expired personnel document storage files before deleting document rows', async () => {
@@ -237,23 +248,86 @@ describe('cleanupArchivedRecords', () => {
 		expect(ports.storage.files).toEqual([]);
 	});
 
-	it('skips archived assignment types that still have calendar or duty roster references', async () => {
+	it('retains expired assignment types used by saved Calendar assignments without Duty storage', async () => {
 		const ports = buildPorts();
 		const expired = isoMonthsAgo(13);
 		ports.store.seed('assignment_types', [
-			{ id: 'assignment-referenced', organization_id: 'org-1', archived_at: expired },
-			{ id: 'assignment-unreferenced', organization_id: 'org-1', archived_at: expired }
+			{ id: 'person-type', organization_id: 'org-1', archived_at: expired },
+			{ id: 'group-type', organization_id: 'org-1', archived_at: expired },
+			{ id: 'unused-type', organization_id: 'org-1', archived_at: expired },
+			{ id: 'foreign-type', organization_id: 'org-2', archived_at: expired }
 		]);
 		ports.store.seed('daily_assignments', [
-			{ id: 'daily-1', organization_id: 'org-1', assignment_type_id: 'assignment-referenced' }
+			{
+				id: 'saved-person-assignment',
+				organization_id: 'org-1',
+				assignment_type_id: 'person-type',
+				date: '2025-01-02',
+				assignee_id: 'person-1'
+			},
+			{
+				id: 'saved-group-assignment',
+				organization_id: 'org-1',
+				assignment_type_id: 'group-type',
+				date: '2025-01-03',
+				assignee_id: 'group-1'
+			}
 		]);
+		const findMany = ports.store.findMany.bind(ports.store);
+		vi.spyOn(ports.store, 'findMany').mockImplementation((table, orgId, filters, options) => {
+			if (table.startsWith('duty_')) throw new Error('Duty storage is unavailable');
+			return findMany(table, orgId, filters, options);
+		});
+		const deleteManyByIds = ports.store.deleteManyByIds.bind(ports.store);
+		vi.spyOn(ports.store, 'deleteManyByIds').mockImplementation((table, orgId, ids) => {
+			if (table.startsWith('duty_')) throw new Error('Duty storage is unavailable');
+			return deleteManyByIds(table, orgId, ids);
+		});
 
 		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
 
 		expect(result.families).toEqual(
 			expect.arrayContaining([expect.objectContaining({ key: 'assignment-types', deletedCount: 1 })])
 		);
-		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['assignment-referenced']);
+		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['group-type', 'person-type']);
+		await expect(ports.store.findMany('assignment_types', 'org-2')).resolves.toEqual([
+			expect.objectContaining({ id: 'foreign-type' })
+		]);
+		const savedAssignments = await ports.store.findMany('daily_assignments', 'org-1');
+		expect(savedAssignments).toHaveLength(2);
+		expect(savedAssignments).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					id: 'saved-person-assignment',
+					assignment_type_id: 'person-type',
+					date: '2025-01-02',
+					assignee_id: 'person-1'
+				}),
+				expect.objectContaining({
+					id: 'saved-group-assignment',
+					assignment_type_id: 'group-type',
+					date: '2025-01-03',
+					assignee_id: 'group-1'
+				})
+			])
+		);
+	});
+
+	it('does not delete an archived assignment type when Calendar references cannot be checked', async () => {
+		const ports = buildPorts();
+		ports.store.seed('assignment_types', [
+			{ id: 'possibly-referenced', organization_id: 'org-1', archived_at: isoMonthsAgo(13) }
+		]);
+		const findMany = ports.store.findMany.bind(ports.store);
+		vi.spyOn(ports.store, 'findMany').mockImplementation((table, orgId, filters, options) => {
+			if (table === 'daily_assignments') throw new Error('Calendar reference check unavailable');
+			return findMany(table, orgId, filters, options);
+		});
+
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'Calendar reference check unavailable'
+		);
+		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['possibly-referenced']);
 	});
 
 	it('skips archived critical tasks that still have completion history', async () => {

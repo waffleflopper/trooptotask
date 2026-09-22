@@ -78,17 +78,17 @@ let addClosureOpen = $state(false);
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Svelte docs flow | Svelte MCP `list-sections`, then `get-documentation` for relevant sections | docs read before Svelte edits |
-| Calendar settings tests | `npx vitest run src/features/calendar/components/CalendarSettingsPage.test.ts` | exits 0 |
-| Stale manager grep | `rg -n -e 'StatusTypeManager' -e 'AssignmentTypeManager' -e 'SpecialDayManager' -e 'PersonStatusModal' src/features/calendar src/routes` | no matches |
-| Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions |
-| Format | `npm run format` | exits 0 |
-| Lint | `npm run lint` | exits 0 |
-| Governance | `npm run governance:check` | exits 0 |
-| Typecheck | `npm run check` | exits 0 |
-| Unit tests | `npm run test` | exits 0 |
+| Purpose                 | Command                                                                                                                                  | Expected on success           |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Svelte docs flow        | Svelte MCP `list-sections`, then `get-documentation` for relevant sections                                                               | docs read before Svelte edits |
+| Calendar settings tests | `npx vitest run src/features/calendar/components/CalendarSettingsPage.test.ts`                                                           | exits 0                       |
+| Stale manager grep      | `rg -n -e 'StatusTypeManager' -e 'AssignmentTypeManager' -e 'SpecialDayManager' -e 'PersonStatusModal' src/features/calendar src/routes` | no matches                    |
+| Svelte autofix          | `svelte-autofixer` on edited Svelte files                                                                                                | no issues or suggestions      |
+| Format                  | `npm run format`                                                                                                                         | exits 0                       |
+| Lint                    | `npm run lint`                                                                                                                           | exits 0                       |
+| Governance              | `npm run governance:check`                                                                                                               | exits 0                       |
+| Typecheck               | `npm run check`                                                                                                                          | exits 0                       |
+| Unit tests              | `npm run test`                                                                                                                           | exits 0                       |
 
 ## Suggested executor toolkit
 
@@ -162,7 +162,6 @@ Keep existing stores and permission behavior:
 - `statusTypesStore`,
 - `availabilityStore.removeByStatusTypeLocal`,
 - `canMutate`,
-- DA6 duty roster treatment controls,
 - dirty-dialog close behavior.
 
 `CalendarSettingsPage.svelte` should still own top-level navigation and

@@ -9,7 +9,6 @@ export type PlatformActivationMilestoneId =
 	| 'meaningful_roster'
 	| 'leader_accepted'
 	| 'defaults_present'
-	| 'duty_roster_started'
 	| 'setup_started';
 
 export type PlatformActivationMilestoneState = 'complete' | 'incomplete' | 'deferred';
@@ -20,9 +19,6 @@ export interface PlatformActivationSetupCounts {
 	leaderMembers: number;
 	statusTypes: number;
 	assignmentTypes: number;
-	dutyRosterTemplates: number;
-	dutyRosterRuns: number;
-	dutyRosterHistory: number;
 	onboardingTemplateSteps: number;
 	trainingTypes: number;
 	ratingSchemeEntries: number;
@@ -73,7 +69,6 @@ export interface PlatformActivationHealthSummary {
 		activatedOrganizations: number;
 		meaningfulRosters: number;
 		acceptedLeaders: number;
-		dutyRosterStarted: number;
 		setupStarted: number;
 		inProgressOrganizations: number;
 	};
@@ -108,10 +103,6 @@ function hasMeaningfulRoster(facts: PlatformActivationOrganizationFacts): boolea
 
 function hasAcceptedLeader(facts: PlatformActivationOrganizationFacts): boolean {
 	return facts.counts.leaderMembers > 1;
-}
-
-function hasDutyRosterActivity(facts: PlatformActivationOrganizationFacts): boolean {
-	return facts.counts.dutyRosterTemplates > 0 || facts.counts.dutyRosterRuns > 0 || facts.counts.dutyRosterHistory > 0;
 }
 
 function hasSetupStarted(facts: PlatformActivationOrganizationFacts): boolean {
@@ -187,12 +178,6 @@ function milestonesFor(facts: PlatformActivationOrganizationFacts): PlatformActi
 			`${facts.counts.statusTypes} status types and ${facts.counts.assignmentTypes} assignment types exist. Reviewed-state persistence is deferred.`
 		),
 		milestone(
-			'duty_roster_started',
-			'First Duty Roster activity',
-			hasDutyRosterActivity(facts),
-			`${facts.counts.dutyRosterTemplates} templates, ${facts.counts.dutyRosterRuns} accepted runs, ${facts.counts.dutyRosterHistory} legacy runs.`
-		),
-		milestone(
 			'setup_started',
 			'Setup started',
 			hasSetupStarted(facts),
@@ -208,7 +193,6 @@ function nextStepsFor(facts: PlatformActivationOrganizationFacts): string[] {
 	}
 	if (!hasAcceptedLeader(facts))
 		steps.push('Invite another leader and confirm the Organization Membership is accepted.');
-	if (!hasDutyRosterActivity(facts)) steps.push('Create the first Duty Roster template or accepted run.');
 	if (!hasSetupStarted(facts))
 		steps.push('Start onboarding, training, or eval setup with existing configuration records.');
 
@@ -283,7 +267,6 @@ function emptyCounts(): PlatformActivationHealthSummary['counts'] {
 		activatedOrganizations: 0,
 		meaningfulRosters: 0,
 		acceptedLeaders: 0,
-		dutyRosterStarted: 0,
 		setupStarted: 0,
 		inProgressOrganizations: 0
 	};
@@ -315,7 +298,6 @@ export function mapActivationHealthSummary(input: {
 		activatedOrganizations,
 		meaningfulRosters: input.facts.filter(hasMeaningfulRoster).length,
 		acceptedLeaders: input.facts.filter(hasAcceptedLeader).length,
-		dutyRosterStarted: input.facts.filter(hasDutyRosterActivity).length,
 		setupStarted: input.facts.filter(hasSetupStarted).length,
 		inProgressOrganizations
 	};

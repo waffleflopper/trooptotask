@@ -14,7 +14,7 @@ Issue #700 required deciding whether advanced preview snapshots should be persis
 
 This decision is no longer active. The old Advanced Duty Run module, snapshot custody use case, revision draft use case, and `/api/duty-events/**` write/revision endpoints were removed on 2026-05-04.
 
-The later Duty Roster surface applied accepted runs through `dutyRosterTemplates` and daily assignments. Phase 05 D01 removed that producer and its routes/exports. Calendar duty readers remain owned by D02; phase 06 owns schema retirement while preserving stored Calendar facts.
+The later Duty Roster surface applied accepted runs through `dutyRosterTemplates` and daily assignments. Phase 05 D01 removed that producer and its routes/exports; D02 removed Calendar duty readers. Phase 06 owns schema retirement while preserving stored Calendar facts.
 
 ## Rejected Or Deferred Alternatives
 

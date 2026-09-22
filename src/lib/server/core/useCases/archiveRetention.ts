@@ -27,6 +27,9 @@ export interface ArchiveRetentionCleanupResult {
 interface ArchiveRetentionPorts {
 	store: DataStore;
 	storage: StoragePort;
+	assignmentTypes: {
+		deleteExpiredUnreferenced(orgId: string, ids: string[], cutoff: string): Promise<number>;
+	};
 }
 
 interface CleanupFamily {
@@ -41,6 +44,12 @@ interface CleanupFamily {
 		orgId: string,
 		rows: CleanupCandidate[]
 	) => Promise<CleanupCandidate[]>;
+	deleteCandidates?: (
+		ports: ArchiveRetentionPorts,
+		orgId: string,
+		rows: CleanupCandidate[],
+		cutoff: string
+	) => Promise<number>;
 	prepareDelete?: (
 		ports: ArchiveRetentionPorts,
 		orgId: string,
@@ -103,16 +112,13 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		table: 'assignment_types',
 		label: 'Assignment Types',
 		timestampColumn: 'archived_at',
-		filterCandidates: excludeReferencedAssignmentTypes
-	},
-	{
-		key: 'duty-roster-templates',
-		table: 'duty_roster_templates',
-		label: 'Duty Roster Templates',
-		timestampColumn: 'archived_at',
-		filters: { status: 'archived' }
+		deleteCandidates: (ports, orgId, rows, cutoff) =>
+			ports.assignmentTypes.deleteExpiredUnreferenced(
+				orgId,
+				rows.map((row) => row.id),
+				cutoff
+			)
 	}
-	// `duty_templates` is a legacy table and is intentionally excluded from archive retention cleanup.
 ];
 
 function normalizeRetentionMonths(retentionMonths: number | null | undefined): number {
@@ -120,35 +126,6 @@ function normalizeRetentionMonths(retentionMonths: number | null | undefined): n
 		return DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	}
 	return Math.max(MIN_ARCHIVE_RETENTION_MONTHS, retentionMonths);
-}
-
-async function excludeReferencedAssignmentTypes(
-	ports: ArchiveRetentionPorts,
-	orgId: string,
-	rows: CleanupCandidate[]
-): Promise<CleanupCandidate[]> {
-	const candidateIds = rows.map((row) => row.id);
-	if (candidateIds.length === 0) return rows;
-
-	const [dailyAssignments, rosterTemplates, rosterHistory] = await Promise.all([
-		ports.store.findMany<{ assignment_type_id: string }>('daily_assignments', orgId, undefined, {
-			select: 'assignment_type_id',
-			inFilters: { assignment_type_id: candidateIds }
-		}),
-		ports.store.findMany<{ assignment_type_id: string }>('duty_roster_templates', orgId, undefined, {
-			select: 'assignment_type_id',
-			inFilters: { assignment_type_id: candidateIds }
-		}),
-		ports.store.findMany<{ assignment_type_id: string }>('duty_roster_history', orgId, undefined, {
-			select: 'assignment_type_id',
-			inFilters: { assignment_type_id: candidateIds }
-		})
-	]);
-
-	const referencedIds = new Set(
-		[...dailyAssignments, ...rosterTemplates, ...rosterHistory].map((row) => row.assignment_type_id)
-	);
-	return rows.filter((row) => !referencedIds.has(row.id));
 }
 
 async function excludeReferencedCriticalTasks(
@@ -284,11 +261,13 @@ export async function cleanupArchivedRecords(
 			if (rows.length === 0) continue;
 
 			const afterDelete = await family.prepareDelete?.(ports, org.id, rows);
-			const deletedCount = await ports.store.deleteManyByIds(
-				family.table,
-				org.id,
-				rows.map((row) => row.id)
-			);
+			const deletedCount = family.deleteCandidates
+				? await family.deleteCandidates(ports, org.id, rows, cutoff)
+				: await ports.store.deleteManyByIds(
+						family.table,
+						org.id,
+						rows.map((row) => row.id)
+					);
 			if (afterDelete && deletedCount > 0) {
 				const remainingRows = await ports.store.findMany<CleanupCandidate>(family.table, org.id, undefined, {
 					select: 'id',

@@ -24,8 +24,7 @@ const leaveStatus = {
 	id: 'leave',
 	name: 'Leave',
 	color: '#facc15',
-	textColor: '#111827',
-	da6TreatmentReviewed: true
+	textColor: '#111827'
 } as StatusType;
 
 const staffDuty = {

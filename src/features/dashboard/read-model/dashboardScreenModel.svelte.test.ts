@@ -183,9 +183,6 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 0,
 					ratingSchemeEntryCount: 1,
 					orgMemberCount: 1,
-					dutyRosterTemplateCount: 0,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -231,9 +228,6 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: undefined,
 					ratingSchemeEntryCount: undefined,
 					orgMemberCount: undefined,
-					dutyRosterTemplateCount: undefined,
-					dutyRosterRunCount: undefined,
-					dutyRosterHistoryCount: undefined,
 					gettingStartedDismissed: undefined
 				},
 				{
@@ -257,9 +251,6 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 1,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 1,
-			dutyRosterTemplateCount: 1,
-			dutyRosterRunCount: 0,
-			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: false,
 			starterConfigurationPacks: [makeStarterPack()]
 		});
@@ -278,9 +269,6 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 2,
 					ratingSchemeEntryCount: 1,
 					orgMemberCount: 2,
-					dutyRosterTemplateCount: 1,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -307,9 +295,6 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
-			dutyRosterTemplateCount: 0,
-			dutyRosterRunCount: 0,
-			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: true,
 			starterConfigurationPacks: []
 		});
@@ -326,9 +311,6 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 0,
 					ratingSchemeEntryCount: 0,
 					orgMemberCount: 1,
-					dutyRosterTemplateCount: 0,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false
 				},
 				{
@@ -349,9 +331,6 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
-			dutyRosterTemplateCount: 0,
-			dutyRosterRunCount: 0,
-			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: false,
 			starterConfigurationPacks: [makeStarterPack()]
 		});
@@ -374,9 +353,6 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 4,
 					ratingSchemeEntryCount: 0,
 					orgMemberCount: 1,
-					dutyRosterTemplateCount: 1,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false,
 					starterConfigurationPacks: [makeStarterPack({ isFullyApplied: true })]
 				})
@@ -391,9 +367,6 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
-			dutyRosterTemplateCount: 0,
-			dutyRosterRunCount: 0,
-			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: false,
 			starterConfigurationPacks: [makeStarterPack()]
 		});
@@ -439,9 +412,6 @@ describe('createDashboardScreenModel', () => {
 					onboardingTemplateStepCount: 4,
 					ratingSchemeEntryCount: 0,
 					orgMemberCount: 1,
-					dutyRosterTemplateCount: 1,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 0,
 					gettingStartedDismissed: false,
 					starterConfigurationPacks: [makeStarterPack({ isFullyApplied: false })]
 				})
@@ -456,9 +426,6 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
-			dutyRosterTemplateCount: 0,
-			dutyRosterRunCount: 0,
-			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: false,
 			starterConfigurationPacks: [makeStarterPack()]
 		});
@@ -525,9 +492,6 @@ describe('createDashboardScreenModel', () => {
 			onboardingTemplateStepCount: 0,
 			ratingSchemeEntryCount: 0,
 			orgMemberCount: 1,
-			dutyRosterTemplateCount: 0,
-			dutyRosterRunCount: 0,
-			dutyRosterHistoryCount: 0,
 			gettingStartedDismissed: false,
 			starterConfigurationPacks: [makeStarterPack()]
 		});
@@ -553,9 +517,6 @@ describe('createDashboardScreenModel', () => {
 				onboardingTemplateStepCount: 0,
 				ratingSchemeEntryCount: 0,
 				orgMemberCount: 1,
-				dutyRosterTemplateCount: 0,
-				dutyRosterRunCount: 0,
-				dutyRosterHistoryCount: 0,
 				gettingStartedDismissed: false
 			}),
 			{

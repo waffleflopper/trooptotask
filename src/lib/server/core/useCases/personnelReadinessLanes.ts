@@ -1,7 +1,7 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
-import type { AvailabilityEntry, Personnel, StatusType, Da6AvailabilityTreatment } from '$lib/types';
+import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
@@ -28,24 +28,7 @@ interface OrgSettingsRow {
 	loss_warning_window_days?: number | null;
 }
 
-interface DutyTemplateRow {
-	id: string;
-	status?: string | null;
-	exempt_personnel_ids?: unknown;
-}
-
-interface DutyRosterHistoryRow {
-	roster?: unknown;
-}
-
-interface DutyRosterAssignmentRow {
-	date?: unknown;
-	assigneeId?: unknown;
-	assignee_id?: unknown;
-}
-
 const DAY_MS = 24 * 60 * 60 * 1000;
-const DUTY_ROSTER_READINESS_LOOKBACK_DAYS = 365;
 
 async function loadPersonnelForLane(
 	ctx: UseCaseContext,
@@ -76,12 +59,6 @@ function daysBetween(from: Date, to: Date): number {
 	return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
 }
 
-function subtractDays(date: Date, days: number): Date {
-	const result = new Date(date);
-	result.setDate(result.getDate() - days);
-	return result;
-}
-
 function plural(count: number, singular: string, pluralLabel = `${singular}s`): string {
 	return `${count} ${count === 1 ? singular : pluralLabel}`;
 }
@@ -101,10 +78,6 @@ function formatDueLabel(name: string, expirationDate: string | null, today: Date
 function dateRangeDetail(entry: AvailabilityEntry): string {
 	if (entry.startDate === entry.endDate) return formatDisplayDate(entry.startDate);
 	return entry.endDate ? `through ${formatDisplayDate(entry.endDate)}` : `since ${formatDisplayDate(entry.startDate)}`;
-}
-
-function isUnavailableTreatment(treatment: Da6AvailabilityTreatment | null | undefined): boolean {
-	return treatment === 'other-duty' || treatment === 'misconduct-unavailable';
 }
 
 export async function loadAvailabilityReadinessLane(
@@ -151,7 +124,7 @@ export async function loadAvailabilityReadinessLane(
 		label: 'Availability',
 		value: statusName,
 		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
-		tone: isUnavailableTreatment(status?.da6AvailabilityTreatment) ? 'bad' : 'watch'
+		tone: 'watch'
 	};
 }
 
@@ -304,62 +277,6 @@ export async function loadCriticalTasksReadinessLane(
 		detail: `${readiness.readyCount} of ${readiness.applicableCount} applicable ICT tasks ready.${expiringSoonDetail}${attentionDetail}`,
 		tone
 	};
-}
-
-export async function loadDutyRosterReadinessLane(
-	ctx: UseCaseContext,
-	personnelId: string,
-	asOf?: string | Date
-): Promise<PersonnelReadinessLane> {
-	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'duty_roster_history');
-	const today = asOfDate(asOf);
-	const historyCutoff = formatDate(subtractDays(today, DUTY_ROSTER_READINESS_LOOKBACK_DAYS));
-	const [templateRows, historyRows] = await Promise.all([
-		ctx.store.findMany<DutyTemplateRow>('duty_templates', ctx.auth.orgId, undefined, {
-			select: 'id, status, exempt_personnel_ids'
-		}),
-		ctx.store.findMany<DutyRosterHistoryRow>('duty_roster_history', ctx.auth.orgId, undefined, {
-			select: 'roster',
-			// Personnel readiness only needs a recent "last duty" signal; the full archive remains on Duty Rosters.
-			rangeFilters: [{ column: 'end_date', op: 'gte', value: historyCutoff }],
-			orderBy: [{ column: 'end_date', ascending: false }]
-		})
-	]);
-
-	const exemptTemplateCount = templateRows.filter(
-		(row) => row.status === 'active' && jsonArrayIncludes(row.exempt_personnel_ids, personnelId)
-	).length;
-	const lastDutyDate = latestDutyDate(historyRows, personnelId);
-	const lastDutyDetail = lastDutyDate
-		? `Last duty was ${daysBetween(parseDate(lastDutyDate), today)} days ago.`
-		: 'No accepted Duty Roster history found.';
-	const exemptionDetail =
-		exemptTemplateCount > 0 ? `Exempt from ${plural(exemptTemplateCount, 'active template')}.` : 'No DA6 exemption.';
-
-	return {
-		label: 'Duty Roster',
-		value: exemptTemplateCount > 0 ? 'Exempt' : 'Eligible',
-		detail: `${exemptionDetail} ${lastDutyDetail}`,
-		tone: exemptTemplateCount > 0 ? 'info' : 'good'
-	};
-}
-
-function jsonArrayIncludes(value: unknown, expected: string): boolean {
-	return Array.isArray(value) && value.some((item) => item === expected);
-}
-
-function latestDutyDate(rows: DutyRosterHistoryRow[], personnelId: string): string | null {
-	let latest: string | null = null;
-	for (const row of rows) {
-		if (!Array.isArray(row.roster)) continue;
-		for (const assignment of row.roster as DutyRosterAssignmentRow[]) {
-			const assigneeId = assignment.assigneeId ?? assignment.assignee_id;
-			const date = typeof assignment.date === 'string' ? assignment.date : null;
-			if (assigneeId !== personnelId || !date) continue;
-			if (!latest || date > latest) latest = date;
-		}
-	}
-	return latest;
 }
 
 export async function loadRatingSchemeReadinessLane(

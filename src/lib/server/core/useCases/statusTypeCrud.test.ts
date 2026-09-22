@@ -41,6 +41,36 @@ describe('StatusType CRUD use case', () => {
 		expect(ctx.audit.events[0].action).toBe('status_type.created');
 	});
 
+	it('edits ordinary fields without exposing or overwriting stored retired metadata', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const historical = {
+			id: ST_ID,
+			organization_id: ctx.auth.orgId,
+			name: 'Leave',
+			color: '#00ff00',
+			text_color: '#ffffff',
+			sort_order: 3,
+			da6_availability_treatment: 'authorized-absence',
+			da6_treatment_reviewed: true
+		};
+		ctx.store.seed('status_types', [historical]);
+		const result = await useCases.update(ctx, { id: ST_ID, name: 'Annual Leave', color: '#22c55e' });
+		expect(result).toEqual({
+			id: ST_ID,
+			organization_id: ctx.auth.orgId,
+			name: 'Annual Leave',
+			color: '#22c55e',
+			textColor: '#ffffff',
+			sortOrder: 3
+		});
+		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toEqual({
+			...historical,
+			name: 'Annual Leave',
+			color: '#22c55e'
+		});
+		expect(ctx.audit.events[0]).toMatchObject({ action: 'status_type.updated', resourceId: ST_ID });
+	});
+
 	it('requires Calendar configure capability through the CRUD interface', async () => {
 		const ctx = createWriteWithNotificationsPortsContext({
 			auth: {

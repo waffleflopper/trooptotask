@@ -35,7 +35,7 @@
 			title: 'Calendar help',
 			description: 'Track availability, holidays, daily assignments, and calendar reporting.',
 			items: [
-				'Use assignment types for repeatable duties.',
+				'Use assignment types for recurring Calendar assignments.',
 				'Apply bulk status changes for ranges.',
 				'Review reports before publishing coverage decisions.'
 			]

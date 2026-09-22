@@ -7,15 +7,10 @@ export const ORGANIZATION_DATA_EXPORT_AREA_KEYS = [
 	'training',
 	'critical-tasks',
 	'onboarding',
-	'rating-scheme',
-	'duty-rosters'
+	'rating-scheme'
 ] as const;
 
 export type OrganizationDataExportAreaKey = (typeof ORGANIZATION_DATA_EXPORT_AREA_KEYS)[number];
-
-export type OrganizationDataExportSelection =
-	| { mode: 'all' }
-	| { mode: 'areas'; areas: OrganizationDataExportAreaKey[] };
 
 export type OrganizationDataExportSections = Record<string, Record<string, unknown>[]>;
 
@@ -32,6 +27,7 @@ export interface OrganizationDataExportLabels {
 	groups: Map<string, string>;
 	statusTypes: Map<string, string>;
 	assignmentTypes: Map<string, string>;
+	assignmentTargets: Map<string, string>;
 	trainingTypes: Map<string, string>;
 	criticalTasks: Map<string, string>;
 	extendedInfoByPerson: Map<string, Record<string, unknown>>;
@@ -122,63 +118,7 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	),
 	section('personnelOnboardings', 'Personnel Onboardings', 'personnel_onboardings', 'onboarding', 'Onboarding'),
 	section('onboardingStepProgress', 'Onboarding Step Progress', 'onboarding_step_progress', 'onboarding', 'Onboarding'),
-	section('ratingSchemeEntries', 'Rating Scheme Entries', 'rating_scheme_entries', 'rating-scheme', 'Evals'),
-	section('dutyTemplates', 'Advanced Duty Templates', 'duty_templates', 'duty-rosters', 'Duty Rosters'),
-	section('dutyTemplateSlots', 'Advanced Duty Template Slots', 'duty_template_slots', 'duty-rosters', 'Duty Rosters'),
-	section(
-		'dutyTemplateRotationBaselines',
-		'Advanced Duty Rotation Baselines',
-		'duty_template_rotation_baselines',
-		'duty-rosters',
-		'Duty Rosters'
-	),
-	section('dutyEventRuns', 'Advanced Duty Runs', 'duty_event_runs', 'duty-rosters', 'Duty Rosters'),
-	section('dutyEvents', 'Advanced Duty Events', 'duty_events', 'duty-rosters', 'Duty Rosters'),
-	section('dutyEventSlots', 'Advanced Duty Event Slots', 'duty_event_slots', 'duty-rosters', 'Duty Rosters'),
-	section(
-		'advancedDutyRunSnapshots',
-		'Advanced Duty Run Snapshots',
-		'advanced_duty_run_snapshots',
-		'duty-rosters',
-		'Duty Rosters'
-	),
-	section(
-		'advancedDutyRevisionDrafts',
-		'Advanced Duty Revision Drafts',
-		'advanced_duty_revision_drafts',
-		'duty-rosters',
-		'Duty Rosters'
-	),
-	section(
-		'advancedDutyRevisionChangeSets',
-		'Advanced Duty Revision Change Sets',
-		'advanced_duty_revision_change_sets',
-		'duty-rosters',
-		'Duty Rosters'
-	),
-	section(
-		'advancedDutyRevisionSlotChanges',
-		'Advanced Duty Revision Slot Changes',
-		'advanced_duty_revision_slot_changes',
-		'duty-rosters',
-		'Duty Rosters'
-	),
-	section('dutyRosterHistory', 'Legacy Duty Roster History', 'duty_roster_history', 'duty-rosters', 'Duty Rosters'),
-	section('dutyRosterTemplates', 'Duty Roster Templates', 'duty_roster_templates', 'duty-rosters', 'Duty Rosters'),
-	section(
-		'dutyRosterTemplateRuns',
-		'Duty Roster Template Runs',
-		'duty_roster_template_runs',
-		'duty-rosters',
-		'Duty Rosters'
-	),
-	section(
-		'dutyRosterTemplateRunCorrections',
-		'Duty Roster Template Run Corrections',
-		'duty_roster_template_run_corrections',
-		'duty-rosters',
-		'Duty Rosters'
-	)
+	section('ratingSchemeEntries', 'Rating Scheme Entries', 'rating_scheme_entries', 'rating-scheme', 'Evals')
 ] as const;
 
 export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportReadableSheetDefinition[] = [
@@ -244,7 +184,12 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 		rows: (sections, labels) =>
 			(sections.dailyAssignments ?? []).map((assignment) => ({
 				date: assignment.date,
-				person: lookup(labels.personnel, assignment.assignee_id),
+				assignee: lookup(
+					labels.assignmentTargets.get(String(assignment.assignment_type_id)) === 'group'
+						? labels.groups
+						: labels.personnel,
+					assignment.assignee_id
+				),
 				assignment_type: lookup(labels.assignmentTypes, assignment.assignment_type_id)
 			}))
 	},
@@ -354,38 +299,8 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 				validated_by: completion.validated_by,
 				notes: completion.notes
 			}))
-	},
-	{ name: 'Duty Roster Templates', areaKey: 'duty-rosters', rows: (sections) => sections.dutyRosterTemplates ?? [] },
-	{
-		name: 'Duty Roster Template Runs',
-		areaKey: 'duty-rosters',
-		rows: (sections) => sections.dutyRosterTemplateRuns ?? []
-	},
-	{
-		name: 'Duty Roster Template Run Corrections',
-		areaKey: 'duty-rosters',
-		rows: (sections) => sections.dutyRosterTemplateRunCorrections ?? []
 	}
 ];
-
-export function getOrganizationDataExportSections(
-	selection: OrganizationDataExportSelection = { mode: 'all' }
-): OrganizationDataExportSection[] {
-	return ORGANIZATION_DATA_EXPORT_SECTIONS.filter((section) => selectionIncludesArea(selection, section.areaKey));
-}
-
-export function getOrganizationDataExportReadableSheets(
-	selection: OrganizationDataExportSelection = { mode: 'all' }
-): OrganizationDataExportReadableSheetDefinition[] {
-	return ORGANIZATION_DATA_EXPORT_READABLE_SHEETS.filter((sheet) => selectionIncludesArea(selection, sheet.areaKey));
-}
-
-export function selectionIncludesArea(
-	selection: OrganizationDataExportSelection,
-	area: OrganizationDataExportAreaKey
-): boolean {
-	return selection.mode === 'all' || selection.areas.includes(area);
-}
 
 export function assertOrganizationDataExportManifestIsSafe(): void {
 	const seen = new Set<string>();

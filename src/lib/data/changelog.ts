@@ -7,22 +7,22 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
-		id: '2026-09-21-duty-rosters-rebuild',
-		date: '2026-09-21',
-		title: 'Duty Rosters Rebuild',
+		id: '2026-09-22-duty-rosters-return-planned',
+		date: '2026-09-22',
+		title: 'Duty Rosters Will Return',
 		items: [
-			'Duty Rosters has been taken down to be rebuilt from the ground up',
-			'Have ideas or feedback for the rebuild? Use the Feedback button to send them my way',
-			'Calendar, the Assignment Planner, and independent Sign-In Rosters remain available'
+			'The current Duty Rosters generation and history screens have been removed. Duty Rosters will return in a future update.',
+			'Saved Calendar assignments, the Assignment Planner, and independent Sign-In Rosters remain available.',
+			'Use Feedback to share what worked or what you need for scheduling.'
 		]
 	},
 	{
-		id: '2026-09-21-duty-rosters-temporarily-offline',
+		id: '2026-09-21-duty-rosters-rebuild',
 		date: '2026-09-21',
-		title: 'Duty Rosters Temporarily Offline',
+		title: 'Duty Rosters Taken Offline',
 		items: [
-			'Duty Rosters has been temporarily taken offline while bugs are addressed. Its links have been removed from the navigation bar and Calendar’s Planning menu',
-			'Calendar and the Assignment Planner remain available'
+			'Duty Rosters was taken offline while bugs were reviewed. A rebuild was planned at the time; the feature has since been removed.',
+			'Calendar and the Assignment Planner remained available.'
 		]
 	},
 	{
@@ -32,7 +32,7 @@ export const changelog: ChangelogEntry[] = [
 		items: [
 			'Organizations can now manage rank catalogs for joint-service ranks instead of being limited to one default rank list',
 			'Personnel imports can accept configured Navy ranks and other service-specific rank codes when they are active in the Organization catalog',
-			'Duty Roster, Sign-in Roster, and Training rank workflows now use pay-grade-aware ordering so cross-service ranks sort together more predictably'
+			'At release, Duty Roster, Sign-In Roster, and Training rank workflows used pay-grade-aware ordering so cross-service ranks sorted together. Duty Rosters has since been removed.'
 		]
 	},
 	{
@@ -76,8 +76,7 @@ export const changelog: ChangelogEntry[] = [
 		date: '2026-05-05',
 		title: 'Duty Rosters Alpha',
 		items: [
-			'A new Duty Rosters system is now available from Calendar planning, built to better reflect how DA6 duty rosters are handled',
-			'This workflow is still under development and in an alpha state, so expect bugs. If you run into bugs or issues, please report them so they can be fixed'
+			'Duty Rosters Alpha launched in May 2026 as an early DA6 scheduling workflow. The feature has since been removed; saved Calendar assignments remain.'
 		]
 	},
 	{
@@ -96,7 +95,7 @@ export const changelog: ChangelogEntry[] = [
 		title: 'Upcoming Loss Tracking',
 		items: [
 			'Personnel records now support ETS and PCS / DEROS dates, so upcoming losses can be tracked directly in TroopToTask',
-			'People & Duty now includes upcoming losses on the dashboard, making it easier to keep an eye on who is approaching ETS or PCS / DEROS',
+			'At release, People & Duty showed upcoming losses on the dashboard. The current dashboard still shows upcoming losses.',
 			'Personnel approaching a loss date get a small badge next to their name on the personnel page, with an Ack Award button to clear the award reminder once it is being tracked',
 			'The goal is simple: catch upcoming losses early and avoid forgetting to start awards before people leave'
 		]
@@ -108,7 +107,7 @@ export const changelog: ChangelogEntry[] = [
 		items: [
 			'A new home screen gives you a live readiness picture the moment you log in — no hunting across pages to piece together where your unit stands',
 			'Unit Readiness tab shows your strength count and availability percentage for the day, a status breakdown across all absence types, per-group readiness bars, and a 7-day look-ahead of who is coming and going',
-			"People & Duty tab puts personnel status and the duty roster side by side: see everyone out today with their reason, today and tomorrow's duty assignments, active onboarding pipelines with completion progress, and upcoming availability changes all in one view",
+			'At launch, People & Duty showed personnel status and Duty Roster assignments. Duty Rosters has since been removed; the dashboard still shows retained Calendar assignments and availability.',
 			'Training & Evals tab surfaces training currency percentage, expiring and expired records by person, a group-by-group delinquency comparison, and your full evaluation pipeline showing overdue and upcoming ratings — color-coded by urgency',
 			'Your preferred tab is remembered so the dashboard always opens where you left it'
 		]
@@ -118,7 +117,7 @@ export const changelog: ChangelogEntry[] = [
 		date: '2026-04-04',
 		title: 'Safer Assignments with Conflict Detection',
 		items: [
-			'Manual calendar assignments now warn when someone is already on duty or inside a cooldown window, so schedule conflicts are caught before they happen rather than discovered after the fact'
+			'Manual Calendar assignments once warned about Duty Roster conflicts and cooldown windows. That integration has since been removed; ordinary assignment saving remains.'
 		]
 	}
 ];

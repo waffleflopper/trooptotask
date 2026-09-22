@@ -100,8 +100,7 @@ function serializeStatusTypeSeed(organizationId: string, statusType: OrgProvisio
 		name: statusType.name,
 		color: statusType.color,
 		text_color: statusType.textColor,
-		da6_availability_treatment: statusType.da6AvailabilityTreatment ?? null,
-		da6_treatment_reviewed: statusType.da6TreatmentReviewed ?? false,
+
 		sort_order: statusType.sortOrder
 	};
 }

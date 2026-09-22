@@ -178,7 +178,7 @@ describe('POST /api/export', () => {
 		expect(payload.personnelDocuments).toEqual([expect.objectContaining({ id: 'document-1' })]);
 	});
 
-	it('exports archived personnel and new duty roster sections from the shared inventory', async () => {
+	it('exports archived personnel, saved Calendar assignments, and independent Sign-in Rosters', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
@@ -190,31 +190,27 @@ describe('POST /api/export', () => {
 				archived_at: '2026-05-01T00:00:00Z'
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_templates', [
+		ctx.rawStore.seed('assignment_types', [
 			{
-				id: 'template-1',
+				id: 'type-1',
 				organization_id: ctx.auth.orgId,
-				name: 'Staff Duty',
-				slug: 'staff-duty',
-				status: 'active'
+				name: 'Clinic coverage'
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_template_runs', [
+		ctx.rawStore.seed('daily_assignments', [
 			{
-				id: 'run-1',
+				id: 'assignment-1',
 				organization_id: ctx.auth.orgId,
-				template_id: 'template-1',
-				template_name: 'Staff Duty',
-				snapshot_payload: { rows: [{ date: '2026-05-20', da6: 'D1' }] }
+				assignment_type_id: 'type-1',
+				assignee_id: 'p-archived',
+				date: '2026-05-20'
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_template_run_corrections', [
+		ctx.rawStore.seed('sign_in_rosters', [
 			{
-				id: 'correction-1',
+				id: 'roster-1',
 				organization_id: ctx.auth.orgId,
-				run_id: 'run-1',
-				run_row_date: '2026-05-20',
-				reason: 'Manual swap'
+				name: 'Clinic training'
 			}
 		]);
 
@@ -226,21 +222,20 @@ describe('POST /api/export', () => {
 		if (result.status !== 'ready') throw new Error('Expected export to be ready');
 		const payload = JSON.parse(result.artifact.body) as {
 			personnel: Array<Record<string, unknown>>;
-			dutyRosterTemplates: Array<Record<string, unknown>>;
-			dutyRosterTemplateRuns: Array<Record<string, unknown>>;
-			dutyRosterTemplateRunCorrections: Array<Record<string, unknown>>;
+			dailyAssignments: Array<Record<string, unknown>>;
+			signInRosters: Array<Record<string, unknown>>;
 			sectionInventory: Array<Record<string, unknown>>;
 			sections: Record<string, Array<Record<string, unknown>>>;
 		};
 
 		expect(payload.personnel).toEqual([expect.objectContaining({ id: 'p-archived', archived_at: expect.any(String) })]);
-		expect(payload.dutyRosterTemplates).toEqual([expect.objectContaining({ id: 'template-1' })]);
-		expect(payload.dutyRosterTemplateRuns).toEqual([expect.objectContaining({ id: 'run-1' })]);
-		expect(payload.dutyRosterTemplateRunCorrections).toEqual([expect.objectContaining({ id: 'correction-1' })]);
-		expect(payload.sections.dutyRosterTemplateRuns).toEqual(payload.dutyRosterTemplateRuns);
+		expect(payload.dailyAssignments).toEqual([expect.objectContaining({ id: 'assignment-1' })]);
+		expect(payload.signInRosters).toEqual([expect.objectContaining({ id: 'roster-1' })]);
+		expect(payload.sections.dailyAssignments).toEqual(payload.dailyAssignments);
 		expect(payload.sectionInventory).toContainEqual(
-			expect.objectContaining({ key: 'dutyRosterTemplateRuns', table: 'duty_roster_template_runs', rowCount: 1 })
+			expect.objectContaining({ key: 'dailyAssignments', table: 'daily_assignments', rowCount: 1 })
 		);
+		expect(payload.sectionInventory.some((section) => section.areaKey === 'duty-rosters')).toBe(false);
 	});
 
 	it('still returns the export payload when the export status write fails', async () => {

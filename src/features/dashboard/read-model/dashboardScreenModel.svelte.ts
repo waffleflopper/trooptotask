@@ -66,9 +66,6 @@ export interface DashboardSupportData {
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
-	dutyRosterTemplateCount: number;
-	dutyRosterRunCount: number;
-	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
 	starterConfigurationPacks?: StarterConfigurationPackSupport[];
 }
@@ -227,9 +224,6 @@ export class DashboardScreenModel {
 			typeof data.onboardingTemplateStepCount === 'number' &&
 			typeof data.ratingSchemeEntryCount === 'number' &&
 			typeof data.orgMemberCount === 'number' &&
-			typeof data.dutyRosterTemplateCount === 'number' &&
-			typeof data.dutyRosterRunCount === 'number' &&
-			typeof data.dutyRosterHistoryCount === 'number' &&
 			typeof data.gettingStartedDismissed === 'boolean'
 		) {
 			this.applySupportData({
@@ -237,9 +231,6 @@ export class DashboardScreenModel {
 				onboardingTemplateStepCount: data.onboardingTemplateStepCount,
 				ratingSchemeEntryCount: data.ratingSchemeEntryCount,
 				orgMemberCount: data.orgMemberCount,
-				dutyRosterTemplateCount: data.dutyRosterTemplateCount,
-				dutyRosterRunCount: data.dutyRosterRunCount,
-				dutyRosterHistoryCount: data.dutyRosterHistoryCount,
 				gettingStartedDismissed: data.gettingStartedDismissed,
 				starterConfigurationPacks: data.starterConfigurationPacks
 			});
@@ -302,18 +293,6 @@ export class DashboardScreenModel {
 
 	get orgMemberCount(): number {
 		return this.supportData?.orgMemberCount ?? 0;
-	}
-
-	get dutyRosterTemplateCount(): number {
-		return this.supportData?.dutyRosterTemplateCount ?? 0;
-	}
-
-	get dutyRosterRunCount(): number {
-		return this.supportData?.dutyRosterRunCount ?? 0;
-	}
-
-	get dutyRosterHistoryCount(): number {
-		return this.supportData?.dutyRosterHistoryCount ?? 0;
 	}
 
 	get gettingStartedItems(): DashboardGettingStartedItem[] {

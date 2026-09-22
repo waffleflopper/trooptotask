@@ -238,12 +238,12 @@ SELECT pg_temp.clinic_demo_id('eval-' || e.n), c.organization_id, pg_temp.clinic
 FROM clinic_demo_evals e JOIN clinic_demo_people p USING(n) CROSS JOIN clinic_demo_config c;
 
 -- Demo-only Calendar configuration avoids altering the standard pack or its existing assignments.
-INSERT INTO public.status_types (id, organization_id, name, color, text_color, sort_order, da6_availability_treatment, da6_treatment_reviewed)
-SELECT pg_temp.clinic_demo_id('status-' || name), c.organization_id, name || ' (Demo)', color, '#ffffff', 100 + n, treatment, true
+INSERT INTO public.status_types (id, organization_id, name, color, text_color, sort_order)
+SELECT pg_temp.clinic_demo_id('status-' || name), c.organization_id, name || ' (Demo)', color, '#ffffff', 100 + n
 FROM clinic_demo_config c CROSS JOIN (VALUES
-  (1,'Leave','#15803d','authorized-absence'), (2,'School','#2563eb','authorized-absence'),
-  (3,'Appointment','#c2410c',NULL), (4,'Training / TDY','#7c3aed','authorized-absence')
-) s(n,name,color,treatment);
+  (1,'Leave','#15803d'), (2,'School','#2563eb'),
+  (3,'Appointment','#c2410c'), (4,'Training / TDY','#7c3aed')
+) s(n,name,color);
 INSERT INTO public.availability_entries (id, organization_id, personnel_id, status_type_id, start_date, end_date, note)
 SELECT pg_temp.clinic_demo_id('availability-' || p.n), c.organization_id, pg_temp.clinic_demo_id('person-' || p.n),
   pg_temp.clinic_demo_id('status-' || (ARRAY['Leave','School','Appointment','Training / TDY'])[1 + p.n % 4]),

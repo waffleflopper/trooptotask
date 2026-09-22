@@ -137,9 +137,7 @@ describe('provisioning provider boundary', () => {
 						name: 'Leave',
 						color: '#48bb78',
 						textColor: '#ffffff',
-						sortOrder: 0,
-						da6AvailabilityTreatment: 'authorized-absence',
-						da6TreatmentReviewed: true
+						sortOrder: 0
 					}
 				]),
 			body: [
@@ -148,9 +146,7 @@ describe('provisioning provider boundary', () => {
 					name: 'Leave',
 					color: '#48bb78',
 					text_color: '#ffffff',
-					sort_order: 0,
-					da6_availability_treatment: 'authorized-absence',
-					da6_treatment_reviewed: true
+					sort_order: 0
 				}
 			]
 		},

@@ -19,8 +19,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => {
 		members: 'configure',
 		criticalTasks: 'configure',
 		ratingScheme: 'configure',
-		reports: 'configure',
-		dutyRoster: 'configure'
+		reports: 'configure'
 	};
 	const hasCapability = (feature: string, action: string) => {
 		const value = capabilityMap[feature as keyof typeof capabilityMap];

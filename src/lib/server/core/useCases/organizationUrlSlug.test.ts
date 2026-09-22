@@ -27,6 +27,7 @@ describe('organization URL slug helpers', () => {
 	it('accepts the shortest and longest permitted route slugs', () => {
 		expect(validateOrganizationUrlSlug('abc')).toBe('abc');
 		expect(validateOrganizationUrlSlug('a'.repeat(48))).toBe('a'.repeat(48));
+		expect(validateOrganizationUrlSlug('duty-rosters')).toBe('duty-rosters');
 	});
 
 	it('prefers the slug for generated organization links', () => {

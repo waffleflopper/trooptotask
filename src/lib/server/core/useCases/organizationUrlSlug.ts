@@ -17,7 +17,6 @@ const RESERVED_ORGANIZATION_SLUGS = new Set([
 	'calendar',
 	'critical-tasks',
 	'dashboard',
-	'duty-rosters',
 	'evals',
 	'help',
 	'new',

@@ -45,8 +45,8 @@ function renderModal(
 
 describe('AvailabilityModal — status type select', () => {
 	const statusTypes: StatusType[] = [
-		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', da6TreatmentReviewed: true },
-		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff', da6TreatmentReviewed: true }
+		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' },
+		{ id: 'tdy', name: 'TDY', color: '#9f7aea', textColor: '#ffffff' }
 	];
 
 	it('selects a status type before adding status', async () => {
@@ -70,9 +70,7 @@ describe('AvailabilityModal — status type select', () => {
 });
 
 describe('AvailabilityModal — edit status feedback', () => {
-	const statusTypes: StatusType[] = [
-		{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff', da6TreatmentReviewed: true }
-	];
+	const statusTypes: StatusType[] = [{ id: 'leave', name: 'Leave', color: '#48bb78', textColor: '#ffffff' }];
 
 	it('shows an updated toast after editing an existing status entry', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');

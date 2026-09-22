@@ -31,14 +31,6 @@
 		<line x1="16" y1="2" x2="16" y2="6" />
 		<line x1="8" y1="2" x2="8" y2="6" />
 		<line x1="3" y1="10" x2="21" y2="10" />
-	{:else if icon === 'duty-roster'}
-		<path d="M8 4h8" />
-		<path d="M9 2h6v4H9z" />
-		<rect x="5" y="4" width="14" height="18" rx="2" />
-		<path d="M8 11h1.5" />
-		<path d="M12 11h4" />
-		<path d="M8 16h1.5" />
-		<path d="M12 16h4" />
 	{:else if icon === 'personnel'}
 		<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
 		<circle cx="9" cy="7" r="4" />

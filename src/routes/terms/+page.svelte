@@ -35,8 +35,6 @@
 		<p>
 			TroopToTask is a web-based personnel management platform for military unit leaders. It provides calendar
 			management, training tracking, duty assignments, counseling records, in-processing checklists, and related tools.
-			Specific features such as Duty Rosters may still be labeled beta or evolving when they are supported but still
-			changing.
 		</p>
 	</PublicContentSection>
 

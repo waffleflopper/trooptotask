@@ -24,6 +24,13 @@
 - **Category**: direction
 - **Planned at**: commit `2f3bc4d6`, 2026-06-28 (Robert selected starter configuration packs from the post-launch `$improve next` shortlist)
 
+> Historical implementation plan, completed June 2026. Phase 05 task 05-01-02
+> supersedes the Duty Roster scaffold and its permission/readiness requirements
+> below: packs now contain only Training Types and onboarding configuration.
+> The dashboard entry was separately removed in #1315; the retained APIs and
+> dashboard model remain. Use the [current work record](../docs/stabilization/EVIDENCE.md#task-05-01-02-starter-pack-duty-artifact-cutover)
+> for current scope and verification. Do not re-execute this historical plan.
+
 ## Why this matters
 
 Plan 092 lets Platform Administration see whether a self-service Organization
@@ -69,8 +76,7 @@ different unit shapes.
 Current excerpts:
 
 ```svelte
-<!-- src/routes/org/new/+page.svelte:71 -->
-<p class="seed-label">Included On Day One</p>
+<!-- src/routes/org/new/+page.svelte:71 --><p class="seed-label">Included On Day One</p>
 ```
 
 ```ts
@@ -90,17 +96,17 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 
 ## Commands you will need
 
-| Purpose | Command | Expected on success |
-| --- | --- | --- |
-| Architecture docs | Read `docs/agents/architecture-governance.md` before route/provider seam changes | docs read |
-| Svelte docs | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections | docs read before editing `.svelte` files |
-| Svelte autofix | `svelte-autofixer` on edited Svelte files | no issues or suggestions remain |
-| Starter pack use-case tests | `npx vitest run src/lib/server/core/useCases/starterConfigurationPacks.test.ts` | all pass |
-| Getting-started route tests | `npx vitest run 'src/routes/org/[orgId]/api/getting-started/server.test.ts'` plus any new starter-pack route test | all pass |
-| Dashboard tests | `npx vitest run src/features/dashboard/read-model/dashboardScreenModel.svelte.test.ts src/features/dashboard/components/DashboardPageView.svelte.test.ts 'src/routes/org/[orgId]/(dashboard)/page.svelte.test.ts'` | all pass |
-| Workflow tests | Focused onboarding, training type, and Duty Roster template tests touched by the implementation | all pass |
-| Governance | `npm run governance:check` | exits 0 |
-| Full repo gate | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test` | all exit 0 |
+| Purpose                     | Command                                                                                                                                                                                                            | Expected on success                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| Architecture docs           | Read `docs/agents/architecture-governance.md` before route/provider seam changes                                                                                                                                   | docs read                                |
+| Svelte docs                 | Svelte MCP `list-sections`, then `get-documentation` for relevant Svelte/SvelteKit sections                                                                                                                        | docs read before editing `.svelte` files |
+| Svelte autofix              | `svelte-autofixer` on edited Svelte files                                                                                                                                                                          | no issues or suggestions remain          |
+| Starter pack use-case tests | `npx vitest run src/lib/server/core/useCases/starterConfigurationPacks.test.ts`                                                                                                                                    | all pass                                 |
+| Getting-started route tests | `npx vitest run 'src/routes/org/[orgId]/api/getting-started/server.test.ts'` plus any new starter-pack route test                                                                                                  | all pass                                 |
+| Dashboard tests             | `npx vitest run src/features/dashboard/read-model/dashboardScreenModel.svelte.test.ts src/features/dashboard/components/DashboardPageView.svelte.test.ts 'src/routes/org/[orgId]/(dashboard)/page.svelte.test.ts'` | all pass                                 |
+| Workflow tests              | Focused onboarding, training type, and Duty Roster template tests touched by the implementation                                                                                                                    | all pass                                 |
+| Governance                  | `npm run governance:check`                                                                                                                                                                                         | exits 0                                  |
+| Full repo gate              | `npm run format && npm run lint && npm run governance:check && npm run check && npm run test`                                                                                                                      | all exit 0                               |
 
 ## Scope
 

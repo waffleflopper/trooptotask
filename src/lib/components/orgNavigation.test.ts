@@ -62,19 +62,6 @@ describe('getOrgNavigation', () => {
 		expect(withoutCriticalTasks.find((item) => item.id === 'critical-tasks')?.visible).toBe(false);
 	});
 
-	it('treats replacement Duty Rosters child routes as active for the nav item', () => {
-		const item = getOrgNavigation('org-1', {
-			...baseCapabilities,
-			calendar: 'view'
-		}).find((navItem) => navItem.id === 'duty-rosters');
-
-		if (!item) {
-			throw new Error('Duty Rosters nav item missing');
-		}
-
-		expect(isOrgNavItemActive('/org/org-1/duty-rosters/cq-nco/history', item)).toBe(true);
-	});
-
 	it('treats Critical Tasks child routes as active for the nav item', () => {
 		const item = getOrgNavigation('org-1', {
 			...baseCapabilities,
@@ -133,38 +120,6 @@ describe('getOrgBreadcrumbs', () => {
 			'Test Org',
 			'Calendar',
 			'Settings'
-		]);
-	});
-
-	it('uses first-class Duty Rosters breadcrumbs for the replacement route', () => {
-		const nav = getOrgNavigation('org-1', {
-			...baseCapabilities,
-			calendar: 'view'
-		});
-
-		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters', 'Test Org', nav)).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Duty Rosters' }
-		]);
-		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/generate', 'Test Org', nav, 'CQ NCO')).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
-			{ label: 'CQ NCO' }
-		]);
-		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/history', 'Test Org', nav, 'CQ NCO')).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
-			{ label: 'CQ NCO' }
-		]);
-		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/cq-nco/settings', 'Test Org', nav, 'CQ NCO')).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
-			{ label: 'CQ NCO' }
-		]);
-		expect(getOrgBreadcrumbs('/org/org-1/duty-rosters/new', 'Test Org', nav)).toEqual([
-			{ label: 'Test Org', href: '/org/org-1' },
-			{ label: 'Duty Rosters', href: '/org/org-1/duty-rosters' },
-			{ label: 'New Template' }
 		]);
 	});
 

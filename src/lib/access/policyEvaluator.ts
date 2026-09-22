@@ -169,27 +169,6 @@ export const POLICY_ACTION_CATALOG = {
 			lane: 'calendar',
 			accessMode: 'write',
 			requiredCapability: 'configure'
-		}),
-		manageDutyRosters: featureAction({
-			id: 'calendar.manageDutyRosters',
-			label: 'Manage duty rosters',
-			lane: 'calendar',
-			accessMode: 'write',
-			requiredCapability: 'operate'
-		}),
-		viewDutyRosters: featureAction({
-			id: 'calendar.viewDutyRosters',
-			label: 'View duty rosters',
-			lane: 'calendar',
-			accessMode: 'read',
-			requiredCapability: 'view'
-		}),
-		configureDutyTemplates: featureAction({
-			id: 'calendar.configureDutyTemplates',
-			label: 'Configure duty templates',
-			lane: 'calendar',
-			accessMode: 'write',
-			requiredCapability: 'configure'
 		})
 	},
 	personnel: {

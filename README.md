@@ -52,9 +52,8 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - Follow-ups for counseling reminders, action items, and development tracking
 - General Personnel document uploads
 
-### Duty Roster & Sign-In Rosters
+### Sign-In Rosters
 
-- Automated duty roster generation
 - Printable sign-in roster generation
 
 ### Administration
@@ -175,7 +174,7 @@ src/
     calendar/                # Calendar views, availability, status, assignments
     onboarding/              # Onboarding workflows, templates
     dashboard/               # Readiness, people/duty, and training/evaluation overview
-    duty-roster/             # Duty roster generation
+    duty-roster/             # Temporary Calendar reader types; removal tracked in phase 05 D02
     sign-in-rosters/         # Sign-in roster generation
     groups/                  # Group and member management
   lib/

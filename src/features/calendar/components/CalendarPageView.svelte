@@ -235,7 +235,6 @@
 			onRemove={(id) => ctx.handleRemoveAvailability(id)}
 			onClose={() => ctx.closeAvailabilityModal()}
 			dutyEvents={ctx.advancedDutyEvents}
-			dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
 		/>
 	{:catch}
 		<span class="sr-only">Availability editor failed to load.</span>
@@ -254,7 +253,6 @@
 			onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 			onClose={() => ctx.closeAssignmentModal()}
 			dutyEvents={ctx.advancedDutyEvents}
-			dutyRosterHref={`/org/${data.orgUrlSegment ?? data.orgId}/duty-rosters/`}
 		/>
 	{:catch}
 		<span class="sr-only">Daily assignment editor failed to load.</span>

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
@@ -25,20 +24,9 @@
 		onRemove: (id: string) => void;
 		onClose: () => void;
 		dutyEvents?: DutyEvent[];
-		dutyRosterHref?: string;
 	}
 
-	let {
-		person,
-		date,
-		statusTypes,
-		existingEntries,
-		onAdd,
-		onRemove,
-		onClose,
-		dutyEvents = [],
-		dutyRosterHref
-	}: Props = $props();
+	let { person, date, statusTypes, existingEntries, onAdd, onRemove, onClose, dutyEvents = [] }: Props = $props();
 
 	function eventCoversDate(event: DutyEvent, d: string): boolean {
 		const startDate = event.coverageStart.slice(0, 10);
@@ -213,14 +201,7 @@
 					<h4 class="text-sm font-medium">On duty</h4>
 					{#each dutyEventsForPerson as event (event.id)}
 						<div class="flex items-center gap-2">
-							{#if dutyRosterHref}
-								<a
-									href={resolve(dutyRosterHref as `/org/${string}/duty-rosters`)}
-									class="text-sm font-medium hover:underline">{event.templateName}</a
-								>
-							{:else}
-								<span class="text-sm font-medium">{event.templateName}</span>
-							{/if}
+							<span class="text-sm font-medium">{event.templateName}</span>
 						</div>
 					{/each}
 				</div>

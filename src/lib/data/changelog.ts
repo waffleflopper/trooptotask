@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-09-21-duty-rosters-rebuild',
+		date: '2026-09-21',
+		title: 'Duty Rosters Rebuild',
+		items: [
+			'Duty Rosters has been taken down to be rebuilt from the ground up',
+			'Have ideas or feedback for the rebuild? Use the Feedback button to send them my way',
+			'Calendar, the Assignment Planner, and independent Sign-In Rosters remain available'
+		]
+	},
+	{
 		id: '2026-09-21-duty-rosters-temporarily-offline',
 		date: '2026-09-21',
 		title: 'Duty Rosters Temporarily Offline',

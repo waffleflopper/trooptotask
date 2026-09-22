@@ -46,13 +46,11 @@ describe('starter configuration packs', () => {
 					'Review required documents',
 					'Assign duty role and Group'
 				]
-			],
-			['duty-roster-template', ['Staff Duty']]
+			]
 		]);
 		expect(pack.readiness.map((family) => [family.family, family.configured, family.starterArtifactCount])).toEqual([
 			['training-types', false, 0],
-			['onboarding-template', false, 0],
-			['duty-roster-template', false, 0]
+			['onboarding-template', false, 0]
 		]);
 	});
 
@@ -252,46 +250,8 @@ describe('starter configuration packs', () => {
 				sort_order: 0
 			}
 		]);
-		ctx.store.seed('duty_roster_templates', [
-			{
-				id: 'template-archived-staff-duty',
-				organization_id: ctx.auth.orgId,
-				assignment_type_id: 'template-archived-staff-duty',
-				name: 'Staff Duty',
-				slug: 'staff-duty',
-				short_code: 'SD',
-				status: 'archived',
-				pool_criteria: {},
-				exempt_personnel_ids: [],
-				manual_baseline_counts: {},
-				created_by_user_id: ctx.auth.userId,
-				created_at: '2026-05-04T12:00:00.000Z',
-				updated_at: '2026-05-04T12:00:00.000Z',
-				archived_at: '2026-05-05T12:00:00.000Z'
-			},
-			{
-				id: 'template-active-cq',
-				organization_id: ctx.auth.orgId,
-				assignment_type_id: 'template-active-cq',
-				name: 'CQ NCO',
-				slug: 'cq-nco',
-				short_code: 'CQ',
-				status: 'active',
-				pool_criteria: {},
-				exempt_personnel_ids: [],
-				manual_baseline_counts: {},
-				created_by_user_id: ctx.auth.userId,
-				created_at: '2026-05-04T12:00:00.000Z',
-				updated_at: '2026-05-04T12:00:00.000Z'
-			}
-		]);
 		const originalFindMany = ctx.store.findMany.bind(ctx.store);
-		const guardedTables = new Set([
-			'training_types',
-			'onboarding_templates',
-			'onboarding_template_steps',
-			'duty_roster_templates'
-		]);
+		const guardedTables = new Set(['training_types', 'onboarding_templates', 'onboarding_template_steps']);
 		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
 			const hasFilters = filters !== undefined && Object.keys(filters).length > 0;
 			const hasInFilters = options?.inFilters !== undefined && Object.keys(options.inFilters).length > 0;
@@ -306,8 +266,7 @@ describe('starter configuration packs', () => {
 
 		expect(pack.readiness.map((family) => [family.family, family.configured, family.starterArtifactCount])).toEqual([
 			['training-types', true, 0],
-			['onboarding-template', true, 0],
-			['duty-roster-template', true, 0]
+			['onboarding-template', true, 0]
 		]);
 		expect(pack.isFullyApplied).toBe(false);
 	});
@@ -325,17 +284,54 @@ describe('starter configuration packs', () => {
 			'Confirm contact and roster details',
 			'Complete unit orientation',
 			'Review required documents',
-			'Assign duty role and Group',
-			'Staff Duty'
+			'Assign duty role and Group'
 		]);
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
 		expect(await ctx.store.findMany('onboarding_templates', ctx.auth.orgId)).toHaveLength(1);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
-		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toHaveLength(1);
-		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toHaveLength(1);
+		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toEqual([]);
+		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
 
 		const [pack] = await listStarterConfigurationPacks(ctx);
 		expect(pack.isFullyApplied).toBe(true);
+	});
+
+	it('applies and reports readiness without Duty Roster storage while preserving Calendar facts', async () => {
+		const ctx = createTestContext();
+		const calendarType = {
+			id: 'historical-duty-type',
+			organization_id: ctx.auth.orgId,
+			name: 'Staff Duty',
+			archived_at: null,
+			color: '#123456'
+		};
+		const calendarAssignment = {
+			id: 'historical-assignment',
+			organization_id: ctx.auth.orgId,
+			assignment_type_id: calendarType.id,
+			date: '2026-09-21',
+			assignee_id: 'person-1'
+		};
+		ctx.store.seed('assignment_types', [calendarType]);
+		ctx.store.seed('daily_assignments', [calendarAssignment]);
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		const findOne = ctx.store.findOne.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
+			if (table.startsWith('duty_')) throw new Error('Duty Roster storage unavailable');
+			return findMany(table, ...args);
+		});
+		vi.spyOn(ctx.store, 'findOne').mockImplementation((table, ...args) => {
+			if (table.startsWith('duty_')) throw new Error('Duty Roster storage unavailable');
+			return findOne(table, ...args);
+		});
+
+		expect((await listStarterConfigurationPacks(ctx))[0].isFullyApplied).toBe(false);
+		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
+
+		expect(result.failed).toEqual([]);
+		expect((await listStarterConfigurationPacks(ctx))[0].isFullyApplied).toBe(true);
+		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([calendarType]);
+		expect(await ctx.store.findMany('daily_assignments', ctx.auth.orgId)).toEqual([calendarAssignment]);
 	});
 
 	it('skips existing starter artifacts when applied twice', async () => {
@@ -353,14 +349,13 @@ describe('starter configuration packs', () => {
 			'Confirm contact and roster details',
 			'Complete unit orientation',
 			'Review required documents',
-			'Assign duty role and Group',
-			'Staff Duty'
+			'Assign duty role and Group'
 		]);
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
 		expect(await ctx.store.findMany('onboarding_templates', ctx.auth.orgId)).toHaveLength(1);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
-		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toHaveLength(1);
-		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toHaveLength(1);
+		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toEqual([]);
+		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
 	});
 
 	it('treats raced unique starter artifacts as skipped when they can be re-read', async () => {
@@ -413,236 +408,12 @@ describe('starter configuration packs', () => {
 			'Required Annual Training',
 			'Complete unit orientation',
 			'Review required documents',
-			'Assign duty role and Group',
-			'Staff Duty'
+			'Assign duty role and Group'
 		]);
 		const racedStep = await ctx.store.findOne<Record<string, unknown>>('onboarding_template_steps', ctx.auth.orgId, {
 			name: 'Confirm contact and roster details'
 		});
 		expect(racedStep?.id).toBe(racedStarterStepId);
-	});
-
-	it('treats a concurrent canonical Duty Roster starter create as skipped without leaving a duplicate active scaffold', async () => {
-		const ctx = createTestContext();
-		const originalInsert = ctx.store.insert.bind(ctx.store);
-		const dutyRosterTemplateInsertSlugs: string[] = [];
-		let dutyRosterRace = true;
-
-		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
-			if (table === 'duty_roster_templates') {
-				dutyRosterTemplateInsertSlugs.push(String(data.slug));
-			}
-
-			if (table === 'duty_roster_templates' && data.slug === 'staff-duty' && dutyRosterRace) {
-				dutyRosterRace = false;
-				ctx.store.seed('assignment_types', [
-					{
-						id: 'template-concurrent-staff-duty',
-						organization_id: orgId,
-						name: 'Staff Duty',
-						short_name: 'SD',
-						assign_to: 'personnel',
-						color: '#8a5a22',
-						sort_order: 0,
-						show_in_date_header: false,
-						exempt_personnel_ids: [],
-						archived_at: null
-					}
-				]);
-				ctx.store.seed('duty_roster_templates', [
-					{
-						id: 'template-concurrent-staff-duty',
-						organization_id: orgId,
-						assignment_type_id: 'template-concurrent-staff-duty',
-						name: 'Staff Duty',
-						slug: 'staff-duty',
-						short_code: 'SD',
-						status: 'active',
-						pool_criteria: {},
-						exempt_personnel_ids: [],
-						manual_baseline_counts: {},
-						created_by_user_id: ctx.auth.userId,
-						created_at: '2026-05-04T12:00:00.000Z',
-						updated_at: '2026-05-04T12:00:00.000Z',
-						archived_at: null
-					}
-				]);
-				throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
-			}
-
-			return originalInsert(table, orgId, data, select);
-		});
-
-		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
-		const templates = (await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)) as Record<string, unknown>[];
-		const activeStaffDutyTemplates = templates.filter((row) => row.name === 'Staff Duty' && row.status === 'active');
-		const assignmentTypes = (await ctx.store.findMany('assignment_types', ctx.auth.orgId)) as Record<string, unknown>[];
-		const activeStaffDutyAssignmentTypes = assignmentTypes.filter(
-			(row) => row.name === 'Staff Duty' && !row.archived_at
-		);
-
-		expect(result.failed).toEqual([]);
-		expect(result.skipped).toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
-		expect(result.created).not.toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
-		expect(dutyRosterTemplateInsertSlugs).toEqual(['staff-duty']);
-		expect(activeStaffDutyTemplates).toEqual([
-			expect.objectContaining({
-				id: 'template-concurrent-staff-duty',
-				slug: 'staff-duty',
-				status: 'active'
-			})
-		]);
-		expect(activeStaffDutyAssignmentTypes).toEqual([
-			expect.objectContaining({
-				id: 'template-concurrent-staff-duty',
-				name: 'Staff Duty'
-			})
-		]);
-	});
-
-	it('treats a concurrent archived-slug Duty Roster starter replacement as skipped without suffixing again', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('duty_roster_templates', [
-			{
-				id: 'template-archived-staff-duty',
-				organization_id: ctx.auth.orgId,
-				assignment_type_id: 'template-archived-staff-duty',
-				name: 'Staff Duty',
-				slug: 'staff-duty',
-				short_code: 'SD',
-				status: 'archived',
-				pool_criteria: {},
-				exempt_personnel_ids: [],
-				manual_baseline_counts: {},
-				created_by_user_id: ctx.auth.userId,
-				created_at: '2026-05-04T12:00:00.000Z',
-				updated_at: '2026-05-04T12:00:00.000Z',
-				archived_at: '2026-05-05T12:00:00.000Z'
-			}
-		]);
-		const originalInsert = ctx.store.insert.bind(ctx.store);
-		const dutyRosterTemplateInsertSlugs: string[] = [];
-		let dutyRosterRace = true;
-
-		vi.spyOn(ctx.store, 'insert').mockImplementation(async (table, orgId, data, select) => {
-			if (table === 'duty_roster_templates') {
-				dutyRosterTemplateInsertSlugs.push(String(data.slug));
-			}
-
-			if (table === 'duty_roster_templates' && data.slug === 'staff-duty-2' && dutyRosterRace) {
-				dutyRosterRace = false;
-				ctx.store.seed('assignment_types', [
-					{
-						id: 'template-concurrent-staff-duty-2',
-						organization_id: orgId,
-						name: 'Staff Duty',
-						short_name: 'SD',
-						assign_to: 'personnel',
-						color: '#8a5a22',
-						sort_order: 0,
-						show_in_date_header: false,
-						exempt_personnel_ids: [],
-						archived_at: null
-					}
-				]);
-				ctx.store.seed('duty_roster_templates', [
-					{
-						id: 'template-concurrent-staff-duty-2',
-						organization_id: orgId,
-						assignment_type_id: 'template-concurrent-staff-duty-2',
-						name: 'Staff Duty',
-						slug: 'staff-duty-2',
-						short_code: 'SD',
-						status: 'active',
-						pool_criteria: {},
-						exempt_personnel_ids: [],
-						manual_baseline_counts: {},
-						created_by_user_id: ctx.auth.userId,
-						created_at: '2026-05-04T12:00:00.000Z',
-						updated_at: '2026-05-04T12:00:00.000Z',
-						archived_at: null
-					}
-				]);
-				throw new Error('duplicate key value violates unique constraint "duty_roster_templates_org_slug_key"');
-			}
-
-			return originalInsert(table, orgId, data, select);
-		});
-
-		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
-		const templates = (await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)) as Record<string, unknown>[];
-		const activeStaffDutyTemplates = templates.filter((row) => row.name === 'Staff Duty' && row.status === 'active');
-		const assignmentTypes = (await ctx.store.findMany('assignment_types', ctx.auth.orgId)) as Record<string, unknown>[];
-		const activeStaffDutyAssignmentTypes = assignmentTypes.filter(
-			(row) => row.name === 'Staff Duty' && !row.archived_at
-		);
-
-		expect(result.failed).toEqual([]);
-		expect(result.skipped).toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
-		expect(result.created).not.toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
-		expect(dutyRosterTemplateInsertSlugs).toEqual(['staff-duty-2']);
-		expect(activeStaffDutyTemplates).toEqual([
-			expect.objectContaining({
-				id: 'template-concurrent-staff-duty-2',
-				slug: 'staff-duty-2',
-				status: 'active'
-			})
-		]);
-		expect(activeStaffDutyAssignmentTypes).toEqual([
-			expect.objectContaining({
-				id: 'template-concurrent-staff-duty-2',
-				name: 'Staff Duty'
-			})
-		]);
-	});
-
-	it('does not treat archived Staff Duty templates as starter readiness and creates an active replacement', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('duty_roster_templates', [
-			{
-				id: 'template-archived-staff-duty',
-				organization_id: ctx.auth.orgId,
-				assignment_type_id: 'template-archived-staff-duty',
-				name: 'Staff Duty',
-				slug: 'staff-duty',
-				short_code: 'SD',
-				status: 'archived',
-				pool_criteria: {},
-				exempt_personnel_ids: [],
-				manual_baseline_counts: {},
-				created_by_user_id: ctx.auth.userId,
-				created_at: '2026-05-04T12:00:00.000Z',
-				updated_at: '2026-05-04T12:00:00.000Z',
-				archived_at: '2026-05-05T12:00:00.000Z'
-			}
-		]);
-
-		const [beforePack] = await listStarterConfigurationPacks(ctx);
-
-		expect(beforePack.readiness.find((family) => family.family === 'duty-roster-template')).toMatchObject({
-			configured: false,
-			starterArtifactCount: 0,
-			existingStarterArtifactNames: []
-		});
-
-		const result = await applyStarterConfigurationPack(ctx, 'first-week-operations');
-		const templates = (await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)) as Record<string, unknown>[];
-		const activeStaffDuty = templates.find((row) => row.name === 'Staff Duty' && row.status === 'active');
-
-		expect(result.failed).toEqual([]);
-		expect(result.created).toContainEqual({ family: 'duty-roster-template', name: 'Staff Duty' });
-		expect(activeStaffDuty).toMatchObject({
-			name: 'Staff Duty',
-			slug: 'staff-duty-2',
-			status: 'active'
-		});
-
-		const [afterPack] = await listStarterConfigurationPacks(ctx);
-		expect(afterPack.readiness.find((family) => family.family === 'duty-roster-template')).toMatchObject({
-			configured: true,
-			starterArtifactCount: 1,
-			existingStarterArtifactNames: ['Staff Duty']
-		});
 	});
 
 	it('stops before writes when any required configure permission is missing', async () => {

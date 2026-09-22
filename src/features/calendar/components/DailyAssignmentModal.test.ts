@@ -43,7 +43,7 @@ function makeDutyEvent(overrides: Partial<DutyEvent> = {}): DutyEvent {
 	};
 }
 
-function renderModal(date: Date, dutyEvents: DutyEvent[] = [], dutyRosterHref?: string) {
+function renderModal(date: Date, dutyEvents: DutyEvent[] = []) {
 	return render(DailyAssignmentModal, {
 		props: {
 			date,
@@ -54,15 +54,14 @@ function renderModal(date: Date, dutyEvents: DutyEvent[] = [], dutyRosterHref?: 
 			onSetAssignment: vi.fn(),
 			onRemoveAssignment: vi.fn(),
 			onClose: vi.fn(),
-			dutyEvents,
-			dutyRosterHref
+			dutyEvents
 		}
 	});
 }
 
 describe('DailyAssignmentModal — advanced duty events', () => {
 	it('renders a duty event that starts on the selected date', () => {
-		renderModal(new Date(2026, 3, 6), [makeDutyEvent()], '/org/test/duty-rosters/');
+		renderModal(new Date(2026, 3, 6), [makeDutyEvent()]);
 
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 		// Should show fill summary
@@ -71,7 +70,7 @@ describe('DailyAssignmentModal — advanced duty events', () => {
 
 	it('renders an overnight duty event on the second day it covers', () => {
 		// Event starts Apr 6, coverage extends into Apr 7 — should appear on Apr 7
-		renderModal(new Date(2026, 3, 7), [makeDutyEvent()], '/org/test/duty-rosters/');
+		renderModal(new Date(2026, 3, 7), [makeDutyEvent()]);
 
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 	});
@@ -87,13 +86,6 @@ describe('DailyAssignmentModal — advanced duty events', () => {
 		renderModal(new Date(2026, 3, 6), []);
 
 		expect(screen.queryByText(/Advanced duty/i)).toBeNull();
-	});
-
-	it('renders a link to the duty roster when dutyRosterHref is provided', () => {
-		renderModal(new Date(2026, 3, 6), [makeDutyEvent()], '/org/test/duty-rosters/');
-
-		const link = screen.getByRole('link', { name: /Battalion Staff Duty/i });
-		expect(link.getAttribute('href')).toBe('/org/test/duty-rosters/');
 	});
 
 	it('does not render a midnight-end event on the end date', () => {

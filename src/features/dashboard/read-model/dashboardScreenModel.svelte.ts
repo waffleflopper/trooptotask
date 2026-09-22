@@ -359,13 +359,6 @@ export class DashboardScreenModel {
 				complete: false
 			},
 			{
-				id: 'duty-roster',
-				label: 'Set up Duty Roster',
-				description: 'Create a Duty Roster template or accept a first run when the roster is ready.',
-				href: `${orgPath}/duty-rosters/new`,
-				complete: this.dutyRosterTemplateCount > 0 || this.dutyRosterRunCount > 0 || this.dutyRosterHistoryCount > 0
-			},
-			{
 				id: 'members',
 				label: 'Invite another Organization Member',
 				description: 'Add at least one more member for shared access.',

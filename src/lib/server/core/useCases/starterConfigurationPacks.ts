@@ -6,13 +6,7 @@ import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { createOnboardingTemplate } from './onboardingTemplateCrud';
-import { createConfiguredDutyRosterTemplate } from './dutyRosterTemplates';
 import { getEntityAuditResource } from '$lib/server/entitySchema';
-import {
-	buildUniqueDutyRosterTemplateSlug,
-	EMPTY_DUTY_ROSTER_POOL_CRITERIA,
-	type DutyRosterTemplate
-} from '$features/duty-roster/templates/dutyRosterTemplates';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import type { OnboardingTemplate } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/training.types';
@@ -28,18 +22,16 @@ const PACK_ID: StarterConfigurationPackId = 'first-week-operations';
 const PACK_NAME = 'First Week Operations';
 const PACK_DESCRIPTION =
 	'Optional starter configuration for common first-week setup. Owners can edit or remove every artifact after applying it.';
-const PACK_EDITABLE_COPY = 'Creates editable Training Types, onboarding steps, and a Duty Roster template scaffold.';
+const PACK_EDITABLE_COPY = 'Creates editable Training Types and onboarding steps.';
 const SUPPORT_SAFE_FAILURE = 'This starter artifact could not be created. Existing configuration was left unchanged.';
 
 const REQUIRED_CONFIGURE_ACTIONS = [
 	POLICY_ACTION_CATALOG.training.configureRequirements,
-	POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
-	POLICY_ACTION_CATALOG.calendar.configureDutyTemplates
+	POLICY_ACTION_CATALOG.onboarding.configureWorkflows
 ] satisfies PolicyAction[];
 
 const TRAINING_TYPE_FAMILY = 'training-types' satisfies StarterConfigurationPackArtifactFamilyId;
 const ONBOARDING_FAMILY = 'onboarding-template' satisfies StarterConfigurationPackArtifactFamilyId;
-const DUTY_ROSTER_FAMILY = 'duty-roster-template' satisfies StarterConfigurationPackArtifactFamilyId;
 
 const STARTER_TRAINING_TYPES = [
 	{
@@ -92,12 +84,6 @@ const ONBOARDING_STEPS = [
 	}
 ] as const;
 
-const DUTY_ROSTER_TEMPLATE = {
-	name: 'Staff Duty',
-	slug: 'staff-duty',
-	shortCode: 'SD'
-} as const;
-
 const PACK_ARTIFACT_PREVIEW = [
 	{
 		family: TRAINING_TYPE_FAMILY,
@@ -110,12 +96,6 @@ const PACK_ARTIFACT_PREVIEW = [
 		label: 'Onboarding Template',
 		names: [ONBOARDING_TEMPLATE.name, ...ONBOARDING_STEPS.map((step) => step.name)],
 		description: 'Adds an editable new-arrival template with ordered first-week steps.'
-	},
-	{
-		family: DUTY_ROSTER_FAMILY,
-		label: 'Duty Roster Template',
-		names: [DUTY_ROSTER_TEMPLATE.name],
-		description: 'Adds a broad-pool Staff Duty scaffold with no exclusions or manual baseline counts.'
 	}
 ] as const;
 
@@ -132,8 +112,6 @@ interface StarterPackReadinessRows {
 	hasAnyOnboardingTemplate: boolean;
 	hasAnyOnboardingTemplateStep: boolean;
 	onboardingTemplateSteps: Array<Record<string, unknown>>;
-	activeDutyRosterTemplate: Record<string, unknown> | null;
-	hasAnyActiveDutyRosterTemplate: boolean;
 }
 
 export async function listStarterConfigurationPacks(ctx: UseCaseContext): Promise<StarterConfigurationPackSupport[]> {
@@ -153,7 +131,6 @@ export async function applyStarterConfigurationPack(
 	const result = createApplyResult();
 	const trainingTypes = await applyStarterTrainingTypes(ctx, result);
 	await applyStarterOnboardingTemplate(ctx, result, trainingTypes.get('Unit Orientation')?.id ?? null);
-	await applyStarterDutyRosterTemplate(ctx, result);
 
 	return result;
 }
@@ -195,10 +172,7 @@ async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): 
 		anyTrainingTypes,
 		starterOnboardingTemplates,
 		anyOnboardingTemplates,
-		anyOnboardingTemplateSteps,
-		activeDutyRosterBySlug,
-		activeDutyRosterByName,
-		anyActiveDutyRosterTemplates
+		anyOnboardingTemplateSteps
 	] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>(
 			'training_types',
@@ -219,24 +193,6 @@ async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): 
 			ctx.auth.orgId,
 			{},
 			{ select: 'id', limit: 1 }
-		),
-		ctx.store.findMany<Record<string, unknown>>(
-			'duty_roster_templates',
-			ctx.auth.orgId,
-			{ slug: DUTY_ROSTER_TEMPLATE.slug, status: 'active' },
-			{ select: 'id, name, slug, status', limit: 1 }
-		),
-		ctx.store.findMany<Record<string, unknown>>(
-			'duty_roster_templates',
-			ctx.auth.orgId,
-			{ name: DUTY_ROSTER_TEMPLATE.name, status: 'active' },
-			{ select: 'id, name, slug, status', limit: 1 }
-		),
-		ctx.store.findMany<Record<string, unknown>>(
-			'duty_roster_templates',
-			ctx.auth.orgId,
-			{ status: 'active' },
-			{ select: 'id', limit: 1 }
 		)
 	]);
 
@@ -256,9 +212,7 @@ async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): 
 		onboardingTemplate,
 		hasAnyOnboardingTemplate: anyOnboardingTemplates.length > 0,
 		hasAnyOnboardingTemplateStep: anyOnboardingTemplateSteps.length > 0,
-		onboardingTemplateSteps,
-		activeDutyRosterTemplate: activeDutyRosterBySlug[0] ?? activeDutyRosterByName[0] ?? null,
-		hasAnyActiveDutyRosterTemplate: anyActiveDutyRosterTemplates.length > 0
+		onboardingTemplateSteps
 	};
 }
 
@@ -280,8 +234,6 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 	];
 	const existingOnboardingNames = [...(starterTemplate ? [ONBOARDING_TEMPLATE.name] : []), ...existingStarterStepNames];
 
-	const starterDutyRoster = rows.activeDutyRosterTemplate;
-
 	return [
 		{
 			family: TRAINING_TYPE_FAMILY,
@@ -298,14 +250,6 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 			starterArtifactCount: existingOnboardingNames.length,
 			expectedArtifactCount: 1 + ONBOARDING_STEPS.length,
 			existingStarterArtifactNames: existingOnboardingNames
-		},
-		{
-			family: DUTY_ROSTER_FAMILY,
-			label: 'Duty Roster Template',
-			configured: rows.hasAnyActiveDutyRosterTemplate,
-			starterArtifactCount: starterDutyRoster ? 1 : 0,
-			expectedArtifactCount: 1,
-			existingStarterArtifactNames: starterDutyRoster ? [DUTY_ROSTER_TEMPLATE.name] : []
 		}
 	];
 }
@@ -437,52 +381,6 @@ async function applyStarterOnboardingTemplate(
 	}
 }
 
-async function applyStarterDutyRosterTemplate(ctx: WritePorts, result: StarterConfigurationPackApplyResult) {
-	const existing = await findActiveStarterDutyRosterTemplate(ctx);
-
-	if (existing) {
-		recordSkipped(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
-		return;
-	}
-
-	try {
-		const created = await createStarterDutyRosterTemplate(ctx);
-		if (!created) {
-			recordSkipped(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
-			return;
-		}
-
-		recordCreated(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
-	} catch (error) {
-		rethrowAuthorizationFailure(error);
-		if (isDutyRosterSlugConflict(error)) {
-			const racedExisting = await findActiveStarterDutyRosterTemplate(ctx);
-			if (racedExisting) {
-				recordSkipped(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
-				return;
-			}
-		}
-		recordFailed(result, DUTY_ROSTER_FAMILY, DUTY_ROSTER_TEMPLATE.name);
-	}
-}
-
-async function createStarterDutyRosterTemplate(ctx: WritePorts): Promise<DutyRosterTemplate | null> {
-	const activeExisting = await findActiveStarterDutyRosterTemplate(ctx);
-	if (activeExisting) {
-		return null;
-	}
-	const slug = await nextAvailableStarterDutyRosterSlug(ctx);
-
-	return createConfiguredDutyRosterTemplate(ctx, {
-		name: DUTY_ROSTER_TEMPLATE.name,
-		slug,
-		shortCode: DUTY_ROSTER_TEMPLATE.shortCode,
-		poolCriteria: EMPTY_DUTY_ROSTER_POOL_CRITERIA,
-		exemptPersonnelIds: [],
-		manualBaselineCounts: {}
-	});
-}
-
 async function createStarterOnboardingTemplateStep(
 	ctx: WritePorts,
 	templateId: string,
@@ -532,19 +430,6 @@ async function findOnboardingTemplateByName(
 	return row ? ({ ...row, orgId: ctx.auth.orgId } as unknown as OnboardingTemplate) : null;
 }
 
-async function nextAvailableStarterDutyRosterSlug(ctx: Pick<WritePorts, 'store' | 'auth'>): Promise<string> {
-	const rows = await ctx.store.findMany<Record<string, unknown>>(
-		'duty_roster_templates',
-		ctx.auth.orgId,
-		{},
-		{ select: 'slug' }
-	);
-	return buildUniqueDutyRosterTemplateSlug({
-		name: DUTY_ROSTER_TEMPLATE.name,
-		existingSlugs: rows.map((row) => stringField(row, 'slug')).filter((slug): slug is string => !!slug)
-	});
-}
-
 async function findOnboardingTemplateStepByName(
 	ctx: Pick<WritePorts, 'store' | 'auth'>,
 	templateId: string,
@@ -554,26 +439,6 @@ async function findOnboardingTemplateStepByName(
 		template_id: templateId,
 		name
 	});
-}
-
-async function findActiveStarterDutyRosterTemplate(
-	ctx: Pick<WritePorts, 'store' | 'auth'>
-): Promise<Record<string, unknown> | null> {
-	const [bySlug, byName] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>(
-			'duty_roster_templates',
-			ctx.auth.orgId,
-			{ slug: DUTY_ROSTER_TEMPLATE.slug, status: 'active' },
-			{ select: 'id, name, slug, status', limit: 1 }
-		),
-		ctx.store.findMany<Record<string, unknown>>(
-			'duty_roster_templates',
-			ctx.auth.orgId,
-			{ name: DUTY_ROSTER_TEMPLATE.name, status: 'active' },
-			{ select: 'id, name, slug, status', limit: 1 }
-		)
-	]);
-	return bySlug[0] ?? byName[0] ?? null;
 }
 
 function createApplyResult(): StarterConfigurationPackApplyResult {
@@ -636,14 +501,6 @@ function isUniqueConflict(error: unknown): boolean {
 		.join(' ')
 		.toLowerCase();
 	return haystack.includes('23505') || haystack.includes('duplicate') || haystack.includes('unique');
-}
-
-function isDutyRosterSlugConflict(error: unknown): boolean {
-	const message = error instanceof Error ? error.message.toLowerCase() : '';
-	return (
-		(isUniqueConflict(error) && (!message || message.includes('slug'))) ||
-		message.includes('duty roster template slug is already in use')
-	);
 }
 
 function stringField(row: Record<string, unknown> | null | undefined, field: string): string | null {

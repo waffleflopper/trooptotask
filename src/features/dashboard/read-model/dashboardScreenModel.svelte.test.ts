@@ -207,7 +207,6 @@ describe('createDashboardScreenModel', () => {
 			['statuses', false],
 			['training', false],
 			['assignments', false],
-			['duty-roster', false],
 			['members', false],
 			['onboarding', false],
 			['ratings', true]
@@ -223,35 +222,6 @@ describe('createDashboardScreenModel', () => {
 			label: 'Review duty assignments'
 		});
 		expect(model.shouldShowGettingStarted).toBe(true);
-	});
-
-	it('treats legacy duty roster history as Duty Roster setup progress', () => {
-		const model = createDashboardScreenModel(
-			makeData(
-				{
-					userRole: 'owner',
-					onboardingTemplateStepCount: 0,
-					ratingSchemeEntryCount: 0,
-					orgMemberCount: 1,
-					dutyRosterTemplateCount: 0,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 1,
-					gettingStartedDismissed: false
-				},
-				{
-					personnel: [{ id: 'p1' }],
-					statusTypes: [{ id: 'status-1' }],
-					trainingTypes: [],
-					assignmentTypes: []
-				}
-			),
-			{
-				storage: createMemoryStorage(),
-				sources: makeSources()
-			}
-		);
-
-		expect(model.gettingStartedItems.find((item) => item.id === 'duty-roster')?.complete).toBe(true);
 	});
 
 	it('shows the checklist after deferred support data arrives', () => {
@@ -444,7 +414,6 @@ describe('createDashboardScreenModel', () => {
 		expect(model.firstStarterConfigurationPack?.isFullyApplied).toBe(true);
 		expect(model.gettingStartedItems.find((item) => item.id === 'training')?.complete).toBe(true);
 		expect(model.gettingStartedItems.find((item) => item.id === 'onboarding')?.complete).toBe(true);
-		expect(model.gettingStartedItems.find((item) => item.id === 'duty-roster')?.complete).toBe(true);
 	});
 
 	it('refreshes support data while keeping error state when starter pack application reports failed artifacts', async () => {

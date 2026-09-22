@@ -120,7 +120,7 @@ describe('fetchCalendarData', () => {
 		});
 	});
 
-	it('returns all 5 data collections with entity transforms (roster history moved to page server)', async () => {
+	it('returns Calendar collections with entity transforms', async () => {
 		const ctx = buildCtx();
 		seedCalendarData(ctx.store);
 
@@ -403,8 +403,6 @@ describe('fetchCalendarData', () => {
 
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 	});
-
-	// roster history limit test moved to rosterHistoryQuery.test.ts
 });
 
 describe('getActiveOnboardingPersonnelIds', () => {

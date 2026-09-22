@@ -76,7 +76,6 @@ function makeDutyEvent(assigneeId: string | null, overrides: Partial<DutyEvent> 
 function renderModal(
 	date: Date,
 	dutyEvents: DutyEvent[] = [],
-	dutyRosterHref?: string,
 	overrides: {
 		statusTypes?: StatusType[];
 		existingEntries?: AvailabilityEntry[];
@@ -93,15 +92,14 @@ function renderModal(
 			onAdd: overrides.onAdd ?? vi.fn(),
 			onRemove: overrides.onRemove ?? vi.fn(),
 			onClose: vi.fn(),
-			dutyEvents,
-			dutyRosterHref
+			dutyEvents
 		}
 	});
 }
 
 describe('AvailabilityModal — advanced duty events', () => {
 	it('shows a duty section when the person is assigned to a duty event on that date', () => {
-		renderModal(new Date(2026, 3, 7), [makeDutyEvent('person-1')], '/org/test/duty-rosters/');
+		renderModal(new Date(2026, 3, 7), [makeDutyEvent('person-1')]);
 
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
 	});
@@ -125,16 +123,9 @@ describe('AvailabilityModal — advanced duty events', () => {
 			coverageStart: '2026-04-06T20:00:00',
 			coverageEnd: '2026-04-07T06:00:00'
 		});
-		renderModal(new Date(2026, 3, 7), [overnightEvent], '/org/test/duty-rosters/');
+		renderModal(new Date(2026, 3, 7), [overnightEvent]);
 
 		expect(screen.getByText('Battalion Staff Duty')).toBeTruthy();
-	});
-
-	it('renders a link to the duty roster for the assigned duty event', () => {
-		renderModal(new Date(2026, 3, 7), [makeDutyEvent('person-1')], '/org/test/duty-rosters/');
-
-		const link = screen.getByRole('link', { name: /Battalion Staff Duty/i });
-		expect(link.getAttribute('href')).toBe('/org/test/duty-rosters/');
 	});
 });
 
@@ -146,7 +137,7 @@ describe('AvailabilityModal — status type select', () => {
 
 	it('selects a status type before adding status', async () => {
 		const onAdd = vi.fn();
-		renderModal(new Date(2026, 3, 7), [], undefined, { statusTypes, onAdd });
+		renderModal(new Date(2026, 3, 7), [], { statusTypes, onAdd });
 
 		await fireEvent.pointerDown(screen.getByRole('button', { name: /Status Type/i }));
 		const tdyOption = screen.getByRole('option', { name: 'TDY' });
@@ -182,7 +173,7 @@ describe('AvailabilityModal — edit status feedback', () => {
 			}
 		];
 
-		renderModal(new Date(2026, 3, 7), [], undefined, { statusTypes, existingEntries });
+		renderModal(new Date(2026, 3, 7), [], { statusTypes, existingEntries });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));

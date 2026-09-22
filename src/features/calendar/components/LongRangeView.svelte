@@ -32,6 +32,7 @@
 
 	interface Props {
 		startDate: Date;
+		onStartDateChange: (date: Date) => void;
 		personnelByGroup: GroupData[];
 		availabilityEntries: AvailabilityEntry[];
 		statusTypes: StatusType[];
@@ -45,6 +46,7 @@
 
 	let {
 		startDate,
+		onStartDateChange,
 		personnelByGroup,
 		availabilityEntries,
 		statusTypes,
@@ -56,7 +58,7 @@
 		onToggleViewMode
 	}: Props = $props();
 
-	let viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
+	const viewStartDate = $derived(new Date(startDate.getFullYear(), startDate.getMonth(), 1));
 	let scrollAreaEl: HTMLDivElement;
 	let rosterRowsEl: HTMLDivElement;
 	let scrollTop = $state(0);
@@ -181,19 +183,20 @@
 	});
 
 	function prevQuarter() {
-		viewStartDate = addMonths(viewStartDate, -3);
+		onStartDateChange(addMonths(viewStartDate, -3));
 	}
 
 	function nextQuarter() {
-		viewStartDate = addMonths(viewStartDate, 3);
+		onStartDateChange(addMonths(viewStartDate, 3));
 	}
 
 	function goToToday() {
-		viewStartDate = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+		const today = new Date();
+		onStartDateChange(new Date(today.getFullYear(), today.getMonth(), 1));
 	}
 
 	function goToMonth(year: number, month: number) {
-		viewStartDate = new Date(year, month, 1);
+		onStartDateChange(new Date(year, month, 1));
 	}
 
 	function handleExportExcel() {

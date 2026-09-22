@@ -1,6 +1,8 @@
 # D02 extended browser acceptance
 
-**FAIL — local acceptance reopened; PR checkpoint BLOCKED.** The extended production-browser test found two reproducible retained Calendar failures. Both predate this PR according to the base/head source comparison; neither receives a waiver. Earlier deletion, security and verification evidence remains valid within its tested scope. This is deliverable acceptance, not whole-phase acceptance or production certification.
+**Historical FAIL — local acceptance reopened; PR checkpoint BLOCKED at the reviewed revision.** The extended production-browser test found two reproducible retained Calendar failures. Both predate this PR according to the base/head source comparison; neither receives a waiver. Earlier deletion, security and verification evidence remains valid within its tested scope. This is deliverable acceptance, not whole-phase acceptance or production certification.
+
+The subsequently authorized [N1/N2 repair and verification](d02-calendar-navigation-repair.md) restores bounded local acceptance. This original failure and its evidence are preserved. N3 remains unchanged.
 
 ## Candidate and environment
 

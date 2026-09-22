@@ -1,5 +1,8 @@
 <script lang="ts">
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import { CalendarRangeCoordinator } from '../contexts/CalendarRangeCoordinator.svelte';
+	import { createVisibleCalendarRange, getCalendarRangeGaps } from '../utils/calendarRange';
+	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
@@ -33,6 +36,38 @@
 	const canMutate = $derived(assignmentAffordance.allowed);
 	const workspaceData = $derived(data.calendar?.data ?? data);
 
+	const rangeCoordinator = new CalendarRangeCoordinator();
+	$effect(() => {
+		data.orgId;
+		rangeCoordinator.reset();
+		const bootstrap = data.calendar?.data;
+		if (bootstrap?.rangeStart && bootstrap.rangeEnd) {
+			rangeCoordinator.includeBootstrap({ rangeStart: bootstrap.rangeStart, rangeEnd: bootstrap.rangeEnd });
+		}
+		return () => rangeCoordinator.cancelInFlightLoads();
+	});
+	$effect(() => {
+		workspaceData;
+		rangeCoordinator.retryToken;
+		void rangeCoordinator.loadVisibleRange({
+			orgId: data.orgId,
+			canViewCalendar: canMutate,
+			currentDate: calendarStore.currentDate,
+			viewMode: 'month'
+		});
+		return () => rangeCoordinator.cancelInFlightLoads();
+	});
+	const rangeReady = $derived(
+		dailyAssignmentsStore.orgId === data.orgId &&
+			!dailyAssignmentsStore.loading &&
+			rangeCoordinator.loadedRange !== null &&
+			getCalendarRangeGaps(rangeCoordinator.loadedRange, createVisibleCalendarRange(calendarStore.currentDate, 'month'))
+				.length === 0
+	);
+	$effect(() => {
+		if (canMutate) document.cookie = buildCalendarAnchorCookie(calendarStore.currentDate);
+	});
+
 	const calendarPersonnel = $derived(workspaceData.allPersonnel ?? workspaceData.personnel ?? []);
 	const rosterView = $derived(
 		createRosterReadModel({
@@ -63,6 +98,9 @@
 	{:else}
 		<MonthlyAssignmentPlanner
 			currentDate={calendarStore.currentDate}
+			onDateChange={(date) => calendarStore.goToMonth(date.getFullYear(), date.getMonth())}
+			rangeStatus={rangeReady ? 'ready' : rangeCoordinator.error ? 'error' : 'loading'}
+			onRetry={() => rangeCoordinator.retryFailedRange()}
 			assignmentTypes={dailyAssignmentsStore.types}
 			assignments={dailyAssignmentsStore.assignments}
 			personnelByGroup={scopedPBG}

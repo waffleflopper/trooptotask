@@ -222,6 +222,24 @@ describe('calendar page', () => {
 		});
 	});
 
+	it('loads the navigated quarter and persists that month for the next server bootstrap', async () => {
+		calendarStore.goToMonth(2026, 2);
+		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
+		render(Page, { props: { data: makePageData() } });
+
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
+
+		await waitFor(() => {
+			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {
+				rangeStart: '2026-06-01',
+				rangeEnd: '2026-08-31'
+			});
+			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-06-01`);
+		});
+	});
+
 	it('keeps the calendar visible when range loading fails and retries only on demand', async () => {
 		loadCalendarRangeMock.mockReset();
 		loadCalendarRangeMock.mockRejectedValueOnce(new Error('boom')).mockResolvedValueOnce({

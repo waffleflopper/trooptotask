@@ -7,6 +7,7 @@ import type { AssignmentType, DailyAssignment, Personnel, SpecialDay, StatusType
 
 type LongRangeViewProps = {
 	startDate: Date;
+	onStartDateChange: (date: Date) => void;
 	personnelByGroup: { group: string; personnel: Personnel[] }[];
 	availabilityEntries: AvailabilityEntry[];
 	statusTypes: StatusType[];
@@ -82,9 +83,10 @@ function triggerResizeObserver() {
 }
 
 function renderView(overrides: Partial<LongRangeViewProps> = {}) {
-	return render(LongRangeView, {
+	const view = render(LongRangeView, {
 		props: {
 			startDate: new Date(2026, 2, 1),
+			onStartDateChange: (startDate) => void view.rerender({ startDate }),
 			personnelByGroup: [{ group: 'Alpha', personnel }],
 			availabilityEntries: [],
 			statusTypes,
@@ -94,6 +96,7 @@ function renderView(overrides: Partial<LongRangeViewProps> = {}) {
 			...overrides
 		}
 	});
+	return view;
 }
 
 describe('LongRangeView', () => {

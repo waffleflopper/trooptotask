@@ -168,6 +168,7 @@
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}
+						onStartDateChange={(date) => calendarStore.goToMonth(date.getFullYear(), date.getMonth())}
 						personnelByGroup={ctx.filteredPBG}
 						availabilityEntries={availabilityStore.items}
 						statusTypes={statusTypesStore.items}

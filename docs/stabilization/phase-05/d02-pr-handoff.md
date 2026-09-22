@@ -1,18 +1,11 @@
-# D02 publication handoff
+# D02 PR review handoff
 
-Title: **Make Calendar assignments independent of Duty Roster**
+[PR #1322](https://github.com/waffleflopper/trooptotask/pull/1322): **Make Calendar assignments independent of Duty Roster**. Base `main` at `5c0662bbd37a5df478b634f72a0e4d7bef3c9e8e`; branch `stabilization/05-d02-calendar-independence`. The four original implementation commits, `ea662d28` failed-browser record and subsequent N1/N2 repairs belong to this PR. Resolve the exact current remote head before review; do not assume only the repairs are in HEAD.
 
-Base: `main`, freshly fetched at `5c0662bbd37a5df478b634f72a0e4d7bef3c9e8e`. Head branch: `stabilization/05-d02-calendar-independence`. Local candidate: `a62b66d54b915412a0b87694cf41498859fd751e` plus the complete uncommitted cutover, collision repair and evidence. No D02 PR exists after paginated live reconciliation; no published final head is claimed. Keep child #1317 open until verified merge.
+The [repair work record](d02-calendar-navigation-repair.md) and [original failure](d02-browser-acceptance.md) own current local acceptance and retained evidence. Full final checks pass: 544 files / 4,872 tests, type/governance/lint/format and production build. Required browser counterexamples now pass with persisted person/group slots, far-month edits, reloads and scoped denials. N3 remains unchanged. No schema change or remote database work.
 
-The [work record](../EVIDENCE.md#task-05-03-01-manual-assignment-conflict-and-provenance-cutover) owns verification, data-preservation receipts and limitations. All mapped D02 tasks and acceptance must pass before publication. Review the full diff from `main`, especially retained historical assignments, Group/tenant denial, conflict classification, rollback and Dashboard access. Independent local reviews pass; obtain review of the exact published candidate too.
+Robert authorized push and finish-pr, using the [prescribed body](d02-pr-body.md); his **do not merge** instruction persists. Update this existing PR with `gh pr edit 1322 --repo waffleflopper/trooptotask --body-file docs/stabilization/phase-05/d02-pr-body.md`; do not create a duplicate. Observe hosted checks and requested reviews for the exact pushed head, paginate review threads, and retain unavailable GitHub Actions as unavailable. Check final body linkage: `Closes #1317`, references parent #1278 without closing it.
 
-After separately authorizing publication, the owner should review and commit the complete intended diff, then run:
+**AWAITING_MERGE / STOP.** Keep #1317 open until verified merge. No D03 or later phase activation. The [release prerequisites](../RELEASE.md#phase-05-d02-local-implementation-boundary) still govern any later releasing merge; pushes may deploy a Vercel preview. Local acceptance does not certify external deployment settings or production readiness.
 
-```bash
-git push -u origin stabilization/05-d02-calendar-independence
-gh pr create --repo waffleflopper/trooptotask --base main --head stabilization/05-d02-calendar-independence --title "Make Calendar assignments independent of Duty Roster" --body-file docs/stabilization/phase-05/d02-pr-body.md
-```
-
-Reconcile live PRs again before creation; reuse an existing PR if publication occurred meanwhile. Verify its actual head SHA, `main` base and `Closes #1317` linkage. The [prepared body](d02-pr-body.md) references parent #1278 without closing it. Resolve [release prerequisites](../RELEASE.md#phase-05-d02-local-implementation-boundary) before any releasing merge: publication may deploy; D01's owner confirmations do not certify D02. This child introduces no migration.
-
-**AWAITING_PR / STOP.** This invocation does not authorize or perform commit, push, PR creation, merge, deployment, remote database work, D03 work or Phase 06 activation. After owner-controlled publication/review/merge, repeat workflow #1275 to verify integration before starting another child.
+Continuation: “Reconcile exact-head PR #1322 checks/reviews using the linked repair record, and leave it unmerged until Robert authorizes merge.”

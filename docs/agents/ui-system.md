@@ -4,7 +4,7 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 
 ## Current-State Sources
 
-- `docs/component-catalog.md` is the active shared UI reference. Use it for component APIs, composition rules, styling expectations, states, and known replacements.
+- The [component catalog index](../component-catalog.md#find-the-relevant-component) routes to shared APIs, states and known replacements. Read the foundation and relevant component sections.
 - Shared UI source under `src/lib/components/ui/**` owns generated shadcn-svelte primitives and TroopToTask compound UI.
 - Shared app and layout primitives under `src/lib/components/**` own product shell and reusable layout behavior.
 - `src/app.css` and `components.json` own global Tailwind v4, shadcn-svelte, token, and generated-component configuration.
@@ -18,7 +18,9 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 - Route-level visual overrides are forbidden unless Robert explicitly approves that specific visual change.
 - Route-level variation is behavioral only: data, labels, validation, permissions, filters, columns, actions, state, and event handlers.
 - For a component fit gap within authorized UI work, implement the smallest shared API extension and update its consumers and catalog. Preserve existing consumer behavior.
-- Feature-owned behavioral composition can use existing primitives within the requested scope. Keep visual ownership shared and avoid duplicate primitive APIs or compatibility wrappers; apply the catalog's [composition boundary](../component-catalog.md#ui-foundation).
+- Feature-owned behavioral composition can use existing primitives within the requested scope. Keep visual ownership shared and avoid duplicate primitive APIs or compatibility wrappers. Ordinary behavioral composition and shared API extensions do not need renewed approval when already authorized.
+
+This guide owns the visual and composition policy; the catalog owns component usage. Document reusable variants there and verify affected consumers when changing a shared API or appearance.
 
 ## Route Work
 
@@ -26,6 +28,14 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 - When route UI work is in scope, use Tailwind utility composition that matches the shared component baseline.
 - Remove obsolete route-local CSS only when the route slice owns that surface and the shared replacement is already available.
 - Keep business rules in feature modules, contexts, stores, server use cases, or shared services. Do not enforce important rules only through UI state.
+
+## Consistent screens and interactions
+
+Before building a screen, find the nearest page family and reuse its navigation, header, content width, grouping, forms, action placement and save/error behavior. For example, settings pages should use one settings composition and feedback pattern. Carry the approved design into shared tokens and components; confirmed behavior takes precedence over limitations in an older mockup.
+
+When no suitable pattern exists, use the direction already authorized to establish the smallest reusable composition and document its intended use. If the visual direction is consequential and unsettled, ask Robert whether to prototype, use a supplied direction or research comparable products. Continue independent work while that decision is pending.
+
+Use accessible shared controls, dialogs and menus. Preserve labels, keyboard/focus behavior, loading/empty/error states and save feedback. Inspect the rendered interaction against an analogous screen at narrow and wide widths, with long and short dynamic content. Use wrapping, truncation or overflow intentionally so content remains usable; a cosmetic adjustment alone does not require a new runtime test. Follow the [testing strategy](../architecture/TESTING.md) for uncovered interaction or accessibility behavior.
 
 ## Current UI Foundation
 

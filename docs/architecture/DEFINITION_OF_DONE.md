@@ -15,11 +15,17 @@ This definition of done is for v1 work in this repo. It applies to both implemen
 
 ## Verification Contract
 
-This is the command and evidence contract for stabilization. Apply the [program decisions](ARCHITECTURE.md#stabilization-decisions) and retained [contracts R1–R8](../stabilization/BASELINE.md#retained-contracts).
+This owns verification for repository work. Stabilization also follows the [program decisions](ARCHITECTURE.md#stabilization-decisions) and retained [contracts R1–R8](../stabilization/BASELINE.md#retained-contracts).
 
 ### Required commands
 
-Use focused checks to investigate a specific behavior while editing. Run the complete sequence below for the final candidate and record each result even if an earlier check fails. After it passes, repeat or broaden checks only for subsequent changes, failures or unresolved concerns; recording results alone needs documentation validation, not another unchanged runtime run:
+Choose the checks from what changed:
+
+- **Documentation only:** For prose, glossary, agent instructions and reference examples that do not change executable behavior, use the documentation checks below. Application tests, type checks and a production build are not required. If a doc is executable input to tooling, verify that consumer too.
+- **Application changes:** Source, runtime configuration, dependencies, schema, executable scripts and tests require the complete sequence below for the final candidate. Run focused checks while editing, then record each required result even if an earlier check fails. Apply database and computer-use checks when their boundaries change.
+- **Stabilization acceptance:** Documentation-only maintenance does not replace a task's required behavioral evidence or phase acceptance checks.
+
+Once checks pass, repeat or broaden them only for subsequent changes, failures or unresolved concerns. Recording results alone needs documentation validation, not another unchanged runtime run.
 
 ```bash
 npm run format
@@ -33,9 +39,13 @@ npm run build
 
 `npm run test` runs retained Vitest tests. `npm run gate` combines format checking, lint, governance, Svelte/type checks and tests; it omits formatting writes and the production build and stops at the first failure. It is not the whole sequence above.
 
-The formatter currently excludes `docs/`. For touched Markdown excluded by repository configuration, also run `npm exec prettier -- --ignore-path /dev/null --write <explicit-file-paths>` and the corresponding `--check`, without changing ignore rules. Check relative links and heading anchors in touched docs and run `git diff --check`.
+### Documentation checks
 
-Use synthetic values and unreachable provider endpoints for offline builds when environment values are required. Record the exact non-secret overrides, tool versions, candidate revision/diff, commands, exit results and material warnings in [EVIDENCE](../stabilization/EVIDENCE.md). Never publish credentials or token-bearing URLs. Missing tooling and failed checks remain explicit. Preserve guards, scan paths, assertions and budgets: no bypasses, allowlists, skipped tests, inflated thresholds or reduced scan coverage.
+Format only touched Markdown with `npm exec prettier -- --ignore-path /dev/null --write <explicit-file-paths>` and run the corresponding `--check`; the explicit ignore override includes `docs/` without changing repository ignore rules. Check local links and heading anchors, review the affected instruction/contract consumers, and run `git diff --check`. Inspect changed examples against their owning implementation where relevant. Do not add tests that merely match prose.
+
+### Recording evidence
+
+Use synthetic values and unreachable provider endpoints for offline builds when environment values are required. Record the exact non-secret overrides, tool versions, candidate revision/diff, commands, exit results and material warnings in the task's work record; stabilization uses [EVIDENCE](../stabilization/EVIDENCE.md). A standalone documentation audit can use its own audit record. Never publish credentials or token-bearing URLs. Missing tooling and failed checks remain explicit. Preserve guards, scan paths, assertions and budgets: no bypasses, allowlists, skipped tests, inflated thresholds or reduced scan coverage.
 
 ### Lower-level behavior checks
 

@@ -205,5 +205,64 @@ SELECT set_config('request.jwt.claims', '{}', true);
 SELECT * FROM pg_temp.alpha_reads('Anonymous', 0);
 SELECT * FROM pg_temp.denied_mutations('Anonymous');
 RESET ROLE;
+-- A dual-Organization configurator must not transfer an existing step's identity.
+-- Include a real progress reference: its single-column FK cannot enforce tenancy.
+INSERT INTO public.personnel (id, organization_id, rank, first_name, last_name, slug)
+VALUES ('a4000000-0000-4000-8000-000000000601', 'a4000000-0000-4000-8000-000000000101', 'SPC', 'Synthetic', 'Arrival', 'arrival-synthetic');
+INSERT INTO public.personnel_onboardings (id, organization_id, personnel_id, template_id)
+VALUES ('a4000000-0000-4000-8000-000000000701', 'a4000000-0000-4000-8000-000000000101', 'a4000000-0000-4000-8000-000000000601', 'a4000000-0000-4000-8000-000000000301');
+INSERT INTO public.onboarding_step_progress (id, organization_id, onboarding_id, template_step_id, step_name, step_type)
+VALUES ('a4000000-0000-4000-8000-000000000801', 'a4000000-0000-4000-8000-000000000101', 'a4000000-0000-4000-8000-000000000701', 'a4000000-0000-4000-8000-000000000401', 'Alpha Step', 'checkbox');
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'a4000000-0000-4000-8000-000000000010', true);
+INSERT INTO public.onboarding_templates (id, organization_id, name)
+VALUES ('a4000000-0000-4000-8000-000000000304', 'a4000000-0000-4000-8000-000000000101', 'Another Alpha Packet');
+INSERT INTO public.onboarding_template_steps (id, organization_id, template_id, name, step_type) VALUES
+('a4000000-0000-4000-8000-000000000404', 'a4000000-0000-4000-8000-000000000101', 'a4000000-0000-4000-8000-000000000301', 'Editable Alpha Step', 'checkbox'),
+('a4000000-0000-4000-8000-000000000405', 'a4000000-0000-4000-8000-000000000101', 'a4000000-0000-4000-8000-000000000301', 'Fixed Identity', 'checkbox');
+UPDATE public.onboarding_template_steps
+SET template_id = 'a4000000-0000-4000-8000-000000000304', name = 'Updated Alpha Step',
+    description = 'Retained edit', step_type = 'paperwork', training_type_id = NULL,
+    stages = '["issued", "filed"]', sort_order = 3
+WHERE id = 'a4000000-0000-4000-8000-000000000404';
+SELECT is(
+  (SELECT jsonb_build_array(template_id, name, description, step_type, training_type_id, stages, sort_order)
+   FROM public.onboarding_template_steps WHERE id = 'a4000000-0000-4000-8000-000000000404'),
+  '["a4000000-0000-4000-8000-000000000304", "Updated Alpha Step", "Retained edit", "paperwork", null, ["issued", "filed"], 3]'::jsonb,
+  'ordinary edits, reordering and same-Organization template reassignment remain allowed'
+);
+UPDATE public.onboarding_template_steps
+SET step_type = 'training', training_type_id = 'a4000000-0000-4000-8000-000000000501', stages = NULL
+WHERE id = 'a4000000-0000-4000-8000-000000000404';
+SELECT is(
+  (SELECT training_type_id FROM public.onboarding_template_steps WHERE id = 'a4000000-0000-4000-8000-000000000404'),
+  'a4000000-0000-4000-8000-000000000501'::uuid,
+  'configurator can edit a same-Organization Training association without Training access'
+);
+SELECT throws_ok($$
+  UPDATE public.onboarding_template_steps
+  SET organization_id = 'a4000000-0000-4000-8000-000000000102',
+      template_id = 'a4000000-0000-4000-8000-000000000302', training_type_id = NULL
+  WHERE id = 'a4000000-0000-4000-8000-000000000404'
+$$, '42501', NULL, 'changing both ownership fields cannot transfer an unreferenced step');
+SELECT throws_ok($$
+  UPDATE public.onboarding_template_steps SET id = 'a4000000-0000-4000-8000-000000000406'
+  WHERE id = 'a4000000-0000-4000-8000-000000000405'
+$$, '42501', NULL, 'authenticated callers cannot replace an unreferenced step identity');
+SELECT throws_ok($$
+  UPDATE public.onboarding_template_steps
+  SET organization_id = 'a4000000-0000-4000-8000-000000000102',
+      template_id = 'a4000000-0000-4000-8000-000000000302'
+  WHERE id = 'a4000000-0000-4000-8000-000000000401'
+$$, '42501', NULL, 'changing both ownership fields cannot transfer a step referenced by active progress');
+RESET ROLE;
+SELECT is(
+  (SELECT jsonb_build_array(s.organization_id, s.template_id, p.organization_id, p.template_step_id)
+   FROM public.onboarding_template_steps s JOIN public.onboarding_step_progress p ON p.template_step_id = s.id
+   WHERE p.id = 'a4000000-0000-4000-8000-000000000801'),
+  '["a4000000-0000-4000-8000-000000000101", "a4000000-0000-4000-8000-000000000301", "a4000000-0000-4000-8000-000000000101", "a4000000-0000-4000-8000-000000000401"]'::jsonb,
+  'denied transfer preserves the step and its existing progress association in Alpha'
+);
 SELECT * FROM finish();
 ROLLBACK;

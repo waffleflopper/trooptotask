@@ -174,7 +174,6 @@ src/
     calendar/                # Calendar views, availability, status, assignments
     onboarding/              # Onboarding workflows, templates
     dashboard/               # Readiness, people/duty, and training/evaluation overview
-    duty-roster/             # Temporary Calendar reader types; removal tracked in phase 05 D02
     sign-in-rosters/         # Sign-in roster generation
     groups/                  # Group and member management
   lib/

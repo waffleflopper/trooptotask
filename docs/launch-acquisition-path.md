@@ -67,16 +67,15 @@ separate privacy-reviewed persistence plan is approved.
 | Meaningful roster                           | active `personnel` count                                                                           | Computed as at least 5 active personnel. Exact roster import completion is deferred because no durable import milestone exists.                 |
 | Invited leader accepted                     | `organization_memberships` owner/admin count                                                       | Computed as more than one accepted owner/admin Organization Membership. Pending invite analysis stays in member-management/support views.       |
 | Seeded defaults reviewed                    | `status_types` and `assignment_types` counts only                                                  | Counts show defaults/configuration exist; they are not proof a leader reviewed them. Exact reviewed state requires a separate persistence plan. |
-| First Duty Roster activity                  | `duty_roster_templates`, `duty_roster_template_runs`, and legacy `duty_roster_history` counts      | Computed when templates or runs/history exist.                                                                                                  |
 | Onboarding, training, or eval setup started | `onboarding_template_steps`, `training_types`, and `rating_scheme_entries` counts                  | Computed as aggregate setup-started signals.                                                                                                    |
 
 The scan covers up to 100 newest Organizations, ordered by creation time and ID.
-It scores roster, accepted leader, Duty Roster activity and setup milestones;
+It scores roster, accepted leader and setup milestones;
 inferred acquisition and deferred defaults review do not affect the score.
 Incomplete Organizations are in progress; complete ones are activated. Counts
 cover the full scan, while the table shows up to 12 least-complete Organizations
 first. A failed query is reported as unavailable, never as an empty or healthy
-scan. Duty Roster metrics remain until their phase-05 retirement.
+scan.
 
 Organization creation still seeds only the basic day-one defaults such as
 Groups, availability statuses, assignment types, and federal holidays. Starter

@@ -89,7 +89,6 @@ describe('admin organizations route load', () => {
 				activatedOrganizations: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
-				dutyRosterStarted: 0,
 				setupStarted: 0,
 				inProgressOrganizations: 0
 			},

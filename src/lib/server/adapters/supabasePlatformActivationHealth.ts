@@ -36,9 +36,6 @@ const EMPTY_COUNTS: PlatformActivationSetupCounts = {
 	leaderMembers: 0,
 	statusTypes: 0,
 	assignmentTypes: 0,
-	dutyRosterTemplates: 0,
-	dutyRosterRuns: 0,
-	dutyRosterHistory: 0,
 	onboardingTemplateSteps: 0,
 	trainingTypes: 0,
 	ratingSchemeEntries: 0
@@ -89,7 +86,7 @@ async function countRowsByOrganization(
 	supabase: SupabaseClient,
 	table: string,
 	organizationIds: string[],
-	options: { activeDutyRosterTemplatesOnly?: boolean; roles?: Array<'owner' | 'admin' | 'member'> } = {}
+	options: { roles?: Array<'owner' | 'admin' | 'member'> } = {}
 ): Promise<Map<string, number>> {
 	const rows: ActivationCountRow[] = [];
 	let from = 0;
@@ -102,7 +99,6 @@ async function countRowsByOrganization(
 			.order('organization_id', { ascending: true })
 			.order('id', { ascending: true })
 			.range(from, from + COUNT_PAGE_SIZE - 1);
-		if (options.activeDutyRosterTemplatesOnly) builder = builder.eq('status', 'active');
 		if (options.roles) builder = builder.in('role', options.roles);
 		const response = (await builder) as SupabaseResponse<ActivationCountRow[]>;
 		throwIfSupabaseError(response.error);
@@ -155,9 +151,6 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				leaderMemberCounts,
 				statusTypeCounts,
 				assignmentTypeCounts,
-				dutyRosterTemplateCounts,
-				dutyRosterRunCounts,
-				dutyRosterHistoryCounts,
 				onboardingTemplateStepCounts,
 				trainingTypeCounts,
 				ratingSchemeEntryCounts
@@ -167,11 +160,6 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				countRowsByOrganization(supabase, 'organization_memberships', organizationIds, { roles: ['owner', 'admin'] }),
 				countRowsByOrganization(supabase, 'status_types', organizationIds),
 				countRowsByOrganization(supabase, 'assignment_types', organizationIds),
-				countRowsByOrganization(supabase, 'duty_roster_templates', organizationIds, {
-					activeDutyRosterTemplatesOnly: true
-				}),
-				countRowsByOrganization(supabase, 'duty_roster_template_runs', organizationIds),
-				countRowsByOrganization(supabase, 'duty_roster_history', organizationIds),
 				countRowsByOrganization(supabase, 'onboarding_template_steps', organizationIds),
 				countRowsByOrganization(supabase, 'training_types', organizationIds),
 				countRowsByOrganization(supabase, 'rating_scheme_entries', organizationIds)
@@ -182,9 +170,6 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 			applyCounts(factsByOrgId, leaderMemberCounts, 'leaderMembers');
 			applyCounts(factsByOrgId, statusTypeCounts, 'statusTypes');
 			applyCounts(factsByOrgId, assignmentTypeCounts, 'assignmentTypes');
-			applyCounts(factsByOrgId, dutyRosterTemplateCounts, 'dutyRosterTemplates');
-			applyCounts(factsByOrgId, dutyRosterRunCounts, 'dutyRosterRuns');
-			applyCounts(factsByOrgId, dutyRosterHistoryCounts, 'dutyRosterHistory');
 			applyCounts(factsByOrgId, onboardingTemplateStepCounts, 'onboardingTemplateSteps');
 			applyCounts(factsByOrgId, trainingTypeCounts, 'trainingTypes');
 			applyCounts(factsByOrgId, ratingSchemeEntryCounts, 'ratingSchemeEntries');

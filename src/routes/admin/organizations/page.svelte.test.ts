@@ -42,7 +42,6 @@ function renderOrganizationsPage(data: Partial<PageProps['data']>) {
 				activatedOrganizations: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
-				dutyRosterStarted: 0,
 				setupStarted: 0,
 				inProgressOrganizations: 0
 			},
@@ -93,7 +92,6 @@ describe('admin organizations page', () => {
 					activatedOrganizations: 0,
 					meaningfulRosters: 0,
 					acceptedLeaders: 0,
-					dutyRosterStarted: 1,
 					setupStarted: 1,
 					inProgressOrganizations: 1
 				},
@@ -117,9 +115,6 @@ describe('admin organizations page', () => {
 								leaderMembers: 1,
 								statusTypes: 4,
 								assignmentTypes: 1,
-								dutyRosterTemplates: 1,
-								dutyRosterRuns: 1,
-								dutyRosterHistory: 0,
 								onboardingTemplateSteps: 2,
 								trainingTypes: 3,
 								ratingSchemeEntries: 1,
@@ -138,8 +133,8 @@ describe('admin organizations page', () => {
 		expect(document.body.textContent).toContain('0 activated');
 		expect(screen.getByText('Showing top 1 of 3 candidates.')).toBeTruthy();
 		expect(screen.getByText('2 / 5')).toBeTruthy();
-		expect(screen.getByText('1 templates / 1 runs')).toBeTruthy();
 		expect(screen.getByText('2 onboarding / 3 training / 1 evals')).toBeTruthy();
+		expect(screen.queryByRole('columnheader', { name: 'Duty Roster' })).toBeNull();
 		expect(screen.getByText('Import or add at least 5 active personnel.')).toBeTruthy();
 		expect(screen.getAllByRole('link', { name: 'Able Company' }).map((link) => link.getAttribute('href'))).toEqual([
 			'/admin/organizations/org-1',
@@ -173,7 +168,6 @@ describe('admin organizations page', () => {
 					activatedOrganizations: 0,
 					meaningfulRosters: 0,
 					acceptedLeaders: 0,
-					dutyRosterStarted: 0,
 					setupStarted: 0,
 					inProgressOrganizations: 0
 				},
@@ -183,7 +177,7 @@ describe('admin organizations page', () => {
 		});
 
 		expect(screen.getAllByText('Activation health diagnostics could not be fully loaded.')).toHaveLength(2);
-		expect(screen.getByText(/Roster, member, Duty Roster, and setup counts may be incomplete/)).toBeTruthy();
+		expect(screen.getByText(/Roster, member, and setup counts may be incomplete/)).toBeTruthy();
 		expect(screen.getByText('Unavailable')).toBeTruthy();
 		expect(screen.getByText('Activation health data is unavailable until diagnostics load successfully.')).toBeTruthy();
 		expect(

@@ -11,9 +11,6 @@ interface GettingStartedSupportData {
 	onboardingTemplateStepCount: number;
 	ratingSchemeEntryCount: number;
 	orgMemberCount: number;
-	dutyRosterTemplateCount: number;
-	dutyRosterRunCount: number;
-	dutyRosterHistoryCount: number;
 	gettingStartedDismissed: boolean;
 	starterConfigurationPacks: StarterConfigurationPackSupport[];
 }
@@ -39,9 +36,6 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		onboardingTemplateStepCount,
 		ratingSchemeEntryCount,
 		orgMemberCount,
-		dutyRosterTemplateCount,
-		dutyRosterRunCount,
-		dutyRosterHistoryCount,
 		gettingStartedRows,
 		starterConfigurationPacks
 	] = await Promise.all([
@@ -49,9 +43,6 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		countRows(ctx, 'onboarding_template_steps'),
 		countRows(ctx, 'rating_scheme_entries'),
 		countRows(ctx, 'organization_memberships'),
-		countRows(ctx, 'duty_roster_templates'),
-		countRows(ctx, 'duty_roster_template_runs'),
-		countRows(ctx, 'duty_roster_history'),
 		ctx.auth.userId
 			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
 					user_id: ctx.auth.userId
@@ -67,9 +58,6 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		onboardingTemplateStepCount,
 		ratingSchemeEntryCount,
 		orgMemberCount,
-		dutyRosterTemplateCount,
-		dutyRosterRunCount,
-		dutyRosterHistoryCount,
 		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null,
 		starterConfigurationPacks
 	} satisfies GettingStartedSupportData;

@@ -9,7 +9,6 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
-import { deriveBadgeColor, deriveShortName } from '$features/calendar/utils/dutyEventBadges';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
@@ -102,15 +101,6 @@ export interface DashboardDutyAssignmentRow {
 	color: string;
 	textColor: string;
 	assigneeName: string;
-}
-
-export interface DashboardAdvancedDutyRow {
-	id: string;
-	templateName: string;
-	shortName: string;
-	color: string;
-	textColor: string;
-	slots: Array<{ key: string; roleLabel: string; assigneeName: string }>;
 }
 
 export interface DashboardUpcomingChangeRow {
@@ -550,30 +540,6 @@ export class DashboardScreenModel {
 		return this.sources.dailyAssignments.assignments
 			.filter((a) => a.date === this.today)
 			.map((a) => this.toDutyAssignmentRow(a));
-	}
-
-	get todayAdvancedDuty(): DashboardAdvancedDutyRow[] {
-		return (this.data.dashboard.data.todayDutyEvents ?? [])
-			.filter((event) => event.eventDate === this.today)
-			.map((event) => ({
-				id: event.id,
-				templateName: event.templateName,
-				shortName: deriveShortName(event.templateName),
-				...deriveBadgeColor(event.templateId),
-				slots: [...event.slotInstances]
-					.sort((a, b) => a.sortOrder - b.sortOrder)
-					.map((slot) => {
-						let assigneeName = 'Unfilled';
-						if (slot.assigneeId) {
-							const person = this.findRosterPerson(slot.assigneeId);
-							if (person) {
-								assigneeName = `${person.rank} ${person.lastName}`;
-								if (person.firstName) assigneeName += `, ${person.firstName[0]}`;
-							}
-						}
-						return { key: `${slot.roleLabel}-${slot.slotIndex}`, roleLabel: slot.roleLabel, assigneeName };
-					})
-			}));
 	}
 
 	get trainingStats() {

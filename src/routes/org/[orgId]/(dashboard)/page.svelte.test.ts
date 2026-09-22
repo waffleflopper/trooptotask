@@ -1,16 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
-import PassiveStub from './test-stubs/PassiveStub.svelte';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
-
-vi.mock('$features/dashboard', async () => {
-	const actual = await vi.importActual<typeof import('$features/dashboard')>('$features/dashboard');
-	return {
-		...actual,
-		DashboardPageView: PassiveStub
-	};
-});
 
 import Page from './+page.svelte';
 
@@ -31,19 +22,21 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 			role: userRole === 'member' ? 'member' : 'owner'
 		}),
 		dashboard: {
-			workspace: 'dashboard',
 			data: {
-				availabilityEntries: [],
-				assignmentTypes: [],
-				todayAssignments: [],
-				pinnedGroups: [],
-				ratingSchemeEntries: [],
-				activeOnboardings: [],
-				todayDutyEvents: [],
-				personnel: [],
-				groups: [],
-				statusTypes: [],
-				trainingTypes: []
+				workspaceKey: 'dashboard',
+				data: {
+					availabilityEntries: [],
+					assignmentTypes: [],
+					todayAssignments: [],
+					pinnedGroups: [],
+					ratingSchemeEntries: [],
+					activeOnboardings: [],
+					personnel: [],
+					groups: [],
+					statusTypes: [],
+					trainingTypes: []
+				},
+				hydration: { orgId }
 			}
 		},
 		summary: {
@@ -71,135 +64,17 @@ function makePageData(overrides: Record<string, unknown> = {}) {
 }
 
 describe('dashboard page', () => {
-	it('does not load workspace support for non-privileged members', async () => {
-		const fetchMock = vi.fn();
+	it('does not request disabled setup support for an owner, including after Organization navigation', async () => {
+		const fetchMock = vi.fn().mockRejectedValue(new Error('Disabled setup must not be requested'));
 		vi.stubGlobal('fetch', fetchMock);
-
-		render(Page, {
-			props: {
-				data: makePageData({
-					userRole: 'member'
-				})
-			}
-		});
-
-		await Promise.resolve();
-
+		const view = render(Page, { props: { data: makePageData() } });
+		await waitFor(() => expect(document.title).toContain('Test Unit'));
 		expect(fetchMock).not.toHaveBeenCalled();
-		expect(screen.queryByText('Loading workspace support...')).toBeNull();
-		expect(screen.queryByText('Workspace support is temporarily unavailable.')).toBeNull();
-	});
 
-	it('reloads workspace support when navigating to another org route after support data has loaded', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					onboardingTemplateStepCount: 1,
-					ratingSchemeEntryCount: 2,
-					orgMemberCount: 3,
-					dutyRosterTemplateCount: 0,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 0,
-					gettingStartedDismissed: false
-				})
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					onboardingTemplateStepCount: 4,
-					ratingSchemeEntryCount: 5,
-					orgMemberCount: 6,
-					dutyRosterTemplateCount: 1,
-					dutyRosterRunCount: 1,
-					dutyRosterHistoryCount: 1,
-					gettingStartedDismissed: true
-				})
-			});
-		vi.stubGlobal('fetch', fetchMock);
-
-		const view = render(Page, {
-			props: {
-				data: makePageData()
-			}
-		});
-
-		await waitFor(() => {
-			expect(fetchMock).toHaveBeenNthCalledWith(1, '/org/org-1/api/getting-started');
-		});
-
-		await view.rerender({
-			data: makePageData({
-				orgId: 'org-2',
-				orgName: 'Second Unit'
-			})
-		});
-
-		await waitFor(() => {
-			expect(fetchMock).toHaveBeenNthCalledWith(2, '/org/org-2/api/getting-started');
-		});
-	});
-
-	it('reloads workspace support when navigating to another org route after a support failure', async () => {
-		const fetchMock = vi
-			.fn()
-			.mockResolvedValueOnce({
-				ok: false,
-				json: async () => ({ message: 'support unavailable' })
-			})
-			.mockResolvedValueOnce({
-				ok: true,
-				json: async () => ({
-					onboardingTemplateStepCount: 1,
-					ratingSchemeEntryCount: 1,
-					orgMemberCount: 1,
-					dutyRosterTemplateCount: 0,
-					dutyRosterRunCount: 0,
-					dutyRosterHistoryCount: 0,
-					gettingStartedDismissed: false
-				})
-			});
-		vi.stubGlobal('fetch', fetchMock);
-
-		const view = render(Page, {
-			props: {
-				data: makePageData()
-			}
-		});
-
-		expect(await screen.findByText('Workspace support is temporarily unavailable.')).toBeTruthy();
-
-		await view.rerender({
-			data: makePageData({
-				orgId: 'org-2',
-				orgName: 'Second Unit'
-			})
-		});
-
-		await waitFor(() => {
-			expect(fetchMock).toHaveBeenNthCalledWith(2, '/org/org-2/api/getting-started');
-		});
-	});
-
-	it('loads workspace support lazily after render and shows a retry notice on failure', async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: false,
-			json: async () => ({ message: 'support unavailable' })
-		});
-		vi.stubGlobal('fetch', fetchMock);
-
-		render(Page, {
-			props: {
-				data: makePageData()
-			}
-		});
-
-		await waitFor(() => {
-			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/getting-started');
-		});
-
-		expect(await screen.findByText('Workspace support is temporarily unavailable.')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Retry checklist' })).toBeTruthy();
+		await view.rerender({ data: makePageData({ orgId: 'org-2', orgName: 'Second Unit' }) });
+		await waitFor(() => expect(document.title).toContain('Second Unit'));
+		expect(fetchMock).not.toHaveBeenCalled();
+		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Retry checklist' })).toBeNull();
 	});
 });

@@ -231,7 +231,6 @@ describe('dashboard page server load', () => {
 				pinnedGroups: [],
 				ratingSchemeEntries: [],
 				activeOnboardings: [{ personnelId: 'p2' }],
-				todayDutyEvents: [],
 				personnel: [],
 				groups: [],
 				statusTypes: [],
@@ -334,7 +333,6 @@ describe('dashboard page server load', () => {
 				pinnedGroups: [],
 				ratingSchemeEntries: [],
 				activeOnboardings: [],
-				todayDutyEvents: [],
 				personnel: [],
 				groups: [],
 				statusTypes: [],
@@ -350,6 +348,49 @@ describe('dashboard page server load', () => {
 			ictlSummary: null
 		});
 		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
+	});
+
+	it('keeps the Dashboard available without fetching Training data when Training access is none', async () => {
+		const shellData = createReadyAppShellRouteData({ orgId: ORG_ID, role: 'member', criticalTasksCapability: 'view' });
+		const shell = requireReadyAppShell(shellData);
+		shell.member.capabilityMap.training = 'none';
+		shell.member.scopeSet = { kind: 'groups', groupIds: ['alpha'] };
+		fetchDashboardTrainingSummaryMock.mockRejectedValue(new Error('You do not have permission to use training data'));
+		const parent = vi.fn().mockResolvedValue({
+			...shellData,
+			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [] } }) }
+		});
+
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: {},
+			depends: vi.fn(),
+			parent
+		} as never);
+
+		await expect(result.summary).resolves.toEqual({
+			trainingSummary: null,
+			onboardingTrainingCompletions: [],
+			ictlSummary: expect.objectContaining({ hasActiveTasks: true })
+		});
+		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
+	});
+
+	it('preserves Training failures when the member is allowed to view Training', async () => {
+		fetchDashboardTrainingSummaryMock.mockRejectedValue(new Error('Training storage unavailable'));
+		const parent = vi.fn().mockResolvedValue({
+			...createReadyAppShellRouteData({ orgId: ORG_ID }),
+			dashboard: { data: Promise.resolve({ data: { personnel: [], trainingTypes: [], activeOnboardings: [] } }) }
+		});
+		const result = await load({
+			params: { orgId: ORG_ID },
+			locals: {},
+			cookies: {},
+			depends: vi.fn(),
+			parent
+		} as never);
+		await expect(result.summary).rejects.toThrow('Training storage unavailable');
 	});
 
 	it('leaves the organization through the dashboard action and redirects away from the org', async () => {

@@ -45,7 +45,6 @@ function makeData(
 				pinnedGroups: [],
 				activeOnboardings: [],
 				ratingSchemeEntries: [],
-				todayDutyEvents: [],
 				personnel: [],
 				groups: [],
 				statusTypes: [],

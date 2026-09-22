@@ -13,7 +13,7 @@ import type { DashboardIctlSummary } from '$features/dashboard/dashboard.types';
 import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 
 export interface DashboardPageSummaryData {
-	trainingSummary: Awaited<ReturnType<typeof fetchDashboardTrainingSummary>>['trainingSummary'];
+	trainingSummary: Awaited<ReturnType<typeof fetchDashboardTrainingSummary>>['trainingSummary'] | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
 }
@@ -90,21 +90,25 @@ export const load = async ({ params, locals, cookies, depends, parent }: PageSer
 				const workspaceData = (await workspaceBootstrap).data;
 				const canViewCriticalTasks =
 					parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
-				const trainingData = await fetchDashboardTrainingSummary(ctx, {
-					personnel: workspaceData.personnel,
-					trainingTypes: workspaceData.trainingTypes,
-					onboardingPersonnelIds: workspaceData.activeOnboardings.map((o) => o.personnelId),
-					options: {
-						// Fetch enough to guarantee 5 unique people after client-side deduplication
-						issueLimit: 25,
-						issueStatuses: ['expired', 'warning-orange']
-					}
-				});
+				const canViewTraining =
+					parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
+				const trainingData = canViewTraining
+					? await fetchDashboardTrainingSummary(ctx, {
+							personnel: workspaceData.personnel,
+							trainingTypes: workspaceData.trainingTypes,
+							onboardingPersonnelIds: workspaceData.activeOnboardings.map((o) => o.personnelId),
+							options: {
+								// Fetch enough to guarantee 5 unique people after client-side deduplication
+								issueLimit: 25,
+								issueStatuses: ['expired', 'warning-orange']
+							}
+						})
+					: null;
 
 				return {
-					trainingSummary: trainingData.trainingSummary,
+					trainingSummary: trainingData?.trainingSummary ?? null,
 					ictlSummary: await loadDashboardIctlSummary(ctx, canViewCriticalTasks),
-					onboardingTrainingCompletions: [...trainingData.onboardingTrainingCompletions]
+					onboardingTrainingCompletions: trainingData ? [...trainingData.onboardingTrainingCompletions] : []
 				} satisfies DashboardPageSummaryData;
 			})
 	});

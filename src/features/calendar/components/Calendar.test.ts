@@ -4,7 +4,6 @@ import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
-import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
 let resizeObserverCallback: ResizeObserverCallback | undefined;
@@ -82,7 +81,6 @@ function renderCalendar(
 		personnelByGroup: { group: string; personnel: Personnel[] }[];
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
-		dutyEvents: DutyEvent[];
 		showPersonnelRoles: boolean;
 		canEdit: boolean;
 		canEditAssignments: boolean;
@@ -104,7 +102,6 @@ function renderCalendar(
 			pinnedGroups: [],
 			assignmentTypes: overrides.assignmentTypes ?? [],
 			assignments: overrides.assignments ?? [],
-			dutyEvents: overrides.dutyEvents ?? [],
 			showPersonnelRoles: overrides.showPersonnelRoles ?? false,
 			canEdit: overrides.canEdit,
 			canEditAssignments: overrides.canEditAssignments,
@@ -131,56 +128,6 @@ function makeLossRecord(personId: string, triggerType: UpcomingLossRecord['trigg
 		awardDueSoon: true,
 		awardTrackingAcknowledged: false,
 		groupId: 'group-1'
-	};
-}
-
-function makeDutyEvent(eventDate: string, assigneeId: string, templateName = 'Battalion Staff Duty'): DutyEvent {
-	return {
-		id: `evt-${eventDate}-${assigneeId}`,
-		orgId: 'org-1',
-		runId: null,
-		templateId: 'tpl-1',
-		templateName,
-		eventDate,
-		coverageMode: 'timed',
-		coverageStart: `${eventDate}T08:00:00`,
-		coverageEnd: `${eventDate}T20:00:00`,
-		isBlocking: true,
-		cooldownHours: 12,
-		rulesSnapshot: {
-			templateId: 'tpl-1',
-			templateName,
-			templateStatus: 'active',
-			coverageMode: 'timed',
-			startTime: '08:00',
-			endTime: '20:00',
-			scopeType: 'organization',
-			scopeGroupIds: [],
-			isBlocking: true,
-			cooldownHours: 12,
-			slots: []
-		},
-		fillSummary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
-		collisionSummary: { hasConflicts: false, conflicts: [] },
-		originalProposal: null,
-		createdAt: '2026-02-01T12:00:00Z',
-		updatedAt: '2026-02-01T12:00:00Z',
-		slotInstances: [
-			{
-				id: `slot-${eventDate}-${assigneeId}`,
-				dutyEventId: `evt-${eventDate}-${assigneeId}`,
-				templateSlotId: 'tslot-1',
-				roleLabel: 'NCO',
-				slotIndex: 0,
-				assigneeId,
-				assignmentSource: 'generated',
-				warningState: 'none',
-				fairnessConfidence: 'high',
-				selectionReason: null,
-				unfilledReason: null,
-				sortOrder: 0
-			}
-		]
 	};
 }
 
@@ -236,31 +183,6 @@ describe('Calendar', () => {
 
 		expect(badge.textContent?.trim()).toBe('SGT Smith');
 		expect(badge.title).toBe('Manager on Duty: SGT Smith');
-	});
-
-	it('renders advanced duty events as inline badges in the assignee cell without extra rows', () => {
-		const { container } = renderCalendar({
-			dutyEvents: [makeDutyEvent('2026-03-02', 'person-2', 'Battalion Staff Duty')]
-		});
-
-		// Should still only render two personnel rows — no new rows added for duty events.
-		expect(container.querySelectorAll('.personnel-row')).toHaveLength(2);
-
-		const dutyBadges = container.querySelectorAll('.assignment-badge.duty-badge');
-		expect(dutyBadges).toHaveLength(1);
-		expect(dutyBadges[0].textContent?.trim()).toBe('BSD');
-
-		// Tooltip should describe the template and role.
-		const cellWithBadge = dutyBadges[0].closest('.date-cell') as HTMLElement | null;
-		expect(cellWithBadge?.title).toContain('Battalion Staff Duty — NCO');
-	});
-
-	it('does not render duty badges on cells where the person is not assigned', () => {
-		const { container } = renderCalendar({
-			dutyEvents: [makeDutyEvent('2026-03-01', 'person-1')]
-		});
-		// Only one badge total — on person-1's 2026-03-01 cell.
-		expect(container.querySelectorAll('.assignment-badge.duty-badge')).toHaveLength(1);
 	});
 
 	it('opens the month picker from the title and forwards the selected month and year', async () => {

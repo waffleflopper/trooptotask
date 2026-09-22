@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	clearDailyAssignmentSlot,
+	createDailyAssignmentSlot,
+	updateDailyAssignmentSlot,
 	replaceDailyAssignmentDay,
 	replaceDailyAssignmentSlotsBatch,
 	setDailyAssignmentSlot
@@ -11,63 +13,57 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 	return createWritePortsContext(overrides);
 }
 
-function seedDutyConflictForArchivedPersonnel(
-	ctx: ReturnType<typeof createWritePortsContext>,
-	personId = 'archived-person'
-) {
-	ctx.store.seed('personnel', [
-		{
-			id: personId,
-			organization_id: 'test-org',
-			rank: 'SGT',
-			last_name: 'Archived',
-			first_name: 'Avery',
-			mos: '11B',
-			clinic_role: 'Squad Leader',
-			group_id: 'group-hq',
-			group_name: 'Headquarters',
-			archived_at: '2026-03-01T00:00:00Z'
-		}
-	]);
-	ctx.store.seed('duty_events', [
-		{
-			id: 'duty-event-archived',
-			organization_id: 'test-org',
-			template_id: 'tmpl-1',
-			template_name: 'Battalion Staff Duty',
-			event_date: '2026-03-22',
-			coverage_start: '2026-03-22T06:00:00',
-			coverage_end: '2026-03-22T18:00:00',
-			coverage_mode: 'timed',
-			start_time: '06:00',
-			end_time: '18:00',
-			is_blocking: true,
-			cooldown_hours: 12,
-			fill_summary: {},
-			collision_summary: {},
-			rules_snapshot: {}
-		}
-	]);
-	ctx.store.seed('duty_event_slots', [
-		{
-			id: 'duty-slot-archived',
-			organization_id: 'test-org',
-			duty_event_id: 'duty-event-archived',
-			template_slot_id: 'slot-nco',
-			role_label: 'NCO',
-			slot_index: 0,
-			assignee_id: personId,
-			assignment_source: 'generated',
-			warning_state: 'none',
-			fairness_confidence: 'high',
-			selection_reason: null,
-			unfilled_reason: null,
-			sort_order: 0
-		}
-	]);
-}
-
 describe('Daily Assignment Slot writes', () => {
+	it.each(['create', 'set', 'update', 'day', 'batch'] as const)(
+		'%s saves a manual assignment when retired duty storage is unavailable',
+		async (operation) => {
+			const ctx = buildContext();
+			const record = { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' };
+			if (operation === 'update') {
+				ctx.store.seed('daily_assignments', [
+					{
+						id: 'saved-slot',
+						organization_id: 'test-org',
+						date: record.date,
+						assignment_type_id: 'type-a',
+						assignee_id: 'old-person'
+					}
+				]);
+			}
+			const findMany = ctx.store.findMany.bind(ctx.store);
+			const unavailable = vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
+				if (['duty_events', 'duty_event_slots', 'duty_event_runs'].includes(table)) {
+					throw new Error('Retired duty storage is unavailable');
+				}
+				return findMany(table, ...args);
+			});
+			try {
+				switch (operation) {
+					case 'create':
+						await createDailyAssignmentSlot(ctx, record);
+						break;
+					case 'set':
+						await setDailyAssignmentSlot(ctx, record);
+						break;
+					case 'update':
+						await updateDailyAssignmentSlot(ctx, { id: 'saved-slot', assigneeId: 'person-1' });
+						break;
+					case 'day':
+						await replaceDailyAssignmentDay(ctx, { date: record.date, records: [record] });
+						break;
+					case 'batch':
+						await replaceDailyAssignmentSlotsBatch(ctx, { records: [record] });
+						break;
+				}
+				expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+					expect.objectContaining({ date: '2026-03-22', assignment_type_id: 'type-a', assignee_id: 'person-1' })
+				]);
+			} finally {
+				unavailable.mockRestore();
+			}
+		}
+	);
+
 	it('sets one slot through the Calendar-owned interface', async () => {
 		const ctx = buildContext();
 
@@ -84,76 +80,81 @@ describe('Daily Assignment Slot writes', () => {
 		});
 	});
 
-	it('preserves the existing slot assignment when replacement insert fails after clearing', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('daily_assignments', [
-			{
-				id: 'old-slot-a',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person-a',
-				created_at: '2026-03-21T14:15:16.000Z',
-				duty_roster_template_run_id: null,
-				duty_roster_template_run_row_date: null
-			},
-			{
-				id: 'same-day-other-type',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-b',
-				assignee_id: 'other-type-person'
-			},
-			{
-				id: 'same-type-other-day',
-				organization_id: 'test-org',
-				date: '2026-03-23',
-				assignment_type_id: 'type-a',
-				assignee_id: 'other-day-person'
-			}
-		]);
-		const insertSpy = vi.spyOn(ctx.store, 'insert').mockRejectedValueOnce(new Error('Calendar insert failed.'));
-
-		try {
-			await expect(
-				setDailyAssignmentSlot(ctx, {
+	it.each([undefined, 409])(
+		'preserves the existing slot assignment when replacement insert fails after clearing (status %s)',
+		async (status) => {
+			const failure = new Error('Calendar insert failed.');
+			if (status) Object.assign(failure, { status });
+			const ctx = buildContext();
+			ctx.store.seed('daily_assignments', [
+				{
+					id: 'old-slot-a',
+					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignmentTypeId: 'type-a',
-					assigneeId: 'person-1'
-				})
-			).rejects.toThrow('Calendar insert failed.');
+					assignment_type_id: 'type-a',
+					assignee_id: 'old-person-a',
+					created_at: '2026-03-21T14:15:16.000Z',
+					duty_roster_template_run_id: 'historical-run',
+					duty_roster_template_run_row_date: '2026-03-22'
+				},
+				{
+					id: 'same-day-other-type',
+					organization_id: 'test-org',
+					date: '2026-03-22',
+					assignment_type_id: 'type-b',
+					assignee_id: 'other-type-person'
+				},
+				{
+					id: 'same-type-other-day',
+					organization_id: 'test-org',
+					date: '2026-03-23',
+					assignment_type_id: 'type-a',
+					assignee_id: 'other-day-person'
+				}
+			]);
+			const insertSpy = vi.spyOn(ctx.store, 'insert').mockRejectedValueOnce(failure);
 
-			const stored = await ctx.store.findMany('daily_assignments', 'test-org');
-			expect(stored).toHaveLength(3);
-			expect(stored).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						id: 'old-slot-a',
+			try {
+				await expect(
+					setDailyAssignmentSlot(ctx, {
 						date: '2026-03-22',
-						assignment_type_id: 'type-a',
-						assignee_id: 'old-person-a',
-						created_at: '2026-03-21T14:15:16.000Z',
-						duty_roster_template_run_id: null,
-						duty_roster_template_run_row_date: null
-					}),
-					expect.objectContaining({
-						id: 'same-day-other-type',
-						date: '2026-03-22',
-						assignment_type_id: 'type-b',
-						assignee_id: 'other-type-person'
-					}),
-					expect.objectContaining({
-						id: 'same-type-other-day',
-						date: '2026-03-23',
-						assignment_type_id: 'type-a',
-						assignee_id: 'other-day-person'
+						assignmentTypeId: 'type-a',
+						assigneeId: 'person-1'
 					})
-				])
-			);
-		} finally {
-			insertSpy.mockRestore();
+				).rejects.toBe(failure);
+
+				const stored = await ctx.store.findMany('daily_assignments', 'test-org');
+				expect(stored).toHaveLength(3);
+				expect(stored).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							id: 'old-slot-a',
+							date: '2026-03-22',
+							assignment_type_id: 'type-a',
+							assignee_id: 'old-person-a',
+							created_at: '2026-03-21T14:15:16.000Z',
+							duty_roster_template_run_id: 'historical-run',
+							duty_roster_template_run_row_date: '2026-03-22'
+						}),
+						expect.objectContaining({
+							id: 'same-day-other-type',
+							date: '2026-03-22',
+							assignment_type_id: 'type-b',
+							assignee_id: 'other-type-person'
+						}),
+						expect.objectContaining({
+							id: 'same-type-other-day',
+							date: '2026-03-23',
+							assignment_type_id: 'type-a',
+							assignee_id: 'other-day-person'
+						})
+					])
+				);
+			} finally {
+				insertSpy.mockRestore();
+			}
 		}
-	});
+	);
 
 	it('clears one slot through the Calendar-owned interface', async () => {
 		const ctx = buildContext();
@@ -199,288 +200,145 @@ describe('Daily Assignment Slot writes', () => {
 		]);
 	});
 
-	it('preserves the existing day assignments when replacement insert fails after clearing', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('daily_assignments', [
-			{
-				id: 'old-slot-a',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person-a'
-			},
-			{
-				id: 'other-day-slot',
-				organization_id: 'test-org',
-				date: '2026-03-23',
-				assignment_type_id: 'type-a',
-				assignee_id: 'other-day-person'
-			}
-		]);
-		const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(new Error('Calendar insert failed.'));
-
-		try {
-			await expect(
-				replaceDailyAssignmentDay(ctx, {
-					date: '2026-03-22',
-					records: [{ assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
-				})
-			).rejects.toThrow('Calendar insert failed.');
-
-			const stored = await ctx.store.findMany('daily_assignments', 'test-org');
-			expect(stored).toHaveLength(2);
-			expect(stored).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						id: 'old-slot-a',
-						date: '2026-03-22',
-						assignment_type_id: 'type-a',
-						assignee_id: 'old-person-a'
-					}),
-					expect.objectContaining({
-						id: 'other-day-slot',
-						date: '2026-03-23',
-						assignment_type_id: 'type-a',
-						assignee_id: 'other-day-person'
-					})
-				])
-			);
-		} finally {
-			insertManySpy.mockRestore();
-		}
-	});
-
-	it('rejects a single-slot assignment when an archived assignee has a duty conflict', async () => {
-		const ctx = buildContext();
-		seedDutyConflictForArchivedPersonnel(ctx);
-
-		await expect(
-			setDailyAssignmentSlot(ctx, {
-				date: '2026-03-22',
-				assignmentTypeId: 'type-a',
-				assigneeId: 'archived-person'
-			})
-		).rejects.toMatchObject({
-			status: 409,
-			message: 'SGT Archived is already assigned to duty coverage from 2026-03-22T06:00:00 to 2026-03-22T18:00:00.'
-		});
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
-	});
-
-	it('rejects a batch slot assignment when an archived assignee has a duty conflict', async () => {
-		const ctx = buildContext();
-		seedDutyConflictForArchivedPersonnel(ctx);
-
-		await expect(
-			replaceDailyAssignmentSlotsBatch(ctx, {
-				records: [
-					{
-						date: '2026-03-22',
-						assignmentTypeId: 'type-a',
-						assigneeId: 'archived-person'
-					}
-				]
-			})
-		).rejects.toMatchObject({
-			status: 409,
-			message: 'SGT Archived is already assigned to duty coverage from 2026-03-22T06:00:00 to 2026-03-22T18:00:00.'
-		});
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([]);
-	});
-
-	it('rejects a multi-record replace day when one manual assignee has a duty conflict', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-1',
-				organization_id: 'test-org',
-				rank: 'SGT',
-				last_name: 'Nolan',
-				first_name: 'Casey',
-				mos: '11B',
-				clinic_role: 'Squad Leader',
-				group_id: 'group-hq',
-				group_name: 'Headquarters'
-			},
-			{
-				id: 'person-2',
-				organization_id: 'test-org',
-				rank: 'SSG',
-				last_name: 'Baker',
-				first_name: 'Jordan',
-				mos: '11B',
-				clinic_role: 'Platoon Sergeant',
-				group_id: 'group-hq',
-				group_name: 'Headquarters'
-			}
-		]);
-		ctx.store.seed('daily_assignments', [
-			{
-				id: 'old-slot',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person'
-			}
-		]);
-		ctx.store.seed('duty_events', [
-			{
-				id: 'duty-event-1',
-				organization_id: 'test-org',
-				template_id: 'tmpl-1',
-				template_name: 'Battalion Staff Duty',
-				event_date: '2026-03-22',
-				coverage_start: '2026-03-22T06:00:00',
-				coverage_end: '2026-03-22T18:00:00',
-				coverage_mode: 'timed',
-				start_time: '06:00',
-				end_time: '18:00',
-				is_blocking: true,
-				cooldown_hours: 12,
-				fill_summary: {},
-				collision_summary: {},
-				rules_snapshot: {}
-			}
-		]);
-		ctx.store.seed('duty_event_slots', [
-			{
-				id: 'duty-slot-1',
-				organization_id: 'test-org',
-				duty_event_id: 'duty-event-1',
-				template_slot_id: 'slot-nco',
-				role_label: 'NCO',
-				slot_index: 0,
-				assignee_id: 'person-1',
-				assignment_source: 'generated',
-				warning_state: 'none',
-				fairness_confidence: 'high',
-				selection_reason: null,
-				unfilled_reason: null,
-				sort_order: 0
-			}
-		]);
-
-		await expect(
-			replaceDailyAssignmentDay(ctx, {
-				date: '2026-03-22',
-				records: [
-					{ assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-					{ assignmentTypeId: 'type-b', assigneeId: 'person-2' }
-				]
-			})
-		).rejects.toMatchObject({
-			status: 409,
-			message: 'SGT Nolan is already assigned to duty coverage from 2026-03-22T06:00:00 to 2026-03-22T18:00:00.'
-		});
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
-			expect.objectContaining({ id: 'old-slot', assignee_id: 'old-person' })
-		]);
-	});
-
-	it('batch replaces slots and maps Daily Assignment Source Lineage to current storage columns', async () => {
-		const ctx = buildContext();
-
-		await replaceDailyAssignmentSlotsBatch(ctx, {
-			records: [
+	it.each([undefined, 409])(
+		'preserves the existing day assignments when replacement insert fails after clearing (status %s)',
+		async (status) => {
+			const failure = new Error('Calendar insert failed.');
+			if (status) Object.assign(failure, { status });
+			const ctx = buildContext();
+			ctx.store.seed('daily_assignments', [
 				{
+					id: 'old-slot-a',
+					organization_id: 'test-org',
 					date: '2026-03-22',
-					assignmentTypeId: 'type-a',
-					assigneeId: 'person-1',
-					sourceLineage: {
-						sourceKind: 'duty-roster-run',
-						sourceId: 'run-1',
-						sourceRowKey: '2026-03-22'
-					}
+					assignment_type_id: 'type-a',
+					assignee_id: 'old-person-a'
+				},
+				{
+					id: 'other-day-slot',
+					organization_id: 'test-org',
+					date: '2026-03-23',
+					assignment_type_id: 'type-a',
+					assignee_id: 'other-day-person'
 				}
-			]
-		});
+			]);
+			const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(failure);
 
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
-			expect.objectContaining({
-				duty_roster_template_run_id: 'run-1',
-				duty_roster_template_run_row_date: '2026-03-22'
-			})
-		]);
-	});
-
-	it('preserves affected batch slots when replacement insert fails after clearing', async () => {
-		const ctx = buildContext();
-		ctx.store.seed('daily_assignments', [
-			{
-				id: 'old-slot-a',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person-a'
-			},
-			{
-				id: 'old-slot-b',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-b',
-				assignee_id: 'old-person-b'
-			},
-			{
-				id: 'unaffected-same-day',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-c',
-				assignee_id: 'same-day-person'
-			},
-			{
-				id: 'unaffected-same-type',
-				organization_id: 'test-org',
-				date: '2026-03-23',
-				assignment_type_id: 'type-a',
-				assignee_id: 'same-type-person'
-			}
-		]);
-		const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(new Error('Calendar insert failed.'));
-
-		try {
-			await expect(
-				replaceDailyAssignmentSlotsBatch(ctx, {
-					records: [
-						{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
-						{ date: '2026-03-22', assignmentTypeId: 'type-b', assigneeId: '' }
-					]
-				})
-			).rejects.toThrow('Calendar insert failed.');
-
-			const stored = await ctx.store.findMany('daily_assignments', 'test-org');
-			expect(stored).toHaveLength(4);
-			expect(stored).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						id: 'old-slot-a',
+			try {
+				await expect(
+					replaceDailyAssignmentDay(ctx, {
 						date: '2026-03-22',
-						assignment_type_id: 'type-a',
-						assignee_id: 'old-person-a'
-					}),
-					expect.objectContaining({
-						id: 'old-slot-b',
-						date: '2026-03-22',
-						assignment_type_id: 'type-b',
-						assignee_id: 'old-person-b'
-					}),
-					expect.objectContaining({
-						id: 'unaffected-same-day',
-						date: '2026-03-22',
-						assignment_type_id: 'type-c',
-						assignee_id: 'same-day-person'
-					}),
-					expect.objectContaining({
-						id: 'unaffected-same-type',
-						date: '2026-03-23',
-						assignment_type_id: 'type-a',
-						assignee_id: 'same-type-person'
+						records: [{ assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
 					})
-				])
-			);
-		} finally {
-			insertManySpy.mockRestore();
+				).rejects.toBe(failure);
+
+				const stored = await ctx.store.findMany('daily_assignments', 'test-org');
+				expect(stored).toHaveLength(2);
+				expect(stored).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							id: 'old-slot-a',
+							date: '2026-03-22',
+							assignment_type_id: 'type-a',
+							assignee_id: 'old-person-a'
+						}),
+						expect.objectContaining({
+							id: 'other-day-slot',
+							date: '2026-03-23',
+							assignment_type_id: 'type-a',
+							assignee_id: 'other-day-person'
+						})
+					])
+				);
+			} finally {
+				insertManySpy.mockRestore();
+			}
 		}
-	});
+	);
+
+	it.each([undefined, 409])(
+		'preserves affected batch slots when replacement insert fails after clearing (status %s)',
+		async (status) => {
+			const failure = new Error('Calendar insert failed.');
+			if (status) Object.assign(failure, { status });
+			const ctx = buildContext();
+			ctx.store.seed('daily_assignments', [
+				{
+					id: 'old-slot-a',
+					organization_id: 'test-org',
+					date: '2026-03-22',
+					assignment_type_id: 'type-a',
+					assignee_id: 'old-person-a'
+				},
+				{
+					id: 'old-slot-b',
+					organization_id: 'test-org',
+					date: '2026-03-22',
+					assignment_type_id: 'type-b',
+					assignee_id: 'old-person-b'
+				},
+				{
+					id: 'unaffected-same-day',
+					organization_id: 'test-org',
+					date: '2026-03-22',
+					assignment_type_id: 'type-c',
+					assignee_id: 'same-day-person'
+				},
+				{
+					id: 'unaffected-same-type',
+					organization_id: 'test-org',
+					date: '2026-03-23',
+					assignment_type_id: 'type-a',
+					assignee_id: 'same-type-person'
+				}
+			]);
+			const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(failure);
+
+			try {
+				await expect(
+					replaceDailyAssignmentSlotsBatch(ctx, {
+						records: [
+							{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
+							{ date: '2026-03-22', assignmentTypeId: 'type-b', assigneeId: '' }
+						]
+					})
+				).rejects.toBe(failure);
+
+				const stored = await ctx.store.findMany('daily_assignments', 'test-org');
+				expect(stored).toHaveLength(4);
+				expect(stored).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							id: 'old-slot-a',
+							date: '2026-03-22',
+							assignment_type_id: 'type-a',
+							assignee_id: 'old-person-a'
+						}),
+						expect.objectContaining({
+							id: 'old-slot-b',
+							date: '2026-03-22',
+							assignment_type_id: 'type-b',
+							assignee_id: 'old-person-b'
+						}),
+						expect.objectContaining({
+							id: 'unaffected-same-day',
+							date: '2026-03-22',
+							assignment_type_id: 'type-c',
+							assignee_id: 'same-day-person'
+						}),
+						expect.objectContaining({
+							id: 'unaffected-same-type',
+							date: '2026-03-23',
+							assignment_type_id: 'type-a',
+							assignee_id: 'same-type-person'
+						})
+					])
+				);
+			} finally {
+				insertManySpy.mockRestore();
+			}
+		}
+	);
 
 	it('requires manage assignment policy for clear-only empty batch slots', async () => {
 		const ctx = buildContext({
@@ -514,34 +372,6 @@ describe('Daily Assignment Slot writes', () => {
 			status: 403
 		});
 		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([existing]);
-	});
-
-	it('prefers generic Daily Assignment Source Lineage over legacy lineage fields', async () => {
-		const ctx = buildContext();
-
-		await replaceDailyAssignmentSlotsBatch(ctx, {
-			records: [
-				{
-					date: '2026-03-22',
-					assignmentTypeId: 'type-a',
-					assigneeId: 'person-1',
-					dutyRosterTemplateRunId: 'legacy-run',
-					dutyRosterTemplateRunRowDate: 'legacy-row',
-					sourceLineage: {
-						sourceKind: 'duty-roster-run',
-						sourceId: 'generic-run',
-						sourceRowKey: 'generic-row'
-					}
-				}
-			]
-		});
-
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
-			expect.objectContaining({
-				duty_roster_template_run_id: 'generic-run',
-				duty_roster_template_run_row_date: 'generic-row'
-			})
-		]);
 	});
 
 	it('rejects duplicate batch slots before write side effects', async () => {

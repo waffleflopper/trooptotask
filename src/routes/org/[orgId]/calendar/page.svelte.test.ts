@@ -89,7 +89,7 @@ function makeBootstrap(): CalendarWorkspaceResult {
 			assignmentTypes: [],
 			dailyAssignments: [],
 			pinnedGroups: [],
-			advancedDutyEvents: [],
+
 			personnel: [
 				{
 					id: 'p1',
@@ -158,8 +158,7 @@ describe('calendar page', () => {
 			rangeEnd: '2026-08-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		});
 		mergeCalendarRangeIntoStoresMock.mockReset();
 		calendarStore.goToMonth(2026, 3);
@@ -219,8 +218,25 @@ describe('calendar page', () => {
 			rangeEnd: '2026-08-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
+		});
+	});
+
+	it('loads the navigated quarter and persists that month for the next server bootstrap', async () => {
+		calendarStore.goToMonth(2026, 2);
+		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
+		render(Page, { props: { data: makePageData() } });
+
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
+
+		await waitFor(() => {
+			expect(loadCalendarRangeMock).toHaveBeenCalledWith('org-1', {
+				rangeStart: '2026-06-01',
+				rangeEnd: '2026-08-31'
+			});
+			expect(document.cookie).toContain(`${CALENDAR_ANCHOR_COOKIE}=2026-06-01`);
 		});
 	});
 
@@ -231,8 +247,7 @@ describe('calendar page', () => {
 			rangeEnd: '2026-08-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		});
 
 		render(Page, {

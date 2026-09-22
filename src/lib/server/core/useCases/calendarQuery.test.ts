@@ -84,19 +84,6 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 	store.seed('user_pinned_groups', [
 		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
 	]);
-	store.seed('duty_roster_history', [
-		{
-			id: 'rh1',
-			organization_id: ORG,
-			assignment_type_id: 'at1',
-			name: 'CQ Roster',
-			start_date: '2026-03-01',
-			end_date: '2026-03-31',
-			roster: [],
-			config: {},
-			created_at: '2026-03-01T00:00:00Z'
-		}
-	]);
 }
 
 describe('fetchCalendarData', () => {
@@ -319,79 +306,6 @@ describe('fetchCalendarData', () => {
 		expect(result.dailyAssignments[0].id).toBe('in');
 	});
 
-	it('returns advanced duty events filtered by event_date within the range', async () => {
-		const ctx = buildCtx();
-		const baseEvent = {
-			organization_id: ORG,
-			template_id: 'tpl-1',
-			template_name: 'Battalion Staff Duty',
-			coverage_mode: 'timed',
-			is_blocking: true,
-			cooldown_hours: 12,
-			rules_snapshot: {
-				templateId: 'tpl-1',
-				templateName: 'Battalion Staff Duty',
-				templateStatus: 'active',
-				coverageMode: 'timed',
-				startTime: '08:00',
-				endTime: '20:00',
-				scopeType: 'organization',
-				scopeGroupIds: [],
-				isBlocking: true,
-				cooldownHours: 12,
-				slots: []
-			},
-			fill_summary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
-			collision_summary: { hasConflicts: false, conflicts: [] },
-			original_proposal: null,
-			created_at: '2026-02-01T00:00:00Z',
-			updated_at: '2026-02-01T00:00:00Z'
-		};
-		ctx.store.seed('duty_events', [
-			{
-				id: 'evt-in',
-				...baseEvent,
-				event_date: '2026-03-10',
-				coverage_start: '2026-03-10T08:00:00',
-				coverage_end: '2026-03-10T20:00:00'
-			},
-			{
-				id: 'evt-out',
-				...baseEvent,
-				event_date: '2026-05-01',
-				coverage_start: '2026-05-01T08:00:00',
-				coverage_end: '2026-05-01T20:00:00'
-			}
-		]);
-		ctx.store.seed('duty_event_slots', [
-			{
-				id: 'slot-in',
-				organization_id: ORG,
-				duty_event_id: 'evt-in',
-				template_slot_id: 'tslot-1',
-				role_label: 'NCO',
-				slot_index: 0,
-				assignee_id: 'p1',
-				assignment_source: 'generated',
-				warning_state: 'none',
-				fairness_confidence: 'high',
-				selection_reason: null,
-				unfilled_reason: null,
-				sort_order: 0
-			}
-		]);
-
-		const result = await fetchCalendarData(ctx, RANGE);
-
-		expect(result.advancedDutyEvents).toHaveLength(1);
-		expect(result.advancedDutyEvents[0].id).toBe('evt-in');
-		expect(result.advancedDutyEvents[0].slotInstances).toHaveLength(1);
-		expect(result.advancedDutyEvents[0].slotInstances[0].assigneeId).toBe('p1');
-		// An event slot is a computed overlay, not a persisted Daily Assignment Slot.
-		expect(result.dailyAssignments).toEqual([]);
-		expect(await ctx.store.findMany('daily_assignments', ORG)).toEqual([]);
-	});
-
 	it('filters pinned groups by userId', async () => {
 		const ctx = buildCtx({ auth: { userId: 'user-a' } });
 		ctx.store.seed('user_pinned_groups', [
@@ -561,8 +475,7 @@ describe('fetchCalendarRangeData', () => {
 					id: 'da1',
 					assignmentTypeId: 'at1'
 				})
-			],
-			advancedDutyEvents: []
+			]
 		});
 		const resultRecord = result as unknown as Record<string, unknown>;
 		expect(resultRecord.assignmentTypes).toBeUndefined();
@@ -570,15 +483,6 @@ describe('fetchCalendarRangeData', () => {
 		expect(resultRecord.personnel).toBeUndefined();
 		expect(resultRecord.groups).toBeUndefined();
 		expect(resultRecord.statusTypes).toBeUndefined();
-		expect(consoleInfoSpy).toHaveBeenCalledWith(
-			'[calendar-load]',
-			expect.objectContaining({
-				orgId: ctx.auth.orgId,
-				phase: 'duty-event-hydration',
-				status: 'ok',
-				durationMs: expect.any(Number)
-			})
-		);
 		expect(consoleInfoSpy).toHaveBeenCalledWith(
 			'[calendar-load]',
 			expect.objectContaining({

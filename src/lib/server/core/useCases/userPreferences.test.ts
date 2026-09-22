@@ -16,7 +16,7 @@ describe('user preferences', () => {
 		expect(result).toEqual(getDefaultUserOrgPreferences());
 	});
 
-	it('merges stored preferences with defaults', async () => {
+	it('loads retained preferences while discarding a retired duty display setting', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('user_org_preferences', [
 			{
@@ -25,7 +25,8 @@ describe('user preferences', () => {
 				user_id: 'test-user',
 				preferences: {
 					calendar: {
-						showStatusText: true
+						showStatusText: true,
+						dutyStartDayOnly: false
 					}
 				}
 			}
@@ -33,10 +34,10 @@ describe('user preferences', () => {
 
 		const result = await loadUserOrgPreferences(ctx);
 
-		expect(result.calendar.showStatusText).toBe(true);
-		expect(result.calendar.showPersonnelRoles).toBe(false);
-		expect(result.calendar.highlightOnboarding).toBe(true);
-		expect(result.training.matrixViewMode).toBe('by-group');
+		expect(result).toEqual({
+			calendar: { showStatusText: true, showPersonnelRoles: false, highlightOnboarding: true },
+			training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
+		});
 	});
 
 	it('creates a new row when patching for the first time', async () => {

@@ -1,4 +1,4 @@
-export type CalendarLoadPhase = 'workspace-bootstrap' | 'date-ranged-query' | 'duty-event-hydration';
+export type CalendarLoadPhase = 'workspace-bootstrap' | 'date-ranged-query';
 
 function getNowMs(): number {
 	return typeof performance !== 'undefined' ? performance.now() : Date.now();

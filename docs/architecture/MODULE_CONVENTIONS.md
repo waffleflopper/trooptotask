@@ -75,9 +75,9 @@ A client read model should:
 
 This pattern is appropriate for dashboard-style surfaces where components should mostly render stable rows, counts, sections, and labels instead of re-deriving business-facing screen state. It is not a reason to move provider access or route permissions into frontend modules.
 
-`CalendarRangeCoordinator` owns calendar range expansion, request de-duping, range-store merging and retry state. Its advanced duty event merging is scheduled for removal with all Duty Roster consumers in phase 05 of [TODO](../stabilization/TODO.md); preserve the ordinary Calendar behavior and persisted facts in R6.
+`CalendarRangeCoordinator` owns calendar range expansion, request de-duping, range-store merging and retry state. Its former computed duty event merging is removed; ordinary Calendar behavior and persisted facts in R6 remain.
 
-Duty Roster generation, accepted-run commands and feature exports were removed in phase 05 D01. Calendar still uses the read-only `dutyEventCrud.ts` hydration shim and genuine duty-reader types; D02 owns their complete caller cutover and removal. These are removal targets, not patterns for a replacement Duty Roster surface. Historical duty rows do not justify continued runtime hydration; phase 06 owns schema/data disposition under the DB contract.
+Duty Roster generation, accepted-run commands and feature exports were removed in phase 05 D01. D02 removes Calendar event hydration, computed overlays and manual conflict/provenance handling, including the reader/entities and last shared duty snapshot/blocking types. Calendar assignment responses expose retained facts and metadata without duty provenance; existing stored provenance remains untouched until Phase 06. D03 still owns remaining metadata and integration consumers. Historical duty rows do not justify continued runtime hydration; phase 06 owns schema/data disposition under the DB contract.
 
 ## Server Conventions
 

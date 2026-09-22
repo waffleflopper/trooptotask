@@ -4,7 +4,6 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
 	import * as Card from '$lib/components/ui/card';
-	import GettingStartedCard from '../GettingStartedCard.svelte';
 	import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 
 	interface Props {
@@ -96,12 +95,6 @@
 </script>
 
 <section class="px-3 pb-12 sm:px-4">
-	{#if ctx.shouldShowGettingStarted}
-		<div class="pt-4">
-			<GettingStartedCard {ctx} />
-		</div>
-	{/if}
-
 	<div class="grid gap-3 py-4 md:grid-cols-2 lg:grid-cols-3">
 		<!-- ═══════ LARGE: Strength & Availability (spans 2 cols on lg) ═══════ -->
 		<Card.Root class="lg:col-span-2">
@@ -230,12 +223,14 @@
 			</Card.Header>
 			<Card.Content>
 				<div class="grid grid-cols-2 gap-4">
-					<div>
-						<div class="font-display text-4xl font-bold" style:color={view.trainingColor}>
-							{ctx.trainingCurrencyPct}%
+					{#if ctx.trainingStats}
+						<div>
+							<div class="font-display text-4xl font-bold" style:color={view.trainingColor}>
+								{ctx.trainingCurrencyPct}%
+							</div>
+							<div class="font-mono text-[0.625rem] text-muted-foreground">training current</div>
 						</div>
-						<div class="font-mono text-[0.625rem] text-muted-foreground">training current</div>
-					</div>
+					{/if}
 					<div>
 						<div class="font-display text-4xl font-bold text-destructive">{ctx.ratingStats.overdue}</div>
 						<div class="font-mono text-[0.625rem] text-muted-foreground">evals overdue</div>
@@ -284,10 +279,10 @@
 			</Card.Content>
 		</Card.Root>
 
-		<!-- ═══════ MEDIUM: Duty Roster ═══════ -->
+		<!-- ═══════ MEDIUM: Calendar Assignments ═══════ -->
 		<Card.Root>
 			<Card.Header>
-				<Card.Title>Duty Roster</Card.Title>
+				<Card.Title>Calendar Assignments</Card.Title>
 			</Card.Header>
 			<Card.Content>
 				{#if todayDuty}
@@ -318,23 +313,6 @@
 							</div>
 						{/each}
 					{/if}
-				{/if}
-
-				{#if ctx.todayAdvancedDuty.length > 0}
-					<Separator class="my-3" />
-					{#each ctx.todayAdvancedDuty as event (event.id)}
-						<div class="mb-2">
-							<div class="mb-1 font-mono text-[0.625rem] uppercase tracking-widest text-muted-foreground">
-								{event.templateName}
-							</div>
-							{#each event.slots as slot (slot.key)}
-								<div class="flex items-baseline justify-between gap-2 border-t border-border/60 py-1.5">
-									<span class="font-mono text-[0.625rem] uppercase text-muted-foreground">{slot.roleLabel}</span>
-									<span class="text-sm text-foreground">{slot.assigneeName}</span>
-								</div>
-							{/each}
-						</div>
-					{/each}
 				{/if}
 			</Card.Content>
 		</Card.Root>

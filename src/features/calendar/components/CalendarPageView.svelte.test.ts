@@ -44,6 +44,7 @@ vi.mock('$lib/stores/groups.svelte', () => ({
 
 afterEach(() => {
 	cleanup();
+	vi.useRealTimers();
 	calendarStore.goToToday();
 });
 
@@ -142,6 +143,43 @@ describe('CalendarPageView', () => {
 		expect(screen.getByRole('button', { name: /January 2027/ })).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: 'Prev' }));
 		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
+	});
+
+	it('retains Today from three-month view when returning to the month calendar', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 8, 22, 12));
+		mutableAvailabilityStore.loading = false;
+		calendarStore.goToMonth(2026, 11);
+		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Today' }));
+		expect(screen.getByRole('button', { name: /September 2026.*November 2026/ })).toBeTruthy();
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		expect(screen.getByRole('button', { name: /September 2026/ })).toBeTruthy();
+	});
+
+	it('keeps quarter arrows and picker on the Calendar-owned month across a year boundary', async () => {
+		mutableAvailabilityStore.loading = false;
+		calendarStore.goToMonth(2026, 11);
+		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
+
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next 3 Months' }));
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		expect(screen.getByRole('button', { name: /March 2027/ })).toBeTruthy();
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Prev 3 Months' }));
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		await fireEvent.click(screen.getByTestId('long-range-date-label'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next year' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Jan' }));
+		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
+		expect(screen.getByRole('button', { name: /January 2027/ })).toBeTruthy();
 	});
 
 	it('wires typed personnel search into the rendered calendar roster', async () => {

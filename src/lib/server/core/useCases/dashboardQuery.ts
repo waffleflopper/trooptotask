@@ -24,8 +24,6 @@ import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
-import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
-import { listDutyEventsInRange } from './dutyEventCrud';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { loadRosterPersonnel } from './rosterReadModel';
 
@@ -36,7 +34,6 @@ export interface DashboardData {
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeEntry[];
 	activeOnboardings: PersonnelOnboarding[];
-	todayDutyEvents: DutyEvent[];
 }
 
 /**
@@ -53,7 +50,6 @@ export interface DashboardBootstrap {
 	pinnedGroups: string[];
 	ratingSchemeEntries: RatingSchemeEntry[];
 	activeOnboardings: PersonnelOnboarding[];
-	todayDutyEvents: DutyEvent[];
 	personnel: Personnel[];
 	groups: Group[];
 	statusTypes: StatusType[];
@@ -78,7 +74,6 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
 	const serverNow = new Date();
-	const today = formatDate(serverNow);
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 	const availabilityEntries = ctx.store
@@ -104,7 +99,6 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		pinnedGroupRows,
 		ratingSchemeRows,
 		activeOnboardings,
-		todayDutyEvents,
 		personnel,
 		groupRows,
 		statusTypeRows,
@@ -128,7 +122,6 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 			orderBy: [{ column: 'rating_period_end', ascending: true }]
 		}),
 		loadActiveOnboardings(ctx, orgId),
-		listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[]),
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -153,7 +146,6 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
 		activeOnboardings,
-		todayDutyEvents,
 		personnel,
 		groups: GroupEntity.fromDbArray(groupRows),
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
@@ -168,7 +160,6 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 	const userId = ctx.auth.userId;
 
 	const serverNow = new Date();
-	const today = formatDate(serverNow);
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
@@ -178,8 +169,7 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 		dailyAssignmentRows,
 		pinnedGroupRows,
 		ratingSchemeRows,
-		activeOnboardings,
-		todayDutyEvents
+		activeOnboardings
 	] = await Promise.all([
 		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
 			select: AvailabilityEntryEntity.select,
@@ -209,8 +199,7 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 			select: 'id, rated_person_id, eval_type, rating_period_end, status',
 			orderBy: [{ column: 'rating_period_end', ascending: true }]
 		}),
-		loadActiveOnboardings(ctx, orgId),
-		listDutyEventsInRange(ctx, { rangeStart: today, rangeEnd: today }).catch(() => [] as DutyEvent[])
+		loadActiveOnboardings(ctx, orgId)
 	]);
 
 	return {
@@ -219,7 +208,6 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 		todayAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
-		activeOnboardings,
-		todayDutyEvents
+		activeOnboardings
 	};
 }

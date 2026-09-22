@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import type { QueryPorts } from '$lib/server/core/ports';
 import { fetchDashboardBootstrap, fetchDashboardData } from './dashboardQuery';
@@ -217,5 +217,83 @@ describe('fetchDashboardBootstrap', () => {
 		expect(onboardingCalls[0][2]).toEqual({ status: 'in_progress' });
 		expect(result.activeOnboardings).toHaveLength(1);
 		expect(result.activeOnboardings[0].personnelId).toBe('p1');
+	});
+});
+
+afterEach(() => {
+	vi.useRealTimers();
+	vi.restoreAllMocks();
+});
+
+describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar independence', (load) => {
+	it('retains scoped saved assignments without attempting duty event, slot or run reads', async () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-09-21T12:00:00'));
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('assignment_types', [
+			{ id: 'person-type', organization_id: ORG, name: 'Staff Duty', assign_to: 'personnel' },
+			{ id: 'group-type', organization_id: ORG, name: 'Clinic Coverage', assign_to: 'group' }
+		]);
+		store.seed('daily_assignments', [
+			{
+				id: 'saved-historical',
+				organization_id: ORG,
+				date: '2026-09-21',
+				assignment_type_id: 'person-type',
+				assignee_id: 'person-a',
+				duty_roster_template_run_id: 'old-run',
+				duty_roster_template_run_row_date: '2026-09-21'
+			},
+			{
+				id: 'saved-group',
+				organization_id: ORG,
+				date: '2026-09-22',
+				assignment_type_id: 'group-type',
+				assignee_id: 'group-a'
+			},
+			{
+				id: 'foreign',
+				organization_id: 'another-org',
+				date: '2026-09-21',
+				assignment_type_id: 'person-type',
+				assignee_id: 'foreign-person'
+			},
+			{
+				id: 'outside-window',
+				organization_id: ORG,
+				date: '2027-01-01',
+				assignment_type_id: 'person-type',
+				assignee_id: 'person-a'
+			}
+		]);
+		const findMany = store.findMany.bind(store);
+		const dutyReads: string[] = [];
+		vi.spyOn(store, 'findMany').mockImplementation((table, ...args) => {
+			if (['duty_events', 'duty_event_slots', 'duty_event_runs'].includes(table)) {
+				dutyReads.push(table);
+				return Promise.reject(new Error('Duty event storage is unavailable'));
+			}
+			return findMany(table, ...args);
+		});
+
+		const result = await load(ctx);
+
+		expect(await result.todayAssignments).toEqual([
+			expect.objectContaining({
+				id: 'saved-historical',
+				date: '2026-09-21',
+				assignmentTypeId: 'person-type',
+				assigneeId: 'person-a'
+			}),
+			expect.objectContaining({
+				id: 'saved-group',
+				date: '2026-09-22',
+				assignmentTypeId: 'group-type',
+				assigneeId: 'group-a'
+			})
+		]);
+		expect(result.assignmentTypes.map((type) => type.name)).toEqual(['Staff Duty', 'Clinic Coverage']);
+		expect(dutyReads).toEqual([]);
 	});
 });

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
-	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -23,27 +22,11 @@
 		onAdd: (data: Omit<AvailabilityEntry, 'id'>) => void;
 		onRemove: (id: string) => void;
 		onClose: () => void;
-		dutyEvents?: DutyEvent[];
 	}
 
-	let { person, date, statusTypes, existingEntries, onAdd, onRemove, onClose, dutyEvents = [] }: Props = $props();
-
-	function eventCoversDate(event: DutyEvent, d: string): boolean {
-		const startDate = event.coverageStart.slice(0, 10);
-		const endDateRaw = event.coverageEnd.slice(0, 10);
-		const endTime = event.coverageEnd.slice(11, 19);
-		const endDate = endTime === '00:00:00' ? null : endDateRaw;
-		if (d < startDate) return false;
-		if (!endDate) return d === startDate;
-		return d <= endDate;
-	}
-
-	function isPersonAssigned(event: DutyEvent): boolean {
-		return event.slotInstances.some((slot) => slot.assigneeId === person.id);
-	}
+	let { person, date, statusTypes, existingEntries, onAdd, onRemove, onClose }: Props = $props();
 
 	const dateStr = $derived(formatDate(date));
-	const dutyEventsForPerson = $derived(dutyEvents.filter((e) => isPersonAssigned(e) && eventCoversDate(e, dateStr)));
 
 	// Local state for the entries list — updated immediately on add/remove to avoid
 	// reactive prop propagation timing issues (notably in Firefox)
@@ -196,17 +179,6 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body class="space-y-4">
-			{#if dutyEventsForPerson.length > 0}
-				<div class="flex flex-col gap-2 border-b pb-4">
-					<h4 class="text-sm font-medium">On duty</h4>
-					{#each dutyEventsForPerson as event (event.id)}
-						<div class="flex items-center gap-2">
-							<span class="text-sm font-medium">{event.templateName}</span>
-						</div>
-					{/each}
-				</div>
-			{/if}
-
 			{#if localEntries.length > 0}
 				<div class="border-b pb-4">
 					<h4 class="mb-3 text-sm font-medium">Current Status</h4>

@@ -309,30 +309,36 @@ describe('batchDailyAssignments', () => {
 		}
 	});
 
-	it('preserves Duty Roster Template run lineage on inserted assignments', async () => {
+	it('ignores retired generation inputs when saving a manual batch', async () => {
 		const ctx = buildContext();
-
-		await batchDailyAssignments(ctx, {
-			records: [
-				{
-					date: '2026-03-22',
-					assignmentTypeId: 'type-a',
-					assigneeId: 'person-1',
-					dutyRosterTemplateRunId: 'run-1',
-					dutyRosterTemplateRunRowDate: '2026-03-22'
-				}
-			]
-		});
-
-		const remaining = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
-		expect(remaining).toEqual([
-			expect.objectContaining({
+		// Untrusted callers can still send retired keys even though the typed API no longer exposes them.
+		const record = {
+			date: '2026-03-22',
+			assignmentTypeId: 'type-a',
+			assigneeId: 'person-1',
+			dutyRosterTemplateRunId: 'legacy-run',
+			dutyRosterTemplateRunRowDate: '2026-03-22',
+			cooldownHours: 168,
+			sourceLineage: { sourceKind: 'duty-roster-run', sourceId: 'generic-run', sourceRowKey: '2026-03-22' }
+		};
+		const result = await batchDailyAssignments(ctx, { records: [record] });
+		expect(result.inserted).toEqual([
+			{
+				id: expect.any(String),
+				organization_id: 'test-org',
+				date: '2026-03-22',
+				assignmentTypeId: 'type-a',
+				assigneeId: 'person-1'
+			}
+		]);
+		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+			{
+				id: expect.any(String),
+				organization_id: 'test-org',
 				date: '2026-03-22',
 				assignment_type_id: 'type-a',
-				assignee_id: 'person-1',
-				duty_roster_template_run_id: 'run-1',
-				duty_roster_template_run_row_date: '2026-03-22'
-			})
+				assignee_id: 'person-1'
+			}
 		]);
 	});
 
@@ -379,42 +385,6 @@ describe('batchDailyAssignments', () => {
 				assignee_id: 'old-person-2'
 			}
 		]);
-		ctx.store.seed('duty_events', [
-			{
-				id: 'duty-event-1',
-				organization_id: 'test-org',
-				template_id: 'tmpl-1',
-				template_name: 'Battalion Staff Duty',
-				event_date: '2026-04-08',
-				coverage_start: '2026-04-08T06:00:00',
-				coverage_end: '2026-04-08T18:00:00',
-				coverage_mode: 'timed',
-				start_time: '06:00',
-				end_time: '18:00',
-				is_blocking: true,
-				cooldown_hours: 0,
-				fill_summary: {},
-				collision_summary: {},
-				rules_snapshot: {}
-			}
-		]);
-		ctx.store.seed('duty_event_slots', [
-			{
-				id: 'duty-slot-1',
-				organization_id: 'test-org',
-				duty_event_id: 'duty-event-1',
-				template_slot_id: 'slot-nco',
-				role_label: 'NCO',
-				slot_index: 0,
-				assignee_id: 'person-1',
-				assignment_source: 'generated',
-				warning_state: 'none',
-				fairness_confidence: 'high',
-				selection_reason: null,
-				unfilled_reason: null,
-				sort_order: 0
-			}
-		]);
 
 		await batchDailyAssignments(ctx, {
 			records: [
@@ -439,87 +409,5 @@ describe('batchDailyAssignments', () => {
 			])
 		);
 		expect(assignments).toHaveLength(2);
-	});
-
-	it('rejects the batch when a record overlaps duty coverage and leaves existing assignments untouched', async () => {
-		const ctx = buildContext();
-
-		ctx.store.seed('personnel', [
-			{
-				id: 'person-1',
-				organization_id: 'test-org',
-				rank: 'SGT',
-				last_name: 'Nolan',
-				first_name: 'Casey',
-				mos: '11B',
-				clinic_role: 'Squad Leader',
-				group_id: 'group-hq',
-				group_name: 'Headquarters'
-			}
-		]);
-
-		ctx.store.seed('daily_assignments', [
-			{
-				id: 'existing-1',
-				organization_id: 'test-org',
-				date: '2026-03-22',
-				assignment_type_id: 'type-a',
-				assignee_id: 'old-person'
-			}
-		]);
-
-		ctx.store.seed('duty_events', [
-			{
-				id: 'duty-event-1',
-				organization_id: 'test-org',
-				template_id: 'tmpl-1',
-				template_name: 'Battalion Staff Duty',
-				event_date: '2026-03-22',
-				coverage_start: '2026-03-22T06:00:00',
-				coverage_end: '2026-03-22T18:00:00',
-				coverage_mode: 'timed',
-				start_time: '06:00',
-				end_time: '18:00',
-				is_blocking: true,
-				cooldown_hours: 12,
-				fill_summary: {},
-				collision_summary: {},
-				rules_snapshot: {}
-			}
-		]);
-
-		ctx.store.seed('duty_event_slots', [
-			{
-				id: 'duty-slot-1',
-				organization_id: 'test-org',
-				duty_event_id: 'duty-event-1',
-				template_slot_id: 'slot-nco',
-				role_label: 'NCO',
-				slot_index: 0,
-				assignee_id: 'person-1',
-				assignment_source: 'generated',
-				warning_state: 'none',
-				fairness_confidence: 'high',
-				selection_reason: null,
-				unfilled_reason: null,
-				sort_order: 0
-			}
-		]);
-
-		await expect(
-			batchDailyAssignments(ctx, {
-				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
-			})
-		).rejects.toMatchObject({
-			status: 409,
-			message: 'SGT Nolan is already assigned to duty coverage from 2026-03-22T06:00:00 to 2026-03-22T18:00:00.'
-		});
-
-		const remaining = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
-		expect(remaining).toHaveLength(1);
-		expect(remaining[0]).toMatchObject({
-			id: 'existing-1',
-			assignee_id: 'old-person'
-		});
 	});
 });

@@ -1048,7 +1048,7 @@ Toolbar compact pattern:
 
 ## `ui/date-cell`
 
-Token-aligned calendar/matrix day cell primitive. Use this for dense date status cells that need availability color, duty markers, weekend/holiday/today treatment, and the same visual language as `the shared calendar component guidance`.
+Token-aligned calendar/matrix day cell primitive. Use this for dense date status cells that need availability color, assignment markers, weekend/holiday/today treatment, and the same visual language as `the shared calendar component guidance`.
 
 ```svelte
 <script lang="ts">

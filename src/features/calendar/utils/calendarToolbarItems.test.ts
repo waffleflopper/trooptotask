@@ -11,11 +11,9 @@ function makeInput(overrides: Partial<Parameters<typeof buildCalendarToolbarItem
 		showPersonnelRoles: true,
 		showOnboardingToggle: false,
 		highlightOnboarding: false,
-		dutyStartDayOnly: false,
 		onToggleStatusText: () => {},
 		onTogglePersonnelRoles: () => {},
 		onToggleHighlightOnboarding: () => {},
-		onToggleDutyStartDayOnly: () => {},
 		onExportExcel: () => {},
 		onExportPDF: () => {},
 		...overrides

@@ -10,12 +10,10 @@ export interface CalendarToolbarInput {
 	showPersonnelRoles: boolean;
 	showOnboardingToggle: boolean;
 	highlightOnboarding: boolean;
-	dutyStartDayOnly: boolean;
 	viewMode?: 'month' | '3-month';
 	onToggleStatusText: () => void;
 	onTogglePersonnelRoles: () => void;
 	onToggleHighlightOnboarding: () => void;
-	onToggleDutyStartDayOnly: () => void;
 	onExportExcel: () => void;
 	onExportPDF: () => void;
 }
@@ -125,12 +123,6 @@ export function buildCalendarToolbarItems(input: CalendarToolbarInput): Workspac
 			'Show Personnel Roles',
 			input.showPersonnelRoles,
 			input.onTogglePersonnelRoles
-		),
-		overflowToggle(
-			'duty-start-day-only',
-			'Duty: Start Day Only',
-			input.dutyStartDayOnly,
-			input.onToggleDutyStartDayOnly
 		)
 	);
 

@@ -75,7 +75,6 @@ function makeWorkspaceData(overrides: Record<string, unknown> = {}) {
 		pinnedGroups: [],
 		activeOnboardings: [],
 		ratingSchemeEntries: [],
-		todayDutyEvents: [],
 		personnel: [],
 		groups: [],
 		statusTypes: [],

@@ -85,7 +85,6 @@ export class CalendarPageContext {
 	showStatusText = $state(false);
 	showPersonnelRoles = $state(false);
 	highlightOnboarding = $state(true);
-	dutyStartDayOnly = $state(true);
 	calendarGroupFilter = $state('');
 	calendarPersonnelSearch = $state('');
 
@@ -114,11 +113,6 @@ export class CalendarPageContext {
 	// ---- derived: onboarding data ------------------------------------------
 	get activeOnboardingPersonnelIds(): string[] {
 		return this.#workspaceData?.activeOnboardingPersonnelIds ?? this.#data.activeOnboardingPersonnelIds ?? [];
-	}
-
-	// ---- derived: advanced duty events -------------------------------------
-	get advancedDutyEvents() {
-		return this.#workspaceData?.advancedDutyEvents ?? [];
 	}
 
 	// ---- derived: permission flags -----------------------------------------
@@ -248,7 +242,6 @@ export class CalendarPageContext {
 		this.showStatusText = current.calendar.showStatusText;
 		this.showPersonnelRoles = current.calendar.showPersonnelRoles;
 		this.highlightOnboarding = current.calendar.highlightOnboarding;
-		this.dutyStartDayOnly = current.calendar.dutyStartDayOnly ?? true;
 	}
 
 	/** Mark calendar as explored for Getting Started checklist. */
@@ -297,15 +290,6 @@ export class CalendarPageContext {
 		void this.persistPreferences({
 			calendar: {
 				showPersonnelRoles: this.showPersonnelRoles
-			}
-		});
-	}
-
-	toggleDutyStartDayOnly(): void {
-		this.dutyStartDayOnly = !this.dutyStartDayOnly;
-		void this.persistPreferences({
-			calendar: {
-				dutyStartDayOnly: this.dutyStartDayOnly
 			}
 		});
 	}

@@ -85,8 +85,7 @@ describe('BulkStatusPage', () => {
 			rangeEnd: '2026-01-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		});
 		mergeCalendarRangeIntoStoresMock.mockReset();
 		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=add');
@@ -169,8 +168,7 @@ describe('BulkStatusPage', () => {
 			rangeEnd: '2026-01-31',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		});
 
 		await waitFor(() => {

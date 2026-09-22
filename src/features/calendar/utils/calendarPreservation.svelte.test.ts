@@ -31,9 +31,7 @@ const linked: DailyAssignment = {
 	id: 'linked',
 	date: '2026-03-15',
 	assignmentTypeId: 'person-type',
-	assigneeId: 'p-alpha',
-	dutyRosterTemplateRunId: 'old-run',
-	dutyRosterTemplateRunRowDate: '2026-03-15'
+	assigneeId: 'p-alpha'
 };
 const group: DailyAssignment = {
 	id: 'manual-group',
@@ -54,8 +52,7 @@ function rangeData(dailyAssignments: DailyAssignment[]): CalendarRangeData {
 		rangeEnd: '2026-03-31',
 		dailyAssignments,
 		availabilityEntries: [],
-		specialDays: [],
-		advancedDutyEvents: []
+		specialDays: []
 	};
 }
 
@@ -84,9 +81,7 @@ describe('Calendar persisted range preservation', () => {
 				id: 'linked',
 				date: '2026-03-15',
 				assignmentTypeId: 'person-type',
-				assigneeId: 'p-bravo',
-				dutyRosterTemplateRunId: 'old-run',
-				dutyRosterTemplateRunRowDate: '2026-03-15'
+				assigneeId: 'p-bravo'
 			},
 			group
 		]);
@@ -102,7 +97,7 @@ describe('Calendar persisted range preservation', () => {
 				})
 		});
 		dailyAssignmentsStore.load(types, [outside], 'org-a');
-		coordinator.includeBootstrap({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30', advancedDutyEvents: [] });
+		coordinator.includeBootstrap({ rangeStart: '2026-04-01', rangeEnd: '2026-04-30' });
 		const pending = coordinator.loadVisibleRange({
 			orgId: 'org-a',
 			canViewCalendar: true,
@@ -113,7 +108,7 @@ describe('Calendar persisted range preservation', () => {
 		const newOrgSlot = { id: 'org-b-slot', date: '2026-03-15', assignmentTypeId: 'b-type', assigneeId: 'b-person' };
 		const newOrgType = { ...types[0], id: 'b-type' };
 		dailyAssignmentsStore.load([newOrgType], [newOrgSlot], 'org-b');
-		coordinator.includeBootstrap({ rangeStart: '2026-03-01', rangeEnd: '2026-03-31', advancedDutyEvents: [] });
+		coordinator.includeBootstrap({ rangeStart: '2026-03-01', rangeEnd: '2026-03-31' });
 		finishOldRequest(rangeData([linked, group]));
 		await pending;
 		expect(dailyAssignmentsStore.orgId).toBe('org-b');

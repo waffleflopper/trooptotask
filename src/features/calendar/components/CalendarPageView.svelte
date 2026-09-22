@@ -49,12 +49,10 @@
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
 			highlightOnboarding: ctx.highlightOnboarding,
-			dutyStartDayOnly: ctx.dutyStartDayOnly,
 			viewMode: ctx.viewMode,
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
-			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportExcel: async () => {
 				try {
 					const { exportMonthToExcel } = await import('$features/calendar/utils/calendarExport');
@@ -170,6 +168,7 @@
 				{#if ctx.viewMode === '3-month'}
 					<LongRangeView
 						startDate={calendarStore.currentDate}
+						onStartDateChange={(date) => calendarStore.goToMonth(date.getFullYear(), date.getMonth())}
 						personnelByGroup={ctx.filteredPBG}
 						availabilityEntries={availabilityStore.items}
 						statusTypes={statusTypesStore.items}
@@ -177,8 +176,6 @@
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						groups={groupsStore.items}
-						dutyEvents={ctx.advancedDutyEvents}
-						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onToggleViewMode={() => ctx.toggleViewMode()}
 					/>
@@ -196,8 +193,6 @@
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						groups={groupsStore.items}
-						dutyEvents={ctx.advancedDutyEvents}
-						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}
@@ -234,7 +229,6 @@
 			onAdd={(entry) => ctx.handleAddAvailability(entry)}
 			onRemove={(id) => ctx.handleRemoveAvailability(id)}
 			onClose={() => ctx.closeAvailabilityModal()}
-			dutyEvents={ctx.advancedDutyEvents}
 		/>
 	{:catch}
 		<span class="sr-only">Availability editor failed to load.</span>
@@ -252,7 +246,6 @@
 			onSetAssignment={(date, typeId, assigneeId) => dailyAssignmentsStore.setAssignment(date, typeId, assigneeId)}
 			onRemoveAssignment={(date, typeId) => dailyAssignmentsStore.removeAssignment(date, typeId)}
 			onClose={() => ctx.closeAssignmentModal()}
-			dutyEvents={ctx.advancedDutyEvents}
 		/>
 	{:catch}
 		<span class="sr-only">Daily assignment editor failed to load.</span>

@@ -2,36 +2,19 @@ import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalendarPolicy } from '../calendarPolicy';
-import { loadRosterPersonnel } from '../rosterReadModel';
-import {
-	findDutyCoverageConflicts,
-	findDutyCoverageConflictsBatch,
-	type DutyCoverageConflictCheck
-} from '../dutyAvailability';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
-const MAX_DUTY_ROSTER_COOLDOWN_HOURS = 168;
 
 type AssignmentTarget = 'personnel' | 'group';
 type AssignmentPolicyRecord = { assignmentTypeId: string; assigneeId: string };
 type AssignmentSlotFilter = { date: string; assignment_type_id: string };
 
-export type DailyAssignmentSourceLineage = {
-	sourceKind: 'duty-roster-run';
-	sourceId: string;
-	sourceRowKey: string;
-};
-
 export type DailyAssignmentSlotRecord = {
 	date: string;
 	assignmentTypeId: string;
 	assigneeId: string;
-	cooldownHours?: number;
-	sourceLineage?: DailyAssignmentSourceLineage | null;
-	dutyRosterTemplateRunId?: string | null;
-	dutyRosterTemplateRunRowDate?: string | null;
 };
 
 export type DailyAssignmentDayRecord = Omit<DailyAssignmentSlotRecord, 'date'>;
@@ -48,7 +31,6 @@ export async function replaceDailyAssignmentDay(
 	const records = input.records.map((record) => ({ ...record, date: input.date }));
 
 	await requireCalendarAssignmentPolicy(ctx, records);
-	await ensureManualAssignmentAvailabilityForRecords(ctx, records);
 	await requireExistingAssignmentAccess(ctx, { date: input.date });
 
 	const replacedRows = await findDailyAssignmentRows(ctx, { date: input.date });
@@ -100,7 +82,6 @@ export async function setDailyAssignmentSlot(ctx: WritePorts, input: Record<stri
 	const record = toDailyAssignmentSlotRecord(validated);
 
 	await requireCalendarAssignmentPolicy(ctx, [record]);
-	await ensureManualAssignmentAvailabilityForRecords(ctx, [record]);
 	const replacedRows = await findDailyAssignmentRows(ctx, {
 		date: record.date,
 		assignment_type_id: record.assignmentTypeId
@@ -144,7 +125,6 @@ export async function updateDailyAssignmentSlot(ctx: WritePorts, input: Record<s
 		if (!date) {
 			fail(404, 'Daily assignment not found');
 		}
-		await ensureManualAssignmentAvailabilityForRecords(ctx, [record]);
 	}
 
 	const dbData = entity.toDbUpdate(validated);
@@ -221,8 +201,7 @@ export async function replaceDailyAssignmentSlotsBatch(
 	const upserts = records.filter((record) => record.assigneeId);
 	const clears = records.filter((record) => !record.assigneeId);
 
-	await requireBatchUpsertAssignmentPolicy(ctx, upserts);
-	await ensureBatchUpsertAvailability(ctx, upserts);
+	await requireCalendarAssignmentPolicy(ctx, upserts);
 
 	const affectedSlotFilters = [
 		...new Map(
@@ -270,10 +249,7 @@ function toDailyAssignmentSlotRecord(record: Record<string, unknown>): DailyAssi
 	return {
 		date: record.date as string,
 		assignmentTypeId: record.assignmentTypeId as string,
-		assigneeId: record.assigneeId as string,
-		dutyRosterTemplateRunId: typeof record.dutyRosterTemplateRunId === 'string' ? record.dutyRosterTemplateRunId : null,
-		dutyRosterTemplateRunRowDate:
-			typeof record.dutyRosterTemplateRunRowDate === 'string' ? record.dutyRosterTemplateRunRowDate : null
+		assigneeId: record.assigneeId as string
 	};
 }
 
@@ -282,8 +258,7 @@ function toDailyAssignmentDbInsert(record: DailyAssignmentSlotRecord, orgId: str
 		{
 			date: record.date,
 			assignmentTypeId: record.assignmentTypeId,
-			assigneeId: record.assigneeId,
-			...sourceLineageFields(record)
+			assigneeId: record.assigneeId
 		},
 		orgId
 	);
@@ -348,23 +323,6 @@ function calendarReplacementRollbackFailureError(message: string, primaryError: 
 function errorMessage(error: unknown): string {
 	const message = error instanceof Error ? error.message : String(error);
 	return message.replace(/[.]+$/, '');
-}
-
-function sourceLineageFields(record: DailyAssignmentSlotRecord): {
-	dutyRosterTemplateRunId?: string | null;
-	dutyRosterTemplateRunRowDate?: string | null;
-} {
-	if (record.sourceLineage) {
-		return {
-			dutyRosterTemplateRunId: record.sourceLineage.sourceId,
-			dutyRosterTemplateRunRowDate: record.sourceLineage.sourceRowKey
-		};
-	}
-
-	return {
-		dutyRosterTemplateRunId: record.dutyRosterTemplateRunId,
-		dutyRosterTemplateRunRowDate: record.dutyRosterTemplateRunRowDate
-	};
 }
 
 async function getAssignmentTargets(
@@ -491,90 +449,6 @@ async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: Assignm
 	}
 }
 
-async function requireBatchUpsertAssignmentPolicy(ctx: WritePorts, records: AssignmentPolicyRecord[]): Promise<void> {
-	await requireCalendarAssignmentPolicy(ctx, records);
-}
-
-async function ensureManualAssignmentAvailabilityForRecords(
-	ctx: WritePorts,
-	records: DailyAssignmentSlotRecord[]
-): Promise<void> {
-	if (records.length === 0) return;
-
-	const assignmentTargets = await getAssignmentTargets(
-		ctx,
-		records.map((record) => record.assignmentTypeId)
-	);
-	const personnelRecords = records.filter((record) => assignmentTargets.get(record.assignmentTypeId) !== 'group');
-	if (personnelRecords.length === 0) return;
-
-	for (const record of personnelRecords) {
-		await ensureManualAssignmentAvailability(ctx, record);
-	}
-}
-
-async function ensureBatchUpsertAvailability(ctx: WritePorts, records: DailyAssignmentSlotRecord[]): Promise<void> {
-	if (records.length === 0) return;
-
-	const assignmentTargets = await getAssignmentTargets(
-		ctx,
-		records.map((record) => record.assignmentTypeId)
-	);
-	const personnelRecords = records.filter((record) => assignmentTargets.get(record.assignmentTypeId) !== 'group');
-	if (personnelRecords.length === 0) return;
-
-	await ensureBatchAssignmentAvailability(ctx, personnelRecords);
-}
-
-async function ensureManualAssignmentAvailability(
-	ctx: WritePorts,
-	input: { date: string; assigneeId: string }
-): Promise<void> {
-	const personnel = await loadRosterPersonnel(ctx, {
-		status: 'all',
-		inFilters: { id: [input.assigneeId] }
-	});
-	const personnelById = new Map(personnel.map((person) => [person.id, person]));
-	const conflicts = await findDutyCoverageConflicts(ctx, {
-		assigneeIds: [input.assigneeId],
-		coverageStart: `${input.date}T00:00:00`,
-		coverageEnd: `${input.date}T23:59:59`,
-		cooldownHours: 0,
-		personnelById
-	});
-	const conflictMessage = conflicts.get(input.assigneeId)?.[0];
-	if (conflictMessage) {
-		fail(409, conflictMessage);
-	}
-}
-
-async function ensureBatchAssignmentAvailability(ctx: WritePorts, records: DailyAssignmentSlotRecord[]): Promise<void> {
-	const assigneeIds = [...new Set(records.map((record) => record.assigneeId))];
-	const personnel = await loadRosterPersonnel(ctx, {
-		status: 'all',
-		inFilters: { id: assigneeIds }
-	});
-	const personnelById = new Map(personnel.map((person) => [person.id, person]));
-
-	const checks: DutyCoverageConflictCheck[] = records.map((record, index) => ({
-		key: String(index),
-		assigneeId: record.assigneeId,
-		coverageStart: `${record.date}T00:00:00`,
-		coverageEnd: `${record.date}T23:59:59`,
-		cooldownHours: normalizeBatchCooldownHours(record.cooldownHours)
-	}));
-	const conflictsByCheck = await findDutyCoverageConflictsBatch(ctx, {
-		checks,
-		personnelById
-	});
-	for (const check of checks) {
-		const conflictMessage = conflictsByCheck.get(check.key)?.[0];
-		if (conflictMessage) {
-			fail(409, conflictMessage);
-		}
-	}
-}
-
 function normalizeBatchRecords(records: DailyAssignmentSlotRecord[]): DailyAssignmentSlotRecord[] {
 	return records.map((record) => ({ ...record, assigneeId: record.assigneeId.trim() }));
 }
@@ -605,11 +479,4 @@ function duplicateBatchSlot(records: DailyAssignmentSlotRecord[]): DailyAssignme
 
 function toSlotKey(date: string, assignmentTypeId: string): string {
 	return `${date}::${assignmentTypeId}`;
-}
-
-function normalizeBatchCooldownHours(value: number | undefined): number {
-	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-		return 0;
-	}
-	return Math.min(Math.floor(value), MAX_DUTY_ROSTER_COOLDOWN_HOURS);
 }

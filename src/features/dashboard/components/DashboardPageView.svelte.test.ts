@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen } from '@testing-library/svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
 import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
@@ -70,7 +70,6 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 		upcomingLosses: [],
 		upcomingByDate: new Map(),
 		dutyAssignments: [],
-		todayAdvancedDuty: [],
 		dutyStrengthPct: 100,
 		availableCount: 10,
 		totalPersonnel: 10,
@@ -154,98 +153,44 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('/ 50')).toBeTruthy();
 	});
 
-	it('renders the getting started checklist with incomplete and complete items', () => {
+	it('keeps saved Calendar assignments visible without presenting unavailable Training as current', () => {
+		const ctx = makeCtx({
+			trainingStats: null,
+			dutyForDays: () => [
+				{
+					date: '2026-09-21',
+					label: 'Today',
+					isToday: true,
+					assignments: [{ id: 'saved', typeName: 'Clinic Coverage', assigneeName: 'Alpha' }]
+				}
+			]
+		});
+		render(DashboardPageView, { props: { ctx } });
+		expect(screen.getByText('Clinic Coverage')).toBeTruthy();
+		expect(screen.getByText('Alpha')).toBeTruthy();
+		expect(screen.queryByText('training current')).toBeNull();
+	});
+
+	it('keeps Workspace Setup and its starter pack hidden even for an eligible owner', () => {
 		const ctx = makeCtx({
 			userRole: 'owner',
 			gettingStartedDismissed: false,
 			shouldShowGettingStarted: true,
+			firstStarterConfigurationPack: makeStarterPack(),
 			gettingStartedItems: [
 				{
 					id: 'personnel',
 					label: 'Import or add the roster',
-					description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
+					description: 'Add the roster.',
 					href: '/org/org-1/personnel',
 					complete: false
-				},
-				{
-					id: 'statuses',
-					label: 'Review availability statuses',
-					description: 'Review the seeded availability statuses and adjust them for your unit.',
-					href: '/org/org-1/calendar/settings',
-					complete: true
 				}
 			]
 		});
-
 		render(DashboardPageView, { props: { ctx } });
-
-		expect(screen.getByText('Workspace setup')).toBeTruthy();
-		expect(screen.getByText('Import or add the roster')).toBeTruthy();
-		expect(screen.getByText('Review availability statuses')).toBeTruthy();
-		expect(screen.getByText('1/2 complete')).toBeTruthy();
-		expect(screen.getByText('Done')).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Open Import or add the roster' }).getAttribute('href')).toBe(
-			'/org/org-1/personnel'
-		);
-	});
-
-	it('hides the temporarily disabled First Week Operations pack even when it can be applied', () => {
-		const ctx = makeCtx({
-			userRole: 'owner',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack()
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
-		expect(screen.queryByText('First Week Operations')).toBeNull();
+		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Open Import or add the roster' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
 		expect(screen.queryByRole('button', { name: /Apply Pack/i })).toBeNull();
-	});
-
-	it('calls the model dismissal method from the checklist', async () => {
-		const dismissGettingStarted = vi.fn();
-		const ctx = makeCtx({
-			userRole: 'admin',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			dismissGettingStarted,
-			gettingStartedItems: [
-				{
-					id: 'members',
-					label: 'Invite another Organization Member',
-					description: 'Add at least one more member for shared access.',
-					href: '/org/org-1/settings/members',
-					complete: false
-				}
-			]
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-
-		expect(dismissGettingStarted).toHaveBeenCalledOnce();
-	});
-
-	it('does not render the checklist when the model hides it', () => {
-		const ctx = makeCtx({
-			gettingStartedDismissed: true,
-			shouldShowGettingStarted: false,
-			gettingStartedItems: [
-				{
-					id: 'personnel',
-					label: 'Import or add the roster',
-					description: 'Import an Excel/CSV roster or add service members so the dashboard can track strength.',
-					href: '/org/org-1/personnel',
-					complete: false
-				}
-			]
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
-		expect(screen.queryByText('Workspace setup')).toBeNull();
-		expect(screen.queryByText('Import or add the roster')).toBeNull();
 	});
 });

@@ -1,7 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { fireEvent, render, screen, cleanup } from '@testing-library/svelte';
+import { fireEvent, render, screen, cleanup, waitFor, act } from '@testing-library/svelte';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
+import { calendarStore } from '$features/calendar/stores/calendar.svelte';
+import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
@@ -70,6 +72,7 @@ function renderPage(
 		orgName?: string;
 		personnel?: Personnel[];
 		allPersonnel?: Personnel[];
+		calendar?: { data: CalendarWorkspaceData };
 	} = {
 		orgId: 'org-1',
 		orgName: 'Test Org',
@@ -77,13 +80,23 @@ function renderPage(
 		allPersonnel: personnel
 	}
 ) {
-	return render(AssignmentPlannerPage, { props: { data } });
+	return render(AssignmentPlannerPage, {
+		props: {
+			data: {
+				...data,
+				calendar: data.calendar ?? {
+					data: { personnel, allPersonnel: personnel, rangeStart: '2026-08-01', rangeEnd: '2026-10-31' }
+				}
+			}
+		}
+	});
 }
 
 describe('AssignmentPlannerPage', () => {
 	beforeEach(() => {
 		cleanup();
 		mockOrg = makeOrg();
+		calendarStore.goToMonth(2026, 8);
 		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
 		groupsStore.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
 	});
@@ -186,6 +199,7 @@ describe('AssignmentPlannerPage', () => {
 
 it('offers each Group and assignment type once and saves monthly and quick-fill choices by ID', async () => {
 	mockOrg = makeOrg();
+	calendarStore.goToMonth(2026, 8);
 	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
 	dailyAssignmentsStore.load([groupType, modType], [], 'org-1');
 	groupsStore.load(
@@ -232,4 +246,144 @@ it('offers each Group and assignment type once and saves monthly and quick-fill 
 		cleanup();
 		vi.unstubAllGlobals();
 	}
+});
+
+describe('planner visible-month loading', () => {
+	beforeEach(() => {
+		mockOrg = makeOrg();
+		calendarStore.goToMonth(2026, 8);
+		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
+		groupsStore.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+	});
+	afterEach(() => {
+		cleanup();
+		vi.unstubAllGlobals();
+	});
+	const staleBootstrap = {
+		orgId: 'org-1',
+		calendar: { data: { personnel, rangeStart: '2026-11-01', rangeEnd: '2027-01-31' } }
+	};
+	const saved = {
+		id: 'saved-september',
+		organizationId: 'org-1',
+		date: '2026-09-22',
+		assignmentTypeId: 'type-1',
+		assigneeId: 'person-1'
+	};
+	function response(assignments = [saved], rangeStart = '2026-09-01', rangeEnd = '2026-10-31') {
+		return Response.json({
+			rangeStart,
+			rangeEnd,
+			dailyAssignments: assignments,
+			availabilityEntries: [],
+			specialDays: []
+		});
+	}
+	it('loads the displayed month on a cold start outside bootstrap coverage before offering edits', async () => {
+		let resolve!: (value: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((r) => {
+						resolve = r;
+					})
+			)
+		);
+		renderPage(staleBootstrap);
+		expect(screen.queryByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Clear all Charge of Quarters' })).toBeNull();
+		await waitFor(() => expect(resolve).toBeTypeOf('function'));
+		resolve(response());
+		await waitFor(() =>
+			expect(
+				screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' }).textContent
+			).toContain('Smith')
+		);
+		expect(document.cookie).toContain('ttt-calendar-anchor-date=2026-09-01');
+	});
+	it('keeps failed dates non-editable and recovers the saved slot on explicit retry', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(new Response('', { status: 503 }))
+				.mockResolvedValueOnce(response())
+		);
+		renderPage(staleBootstrap);
+		const retry = await screen.findByRole('button', { name: 'Retry calendar load' });
+		expect(screen.queryByRole('button', { name: 'Apply' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Clear all Charge of Quarters' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' })).toBeNull();
+		await fireEvent.click(retry);
+		await waitFor(() =>
+			expect(
+				screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' }).textContent
+			).toContain('Smith')
+		);
+	});
+	it('loads far-month assignments after navigation and ignores a superseded response', async () => {
+		const pending: Array<(value: Response) => void> = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						pending.push(resolve);
+					})
+			)
+		);
+		renderPage();
+		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+		await waitFor(() => expect(pending).toHaveLength(1));
+		expect(screen.queryByRole('button', { name: 'Clear all Charge of Quarters' })).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Next month' }));
+		await waitFor(() => expect(pending).toHaveLength(2));
+		pending[1](response([{ ...saved, id: 'saved-december', date: '2026-12-31' }], '2026-11-01', '2026-12-31'));
+		await waitFor(() =>
+			expect(
+				screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-12-31' }).textContent
+			).toContain('Smith')
+		);
+		await act(async () => {
+			pending[0](
+				response(
+					[{ ...saved, id: 'stale-november', date: '2026-11-15', assigneeId: 'person-2' }],
+					'2026-11-01',
+					'2026-11-30'
+				)
+			);
+		});
+		expect(dailyAssignmentsStore.assignments.map((row) => row.id)).toEqual(['saved-december']);
+
+		expect(calendarStore.currentDate.getMonth()).toBe(11);
+	});
+	it('does not merge a late response into a different organization after navigation', async () => {
+		let resolve!: (value: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((r) => {
+						resolve = r;
+					})
+			)
+		);
+		const view = renderPage(staleBootstrap);
+		await waitFor(() => expect(resolve).toBeTypeOf('function'));
+		dailyAssignmentsStore.load(assignmentTypes, [{ ...saved, id: 'other-org', assigneeId: 'person-2' }], 'org-2');
+		await view.rerender({
+			data: { orgId: 'org-2', calendar: { data: { personnel, rangeStart: '2026-09-01', rangeEnd: '2026-09-30' } } }
+		});
+		await act(async () => {
+			resolve(response());
+		});
+		expect(dailyAssignmentsStore.orgId).toBe('org-2');
+		expect(dailyAssignmentsStore.assignments.map((row) => row.id)).toEqual(['other-org']);
+		expect(
+			screen.getByRole('button', { name: 'Select Charge of Quarters assignee for 2026-09-22' }).textContent
+		).toContain('Taylor');
+	});
 });

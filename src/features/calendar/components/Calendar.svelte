@@ -8,7 +8,6 @@
 		AssignmentType,
 		DailyAssignment
 	} from '$lib/types';
-	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
@@ -43,8 +42,6 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		groups?: readonly Group[];
-		dutyEvents?: DutyEvent[];
-		dutyStartDayOnly?: boolean;
 		activeOnboardingPersonnelIds?: string[];
 		highlightOnboarding?: boolean;
 		canEdit?: boolean;
@@ -79,8 +76,6 @@
 		assignmentTypes,
 		assignments,
 		groups = [],
-		dutyEvents = [],
-		dutyStartDayOnly = true,
 		activeOnboardingPersonnelIds = [],
 		highlightOnboarding = true,
 		canEdit = true,
@@ -206,8 +201,6 @@
 			assignmentTypes,
 			assignments,
 			groups,
-			dutyEvents,
-			dutyStartDayOnly,
 			activeOnboardingPersonnelIds,
 			highlightOnboarding,
 			upcomingLossMap

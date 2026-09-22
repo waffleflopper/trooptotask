@@ -53,6 +53,10 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
 - Guardrail going forward:
   - do not re-borrow the Training lane for Critical Tasks behavior, exports, or route access
 
+## Dashboard Training Summary Coupling (Resolved In 05-02-01)
+
+The scoped Dashboard browser check exposed an unconditional Training summary request that rejected members with Training `none` and left their Dashboard blank. The route now omits that optional summary when Training access is absent, and the view omits its readiness claim. Training's policy remains enforced; authorized query failures still propagate. Calendar assignments and Critical Tasks keep their independent access. [Reproduction and retained-flow verification](../stabilization/EVIDENCE.md#task-05-02-01-dashboard-computed-event-cutover).
+
 ## D-05 Legacy Clinic Vocabulary
 
 - Current-state truth:

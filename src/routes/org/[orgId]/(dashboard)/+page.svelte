@@ -1,21 +1,12 @@
 <script lang="ts">
 	import DashboardPageView from '$features/dashboard/components/DashboardPageView.svelte';
 	import type { DashboardPageData } from '$features/dashboard/dashboard.types';
-	import {
-		createDashboardScreenModel,
-		type DashboardScreenModel,
-		type DashboardSupportData
-	} from '$features/dashboard/read-model/dashboardScreenModel.svelte';
+	import { createDashboardScreenModel } from '$features/dashboard/read-model/dashboardScreenModel.svelte';
 	import type { PageData } from './$types';
 	import type { DashboardPageSummaryData } from './+page.server';
 	import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import {
-		isPromiseLike,
-		normalizeDeferredError,
-		observeDeferred,
-		throwRenderError
-	} from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	type DashboardRouteData = Omit<PageData, 'summary'> & {
 		summary?: DashboardPageSummaryData | Promise<DashboardPageSummaryData>;
@@ -25,10 +16,6 @@
 
 	let dashboardBootstrap = $state<DashboardWorkspaceResult | null>(null);
 	let summaryData = $state<DashboardPageSummaryData | null>(null);
-	let supportData = $state<DashboardSupportData | null>(null);
-	let supportLoading = $state(false);
-	let supportError = $state<Error | null>(null);
-	let supportRequestVersion = 0;
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
@@ -70,20 +57,6 @@
 		return () => {
 			cancelled = true;
 		};
-	});
-
-	$effect(() => {
-		if (ctx && supportData) {
-			ctx.applySupportData(supportData);
-		}
-	});
-
-	$effect(() => {
-		data.shell.org.id;
-		supportRequestVersion += 1;
-		supportData = null;
-		supportLoading = false;
-		supportError = null;
 	});
 
 	$effect(() => {
@@ -135,42 +108,6 @@
 		};
 	}
 
-	function shouldLoadWorkspaceSupport(ctx: DashboardScreenModel): boolean {
-		return ctx.userRole === 'owner' || ctx.userRole === 'admin';
-	}
-
-	async function loadSupportData(ctx: DashboardScreenModel): Promise<void> {
-		const requestVersion = ++supportRequestVersion;
-		const orgId = ctx.data.orgId;
-		supportLoading = true;
-		supportError = null;
-
-		try {
-			const response = await fetch(`/org/${orgId}/api/getting-started`);
-			if (!response.ok) {
-				const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-				throw new Error(payload?.message ?? 'Failed to load workspace support');
-			}
-
-			const nextSupportData = (await response.json()) as DashboardSupportData;
-			if (requestVersion !== supportRequestVersion) {
-				return;
-			}
-
-			supportData = nextSupportData;
-		} catch (error) {
-			if (requestVersion !== supportRequestVersion) {
-				return;
-			}
-
-			supportError = normalizeDeferredError(error, 'Failed to load workspace support');
-		} finally {
-			if (requestVersion === supportRequestVersion) {
-				supportLoading = false;
-			}
-		}
-	}
-
 	const loadError = $derived(workspaceError ?? summaryError);
 	const workspacePending = $derived(!!data.dashboard?.data && dashboardBootstrap === null && workspaceError === null);
 	const summaryPending = $derived(!!data.summary && summaryData === null && summaryError === null);
@@ -180,21 +117,12 @@
 			? createDashboardScreenModel(toDashboardPageData(data, dashboardBootstrap, summaryData))
 			: null
 	);
-	const canLoadSupport = $derived(ctx ? shouldLoadWorkspaceSupport(ctx) : false);
 
 	// Track whether we've auto-shown What's New (must persist across re-renders)
 	const hasAutoShownWhatsNew = { value: false };
 
 	$effect(() => {
 		ctx?.autoShowWhatsNew(hasAutoShownWhatsNew);
-	});
-
-	$effect(() => {
-		if (!ctx || !canLoadSupport || ctx.hasSupportData || supportLoading || supportError) {
-			return;
-		}
-
-		void loadSupportData(ctx);
 	});
 </script>
 
@@ -220,26 +148,6 @@
 	</section>
 {:else if ctx}
 	<DashboardPageView {ctx} />
-	{#if canLoadSupport && supportLoading && !ctx.hasSupportData}
-		<section class="workspace-support-notice" aria-live="polite" role="status">
-			<p>Loading workspace support...</p>
-		</section>
-	{:else if canLoadSupport && supportError}
-		<section class="workspace-support-notice workspace-support-notice--error" aria-live="polite" role="status">
-			<p>Workspace support is temporarily unavailable.</p>
-			<button
-				type="button"
-				class="workspace-support-notice__retry"
-				onclick={() => {
-					if (ctx) {
-						void loadSupportData(ctx);
-					}
-				}}
-			>
-				Retry checklist
-			</button>
-		</section>
-	{/if}
 {/if}
 
 <style>
@@ -267,58 +175,10 @@
 		gap: 1rem;
 	}
 
-	.workspace-support-notice {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		margin: 0 1rem 1rem;
-		padding: 0.75rem 1rem;
-		border: 1px solid var(--border);
-		border-radius: var(--radius);
-		background: var(--card);
-		color: var(--muted-foreground);
-	}
-
-	.workspace-support-notice p {
-		margin: 0;
-	}
-
-	.workspace-support-notice--error {
-		border-color: var(--accent);
-		background: color-mix(in srgb, var(--accent) 8%, var(--card));
-		color: var(--foreground);
-	}
-
-	.workspace-support-notice__retry {
-		min-height: 2rem;
-		border: 1px solid var(--input);
-		border-radius: calc(var(--radius) - 2px);
-		background: var(--background);
-		padding: 0.375rem 0.75rem;
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: var(--foreground);
-		transition:
-			background-color 0.15s ease,
-			color 0.15s ease,
-			border-color 0.15s ease;
-	}
-
-	.workspace-support-notice__retry:hover {
-		background: var(--accent);
-		color: var(--accent-foreground);
-	}
-
 	@media (max-width: 720px) {
 		.workspace-loading__hero,
 		.workspace-loading__grid {
 			grid-template-columns: 1fr;
-		}
-
-		.workspace-support-notice {
-			flex-direction: column;
-			align-items: flex-start;
 		}
 	}
 </style>

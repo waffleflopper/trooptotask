@@ -16,5 +16,4 @@ export interface DateCellMarker {
 	color: string;
 	textColor?: string;
 	title?: string;
-	kind?: 'assignment' | 'duty';
 }

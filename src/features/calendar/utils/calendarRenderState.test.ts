@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import { buildCalendarRenderState, CalendarRenderStateInputError } from './calendarRenderState';
@@ -66,56 +65,6 @@ function specialDay(overrides: Partial<SpecialDay>): SpecialDay {
 	};
 }
 
-function makeDutyEvent(eventDate: string, assigneeId: string): DutyEvent {
-	return {
-		id: `evt-${eventDate}`,
-		orgId: 'org-1',
-		runId: null,
-		templateId: 'tpl-1',
-		templateName: 'Battalion Staff Duty',
-		eventDate,
-		coverageMode: 'timed',
-		coverageStart: `${eventDate}T08:00:00`,
-		coverageEnd: `${eventDate}T20:00:00`,
-		isBlocking: true,
-		cooldownHours: 12,
-		rulesSnapshot: {
-			templateId: 'tpl-1',
-			templateName: 'Battalion Staff Duty',
-			templateStatus: 'active',
-			coverageMode: 'timed',
-			startTime: '08:00',
-			endTime: '20:00',
-			scopeType: 'organization',
-			scopeGroupIds: [],
-			isBlocking: true,
-			cooldownHours: 12,
-			slots: []
-		},
-		fillSummary: { totalSlots: 1, filledSlots: 1, unfilledSlots: 0 },
-		collisionSummary: { hasConflicts: false, conflicts: [] },
-		originalProposal: null,
-		createdAt: '2026-03-01T00:00:00Z',
-		updatedAt: '2026-03-01T00:00:00Z',
-		slotInstances: [
-			{
-				id: `slot-${eventDate}`,
-				dutyEventId: `evt-${eventDate}`,
-				templateSlotId: 'tslot-1',
-				roleLabel: 'NCO',
-				slotIndex: 0,
-				assigneeId,
-				assignmentSource: 'generated',
-				warningState: 'none',
-				fairnessConfidence: 'high',
-				selectionReason: null,
-				unfilledReason: null,
-				sortOrder: 0
-			}
-		]
-	};
-}
-
 function lossRecord(): UpcomingLossRecord {
 	return {
 		id: 'person-1',
@@ -146,21 +95,17 @@ function build(overrides: Partial<Parameters<typeof buildCalendarRenderState>[0]
 }
 
 describe('calendarRenderState', () => {
-	it('removing computed duty overlays keeps saved manual, linked and edited assignment markers', () => {
+	it('renders saved manual, linked and edited assignment markers at their saved person and date', () => {
 		const saved = [
 			assignment({ id: 'manual' }),
 			assignment({
 				id: 'linked',
-				date: '2026-03-02',
-				dutyRosterTemplateRunId: 'old-run',
-				dutyRosterTemplateRunRowDate: '2026-03-02'
+				date: '2026-03-02'
 			}),
 			assignment({
 				id: 'edited-generated',
 				date: '2026-03-03',
-				assigneeId: 'person-2',
-				dutyRosterTemplateRunId: 'old-run',
-				dutyRosterTemplateRunRowDate: '2026-03-03'
+				assigneeId: 'person-2'
 			})
 		];
 		const input = {
@@ -168,24 +113,18 @@ describe('calendarRenderState', () => {
 			personnelByGroup: [{ group: 'Alpha', personnel: [...personnel, { ...personnel[0], id: 'person-2' }] }],
 			assignments: saved
 		};
-		const withOverlay = build({ ...input, dutyEvents: [makeDutyEvent('2026-03-03', 'person-1')] });
-		const withoutOverlay = build(input);
+		const state = build(input);
 
-		expect(withOverlay.personDateCell('person-1', '2026-03-03')?.markers).toEqual([
-			expect.objectContaining({ kind: 'duty' })
+		expect(state.personDateCell('person-1', '2026-03-03')?.markers).toEqual([]);
+		expect(state.personDateCell('person-1', '2026-03-01')?.markers).toEqual([
+			expect.objectContaining({ id: 'manual', name: 'Manager on Duty' })
 		]);
-		expect(withoutOverlay.personDateCell('person-1', '2026-03-03')?.markers).toEqual([]);
-		for (const state of [withOverlay, withoutOverlay]) {
-			expect(state.personDateCell('person-1', '2026-03-01')?.markers).toEqual([
-				expect.objectContaining({ id: 'manual', kind: 'assignment', name: 'Manager on Duty' })
-			]);
-			expect(state.personDateCell('person-1', '2026-03-02')?.markers).toEqual([
-				expect.objectContaining({ id: 'linked', kind: 'assignment', name: 'Manager on Duty' })
-			]);
-			expect(state.personDateCell('person-2', '2026-03-03')?.markers).toEqual([
-				expect.objectContaining({ id: 'edited-generated', kind: 'assignment', name: 'Manager on Duty' })
-			]);
-		}
+		expect(state.personDateCell('person-1', '2026-03-02')?.markers).toEqual([
+			expect.objectContaining({ id: 'linked', name: 'Manager on Duty' })
+		]);
+		expect(state.personDateCell('person-2', '2026-03-03')?.markers).toEqual([
+			expect.objectContaining({ id: 'edited-generated', name: 'Manager on Duty' })
+		]);
 	});
 
 	it('keeps a saved Group assignment in the date header without turning it into a person assignment', () => {
@@ -230,7 +169,6 @@ describe('calendarRenderState', () => {
 				availability({ id: 'availability-2', statusTypeId: 'school' })
 			],
 			assignments: [assignment({})],
-			dutyEvents: [makeDutyEvent('2026-03-01', 'person-1')],
 			activeOnboardingPersonnelIds: ['person-1'],
 			upcomingLossMap: new Map([['person-1', lossRecord()]])
 		});
@@ -246,10 +184,10 @@ describe('calendarRenderState', () => {
 		});
 		expect(cell?.statuses.map((status) => status.name)).toEqual(['Leave', 'School']);
 		expect(cell?.primaryStatus?.name).toBe('School');
-		expect(cell?.markers.map((marker) => marker.kind)).toEqual(['assignment', 'duty']);
-		expect(cell?.markers.find((marker) => marker.kind === 'assignment')?.textColor).toBe('#ffffff');
-		expect(cell?.dutyIndicator?.title).toBe('Battalion Staff Duty — NCO');
-		expect(cell?.title).toBe('School | Battalion Staff Duty — NCO');
+		expect(cell?.markers).toEqual([
+			expect.objectContaining({ id: 'assignment-1', name: 'Manager on Duty', textColor: '#ffffff' })
+		]);
+		expect(cell?.title).toBe('School');
 		expect(state.personDateCells('person-1')).toHaveLength(2);
 	});
 

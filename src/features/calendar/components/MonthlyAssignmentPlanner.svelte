@@ -17,6 +17,9 @@
 
 	interface Props {
 		currentDate: Date;
+		onDateChange: (date: Date) => void;
+		rangeStatus: 'ready' | 'loading' | 'error';
+		onRetry: () => void;
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		personnelByGroup: GroupData[];
@@ -29,6 +32,9 @@
 
 	let {
 		currentDate,
+		onDateChange,
+		rangeStatus,
+		onRetry,
 		assignmentTypes,
 		assignments,
 		personnelByGroup,
@@ -37,8 +43,8 @@
 		onSetAssignmentBatch
 	}: Props = $props();
 
-	// State for selected month
-	let viewDate = $derived(new Date(currentDate));
+	// The page owns navigation and loads this month before exposing assignment slots.
+	const viewDate = $derived(new Date(currentDate));
 
 	const year = $derived(viewDate.getFullYear());
 	const month = $derived(viewDate.getMonth());
@@ -66,20 +72,24 @@
 	}
 
 	async function handleChange(date: Date, typeId: string, value: string) {
+		if (rangeStatus !== 'ready') return;
 		const dateStr = formatDate(date);
 		await onSetAssignment(dateStr, typeId, value);
 	}
 
 	function prevMonth() {
-		viewDate = addMonths(viewDate, -1);
+		clearTypeId = null;
+		onDateChange(addMonths(viewDate, -1));
 	}
 
 	function nextMonth() {
-		viewDate = addMonths(viewDate, 1);
+		clearTypeId = null;
+		onDateChange(addMonths(viewDate, 1));
 	}
 
 	function goToCurrentMonth() {
-		viewDate = new Date();
+		clearTypeId = null;
+		onDateChange(new Date());
 	}
 
 	// Quick fill functions
@@ -90,7 +100,7 @@
 	let isApplying = $state(false);
 
 	async function applyQuickFill() {
-		if (!quickFillType) return;
+		if (rangeStatus !== 'ready' || !quickFillType) return;
 
 		const type = activeAssignmentTypes.find((t) => t.id === quickFillType);
 		if (!type) return;
@@ -128,7 +138,7 @@
 
 	async function doClearAll() {
 		const typeId = clearTypeId;
-		if (!typeId) return;
+		if (rangeStatus !== 'ready' || !typeId) return;
 		clearTypeId = null;
 
 		isApplying = true;
@@ -172,159 +182,184 @@
 		</div>
 	</div>
 
-	<div class="bg-muted/20 border-b px-5 py-4">
-		<h4 class="text-muted-foreground mb-3 font-mono text-xs font-semibold tracking-wide uppercase">Quick Fill</h4>
-		<div class="flex flex-wrap items-center gap-2">
-			<div class="min-w-48 flex-1">
-				<Combobox.Root
-					items={assignmentTypeOptions}
-					bind:value={quickFillType}
-					label="Select assignment type"
-					autoHighlight
-				>
-					<Combobox.Trigger placeholder="Select assignment type..." aria-label="Select assignment type" />
-					<Combobox.Content>
-						<Combobox.Empty>No assignment types found.</Combobox.Empty>
-						<Combobox.List />
-					</Combobox.Content>
-				</Combobox.Root>
-			</div>
-
-			{#if selectedType?.assignTo === 'personnel'}
-				<div class="quick-fill-control">
+	{#if rangeStatus !== 'ready'}
+		<section
+			class="flex items-center justify-between gap-3 px-5 py-4"
+			role="status"
+			aria-live="polite"
+			aria-busy={rangeStatus === 'loading'}
+		>
+			{#if rangeStatus === 'error'}
+				<p>Assignments for this month could not be loaded.</p>
+				<Button variant="outline" size="sm" onclick={onRetry}>Retry calendar load</Button>
+			{:else}
+				<p>Loading assignments for this month...</p>
+			{/if}
+		</section>
+	{:else}
+		<div class="bg-muted/20 border-b px-5 py-4">
+			<h4 class="text-muted-foreground mb-3 font-mono text-xs font-semibold tracking-wide uppercase">Quick Fill</h4>
+			<div class="flex flex-wrap items-center gap-2">
+				<div class="min-w-48 flex-1">
 					<Combobox.Root
-						items={personnelOptions}
-						bind:value={quickFillPerson}
-						label="Select quick-fill person"
+						items={assignmentTypeOptions}
+						bind:value={quickFillType}
+						label="Select assignment type"
 						autoHighlight
 					>
-						<Combobox.Trigger clearable placeholder="Search personnel..." aria-label="Select quick-fill person" />
+						<Combobox.Trigger placeholder="Select assignment type..." aria-label="Select assignment type" />
 						<Combobox.Content>
-							<Combobox.Search placeholder="Search personnel..." />
-							<Combobox.Empty>No personnel found.</Combobox.Empty>
+							<Combobox.Empty>No assignment types found.</Combobox.Empty>
 							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
 				</div>
-			{:else if selectedType?.assignTo === 'group'}
-				<div class="quick-fill-control">
-					<Combobox.Root items={groupOptions} bind:value={quickFillGroup} label="Select quick-fill group" autoHighlight>
-						<Combobox.Trigger clearable placeholder="Select group..." aria-label="Select quick-fill group" />
-						<Combobox.Content>
-							<Combobox.Empty>No groups found.</Combobox.Empty>
-							<Combobox.List />
-						</Combobox.Content>
-					</Combobox.Root>
-				</div>
-			{/if}
 
-			<NativeSelect bind:value={quickFillDays} class="w-[150px]">
-				<option value="weekdays">Weekdays only</option>
-				<option value="weekends">Weekends only</option>
-				<option value="all">All days</option>
-			</NativeSelect>
+				{#if selectedType?.assignTo === 'personnel'}
+					<div class="quick-fill-control">
+						<Combobox.Root
+							items={personnelOptions}
+							bind:value={quickFillPerson}
+							label="Select quick-fill person"
+							autoHighlight
+						>
+							<Combobox.Trigger clearable placeholder="Search personnel..." aria-label="Select quick-fill person" />
+							<Combobox.Content>
+								<Combobox.Search placeholder="Search personnel..." />
+								<Combobox.Empty>No personnel found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
+					</div>
+				{:else if selectedType?.assignTo === 'group'}
+					<div class="quick-fill-control">
+						<Combobox.Root
+							items={groupOptions}
+							bind:value={quickFillGroup}
+							label="Select quick-fill group"
+							autoHighlight
+						>
+							<Combobox.Trigger clearable placeholder="Select group..." aria-label="Select quick-fill group" />
+							<Combobox.Content>
+								<Combobox.Empty>No groups found.</Combobox.Empty>
+								<Combobox.List />
+							</Combobox.Content>
+						</Combobox.Root>
+					</div>
+				{/if}
 
-			<Button size="sm" onclick={applyQuickFill} disabled={!quickFillType || !quickFillAssigneeSelected || isApplying}>
-				{isApplying ? 'Applying...' : 'Apply'}
-			</Button>
+				<NativeSelect bind:value={quickFillDays} class="w-[150px]">
+					<option value="weekdays">Weekdays only</option>
+					<option value="weekends">Weekends only</option>
+					<option value="all">All days</option>
+				</NativeSelect>
+
+				<Button
+					size="sm"
+					onclick={applyQuickFill}
+					disabled={!quickFillType || !quickFillAssigneeSelected || isApplying}
+				>
+					{isApplying ? 'Applying...' : 'Apply'}
+				</Button>
+			</div>
 		</div>
-	</div>
 
-	<div class="overflow-x-auto">
-		<table class="w-full border-collapse text-sm">
-			<thead>
-				<tr class="bg-muted/40 border-b">
-					<th class="w-14 px-3 py-2 text-left font-medium">Date</th>
-					<th class="w-14 px-3 py-2 text-left font-medium">Day</th>
-					{#each activeAssignmentTypes as type (type.id)}
-						<th class="min-w-40 px-3 py-2 text-left font-medium">
-							<div class="flex items-center justify-between gap-2">
-								<span
-									class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase"
-									style="background-color: {type.color}">{type.shortName}</span
-								>
-								<Button
-									variant="ghost"
-									size="icon-xs"
-									onclick={() => clearAll(type.id)}
-									title="Clear all {type.name}"
-									aria-label="Clear all {type.name}"
-								>
-									<Trash2Icon />
-								</Button>
-							</div>
-						</th>
-					{/each}
-				</tr>
-			</thead>
-			<tbody>
-				{#each dates as date (formatDate(date))}
-					{@const dateStr = formatDate(date)}
-					{@const weekend = isWeekend(date)}
-					{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
-					{@const isToday = formatDate(new Date()) === dateStr}
-					<tr class={['border-b last:border-b-0', weekend && 'bg-muted/30', isToday && 'bg-primary/10']}>
-						<td class="px-3 py-2">
-							<span class="font-semibold">{date.getDate()}</span>
-						</td>
-						<td class="px-3 py-2">
-							<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
-						</td>
+		<div class="overflow-x-auto">
+			<table class="w-full border-collapse text-sm">
+				<thead>
+					<tr class="bg-muted/40 border-b">
+						<th class="w-14 px-3 py-2 text-left font-medium">Date</th>
+						<th class="w-14 px-3 py-2 text-left font-medium">Day</th>
 						{#each activeAssignmentTypes as type (type.id)}
-							{@const assignment = getAssignment(date, type.id)}
-							<td class="px-2 py-1.5">
-								{#if type.assignTo === 'personnel'}
-									<Combobox.Root
-										items={personnelOptions}
-										value={assignment?.assigneeId ?? ''}
-										label={`Select ${type.name} assignee for ${dateStr}`}
-										onValueChange={(value) =>
-											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
-										autoHighlight
+							<th class="min-w-40 px-3 py-2 text-left font-medium">
+								<div class="flex items-center justify-between gap-2">
+									<span
+										class="rounded-md px-1.5 py-0.5 font-mono text-xs font-semibold text-white uppercase"
+										style="background-color: {type.color}">{type.shortName}</span
 									>
-										<Combobox.Trigger
-											clearable
-											placeholder="-"
-											aria-label={`Select ${type.name} assignee for ${dateStr}`}
-										/>
-										<Combobox.Content>
-											<Combobox.Search placeholder="Search personnel..." />
-											<Combobox.Empty>No personnel found.</Combobox.Empty>
-											<Combobox.List />
-										</Combobox.Content>
-									</Combobox.Root>
-								{:else}
-									<Combobox.Root
-										items={groupOptions}
-										value={assignment?.assigneeId ?? ''}
-										label={`Select ${type.name} group for ${dateStr}`}
-										onValueChange={(value) =>
-											handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
-										autoHighlight
+									<Button
+										variant="ghost"
+										size="icon-xs"
+										onclick={() => clearAll(type.id)}
+										title="Clear all {type.name}"
+										aria-label="Clear all {type.name}"
 									>
-										<Combobox.Trigger
-											clearable
-											placeholder="-"
-											aria-label={`Select ${type.name} group for ${dateStr}`}
-										/>
-										<Combobox.Content>
-											<Combobox.Empty>No groups found.</Combobox.Empty>
-											<Combobox.List />
-										</Combobox.Content>
-									</Combobox.Root>
-								{/if}
-							</td>
+										<Trash2Icon />
+									</Button>
+								</div>
+							</th>
 						{/each}
 					</tr>
-				{/each}
-			</tbody>
-		</table>
-	</div>
+				</thead>
+				<tbody>
+					{#each dates as date (formatDate(date))}
+						{@const dateStr = formatDate(date)}
+						{@const weekend = isWeekend(date)}
+						{@const dayName = date.toLocaleDateString('en-US', { weekday: 'short' })}
+						{@const isToday = formatDate(new Date()) === dateStr}
+						<tr class={['border-b last:border-b-0', weekend && 'bg-muted/30', isToday && 'bg-primary/10']}>
+							<td class="px-3 py-2">
+								<span class="font-semibold">{date.getDate()}</span>
+							</td>
+							<td class="px-3 py-2">
+								<span class="text-muted-foreground font-mono text-xs uppercase">{dayName}</span>
+							</td>
+							{#each activeAssignmentTypes as type (type.id)}
+								{@const assignment = getAssignment(date, type.id)}
+								<td class="px-2 py-1.5">
+									{#if type.assignTo === 'personnel'}
+										<Combobox.Root
+											items={personnelOptions}
+											value={assignment?.assigneeId ?? ''}
+											label={`Select ${type.name} assignee for ${dateStr}`}
+											onValueChange={(value) =>
+												handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+											autoHighlight
+										>
+											<Combobox.Trigger
+												clearable
+												placeholder="-"
+												aria-label={`Select ${type.name} assignee for ${dateStr}`}
+											/>
+											<Combobox.Content>
+												<Combobox.Search placeholder="Search personnel..." />
+												<Combobox.Empty>No personnel found.</Combobox.Empty>
+												<Combobox.List />
+											</Combobox.Content>
+										</Combobox.Root>
+									{:else}
+										<Combobox.Root
+											items={groupOptions}
+											value={assignment?.assigneeId ?? ''}
+											label={`Select ${type.name} group for ${dateStr}`}
+											onValueChange={(value) =>
+												handleChange(date, type.id, Array.isArray(value) ? (value[0] ?? '') : value)}
+											autoHighlight
+										>
+											<Combobox.Trigger
+												clearable
+												placeholder="-"
+												aria-label={`Select ${type.name} group for ${dateStr}`}
+											/>
+											<Combobox.Content>
+												<Combobox.Empty>No groups found.</Combobox.Empty>
+												<Combobox.List />
+											</Combobox.Content>
+										</Combobox.Root>
+									{/if}
+								</td>
+							{/each}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+		</div>
 
-	<div class="text-muted-foreground border-t px-5 py-3 text-sm">{dates.length} days in {monthName}</div>
+		<div class="text-muted-foreground border-t px-5 py-3 text-sm">{dates.length} days in {monthName}</div>
+	{/if}
 </div>
 
-{#if clearTypeId}
+{#if clearTypeId && rangeStatus === 'ready'}
 	<ConfirmDialog
 		title="Clear Assignments"
 		message="Clear all assignments for this type for the entire month?"

@@ -105,8 +105,7 @@ describe('calendarRangeLoader', () => {
 			rangeEnd: '2026-06-30',
 			availabilityEntries: [],
 			specialDays: [],
-			dailyAssignments: [],
-			advancedDutyEvents: []
+			dailyAssignments: []
 		};
 		fetchMock.mockResolvedValue({
 			ok: true,
@@ -170,8 +169,7 @@ describe('calendarRangeLoader', () => {
 				{ id: 'a2', personnelId: 'p2', statusTypeId: 'st1', startDate: '2026-06-01', endDate: '2026-06-02', note: null }
 			],
 			specialDays: [{ id: 'sd2', name: 'Incoming', date: '2026-06-01', type: 'org-closure' }],
-			dailyAssignments: [{ id: 'da2', date: '2026-06-10', assignmentTypeId: 'at1', assigneeId: 'p2' }],
-			advancedDutyEvents: []
+			dailyAssignments: [{ id: 'da2', date: '2026-06-10', assignmentTypeId: 'at1', assigneeId: 'p2' }]
 		});
 
 		expect(availabilityStoreMock.orgId).toBe('org-1');

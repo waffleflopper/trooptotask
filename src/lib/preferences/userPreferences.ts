@@ -9,11 +9,6 @@ export interface UserOrgPreferences {
 		showStatusText: boolean;
 		showPersonnelRoles: boolean;
 		highlightOnboarding: boolean;
-		/**
-		 * When true, overnight duty events only show a badge on the day they begin.
-		 * When false, badges appear on every day their coverage window spans.
-		 */
-		dutyStartDayOnly: boolean;
 	};
 	training: {
 		selectedGroupId: string | null;
@@ -32,8 +27,7 @@ export const UserOrgPreferencesPatchSchema = z.object({
 		.object({
 			showStatusText: z.boolean().optional(),
 			showPersonnelRoles: z.boolean().optional(),
-			highlightOnboarding: z.boolean().optional(),
-			dutyStartDayOnly: z.boolean().optional()
+			highlightOnboarding: z.boolean().optional()
 		})
 		.optional(),
 	training: z
@@ -50,8 +44,7 @@ export function getDefaultUserOrgPreferences(): UserOrgPreferences {
 		calendar: {
 			showStatusText: false,
 			showPersonnelRoles: false,
-			highlightOnboarding: true,
-			dutyStartDayOnly: true
+			highlightOnboarding: true
 		},
 		training: {
 			selectedGroupId: null,

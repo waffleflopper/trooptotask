@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { Group } from '$lib/stores/groups.svelte';
-	import { resolve } from '$app/paths';
 	import type { Personnel, AssignmentType, DailyAssignment } from '$lib/types';
 	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { formatDate } from '$lib/utils/dates';
@@ -20,7 +19,6 @@
 		personnelByGroup: GroupData[];
 		groups: readonly Group[];
 		dutyEvents?: DutyEvent[];
-		dutyRosterHref?: string;
 		onSetAssignment: (date: string, typeId: string, assigneeId: string) => void;
 		onRemoveAssignment: (date: string, typeId: string) => void;
 		onClose: () => void;
@@ -33,7 +31,6 @@
 		personnelByGroup,
 		groups,
 		dutyEvents = [],
-		dutyRosterHref,
 		onSetAssignment,
 		onRemoveAssignment,
 		onClose
@@ -111,13 +108,7 @@
 					<h4 class="text-muted-foreground text-xs font-semibold tracking-wide uppercase">Advanced duty events</h4>
 					{#each dutyEventsForDate as event (event.id)}
 						<div class="flex flex-col gap-0.5">
-							{#if dutyRosterHref}
-								<a href={resolve(dutyRosterHref as `/org/${string}`)} class="text-sm font-medium hover:underline"
-									>{event.templateName}</a
-								>
-							{:else}
-								<span class="text-sm font-medium">{event.templateName}</span>
-							{/if}
+							<span class="text-sm font-medium">{event.templateName}</span>
 							<span class="text-muted-foreground text-xs"
 								>{formatCoverage(event)} · {event.fillSummary.filledSlots} of {event.fillSummary.totalSlots} filled</span
 							>

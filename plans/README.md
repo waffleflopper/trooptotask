@@ -21,7 +21,7 @@ Completed by PR #1230 on 2026-06-17: plans 083-087 now implement the self-servic
 Reconciled by the improve skill on 2026-06-28 at commit `88a2fbd5`: refreshed plan 092 after plan 091 merged runtime billing health/support visibility. Plan 092 remains the only TODO launch-runway plan and is executable on the current post-plan-091 baseline.
 Updated by the improve follow-up on 2026-06-28 at commit `2f3bc4d6` with plan 093 (Robert selected starter configuration packs from the post-launch `$improve next` shortlist).
 
-These plans record historical implementation work. The [stabilization queue](../docs/stabilization/TODO.md) now owns execution order and the [verification contract](../docs/architecture/DEFINITION_OF_DONE.md#verification-contract) owns current checks. Historical E2E commands and coverage claims below are obsolete: task 02-05 removed that harness. Billing-only runbooks and plans 016, 045, 050, 062, 074, 078, 085, 090 and 091 are deleted by stabilization 03-07b-01. Their numeric references in the dated history below identify former work, not executable dependencies or missing prerequisites. Plans 079 and 089 retain mixed Beta-label and support/legal history. Remaining historical artifact cleanup belongs to stabilization 13-02; current acquisition and support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md), and external retirement ordering is in [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
+These plans record historical implementation work. The [stabilization queue](../docs/stabilization/TODO.md) now owns execution order and the [verification contract](../docs/architecture/DEFINITION_OF_DONE.md#verification-contract) owns current checks. Historical E2E commands and coverage claims below are obsolete: task 02-05 removed that harness. Billing-only runbooks and plans 016, 045, 050, 062, 074, 078, 085, 090 and 091 are deleted by stabilization 03-07b-01. Their numeric references in the dated history below identify former work, not executable dependencies or missing prerequisites. Plans 079 and 089 retain mixed Beta-label and support/legal history. Duty Roster-only plans 005, 025 and 049 are deleted with their retired preview, route/E2E and DA6 matrix implementations in stabilization 05-01-03. Remaining historical artifact cleanup belongs to stabilization 13-02; current acquisition and support guidance is in [Launch Acquisition Path](../docs/launch-acquisition-path.md), and external retirement ordering is in [RELEASE](../docs/stabilization/RELEASE.md#commercial-operations-retirement--03-07b-01).
 
 The operator explicitly excluded automatic CI trigger work from this batch. Do not add `pull_request` or `push` triggers while executing these plans unless Robert asks for that separately.
 
@@ -33,7 +33,6 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 002  | Reject unset cleanup bearer secrets                  | P1       | S      | -                  | DONE   |
 | 003  | Refresh org ownership RPC definitions                | P1       | M      | -                  | DONE   |
 | 004  | Replace stale calendar range records                 | P1       | M      | -                  | DONE   |
-| 005  | Include existing duty events in template previews    | P1       | M      | -                  | DONE   |
 | 006  | Add a manual Supabase DB contract gate               | P2       | M      | 001, 003           | DONE   |
 | 007  | Restrict global admin search to support roles        | P1       | S      | -                  | DONE   |
 | 008  | Harden archive-retention cron authorization          | P1       | S      | 002                | DONE   |
@@ -52,7 +51,6 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 022  | Bulk delete onboarding retention rows                | P2       | S      | -                  | DONE   |
 | 023  | Validate batch import route bodies with zod          | P1       | S      | -                  | DONE   |
 | 024  | Sanitize unhandled route error logs                  | P2       | S      | -                  | DONE   |
-| 025  | Duty-roster workflow E2E Playwright spec             | P2       | M      | -                  | DONE   |
 | 026  | Add documented .env.example                          | P3       | S      | -                  | DONE   |
 | 027  | Restrict audit-log settings to owner-only access     | P1       | M      | -                  | DONE   |
 | 028  | Approve deletion requests after resource effects     | P1       | M      | -                  | DONE   |
@@ -75,7 +73,6 @@ The operator explicitly excluded automatic CI trigger work from this batch. Do n
 | 046  | Add lightweight Critical Tasks dashboard summary     | P1       | M      | -                  | DONE   |
 | 047  | Split Training report detail from aggregate work     | P1       | M      | -                  | DONE   |
 | 048  | Index long-range Calendar date cells                 | P2       | S      | -                  | DONE   |
-| 049  | Precompute DA6 matrix lookup maps                    | P2       | S      | -                  | DONE   |
 | 051  | Add platform organization detail seam                | P1       | M      | -                  | DONE   |
 | 052  | Move user identity commands behind seam              | P2       | S-M    | -                  | DONE   |
 | 053  | Drop legacy clinic owner RPC                         | P1       | S      | -                  | DONE   |
@@ -139,7 +136,6 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 - 006 can be implemented before 001 and 003 if the executor only wires the harness, but it becomes more valuable after 001 and 003 add pgTAP coverage for the sensitive RPC and org ownership findings.
 - 001 and 002 cover different layers of cleanup access. 001 closes direct database RPC access; 002 closes the app endpoint bearer-secret hole.
-- 004 and 005 are independent user-visible correctness fixes. They can be executed in parallel by separate agents.
 - 008 depends on 002 because it reuses the hardened cron authorization helper introduced there.
 - 009 touches shared Calendar assignment use cases; avoid running it in parallel with other edits to the same use-case file.
 - 010 touches the scoped store adapter; avoid batching it with broad scoped-auth changes so pagination and authorization semantics remain easy to review.
@@ -153,7 +149,6 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 020 and 021 both touch Training batch behavior/tests; run 020 first for the user-visible request reduction, then 021 for server import throughput.
 - 022 is independent retention cleanup work; it should not need a migration.
 - 023, 024, and 026 are independent of each other and of everything above; 023 and 024 touch different layers (route files vs. the adapter's error funnel) and can run in parallel.
-- 025 is test-only and requires a running local Supabase; do not run it in parallel with other agents that mutate `e2e/fixtures/test-data.ts`. It builds browser coverage on top of the calendar/duty-roster behavior pinned by plans 004, 005, 009, and 019 — execute it last in this batch.
 - 027, 028, 030, 031, 032, 033, 035, 036, 037, and 038 are independent of each other by source scope. They can run in parallel if each executor uses an isolated worktree and no two agents mutate `plans/README.md` at the same time.
 - 029 and 034 both touch `startOnboarding` and onboarding tests. Run 029 first so the failure-consistency fix lands before 034 changes the input contract and API payload shape.
 - 030 is dependency/toolchain work. Do not run it in the same worktree as other plans because `package-lock.json` churn can make unrelated verification failures harder to attribute.
@@ -168,8 +163,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - 045 is independent and touches organization plan usage counting only. It can run in parallel with UI plans, but avoid pairing it with broad DataStore adapter refactors.
 - 046 is independent from the migration/security batch. It touches Critical Tasks report summary code and the dashboard route; do not run it in parallel with other edits to `criticalTasksReportsQuery.ts`, `ictReports.ts`, or `src/routes/org/[orgId]/(dashboard)`.
 - 047 is independent from 046 by feature area but touches Training report routes, read models, and a Svelte component. Do not run it in parallel with other Training reports/API refactors.
-- 048 and 049 are small independent Svelte-adjacent render optimizations. They can run in parallel in isolated worktrees because they touch Calendar and Duty Roster respectively. If their executors edit Svelte files, they must follow the Svelte MCP documentation flow and run `svelte-autofixer` until clean.
-- 046, 047, 048, and 049 add no migrations. They do not require local or remote database schema changes.
+- 046, 047, and 048 add no migrations. They do not require local or remote database schema changes.
 - 050, 051, and 052 are independent by runtime source scope, but they all deepen Platform Administration provider seams and may update `docs/architecture/DRIFT_LEDGER.md` plus `plans/README.md`; coordinate those doc/index edits if running them in parallel.
 - If serialized, run 050 first, then 051, then 052. 050 touches billing-event retry and should not run alongside Stripe webhook processor refactors. 051 touches the admin organization detail load and should not run alongside organization-detail load/billing seam work. 052 touches admin user identity commands and should not run alongside user-directory auth command work.
 - 050, 051, and 052 add no migrations. They do not require local or remote database schema changes.
@@ -253,7 +247,6 @@ Rejected in the 2026-06-14 standard audit (commit `b3acfabb`) — vetted false p
 - SEC findings already triaged/covered: cookie@0.6.0 advisory (accepted in plan 013 npm-audit triage), Stripe webhook freshness (speculative — requires HMAC break), account-setup session cookie replay (expiry is in the signed payload and checked), Secure-flag `!import.meta.env.DEV` and SameSite=lax (standard patterns; CSRF covered by SvelteKit), pgTAP core-table contracts (covered by plans 015/069).
 - Onboarding resync update-loop batching beyond inserts/upserts (would need a new `updateMany`/`updateWhere` store method): out of scope of plan 076, which uses existing `upsertMany`/`insertMany`. Revisit only if a bulk partial-update store primitive is added.
 - Perf: notifications mark-all-read N+1, members-settings/feedback unbounded history, platform user-directory/access-request scans — already deferred in prior audits; unbounded gifting-org fetch (`supabasePlatformGifting.ts`) and inviter-email per-id auth lookups (`accessRequestInvitationOrigin.ts`) are real but admin-only/small-N; deferred to a future platform-admin scalability pass.
-- Direction: DA6 Matrix Presenter extraction is grounded (CONTEXT.md names the seam; DRIFT_LEDGER D-07) but the reason-text core (`da6ReasonText`) is already shared, so the residual per-view duplication is shallower than reported — modest leverage, not selected. Asymmetric bulk operations (Calendar has bulk add+remove; Training/Personnel lack bulk-archive) surfaced as a product-direction option, not selected. Readiness Rollup extraction was already surfaced in a prior audit.
 
 Rejected in the 2026-06-11 full audit (commit `22e6e184`):
 
@@ -272,7 +265,6 @@ Rejected in the 2026-06-11 follow-up audit (commit `79cfef20`):
 - Calendar query column narrowing (`calendarQuery.ts` fetching `*` for special_days/assignment_types/daily_assignments): vetted and downgraded — `fromDbArray` maps every schema field into the domain types (including `exempt_personnel_ids`, which assignment pickers need), so the only trimmable columns are unmapped infra columns (`org_id`, timestamps). Marginal payload win; the entity `select` config plumbing exists (`entitySchema.ts:196`) if this is ever revisited. Note: `AvailabilityEntryEntity.select` passed at `calendarQuery.ts:102` is currently the `'*'` default — a no-op, not an exemplar.
 - Platform admin user directory full auth-user scan (`platformUserDirectory.ts:164` sorts/slices in memory after `listAuthUsers()` pages through ALL auth users): real but admin-only, and the GoTrue admin API offers no server-side search/sort, so the fix is a redesign, not a query tweak. Revisit when platform user counts make the admin page measurably slow.
 - BulkStatusImport fire-and-forget `handleImport()` call (`BulkStatusImport.svelte`, in `handlePreviewNext`): not a bug — `handleImport` handles all its async failures internally (try/catch/finally with toasts); the un-awaited call is the established event-handler pattern.
-- Duty-roster use cases "untested" claim: disproven — `dutyRosterTemplates.test.ts` (3,808 lines, 89 tests) covers `acceptedRunLifecycle`/`templateAdministration`, plus `acceptedRunCalendarSync.test.ts` (870 lines). The genuine gap is browser-level coverage → plan 025.
 - cookie/uuid dependency advisories: already covered by plan 013's npm audit triage scope (and the reporting agent's `@sveltejs/kit ^2.0.0` evidence was wrong — package.json pins `^2.61.1`).
 - Org-switcher rate limiting, membership-query timeouts, announcement enum narrowing, Stripe webhook sanitize-ordering: speculative hardening with no defect evidence; not planned.
 - CLAUDE.md titled `# AGENTS.md`: intentional — CLAUDE.md mirrors AGENTS.md (they differ only in the agent-tooling sections). Not a doc bug.

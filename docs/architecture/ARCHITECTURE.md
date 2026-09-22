@@ -47,7 +47,7 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
   - feature views, contexts, stores, and utilities in `src/features/*`
   - shared UI primitives in `src/lib/components/**` and `src/lib/components/ui/**`
 - This pattern is real, but not uniformly deep. Several feature surfaces still have large orchestration-heavy files and mixed responsibilities.
-- Notable orchestration hotspots today include calendar, personnel, dashboard, duty roster, training reports, and parts of onboarding and critical tasks.
+- Notable orchestration hotspots today include calendar, personnel, dashboard, training reports, and parts of onboarding and critical tasks.
 
 ### Server structure
 

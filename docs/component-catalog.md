@@ -70,21 +70,21 @@ Command input and result items must share one `Command.Root`. For server-filtere
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 
-	let tab = $state('generate');
+	let tab = $state('overview');
 	const tabs = [
-		{ label: 'Generate', value: 'generate' },
+		{ label: 'Overview', value: 'overview' },
 		{ label: 'History', value: 'history', badge: 48 },
 		{ label: 'Settings', value: 'settings' }
 	];
 </script>
 
 <PageShell.Root>
-	<PageShell.Header title="Staff Duty NCO" subtitle="Configure this duty roster template.">
+	<PageShell.Header title="Training Readiness" subtitle="Review training completion and upcoming requirements.">
 		{#snippet meta()}
 			<Badge variant="success">Active</Badge>
 		{/snippet}
 		{#snippet actions()}
-			<Button>Generate Roster</Button>
+			<Button>Record Training</Button>
 			<Button variant="outline">View History</Button>
 		{/snippet}
 	</PageShell.Header>
@@ -94,15 +94,15 @@ Command input and result items must share one `Command.Root`. For server-filtere
 	<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
 		<div class="rounded-lg border bg-card p-4 text-card-foreground">
 			<PageShell.FactGrid layout="three">
-				<PageShell.Metric label="Pool Size" value="22" />
-				<PageShell.Metric label="Assigned" value="6" />
-				<PageShell.Metric label="Remaining" value="16" />
+				<PageShell.Metric label="Personnel" value="22" />
+				<PageShell.Metric label="Complete" value="6" />
+				<PageShell.Metric label="Due" value="16" />
 			</PageShell.FactGrid>
 		</div>
 
-		<PageShell.SummaryRail title="Template Summary">
-			<PageShell.FactRow label="Total Eligible" value="22" />
-			<PageShell.FactRow label="Exemptions" value="4" />
+		<PageShell.SummaryRail title="Training Summary">
+			<PageShell.FactRow label="Personnel" value="22" />
+			<PageShell.FactRow label="Training Types" value="4" />
 		</PageShell.SummaryRail>
 	</section>
 
@@ -131,23 +131,10 @@ Rules:
 
 - Use `Root` inside the authenticated shell/sidebar inset so page content scrolls inside the shell and the app breadcrumb/header remains outside the route scroller.
 - Use `Header` for route-local title, subtitle, meta, and actions. Do not duplicate the authenticated app breadcrumb bar inside route content.
-- Use `Tabs` for route-level Generate/History/Settings style navigation. Do not restore legacy `SubNav`.
+- Use `Tabs` for route-level Overview/History/Settings style navigation. Do not restore legacy `SubNav`.
 - Use `SummaryRail`, `FactGrid`, `FactRow`, and `Metric` for dense operational summaries instead of route-local summary wrappers.
-- Use `StickyActionBar` for dirty-state and grouped draft/official action surfaces.
+- Use `StickyActionBar` for dirty-state and grouped action surfaces.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
-
----
-
-## Feature-Owned Duty Roster Wrappers
-
-Duty-roster-specific wrappers live under `src/features/duty-roster/components/shared/` because they encode DA6 and accepted-run language. They are not global `ui/*` primitives.
-
-- `DutyRosterStatusBadge` maps duty-roster states to locked badge variants and accessible labels.
-- `DA6Matrix` wraps `ui/operational-matrix` with DA6-specific rows, date headers, cell meanings, footer counts, legend, and accessible labels.
-- `ManualChangePanel` and `CorrectionSheet` provide sheet-ready workflow panels for draft manual changes and accepted-run corrections.
-- `AuditTimeline`, `WarningSummary`, and `DateRangeControls` support the duty-roster route composition while staying aligned with shared shadcn-svelte primitives.
-
-If `AuditTimeline`, `WarningSummary`, or `DateRangeControls` are needed outside duty roster, promote them deliberately into `src/lib/components/ui/**` with component-catalog documentation before production routes consume them globally.
 
 ---
 
@@ -1052,7 +1039,7 @@ Toolbar compact pattern:
 </WorkspaceToolbar.Group>
 ```
 
-- Use for training, Critical Tasks, duty roster, calendar report, MOS/rank/group/role, and toolbar filters where several values can be active.
+- Use for training, Critical Tasks, calendar report, MOS/rank/group/role, and toolbar filters where several values can be active.
 - Selected values should render as removable chips in regular forms and as an active count in compact toolbars.
 - Backspace removes the last selected value when the search input is empty.
 - Use the same object option shape as `Combobox.Root` when labels differ from submitted values, options need group headings, or selected chips should announce readable labels.

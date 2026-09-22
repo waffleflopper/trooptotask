@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
-import PassiveStub from '$features/duty-roster/components/test-stubs/PassiveStub.svelte';
+import PassiveStub from './test-stubs/PassiveStub.svelte';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 vi.mock('$features/dashboard', async () => {

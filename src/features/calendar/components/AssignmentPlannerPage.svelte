@@ -42,10 +42,7 @@
 		}).scoped(org.scopeSet, { status: 'active' })
 	);
 	const scopedPBG = $derived(rosterView.personnelByGroup);
-	const relatedLinks = $derived([
-		{ label: 'Duty Rosters', href: `/org/${orgUrlSegment}/duty-rosters` },
-		{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }
-	]);
+	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
 </script>
 
 <div class="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 sm:pb-6">

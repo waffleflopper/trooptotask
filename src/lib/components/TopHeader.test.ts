@@ -238,7 +238,7 @@ describe('TopHeader', () => {
 		expect(screen.queryByRole('menuitem', { name: 'Organization Settings' })).toBeNull();
 	});
 
-	it('hides Duty Rosters while keeping Calendar and Personnel available', () => {
+	it('keeps Calendar and Personnel available after Duty Roster retirement', () => {
 		renderHeader();
 
 		expect(screen.queryByRole('link', { name: /Duty Rosters/ })).toBeNull();

@@ -3,7 +3,6 @@ import type { CapabilityMap, DurableFeatureLane } from '$lib/access/memberAccess
 export type OrgNavIcon =
 	| 'dashboard'
 	| 'calendar'
-	| 'duty-roster'
 	| 'personnel'
 	| 'rating-scheme'
 	| 'training'
@@ -31,7 +30,6 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	calendar: {
 		assignments: 'Assignments',
 		bulk: 'Bulk Status',
-		'duty-roster': 'Duty Roster',
 		reports: 'Reports',
 		settings: 'Settings'
 	},
@@ -46,9 +44,6 @@ const ORG_ROUTE_CHILD_BREADCRUMBS: Record<string, Record<string, string>> = {
 	'critical-tasks': {
 		library: 'Library',
 		reports: 'Reports'
-	},
-	'duty-rosters': {
-		new: 'New Template'
 	}
 };
 
@@ -77,16 +72,6 @@ export function getOrgNavigation(orgId: string, access: CapabilityMap): OrgNavIt
 			label: 'Calendar',
 			icon: 'calendar',
 			visible: canView('calendar'),
-			exactMatch: false
-		},
-		{
-			id: 'duty-rosters',
-			href: `/org/${orgId}/duty-rosters`,
-			label: 'Duty Rosters',
-			badgeLabel: 'Beta',
-			icon: 'duty-roster',
-			// Temporarily hidden while Duty Rosters bugs are addressed; retain route breadcrumbs.
-			visible: false,
 			exactMatch: false
 		},
 		{
@@ -178,11 +163,6 @@ export function getOrgBreadcrumbs(
 
 	breadcrumbs[1].href = activeItem.href;
 	const childSegment = pathname.slice(itemPath.length + 1).split('/')[0];
-	if (activeItem.id === 'duty-rosters' && childSegment && childSegment !== 'new' && routeLeafLabel) {
-		breadcrumbs.push({ label: routeLeafLabel });
-		return breadcrumbs;
-	}
-
 	const childLabel =
 		ORG_ROUTE_CHILD_BREADCRUMBS[activeItem.id]?.[childSegment] ??
 		(activeItem.id === 'critical-tasks' && childSegment ? (routeLeafLabel ?? 'Person') : undefined);

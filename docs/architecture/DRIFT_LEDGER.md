@@ -77,9 +77,7 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
   - the dashboard client surface now has a feature-owned read-model boundary that centralizes hydrated-store joins, grouping preferences, and tab-facing display rows while leaving existing route/provider/authz boundaries unchanged
   - the calendar page now has a feature-owned range coordinator for client-side range expansion, store merging, retry state, and advanced duty event hydration
   - calendar reports now compose the shared Report Workspace and shared report-run/filter-selection primitives instead of maintaining five separate report chrome implementations
-  - the duty-roster page now keeps advanced-duty template normalization and applied-duty timeline collection rules behind a feature-owned module
   - the Personnel detail artifact creation flows now compose a client-side `ArtifactDraft` seam for Follow-Ups, Leader Notes, Documents, and Counseling Records instead of keeping four cloned submit/state flows in the workspace
-  - the Duty Roster server use cases now collapse the former templateLifecycle/acceptedRuns/dutyRosterCorrection layering into two concept modules behind the frozen policy-gated facade: Duty Roster Template Administration and Accepted Duty Roster Run Lifecycle, with shared row mapping in templateRecord/acceptedRunRecord and the afterAccept callback seam inlined
   - the bulk Availability Status surfaces now keep Availability Status Import rules (personnel matching, row validation, status resolution, record building) in a string-free reason-coded feature module, submit through the availability store's chunked batch seam instead of component-owned fetch, and share one Roster Picker instead of duplicated grouped-selection plumbing in the add and remove components
   - Training and Critical Tasks readiness counting now folds through the shared Readiness Rollup domain module (one home for the matrix walk, percent rounding, zero-applicable conventions, and seeded empty axes) instead of six hand-rolled per-feature aggregation loops, with classification, applicability gates, and presenters staying feature-owned
 - Intended direction:
@@ -89,7 +87,7 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
 - Guardrail until fixed:
   - use explicit architecture-review slices for deepening instead of incidental churn
 - Recommended next slice:
-  - remove Duty Roster and Calendar duty hydration in phase 05, then deepen retained Calendar, Personnel and Training modules through their queued tasks; existing duty helpers are removal targets, not a future product foundation
+  - Duty Roster generation/routes/exports are removed in phase 05 D01; complete Calendar duty hydration removal in D02 and remaining metadata/integrations in D03, then deepen retained Calendar, Personnel and Training modules through their queued tasks
 
 ## D-08 Route-Level Membership And Settings Logic (Resolved For Org Settings Governance)
 

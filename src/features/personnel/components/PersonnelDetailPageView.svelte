@@ -500,7 +500,7 @@
 {#snippet ToneBadge(tone: PersonnelDetailTone, label: string)}
 	<span
 		class={cn(
-			'inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap',
+			'inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-xs font-medium wrap-anywhere whitespace-normal',
 			workspace.toneClass(tone)
 		)}
 	>
@@ -510,8 +510,10 @@
 
 {#snippet ReadinessLaneCard(lane: PersonnelReadinessLane)}
 	<article class="rounded-md border bg-card p-4">
-		<div class="flex items-start justify-between gap-3">
-			<p class="text-xs font-semibold tracking-widest text-muted-foreground uppercase">{lane.label}</p>
+		<div class="flex flex-wrap items-start justify-between gap-3">
+			<p class="min-w-0 text-xs font-semibold tracking-widest wrap-anywhere text-muted-foreground uppercase">
+				{lane.label}
+			</p>
 			{@render ToneBadge(lane.tone, lane.value)}
 		</div>
 		<p class="mt-4 text-sm leading-relaxed text-muted-foreground">{lane.detail}</p>

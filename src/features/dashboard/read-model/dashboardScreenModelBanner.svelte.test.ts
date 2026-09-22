@@ -104,9 +104,6 @@ function makeData(
 		onboardingTemplateStepCount: 0,
 		ratingSchemeEntryCount: 0,
 		orgMemberCount: 0,
-		dutyRosterTemplateCount: 0,
-		dutyRosterRunCount: 0,
-		dutyRosterHistoryCount: 0,
 		gettingStartedDismissed: false,
 		...overrides
 	};
@@ -421,9 +418,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 					onboardingTemplateStepCount: undefined,
 					ratingSchemeEntryCount: undefined,
 					orgMemberCount: undefined,
-					dutyRosterTemplateCount: undefined,
-					dutyRosterRunCount: undefined,
-					dutyRosterHistoryCount: undefined,
 					gettingStartedDismissed: undefined
 				})
 			);
@@ -432,9 +426,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			expect(c.onboardingTemplateStepCount).toBe(0);
 			expect(c.ratingSchemeEntryCount).toBe(0);
 			expect(c.orgMemberCount).toBe(0);
-			expect(c.dutyRosterTemplateCount).toBe(0);
-			expect(c.dutyRosterRunCount).toBe(0);
-			expect(c.dutyRosterHistoryCount).toBe(0);
 			expect(c.gettingStartedDismissed).toBe(false);
 		});
 
@@ -443,9 +434,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				onboardingTemplateStepCount: 4,
 				ratingSchemeEntryCount: 3,
 				orgMemberCount: 2,
-				dutyRosterTemplateCount: 1,
-				dutyRosterRunCount: 2,
-				dutyRosterHistoryCount: 3,
 				gettingStartedDismissed: true
 			});
 
@@ -453,9 +441,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			expect(ctx.onboardingTemplateStepCount).toBe(4);
 			expect(ctx.ratingSchemeEntryCount).toBe(3);
 			expect(ctx.orgMemberCount).toBe(2);
-			expect(ctx.dutyRosterTemplateCount).toBe(1);
-			expect(ctx.dutyRosterRunCount).toBe(2);
-			expect(ctx.dutyRosterHistoryCount).toBe(3);
 			expect(ctx.gettingStartedDismissed).toBe(true);
 		});
 	});

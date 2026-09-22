@@ -96,15 +96,12 @@ export interface BulkSetOrganizationRankCatalogStateResult {
 export interface OrganizationRankCatalogActiveReferences {
 	personnel: number;
 	trainingApplicability: number;
-	dutyRosterTemplateFilters: number;
-	legacyDutyTemplateSlots: number;
 	total: number;
 }
 
 export interface OrganizationRankCatalogHistoricalReferences {
 	signInRosterFilters: number;
 	signInRosterSnapshots: number;
-	acceptedDutyRosterSnapshots: number;
 	total: number;
 }
 
@@ -145,30 +142,9 @@ interface TrainingTypeRankReferenceRow {
 	excluded_ranks?: unknown;
 }
 
-interface DutyRosterTemplateRankReferenceRow {
-	status?: string | null;
-	archived_at?: string | null;
-	pool_criteria?: unknown;
-}
-
-interface DutyTemplateSlotRankReferenceRow {
-	template_id?: string | null;
-	allowed_ranks?: unknown;
-}
-
-interface DutyTemplateRankReferenceRow {
-	id: string;
-	status?: string | null;
-}
-
 interface SignInRosterRankReferenceRow {
 	filter_config?: unknown;
 	personnel_snapshot?: unknown;
-}
-
-interface AcceptedDutyRosterSnapshotRankReferenceRow {
-	status?: string | null;
-	snapshot_payload?: unknown;
 }
 
 interface RankCatalogPorts {
@@ -309,7 +285,7 @@ export async function saveOrganizationRankCatalogEntry(
 	ports.audit.log({
 		action: 'organization.rank_catalog.saved',
 		resourceType: 'organization_rank_catalog',
-		resourceId: savedEntry.code,
+		resourceId: saved.id,
 		details: rankCatalogAuditDetails(savedEntry)
 	});
 
@@ -391,7 +367,7 @@ export async function addOrganizationRankServicePack(
 	ports.audit.log({
 		action: 'organization.rank_catalog.service_pack_added',
 		resourceType: 'organization_rank_catalog',
-		resourceId: input.service,
+		resourceId: ports.auth.orgId,
 		details: {
 			service: input.service,
 			addedCount: result.addedCount,
@@ -441,7 +417,7 @@ export async function bulkSetOrganizationRankCatalogState(
 	ports.audit.log({
 		action: 'organization.rank_catalog.bulk_state_changed',
 		resourceType: 'organization_rank_catalog',
-		resourceId: input.service,
+		resourceId: ports.auth.orgId,
 		details: {
 			service: input.service,
 			targetState: input.targetState,
@@ -468,26 +444,11 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 	}
 
 	const referenceStore = storeForRankCatalog(ports);
-	const [
-		personnelRows,
-		trainingTypeRows,
-		dutyTemplateRows,
-		legacySlotRows,
-		legacyTemplateRows,
-		signInRosterRows,
-		dutyRosterRunRows
-	] = await Promise.all([
+	const [personnelRows, trainingTypeRows, signInRosterRows] = await Promise.all([
 		referenceStore.findMany<PersonnelRankRow>('personnel', ports.auth.orgId),
 		referenceStore.findMany<TrainingTypeRankReferenceRow>('training_types', ports.auth.orgId),
-		referenceStore.findMany<DutyRosterTemplateRankReferenceRow>('duty_roster_templates', ports.auth.orgId),
-		referenceStore.findMany<DutyTemplateSlotRankReferenceRow>('duty_template_slots', ports.auth.orgId),
-		referenceStore.findMany<DutyTemplateRankReferenceRow>('duty_templates', ports.auth.orgId),
-		referenceStore.findMany<SignInRosterRankReferenceRow>('sign_in_rosters', ports.auth.orgId),
-		referenceStore.findMany<AcceptedDutyRosterSnapshotRankReferenceRow>('duty_roster_template_runs', ports.auth.orgId)
+		referenceStore.findMany<SignInRosterRankReferenceRow>('sign_in_rosters', ports.auth.orgId)
 	]);
-	const activeLegacyTemplateIds = new Set(
-		legacyTemplateRows.filter((row) => row.status === 'active').map((row) => row.id)
-	);
 
 	for (const code of codes) {
 		const summary = summaries.get(code);
@@ -501,21 +462,8 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 				countArrayReferences(row.excluded_ranks, code, referenceMatcher)
 			);
 		}, 0);
-		summary.activeReferences.dutyRosterTemplateFilters = dutyTemplateRows.filter(
-			(row) =>
-				!isArchivedDutyRosterTemplate(row) &&
-				arrayContainsRankReference(getDutyRosterTemplateRankValues(row.pool_criteria), code, referenceMatcher)
-		).length;
-		summary.activeReferences.legacyDutyTemplateSlots = legacySlotRows.filter(
-			(row) =>
-				Boolean(row.template_id && activeLegacyTemplateIds.has(row.template_id)) &&
-				arrayContainsRankReference(row.allowed_ranks, code, referenceMatcher)
-		).length;
 		summary.activeReferences.total =
-			summary.activeReferences.personnel +
-			summary.activeReferences.trainingApplicability +
-			summary.activeReferences.dutyRosterTemplateFilters +
-			summary.activeReferences.legacyDutyTemplateSlots;
+			summary.activeReferences.personnel + summary.activeReferences.trainingApplicability;
 
 		summary.historicalReferences.signInRosterFilters = signInRosterRows.filter((row) =>
 			arrayContainsRankReference(getSignInRosterFilterRanks(row.filter_config), code, referenceMatcher)
@@ -523,15 +471,8 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 		summary.historicalReferences.signInRosterSnapshots = signInRosterRows.filter((row) =>
 			signInRosterSnapshotContainsRank(row.personnel_snapshot, code, referenceMatcher)
 		).length;
-		summary.historicalReferences.acceptedDutyRosterSnapshots = dutyRosterRunRows.filter(
-			(row) =>
-				row.status === 'accepted' &&
-				acceptedDutyRosterSnapshotContainsRank(row.snapshot_payload, code, referenceMatcher)
-		).length;
 		summary.historicalReferences.total =
-			summary.historicalReferences.signInRosterFilters +
-			summary.historicalReferences.signInRosterSnapshots +
-			summary.historicalReferences.acceptedDutyRosterSnapshots;
+			summary.historicalReferences.signInRosterFilters + summary.historicalReferences.signInRosterSnapshots;
 		summary.canDelete = summary.activeReferences.total === 0 && summary.historicalReferences.total === 0;
 	}
 
@@ -573,7 +514,7 @@ export async function retireOrganizationRankCatalogEntry(
 	ports.audit.log({
 		action: 'organization.rank_catalog.retired',
 		resourceType: 'organization_rank_catalog',
-		resourceId: retiredEntry.code,
+		resourceId: saved.id,
 		details: rankCatalogAuditDetails(retiredEntry)
 	});
 
@@ -615,7 +556,7 @@ export async function reactivateOrganizationRankCatalogEntry(
 	ports.audit.log({
 		action: 'organization.rank_catalog.reactivated',
 		resourceType: 'organization_rank_catalog',
-		resourceId: reactivatedEntry.code,
+		resourceId: saved.id,
 		details: rankCatalogAuditDetails(reactivatedEntry)
 	});
 
@@ -673,7 +614,7 @@ export async function removeOrganizationRankCatalogEntry(
 	ports.audit.log({
 		action: 'organization.rank_catalog.deleted',
 		resourceType: 'organization_rank_catalog',
-		resourceId: code,
+		resourceId: existing.id,
 		details: {
 			code,
 			label: existing.label,
@@ -833,14 +774,11 @@ function createEmptyReferenceSummary(code: string): OrganizationRankCatalogRefer
 		activeReferences: {
 			personnel: 0,
 			trainingApplicability: 0,
-			dutyRosterTemplateFilters: 0,
-			legacyDutyTemplateSlots: 0,
 			total: 0
 		},
 		historicalReferences: {
 			signInRosterFilters: 0,
 			signInRosterSnapshots: 0,
-			acceptedDutyRosterSnapshots: 0,
 			total: 0
 		},
 		canDelete: true
@@ -892,19 +830,6 @@ function normalizeRankReference(value: string): string {
 	return value.trim().replace(/\s+/g, ' ');
 }
 
-function isArchivedDutyRosterTemplate(row: DutyRosterTemplateRankReferenceRow): boolean {
-	return row.status === 'archived' || Boolean(row.archived_at);
-}
-
-function getDutyRosterTemplateRankValues(poolCriteria: unknown): unknown[] {
-	if (!poolCriteria || typeof poolCriteria !== 'object' || Array.isArray(poolCriteria)) {
-		return [];
-	}
-
-	const rankValues = (poolCriteria as { rankValues?: unknown }).rankValues;
-	return Array.isArray(rankValues) ? rankValues : [];
-}
-
 function getSignInRosterFilterRanks(filterConfig: unknown): unknown[] {
 	if (!filterConfig || typeof filterConfig !== 'object' || Array.isArray(filterConfig)) {
 		return [];
@@ -916,29 +841,6 @@ function getSignInRosterFilterRanks(filterConfig: unknown): unknown[] {
 
 function signInRosterSnapshotContainsRank(snapshot: unknown, code: string, matcher: RankReferenceMatcher): boolean {
 	return Array.isArray(snapshot) && snapshot.some((entry) => objectHasRankReference(entry, code, matcher));
-}
-
-function acceptedDutyRosterSnapshotContainsRank(
-	snapshotPayload: unknown,
-	code: string,
-	matcher: RankReferenceMatcher
-): boolean {
-	if (!snapshotPayload || typeof snapshotPayload !== 'object' || Array.isArray(snapshotPayload)) {
-		return false;
-	}
-
-	const snapshot = snapshotPayload as Record<string, unknown>;
-	const knownPersonnelCollections = [
-		snapshot.selectionPersonnel,
-		snapshot.resolvedPool,
-		snapshot.assignedPersonnel,
-		snapshot.unassignedPersonnel
-	];
-
-	return knownPersonnelCollections.some(
-		(collection) =>
-			Array.isArray(collection) && collection.some((entry) => objectHasRankReference(entry, code, matcher))
-	);
 }
 
 function objectHasRankReference(value: unknown, code: string, matcher: RankReferenceMatcher): boolean {

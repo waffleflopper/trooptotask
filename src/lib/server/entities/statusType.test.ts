@@ -20,8 +20,6 @@ describe('StatusTypeEntity', () => {
 			name: 'Leave',
 			color: '#22c55e',
 			textColor: '#ffffff',
-			da6AvailabilityTreatment: 'authorized-absence',
-			da6TreatmentReviewed: true,
 			sortOrder: 2
 		});
 	});
@@ -47,8 +45,6 @@ describe('StatusTypeEntity', () => {
 			name: 'Sick Call',
 			color: '#6b7280',
 			text_color: '#ffffff',
-			da6_availability_treatment: null,
-			da6_treatment_reviewed: false,
 			sort_order: 0
 		});
 	});
@@ -59,8 +55,6 @@ describe('StatusTypeEntity', () => {
 				name: 'Leave',
 				color: '#22c55e',
 				textColor: '#000000',
-				da6AvailabilityTreatment: 'authorized-absence',
-				da6TreatmentReviewed: true,
 				sortOrder: 5
 			},
 			'org-1'
@@ -71,8 +65,6 @@ describe('StatusTypeEntity', () => {
 			name: 'Leave',
 			color: '#22c55e',
 			text_color: '#000000',
-			da6_availability_treatment: 'authorized-absence',
-			da6_treatment_reviewed: true,
 			sort_order: 5
 		});
 	});
@@ -81,20 +73,16 @@ describe('StatusTypeEntity', () => {
 		const result = StatusTypeEntity.toDbUpdate({
 			id: 'st-1',
 			textColor: '#000000',
-			name: 'Updated',
-			da6AvailabilityTreatment: 'other-duty',
-			da6TreatmentReviewed: true
+			name: 'Updated'
 		});
 
 		expect(result).toEqual({
 			text_color: '#000000',
-			name: 'Updated',
-			da6_availability_treatment: 'other-duty',
-			da6_treatment_reviewed: true
+			name: 'Updated'
 		});
 	});
 
-	it('createSchema requires name, makes color/textColor/treatment/reviewed/sortOrder optional', () => {
+	it('createSchema requires name, makes color/textColor/sortOrder optional', () => {
 		const valid = StatusTypeEntity.createSchema.safeParse({ name: 'Leave' });
 		expect(valid.success).toBe(true);
 
@@ -105,17 +93,9 @@ describe('StatusTypeEntity', () => {
 			name: 'TDY',
 			color: '#3b82f6',
 			textColor: '#000000',
-			da6AvailabilityTreatment: 'authorized-absence',
-			da6TreatmentReviewed: true,
 			sortOrder: 2
 		});
 		expect(withOptionals.success).toBe(true);
-
-		const invalidTreatment = StatusTypeEntity.createSchema.safeParse({
-			name: 'Mystery',
-			da6AvailabilityTreatment: 'chargeable-maybe'
-		});
-		expect(invalidTreatment.success).toBe(false);
 	});
 
 	it('has groupScope set to none', () => {

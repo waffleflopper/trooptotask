@@ -19,9 +19,6 @@ function facts(
 			leaderMembers: 2,
 			statusTypes: 4,
 			assignmentTypes: 1,
-			dutyRosterTemplates: 1,
-			dutyRosterRuns: 0,
-			dutyRosterHistory: 0,
 			onboardingTemplateSteps: 2,
 			trainingTypes: 0,
 			ratingSchemeEntries: 0,
@@ -37,7 +34,7 @@ function summarize(rows: PlatformActivationOrganizationFacts[]) {
 }
 
 describe('noncommercial activation health', () => {
-	it('activates an Organization with a meaningful roster, another accepted leader, Duty Roster activity and setup', () => {
+	it('activates an Organization with a meaningful roster, another accepted leader and setup', () => {
 		const summary = summarize([facts()]);
 		expect(summary).toMatchObject({
 			generatedAt: now.toISOString(),
@@ -49,7 +46,6 @@ describe('noncommercial activation health', () => {
 				inProgressOrganizations: 0,
 				meaningfulRosters: 1,
 				acceptedLeaders: 1,
-				dutyRosterStarted: 1,
 				setupStarted: 1
 			}
 		});
@@ -68,7 +64,6 @@ describe('noncommercial activation health', () => {
 				activePersonnel: 4,
 				members: 12,
 				leaderMembers: 1,
-				dutyRosterTemplates: 0,
 				onboardingTemplateSteps: 0
 			})
 		]);
@@ -77,7 +72,6 @@ describe('noncommercial activation health', () => {
 			counts: { activatedOrganizations: 0, inProgressOrganizations: 1, meaningfulRosters: 0, acceptedLeaders: 0 }
 		});
 		expect(summary.organizations[0]).toMatchObject({ state: 'in_progress', score: 0 });
-		expect(summary.organizations[0].nextSteps).toHaveLength(4);
 		expect(summary.organizations[0].milestones).toEqual(
 			expect.arrayContaining([
 				expect.objectContaining({ id: 'meaningful_roster', state: 'incomplete' }),
@@ -87,18 +81,18 @@ describe('noncommercial activation health', () => {
 		);
 	});
 
-	it.each([
-		{ dutyRosterRuns: 1, trainingTypes: 1 },
-		{ dutyRosterHistory: 1, ratingSchemeEntries: 1 }
-	])('retains alternative Duty Roster and setup records as activation signals: %j', (counts) => {
-		const summary = summarize([facts({ dutyRosterTemplates: 0, onboardingTemplateSteps: 0, ...counts })]);
-		expect(summary.organizations[0]).toMatchObject({ state: 'activated', score: 100 });
-	});
+	it.each([{ trainingTypes: 1 }, { ratingSchemeEntries: 1 }])(
+		'retains alternative operational setup records as activation signals: %j',
+		(counts) => {
+			const summary = summarize([facts({ onboardingTemplateSteps: 0, ...counts })]);
+			expect(summary.organizations[0]).toMatchObject({ state: 'activated', score: 100 });
+		}
+	);
 
 	it('scores partial product progress independently of Organization timestamp and defaults', () => {
 		const row = facts({ leaderMembers: 1, statusTypes: 0, assignmentTypes: 0, onboardingTemplateSteps: 0 });
 		row.organizationCreatedAt = null;
-		expect(summarize([row]).organizations[0]).toMatchObject({ state: 'in_progress', score: 50 });
+		expect(summarize([row]).organizations[0]).toMatchObject({ state: 'in_progress', score: 33 });
 	});
 
 	it('summarizes every selected Organization while showing the least-complete 12 first', () => {

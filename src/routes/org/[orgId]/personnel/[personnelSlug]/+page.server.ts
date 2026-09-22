@@ -8,7 +8,6 @@ import {
 	currentPersonnelReadinessDate,
 	loadAvailabilityReadinessLane,
 	loadCriticalTasksReadinessLane,
-	loadDutyRosterReadinessLane,
 	loadLossTrackingReadinessLane,
 	loadRatingSchemeReadinessLane,
 	loadTrainingReadinessLane
@@ -26,7 +25,6 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 			availability: loadAvailabilityReadinessLane(ctx, personnelId, readinessAsOf),
 			training: loadTrainingReadinessLane(ctx, personnelId, readinessAsOf),
 			criticalTasks: loadCriticalTasksReadinessLane(ctx, personnelId, readinessAsOf),
-			dutyRoster: loadDutyRosterReadinessLane(ctx, personnelId, readinessAsOf),
 			ratingScheme: loadRatingSchemeReadinessLane(ctx, personnelId, readinessAsOf),
 			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)
 		},

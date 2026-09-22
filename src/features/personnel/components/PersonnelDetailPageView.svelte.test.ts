@@ -60,12 +60,6 @@ function makeDetail(overrides: Partial<PersonnelDetailStreams> = {}): PersonnelD
 				detail: '1 of 2 applicable ICT tasks current. 1 task needs attention.',
 				tone: 'bad'
 			}),
-			dutyRoster: Promise.resolve({
-				label: 'Duty Roster',
-				value: 'Eligible',
-				detail: 'No DA6 exemption. Last duty was 11 days ago.',
-				tone: 'good'
-			}),
 			ratingScheme: Promise.resolve({
 				label: 'Rating Scheme',
 				value: 'Aligned',
@@ -101,6 +95,7 @@ describe('PersonnelDetailPageView', () => {
 
 		expect(await screen.findByText('TDY')).toBeTruthy();
 		expect(await screen.findByText('2 due')).toBeTruthy();
+		expect(screen.queryByText('Duty Roster')).toBeNull();
 		expect(screen.getByText('HIPAA expired 4d ago. Cyber Awareness 6d left.')).toBeTruthy();
 		expect(screen.queryByText('No active leave, pass, quarters, TDY, or other duty conflict today.')).toBeNull();
 	});

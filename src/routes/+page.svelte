@@ -32,7 +32,7 @@
 		{
 			question: 'Can I export data, or does everything stay locked inside the app?',
 			answer:
-				"Both. The data lives in TroopToTask so it's always current, and you can pull it out whenever you need it. Personnel rosters, training matrices, and calendar exports all go to Excel with color-coding intact. Duty rosters and sign-in sheets are designed to print cleanly straight from the browser."
+				"Both. The data lives in TroopToTask so it's always current, and you can pull it out whenever you need it. Personnel rosters, training matrices, and calendar exports go to Excel with color-coding intact. Independent sign-in rosters can be printed from the browser."
 		},
 		{
 			question: 'Is this secure enough for personnel data?',
@@ -130,21 +130,6 @@
 					<span>Built for DoD</span>
 					<span class="hero__meta-sep" aria-hidden="true"></span>
 					<span>NIST 800-171 aligned</span>
-				</div>
-			</div>
-
-			<div class="hero__visual reveal" style="--reveal-delay: 0.15s">
-				<div class="hero__frame">
-					<div class="hero__frame-bar" aria-hidden="true">
-						<span></span><span></span><span></span>
-					</div>
-					<img
-						src="/product-screens/dashboard.jpg"
-						alt="TroopToTask dashboard showing unit strength and availability, training status, duty roster, and items requiring attention"
-						width="1280"
-						height="672"
-						loading="eager"
-					/>
 				</div>
 			</div>
 		</div>
@@ -273,31 +258,6 @@
 					</div>
 				</div>
 			</div>
-
-			<div class="feature reveal">
-				<div class="feature__content">
-					<span class="section-label section-label--indexed"
-						><span class="section-label__index">06</span>DUTY ROSTERS</span
-					>
-					<h2 class="feature__heading">Generate the DA6 without rebuilding the wheel every month.</h2>
-					<p class="feature__body">
-						Create duty roster templates, account for availability, review the generated run, and keep correction
-						history attached to the roster instead of buried in another file.
-					</p>
-				</div>
-				<div class="feature__visual">
-					<div class="feature__frame">
-						<img
-							src="/product-screens/da6.jpg"
-							alt="Automatic DA6 duty roster workspace showing generated roster assignments, duty dates, and review controls"
-							width="1280"
-							height="672"
-							loading="lazy"
-						/>
-					</div>
-				</div>
-			</div>
-
 			<div class="more-features reveal">
 				<span class="section-label">MORE IN THE SYSTEM</span>
 				<h2>And this is not the whole platform.</h2>
@@ -516,13 +476,10 @@
 
 	.hero__container {
 		position: relative;
-		max-width: 1320px;
+		max-width: 900px;
 		margin: 0 auto;
 		padding: 0 2rem;
-		display: grid;
-		grid-template-columns: 0.9fr 1.1fr;
-		gap: clamp(2.5rem, 5vw, 5rem);
-		align-items: center;
+		text-align: center;
 	}
 
 	.hero__eyebrow {
@@ -553,7 +510,7 @@
 	}
 
 	.hero__body {
-		margin-top: 1.5rem;
+		margin: 1.5rem auto 0;
 		font-size: 1.125rem;
 		line-height: 1.65;
 		color: var(--hero-muted);
@@ -565,12 +522,14 @@
 		display: flex;
 		gap: 1rem;
 		align-items: center;
+		justify-content: center;
 	}
 
 	.hero__meta {
 		margin-top: 2rem;
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 0.75rem;
 		flex-wrap: wrap;
 		font-family: 'IBM Plex Mono', monospace;
@@ -586,37 +545,6 @@
 		height: 3px;
 		border-radius: 50%;
 		background: color-mix(in srgb, var(--public-accent-strong) 50%, transparent);
-	}
-
-	.hero__frame {
-		border-radius: var(--radius-lg, 6px);
-		overflow: hidden;
-		border: 1px solid color-mix(in srgb, var(--hero-text) 7%, transparent);
-		box-shadow:
-			0 0 80px var(--color-public-frame-glow),
-			0 25px 60px var(--color-public-frame-shadow);
-	}
-
-	.hero__frame-bar {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		padding: 10px 14px;
-		background: var(--color-chrome-surface);
-		border-bottom: 1px solid color-mix(in srgb, var(--hero-text) 4%, transparent);
-	}
-
-	.hero__frame-bar span {
-		width: 10px;
-		height: 10px;
-		border-radius: 50%;
-		background: var(--color-chrome-surface-muted);
-	}
-
-	.hero__frame img {
-		display: block;
-		width: 100%;
-		height: auto;
 	}
 
 	/* ── Showcase ── */
@@ -987,15 +915,6 @@
 
 	/* ── Responsive ── */
 	@media (max-width: 1024px) {
-		.hero__container {
-			grid-template-columns: 1fr;
-			gap: 3rem;
-		}
-
-		.hero__visual {
-			max-width: 680px;
-		}
-
 		.hero__heading {
 			font-size: clamp(3rem, 8vw, 5rem);
 		}

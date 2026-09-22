@@ -31,10 +31,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 			auditAction: 'export.excel_created',
 			buildArtifact: async () => {
 				const exportData = await loadOrganizationExportPayload(ctx.rawStore, orgId);
-				const exportWorkbook = await buildOrganizationDataExportWorkbook({
-					payload: exportData,
-					selection: { mode: 'all' }
-				});
+				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);
 
 				return {

@@ -169,14 +169,11 @@ describe('rank settings read model', () => {
 				activeReferences: {
 					personnel: 0,
 					trainingApplicability: 0,
-					dutyRosterTemplateFilters: 0,
-					legacyDutyTemplateSlots: 0,
 					total: 0
 				},
 				historicalReferences: {
 					signInRosterFilters: 0,
 					signInRosterSnapshots: 0,
-					acceptedDutyRosterSnapshots: 0,
 					total: 0
 				},
 				canDelete: true
@@ -234,14 +231,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 0,
 						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 0,
 						total: 0
 					},
 					canDelete: true
@@ -251,14 +245,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 0,
 						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 0,
 						total: 0
 					},
 					canDelete: true
@@ -268,14 +259,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 0,
 						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 0,
 						total: 0
 					},
 					canDelete: true
@@ -343,14 +331,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 1,
 						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 0,
 						total: 1
 					},
 					canDelete: false
@@ -393,14 +378,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 1,
-						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 1,
+						signInRosterSnapshots: 1,
 						total: 2
 					},
 					canDelete: false
@@ -447,14 +429,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 0,
 						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 0,
 						total: 0
 					},
 					canDelete: true
@@ -464,14 +443,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 0,
 						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 0,
 						total: 0
 					},
 					canDelete: true
@@ -576,14 +552,11 @@ describe('rank settings read model', () => {
 					activeReferences: {
 						personnel: 0,
 						trainingApplicability: 0,
-						dutyRosterTemplateFilters: 0,
-						legacyDutyTemplateSlots: 0,
 						total: 0
 					},
 					historicalReferences: {
 						signInRosterFilters: 0,
 						signInRosterSnapshots: 0,
-						acceptedDutyRosterSnapshots: 0,
 						total: 0
 					},
 					canDelete: true

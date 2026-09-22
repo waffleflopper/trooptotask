@@ -77,7 +77,7 @@ This pattern is appropriate for dashboard-style surfaces where components should
 
 `CalendarRangeCoordinator` owns calendar range expansion, request de-duping, range-store merging and retry state. Its former computed duty event merging is removed; ordinary Calendar behavior and persisted facts in R6 remain.
 
-Duty Roster generation, accepted-run commands and feature exports were removed in phase 05 D01. D02 removes Calendar event hydration, computed overlays and manual conflict/provenance handling, including the reader/entities and last shared duty snapshot/blocking types. Calendar assignment responses expose retained facts and metadata without duty provenance; existing stored provenance remains untouched until Phase 06. D03 still owns remaining metadata and integration consumers. Historical duty rows do not justify continued runtime hydration; phase 06 owns schema/data disposition under the DB contract.
+Phase 05 D01 removed Duty Roster generation, accepted-run commands and feature exports. D02 removed Calendar event hydration, computed overlays and manual conflict/provenance handling, including the reader/entities and last shared duty snapshot/blocking types. D03 removed remaining application metadata and integration consumers. Calendar assignment responses expose retained facts and metadata without duty provenance; existing stored provenance remains untouched until phase 06. Historical duty rows do not justify runtime hydration; phase 06 owns schema/data disposition under the DB contract.
 
 ## Server Conventions
 

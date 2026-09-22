@@ -20,14 +20,17 @@ const operateScope = {
 };
 
 describe('personnel detail page server load', () => {
-	it('loads detail streams for the layout-resolved personnel id without resolving the slug again', async () => {
+	it('loads retained detail streams with Duty storage unavailable for the layout-resolved personnel id', async () => {
 		const ctx = {
 			store: {
 				findOne: vi.fn(async (_table: string, _orgId: string, filters: Record<string, unknown>) => {
 					if (filters.id === 'person-1') return { id: 'person-1', group_id: null };
 					return null;
 				}),
-				findMany: vi.fn(async () => [])
+				findMany: vi.fn(async (table: string) => {
+					if (table.startsWith('duty_')) throw new Error('Duty storage is unavailable');
+					return [];
+				})
 			},
 			auth: { ...operateAuth },
 			scope: { ...operateScope },
@@ -50,6 +53,10 @@ describe('personnel detail page server load', () => {
 		} as never);
 
 		await result.personnelDetail.extendedInfo;
+		await expect(Promise.all(Object.values(result.personnelDetail.readinessLanes))).resolves.toEqual(
+			expect.arrayContaining([expect.objectContaining({ label: 'Availability', value: 'Present', tone: 'good' })])
+		);
+		expect(result.personnelDetail.readinessLanes).not.toHaveProperty('dutyRoster');
 		expect(depends).toHaveBeenCalledWith('app:personnel-detail');
 		expect(ctx.store.findOne).not.toHaveBeenCalledWith('personnel', 'org-1', { slug: 'rivera-monica' }, 'id');
 		expect(ctx.store.findMany).toHaveBeenCalledWith('personnel_extended_info', 'org-1', {

@@ -39,12 +39,6 @@ function makeDetail(overrides: Partial<PersonnelDetailStreams> = {}): PersonnelD
 				detail: 'All applicable ICT tasks are current.',
 				tone: 'good'
 			}),
-			dutyRoster: Promise.resolve({
-				label: 'Duty Roster',
-				value: 'Eligible',
-				detail: 'No DA6 exemption.',
-				tone: 'good'
-			}),
 			ratingScheme: Promise.resolve({
 				label: 'Rating Scheme',
 				value: 'Aligned',

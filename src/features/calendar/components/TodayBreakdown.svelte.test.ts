@@ -25,8 +25,7 @@ function statusType(overrides: Partial<StatusType>): StatusType {
 		name: 'Leave',
 		color: '#2563eb',
 		textColor: '#ffffff',
-		da6TreatmentReviewed: true,
-		da6AvailabilityTreatment: 'authorized-absence',
+
 		...overrides
 	};
 }

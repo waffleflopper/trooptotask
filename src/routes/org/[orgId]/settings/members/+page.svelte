@@ -575,7 +575,8 @@
 				<AppDialog.Description>Remove {pendingRemoveMemberEmail} from this organization?</AppDialog.Description>
 			</AppDialog.Header>
 			<p class="px-4 text-sm text-muted-foreground">
-				Their assignments, calendar availability, and duty roster entries will be unassigned. This cannot be undone.
+				Removing this member ends their access to this Organization. Personnel and Calendar records stay in the
+				Organization.
 			</p>
 			<AppDialog.Footer>
 				<Button
@@ -593,7 +594,7 @@
 						pendingRemoveMemberForm?.requestSubmit();
 						pendingRemoveMemberForm = null;
 						pendingRemoveMemberEmail = '';
-					}}>Remove</Button
+					}}>Remove member</Button
 				>
 			</AppDialog.Footer>
 		</AppDialog.Content>

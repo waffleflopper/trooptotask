@@ -3,8 +3,8 @@ import type { AvailabilityEntry, StatusType } from '$lib/types';
 import { buildAvailabilityStatusIndex } from './calendarIndexes';
 
 const statusTypes: StatusType[] = [
-	{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff', da6TreatmentReviewed: true },
-	{ id: 'school', name: 'School', color: '#16a34a', textColor: '#ffffff', da6TreatmentReviewed: true }
+	{ id: 'leave', name: 'Leave', color: '#2563eb', textColor: '#ffffff' },
+	{ id: 'school', name: 'School', color: '#16a34a', textColor: '#ffffff' }
 ];
 
 function availability(overrides: Partial<AvailabilityEntry>): AvailabilityEntry {

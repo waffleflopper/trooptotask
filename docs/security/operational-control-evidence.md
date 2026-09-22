@@ -28,9 +28,9 @@ Do not store secrets, raw provider payloads, customer incident details, card dat
 - Use ticket IDs, provider event IDs and audit-log IDs only when they do not expose secrets or payment details.
 - Do not paste API keys, webhook secrets, session cookies, raw webhook payloads, card details, full customer exports, or incident screenshots with sensitive values.
 - Treat acquisition funnel and activation health evidence as support-safe
-  operational facts: Organization created,
-  active personnel count, accepted Organization Member and owner/admin
-  membership counts, roster threshold, Duty Roster counts, and setup counts. Do
-  not add raw IP capture, source URLs with secrets, checkout URLs, personal behavior streams, or analytics
-  identifiers to support notes or repo evidence.
+  operational facts: Organization created, active personnel count, accepted
+  Organization Member and owner/admin membership counts, roster threshold, and
+  retained setup counts. Do not add raw IP capture, source URLs with secrets,
+  checkout URLs, personal behavior streams, or analytics identifiers to support
+  notes or repo evidence.
 - Store real incident records, provider tickets, dashboard screenshots, and access-review exports outside the repo as external evidence held by the security owner.

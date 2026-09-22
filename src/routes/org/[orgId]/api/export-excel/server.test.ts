@@ -315,7 +315,7 @@ describe('POST /api/export-excel', () => {
 		expect(rowValues(rawTraining, 2)).toContain('training-1');
 	});
 
-	it('exports duty roster sections and archived personnel in named worksheets', async () => {
+	it('exports archived personnel and retained Calendar and Sign-in Roster sheets', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
@@ -327,31 +327,42 @@ describe('POST /api/export-excel', () => {
 				archived_at: '2026-05-01T00:00:00Z'
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_templates', [
+		ctx.rawStore.seed('assignment_types', [
 			{
-				id: 'template-1',
+				id: 'type-1',
 				organization_id: ctx.auth.orgId,
-				name: 'Staff Duty',
-				slug: 'staff-duty',
-				status: 'active'
+				name: 'Clinic coverage',
+				assign_to: 'personnel'
+			},
+			{
+				id: 'group-type-1',
+				organization_id: ctx.auth.orgId,
+				name: 'Group coverage',
+				assign_to: 'group'
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_template_runs', [
+		ctx.rawStore.seed('groups', [{ id: 'group-1', organization_id: ctx.auth.orgId, name: 'Alpha Group' }]);
+		ctx.rawStore.seed('daily_assignments', [
 			{
-				id: 'run-1',
+				id: 'assignment-1',
 				organization_id: ctx.auth.orgId,
-				template_id: 'template-1',
-				template_name: 'Staff Duty',
-				snapshot_payload: { rows: [{ date: '2026-05-20', da6: 'D1' }] }
+				assignment_type_id: 'type-1',
+				assignee_id: 'p-archived',
+				date: '2026-05-20'
+			},
+			{
+				id: 'group-assignment-1',
+				organization_id: ctx.auth.orgId,
+				assignment_type_id: 'group-type-1',
+				assignee_id: 'group-1',
+				date: '2026-05-21'
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_template_run_corrections', [
+		ctx.rawStore.seed('sign_in_rosters', [
 			{
-				id: 'correction-1',
+				id: 'roster-1',
 				organization_id: ctx.auth.orgId,
-				run_id: 'run-1',
-				run_row_date: '2026-05-20',
-				reason: 'Manual swap'
+				name: 'Clinic training'
 			}
 		]);
 
@@ -365,28 +376,29 @@ describe('POST /api/export-excel', () => {
 		const inventory = workbook.getWorksheet('Export Inventory');
 		const personnel = workbook.getWorksheet('Personnel');
 		const rawPersonnel = workbook.getWorksheet('Raw - Personnel');
-		const templates = workbook.getWorksheet('Duty Roster Templates');
-		const runs = workbook.getWorksheet('Duty Roster Template Runs');
-		const corrections = workbook.worksheets.find((sheet) => sheet.name.startsWith('Duty Roster Template Run Cor'));
+		const assignments = workbook.getWorksheet('Raw - Daily Assignments');
+		const readableAssignments = workbook.getWorksheet('Daily Assignments');
+		const signInRosters = workbook.getWorksheet('Raw - Sign-in Rosters');
 
 		expect(inventory).toBeDefined();
 		expect(personnel).toBeDefined();
 		expect(rawPersonnel).toBeDefined();
-		expect(templates).toBeDefined();
-		expect(runs).toBeDefined();
-		expect(corrections).toBeDefined();
-		if (!inventory || !personnel || !rawPersonnel || !templates || !runs || !corrections) {
-			throw new Error('Duty roster export worksheets missing');
+		expect(assignments).toBeDefined();
+		expect(readableAssignments).toBeDefined();
+		expect(signInRosters).toBeDefined();
+		if (!inventory || !personnel || !rawPersonnel || !assignments || !readableAssignments || !signInRosters) {
+			throw new Error('Retained export worksheets missing');
 		}
 
 		expect(rowValues(inventory, 1)).toEqual(['Area', 'Area Key', 'Section', 'Raw Table', 'JSON Key', 'Rows']);
 		expect(rowValues(personnel, 2)).toContain('Archived');
 		expect(rowValues(personnel, 2)).toContain('2026-05-01T00:00:00Z');
 		expect(rowValues(rawPersonnel, 2)).toContain('p-archived');
-		expect(rowValues(templates, 2)).toContain('template-1');
-		expect(rowValues(runs, 2)).toContain('run-1');
-		expect(rowValues(runs, 2)).toContain('{"rows":[{"date":"2026-05-20","da6":"D1"}]}');
-		expect(rowValues(corrections, 2)).toContain('correction-1');
+		expect(assignments.getSheetValues().flat(2)).toContain('assignment-1');
+		expect(readableAssignments.getSheetValues().flat(2)).toContain('SSG Archived, Alex');
+		expect(readableAssignments.getSheetValues().flat(2)).toContain('Alpha Group');
+		expect(rowValues(signInRosters, 2)).toContain('roster-1');
+		expect(workbook.worksheets.some((sheet) => /duty roster|advanced duty/i.test(sheet.name))).toBe(false);
 	});
 
 	it('still returns the workbook when the export status write fails', async () => {

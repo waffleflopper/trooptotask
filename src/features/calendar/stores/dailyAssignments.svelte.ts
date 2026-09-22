@@ -1,7 +1,7 @@
 /**
  * Daily assignments store — assignment types and daily assignment records for the calendar.
  *
- * Combines two collections in one store: `types` (the named duty slots like "CQ", "SDO")
+ * Combines two collections in one store: `types` (named Calendar assignments like "CQ", "SDO")
  * and `assignments` (the actual date-assignee records). Kept together because every
  * mutation needs both collections in scope.
  *

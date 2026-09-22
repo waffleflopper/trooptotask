@@ -127,6 +127,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {

@@ -31,7 +31,6 @@
 				activatedOrganizations: 0,
 				meaningfulRosters: 0,
 				acceptedLeaders: 0,
-				dutyRosterStarted: 0,
 				setupStarted: 0,
 				inProgressOrganizations: 0
 			},
@@ -60,11 +59,6 @@
 
 	function nextActivationStep(item: ActivationOrganization): string {
 		return item.nextSteps[0] ?? 'Activation milestones are complete.';
-	}
-
-	function dutyRosterSummary(item: ActivationOrganization): string {
-		const activation = item.supportBundle.activation;
-		return `${activation.dutyRosterTemplates} templates / ${activation.dutyRosterRuns + activation.dutyRosterHistory} runs`;
 	}
 
 	function setupSummary(item: ActivationOrganization): string {
@@ -108,7 +102,7 @@
 			<TriangleAlert />
 			<Alert.Title>Activation health diagnostics could not be fully loaded.</Alert.Title>
 			<Alert.Description>
-				Roster, member, Duty Roster, and setup counts may be incomplete until the health scan succeeds.
+				Roster, member, and setup counts may be incomplete until the health scan succeeds.
 			</Alert.Description>
 		</Alert.Root>
 	{/if}
@@ -150,7 +144,6 @@
 								<Table.Head>Health</Table.Head>
 								<Table.Head>Roster</Table.Head>
 								<Table.Head>Members</Table.Head>
-								<Table.Head>Duty Roster</Table.Head>
 								<Table.Head>Setup</Table.Head>
 								<Table.Head>Next Action</Table.Head>
 							</Table.Row>
@@ -182,7 +175,6 @@
 											.meaningfulRosterThreshold}
 									</Table.Cell>
 									<Table.Cell>{item.supportBundle.activation.members}</Table.Cell>
-									<Table.Cell>{dutyRosterSummary(item)}</Table.Cell>
 									<Table.Cell>{setupSummary(item)}</Table.Cell>
 									<Table.Cell class="max-w-80 text-sm text-muted-foreground">{nextActivationStep(item)}</Table.Cell>
 								</Table.Row>

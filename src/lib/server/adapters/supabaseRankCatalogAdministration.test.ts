@@ -18,7 +18,37 @@ describe('createSupabaseRankCatalogAdministrationPort', () => {
 		});
 	});
 
-	it('throws RPC errors', async () => {
+	it('reports the atomic reference guard as a conflict that advises retirement', async () => {
+		const rpc = vi.fn().mockResolvedValue({
+			data: null,
+			error: { code: '23503', message: 'Rank is referenced by Organization data. Retire it instead.' }
+		});
+		const port = createSupabaseRankCatalogAdministrationPort({ supabase: {} } as never, {
+			getAdminClient: () => ({ rpc }) as unknown as SupabaseClient
+		});
+
+		await expect(port.deleteRankCatalogEntry('org-1', 'entry-1', 'DET-SGT')).rejects.toMatchObject({
+			status: 409,
+			message: 'Rank is referenced by Organization data. Retire it instead.'
+		});
+	});
+
+	it.each([
+		{ code: '23503', message: 'An unrelated foreign key violation' },
+		{ code: 'P0002', message: 'Rank is referenced by Organization data. Retire it instead.' }
+	])('does not classify unrelated RPC errors as a reference conflict: $code $message', async (error) => {
+		const rpc = vi.fn().mockResolvedValue({ data: null, error });
+		const port = createSupabaseRankCatalogAdministrationPort({ supabase: {} } as never, {
+			getAdminClient: () => ({ rpc }) as unknown as SupabaseClient
+		});
+
+		await expect(port.deleteRankCatalogEntry('org-1', 'entry-1', 'DET-SGT')).rejects.toMatchObject({
+			message: error.message
+		});
+		await expect(port.deleteRankCatalogEntry('org-1', 'entry-1', 'DET-SGT')).rejects.not.toHaveProperty('status');
+	});
+
+	it('throws unclassified RPC errors', async () => {
 		const rpc = vi.fn().mockResolvedValue({
 			data: null,
 			error: { message: 'Rank is referenced by Organization data. Retire it instead.' }

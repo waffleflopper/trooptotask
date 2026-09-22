@@ -7,9 +7,6 @@ const countTables = [
 	'organization_memberships',
 	'status_types',
 	'assignment_types',
-	'duty_roster_templates',
-	'duty_roster_template_runs',
-	'duty_roster_history',
 	'onboarding_template_steps',
 	'training_types',
 	'rating_scheme_entries'
@@ -36,7 +33,8 @@ function providerStore(tables: Record<string, Row[]>, failedResource?: string) {
 		const request = new Request(input, init);
 		const url = new URL(request.url);
 		const resource = url.pathname.replace('/rest/v1/', '');
-		if (resource === failedResource) return Response.json({ message: 'Read denied', code: '42501' }, { status: 403 });
+		if (resource === failedResource || resource.startsWith('duty_'))
+			return Response.json({ message: 'Read denied', code: '42501' }, { status: 403 });
 		if (resource.startsWith('rpc/')) {
 			const rpc = resource.slice(4);
 			if (!['count_personnel_by_organization', 'count_memberships_by_organization'].includes(rpc)) {
@@ -114,12 +112,6 @@ describe('noncommercial activation provider boundary', () => {
 			],
 			status_types: [{ id: '1', organization_id: 'able' }],
 			assignment_types: [{ id: '1', organization_id: 'able' }],
-			duty_roster_templates: [
-				{ id: '1', organization_id: 'able', status: 'active' },
-				{ id: '2', organization_id: 'able', status: 'archived' }
-			],
-			duty_roster_template_runs: [{ id: '1', organization_id: 'able' }],
-			duty_roster_history: [{ id: '1', organization_id: 'able' }],
 			onboarding_template_steps: [{ id: '1', organization_id: 'able' }],
 			training_types: [
 				{ id: '1', organization_id: 'able' },
@@ -140,9 +132,6 @@ describe('noncommercial activation provider boundary', () => {
 				leaderMembers: 2,
 				statusTypes: 1,
 				assignmentTypes: 1,
-				dutyRosterTemplates: 1,
-				dutyRosterRuns: 1,
-				dutyRosterHistory: 1,
 				onboardingTemplateSteps: 1,
 				trainingTypes: 2,
 				ratingSchemeEntries: 1
@@ -154,9 +143,6 @@ describe('noncommercial activation provider boundary', () => {
 			leaderMembers: 0,
 			statusTypes: 0,
 			assignmentTypes: 0,
-			dutyRosterTemplates: 0,
-			dutyRosterRuns: 0,
-			dutyRosterHistory: 0,
 			onboardingTemplateSteps: 0,
 			trainingTypes: 0,
 			ratingSchemeEntries: 0

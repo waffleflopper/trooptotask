@@ -6,11 +6,11 @@ product
 
 ## Users
 
-NCOs, officers, and staff sections (orderly rooms, S-1, S-3) managing personnel readiness, training compliance, duty rosters, availability, and unit administration at the company and battalion level. They work across desktops and laptops in office and occasionally field settings. Most are not technical — they need the tool to match how they already think about their formation, not force a new mental model.
+NCOs, officers, and staff sections (orderly rooms, S-1, S-3) managing personnel readiness, training compliance, daily assignments, availability, and unit administration at the company and battalion level. They work across desktops and laptops in office and occasionally field settings. Most are not technical — they need the tool to match how they already think about their formation, not force a new mental model.
 
 ## Product Purpose
 
-TroopToTask replaces spreadsheets, whiteboards, and scattered trackers with a single source of truth for unit management. It tracks who is available, who is trained, who is next for duty, and who needs attention — so leaders can make fair, informed decisions without chasing information across systems. Success looks like a leader opening the app and immediately knowing the state of their formation.
+TroopToTask replaces spreadsheets, whiteboards, and scattered trackers with a single source of truth for unit management. It tracks who is available, who is trained, who has a daily assignment, and who needs attention — so leaders can make informed decisions without chasing information across systems. Success looks like a leader opening the app and immediately knowing the state of their formation.
 
 ## Brand Personality
 

@@ -214,11 +214,6 @@ export class PersonnelDetailWorkspace {
 				promise: this.detail.readinessLanes.criticalTasks
 			},
 			{
-				key: 'dutyRoster',
-				label: 'Duty Roster',
-				promise: this.detail.readinessLanes.dutyRoster
-			},
-			{
 				key: 'ratingScheme',
 				label: 'Rating Scheme',
 				promise: this.detail.readinessLanes.ratingScheme

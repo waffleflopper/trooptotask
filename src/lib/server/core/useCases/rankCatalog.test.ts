@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
@@ -378,7 +378,7 @@ describe('organization rank catalog', () => {
 			expect.objectContaining({
 				action: 'organization.rank_catalog.service_pack_added',
 				resourceType: 'organization_rank_catalog',
-				resourceId: 'navy',
+				resourceId: 'test-org',
 				details: expect.objectContaining({
 					service: 'navy',
 					addedCount: result.addedCount,
@@ -520,7 +520,7 @@ describe('organization rank catalog', () => {
 			expect.objectContaining({
 				action: 'organization.rank_catalog.bulk_state_changed',
 				resourceType: 'organization_rank_catalog',
-				resourceId: 'navy',
+				resourceId: 'test-org',
 				details: expect.objectContaining({
 					service: 'navy',
 					targetState: 'retired',
@@ -695,11 +695,15 @@ describe('organization rank catalog', () => {
 				})
 			])
 		);
+		const storedRank = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
+			code: 'DET-SGT'
+		});
+		expect(storedRank?.id).toBeTruthy();
 		expect(ctx.auditPort.events).toEqual([
 			{
 				action: 'organization.rank_catalog.saved',
 				resourceType: 'organization_rank_catalog',
-				resourceId: 'DET-SGT',
+				resourceId: storedRank?.id,
 				details: {
 					code: 'DET-SGT',
 					label: 'Detachment Sergeant',
@@ -711,7 +715,7 @@ describe('organization rank catalog', () => {
 		]);
 	});
 
-	it('summarizes active and historical rank references for delete eligibility', async () => {
+	it('summarizes retained rank references when Duty Roster tables are unavailable', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {
 			code: 'DET-SGT',
@@ -747,50 +751,7 @@ describe('organization rank catalog', () => {
 				excluded_ranks: ['DET-SGT']
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_templates', [
-			{
-				id: 'template-1',
-				organization_id: 'test-org',
-				name: 'Staff Duty',
-				status: 'active',
-				archived_at: null,
-				pool_criteria: { rankValues: ['DET-SGT'] }
-			},
-			{
-				id: 'template-archived',
-				organization_id: 'test-org',
-				name: 'Archived Staff Duty',
-				status: 'archived',
-				archived_at: '2026-06-01T00:00:00Z',
-				pool_criteria: { rankValues: ['DET-SGT'] }
-			}
-		]);
-		ctx.rawStore.seed('duty_template_slots', [
-			{
-				id: 'slot-1',
-				organization_id: 'test-org',
-				template_id: 'legacy-template',
-				allowed_ranks: ['DET-SGT']
-			},
-			{
-				id: 'slot-archived',
-				organization_id: 'test-org',
-				template_id: 'legacy-template-archived',
-				allowed_ranks: ['DET-SGT']
-			}
-		]);
-		ctx.rawStore.seed('duty_templates', [
-			{
-				id: 'legacy-template',
-				organization_id: 'test-org',
-				status: 'active'
-			},
-			{
-				id: 'legacy-template-archived',
-				organization_id: 'test-org',
-				status: 'archived'
-			}
-		]);
+
 		ctx.rawStore.seed('sign_in_rosters', [
 			{
 				id: 'sign-in-1',
@@ -805,36 +766,12 @@ describe('organization rank catalog', () => {
 				]
 			}
 		]);
-		ctx.rawStore.seed('duty_roster_template_runs', [
-			{
-				id: 'run-1',
-				organization_id: 'test-org',
-				status: 'accepted',
-				snapshot_payload: {
-					selectionPersonnel: [
-						{
-							id: 'person-1',
-							rank: 'DET-SGT',
-							displayName: 'Jamie Rivera'
-						}
-					]
-				}
-			},
-			{
-				id: 'run-invalidated',
-				organization_id: 'test-org',
-				status: 'invalidated',
-				snapshot_payload: {
-					selectionPersonnel: [
-						{
-							id: 'person-1',
-							rank: 'DET-SGT',
-							displayName: 'Jamie Rivera'
-						}
-					]
-				}
-			}
-		]);
+
+		const findMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+		vi.spyOn(ctx.rawStore, 'findMany').mockImplementation((table, orgId, filters, options) => {
+			if (table.startsWith('duty_')) throw new Error('Duty Roster storage is unavailable');
+			return findMany(table, orgId, filters, options);
+		});
 
 		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(ctx, { codes: ['DET-SGT'] });
 
@@ -843,15 +780,12 @@ describe('organization rank catalog', () => {
 			activeReferences: {
 				personnel: 1,
 				trainingApplicability: 2,
-				dutyRosterTemplateFilters: 1,
-				legacyDutyTemplateSlots: 1,
-				total: 5
+				total: 3
 			},
 			historicalReferences: {
 				signInRosterFilters: 1,
 				signInRosterSnapshots: 1,
-				acceptedDutyRosterSnapshots: 1,
-				total: 3
+				total: 2
 			},
 			canDelete: false
 		});
@@ -999,6 +933,35 @@ describe('organization rank catalog', () => {
 		);
 	});
 
+	it('preserves the rank and emits no deletion audit when the atomic deletion guard rejects it', async () => {
+		const ctx = createTestContext();
+		await saveOrganizationRankCatalogEntry(ctx, {
+			code: 'DET-SGT',
+			label: 'Detachment Sergeant',
+			service: 'custom',
+			category: 'custom',
+			payGrade: 'ungraded',
+			state: 'active',
+			sortOrder: 500
+		});
+		const before = await loadOrganizationRankCatalog(ctx);
+		ctx.auditPort.events.length = 0;
+		const guardedContext = {
+			...ctx,
+			rankCatalogAdministration: {
+				async deleteRankCatalogEntry() {
+					throw new Error('Rank is referenced by Organization data');
+				}
+			}
+		};
+
+		await expect(removeOrganizationRankCatalogEntry(guardedContext, { code: 'DET-SGT' })).rejects.toThrow(
+			'Rank is referenced by Organization data'
+		);
+		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(before);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
 	it('removes unused custom ranks through the governed catalog delete path', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {
@@ -1012,6 +975,10 @@ describe('organization rank catalog', () => {
 		});
 		ctx.auditPort.events.length = 0;
 
+		const storedRank = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
+			code: 'DET-SGT'
+		});
+		expect(storedRank?.id).toBeTruthy();
 		await removeOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' });
 
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
@@ -1021,7 +988,7 @@ describe('organization rank catalog', () => {
 			{
 				action: 'organization.rank_catalog.deleted',
 				resourceType: 'organization_rank_catalog',
-				resourceId: 'DET-SGT',
+				resourceId: storedRank?.id,
 				details: {
 					code: 'DET-SGT',
 					label: 'Detachment Sergeant',
@@ -1136,11 +1103,15 @@ describe('organization rank catalog', () => {
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
 			expect.arrayContaining([expect.objectContaining({ code: 'sgt' })])
 		);
+		const storedRank = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
+			code: 'SGT'
+		});
+		expect(storedRank?.id).toBeTruthy();
 		expect(ctx.auditPort.events).toEqual([
 			{
 				action: 'organization.rank_catalog.saved',
 				resourceType: 'organization_rank_catalog',
-				resourceId: 'SGT',
+				resourceId: storedRank?.id,
 				details: {
 					code: 'SGT',
 					label: canonicalSergeant?.label,
@@ -1244,11 +1215,15 @@ describe('organization rank catalog', () => {
 				})
 			])
 		);
+		const storedRank = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
+			code: 'DET-SGT'
+		});
+		expect(storedRank?.id).toBeTruthy();
 		expect(ctx.auditPort.events).toEqual([
 			{
 				action: 'organization.rank_catalog.retired',
 				resourceType: 'organization_rank_catalog',
-				resourceId: 'DET-SGT',
+				resourceId: storedRank?.id,
 				details: {
 					code: 'DET-SGT',
 					label: 'Detachment Sergeant',
@@ -1277,11 +1252,15 @@ describe('organization rank catalog', () => {
 				})
 			])
 		);
+		const storedRank = await ctx.rawStore.findOne<{ id: string }>('organization_rank_catalog', 'test-org', {
+			code: 'SGT'
+		});
+		expect(storedRank?.id).toBeTruthy();
 		expect(ctx.auditPort.events).toEqual([
 			{
 				action: 'organization.rank_catalog.reactivated',
 				resourceType: 'organization_rank_catalog',
-				resourceId: 'SGT',
+				resourceId: storedRank?.id,
 				details: {
 					code: 'SGT',
 					label: 'Sergeant',

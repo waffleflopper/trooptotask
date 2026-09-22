@@ -117,12 +117,6 @@ function makeStarterPack(overrides: Partial<StarterConfigurationPackSupport> = {
 				label: 'Onboarding Template',
 				names: ['New Arrival Packet'],
 				description: 'Adds a starter onboarding template.'
-			},
-			{
-				family: 'duty-roster-template',
-				label: 'Duty Roster Template',
-				names: ['Staff Duty'],
-				description: 'Adds a starter Duty Roster template.'
 			}
 		],
 		readiness: [],

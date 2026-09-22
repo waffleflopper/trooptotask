@@ -71,16 +71,6 @@
 			]
 		},
 		{
-			id: 'duty-roster',
-			title: 'Duty Roster help',
-			description: 'Configure rosters, generate previews, review warnings, and accept duty runs.',
-			items: [
-				'Confirm pool and exclusion settings first.',
-				'Review warnings before accepting a run.',
-				'Use history corrections when actual duty differs from planned duty.'
-			]
-		},
-		{
 			id: 'settings',
 			title: 'Settings help',
 			description: 'Manage organization settings, access, policies, and data exports.',

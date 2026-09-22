@@ -14,7 +14,7 @@ Issue #700 required deciding whether advanced preview snapshots should be persis
 
 This decision is no longer active. The old Advanced Duty Run module, snapshot custody use case, revision draft use case, and `/api/duty-events/**` write/revision endpoints were removed on 2026-05-04.
 
-The current Duty Roster surface applies accepted runs through `dutyRosterTemplates` and daily assignments, not Advanced Run Snapshots.
+The later Duty Roster surface applied accepted runs through `dutyRosterTemplates` and daily assignments. Phase 05 D01 removed that producer and its routes/exports. Calendar duty readers remain owned by D02; phase 06 owns schema retirement while preserving stored Calendar facts.
 
 ## Rejected Or Deferred Alternatives
 
@@ -25,7 +25,7 @@ The current Duty Roster surface applies accepted runs through `dutyRosterTemplat
 
 This ADR is retained as historical context for migrations or old data only.
 
-The benefit is a clearer generation contract: preview, manual overrides, collision review, apply, export, and recovery all refer to the same server-custodied snapshot.
+The former generation contract kept preview, manual overrides, collision review, apply, export, and recovery tied to the same server-custodied snapshot. It does not authorize restoring runtime generation.
 
 ## Links
 
@@ -33,6 +33,6 @@ The benefit is a clearer generation contract: preview, manual overrides, collisi
 - Related parent issue: #699
 - Related issue: #700
 - Related docs:
-  - `CONTEXT.md`
-  - `UBIQUITOUS_LANGUAGE.md`
+  - [Current domain language](../../../CONTEXT.md#language)
+  - [Stabilization decisions](../ARCHITECTURE.md#stabilization-decisions)
 - Related migration: `supabase/migrations/20260428000200_advanced_duty_run_snapshots.sql`

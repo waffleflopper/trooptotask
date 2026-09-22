@@ -97,7 +97,7 @@ describe('AssignmentPlannerPage', () => {
 
 		expect(screen.getByLabelText('Assignment planner controls')).toBeTruthy();
 		expect(screen.getByText('Manual monthly coverage planning')).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Duty Rosters' }).getAttribute('href')).toBe('/org/org-1/duty-rosters');
+		expect(screen.queryByRole('link', { name: 'Duty Rosters' })).toBeNull();
 		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 		expect(screen.getByText('Quick Fill')).toBeTruthy();
 		expect(screen.queryByRole('dialog')).toBeNull();

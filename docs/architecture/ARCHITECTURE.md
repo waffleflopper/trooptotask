@@ -23,7 +23,7 @@ The [stabilization baseline](../stabilization/BASELINE.md#retained-contracts) de
 - Correct the invitation-origin approval/rescind defect F01 deliberately under task **11-01**; billing removal does not resolve it. Preserve independent approvals, sibling Organization grants and existing accounts while testing issuance failure, renewal and concurrency.
 - Keep database safeguards: never touch remote production data or schema; never reset or delete existing local tables without Robert's explicit permission. Schema verification uses only an isolated disposable local stack with synthetic data under the queue's DB contract. Explicit phase activation authorizes only the bounded tracker writes in the [issue workflow](../agents/issue-tracker.md). Git publication/merge, production/remote actions, live data and deployment remain separately protected.
 
-Complete one ready task within the active child at a time, obey the [deliverable checkpoints](../agents/operating-rules.md#stabilization-tasks), and respect phase dependencies. Newly discovered in-scope work must receive a bounded queue entry before program closure. Reduce existing governance exceptions as their consumers are removed; do not add allowlists, weaken guards, skip tests, inflate budgets or hide scan paths.
+Complete one ready task within the active child at a time, obey the [deliverable checkpoints](../agents/stabilization-workflow.md#checkpoints), and respect phase dependencies. Newly discovered in-scope work must receive a bounded queue entry before program closure. Reduce existing governance exceptions as their consumers are removed; do not add allowlists, weaken guards, skip tests, inflate budgets or hide scan paths.
 
 ## Current-State Truth
 
@@ -47,7 +47,7 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
   - feature views, contexts, stores, and utilities in `src/features/*`
   - shared UI primitives in `src/lib/components/**` and `src/lib/components/ui/**`
 - This pattern is real, but not uniformly deep. Several feature surfaces still have large orchestration-heavy files and mixed responsibilities.
-- Notable orchestration hotspots today include calendar, personnel, dashboard, duty roster, training reports, and parts of onboarding and critical tasks.
+- Notable orchestration hotspots today include calendar, personnel, dashboard, training reports, and parts of onboarding and critical tasks.
 
 ### Server structure
 

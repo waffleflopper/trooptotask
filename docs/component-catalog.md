@@ -6,9 +6,17 @@ Public marketing primitives live in `src/lib/components/public/`. Import via `$l
 
 ---
 
-## UI Foundation
+## Find the relevant component
 
-Command input and result items must share one `Command.Root`. For server-filtered search, set `shouldFilter={false}` and supply the root `label` for the input name. `Command.Viewport` exposes the Bits viewport without a second state owner; compose it through `Command.List`'s `child` snippet with the supplied props when list and viewport share one element, so `aria-controls` targets the listbox and `aria-activedescendant` identifies its selected option. `Command.Input` preserves an explicit `aria-expanded` value for conditional popups; always-open menus retain the primitive default.
+Read the [UI foundation](#ui-foundation), then the section for the component being changed:
+
+- Page and shell composition: [page shell](#uipage-shell), [workspace toolbar](#uiworkspace-toolbar), [public shell](#public-marketing-shell), [workflow panel](#uiworkflow-panel).
+- Input and selection: [form controls](#shared-form-controls), [command](#uicommand), [combobox](#uicombobox), [multi-select](#uimulti-select), [date picker](#uidate-picker), [file upload](#file-upload-pattern).
+- Reports and records: [report workspace](#uireport-workspace), [charts](#uireport-chart), [data table](#uidata-table), [operational matrix](#uioperational-matrix), [bulk import](#uibulk-import-workspace).
+- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirmdialogsvelte), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#uireadiness-band).
+- Shared appearance: [CSS tokens and design system](#css-design-system-appcss).
+
+## UI Foundation
 
 This catalog is the active reference for TroopToTask's shadcn-svelte + Tailwind v4 UI foundation. It records the selected shared primitives, compound project wrappers, expected usage, and replacement decisions for older local wrappers.
 
@@ -27,31 +35,22 @@ Replacement previews:
 - Legacy `Spinner` is represented by the shadcn `spinner` component.
 - Platform admin no longer has a custom `admin-*` CSS layer. `/admin/**` composes the shared sidebar, page-shell, card, field, command, tabs, alert, empty, badge, button, input/select/textarea, and table primitives with Tailwind layout utilities.
 
-Rules:
-
-- Shared components are visually authoritative. Production routes consume shared component appearance as-is.
-- Visual styling comes from `src/app.css`, `components.json`, theme variables, or shared component source files under `src/lib/components/**`.
-- This catalog should stay implementation-focused: no route-local component skinning, no custom variants, and no visual tuning of generated components.
-- The approved visual baseline is the shadcn-svelte appearance owned by shared UI and the shared app-shell components. Non-component route layout and remaining obsolete CSS should move to Tailwind utilities that match that baseline, using shared tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border`, `rounded-lg`, spacing scale utilities, and calibrated shared component composition.
-- Production routes may configure behavior, labels, data, validation, permissions, filters, columns, and actions.
-- Production routes must not visually retune shared components with route-local spacing, radius, borders, shadows, typography, color, animation, density, or internal selectors unless Robert explicitly approves the specific visual exception.
-- Route-level variation is behavioral only. Behavioral changes must not affect other consumers of the shared component.
-- Within authorized UI work, compose feature behavior from shared primitives or extend the shared API as needed. Preserve the visual baseline and other consumers; do not create a duplicate primitive API or compatibility wrapper. An unapproved visual exception still needs Robert's decision, but ordinary behavioral composition does not need another approval.
-- If a durable visual need appears, add it centrally and document it here before any route consumes it.
-- If a shared component does not fit an authorized route change, implement the smallest shared component/API extension, document it here and update affected consumers. Keep appearance owned centrally.
-- Production work must not import legacy TroopToTask component wrappers such as the old toolbar family, `EmptyState`, `FileUpload`, `SearchSelect`, or legacy spinner wrappers when shadcn replacements exist.
-- The current dark-mode source remains `documentElement[data-theme]`; Tailwind v4 dark variants also support `.dark` during the transition for shadcn compatibility.
+Composition and visual ownership follow the [UI system](agents/ui-system.md#default-ui-rules). Within authorized UI work, extend shared APIs or add centrally owned variants and update affected consumers and this catalog. Preserve existing consumer behavior; route-local visual exceptions require Robert's explicit approval. Replacement notes below identify obsolete APIs, not permission to create compatibility wrappers.
 
 Foundation files:
 
 - `components.json` initializes shadcn-svelte with `ui` pointed at `$lib/components/ui`.
 - `src/lib/utils.ts` provides the shadcn `cn` helper and element-ref utility types.
-- `src/app.css` imports Tailwind v4 and exposes native shadcn/Tailwind theme variables without mapping them to TroopToTask colors yet.
+- `src/app.css` imports Tailwind v4 and maps shared semantic tokens to the product palette; see the [current token API](#current-token-api) and [palette](#palette).
 - `src/app.css` no longer owns admin-specific selectors. Global `.btn`, `.input`, `.select`, `.label`, and related legacy selectors have been removed after route consumers migrated to shared primitives.
 
 Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the supported `nova` style. The RFC mentioned `new-york` based on the docs available when written; `components.json` records the implementation-time CLI result so future `shadcn-svelte add` runs stay consistent.
 
 ---
+
+## `ui/command`
+
+Command input and result items must share one `Command.Root`. For server-filtered search, set `shouldFilter={false}` and supply the root `label` for the input name. `Command.Viewport` exposes the Bits viewport without a second state owner; compose it through `Command.List`'s `child` snippet with the supplied props when list and viewport share one element, so `aria-controls` targets the listbox and `aria-activedescendant` identifies its selected option. `Command.Input` preserves an explicit `aria-expanded` value for conditional popups; always-open menus retain the primitive default.
 
 ## Password MFA continuation
 
@@ -71,21 +70,21 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 
-	let tab = $state('generate');
+	let tab = $state('overview');
 	const tabs = [
-		{ label: 'Generate', value: 'generate' },
+		{ label: 'Overview', value: 'overview' },
 		{ label: 'History', value: 'history', badge: 48 },
 		{ label: 'Settings', value: 'settings' }
 	];
 </script>
 
 <PageShell.Root>
-	<PageShell.Header title="Staff Duty NCO" subtitle="Configure this duty roster template.">
+	<PageShell.Header title="Training Readiness" subtitle="Review training completion and upcoming requirements.">
 		{#snippet meta()}
 			<Badge variant="success">Active</Badge>
 		{/snippet}
 		{#snippet actions()}
-			<Button>Generate Roster</Button>
+			<Button>Record Training</Button>
 			<Button variant="outline">View History</Button>
 		{/snippet}
 	</PageShell.Header>
@@ -95,15 +94,15 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 	<section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
 		<div class="rounded-lg border bg-card p-4 text-card-foreground">
 			<PageShell.FactGrid layout="three">
-				<PageShell.Metric label="Pool Size" value="22" />
-				<PageShell.Metric label="Assigned" value="6" />
-				<PageShell.Metric label="Remaining" value="16" />
+				<PageShell.Metric label="Personnel" value="22" />
+				<PageShell.Metric label="Complete" value="6" />
+				<PageShell.Metric label="Due" value="16" />
 			</PageShell.FactGrid>
 		</div>
 
-		<PageShell.SummaryRail title="Template Summary">
-			<PageShell.FactRow label="Total Eligible" value="22" />
-			<PageShell.FactRow label="Exemptions" value="4" />
+		<PageShell.SummaryRail title="Training Summary">
+			<PageShell.FactRow label="Personnel" value="22" />
+			<PageShell.FactRow label="Training Types" value="4" />
 		</PageShell.SummaryRail>
 	</section>
 
@@ -132,23 +131,10 @@ Rules:
 
 - Use `Root` inside the authenticated shell/sidebar inset so page content scrolls inside the shell and the app breadcrumb/header remains outside the route scroller.
 - Use `Header` for route-local title, subtitle, meta, and actions. Do not duplicate the authenticated app breadcrumb bar inside route content.
-- Use `Tabs` for route-level Generate/History/Settings style navigation. Do not restore legacy `SubNav`.
+- Use `Tabs` for route-level Overview/History/Settings style navigation. Do not restore legacy `SubNav`.
 - Use `SummaryRail`, `FactGrid`, `FactRow`, and `Metric` for dense operational summaries instead of route-local summary wrappers.
-- Use `StickyActionBar` for dirty-state and grouped draft/official action surfaces.
+- Use `StickyActionBar` for dirty-state and grouped action surfaces.
 - Routes may configure labels, values, actions, links, disabled/loading state, status badges, and snippets. Routes must not visually retune these primitives with local spacing, radius, color, border, density, or typography overrides unless explicitly approved.
-
----
-
-## Feature-Owned Duty Roster Wrappers
-
-Duty-roster-specific wrappers live under `src/features/duty-roster/components/shared/` because they encode DA6 and accepted-run language. They are not global `ui/*` primitives.
-
-- `DutyRosterStatusBadge` maps duty-roster states to locked badge variants and accessible labels.
-- `DA6Matrix` wraps `ui/operational-matrix` with DA6-specific rows, date headers, cell meanings, footer counts, legend, and accessible labels.
-- `ManualChangePanel` and `CorrectionSheet` provide sheet-ready workflow panels for draft manual changes and accepted-run corrections.
-- `AuditTimeline`, `WarningSummary`, and `DateRangeControls` support the duty-roster route composition while staying aligned with shared shadcn-svelte primitives.
-
-If `AuditTimeline`, `WarningSummary`, or `DateRangeControls` are needed outside duty roster, promote them deliberately into `src/lib/components/ui/**` with component-catalog documentation before production routes consume them globally.
 
 ---
 
@@ -170,13 +156,13 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 - Values are stored as ISO date strings so route payloads stay data-oriented.
 - The visual contract comes from the shared component. Routes may provide field labels, placeholders, disabled state, and bound values only.
-- Calendar and popover appearance must be calibrated in `docs/component-catalog.md` before production route usage changes.
+- Changes to calendar or popover appearance follow the [UI system](agents/ui-system.md); verify the shared result and update this reference when its API changes.
 
 ---
 
 ## `ui/workspace-toolbar`
 
-`ui/workspace-toolbar` is the shadcn-composed route toolbar target for the UI migration. It is being calibrated in `docs/component-catalog.md` before production routes consume it. It replaces route-local toolbar shells with one shared visual contract built from shadcn-svelte primitives.
+`ui/workspace-toolbar` is the shared toolbar used by authenticated production routes. It replaces route-local toolbar shells with one visual contract built from shadcn-svelte primitives; the old `ui/toolbar` family is retired.
 
 ```svelte
 <script lang="ts">
@@ -240,8 +226,8 @@ Rules:
 - Use compact search widths such as `w-40 sm:w-56` unless a route has proven room for wider search.
 - Keep disabled actions visible when their presence explains unavailable work. Loading actions should be disabled and show the shared spinner.
 - Do not add route-local toolbar spacing, radius, borders, shadows, color, density, typography, or internal selector overrides.
-- Do not create a route-specific wrapper to alter toolbar behavior without explicit approval.
-- If a route needs behavior this API cannot express, document the design-system gap and extend the shared component/API after proving it in `docs/component-catalog.md`.
+- Compose route-specific behavior under the [shared UI composition rules](agents/ui-system.md#default-ui-rules); keep toolbar appearance and reusable APIs owned by the shared component.
+- If an authorized route change needs behavior this API cannot express, implement and verify the smallest shared API extension, update affected consumers and document its usage here.
 
 Migration guidance:
 
@@ -709,11 +695,11 @@ Lower-level shell primitives used internally by `PublicShell`. Reach for these d
 
 ## Shared Route Toolbar
 
-Authenticated production routes now use `ui/workspace-toolbar` plus generated shadcn-svelte primitives. The old `/components/ui/toolbar` family has been removed and must not be reintroduced.
+See [`ui/workspace-toolbar`](#uiworkspace-toolbar) for the shared API and composition rules.
 
 Use `WorkspaceToolbar.Root` as the route toolbar root, `WorkspaceToolbar.Group` for control/action/meta boundaries, shadcn `ButtonGroup` plus `Button` for mutually exclusive view modes, shadcn `Toggle` for independent boolean toolbar state, shadcn `Select`/`InputGroup` through the shared workspace toolbar helpers for filters and search, and `WorkspaceToolbar.Actions` for command buttons plus dropdown overflow.
 
-Routes may pass labels, values, options, permissions, disabled state, and handlers only. Visual changes belong in `src/lib/components/ui/workspace-toolbar/**`, generated shadcn component source, theme tokens, or `docs/component-catalog.md` calibration.
+Configure route behavior through the shared API; extensions follow the [UI system](agents/ui-system.md#default-ui-rules).
 
 ## `ui/app-dialog`
 
@@ -1053,7 +1039,7 @@ Toolbar compact pattern:
 </WorkspaceToolbar.Group>
 ```
 
-- Use for training, Critical Tasks, duty roster, calendar report, MOS/rank/group/role, and toolbar filters where several values can be active.
+- Use for training, Critical Tasks, calendar report, MOS/rank/group/role, and toolbar filters where several values can be active.
 - Selected values should render as removable chips in regular forms and as an active count in compact toolbars.
 - Backspace removes the last selected value when the search input is empty.
 - Use the same object option shape as `Combobox.Root` when labels differ from submitted values, options need group headings, or selected chips should announce readable labels.

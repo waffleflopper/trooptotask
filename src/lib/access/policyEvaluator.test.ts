@@ -463,24 +463,6 @@ describe('policy evaluator', () => {
 				owner: { kind: 'feature-lane', lane: 'calendar' },
 				accessMode: 'write',
 				requiredCapability: 'configure'
-			},
-			manageDutyRosters: {
-				id: 'calendar.manageDutyRosters',
-				owner: { kind: 'feature-lane', lane: 'calendar' },
-				accessMode: 'write',
-				requiredCapability: 'operate'
-			},
-			viewDutyRosters: {
-				id: 'calendar.viewDutyRosters',
-				owner: { kind: 'feature-lane', lane: 'calendar' },
-				accessMode: 'read',
-				requiredCapability: 'view'
-			},
-			configureDutyTemplates: {
-				id: 'calendar.configureDutyTemplates',
-				owner: { kind: 'feature-lane', lane: 'calendar' },
-				accessMode: 'write',
-				requiredCapability: 'configure'
 			}
 		});
 	});
@@ -510,39 +492,6 @@ describe('policy evaluator', () => {
 			id: 'identity.updateOwnPreferences',
 			accessMode: 'write',
 			owner: { kind: 'identity-owned' }
-		});
-	});
-
-	it('evaluates new Calendar duty roster actions through capability and scope decisions', () => {
-		const manageDecision = evaluatePolicyDecision({
-			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'member' },
-			action: POLICY_ACTION_CATALOG.calendar.manageDutyRosters,
-			capabilityMap: { ...baseCapabilityMap, calendar: 'operate' },
-			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
-			resource: { kind: 'group', groupId: 'group-alpha' }
-		});
-
-		expect(manageDecision).toMatchObject({
-			allowed: true,
-			reasonCode: 'allowed:capability',
-			matchedCapability: { lane: 'calendar', actual: 'operate', required: 'operate' },
-			matchedScope: { kind: 'group', groupId: 'group-alpha' }
-		});
-
-		const configureDecision = evaluatePolicyDecision({
-			decisionKind: 'server-authoritative',
-			actor: { membershipRole: 'member' },
-			action: POLICY_ACTION_CATALOG.calendar.configureDutyTemplates,
-			capabilityMap: { ...baseCapabilityMap, calendar: 'operate' },
-			scopeSet: { kind: 'organization' },
-			resource: { kind: 'organization' }
-		});
-
-		expect(configureDecision).toMatchObject({
-			allowed: false,
-			reasonCode: 'denied:missing-capability',
-			matchedCapability: { lane: 'calendar', actual: 'operate', required: 'configure' }
 		});
 	});
 

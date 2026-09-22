@@ -111,7 +111,7 @@ An available design/domain skill can help stress-test a tradeoff when that is th
 ## C-05 Deep Module Reviews
 
 - Current-state truth:
-  - multiple orchestration-heavy modules exist in calendar, dashboard, duty roster, personnel, and training
+  - multiple orchestration-heavy modules exist in calendar, dashboard, personnel, and training
 - Why this is unsatisfying:
   - understanding one concept still requires too much file-jumping and too many broad surfaces
 - Intended v1 direction:

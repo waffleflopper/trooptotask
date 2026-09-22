@@ -14,12 +14,12 @@ const NO_TRAINING_CONFIGURE: CapabilityMap = {
 	ratingScheme: 'none'
 };
 
-const NO_CALENDAR_CONFIGURE: CapabilityMap = {
-	calendar: 'operate',
+const NO_ONBOARDING_CONFIGURE: CapabilityMap = {
+	calendar: 'none',
 	personnel: 'none',
 	training: 'configure',
 	criticalTasks: 'none',
-	onboarding: 'configure',
+	onboarding: 'operate',
 	ratingScheme: 'none'
 };
 
@@ -48,7 +48,24 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 		expect(result.created).toContainEqual({ family: 'training-types', name: 'Unit Orientation' });
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
-		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toHaveLength(1);
+		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toEqual([]);
+	});
+
+	it('allows Training and onboarding configurators without Calendar access', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...NO_ONBOARDING_CONFIGURE, onboarding: 'configure' }
+			}
+		});
+
+		const result = await handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' });
+
+		expect(result.failed).toEqual([]);
+		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
+		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
+		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
 	});
 
 	it('denies at the route policy before mutation when Training configure is missing', async () => {
@@ -73,7 +90,7 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				capabilityMap: NO_CALENDAR_CONFIGURE
+				capabilityMap: NO_ONBOARDING_CONFIGURE
 			}
 		});
 		const insertSpy = vi.spyOn(ctx.store, 'insert');

@@ -59,7 +59,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Page contexts are valid in v1, but they should not silently become god objects.
 - If a context starts to own too many unrelated concerns, that is a signal to deepen module boundaries rather than keep stuffing logic into it.
 - Prefer pushing stable calculations and business rules into smaller modules with thinner public interfaces.
-- The `Roster Read Model` is shared infrastructure under `$lib/stores` and `$lib/server/core/useCases/rosterReadModel.ts`, because Calendar, Training, Dashboard, Onboarding, Rating Scheme, settings archives, and shell hydration read the same organization roster. Remove the existing Duty Roster consumer with that feature; preserve retained readers. Personnel-owned write workflows still belong under `$features/personnel`. See `docs/architecture/ROSTER_READ_MODEL.md` for the explicit `full`/`scoped` and `active`/`archived`/`all` usage contract.
+- The `Roster Read Model` is shared infrastructure under `$lib/stores` and `$lib/server/core/useCases/rosterReadModel.ts`, because Calendar, Training, Dashboard, Onboarding, Rating Scheme, settings archives, and shell hydration read the same organization roster. Personnel-owned write workflows still belong under `$features/personnel`. See `docs/architecture/ROSTER_READ_MODEL.md` for the explicit `full`/`scoped` and `active`/`archived`/`all` usage contract.
 
 ### Client read models
 
@@ -77,7 +77,7 @@ This pattern is appropriate for dashboard-style surfaces where components should
 
 `CalendarRangeCoordinator` owns calendar range expansion, request de-duping, range-store merging and retry state. Its advanced duty event merging is scheduled for removal with all Duty Roster consumers in phase 05 of [TODO](../stabilization/TODO.md); preserve the ordinary Calendar behavior and persisted facts in R6.
 
-`DutyRosterRun`, `dutyRosterBrowserExport` and the read-only `dutyEventCrud.ts` hydration shim are obsolete removal targets, not module patterns to extend or feed into a replacement Duty Roster surface. Their owning tasks must delete the implementations and consumers. Historical duty rows do not justify continued runtime hydration; resolve schema/data disposition separately under the DB contract.
+Duty Roster generation, accepted-run commands and feature exports were removed in phase 05 D01. Calendar still uses the read-only `dutyEventCrud.ts` hydration shim and genuine duty-reader types; D02 owns their complete caller cutover and removal. These are removal targets, not patterns for a replacement Duty Roster surface. Historical duty rows do not justify continued runtime hydration; phase 06 owns schema/data disposition under the DB contract.
 
 ## Server Conventions
 
@@ -101,6 +101,14 @@ For new server work, prefer:
 - Treat route-level direct provider usage as tolerated legacy, not the default pattern.
 - Auth-specific provider calls remain acceptable where they are genuinely auth-provider-specific.
 - Outside auth, new business logic should prefer use cases and adapters.
+
+## Performance
+
+Keep common workflows responsive as an Organization's data grows. Inspect the actual loading path before optimizing: avoid serial waits for independent requests, repeated queries per row, unnecessary payloads and repeated full-list calculations. A linear pass over a bounded collection can be the simplest efficient implementation.
+
+Use optimistic updates when failure can be rolled back clearly and the operation's consequences allow it. Keep server authorization authoritative. Consider prefetching on hover or focus when it reduces likely navigation waits without excessive requests or crossing access boundaries. Keep optional data from blocking useful content and provide clear pending, success and failure feedback.
+
+Reuse the existing data and state mechanisms. Add caching, background work or another abstraction only for an observed need, with explicit invalidation and failure behavior. For performance claims or dedicated optimization work, follow the [performance evidence contract](DEFINITION_OF_DONE.md#reproducible-performance-evidence).
 
 ## Deepening Guidance
 

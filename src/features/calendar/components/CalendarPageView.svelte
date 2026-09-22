@@ -49,12 +49,10 @@
 			showPersonnelRoles: ctx.showPersonnelRoles,
 			showOnboardingToggle: ctx.activeOnboardingPersonnelIds.length > 0,
 			highlightOnboarding: ctx.highlightOnboarding,
-			dutyStartDayOnly: ctx.dutyStartDayOnly,
 			viewMode: ctx.viewMode,
 			onToggleStatusText: () => ctx.toggleShowStatusText(),
 			onTogglePersonnelRoles: () => ctx.toggleShowPersonnelRoles(),
 			onToggleHighlightOnboarding: () => ctx.toggleHighlightOnboarding(),
-			onToggleDutyStartDayOnly: () => ctx.toggleDutyStartDayOnly(),
 			onExportExcel: async () => {
 				try {
 					const { exportMonthToExcel } = await import('$features/calendar/utils/calendarExport');
@@ -177,8 +175,6 @@
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						groups={groupsStore.items}
-						dutyEvents={ctx.advancedDutyEvents}
-						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						onDateColumnClick={(date) => ctx.navigateToMonth(date)}
 						onToggleViewMode={() => ctx.toggleViewMode()}
 					/>
@@ -196,8 +192,6 @@
 						assignmentTypes={dailyAssignmentsStore.types}
 						assignments={dailyAssignmentsStore.assignments}
 						groups={groupsStore.items}
-						dutyEvents={ctx.advancedDutyEvents}
-						dutyStartDayOnly={ctx.dutyStartDayOnly}
 						activeOnboardingPersonnelIds={ctx.activeOnboardingPersonnelIds}
 						highlightOnboarding={ctx.highlightOnboarding}
 						canEdit={ctx.canManageAvailability}

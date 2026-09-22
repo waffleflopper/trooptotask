@@ -11,7 +11,6 @@
 	import { formatDate, getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
 	import { exportQuarterToExcel, printQuarterCalendar } from '../utils/calendarExport';
 	import CalendarNavigation from './CalendarNavigation.svelte';
-	import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
 	import { buildCalendarRenderState } from '$features/calendar/utils/calendarRenderState';
 	import { buildVirtualRowLayout, getVisibleVirtualRows } from '$features/calendar/utils/virtualRows';
 	import FileSpreadsheetIcon from '@lucide/svelte/icons/file-spreadsheet';
@@ -40,8 +39,6 @@
 		assignmentTypes: AssignmentType[];
 		assignments: DailyAssignment[];
 		groups?: readonly Group[];
-		dutyEvents?: DutyEvent[];
-		dutyStartDayOnly?: boolean;
 		onDateColumnClick?: (date: Date) => void;
 		onToggleViewMode?: () => void;
 	}
@@ -55,8 +52,6 @@
 		assignmentTypes,
 		assignments,
 		groups = [],
-		dutyEvents = [],
-		dutyStartDayOnly = true,
 		onDateColumnClick,
 		onToggleViewMode
 	}: Props = $props();
@@ -94,9 +89,7 @@
 			specialDays,
 			assignmentTypes,
 			assignments,
-			groups,
-			dutyEvents,
-			dutyStartDayOnly
+			groups
 		})
 	);
 
@@ -349,26 +342,17 @@
 										{@const dateKey = formatDate(date)}
 										{@const cell = renderState.personDateCell(row.person.id, dateKey)}
 										{@const status = cell?.primaryStatus}
-										{@const dutyIndicator = cell?.dutyIndicator}
 										<div
 											class={[
 												'status-cell relative flex h-[var(--long-range-person-row-height)] w-[var(--long-range-col-width)] shrink-0 items-center justify-center border-l bg-card transition-colors max-sm:h-8 max-sm:w-7 max-sm:min-w-7 max-sm:max-w-7',
 												!status && 'empty-status-cell',
 												cell?.weekend && 'bg-muted/55',
 												cell?.today && 'z-[1] shadow-[inset_0_0_0_1px_var(--primary)]',
-												status && 'has-status border-transparent',
-												dutyIndicator && 'has-duty'
+												status && 'has-status border-transparent'
 											]}
 											style={status ? `background-color: ${status.color}` : ''}
 											title={cell?.title ?? ''}
-										>
-											{#if dutyIndicator}
-												<span
-													class="duty-indicator absolute right-0 bottom-0 left-0 h-0.5"
-													style="background-color: {dutyIndicator.color}"
-												></span>
-											{/if}
-										</div>
+										></div>
 									{/each}
 								{/each}
 							</div>

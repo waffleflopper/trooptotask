@@ -1,6 +1,4 @@
 import type { Group } from '$lib/stores/groups.svelte';
-import type { DutyEvent } from '$features/duty-roster/duty-roster.types';
-import { buildDutyEventBadgesByPerson, type DutyEventBadge } from '$features/calendar/utils/dutyEventBadges';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import { formatDate, getDayName, isToday, isWeekend } from '$lib/utils/dates';
@@ -16,8 +14,6 @@ export interface CalendarRenderStateInput {
 	assignmentTypes: readonly AssignmentType[];
 	assignments: readonly DailyAssignment[];
 	groups?: readonly Group[];
-	dutyEvents?: readonly DutyEvent[];
-	dutyStartDayOnly?: boolean;
 	activeOnboardingPersonnelIds?: readonly string[];
 	highlightOnboarding?: boolean;
 	upcomingLossMap?: ReadonlyMap<string, UpcomingLossRecord>;
@@ -57,12 +53,6 @@ export interface CalendarCellMarkerState {
 	color: string;
 	textColor?: string;
 	title?: string;
-	kind: 'assignment' | 'duty';
-}
-
-export interface CalendarDutyIndicatorState {
-	color: string;
-	title: string;
 }
 
 export interface CalendarPersonDateCellState {
@@ -77,7 +67,6 @@ export interface CalendarPersonDateCellState {
 	statuses: CalendarCellStatusState[];
 	primaryStatus?: CalendarCellStatusState;
 	markers: CalendarCellMarkerState[];
-	dutyIndicator?: CalendarDutyIndicatorState;
 	onboarding: boolean;
 	title: string;
 	titleParts: string[];
@@ -139,9 +128,7 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 	const specialDayByDate = buildSpecialDayByDate(input.specialDays, diagnostics);
 	const assignmentTypeById = buildAssignmentTypeById(input.assignmentTypes);
 	const activeOnboardingPersonnelIds = new Set(input.activeOnboardingPersonnelIds ?? []);
-	const dutyBadgesByPerson = buildDutyEventBadgesByPerson([...(input.dutyEvents ?? [])], {
-		startDayOnly: input.dutyStartDayOnly ?? true
-	});
+
 	const availabilityByPersonDate = buildAvailabilityByPersonDate(
 		input.availabilityEntries,
 		statusTypeById,
@@ -197,21 +184,14 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 		const cached = rowCache.get(personnelId);
 		if (cached) return cached;
 
-		const personDutyBadges = dutyBadgesByPerson.get(personnelId);
 		const cells = dateKeys.map((dateKey) => {
 			const header = headerByDate.get(dateKey);
 			if (!header) {
 				throw new CalendarRenderStateInputError(`Calendar date key ${dateKey} was not found in header cells`);
 			}
 			const statuses = availabilityByPersonDate.get(personnelId)?.get(dateKey) ?? [];
-			const assignmentMarkers = assignmentsByPersonDate.get(personnelId)?.get(dateKey) ?? [];
-			const dutyMarkers = toDutyMarkers(personDutyBadges?.get(dateKey) ?? []);
-			const dutyIndicator = getDutyIndicator(personDutyBadges?.get(dateKey) ?? []);
-			const markers = [...assignmentMarkers, ...dutyMarkers];
-			const titleParts = [
-				statuses.at(-1)?.name,
-				(personDutyBadges?.get(dateKey) ?? []).map((badge) => badge.title).join(', ')
-			].filter((part): part is string => !!part);
+			const markers = assignmentsByPersonDate.get(personnelId)?.get(dateKey) ?? [];
+			const titleParts = [statuses.at(-1)?.name].filter((part): part is string => !!part);
 
 			return {
 				personnelId,
@@ -225,7 +205,6 @@ export function buildCalendarRenderState(input: CalendarRenderStateInput): Calen
 				statuses,
 				primaryStatus: statuses.at(-1),
 				markers,
-				dutyIndicator,
 				onboarding: activeOnboardingPersonnelIds.has(personnelId) && (input.highlightOnboarding ?? true),
 				titleParts,
 				title: titleParts.join(' | ')
@@ -387,8 +366,7 @@ function buildAssignmentsByPersonDate(
 			shortName: assignmentType.shortName,
 			color: assignmentType.color,
 			textColor: '#ffffff',
-			title: assignmentType.name,
-			kind: 'assignment'
+			title: assignmentType.name
 		});
 	}
 	return byPersonDate;
@@ -428,25 +406,5 @@ function getHeaderAssignment(
 	return {
 		assignmentTypeName: headerType.name,
 		assigneeLabel: person ? `${person.rank} ${person.lastName}` : assignment.assigneeId
-	};
-}
-
-function toDutyMarkers(dutyBadges: readonly DutyEventBadge[]): CalendarCellMarkerState[] {
-	return dutyBadges.map((badge) => ({
-		id: badge.slotId,
-		name: badge.title,
-		shortName: badge.shortName,
-		color: badge.color,
-		textColor: badge.textColor,
-		title: badge.title,
-		kind: 'duty'
-	}));
-}
-
-function getDutyIndicator(dutyBadges: readonly DutyEventBadge[]): CalendarDutyIndicatorState | undefined {
-	if (dutyBadges.length === 0) return undefined;
-	return {
-		color: dutyBadges[0].color,
-		title: dutyBadges.map((badge) => badge.title).join(', ')
 	};
 }

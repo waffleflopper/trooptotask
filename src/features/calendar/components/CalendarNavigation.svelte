@@ -57,14 +57,14 @@
 </script>
 
 <div class="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3 sm:px-5">
-	<div class="flex flex-1 flex-wrap items-center gap-2 sm:gap-3">
+	<div class="flex min-w-0 flex-auto flex-wrap items-center justify-between gap-2 sm:gap-3">
 		<Button variant="outline" size="sm" onclick={onPrev} aria-label={prevLabel}>
 			<ChevronLeftIcon aria-hidden="true" />
 			{prevLabel}
 		</Button>
-		<div class="relative flex min-w-0 flex-1 justify-center sm:flex-none">
+		<div class="relative order-first flex min-w-0 flex-1 basis-full justify-center sm:order-none sm:basis-56">
 			<h2
-				class="m-0 min-w-0 text-center font-display text-2xl leading-tight font-bold tracking-wider text-foreground uppercase sm:min-w-44"
+				class="m-0 min-w-0 text-center font-display text-2xl leading-tight font-bold tracking-wider text-foreground uppercase"
 			>
 				{#if onSelectMonthYear && pickerYear !== undefined && pickerMonth !== undefined}
 					<button

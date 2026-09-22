@@ -3,7 +3,6 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	loadAvailabilityReadinessLane,
 	loadCriticalTasksReadinessLane,
-	loadDutyRosterReadinessLane,
 	loadLossTrackingReadinessLane,
 	loadRatingSchemeReadinessLane,
 	loadTrainingReadinessLane
@@ -31,37 +30,106 @@ function seedPerson(ctx: ReturnType<typeof createTestContext>, overrides: Record
 }
 
 describe('personnel readiness lanes', () => {
-	it('loads today availability from Calendar status entries', async () => {
+	it.each([null, 'authorized-absence', 'other-duty', 'misconduct-unavailable'])(
+		'flags an active Calendar status for attention regardless of retired treatment %s',
+		async (treatment) => {
+			const ctx = createTestContext();
+			seedPerson(ctx);
+			ctx.store.seed('status_types', [
+				{
+					id: 'tdy',
+					organization_id: ctx.auth.orgId,
+					name: 'TDY',
+					color: '#000',
+					text_color: '#fff',
+					da6_availability_treatment: treatment,
+					da6_treatment_reviewed: true
+				}
+			]);
+			ctx.store.seed('availability_entries', [
+				{
+					id: 'availability-1',
+					organization_id: ctx.auth.orgId,
+					personnel_id: 'person-1',
+					status_type_id: 'tdy',
+					start_date: '2026-05-13',
+					end_date: '2026-05-15',
+					note: 'Range support'
+				}
+			]);
+
+			await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+				label: 'Availability',
+				value: 'TDY',
+				detail: 'TDY through May 15, 2026. Range support',
+				tone: 'watch'
+			});
+		}
+	);
+
+	it('reports present when Calendar entries are outside today', async () => {
 		const ctx = createTestContext();
 		seedPerson(ctx);
-		ctx.store.seed('status_types', [
-			{
-				id: 'tdy',
-				organization_id: ctx.auth.orgId,
-				name: 'TDY',
-				color: '#000',
-				text_color: '#fff',
-				da6_treatment_reviewed: true
-			}
-		]);
 		ctx.store.seed('availability_entries', [
 			{
-				id: 'availability-1',
+				id: 'past',
 				organization_id: ctx.auth.orgId,
 				personnel_id: 'person-1',
 				status_type_id: 'tdy',
-				start_date: '2026-05-13',
-				end_date: '2026-05-15',
-				note: 'Range support'
+				start_date: '2026-05-01',
+				end_date: '2026-05-13'
+			},
+			{
+				id: 'future',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				status_type_id: 'tdy',
+				start_date: '2026-05-15',
+				end_date: '2026-05-20'
 			}
 		]);
-
 		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
-			label: 'Availability',
-			value: 'TDY',
-			detail: 'TDY through May 15, 2026. Range support',
-			tone: 'watch'
+			value: 'Present',
+			tone: 'good'
 		});
+	});
+
+	it('denies availability without Calendar access before reading Calendar facts', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPerson(ctx);
+		const reads = vi.spyOn(ctx.store, 'findMany');
+		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF)).rejects.toMatchObject({ status: 403 });
+		expect(reads).not.toHaveBeenCalled();
+	});
+
+	it('denies availability outside the member Group scope before reading Calendar facts', async () => {
+		const ctx = createTestContext({
+			auth: { role: 'member', scopeSet: { kind: 'groups', groupIds: ['other-group'] } }
+		});
+		seedPerson(ctx);
+		const reads = vi.spyOn(ctx.store, 'findMany');
+		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF)).rejects.toMatchObject({ status: 403 });
+		expect(reads).not.toHaveBeenCalled();
+	});
+
+	it('does not disclose availability for another Organization personnel id', async () => {
+		const ctx = createTestContext();
+		seedPerson(ctx, { organization_id: 'foreign-org' });
+		const reads = vi.spyOn(ctx.store, 'findMany');
+		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF)).rejects.toMatchObject({ status: 404 });
+		expect(reads).not.toHaveBeenCalled();
 	});
 
 	it('counts due and overdue Training requirements for the Soldier', async () => {
@@ -298,76 +366,6 @@ describe('personnel readiness lanes', () => {
 			value: '100%',
 			detail: '1 of 1 applicable ICT tasks ready. 1 task expiring soon. No tasks need attention.',
 			tone: 'watch'
-		});
-	});
-
-	it('loads Duty Roster last duty date and exemption status', async () => {
-		const ctx = createTestContext();
-		seedPerson(ctx);
-		ctx.store.seed('duty_templates', [
-			{
-				id: 'template-1',
-				organization_id: ctx.auth.orgId,
-				name: 'Staff Duty',
-				status: 'active',
-				exempt_personnel_ids: ['person-1']
-			}
-		]);
-		ctx.store.seed('duty_roster_history', [
-			{
-				id: 'history-1',
-				organization_id: ctx.auth.orgId,
-				assignment_type_id: 'assignment-1',
-				name: 'Staff Duty',
-				start_date: '2026-05-01',
-				end_date: '2026-05-03',
-				roster: [
-					{ date: '2026-05-01', assigneeId: 'other-person' },
-					{ date: '2026-05-03', assigneeId: 'person-1' }
-				],
-				config: {},
-				created_at: `${AS_OF}T00:00:00Z`
-			}
-		]);
-
-		await expect(loadDutyRosterReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
-			label: 'Duty Roster',
-			value: 'Exempt',
-			detail: 'Exempt from 1 active template. Last duty was 11 days ago.',
-			tone: 'info'
-		});
-	});
-
-	it('bounds Duty Roster history to the one-year readiness lookback', async () => {
-		const ctx = createTestContext();
-		seedPerson(ctx);
-		const findMany = vi.spyOn(ctx.store, 'findMany');
-		ctx.store.seed('duty_templates', []);
-		ctx.store.seed('duty_roster_history', [
-			{
-				id: 'history-old',
-				organization_id: ctx.auth.orgId,
-				assignment_type_id: 'assignment-1',
-				name: 'Staff Duty',
-				start_date: '2025-05-12',
-				end_date: '2025-05-13',
-				roster: [{ date: '2025-05-13', assigneeId: 'person-1' }],
-				config: {},
-				created_at: '2025-05-13T00:00:00Z'
-			}
-		]);
-
-		await expect(loadDutyRosterReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
-			label: 'Duty Roster',
-			value: 'Eligible',
-			detail: 'No DA6 exemption. No accepted Duty Roster history found.',
-			tone: 'good'
-		});
-
-		const historyCall = findMany.mock.calls.find(([table]) => table === 'duty_roster_history');
-		expect(historyCall?.[3]).toMatchObject({
-			rangeFilters: [{ column: 'end_date', op: 'gte', value: '2025-05-14' }],
-			orderBy: [{ column: 'end_date', ascending: false }]
 		});
 	});
 

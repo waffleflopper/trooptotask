@@ -267,14 +267,11 @@ function unavailableReferenceSummary(code: string): OrganizationRankCatalogRefer
 		activeReferences: {
 			personnel: 0,
 			trainingApplicability: 0,
-			dutyRosterTemplateFilters: 0,
-			legacyDutyTemplateSlots: 0,
 			total: 0
 		},
 		historicalReferences: {
 			signInRosterFilters: 0,
 			signInRosterSnapshots: 0,
-			acceptedDutyRosterSnapshots: 0,
 			total: 0
 		},
 		canDelete: false

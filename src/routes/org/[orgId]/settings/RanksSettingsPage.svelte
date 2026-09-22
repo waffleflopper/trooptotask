@@ -780,10 +780,6 @@
 				<span class="font-medium">Training filters</span>
 				{entry.referenceSummary.activeReferences.trainingApplicability}
 			</p>
-			<p>
-				<span class="font-medium">Duty templates</span>
-				{entry.referenceSummary.activeReferences.dutyRosterTemplateFilters}
-			</p>
 			<p><span class="font-medium">Historical warnings</span> {entry.referenceSummary.historicalReferences.total}</p>
 		</div>
 

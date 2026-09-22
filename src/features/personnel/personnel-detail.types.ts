@@ -146,13 +146,7 @@ export type PersonnelArchivedArtifact =
 
 export type PersonnelReadinessLaneTone = 'good' | 'watch' | 'bad' | 'info' | 'neutral';
 
-export type PersonnelReadinessLaneKey =
-	| 'availability'
-	| 'training'
-	| 'criticalTasks'
-	| 'dutyRoster'
-	| 'ratingScheme'
-	| 'lossTracking';
+export type PersonnelReadinessLaneKey = 'availability' | 'training' | 'criticalTasks' | 'ratingScheme' | 'lossTracking';
 
 export interface PersonnelReadinessLane {
 	label: string;

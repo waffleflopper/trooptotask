@@ -51,7 +51,7 @@
 	<div class="flex flex-col gap-5">
 		{#if data.state !== 'valid'}
 			<AuthNotice tone="error" title="Setup link unavailable" centered>
-				<p>{data.message}</p>
+				<p>{form?.error ?? data.message}</p>
 				<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
 			</AuthNotice>
 		{:else}

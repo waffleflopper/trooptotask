@@ -195,159 +195,18 @@ describe('DashboardPageView', () => {
 		);
 	});
 
-	it('renders the starter pack CTA and applies it through the model', async () => {
-		const applyStarterConfigurationPack = vi.fn();
+	it('hides the temporarily disabled First Week Operations pack even when it can be applied', () => {
 		const ctx = makeCtx({
 			userRole: 'owner',
 			gettingStartedDismissed: false,
 			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack(),
-			applyStarterConfigurationPack,
-			gettingStartedItems: [
-				{
-					id: 'training',
-					label: 'Add training types',
-					description: 'Define the training requirements you want to monitor.',
-					href: '/org/org-1/training/types',
-					complete: false
-				}
-			]
+			firstStarterConfigurationPack: makeStarterPack()
 		});
 
 		render(DashboardPageView, { props: { ctx } });
 
-		expect(screen.getByText('First Week Operations')).toBeTruthy();
-		expect(screen.getByText('Optional')).toBeTruthy();
-		expect(screen.getByText('Unit Orientation, Required Annual Training')).toBeTruthy();
-
-		await fireEvent.click(screen.getByRole('button', { name: /Apply Pack/i }));
-
-		expect(applyStarterConfigurationPack).toHaveBeenCalledWith('first-week-operations');
-	});
-
-	it('shows pending state while applying the starter pack', () => {
-		const ctx = makeCtx({
-			userRole: 'owner',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack(),
-			starterPackApplyState: { status: 'pending', message: null, result: null },
-			gettingStartedItems: [
-				{
-					id: 'training',
-					label: 'Add training types',
-					description: 'Define the training requirements you want to monitor.',
-					href: '/org/org-1/training/types',
-					complete: false
-				}
-			]
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
-		expect(screen.getByRole('button', { name: /Applying/i }).hasAttribute('disabled')).toBe(true);
-	});
-
-	it('does not show a starter pack mutation button without configure access', () => {
-		const ctx = makeCtx({
-			userRole: 'admin',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack({ canApply: false }),
-			gettingStartedItems: [
-				{
-					id: 'training',
-					label: 'Add training types',
-					description: 'Define the training requirements you want to monitor.',
-					href: '/org/org-1/training/types',
-					complete: false
-				}
-			]
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
+		expect(screen.queryByText('First Week Operations')).toBeNull();
 		expect(screen.queryByRole('button', { name: /Apply Pack/i })).toBeNull();
-		expect(screen.getByText('Configure access needed')).toBeTruthy();
-	});
-
-	it('does not show configure access copy for already-applied starter packs', () => {
-		const ctx = makeCtx({
-			userRole: 'admin',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack({ canApply: false, isFullyApplied: true }),
-			gettingStartedItems: [
-				{
-					id: 'members',
-					label: 'Invite another Organization Member',
-					description: 'Add at least one more member for shared access.',
-					href: '/org/org-1/settings/members',
-					complete: false
-				}
-			]
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
-		expect(screen.getByText('Applied')).toBeTruthy();
-		expect(screen.queryByText('Configure access needed')).toBeNull();
-		expect(screen.queryByRole('button', { name: /Apply Pack/i })).toBeNull();
-	});
-
-	it('shows starter pack failure copy without changing checklist rendering', () => {
-		const ctx = makeCtx({
-			userRole: 'owner',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack(),
-			starterPackApplyState: {
-				status: 'error',
-				message: 'Starter pack could not be applied.',
-				result: null
-			},
-			gettingStartedItems: [
-				{
-					id: 'training',
-					label: 'Add training types',
-					description: 'Define the training requirements you want to monitor.',
-					href: '/org/org-1/training/types',
-					complete: false
-				}
-			]
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
-		expect(screen.getByRole('alert').textContent).toContain('Starter pack could not be applied.');
-		expect(screen.getByText('Add training types')).toBeTruthy();
-	});
-
-	it('announces starter pack success copy as a status message', () => {
-		const ctx = makeCtx({
-			userRole: 'owner',
-			gettingStartedDismissed: false,
-			shouldShowGettingStarted: true,
-			firstStarterConfigurationPack: makeStarterPack(),
-			starterPackApplyState: {
-				status: 'success',
-				message: 'First Week Operations applied. You can edit the created setup from each workflow.',
-				result: null
-			},
-			gettingStartedItems: [
-				{
-					id: 'training',
-					label: 'Add training types',
-					description: 'Define the training requirements you want to monitor.',
-					href: '/org/org-1/training/types',
-					complete: false
-				}
-			]
-		});
-
-		render(DashboardPageView, { props: { ctx } });
-
-		expect(screen.getByRole('status').textContent).toContain('First Week Operations applied.');
 	});
 
 	it('calls the model dismissal method from the checklist', async () => {

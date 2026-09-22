@@ -238,22 +238,16 @@ describe('TopHeader', () => {
 		expect(screen.queryByRole('menuitem', { name: 'Organization Settings' })).toBeNull();
 	});
 
-	it('renders Duty Rosters as a primary item between Calendar and Personnel', () => {
+	it('hides Duty Rosters while keeping Calendar and Personnel available', () => {
 		renderHeader();
 
-		const calendarLink = screen.getByRole('link', { name: 'Calendar' });
-		const dutyRostersLink = screen.getByRole('link', { name: 'Duty Rosters Beta' });
-		const personnelLink = screen
-			.getAllByRole('link', { name: 'Personnel' })
-			.find((link) => link.getAttribute('href') === '/org/org-1/personnel');
-
-		expect(calendarLink.getAttribute('href')).toBe('/org/org-1/calendar');
-		expect(dutyRostersLink.getAttribute('href')).toBe('/org/org-1/duty-rosters');
-		expect(personnelLink).toBeTruthy();
-		expect(within(dutyRostersLink).getByText('Duty Rosters')).toBeTruthy();
-		expect(screen.getByText('Beta')).toBeTruthy();
-		expect(calendarLink.compareDocumentPosition(dutyRostersLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-		expect(dutyRostersLink.compareDocumentPosition(personnelLink!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(screen.queryByRole('link', { name: /Duty Rosters/ })).toBeNull();
+		expect(screen.getByRole('link', { name: 'Calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
+		expect(
+			screen
+				.getAllByRole('link', { name: 'Personnel' })
+				.some((link) => link.getAttribute('href') === '/org/org-1/personnel')
+		).toBe(true);
 	});
 
 	it('shows manage organizations only for multi-org users', async () => {

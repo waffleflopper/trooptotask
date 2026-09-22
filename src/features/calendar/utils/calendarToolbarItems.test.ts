@@ -74,12 +74,10 @@ describe('buildCalendarToolbarItems', () => {
 		expect(labels).toEqual(['Assignment Planner']);
 	});
 
-	it('keeps Duty Rosters planning behind Calendar configuration access while that workflow is still advanced-only', () => {
+	it('keeps Duty Rosters offline for Calendar administrators while preserving Assignment Planner', () => {
 		const items = buildCalendarToolbarItems(makeInput({ canManageAssignments: true, canManageConfig: true }));
 		const planning = items.find((i) => i.label === 'Planning');
-		const labels = planning!.menuItems!.map((i) => i.label);
-		expect(labels).toEqual(['Duty Rosters (alpha)', 'Assignment Planner']);
-		expect(planning!.menuItems![0].href).toBe('/org/org1/duty-rosters');
+		expect(planning!.menuItems!.map((item) => item.href)).toEqual(['/org/org1/calendar/assignments']);
 	});
 
 	it('places Reports between Planning and Settings in calendar navigation actions', () => {

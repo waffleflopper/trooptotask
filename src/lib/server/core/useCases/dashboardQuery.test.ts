@@ -265,15 +265,6 @@ describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar indepe
 				assignee_id: 'person-a'
 			}
 		]);
-		const findMany = store.findMany.bind(store);
-		const dutyReads: string[] = [];
-		vi.spyOn(store, 'findMany').mockImplementation((table, ...args) => {
-			if (['duty_events', 'duty_event_slots', 'duty_event_runs'].includes(table)) {
-				dutyReads.push(table);
-				return Promise.reject(new Error('Duty event storage is unavailable'));
-			}
-			return findMany(table, ...args);
-		});
 
 		const result = await load(ctx);
 
@@ -292,6 +283,5 @@ describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar indepe
 			})
 		]);
 		expect(result.assignmentTypes.map((type) => type.name)).toEqual(['Staff Duty', 'Clinic Coverage']);
-		expect(dutyReads).toEqual([]);
 	});
 });

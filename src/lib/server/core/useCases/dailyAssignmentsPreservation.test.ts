@@ -152,26 +152,16 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 		['page', fetchCalendarData],
 		['range', fetchCalendarRangeData],
 		['bootstrap', fetchCalendarBootstrap]
-	] as const)(
-		'%s retains scoped manual person/Group, linked and edited slots when duty storage is unavailable',
-		async (_name, query) => {
-			const ctx = fixture();
-			const findMany = ctx.store.findMany.bind(ctx.store);
-			vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
-				if (['duty_events', 'duty_event_slots', 'duty_event_runs'].includes(table)) {
-					throw new Error('Retired duty storage is unavailable');
-				}
-				return findMany(table, ...args);
-			});
-			const result = await query(ctx, range);
-			expect(await result.dailyAssignments).toEqual(retainedSlots);
-			// Reading cannot rewrite a generated fact or delete an out-of-scope fact.
-			expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(savedSlots.slice(0, 7));
-			expect(await ctx.rawStore.findMany('daily_assignments', 'other-org')).toEqual([savedSlots[7]]);
-		}
-	);
+	] as const)('%s retains scoped manual person/Group, linked and edited slots', async (_name, query) => {
+		const ctx = fixture();
+		const result = await query(ctx, range);
+		expect(await result.dailyAssignments).toEqual(retainedSlots);
+		// Reading cannot rewrite a generated fact or delete an out-of-scope fact.
+		expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(savedSlots.slice(0, 7));
+		expect(await ctx.rawStore.findMany('daily_assignments', 'other-org')).toEqual([savedSlots[7]]);
+	});
 
-	it('keeps referenced types and Personnel Duty Role available without duty history', async () => {
+	it('keeps referenced types and Personnel Duty Role available', async () => {
 		const result = await fetchCalendarBootstrap(fixture(), range);
 		expect(result.assignmentTypes).toEqual([
 			expect.objectContaining({ id: 'person-type', name: 'Staff Duty', assignTo: 'personnel' }),

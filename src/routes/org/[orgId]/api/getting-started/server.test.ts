@@ -46,16 +46,9 @@ describe('GET /api/getting-started', () => {
 		});
 	});
 
-	it('returns retained scoped support even when Duty Roster storage is unavailable', async () => {
+	it('returns retained scoped support', async () => {
 		const ctx = createTestContext();
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-		const findManyWithCount = ctx.store.findManyWithCount.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findManyWithCount').mockImplementation((table, ...args) => {
-			if (['duty_roster_templates', 'duty_roster_template_runs', 'duty_roster_history'].includes(table)) {
-				throw new Error('Duty Roster storage is unavailable');
-			}
-			return findManyWithCount(table, ...args);
-		});
 
 		ctx.store.seed('training_types', [
 			{

@@ -4,7 +4,8 @@
 
 # PR body
 
-Parent: #1279  
+Parent: #1279
+
 Closes #1329
 
 ## Scope
@@ -23,4 +24,4 @@ Closes #1329
 
 Review the destructive SQL against the D01 catalog and the privately captured hosted schema/data, the Calendar/Group/RLS preservation oracle, the generated target archive and the full branch diff. The local proof does not establish hosted parity. Before a releasing merge, the owner must verify the deployed no-Duty app and drained old instances, workers and callers; arrange notice and a tested backup/restore point; review hosted provenance and migration ledger; and confirm the controlled write window, app/schema compatibility and rollback plan. An old Duty-dependent binary is unsafe after the destructive commit. No remote migration is automated by repository configuration or authorized by this PR body.
 
-**Proposed base:** `main` at fetched `ba79762a50daf4511b99e4941bbf17b0ff3eeb7b`. **Local head branch:** `stabilization/06-d02-schema-retirement`, currently `7629d3ce47cfb240af34bcf1a8083d433f6706b6` plus the uncommitted 06-03c work. Before publication, verify the commit containing this complete diff and its pushed head/base. No D02 PR or remote branch exists yet. `vercel.json` declares production builds and crons; a push may create a preview and a merge may deploy through external Vercel settings that remain unverified. Repository CI is manual-only; no automatic remote migration workflow was found.
+**Base:** `main` at fetched `ba79762a50daf4511b99e4941bbf17b0ff3eeb7b`. **Head branch:** `stabilization/06-d02-schema-retirement`, containing all six D02 implementation commits and the documentation review/repair. `vercel.json` declares production builds and crons; a push may create a preview and a merge may deploy through external Vercel settings that remain unverified. Repository CI is manual-only; no automatic remote migration workflow was found.

@@ -3926,4 +3926,46 @@ The independent Standards axis has zero confirmed findings; after this re-evalua
 
 **Phase-wide technical gate (otherwise PASS):** the D01 producer/routes/history/starter-pack cutover, D02 Calendar/Dashboard reader and manual-write independence, D03 metadata/export/archive/admin cutover, and D04 whole-tree consumer inventory are complete. Fresh-default `rg` across non-test `src/` found only the dated, truthful changelog entry for Duty Roster terms; the executable scripts, deployment/package/Supabase configuration and `.github` have no live Duty Roster reference. `scripts/demo-clinic/README.md` is an inactive historical documentation reference. There is no active route, job, permission, payload, no-op shim or source import to the retired runtime. Retained persisted Calendar assignment/type CRUD, historical saved assignment visibility, availability/status/special-day flows, Group and Organization denial, reports/exports, Personnel Duty Role and independent Sign-In Rosters have the scoped lower-level and browser evidence linked above and in the D01–D03 records. The D04 browser's strict equality scripts flagged expected audit/export writes; reconciled table-level comparisons preserved all 319 saved assignments, original seven types, historical duty rows and foreign-Organization records after temporary UI edits were restored. This gate does not claim every operation was rerun in D04 or that hosted data was inspected.
 
+**D05 documentation acceptance receipt — reopened child #1326.**
+
+**2026-09-23 UTC · fresh verification of the exact D05 document tree.** Independent review reopened #1326 and parent #1278 because 05-06 was checked without its documentation-check receipt; the finding and earlier failed `f483c0c5` PHASE_CHECK remain intact. The original D05 PR #1327 compares `f483c0c568441e7cd4ec87c2ef25c3f537ace447..7fa768843f58a47e7471842f9f04a3f3e8307ccd` and changes only TODO, EVIDENCE and RELEASE. Its squash result, fetched `main` at `8306656b16803a080034741baacc03f3228635f1`, has byte-identical versions of all three reviewed documents. This follow-up starts from that SHA and changes only this receipt plus TODO/RELEASE current pointers for the reopened child and separately activated Phase 06 D01. These are fresh checks of the merged documents, not invented logs for the earlier PR's execution.
+
+**Documentation commands and results:** Node `24.21.0`, npm `11.19.0`, Prettier `3.8.3`, Python `3.14.7`, Git `2.55.0`; no environment overrides or credentials were used. `npm exec prettier -- --ignore-path /dev/null --write docs/stabilization/TODO.md docs/stabilization/EVIDENCE.md docs/stabilization/RELEASE.md` exited 0 with all three unchanged on the merged D05 tree. The matching `--check` exited 0. After the receipt and current-pointer edits, the same explicit Prettier write/check on all three documents exited 0; `git diff --check 8306656b16803a080034741baacc03f3228635f1` exited 0. `git diff --check f483c0c568441e7cd4ec87c2ef25c3f537ace447 7fa768843f58a47e7471842f9f04a3f3e8307ccd` also exited 0 for the original D05 PR. The read-only link/anchor check below exited 0 for both the original D05 diff (**13/13 changed local links**) and this follow-up diff (**8/8 changed local links**), resolving each against destination files/headings:
+
+```bash
+python3 - <<'PY'
+from pathlib import Path
+import re, subprocess
+files = ['docs/stabilization/TODO.md', 'docs/stabilization/EVIDENCE.md', 'docs/stabilization/RELEASE.md']
+ranges = [
+    ['f483c0c568441e7cd4ec87c2ef25c3f537ace447', '7fa768843f58a47e7471842f9f04a3f3e8307ccd'],
+    ['8306656b16803a080034741baacc03f3228635f1'],
+]
+for revision in ranges:
+    diff = subprocess.check_output(['git', 'diff', *revision, '--', *files], text=True)
+    source = None
+    count = 0
+    for line in diff.splitlines():
+        if line.startswith('+++ b/') or line.startswith('+++ w/'):
+            source = Path(line[6:])
+        elif source and line.startswith('+') and not line.startswith('+++'):
+            for target in re.findall(r'(?<!!)\[[^\]]+\]\(([^)]+)\)', line):
+                if '://' in target or target.startswith('mailto:'):
+                    continue
+                path, _, anchor = target.partition('#')
+                destination = source.parent / path if path else source
+                assert destination.is_file(), (source, target)
+                headings = [re.sub(r'[^\w\- ]', '', h.lower()).replace(' ', '-') for h in re.findall(r'^#{1,6} (.+)$', destination.read_text(), re.M)]
+                assert not anchor or anchor in headings, (source, target)
+                count += 1
+    print(f'PASS: {count} changed local links and anchors')
+PY
+```
+
+**Affected-contract review:** read workflow #1275, D05 #1326 and parent #1278 including the independent review comments, TODO's Phase 05 checkpoint, 05-06 map and final next-task block, RELEASE's Phase 05/06 ordering, and the Definition of Done. The queue repair still directs a verified D05 follow-up merge before separate candidate-SHA parent acceptance; the initial failure is retained rather than turned into a pass. The independent review's only confirmed D05 gap was this missing receipt; the current TODO/RELEASE pointers also now acknowledge the subsequent Phase 06 activation and its open D01 PR instead of instructing another activation. `git diff --quiet 39c7101f94ce87ea8b69a7e82f728a99ce472949 8306656b16803a080034741baacc03f3228635f1 -- src scripts supabase package.json package-lock.json vercel.json .github` exited 0. D04's application checks/build/browser evidence and D03's isolated fresh/upgrade database receipts therefore remain the relevant inherited proof; no runtime, SQL, database or performance change is claimed for D05 or this receipt. PR #1327's first pre-push Vitest process was killed by the host and its full rerun was reported passing in that PR; this receipt does not recast that failed attempt as a pass.
+
+**Follow-up publication check:** the first `git push -u origin HEAD` of this receipt stopped at the pre-push hook's `npm run test` when the host killed default-worker Vitest before it reported results; no branch was published. The hook's preceding `format:check`, `lint` (one existing nonfatal unused-`waitFor` warning), `governance:check` and Svelte `check` exited 0. On committed `c86562287af3f17a0823d4860729eb730e8fb52c`, `VITEST_MAX_WORKERS=2 npm run test` exited 0: **544 files / 4,884 tests**, 80.19 seconds, with no skipped test or changed assertion. This supported runner setting changes concurrency only. The later edit to this paragraph is documentation-only and requires documentation validation; the push hook must still pass on the published head.
+
+**Checkpoint:** local D05 documentation acceptance is now supported, but #1326 stays open through this follow-up PR checkpoint. After its verified merge, re-fetch default, check the unchanged integrated app tree, post a new candidate-SHA Phase 05 PHASE_CHECK to #1278 and close the parent/milestone only if accepted. A separately activated Phase 06 D01 PR is open; this D05 repair does not authorize its merge or certify the hosted schema.
+
 **Release and Phase 06 boundary:** Robert confirmed successful hosted application of `20260922000300` including service-role `EXECUTE`, production deployment target/trigger, user notice, backup/recovery and old app/cron compatibility preflight before D03's merge. This remains owner-reported, not independent hosted inspection. [RELEASE](RELEASE.md#phase-05-integrated-runtime-handoff-and-phase-06-ordering) identifies retired URLs/callers and the order, preflight and rollback limit for future schema removal. The applied migration chain, active Duty tables/relations, Calendar provenance columns and rank deletion RPC duty branches remain explicit Phase 06 work. Actual old instance/job/caller drain and hosted schema/data inventory must be verified for that future destructive change. No duty-only schema is claimed retired; no remote database operation, production deployment action or Phase 06 activation occurred in this PHASE_CHECK. The D05 repair and a final fresh-default PHASE_CHECK are required before #1278/milestone 3 closure. Even a final Phase 05 pass is neither whole-program acceptance nor production certification.

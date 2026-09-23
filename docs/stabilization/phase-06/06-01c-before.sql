@@ -63,13 +63,23 @@ SELECT is((SELECT name FROM public.status_types WHERE id='a6010000-0000-4000-800
 SELECT is((SELECT color FROM public.status_types WHERE id='a6010000-0000-4000-8000-000000000701'),'#112233','retained status color is fixed before retirement');
 SELECT is((SELECT text_color FROM public.status_types WHERE id='a6010000-0000-4000-8000-000000000701'),'#ffffff','retained status text color is fixed before retirement');
 SELECT is((SELECT clinic_role FROM public.personnel WHERE id='a6010000-0000-4000-8000-000000000301'),'Medic','Personnel Duty Role stays independent');
-SELECT is((SELECT signed_file_path FROM public.sign_in_rosters WHERE id='a6010000-0000-4000-8000-000000000901'),'a6010000-0000-4000-8000-000000000101/sign-in-rosters/a6010000-0000-4000-8000-000000000901/signed.pdf','independent signed Sign-In Roster path is retained');
-SELECT is((SELECT personnel_snapshot FROM public.sign_in_rosters WHERE id='a6010000-0000-4000-8000-000000000901'),'[{"id":"a6010000-0000-4000-8000-000000000301","rank":"KEEP","groupId":"a6010000-0000-4000-8000-000000000201"}]'::jsonb,'independent signed roster snapshot and rank are fixed before retirement');
-SELECT is((SELECT scope_group_ids FROM public.sign_in_rosters WHERE id='a6010000-0000-4000-8000-000000000901'),ARRAY['a6010000-0000-4000-8000-000000000201']::uuid[],'independent signed roster Group scope is fixed before retirement');
+SELECT results_eq(
+  $$SELECT id, organization_id, title, roster_date, personnel_snapshot, scope_group_ids, signed_file_path
+    FROM public.sign_in_rosters
+    WHERE id BETWEEN 'a6010000-0000-4000-8000-000000000901' AND 'a6010000-0000-4000-8000-000000000903'
+    ORDER BY id$$,
+  $$VALUES
+    ('a6010000-0000-4000-8000-000000000901'::uuid,'a6010000-0000-4000-8000-000000000101'::uuid,'Alpha Sign-In'::text,'2030-03-09'::date,'[{"id":"a6010000-0000-4000-8000-000000000301","rank":"KEEP","groupId":"a6010000-0000-4000-8000-000000000201"}]'::jsonb,ARRAY['a6010000-0000-4000-8000-000000000201']::uuid[],'a6010000-0000-4000-8000-000000000101/sign-in-rosters/a6010000-0000-4000-8000-000000000901/signed.pdf'::text),
+    ('a6010000-0000-4000-8000-000000000902','a6010000-0000-4000-8000-000000000101','Charlie Sign-In','2030-03-09','[{"id":"a6010000-0000-4000-8000-000000000303","rank":"ROSTER-ONLY","groupId":"a6010000-0000-4000-8000-000000000203"}]'::jsonb,ARRAY['a6010000-0000-4000-8000-000000000203']::uuid[],NULL::text),
+    ('a6010000-0000-4000-8000-000000000903','a6010000-0000-4000-8000-000000000102','Foreign Sign-In','2030-03-09','[{"id":"a6010000-0000-4000-8000-000000000304","rank":"KEEP","groupId":"a6010000-0000-4000-8000-000000000204"}]'::jsonb,ARRAY['a6010000-0000-4000-8000-000000000204']::uuid[],NULL::text)$$,
+  'all three independent rosters have the specified IDs, tenants, snapshots, scopes and signed path'
+);
 
 SELECT throws_ok($$SELECT public.delete_unused_organization_rank_catalog_entry('a6010000-0000-4000-8000-000000000101','a6010000-0000-4000-8000-000000000801','KEEP')$$,'23503',NULL,'retained Personnel and Sign-In references protect KEEP rank');
+SELECT throws_ok($$SELECT public.delete_unused_organization_rank_catalog_entry('a6010000-0000-4000-8000-000000000101','a6010000-0000-4000-8000-000000000804','ROSTER-ONLY')$$,'23503',NULL,'independent Sign-In snapshot alone protects its rank');
 SELECT throws_ok($$SELECT public.delete_unused_organization_rank_catalog_entry('a6010000-0000-4000-8000-000000000101','a6010000-0000-4000-8000-000000000802','OLD-DUTY')$$,'23503',NULL,'former active template alone protects OLD-DUTY rank before cutover');
 SELECT lives_ok($$SELECT public.delete_unused_organization_rank_catalog_entry('a6010000-0000-4000-8000-000000000101','a6010000-0000-4000-8000-000000000803','UNUSED')$$,'unreferenced rank can be deleted before cutover');
+SELECT is((SELECT count(*)::integer FROM public.organization_rank_catalog WHERE id='a6010000-0000-4000-8000-000000000803'),0,'unused rank deletion removes its row before cutover');
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','a6010000-0000-4000-8000-000000000002',true);

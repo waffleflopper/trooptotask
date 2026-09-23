@@ -20,7 +20,7 @@ describe('DailyAssignmentEntity', () => {
 		});
 	});
 
-	it('omits retired provenance from historical rows while retaining the saved assignment', () => {
+	it('retains the saved assignment identity and creation time', () => {
 		expect(
 			DailyAssignmentEntity.fromDb({
 				id: 'saved-slot',
@@ -28,9 +28,7 @@ describe('DailyAssignmentEntity', () => {
 				created_at: '2026-03-01T12:00:00Z',
 				date: '2026-03-01',
 				assignment_type_id: 'at-1',
-				assignee_id: 'p-1',
-				duty_roster_template_run_id: 'old-run',
-				duty_roster_template_run_row_date: '2026-03-01'
+				assignee_id: 'p-1'
 			})
 		).toEqual({
 			id: 'saved-slot',
@@ -39,21 +37,6 @@ describe('DailyAssignmentEntity', () => {
 			date: '2026-03-01',
 			assignmentTypeId: 'at-1',
 			assigneeId: 'p-1'
-		});
-	});
-
-	it('strips retired input keys from create and update using the existing unknown-key behavior', () => {
-		const retired = {
-			dutyRosterTemplateRunId: 'old-run',
-			dutyRosterTemplateRunRowDate: '2026-03-01',
-			sourceLineage: { sourceKind: 'duty-roster-run', sourceId: 'old-run', sourceRowKey: '2026-03-01' },
-			cooldownHours: 24
-		};
-		const manual = { date: '2026-03-01', assignmentTypeId: 'at-1', assigneeId: 'p-1' };
-		expect(DailyAssignmentEntity.createSchema.parse({ ...manual, ...retired })).toEqual(manual);
-		expect(DailyAssignmentEntity.updateSchema.parse({ id: 'saved-slot', assigneeId: 'p-2', ...retired })).toEqual({
-			id: 'saved-slot',
-			assigneeId: 'p-2'
 		});
 	});
 

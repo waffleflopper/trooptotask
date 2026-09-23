@@ -93,9 +93,7 @@ describe('Daily Assignment Slot writes', () => {
 					date: '2026-03-22',
 					assignment_type_id: 'type-a',
 					assignee_id: 'old-person-a',
-					created_at: '2026-03-21T14:15:16.000Z',
-					duty_roster_template_run_id: 'historical-run',
-					duty_roster_template_run_row_date: '2026-03-22'
+					created_at: '2026-03-21T14:15:16.000Z'
 				},
 				{
 					id: 'same-day-other-type',
@@ -132,9 +130,7 @@ describe('Daily Assignment Slot writes', () => {
 							date: '2026-03-22',
 							assignment_type_id: 'type-a',
 							assignee_id: 'old-person-a',
-							created_at: '2026-03-21T14:15:16.000Z',
-							duty_roster_template_run_id: 'historical-run',
-							duty_roster_template_run_row_date: '2026-03-22'
+							created_at: '2026-03-21T14:15:16.000Z'
 						}),
 						expect.objectContaining({
 							id: 'same-day-other-type',

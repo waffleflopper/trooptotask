@@ -27,18 +27,14 @@ const savedSlots = [
 		organization_id: 'test-org',
 		date: '2026-03-15',
 		assignment_type_id: 'person-type',
-		assignee_id: 'p-alpha',
-		duty_roster_template_run_id: 'old-run',
-		duty_roster_template_run_row_date: '2026-03-15'
+		assignee_id: 'p-alpha'
 	},
 	{
 		id: 'edited-generated',
 		organization_id: 'test-org',
 		date: '2026-03-31',
 		assignment_type_id: 'person-type',
-		assignee_id: 'p-bravo',
-		duty_roster_template_run_id: 'old-run',
-		duty_roster_template_run_row_date: '2026-03-31'
+		assignee_id: 'p-bravo'
 	},
 	{
 		id: 'outside-window',

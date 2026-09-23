@@ -241,9 +241,7 @@ describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar indepe
 				organization_id: ORG,
 				date: '2026-09-21',
 				assignment_type_id: 'person-type',
-				assignee_id: 'person-a',
-				duty_roster_template_run_id: 'old-run',
-				duty_roster_template_run_row_date: '2026-09-21'
+				assignee_id: 'person-a'
 			},
 			{
 				id: 'saved-group',

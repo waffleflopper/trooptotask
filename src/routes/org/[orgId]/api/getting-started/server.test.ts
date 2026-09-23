@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _getConfig, _postConfig } from './+server';
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('GET /api/getting-started', () => {
 	it.each([
@@ -46,9 +48,18 @@ describe('GET /api/getting-started', () => {
 		});
 	});
 
-	it('returns retained scoped support', async () => {
+	it('returns retained scoped support with retired Duty storage unavailable', async () => {
 		const ctx = createTestContext();
 		const consoleInfoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+		const findManyWithCount = ctx.store.findManyWithCount.bind(ctx.store);
+		const retiredReads: string[] = [];
+		vi.spyOn(ctx.store, 'findManyWithCount').mockImplementation((table, ...args) => {
+			if (table.startsWith('duty_') || table.startsWith('advanced_duty_')) {
+				retiredReads.push(table);
+				throw new Error('Retired Duty storage is unavailable');
+			}
+			return findManyWithCount(table, ...args);
+		});
 
 		ctx.store.seed('training_types', [
 			{
@@ -126,6 +137,7 @@ describe('GET /api/getting-started', () => {
 				durationMs: expect.any(Number)
 			})
 		);
+		expect(retiredReads).toEqual([]);
 	});
 
 	it('allows a signed-in member to read their getting-started dashboard support data', async () => {

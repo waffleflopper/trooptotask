@@ -152,13 +152,23 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 		['page', fetchCalendarData],
 		['range', fetchCalendarRangeData],
 		['bootstrap', fetchCalendarBootstrap]
-	] as const)('%s retains scoped manual person/Group, linked and edited slots', async (_name, query) => {
+	] as const)('%s retains scoped saved slots with retired Duty storage unavailable', async (_name, query) => {
 		const ctx = fixture();
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		const retiredReads: string[] = [];
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
+			if (table.startsWith('duty_') || table.startsWith('advanced_duty_')) {
+				retiredReads.push(table);
+				throw new Error('Retired Duty storage is unavailable');
+			}
+			return findMany(table, ...args);
+		});
 		const result = await query(ctx, range);
 		expect(await result.dailyAssignments).toEqual(retainedSlots);
 		// Reading cannot rewrite a generated fact or delete an out-of-scope fact.
 		expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(savedSlots.slice(0, 7));
 		expect(await ctx.rawStore.findMany('daily_assignments', 'other-org')).toEqual([savedSlots[7]]);
+		expect(retiredReads).toEqual([]);
 	});
 
 	it('keeps referenced types and Personnel Duty Role available', async () => {

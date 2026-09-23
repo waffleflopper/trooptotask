@@ -14,41 +14,58 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 }
 
 describe('Daily Assignment Slot writes', () => {
-	it.each(['create', 'set', 'update', 'day', 'batch'] as const)('%s saves a manual assignment', async (operation) => {
-		const ctx = buildContext();
-		const record = { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' };
-		if (operation === 'update') {
-			ctx.store.seed('daily_assignments', [
-				{
-					id: 'saved-slot',
-					organization_id: 'test-org',
-					date: record.date,
-					assignment_type_id: 'type-a',
-					assignee_id: 'old-person'
+	it.each(['create', 'set', 'update', 'day', 'batch'] as const)(
+		'%s saves a manual assignment with retired Duty storage unavailable',
+		async (operation) => {
+			const ctx = buildContext();
+			const record = { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' };
+			if (operation === 'update') {
+				ctx.store.seed('daily_assignments', [
+					{
+						id: 'saved-slot',
+						organization_id: 'test-org',
+						date: record.date,
+						assignment_type_id: 'type-a',
+						assignee_id: 'old-person'
+					}
+				]);
+			}
+			const findMany = ctx.store.findMany.bind(ctx.store);
+			const retiredReads: string[] = [];
+			const unavailable = vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
+				if (table.startsWith('duty_') || table.startsWith('advanced_duty_')) {
+					retiredReads.push(table);
+					throw new Error('Retired Duty storage is unavailable');
 				}
-			]);
+				return findMany(table, ...args);
+			});
+			try {
+				switch (operation) {
+					case 'create':
+						await createDailyAssignmentSlot(ctx, record);
+						break;
+					case 'set':
+						await setDailyAssignmentSlot(ctx, record);
+						break;
+					case 'update':
+						await updateDailyAssignmentSlot(ctx, { id: 'saved-slot', assigneeId: 'person-1' });
+						break;
+					case 'day':
+						await replaceDailyAssignmentDay(ctx, { date: record.date, records: [record] });
+						break;
+					case 'batch':
+						await replaceDailyAssignmentSlotsBatch(ctx, { records: [record] });
+						break;
+				}
+				expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
+					expect.objectContaining({ date: '2026-03-22', assignment_type_id: 'type-a', assignee_id: 'person-1' })
+				]);
+				expect(retiredReads).toEqual([]);
+			} finally {
+				unavailable.mockRestore();
+			}
 		}
-		switch (operation) {
-			case 'create':
-				await createDailyAssignmentSlot(ctx, record);
-				break;
-			case 'set':
-				await setDailyAssignmentSlot(ctx, record);
-				break;
-			case 'update':
-				await updateDailyAssignmentSlot(ctx, { id: 'saved-slot', assigneeId: 'person-1' });
-				break;
-			case 'day':
-				await replaceDailyAssignmentDay(ctx, { date: record.date, records: [record] });
-				break;
-			case 'batch':
-				await replaceDailyAssignmentSlotsBatch(ctx, { records: [record] });
-				break;
-		}
-		expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
-			expect.objectContaining({ date: '2026-03-22', assignment_type_id: 'type-a', assignee_id: 'person-1' })
-		]);
-	});
+	);
 
 	it('sets one slot through the Calendar-owned interface', async () => {
 		const ctx = buildContext();

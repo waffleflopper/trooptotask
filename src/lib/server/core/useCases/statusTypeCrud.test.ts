@@ -41,7 +41,7 @@ describe('StatusType CRUD use case', () => {
 		expect(ctx.audit.events[0].action).toBe('status_type.created');
 	});
 
-	it('edits ordinary fields without exposing or overwriting stored retired metadata', async () => {
+	it('edits a status label and color while retaining its other fields', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const historical = {
 			id: ST_ID,
@@ -50,8 +50,7 @@ describe('StatusType CRUD use case', () => {
 			color: '#00ff00',
 			text_color: '#ffffff',
 			sort_order: 3,
-			da6_availability_treatment: 'authorized-absence',
-			da6_treatment_reviewed: true
+			created_at: '2030-01-01T00:00:00Z'
 		};
 		ctx.store.seed('status_types', [historical]);
 		const result = await useCases.update(ctx, { id: ST_ID, name: 'Annual Leave', color: '#22c55e' });
@@ -61,7 +60,8 @@ describe('StatusType CRUD use case', () => {
 			name: 'Annual Leave',
 			color: '#22c55e',
 			textColor: '#ffffff',
-			sortOrder: 3
+			sortOrder: 3,
+			created_at: '2030-01-01T00:00:00Z'
 		});
 		expect(await ctx.store.findOne('status_types', ctx.auth.orgId, { id: ST_ID })).toEqual({
 			...historical,

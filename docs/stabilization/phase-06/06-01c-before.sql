@@ -23,16 +23,16 @@ SELECT results_eq(
 );
 
 SELECT results_eq(
-  $$SELECT id, name, short_name, assign_to, color, sort_order, show_in_date_header
+  $$SELECT id, organization_id, name, short_name, assign_to, color, sort_order, show_in_date_header
     FROM public.assignment_types
     WHERE id BETWEEN 'a6010000-0000-4000-8000-000000000401' AND 'a6010000-0000-4000-8000-000000000405'
     ORDER BY id$$,
   $$VALUES
-    ('a6010000-0000-4000-8000-000000000401'::uuid,'Manual Clinic'::text,'MC'::text,'personnel'::text,'#123456'::text,1::integer,false::boolean),
-    ('a6010000-0000-4000-8000-000000000402','Current Clinical Coverage','COV','personnel','#654321',2,true),
-    ('a6010000-0000-4000-8000-000000000403','Group Coverage','GC','group','#abcdef',3,false),
-    ('a6010000-0000-4000-8000-000000000404','Foreign Clinic','FC','personnel','#fedcba',1,false),
-    ('a6010000-0000-4000-8000-000000000405','Unused Generated','UG','personnel','#333333',4,false)$$,
+    ('a6010000-0000-4000-8000-000000000401'::uuid,'a6010000-0000-4000-8000-000000000101'::uuid,'Manual Clinic'::text,'MC'::text,'personnel'::text,'#123456'::text,1::integer,false::boolean),
+    ('a6010000-0000-4000-8000-000000000402','a6010000-0000-4000-8000-000000000101','Current Clinical Coverage','COV','personnel','#654321',2,true),
+    ('a6010000-0000-4000-8000-000000000403','a6010000-0000-4000-8000-000000000101','Group Coverage','GC','group','#abcdef',3,false),
+    ('a6010000-0000-4000-8000-000000000404','a6010000-0000-4000-8000-000000000102','Foreign Clinic','FC','personnel','#fedcba',1,false),
+    ('a6010000-0000-4000-8000-000000000405','a6010000-0000-4000-8000-000000000101','Unused Generated','UG','personnel','#333333',4,false)$$,
   'all Calendar type IDs, current labels and ordinary settings are retained, including unused former generated type'
 );
 

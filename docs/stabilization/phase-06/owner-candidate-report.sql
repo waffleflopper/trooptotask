@@ -85,34 +85,105 @@ SELECT relation_name, row_count FROM (
 -- surviving Duty link. A present or absent link does not prove creation
 -- origin. No names, personnel records or saved assignment payloads leave SQL.
 WITH saved AS (
-  SELECT organization_id, assignment_type_id, count(*) AS row_count,
-    count(*) FILTER (WHERE duty_roster_template_run_id IS NOT NULL) AS run_linked,
-    count(*) FILTER (WHERE duty_roster_template_run_row_date IS NOT NULL) AS row_date_linked
-  FROM public.daily_assignments GROUP BY organization_id, assignment_type_id
+  SELECT s.assignment_type_id, count(*) AS row_count,
+    count(*) FILTER (WHERE s.duty_roster_template_run_id IS NOT NULL) AS run_linked,
+    count(*) FILTER (WHERE s.duty_roster_template_run_row_date IS NOT NULL) AS row_date_linked,
+    count(*) FILTER (WHERE s.organization_id IS DISTINCT FROM t.organization_id) AS organization_mismatches
+  FROM public.daily_assignments AS s
+  JOIN public.assignment_types AS t ON t.id = s.assignment_type_id
+  GROUP BY s.assignment_type_id
 ), templates AS (
-  SELECT organization_id, assignment_type_id, count(*) AS row_count
-  FROM public.duty_roster_templates GROUP BY organization_id, assignment_type_id
+  SELECT d.assignment_type_id, count(*) AS row_count,
+    count(*) FILTER (WHERE d.organization_id IS DISTINCT FROM t.organization_id) AS organization_mismatches
+  FROM public.duty_roster_templates AS d
+  JOIN public.assignment_types AS t ON t.id = d.assignment_type_id
+  GROUP BY d.assignment_type_id
 ), history AS (
-  SELECT organization_id, assignment_type_id, count(*) AS row_count
-  FROM public.duty_roster_history GROUP BY organization_id, assignment_type_id
+  SELECT h.assignment_type_id, count(*) AS row_count,
+    count(*) FILTER (WHERE h.organization_id IS DISTINCT FROM t.organization_id) AS organization_mismatches
+  FROM public.duty_roster_history AS h
+  JOIN public.assignment_types AS t ON t.id = h.assignment_type_id
+  GROUP BY h.assignment_type_id
 )
 SELECT t.organization_id, t.id AS assignment_type_id,
   coalesce(s.row_count, 0) AS saved_assignments,
   coalesce(s.run_linked, 0) AS run_linked_assignments,
   coalesce(s.row_date_linked, 0) AS row_date_linked_assignments,
   coalesce(d.row_count, 0) AS template_links,
-  coalesce(h.row_count, 0) AS history_links
+  coalesce(h.row_count, 0) AS history_links,
+  coalesce(s.organization_mismatches, 0) AS saved_organization_mismatches,
+  coalesce(d.organization_mismatches, 0) AS template_organization_mismatches,
+  coalesce(h.organization_mismatches, 0) AS history_organization_mismatches
 FROM public.assignment_types AS t
-LEFT JOIN saved AS s ON s.organization_id = t.organization_id AND s.assignment_type_id = t.id
-LEFT JOIN templates AS d ON d.organization_id = t.organization_id AND d.assignment_type_id = t.id
-LEFT JOIN history AS h ON h.organization_id = t.organization_id AND h.assignment_type_id = t.id
+LEFT JOIN saved AS s ON s.assignment_type_id = t.id
+LEFT JOIN templates AS d ON d.assignment_type_id = t.id
+LEFT JOIN history AS h ON h.assignment_type_id = t.id
 ORDER BY t.organization_id, t.id;
 
 SELECT count(*) AS saved_assignment_count FROM public.daily_assignments;
 SELECT count(*) AS assignment_type_count FROM public.assignment_types;
+SELECT count(*) AS duty_template_count FROM public.duty_roster_templates;
+SELECT count(*) AS duty_history_count FROM public.duty_roster_history;
 SELECT count(*) AS retained_sign_in_roster_count FROM public.sign_in_rosters;
 SELECT count(*) AS retained_status_type_count FROM public.status_types;
 SELECT count(*) AS retained_organization_count FROM public.organizations;
 SELECT max(version) AS latest_migration_version,
   count(*) AS migration_count FROM supabase_migrations.schema_migrations;
+
+-- Recount every per-type line against its source. A mismatch is a stop
+-- condition even though each FK still resolves by type ID.
+DO $$
+DECLARE
+  checks record;
+BEGIN
+  WITH saved AS (
+    SELECT s.assignment_type_id, count(*) AS rows,
+      count(*) FILTER (WHERE s.duty_roster_template_run_id IS NOT NULL) AS run_linked,
+      count(*) FILTER (WHERE s.duty_roster_template_run_row_date IS NOT NULL) AS row_date_linked,
+      count(*) FILTER (WHERE s.organization_id IS DISTINCT FROM t.organization_id) AS mismatches
+    FROM public.daily_assignments AS s
+    JOIN public.assignment_types AS t ON t.id = s.assignment_type_id
+    GROUP BY s.assignment_type_id
+  ), templates AS (
+    SELECT d.assignment_type_id, count(*) AS rows,
+      count(*) FILTER (WHERE d.organization_id IS DISTINCT FROM t.organization_id) AS mismatches
+    FROM public.duty_roster_templates AS d
+    JOIN public.assignment_types AS t ON t.id = d.assignment_type_id
+    GROUP BY d.assignment_type_id
+  ), history AS (
+    SELECT h.assignment_type_id, count(*) AS rows,
+      count(*) FILTER (WHERE h.organization_id IS DISTINCT FROM t.organization_id) AS mismatches
+    FROM public.duty_roster_history AS h
+    JOIN public.assignment_types AS t ON t.id = h.assignment_type_id
+    GROUP BY h.assignment_type_id
+  )
+  SELECT
+    (SELECT coalesce(sum(rows), 0) FROM saved) AS saved_sum,
+    (SELECT count(*) FROM public.daily_assignments) AS saved_total,
+    (SELECT coalesce(sum(run_linked), 0) FROM saved) AS run_sum,
+    (SELECT count(*) FROM public.daily_assignments WHERE duty_roster_template_run_id IS NOT NULL) AS run_total,
+    (SELECT coalesce(sum(row_date_linked), 0) FROM saved) AS row_date_sum,
+    (SELECT count(*) FROM public.daily_assignments WHERE duty_roster_template_run_row_date IS NOT NULL) AS row_date_total,
+    (SELECT coalesce(sum(rows), 0) FROM templates) AS template_sum,
+    (SELECT count(*) FROM public.duty_roster_templates) AS template_total,
+    (SELECT coalesce(sum(rows), 0) FROM history) AS history_sum,
+    (SELECT count(*) FROM public.duty_roster_history) AS history_total,
+    (SELECT coalesce(sum(mismatches), 0) FROM saved) AS saved_mismatches,
+    (SELECT coalesce(sum(mismatches), 0) FROM templates) AS template_mismatches,
+    (SELECT coalesce(sum(mismatches), 0) FROM history) AS history_mismatches
+  INTO checks;
+
+  IF checks.saved_mismatches <> 0 OR checks.template_mismatches <> 0 OR checks.history_mismatches <> 0 THEN
+    RAISE EXCEPTION 'BLOCKED: assignment-type Organization mismatches (saved %, templates %, history %)',
+      checks.saved_mismatches, checks.template_mismatches, checks.history_mismatches;
+  END IF;
+  IF checks.saved_sum <> checks.saved_total OR checks.run_sum <> checks.run_total
+    OR checks.row_date_sum <> checks.row_date_total OR checks.template_sum <> checks.template_total
+    OR checks.history_sum <> checks.history_total THEN
+    RAISE EXCEPTION 'BLOCKED: per-type sums disagree with source totals (saved %/%, run %/%, row date %/%, templates %/%, history %/%)',
+      checks.saved_sum, checks.saved_total, checks.run_sum, checks.run_total,
+      checks.row_date_sum, checks.row_date_total, checks.template_sum, checks.template_total,
+      checks.history_sum, checks.history_total;
+  END IF;
+END $$;
 COMMIT;

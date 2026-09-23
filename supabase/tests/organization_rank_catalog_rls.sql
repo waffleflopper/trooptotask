@@ -265,7 +265,7 @@ SELECT is(
 		WHERE code = 'ALPHA-SGT'
 	),
 	1,
-	'alpha calendar viewer can read alpha rank catalog entries for duty roster rank-aware workspaces'
+	'alpha calendar viewer can read alpha rank catalog entries'
 );
 
 RESET ROLE;

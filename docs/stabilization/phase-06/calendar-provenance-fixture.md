@@ -1,6 +1,6 @@
 # Synthetic Calendar provenance and upgrade contract
 
-Phase 06 D01 [#1328](https://github.com/waffleflopper/trooptotask/issues/1328), leaf 06-01c. This fixture fixes the **pre-retirement** data and access baseline for D02's forward migration and D03's type disposition. It contains synthetic records only. The [loader](06-01c-fixture.sql) commits them so a later migration can run over the same populated database. The [before assertions](06-01c-before.sql) use a rollback-only pgTAP transaction. The [after assertions](06-01c-after.sql) are the independently specified target oracle for D02; D01 cannot claim that they pass before a retirement migration exists.
+Phase 06 D01 [#1328](https://github.com/waffleflopper/trooptotask/issues/1328), leaf 06-01c. This fixture fixes the **pre-retirement** data and access baseline for D02's forward migration and D03's type disposition. It contains synthetic records only. The [loader](06-01c-fixture.sql) commits them so a later migration can run over the same populated database. The [before assertions](06-01c-before.sql) use a rollback-only pgTAP transaction. The [after assertions](06-01c-after.sql) are the independently specified target oracle for D02; they now pass on D02's [isolated local upgrade](../EVIDENCE.md#task-06-03c--calendar-generation-retirement-and-d02-acceptance). D01's earlier record does not claim that result.
 
 ## Reproduction boundary
 

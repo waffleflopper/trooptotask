@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(27);
+SELECT plan(22);
 
 -- RLS contract targets verified from migrations:
 -- - personnel: organization_id, SELECT uses can_view_personnel_record(organization_id, group_id);
@@ -13,8 +13,6 @@ SELECT plan(27);
 -- - personnel_trainings: organization_id, SELECT uses
 --   can_view_personnel_training_record(organization_id, personnel_id); INSERT/UPDATE/DELETE
 --   use can_edit_personnel_training_record(organization_id, personnel_id).
--- - duty_roster_templates: organization_id, SELECT uses can_view_calendar(organization_id);
---   ALL writes use can_edit_calendar(organization_id). Anon table privileges are revoked.
 -- - notifications: organization_id plus user_id; SELECT/UPDATE/DELETE use user_id = auth.uid().
 --   No INSERT policy exists for authenticated or anon callers.
 
@@ -254,81 +252,6 @@ VALUES
 		'Bravo fixture'
 	);
 
-INSERT INTO public.assignment_types (
-	id,
-	organization_id,
-	name,
-	short_name,
-	assign_to,
-	color,
-	sort_order,
-	show_in_date_header,
-	exempt_personnel_ids
-)
-VALUES
-	(
-		'90000000-0000-4000-8000-000000015001',
-		'20000000-0000-4000-8000-000000015001',
-		'Alpha Duty',
-		'ALPHA',
-		'personnel',
-		'#2563eb',
-		1,
-		false,
-		ARRAY[]::text[]
-	),
-	(
-		'90000000-0000-4000-8000-000000015002',
-		'20000000-0000-4000-8000-000000015002',
-		'Bravo Duty',
-		'BRAVO',
-		'personnel',
-		'#dc2626',
-		1,
-		false,
-		ARRAY[]::text[]
-	),
-	(
-		'90000000-0000-4000-8000-000000015003',
-		'20000000-0000-4000-8000-000000015002',
-		'Bravo Extra Duty',
-		'BRAVO2',
-		'personnel',
-		'#7c3aed',
-		2,
-		false,
-		ARRAY[]::text[]
-	);
-
-INSERT INTO public.duty_roster_templates (
-	id,
-	organization_id,
-	name,
-	slug,
-	short_code,
-	created_by_user_id,
-	assignment_type_id
-)
-VALUES
-	(
-		'a0000000-0000-4000-8000-000000015001',
-		'20000000-0000-4000-8000-000000015001',
-		'Alpha Duty Template',
-		'alpha-duty-template-1501',
-		'ADT',
-		'10000000-0000-4000-8000-000000015001',
-		'90000000-0000-4000-8000-000000015001'
-	),
-	(
-		'a0000000-0000-4000-8000-000000015002',
-		'20000000-0000-4000-8000-000000015002',
-		'Bravo Duty Template',
-		'bravo-duty-template-1502',
-		'BDT',
-		'10000000-0000-4000-8000-000000015003',
-		'90000000-0000-4000-8000-000000015002'
-	);
-
 INSERT INTO public.notifications (id, user_id, organization_id, type, title, message, link, read)
 VALUES
 	(
@@ -536,61 +459,6 @@ SELECT throws_ok(
 SELECT is(
 	(
 		SELECT count(*)::integer
-		FROM public.duty_roster_templates
-		WHERE id = 'a0000000-0000-4000-8000-000000015001'
-	),
-	1,
-	'alpha owner can read alpha duty roster template'
-);
-SELECT is(
-	(
-		SELECT count(*)::integer
-		FROM public.duty_roster_templates
-		WHERE id = 'a0000000-0000-4000-8000-000000015002'
-	),
-	0,
-	'alpha owner cannot read bravo duty roster template'
-);
-WITH updated AS (
-	UPDATE public.duty_roster_templates
-	SET name = 'Blocked Bravo Duty Template'
-	WHERE id = 'a0000000-0000-4000-8000-000000015002'
-	RETURNING id
-)
-SELECT is(
-	(SELECT count(*)::integer FROM updated),
-	0,
-	'alpha owner cannot update bravo duty roster template'
-);
-SELECT throws_ok(
-	$$
-		INSERT INTO public.duty_roster_templates (
-			id,
-			organization_id,
-			name,
-			slug,
-			short_code,
-			created_by_user_id,
-			assignment_type_id
-		)
-		VALUES (
-			'a0000000-0000-4000-8000-000000015003',
-			'20000000-0000-4000-8000-000000015002',
-			'Blocked Bravo Duty Template',
-			'blocked-bravo-duty-template-1503',
-			'BBDT',
-			'10000000-0000-4000-8000-000000015001',
-			'90000000-0000-4000-8000-000000015003'
-		)
-	$$,
-	'42501',
-	'new row violates row-level security policy for table "duty_roster_templates"',
-	'alpha owner cannot insert bravo duty roster template'
-);
-
-SELECT is(
-	(
-		SELECT count(*)::integer
 		FROM public.notifications
 		WHERE id = 'b0000000-0000-4000-8000-000000015001'
 	),
@@ -682,12 +550,6 @@ SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_trainings),
 	0,
 	'anon cannot read personnel trainings'
-);
-SELECT throws_ok(
-	$$ SELECT count(*) FROM public.duty_roster_templates $$,
-	'42501',
-	'permission denied for table duty_roster_templates',
-	'anon has no table privilege for duty roster templates'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.notifications),

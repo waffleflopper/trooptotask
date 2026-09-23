@@ -48,7 +48,6 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 		expect(result.created).toContainEqual({ family: 'training-types', name: 'Unit Orientation' });
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
-		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toEqual([]);
 	});
 
 	it('allows Training and onboarding configurators without Calendar access', async () => {

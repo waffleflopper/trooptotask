@@ -1,6 +1,6 @@
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT plan(10);
+SELECT plan(9);
 
 INSERT INTO auth.users(id,email) VALUES
   ('c5190000-0000-4000-8000-000000000001','retention-sql-owner@example.test'),
@@ -24,8 +24,6 @@ INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to
 INSERT INTO public.daily_assignments(id,organization_id,assignment_type_id,date,assignee_id) VALUES
   ('c5190000-0000-4000-8000-000000000051','c5190000-0000-4000-8000-000000000011','c5190000-0000-4000-8000-000000000041','2025-01-02','c5190000-0000-4000-8000-000000000032'),
   ('c5190000-0000-4000-8000-000000000052','c5190000-0000-4000-8000-000000000011','c5190000-0000-4000-8000-000000000042','2025-01-03','c5190000-0000-4000-8000-000000000031');
-INSERT INTO public.duty_roster_templates(id,organization_id,name,slug,assignment_type_id,status,archived_at) VALUES
-  ('c5190000-0000-4000-8000-000000000061','c5190000-0000-4000-8000-000000000011','Retired sentinel','retired-sql-sentinel','c5190000-0000-4000-8000-000000000041','archived','2024-01-01Z');
 
 SELECT ok(NOT has_function_privilege('anon', 'public.delete_expired_unreferenced_assignment_types(uuid,uuid[],timestamptz)', 'EXECUTE'), 'anonymous role cannot run retention deletion');
 SELECT ok(NOT has_function_privilege('authenticated', 'public.delete_expired_unreferenced_assignment_types(uuid,uuid[],timestamptz)', 'EXECUTE'), 'member role cannot run retention deletion');
@@ -47,7 +45,6 @@ SELECT is(
 );
 SELECT is((SELECT count(*)::integer FROM public.assignment_types WHERE organization_id='c5190000-0000-4000-8000-000000000011'), 3, 'saved and recent types remain');
 SELECT is((SELECT count(*)::integer FROM public.daily_assignments WHERE organization_id='c5190000-0000-4000-8000-000000000011'), 2, 'person and Group Calendar assignments remain');
-SELECT is((SELECT count(*)::integer FROM public.duty_roster_templates WHERE id='c5190000-0000-4000-8000-000000000061'), 1, 'retired template linked to saved Calendar type remains');
 SELECT is((SELECT count(*)::integer FROM public.assignment_types WHERE organization_id='c5190000-0000-4000-8000-000000000012'), 1, 'foreign Organization type remains');
 SELECT is((SELECT count(*)::integer FROM public.assignment_types WHERE id='c5190000-0000-4000-8000-000000000044'), 1, 'recent archived type remains');
 SELECT is(public.delete_expired_unreferenced_assignment_types('c5190000-0000-4000-8000-000000000011', ARRAY['c5190000-0000-4000-8000-000000000043']::uuid[], '2025-09-22Z'), 0, 'repeat cleanup does not delete another row');

@@ -23,6 +23,33 @@ type Graph = {
 };
 type Violation = { kind: string; file: string; message: string; packet: string };
 const NODE_BUILTINS = new Set(builtinModules);
+// Portable contracts may reach only declared runtime dependencies; test and build tooling is never portable.
+const RUNTIME_PACKAGES = new Set(
+	Object.keys(
+		(
+			JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+				dependencies?: Record<string, string>;
+			}
+		).dependencies ?? {}
+	)
+);
+// Current runtime dependencies that are Svelte, stylesheet, build or file-generation packages, including subpaths.
+// Review this inventory when adding dependencies.
+const WEB_PACKAGES = [
+	'svelte-sonner',
+	'@lucide/svelte',
+	'bits-ui',
+	'layerchart',
+	'mode-watcher',
+	'@fontsource/',
+	'tw-animate-css',
+	'tailwindcss',
+	'@tailwindcss/',
+	'exceljs',
+	'jspdf',
+	'jspdf-autotable'
+];
+const STYLESHEET = /\.(?:css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:[?#].*)?$/;
 // These existing cross-runtime parsing/encoding APIs supplement the ECMAScript library.
 const PORTABLE_WEB_GLOBALS = new Set([
 	'structuredClone',
@@ -163,16 +190,29 @@ function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
 function isServerOnly(file: string): boolean {
 	return (
 		file.startsWith('src/lib/server/') ||
-		/\.server\.[cm]?[jt]sx?$/.test(file) ||
+		/\.server\.[^/]+$/.test(file) ||
 		/^src\/routes\/(?:.*\/)?\+server\.[jt]s$/.test(file)
+	);
+}
+
+function isSvelte(file: string): boolean {
+	return /\.svelte(?:\.[jt]s)?$/.test(file);
+}
+
+function isPortablePackage(specifier: string): boolean {
+	const name = specifier.split('/', specifier.startsWith('@') ? 2 : 1).join('/');
+	return (
+		!STYLESHEET.test(specifier) &&
+		RUNTIME_PACKAGES.has(name) &&
+		!WEB_PACKAGES.some((web) => (web.endsWith('/') ? name.startsWith(web) : name === web))
 	);
 }
 
 function isWebEntry(file: string): boolean {
 	return (
-		file.endsWith('.svelte') ||
-		file.endsWith('.svelte.ts') ||
-		file === 'src/hooks.client.ts' ||
+		isSvelte(file) ||
+		/^src\/hooks(?:\.client)?\.[jt]s$/.test(file) ||
+		/^src\/params\/[^/.]+\.[jt]s$/.test(file) ||
 		/^src\/routes\/(?:.*\/)?\+(?:page|layout)\.[jt]s$/.test(file) ||
 		/^src\/features\/[^/]+\/index\.[jt]s$/.test(file)
 	);
@@ -320,13 +360,14 @@ function checkPrivilegeBoundaries(
 					NODE_BUILTINS.has(specifier);
 				const nonportable =
 					privileged ||
-					(target &&
-						(target.endsWith('.svelte') ||
-							target.endsWith('.svelte.ts') ||
+					(target
+						? isSvelte(target) ||
+							!/\.(?:[cm]?[jt]sx?|json)$/.test(target) ||
 							target.startsWith('src/routes/') ||
 							target.startsWith('src/lib/components/') ||
-							/database\.types\.[jt]s$/.test(target))) ||
-					/^(?:svelte(?:\/|$)|\$app\/|\$env\/|@supabase\/|@sveltejs\/|@vercel\/)/.test(specifier);
+							/database\.types\.[jt]s$/.test(target)
+						: edge.classification === 'external' && !isPortablePackage(specifier)) ||
+					/^(?:\$app\/|\$env\/|\$service-worker$|@supabase\/|@sveltejs\/|@vercel\/)/.test(specifier);
 				if (portable ? nonportable : privileged) {
 					report(
 						portable ? 'portable-leak' : 'web-privilege',

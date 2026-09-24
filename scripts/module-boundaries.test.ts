@@ -5,10 +5,14 @@ import { buildImportGraph, scanRepository } from './module-imports';
 
 function fixture(
 	sources: { path: string; content: string }[],
-	dependencies: Record<string, string[]> = { alpha: ['beta'], beta: [] }
+	dependencies: Record<string, string[]> = { alpha: ['beta'], beta: [] },
+	resolvableFiles: string[] = []
 ) {
 	const paths = sources.map((source) => source.path);
-	const graph = buildImportGraph(sources, (candidate) => paths.includes(candidate));
+	const graph = buildImportGraph(
+		sources,
+		(candidate) => paths.includes(candidate) || resolvableFiles.includes(candidate)
+	);
 	const manifest: Manifest = {
 		owners: {
 			alpha: { roots: ['src/features/alpha/'], files: [], packet: '08-M04' },
@@ -134,6 +138,127 @@ describe('module boundary declaration', () => {
 				(issue) => issue.kind === 'portable-leak' && issue.message.includes(specifier)
 			)
 		).toBe(true);
+	});
+
+	it.each([
+		['svelte-sonner', undefined],
+		['@lucide/svelte/icons/plus', undefined],
+		['bits-ui', undefined],
+		['layerchart', undefined],
+		['mode-watcher', undefined],
+		['./widget.svelte.js', 'src/features/alpha/widget.svelte.js'],
+		['@fontsource/ibm-plex-mono/400.css', undefined],
+		['@fontsource/ibm-plex-mono', undefined],
+		['@fontsource/barlow-condensed/600.css?url', undefined],
+		['tw-animate-css', undefined],
+		['./style.css', 'src/features/alpha/style.css'],
+		['$features/alpha/theme.scss', 'src/features/alpha/theme.scss'],
+		['./logo.svg', 'src/features/alpha/logo.svg'],
+		['tailwindcss', undefined],
+		['@tailwindcss/vite', undefined],
+		['exceljs', undefined],
+		['jspdf', undefined],
+		['jspdf-autotable', undefined],
+		['svelte', undefined],
+		['vite', undefined],
+		['vitest', undefined],
+		['jsdom', undefined],
+		['happy-dom', undefined],
+		['@testing-library/svelte', undefined],
+		['devalue', undefined]
+	])('keeps %s available to web code but out of portable contracts', (specifier, target) => {
+		const resolvableFiles = target ? [target] : [];
+		const sources = [
+			{ path: 'src/features/alpha/index.ts', content: "export * from './helper';" },
+			{ path: 'src/features/alpha/helper.ts', content: `import '${specifier}'; export const value = 1;` },
+			{ path: 'src/features/beta/index.ts', content: '' }
+		];
+		const web = fixture(sources, undefined, resolvableFiles);
+		expect(checkModuleBoundaries(web.graph, web.manifest)).toEqual([]);
+		const portable = fixture(
+			[...sources, { path: 'src/features/alpha/contracts.ts', content: "export * from './helper';" }],
+			undefined,
+			resolvableFiles
+		);
+		expect(checkModuleBoundaries(portable.graph, portable.manifest)).toEqual([
+			{
+				kind: 'portable-leak',
+				file: 'src/features/alpha/helper.ts',
+				message: `${specifier}${target ? ` (${target})` : ''} reached from src/features/alpha/contracts.ts`,
+				packet: '08-M04'
+			}
+		]);
+	});
+
+	it.each(['zod', 'clsx', '@internationalized/date'])(
+		'accepts neutral external dependency %s in a consumed portable contract',
+		(specifier) => {
+			const { graph, manifest } = fixture([
+				{ path: 'src/features/alpha/index.ts', content: "export * from './contracts';" },
+				{ path: 'src/features/alpha/contracts.ts', content: `export * from '${specifier}';` },
+				{ path: 'src/features/beta/index.ts', content: '' }
+			]);
+			expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
+		}
+	);
+
+	it('treats every SvelteKit .server. basename as server-only', () => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/index.ts', content: "import { value } from './data.server.test.ts';" },
+			{ path: 'src/features/alpha/data.server.test.ts', content: 'export const value = true;' },
+			{ path: 'src/features/beta/index.ts', content: '' }
+		]);
+		expect(checkModuleBoundaries(graph, manifest).filter((issue) => issue.kind === 'web-privilege')).toEqual([
+			{
+				kind: 'web-privilege',
+				file: 'src/features/alpha/index.ts',
+				message:
+					'./data.server.test.ts (src/features/alpha/data.server.test.ts) reached from src/features/alpha/index.ts',
+				packet: '08-M04'
+			}
+		]);
+	});
+
+	it('accepts a local data asset in a consumed portable contract', () => {
+		const { graph, manifest } = fixture(
+			[
+				{ path: 'src/features/alpha/index.ts', content: "export * from './contracts';" },
+				{ path: 'src/features/alpha/contracts.ts', content: "export { default as ranks } from './ranks.json';" },
+				{ path: 'src/features/beta/index.ts', content: '' }
+			],
+			undefined,
+			['src/features/alpha/ranks.json']
+		);
+		expect(graph.edges.find((edge) => edge.from === 'src/features/alpha/contracts.ts')?.to).toBe(
+			'src/features/alpha/ranks.json'
+		);
+		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
+	});
+
+	it.each(['src/hooks.ts', 'src/params/rank.ts'])('rejects server-only imports from universal %s', (entry) => {
+		const { graph, manifest } = fixture([
+			{ path: entry, content: "import { SECRET } from '$env/static/private'; export const value = SECRET;" },
+			{ path: 'src/features/beta/index.ts', content: '' }
+		]);
+		expect(checkModuleBoundaries(graph, manifest).filter((issue) => issue.kind === 'web-privilege')).toEqual([
+			{
+				kind: 'web-privilege',
+				file: entry,
+				message: `$env/static/private reached from ${entry}`,
+				packet: '07-02c'
+			}
+		]);
+	});
+
+	it('does not treat a param matcher test as a universal entry', () => {
+		const { graph, manifest } = fixture([
+			{
+				path: 'src/params/rank.test.ts',
+				content: "import { readFileSync } from 'node:fs'; export const value = readFileSync;"
+			},
+			{ path: 'src/features/beta/index.ts', content: '' }
+		]);
+		expect(checkModuleBoundaries(graph, manifest).filter((issue) => issue.kind === 'web-privilege')).toEqual([]);
 	});
 
 	it('rejects a portable contract that reaches browser globals through globalThis', () => {

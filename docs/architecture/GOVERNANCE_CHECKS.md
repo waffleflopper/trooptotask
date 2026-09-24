@@ -54,7 +54,7 @@ entries and retain the scan; new drift-ledger entries do not authorize new permi
 ## Current-State Truth Versus Guardrail
 
 - Current-state truth:
-  - v1 still has documented route-level provider leaks and privileged route/provider seams. The six current feature lanes are distinct and `featurePermissionCouplings` is empty; the checker guards against new couplings but does not prove all current policy correct.
+  - v1 still has documented route-level provider leaks and privileged route/provider seams. The six current feature lanes are distinct and `featurePermissionCouplings` is empty; the checker detects configured foreign-lane couplings in the Critical Tasks and Rating Scheme families only (`FEATURE_PERMISSION_FAMILIES` in `scripts/check-governance.mjs`). It does not scan every feature for permission borrowing or prove policy correctness. Personnel's rank-catalog Training-view read is an intentional cross-owner read documented in the [ownership ledger](CURRENT_OWNERSHIP.md#persisted-and-operational-ownership-07-01b), not evidence of complete scanner coverage.
   - cross-owner deep imports, central feature use cases and feature `server/*.ts` placement remain mapped migration work. The existing check does not prove the [chosen module and delivery contract](adrs/0013-v1-module-and-delivery-contract.md).
 - Intended guardrail:
   - no new leaks, privileged route/provider exceptions or permission borrowing should land; D02 adds executable import/dependency checks without weakening these current guards

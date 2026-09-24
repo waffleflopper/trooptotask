@@ -92,7 +92,7 @@ The scoped Dashboard browser check exposed an unconditional Training summary req
 - Guardrail until fixed:
   - use explicit architecture-review slices for deepening instead of incidental churn
 - Recommended next slice:
-  - after the phase 05 Duty Roster runtime cutover, deepen retained Calendar, Personnel and Training modules through their queued tasks; phase 06 owns duty-only schema retirement
+  - Phases 05–06 completed Duty Roster runtime and local target-schema retirement. Deepen retained Calendar, Personnel and Training modules through their queued Phase 07/08 tasks; hosted app/schema parity remains separate owner verification
 
 ## D-08 Route-Level Membership And Settings Logic (Resolved For Org Settings Governance)
 

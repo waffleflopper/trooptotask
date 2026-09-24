@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import type { PersonnelLeaderNote, PersonnelNotesPageData } from '$features/personnel/personnel-detail.types';
+	import type { PersonnelLeaderNote } from '$features/personnel/contracts';
+	import type { PersonnelNotesPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
 	import { leaderNoteDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 

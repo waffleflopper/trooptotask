@@ -800,7 +800,11 @@
 		"critical-tasks": [],
 		"dashboard": ["src/features/dashboard/index.ts"],
 		"onboarding": ["src/features/onboarding/index.ts"],
-		"personnel": ["src/features/personnel/index.ts", "src/features/groups/index.ts"],
+		"personnel": [
+			"src/features/personnel/contracts.ts",
+			"src/features/personnel/index.ts",
+			"src/features/groups/index.ts"
+		],
 		"rating-scheme": ["src/features/rating-scheme/index.ts"],
 		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts"],
 		"training": ["src/features/training/index.ts"],

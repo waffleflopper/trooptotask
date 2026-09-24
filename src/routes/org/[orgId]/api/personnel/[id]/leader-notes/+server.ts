@@ -2,12 +2,8 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
-import {
-	createPersonnelLeaderNote,
-	listPersonnelLeaderNotes,
-	type PersonnelLeaderNoteInput
-} from '$lib/server/core/useCases/personnelLeaderNotes';
-import type { PersonnelLeaderNote } from '$features/personnel/personnel-detail.types';
+import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from '$lib/server/core/useCases/personnelLeaderNotes';
+import type { PersonnelLeaderNote, PersonnelLeaderNoteInput } from '$features/personnel/contracts';
 
 function personnelIdFromEvent(event: RequestEvent): string {
 	const personnelId = event.params.id;

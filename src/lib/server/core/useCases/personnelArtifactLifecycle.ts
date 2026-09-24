@@ -1,9 +1,9 @@
+import type { PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
 	PersonnelArtifactKind,
 	PersonnelCounselingRecord,
 	PersonnelDocument,
-	PersonnelFollowUp,
-	PersonnelLeaderNote
+	PersonnelFollowUp
 } from '$features/personnel/personnel-detail.types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';

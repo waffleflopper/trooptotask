@@ -1,5 +1,4 @@
-import { z } from 'zod';
-import type { PersonnelLeaderNote } from '$features/personnel/personnel-detail.types';
+import { personnelLeaderNoteInputSchema, type PersonnelLeaderNote } from '$features/personnel/contracts';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
@@ -13,13 +12,6 @@ import {
 	restoreArtifact,
 	type LeaderNoteRow
 } from './personnelArtifactLifecycle';
-
-export const personnelLeaderNoteInputSchema = z.object({
-	personnelId: z.string().min(1),
-	text: z.string().trim().min(1, 'Leader note is required').max(4000)
-});
-
-export type PersonnelLeaderNoteInput = z.infer<typeof personnelLeaderNoteInputSchema>;
 
 export async function listPersonnelLeaderNotes(
 	ctx: UseCaseContext,

@@ -1,10 +1,10 @@
+import type { PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
 	PersonnelArchivedArtifact,
 	PersonnelArtifactKind,
 	PersonnelCounselingRecord,
 	PersonnelDocument,
-	PersonnelFollowUp,
-	PersonnelLeaderNote
+	PersonnelFollowUp
 } from '$features/personnel/personnel-detail.types';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';

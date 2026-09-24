@@ -20,6 +20,8 @@ Calendar, Dashboard, Personnel and Training still have coordination-heavy module
 
 Deepen only the authorized boundary, preserve retained behavior and remove replaced central paths and compatibility facades with their callers. A passing regression check still reports existing Phase 08 debt.
 
+The Personnel leader-note DTO and create-input validation now have one consumed portable definition in `src/features/personnel/contracts.ts`; page, JSON, artifact and server consumers no longer import the old definitions. D03's remaining leaves still own the broad request context, central operations, stable traversal, archive/export/retention effects and real admission/SQL proof. This contract extraction does not complete the pilot or the Personnel migration.
+
 ## D-09 Missing Automatic CI Enforcement
 
 CI defines format, lint, governance, type, test and build checks, but its `workflow_dispatch` trigger does not enforce automatic PR checks. Hosted Actions was reported disabled during prior verification; passing local checks or Vercel checks do not establish hosted CI acceptance. F03 / task **11-04** owns this unresolved enforcement gap.

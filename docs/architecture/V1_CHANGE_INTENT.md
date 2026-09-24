@@ -70,8 +70,8 @@ An available design/domain skill can help stress-test a tradeoff when that is th
 - Current-state truth:
   - many business paths already use use cases and adapters, but route-level `locals.supabase` logic still exists in important seams
   - org settings rename, ownership transfer, and delete now run behind an app-owned use case and Supabase adapter
-  - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b removes billing delivery helpers while retaining the export lifecycle
-  - historical `#637` handled partial billing cancellation; D05 03-05b removes that cancellation/recovery path, and 03-05c removes the webhook/provider and webhook-ledger cleanup
+  - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b removed billing delivery helpers while retaining the export lifecycle
+  - historical `#637` handled partial billing cancellation; D05 03-05b removed that cancellation/recovery path, and 03-05c removed the webhook/provider and webhook-ledger cleanup
   - several admin/platform routes remain route-local drift
 - Why this is unsatisfying:
   - raw provider calls in unrelated feature and route paths obscure current policy and transaction ownership

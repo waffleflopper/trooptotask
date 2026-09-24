@@ -121,7 +121,7 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
   - capability or grant
   - scope
   - policy decision
-- Give each feature its own permission lane. Do not create new cross-feature permission piggybacking just because a legacy coupling already exists.
+- Keep the six distinct current feature permission lanes. Do not introduce cross-feature permission piggybacking; the former Critical Tasks and Rating Scheme couplings are resolved, and the current governance baseline lists none.
 - Treat better auditability and explainability of authorization as first-class goals, not incidental improvements.
 
 ### Module deepening

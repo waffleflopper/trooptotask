@@ -215,6 +215,29 @@ describe('module boundary declaration', () => {
 		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
 	});
 
+	it('checks the runtime file as well as its separate TypeScript definition', () => {
+		const sources = [
+			{ path: 'src/features/alpha/index.ts', content: "export * from './contracts';" },
+			{ path: 'src/features/alpha/contracts.ts', content: "export { value } from './value.js';" },
+			{ path: 'src/features/alpha/value.ts', content: "export const value = 'safe';" },
+			{ path: 'src/features/alpha/value.js', content: 'export const value = document.title;' },
+			{ path: 'src/features/beta/index.ts', content: '' }
+		];
+		const runtimeLeak = fixture(sources);
+		expect(checkModuleBoundaries(runtimeLeak.graph, runtimeLeak.manifest)).toContainEqual(
+			expect.objectContaining({ kind: 'portable-global', file: 'src/features/alpha/value.js' })
+		);
+		sources[3].content = "export const value = 'safe';";
+		sources[2].content = 'export const value = document.title;';
+		const typeLeak = fixture(sources);
+		expect(checkModuleBoundaries(typeLeak.graph, typeLeak.manifest)).toContainEqual(
+			expect.objectContaining({ kind: 'portable-global', file: 'src/features/alpha/value.ts' })
+		);
+		sources[2].content = "export const value = 'safe';";
+		const allowed = fixture(sources);
+		expect(checkModuleBoundaries(allowed.graph, allowed.manifest)).toEqual([]);
+	});
+
 	it.each([
 		'export type Input = HTMLInputElement;',
 		'export const observer = new MutationObserver(() => {});',

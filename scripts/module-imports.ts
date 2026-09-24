@@ -1,32 +1,13 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse as parseSvelte } from 'svelte/compiler';
 import ts from 'typescript';
 
 const SOURCE_FILE = /\.(?:[cm]?[jt]sx?|svelte)$/;
-const RESOLUTION_SUFFIXES = [
-	'',
-	'.ts',
-	'.tsx',
-	'.js',
-	'.jsx',
-	'.mjs',
-	'.mts',
-	'.cjs',
-	'.cts',
-	'.svelte',
-	'.svelte.ts',
-	'.json',
-	'.css',
-	'/index.ts',
-	'/index.tsx',
-	'/index.js',
-	'/index.jsx',
-	'/index.mts',
-	'/index.cts',
-	'/index.svelte'
-];
+// Installed Vite/Svelte resolution order. Declaration files are type targets, never runtime fallbacks.
+const RUNTIME_EXTENSIONS = ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json', '.svelte'];
+const TYPE_EXTENSIONS = ['.ts', '.tsx', '.d.ts', '.js', '.jsx'];
 const ROUTE_MODULE_FILES = [
 	'+page.svelte',
 	'+page.ts',
@@ -44,7 +25,7 @@ const ROUTE_MODULE_FILES = [
 ];
 
 type ImportKind = 'import' | 'export' | 'import-type' | 'dynamic' | 'require';
-type ImportReference = { specifier: string; kind: ImportKind; position: number };
+type ImportReference = { specifier: string; kind: ImportKind; position: number; typeOnly?: boolean };
 type Failure = { file: string; message: string };
 type Source = { path: string; content: string };
 type Section = { content: string; offset: number };
@@ -54,8 +35,12 @@ type ImportEdge = ImportReference & { from: string; classification: Classificati
 function walkSourceFiles(root: string) {
 	const files: string[] = [];
 	function visit(directory: string) {
+		if (lstatSync(path.join(root, directory)).isSymbolicLink()) {
+			throw new Error(`Unsupported source symlink: ${directory}`);
+		}
 		for (const entry of readdirSync(path.join(root, directory), { withFileTypes: true })) {
 			const relative = path.posix.join(directory, entry.name);
+			if (entry.isSymbolicLink()) throw new Error(`Unsupported source symlink: ${relative}`);
 			if (entry.isDirectory()) visit(relative);
 			else if (entry.isFile() && SOURCE_FILE.test(relative)) files.push(relative);
 		}
@@ -127,10 +112,10 @@ function importsFromSection(filePath: string, section: Section) {
 		message: `TypeScript parse error: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ')}`
 	}));
 
-	function add(node: ts.Node, expression: ts.Node | undefined, kind: ImportKind) {
+	function add(node: ts.Node, expression: ts.Node | undefined, kind: ImportKind, typeOnly = false) {
 		const position = section.offset + node.getStart(source);
 		if (expression && (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression))) {
-			imports.push({ specifier: expression.text, kind, position });
+			imports.push({ specifier: expression.text, kind, position, typeOnly: typeOnly || source.isDeclarationFile });
 		} else {
 			failures.push({ file: filePath, message: `Opaque ${kind} at offset ${position}` });
 		}
@@ -150,12 +135,22 @@ function importsFromSection(filePath: string, section: Section) {
 				message: `Unsupported import.meta.glob at offset ${section.offset + node.getStart(source)}; use explicit imports`
 			});
 		}
-		if (ts.isImportDeclaration(node)) add(node, node.moduleSpecifier, 'import');
-		else if (ts.isExportDeclaration(node) && node.moduleSpecifier) add(node, node.moduleSpecifier, 'export');
-		else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
-			add(node, node.moduleReference.expression, 'import');
+		if (ts.isImportDeclaration(node)) {
+			// Inline `import { type T }` still loads runtime side effects with verbatimModuleSyntax.
+			add(node, node.moduleSpecifier, 'import', node.importClause?.isTypeOnly);
+		} else if (ts.isExportDeclaration(node) && node.moduleSpecifier) {
+			const clause = node.exportClause;
+			const typeOnly =
+				node.isTypeOnly ||
+				(clause &&
+					ts.isNamedExports(clause) &&
+					clause.elements.length > 0 &&
+					clause.elements.every((element) => element.isTypeOnly));
+			add(node, node.moduleSpecifier, 'export', !!typeOnly);
+		} else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
+			add(node, node.moduleReference.expression, 'import', node.isTypeOnly);
 		} else if (ts.isImportTypeNode(node)) {
-			add(node, ts.isLiteralTypeNode(node.argument) ? node.argument.literal : undefined, 'import-type');
+			add(node, ts.isLiteralTypeNode(node.argument) ? node.argument.literal : undefined, 'import-type', true);
 		} else if (ts.isCallExpression(node)) {
 			if (node.expression.kind === ts.SyntaxKind.ImportKeyword) add(node, node.arguments[0], 'dynamic');
 			else if (ts.isIdentifier(node.expression) && node.expression.text === 'require') {
@@ -171,8 +166,9 @@ function importsFromSection(filePath: string, section: Section) {
 function resolveImport(
 	from: string,
 	specifier: string,
-	isFile: (candidate: string) => boolean
-): { classification: Classification; to?: string } {
+	isFile: (candidate: string) => boolean,
+	mode: 'value' | 'type' = 'value'
+): { classification: Classification; to?: string; failure?: string } {
 	if (specifier.startsWith('$app/') || specifier.startsWith('$env/') || specifier === '$service-worker') {
 		return { classification: 'virtual' };
 	}
@@ -208,21 +204,39 @@ function resolveImport(
 
 	const extension = path.posix.extname(base);
 	const stem = base.slice(0, -extension.length);
-	const bases =
+	const substitutions =
 		extension === '.js'
-			? [`${stem}.ts`, `${stem}.tsx`, `${stem}.d.ts`, base]
+			? ['.ts', '.tsx', ...(mode === 'type' ? ['.d.ts'] : [])]
 			: extension === '.jsx'
-				? [`${stem}.tsx`, `${stem}.d.ts`, base]
+				? mode === 'type'
+					? ['.tsx', '.ts', '.d.ts']
+					: ['.ts', '.tsx']
 				: extension === '.mjs'
-					? [`${stem}.mts`, `${stem}.d.mts`, base]
+					? ['.mts', ...(mode === 'type' ? ['.d.mts'] : [])]
 					: extension === '.cjs'
-						? [`${stem}.cts`, `${stem}.d.cts`, base]
-						: [base];
-	for (const candidateBase of bases) {
-		for (const suffix of RESOLUTION_SUFFIXES) {
-			const candidate = `${candidateBase}${suffix}`;
-			if (isFile(candidate)) return { classification: 'local', to: candidate };
-		}
+						? ['.cts', ...(mode === 'type' ? ['.d.cts'] : [])]
+						: [];
+	const replacements = substitutions.map((suffix) => `${stem}${suffix}`);
+	const extensions = mode === 'type' ? TYPE_EXTENSIONS : RUNTIME_EXTENSIONS;
+	const candidates = [
+		...(mode === 'value' ? [base, ...replacements] : [...replacements, base]),
+		...(mode === 'type' && (extension === '.js' || extension === '.jsx')
+			? [`${stem}${extension === '.js' ? '.jsx' : '.js'}`]
+			: []),
+		...extensions.map((suffix) => `${base}${suffix}`)
+	];
+	for (const candidate of candidates) {
+		if (isFile(candidate)) return { classification: 'local', to: candidate };
+	}
+	if (isFile(`${base}/package.json`)) {
+		return {
+			classification: 'unresolved',
+			failure: `Unsupported local package entry: ${base}/package.json; use an explicit file import`
+		};
+	}
+	for (const suffix of extensions) {
+		const candidate = `${base}/index${suffix}`;
+		if (isFile(candidate)) return { classification: 'local', to: candidate };
 	}
 	return { classification: 'unresolved' };
 }
@@ -251,10 +265,22 @@ function buildImportGraph(sources: Source[], isFile: (candidate: string) => bool
 		foundImports.sort((left, right) => left.position - right.position);
 		failures.push(...parsed.failures);
 		for (const imported of foundImports) {
-			const resolved = resolveImport(filePath, imported.specifier, isFile);
+			const { failure, ...resolved } = resolveImport(
+				filePath,
+				imported.specifier,
+				isFile,
+				imported.typeOnly ? 'type' : 'value'
+			);
 			edges.push({ from: filePath, ...imported, ...resolved });
 			if (resolved.classification === 'unresolved') {
-				failures.push({ file: filePath, message: `Unresolved local import: ${imported.specifier}` });
+				failures.push({ file: filePath, message: failure ?? `Unresolved local import: ${imported.specifier}` });
+			}
+			if (!imported.typeOnly && resolved.classification === 'local') {
+				const typeTarget = resolveImport(filePath, imported.specifier, isFile, 'type');
+				if (typeTarget.failure) failures.push({ file: filePath, message: typeTarget.failure });
+				if (typeTarget.classification === 'local' && typeTarget.to !== resolved.to) {
+					edges.push({ from: filePath, ...imported, ...typeTarget, kind: 'import-type', typeOnly: true });
+				}
 			}
 		}
 	}

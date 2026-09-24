@@ -289,7 +289,6 @@ describe('starter configuration packs', () => {
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
 		expect(await ctx.store.findMany('onboarding_templates', ctx.auth.orgId)).toHaveLength(1);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
-		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toEqual([]);
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
 
 		const [pack] = await listStarterConfigurationPacks(ctx);
@@ -354,7 +353,6 @@ describe('starter configuration packs', () => {
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
 		expect(await ctx.store.findMany('onboarding_templates', ctx.auth.orgId)).toHaveLength(1);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
-		expect(await ctx.store.findMany('duty_roster_templates', ctx.auth.orgId)).toEqual([]);
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
 	});
 

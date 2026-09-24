@@ -30,42 +30,37 @@ function seedPerson(ctx: ReturnType<typeof createTestContext>, overrides: Record
 }
 
 describe('personnel readiness lanes', () => {
-	it.each([null, 'authorized-absence', 'other-duty', 'misconduct-unavailable'])(
-		'flags an active Calendar status for attention regardless of retired treatment %s',
-		async (treatment) => {
-			const ctx = createTestContext();
-			seedPerson(ctx);
-			ctx.store.seed('status_types', [
-				{
-					id: 'tdy',
-					organization_id: ctx.auth.orgId,
-					name: 'TDY',
-					color: '#000',
-					text_color: '#fff',
-					da6_availability_treatment: treatment,
-					da6_treatment_reviewed: true
-				}
-			]);
-			ctx.store.seed('availability_entries', [
-				{
-					id: 'availability-1',
-					organization_id: ctx.auth.orgId,
-					personnel_id: 'person-1',
-					status_type_id: 'tdy',
-					start_date: '2026-05-13',
-					end_date: '2026-05-15',
-					note: 'Range support'
-				}
-			]);
+	it('flags an active Calendar status for attention', async () => {
+		const ctx = createTestContext();
+		seedPerson(ctx);
+		ctx.store.seed('status_types', [
+			{
+				id: 'tdy',
+				organization_id: ctx.auth.orgId,
+				name: 'TDY',
+				color: '#000',
+				text_color: '#fff'
+			}
+		]);
+		ctx.store.seed('availability_entries', [
+			{
+				id: 'availability-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				status_type_id: 'tdy',
+				start_date: '2026-05-13',
+				end_date: '2026-05-15',
+				note: 'Range support'
+			}
+		]);
 
-			await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
-				label: 'Availability',
-				value: 'TDY',
-				detail: 'TDY through May 15, 2026. Range support',
-				tone: 'watch'
-			});
-		}
-	);
+		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+			label: 'Availability',
+			value: 'TDY',
+			detail: 'TDY through May 15, 2026. Range support',
+			tone: 'watch'
+		});
+	});
 
 	it('reports present when Calendar entries are outside today', async () => {
 		const ctx = createTestContext();

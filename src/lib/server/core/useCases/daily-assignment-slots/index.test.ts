@@ -15,7 +15,7 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 
 describe('Daily Assignment Slot writes', () => {
 	it.each(['create', 'set', 'update', 'day', 'batch'] as const)(
-		'%s saves a manual assignment when retired duty storage is unavailable',
+		'%s saves a manual assignment with retired Duty storage unavailable',
 		async (operation) => {
 			const ctx = buildContext();
 			const record = { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' };
@@ -31,9 +31,11 @@ describe('Daily Assignment Slot writes', () => {
 				]);
 			}
 			const findMany = ctx.store.findMany.bind(ctx.store);
+			const retiredReads: string[] = [];
 			const unavailable = vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
-				if (['duty_events', 'duty_event_slots', 'duty_event_runs'].includes(table)) {
-					throw new Error('Retired duty storage is unavailable');
+				if (table.startsWith('duty_') || table.startsWith('advanced_duty_')) {
+					retiredReads.push(table);
+					throw new Error('Retired Duty storage is unavailable');
 				}
 				return findMany(table, ...args);
 			});
@@ -58,6 +60,7 @@ describe('Daily Assignment Slot writes', () => {
 				expect(await ctx.store.findMany('daily_assignments', 'test-org')).toEqual([
 					expect.objectContaining({ date: '2026-03-22', assignment_type_id: 'type-a', assignee_id: 'person-1' })
 				]);
+				expect(retiredReads).toEqual([]);
 			} finally {
 				unavailable.mockRestore();
 			}
@@ -93,9 +96,7 @@ describe('Daily Assignment Slot writes', () => {
 					date: '2026-03-22',
 					assignment_type_id: 'type-a',
 					assignee_id: 'old-person-a',
-					created_at: '2026-03-21T14:15:16.000Z',
-					duty_roster_template_run_id: 'historical-run',
-					duty_roster_template_run_row_date: '2026-03-22'
+					created_at: '2026-03-21T14:15:16.000Z'
 				},
 				{
 					id: 'same-day-other-type',
@@ -132,9 +133,7 @@ describe('Daily Assignment Slot writes', () => {
 							date: '2026-03-22',
 							assignment_type_id: 'type-a',
 							assignee_id: 'old-person-a',
-							created_at: '2026-03-21T14:15:16.000Z',
-							duty_roster_template_run_id: 'historical-run',
-							duty_roster_template_run_row_date: '2026-03-22'
+							created_at: '2026-03-21T14:15:16.000Z'
 						}),
 						expect.objectContaining({
 							id: 'same-day-other-type',

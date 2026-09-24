@@ -118,10 +118,7 @@ describe('retained Organization export projection', () => {
 				{ id: 'group-type-1', organization_id: 'org-1', name: 'Clinic team', assign_to: 'group' }
 			],
 			groups: [{ id: 'group-1', organization_id: 'org-1', name: 'Alpha Group' }],
-			status_types: [
-				{ ...statusType, da6_availability_treatment: 'other-duty', da6_treatment_reviewed: true },
-				{ ...statusType, id: 'foreign-status', organization_id: 'foreign-org' }
-			],
+			status_types: [statusType, { ...statusType, id: 'foreign-status', organization_id: 'foreign-org' }],
 			availability_entries: [
 				{
 					id: 'availability-1',

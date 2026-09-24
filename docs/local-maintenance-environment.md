@@ -38,5 +38,5 @@ Preview origins and setup secrets belong to the isolated preview environment.
 App-owned email uses its real transport; no runtime test-email bypass remains.
 
 The date-sensitive invitation tests described in the initial setup audit were
-fixed by [stabilization task 02-01](stabilization/EVIDENCE.md#task-02-01-deterministic-invitation-expiry).
+fixed by [stabilization task 02-01](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-02-01-deterministic-invitation-expiry).
 The retained suite no longer requires a shifted system clock.

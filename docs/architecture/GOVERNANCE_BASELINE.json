@@ -1,20 +1,4 @@
 {
-	"requiredFiles": [
-		"AGENTS.md",
-		".github/copilot-instructions.md",
-		".github/ISSUE_TEMPLATE/config.yml",
-		".github/ISSUE_TEMPLATE/v1-retrofit-slice.yml",
-		".github/ISSUE_TEMPLATE/architecture-drift.yml",
-		"docs/architecture/ARCHITECTURE.md",
-		"docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md",
-		"docs/architecture/DEFINITION_OF_DONE.md",
-		"docs/architecture/DRIFT_LEDGER.md",
-		"docs/architecture/V1_CHANGE_INTENT.md",
-		"docs/architecture/ADR_BACKLOG.md",
-		"docs/architecture/ADR_GUIDANCE.md",
-		"docs/architecture/GOVERNANCE_CHECKS.md",
-		"docs/architecture/adrs/0000-template.md"
-	],
 	"routeSupabaseAllowlist": [
 		{
 			"path": "src/routes/account/security/+page.server.ts",

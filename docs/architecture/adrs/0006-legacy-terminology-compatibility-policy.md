@@ -33,7 +33,6 @@ Future cleanup should move visible language toward **Duty Role** while preservin
 - Related drift ID: `D-05`
 - Related docs:
   - `CONTEXT.md`
-  - `UBIQUITOUS_LANGUAGE.md`
+  - [CONTEXT language](../../../CONTEXT.md#language)
   - `docs/architecture/ARCHITECTURE.md`
   - `docs/architecture/DRIFT_LEDGER.md`
-  - `docs/architecture/V1_CHANGE_INTENT.md`

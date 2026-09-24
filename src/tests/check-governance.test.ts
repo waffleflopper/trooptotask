@@ -203,7 +203,7 @@ describe('governance feature permission coupling detection', () => {
 				[]
 			)
 		).toEqual([
-			'Undocumented critical-tasks permission coupling: src/features/critical-tasks/example.ts -> POLICY_ACTION_CATALOG.training.viewRecords. Document it or remove the coupling.'
+			'Undocumented critical-tasks permission coupling: src/features/critical-tasks/example.ts -> POLICY_ACTION_CATALOG.training.viewRecords. Use the owning feature permission lane.'
 		]);
 	});
 

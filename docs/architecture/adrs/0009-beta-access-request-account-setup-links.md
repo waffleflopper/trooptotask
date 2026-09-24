@@ -112,6 +112,6 @@ Date: 2026-05-18
   - [ADR 0004: V1 Provider Boundary Contract](0004-v1-provider-boundary-contract.md)
 - Related docs:
   - `CONTEXT.md`
-  - `UBIQUITOUS_LANGUAGE.md`
+  - [CONTEXT language](../../../CONTEXT.md#language)
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/ADR_INDEX.md`

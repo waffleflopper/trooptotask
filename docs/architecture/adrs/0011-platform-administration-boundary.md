@@ -14,7 +14,7 @@ Date: 2026-06-06
 
 ### Decision pressure
 
-- Platform Administration is now a named product boundary in `CONTEXT.md` and `UBIQUITOUS_LANGUAGE.md`.
+- Platform Administration is now a named product boundary in [CONTEXT language](../../../CONTEXT.md#language).
 - The admin dashboard and suspension flows need provider-specific reads and commands, but route-owned Supabase access would create more provider-boundary drift.
 - The boundary needs to be documented so future platform-admin slices do not blur platform support operations with organization governance permission semantics.
 
@@ -63,9 +63,8 @@ Date: 2026-06-06
 
 - Related PRD:
 - Related issue:
-- Related drift IDs:
 - Related docs:
   - `CONTEXT.md`
-  - `UBIQUITOUS_LANGUAGE.md`
+  - [CONTEXT language](../../../CONTEXT.md#language)
   - `docs/architecture/ADR_INDEX.md`
   - `docs/architecture/adrs/0004-v1-provider-boundary-contract.md`

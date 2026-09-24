@@ -47,6 +47,10 @@ Format only touched Markdown with `npm exec prettier -- --ignore-path /dev/null 
 
 Use synthetic values and unreachable provider endpoints for offline builds when environment values are required. Record the exact non-secret overrides, tool versions, candidate revision/diff, commands, exit results and material warnings in the task's work record; stabilization uses [EVIDENCE](../stabilization/EVIDENCE.md). A standalone documentation audit can use its own audit record. Never publish credentials or token-bearing URLs. Missing tooling and failed checks remain explicit. Preserve guards, scan paths, assertions and budgets: no bypasses, allowlists, skipped tests, inflated thresholds or reduced scan coverage.
 
+Maintain one current acceptance record per task or completed phase. Consolidate accepted implementation and review attempts into the final outcome, candidate revision, meaningful checks, remaining findings and release obligations. Replace completed-work diaries and obsolete handoffs with concise summaries and exact committed permalinks to the detailed receipts. Historical failures may be superseded only by evidence covering the same failure; retain unresolved causes and unavailable checks explicitly. Temporary local paths identify where a run happened, not durable evidence or proof that raw artifacts remain available. Keep required schema/security artifacts and reproducible performance baselines with their owning records.
+
+Documentation maintenance may use the PR body as its concise work record; it does not need a new audit file or a stabilization queue entry. Review the final diff, links, consumers and retained controls. For executable governance changes, include meaningful accepted/rejected checks against the real verifier. Do not add assertions that freeze document wording or require obsolete files to exist.
+
 ### Lower-level behavior checks
 
 Follow [Testing strategy](TESTING.md) when adding, rewriting, pruning or reviewing tests: it defines the behavioral bar, prohibited test patterns and the justification required to keep or replace suspect tests. Cover meaningful success, denied access, replay/concurrency and failure cases where the retained contract requires them. Documentation-only changes need formatting, link and contract review, not artificial runtime tests.
@@ -84,7 +88,6 @@ Measure server/query time, network time, HTML/data payload, actual transferred J
 - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md` is updated if authz or provider ownership changed.
 - `docs/architecture/DRIFT_LEDGER.md` is updated if drift was reduced or newly identified; stabilization does not authorize new drift.
 - [Domain language](../../CONTEXT.md#language) is updated if canonical terminology shifted.
-- `docs/architecture/V1_CHANGE_INTENT.md` is updated if the slice changes the intended replacement direction for a known drift area.
 - `docs/architecture/GOVERNANCE_BASELINE.json` is updated when the slice eliminates an existing provider leak or permission coupling. Do not add exceptions or reclassify a remaining violation to pass governance.
 
 ## Required For Explicit Remediation Slices
@@ -92,7 +95,7 @@ Measure server/query time, network time, HTML/data payload, actual transferred J
 - The system is less coupled or more explicit afterward than before.
 - Any adjacent seams crossed by the slice are documented.
 - The slice narrows drift; it does not simply move it.
-- If the change implies a lasting architecture decision, update `docs/architecture/ADR_INDEX.md` for accepted decisions or `docs/architecture/ADR_BACKLOG.md` for open candidates.
+- If the change implies a lasting architecture decision, update `docs/architecture/ADR_INDEX.md` for accepted decisions or [ADR guidance open candidates](ADR_GUIDANCE.md#open-decision-candidates) for unresolved decisions.
 - If the remediation establishes or changes a default rule, an ADR is added or queued using `docs/architecture/ADR_GUIDANCE.md`.
 
 ## Required For Docs-Only Slices

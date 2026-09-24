@@ -19,7 +19,8 @@ import {
 	deletePersonnelLeaderNote,
 	listPersonnelLeaderNotes,
 	restorePersonnelLeaderNote
-} from './personnelLeaderNotes';
+} from '$features/personnel/index.server';
+import type { LeaderNoteContext } from '$features/personnel/index.server';
 import { PERSONNEL_ARTIFACT_SPECS, personnelOwnedArchiveSpecs } from './personnelArtifactLifecycle';
 
 const ARCHIVE_UPDATE_BATCH_SIZE = 50;
@@ -75,13 +76,14 @@ export async function restorePersonnelOwnedArtifacts(
 
 export async function listPersonnelArchivedArtifacts(
 	ctx: UseCaseContext,
+	noteContext: LeaderNoteContext,
 	personnelId: string
 ): Promise<PersonnelArchivedArtifact[]> {
 	const [followUps, counselings, documents, notes] = await Promise.all([
 		listPersonnelFollowUps(ctx, personnelId, undefined, { archived: true }),
 		listPersonnelCounselingRecords(ctx, personnelId, undefined, { archived: true }),
 		listPersonnelDocuments(ctx, personnelId, undefined, { archived: true }),
-		listPersonnelLeaderNotes(ctx, personnelId, undefined, { archived: true })
+		listPersonnelLeaderNotes(noteContext, personnelId, undefined, { archived: true })
 	]);
 
 	return [
@@ -99,52 +101,62 @@ function artifactArchivedAt(record: PersonnelArchivedArtifact): string {
 
 export async function restorePersonnelArchivedArtifact(
 	ctx: UseCaseContext,
+	noteContext: LeaderNoteContext,
 	input: { personnelId: string; kind: PersonnelArtifactKind; id: string }
 ): Promise<RestoredPersonnelArchivedArtifact> {
 	const restore = restorePersonnelArchivedArtifactByKind[input.kind];
 	if (!restore) fail(400, 'Unknown archived item type');
-	return restore(ctx, input);
+	return restore(ctx, noteContext, input);
 }
 
 export async function deletePersonnelArchivedArtifact(
 	ctx: UseCaseContext,
+	noteContext: LeaderNoteContext,
 	input: { personnelId: string; kind: PersonnelArtifactKind; id: string }
 ): Promise<void> {
 	const deleteArtifact = deletePersonnelArchivedArtifactByKind[input.kind];
 	if (!deleteArtifact) fail(400, 'Unknown archived item type');
-	return deleteArtifact(ctx, input);
+	return deleteArtifact(ctx, noteContext, input);
 }
 
 type ArchivedArtifactInput = { personnelId: string; kind: PersonnelArtifactKind; id: string };
 type RestoreArchivedArtifactHandler = (
 	ctx: UseCaseContext,
+	noteContext: LeaderNoteContext,
 	input: ArchivedArtifactInput
 ) => Promise<RestoredPersonnelArchivedArtifact>;
-type DeleteArchivedArtifactHandler = (ctx: UseCaseContext, input: ArchivedArtifactInput) => Promise<void>;
+type DeleteArchivedArtifactHandler = (
+	ctx: UseCaseContext,
+	noteContext: LeaderNoteContext,
+	input: ArchivedArtifactInput
+) => Promise<void>;
 
 const restorePersonnelArchivedArtifactByKind = {
-	'follow-up': async (ctx, input) => ({
+	'follow-up': async (ctx, _noteContext, input) => ({
 		kind: 'follow-up',
 		...(await restorePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }))
 	}),
-	counseling: async (ctx, input) => ({
+	counseling: async (ctx, _noteContext, input) => ({
 		kind: 'counseling',
 		...(await restorePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }))
 	}),
-	document: async (ctx, input) => ({
+	document: async (ctx, _noteContext, input) => ({
 		kind: 'document',
 		...(await restorePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }))
 	}),
-	note: async (ctx, input) => ({
+	note: async (_ctx, noteContext, input) => ({
 		kind: 'note',
-		...(await restorePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id }))
+		...(await restorePersonnelLeaderNote(noteContext, { personnelId: input.personnelId, noteId: input.id }))
 	})
 } satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, RestoreArchivedArtifactHandler>;
 
 const deletePersonnelArchivedArtifactByKind = {
-	'follow-up': (ctx, input) => deletePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }),
-	counseling: (ctx, input) =>
+	'follow-up': (ctx, _noteContext, input) =>
+		deletePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }),
+	counseling: (ctx, _noteContext, input) =>
 		deletePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }),
-	document: (ctx, input) => deletePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }),
-	note: (ctx, input) => deletePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id })
+	document: (ctx, _noteContext, input) =>
+		deletePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }),
+	note: (_ctx, noteContext, input) =>
+		deletePersonnelLeaderNote(noteContext, { personnelId: input.personnelId, noteId: input.id })
 } satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, DeleteArchivedArtifactHandler>;

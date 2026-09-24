@@ -4,6 +4,10 @@ import { _createPersonnelNotesPageLoad } from './+page.server';
 describe('personnel notes page server load', () => {
 	it('loads the full leader note journal for the layout-resolved Soldier', async () => {
 		const ctx = {
+			rawStore: {
+				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
+				findMany: vi.fn(async () => [])
+			},
 			store: {
 				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
 				findMany: vi.fn(async () => [

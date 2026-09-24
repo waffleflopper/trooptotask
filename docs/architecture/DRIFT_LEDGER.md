@@ -20,7 +20,7 @@ Calendar, Dashboard, Personnel and Training still have coordination-heavy module
 
 Deepen only the authorized boundary, preserve retained behavior and remove replaced central paths and compatibility facades with their callers. A passing regression check still reports existing Phase 08 debt.
 
-The Personnel leader-note DTO and create-input validation now have one consumed portable definition in `src/features/personnel/contracts.ts`; page, JSON, artifact and server consumers no longer import the old definitions. D03's remaining leaves still own the broad request context, central operations, stable traversal, archive/export/retention effects and real admission/SQL proof. This contract extraction does not complete the pilot or the Personnel migration.
+The Personnel leader-note DTO and create-input validation have one consumed portable definition in `src/features/personnel/contracts.ts`. Its page, JSON and archived-artifact operations now use typed request-local collaborators through `src/features/personnel/index.server.ts`; the replaced central note operation is gone. Organization owns the member-label read for notes. The shared artifact helper remains for counseling, documents and follow-ups. D03's remaining leaves still own stable traversal, archive/export/retention effects and isolated SQL/RLS proof; the generic request context remains for other operations. The pilot and Personnel migration are incomplete.
 
 ## D-09 Missing Automatic CI Enforcement
 

@@ -1,4 +1,5 @@
 import type { PersonnelLeaderNote } from '$features/personnel/contracts';
+import { mapLeaderNoteRow, type LeaderNoteRow } from '$features/personnel/index.server';
 import type {
 	PersonnelArtifactKind,
 	PersonnelCounselingRecord,
@@ -23,15 +24,6 @@ interface MembershipContributorRow {
 	first_name?: string | null;
 	last_name?: string | null;
 	username?: string | null;
-}
-
-export interface LeaderNoteRow {
-	id: string;
-	personnel_id: string;
-	author: string;
-	text: string;
-	created_at: string;
-	archived_at?: string | null;
 }
 
 export interface CounselingRecordRow {
@@ -286,21 +278,6 @@ async function mapSingleArtifact<TRow, TDto>(
 
 function fileNameFromPath(path: string): string {
 	return path.split(/[\\/]/).pop() ?? 'document';
-}
-
-export function mapLeaderNoteRow(
-	row: LeaderNoteRow,
-	contributorLabels = new Map<string, string>()
-): PersonnelLeaderNote {
-	return {
-		id: row.id,
-		personnelId: row.personnel_id,
-		author: resolveContributorLabel(contributorLabels, row.author),
-		date: row.created_at.slice(0, 10),
-		text: row.text,
-		createdAt: row.created_at,
-		archivedAt: row.archived_at ?? null
-	};
 }
 
 export function mapCounselingRow(

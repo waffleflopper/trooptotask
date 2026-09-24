@@ -50,6 +50,6 @@ After the run, stop only the newly created project:
 supabase stop --workdir /tmp/t3-phase04-01c-01/isolated --project-id t3-phase04-01c-01 --no-backup
 ```
 
-Confirm zero owned containers/volumes/networks and unchanged pre-existing container identities/running states. Preserve command receipts, not database resources. [Execution evidence](../EVIDENCE.md#task-04-01c-01--populated-upgrade-baseline) records actual results and limitations.
+Confirm zero owned containers/volumes/networks and unchanged pre-existing container identities/running states. Preserve command receipts, not database resources. [Execution evidence](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-04-01c-01--populated-upgrade-baseline) records actual results and limitations.
 
 R1–R7 are preserved through stored baseline and retained SQL/application tests; R8's active-schema retirement remains D02, with Duty Roster removal in its own later phases. No existing source, migration, test, data, runtime configuration or generated artifact is deleted or replaced here. Production cleanup remains PENDING OWNER EXECUTION. Repository CI is manual; Vercel publication/merge may deploy and external settings remain unknown. No automatic remote migration is configured. Owner deployment notice, backup/restore and application/schema compatibility prerequisites remain required before any later destructive release; this leaf performs no publication, merge, deployment or remote operation.

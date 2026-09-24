@@ -35,10 +35,9 @@ Provider-boundary changes should reduce tolerated drift instead of spreading it.
 
 ## Links
 
-- Related drift IDs: `D-02`, `D-08`, `D-09`
+- Current drift: `D-02`, `D-09`; [historical Organization-settings repair D-08](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/architecture/DRIFT_LEDGER.md#d-08-route-level-membership-and-settings-logic-resolved-for-org-settings-governance).
 - Related docs:
   - `docs/architecture/ARCHITECTURE.md`
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/DRIFT_LEDGER.md`
-  - `docs/architecture/V1_CHANGE_INTENT.md`
   - `docs/architecture/GOVERNANCE_BASELINE.json`

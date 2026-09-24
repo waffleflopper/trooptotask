@@ -1,20 +1,18 @@
 # Governance Checks
 
-This repo has governance checks at `npm run governance:check`.
+`npm run governance:check` enforces source boundaries and rejects new violations against the current baseline. Markdown filenames, headings and document inventories are not executable requirements; documentation review checks that current rules, remaining work and evidence stay discoverable.
 
 It is intentionally narrow. It does not prove the architecture is clean. It helps catch new drift in the highest-risk seams we already know about. The [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) require removal of existing exceptions through their owning tasks; passing this check alone does not establish a finished cutover.
 
 ## What It Checks Today
 
-- required governance files exist
 - route-level Supabase usage under `src/routes/` stays inside an explicit allowlist, including
   direct `locals.supabase` access and Supabase clients destructured or aliased from `locals`
 - route-level admin-provider wiring under `src/routes/` stays inside a separate allowlist, including
   `getAdminClient()` calls, `ctx.adminClient` usage, `const { adminClient } = ctx` destructuring, and
   service-role Supabase adapter creation
 - configured feature families are scanned for cross-feature permission-lane couplings by default, and known
-  exceptions stay explicitly documented
-- allowlisted drift references still point at real entries in `docs/architecture/DRIFT_LEDGER.md`
+  exceptions remain explicit in the JSON baseline
 - every maintained `src` TS/JS/Svelte import is classified by one declared owner; private and undeclared cross-owner imports, source/owner cycles, and mixed-owner files are reported with Phase 08 owners
 - each owner's `contracts.ts`, its only portable entrypoint, is checked transitively for Svelte, `$app`, browser globals, provider/Node imports, raw database-row types, UI and server code; web entrypoints are checked transitively for privileged imports (server-only files follow SvelteKit's `$lib/server` and `.server.` basename rules, plus route `+server` files), and feature `server/` files without SvelteKit-recognized placement are reported
 - portable global references use TypeScript symbol resolution to distinguish ECMAScript bindings and existing neutral parsing/encoding APIs from DOM/platform dependencies; DTO member names, imported bindings and local shadowing remain valid
@@ -49,7 +47,7 @@ Vite root-relative imports such as `/src/features/personnel/index.ts` are local 
 
 Value imports follow the installed Vite runtime resolution order for explicit files and extensionless/index barrels, including existing JavaScript files ahead of TypeScript fallbacks. Directory imports with a local `package.json` are unsupported and fail explicitly; use an explicit file import rather than guessing the package entry. Erased type-only imports follow TypeScript resolution; when a value import has a distinct type target, both edges participate in boundary checks. Declaration files cannot stand in for missing executable files. Inline `import { type T }` retains its runtime side-effect edge under the application's `verbatimModuleSyntax` setting. Source symlinks (including directory and `src` root links) are unsupported and fail explicitly before traversal; they cannot silently terminate a transitive path. No current source consumer requires local package-entry or symlink support.
 
-The canonical command compares that full current report with the same rules run on fetched `origin/main`; on current `main`, it compares with `HEAD^`. It refuses a branch behind `origin/main`, so removed debt cannot return unnoticed through an old merge-base. It reads the comparison commit's `src` tree locally and fails if a finding is newly present or the commit cannot be read. CI's unit job fetches the required history and runs the production build with synthetic, unreachable provider settings; the build independently exercises SvelteKit's server-only import guard. No findings are excluded from the standalone report, and no hand-maintained exception list or count budget is used. Refresh `origin/main` before local checks and review any change to the owner declaration as a policy change. See the [D02 evidence](../stabilization/EVIDENCE.md#task-07-02b-ownership-and-public-dependency-rule) for the earlier standalone counts.
+The canonical command compares that full current report with the same rules run on fetched `origin/main`; on current `main`, it compares with `HEAD^`. It refuses a branch behind `origin/main`, so removed debt cannot return unnoticed through an old merge-base. It reads the comparison commit's `src` tree locally and fails if a finding is newly present or the commit cannot be read. CI's unit job fetches the required history and runs the production build with synthetic, unreachable provider settings; the build independently exercises SvelteKit's server-only import guard. No findings are excluded from the standalone report, and no hand-maintained exception list or count budget is used. Refresh `origin/main` before local checks and review any change to the owner declaration as a policy change. See the [D02 evidence](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-07-02b-ownership-and-public-dependency-rule) for the earlier standalone counts.
 
 External packages are classified at the import boundary; the checker does not crawl `node_modules`. Portable contracts may reach only packages declared in `package.json` `dependencies`: test and build tooling in `devDependencies` (including `svelte`, `vite`, `vitest`, `jsdom`, `happy-dom` and `@testing-library/*`) and undeclared transitive packages are rejected. Among runtime dependencies, portable contracts also reject the current web inventory, including subpaths: the Svelte packages `svelte-sonner`, `@lucide/svelte`, `bits-ui`, `layerchart` and `mode-watcher`; the stylesheet packages `@fontsource/*` and `tw-animate-css`; the Tailwind build packages `tailwindcss` and `@tailwindcss/*`; and the browser file-generation packages `exceljs`, `jspdf` and `jspdf-autotable`. They also reject the framework/provider scopes above, local `.svelte`, `.svelte.ts` and `.svelte.js` modules, local files other than script modules and JSON (such as stylesheets, SVG, HTML or Markdown assets), and external stylesheet paths matching the checker's `STYLESHEET` pattern, including query suffixes. Web consumers can still use these packages and stylesheets. Neutral runtime packages such as `zod`, `clsx` and `@internationalized/date`, and local JSON data, remain valid in portable contracts. Universal `src/hooks.ts` and `src/params/*` matchers are web entries for the server-privilege rule. Runtime dependency additions require review of the web inventory; this is not a proof of portability for arbitrary npm packages.
 
@@ -66,7 +64,7 @@ Treat that file as a temporary truth table for tolerated exceptions:
 
 For feature permission couplings, `featurePermissionCouplings` is an exception list, not the list of feature
 families to scan. The checker scans configured feature families even when this array is empty. Remove resolved
-entries and retain the scan; new drift-ledger entries do not authorize new permission couplings.
+entries and retain the scan; documenting a finding does not authorize a new permission coupling.
 
 ## Current-State Truth Versus Guardrail
 

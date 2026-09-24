@@ -58,7 +58,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 
 ### Administration
 
-- Role-based permissions (Owner, Admin, Member) with 11 granular permission flags
+- Owner/Admin governance roles and scoped Member capabilities across independent feature lanes
 - Group-scoped access control for team leaders
 - Deletion approval workflow for non-privileged users
 - Personnel archival with admin review
@@ -79,7 +79,7 @@ A military unit management platform for personnel tracking, calendar/availabilit
 - **Language**: TypeScript
 - **Database**: Supabase (PostgreSQL + Row Level Security)
 - **Authentication**: Supabase Auth
-- **Styling**: Pure CSS with custom properties (no Tailwind)
+- **Styling**: Tailwind v4, shadcn-svelte and shared design tokens
 - **Deployment**: Vercel
 - **Testing**: Vitest and isolated SQL contracts, with computer-use flow evidence; repository browser suites and runtime test bypasses have been removed.
 

@@ -111,4 +111,4 @@ Run cleanup even after a failed replay/test, but only after confirming the conta
 supabase stop --workdir /tmp/t3-phase04-01a-final/isolated --project-id t3-phase04-01a-final --no-backup
 ```
 
-Read back Docker container/volume/network names and confirm this project's resources are gone and pre-existing container identities and their original running/exited states are preserved. Preserve receipt files outside Docker. [Execution evidence](../EVIDENCE.md#task-04-01a--immutable-chain-replay-and-sql-baseline) records the actual candidate, results, versions, artifact paths and verification; unavailable checks remain blockers.
+Read back Docker container/volume/network names and confirm this project's resources are gone and pre-existing container identities and their original running/exited states are preserved. Preserve receipt files outside Docker. [Execution evidence](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-04-01a--immutable-chain-replay-and-sql-baseline) records the actual candidate, results, versions, artifact paths and verification; unavailable checks remain blockers.

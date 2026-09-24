@@ -26,7 +26,7 @@ remains an identity/authorization value; it does not imply an active billing fea
 ### Decision pressure
 
 - Issue [#614](https://github.com/waffleflopper/trooptotask/issues/614) requires a concrete replacement v1 authorization model and migration plan without implementing runtime authz changes in this slice.
-- Drift entry `D-03` depends on a shared source of truth before implementation slices can land safely.
+- The former Critical Tasks coupling (D-03) required a shared permission model; the independent feature-lane rule remains binding after that repair.
 
 ## Decision
 
@@ -127,18 +127,15 @@ remains an identity/authorization value; it does not imply an active billing fea
   - policy overlay coverage for member-facing workflows
 - Docs updated with this ADR:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
-  - `docs/architecture/V1_CHANGE_INTENT.md`
   - `docs/architecture/DRIFT_LEDGER.md`
-  - `docs/architecture/ADR_BACKLOG.md`
-  - `UBIQUITOUS_LANGUAGE.md`
+  - [CONTEXT language](../../../CONTEXT.md#language)
 
 ## Links
 
 - Related issue: [#614](https://github.com/waffleflopper/trooptotask/issues/614)
-- Related drift IDs: `D-03`
+- Historical drift: [D-03, resolved Critical Tasks coupling](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/architecture/DRIFT_LEDGER.md#d-03-critical-tasks-permission-coupling-resolved-in-621)
 - Related docs:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/DRIFT_LEDGER.md`
-  - `docs/architecture/V1_CHANGE_INTENT.md`
   - `docs/architecture/ADR_GUIDANCE.md`
-  - `UBIQUITOUS_LANGUAGE.md`
+  - [CONTEXT language](../../../CONTEXT.md#language)

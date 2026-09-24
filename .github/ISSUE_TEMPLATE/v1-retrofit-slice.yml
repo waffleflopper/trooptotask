@@ -27,11 +27,9 @@ body:
   - type: input
     id: drift_ids
     attributes:
-      label: Drift ledger IDs
-      description: Which existing drift entries does this slice touch?
-      placeholder: D-01, D-02
-    validations:
-      required: true
+      label: Related drift or task
+      description: Link an existing finding or task when applicable.
+      placeholder: D-02 or the owning task URL
   - type: textarea
     id: scope
     attributes:
@@ -51,9 +49,9 @@ body:
   - type: textarea
     id: docs_and_ledgers
     attributes:
-      label: Docs and ledgers to update
-      description: Which docs must change if this slice lands?
-      placeholder: docs/architecture/..., UBIQUITOUS_LANGUAGE.md, GOV...
+      label: Affected canonical documentation
+      description: Which current rules, evidence or operational guidance change, if any?
+      placeholder: docs/architecture/..., CONTEXT.md#language
     validations:
       required: true
   - type: textarea
@@ -77,4 +75,4 @@ body:
     attributes:
       label: ADR notes
       description: Does this slice likely need a new ADR or update an ADR candidate?
-      placeholder: Reference docs/architecture/ADR_BACKLOG.md or docs/architecture/adrs/ if relevant.
+      placeholder: Reference docs/architecture/ADR_GUIDANCE.md or the affected accepted ADR if relevant.

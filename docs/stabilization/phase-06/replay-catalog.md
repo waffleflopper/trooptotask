@@ -34,4 +34,4 @@ Catalog-generated internal FK trigger names and TOAST identifiers can differ acr
 
 Stop only the project just created with supabase stop --workdir, its exact --project-id and --no-backup, as in the Phase 04 guide. Check its owned Docker resources are gone and pre-existing containers remain in their original state. No remote or existing local database is part of this procedure.
 
-The [execution evidence](../EVIDENCE.md#task-06-01a--immutable-replay-and-raw-effective-catalog) records the observed results and hashes. This capture does not claim production schema parity.
+The [execution evidence](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-06-01a--immutable-replay-and-raw-effective-catalog) records the observed results and hashes. This capture does not claim production schema parity.

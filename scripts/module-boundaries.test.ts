@@ -39,6 +39,22 @@ describe('module boundary declaration', () => {
 		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
 	});
 
+	it('enforces public and declared ownership for root-relative imports', () => {
+		const sources = [
+			{ path: 'src/features/alpha/index.ts', content: "export { value } from '/src/features/beta/index.ts';" },
+			{ path: 'src/features/beta/index.ts', content: 'export const value = true;' },
+			{ path: 'src/features/beta/private.ts', content: 'export const value = true;' }
+		];
+		const allowed = fixture(sources);
+		expect(checkModuleBoundaries(allowed.graph, allowed.manifest)).toEqual([]);
+		sources[0].content = "export { value } from '/src/features/beta/private.ts';";
+		const denied = fixture(sources, { alpha: [], beta: [] });
+		expect(checkModuleBoundaries(denied.graph, denied.manifest).map((issue) => issue.kind)).toEqual([
+			'private',
+			'undeclared'
+		]);
+	});
+
 	it('accepts a declared server adapter dependency on current provider infrastructure', () => {
 		const { graph, manifest } = fixture([
 			{
@@ -197,6 +213,64 @@ describe('module boundary declaration', () => {
 			{ path: 'src/features/beta/index.ts', content: 'export type Empty = never;' }
 		]);
 		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
+	});
+
+	it.each([
+		'export type Input = HTMLInputElement;',
+		'export const observer = new MutationObserver(() => {});',
+		'export const frame = requestAnimationFrame(() => {});',
+		'export const browser = { window };',
+		'export const browser = { [window.name]: true };'
+	])('rejects actual DOM dependencies in a consumed portable contract: %s', (content) => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/index.ts', content: "export * from './contracts';" },
+			{ path: 'src/features/alpha/contracts.ts', content },
+			{ path: 'src/features/beta/index.ts', content: '' }
+		]);
+		expect(checkModuleBoundaries(graph, manifest).some((issue) => issue.kind === 'portable-global')).toBe(true);
+	});
+
+	it('accepts portable DTO fields, local bindings and neutral language types', () => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/index.ts', content: "export * from './contracts';" },
+			{
+				path: 'src/features/alpha/contracts.ts',
+				content: `export type Appointment = { location: string; history: string[] };
+					export function select(window: number) { return { window }; }
+					export const names = ({ location: history }: Appointment) => history;
+					export const lookup = new Map<string, Readonly<Appointment>>();
+					export const absent = undefined;
+					export const alsoAbsent = globalThis.undefined;
+					export function count() { return arguments.length; }
+					export type Tuple = [name: string, count: number];
+					export const kinds = ['a', 'b'] as const;`
+			},
+			{ path: 'src/features/beta/index.ts', content: '' }
+		]);
+		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
+	});
+
+	it('checks globals in transitive helpers while respecting imported bindings', () => {
+		const sources = [
+			{ path: 'src/features/alpha/index.ts', content: "export * from './contracts';" },
+			{
+				path: 'src/features/alpha/contracts.ts',
+				content: `import { window } from './helper'; export const value = window;
+					export { window as renamed } from './helper';
+					export type { Value as Renamed } from './helper';`
+			},
+			{ path: 'src/features/alpha/helper.ts', content: 'export const window = 1; export type Value = string;' },
+			{ path: 'src/features/beta/index.ts', content: '' }
+		];
+		const allowed = fixture(sources);
+		expect(checkModuleBoundaries(allowed.graph, allowed.manifest)).toEqual([]);
+		sources[2].content = 'export const window = new MutationObserver(() => {});';
+		const denied = fixture(sources);
+		expect(
+			checkModuleBoundaries(denied.graph, denied.manifest).some(
+				(issue) => issue.kind === 'portable-global' && issue.file === 'src/features/alpha/helper.ts'
+			)
+		).toBe(true);
 	});
 
 	it('keeps public routes outside privileged provider dependencies', () => {

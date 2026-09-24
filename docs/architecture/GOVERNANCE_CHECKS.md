@@ -17,6 +17,7 @@ It is intentionally narrow. It does not prove the architecture is clean. It help
 - allowlisted drift references still point at real entries in `docs/architecture/DRIFT_LEDGER.md`
 - every maintained `src` TS/JS/Svelte import is classified by one declared owner; private and undeclared cross-owner imports, source/owner cycles, and mixed-owner files are reported with Phase 08 owners
 - consumed owner `contracts.ts` files are checked transitively for Svelte, `$app`, browser globals, provider/Node imports, raw database-row types, UI and server code; web entrypoints are checked transitively for privileged imports, and feature `server/` files without SvelteKit-recognized placement are reported
+- portable global references use TypeScript symbol resolution to distinguish ECMAScript bindings and existing neutral parsing/encoding APIs from DOM/platform dependencies; DTO member names, imported bindings and local shadowing remain valid
 - portable `globalThis` access permits standard language globals and pure cross-runtime parsing/encoding utilities; unknown members and aliases fail closed, so new runtime facilities need an explicit rule review
 - newly introduced findings and all findings assigned to completed Phase 07 scope fail the command; existing Phase 08 findings are counted by packet and remain visible through `node scripts/module-boundaries.ts`
 
@@ -43,6 +44,8 @@ These labels are inventory, not permission to add exceptions:
 ## Phase 07 D02 boundary report and regression gate
 
 `node scripts/module-boundaries.ts` prints every current finding and exits nonzero until the Phase 08 cutovers remove them. Its [owner declaration](../../scripts/module-boundaries.json) assigns each current source file, declares target dependency direction and public paths, and records mixed-owner files as findings. Type and value imports both participate in the source graph. A type-only server import is therefore a target-boundary finding even when SvelteKit erases it before building browser JavaScript. The standalone report is migration evidence, not a passing global-clean gate.
+
+Vite root-relative imports such as `/src/features/personnel/index.ts` are local graph edges subject to the same ownership and privilege rules as aliases and relative imports. `import.meta.glob` is unsupported and fails explicitly in scripts and Svelte markup; use explicit imports. No current source consumer requires glob expansion.
 
 The canonical command compares that full current report with the same rules run on fetched `origin/main`; on current `main`, it compares with `HEAD^`. It refuses a branch behind `origin/main`, so removed debt cannot return unnoticed through an old merge-base. It reads the comparison commit's `src` tree locally and fails if a finding is newly present or the commit cannot be read. CI's unit job fetches the required history and runs the production build with synthetic, unreachable provider settings; the build independently exercises SvelteKit's server-only import guard. No findings are excluded from the standalone report, and no hand-maintained exception list or count budget is used. Refresh `origin/main` before local checks and review any change to the owner declaration as a policy change. See the [D02 evidence](../stabilization/EVIDENCE.md#task-07-02b-ownership-and-public-dependency-rule) for the earlier standalone counts.
 

@@ -83,6 +83,21 @@ function sourceSections(
 			return;
 		}
 		const record = node as Record<string, unknown>;
+		if (record.type === 'MemberExpression') {
+			const object = record.object as Record<string, unknown> | undefined;
+			const meta = object?.meta as Record<string, unknown> | undefined;
+			const property = record.property as Record<string, unknown> | undefined;
+			if (
+				object?.type === 'MetaProperty' &&
+				meta?.name === 'import' &&
+				(record.computed ? property?.value === 'glob' : property?.name === 'glob')
+			) {
+				failures.push({
+					file: filePath,
+					message: `Unsupported import.meta.glob at offset ${record.start}; use explicit imports`
+				});
+			}
+		}
 		if (record.type === 'ImportExpression') {
 			const imported = record.source as Record<string, unknown> | undefined;
 			if (imported?.type === 'Literal' && typeof imported.value === 'string') {
@@ -122,6 +137,19 @@ function importsFromSection(filePath: string, section: Section) {
 	}
 
 	function visit(node: ts.Node) {
+		if (
+			(ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) &&
+			ts.isMetaProperty(node.expression) &&
+			node.expression.keywordToken === ts.SyntaxKind.ImportKeyword &&
+			(ts.isPropertyAccessExpression(node)
+				? node.name.text === 'glob'
+				: ts.isStringLiteral(node.argumentExpression) && node.argumentExpression.text === 'glob')
+		) {
+			failures.push({
+				file: filePath,
+				message: `Unsupported import.meta.glob at offset ${section.offset + node.getStart(source)}; use explicit imports`
+			});
+		}
 		if (ts.isImportDeclaration(node)) add(node, node.moduleSpecifier, 'import');
 		else if (ts.isExportDeclaration(node) && node.moduleSpecifier) add(node, node.moduleSpecifier, 'export');
 		else if (ts.isImportEqualsDeclaration(node) && ts.isExternalModuleReference(node.moduleReference)) {
@@ -148,7 +176,12 @@ function resolveImport(
 	if (specifier.startsWith('$app/') || specifier.startsWith('$env/') || specifier === '$service-worker') {
 		return { classification: 'virtual' };
 	}
-	if (!specifier.startsWith('.') && !specifier.startsWith('$lib') && !specifier.startsWith('$features')) {
+	if (
+		!specifier.startsWith('.') &&
+		!specifier.startsWith('/') &&
+		!specifier.startsWith('$lib') &&
+		!specifier.startsWith('$features')
+	) {
 		return { classification: 'external' };
 	}
 
@@ -157,6 +190,8 @@ function resolveImport(
 		base = `src/lib${specifier.slice('$lib'.length)}`;
 	} else if (specifier === '$features' || specifier.startsWith('$features/')) {
 		base = `src/features${specifier.slice('$features'.length)}`;
+	} else if (specifier.startsWith('/')) {
+		base = specifier.slice(1);
 	} else {
 		base = path.posix.join(path.posix.dirname(from), specifier);
 	}

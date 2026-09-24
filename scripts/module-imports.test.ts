@@ -76,6 +76,45 @@ describe('module import inventory', () => {
 		expect(graph.failures.map(({ message }) => message)).toEqual([expect.stringContaining('Opaque dynamic')]);
 	});
 
+	it('keeps Vite root-relative imports local and fails unresolved root-relative targets', () => {
+		const graph = inspect(
+			'src/features/alpha/index.ts',
+			`export { secret } from '/src/features/beta/private.ts';
+				import '/src/features/beta/missing.ts';`,
+			['src/features/beta/private.ts']
+		);
+		expect(graph.edges.map(({ classification, to }) => [classification, to])).toEqual([
+			['local', 'src/features/beta/private.ts'],
+			['unresolved', undefined]
+		]);
+		expect(graph.failures).toEqual([
+			{ file: 'src/features/alpha/index.ts', message: 'Unresolved local import: /src/features/beta/missing.ts' }
+		]);
+	});
+
+	it.each([
+		['src/features/alpha/index.ts', `export const modules = import.meta.glob('../beta/private.ts', { eager: true });`],
+		[
+			'src/features/alpha/View.svelte',
+			`<script lang="ts">const modules = import.meta.glob('../beta/private.ts', { eager: true });</script>`
+		],
+		['src/features/alpha/View.svelte', `{#each Object.keys(import.meta.glob('../beta/*.ts')) as name}{name}{/each}`]
+	])('rejects unsupported glob imports in %s', (file, content) => {
+		const graph = inspect(file, content, ['src/features/beta/private.ts']);
+		expect(graph.failures).toEqual([{ file, message: expect.stringContaining('Unsupported import.meta.glob') }]);
+	});
+
+	it('accepts ordinary glob calls and text mentioning import.meta.glob', () => {
+		const graph = inspect(
+			'src/features/alpha/index.ts',
+			`const utility = { glob: (pattern: string) => pattern };
+				export const text = utility.glob('import.meta.glob("../beta/*.ts")');
+				// import.meta.glob('../beta/*.ts');`,
+			[]
+		);
+		expect(graph.failures).toEqual([]);
+	});
+
 	it('resolves files and barrel indexes, never a directory target', () => {
 		const root = mkdtempSync(path.join(tmpdir(), 't3-module-imports-'));
 		try {

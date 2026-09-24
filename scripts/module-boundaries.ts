@@ -23,69 +23,15 @@ type Graph = {
 };
 type Violation = { kind: string; file: string; message: string; packet: string };
 const NODE_BUILTINS = new Set(builtinModules);
-const PORTABLE_GLOBAL_MEMBERS = new Set([
-	'AggregateError',
-	'Array',
-	'ArrayBuffer',
-	'Atomics',
-	'BigInt',
-	'BigInt64Array',
-	'BigUint64Array',
-	'Boolean',
-	'DataView',
-	'Date',
-	'Error',
-	'EvalError',
-	'FinalizationRegistry',
-	'Float32Array',
-	'Float64Array',
-	'Infinity',
-	'Int8Array',
-	'Int16Array',
-	'Int32Array',
-	'Intl',
-	'JSON',
-	'Map',
-	'Math',
-	'NaN',
-	'Number',
-	'Object',
-	'Promise',
-	'Proxy',
-	'RangeError',
-	'ReferenceError',
-	'Reflect',
-	'RegExp',
-	'Set',
-	'SharedArrayBuffer',
-	'String',
-	'Symbol',
-	'SyntaxError',
-	'TypeError',
-	'URIError',
-	'Uint8Array',
-	'Uint8ClampedArray',
-	'Uint16Array',
-	'Uint32Array',
-	'WeakMap',
-	'WeakRef',
-	'WeakSet',
-	'decodeURI',
-	'decodeURIComponent',
-	'encodeURI',
-	'encodeURIComponent',
-	'isFinite',
-	'isNaN',
-	'parseFloat',
-	'parseInt',
+// These existing cross-runtime parsing/encoding APIs supplement the ECMAScript library.
+const PORTABLE_WEB_GLOBALS = new Set([
 	'structuredClone',
 	'URL',
 	'URLSearchParams',
 	'TextEncoder',
 	'TextDecoder',
 	'atob',
-	'btoa',
-	'undefined'
+	'btoa'
 ]);
 
 function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
@@ -236,65 +182,97 @@ function isPortableEntry(file: string): boolean {
 	return /^src\/features\/[^/]+\/contracts\.[jt]s$/.test(file);
 }
 
-function browserGlobals(content: string, file: string): string[] {
-	const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
-	const names = new Set([
-		'self',
-		'window',
-		'document',
-		'navigator',
-		'localStorage',
-		'sessionStorage',
-		'indexedDB',
-		'location',
-		'history',
-		'screen',
-		'Window',
-		'Document',
-		'HTMLElement',
-		'Storage',
-		'process',
-		'Buffer',
-		'global',
-		'module',
-		'exports',
-		'require',
-		'__dirname',
-		'__filename',
-		'setImmediate'
-	]);
-	const found = new Set<string>();
-	function visit(node: ts.Node) {
-		if (ts.isIdentifier(node) && node.text === 'globalThis') {
-			const parent = node.parent;
-			if (ts.isPropertyAccessExpression(parent) && parent.expression === node) {
-				if (!PORTABLE_GLOBAL_MEMBERS.has(parent.name.text)) found.add(`globalThis.${parent.name.text}`);
-			} else if (
-				ts.isElementAccessExpression(parent) &&
-				parent.expression === node &&
-				ts.isStringLiteral(parent.argumentExpression)
-			) {
-				if (!PORTABLE_GLOBAL_MEMBERS.has(parent.argumentExpression.text)) {
-					found.add(`globalThis.${parent.argumentExpression.text}`);
+function portableGlobals(contents: Map<string, string>): Map<string, string[]> {
+	const options: ts.CompilerOptions = {
+		target: ts.ScriptTarget.ESNext,
+		lib: ['lib.esnext.d.ts', 'lib.dom.d.ts'],
+		types: [],
+		noResolve: true,
+		allowJs: true,
+		moduleDetection: ts.ModuleDetectionKind.Force
+	};
+	const host = ts.createCompilerHost(options);
+	const getSourceFile = host.getSourceFile.bind(host);
+	const sources = new Map([...contents].map(([file, content]) => [path.resolve(file), content]));
+	host.getSourceFile = (file, languageVersion, onError, shouldCreateNewSourceFile) => {
+		const content = sources.get(path.resolve(file));
+		return content === undefined
+			? getSourceFile(file, languageVersion, onError, shouldCreateNewSourceFile)
+			: ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
+	};
+	const program = ts.createProgram([...contents.keys()], options, host);
+	const checker = program.getTypeChecker();
+	const allowed = (symbol: ts.Symbol | undefined): boolean => {
+		// TypeScript synthesizes these language bindings without library declarations.
+		if (symbol && (symbol.name === 'undefined' || symbol.name === 'arguments')) return true;
+		const declarations = symbol?.getDeclarations();
+		return (
+			!!declarations?.length &&
+			declarations.every((declaration) => {
+				const source = declaration.getSourceFile();
+				if (sources.has(path.resolve(source.fileName))) return true;
+				if (!program.isSourceFileDefaultLibrary(source)) return false;
+				return /^lib\.es.*\.d\.ts$/.test(path.basename(source.fileName)) || PORTABLE_WEB_GLOBALS.has(symbol!.name);
+			})
+		);
+	};
+	const result = new Map<string, string[]>();
+	for (const file of contents.keys()) {
+		const found = new Set<string>();
+		const source = program.getSourceFile(file)!;
+		function visit(node: ts.Node) {
+			if (ts.isIdentifier(node)) {
+				const parent = node.parent;
+				const symbol =
+					ts.isShorthandPropertyAssignment(parent) && parent.name === node
+						? checker.getShorthandAssignmentValueSymbol(parent)
+						: checker.getSymbolAtLocation(node);
+				const local = symbol?.declarations?.some((declaration) =>
+					sources.has(path.resolve(declaration.getSourceFile().fileName))
+				);
+				if (node.text === 'globalThis' && !local) {
+					const member =
+						ts.isPropertyAccessExpression(parent) && parent.expression === node
+							? parent.name.text
+							: ts.isElementAccessExpression(parent) &&
+								  parent.expression === node &&
+								  ts.isStringLiteral(parent.argumentExpression)
+								? parent.argumentExpression.text
+								: undefined;
+					if (!member) found.add('globalThis alias or computed access');
+					else if (!allowed(checker.getTypeAtLocation(node).getProperty(member))) found.add(`globalThis.${member}`);
+				} else {
+					// Member names and labels do not refer to variables; shorthand properties do.
+					const memberName =
+						(ts.isPropertyAccessExpression(parent) && parent.name === node) ||
+						(ts.isQualifiedName(parent) && parent.right === node) ||
+						((ts.isPropertyAssignment(parent) ||
+							ts.isPropertySignature(parent) ||
+							ts.isMethodSignature(parent) ||
+							ts.isMethodDeclaration(parent) ||
+							ts.isPropertyDeclaration(parent)) &&
+							parent.name === node) ||
+						((ts.isBindingElement(parent) || ts.isImportSpecifier(parent)) && parent.propertyName === node) ||
+						(ts.isExportSpecifier(parent) &&
+							parent.propertyName === node &&
+							ts.isExportDeclaration(parent.parent.parent) &&
+							!!parent.parent.parent.moduleSpecifier) ||
+						(ts.isNamedTupleMember(parent) && parent.name === node) ||
+						(ts.isTypeReferenceNode(parent) &&
+							node.text === 'const' &&
+							(ts.isAsExpression(parent.parent) || ts.isTypeAssertionExpression(parent.parent)) &&
+							parent.parent.type === parent) ||
+						((ts.isLabeledStatement(parent) || ts.isBreakStatement(parent) || ts.isContinueStatement(parent)) &&
+							parent.label === node);
+					if (!memberName && !allowed(symbol)) found.add(node.text);
 				}
-			} else {
-				found.add('globalThis alias or computed access');
 			}
+			ts.forEachChild(node, visit);
 		}
-		if (ts.isIdentifier(node) && names.has(node.text)) {
-			const parent = node.parent;
-			const isName =
-				(ts.isPropertyAccessExpression(parent) && parent.name === node) ||
-				(ts.isPropertyAssignment(parent) && parent.name === node) ||
-				(ts.isVariableDeclaration(parent) && parent.name === node) ||
-				(ts.isParameter(parent) && parent.name === node) ||
-				(ts.isImportSpecifier(parent) && parent.name === node);
-			if (!isName) found.add(node.text);
-		}
-		ts.forEachChild(node, visit);
+		visit(source);
+		result.set(file, [...found].sort());
 	}
-	visit(source);
-	return [...found].sort();
+	return result;
 }
 
 function checkPrivilegeBoundaries(
@@ -306,6 +284,7 @@ function checkPrivilegeBoundaries(
 	const adjacency = new Map(graph.sourcePaths.map((file) => [file, [] as Edge[]]));
 	for (const edge of graph.edges) adjacency.get(edge.from)?.push(edge);
 	const seen = new Set<string>();
+	const portableOrigins = new Map<string, Set<string>>();
 	const report = (kind: string, file: string, message: string) => {
 		const key = `${kind}:${file}:${message}`;
 		if (seen.has(key)) return;
@@ -328,9 +307,8 @@ function checkPrivilegeBoundaries(
 			if (visited.has(file)) continue;
 			visited.add(file);
 			if (portable) {
-				for (const global of browserGlobals(graph.contents[file] ?? '', file)) {
-					report('portable-global', file, `Browser global ${global} reached from ${root}`);
-				}
+				if (!portableOrigins.has(file)) portableOrigins.set(file, new Set());
+				portableOrigins.get(file)!.add(root);
 			}
 			for (const edge of adjacency.get(file) ?? []) {
 				const target = edge.to;
@@ -358,6 +336,16 @@ function checkPrivilegeBoundaries(
 					continue;
 				}
 				if (target && adjacency.has(target)) pending.push(target);
+			}
+		}
+	}
+	if (portableOrigins.size) {
+		const globals = portableGlobals(
+			new Map([...portableOrigins.keys()].map((file) => [file, graph.contents[file] ?? '']))
+		);
+		for (const [file, names] of globals) {
+			for (const root of portableOrigins.get(file)!) {
+				for (const name of names) report('portable-global', file, `Browser global ${name} reached from ${root}`);
 			}
 		}
 	}

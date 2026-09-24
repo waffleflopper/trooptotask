@@ -1,6 +1,7 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { runModuleGovernance } from './module-governance.ts';
 
 const repoRoot = process.cwd();
 const baselinePath = path.join(repoRoot, 'docs/architecture/GOVERNANCE_BASELINE.json');
@@ -41,12 +42,16 @@ function readRelativeFile(relativePath) {
 function walkRelative(dir) {
 	const start = path.join(repoRoot, dir);
 	if (!existsSync(start)) return [];
+	if (lstatSync(start).isSymbolicLink()) throw new Error(`Unsupported source symlink: ${normalizePath(dir)}`);
 
 	const files = [];
 
 	for (const entry of readdirSync(start)) {
 		const absolutePath = path.join(start, entry);
-		const stat = statSync(absolutePath);
+		const stat = lstatSync(absolutePath);
+		if (stat.isSymbolicLink()) {
+			throw new Error(`Unsupported source symlink: ${normalizePath(path.relative(repoRoot, absolutePath))}`);
+		}
 		if (stat.isDirectory()) {
 			files.push(...walkRelative(path.join(dir, entry)));
 			continue;
@@ -450,6 +455,13 @@ function runGovernanceChecks() {
 	checkRouteAdminProviderAllowlist();
 	checkFeaturePermissionCouplings();
 	checkDeletedRouteAuthorizationFramework();
+	try {
+		for (const issue of runModuleGovernance()) {
+			errors.push(`Module ${issue.kind}: [${issue.packet}] ${issue.file}: ${issue.message}`);
+		}
+	} catch (error) {
+		errors.push(`Module boundary comparison unavailable: ${error instanceof Error ? error.message : String(error)}`);
+	}
 
 	if (errors.length > 0) {
 		console.error('Governance check failed:\n');
@@ -459,7 +471,7 @@ function runGovernanceChecks() {
 		process.exit(1);
 	}
 
-	console.log('Governance checks passed.');
+	console.log('Governance regression checks passed; reported Phase 08 debt remains open.');
 	console.log(`- required files: ${baseline.requiredFiles.length}`);
 	console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
 	console.log(`- route-level admin-provider allowlist entries: ${(baseline.routeAdminProviderAllowlist ?? []).length}`);

@@ -43,6 +43,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
@@ -73,3 +74,12 @@ jobs:
         env:
           PUBLIC_SUPABASE_URL: http://localhost:54321
           PUBLIC_SUPABASE_ANON_KEY: dummy-key-for-type-check
+
+      - name: Production build and SvelteKit import boundary
+        run: npm run build
+        env:
+          PUBLIC_SUPABASE_URL: http://127.0.0.1:59999
+          PUBLIC_SUPABASE_ANON_KEY: d02-synthetic-anon
+          SUPABASE_SERVICE_ROLE_KEY: d02-synthetic-service
+          ACCOUNT_SETUP_LINK_SECRET: d02-synthetic-setup
+          APP_PUBLIC_ORIGIN: http://127.0.0.1:4173

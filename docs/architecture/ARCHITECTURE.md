@@ -27,6 +27,8 @@ Complete one ready task within the active child at a time, obey the [deliverable
 
 ## Current-State Truth
 
+The [current capability ownership ledger](CURRENT_OWNERSHIP.md) maps surviving M01–M17 source and delivery families to their logical owners. It records current placement and observed cross-owner consumers; its documented ownership decisions do not claim that module imports have already been cut over.
+
 Password completion uses a server-persisted attempt at the existing auth-provider edge. Admission serializes each actor; a database trigger confirms the password and attempt atomically, and reconciliation fences uncertain writes before another attempt is allowed. Service-only RPCs expose no browser table privileges. The [authentication boundary](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#authentication-boundary) owns the provider transaction and migration requirements.
 
 Organization suspension is enforced before dispatch of Organization writes and API requests by the authenticated request hook and a user-scoped provider adapter. Page GET/HEAD requests retain the suspended shell; layouts alone are not an action/endpoint authorization boundary. Membership, Group scope and feature policy checks remain mandatory downstream.

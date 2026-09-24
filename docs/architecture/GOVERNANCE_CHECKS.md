@@ -34,6 +34,7 @@ These labels are inventory, not permission to add exceptions:
 - it does not prove the authz model is correct
 - it does not replace code review, ADRs or resolution of open product/design decisions
 - it does not yet cover every shallow module or every terminology problem
+- it does not yet enforce the Phase 07 owner, portable/web/server or dependency graph contract; D02 owns that checker and its real-source/fixture proof
 
 ## Baseline File
 
@@ -53,8 +54,9 @@ entries and retain the scan; new drift-ledger entries do not authorize new permi
 ## Current-State Truth Versus Guardrail
 
 - Current-state truth:
-  - v1 still has route-level provider leaks, privileged route/provider seams, and feature-lane piggybacking
+  - v1 still has documented route-level provider leaks and privileged route/provider seams. The six current feature lanes are distinct and `featurePermissionCouplings` is empty; the checker guards against new couplings but does not prove all current policy correct.
+  - cross-owner deep imports, central feature use cases and feature `server/*.ts` placement remain mapped migration work. The existing check does not prove the [chosen module and delivery contract](adrs/0013-v1-module-and-delivery-contract.md).
 - Intended guardrail:
-  - no new leaks, privileged route/provider exceptions, or piggybacking should land
+  - no new leaks, privileged route/provider exceptions or permission borrowing should land; D02 adds executable import/dependency checks without weakening these current guards
 - Queued remediation:
   - finish provider and module cutovers through the stabilization queue, deleting replaced implementations and consumers in each owning task; documentation or a baseline entry cannot substitute for removal evidence

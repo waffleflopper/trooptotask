@@ -37,7 +37,7 @@ Password completion uses a server-persisted attempt at the existing auth-provide
 
 Organization suspension is enforced before dispatch of Organization writes and API requests by the authenticated request hook and a user-scoped provider adapter. Page GET/HEAD requests retain the suspended shell; layouts alone are not an action/endpoint authorization boundary. Membership, Group scope and feature policy checks remain mandatory downstream.
 
-D03 removes commercial plans, read-only guards and overlays from server mutation policy, app-shell data and client affordances. Membership, capability, Group scope, identity ownership and sensitive-action step-up remain mandatory. The shell keeps explicit suspension and optional chrome failure states. D04 removes commercial admin surfaces. D05 03-05b removes Organization billing routes, checkout/portal/recovery, plan reads and billing/subscription wiring from shared request contexts. D05 03-05c removes webhook processing, the Stripe provider and webhook-ledger cleanup; 03-05d and 03-07a remove public pricing, commercial scripts and configuration. D05 documentation and deliverable acceptance are complete and merged. D06 owns integrated acceptance and its explicit blocking repairs; active-schema retirement belongs to phase 04.
+Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects. Current mutation policy and the app shell retain membership, capability, Group scope, identity ownership, suspension and sensitive-action step-up without commercial plan state. Calendar assignments remain independent. The accepted phase records in [EVIDENCE](../stabilization/EVIDENCE.md) own the historical cutover detail; hosted release and migration preflights remain separate owner work.
 
 ### Application shape
 
@@ -63,7 +63,7 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
   - provider and transport adapters in `src/lib/server/adapters/*`
   - schema-first entities in `src/lib/server/entities/*`
   - route wrappers such as `handle()`, `entityHandlers()`, and `loadWithContext()`
-- This architecture is not hypothetical. It is already the strongest part of the codebase and should be treated as the default direction for new server work.
+- These paths are current implementation, not the permanent public feature boundary. New or migrated feature behavior uses the owner-held server seam in [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md), reusing sound typed collaborators and provider adapters until their owning cutovers.
 - Route-local `locals.supabase` logic still exists in a number of places and remains tolerated only as legacy or transitional drift.
 
 ### Auth and authorization
@@ -102,9 +102,9 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
 ### Architectural defaults
 
 - Keep SvelteKit routes thin where practical.
-- Put reusable business logic in feature modules or server use cases, not route files.
-- Put provider-specific behavior behind ports and adapters unless the code is unavoidably auth-provider-specific.
-- Treat entity definitions, route wrappers, and use-case ports as architecture to extend, not as optional experiments.
+- Put reusable business logic behind its feature owner's operation, not in route files. Reuse retained central use cases during their bounded migration without adding a second permanent public path.
+- Keep provider-specific behavior in its owned auth edge, provider adapter or intentional SQL/Storage boundary. Feature policy consumes narrow typed facts and collaborators, not raw provider clients.
+- Reuse current entity mapping, route wrappers and typed ports where they serve the owned operation. Add a new port only for a real current dependency; do not turn the central context into an arbitrary query interface.
 
 ### Provider boundaries
 

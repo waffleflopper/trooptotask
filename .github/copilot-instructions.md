@@ -44,7 +44,7 @@ There are no explicit external reference brands to imitate. The design should st
 
 ## Repo Guardrails
 
-When working in v1, read:
+For v1 work, use the relevant sections of:
 
 - `AGENTS.md`
 - `docs/architecture/ARCHITECTURE.md`
@@ -52,16 +52,18 @@ When working in v1, read:
 - `docs/architecture/MODULE_CONVENTIONS.md`
 - `docs/architecture/DRIFT_LEDGER.md`
 - `docs/architecture/V1_CHANGE_INTENT.md`
-- `UBIQUITOUS_LANGUAGE.md`
+- `docs/architecture/CURRENT_OWNERSHIP.md` and `docs/architecture/adrs/0013-v1-module-and-delivery-contract.md` for module work
+- `CONTEXT.md#language` for domain terminology
 
 Use these repo-specific rules:
 
 - Treat `Organization` and `Group` as canonical v1 current-state terms.
 - Do not present v2 `Account` / `Unit` / `Element` terminology as if it already describes v1.
-- Treat the current authorization implementation as tolerated current-state, not the desired end-state.
+- Keep current Supabase Auth, membership, identifiers, authorization, SQL/RLS and tenant guarantees authoritative while their owned boundaries are narrowed through the stabilization queue.
+- Use current `src/features/*` placement honestly. New cross-owner calls use declared public seams, and privileged feature operations use SvelteKit-recognized server-only files; the Phase 07 checker and later consumer migrations are not yet complete.
 - Do not add new direct `locals.supabase` business logic outside auth-provider edges, ports/adapters, or an explicitly approved remediation slice.
-- Do not deepen feature-permission piggybacking such as Critical Tasks borrowing Training permissions.
-- Use `docs/architecture/GOVERNANCE_BASELINE.json` and `npm run governance:check` as the repo's lightweight allowlist-based enforcement for route-level provider leaks and known permission-lane drift.
+- Keep the six distinct current feature permission lanes; do not borrow another lane for new behavior. Critical Tasks' former Training coupling is resolved.
+- Use `docs/architecture/GOVERNANCE_BASELINE.json` and `npm run governance:check` for existing route-level provider exceptions and permission-coupling prevention. These checks do not yet enforce the Phase 07 module graph; D02 owns that addition.
 - If you touch a documented exception, either reduce it or update the baseline, drift ledger, and nearby docs together. Do not silently normalize a legacy exception into precedent.
 - Preserve compatibility with legacy clinic-era names, but prefer Army/military-oriented canonical terms in docs, UX copy, and new abstractions.
 - Do not deepen demo or sandbox behavior.

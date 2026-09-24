@@ -74,9 +74,9 @@ An available design/domain skill can help stress-test a tradeoff when that is th
   - historical `#637` handled partial billing cancellation; D05 03-05b removes that cancellation/recovery path, and 03-05c removes the webhook/provider and webhook-ledger cleanup
   - several admin/platform routes remain route-local drift
 - Why this is unsatisfying:
-  - provider swap blast radius is still too large
+  - raw provider calls in unrelated feature and route paths obscure current policy and transaction ownership
 - Intended v1 direction:
-  - business logic outside auth and adapters should not depend on provider query APIs
+  - business logic outside owned auth and provider adapters should use narrow feature operations rather than raw provider query APIs, while retaining current Supabase Auth, SQL/RLS, Storage and transaction-specific guarantees
   - beta **Access Request** setup uses app-owned **Account Setup Links** while Supabase Auth remains the authentication provider
 - Constraints to preserve:
   - current auth-provider integration

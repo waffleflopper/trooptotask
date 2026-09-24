@@ -11,7 +11,11 @@ The current SvelteKit app has `src/features/*` UI modules, central `src/lib/serv
 
 Keep `src/features/<owner>` as the module root. Each owner exposes only surfaces used by current callers: a narrow portable contract such as `contracts.ts`, a browser-safe web entrypoint such as `index.ts`, and privileged operations through `index.server.ts` or other `*.server.ts` files. Portable code contains no framework, browser, provider, raw-row or privileged dependency. Web code cannot import server code. Server operations keep feature policy and typed collaborators; current Supabase Auth, SQL/RLS and owner-held provider adapters retain their authority. `src/routes/**` composes pages, forms and existing JSON transport around those operations. Shared leaves cannot depend on product modules. Cross-owner calls use declared public seams in an acyclic graph.
 
+The current `src/features/groups/` folder is a physical split of Personnel-owned Group UI, not another persisted-data or policy owner. D02 classifies that folder's real imports; 08-M04 moves its consumer into the Personnel owner root. No separate permanent Groups public contract is implied.
+
 D02 will create one `scripts/module-boundaries.json` declaration and checker for module roots, dependencies and object ownership. The current ownership ledger remains the reviewable inventory; the two must agree. A partly migrated module needs no empty manifest, directory or export. D03 must place the one leader-note data contract under Personnel and make existing page, JSON and Svelte consumers use it. The [module conventions](../MODULE_CONVENTIONS.md#chosen-module-and-delivery-contract-07-01d) specify current response meanings, bounded persistence reads with complete legacy JSON results and test placement.
+
+Cross-owner imports flow from composition to source-owned public seams; routes may compose multiple owners directly. A source owner cannot import a composer merely to obtain a view, and neutral infrastructure cannot import product owners. The [module conventions](../MODULE_CONVENTIONS.md#chosen-module-and-delivery-contract-07-01d) record current examples and the Personnel/Calendar cycle avoidance. D02 verifies this target against the actual graph while recording unfinished Phase 08 migrations.
 
 ## Alternatives Considered
 

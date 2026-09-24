@@ -36,9 +36,9 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
         - the organization members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** through a narrow optional service-role port on `UseCaseContext`, wired in `httpAdapter.ts` alongside `signInRosterPersonnelLookup`, rather than through route-level provider access (ADR 0012)
         - multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
-  - outside auth and adapter edges, business logic should be provider-agnostic
+  - outside owned auth and provider-adapter edges, business policy should use narrow feature operations rather than raw provider clients or arbitrary table queries. Current Supabase Auth, SQL/RLS, Storage and transactional guarantees remain owned infrastructure.
 - Why this matters:
-  - database-provider changes should not require feature and route rewrites
+  - unowned provider calls obscure policy and transaction authority across current feature and delivery paths
 - Guardrail until fixed:
   - use app-owned use cases and adapters for business logic; remediation must remove existing leaks without adding baseline exceptions
 - Recommended next slice:

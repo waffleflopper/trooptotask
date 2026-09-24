@@ -34,7 +34,13 @@ These labels are inventory, not permission to add exceptions:
 - it does not prove the authz model is correct
 - it does not replace code review, ADRs or resolution of open product/design decisions
 - it does not yet cover every shallow module or every terminology problem
-- it does not yet enforce the Phase 07 owner, portable/web/server or dependency graph contract; D02 owns that checker and its real-source/fixture proof
+- the canonical `governance:check` does not yet enforce the Phase 07 owner, portable/web/server or dependency graph contract; D02 finishes its integration in 07-02c
+
+## Phase 07 D02 boundary work in progress
+
+`node scripts/module-boundaries.ts` runs the standalone 07-02b check over the complete `src` import graph from `scripts/module-imports.ts`. Its [owner declaration](../../scripts/module-boundaries.json) assigns every current source file exactly one owner, declares the D01 dependency direction and current public paths, and records known mixed-owner files as findings. The checker reports private cross-owner imports, undeclared dependencies, source-file and owner cycles, plus missing or duplicate ownership. Every current finding is printed with an owning Phase 08 packet; the command exits nonzero while that work remains. The report is evidence of migration debt, not an exception list or a passing global gate.
+
+This command is not yet part of `npm run governance:check`. Leaf 07-02c owns portable/web/server direction, SvelteKit server-only placement, and integration without reducing the existing route/provider/permission controls. See the [current D02 evidence](../stabilization/EVIDENCE.md#task-07-02b-ownership-and-public-dependency-rule) for the exact candidate and report counts.
 
 ## Baseline File
 
@@ -55,7 +61,7 @@ entries and retain the scan; new drift-ledger entries do not authorize new permi
 
 - Current-state truth:
   - v1 still has documented route-level provider leaks and privileged route/provider seams. The six current feature lanes are distinct and `featurePermissionCouplings` is empty; the checker detects configured foreign-lane couplings in the Critical Tasks and Rating Scheme families only (`FEATURE_PERMISSION_FAMILIES` in `scripts/check-governance.mjs`). It does not scan every feature for permission borrowing or prove policy correctness. Personnel's rank-catalog Training-view read is an intentional cross-owner read documented in the [ownership ledger](CURRENT_OWNERSHIP.md#persisted-and-operational-ownership-07-01b), not evidence of complete scanner coverage.
-  - cross-owner deep imports, central feature use cases and feature `server/*.ts` placement remain mapped migration work. The existing check does not prove the [chosen module and delivery contract](adrs/0013-v1-module-and-delivery-contract.md).
+  - cross-owner deep imports, central feature use cases and feature `server/*.ts` placement remain mapped migration work. The standalone 07-02b check reports ownership and dependency findings, but does not yet prove the full [chosen module and delivery contract](adrs/0013-v1-module-and-delivery-contract.md).
 - Intended guardrail:
   - no new leaks, privileged route/provider exceptions or permission borrowing should land; D02 adds executable import/dependency checks without weakening these current guards
 - Queued remediation:

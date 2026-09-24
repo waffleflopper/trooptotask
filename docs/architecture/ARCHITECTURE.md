@@ -27,11 +27,17 @@ Complete one ready task within the active child at a time, obey the [deliverable
 
 ## Current-State Truth
 
+The [current capability ownership ledger](CURRENT_OWNERSHIP.md) maps surviving M01–M17 source and delivery families to their logical owners. It records current placement and observed cross-owner consumers; its documented ownership decisions do not claim that module imports have already been cut over.
+
+The [trusted identity and access contract](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#trusted-identity-and-access-contract-07-01c) records current Supabase admission, distinct user/Personnel/membership/Organization identifiers, invitation transitions and SQL/Storage enforcement. D01 describes the intended narrow operation context; current broad request contexts remain implementation work for D03 and Phase 08.
+
+The [chosen module and delivery contract](MODULE_CONVENTIONS.md#chosen-module-and-delivery-contract-07-01d) and [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md) use the existing `src/features/<owner>` roots with distinct consumed portable, web and SvelteKit-recognized server-only seams. Today, central use cases, feature `server/*.ts` files and deep route imports do not yet satisfy that contract. D02 owns enforcement; D03 and Phase 08 own complete consumer cutovers.
+
 Password completion uses a server-persisted attempt at the existing auth-provider edge. Admission serializes each actor; a database trigger confirms the password and attempt atomically, and reconciliation fences uncertain writes before another attempt is allowed. Service-only RPCs expose no browser table privileges. The [authentication boundary](AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md#authentication-boundary) owns the provider transaction and migration requirements.
 
 Organization suspension is enforced before dispatch of Organization writes and API requests by the authenticated request hook and a user-scoped provider adapter. Page GET/HEAD requests retain the suspended shell; layouts alone are not an action/endpoint authorization boundary. Membership, Group scope and feature policy checks remain mandatory downstream.
 
-D03 removes commercial plans, read-only guards and overlays from server mutation policy, app-shell data and client affordances. Membership, capability, Group scope, identity ownership and sensitive-action step-up remain mandatory. The shell keeps explicit suspension and optional chrome failure states. D04 removes commercial admin surfaces. D05 03-05b removes Organization billing routes, checkout/portal/recovery, plan reads and billing/subscription wiring from shared request contexts. D05 03-05c removes webhook processing, the Stripe provider and webhook-ledger cleanup; 03-05d and 03-07a remove public pricing, commercial scripts and configuration. D05 documentation and deliverable acceptance are complete and merged. D06 owns integrated acceptance and its explicit blocking repairs; active-schema retirement belongs to phase 04.
+Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects. Current mutation policy and the app shell retain membership, capability, Group scope, identity ownership, suspension and sensitive-action step-up without commercial plan state. Calendar assignments remain independent. The accepted phase records in [EVIDENCE](../stabilization/EVIDENCE.md) own the historical cutover detail; hosted release and migration preflights remain separate owner work.
 
 ### Application shape
 
@@ -57,7 +63,7 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
   - provider and transport adapters in `src/lib/server/adapters/*`
   - schema-first entities in `src/lib/server/entities/*`
   - route wrappers such as `handle()`, `entityHandlers()`, and `loadWithContext()`
-- This architecture is not hypothetical. It is already the strongest part of the codebase and should be treated as the default direction for new server work.
+- These paths are current implementation, not the permanent public feature boundary. New or migrated feature behavior uses the owner-held server seam in [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md), reusing sound typed collaborators and provider adapters until their owning cutovers.
 - Route-local `locals.supabase` logic still exists in a number of places and remains tolerated only as legacy or transitional drift.
 
 ### Auth and authorization
@@ -96,15 +102,15 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
 ### Architectural defaults
 
 - Keep SvelteKit routes thin where practical.
-- Put reusable business logic in feature modules or server use cases, not route files.
-- Put provider-specific behavior behind ports and adapters unless the code is unavoidably auth-provider-specific.
-- Treat entity definitions, route wrappers, and use-case ports as architecture to extend, not as optional experiments.
+- Put reusable business logic behind its feature owner's operation, not in route files. Reuse retained central use cases during their bounded migration without adding a second permanent public path.
+- Keep provider-specific behavior in its owned auth edge, provider adapter or intentional SQL/Storage boundary. Feature policy consumes narrow typed facts and collaborators, not raw provider clients.
+- Reuse current entity mapping, route wrappers and typed ports where they serve the owned operation. Add a new port only for a real current dependency; do not turn the central context into an arbitrary query interface.
 
 ### Provider boundaries
 
 - Outside auth-provider edges and adapter code, business logic should not need to know about Supabase-specific query APIs.
 - New business logic and route orchestration must use app-owned use cases and adapters. Auth-provider-specific edges remain distinct; remediation must reduce existing provider leaks rather than add exceptions.
-- The long-term v1 goal is that a database-provider swap would primarily change adapter code and connection wiring, not business logic or feature modules.
+- Keep owned Supabase Auth, SQL/RLS, Storage and transaction guarantees explicit. Narrow feature operations and remove provider leakage through their owning cutovers; provider replacement is outside stabilization.
 
 ### Authorization direction
 
@@ -115,7 +121,7 @@ D03 removes commercial plans, read-only guards and overlays from server mutation
   - capability or grant
   - scope
   - policy decision
-- Give each feature its own permission lane. Do not create new cross-feature permission piggybacking just because a legacy coupling already exists.
+- Keep the six distinct current feature permission lanes. Do not introduce cross-feature permission piggybacking; the former Critical Tasks and Rating Scheme couplings are resolved, and the current governance baseline lists none.
 - Treat better auditability and explainability of authorization as first-class goals, not incidental improvements.
 
 ### Module deepening

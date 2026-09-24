@@ -1,6 +1,6 @@
 # V1 Drift Ledger
 
-Phase 03 D05 task 03-05a removes the scheduled billing reconciliation route and its direct service-role store/audit wiring. Its governance baseline entry is deleted. Task 03-05b also removes single-Organization checkout/portal/recovery and billing/subscription ports from shared request contexts; 03-05c removes the webhook/provider and its ledger-cleanup caller while preserving authorized audit cleanup.
+Phase 03 D05 task 03-05a removed the scheduled billing reconciliation route and its direct service-role store/audit wiring. Its governance baseline entry was deleted. Task 03-05b also removed single-Organization checkout/portal/recovery and billing/subscription ports from shared request contexts; 03-05c removed the webhook/provider and its ledger-cleanup caller while preserving authorized audit cleanup.
 
 This ledger records places where current v1 reality and intended v1 direction diverge.
 
@@ -18,8 +18,8 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
 - Current-state truth:
   - many server paths already use ports, adapters, entities, and use cases
   - invite acceptance page loading now uses hook-verified identity and pending-flow state; its redundant provider-session lookup and governance exception are removed
-  - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b deletes the billing delivery helpers, retaining the export lifecycle
-  - historical `#637` handled partial billing cancellation; D05 03-05b removes cancellation/recovery entirely, and 03-05c removes the webhook/provider
+  - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b deleted the billing delivery helpers, retaining the export lifecycle
+  - historical `#637` handled partial billing cancellation; D05 03-05b removed cancellation/recovery entirely, and 03-05c removed the webhook/provider
     - Critical Tasks workspace settings now load through an app-owned use case instead of the route layout
     - the legacy platform invite-code runtime route has been removed
     - Platform Administration aggregate Organization metrics now route through the `PlatformMetrics` use case and Supabase adapter instead of the route-level helper
@@ -36,9 +36,9 @@ Apply the [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) and
         - the organization members settings screen reads **Account Setup Link** state for its own pending **Organization Invitations** through a narrow optional service-role port on `UseCaseContext`, wired in `httpAdapter.ts` alongside `signInRosterPersonnelLookup`, rather than through route-level provider access (ADR 0012)
         - multiple non-adapter routes still depend directly on `locals.supabase`, especially admin operations and some remaining layout helpers
 - Intended direction:
-  - outside auth and adapter edges, business logic should be provider-agnostic
+  - outside owned auth and provider-adapter edges, business policy should use narrow feature operations rather than raw provider clients or arbitrary table queries. Current Supabase Auth, SQL/RLS, Storage and transactional guarantees remain owned infrastructure.
 - Why this matters:
-  - database-provider changes should not require feature and route rewrites
+  - unowned provider calls obscure policy and transaction authority across current feature and delivery paths
 - Guardrail until fixed:
   - use app-owned use cases and adapters for business logic; remediation must remove existing leaks without adding baseline exceptions
 - Recommended next slice:
@@ -86,12 +86,13 @@ The scoped Dashboard browser check exposed an unconditional Training summary req
   - Training and Critical Tasks readiness counting now folds through the shared Readiness Rollup domain module (one home for the matrix walk, percent rounding, zero-applicable conventions, and seeded empty axes) instead of six hand-rolled per-feature aggregation loops, with classification, applicability gates, and presenters staying feature-owned
 - Intended direction:
   - deeper modules with thinner public interfaces
+  - follow the [chosen module and delivery contract](adrs/0013-v1-module-and-delivery-contract.md) through the owning phase-07/08 cutovers; this entry does not claim the current import graph is compliant
 - Why this matters:
   - large orchestration surfaces are harder to test, reason about, and safely change
 - Guardrail until fixed:
   - use explicit architecture-review slices for deepening instead of incidental churn
 - Recommended next slice:
-  - after the phase 05 Duty Roster runtime cutover, deepen retained Calendar, Personnel and Training modules through their queued tasks; phase 06 owns duty-only schema retirement
+  - Phases 05–06 completed Duty Roster runtime and local target-schema retirement. Deepen retained Calendar, Personnel and Training modules through their queued Phase 07/08 tasks; hosted app/schema parity remains separate owner verification
 
 ## D-08 Route-Level Membership And Settings Logic (Resolved For Org Settings Governance)
 
@@ -103,7 +104,7 @@ The scoped Dashboard browser check exposed an unconditional Training summary req
   - organization settings rename moved behind an app-owned use case and Supabase adapter in this architecture deepening slice
   - organization governance pages now live under `/org/[orgId]/settings/*`
   - stabilization 02-02-01b-03-02 closes the Organization suspension dispatch gap: a shared hook gate and user-scoped adapter deny writes/API requests before their consumers run, while page navigation retains the suspended shell; no new route provider exception is required
-  - stabilization D03 removes tier reads, commercial DTOs and overlays from the retained shell, feature affordances and general settings; explicit suspension, membership, Group scope and step-up remain, and D05 03-05b removes billing pages and their commercial readers
+  - stabilization D03 removed tier reads, commercial DTOs and overlays from the retained shell, feature affordances and general settings; explicit suspension, membership, Group scope and step-up remain, and D05 03-05b removed billing pages and their commercial readers
 - Intended direction:
   - app-owned use cases and cleaner boundaries for membership, invitation, and organization-administration flows
 - Why this matters:

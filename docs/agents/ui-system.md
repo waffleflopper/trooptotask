@@ -19,6 +19,7 @@ Use this file for UI component work, shared styling, route UI changes, app-shell
 - Route-level variation is behavioral only: data, labels, validation, permissions, filters, columns, actions, state, and event handlers.
 - For a component fit gap within authorized UI work, implement the smallest shared API extension and update its consumers and catalog. Preserve existing consumer behavior.
 - Feature-owned behavioral composition can use existing primitives within the requested scope. Keep visual ownership shared and avoid duplicate primitive APIs or compatibility wrappers. Ordinary behavioral composition and shared API extensions do not need renewed approval when already authorized.
+- The component system is web-specific. Feature owners compose Svelte views and scoped client state around shared primitives; a shared primitive does not own feature policy, persisted data or another feature's mutable store. Keep responsive web behavior and the existing accessible interaction contract. No native or universal component API is implied by the module's portable data contract.
 
 This guide owns the visual and composition policy; the catalog owns component usage. Document reusable variants there and verify affected consumers when changing a shared API or appearance.
 
@@ -27,7 +28,7 @@ This guide owns the visual and composition policy; the catalog owns component us
 - Do not migrate or redesign production routes unless the task explicitly asks for it.
 - When route UI work is in scope, use Tailwind utility composition that matches the shared component baseline.
 - Remove obsolete route-local CSS only when the route slice owns that surface and the shared replacement is already available.
-- Keep business rules in feature modules, contexts, stores, server use cases, or shared services. Do not enforce important rules only through UI state.
+- Keep business rules in owner-held feature operations or domain rules, using retained central use cases only until their owning cutover. Contexts and stores support presentation; they do not authorize operations or become a second home for feature policy. Do not enforce important rules only through UI state.
 
 ## Consistent screens and interactions
 

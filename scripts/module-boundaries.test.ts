@@ -62,6 +62,143 @@ describe('module boundary declaration', () => {
 		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
 	});
 
+	it('rejects a browser import chain into a feature server file without recognized placement', () => {
+		const { graph, manifest } = fixture([
+			{
+				path: 'src/features/alpha/Panel.svelte',
+				content: '<script lang="ts">import { value } from "./index";</script>{value}'
+			},
+			{ path: 'src/features/alpha/index.ts', content: "export { value } from './server/data';" },
+			{ path: 'src/features/alpha/server/data.ts', content: 'export const value = true;' }
+		]);
+		const kinds = checkModuleBoundaries(graph, manifest).map((issue) => issue.kind);
+		expect(kinds).toContain('web-privilege');
+		expect(kinds).toContain('server-placement');
+	});
+
+	it('rejects transitive server-only and private-env imports from a web entry', () => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/index.ts', content: "export { value } from './bridge';" },
+			{ path: 'src/features/alpha/bridge.ts', content: "export { value } from './data.server';" },
+			{
+				path: 'src/features/alpha/data.server.ts',
+				content: "import { SECRET } from '$env/static/private'; export const value = SECRET;"
+			}
+		]);
+		const issues = checkModuleBoundaries(graph, manifest).filter((issue) => issue.kind === 'web-privilege');
+		expect(issues.some((issue) => issue.message.includes('data.server.ts'))).toBe(true);
+	});
+
+	it('rejects portable imports of Svelte, providers and DOM globals through barrels', () => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/contracts.ts', content: "export { value } from './plain';" },
+			{
+				path: 'src/features/alpha/plain.ts',
+				content:
+					"import type { User } from '@supabase/supabase-js'; import { tick } from 'svelte'; export const value = window.location.href;"
+			}
+		]);
+		const kinds = checkModuleBoundaries(graph, manifest).map((issue) => issue.kind);
+		expect(kinds).toContain('portable-leak');
+		expect(kinds).toContain('portable-global');
+	});
+
+	it.each([
+		["import { page } from '$app/state'; export type Note = typeof page;", '$app/state'],
+		["import { readFileSync } from 'node:fs'; export const note = readFileSync;", 'node:fs'],
+		["import { readFileSync } from 'fs'; export const note = readFileSync;", 'fs'],
+		["import { read } from '$app/server'; export const note = read;", '$app/server']
+	])('rejects a portable contract that imports %s', (content, specifier) => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/contracts.ts', content },
+			{ path: 'src/features/beta/index.ts', content: 'export type Empty = never;' }
+		]);
+		expect(
+			checkModuleBoundaries(graph, manifest).some(
+				(issue) => issue.kind === 'portable-leak' && issue.message.includes(specifier)
+			)
+		).toBe(true);
+	});
+
+	it('rejects a portable contract that reaches browser globals through globalThis', () => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/contracts.ts', content: 'export const value = globalThis.window.localStorage;' },
+			{ path: 'src/features/beta/index.ts', content: 'export type Empty = never;' }
+		]);
+		expect(checkModuleBoundaries(graph, manifest).some((issue) => issue.kind === 'portable-global')).toBe(true);
+	});
+
+	it('allows neutral globalThis APIs but rejects aliases that could hide browser access', () => {
+		const sources = [
+			{
+				path: 'src/features/alpha/contracts.ts',
+				content:
+					'export const copy = globalThis.structuredClone(globalThis.JSON.stringify(globalThis.Math.max(1, 2)) + globalThis.TextEncoder.name + globalThis.URL.name);'
+			},
+			{ path: 'src/features/alpha/index.ts', content: "export { copy } from './contracts';" },
+			{ path: 'src/features/beta/index.ts', content: 'export type Empty = never;' }
+		];
+		const { manifest } = fixture(sources);
+		const graph = buildImportGraph(sources, (candidate) => sources.some((source) => source.path === candidate));
+		expect(checkModuleBoundaries({ sourcePaths: sources.map((source) => source.path), ...graph }, manifest)).toEqual(
+			[]
+		);
+		const alias = [
+			{ ...sources[0], content: 'const browser = globalThis; export const copy = browser.window;' },
+			...sources.slice(1)
+		];
+		const aliasGraph = buildImportGraph(alias, (candidate) => alias.some((source) => source.path === candidate));
+		expect(
+			checkModuleBoundaries({ sourcePaths: alias.map((source) => source.path), ...aliasGraph }, manifest).some(
+				(issue) => issue.kind === 'portable-global'
+			)
+		).toBe(true);
+		for (const content of [
+			'export const copy = globalThis.process.env.NODE_ENV;',
+			'export const copy = globalThis.Buffer.from("x");',
+			'export const copy = process.env.NODE_ENV;',
+			'export const copy = Buffer.from("x");'
+		]) {
+			const nodeOnly = [{ ...sources[0], content }, ...sources.slice(1)];
+			const nodeGraph = buildImportGraph(nodeOnly, (candidate) => nodeOnly.some((source) => source.path === candidate));
+			expect(
+				checkModuleBoundaries({ sourcePaths: nodeOnly.map((source) => source.path), ...nodeGraph }, manifest).some(
+					(issue) => issue.kind === 'portable-global'
+				)
+			).toBe(true);
+		}
+	});
+
+	it('checks a root route load as browser code and rejects its transitive server import', () => {
+		const sources = [
+			{ path: 'src/routes/+page.ts', content: "export { value } from '$features/alpha/index';" },
+			{ path: 'src/features/alpha/index.ts', content: "export { value } from './value.server';" },
+			{ path: 'src/features/alpha/value.server.ts', content: 'export const value = true;' }
+		];
+		const graph = buildImportGraph(sources, (candidate) => sources.some((source) => source.path === candidate));
+		const { manifest } = fixture(sources);
+		manifest.owners.delivery = { roots: ['src/routes/'], files: [], packet: '08-M17' };
+		manifest.dependencies.delivery = ['alpha'];
+		expect(
+			checkModuleBoundaries({ sourcePaths: sources.map((source) => source.path), ...graph }, manifest).some(
+				(issue) => issue.kind === 'web-privilege' && issue.message.includes('src/routes/+page.ts')
+			)
+		).toBe(true);
+	});
+
+	it('accepts a pure consumed contract and a recognized server operation', () => {
+		const { graph, manifest } = fixture([
+			{ path: 'src/features/alpha/index.ts', content: "export type { Note } from './contracts';" },
+			{ path: 'src/features/alpha/contracts.ts', content: 'export type Note = { id: string };' },
+			{
+				path: 'src/features/alpha/index.server.ts',
+				content: "import type { Note } from './contracts'; export type Read = () => Promise<Note>;"
+			},
+			{ path: 'src/features/beta/index.ts', content: 'export type Empty = never;' }
+		]);
+		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
+	});
+
 	it('keeps public routes outside privileged provider dependencies', () => {
 		const sources = [
 			{ path: 'src/routes/+page.server.ts', content: "import { client } from '$lib/server/supabase';" },

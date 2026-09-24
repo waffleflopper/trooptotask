@@ -195,6 +195,7 @@ function resolveImport(
 function buildImportGraph(sources: Source[], isFile: (candidate: string) => boolean) {
 	const edges: ImportEdge[] = [];
 	const failures: Failure[] = [];
+	const contents = Object.fromEntries(sources.map(({ path, content }) => [path, content]));
 	for (const { path: filePath, content } of sources) {
 		let parsed;
 		try {
@@ -222,7 +223,7 @@ function buildImportGraph(sources: Source[], isFile: (candidate: string) => bool
 			}
 		}
 	}
-	return { edges, failures };
+	return { edges, failures, contents };
 }
 
 function scanRepository(root: string) {

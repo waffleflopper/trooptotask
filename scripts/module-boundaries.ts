@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { scanRepository } from './module-imports.ts';
 
 type Owner = { roots: string[]; files: string[]; packet: string };
@@ -13,8 +15,78 @@ type Manifest = {
 	mixedFiles: Record<string, { packet: string; reason: string }>;
 };
 type Edge = { from: string; to?: string; classification: string; specifier: string };
-type Graph = { sourcePaths: string[]; edges: Edge[]; failures: { file: string; message: string }[] };
+type Graph = {
+	sourcePaths: string[];
+	edges: Edge[];
+	failures: { file: string; message: string }[];
+	contents: Record<string, string>;
+};
 type Violation = { kind: string; file: string; message: string; packet: string };
+const NODE_BUILTINS = new Set(builtinModules);
+const PORTABLE_GLOBAL_MEMBERS = new Set([
+	'AggregateError',
+	'Array',
+	'ArrayBuffer',
+	'Atomics',
+	'BigInt',
+	'BigInt64Array',
+	'BigUint64Array',
+	'Boolean',
+	'DataView',
+	'Date',
+	'Error',
+	'EvalError',
+	'FinalizationRegistry',
+	'Float32Array',
+	'Float64Array',
+	'Infinity',
+	'Int8Array',
+	'Int16Array',
+	'Int32Array',
+	'Intl',
+	'JSON',
+	'Map',
+	'Math',
+	'NaN',
+	'Number',
+	'Object',
+	'Promise',
+	'Proxy',
+	'RangeError',
+	'ReferenceError',
+	'Reflect',
+	'RegExp',
+	'Set',
+	'SharedArrayBuffer',
+	'String',
+	'Symbol',
+	'SyntaxError',
+	'TypeError',
+	'URIError',
+	'Uint8Array',
+	'Uint8ClampedArray',
+	'Uint16Array',
+	'Uint32Array',
+	'WeakMap',
+	'WeakRef',
+	'WeakSet',
+	'decodeURI',
+	'decodeURIComponent',
+	'encodeURI',
+	'encodeURIComponent',
+	'isFinite',
+	'isNaN',
+	'parseFloat',
+	'parseInt',
+	'structuredClone',
+	'URL',
+	'URLSearchParams',
+	'TextEncoder',
+	'TextDecoder',
+	'atob',
+	'btoa',
+	'undefined'
+]);
 
 function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
 	const violations: Violation[] = [];
@@ -133,12 +205,163 @@ function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
 			add('mixed-owner', file, mixed.reason, mixed.packet);
 		}
 	}
+	violations.push(...checkPrivilegeBoundaries(graph, sourceOwners, manifest));
 	return violations.sort(
 		(left, right) =>
 			left.file.localeCompare(right.file) ||
 			left.kind.localeCompare(right.kind) ||
 			left.message.localeCompare(right.message)
 	);
+}
+
+function isServerOnly(file: string): boolean {
+	return (
+		file.startsWith('src/lib/server/') ||
+		/\.server\.[cm]?[jt]sx?$/.test(file) ||
+		/^src\/routes\/(?:.*\/)?\+server\.[jt]s$/.test(file)
+	);
+}
+
+function isWebEntry(file: string): boolean {
+	return (
+		file.endsWith('.svelte') ||
+		file.endsWith('.svelte.ts') ||
+		file === 'src/hooks.client.ts' ||
+		/^src\/routes\/(?:.*\/)?\+(?:page|layout)\.[jt]s$/.test(file) ||
+		/^src\/features\/[^/]+\/index\.[jt]s$/.test(file)
+	);
+}
+
+function isPortableEntry(file: string): boolean {
+	return /^src\/features\/[^/]+\/contracts\.[jt]s$/.test(file);
+}
+
+function browserGlobals(content: string, file: string): string[] {
+	const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, true);
+	const names = new Set([
+		'self',
+		'window',
+		'document',
+		'navigator',
+		'localStorage',
+		'sessionStorage',
+		'indexedDB',
+		'location',
+		'history',
+		'screen',
+		'Window',
+		'Document',
+		'HTMLElement',
+		'Storage',
+		'process',
+		'Buffer',
+		'global',
+		'module',
+		'exports',
+		'require',
+		'__dirname',
+		'__filename',
+		'setImmediate'
+	]);
+	const found = new Set<string>();
+	function visit(node: ts.Node) {
+		if (ts.isIdentifier(node) && node.text === 'globalThis') {
+			const parent = node.parent;
+			if (ts.isPropertyAccessExpression(parent) && parent.expression === node) {
+				if (!PORTABLE_GLOBAL_MEMBERS.has(parent.name.text)) found.add(`globalThis.${parent.name.text}`);
+			} else if (
+				ts.isElementAccessExpression(parent) &&
+				parent.expression === node &&
+				ts.isStringLiteral(parent.argumentExpression)
+			) {
+				if (!PORTABLE_GLOBAL_MEMBERS.has(parent.argumentExpression.text)) {
+					found.add(`globalThis.${parent.argumentExpression.text}`);
+				}
+			} else {
+				found.add('globalThis alias or computed access');
+			}
+		}
+		if (ts.isIdentifier(node) && names.has(node.text)) {
+			const parent = node.parent;
+			const isName =
+				(ts.isPropertyAccessExpression(parent) && parent.name === node) ||
+				(ts.isPropertyAssignment(parent) && parent.name === node) ||
+				(ts.isVariableDeclaration(parent) && parent.name === node) ||
+				(ts.isParameter(parent) && parent.name === node) ||
+				(ts.isImportSpecifier(parent) && parent.name === node);
+			if (!isName) found.add(node.text);
+		}
+		ts.forEachChild(node, visit);
+	}
+	visit(source);
+	return [...found].sort();
+}
+
+function checkPrivilegeBoundaries(
+	graph: Graph,
+	owners: Map<string, string | undefined>,
+	manifest: Manifest
+): Violation[] {
+	const result: Violation[] = [];
+	const adjacency = new Map(graph.sourcePaths.map((file) => [file, [] as Edge[]]));
+	for (const edge of graph.edges) adjacency.get(edge.from)?.push(edge);
+	const seen = new Set<string>();
+	const report = (kind: string, file: string, message: string) => {
+		const key = `${kind}:${file}:${message}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		const owner = owners.get(file);
+		result.push({ kind, file, message, packet: owner ? manifest.owners[owner].packet : '07-02c' });
+	};
+	for (const file of graph.sourcePaths) {
+		if (/^src\/features\/[^/]+\/server\//.test(file) && !isServerOnly(file)) {
+			report('server-placement', file, 'Feature server file lacks SvelteKit-recognized server-only placement');
+		}
+	}
+	for (const root of graph.sourcePaths) {
+		const portable = isPortableEntry(root);
+		if (!portable && !isWebEntry(root)) continue;
+		const visited = new Set<string>();
+		const pending = [root];
+		while (pending.length) {
+			const file = pending.pop()!;
+			if (visited.has(file)) continue;
+			visited.add(file);
+			if (portable) {
+				for (const global of browserGlobals(graph.contents[file] ?? '', file)) {
+					report('portable-global', file, `Browser global ${global} reached from ${root}`);
+				}
+			}
+			for (const edge of adjacency.get(file) ?? []) {
+				const target = edge.to;
+				const specifier = edge.specifier;
+				const privileged =
+					(target && (isServerOnly(target) || /^src\/features\/[^/]+\/server\//.test(target))) ||
+					/^\$env\/(?:static|dynamic)\/private$/.test(specifier) ||
+					/^(?:node:|\$app\/server$|@sveltejs\/kit\/node)/.test(specifier) ||
+					NODE_BUILTINS.has(specifier);
+				const nonportable =
+					privileged ||
+					(target &&
+						(target.endsWith('.svelte') ||
+							target.endsWith('.svelte.ts') ||
+							target.startsWith('src/routes/') ||
+							target.startsWith('src/lib/components/') ||
+							/database\.types\.[jt]s$/.test(target))) ||
+					/^(?:svelte(?:\/|$)|\$app\/|\$env\/|@supabase\/|@sveltejs\/|@vercel\/)/.test(specifier);
+				if (portable ? nonportable : privileged) {
+					report(
+						portable ? 'portable-leak' : 'web-privilege',
+						file,
+						`${specifier}${target ? ` (${target})` : ''} reached from ${root}`
+					);
+					continue;
+				}
+				if (target && adjacency.has(target)) pending.push(target);
+			}
+		}
+	}
+	return result;
 }
 
 function isPublic(file: string, owner: string, manifest: Manifest): boolean {
@@ -197,4 +420,4 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 }
 
 export { checkModuleBoundaries };
-export type { Manifest };
+export type { Manifest, Violation };

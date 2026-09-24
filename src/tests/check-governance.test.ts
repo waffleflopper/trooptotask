@@ -1,7 +1,8 @@
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 
-const governanceModuleUrl = new URL('../../scripts/check-governance.mjs', import.meta.url).href;
-const governance = (await import(/* @vite-ignore */ governanceModuleUrl)) as {
+const require = createRequire(import.meta.url);
+const governance = require('../../scripts/check-governance.mjs') as {
 	collectFeaturePermissionCouplingIssues(
 		sourceFiles: Array<{ path: string; content: string }>,
 		baselineEntries: Array<{ feature: string; path: string; pattern: string }>

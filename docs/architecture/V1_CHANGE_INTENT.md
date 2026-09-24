@@ -116,6 +116,7 @@ An available design/domain skill can help stress-test a tradeoff when that is th
   - understanding one concept still requires too much file-jumping and too many broad surfaces
 - Intended v1 direction:
   - progressively deepen modules with thinner public interfaces
+  - use the chosen [owner-held portable, web and server seams](adrs/0013-v1-module-and-delivery-contract.md) when a current capability is migrated; finish its consumers and delete replaced central paths
 - Constraints to preserve:
   - user-visible behavior and current route contracts
 - Open questions:

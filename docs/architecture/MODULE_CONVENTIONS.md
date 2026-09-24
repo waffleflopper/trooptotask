@@ -20,6 +20,30 @@ That trend is real, but not finished. Contributors should strengthen it instead 
 
 For stabilization, apply the [program decisions](ARCHITECTURE.md#stabilization-decisions): each declared module or UI migration includes all affected consumers and deletion of replaced implementations, old-path wrappers, aliases and configuration. A migrated example component or a compatibility facade does not complete a cutover.
 
+## Chosen module and delivery contract (07-01d)
+
+This is the target for the existing SvelteKit application, not a description of an already enforced import graph. The [ownership ledger](CURRENT_OWNERSHIP.md) assigns today's capabilities and data even where their code still lives in routes or central server files. [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md) records why the existing `src/features/<owner>` roots remain the module roots. Create or move files only with a consuming cutover; do not create empty entrypoints or directories.
+
+| Surface  | Target seam and allowed dependencies                                                                                                                                                                                                                                                                                                                                                         | Current reason to exist                                                                                                                                                                                                                                 |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Portable | Owner-held `contracts.ts` or a similarly narrow explicit export under `src/features/<owner>/`. Plain data shapes, validation and pure rules may depend on domain-neutral leaves and declared portable exports of another owner. No Svelte/runes, `$app`, DOM/storage, provider SDK, raw database rows, Node-only code or credentials.                                                        | Personnel's leader-note shape is used by page data, JSON routes and Svelte views today. D03 must put its one authoritative representation under Personnel and make these actual consumers import it. Do not manufacture a contract for a future client. |
+| Web      | Owner-held browser-safe `index.ts` and feature UI/state exports. They may use their own portable contracts, neutral UI primitives and declared public exports of another owner, but never a privileged module. A web barrel may export Svelte code and is **not** a portable entrypoint.                                                                                                     | Existing Personnel detail and notes views and their draft/fetch logic are web consumers. Other feature UI must not reach foreign mutable stores or private files.                                                                                       |
+| Server   | Owner-held `index.server.ts` (and other `*.server.ts` files where needed) exposes authorized operations to server routes and declared server collaborators. Implementation may use owner-held typed ports and provider adapters, shared trusted-access infrastructure and owned SQL; it does not export a raw provider client, universal request context or arbitrary table/query interface. | Current leader-note operations are in `src/lib/server/core/useCases/personnelLeaderNotes.ts`; the page loads and JSON handlers call them directly. D03 moves this seam and D03/07-04 cuts over every current caller before deleting the replaced path.  |
+
+`src/routes/**` owns SvelteKit page, form and JSON transport composition; `src/hooks.server.ts` owns request admission. Server loads and `+server.ts` handlers establish the trusted actor and requested Organization/resource access, then invoke the same owner operation directly. Server-rendered routes do not call their own JSON endpoints over HTTP. Browser code uses authorized page data or the existing JSON routes for interactions. Routes may import an owner's public web, portable or server seam appropriate to their execution context, but cannot treat a deep private feature file as public merely because it is reachable. Shared UI/utilities and provider infrastructure are leaves or lower-level collaborators; they do not import product modules. Cross-owner dependencies must be declared, point only to the other owner's public seam and form an acyclic graph. The source owner retains policy and mapping; a dashboard or report may compose its reads without taking over its tables or mutable stores.
+
+SvelteKit recognizes `.server.ts` and `$lib/server` as server-only, including transitive imports; an arbitrary `server/` or `infrastructure/` directory under `src/features` does **not** provide that protection. Current feature `server/*.ts` files therefore remain a known placement gap until their owning cutovers. The D02 governance rule and production build must check the route/client/portable import paths as well as owner dependencies; Vitest alone does not prove this restriction. See the [SvelteKit server-only module contract](https://svelte.dev/docs/kit/server-only-modules).
+
+Use one machine-readable declaration at `scripts/module-boundaries.json` for D02's module roots, permitted public dependencies and object ownership instead of one manifest per partly migrated module. The ledger remains the human-readable inventory and must agree with that declaration. D02 creates the declaration and checker together; its absence today is unfinished enforcement, not an exception or a passing gate. Do not change the current alias or create speculative packages to achieve this layout.
+
+### Current JSON and page contract to preserve in the Personnel pilot
+
+The existing `leader-notes` GET returns an array of `PersonnelLeaderNote`; POST and PATCH return one note; DELETE returns `{ success: true }`. The same note is present in Personnel detail/notes page data and the archived-artifact union. Its `id` and `personnelId` are the current stored identifiers as strings; `date` is a `YYYY-MM-DD` date-only string derived from `createdAt`, `createdAt` and non-null `archivedAt` are timestamp strings, and `archivedAt: null` means active. `author` is the current display label, not a newly exposed provider subject. Preserve these names and null meanings, the existing archive/restore actions and input text limit of 4,000 characters. Current public error meanings include 400 for invalid input/action, 401 for missing admission, 403 for denied permission, 404 for an absent scoped record, 409 for invalid archive/delete state, and a sanitized 500 for unexpected failure. A missing field must not silently become a different public meaning. The feature's portable shape describes these JSON values directly; it must not rely on SvelteKit page serialization or raw SQL row types.
+
+Current note lists have no explicit application bound except for the detail card's single-note read. D03 must use stable pages of at most 100 notes per persistence read, ordered by `created_at` and `id` so equal timestamps cannot lose records. The page and archived-artifact consumers must still reach every note. The existing JSON GET without paging must continue to return the complete array; an opt-in cursor on that same route may return one bounded array with continuation. This preserves the current supported response meaning while bounding each database read and label lookup. A large legacy JSON response remains a known cost until a separately authorized contract change. The exact cursor parameter and continuation header belong to D03 implementation and consumer tests. D03 must verify full traversal and existing response/error behavior before the old path is removed. Binary document upload/download remains its existing transport, outside this note contract.
+
+Colocate behavior tests with the owner operation and web interaction they exercise. Keep route admission/HTTP mapping tests with routes and SQL/RLS contracts under `supabase/tests`; D02's import-rule fixtures belong beside its checker. Test each rule at its cheapest stable interface, with real admission and SQL proof separate from synthetic actor tests. Do not duplicate source definitions as test expectations or use documentation checks as implementation proof.
+
 ## Frontend Conventions
 
 ### Route shells
@@ -59,7 +83,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Page contexts are valid in v1, but they should not silently become god objects.
 - If a context starts to own too many unrelated concerns, that is a signal to deepen module boundaries rather than keep stuffing logic into it.
 - Prefer pushing stable calculations and business rules into smaller modules with thinner public interfaces.
-- The `Roster Read Model` is shared infrastructure under `$lib/stores` and `$lib/server/core/useCases/rosterReadModel.ts`, because Calendar, Training, Dashboard, Onboarding, Rating Scheme, settings archives, and shell hydration read the same organization roster. Personnel-owned write workflows still belong under `$features/personnel`. See `docs/architecture/ROSTER_READ_MODEL.md` for the explicit `full`/`scoped` and `active`/`archived`/`all` usage contract.
+- The `Roster Read Model` currently sits under `$lib/stores` and `$lib/server/core/useCases/rosterReadModel.ts` because Calendar, Training, Dashboard, Onboarding, Rating Scheme, settings archives and shell hydration read the same Organization roster. The [ownership ledger](CURRENT_OWNERSHIP.md) assigns this retained read contract to Personnel; shared placement does not make its policy ownerless. Its current `full`/`scoped` and `active`/`archived`/`all` meanings remain in [Roster Read Model](ROSTER_READ_MODEL.md) until the owning consumer cutover.
 
 ### Client read models
 
@@ -83,13 +107,15 @@ Phase 05 D01 removed Duty Roster generation, accepted-run commands and feature e
 
 ### Default path
 
-For new server work, prefer:
+Current server code commonly follows this sequence, with central placement still to be cut over where it belongs to a feature:
 
 1. entities for schema mapping and validation
 2. use cases for business logic
 3. ports for abstract dependencies
 4. adapters for provider-specific behavior
 5. route wrappers for request/load glue
+
+For new or migrated feature work, put the owner operation behind its server-only seam above. Reuse retained entity mapping, typed ports, provider adapters and route wrappers without adding a second central public path.
 
 ### Route handlers and loads
 

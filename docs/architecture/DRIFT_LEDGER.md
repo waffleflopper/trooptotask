@@ -86,6 +86,7 @@ The scoped Dashboard browser check exposed an unconditional Training summary req
   - Training and Critical Tasks readiness counting now folds through the shared Readiness Rollup domain module (one home for the matrix walk, percent rounding, zero-applicable conventions, and seeded empty axes) instead of six hand-rolled per-feature aggregation loops, with classification, applicability gates, and presenters staying feature-owned
 - Intended direction:
   - deeper modules with thinner public interfaces
+  - follow the [chosen module and delivery contract](adrs/0013-v1-module-and-delivery-contract.md) through the owning phase-07/08 cutovers; this entry does not claim the current import graph is compliant
 - Why this matters:
   - large orchestration surfaces are harder to test, reason about, and safely change
 - Guardrail until fixed:

@@ -70,13 +70,13 @@ An available design/domain skill can help stress-test a tradeoff when that is th
 - Current-state truth:
   - many business paths already use use cases and adapters, but route-level `locals.supabase` logic still exists in important seams
   - org settings rename, ownership transfer, and delete now run behind an app-owned use case and Supabase adapter
-  - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b removes billing delivery helpers while retaining the export lifecycle
-  - historical `#637` handled partial billing cancellation; D05 03-05b removes that cancellation/recovery path, and 03-05c removes the webhook/provider and webhook-ledger cleanup
+  - historical `#619` moved billing and export lifecycles behind store-backed helpers; D05 03-05b removed billing delivery helpers while retaining the export lifecycle
+  - historical `#637` handled partial billing cancellation; D05 03-05b removed that cancellation/recovery path, and 03-05c removed the webhook/provider and webhook-ledger cleanup
   - several admin/platform routes remain route-local drift
 - Why this is unsatisfying:
-  - provider swap blast radius is still too large
+  - raw provider calls in unrelated feature and route paths obscure current policy and transaction ownership
 - Intended v1 direction:
-  - business logic outside auth and adapters should not depend on provider query APIs
+  - business logic outside owned auth and provider adapters should use narrow feature operations rather than raw provider query APIs, while retaining current Supabase Auth, SQL/RLS, Storage and transaction-specific guarantees
   - beta **Access Request** setup uses app-owned **Account Setup Links** while Supabase Auth remains the authentication provider
 - Constraints to preserve:
   - current auth-provider integration
@@ -116,6 +116,7 @@ An available design/domain skill can help stress-test a tradeoff when that is th
   - understanding one concept still requires too much file-jumping and too many broad surfaces
 - Intended v1 direction:
   - progressively deepen modules with thinner public interfaces
+  - use the chosen [owner-held portable, web and server seams](adrs/0013-v1-module-and-delivery-contract.md) when a current capability is migrated; finish its consumers and delete replaced central paths
 - Constraints to preserve:
   - user-visible behavior and current route contracts
 - Open questions:

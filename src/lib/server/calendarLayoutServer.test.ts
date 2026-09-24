@@ -46,19 +46,6 @@ function seedCalendarData(store: ReturnType<typeof createInMemoryDataStore>) {
 	store.seed('user_pinned_groups', [
 		{ id: 'pg1', organization_id: ORG, user_id: 'test-user', group_name: 'Alpha', sort_order: 0 }
 	]);
-	store.seed('duty_roster_history', [
-		{
-			id: 'rh1',
-			organization_id: ORG,
-			assignment_type_id: 'at1',
-			name: 'CQ Roster',
-			start_date: '2026-03-01',
-			end_date: '2026-03-31',
-			roster: [],
-			config: {},
-			created_at: '2026-03-01T00:00:00Z'
-		}
-	]);
 }
 
 const RANGE_START = '2026-01-01';
@@ -86,8 +73,6 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		expect(result.assignmentTypes).toHaveLength(1);
 		expect(result.dailyAssignments).toHaveLength(1);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
-		// Duty Roster cutover must not reintroduce legacy roster payloads into Calendar bootstrap.
-		expect((result as Record<string, unknown>).rosterHistory).toBeUndefined();
 		expect(result.activeOnboardingPersonnelIds).toEqual([]);
 	});
 

@@ -241,9 +241,7 @@ describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar indepe
 				organization_id: ORG,
 				date: '2026-09-21',
 				assignment_type_id: 'person-type',
-				assignee_id: 'person-a',
-				duty_roster_template_run_id: 'old-run',
-				duty_roster_template_run_row_date: '2026-09-21'
+				assignee_id: 'person-a'
 			},
 			{
 				id: 'saved-group',
@@ -267,12 +265,13 @@ describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar indepe
 				assignee_id: 'person-a'
 			}
 		]);
+
 		const findMany = store.findMany.bind(store);
 		const dutyReads: string[] = [];
 		vi.spyOn(store, 'findMany').mockImplementation((table, ...args) => {
-			if (['duty_events', 'duty_event_slots', 'duty_event_runs'].includes(table)) {
+			if (table.startsWith('duty_') || table.startsWith('advanced_duty_')) {
 				dutyReads.push(table);
-				return Promise.reject(new Error('Duty event storage is unavailable'));
+				throw new Error('Retired Duty storage is unavailable');
 			}
 			return findMany(table, ...args);
 		});

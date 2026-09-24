@@ -9,8 +9,6 @@ describe('StatusTypeEntity', () => {
 			name: 'Leave',
 			color: '#22c55e',
 			text_color: '#ffffff',
-			da6_availability_treatment: 'authorized-absence',
-			da6_treatment_reviewed: true,
 			sort_order: 2
 		};
 		const result = StatusTypeEntity.fromDb(row) as StatusType & { sortOrder: number };

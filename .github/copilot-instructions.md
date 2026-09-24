@@ -51,7 +51,6 @@ For v1 work, use the relevant sections of:
 - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
 - `docs/architecture/MODULE_CONVENTIONS.md`
 - `docs/architecture/DRIFT_LEDGER.md`
-- `docs/architecture/V1_CHANGE_INTENT.md`
 - `docs/architecture/CURRENT_OWNERSHIP.md` and `docs/architecture/adrs/0013-v1-module-and-delivery-contract.md` for module work
 - `CONTEXT.md#language` for domain terminology
 
@@ -60,10 +59,10 @@ Use these repo-specific rules:
 - Treat `Organization` and `Group` as canonical v1 current-state terms.
 - Do not present v2 `Account` / `Unit` / `Element` terminology as if it already describes v1.
 - Keep current Supabase Auth, membership, identifiers, authorization, SQL/RLS and tenant guarantees authoritative while their owned boundaries are narrowed through the stabilization queue.
-- Use current `src/features/*` placement honestly. New cross-owner calls use declared public seams, and privileged feature operations use SvelteKit-recognized server-only files; the Phase 07 checker and later consumer migrations are not yet complete.
+- Use current `src/features/*` placement honestly. New cross-owner calls use declared public seams, and privileged feature operations use SvelteKit-recognized server-only files; the module checker enforces regressions while Phase 08 consumer migration debt remains open.
 - Do not add new direct `locals.supabase` business logic outside auth-provider edges, ports/adapters, or an explicitly approved remediation slice.
 - Keep the six distinct current feature permission lanes; do not borrow another lane for new behavior. Critical Tasks' former Training coupling is resolved.
-- Use `docs/architecture/GOVERNANCE_BASELINE.json` and `npm run governance:check` for existing route-level provider exceptions and permission-coupling prevention. These checks do not yet enforce the Phase 07 module graph; D02 owns that addition.
-- If you touch a documented exception, either reduce it or update the baseline, drift ledger, and nearby docs together. Do not silently normalize a legacy exception into precedent.
+- Use `docs/architecture/GOVERNANCE_BASELINE.json` and `npm run governance:check` for existing route-level provider exceptions and permission-coupling prevention. The module graph checker also rejects new boundary violations and reports existing Phase 08 debt.
+- If you touch a documented exception, reduce it with its consumers and update the affected records; do not expand exceptions. Do not silently normalize a legacy exception into precedent.
 - Preserve compatibility with legacy clinic-era names, but prefer Army/military-oriented canonical terms in docs, UX copy, and new abstractions.
 - Do not deepen demo or sandbox behavior.

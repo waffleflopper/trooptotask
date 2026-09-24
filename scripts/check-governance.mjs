@@ -6,8 +6,6 @@ import { runModuleGovernance } from './module-governance.ts';
 const repoRoot = process.cwd();
 const baselinePath = path.join(repoRoot, 'docs/architecture/GOVERNANCE_BASELINE.json');
 const baseline = JSON.parse(readFileSync(baselinePath, 'utf8'));
-const driftLedgerPath = path.join(repoRoot, 'docs/architecture/DRIFT_LEDGER.md');
-const driftLedger = readFileSync(driftLedgerPath, 'utf8');
 
 const errors = [];
 const FEATURE_PERMISSION_FAMILIES = [
@@ -146,7 +144,7 @@ function collectFeaturePermissionCouplingIssues(sourceFiles, baselineEntries) {
 				const key = `${filePath}::${patternText}`;
 				if (!allowlistedPatterns.has(key)) {
 					issues.push(
-						`Undocumented ${family.feature} permission coupling: ${filePath} -> ${patternText}. Document it or remove the coupling.`
+						`Undocumented ${family.feature} permission coupling: ${filePath} -> ${patternText}. Use the owning feature permission lane.`
 					);
 				}
 			}
@@ -193,22 +191,6 @@ function legacyRouteAuthorizationScanFiles() {
 		...walkRelative('src/lib/server/entities').filter(isProductionSourceFile)
 	];
 	return [...new Set([...routeFiles, ...serverFiles])];
-}
-
-function ensureRequiredFiles() {
-	for (const relativePath of baseline.requiredFiles) {
-		if (!existsSync(path.join(repoRoot, relativePath))) {
-			errors.push(`Missing required governance file: ${relativePath}`);
-		}
-	}
-}
-
-function ensureDriftIdsExist(ids, contextLabel) {
-	for (const driftId of ids ?? []) {
-		if (!driftLedger.includes(`## ${driftId} `)) {
-			errors.push(`${contextLabel} references missing drift ID: ${driftId}`);
-		}
-	}
 }
 
 function collectSupabasePropertyBindings(properties) {
@@ -334,7 +316,6 @@ function checkRouteSupabaseAllowlist() {
 
 	for (const entry of baseline.routeSupabaseAllowlist) {
 		const context = `Route allowlist entry ${entry.path}`;
-		ensureDriftIdsExist(entry.driftIds, context);
 
 		if (!existsSync(path.join(repoRoot, entry.path))) {
 			errors.push(`${context} points to a missing file`);
@@ -348,9 +329,7 @@ function checkRouteSupabaseAllowlist() {
 
 	for (const filePath of actualPaths) {
 		if (!allowlistedSet.has(filePath)) {
-			errors.push(
-				`Undocumented route-level Supabase usage: ${filePath}. Add a documented exception or move the logic behind an adapter/use case.`
-			);
+			errors.push(`Undocumented route-level Supabase usage: ${filePath}. Move the logic behind an adapter/use case.`);
 		}
 	}
 
@@ -373,7 +352,6 @@ function checkRouteAdminProviderAllowlist() {
 
 	for (const entry of allowlist) {
 		const context = `Route admin-provider allowlist entry ${entry.path}`;
-		ensureDriftIdsExist(entry.driftIds, context);
 
 		if (!existsSync(path.join(repoRoot, entry.path))) {
 			errors.push(`${context} points to a missing file`);
@@ -388,7 +366,7 @@ function checkRouteAdminProviderAllowlist() {
 	for (const filePath of actualPaths) {
 		if (!allowlistedSet.has(filePath)) {
 			errors.push(
-				`Undocumented route-level admin-provider usage: ${filePath}. Add a documented exception or move the logic behind an adapter/use case.`
+				`Undocumented route-level admin-provider usage: ${filePath}. Move the logic behind an adapter/use case.`
 			);
 		}
 	}
@@ -407,7 +385,6 @@ function checkFeaturePermissionCouplings() {
 
 	for (const entry of baseline.featurePermissionCouplings) {
 		const context = `Permission coupling allowlist entry ${entry.path} -> ${entry.pattern}`;
-		ensureDriftIdsExist(entry.driftIds, context);
 
 		if (!existsSync(path.join(repoRoot, entry.path))) {
 			errors.push(`${context} points to a missing file`);
@@ -450,7 +427,6 @@ function checkDeletedRouteAuthorizationFramework() {
 }
 
 function runGovernanceChecks() {
-	ensureRequiredFiles();
 	checkRouteSupabaseAllowlist();
 	checkRouteAdminProviderAllowlist();
 	checkFeaturePermissionCouplings();
@@ -472,7 +448,6 @@ function runGovernanceChecks() {
 	}
 
 	console.log('Governance regression checks passed; reported Phase 08 debt remains open.');
-	console.log(`- required files: ${baseline.requiredFiles.length}`);
 	console.log(`- route-level locals.supabase allowlist entries: ${baseline.routeSupabaseAllowlist.length}`);
 	console.log(`- route-level admin-provider allowlist entries: ${(baseline.routeAdminProviderAllowlist ?? []).length}`);
 	console.log(`- documented feature permission couplings: ${baseline.featurePermissionCouplings.length}`);

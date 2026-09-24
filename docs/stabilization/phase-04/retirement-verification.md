@@ -1,6 +1,6 @@
 # Atomic commercial schema retirement verification
 
-Phase 04 / D02 [#1310](https://github.com/waffleflopper/trooptotask/issues/1310), leaf **04-02a**. This is local synthetic verification. The final preflight/release and full-child checkpoint are recorded under [04-02b](../EVIDENCE.md#task-04-02b--final-owner-preflight-and-d02-acceptance); this procedure preserves the 04-02a database evidence. Production cleanup is **PENDING OWNER EXECUTION**.
+Phase 04 / D02 [#1310](https://github.com/waffleflopper/trooptotask/issues/1310), leaf **04-02a**. This is local synthetic verification. The final preflight/release and full-child checkpoint are recorded under [04-02b](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-04-02b--final-owner-preflight-and-d02-acceptance); this procedure preserves the 04-02a database evidence. Production cleanup is **PENDING OWNER EXECUTION**.
 
 ## Candidate and owned boundary
 
@@ -48,4 +48,4 @@ Package successful captures outside the checkout: generated `database-baseline.t
 
 Stop only each newly created project with `supabase stop --workdir <owned-workdir> --project-id <owned-project> --no-backup`. Confirm zero owned containers/volumes/networks and unchanged pre-existing container identities/states. Never use `--all` or existing local stacks. Retain raw command/log/hash receipts privately; publish only synthetic reviewed results.
 
-Actual results belong in [EVIDENCE](../EVIDENCE.md#task-04-02a--atomic-retirement-and-verified-target) and `retirement-result.json`. Missing checks remain blocked, never inferred from this procedure. No repository E2E, browser bypass, remote database/provider action, Git publication or merge is authorized here.
+Actual results belong in [EVIDENCE](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/stabilization/EVIDENCE.md#task-04-02a--atomic-retirement-and-verified-target) and `retirement-result.json`. Missing checks remain blocked, never inferred from this procedure. No repository E2E, browser bypass, remote database/provider action, Git publication or merge is authorized here.

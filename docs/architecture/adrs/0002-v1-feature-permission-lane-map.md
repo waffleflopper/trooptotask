@@ -15,7 +15,7 @@ Date: 2026-04-21
 
 - Issue [#615](https://github.com/waffleflopper/trooptotask/issues/615) requires a durable lane map so later implementation slices stop inventing feature ownership on the fly.
 - ADR 0001 approved the authorization model and named first-class lanes; this ADR keeps lane ownership explicit.
-- Drift entry `D-03` needed a stable target before runtime remediation slices could proceed safely.
+- The former Critical Tasks coupling (D-03) motivated this stable feature-lane contract; the rule remains binding after that repair.
 
 ## Decision
 
@@ -73,12 +73,10 @@ Date: 2026-04-21
 ## Links
 
 - Related issue: [#615](https://github.com/waffleflopper/trooptotask/issues/615)
-- Related drift IDs: `D-03`
+- Historical drift: [D-03, resolved Critical Tasks coupling](https://github.com/waffleflopper/trooptotask/blob/dbd501301df350ef4e6cebb6bc1238283b24d9c9/docs/architecture/DRIFT_LEDGER.md#d-03-critical-tasks-permission-coupling-resolved-in-621)
 - Related ADRs:
   - [ADR 0001](0001-v1-authorization-replacement-model.md)
 - Related docs:
   - `docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md`
   - `docs/architecture/DRIFT_LEDGER.md`
-  - `docs/architecture/V1_CHANGE_INTENT.md`
-  - `docs/architecture/ADR_BACKLOG.md`
-  - `UBIQUITOUS_LANGUAGE.md`
+  - [CONTEXT language](../../../CONTEXT.md#language)

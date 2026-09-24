@@ -38,9 +38,7 @@ Every ADR should include:
 When an ADR lands, update the relevant supporting docs:
 
 - `docs/architecture/ADR_INDEX.md`
-- `docs/architecture/ADR_BACKLOG.md` when an open candidate is accepted, removed, or changed
 - `docs/architecture/DRIFT_LEDGER.md` when drift status changes
-- `docs/architecture/V1_CHANGE_INTENT.md` when the intended replacement direction changes
 - [CONTEXT.md language](../../CONTEXT.md#language) when canonical terms change
 
 ## Status Model
@@ -52,4 +50,11 @@ Use one of these statuses near the top of the ADR:
 - `Superseded`
 - `Rejected`
 
-If an ADR is superseded, leave the original in place and link forward to the newer ADR instead of rewriting history.
+Keep accepted decisions while they govern current behavior. When a decision is superseded, link its replacement and exact committed historical version from the index, then remove the obsolete file if no current operational or migration requirement needs it. Preserve important rationale with the current decision; do not create placeholder documents to satisfy a checker.
+
+## Open decision candidates
+
+- **Clinic-era runtime/schema rename:** ADR 0006 governs present compatibility. A future rename needs an approved scope, migration sequencing, API/schema naming and import/export compatibility. This is deferred, not authorized by stabilization maintenance.
+- **Future feature lanes:** a new durable product surface needs explicit permission ownership, invitation/member capability mapping and RLS implications. Existing lanes stay independent. No new feature implementation is authorized by listing this candidate.
+
+Maintain a candidate here only while a consequential decision remains open. On acceptance, move its rationale to the relevant ADR and remove the candidate; ordinary migration tasks belong in TODO rather than a duplicate decision backlog.

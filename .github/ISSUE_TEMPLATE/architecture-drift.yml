@@ -28,8 +28,8 @@ body:
     id: intended_behavior
     attributes:
       label: Intended direction or open question
-      description: What should happen instead, or what intent still needs grilling?
-      placeholder: If intent is unclear, say so explicitly and note whether grill-me is needed.
+      description: What should happen instead, or which consequential decision remains open?
+      placeholder: If intent is unclear, identify the decision and the evidence needed.
     validations:
       required: true
   - type: input
@@ -45,7 +45,7 @@ body:
     attributes:
       label: Related drift IDs
       description: Existing drift entries, if any
-      placeholder: D-02, D-04
+      placeholder: D-02, D-10
   - type: textarea
     id: risk
     attributes:
@@ -59,6 +59,6 @@ body:
     attributes:
       label: Temporary guardrail
       description: How should contributors behave until remediation lands?
-      placeholder: Do not copy this shape; document it and stop; treat as legacy exception; etc.
+      placeholder: Preserve the retained contract and identify the owning repair; do not expand exceptions.
     validations:
       required: true

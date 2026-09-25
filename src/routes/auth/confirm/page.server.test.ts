@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { readIdentityAdmission } from '$features/identity/index.server';
 import { actions, load } from './+page.server';
 
 const verifiedUser = { id: 'verified-user' };
@@ -326,52 +327,61 @@ describe('POST /auth/confirm', () => {
 		expect(cookies.set).not.toHaveBeenCalled();
 	});
 
-	it('binds an email confirmation session only for the same already admitted account', async () => {
+	it('continues email confirmation through sign-in with the hook-realistic auth-route identity', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
 		const cookies = { set: vi.fn() };
+		const currentSession = {
+			...verifiedSession,
+			access_token: `header.${Buffer.from(
+				JSON.stringify({
+					sub: verifiedUser.id,
+					session_id: '00000000-0000-4000-8000-000000000001',
+					amr: [{ method: 'password' }]
+				})
+			).toString('base64url')}.signature`
+		};
+		const admission = await readIdentityAdmission({
+			supabase: {
+				auth: {
+					mfa: {
+						getAuthenticatorAssuranceLevel: vi.fn().mockResolvedValue({
+							data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+							error: null
+						})
+					}
+				}
+			} as never,
+			session: currentSession as never,
+			user: verifiedUser as never,
+			cookies: { get: vi.fn(), delete: vi.fn() },
+			pathname: '/auth/confirm',
+			method: 'POST'
+		});
+		expect(admission).toMatchObject({ status: 'allowed', actor: null, authFlow: null });
+		if (admission.status !== 'allowed') throw new Error('Expected confirmation route admission');
 		await expect(
 			actions.default({
 				request: new Request('http://localhost/auth/confirm', {
 					method: 'POST',
 					body: new URLSearchParams({ tokenHash: 'email-token', type: 'email', next: '/dashboard' })
 				}),
-				locals: { supabase: { auth: { verifyOtp } }, actor: { userId: verifiedUser.id } },
-				cookies
-			} as unknown as Parameters<(typeof actions)['default']>[0])
-		).rejects.toMatchObject({ status: 303, location: '/dashboard' });
-		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
-	});
-
-	it('does not mark a different admitted account after email confirmation', async () => {
-		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
-		const cookies = { set: vi.fn() };
-		await expect(
-			actions.default({
-				request: new Request('http://localhost/auth/confirm', {
-					method: 'POST',
-					body: new URLSearchParams({ tokenHash: 'email-token', type: 'email', next: '/dashboard' })
-				}),
-				locals: { supabase: { auth: { verifyOtp } }, actor: { userId: 'other-user' } },
+				locals: { supabase: { auth: { verifyOtp } }, actor: admission.actor },
 				cookies
 			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({ status: 303, location: '/auth/login?next=%2Fdashboard' });
 		expect(cookies.set).not.toHaveBeenCalled();
 	});
 
-	it.each([
-		{ type: 'email', actor: null },
-		{ type: 'signup', actor: null },
-		{ type: 'signup', actor: { userId: verifiedUser.id } }
-	])('does not admit a $type OTP session from confirmation alone', async ({ type, actor }) => {
+	it('does not admit a signup OTP session from confirmation alone', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
 		const cookies = { set: vi.fn() };
 		await expect(
 			actions.default({
 				request: new Request('http://localhost/auth/confirm', {
 					method: 'POST',
-					body: new URLSearchParams({ tokenHash: 'signup-token', type, next: '/org/new' })
+					body: new URLSearchParams({ tokenHash: 'signup-token', type: 'signup', next: '/org/new' })
 				}),
-				locals: { supabase: { auth: { verifyOtp } }, actor },
+				locals: { supabase: { auth: { verifyOtp } }, actor: null },
 				cookies
 			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({ status: 303, location: '/auth/login?next=%2Forg%2Fnew' });

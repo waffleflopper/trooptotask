@@ -13,7 +13,6 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const result = await confirmAuthLink({
 			supabase: locals.supabase,
-			actorUserId: locals.actor?.userId ?? null,
 			tokenHash: formData.get('tokenHash')?.toString() ?? null,
 			type: formData.get('type')?.toString() ?? null,
 			next: formData.get('next')?.toString() ?? null

@@ -11,10 +11,9 @@ type ConfirmationResult =
 			cookie: NonNullable<ReturnType<typeof createAuthSessionMarker>>;
 	  };
 
-/** Verify one explicit confirmation and decide its limited or admitted session authority. */
+/** Verify one explicit confirmation; only recovery and invite issue limited authority. */
 export async function confirmAuthLink(input: {
 	supabase: SupabaseClient;
-	actorUserId: string | null;
 	tokenHash: string | null;
 	type: string | null;
 	next: string | null;
@@ -40,11 +39,7 @@ export async function confirmAuthLink(input: {
 		return cookie ? { status: 'confirmed', next: confirmation.next, cookie } : { status: 'invalid' };
 	}
 
-	// Email changes may continue the admitted account. Signup confirmation alone
-	// cannot turn an OTP session into general application access.
-	if (confirmation.type !== 'email' || !session || !user || input.actorUserId !== user.id)
-		return { status: 'sign-in', next: confirmation.next };
-
-	const cookie = createAuthSessionMarker('complete', session, user);
-	return cookie ? { status: 'confirmed', next: confirmation.next, cookie } : { status: 'invalid' };
+	// Auth confirmation routes have no admitted actor. Email and signup tokens
+	// confirm the address, then require a separate sign-in for application access.
+	return { status: 'sign-in', next: confirmation.next };
 }

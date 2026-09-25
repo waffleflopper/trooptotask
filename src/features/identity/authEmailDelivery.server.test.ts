@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 const { getAdminClientMock } = vi.hoisted(() => ({ getAdminClientMock: vi.fn() }));
-vi.mock('./supabase', () => ({ getAdminClient: getAdminClientMock }));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));
 
-import { sendAuthEmail, sendPlatformAuthEmail, sendPublicRecoveryEmail } from './authEmailDelivery';
+import { sendAuthEmail, sendPlatformAuthEmail, sendPublicRecoveryEmail } from './authEmailDelivery.server';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const CONFIRM_ORIGIN = 'https://trooptotask.org/auth/confirm';
@@ -108,6 +108,18 @@ describe('sendAuthEmail', () => {
 			sendAuthEmail(input('recovery', makeClient('recovery', { code: 'user_not_found', status: 404 })), fetchImpl)
 		).resolves.toBe('user_not_found');
 		expect(fetchImpl).not.toHaveBeenCalled();
+	});
+
+	it('does not log provider supplied details when link generation fails', async () => {
+		const fetchImpl = vi.fn();
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(
+			sendAuthEmail(input('recovery', makeClient('recovery', { code: 'secret-token-hash', status: 500 })), fetchImpl)
+		).resolves.toBe('failed');
+		expect(fetchImpl).not.toHaveBeenCalled();
+		expect(consoleError).toHaveBeenCalledWith('[auth-email] Supabase link generation failed');
+		expect(JSON.stringify(consoleError.mock.calls)).not.toContain('secret-token-hash');
+		consoleError.mockRestore();
 	});
 
 	it('refuses provider links for another user or verification type', async () => {

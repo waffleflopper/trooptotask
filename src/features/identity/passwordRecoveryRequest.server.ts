@@ -1,6 +1,6 @@
 import { auditLog } from '$lib/audit/index.server';
-import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
-import { sendPublicRecoveryEmail } from '$lib/server/authEmailDelivery';
+import { getAuthConfirmRedirectTo } from './authConfirm.server';
+import { sendPublicRecoveryEmail } from './authEmailDelivery.server';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 import { checkForgotPasswordRateLimit, forgotPasswordRateLimitAuditDetails } from './forgotPasswordRateLimit.server';
 

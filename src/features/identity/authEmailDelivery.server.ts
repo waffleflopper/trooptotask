@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
-import { getAdminClient } from './supabase';
+import { getAdminClient } from '$lib/server/supabase';
 
 type AuthEmailType = 'recovery' | 'invite';
 type AuthEmailResult = 'sent' | 'user_not_found' | 'failed';
@@ -47,7 +47,7 @@ export async function sendAuthEmail(
 	const { data, error } = result;
 	if (isMissingUser(error)) return 'user_not_found';
 	if (error) {
-		console.error('[auth-email] Supabase link generation failed:', error.code ?? error.status);
+		console.error('[auth-email] Supabase link generation failed');
 		return 'failed';
 	}
 

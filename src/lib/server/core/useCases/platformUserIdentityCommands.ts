@@ -1,5 +1,3 @@
-import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
-
 export type PlatformUserIdentityCommandResult =
 	| { status: 'sent'; email: string; message: string }
 	| { status: 'not_found' }
@@ -39,6 +37,7 @@ export interface PlatformUserIdentityCommandAuditEvent {
 export interface PlatformUserIdentityCommandDependencies {
 	store: PlatformUserIdentityCommandStore;
 	audit: { log(event: PlatformUserIdentityCommandAuditEvent): void };
+	confirmationUrl: (inboundOrigin: string, type: 'recovery' | 'invite') => string;
 }
 
 export function createPlatformUserIdentityCommands(
@@ -55,7 +54,7 @@ export function createPlatformUserIdentityCommands(
 			const sendResult = await deps.store.sendPasswordResetEmail({
 				userId: input.userId,
 				email: userEmail.email,
-				redirectTo: getAuthConfirmRedirectTo(input.inboundOrigin, 'recovery')
+				redirectTo: deps.confirmationUrl(input.inboundOrigin, 'recovery')
 			});
 			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to send password reset' };
 
@@ -84,7 +83,7 @@ export function createPlatformUserIdentityCommands(
 			const sendResult = await deps.store.sendInviteEmail({
 				userId: input.userId,
 				email: userEmail.email,
-				redirectTo: getAuthConfirmRedirectTo(input.inboundOrigin, 'invite')
+				redirectTo: deps.confirmationUrl(input.inboundOrigin, 'invite')
 			});
 			if (!sendResult.ok) return { status: 'provider_error', message: 'Failed to resend invite' };
 

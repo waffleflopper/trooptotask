@@ -40,7 +40,8 @@ export { confirmSensitiveIdentity } from './confirmSensitiveIdentity.server';
 export { passwordAttempt, passwordCompletionState, type PasswordAttempt } from './passwordCompletion.server';
 
 export { updateIdentityPassword } from './updatePassword.server';
-export { sendPlatformAuthEmail } from '$lib/server/authEmailDelivery';
+export { sendPlatformAuthEmail } from './authEmailDelivery.server';
+export { getAuthConfirmState, getAuthConfirmRedirectTo } from './authConfirm.server';
 export { requestPublicPasswordRecovery } from './passwordRecoveryRequest.server';
 export { FORGOT_PASSWORD_RATE_LIMIT_MESSAGE } from './forgotPasswordRateLimit.server';
 export { createPublicAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery.server';

@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	checkAdminAuthEmailRateLimit,
-	createSupabasePlatformUserIdentityCommandStore
+	createSupabasePlatformUserIdentityCommandStore,
+	createSupabasePlatformUserIdentityCommands
 } from './supabasePlatformUserIdentityCommands';
 
-const { sendPlatformAuthEmailMock } = vi.hoisted(() => ({ sendPlatformAuthEmailMock: vi.fn() }));
-vi.mock('$features/identity/index.server', () => ({ sendPlatformAuthEmail: sendPlatformAuthEmailMock }));
+const { sendPlatformAuthEmailMock, getAuthConfirmRedirectToMock } = vi.hoisted(() => ({
+	sendPlatformAuthEmailMock: vi.fn(),
+	getAuthConfirmRedirectToMock: vi.fn(
+		(origin: string, type: string) => `${origin}/auth/confirm?type=${type}&next=%2Fauth%2Freset-password`
+	)
+}));
+vi.mock('$features/identity/index.server', () => ({
+	sendPlatformAuthEmail: sendPlatformAuthEmailMock,
+	getAuthConfirmRedirectTo: getAuthConfirmRedirectToMock
+}));
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const PROVIDER_ERROR = { message: 'raw provider outage', code: 'provider_secret_code' };
@@ -32,7 +41,8 @@ describe('createSupabasePlatformUserIdentityCommandStore', () => {
 			status: 'provider_error',
 			message: 'Failed to load user identity'
 		});
-		expect(consoleError).toHaveBeenCalledWith('[admin/users] auth.admin.getUserById error:', PROVIDER_ERROR);
+		expect(consoleError).toHaveBeenCalledWith('[admin/users] Unable to load user identity');
+		expect(JSON.stringify(consoleError.mock.calls)).not.toContain('provider_secret_code');
 		consoleError.mockRestore();
 	});
 
@@ -69,6 +79,29 @@ describe('createSupabasePlatformUserIdentityCommandStore', () => {
 			message: 'Failed to send password reset email'
 		});
 		await expect(store.sendInviteEmail(input)).resolves.toEqual({ ok: false, message: 'Failed to send invite email' });
+	});
+
+	it('uses Identity confirmation URL policy when composing a Platform reset', async () => {
+		sendPlatformAuthEmailMock.mockResolvedValue('sent');
+		const getUserById = vi.fn().mockResolvedValue({
+			data: { user: { id: USER_ID, email: 'soldier@example.mil' } },
+			error: null
+		});
+		const commands = createSupabasePlatformUserIdentityCommands({
+			adminClient: { auth: { admin: { getUserById } } },
+			audit: vi.fn()
+		} as never);
+
+		await expect(
+			commands.sendPasswordReset({ userId: USER_ID, inboundOrigin: 'https://trooptotask.org' })
+		).resolves.toMatchObject({ status: 'sent' });
+		expect(getAuthConfirmRedirectToMock).toHaveBeenCalledWith('https://trooptotask.org', 'recovery');
+		expect(sendPlatformAuthEmailMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				userId: USER_ID,
+				redirectTo: 'https://trooptotask.org/auth/confirm?type=recovery&next=%2Fauth%2Freset-password'
+			})
+		);
 	});
 });
 

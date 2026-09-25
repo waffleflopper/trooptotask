@@ -1,6 +1,9 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { createPublicAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
+import {
+	createPublicAccessRequestSetupDeliveryService,
+	getAuthenticatedRedirectPath
+} from '$features/identity/index.server';
 import {
 	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
 	checkAccountSetupRenewalRateLimit
@@ -8,7 +11,6 @@ import {
 import { auditLog } from '$lib/server/auditLog';
 import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
-import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {

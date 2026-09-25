@@ -41,3 +41,8 @@ export { passwordAttempt, passwordCompletionState, type PasswordAttempt } from '
 
 export { updateIdentityPassword } from './updatePassword.server';
 export { sendPublicRecoveryEmail, sendPlatformAuthEmail } from '$lib/server/authEmailDelivery';
+export { createPublicAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery.server';
+export {
+	ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
+	checkAccessRequestSubmissionRateLimit
+} from './accessRequestRateLimit.server';

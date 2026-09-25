@@ -3,13 +3,11 @@ import {
 	createSupabaseOrganizationInvitationDeliveryPort,
 	sendOrganizationInvitationEmail
 } from '$lib/server/organizationInvitationDelivery';
-import { createAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	accountSetupLinkFixture,
-	createAccessRequestSetupDeliveryStore,
 	AUTH_WORKFLOW_NOW,
 	authEmailOutboxRecordFixture,
 	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
@@ -1570,25 +1568,6 @@ describe('inviteOrganizationMember', () => {
 		}
 		expect(issuance.setupLinkRequests).toEqual([]);
 		expect(issuance.setupDeliveries).toEqual([]);
-		const requestStore = createAccessRequestSetupDeliveryStore();
-		const sendSetupEmail = vi.fn();
-		const service = createAccessRequestSetupDeliveryService(requestStore, sendSetupEmail, {
-			now: () => AUTH_WORKFLOW_NOW
-		});
-		expect(
-			await service.submitAccessRequest({
-				email: 'invitee@example.com',
-				firstName: 'Synthetic',
-				lastName: 'Invitee',
-				reason: null,
-				heardAbout: 'search_engine',
-				heardAboutDetails: null,
-				origin: destination.origin
-			})
-		).toEqual({ status: 'pending-created' });
-		expect(requestStore.insertedRequests).toEqual([expect.objectContaining({ email: 'invitee@example.com' })]);
-		expect(requestStore.setupLinks).toEqual([]);
-		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
 
 	it('routes unlinked unconfirmed accounts to Request Access on resend', async () => {

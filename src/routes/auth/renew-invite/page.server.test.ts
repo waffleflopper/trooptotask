@@ -6,7 +6,8 @@ const { requestFreshSetupLinkMock, checkRenewalRateLimitMock, auditLogMock } = v
 	auditLogMock: vi.fn()
 }));
 
-vi.mock('$lib/server/accessRequestSetupDelivery', () => ({
+vi.mock('$features/identity/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/identity/index.server')>()),
 	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
 		requestFreshSetupLink: requestFreshSetupLinkMock
 	}))

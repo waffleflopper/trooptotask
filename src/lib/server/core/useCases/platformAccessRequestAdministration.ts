@@ -1,4 +1,4 @@
-import { getAccessRequestHeardAboutLabel } from '$lib/accessRequests';
+import { getAccessRequestHeardAboutLabel } from '$features/identity/contracts';
 import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$lib/server/accountSetupLinks';
 import type { AuthEmailOutboxStatus } from '$lib/server/authEmailOutbox';
 import {

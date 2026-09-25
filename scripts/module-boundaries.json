@@ -220,10 +220,6 @@
 				"src/lib/server/accessRequestInvitationBlocking.ts",
 				"src/lib/server/accessRequestInvitationOrigin.test.ts",
 				"src/lib/server/accessRequestInvitationOrigin.ts",
-				"src/lib/server/accessRequestRateLimit.test.ts",
-				"src/lib/server/accessRequestRateLimit.ts",
-				"src/lib/server/accessRequestSetupDelivery.test.ts",
-				"src/lib/server/accessRequestSetupDelivery.ts",
 				"src/lib/server/accessRequestSetupState.ts",
 				"src/lib/server/accountSetupCompletion.test.ts",
 				"src/lib/server/accountSetupCompletion.ts",
@@ -541,7 +537,6 @@
 			"roots": ["src/lib/stores/core/", "src/lib/test-support/"],
 			"files": [
 				"src/d3-scale.d.ts",
-				"src/lib/accessRequests.ts",
 				"src/lib/domain/currencyStatus.test.ts",
 				"src/lib/domain/currencyStatus.ts",
 				"src/lib/domain/readinessRollup.test.ts",

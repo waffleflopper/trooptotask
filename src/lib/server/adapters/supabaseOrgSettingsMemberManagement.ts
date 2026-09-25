@@ -3,7 +3,7 @@ import type {
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
-import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS } from '$lib/server/accessRequestSetupDelivery';
+import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS } from '$features/identity/contracts';
 import { addUtcDays } from '$lib/server/accountSetupDates';
 import { getAdminClient } from '$lib/server/supabase';
 import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';

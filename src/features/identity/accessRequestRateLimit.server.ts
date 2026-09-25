@@ -4,7 +4,7 @@ import {
 	normalizeRateLimitEmail,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from './durableRateLimit';
+} from '$lib/access/index.server';
 
 const ACCESS_REQUEST_SUBMISSION_WINDOW_MS = 60 * 60 * 1000;
 const ACCESS_REQUEST_SUBMISSION_MAX_REQUESTS = 5;

@@ -1,4 +1,3 @@
-import { createAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS,
@@ -9,7 +8,6 @@ import {
 } from './organizationInvitationDelivery';
 import {
 	AUTH_WORKFLOW_NOW,
-	createAccessRequestSetupDeliveryStore,
 	createOrganizationInvitationEmailOutboxStore,
 	organizationInvitationFixture
 } from '$lib/test-support/authWorkflowFixtures';
@@ -266,11 +264,6 @@ describe('organization invitation delivery', () => {
 			}
 		);
 		expect(result.status).toBe('sent');
-		const requestStore = createAccessRequestSetupDeliveryStore();
-		const sendSetupEmail = vi.fn();
-		const service = createAccessRequestSetupDeliveryService(requestStore, sendSetupEmail, {
-			now: () => AUTH_WORKFLOW_NOW
-		});
 		const destination = new URL(messages[0].html.match(/href="([^"]+)"/)![1]);
 		expect(destination.pathname).toBe('/auth/request-access');
 		for (const body of [messages[0].text, messages[0].html]) {
@@ -279,19 +272,6 @@ describe('organization invitation delivery', () => {
 			expect(body).toMatch(/approv/i);
 			expect(body).not.toMatch(/a separate email carries your account setup link/i);
 		}
-		const submitted = await service.submitAccessRequest({
-			email: 'invitee@example.mil',
-			firstName: 'Synthetic',
-			lastName: 'Invitee',
-			reason: null,
-			heardAbout: 'search_engine',
-			heardAboutDetails: null,
-			origin: destination.origin
-		});
-		expect(submitted.status).toBe('pending-created');
-		expect(requestStore.insertedRequests).toEqual([expect.objectContaining({ email: 'invitee@example.mil' })]);
-		expect(requestStore.setupLinks).toEqual([]);
-		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
 
 	it('retries legacy invitations for recipients who now have accounts to sign-in', async () => {

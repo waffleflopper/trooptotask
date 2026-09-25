@@ -2,13 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	createAccessRequestSetupDeliveryService,
 	type AccessRequestSetupDeliveryStore
-} from './accessRequestSetupDelivery';
+} from './accessRequestSetupDelivery.server';
+import { accountSetupLinkFixture, fixedAuthWorkflowTime } from '$lib/test-support/authWorkflowFixtures';
 import {
-	accountSetupLinkFixture,
 	accessRequestFixture,
-	createAccessRequestSetupDeliveryStore,
-	fixedAuthWorkflowTime
-} from '$lib/test-support/authWorkflowFixtures';
+	createAccessRequestSetupDeliveryStore
+} from './accessRequestSetupDeliveryFixture.server';
 
 const { nowFn } = fixedAuthWorkflowTime(new Date('2026-05-18T12:00:00.000Z'));
 

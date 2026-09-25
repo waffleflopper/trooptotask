@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkAccessRequestSubmissionRateLimit } from './accessRequestRateLimit';
 import { checkAccountSetupCompletionRateLimit, checkAccountSetupRenewalRateLimit } from './accountSetupRateLimit';
 import { checkForgotPasswordRateLimit } from './forgotPasswordRateLimit';
 import { checkOrganizationInvitationRateLimit } from './organizationInvitationRateLimit';
@@ -15,14 +14,6 @@ type Policy = {
 	budgets: [number, number][];
 };
 const policies: Policy[] = [
-	{
-		name: 'Access Request submission',
-		check: (store) => checkAccessRequestSubmissionRateLimit({ ...identity, store }),
-		budgets: [
-			[3600, 5],
-			[3600, 5]
-		]
-	},
 	{
 		name: 'Account Setup renewal',
 		check: (store) => checkAccountSetupRenewalRateLimit({ ...identity, store }),

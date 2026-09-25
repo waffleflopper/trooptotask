@@ -76,17 +76,38 @@ export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteConte
 				);
 				return row?.group_id;
 			},
-			list(personnelId, options) {
-				return ctx.store.findMany<LeaderNoteRow>(
+			async listPage(personnelId, { archived, limit, before }) {
+				const options = {
+					orderBy: [
+						{ column: 'created_at', ascending: false },
+						{ column: 'id', ascending: false }
+					],
+					isNull: { archived_at: !archived },
+					limit
+				};
+				if (!before) {
+					return ctx.store.findMany<LeaderNoteRow>('leader_notes', orgId, { personnel_id: personnelId }, options);
+				}
+				// Two disjoint ranges express the composite cursor using the existing scoped store.
+				// Finish the tied timestamp before reading older notes; never use an offset.
+				const tied = await ctx.store.findMany<LeaderNoteRow>(
+					'leader_notes',
+					orgId,
+					{ personnel_id: personnelId, created_at: before.createdAt },
+					{ ...options, rangeFilters: [{ column: 'id', op: 'lt', value: before.id }] }
+				);
+				if (tied.length === limit) return tied;
+				const older = await ctx.store.findMany<LeaderNoteRow>(
 					'leader_notes',
 					orgId,
 					{ personnel_id: personnelId },
 					{
-						orderBy: [{ column: 'created_at', ascending: false }],
-						isNull: { archived_at: !options.archived },
-						limit: options.limit
+						...options,
+						limit: limit - tied.length,
+						rangeFilters: [{ column: 'created_at', op: 'lt', value: before.createdAt }]
 					}
 				);
+				return [...tied, ...older];
 			},
 			find(personnelId, noteId) {
 				return ctx.store.findOne<LeaderNoteRow>('leader_notes', orgId, { id: noteId, personnel_id: personnelId });

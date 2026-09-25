@@ -182,6 +182,7 @@
 				"src/lib/server/adapters/entityHandlers.test.ts",
 				"src/lib/server/adapters/handle.test.ts",
 				"src/lib/server/adapters/httpAdapter.ts",
+				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",

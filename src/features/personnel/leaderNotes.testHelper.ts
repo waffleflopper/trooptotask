@@ -13,17 +13,28 @@ export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>)
 				const row = await ctx.rawStore.findOne<{ group_id: string | null }>('personnel', orgId, { id: personnelId });
 				return row?.group_id;
 			},
-			list: (personnelId, options) =>
-				ctx.store.findMany<LeaderNoteRow>(
+			async listPage(personnelId, { archived, limit, before }) {
+				const rows = await ctx.store.findMany<LeaderNoteRow>(
 					'leader_notes',
 					orgId,
 					{ personnel_id: personnelId },
 					{
-						orderBy: [{ column: 'created_at', ascending: false }],
-						isNull: { archived_at: !options.archived },
-						limit: options.limit
+						orderBy: [
+							{ column: 'created_at', ascending: false },
+							{ column: 'id', ascending: false }
+						],
+						isNull: { archived_at: !archived }
 					}
-				),
+				);
+				return rows
+					.filter(
+						(row) =>
+							!before ||
+							row.created_at < before.createdAt ||
+							(row.created_at === before.createdAt && row.id < before.id)
+					)
+					.slice(0, limit);
+			},
 			find: (personnelId, noteId) =>
 				ctx.store.findOne<LeaderNoteRow>('leader_notes', orgId, { id: noteId, personnel_id: personnelId }),
 			insert: (input) =>

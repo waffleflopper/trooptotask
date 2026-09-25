@@ -11,9 +11,17 @@ export interface LeaderNoteRow {
 	archived_at?: string | null;
 }
 
+export interface LeaderNoteCursor {
+	createdAt: string;
+	id: string;
+}
+
 export interface LeaderNotePersistence {
 	findPersonnelGroup(personnelId: string): Promise<string | null | undefined>;
-	list(personnelId: string, options: { archived: boolean; limit?: number }): Promise<LeaderNoteRow[]>;
+	listPage(
+		personnelId: string,
+		options: { archived: boolean; limit: number; before?: LeaderNoteCursor }
+	): Promise<LeaderNoteRow[]>;
 	find(personnelId: string, noteId: string): Promise<LeaderNoteRow | null>;
 	insert(input: { personnelId: string; author: string; text: string; createdAt: string }): Promise<LeaderNoteRow>;
 	update(noteId: string, archivedAt: string | null): Promise<LeaderNoteRow>;
@@ -47,7 +55,7 @@ async function requireAccess(ctx: LeaderNoteContext, personnelId: string, access
 	await ctx.scope.requireGroupAccess(personnelId);
 }
 
-export function mapLeaderNoteRow(row: LeaderNoteRow, labels: Map<string, string> = new Map()): PersonnelLeaderNote {
+function mapLeaderNoteRow(row: LeaderNoteRow, labels: Map<string, string> = new Map()): PersonnelLeaderNote {
 	return {
 		id: row.id,
 		personnelId: row.personnel_id,
@@ -71,7 +79,23 @@ export async function listPersonnelLeaderNotes(
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelLeaderNote[]> {
 	await requireAccess(ctx, personnelId, 'read');
-	return mapRows(ctx, await ctx.persistence.list(personnelId, { archived: !!options.archived, limit }));
+	const notes: PersonnelLeaderNote[] = [];
+	let before: LeaderNoteCursor | undefined;
+	while (limit === undefined || notes.length < limit) {
+		const pageSize = Math.min(100, limit === undefined ? 100 : limit - notes.length);
+		const rows = await ctx.persistence.listPage(personnelId, {
+			archived: !!options.archived,
+			limit: pageSize,
+			before
+		});
+		if (rows.length === 0) break;
+		notes.push(...(await mapRows(ctx, rows)));
+		if (rows.length < pageSize) break;
+		const last = rows[rows.length - 1];
+		// Preserve database timestamp precision; Date would discard microseconds.
+		before = { createdAt: last.created_at, id: last.id };
+	}
+	return notes;
 }
 
 export async function createPersonnelLeaderNote(

@@ -1,5 +1,3 @@
-import type { PersonnelLeaderNote } from '$features/personnel/contracts';
-import { mapLeaderNoteRow, type LeaderNoteRow } from '$features/personnel/index.server';
 import type {
 	PersonnelArtifactKind,
 	PersonnelCounselingRecord,
@@ -337,29 +335,6 @@ export function mapFollowUpRow(row: FollowUpRow, contributorLabels = new Map<str
 const binaryArchivePatch = (archivedAt: string) => ({ archived_at: archivedAt });
 const binaryRestorePatch = () => ({ archived_at: null });
 
-export const PERSONNEL_LEADER_NOTE_SPEC: PersonnelArtifactSpec<LeaderNoteRow, PersonnelLeaderNote> = {
-	table: 'leader_notes',
-	noun: 'Leader note',
-	nounPlural: 'leader notes',
-	auditPrefix: 'personnel.leader_note',
-	contributorColumn: 'author',
-	map: mapLeaderNoteRow,
-	isArchived: (row) => !!row.archived_at,
-	listClause: ({ archived, limit }, personnelId) => ({
-		filters: { personnel_id: personnelId },
-		orderBy: [{ column: 'created_at', ascending: false }],
-		isNull: { archived_at: !archived },
-		limit
-	}),
-	archivePatch: binaryArchivePatch,
-	restorePatch: binaryRestorePatch,
-	ownedArchive: {
-		archivePatch: binaryArchivePatch,
-		restoreFilters: (personnelArchivedAt) => ({ archived_at: personnelArchivedAt }),
-		restorePatch: binaryRestorePatch
-	}
-};
-
 export const PERSONNEL_COUNSELING_RECORD_SPEC: PersonnelArtifactSpec<CounselingRecordRow, PersonnelCounselingRecord> = {
 	table: 'counseling_records',
 	noun: 'Counseling record',
@@ -436,22 +411,19 @@ export const PERSONNEL_FOLLOW_UP_SPEC: PersonnelArtifactSpec<FollowUpRow, Person
 };
 
 type PersonnelArtifactSpecRegistry = {
-	[K in PersonnelArtifactKind]: K extends 'follow-up'
+	[K in Exclude<PersonnelArtifactKind, 'note'>]: K extends 'follow-up'
 		? PersonnelArtifactSpec<FollowUpRow, PersonnelFollowUp>
 		: K extends 'counseling'
 			? PersonnelArtifactSpec<CounselingRecordRow, PersonnelCounselingRecord>
 			: K extends 'document'
 				? PersonnelArtifactSpec<PersonnelDocumentRow, PersonnelDocument>
-				: K extends 'note'
-					? PersonnelArtifactSpec<LeaderNoteRow, PersonnelLeaderNote>
-					: never;
+				: never;
 };
 
-export const PERSONNEL_ARTIFACT_SPECS: PersonnelArtifactSpecRegistry = {
+const PERSONNEL_ARTIFACT_SPECS: PersonnelArtifactSpecRegistry = {
 	'follow-up': PERSONNEL_FOLLOW_UP_SPEC,
 	counseling: PERSONNEL_COUNSELING_RECORD_SPEC,
-	document: PERSONNEL_DOCUMENT_SPEC,
-	note: PERSONNEL_LEADER_NOTE_SPEC
+	document: PERSONNEL_DOCUMENT_SPEC
 };
 
 export function personnelOwnedArchiveSpecs(): PersonnelOwnedArchiveSpec[] {

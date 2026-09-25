@@ -16,14 +16,42 @@ import {
 import { deletePersonnelDocument, listPersonnelDocuments, restorePersonnelDocument } from './personnelDocuments';
 import { deletePersonnelFollowUp, listPersonnelFollowUps, restorePersonnelFollowUp } from './personnelFollowUps';
 import {
+	archiveLeaderNotesWithPersonnel,
 	deletePersonnelLeaderNote,
 	listPersonnelLeaderNotes,
+	restoreLeaderNotesWithPersonnel,
 	restorePersonnelLeaderNote
 } from '$features/personnel/index.server';
-import type { LeaderNoteContext } from '$features/personnel/index.server';
-import { PERSONNEL_ARTIFACT_SPECS, personnelOwnedArchiveSpecs } from './personnelArtifactLifecycle';
+import type { LeaderNoteArchivePersistence, LeaderNoteContext } from '$features/personnel/index.server';
+import { personnelOwnedArchiveSpecs } from './personnelArtifactLifecycle';
 
 const ARCHIVE_UPDATE_BATCH_SIZE = 50;
+
+/** Bind the existing authorized cascade to Personnel's narrow note persistence. */
+function noteArchivePersistence(ctx: Pick<UseCaseContext, 'store' | 'auth'>): LeaderNoteArchivePersistence {
+	const orgId = ctx.auth.orgId;
+	return {
+		findActive: (personnelIds) =>
+			ctx.store.findMany<{ id: string }>('leader_notes', orgId, undefined, {
+				inFilters: { personnel_id: personnelIds },
+				isNull: { archived_at: true },
+				select: 'id'
+			}),
+		findArchivedWithPersonnel: (personnelIds, archivedAt) =>
+			ctx.store.findMany<{ id: string }>(
+				'leader_notes',
+				orgId,
+				{ archived_at: archivedAt },
+				{
+					inFilters: { personnel_id: personnelIds },
+					select: 'id'
+				}
+			),
+		async setArchivedAt(noteId, archivedAt) {
+			await ctx.store.update('leader_notes', orgId, noteId, { archived_at: archivedAt });
+		}
+	};
+}
 
 export type RestoredPersonnelArchivedArtifact =
 	| ({ kind: 'follow-up' } & PersonnelFollowUp)
@@ -51,6 +79,7 @@ export async function archivePersonnelOwnedArtifacts(
 			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archivePatch(archivedAt))));
 		}
 	}
+	await archiveLeaderNotesWithPersonnel(noteArchivePersistence(ctx), uniquePersonnelIds, archivedAt);
 }
 
 export async function restorePersonnelOwnedArtifacts(
@@ -72,6 +101,7 @@ export async function restorePersonnelOwnedArtifacts(
 			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, restorePatch())));
 		}
 	}
+	await restoreLeaderNotesWithPersonnel(noteArchivePersistence(ctx), uniquePersonnelIds, personnelArchivedAt);
 }
 
 export async function listPersonnelArchivedArtifacts(
@@ -148,7 +178,7 @@ const restorePersonnelArchivedArtifactByKind = {
 		kind: 'note',
 		...(await restorePersonnelLeaderNote(noteContext, { personnelId: input.personnelId, noteId: input.id }))
 	})
-} satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, RestoreArchivedArtifactHandler>;
+} satisfies Record<PersonnelArtifactKind, RestoreArchivedArtifactHandler>;
 
 const deletePersonnelArchivedArtifactByKind = {
 	'follow-up': (ctx, _noteContext, input) =>
@@ -159,4 +189,4 @@ const deletePersonnelArchivedArtifactByKind = {
 		deletePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }),
 	note: (_ctx, noteContext, input) =>
 		deletePersonnelLeaderNote(noteContext, { personnelId: input.personnelId, noteId: input.id })
-} satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, DeleteArchivedArtifactHandler>;
+} satisfies Record<PersonnelArtifactKind, DeleteArchivedArtifactHandler>;

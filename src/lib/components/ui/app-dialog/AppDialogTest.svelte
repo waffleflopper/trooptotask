@@ -5,12 +5,10 @@
 
 	let {
 		initialOpen = true,
-		closeBlocked = false,
-		longBody = false
+		closeBlocked = false
 	}: {
 		initialOpen?: boolean;
 		closeBlocked?: boolean;
-		longBody?: boolean;
 	} = $props();
 
 	let open = $state(untrack(() => initialOpen));
@@ -34,16 +32,10 @@
 				<AppDialog.Title>Shared dialog title</AppDialog.Title>
 				<AppDialog.Description>Shared dialog description.</AppDialog.Description>
 			</AppDialog.Header>
-			<AppDialog.Body data-testid="dialog-body">
-				{#if longBody}
-					{#each Array.from({ length: 20 }) as _, index (index)}
-						<p>Scrollable body row {index + 1}</p>
-					{/each}
-				{:else}
-					<p>Standard dialog body.</p>
-				{/if}
+			<AppDialog.Body>
+				<p>Standard dialog body.</p>
 			</AppDialog.Body>
-			<AppDialog.Footer data-testid="dialog-footer">
+			<AppDialog.Footer>
 				<Button variant="outline" onclick={close} disabled={closeBlocked}>Cancel</Button>
 				<Button onclick={() => (confirmedCount += 1)} disabled={closeBlocked}>Confirm</Button>
 			</AppDialog.Footer>

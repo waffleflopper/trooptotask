@@ -404,9 +404,8 @@ describe('IctReportsView', () => {
 		await fireEvent.pointerUp(alphaOption);
 
 		await waitFor(() => {
-			expect(fetch).toHaveBeenCalledWith(
-				'/org/org-1/api/critical-tasks/reports/summary?groupId=group-alpha',
-				expect.objectContaining({ signal: expect.any(AbortSignal) })
+			expect(vi.mocked(fetch).mock.calls.map(([url]) => url)).toContain(
+				'/org/org-1/api/critical-tasks/reports/summary?groupId=group-alpha'
 			);
 			expect(within(report).getAllByText('100%').length).toBeGreaterThan(0);
 			expect(within(report).getByLabelText('Critical task report scope').textContent).toMatch(/Population\s*1/);

@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import IctMatrix from './IctMatrix.svelte';
 import type {
@@ -188,5 +188,39 @@ describe('IctMatrix', () => {
 
 		await fireEvent.click(screen.getByLabelText('Smith 071-326-0501: not applicable'));
 		expect(onSelectCell).toHaveBeenCalledTimes(1);
+	});
+
+	it('opens an editable task for a person reached by scrolling the matrix', async () => {
+		const onSelectCell = vi.fn();
+		render(IctMatrix, {
+			props: {
+				orgId: 'org-1',
+				personnel: Array.from({ length: 30 }, (_, index) =>
+					person({ id: `person-${index + 1}`, lastName: `Soldier ${index + 1}` })
+				),
+				tasks: [task({ id: 'task-1', taskCode: '181-105-1001' })],
+				completions: [],
+				groups,
+				settings,
+				viewMode: 'alphabetical',
+				canEdit: true,
+				onSelectCell,
+				orgName: 'Test Unit'
+			}
+		});
+
+		await fireEvent.scroll(screen.getByTestId('critical-tasks-matrix-scroll'), {
+			target: { scrollTop: 2000 }
+		});
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: /Soldier 30 181-105-1001: not recorded/ })).toBeTruthy()
+		);
+		await fireEvent.click(screen.getByRole('button', { name: /Soldier 30 181-105-1001: not recorded/ }));
+
+		expect(onSelectCell).toHaveBeenCalledWith({
+			person: expect.objectContaining({ id: 'person-30' }),
+			task: expect.objectContaining({ id: 'task-1' }),
+			completion: undefined
+		});
 	});
 });

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import LongRangeView from './LongRangeView.svelte';
 import type { AssignmentType, DailyAssignment, Personnel, SpecialDay, StatusType, AvailabilityEntry } from '$lib/types';
 
@@ -118,5 +118,36 @@ describe('LongRangeView', () => {
 		expect(screen.getByTestId('long-range-date-label').textContent).toContain('January 2027');
 		expect(screen.getByTestId('long-range-date-label').textContent).toContain('March 2027');
 		expect(screen.queryByRole('dialog', { name: 'Month and year picker' })).toBeNull();
+	});
+
+	it('shows a distant person’s leave after scrolling the long-range roster', async () => {
+		const roster = Array.from({ length: 60 }, (_, index) => ({
+			...personnel[0]!,
+			id: `person-${index + 1}`,
+			lastName: `Person ${index + 1}`
+		}));
+		const { container } = renderView({
+			personnelByGroup: [{ group: 'Alpha', personnel: roster }],
+			availabilityEntries: [
+				{
+					id: 'person-60-leave',
+					personnelId: 'person-60',
+					statusTypeId: 'leave',
+					startDate: '2026-03-05',
+					endDate: '2026-03-05',
+					note: null
+				}
+			]
+		});
+		const scrollArea = container.querySelector('.scroll-area');
+		if (!scrollArea) throw new Error('Long-range roster was not rendered');
+		Object.defineProperty(scrollArea, 'clientHeight', { configurable: true, value: 260 });
+
+		await fireEvent.scroll(scrollArea, { target: { scrollTop: 1300 } });
+		await waitFor(() => {
+			const personRow = screen.getByText('Person 60').closest('.virtual-row');
+			expect(personRow).toBeTruthy();
+			expect(within(personRow as HTMLElement).getByTitle('Leave')).toBeTruthy();
+		});
 	});
 });

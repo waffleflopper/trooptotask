@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAuthCookieOptions } from './authCookies';
+import { getAuthCookieOptions } from './authCookies.server';
 
 describe('getAuthCookieOptions', () => {
 	it('forces auth cookies to be HttpOnly and rooted at /', () => {

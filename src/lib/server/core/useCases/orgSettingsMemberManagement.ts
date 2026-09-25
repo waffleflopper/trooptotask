@@ -19,12 +19,11 @@ import {
 	ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_UPDATE_HIGH_PRIVILEGE_ACTION,
-	sensitiveActionDecisionAuditDetails,
-	throwSensitiveActionFailure,
 	type SensitiveAction,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
-} from '$lib/server/sensitiveActionAuthorizer';
+} from '$features/identity/contracts';
+import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
 import {
 	organizationInvitationRateLimitAuditDetails,
 	organizationInvitationRateLimitMessage,

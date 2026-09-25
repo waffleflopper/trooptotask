@@ -9,7 +9,7 @@ import {
 	sensitiveActionDenialMessage,
 	sensitiveActionStepUpPath,
 	throwSensitiveActionFailure
-} from './sensitiveActionAuthorizer';
+} from './sensitiveActionAuthorizer.server';
 
 const now = new Date('2026-05-22T12:00:00.000Z');
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSensitiveActionStepUpUrl, isSensitiveActionStepUpPayload } from '$lib/auth/sensitiveActionStepUp';
+import { buildSensitiveActionStepUpUrl, isSensitiveActionStepUpPayload } from './sensitiveActionStepUp';
 
 const currentLocation = {
 	origin: 'https://app.example.test',

@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import type { Cookies } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
-import { getAuthCookieOptions } from '$lib/server/authCookies';
+import { getAuthCookieOptions } from './authCookies.server';
 import { setPendingAuthFlowCookie } from './mfaGate.server';
 
 // Session exchange is deliberately request-local. Neither rejected exchanges nor

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
+	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Alert from '$lib/components/ui/alert';

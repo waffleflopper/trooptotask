@@ -3,7 +3,7 @@ import { type Handle, error, redirect } from '@sveltejs/kit';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
-import { getAuthCookieOptions } from '$lib/server/authCookies';
+import { getAuthCookieOptions } from '$features/identity/index.server';
 import { readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
 import { requireActiveOrganization } from '$lib/server/adapters/supabaseOrganizationAdmission';
 import '$lib/server/env'; // validate env vars on startup

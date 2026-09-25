@@ -31,3 +31,13 @@ export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmati
 export { verifyPasswordProof } from './passwordProof.server';
 export { checkSessionAssurance } from './sessionAssurance.server';
 export { readIdentitySecurity, updateIdentityEmail } from './accountSecurity.server';
+
+export { getAuthCookieOptions } from './authCookies.server';
+export {
+	createSupabaseSensitiveActionAuthorizer,
+	sensitiveActionDecisionAuditDetails,
+	sensitiveActionDenialMessage,
+	sensitiveActionFailureFields,
+	throwSensitiveActionFailure
+} from './sensitiveActionAuthorizer.server';
+export { confirmSensitiveIdentity } from './confirmSensitiveIdentity.server';

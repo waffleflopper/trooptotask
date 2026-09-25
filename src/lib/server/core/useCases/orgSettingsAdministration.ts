@@ -5,12 +5,11 @@ import { sanitizeString, validateUUID } from '$lib/server/validation';
 import {
 	ORGANIZATION_DELETE_ACTION,
 	ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
-	sensitiveActionDecisionAuditDetails,
-	throwSensitiveActionFailure,
 	type SensitiveAction,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
-} from '$lib/server/sensitiveActionAuthorizer';
+} from '$features/identity/contracts';
+import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
 import { requireGovernancePolicy } from './governancePolicy';
 import { isDuplicateOrganizationSlugError, validateOrganizationUrlSlug } from './organizationUrlSlug';
 

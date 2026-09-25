@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { auditLog } from '$lib/server/auditLog';
-import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
+import { getAuthenticatedRedirectPath, sendPublicRecoveryEmail } from '$features/identity/index.server';
 import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import {
 	checkForgotPasswordRateLimit,
@@ -18,7 +18,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ getClientAddress, request, locals, url }) => {
+	default: async ({ getClientAddress, request, url }) => {
 		const formData = await request.formData();
 		const emailValue = formData.get('email');
 		const email = sanitizeString(typeof emailValue === 'string' ? emailValue : null, 254);
@@ -55,14 +55,9 @@ export const actions: Actions = {
 
 		const redirectTo = getAuthConfirmRedirectTo(url.origin, 'recovery');
 
-		const { error } = await locals.supabase.auth.resetPasswordForEmail(email, {
-			redirectTo
-		});
+		await sendPublicRecoveryEmail(email, redirectTo);
 
-		if (error) {
-			return fail(400, { error: 'We could not send a recovery email. Please try again later.', email });
-		}
-
+		// Always return the same public result for existing and unknown accounts, including delivery failures.
 		return { success: true, email };
 	}
 };

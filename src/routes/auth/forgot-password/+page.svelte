@@ -21,7 +21,7 @@
 	panelEyebrow="Recovery"
 	panelTitle={form?.success ? 'Check your email' : 'Reset your password'}
 	panelDescription={form?.success
-		? 'A reset link is on the way.'
+		? 'If the account exists, a reset link is on the way.'
 		: "Enter the email address tied to your account and we'll send a reset link."}
 	supportLabel="What happens next"
 	supportTitle="Check your email."
@@ -35,7 +35,7 @@
 	<div class="flex flex-col gap-5">
 		{#if form?.success}
 			<AuthNotice tone="success" title="Check your email" centered>
-				<p>We sent a password reset link to <strong>{form.email}</strong>.</p>
+				<p>If an account exists for <strong>{form.email}</strong>, a password reset link is on the way.</p>
 				<p>Open the message and follow the link to choose a new password.</p>
 				<p>If it does not arrive within a few minutes, check your spam folder.</p>
 			</AuthNotice>

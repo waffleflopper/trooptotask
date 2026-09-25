@@ -11,11 +11,6 @@
 			"reason": "Email confirmation remains an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/auth/forgot-password/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Password reset request remains an auth-provider boundary."
-		},
-		{
 			"path": "src/routes/auth/reset-password/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Password reset exchange remains an auth-provider boundary."

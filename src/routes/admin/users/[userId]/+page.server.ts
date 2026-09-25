@@ -2,7 +2,10 @@ import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
 import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
-import { createSupabasePlatformUserIdentityCommands } from '$lib/server/adapters/supabasePlatformUserIdentityCommands';
+import {
+	checkAdminAuthEmailRateLimit,
+	createSupabasePlatformUserIdentityCommands
+} from '$lib/server/adapters/supabasePlatformUserIdentityCommands';
 import { createSupabasePlatformUserDirectory } from '$lib/server/adapters/supabasePlatformUserDirectory';
 import { validateUUID } from '$lib/server/validation';
 
@@ -31,6 +34,8 @@ export const actions: Actions = {
 		fn: async (ctx, event) => {
 			const userId = event.params.userId as string;
 			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
+			if (await checkAdminAuthEmailRateLimit(ctx.adminClient, userId, 'recovery'))
+				return fail(429, { error: 'Too many password reset emails. Please try again later.' });
 
 			const result = await createSupabasePlatformUserIdentityCommands(ctx).sendPasswordReset({
 				userId,
@@ -48,6 +53,8 @@ export const actions: Actions = {
 		fn: async (ctx, event) => {
 			const userId = event.params.userId as string;
 			if (!validateUUID(userId)) return fail(400, { error: 'Invalid user ID' });
+			if (await checkAdminAuthEmailRateLimit(ctx.adminClient, userId, 'invite'))
+				return fail(429, { error: 'Too many invite emails. Please try again later.' });
 
 			const result = await createSupabasePlatformUserIdentityCommands(ctx).resendInvite({
 				userId,

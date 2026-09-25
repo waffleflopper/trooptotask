@@ -47,4 +47,19 @@ describe('admin user detail page', () => {
 		expect(screen.getByText('Invite email resent')).toBeTruthy();
 		expect(screen.queryByText('Previous form error')).toBeNull();
 	});
+
+	it('offers resend invite only while account confirmation is pending', () => {
+		render(Page, { props: { data: makePageData(), form: null } });
+		expect(screen.getByRole('button', { name: 'Resend Invite' })).toBeTruthy();
+		cleanup();
+		render(Page, {
+			props: {
+				data: makePageData({
+					user: { ...makePageData().user, emailConfirmationStatus: 'confirmed' }
+				}),
+				form: null
+			}
+		});
+		expect(screen.queryByRole('button', { name: 'Resend Invite' })).toBeNull();
+	});
 });

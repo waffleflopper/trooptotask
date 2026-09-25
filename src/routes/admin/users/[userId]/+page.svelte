@@ -117,22 +117,24 @@
 			</Button>
 		</form>
 
-		<form
-			method="POST"
-			action="?/resendInvite"
-			use:enhance={() => {
-				sendingInvite = true;
-				return async ({ update }) => {
-					await update();
-					sendingInvite = false;
-				};
-			}}
-		>
-			<Button type="submit" variant="outline" disabled={sendingInvite}>
-				{#if sendingInvite}<Spinner color="currentColor" />{/if}
-				Resend Invite
-			</Button>
-		</form>
+		{#if data.user.emailConfirmationStatus === 'pending'}
+			<form
+				method="POST"
+				action="?/resendInvite"
+				use:enhance={() => {
+					sendingInvite = true;
+					return async ({ update }) => {
+						await update();
+						sendingInvite = false;
+					};
+				}}
+			>
+				<Button type="submit" variant="outline" disabled={sendingInvite}>
+					{#if sendingInvite}<Spinner color="currentColor" />{/if}
+					Resend Invite
+				</Button>
+			</form>
+		{/if}
 
 		<Button variant={data.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
 			{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}

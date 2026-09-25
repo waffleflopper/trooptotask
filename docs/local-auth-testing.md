@@ -17,7 +17,7 @@ These filters exercise the current auth routes, setup-link/session/completion wo
 Computer-use auth flows write auth state even when only signing in. Use a disposable local Supabase project with synthetic users and a local Mailpit inbox; do not reuse existing local stacks or live data. Follow the [database isolation contract](architecture/DEFINITION_OF_DONE.md#isolated-database-checks) before starting services or applying migrations. Existing authorization for isolated verification is sufficient.
 
 1. Inspect lifecycle/seed configuration, allocate a unique project ID and unused ports outside 543xx/553xx/563xx, and disable legacy seed loading in the disposable configuration. Start services only from that isolated project context and record the exact commands. Never run an unqualified repository-root `supabase start` for these checks.
-2. Configure the app process to use that project's loopback `PUBLIC_SUPABASE_URL`, synthetic project's `PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, a local-only `ACCOUNT_SETUP_SESSION_SECRET`, and an `APP_PUBLIC_ORIGIN` matching the chosen unused app port. Keep keys and sessions out of committed files, logs and screenshots. Provider-generated auth emails use the disposable Supabase SMTP inbox. App-owned Account Setup Link and Organization Invitation emails use Resend; there is no app Mailpit switch. For those computer-use flows, supply an externally managed, isolated transport capture that cannot send real mail. If unavailable, record delivery-dependent flows as not run. Lower-level tests inject a fake fetch or email sender. Keep abuse limits enabled.
+2. Configure the app process to use that project's loopback `PUBLIC_SUPABASE_URL`, synthetic project's `PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY`, a local-only `ACCOUNT_SETUP_SESSION_SECRET`, and an `APP_PUBLIC_ORIGIN` matching the chosen unused app port. Keep keys and sessions out of committed files, logs and screenshots. App-owned Account Setup Link, Organization Invitation, password recovery and admin resend-invite emails use Resend; there is no app Mailpit switch. For those computer-use flows, supply an externally managed, isolated transport capture that cannot send real mail. If unavailable, record delivery-dependent flows as not run. Lower-level tests inject a fake fetch or email sender. Keep abuse limits enabled.
 3. Build with `npm run build`, then serve with `npm run preview -- --host 127.0.0.1 --port <app-port>` using the same isolated configuration. Record the actual origin and versions. Use a new browser session and synthetic fixtures for each role/scope needed by the flow.
 4. Open Mailpit at the allocated inbox port. If disposable auth configuration or templates change, restart only that disposable stack. Clean up only the resources created for this verification.
 
@@ -51,12 +51,12 @@ Capture candidate, environment, synthetic roles/scopes, steps, expected/observed
 - Check normalized email matching, expiration/replay rejection, authorized acceptance and Organization/Group scope. Include a denied user or mismatched email and confirm another Organization's access remains unchanged.
 - For affected security flows, verify MFA, suspension, sensitive-action step-up, safe redirects and failure handling using the normal controls. Retain abuse limits; repeated attempts must not require a bypass to finish a check.
 
-### Legacy provider invitation and password recovery
+### Legacy admin invitation and password recovery
 
-Using only synthetic users and the disposable provider/inbox:
+Using only synthetic users, the disposable provider and an isolated app-email capture:
 
-1. Issue the legacy provider invitation needed by the compatibility check, and request password recovery through the app.
-2. Inspect each email's visible link: it uses the active app origin and `/auth/confirm`, includes `token_hash=`, and does not expose the provider `/auth/v1/verify` URL. Recovery templates use `{{ .RedirectTo }}` and `{{ .TokenHash }}`; Account Setup Links use the separate route above.
+1. Resend a legacy invitation from the platform admin user detail and request password recovery through the app. Supabase generates the one-use tokens; the app sends both emails through Resend.
+2. Inspect each captured email's visible link: it uses the active app origin and `/auth/confirm`, includes `token_hash=`, and does not expose the provider `/auth/v1/verify` URL. Account Setup Links use the separate route above.
 3. Open each link and confirm the page waits for an explicit button press before verifying the token and continuing to `/auth/accept-invite` or `/auth/reset-password`.
 4. Complete the password flow, verify sign-in with the new password and check relevant invalid/replayed-link and password-policy errors. Preserve entered values and usable keyboard/focus behavior on failure.
 
@@ -66,4 +66,4 @@ When cleanup behavior changes, invoke `/api/cleanup-account-setup-links` only on
 
 ## Evidence limits
 
-Lower-level tests and observed local flows provide different evidence. Neither proves real-world delivery to military email domains or hosted-provider capacity. Local Mailpit observations prove only provider-generated auth delivery; an isolated app-email capture proves only the captured transport path. Mark each required scenario passed, failed or not run; record missing provider/browser/performance evidence with its owning task before program closure.
+Lower-level tests and observed local flows provide different evidence. Neither proves real-world delivery to military email domains or hosted-provider capacity. An isolated app-email capture proves only the captured transport path. Mark each required scenario passed, failed or not run; record missing provider/browser/performance evidence with its owning task before program closure.

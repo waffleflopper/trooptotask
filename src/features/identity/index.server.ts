@@ -40,3 +40,4 @@ export { confirmSensitiveIdentity } from './confirmSensitiveIdentity.server';
 export { passwordAttempt, passwordCompletionState, type PasswordAttempt } from './passwordCompletion.server';
 
 export { updateIdentityPassword } from './updatePassword.server';
+export { sendPublicRecoveryEmail, sendPlatformAuthEmail } from '$lib/server/authEmailDelivery';

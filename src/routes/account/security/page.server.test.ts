@@ -16,7 +16,7 @@ vi.mock('@supabase/supabase-js', () => ({
 vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: () => ({ rpc: async () => ({ data: { limited: false, retry_after_ms: 0 }, error: null }) })
 }));
-import { actions } from './+page.server';
+import { actions, load } from './+page.server';
 
 function makeActionEvent(input: {
 	email?: string;
@@ -39,6 +39,7 @@ function makeActionEvent(input: {
 		}),
 		getClientAddress: () => '192.0.2.1',
 		locals: {
+			actor: { userId: 'user-123' },
 			session: { user: { id: 'user-123' }, access_token: 'admitted', expires_at: 4102444800 },
 			user: { id: 'user-123', email: input.userEmail ?? 'current@example.test' },
 			supabase: {
@@ -144,3 +145,62 @@ function validProof() {
 		error: null
 	};
 }
+
+describe('security overview', () => {
+	it.each([
+		{ data: { totp: [] }, error: { message: 'private provider detail' } },
+		{ data: null, error: null },
+		{ data: {}, error: null },
+		{ data: { totp: null }, error: null },
+		{ data: { totp: [{ status: 'unknown' }] }, error: null },
+		new Error('private provider detail')
+	])('keeps MFA status unknown after unavailable factor lookup %# and recovers on reload', async (unavailable) => {
+		const listFactors = vi.fn();
+		if (unavailable instanceof Error) listFactors.mockRejectedValueOnce(unavailable);
+		else listFactors.mockResolvedValueOnce(unavailable);
+		listFactors.mockResolvedValueOnce({ data: { totp: [{ status: 'verified' }] }, error: null });
+		const event = {
+			locals: {
+				actor: { userId: 'actor' },
+				user: { id: 'actor', email: 'current@example.test', new_email: 'pending@example.test' },
+				session: null,
+				supabase: { auth: { mfa: { listFactors } } }
+			}
+		} as unknown as Parameters<typeof load>[0];
+		const result = await load(event);
+		expect(result).toMatchObject({
+			hasMFA: null,
+			currentEmail: 'current@example.test',
+			pendingEmail: 'pending@example.test'
+		});
+		expect(JSON.stringify(result)).not.toContain('private');
+		expect(await load(event)).toMatchObject({ hasMFA: true });
+	});
+	it('reports disabled only after an acknowledged empty factor list', async () => {
+		const event = {
+			locals: {
+				actor: { userId: 'actor' },
+				user: { id: 'actor', email: 'current@example.test' },
+				session: null,
+				supabase: { auth: { mfa: { listFactors: async () => ({ data: { totp: [] }, error: null }) } } }
+			}
+		} as unknown as Parameters<typeof load>[0];
+		expect(await load(event)).toMatchObject({ hasMFA: false });
+	});
+});
+
+it.each(['missing actor', 'mismatched actor', 'missing user'])(
+	'denies overview with %s before provider access',
+	async (kind) => {
+		const listFactors = vi.fn();
+		const event = {
+			locals: {
+				actor: kind === 'missing actor' ? null : { userId: kind === 'mismatched actor' ? 'other' : 'actor' },
+				user: kind === 'missing user' ? null : { id: 'actor' },
+				supabase: { auth: { mfa: { listFactors } } }
+			}
+		} as unknown as Parameters<typeof load>[0];
+		await expect(load(event)).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+		expect(listFactors).not.toHaveBeenCalled();
+	}
+);

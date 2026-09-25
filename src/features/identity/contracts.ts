@@ -25,3 +25,9 @@ export interface CurrentUserEmailConfirmation {
 	status: 'confirmed' | 'unconfirmed' | 'unavailable';
 	email: string | null;
 }
+
+export interface AccountSecurityOverview {
+	hasMFA: boolean | null;
+	currentEmail: string;
+	pendingEmail: string | null;
+}

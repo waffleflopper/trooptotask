@@ -105,6 +105,7 @@ it('isolates real SDK proof, revokes only its temporary session, and requests th
 				body: new URLSearchParams({ currentPassword: ' OldPassword12 ', email: 'new@example.test' })
 			}),
 			locals: {
+				actor: { userId: user.id },
 				user,
 				session: { user, access_token: admitted, expires_at: 4102444800 },
 				mfaPending: false,

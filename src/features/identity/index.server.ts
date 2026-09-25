@@ -27,3 +27,7 @@ export {
 
 export { loadUserProfile, parseUserProfileForm, upsertUserProfile } from './userProfile.server';
 export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmation.server';
+
+export { verifyPasswordProof } from './passwordProof.server';
+export { checkSessionAssurance } from './sessionAssurance.server';
+export { readIdentitySecurity, updateIdentityEmail } from './accountSecurity.server';

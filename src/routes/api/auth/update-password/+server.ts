@@ -1,6 +1,9 @@
-import { checkSessionAssurance } from '$lib/server/sessionAssurance';
+import {
+	checkSessionAssurance,
+	verifyPasswordProof,
+	getPendingAuthFlowCookieName
+} from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
-import { verifyPasswordProof } from '$lib/server/passwordProof';
 import type { RequestHandler } from './$types';
 import { passwordAttempt, type PasswordAttempt } from '$lib/server/passwordCompletion';
 import { auditLog } from '$lib/server/auditLog';
@@ -10,7 +13,6 @@ import {
 	passwordUpdateRateLimitAuditDetails
 } from '$lib/server/passwordUpdateRateLimit';
 import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
-import { getPendingAuthFlowCookieName } from '$features/identity/index.server';
 
 export const POST: RequestHandler = async ({ request, locals, cookies, getClientAddress }) => {
 	const { user, session } = locals;

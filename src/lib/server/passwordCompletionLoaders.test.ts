@@ -33,6 +33,7 @@ it.each([
 			signOut: vi.fn()
 		};
 		const locals = {
+			actor: flow === null ? { userId: 'actor' } : null,
 			user: { id: 'actor' },
 			session,
 			authFlow: flow,

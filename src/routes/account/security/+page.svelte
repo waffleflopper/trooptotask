@@ -6,7 +6,7 @@
 	import type { MfaActionResponse } from '$features/identity/contracts';
 	import { PasswordMfaChallenge } from '$features/identity';
 	let passwordMfaRequired = $state(false);
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import type { ActionData, PageData } from './$types';
@@ -19,7 +19,18 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	let mfaOverride = $state<boolean | null>(null);
+	let checkingMfaStatus = $state(false);
+	async function retryMfaStatus() {
+		checkingMfaStatus = true;
+		try {
+			await invalidateAll();
+		} catch {
+			// Keep the unknown state and retry available without exposing transport errors.
+		} finally {
+			checkingMfaStatus = false;
+		}
+	}
+
 	let enrolling = $state(false);
 	let qrCode = $state('');
 	let factorId = $state('');
@@ -88,7 +99,8 @@
 	onMount(() => {
 		completion = data.passwordCompletion ?? null;
 	});
-	const mfaEnabled = $derived(mfaOverride ?? data.hasMFA);
+	// Local acknowledgments apply until authoritative loader data changes.
+	let mfaEnabled = $derived(data.hasMFA);
 	const pendingEmail = $derived(confirmedPendingEmail ?? data.pendingEmail);
 	const hasMinLength = $derived(newPassword.length >= 12);
 	const hasUppercase = $derived(/[A-Z]/.test(newPassword));
@@ -156,7 +168,7 @@
 			}
 
 			mfaSuccess = 'MFA has been enabled successfully.';
-			mfaOverride = true;
+			mfaEnabled = true;
 			enrolling = false;
 			factorId = '';
 			qrCode = '';
@@ -228,7 +240,7 @@
 			}
 
 			mfaSuccess = 'MFA has been disabled.';
-			mfaOverride = false;
+			mfaEnabled = false;
 			confirmingDisable = false;
 			disableCode = '';
 		} catch (e: unknown) {
@@ -531,15 +543,25 @@
 
 			<div class="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-muted/25 p-4">
 				<div>
-					<p class="font-medium">{mfaEnabled ? 'Enabled' : 'Disabled'}</p>
+					<p class="font-medium">
+						{mfaEnabled === null ? 'MFA status unavailable' : mfaEnabled ? 'Enabled' : 'Disabled'}
+					</p>
 					<p class="text-sm text-muted-foreground">
-						{mfaEnabled
-							? 'Account sign-in is protected with a second factor.'
-							: 'Only password-based sign-in is active.'}
+						{mfaEnabled === null
+							? 'Unable to check your authenticator. Retry before changing MFA.'
+							: mfaEnabled
+								? 'Account sign-in is protected with a second factor.'
+								: 'Only password-based sign-in is active.'}
 					</p>
 				</div>
 
-				{#if !mfaEnabled && !enrolling}
+				{#if mfaEnabled === null}
+					<Button type="button" variant="outline" onclick={retryMfaStatus} disabled={checkingMfaStatus}>
+						{checkingMfaStatus ? 'Checking MFA status' : 'Retry MFA status'}
+					</Button>
+				{/if}
+
+				{#if mfaEnabled === false && !enrolling}
 					<Button type="button" onclick={startEnroll} disabled={loading}>
 						{#if loading}<Spinner />{/if}
 						Enable MFA

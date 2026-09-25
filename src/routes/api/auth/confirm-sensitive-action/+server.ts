@@ -1,4 +1,4 @@
-import { checkSessionAssurance } from '$lib/server/sessionAssurance';
+import { checkSessionAssurance } from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';

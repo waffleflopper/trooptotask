@@ -7,7 +7,7 @@ Use the [verification contract](architecture/DEFINITION_OF_DONE.md#verification-
 Run the existing route and workflow tests without starting Supabase or an email provider:
 
 ```bash
-npm run test -- src/routes/auth src/routes/api/auth src/lib/server/accountSetup
+npm run test -- src/features/identity src/routes/auth src/routes/api/auth src/routes/account src/lib/server/accountSetup
 ```
 
 These filters exercise the current auth routes, setup-link/session/completion workflows and API auth boundaries. Run adjacent invitation, authorization and rate-limit tests when those seams change, then the full required command sequence. A passing filtered run proves only its tested outcomes, not email delivery, browser interactions or complete retained-flow coverage. Task 02-02 owns gaps in the reviewed-acquisition safety net.

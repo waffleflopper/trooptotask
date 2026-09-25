@@ -1,10 +1,13 @@
-import { checkSessionAssurance } from '$lib/server/sessionAssurance';
+import {
+	checkSessionAssurance,
+	getPendingAuthFlowCookieName,
+	parseUserProfileForm,
+	upsertUserProfile
+} from '$features/identity/index.server';
 import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/auto-accept-org-invites';
-import { getPendingAuthFlowCookieName } from '$features/identity/index.server';
-import { parseUserProfileForm, upsertUserProfile } from '$features/identity/index.server';
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
 	return parseUserProfileForm({

@@ -815,7 +815,11 @@
 			"src/lib/utils/modalRegistry.svelte.ts"
 		],
 		"audit": ["src/lib/server/logSanitize.ts"],
-		"identity": ["src/features/identity/index.server.ts", "src/features/identity/contracts.ts"]
+		"identity": [
+			"src/features/identity/index.ts",
+			"src/features/identity/index.server.ts",
+			"src/features/identity/contracts.ts"
+		]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

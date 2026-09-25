@@ -5,8 +5,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { writable, type Writable } from 'svelte/store';
 import { page } from '$app/stores';
 import { replaceState } from '$app/navigation';
-import Recovery from '../../routes/auth/reset-password/+page.svelte';
-import Invite from '../../routes/auth/accept-invite/+page.svelte';
+import Recovery from './reset-password/+page.svelte';
+import Invite from './accept-invite/+page.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn(), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: false }, state: {} }) }));

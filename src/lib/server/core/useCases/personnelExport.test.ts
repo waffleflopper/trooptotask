@@ -85,6 +85,17 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 			leader_notes: 'Needs passport review'
 		}
 	]);
+	ctx.rawStore.seed('leader_notes', [
+		{
+			id: 'sensitive-note',
+			organization_id: ctx.auth.orgId,
+			personnel_id: PERSONNEL_ID,
+			author: 'leader',
+			text: 'Separate sensitive note',
+			created_at: '2026-05-01T00:00:00Z',
+			archived_at: null
+		}
+	]);
 	ctx.rawStore.seed('training_types', [
 		{
 			id: 'training-type-1',
@@ -241,7 +252,7 @@ describe('Personnel export use case', () => {
 				{ Field: 'Personal Email', Value: 'jamie@example.com' },
 				{ Field: 'Personal Phone', Value: '555-0102' },
 				{ Field: 'Address', Value: '123 Main St, Anchorage, AK, 99501' },
-				{ Field: 'Leader Notes', Value: 'Needs passport review' }
+				{ Field: 'Leader Notes', Value: '' }
 			])
 		);
 
@@ -264,5 +275,15 @@ describe('Personnel export use case', () => {
 				'End Date': '2026-05-17'
 			}
 		]);
+	});
+	it('omits the legacy Leader Notes row when the person has no extended-info record', async () => {
+		const ctx = createTestContext();
+		seedPersonnelExportDataset(ctx);
+		await ctx.rawStore.deleteManyByIds('personnel_extended_info', ctx.auth.orgId, ['extended-1']);
+		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID });
+		const workbook = await parseWorkbook(result._buffer);
+		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info')).some((row) => row.Field === 'Leader Notes')).toBe(
+			false
+		);
 	});
 });

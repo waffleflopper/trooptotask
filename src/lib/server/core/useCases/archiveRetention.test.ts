@@ -1,3 +1,4 @@
+import { createLeaderNoteDataSource } from '$features/personnel/index.server';
 import { describe, expect, it, vi } from 'vitest';
 import { createInMemoryDataStore, createTestStoragePort } from '$lib/server/adapters/inMemory';
 import { cleanupArchivedRecords, DEFAULT_ARCHIVE_RETENTION_MONTHS } from './archiveRetention';
@@ -32,7 +33,19 @@ function buildPorts() {
 		{ id: 'membership-1', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' },
 		{ id: 'membership-2', organization_id: 'org-2', user_id: 'admin-2', role: 'admin' }
 	]);
-	return { store, storage, assignmentTypes };
+	return {
+		store,
+		storage,
+		assignmentTypes,
+		leaderNotes: createLeaderNoteDataSource({
+			exportRows: (orgId) => store.findMany('leader_notes', orgId),
+			findArchivedBefore: async (orgId, cutoff) => {
+				const notes = await store.findMany<{ id: string; archived_at: string | null }>('leader_notes', orgId);
+				return notes.filter((note) => note.archived_at !== null && Date.parse(note.archived_at) < Date.parse(cutoff));
+			},
+			deleteByIds: (orgId, ids) => store.deleteManyByIds('leader_notes', orgId, ids)
+		})
+	};
 }
 
 function isoMonthsAgo(months: number): string {
@@ -162,6 +175,23 @@ describe('cleanupArchivedRecords', () => {
 		await expect(idsFor(ports, 'leader_notes')).resolves.toEqual(['note-active', 'note-recent']);
 		await expect(idsFor(ports, 'ict_tasks')).resolves.toEqual(['ict-active', 'ict-recent']);
 		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['assignment-active', 'assignment-recent']);
+	});
+
+	it('stops before deleting Personnel or reporting success when note deletion fails', async () => {
+		const ports = buildPorts();
+		ports.store.seed('leader_notes', [{ id: 'note', organization_id: 'org-1', archived_at: '2025-01-01T00:00:00Z' }]);
+		ports.store.seed('personnel', [{ id: 'person', organization_id: 'org-1', archived_at: '2025-01-01T00:00:00Z' }]);
+		const deleteMany = ports.store.deleteManyByIds.bind(ports.store);
+		vi.spyOn(ports.store, 'deleteManyByIds').mockImplementation((table, orgId, ids) => {
+			if (table === 'leader_notes') throw new Error('Note deletion unavailable');
+			return deleteMany(table, orgId, ids);
+		});
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'Note deletion unavailable'
+		);
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual(['person']);
+		await expect(idsFor(ports, 'leader_notes')).resolves.toEqual(['note']);
+		await expect(ports.store.findMany('notifications', 'org-1')).resolves.toEqual([]);
 	});
 
 	it('removes expired personnel document storage files before deleting document rows', async () => {

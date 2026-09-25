@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
 	PersonnelCounselingRecord,
 	PersonnelCounselingsPageData,
@@ -8,7 +9,6 @@ import type {
 	PersonnelDocumentsPageData,
 	PersonnelFollowUp,
 	PersonnelFollowUpsPageData,
-	PersonnelLeaderNote,
 	PersonnelNotesPageData
 } from '$features/personnel/personnel-detail.types';
 import FollowUpsPage from './follow-ups/+page.svelte';
@@ -84,7 +84,7 @@ function makeLeaderNote(overrides: Partial<PersonnelLeaderNote> = {}): Personnel
 		id: 'leader-note-1',
 		personnelId: 'person-1',
 		author: '1SG Ramos',
-		date: 'Jun 8, 2026',
+		date: '2026-06-08',
 		text: 'Strong range card prep',
 		createdAt: '2026-06-08T10:00:00.000Z',
 		archivedAt: null,

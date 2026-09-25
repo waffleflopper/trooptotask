@@ -1,13 +1,13 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { fail } from '$lib/server/core/errors';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, personnelLeaderNoteContext, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	archivePersonnelLeaderNote,
 	deletePersonnelLeaderNote,
 	restorePersonnelLeaderNote
-} from '$lib/server/core/useCases/personnelLeaderNotes';
+} from '$features/personnel/index.server';
 
 function routeIds(event: RequestEvent): { personnelId: string; noteId: string } {
 	const personnelId = event.params.id;
@@ -24,9 +24,15 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	parseInput: async (event) => ({ ...(await event.request.json()), ...routeIds(event) }),
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
-			return restorePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
+			return restorePersonnelLeaderNote(
+				personnelLeaderNoteContext(ctx),
+				input as { personnelId: string; noteId: string }
+			);
 		if (input.action === 'archive')
-			return archivePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
+			return archivePersonnelLeaderNote(
+				personnelLeaderNoteContext(ctx),
+				input as { personnelId: string; noteId: string }
+			);
 		fail(400, 'Unsupported leader note action.');
 	}
 };
@@ -37,7 +43,7 @@ export const _deleteConfig: RouteConfig<{ personnelId: string; noteId: string },
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => routeIds(event),
 	fn: async (ctx, input) => {
-		await deletePersonnelLeaderNote(ctx, input);
+		await deletePersonnelLeaderNote(personnelLeaderNoteContext(ctx), input);
 		return { success: true };
 	},
 	formatOutput: (result) => json(result)

@@ -106,7 +106,7 @@ export async function exportPersonnelWorkbook(
 				field: 'Address',
 				value: [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
 			},
-			{ field: 'Leader Notes', value: (ext.leader_notes as string) ?? '' }
+			{ field: 'Leader Notes', value: '' }
 		);
 	}
 	addTableSheet(workbook, {

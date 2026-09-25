@@ -3,6 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle } from './hooks.server';
 import { POST as createGroup } from './routes/org/[orgId]/api/groups/+server';
+import {
+	GET as listLeaderNotes,
+	POST as createLeaderNote
+} from './routes/org/[orgId]/api/personnel/[id]/leader-notes/+server';
+import { PATCH as updateLeaderNote } from './routes/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]/+server';
 import { createRootOrgLayoutLoad } from '$lib/server/core/useCases/createRootOrgLayoutLoad';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 import { buildLayoutContext } from '$lib/server/adapters/httpAdapter';
@@ -48,6 +53,18 @@ function fixture() {
 			{ id: 'other-org', user_id: USER, organization_id: OTHER_ORG, role: 'owner' }
 		],
 		groups: [],
+		personnel: [{ id: 'person-a', organization_id: ORG, group_id: 'group-a' }],
+		leader_notes: [
+			{
+				id: 'note-a',
+				organization_id: ORG,
+				personnel_id: 'person-a',
+				author: USER,
+				text: 'Range preparation complete',
+				created_at: '2026-09-20T10:00:00Z',
+				archived_at: null
+			}
+		],
 		audit_logs: [],
 		platform_announcements: [],
 		announcement_dismissals: [],
@@ -72,9 +89,11 @@ function fixture() {
 		expect(init?.method ?? 'GET').toBe('GET');
 		let rows = tables[table].filter((row) =>
 			[...url.searchParams].every(([key, filter]) => {
-				if (['select', 'offset', 'limit'].includes(key)) return true;
+				if (['select', 'offset', 'limit', 'order'].includes(key)) return true;
 				if (table === 'platform_announcements' && key === 'or') return true; // Empty optional chrome fixture.
 				if (filter.startsWith('eq.')) return String(row[key]) === filter.slice(3);
+				if (filter === 'is.null') return row[key] == null;
+				if (filter.startsWith('in.(')) return filter.slice(4, -1).split(',').includes(String(row[key]));
 				throw new Error(`Unexpected filter ${key}=${filter}`);
 			})
 		);
@@ -177,6 +196,59 @@ describe('Organization request suspension admission', () => {
 });
 
 describe('Organization admission denial and recovery', () => {
+	it('admits the current leader-note GET and blocks it before dispatch when status is unsafe', async () => {
+		const f = fixture();
+		f.tables.organization_memberships[0].display_name = '1SG Alvarez';
+		const noteEvent = () => {
+			const request = f.event('alpha', 'GET', '/api/personnel/person-a/leader-notes');
+			request.params.id = 'person-a';
+			request.route = { id: '/org/[orgId]/api/personnel/[id]/leader-notes' };
+			return request;
+		};
+		const dispatch = vi.fn(async (event: RequestEvent) => listLeaderNotes!(event));
+		const response = await handle({ event: noteEvent(), resolve: dispatch });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual([
+			expect.objectContaining({
+				id: 'note-a',
+				personnelId: 'person-a',
+				author: '1SG Alvarez',
+				text: 'Range preparation complete'
+			})
+		]);
+		f.tables.organizations[0].suspended_at = SUSPENDED_AT;
+		await expect(handle({ event: noteEvent(), resolve: dispatch })).rejects.toMatchObject({ status: 403 });
+		f.tables.organizations[0].suspended_at = null;
+		f.state.failedTable = 'organizations';
+		await expect(handle({ event: noteEvent(), resolve: dispatch })).rejects.toMatchObject({ status: 503 });
+		f.state.failedTable = '';
+		f.tables.organizations = [];
+		await expect(handle({ event: noteEvent(), resolve: dispatch })).rejects.toMatchObject({ status: 404 });
+		expect(dispatch).toHaveBeenCalledTimes(1);
+	});
+
+	it.each(['POST', 'PATCH'] as const)('preserves the current %s malformed-JSON response', async (method) => {
+		const f = fixture();
+		const suffix = `/api/personnel/person-a/leader-notes${method === 'PATCH' ? '/note-a' : ''}`;
+		const request = f.event('alpha', method, suffix);
+		request.params.id = 'person-a';
+		if (method === 'PATCH') request.params.noteId = 'note-a';
+		request.route = {
+			id:
+				method === 'PATCH'
+					? '/org/[orgId]/api/personnel/[id]/leader-notes/[noteId]'
+					: '/org/[orgId]/api/personnel/[id]/leader-notes'
+		};
+		request.request = new Request(request.url, { method, body: '{' });
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(
+			handle({
+				event: request,
+				resolve: (event) => (method === 'PATCH' ? updateLeaderNote!(event) : createLeaderNote!(event))
+			})
+		).rejects.toMatchObject({ status: 500, body: { message: 'Internal server error' } });
+		expect(f.tables.leader_notes).toHaveLength(1);
+	});
 	it.each(['owner', 'admin'])(
 		'allows an active %s to create a Group while another Organization is suspended',
 		async (role) => {

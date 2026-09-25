@@ -33,7 +33,9 @@ describe('organization export inventory', () => {
 			}
 		} as Pick<DataStore, 'findMany'> as DataStore;
 
-		const payload = await loadOrganizationExportPayload(store, 'org-1');
+		const payload = await loadOrganizationExportPayload(store, 'org-1', {
+			exportRows: (orgId) => store.findMany('leader_notes', orgId)
+		});
 
 		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
 		expect(maxActiveReads).toBeLessThanOrEqual(ORGANIZATION_EXPORT_QUERY_BATCH_SIZE);
@@ -83,12 +85,37 @@ describe('retained Organization export projection', () => {
 			sort_order: 2,
 			created_at: '2026-09-01T00:00:00Z'
 		};
+		const activeNote = {
+			id: 'active-note',
+			organization_id: 'org-1',
+			personnel_id: 'person-1',
+			author: 'original-author',
+			text: 'Sensitive active note',
+			created_at: '2026-05-01T00:00:00.123456Z',
+			archived_at: null
+		};
+		const archivedNote = {
+			...activeNote,
+			id: 'archived-note',
+			text: 'Sensitive archived note',
+			archived_at: '2026-06-01T00:00:00Z'
+		};
+
 		const commercialTables = new Set([
 			'organization_billing_snapshots',
 			'organization_checkout_attempts',
 			'organization_plan_feature_overrides'
 		]);
 		const providerRows: Record<string, Record<string, unknown>[]> = {
+			leader_notes: [activeNote, archivedNote, { ...activeNote, id: 'foreign-note', organization_id: 'foreign-org' }],
+			personnel_extended_info: [
+				{
+					id: 'ext-1',
+					organization_id: 'org-1',
+					personnel_id: 'person-1',
+					leader_notes: 'Obsolete value must not reach Personnel summary'
+				}
+			],
 			organizations: [
 				{
 					...profile,
@@ -154,9 +181,17 @@ describe('retained Organization export projection', () => {
 				}
 			}
 		});
-		const result = await loadOrganizationExportPayload(createSupabaseDataStore(client), 'org-1');
+		const store = createSupabaseDataStore(client);
+		const result = await loadOrganizationExportPayload(store, 'org-1', {
+			exportRows: (orgId) => store.findMany('leader_notes', orgId)
+		});
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');
+		expect(json.leaderNotes).toEqual([activeNote, archivedNote]);
+		expect(json.sections.leaderNotes).toEqual([activeNote, archivedNote]);
+		expect(json.sectionInventory).toContainEqual(
+			expect.objectContaining({ key: 'leaderNotes', table: 'leader_notes', rowCount: 2 })
+		);
 		expect(json.organizationProfile).toEqual([profile]);
 		expect(json.sections.organizationProfile).toEqual([profile]);
 		expect(json.dailyAssignments).toEqual([assignment, groupAssignment]);
@@ -173,6 +208,13 @@ describe('retained Organization export projection', () => {
 			expect(json.sectionInventory.map((section: { key: string }) => section.key)).not.toContain(key);
 		}
 		const { workbook } = await buildOrganizationDataExportWorkbook({ payload: result });
+		const noteSheet = workbook.getWorksheet('Leader Notes')!;
+		expect(noteSheet.getRow(2).getCell('author').value).toBe('original-author');
+		expect(noteSheet.getRow(2).getCell('text').value).toBe('Sensitive active note');
+		expect(noteSheet.getRow(3).getCell('text').value).toBe('Sensitive archived note');
+		expect(workbook.getWorksheet('Raw - Leader Notes')!.getSheetValues().flat(2)).toContain('archived-note');
+		expect(workbook.getWorksheet('Raw - Leader Notes')!.getSheetValues().flat(2)).not.toContain('foreign-note');
+		expect(String(workbook.getWorksheet('Personnel')!.getRow(2).getCell('leader_notes').value ?? '')).toBe('');
 		const profileSheet = workbook.getWorksheet('Raw - Organization Profile')!;
 		expect(profileSheet.columns.map((column) => column.key)).toEqual(Object.keys(profile));
 		expect(profileSheet.getRow(2).values).toEqual([undefined, ...Object.values(profile).map((value) => value ?? '')]);

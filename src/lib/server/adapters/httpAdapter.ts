@@ -51,10 +51,94 @@ import {
 } from '$lib/server/core/useCases/routeAuthorization';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
+import type { LeaderNoteContext, LeaderNoteRow } from '$features/personnel/index.server';
+import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
 
 interface BuildContextResult {
 	ctx: UseCaseContext;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
+}
+
+/** Bind the admitted request to Personnel's typed note collaborators. */
+export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteContext {
+	const orgId = ctx.auth.orgId;
+	return {
+		actor: ctx.auth,
+		scope: ctx.scope,
+		audit: ctx.audit,
+		persistence: {
+			async findPersonnelGroup(personnelId) {
+				const row = await ctx.rawStore.findOne<{ group_id: string | null }>(
+					'personnel',
+					orgId,
+					{ id: personnelId },
+					'group_id'
+				);
+				return row?.group_id;
+			},
+			async listPage(personnelId, { archived, limit, before }) {
+				const options = {
+					orderBy: [
+						{ column: 'created_at', ascending: false },
+						{ column: 'id', ascending: false }
+					],
+					isNull: { archived_at: !archived },
+					limit
+				};
+				if (!before) {
+					return ctx.store.findMany<LeaderNoteRow>('leader_notes', orgId, { personnel_id: personnelId }, options);
+				}
+				// Two disjoint ranges express the composite cursor using the existing scoped store.
+				// Finish the tied timestamp before reading older notes; never use an offset.
+				const tied = await ctx.store.findMany<LeaderNoteRow>(
+					'leader_notes',
+					orgId,
+					{ personnel_id: personnelId, created_at: before.createdAt },
+					{ ...options, rangeFilters: [{ column: 'id', op: 'lt', value: before.id }] }
+				);
+				if (tied.length === limit) return tied;
+				const older = await ctx.store.findMany<LeaderNoteRow>(
+					'leader_notes',
+					orgId,
+					{ personnel_id: personnelId },
+					{
+						...options,
+						limit: limit - tied.length,
+						rangeFilters: [{ column: 'created_at', op: 'lt', value: before.createdAt }]
+					}
+				);
+				return [...tied, ...older];
+			},
+			find(personnelId, noteId) {
+				return ctx.store.findOne<LeaderNoteRow>('leader_notes', orgId, { id: noteId, personnel_id: personnelId });
+			},
+			insert(input) {
+				return ctx.store.insert<LeaderNoteRow>('leader_notes', orgId, {
+					personnel_id: input.personnelId,
+					author: input.author,
+					text: input.text,
+					created_at: input.createdAt
+				});
+			},
+			update(noteId, archivedAt) {
+				return ctx.store.update<LeaderNoteRow>('leader_notes', orgId, noteId, { archived_at: archivedAt });
+			},
+			delete(noteId) {
+				return ctx.store.delete('leader_notes', orgId, noteId);
+			}
+		},
+		contributorLabels: (userIds) =>
+			loadOrganizationMemberLabels(
+				{
+					findMembers: (memberOrgId, ids) =>
+						ctx.rawStore.findMany<OrganizationMemberLabelRow>('organization_memberships', memberOrgId, undefined, {
+							inFilters: { user_id: ids }
+						})
+				},
+				orgId,
+				userIds
+			)
+	};
 }
 
 function policyScopeGroupIds(auth: AuthContext): string[] | string | null {

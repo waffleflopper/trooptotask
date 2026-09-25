@@ -182,6 +182,9 @@
 				"src/lib/server/adapters/entityHandlers.test.ts",
 				"src/lib/server/adapters/handle.test.ts",
 				"src/lib/server/adapters/httpAdapter.ts",
+				"src/lib/server/adapters/leaderNoteDataSource.ts",
+				"src/lib/server/adapters/leaderNoteDataSource.test.ts",
+				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
@@ -317,7 +320,7 @@
 			"packet": "08-M09"
 		},
 		"organization": {
-			"roots": [],
+			"roots": ["src/features/organization/"],
 			"files": [
 				"src/lib/server/adapters/supabaseDashboardOrgAccess.test.ts",
 				"src/lib/server/adapters/supabaseDashboardOrgAccess.ts",
@@ -385,8 +388,6 @@
 				"src/lib/server/core/useCases/personnelExtendedInfo.ts",
 				"src/lib/server/core/useCases/personnelFollowUps.test.ts",
 				"src/lib/server/core/useCases/personnelFollowUps.ts",
-				"src/lib/server/core/useCases/personnelLeaderNotes.test.ts",
-				"src/lib/server/core/useCases/personnelLeaderNotes.ts",
 				"src/lib/server/core/useCases/personnelMergeBatch.test.ts",
 				"src/lib/server/core/useCases/personnelMergeBatch.ts",
 				"src/lib/server/core/useCases/personnelQuery.test.ts",
@@ -795,12 +796,22 @@
 	"publicFiles": {
 		"shared": ["src/lib/utils.ts", "src/lib/types.ts"],
 		"provider": [],
-		"access": ["src/lib/server/permissions.ts", "src/lib/server/permissionContext.ts"],
+		"access": [
+			"src/lib/server/permissions.ts",
+			"src/lib/server/permissionContext.ts",
+			"src/lib/access/index.server.ts"
+		],
+		"organization": ["src/features/organization/index.server.ts"],
 		"calendar": ["src/features/calendar/index.ts"],
 		"critical-tasks": [],
 		"dashboard": ["src/features/dashboard/index.ts"],
 		"onboarding": ["src/features/onboarding/index.ts"],
-		"personnel": ["src/features/personnel/index.ts", "src/features/groups/index.ts"],
+		"personnel": [
+			"src/features/personnel/contracts.ts",
+			"src/features/personnel/index.ts",
+			"src/features/personnel/index.server.ts",
+			"src/features/groups/index.ts"
+		],
 		"rating-scheme": ["src/features/rating-scheme/index.ts"],
 		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts"],
 		"training": ["src/features/training/index.ts"],

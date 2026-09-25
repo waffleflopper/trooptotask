@@ -1,5 +1,5 @@
 import { beforeEach, vi } from 'vitest';
-import type { PasswordAttempt } from '$lib/server/passwordCompletion';
+import type { PasswordAttempt } from '$features/identity/index.server';
 
 // A controlled persistence port for route tests. SQL/provider tests separately
 // establish atomic commit and fencing; the route must obey these stored facts.

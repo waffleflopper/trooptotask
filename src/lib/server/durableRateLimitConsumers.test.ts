@@ -3,7 +3,6 @@ import { checkAccessRequestSubmissionRateLimit } from './accessRequestRateLimit'
 import { checkAccountSetupCompletionRateLimit, checkAccountSetupRenewalRateLimit } from './accountSetupRateLimit';
 import { checkForgotPasswordRateLimit } from './forgotPasswordRateLimit';
 import { checkOrganizationInvitationRateLimit } from './organizationInvitationRateLimit';
-import { checkPasswordUpdateRateLimit } from './passwordUpdateRateLimit';
 import { checkPlatformAccessRequestSetupRateLimit } from './platformAccessRequestRateLimit';
 import { createSupabaseDurableRateLimitStore, type DurableRateLimitStore } from './durableRateLimit';
 
@@ -54,14 +53,6 @@ const policies: Policy[] = [
 		budgets: [
 			[3600, 3],
 			[3600, 3]
-		]
-	},
-	{
-		name: 'password update',
-		check: (store) => checkPasswordUpdateRateLimit({ ...identity, userId: 'synthetic-user', store }),
-		budgets: [
-			[900, 5],
-			[900, 5]
 		]
 	},
 	...(['create', 'resend'] as const).map(

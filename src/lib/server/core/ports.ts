@@ -1,6 +1,6 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
-import type { SensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
+import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { Personnel } from '$lib/types';
 
 /** Options for DataStore.findMany queries */

@@ -18,6 +18,7 @@ describe('POST /api/auth/mfa/enroll/verify', () => {
 				})
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -52,6 +53,7 @@ describe('POST /api/auth/mfa/enroll/verify', () => {
 				})
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -75,7 +77,7 @@ describe('POST /api/auth/mfa/enroll/verify', () => {
 
 	it('returns an auth error when the enrollment code is invalid', async () => {
 		const challengeAndVerify = vi.fn().mockResolvedValue({
-			error: { message: 'Invalid enrollment code.' }
+			error: { message: 'Invalid enrollment code. refresh_token=private-management-secret' }
 		});
 
 		const response = await POST({
@@ -88,6 +90,7 @@ describe('POST /api/auth/mfa/enroll/verify', () => {
 				})
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -103,9 +106,9 @@ describe('POST /api/auth/mfa/enroll/verify', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({
-			error: 'Invalid enrollment code.'
-		});
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-management-secret');
 	});
 });
 
@@ -130,7 +133,10 @@ describe('pending enrollment confirmation boundary', () => {
 					method: 'POST',
 					body: raw ? (body as string) : JSON.stringify(body)
 				}),
-				locals: { supabase: { auth: { mfa: { listFactors, challengeAndVerify, unenroll } } } }
+				locals: {
+					actor: { userId: 'synthetic-user' },
+					supabase: { auth: { mfa: { listFactors, challengeAndVerify, unenroll } } }
+				}
 			} as unknown as Parameters<typeof POST>[0]);
 		return { factors, listFactors, challengeAndVerify, unenroll, invoke };
 	}

@@ -5,7 +5,7 @@ import {
 } from '$lib/server/organizationInvitationDelivery';
 import { createAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
+import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	accountSetupLinkFixture,

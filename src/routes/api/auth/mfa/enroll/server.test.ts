@@ -16,6 +16,7 @@ describe('POST /api/auth/mfa/enroll', () => {
 
 		const response = await POST({
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -39,11 +40,12 @@ describe('POST /api/auth/mfa/enroll', () => {
 	it('returns an auth error when enrollment cannot be started', async () => {
 		const enroll = vi.fn().mockResolvedValue({
 			data: null,
-			error: { message: 'MFA enrollment is not available.' }
+			error: { message: 'MFA enrollment is not available. refresh_token=private-management-secret' }
 		});
 
 		const response = await POST({
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -55,9 +57,9 @@ describe('POST /api/auth/mfa/enroll', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({
-			error: 'MFA enrollment is not available.'
-		});
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-management-secret');
 	});
 });
 
@@ -68,7 +70,7 @@ describe('enrollment provider boundary', () => {
 				method: 'POST',
 				body: JSON.stringify({ factorType: 'phone', userId: 'other-account' })
 			}),
-			locals: { supabase: { auth: { mfa: { enroll } } } }
+			locals: { actor: { userId: 'synthetic-user' }, supabase: { auth: { mfa: { enroll } } } }
 		} as unknown as Parameters<typeof POST>[0]);
 	}
 
@@ -102,11 +104,13 @@ describe('enrollment provider boundary', () => {
 		const response = await invoke(
 			vi.fn().mockResolvedValue({
 				data: { id: 'pending', type: 'totp', totp: { qr_code: 'private-qr' } },
-				error: { message: 'Enrollment rejected' }
+				error: { message: 'Enrollment rejected refresh_token=private-management-secret' }
 			})
 		);
 		expect(response.status).toBe(400);
-		expect(await response.json()).toEqual({ error: 'Enrollment rejected' });
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-management-secret');
 	});
 
 	it('returns a retryable error after a thrown provider failure', async () => {

@@ -7,9 +7,9 @@ vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/server/auto-accept-org-invites')>()),
 	autoAcceptOrgInvites: effects.accept
 }));
-vi.mock('$lib/server/userProfile', async (original) => ({
-	...(await original<typeof import('$lib/server/userProfile')>()),
-	upsertCurrentUserProfile: effects.profile
+vi.mock('$features/identity/index.server', async (original) => ({
+	...(await original<typeof import('$features/identity/index.server')>()),
+	upsertUserProfile: effects.profile
 }));
 import { POST } from './+server';
 const now = new Date('2026-09-18T05:00:00Z');
@@ -38,7 +38,12 @@ function fixture() {
 		mfaPending: false,
 		supabase: { auth: { mfa: { getAuthenticatorAssuranceLevel: readAssurance } } }
 	};
-	const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
+	const jar = new Map<string, string>();
+	const cookies = {
+		get: (name: string) => jar.get(name),
+		set: vi.fn((name: string, value: string) => jar.set(name, value)),
+		delete: vi.fn((name: string) => jar.delete(name))
+	};
 	const event = () =>
 		({
 			locals,
@@ -153,13 +158,19 @@ describe('invite finalization request admission', () => {
 		const h = fixture();
 		h.readAssurance.mockResolvedValue(assurance(current, next));
 		expect((await POST(h.event())).status).toBe(200);
-		expect(effects.profile).toHaveBeenCalledExactlyOnceWith(h.locals, {
+		expect(effects.profile).toHaveBeenCalledExactlyOnceWith(h.locals, h.locals.user.id, {
 			firstName: 'Jane',
 			lastName: 'Smith',
 			rank: 'SGT'
 		});
 		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals.supabase, 'verified@example.test');
-		expect(h.cookies.delete).toHaveBeenCalledExactlyOnceWith('ttt_pending_auth_flow', { path: '/' });
+		const marker = h.cookies.get('ttt_pending_auth_flow')!;
+		expect(JSON.parse(Buffer.from(marker.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+			flow: 'complete',
+			userId: h.locals.user.id,
+			sessionId: '00000000-0000-4000-8000-000000000001'
+		});
+		expect(marker.split('.')[1]).toMatch(/^[\w-]+$/);
 		h.locals.authFlow = null;
 		expect((await POST(h.event())).status).toBe(403);
 		expect(effects.accept).toHaveBeenCalledTimes(1);

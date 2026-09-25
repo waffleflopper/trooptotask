@@ -1,4 +1,4 @@
-import { passwordCompletionState } from '$lib/server/passwordCompletion';
+import { passwordCompletionState } from '$features/identity/index.server';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

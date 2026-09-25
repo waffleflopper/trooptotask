@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { getAuthConfirmState } from '$lib/server/authConfirm';
-import { setPendingAuthFlowCookie } from '$lib/server/mfaGate';
+import { setCompletedAuthFlowCookie, setPendingAuthFlowCookie } from '$features/identity/index.server';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -22,7 +22,7 @@ export const actions: Actions = {
 			redirect(303, '/auth/login?error=auth_link_invalid');
 		}
 
-		const { error } = await locals.supabase.auth.verifyOtp({
+		const { data, error } = await locals.supabase.auth.verifyOtp({
 			token_hash: confirmation.tokenHash,
 			type: confirmation.type
 		});
@@ -32,7 +32,19 @@ export const actions: Actions = {
 		}
 
 		if (confirmation.type === 'invite' || confirmation.type === 'recovery') {
-			setPendingAuthFlowCookie(cookies, confirmation.type);
+			if (
+				!data?.session ||
+				!data.user ||
+				!setPendingAuthFlowCookie(cookies, confirmation.type, data.session, data.user)
+			)
+				redirect(303, '/auth/login?error=auth_link_invalid');
+		} else {
+			// Email changes may continue an already admitted account. A signup link
+			// cannot promote a new OTP session into general application access.
+			if (confirmation.type !== 'email' || !data?.session || !data.user || locals.actor?.userId !== data.user.id)
+				redirect(303, `/auth/login?next=${encodeURIComponent(confirmation.next)}`);
+			if (!setCompletedAuthFlowCookie(cookies, data.session, data.user))
+				redirect(303, '/auth/login?error=auth_link_invalid');
 		}
 		redirect(303, confirmation.next);
 	}

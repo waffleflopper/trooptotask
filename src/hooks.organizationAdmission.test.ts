@@ -119,6 +119,12 @@ function fixture() {
 		created_at: now,
 		last_sign_in_at: now
 	};
+	const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+	const accessToken = `${encode({ alg: 'HS256' })}.${encode({
+		sub: USER,
+		session_id: '00000000-0000-4000-8000-000000000001',
+		amr: [{ method: 'password' }]
+	})}.synthetic`;
 	const client = {
 		from: provider.from.bind(provider),
 		rpc: vi.fn((name: string) =>
@@ -128,7 +134,13 @@ function fixture() {
 		),
 		auth: {
 			getSession: vi.fn().mockResolvedValue({
-				data: { session: { user, access_token: 'synthetic', refresh_token: 'synthetic-refresh' } },
+				data: {
+					session: {
+						user,
+						access_token: accessToken,
+						refresh_token: 'synthetic-refresh'
+					}
+				},
 				error: null
 			}),
 			getClaims: vi.fn().mockResolvedValue({
@@ -145,7 +157,7 @@ function fixture() {
 	};
 	serverClient.mockReturnValue(client);
 	adminClient.mockReturnValue(provider);
-	const locals = { user, supabase: client, session: null } as unknown as App.Locals;
+	const locals = { actor: { userId: USER }, user, supabase: client, session: null } as unknown as App.Locals;
 	function event(segment = 'alpha', method = 'POST', suffix = '/api/groups'): RequestEvent {
 		const url = new URL(`http://app.invalid/org/${segment}${suffix}`);
 		return {
@@ -417,6 +429,7 @@ describe('Organization shell admission with real provider mapping', () => {
 	it('denies an anonymous shell before reading provider data', async () => {
 		const f = fixture();
 		f.locals.user = null;
+		f.locals.actor = null;
 		await expect(f.load()).rejects.toMatchObject({ status: 401 });
 		expect(f.transport).not.toHaveBeenCalled();
 	});

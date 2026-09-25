@@ -66,7 +66,7 @@ describe('createRootOrgLayoutLoad', () => {
 		});
 		const result = await load({
 			params: { orgId: 'test-unit' },
-			locals: { user: { id: 'user-1' }, supabase: userSupabase } as unknown as App.Locals,
+			locals: { actor: { userId: 'user-1' }, user: { id: 'user-1' }, supabase: userSupabase } as unknown as App.Locals,
 			cookies: {} as Parameters<typeof load>[0]['cookies'],
 			depends: vi.fn(),
 			url: new URL('http://localhost/org/test-unit/calendar')
@@ -137,6 +137,7 @@ describe('createRootOrgLayoutLoad', () => {
 		const result = await load({
 			params: { orgId: '1-11-bde' },
 			locals: {
+				actor: { userId: 'user-1' },
 				user: { id: 'user-1' },
 				supabase: userSupabase
 			} as unknown as Parameters<typeof load>[0]['locals'],

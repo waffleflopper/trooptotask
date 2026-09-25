@@ -3,7 +3,7 @@ import { POST } from './+server';
 
 describe('POST /api/auth/mfa/enroll/cancel', () => {
 	it('cancels an in-progress enrollment by unenrolling the factor', async () => {
-		const unenroll = vi.fn().mockResolvedValue({ error: null });
+		const unenroll = vi.fn().mockResolvedValue({ data: { id: 'factor-1' }, error: null });
 
 		const response = await POST({
 			request: new Request('http://localhost/api/auth/mfa/enroll/cancel', {
@@ -14,6 +14,7 @@ describe('POST /api/auth/mfa/enroll/cancel', () => {
 				})
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -45,6 +46,7 @@ describe('POST /api/auth/mfa/enroll/cancel', () => {
 				body: JSON.stringify({})
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -68,7 +70,7 @@ describe('POST /api/auth/mfa/enroll/cancel', () => {
 
 	it('returns an auth error when canceling enrollment fails', async () => {
 		const unenroll = vi.fn().mockResolvedValue({
-			error: { message: 'Failed to cancel MFA enrollment.' }
+			error: { message: 'Failed to cancel MFA enrollment. refresh_token=private-management-secret' }
 		});
 
 		const response = await POST({
@@ -80,6 +82,7 @@ describe('POST /api/auth/mfa/enroll/cancel', () => {
 				})
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -95,9 +98,9 @@ describe('POST /api/auth/mfa/enroll/cancel', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({
-			error: 'Failed to cancel MFA enrollment.'
-		});
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-management-secret');
 	});
 });
 
@@ -115,7 +118,7 @@ describe('pending factor cancellation boundary', () => {
 		const unenroll = vi.fn(async ({ factorId }: { factorId: string }) => {
 			const index = factors.findIndex((f) => f.id === factorId);
 			if (index !== -1) factors.splice(index, 1);
-			return { error: null as { message: string } | null };
+			return { data: { id: factorId }, error: null as { message: string } | null };
 		});
 		const request = (body: string) =>
 			POST({
@@ -124,7 +127,7 @@ describe('pending factor cancellation boundary', () => {
 					headers: { 'Content-Type': 'application/json' },
 					body
 				}),
-				locals: { supabase: { auth: { mfa: { listFactors, unenroll } } } }
+				locals: { actor: { userId: 'synthetic-user' }, supabase: { auth: { mfa: { listFactors, unenroll } } } }
 			} as unknown as Parameters<typeof POST>[0]);
 		return {
 			factors,
@@ -190,10 +193,25 @@ describe('pending factor cancellation boundary', () => {
 	it.each(['rejection', 'exception'])('preserves the factor on unenrollment %s and permits retry', async (failure) => {
 		const f = fixture();
 		if (failure === 'exception') f.unenroll.mockRejectedValueOnce(new Error('Provider unavailable'));
-		else f.unenroll.mockResolvedValueOnce({ error: { message: 'Removal failed' } });
+		else f.unenroll.mockResolvedValueOnce({ data: null, error: { message: 'Removal failed' } } as never);
 		expect((await f.cancel('pending-factor')).status).toBe(failure === 'exception' ? 503 : 401);
 		expect(f.factors.some((factor) => factor.id === 'pending-factor')).toBe(true);
 		expect((await f.cancel('pending-factor')).status).toBe(200);
 		expect(f.factors.some((factor) => factor.id === 'pending-factor')).toBe(false);
 	});
+
+	it.each([undefined, null, {}, { id: 'other-factor' }])(
+		'keeps cancellation unconfirmed for acknowledgment %j and permits a verified retry',
+		async (data) => {
+			const f = fixture();
+			const before = structuredClone(f.factors);
+			f.unenroll.mockResolvedValueOnce({ data, error: null } as never);
+			const response = await f.cancel('pending-factor');
+			expect(response.status).toBe(503);
+			expect(await response.json()).toEqual({ error: expect.any(String) });
+			expect(f.factors).toEqual(before);
+			expect((await f.cancel('pending-factor')).status).toBe(200);
+			expect(f.factors.map((factor) => factor.id)).toEqual(['verified-factor', 'phone-factor']);
+		}
+	);
 });

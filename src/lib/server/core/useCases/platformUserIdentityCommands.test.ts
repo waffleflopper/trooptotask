@@ -55,6 +55,7 @@ describe('PlatformUserIdentityCommands', () => {
 			message: 'Password reset email sent'
 		});
 		expect(store.sendPasswordResetEmail).toHaveBeenCalledWith({
+			userId: USER_ID,
 			email: 'soldier@example.mil',
 			redirectTo: 'http://localhost:4173/auth/confirm?type=recovery&next=%2Fauth%2Freset-password'
 		});
@@ -81,6 +82,7 @@ describe('PlatformUserIdentityCommands', () => {
 			message: 'Invite email resent'
 		});
 		expect(store.sendInviteEmail).toHaveBeenCalledWith({
+			userId: USER_ID,
 			email: 'soldier@example.mil',
 			redirectTo: 'http://localhost:4173/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'
 		});
@@ -103,6 +105,7 @@ describe('PlatformUserIdentityCommands', () => {
 		});
 
 		expect(store.sendInviteEmail).toHaveBeenCalledWith({
+			userId: USER_ID,
 			email: 'soldier@example.mil',
 			redirectTo: 'https://trooptotask.org/auth/confirm?type=invite&next=%2Fauth%2Faccept-invite'
 		});

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
+import { sendPlatformAuthEmail } from '$features/identity/index.server';
+import { checkDurableRateLimit, createSupabaseDurableRateLimitStore } from '$lib/access/index.server';
 import {
 	createPlatformUserIdentityCommands,
 	type PlatformUserIdentityCommandStore,
@@ -31,11 +33,13 @@ export function createSupabasePlatformUserIdentityCommandStore(
 		},
 
 		async sendPasswordResetEmail(input) {
-			const { error } = await supabase.auth.resetPasswordForEmail(input.email, {
+			const result = await sendPlatformAuthEmail({
+				type: 'recovery',
+				userId: input.userId,
+				email: input.email,
 				redirectTo: input.redirectTo
 			});
-			if (error) {
-				console.error('[admin/users] auth.resetPasswordForEmail error:', error);
+			if (result !== 'sent') {
 				return { ok: false, message: 'Failed to send password reset email' };
 			}
 
@@ -43,11 +47,13 @@ export function createSupabasePlatformUserIdentityCommandStore(
 		},
 
 		async sendInviteEmail(input) {
-			const { error } = await supabase.auth.admin.inviteUserByEmail(input.email, {
+			const result = await sendPlatformAuthEmail({
+				type: 'invite',
+				userId: input.userId,
+				email: input.email,
 				redirectTo: input.redirectTo
 			});
-			if (error) {
-				console.error('[admin/users] auth.admin.inviteUserByEmail error:', error);
+			if (result !== 'sent') {
 				return { ok: false, message: 'Failed to send invite email' };
 			}
 
@@ -61,4 +67,20 @@ export function createSupabasePlatformUserIdentityCommands(ctx: AdminContext): P
 		store: createSupabasePlatformUserIdentityCommandStore(ctx.adminClient),
 		audit: { log: (event) => ctx.audit(event) }
 	});
+}
+
+/** Limit repeated admin-generated OTP replacements and outbound email per target user and action. */
+export async function checkAdminAuthEmailRateLimit(
+	supabase: SupabaseClient,
+	userId: string,
+	type: 'recovery' | 'invite'
+): Promise<boolean> {
+	const decision = await checkDurableRateLimit({
+		namespace: 'admin-auth-email',
+		dimensions: [{ name: 'target', value: `${type}:${userId}` }],
+		windowMs: 60 * 60 * 1000,
+		maxRequests: 3,
+		store: createSupabaseDurableRateLimitStore(supabase)
+	});
+	return decision.limited;
 }

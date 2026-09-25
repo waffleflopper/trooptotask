@@ -148,11 +148,11 @@ async function resolveAdminContext(
 	event: RequestEvent,
 	requiredPage?: string
 ): Promise<AdminContext> {
-	const user = locals.user;
-	if (!user) throw redirect(303, '/auth/login');
+	const actor = locals.actor;
+	if (!actor) throw redirect(303, '/auth/login');
 
 	return buildAdminContextCore({
-		userId: user.id,
+		userId: actor.userId,
 		lookupRole: (userId) => getAdminRole(locals.supabase, userId),
 		requestInfo: getRequestInfo(event),
 		requiredPage,

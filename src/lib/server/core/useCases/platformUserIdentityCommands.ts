@@ -17,10 +17,15 @@ export interface PlatformUserIdentityCommandStore {
 		{ status: 'found'; email: string } | { status: 'not_found' } | { status: 'provider_error'; message: string }
 	>;
 	sendPasswordResetEmail(input: {
+		userId: string;
 		email: string;
 		redirectTo: string;
 	}): Promise<{ ok: true } | { ok: false; message: string }>;
-	sendInviteEmail(input: { email: string; redirectTo: string }): Promise<{ ok: true } | { ok: false; message: string }>;
+	sendInviteEmail(input: {
+		userId: string;
+		email: string;
+		redirectTo: string;
+	}): Promise<{ ok: true } | { ok: false; message: string }>;
 }
 
 export interface PlatformUserIdentityCommandAuditEvent {
@@ -48,6 +53,7 @@ export function createPlatformUserIdentityCommands(
 			}
 
 			const sendResult = await deps.store.sendPasswordResetEmail({
+				userId: input.userId,
 				email: userEmail.email,
 				redirectTo: getAuthConfirmRedirectTo(input.inboundOrigin, 'recovery')
 			});
@@ -76,6 +82,7 @@ export function createPlatformUserIdentityCommands(
 			}
 
 			const sendResult = await deps.store.sendInviteEmail({
+				userId: input.userId,
 				email: userEmail.email,
 				redirectTo: getAuthConfirmRedirectTo(input.inboundOrigin, 'invite')
 			});

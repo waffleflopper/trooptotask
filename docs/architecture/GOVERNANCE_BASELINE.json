@@ -1,69 +1,14 @@
 {
 	"routeSupabaseAllowlist": [
 		{
-			"path": "src/routes/account/security/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Supabase Auth MFA management remains a provider-specific auth edge in v1."
-		},
-		{
 			"path": "src/routes/api/auth/finalize-invite/+server.ts",
 			"classification": "auth-edge",
-			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/disable/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA disable flow is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/enroll/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA enrollment is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/enroll/cancel/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA enrollment cancellation is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/enroll/verify/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA enrollment verification is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/status/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA status lookup is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/verify/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA challenge verification is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/update-password/+server.ts",
-			"classification": "auth-edge",
-			"reason": "Password updates remain inside the auth-provider edge."
+			"reason": "Invite finalization still coordinates verified Identity completion with Supabase-backed invitation acceptance."
 		},
 		{
 			"path": "src/routes/auth/confirm/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Email confirmation remains an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/auth/forgot-password/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Password reset request remains an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/auth/login/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Password login and AAL checks remain provider-specific auth work."
-		},
-		{
-			"path": "src/routes/auth/logout/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Logout remains an auth-provider boundary."
 		},
 		{
 			"path": "src/routes/auth/reset-password/+page.server.ts",
@@ -132,7 +77,6 @@
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration user detail and identity commands still build service-role user directory, audit, and identity command adapters from the admin context."
 		},
-
 		{
 			"path": "src/routes/api/cleanup-account-setup-links/+server.ts",
 			"classification": "cron-edge",

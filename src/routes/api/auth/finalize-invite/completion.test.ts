@@ -76,7 +76,12 @@ function fixture() {
 		authFlow: 'invite',
 		supabase
 	} as unknown as App.Locals;
-	const cookies = { delete: vi.fn() };
+	const jar = new Map<string, string>();
+	const cookies = {
+		get: (name: string) => jar.get(name),
+		set: vi.fn((name: string, value: string) => jar.set(name, value)),
+		delete: vi.fn((name: string) => jar.delete(name))
+	};
 	return { locals, cookies, call: () => POST({ locals, cookies } as unknown as Parameters<typeof POST>[0]) };
 }
 beforeEach(() => {
@@ -106,7 +111,13 @@ it('persists the bound profile and accepts only the normalized-email invitations
 	expect(await response.json()).toMatchObject({ activated: true, accepted: 2 });
 	expect(savedProfile).toEqual(profile);
 	expect([...memberships]).toEqual(['one', 'two']);
-	expect(h.cookies.delete).toHaveBeenCalledOnce();
+	const marker = h.cookies.get('ttt_pending_auth_flow')!;
+	expect(JSON.parse(Buffer.from(marker.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+		flow: 'complete',
+		userId: actor,
+		sessionId: '00000000-0000-4000-8000-000000000001'
+	});
+	expect(marker.split('.')[1]).toMatch(/^[\w-]+$/);
 });
 it.each([
 	null,

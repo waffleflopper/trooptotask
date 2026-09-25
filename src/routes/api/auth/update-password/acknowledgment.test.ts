@@ -2,10 +2,8 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptSt
 import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
 import { afterEach, expect, it, vi } from 'vitest';
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
-	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Limited',
-	passwordUpdateRateLimitAuditDetails: () => ({})
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
+	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
 import { POST } from './+server';
@@ -18,7 +16,12 @@ function fixture() {
 		updateUser: vi.fn().mockResolvedValue({ data: { user }, error: null }),
 		admin: { signOut: vi.fn().mockResolvedValue({ error: null }) }
 	};
-	const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
+	const jar = new Map<string, string>();
+	const cookies = {
+		get: (name: string) => jar.get(name),
+		set: vi.fn((name: string, value: string) => jar.set(name, value)),
+		delete: vi.fn((name: string) => jar.delete(name))
+	};
 	const event = () =>
 		({
 			request: new Request('https://app.invalid/api/auth/update-password', {
@@ -100,7 +103,13 @@ it('keeps a rejected mutation retryable and completes only an acknowledged retry
 		passwordSessionToken('actor', 'admitted-token'),
 		'others'
 	);
-	expect(h.cookies.delete).toHaveBeenCalledOnce();
+	const marker = h.cookies.get('ttt_pending_auth_flow')!;
+	expect(JSON.parse(Buffer.from(marker.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+		flow: 'complete',
+		userId: user.id,
+		sessionId: '00000000-0000-4000-8000-000000000001'
+	});
+	expect(marker.split('.')[1]).toMatch(/^[\w-]+$/);
 });
 
 it('recovers a committed mutation despite a lost provider response and without receipt delivery', async () => {

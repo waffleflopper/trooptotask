@@ -1,21 +1,15 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { readIdentityMfaStatus } from '$features/identity/index.server';
 
 export const GET: RequestHandler = async ({ locals }) => {
-	try {
-		const { data, error } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-		if (error) return json({ error: error.message }, { status: 401 });
-
-		if (
-			!data ||
-			!['aal1', 'aal2'].includes(data.currentLevel ?? '') ||
-			!['aal1', 'aal2'].includes(data.nextLevel ?? '')
-		) {
+	const result = await readIdentityMfaStatus(locals);
+	switch (result.status) {
+		case 'ready':
+			return json(result.assurance);
+		case 'denied':
+			return json({ error: 'Unable to verify your session. Please sign in again.' }, { status: 401 });
+		case 'unavailable':
 			return json({ error: 'Unable to verify authentication status.' }, { status: 503 });
-		}
-
-		return json({ currentLevel: data.currentLevel, nextLevel: data.nextLevel });
-	} catch {
-		return json({ error: 'Unable to verify authentication status.' }, { status: 503 });
 	}
 };

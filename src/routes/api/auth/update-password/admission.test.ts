@@ -4,10 +4,8 @@ import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
-	checkPasswordUpdateRateLimit: limit,
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Too many password update attempts.',
-	passwordUpdateRateLimitAuditDetails: () => ({})
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
+	checkPasswordUpdateRateLimit: limit
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
 
@@ -205,8 +203,15 @@ describe.each(flows)('password update request admission: %s', (flow) => {
 			password: validBody.password,
 			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
 		});
-		if (flow === 'recovery') expect(h.cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
-		else expect(h.cookies.delete).not.toHaveBeenCalled();
+		if (flow === 'recovery') {
+			const marker = h.cookies.set.mock.calls.find(([name]) => name === 'ttt_pending_auth_flow')?.[1];
+			expect(JSON.parse(Buffer.from(marker!.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+				flow: 'complete',
+				userId: 'actor-1',
+				sessionId: '00000000-0000-4000-8000-000000000001'
+			});
+			expect(marker!.split('.')[1]).toMatch(/^[\w-]+$/);
+		} else expect(h.cookies.delete).not.toHaveBeenCalled();
 	});
 });
 

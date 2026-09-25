@@ -2,12 +2,12 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { goto } from '$app/navigation';
+import { goto, invalidateAll } from '$app/navigation';
 import Page from './+page.svelte';
 import type { PageData } from './$types';
 
 vi.mock('$app/forms', () => ({ enhance: () => {} }));
-vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), invalidateAll: vi.fn() }));
 
 afterEach(() => {
 	cleanup();
@@ -55,7 +55,7 @@ describe('MFA admission redirects from an open security page', () => {
 });
 
 describe('pending enrollment cancellation', () => {
-	it.each(['provider rejection', 'network failure'])(
+	it.each(['provider rejection', 'network failure', 'unacknowledged success'])(
 		'retains enrollment through %s and clears it only after retry succeeds',
 		async (failure) => {
 			let finishCancel!: (response: Response) => void;
@@ -63,6 +63,7 @@ describe('pending enrollment cancellation', () => {
 				.fn()
 				.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }));
 			if (failure === 'network failure') fetchMock.mockRejectedValueOnce(new Error('Connection lost'));
+			else if (failure === 'unacknowledged success') fetchMock.mockResolvedValueOnce(Response.json({}));
 			else fetchMock.mockResolvedValueOnce(Response.json({ error: 'Cancellation unavailable' }, { status: 503 }));
 			fetchMock.mockImplementationOnce(
 				() =>
@@ -81,9 +82,7 @@ describe('pending enrollment cancellation', () => {
 			const code = await screen.findByLabelText('Verification code');
 			await fireEvent.input(code, { target: { value: '123456' } });
 			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-			expect(
-				await screen.findByText(failure === 'network failure' ? 'Connection lost' : 'Cancellation unavailable')
-			).toBeTruthy();
+			expect(await screen.findByRole('alert')).toBeTruthy();
 			expect(screen.getByLabelText('Verification code')).toHaveValue('123456');
 			expect(screen.getByRole('img', { name: 'MFA QR Code' })).toHaveAttribute('src', 'data:image/svg+xml,synthetic');
 			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -214,4 +213,38 @@ describe('fresh-challenge MFA disable', () => {
 			expect(screen.getByRole('button', { name: 'Enable MFA' })).toBeEnabled();
 		}
 	);
+});
+
+it('replaces acknowledged MFA state with an unavailable reload, then retries without losing email input', async () => {
+	const data = { hasMFA: true, currentEmail: 'current@example.test', pendingEmail: null } as PageData;
+	const view = render(Page, { props: { data, form: null } });
+	const email = screen.getByLabelText('New email address');
+	await fireEvent.input(email, { target: { value: 'draft@example.test' } });
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ ok: true })));
+	await fireEvent.click(screen.getByRole('button', { name: 'Disable MFA' }));
+	await fireEvent.input(screen.getByLabelText('Authenticator code'), { target: { value: '123456' } });
+	await fireEvent.click(screen.getByRole('button', { name: 'Confirm and Disable' }));
+	expect(await screen.findByRole('button', { name: 'Enable MFA' })).toBeEnabled();
+	await view.rerender({ data: { ...data, hasMFA: null }, form: null });
+	expect(screen.queryByRole('button', { name: 'Enable MFA' })).toBeNull();
+	expect(screen.queryByRole('button', { name: 'Disable MFA' })).toBeNull();
+	expect(screen.queryByText('Disabled')).toBeNull();
+	vi.mocked(invalidateAll).mockRejectedValueOnce(new Error('private transport detail'));
+	await fireEvent.click(screen.getByRole('button', { name: 'Retry MFA status' }));
+	await waitFor(() => expect(screen.getByRole('button', { name: 'Retry MFA status' })).toBeEnabled());
+	expect(screen.queryByText(/private transport detail/)).toBeNull();
+	expect(email).toHaveValue('draft@example.test');
+	let finish!: () => void;
+	vi.mocked(invalidateAll).mockImplementationOnce(
+		() =>
+			new Promise<void>((resolve) => {
+				finish = resolve;
+			})
+	);
+	await fireEvent.click(screen.getByRole('button', { name: 'Retry MFA status' }));
+	expect(screen.getByRole('button', { name: 'Checking MFA status' })).toBeDisabled();
+	await view.rerender({ data: { ...data, hasMFA: true }, form: null });
+	finish();
+	expect(await screen.findByRole('button', { name: 'Disable MFA' })).toBeEnabled();
+	expect(email).toHaveValue('draft@example.test');
 });

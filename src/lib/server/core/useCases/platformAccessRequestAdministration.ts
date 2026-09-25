@@ -28,12 +28,14 @@ import {
 	PLATFORM_ACCESS_REQUEST_APPROVE_ACTION,
 	PLATFORM_ACCESS_REQUEST_REJECT_ACTION,
 	PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION,
-	sensitiveActionDecisionAuditDetails,
-	sensitiveActionDenialMessage,
-	sensitiveActionFailureFields,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionFailureFields
-} from '$lib/server/sensitiveActionAuthorizer';
+} from '$features/identity/contracts';
+import {
+	sensitiveActionDecisionAuditDetails,
+	sensitiveActionDenialMessage,
+	sensitiveActionFailureFields
+} from '$features/identity/index.server';
 import {
 	platformAccessRequestRateLimitAuditDetails,
 	platformAccessRequestRateLimitMessage,

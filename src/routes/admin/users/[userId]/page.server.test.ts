@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { platformAuditMock, platformUserDirectoryMock, platformUserIdentityCommandsMock } = vi.hoisted(() => ({
+const {
+	platformAuditMock,
+	platformUserDirectoryMock,
+	platformUserIdentityCommandsMock,
+	checkAdminAuthEmailRateLimitMock
+} = vi.hoisted(() => ({
+	checkAdminAuthEmailRateLimitMock: vi.fn(),
 	platformAuditMock: {
 		listLogs: vi.fn(),
 		listRecentByOrganization: vi.fn(),
@@ -31,7 +37,8 @@ vi.mock('$lib/server/adapters/supabasePlatformUserDirectory', () => ({
 }));
 
 vi.mock('$lib/server/adapters/supabasePlatformUserIdentityCommands', () => ({
-	createSupabasePlatformUserIdentityCommands: () => platformUserIdentityCommandsMock
+	createSupabasePlatformUserIdentityCommands: () => platformUserIdentityCommandsMock,
+	checkAdminAuthEmailRateLimit: checkAdminAuthEmailRateLimitMock
 }));
 
 import { actions, load } from './+page.server';
@@ -71,6 +78,7 @@ describe('admin user auth email actions', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.unstubAllEnvs();
+		checkAdminAuthEmailRateLimitMock.mockResolvedValue(false);
 
 		platformUserIdentityCommandsMock.sendPasswordReset.mockResolvedValue({
 			status: 'sent',
@@ -281,5 +289,24 @@ describe('admin user auth email actions', () => {
 		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
 
 		expect(result).toEqual({ status: 500, data: { error: 'Failed to resend invite' } });
+	});
+
+	it('stops repeated admin email requests before replacing another provider token', async () => {
+		checkAdminAuthEmailRateLimitMock.mockResolvedValue(true);
+		const event = {
+			__ctx: { adminClient: makeIdentityCommandActionClient(), audit },
+			params: { userId: USER_ID },
+			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
+		};
+		await expect(actions.resetPassword(event as never)).resolves.toEqual({
+			status: 429,
+			data: { error: 'Too many password reset emails. Please try again later.' }
+		});
+		await expect(actions.resendInvite(event as never)).resolves.toEqual({
+			status: 429,
+			data: { error: 'Too many invite emails. Please try again later.' }
+		});
+		expect(platformUserIdentityCommandsMock.sendPasswordReset).not.toHaveBeenCalled();
+		expect(platformUserIdentityCommandsMock.resendInvite).not.toHaveBeenCalled();
 	});
 });

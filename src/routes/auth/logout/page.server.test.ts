@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName } from '$features/identity/index.server';
 import { actions, load } from './+page.server';
 
 type LogoutLoadEvent = Parameters<typeof load>[0];

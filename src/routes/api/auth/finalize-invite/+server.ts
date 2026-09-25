@@ -1,10 +1,14 @@
-import { checkSessionAssurance } from '$lib/server/sessionAssurance';
-import { passwordCompletionState } from '$lib/server/passwordCompletion';
+import {
+	checkSessionAssurance,
+	getPendingAuthFlowCookieName,
+	parseUserProfileForm,
+	setCompletedAuthFlowCookie,
+	upsertUserProfile
+} from '$features/identity/index.server';
+import { passwordCompletionState } from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/auto-accept-org-invites';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
-import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
 	return parseUserProfileForm({
@@ -82,13 +86,15 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 	try {
 		const profile = parseMetadataProfile((user as { user_metadata?: Record<string, unknown> }).user_metadata);
 		if (!('error' in profile)) {
-			await upsertCurrentUserProfile(locals, profile);
+			await upsertUserProfile(locals, user.id, profile);
 		}
 
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 		const accepted = await autoAcceptOrgInvites(locals.supabase, user.email);
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
-		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		if (!setCompletedAuthFlowCookie(cookies, session, user)) {
+			cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		}
 
 		return json({ ok: true, ...accepted, activated: true });
 	} catch (error) {

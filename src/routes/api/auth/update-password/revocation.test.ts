@@ -2,12 +2,10 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptSt
 import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-import { passwordCompletionState } from '$lib/server/passwordCompletion';
+import { passwordCompletionState } from '$features/identity/index.server';
 import { POST } from './+server';
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
-	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Limited',
-	passwordUpdateRateLimitAuditDetails: () => ({})
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
+	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
 function fixture(flow: 'recovery' | 'invite' = 'recovery') {
@@ -74,7 +72,13 @@ it.each([undefined, null, {}, { error: undefined }, { error: false }, { error: {
 		expect(await retry.json()).toEqual({ ok: true });
 		expect(h.auth.updateUser).toHaveBeenCalledOnce();
 		expect(await h.state()).toBe('complete');
-		expect(h.cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+		const marker = h.cookies.get('ttt_pending_auth_flow')!;
+		expect(JSON.parse(Buffer.from(marker.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+			flow: 'complete',
+			userId: 'actor',
+			sessionId: '00000000-0000-4000-8000-000000000001'
+		});
+		expect(marker.split('.')[1]).toMatch(/^[\w-]+$/);
 		h.locals.authFlow = null;
 		const replay = await POST(h.event({ password: 'DifferentPassword12' }));
 		expect(await replay.json()).toEqual({ ok: true });

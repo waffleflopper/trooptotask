@@ -5,8 +5,7 @@ import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession
 import { passwordCompletionState } from '$features/identity/index.server';
 import { POST } from './+server';
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
-	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	passwordUpdateRateLimitAuditDetails: () => ({})
+	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
 function fixture(flow: 'recovery' | 'invite' = 'recovery') {

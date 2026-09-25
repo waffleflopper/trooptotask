@@ -59,11 +59,7 @@ import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$
  * Gets authentication context for API routes.
  * Throws 401 if the request does not have an admitted actor.
  */
-export function getApiContext(
-	locals: App.Locals,
-	_cookies: Cookies,
-	_orgId: string
-): { supabase: SupabaseClient; userId: string } {
+function getApiContext(locals: App.Locals): { supabase: SupabaseClient; userId: string } {
 	if (!locals.actor) {
 		throw error(401, 'Unauthorized');
 	}
@@ -187,7 +183,7 @@ async function createRequestAuthorizationPorts(config: {
 
 async function buildContextInternal(event: RequestEvent): Promise<BuildContextResult> {
 	const routeOrgSegment = event.params.orgId as string;
-	const { supabase, userId } = getApiContext(event.locals, event.cookies, routeOrgSegment);
+	const { supabase, userId } = getApiContext(event.locals);
 	const orgId = validateUUID(routeOrgSegment)
 		? routeOrgSegment
 		: await resolveOrganizationIdForRequest(supabase, routeOrgSegment);
@@ -243,8 +239,8 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
  * before building a full UseCaseContext. This keeps getApiContext/getSupabaseClient
  * behind the adapter boundary.
  */
-export function getLayoutClient(locals: App.Locals, cookies: Cookies, orgId: string) {
-	return getApiContext(locals, cookies, orgId);
+export function getLayoutClient(locals: App.Locals, _cookies: Cookies, _orgId: string) {
+	return getApiContext(locals);
 }
 
 export async function buildRouteContext(event: RequestEvent): Promise<UseCaseContext> {
@@ -257,8 +253,12 @@ export async function buildRouteContext(event: RequestEvent): Promise<UseCaseCon
  * Layout servers don't have a RequestEvent, so this accepts the raw pieces.
  * Audit is a no-op since layout loads are read-only data fetches.
  */
-export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, orgId: string): Promise<UseCaseContext> {
-	const { supabase, userId } = getApiContext(locals, cookies, orgId);
+export async function buildLayoutContext(
+	locals: App.Locals,
+	_cookies: Cookies,
+	orgId: string
+): Promise<UseCaseContext> {
+	const { supabase, userId } = getApiContext(locals);
 	const canonicalOrgId = validateUUID(orgId) ? orgId : await resolveOrganizationIdForRequest(supabase, orgId);
 
 	const store = createSupabaseDataStore(supabase);
@@ -309,7 +309,7 @@ export async function buildLayoutContext(locals: App.Locals, cookies: Cookies, o
  */
 export async function buildLayoutContextFromMembership(
 	locals: App.Locals,
-	cookies: Cookies,
+	_cookies: Cookies,
 	orgId: string,
 	membership: MembershipRow
 ): Promise<UseCaseContext> {
@@ -317,7 +317,7 @@ export async function buildLayoutContextFromMembership(
 		throw error(400, 'Invalid organization ID');
 	}
 
-	const { supabase, userId } = getApiContext(locals, cookies, orgId);
+	const { supabase, userId } = getApiContext(locals);
 
 	const store = createSupabaseDataStore(supabase);
 

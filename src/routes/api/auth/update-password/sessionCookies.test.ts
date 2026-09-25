@@ -9,8 +9,7 @@ vi.mock('$env/static/public', () => ({
 	PUBLIC_SUPABASE_ANON_KEY: 'synthetic-anon'
 }));
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
-	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	passwordUpdateRateLimitAuditDetails: () => ({})
+	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
 afterEach(() => vi.unstubAllGlobals());

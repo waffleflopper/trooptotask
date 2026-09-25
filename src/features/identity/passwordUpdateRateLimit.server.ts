@@ -1,6 +1,5 @@
 import {
 	checkDurableRateLimit,
-	durableRateLimitAuditDetails,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
 } from '$lib/access/index.server';
@@ -34,8 +33,4 @@ export function checkPasswordUpdateRateLimit(input: {
 		now: input.now,
 		store: input.store
 	});
-}
-
-export function passwordUpdateRateLimitAuditDetails(decision: DurableRateLimitDecision): Record<string, unknown> {
-	return durableRateLimitAuditDetails(decision);
 }

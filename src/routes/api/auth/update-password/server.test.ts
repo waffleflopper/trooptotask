@@ -13,15 +13,7 @@ vi.mock('$lib/server/auditLog', () => ({
 }));
 
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
-	checkPasswordUpdateRateLimit: checkPasswordUpdateRateLimitMock,
-	passwordUpdateRateLimitAuditDetails: vi.fn((decision) => ({
-		namespace: decision.namespace,
-		dimensions: decision.dimensions,
-		limitedDimensions: decision.limitedDimensions,
-		windowMs: decision.windowMs,
-		maxRequests: decision.maxRequests,
-		...(decision.retryAfterMs ? { retryAfterMs: decision.retryAfterMs } : {})
-	}))
+	checkPasswordUpdateRateLimit: checkPasswordUpdateRateLimitMock
 }));
 
 const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));

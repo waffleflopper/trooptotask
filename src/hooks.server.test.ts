@@ -354,8 +354,7 @@ describe('server auth hook', () => {
 		beforeEach(() => {
 			limit.mockReset().mockResolvedValue({ limited: false });
 			vi.doMock('$features/identity/passwordUpdateRateLimit.server', () => ({
-				checkPasswordUpdateRateLimit: limit,
-				passwordUpdateRateLimitAuditDetails: () => ({})
+				checkPasswordUpdateRateLimit: limit
 			}));
 		});
 		afterEach(() => vi.doUnmock('$features/identity/passwordUpdateRateLimit.server'));

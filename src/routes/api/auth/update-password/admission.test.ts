@@ -5,8 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
-	checkPasswordUpdateRateLimit: limit,
-	passwordUpdateRateLimitAuditDetails: () => ({})
+	checkPasswordUpdateRateLimit: limit
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
 

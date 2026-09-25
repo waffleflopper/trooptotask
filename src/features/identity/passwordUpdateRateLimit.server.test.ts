@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkPasswordUpdateRateLimit, passwordUpdateRateLimitAuditDetails } from './passwordUpdateRateLimit.server';
-import { createSupabaseDurableRateLimitStore, type DurableRateLimitStore } from '$lib/access/index.server';
+import { checkPasswordUpdateRateLimit } from './passwordUpdateRateLimit.server';
+import {
+	createSupabaseDurableRateLimitStore,
+	durableRateLimitAuditDetails,
+	type DurableRateLimitStore
+} from '$lib/access/index.server';
 
 function makeSharedStore(): DurableRateLimitStore {
 	const buckets = new Map<string, { count: number; resetAt: number }>();
@@ -100,8 +104,8 @@ describe('password update rate limits', () => {
 			limitedDimensions: ['user', 'ip'],
 			retryAfterMs: 15 * 60 * 1000
 		});
-		expect(JSON.stringify(passwordUpdateRateLimitAuditDetails(decision))).not.toContain('user-123');
-		expect(JSON.stringify(passwordUpdateRateLimitAuditDetails(decision))).not.toContain('203.0.113.10');
+		expect(JSON.stringify(durableRateLimitAuditDetails(decision))).not.toContain('user-123');
+		expect(JSON.stringify(durableRateLimitAuditDetails(decision))).not.toContain('203.0.113.10');
 	});
 
 	it('rejects checks without a user dimension', async () => {

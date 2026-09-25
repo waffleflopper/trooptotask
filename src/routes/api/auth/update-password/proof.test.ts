@@ -16,8 +16,7 @@ vi.mock('@supabase/supabase-js', () => ({
 	})
 }));
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
-	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	passwordUpdateRateLimitAuditDetails: () => ({})
+	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
 import { POST } from './+server';

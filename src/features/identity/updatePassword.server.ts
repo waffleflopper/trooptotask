@@ -4,7 +4,8 @@ import type { PasswordCompletionState, PendingAuthFlow } from './contracts';
 import { passwordAttempt, type PasswordAttempt } from './passwordCompletion.server';
 import { checkSessionAssurance } from './sessionAssurance.server';
 import { verifyPasswordProof } from './passwordProof.server';
-import { checkPasswordUpdateRateLimit, passwordUpdateRateLimitAuditDetails } from './passwordUpdateRateLimit.server';
+import { checkPasswordUpdateRateLimit } from './passwordUpdateRateLimit.server';
+import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 
 type PasswordUpdateIdentity = {
 	supabase: SupabaseClient;
@@ -218,6 +219,6 @@ async function checkPasswordLimit(input: {
 		userId: input.userId,
 		userEmail: input.userEmail,
 		ip,
-		auditDetails: passwordUpdateRateLimitAuditDetails(rateLimit)
+		auditDetails: durableRateLimitAuditDetails(rateLimit)
 	};
 }

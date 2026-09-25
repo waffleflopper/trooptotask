@@ -23,7 +23,7 @@ const ALL_SETUP_STATES: AccessRequestSetupState[] = [
 	'completed'
 ];
 
-/** Setup states that leave the invitee a usable Account Setup Link, or one on its way. */
+/** Delivery or setup is in progress; a held claim receives separate support guidance. */
 const CREDENTIAL_IN_HAND_STATES: AccessRequestSetupState[] = ['pending', 'delivery_pending', 'claimed', 'replaced'];
 
 /** The rest of the incomplete states: no credential the invitee can act on, one shared remedy. */
@@ -153,7 +153,7 @@ describe('members settings invitation funnel status', () => {
 	});
 
 	it.each<AccessRequestSetupState>(CREDENTIAL_IN_HAND_STATES)(
-		'waits on the invitee while the %s setup state leaves them a link they can use',
+		'keeps the invitation pending during the %s setup state',
 		(setupState) => {
 			const invitation = onlyInvitation({
 				invitationSetupStates: new Map([['invite-1', setupState]])
@@ -163,6 +163,17 @@ describe('members settings invitation funnel status', () => {
 			expect(invitation.funnelStatusLabel).toBe('Waiting on them');
 		}
 	);
+
+	it('points a claimed setup at Platform support while preserving the separate invitation resend', () => {
+		const invitation = onlyInvitation({
+			invitationSetupStates: new Map([['invite-1', 'claimed']])
+		});
+
+		expect(invitation.funnelStatus).toBe('waiting_on_them');
+		expect(invitation.funnelStatusDetail).toContain('contact Platform support');
+		expect(invitation.funnelStatusDetail).toContain('Resending the invitation will not unlock');
+		expect(invitation.canResend).toBe(true);
+	});
 
 	it.each<AccessRequestSetupState>(NO_USABLE_CREDENTIAL_STATES)(
 		'points the admin at the recovery link when the %s setup state leaves no usable link',

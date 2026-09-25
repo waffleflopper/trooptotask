@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseAccountSetupLinkStore } from './accountSetupLinks.server';
-import type { AccountSetupAuthAdapter, AccountSetupCompletionStore } from './accountSetupCompletion.server';
+import {
+	AccountSetupPasswordRejectedError,
+	type AccountSetupAuthAdapter,
+	type AccountSetupCompletionStore
+} from './accountSetupCompletion.server';
 import {
 	findUserEmailIdentityByEmail,
 	normalizeUserEmailIdentity,
@@ -20,6 +24,10 @@ function isExistingUserError(error: unknown): boolean {
 			? error.message.toLowerCase()
 			: '';
 	return message.includes('already been registered') || message.includes('already exists');
+}
+
+function isStructuredPasswordRejection(error: unknown): boolean {
+	return typeof error === 'object' && error !== null && 'code' in error && error.code === 'weak_password';
 }
 
 export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient): AccountSetupCompletionStore {
@@ -82,6 +90,9 @@ export function createSupabaseAccountSetupAuthAdapter(
 			}
 
 			if (!isExistingUserError(created.error)) {
+				if (isStructuredPasswordRejection(created.error)) {
+					throw new AccountSetupPasswordRejectedError('Provider rejected setup password');
+				}
 				throw created.error ?? new Error('Could not create User Account');
 			}
 
@@ -96,6 +107,9 @@ export function createSupabaseAccountSetupAuthAdapter(
 			});
 
 			if (updated.error) {
+				if (isStructuredPasswordRejection(updated.error)) {
+					throw new AccountSetupPasswordRejectedError('Provider rejected setup password');
+				}
 				throw updated.error;
 			}
 

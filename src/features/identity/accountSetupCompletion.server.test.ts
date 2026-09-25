@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountSetupLinkAccessRequest, AccountSetupLinkRecord } from './accountSetupLinks.server';
 import {
+	AccountSetupPasswordRejectedError,
 	createAccountSetupCompletionService,
 	type AccountSetupAuthAdapter,
 	type AccountSetupCompletionStore
@@ -312,7 +313,7 @@ describe('Account Setup completion', () => {
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
 			message:
-				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
 		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
@@ -355,26 +356,29 @@ describe('Account Setup completion', () => {
 		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 	});
 
-	it('claims the setup link before Supabase account creation and leaves the token unavailable when creation fails', async () => {
-		const store = makeStore(approvedRequest);
-		await addSetupToken(store);
-		const auth = makeAuth({
-			createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new Error('Supabase unavailable'))
-		});
-		const service = createAccountSetupCompletionService(store, auth);
+	it.each(['Supabase unavailable', 'Password should be at least 12 characters'])(
+		'holds the setup claim when the provider outcome is unknown: %s',
+		async (providerMessage) => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			const auth = makeAuth({
+				createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new Error(providerMessage))
+			});
+			const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.completeSetupSession({
-			setupLinkId: 'link-1',
-			accessRequestId: 'request-1',
-			password: 'ValidPassword123!'
-		});
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
 
-		expect(result).toEqual({ status: 'account-create-failed', message: 'Supabase unavailable' });
-		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failureReason).toBe('account-create-failed');
-		expect(store.links[0].usedAt).toBeNull();
-	});
+			expect(result).toEqual({ status: 'setup-support-required' });
+			expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+			expect(store.links[0].failedAt).toBeNull();
+			expect(store.links[0].failureReason).toBeNull();
+			expect(store.links[0].usedAt).toBeNull();
+		}
+	);
 
 	it('explains a provider password rejection and completes a fresh setup with a different password', async () => {
 		const store = makeStore(approvedRequest);
@@ -466,13 +470,32 @@ describe('Account Setup completion', () => {
 		expect(store.completions).toEqual([]);
 	});
 
-	it('preserves the original account creation failure response when failure-state tracking also fails', async () => {
+	it('keeps the claim held when the Access Request cannot be read after claiming', async () => {
+		const store = makeStore(approvedRequest);
+		await addSetupToken(store);
+		store.getAccessRequest = vi.fn().mockRejectedValue(new Error('Access Request read unavailable'));
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
+
+		await expect(
+			service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			})
+		).resolves.toEqual({ status: 'setup-support-required' });
+		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
+		expect(store.links[0].failedAt).toBeNull();
+		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+	});
+
+	it('keeps a rejected-password claim held when release persistence fails', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		const store = makeStore(approvedRequest);
 		store.failMarkFailed = true;
 		await addSetupToken(store);
 		const auth = makeAuth({
-			createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new Error('Supabase unavailable'))
+			createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new AccountSetupPasswordRejectedError())
 		});
 		const service = createAccountSetupCompletionService(store, auth);
 
@@ -482,7 +505,7 @@ describe('Account Setup completion', () => {
 			password: 'ValidPassword123!'
 		});
 
-		expect(result).toEqual({ status: 'account-create-failed', message: 'Supabase unavailable' });
+		expect(result).toEqual({ status: 'setup-support-required' });
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
 		expect(store.links[0].failedAt).toBeNull();
 		expect(store.links[0].usedAt).toBeNull();
@@ -493,7 +516,7 @@ describe('Account Setup completion', () => {
 		consoleError.mockRestore();
 	});
 
-	it('marks the claimed setup link failed and returns recovery when profile setup fails', async () => {
+	it('keeps the claim held when profile setup fails after Auth', async () => {
 		const store = makeStore(approvedRequest);
 		store.failProfile = true;
 		await addSetupToken(store);
@@ -509,17 +532,17 @@ describe('Account Setup completion', () => {
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
 			message:
-				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
 		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failureReason).toBe('completion-tracking-failed');
+		expect(store.links[0].failedAt).toBeNull();
+		expect(store.links[0].failureReason).toBeNull();
 		expect(store.links[0].usedAt).toBeNull();
 		expect(store.completions).toEqual([]);
 	});
 
-	it('marks the claimed setup link failed and returns recovery when completion tracking fails', async () => {
+	it('keeps the claim held when completion tracking fails after Auth', async () => {
 		const store = makeStore(approvedRequest);
 		store.failCompletion = true;
 		await addSetupToken(store);
@@ -535,16 +558,16 @@ describe('Account Setup completion', () => {
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
 			message:
-				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
 		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failureReason).toBe('completion-tracking-failed');
+		expect(store.links[0].failedAt).toBeNull();
+		expect(store.links[0].failureReason).toBeNull();
 		expect(store.links[0].usedAt).toBeNull();
 	});
 
-	it('marks the claimed setup link failed and returns recovery when link completion cannot be recorded', async () => {
+	it('keeps the claim held when link completion cannot be recorded', async () => {
 		const store = makeStore(approvedRequest);
 		store.failMarkCompleted = true;
 		await addSetupToken(store);
@@ -560,12 +583,12 @@ describe('Account Setup completion', () => {
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
 			message:
-				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
 		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failedAt).toBeInstanceOf(Date);
-		expect(store.links[0].failureReason).toBe('completion-tracking-failed');
+		expect(store.links[0].failedAt).toBeNull();
+		expect(store.links[0].failureReason).toBeNull();
 		expect(store.links[0].usedAt).toBeNull();
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});

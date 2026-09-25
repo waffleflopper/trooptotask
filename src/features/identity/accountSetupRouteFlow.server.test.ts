@@ -286,8 +286,9 @@ describe('createAccountSetupRouteFlow', () => {
 			type: 'failure',
 			status: 409,
 			error:
-				'Another account setup attempt is still in progress. If it does not finish, contact platform support before trying another link.',
-			clearSession: true
+				'Another account setup attempt is still in progress. If it does not finish, contact platform support before trying another link. Give support request ID request-1.',
+			clearSession: true,
+			supportRequired: true
 		});
 		expect(audit).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -298,10 +299,52 @@ describe('createAccountSetupRouteFlow', () => {
 		);
 		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
 	});
+
+	it.each([
+		['setup-support-required', 'account-create-uncertain'],
+		['setup-finalization-failed', 'setup-finalization-failed']
+	] as const)('holds %s attempts behind support guidance and an audit reference', async (status, category) => {
+		const { flow, store, completion, audit } = makeFlow();
+		store.getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null
+		});
+		completion.completeSetupSession.mockResolvedValueOnce({ status });
+
+		const result = await flow.completeSetup({
+			setupSession: makeSetupSession(),
+			password: 'ValidPassword123!',
+			confirmPassword: 'ValidPassword123!',
+			clientIp: '203.0.113.10',
+			userAgent: 'vitest-agent'
+		});
+
+		expect(result).toMatchObject({
+			type: 'failure',
+			status: 500,
+			clearSession: true,
+			supportRequired: true,
+			error: expect.stringContaining('request ID request-1')
+		});
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'account_setup.failed',
+				resourceId: 'link-1',
+				details: expect.objectContaining({ accessRequestId: 'request-1', failureCategory: category })
+			}),
+			expect.anything()
+		);
+		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
+	});
 	it.each([
 		['expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
 		['replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
-		['claimed', 'This Account Setup Link is already being used. Request a fresh setup link if setup does not finish.']
+		[
+			'claimed',
+			'This Account Setup Link is already being used. If setup does not finish, contact platform support before trying another link.'
+		]
 	] as const)('maps %s raw-token states to recovery without reading a request', async (status, message) => {
 		const { flow, setupLinks, store } = makeFlow();
 		setupLinks.validateToken.mockResolvedValueOnce({ status });

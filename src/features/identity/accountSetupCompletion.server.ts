@@ -1,5 +1,9 @@
 import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks.server';
-import { mapProviderPasswordError } from '$lib/server/validation';
+import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from '$lib/server/validation';
+
+// Only the Auth adapter may produce this after receiving a structured provider
+// rejection. General transport/client errors cannot prove that Auth did not write.
+export class AccountSetupPasswordRejectedError extends Error {}
 
 export type AccountSetupCompletionInvalidStatus =
 	| 'missing'
@@ -28,11 +32,12 @@ export type AccountSetupCompletionResult =
 	| { status: 'access-request-missing' }
 	| { status: 'access-request-completed' }
 	| { status: 'account-create-failed'; message: string }
+	| { status: 'setup-support-required' }
 	| { status: 'setup-finalization-failed'; message: string }
 	| { status: 'sign-in-failed'; message: string };
 
 const SETUP_FINALIZATION_FAILED_MESSAGE =
-	'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.';
+	'Account setup could not finish after the password step. Contact platform support before using another setup link.';
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
@@ -78,15 +83,16 @@ async function markClaimFailedSafely(
 	setupLinks: ReturnType<typeof createAccountSetupLinkService>,
 	linkId: string,
 	failureReason: Parameters<ReturnType<typeof createAccountSetupLinkService>['markClaimFailed']>[1]
-): Promise<void> {
+): Promise<boolean> {
 	try {
-		await setupLinks.markClaimFailed(linkId, failureReason);
+		return (await setupLinks.markClaimFailed(linkId, failureReason)).status === 'failed';
 	} catch (error) {
 		console.error('Failed to mark Account Setup Link failure state:', {
 			setupLinkId: linkId,
 			failureReason,
 			error: errorMessage(error, 'Unknown setup failure persistence error')
 		});
+		return false;
 	}
 }
 
@@ -97,20 +103,25 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 		claim: { accessRequestId: string; link: { id: string } };
 		password: string;
 	}): Promise<AccountSetupCompletionResult> {
-		const accessRequest = await store.getAccessRequest(input.claim.accessRequestId);
+		let accessRequest: Awaited<ReturnType<AccountSetupCompletionStore['getAccessRequest']>>;
+		try {
+			accessRequest = await store.getAccessRequest(input.claim.accessRequestId);
+		} catch {
+			return { status: 'setup-support-required' };
+		}
 		if (!accessRequest?.email) {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-missing');
-			return { status: 'access-request-missing' };
+			const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-missing');
+			return { status: released ? 'access-request-missing' : 'setup-support-required' };
 		}
 
 		if (accessRequest.setupCompletedAt) {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-completed');
-			return { status: 'access-request-completed' };
+			const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-completed');
+			return { status: released ? 'access-request-completed' : 'setup-support-required' };
 		}
 
 		if (accessRequest.status !== 'approved') {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-not-approved');
-			return { status: 'access-request-not-approved' };
+			const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-not-approved');
+			return { status: released ? 'access-request-not-approved' : 'setup-support-required' };
 		}
 
 		const email = normalizeEmail(accessRequest.email);
@@ -122,13 +133,13 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			});
 			userId = user.userId;
 		} catch (error) {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'account-create-failed');
-			return {
-				status: 'account-create-failed',
-				message:
-					mapProviderPasswordError(error) ??
-					errorMessage(error, 'Could not create your User Account. Please try again.')
-			};
+			if (error instanceof AccountSetupPasswordRejectedError) {
+				const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'account-create-failed');
+				if (released) {
+					return { status: 'account-create-failed', message: PASSWORD_PROVIDER_REJECTION_MESSAGE };
+				}
+			}
+			return { status: 'setup-support-required' };
 		}
 
 		const completedAt = new Date();
@@ -137,7 +148,6 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 			try {
 				await store.upsertUserProfile({ userId, ...profileName });
 			} catch {
-				await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
 				return {
 					status: 'setup-finalization-failed',
 					message: SETUP_FINALIZATION_FAILED_MESSAGE
@@ -148,7 +158,6 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 		try {
 			await store.markAccessRequestSetupCompleted(input.claim.accessRequestId, userId, completedAt);
 		} catch {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
 			return {
 				status: 'setup-finalization-failed',
 				message: SETUP_FINALIZATION_FAILED_MESSAGE
@@ -159,7 +168,6 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 		try {
 			completed = await setupLinks.markClaimCompleted(input.claim.link.id);
 		} catch {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
 			return {
 				status: 'setup-finalization-failed',
 				message: SETUP_FINALIZATION_FAILED_MESSAGE
@@ -167,7 +175,6 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 		}
 
 		if (completed.status !== 'completed') {
-			await markClaimFailedSafely(setupLinks, input.claim.link.id, 'completion-tracking-failed');
 			return {
 				status: 'setup-finalization-failed',
 				message: SETUP_FINALIZATION_FAILED_MESSAGE

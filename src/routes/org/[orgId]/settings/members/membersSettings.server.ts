@@ -295,10 +295,10 @@ function shapeInvitationRow(
 }
 
 /**
- * Setup states where the invitee holds a usable Account Setup Link, or one is on its way to
- * them. Every other incomplete state leaves them with no credential they can act on, and the
- * admin's remedy for all of those is identical — the recovery link in the invitation email —
- * which is why they collapse together rather than being mirrored one by one (ADR 0012).
+ * Setup states where delivery or setup is still in progress. A claimed link may need Platform
+ * support if the provider outcome is uncertain; its detail explains that a resend cannot unlock
+ * it. Other incomplete states have no delivered credential the invitee can act on, and the
+ * admin's remedy is the recovery link in the invitation email (ADR 0012).
  *
  * `replaced` is the one that does not read as credential-in-hand on its face, since it means the
  * newest link is revoked. It belongs here because of which revocations can reach a *pending*
@@ -339,7 +339,10 @@ function withInvitationFunnelStatus(
 		...invitation,
 		funnelStatus,
 		funnelStatusLabel: INVITATION_FUNNEL_COPY[funnelStatus].label,
-		funnelStatusDetail: INVITATION_FUNNEL_COPY[funnelStatus].detail
+		funnelStatusDetail:
+			setupState === 'claimed' && funnelStatus === 'waiting_on_them'
+				? 'Account setup is in progress or held for support review. If it does not finish, contact Platform support. Resending the invitation will not unlock the setup link.'
+				: INVITATION_FUNNEL_COPY[funnelStatus].detail
 	};
 }
 

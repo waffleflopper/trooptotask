@@ -3,6 +3,7 @@ import {
 	createSupabaseAccountSetupAuthAdapter,
 	createSupabaseAccountSetupCompletionStore
 } from './accountSetupCompletionSupabase.server';
+import { AccountSetupPasswordRejectedError } from './accountSetupCompletion.server';
 import { normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
 
 type Call = { method: string; args: unknown[] };
@@ -176,9 +177,15 @@ describe('Supabase Account Setup auth adapter', () => {
 		});
 		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
 
-		await expect(
-			adapter.createOrActivateConfirmedUser({ email: 'soldier@example.mil', password: 'ValidPassword123!' })
-		).rejects.toBe(providerError);
+		const attempt = adapter.createOrActivateConfirmedUser({
+			email: 'soldier@example.mil',
+			password: 'ValidPassword123!'
+		});
+		if ('code' in providerError) {
+			await expect(attempt).rejects.toBeInstanceOf(AccountSetupPasswordRejectedError);
+		} else {
+			await expect(attempt).rejects.toBe(providerError);
+		}
 		expect(adminClient.from).not.toHaveBeenCalled();
 		expect(adminClient.auth.admin.updateUserById).not.toHaveBeenCalled();
 	});
@@ -218,6 +225,24 @@ describe('Supabase Account Setup auth adapter', () => {
 			password: 'short',
 			email_confirm: true
 		});
+	});
+
+	it('classifies a structured password rejection on an existing User Account without writing its identity', async () => {
+		const { builder: lookupBuilder } = createIdentityLookupBuilder();
+		const adminClient = makeAdminClient({
+			tableBuilders: [lookupBuilder],
+			updateUserResult: {
+				data: { user: null },
+				error: { code: 'weak_password', message: 'Password is known to be weak', status: 422 }
+			}
+		});
+		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
+
+		await expect(
+			adapter.createOrActivateConfirmedUser({ email: 'soldier@example.mil', password: 'RejectedPassword123!' })
+		).rejects.toBeInstanceOf(AccountSetupPasswordRejectedError);
+		expect(adminClient.auth.admin.updateUserById).toHaveBeenCalledOnce();
+		expect(adminClient.from).toHaveBeenCalledTimes(1);
 	});
 
 	it('records setup completion without creating an Organization Membership', async () => {

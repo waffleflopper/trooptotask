@@ -15,7 +15,10 @@ export type AccountSetupLinkFailureReason =
 	| 'access-request-completed'
 	| 'access-request-not-approved'
 	| 'account-create-failed'
-	| 'completion-tracking-failed';
+	| 'completion-tracking-failed'
+	| 'operator-released';
+
+type AutomaticAccountSetupLinkFailureReason = Exclude<AccountSetupLinkFailureReason, 'operator-released'>;
 
 export type AccountSetupLinkValidationStatus =
 	| 'valid'
@@ -75,7 +78,7 @@ export interface AccountSetupLinkStore {
 	markFailed(
 		id: string,
 		failedAt: Date,
-		failureReason: AccountSetupLinkFailureReason
+		failureReason: AutomaticAccountSetupLinkFailureReason
 	): Promise<AccountSetupLinkRecord | null>;
 	listCleanupEligible(cutoff: Date): Promise<AccountSetupLinkRecord[]>;
 	revokeExpiredUnusedLinks(cutoff: Date, revokedAt: Date): Promise<AccountSetupLinkRecord[]>;
@@ -471,7 +474,7 @@ export function createAccountSetupLinkService(
 
 		async markClaimFailed(
 			linkId: string,
-			failureReason: AccountSetupLinkFailureReason
+			failureReason: AutomaticAccountSetupLinkFailureReason
 		): Promise<FailClaimedAccountSetupLinkResult> {
 			const failedAt = now();
 			const failedLink = await store.markFailed(linkId, failedAt, failureReason);
@@ -614,7 +617,6 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 				.not('claimed_at', 'is', null)
 				.is('failed_at', null)
 				.is('used_at', null)
-				.is('revoked_at', null)
 				.select(SETUP_LINK_SELECT)
 				.maybeSingle();
 

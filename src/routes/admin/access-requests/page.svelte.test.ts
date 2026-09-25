@@ -32,6 +32,7 @@ function makeReviewedRequest(overrides: Partial<ReviewedRequest>): ReviewedReque
 		setup_state: 'pending',
 		setup_state_label: 'Pending',
 		setup_state_detail: 'A setup link is active and waiting for the recipient to finish account setup.',
+		held_setup_claim: null,
 		setup_completed_at_display: null,
 		setup_link_id: 'link-1',
 		setup_link_created_at: '2026-05-18T13:00:00.000Z',
@@ -204,6 +205,28 @@ describe('admin access request setup support UI', () => {
 		expect(scope.getByText('Setup Failed')).toBeTruthy();
 		expect(scope.getByText(/The old link is no longer usable/)).toBeTruthy();
 		expect(scope.getByText(/account-create-failed/)).toBeTruthy();
+		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
+	});
+
+	it('shows staff review while preserving fresh-link delivery for a held claim', async () => {
+		await renderReviewed([
+			makeReviewedRequest({
+				setup_state_label: 'Claim held',
+				setup_state_detail: 'Staff review is needed. A fresh link cannot bypass this claim.',
+				held_setup_claim: {
+					accessRequestId: 'request-earlier',
+					linkId: 'link-earlier',
+					claimedAt: '2026-05-19T12:00:00.000Z'
+				}
+			})
+		]);
+
+		const card = screen.getByText('Test Soldier').closest('[data-slot="card"]');
+		expect(card).toBeTruthy();
+		const scope = within(card as HTMLElement);
+		expect(scope.getByText('Setup Claim held')).toBeTruthy();
+		expect(scope.getByText(/Held claim link-earlier on Access Request request-earlier/)).toBeTruthy();
+		expect(scope.getByText(/A fresh link cannot bypass this claim/)).toBeTruthy();
 		expect(scope.getByRole('button', { name: 'Send Fresh Setup' })).toBeTruthy();
 	});
 

@@ -21,8 +21,16 @@
 	const hasLowercase = $derived(/[a-z]/.test(password));
 	const hasDigit = $derived(/\d/.test(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
+	const supportRequired = $derived(data.state === 'claimed' || form?.supportRequired === true);
 	const canSubmit = $derived(
-		data.state === 'valid' && hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch && !loading
+		data.state === 'valid' &&
+			!supportRequired &&
+			hasMinLength &&
+			hasUppercase &&
+			hasLowercase &&
+			hasDigit &&
+			passwordsMatch &&
+			!loading
 	);
 </script>
 
@@ -35,10 +43,16 @@
 	title="Set up your TroopToTask account."
 	description="Use the setup link from your approval email to choose your password and activate your User Account."
 	panelEyebrow="Account setup"
-	panelTitle={data.state === 'valid' ? 'Choose your password' : 'Setup link unavailable'}
-	panelDescription={data.state === 'valid'
-		? `This setup link is approved for ${data.email}.`
-		: 'Request a fresh setup link if your approval is still eligible.'}
+	panelTitle={supportRequired
+		? 'Setup needs support'
+		: data.state === 'valid'
+			? 'Choose your password'
+			: 'Setup link unavailable'}
+	panelDescription={supportRequired
+		? 'Contact platform support to resolve this setup attempt.'
+		: data.state === 'valid'
+			? `This setup link is approved for ${data.email}.`
+			: 'Request a fresh setup link if your approval is still eligible.'}
 	supportLabel="Account setup"
 	supportTitle="One link, one account."
 	supportDescription="Account Setup Links activate only your User Account. Organization membership is handled separately inside TroopToTask."
@@ -49,10 +63,10 @@
 	]}
 >
 	<div class="flex flex-col gap-5">
-		{#if data.state !== 'valid'}
-			<AuthNotice tone="error" title="Setup link unavailable" centered>
+		{#if data.state !== 'valid' || supportRequired}
+			<AuthNotice tone="error" title={supportRequired ? 'Setup needs support' : 'Setup link unavailable'} centered>
 				<p>{form?.error ?? data.message}</p>
-				<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
+				{#if !supportRequired}<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>{/if}
 			</AuthNotice>
 		{:else}
 			{#if form?.error}
@@ -135,7 +149,9 @@
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>Already set up? <a href={resolve('/auth/login')}>Sign in</a>.</p>
-			<p>Need a new setup email? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
+			{#if !supportRequired}
+				<p>Need a new setup email? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
+			{/if}
 			<p>Still waiting on approval? <a href={resolve('/auth/request-access')}>Request access</a>.</p>
 		</div>
 	</div>

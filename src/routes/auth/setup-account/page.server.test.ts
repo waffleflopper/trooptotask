@@ -134,6 +134,24 @@ describe('/auth/setup-account transport', () => {
 		expect(completeSetup).toHaveBeenCalledWith(expect.objectContaining({ setupSession: null }));
 	});
 
+	it('carries the staff recovery state through the action after clearing the claimed session', async () => {
+		const cookies = makeCookies();
+		await establishSession(cookies);
+		completeSetup.mockResolvedValueOnce({
+			type: 'failure',
+			status: 500,
+			error: 'Contact platform support. Give support request ID request-1.',
+			clearSession: true,
+			supportRequired: true
+		});
+
+		expect(await actions.default(actionEvent(cookies))).toMatchObject({
+			status: 500,
+			data: { error: expect.stringContaining('request ID request-1'), supportRequired: true }
+		});
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_session', { path: '/auth/setup-account' });
+	});
+
 	it('clears rejected sessions and returns the flow recovery state', async () => {
 		const cookies = makeCookies();
 		await establishSession(cookies);

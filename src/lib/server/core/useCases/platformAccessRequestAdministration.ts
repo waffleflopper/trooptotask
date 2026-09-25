@@ -77,6 +77,7 @@ export interface PlatformAccessRequestAdminItem {
 	setup_state: AccessRequestSetupState;
 	setup_state_label: string;
 	setup_state_detail: string;
+	held_setup_claim: { accessRequestId: string; linkId: string; claimedAt: string } | null;
 	setup_completed_at_display: string | null;
 	setup_link_id: string | null;
 	setup_link_created_at: string | null;
@@ -207,7 +208,8 @@ function getRevokedSetupState(link: AccessRequestSetupLink): { label: string; de
 
 function resolveSetupState(
 	request: PlatformAccessRequestAdminRow,
-	now: Date
+	now: Date,
+	heldClaim: PlatformAccessRequestAdminItem['held_setup_claim']
 ): Omit<
 	PlatformAccessRequestAdminItem,
 	| 'id'
@@ -235,12 +237,25 @@ function resolveSetupState(
 		latestDelivery,
 		now
 	});
-	const copy = getSetupStateCopy(setupState, latestLink);
+	const copy = heldClaim
+		? setupState === 'completed'
+			? {
+					label: 'Completed, claim held',
+					detail:
+						'Account setup completed, but a claim record still blocks other setup links for this email. Staff must confirm the Auth operation has ended before releasing the claim.'
+				}
+			: {
+					label: 'Claim held',
+					detail:
+						'A setup attempt may still be running. If it stalls, staff must confirm its Auth operation has ended before releasing the claim. Sending another setup link will not unlock it.'
+				}
+		: getSetupStateCopy(setupState, latestLink);
 
 	return {
 		setup_state: setupState,
 		setup_state_label: copy.label,
 		setup_state_detail: copy.detail,
+		held_setup_claim: heldClaim,
 		setup_completed_at_display:
 			setupState === 'completed' ? (request.setup_completed_at ?? latestLink?.used_at ?? null) : null,
 		has_replaced_setup_link: links.some((link) => link.revoked_at && !link.used_at),
@@ -283,8 +298,7 @@ function getSetupStateCopy(
 		case 'claimed':
 			return {
 				label: 'In progress',
-				detail:
-					'The setup link has been claimed and cannot be used again. If setup does not complete, send a fresh setup link.'
+				detail: 'The setup link has been claimed and cannot be used again.'
 			};
 		case 'replaced':
 			return latestLink
@@ -358,7 +372,29 @@ function resolveAutoApproval(request: PlatformAccessRequestAdminRow): {
 	};
 }
 
-function shapeListItem(request: PlatformAccessRequestAdminRow, now: Date): PlatformAccessRequestAdminItem {
+function heldClaimsByEmail(
+	requests: PlatformAccessRequestAdminRow[]
+): Map<string, PlatformAccessRequestAdminItem['held_setup_claim']> {
+	const claims = new Map<string, NonNullable<PlatformAccessRequestAdminItem['held_setup_claim']>>();
+	for (const request of requests) {
+		const email = request.email.trim().toLowerCase();
+		const links = request.account_setup_links;
+		for (const link of links ? (Array.isArray(links) ? links : [links]) : []) {
+			if (!link.claimed_at || link.failed_at || link.used_at) continue;
+			const existing = claims.get(email);
+			if (!existing || link.claimed_at < existing.claimedAt) {
+				claims.set(email, { accessRequestId: request.id, linkId: link.id, claimedAt: link.claimed_at });
+			}
+		}
+	}
+	return claims;
+}
+
+function shapeListItem(
+	request: PlatformAccessRequestAdminRow,
+	now: Date,
+	heldClaim: PlatformAccessRequestAdminItem['held_setup_claim']
+): PlatformAccessRequestAdminItem {
 	return {
 		id: request.id,
 		name: request.name,
@@ -373,7 +409,7 @@ function shapeListItem(request: PlatformAccessRequestAdminRow, now: Date): Platf
 		setup_completed_at: request.setup_completed_at,
 		invitation_origins: request.invitation_origins,
 		...resolveAutoApproval(request),
-		...resolveSetupState(request, now)
+		...resolveSetupState(request, now, heldClaim)
 	};
 }
 
@@ -596,7 +632,10 @@ export function createPlatformAccessRequestAdministration(
 		async list(input = {}) {
 			const requests = await deps.store.listAccessRequests();
 			const referenceTime = input.now ?? now();
-			const allRequests = requests.map((request) => shapeListItem(request, referenceTime));
+			const heldClaims = heldClaimsByEmail(requests);
+			const allRequests = requests.map((request) =>
+				shapeListItem(request, referenceTime, heldClaims.get(request.email.trim().toLowerCase()) ?? null)
+			);
 
 			return {
 				pending: allRequests.filter((request) => request.status === 'pending'),

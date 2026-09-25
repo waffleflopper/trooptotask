@@ -61,6 +61,6 @@ export const actions: Actions = {
 			redirect(303, result.path);
 		}
 
-		return fail(result.status, { error: result.error });
+		return fail(result.status, { error: result.error, supportRequired: result.supportRequired ?? false });
 	}
 };

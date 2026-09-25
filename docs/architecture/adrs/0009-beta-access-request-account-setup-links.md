@@ -40,10 +40,10 @@ Date: 2026-05-18
 - The Supabase **User Account** should be created with the email already confirmed because the one-time setup link sent to that address is the email-control proof.
 - Completing beta account setup creates only a **User Account**. It does not create an **Organization Member**.
 - Existing **Organization Invitation** and membership acceptance behavior remains a separate organization-governance workflow.
-- `/auth/renew-invite` becomes the self-service path for fresh **Account Setup Links** when a setup link expires or is replaced.
+- `/auth/renew-invite` is the self-service path for fresh **Account Setup Links** when a link expires or is replaced. Issuing a fresh link does not clear a held completion claim.
 - `/auth/request-access` should route duplicate approved-but-incomplete emails into fresh setup delivery instead of creating another pending request.
 - `/auth/register` invite-code registration is deprecated and should not remain a parallel registration system.
-- Cleanup should revoke or delete stale setup-link records. It should not delete **Access Requests** or Supabase **User Accounts** by default.
+- Cleanup may revoke stale unclaimed setup links. It must retain unresolved claimed links until their provider operation is reconciled; it should not delete **Access Requests** or Supabase **User Accounts** by default.
 
 ## Rejected Or Deferred Alternatives
 
@@ -73,7 +73,13 @@ Date: 2026-05-18
 - Do not create **Organization Members** from beta **Access Request** completion.
 - Keep auth-provider-specific implementation at auth edges or adapters as allowed by ADR 0004.
 - Legacy code that handles existing Supabase invite or recovery states may remain temporarily as migration compatibility, but new beta setup behavior should follow this ADR.
-- Exception, 2026-08-03: **Account Setup Links** may be issued by a second, non-platform-admin path — the organization-invitation auto-approval flow in [ADR 0012](0012-organization-invited-platform-access-auto-approval.md) — for new invitees unconditionally since stabilization 03-01b. Every rule in this ADR about token hashing, single active link, 14-day expiry, and identity creation after password entry applies unchanged to that path. New issuers must compose the shared `accountSetupLinkIssuance` module rather than re-implementing create-then-deliver.
+- Exception, 2026-08-03: **Account Setup Links** may be issued by a second, non-platform-admin path — the organization-invitation auto-approval flow in [ADR 0012](0012-organization-invited-platform-access-auto-approval.md) — for new invitees unconditionally since stabilization 03-01b. Every rule in this ADR about token hashing, single active link, 14-day expiry, and identity creation after password entry applies unchanged to that path. New issuers compose Identity's `accountSetupLinkIssuance` service rather than re-implementing create-then-deliver.
+
+### Held claims and recovery (2026-09-25)
+
+The single-active-link index covers pending links on one **Access Request**, not password writes for one email. A claimed link can coexist with a fresh link, and separate approved requests can share the same normalized email. Completing a link therefore acquires an email-scoped claim in the database before Supabase Auth. Another link for that email cannot start password mutation while any earlier claim is unresolved, even if that older link expired or was revoked. Fresh-link issuance remains available for delivery and invitation recovery, but a newly issued link cannot unlock a held claim.
+
+Only a structured Auth `weak_password` rejection is treated as a definite no-write result and automatically releases the claim. Unknown provider outcomes and failures after a successful Auth write leave it held. Staff may release it only after establishing that the previous provider operation is terminal or quiescent, checking the account state and recording an accountable recovery reference through the guarded operator procedure. This is an intentional staff-assisted exception to self-service renewal; no elapsed-time lease can safely fence a delayed password write. See [Account Setup claim recovery](../../operations/account-setup-claim-recovery.md). Organization membership remains independent of setup and invitation resend still does not mint setup authority.
 
 ## Consequences
 
@@ -81,7 +87,7 @@ Date: 2026-05-18
   - Friday and weekend approvals become practical because the setup window is 14 days instead of 24 hours.
   - Expired setup recovery becomes self-service and understandable.
   - User identity is created only after the recipient proves email control and chooses a password.
-  - Cleanup becomes low-risk because stale setup records can be removed without deleting real accounts.
+  - Cleanup can revoke expired unclaimed setup records without deleting real accounts; unresolved claimed records remain until reconciled.
   - Beta access control remains platform-level and does not muddy organization membership semantics.
 - Tradeoffs:
   - TroopToTask now owns token creation, hashing, expiry, renewal, and delivery for beta account setup.

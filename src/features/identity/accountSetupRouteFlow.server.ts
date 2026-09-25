@@ -17,7 +17,7 @@ import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 import type { auditLog } from '$lib/audit/index.server';
 import { getAuthenticatedRedirectPath } from './mfaGate.server';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
-import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
+import { PASSWORD_PROVIDER_REJECTION_MESSAGE, validatePassword } from '$lib/server/validation';
 
 type AccountSetupLinkService = Pick<ReturnType<typeof createAccountSetupLinkService>, 'validateToken'>;
 type AccountSetupCompletionService = Pick<
@@ -40,7 +40,7 @@ export type AccountSetupLoadResult =
 
 export type AccountSetupCompletionResult =
 	| { type: 'redirect'; path: string; clearSession: true }
-	| { type: 'failure'; status: 400 | 409 | 429 | 500; error: string; clearSession?: true };
+	| { type: 'failure'; status: 400 | 409 | 429 | 500; error: string; clearSession?: true; supportRequired?: true };
 
 interface AccountSetupLoadInput {
 	session: App.Locals['session'];
@@ -76,7 +76,7 @@ function tokenStateMessage(state: string): string {
 		case 'replaced':
 			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
 		case 'claimed':
-			return 'This Account Setup Link is already being used. Request a fresh setup link if setup does not finish.';
+			return 'This Account Setup Link is already being used. If setup does not finish, contact platform support before trying another link.';
 		case 'claim-in-progress':
 			return 'Another account setup attempt is still in progress. If it does not finish, contact platform support before trying another link.';
 		case 'failed':
@@ -104,7 +104,11 @@ function getSetupLinkState(link: AccountSetupLinkRecord, now: Date): string {
 }
 
 function claimedSetupFailureMessage(): string {
-	return 'We could not finish account setup after claiming this link. Request a fresh setup link or ask an admin to resend setup.';
+	return 'We could not finish account setup after claiming this link. Contact platform support before trying another link.';
+}
+
+function setupSupportMessage(accessRequestId: string): string {
+	return `${claimedSetupFailureMessage()} Give support request ID ${accessRequestId}.`;
 }
 
 function manualSignInMessage(): string {
@@ -379,6 +383,7 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 			const postClaimOutcome =
 				(completion.status === 'completed' && 'userId' in completion) ||
 				completion.status === 'account-create-failed' ||
+				completion.status === 'setup-support-required' ||
 				completion.status === 'setup-finalization-failed' ||
 				completion.status === 'sign-in-failed';
 
@@ -402,16 +407,26 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 					...setupAuditContext,
 					failureCategory: 'account-create-failed'
 				});
-				const providerPasswordError = mapProviderPasswordError(completion.message);
-				if (providerPasswordError) {
-					return {
-						type: 'failure',
-						status: 400,
-						error: `${providerPasswordError} Request a fresh setup link, then try again.`,
-						clearSession: true
-					};
-				}
-				return { type: 'failure', status: 500, error: claimedSetupFailureMessage(), clearSession: true };
+				return {
+					type: 'failure',
+					status: 400,
+					error: `${PASSWORD_PROVIDER_REJECTION_MESSAGE} Request a fresh setup link, then try again.`,
+					clearSession: true
+				};
+			}
+
+			if (completion.status === 'setup-support-required') {
+				await auditAccountSetupFailed(audit, {
+					...setupAuditContext,
+					failureCategory: 'account-create-uncertain'
+				});
+				return {
+					type: 'failure',
+					status: 500,
+					error: setupSupportMessage(setupAuditContext.accessRequestId),
+					clearSession: true,
+					supportRequired: true
+				};
 			}
 
 			if (completion.status === 'setup-finalization-failed') {
@@ -419,7 +434,13 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 					...setupAuditContext,
 					failureCategory: 'setup-finalization-failed'
 				});
-				return { type: 'failure', status: 500, error: claimedSetupFailureMessage(), clearSession: true };
+				return {
+					type: 'failure',
+					status: 500,
+					error: setupSupportMessage(setupAuditContext.accessRequestId),
+					clearSession: true,
+					supportRequired: true
+				};
 			}
 
 			if (completion.status === 'sign-in-failed') {
@@ -438,8 +459,9 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 				return {
 					type: 'failure',
 					status: 409,
-					error: tokenStateMessage(completion.status),
-					clearSession: true
+					error: `${tokenStateMessage(completion.status)} Give support request ID ${setupAuditContext.accessRequestId}.`,
+					clearSession: true,
+					supportRequired: true
 				};
 			}
 

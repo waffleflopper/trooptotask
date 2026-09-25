@@ -199,7 +199,11 @@ def validate(repository):
              "-c", "SELECT pg_reload_conf();"], workdir)
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True
-        for migration_test in ("calendar_group_assignees.sql", "account_setup_claim_gate.sql"):
+        for migration_test in (
+            "calendar_group_assignees.sql",
+            "account_setup_claim_gate.sql",
+            "account_setup_staff_release.sql",
+        ):
             execute([
                 "docker", "run", "--rm", "--name", runner,
                 "--network", f"supabase_network_{project_id}",

@@ -89,7 +89,7 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 		},
 		async markFailed(id, failedAt, failureReason) {
 			const link = links.find((candidate) => candidate.id === id);
-			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) {
+			if (!link || !link.claimedAt || link.failedAt || link.usedAt) {
 				return null;
 			}
 			link.failedAt = failedAt;
@@ -308,6 +308,28 @@ describe('Account Setup Links', () => {
 
 		const cleanupEligible = await store.listCleanupEligible(new Date('2026-05-19T12:00:00.000Z'));
 		expect(cleanupEligible.map((link) => link.id)).toEqual(['link-1']);
+	});
+
+	it('releases a previously claimed and revoked link after a definite no-write rejection', async () => {
+		const store = makeStore([approvedRequest]);
+		const service = createAccountSetupLinkService(store, {
+			now: () => new Date('2026-05-18T12:00:00.000Z'),
+			generateToken: () => 'setup-token'
+		});
+		await service.createForAccessRequest('request-1');
+		expect(
+			await store.claimSetupLinkForSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				claimedAt: new Date('2026-05-18T12:00:00.000Z')
+			})
+		).toMatchObject({ status: 'claim-started' });
+		store.links[0].revokedAt = new Date('2026-05-18T12:01:00.000Z');
+		store.links[0].revocationReason = 'manual';
+
+		expect(await service.markClaimFailed('link-1', 'account-create-failed')).toMatchObject({ status: 'failed' });
+		expect(store.links[0].failureReason).toBe('account-create-failed');
+		expect(store.links[0].revokedAt).not.toBeNull();
 	});
 
 	it('revokes expired unused links during cleanup without deleting Access Requests or User Accounts', async () => {

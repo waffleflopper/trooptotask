@@ -1,34 +1,43 @@
-import type {
-	PersonnelArchivedArtifact,
-	PersonnelArtifactKind,
-	PersonnelCounselingRecord,
-	PersonnelDocument,
-	PersonnelFollowUp,
-	PersonnelLeaderNote
-} from '$features/personnel/personnel-detail.types';
-import { fail } from '$lib/server/core/errors';
+import type { PersonnelArchivedArtifact } from '$features/personnel/personnel-detail.types';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { listPersonnelCounselingRecords } from './personnelCounselingRecords';
+import { listPersonnelDocuments } from './personnelDocuments';
+import { listPersonnelFollowUps } from './personnelFollowUps';
 import {
-	deletePersonnelCounselingRecord,
-	listPersonnelCounselingRecords,
-	restorePersonnelCounselingRecord
-} from './personnelCounselingRecords';
-import { deletePersonnelDocument, listPersonnelDocuments, restorePersonnelDocument } from './personnelDocuments';
-import { deletePersonnelFollowUp, listPersonnelFollowUps, restorePersonnelFollowUp } from './personnelFollowUps';
-import {
-	deletePersonnelLeaderNote,
+	archiveLeaderNotesWithPersonnel,
 	listPersonnelLeaderNotes,
-	restorePersonnelLeaderNote
-} from './personnelLeaderNotes';
-import { PERSONNEL_ARTIFACT_SPECS, personnelOwnedArchiveSpecs } from './personnelArtifactLifecycle';
+	restoreLeaderNotesWithPersonnel
+} from '$features/personnel/index.server';
+import type { LeaderNoteArchivePersistence, LeaderNoteContext } from '$features/personnel/index.server';
+import { personnelOwnedArchiveSpecs } from './personnelArtifactLifecycle';
 
 const ARCHIVE_UPDATE_BATCH_SIZE = 50;
 
-export type RestoredPersonnelArchivedArtifact =
-	| ({ kind: 'follow-up' } & PersonnelFollowUp)
-	| ({ kind: 'counseling' } & PersonnelCounselingRecord)
-	| ({ kind: 'document' } & PersonnelDocument)
-	| ({ kind: 'note' } & PersonnelLeaderNote);
+/** Bind the existing authorized cascade to Personnel's narrow note persistence. */
+function noteArchivePersistence(ctx: Pick<UseCaseContext, 'store' | 'auth'>): LeaderNoteArchivePersistence {
+	const orgId = ctx.auth.orgId;
+	return {
+		findActive: (personnelIds) =>
+			ctx.store.findMany<{ id: string }>('leader_notes', orgId, undefined, {
+				inFilters: { personnel_id: personnelIds },
+				isNull: { archived_at: true },
+				select: 'id'
+			}),
+		findArchivedWithPersonnel: (personnelIds, archivedAt) =>
+			ctx.store.findMany<{ id: string }>(
+				'leader_notes',
+				orgId,
+				{ archived_at: archivedAt },
+				{
+					inFilters: { personnel_id: personnelIds },
+					select: 'id'
+				}
+			),
+		async setArchivedAt(noteId, archivedAt) {
+			await ctx.store.update('leader_notes', orgId, noteId, { archived_at: archivedAt });
+		}
+	};
+}
 
 export async function archivePersonnelOwnedArtifacts(
 	ctx: Pick<UseCaseContext, 'store' | 'auth'>,
@@ -50,6 +59,7 @@ export async function archivePersonnelOwnedArtifacts(
 			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, archivePatch(archivedAt))));
 		}
 	}
+	await archiveLeaderNotesWithPersonnel(noteArchivePersistence(ctx), uniquePersonnelIds, archivedAt);
 }
 
 export async function restorePersonnelOwnedArtifacts(
@@ -71,17 +81,19 @@ export async function restorePersonnelOwnedArtifacts(
 			await Promise.all(batch.map((row) => ctx.store.update(table, ctx.auth.orgId, row.id, restorePatch())));
 		}
 	}
+	await restoreLeaderNotesWithPersonnel(noteArchivePersistence(ctx), uniquePersonnelIds, personnelArchivedAt);
 }
 
 export async function listPersonnelArchivedArtifacts(
 	ctx: UseCaseContext,
+	noteContext: LeaderNoteContext,
 	personnelId: string
 ): Promise<PersonnelArchivedArtifact[]> {
 	const [followUps, counselings, documents, notes] = await Promise.all([
 		listPersonnelFollowUps(ctx, personnelId, undefined, { archived: true }),
 		listPersonnelCounselingRecords(ctx, personnelId, undefined, { archived: true }),
 		listPersonnelDocuments(ctx, personnelId, undefined, { archived: true }),
-		listPersonnelLeaderNotes(ctx, personnelId, undefined, { archived: true })
+		listPersonnelLeaderNotes(noteContext, personnelId, undefined, { archived: true })
 	]);
 
 	return [
@@ -96,55 +108,3 @@ function artifactArchivedAt(record: PersonnelArchivedArtifact): string {
 	if (record.kind === 'follow-up') return record.archivedAt ?? record.updatedAt;
 	return record.archivedAt ?? record.createdAt;
 }
-
-export async function restorePersonnelArchivedArtifact(
-	ctx: UseCaseContext,
-	input: { personnelId: string; kind: PersonnelArtifactKind; id: string }
-): Promise<RestoredPersonnelArchivedArtifact> {
-	const restore = restorePersonnelArchivedArtifactByKind[input.kind];
-	if (!restore) fail(400, 'Unknown archived item type');
-	return restore(ctx, input);
-}
-
-export async function deletePersonnelArchivedArtifact(
-	ctx: UseCaseContext,
-	input: { personnelId: string; kind: PersonnelArtifactKind; id: string }
-): Promise<void> {
-	const deleteArtifact = deletePersonnelArchivedArtifactByKind[input.kind];
-	if (!deleteArtifact) fail(400, 'Unknown archived item type');
-	return deleteArtifact(ctx, input);
-}
-
-type ArchivedArtifactInput = { personnelId: string; kind: PersonnelArtifactKind; id: string };
-type RestoreArchivedArtifactHandler = (
-	ctx: UseCaseContext,
-	input: ArchivedArtifactInput
-) => Promise<RestoredPersonnelArchivedArtifact>;
-type DeleteArchivedArtifactHandler = (ctx: UseCaseContext, input: ArchivedArtifactInput) => Promise<void>;
-
-const restorePersonnelArchivedArtifactByKind = {
-	'follow-up': async (ctx, input) => ({
-		kind: 'follow-up',
-		...(await restorePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }))
-	}),
-	counseling: async (ctx, input) => ({
-		kind: 'counseling',
-		...(await restorePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }))
-	}),
-	document: async (ctx, input) => ({
-		kind: 'document',
-		...(await restorePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }))
-	}),
-	note: async (ctx, input) => ({
-		kind: 'note',
-		...(await restorePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id }))
-	})
-} satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, RestoreArchivedArtifactHandler>;
-
-const deletePersonnelArchivedArtifactByKind = {
-	'follow-up': (ctx, input) => deletePersonnelFollowUp(ctx, { personnelId: input.personnelId, followUpId: input.id }),
-	counseling: (ctx, input) =>
-		deletePersonnelCounselingRecord(ctx, { personnelId: input.personnelId, recordId: input.id }),
-	document: (ctx, input) => deletePersonnelDocument(ctx, { personnelId: input.personnelId, documentId: input.id }),
-	note: (ctx, input) => deletePersonnelLeaderNote(ctx, { personnelId: input.personnelId, noteId: input.id })
-} satisfies Record<keyof typeof PERSONNEL_ARTIFACT_SPECS, DeleteArchivedArtifactHandler>;

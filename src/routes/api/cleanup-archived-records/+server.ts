@@ -1,3 +1,4 @@
+import { bindLeaderNoteDataSource } from '$lib/server/adapters/leaderNoteDataSource';
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
@@ -44,9 +45,10 @@ export const GET: RequestHandler = async ({ request }) => {
 	const store = createSupabaseDataStore(admin);
 	const storage = createSupabaseStorageAdapter(admin);
 	const assignmentTypes = createSupabaseAssignmentTypeRetention(admin);
+	const leaderNotes = bindLeaderNoteDataSource(store);
 
 	return runArchiveRetentionCleanupEndpoint({
 		loadOrgRows: async () => admin.from('organizations').select('id, archive_retention_months'),
-		runCleanup: (configs) => cleanupArchivedRecords({ store, storage, assignmentTypes }, configs)
+		runCleanup: (configs) => cleanupArchivedRecords({ store, storage, assignmentTypes, leaderNotes }, configs)
 	});
 };

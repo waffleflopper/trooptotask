@@ -713,7 +713,15 @@ describe('Personnel — restore', () => {
 				organization_id: ctx.auth.orgId,
 				personnel_id: 'p-1',
 				archived_at: '2026-04-01T00:00:00Z'
-			}
+			},
+			{ id: 'note-independent', organization_id: 'test-org', personnel_id: 'p-1', archived_at: '2026-03-01T00:00:00Z' },
+			{
+				id: 'note-other-person',
+				organization_id: 'test-org',
+				personnel_id: 'p-2',
+				archived_at: '2026-04-01T00:00:00Z'
+			},
+			{ id: 'note-other-org', organization_id: 'other-org', personnel_id: 'p-1', archived_at: '2026-04-01T00:00:00Z' }
 		]);
 	}
 
@@ -746,6 +754,15 @@ describe('Personnel — restore', () => {
 		).resolves.toMatchObject({ archived_at: null });
 		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-restored' })).resolves.toMatchObject({
 			archived_at: null
+		});
+		await expect(ctx.store.findOne('leader_notes', 'test-org', { id: 'note-independent' })).resolves.toMatchObject({
+			archived_at: '2026-03-01T00:00:00Z'
+		});
+		await expect(ctx.store.findOne('leader_notes', 'test-org', { id: 'note-other-person' })).resolves.toMatchObject({
+			archived_at: '2026-04-01T00:00:00Z'
+		});
+		await expect(ctx.store.findOne('leader_notes', 'other-org', { id: 'note-other-org' })).resolves.toMatchObject({
+			archived_at: '2026-04-01T00:00:00Z'
 		});
 		expect(ctx.audit.events).toContainEqual(
 			expect.objectContaining({
@@ -1106,6 +1123,7 @@ describe('Personnel — archive batch', () => {
 		});
 		const { archiveBatch } = createPersonnelUseCases();
 		seedPersonnel(ctx);
+		seedPersonnelArtifacts(ctx);
 
 		const result = await archiveBatch(ctx, {
 			ids: ['p-1', 'p-2'],
@@ -1117,6 +1135,10 @@ describe('Personnel — archive batch', () => {
 			approvalRequestedIds: ['p-1', 'p-2'],
 			errors: []
 		});
+		await expect(ctx.store.findMany('leader_notes', 'test-org')).resolves.toEqual([
+			expect.objectContaining({ id: 'note-p1', archived_at: null }),
+			expect.objectContaining({ id: 'note-p2', archived_at: null })
+		]);
 		const requests = (await ctx.store.findMany('deletion_requests', 'test-org')) as Record<string, unknown>[];
 		expect(requests).toHaveLength(2);
 		expect(requests).toEqual(

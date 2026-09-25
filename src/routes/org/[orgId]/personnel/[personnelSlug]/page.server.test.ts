@@ -32,6 +32,9 @@ describe('personnel detail page server load', () => {
 					return [];
 				})
 			},
+			get rawStore() {
+				return this.store;
+			},
 			auth: { ...operateAuth },
 			scope: { ...operateScope },
 			audit: { log: vi.fn() }
@@ -104,6 +107,9 @@ describe('personnel detail page server load', () => {
 					];
 				})
 			},
+			get rawStore() {
+				return this.store;
+			},
 			auth: { ...operateAuth },
 			scope: { ...operateScope },
 			audit: { log: vi.fn() }
@@ -140,6 +146,9 @@ describe('personnel detail page server load', () => {
 			store: {
 				findOne: vi.fn(async () => ({ id: 'person-9', group_id: null })),
 				findMany: vi.fn(async () => [])
+			},
+			get rawStore() {
+				return this.store;
 			},
 			auth: { ...operateAuth },
 			scope: { ...operateScope },

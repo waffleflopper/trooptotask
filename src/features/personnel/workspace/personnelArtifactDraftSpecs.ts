@@ -1,8 +1,8 @@
+import type { PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
 	PersonnelCounselingRecord,
 	PersonnelDocument,
-	PersonnelFollowUp,
-	PersonnelLeaderNote
+	PersonnelFollowUp
 } from '$features/personnel/personnel-detail.types';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import type { ArtifactDraftSpec } from './artifactDraft.svelte';

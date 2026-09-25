@@ -1,3 +1,4 @@
+import type { PersonnelLeaderNote } from './contracts';
 import type { Personnel } from '$lib/types';
 
 export interface PersonnelDetailHeader {
@@ -117,16 +118,6 @@ export interface PersonnelFollowUp {
 	createdAt: string;
 	updatedAt: string;
 	completedAt: string | null;
-	archivedAt?: string | null;
-}
-
-export interface PersonnelLeaderNote {
-	id: string;
-	personnelId: string;
-	author: string;
-	date: string;
-	text: string;
-	createdAt: string;
 	archivedAt?: string | null;
 }
 

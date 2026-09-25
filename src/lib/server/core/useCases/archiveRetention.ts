@@ -1,4 +1,5 @@
 import type { DataStore, StoragePort } from '$lib/server/core/ports';
+import type { LeaderNoteDataSource } from '$features/personnel/index.server';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
 import { notifyAdminsViaStore, retentionCutoff } from './retentionSupport';
@@ -27,15 +28,19 @@ export interface ArchiveRetentionCleanupResult {
 interface ArchiveRetentionPorts {
 	store: DataStore;
 	storage: StoragePort;
+	leaderNotes: Pick<LeaderNoteDataSource, 'deleteExpired'>;
 	assignmentTypes: {
 		deleteExpiredUnreferenced(orgId: string, ids: string[], cutoff: string): Promise<number>;
 	};
 }
 
-interface CleanupFamily {
+interface CleanupFamilyIdentity {
 	key: string;
 	table: string;
 	label: string;
+}
+
+interface StoredCleanupFamily extends CleanupFamilyIdentity {
 	timestampColumn: string;
 	filters?: Record<string, unknown>;
 	select?: string;
@@ -56,6 +61,12 @@ interface CleanupFamily {
 		rows: CleanupCandidate[]
 	) => Promise<((deletedRows: CleanupCandidate[]) => Promise<void>) | undefined>;
 }
+
+type CleanupFamily =
+	| StoredCleanupFamily
+	| (CleanupFamilyIdentity & {
+			cleanup(ports: ArchiveRetentionPorts, orgId: string, cutoff: string): Promise<number>;
+	  });
 
 interface CleanupCandidate {
 	id: string;
@@ -91,7 +102,7 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		key: 'leader-notes',
 		table: 'leader_notes',
 		label: 'Leader notes',
-		timestampColumn: 'archived_at'
+		cleanup: (ports, orgId, cutoff) => ports.leaderNotes.deleteExpired(orgId, cutoff)
 	},
 	{
 		key: 'personnel',
@@ -225,6 +236,40 @@ async function preparePersonnelOwnedDocumentFileRemoval(
 	};
 }
 
+async function cleanupStoredFamily(
+	ports: ArchiveRetentionPorts,
+	family: StoredCleanupFamily,
+	orgId: string,
+	cutoff: string
+): Promise<number> {
+	let rows = await ports.store.findMany<CleanupCandidate>(family.table, orgId, family.filters, {
+		select: family.select ?? 'id',
+		rangeFilters: [{ column: family.timestampColumn, op: 'lt', value: cutoff }],
+		isNull: { [family.timestampColumn]: false }
+	});
+
+	rows = (await family.filterCandidates?.(ports, orgId, rows)) ?? rows;
+	if (rows.length === 0) return 0;
+
+	const afterDelete = await family.prepareDelete?.(ports, orgId, rows);
+	const deletedCount = family.deleteCandidates
+		? await family.deleteCandidates(ports, orgId, rows, cutoff)
+		: await ports.store.deleteManyByIds(
+				family.table,
+				orgId,
+				rows.map((row) => row.id)
+			);
+	if (afterDelete && deletedCount > 0) {
+		const remainingRows = await ports.store.findMany<CleanupCandidate>(family.table, orgId, undefined, {
+			select: 'id',
+			inFilters: { id: rows.map((row) => row.id) }
+		});
+		const remainingIds = new Set(remainingRows.map((row) => row.id));
+		await afterDelete(rows.filter((row) => !remainingIds.has(row.id)));
+	}
+	return deletedCount;
+}
+
 function notificationMessage(families: ArchiveRetentionFamilyResult[]): string {
 	const deletedFamilies = families.filter((family) => family.deletedCount > 0);
 	const total = deletedFamilies.reduce((sum, family) => sum + family.deletedCount, 0);
@@ -251,31 +296,10 @@ export async function cleanupArchivedRecords(
 		const orgFamilyResults: ArchiveRetentionFamilyResult[] = [];
 
 		for (const family of ARCHIVE_RETENTION_FAMILIES) {
-			let rows = await ports.store.findMany<CleanupCandidate>(family.table, org.id, family.filters, {
-				select: family.select ?? 'id',
-				rangeFilters: [{ column: family.timestampColumn, op: 'lt', value: cutoff }],
-				isNull: { [family.timestampColumn]: false }
-			});
-
-			rows = (await family.filterCandidates?.(ports, org.id, rows)) ?? rows;
-			if (rows.length === 0) continue;
-
-			const afterDelete = await family.prepareDelete?.(ports, org.id, rows);
-			const deletedCount = family.deleteCandidates
-				? await family.deleteCandidates(ports, org.id, rows, cutoff)
-				: await ports.store.deleteManyByIds(
-						family.table,
-						org.id,
-						rows.map((row) => row.id)
-					);
-			if (afterDelete && deletedCount > 0) {
-				const remainingRows = await ports.store.findMany<CleanupCandidate>(family.table, org.id, undefined, {
-					select: 'id',
-					inFilters: { id: rows.map((row) => row.id) }
-				});
-				const remainingIds = new Set(remainingRows.map((row) => row.id));
-				await afterDelete(rows.filter((row) => !remainingIds.has(row.id)));
-			}
+			const deletedCount =
+				'cleanup' in family
+					? await family.cleanup(ports, org.id, cutoff)
+					: await cleanupStoredFamily(ports, family, org.id, cutoff);
 			if (deletedCount === 0) continue;
 
 			const familyTotal = familyTotals.get(family.key);

@@ -1,6 +1,6 @@
 import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { loadWithContext, personnelLeaderNoteContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import { readPersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
@@ -12,7 +12,7 @@ import {
 	loadRatingSchemeReadinessLane,
 	loadTrainingReadinessLane
 } from '$lib/server/core/useCases/personnelReadinessLanes';
-import { listPersonnelLeaderNotes } from '$lib/server/core/useCases/personnelLeaderNotes';
+import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
 import { listPersonnelDocuments } from '$lib/server/core/useCases/personnelDocuments';
 import { listPersonnelFollowUps } from '$lib/server/core/useCases/personnelFollowUps';
@@ -34,7 +34,7 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 		extendedInfo,
 		counselingRecords: listPersonnelCounselingRecords(ctx, personnelId, 5),
 		documents: listPersonnelDocuments(ctx, personnelId, 5),
-		leaderNotes: listPersonnelLeaderNotes(ctx, personnelId, 1),
+		leaderNotes: listPersonnelLeaderNotes(personnelLeaderNoteContext(ctx), personnelId, 1),
 		followUps: listPersonnelFollowUps(ctx, personnelId)
 	};
 }

@@ -1,13 +1,9 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, personnelLeaderNoteContext, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
-import {
-	createPersonnelLeaderNote,
-	listPersonnelLeaderNotes,
-	type PersonnelLeaderNoteInput
-} from '$lib/server/core/useCases/personnelLeaderNotes';
-import type { PersonnelLeaderNote } from '$features/personnel/personnel-detail.types';
+import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from '$features/personnel/index.server';
+import type { PersonnelLeaderNote, PersonnelLeaderNoteInput } from '$features/personnel/contracts';
 
 function personnelIdFromEvent(event: RequestEvent): string {
 	const personnelId = event.params.id;
@@ -21,7 +17,7 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelLeaderNot
 	parseInput: async (event: RequestEvent) => ({
 		personnelId: personnelIdFromEvent(event)
 	}),
-	fn: (ctx, input) => listPersonnelLeaderNotes(ctx, input.personnelId)
+	fn: (ctx, input) => listPersonnelLeaderNotes(personnelLeaderNoteContext(ctx), input.personnelId)
 };
 
 export const _postConfig: RouteConfig<PersonnelLeaderNoteInput, PersonnelLeaderNote> = {
@@ -39,7 +35,7 @@ export const _postConfig: RouteConfig<PersonnelLeaderNoteInput, PersonnelLeaderN
 			text: typeof body.text === 'string' ? body.text : ''
 		};
 	},
-	fn: (ctx, input) => createPersonnelLeaderNote(ctx, input)
+	fn: (ctx, input) => createPersonnelLeaderNote(personnelLeaderNoteContext(ctx), input)
 };
 
 export const GET = handle(_getConfig);

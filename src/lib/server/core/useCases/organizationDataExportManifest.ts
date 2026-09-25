@@ -145,7 +145,7 @@ export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportRea
 					address: ext
 						? [ext.address_street, ext.address_city, ext.address_state, ext.address_zip].filter(Boolean).join(', ')
 						: '',
-					leader_notes: ext?.leader_notes ?? ''
+					leader_notes: ''
 				};
 			})
 	},

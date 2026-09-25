@@ -398,6 +398,35 @@ describe('approveDeletionRequest', () => {
 		expect(request!.reviewed_at).toBeUndefined();
 	});
 
+	it('keeps approval pending without success notification or audit when its note effect fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', archived_at: null }]);
+		ctx.store.seed('leader_notes', [
+			{ id: 'note-1', organization_id: 'test-org', personnel_id: 'person-1', archived_at: null }
+		]);
+		const update = ctx.store.update;
+		ctx.store.update = (async (table, orgId, id, data, select) => {
+			if (table === 'leader_notes') throw new Error('note archive failed');
+			return update(table, orgId, id, data, select);
+		}) as typeof ctx.store.update;
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('note archive failed');
+
+		await expect(ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+		await expect(ctx.store.findOne('leader_notes', 'test-org', { id: 'note-1' })).resolves.toMatchObject({
+			archived_at: null
+		});
+		// The existing cascade is not transactional: its earlier parent write persists.
+		await expect(ctx.store.findOne('personnel', 'test-org', { id: 'person-1' })).resolves.toMatchObject({
+			archived_at: expect.any(String)
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
+	});
+
 	it('leaves non-personnel deletion requests pending when hard delete fails', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx, {

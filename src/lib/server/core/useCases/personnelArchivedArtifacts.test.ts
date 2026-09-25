@@ -1,12 +1,11 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import {
-	archivePersonnelOwnedArtifacts,
-	deletePersonnelArchivedArtifact,
-	listPersonnelArchivedArtifacts,
-	restorePersonnelArchivedArtifact,
-	type RestoredPersonnelArchivedArtifact
-} from './personnelArchivedArtifacts';
+import { testLeaderNoteContext } from '$features/personnel/leaderNotes.testHelper';
+import { archivePersonnelOwnedArtifacts, listPersonnelArchivedArtifacts } from './personnelArchivedArtifacts';
+import { deletePersonnelFollowUp, restorePersonnelFollowUp } from './personnelFollowUps';
+import { deletePersonnelCounselingRecord, restorePersonnelCounselingRecord } from './personnelCounselingRecords';
+import { deletePersonnelDocument, restorePersonnelDocument } from './personnelDocuments';
+import { deletePersonnelLeaderNote, restorePersonnelLeaderNote } from '$features/personnel/index.server';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [
@@ -195,7 +194,7 @@ describe('personnel archived artifacts', () => {
 		seedPersonnel(ctx);
 		seedActiveAndArchivedArtifacts(ctx);
 
-		const artifacts = await listPersonnelArchivedArtifacts(ctx, 'person-1');
+		const artifacts = await listPersonnelArchivedArtifacts(ctx, testLeaderNoteContext(ctx), 'person-1');
 
 		expect(artifacts.map((artifact) => `${artifact.kind}:${artifact.id}`)).toEqual([
 			'note:note-archived',
@@ -222,32 +221,24 @@ describe('personnel archived artifacts', () => {
 		seedActiveAndArchivedArtifacts(ctx);
 
 		await expect(
-			deletePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'follow-up', id: 'follow-up-active' })
+			deletePersonnelFollowUp(ctx, { personnelId: 'person-1', followUpId: 'follow-up-active' })
 		).rejects.toMatchObject({ status: 409 });
 		await expect(
-			deletePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'counseling', id: 'counseling-active' })
+			deletePersonnelCounselingRecord(ctx, { personnelId: 'person-1', recordId: 'counseling-active' })
 		).rejects.toMatchObject({ status: 409 });
 		await expect(
-			deletePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'document', id: 'document-active' })
+			deletePersonnelDocument(ctx, { personnelId: 'person-1', documentId: 'document-active' })
 		).rejects.toMatchObject({ status: 409 });
 		await expect(
-			deletePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'note', id: 'note-active' })
+			deletePersonnelLeaderNote(testLeaderNoteContext(ctx), { personnelId: 'person-1', noteId: 'note-active' })
 		).rejects.toMatchObject({ status: 409 });
 
-		await deletePersonnelArchivedArtifact(ctx, {
-			personnelId: 'person-1',
-			kind: 'follow-up',
-			id: 'follow-up-archived'
-		});
-		await deletePersonnelArchivedArtifact(ctx, {
-			personnelId: 'person-1',
-			kind: 'counseling',
-			id: 'counseling-archived'
-		});
-		await deletePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'document', id: 'document-archived' });
-		await deletePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'note', id: 'note-archived' });
+		await deletePersonnelFollowUp(ctx, { personnelId: 'person-1', followUpId: 'follow-up-archived' });
+		await deletePersonnelCounselingRecord(ctx, { personnelId: 'person-1', recordId: 'counseling-archived' });
+		await deletePersonnelDocument(ctx, { personnelId: 'person-1', documentId: 'document-archived' });
+		await deletePersonnelLeaderNote(testLeaderNoteContext(ctx), { personnelId: 'person-1', noteId: 'note-archived' });
 
-		await expect(listPersonnelArchivedArtifacts(ctx, 'person-1')).resolves.toHaveLength(0);
+		await expect(listPersonnelArchivedArtifacts(ctx, testLeaderNoteContext(ctx), 'person-1')).resolves.toHaveLength(0);
 	});
 
 	it('restores archived artifacts for each artifact type', async () => {
@@ -256,19 +247,19 @@ describe('personnel archived artifacts', () => {
 		seedActiveAndArchivedArtifacts(ctx);
 
 		await expect(
-			restorePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'follow-up', id: 'follow-up-archived' })
-		).resolves.toMatchObject({ kind: 'follow-up', id: 'follow-up-archived', status: 'open', archivedAt: null });
+			restorePersonnelFollowUp(ctx, { personnelId: 'person-1', followUpId: 'follow-up-archived' })
+		).resolves.toMatchObject({ id: 'follow-up-archived', status: 'open', archivedAt: null });
 		await expect(
-			restorePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'counseling', id: 'counseling-archived' })
-		).resolves.toMatchObject({ kind: 'counseling', id: 'counseling-archived', status: 'uploaded', archivedAt: null });
+			restorePersonnelCounselingRecord(ctx, { personnelId: 'person-1', recordId: 'counseling-archived' })
+		).resolves.toMatchObject({ id: 'counseling-archived', status: 'uploaded', archivedAt: null });
 		await expect(
-			restorePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'document', id: 'document-archived' })
-		).resolves.toMatchObject({ kind: 'document', id: 'document-archived', archivedAt: null });
+			restorePersonnelDocument(ctx, { personnelId: 'person-1', documentId: 'document-archived' })
+		).resolves.toMatchObject({ id: 'document-archived', archivedAt: null });
 		await expect(
-			restorePersonnelArchivedArtifact(ctx, { personnelId: 'person-1', kind: 'note', id: 'note-archived' })
-		).resolves.toMatchObject({ kind: 'note', id: 'note-archived', archivedAt: null });
+			restorePersonnelLeaderNote(testLeaderNoteContext(ctx), { personnelId: 'person-1', noteId: 'note-archived' })
+		).resolves.toMatchObject({ id: 'note-archived', archivedAt: null });
 
-		await expect(listPersonnelArchivedArtifacts(ctx, 'person-1')).resolves.toHaveLength(0);
+		await expect(listPersonnelArchivedArtifacts(ctx, testLeaderNoteContext(ctx), 'person-1')).resolves.toHaveLength(0);
 	});
 
 	it('sorts archived follow-ups by archive timestamp instead of update timestamp', async () => {
@@ -305,41 +296,8 @@ describe('personnel archived artifacts', () => {
 			}
 		]);
 
-		const artifacts = await listPersonnelArchivedArtifacts(ctx, 'person-1');
+		const artifacts = await listPersonnelArchivedArtifacts(ctx, testLeaderNoteContext(ctx), 'person-1');
 
 		expect(artifacts.map((artifact) => artifact.id)).toEqual(['follow-up-new-archive', 'follow-up-old-archive']);
-	});
-
-	it('restores archived artifacts with a typed kind-specific result', async () => {
-		type RestoreResult = Awaited<ReturnType<typeof restorePersonnelArchivedArtifact>>;
-		expectTypeOf<RestoreResult>().toEqualTypeOf<RestoredPersonnelArchivedArtifact>();
-
-		const ctx = createTestContext();
-		seedPersonnel(ctx);
-		ctx.store.seed('leader_notes', [
-			{
-				id: 'note-1',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
-				author: 'test-user',
-				text: 'Archived note',
-				created_at: '2026-05-01T10:00:00Z',
-				archived_at: '2026-05-02T10:00:00Z'
-			}
-		]);
-
-		const restored = await restorePersonnelArchivedArtifact(ctx, {
-			personnelId: 'person-1',
-			kind: 'note',
-			id: 'note-1'
-		});
-
-		expect(restored).toMatchObject({
-			kind: 'note',
-			id: 'note-1',
-			personnelId: 'person-1',
-			text: 'Archived note',
-			archivedAt: null
-		});
 	});
 });

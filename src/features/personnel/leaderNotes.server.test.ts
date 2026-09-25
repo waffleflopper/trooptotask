@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from './personnelLeaderNotes';
+import {
+	archivePersonnelLeaderNote,
+	createPersonnelLeaderNote,
+	deletePersonnelLeaderNote,
+	listPersonnelLeaderNotes,
+	restorePersonnelLeaderNote
+} from './leaderNotes.server';
+import { testLeaderNoteContext } from './leaderNotes.testHelper';
 
 const LEADER_USER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -53,11 +60,11 @@ describe('personnel leader notes', () => {
 			}
 		]);
 
-		const created = await createPersonnelLeaderNote(ctx, {
+		const created = await createPersonnelLeaderNote(testLeaderNoteContext(ctx), {
 			personnelId: 'person-1',
 			text: 'Completed board prep packet.'
 		});
-		const notes = await listPersonnelLeaderNotes(ctx, 'person-1');
+		const notes = await listPersonnelLeaderNotes(testLeaderNoteContext(ctx), 'person-1');
 
 		expect(created).toMatchObject({
 			personnelId: 'person-1',
@@ -83,8 +90,12 @@ describe('personnel leader notes', () => {
 		});
 		seedPersonnel(ctx);
 
-		await expect(listPersonnelLeaderNotes(ctx, 'person-1')).rejects.toMatchObject({ status: 403 });
-		await expect(createPersonnelLeaderNote(ctx, { personnelId: 'person-1', text: 'Note' })).rejects.toMatchObject({
+		await expect(listPersonnelLeaderNotes(testLeaderNoteContext(ctx), 'person-1')).rejects.toMatchObject({
+			status: 403
+		});
+		await expect(
+			createPersonnelLeaderNote(testLeaderNoteContext(ctx), { personnelId: 'person-1', text: 'Note' })
+		).rejects.toMatchObject({
 			status: 403
 		});
 	});
@@ -105,14 +116,46 @@ describe('personnel leader notes', () => {
 		});
 		seedPersonnel(ctx, 'group-1');
 
-		await expect(listPersonnelLeaderNotes(ctx, 'person-1')).rejects.toMatchObject({ status: 403 });
+		await expect(listPersonnelLeaderNotes(testLeaderNoteContext(ctx), 'person-1')).rejects.toMatchObject({
+			status: 403
+		});
+		await expect(
+			createPersonnelLeaderNote(testLeaderNoteContext(ctx), { personnelId: 'person-1', text: 'Private observation' })
+		).rejects.toMatchObject({ status: 403 });
+		await expect(ctx.rawStore.findMany('leader_notes', ctx.auth.orgId)).resolves.toEqual([]);
+	});
+
+	it('keeps note mutations scoped to the requested Soldier and retains archive conflicts', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		const notes = testLeaderNoteContext(ctx);
+		await expect(listPersonnelLeaderNotes(notes, 'missing-person')).rejects.toMatchObject({ status: 404 });
+		const created = await createPersonnelLeaderNote(notes, { personnelId: 'person-1', text: 'Observation' });
+		await expect(
+			archivePersonnelLeaderNote(notes, { personnelId: 'missing-person', noteId: created.id })
+		).rejects.toMatchObject({ status: 404 });
+		await expect(
+			deletePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id })
+		).rejects.toMatchObject({ status: 409 });
+		const archived = await archivePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id });
+		expect(archived.archivedAt).toBeTruthy();
+		await expect(
+			archivePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id })
+		).rejects.toMatchObject({ status: 409 });
+		const restored = await restorePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id });
+		expect(restored.archivedAt).toBeNull();
+		await expect(
+			restorePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id })
+		).resolves.toMatchObject({ archivedAt: null });
 	});
 
 	it('rejects empty notes', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);
 
-		await expect(createPersonnelLeaderNote(ctx, { personnelId: 'person-1', text: '   ' })).rejects.toMatchObject({
+		await expect(
+			createPersonnelLeaderNote(testLeaderNoteContext(ctx), { personnelId: 'person-1', text: '   ' })
+		).rejects.toMatchObject({
 			status: 400
 		});
 	});

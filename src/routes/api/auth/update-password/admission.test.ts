@@ -4,9 +4,8 @@ import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: limit,
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Too many password update attempts.',
 	passwordUpdateRateLimitAuditDetails: () => ({})
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));

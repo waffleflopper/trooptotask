@@ -2,9 +2,8 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptSt
 import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
 import { afterEach, expect, it, vi } from 'vitest';
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Limited',
 	passwordUpdateRateLimitAuditDetails: () => ({})
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));

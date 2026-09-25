@@ -250,8 +250,6 @@
 				"src/lib/server/core/useCases/userPreferences.ts",
 				"src/lib/server/forgotPasswordRateLimit.test.ts",
 				"src/lib/server/forgotPasswordRateLimit.ts",
-				"src/lib/server/passwordUpdateRateLimit.test.ts",
-				"src/lib/server/passwordUpdateRateLimit.ts",
 				"src/lib/server/publicAppOrigin.test.ts",
 				"src/lib/server/publicAppOrigin.ts",
 				"src/lib/server/userEmailIdentities.ts",

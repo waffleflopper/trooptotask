@@ -12,8 +12,7 @@ vi.mock('$lib/server/auditLog', () => ({
 	auditLog: auditLogMock
 }));
 
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Too many password update attempts. Please wait before trying again.',
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: checkPasswordUpdateRateLimitMock,
 	passwordUpdateRateLimitAuditDetails: vi.fn((decision) => ({
 		namespace: decision.namespace,

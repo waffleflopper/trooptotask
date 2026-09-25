@@ -8,9 +8,8 @@ vi.mock('$env/static/public', () => ({
 	PUBLIC_SUPABASE_URL: 'https://proof.invalid',
 	PUBLIC_SUPABASE_ANON_KEY: 'synthetic-anon'
 }));
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Too many attempts',
 	passwordUpdateRateLimitAuditDetails: () => ({})
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));

@@ -9,12 +9,8 @@ export {
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
 	getPublicPageUser,
-	isMfaStepUpRequired,
-	sanitizePendingAuthFlow,
-	setPendingAuthFlowCookie,
-	shouldRedirectIncompleteAuthSession
+	setPendingAuthFlowCookie
 } from './mfaGate.server';
-export { isPublicRoute } from './publicRoutes.server';
 export { createIdentityAuthorization } from './authorization.server';
 export { establishIdentitySession } from './establishSession.server';
 export { readIdentityMfaStatus, verifyIdentityMfa } from './mfa.server';
@@ -28,7 +24,6 @@ export {
 export { loadUserProfile, parseUserProfileForm, upsertUserProfile } from './userProfile.server';
 export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmation.server';
 
-export { verifyPasswordProof } from './passwordProof.server';
 export { checkSessionAssurance } from './sessionAssurance.server';
 export { readIdentitySecurity, updateIdentityEmail } from './accountSecurity.server';
 
@@ -43,3 +38,5 @@ export {
 export { confirmSensitiveIdentity } from './confirmSensitiveIdentity.server';
 
 export { passwordAttempt, passwordCompletionState, type PasswordAttempt } from './passwordCompletion.server';
+
+export { updateIdentityPassword } from './updatePassword.server';

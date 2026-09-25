@@ -6,11 +6,6 @@
 			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."
 		},
 		{
-			"path": "src/routes/api/auth/update-password/+server.ts",
-			"classification": "auth-edge",
-			"reason": "Password updates remain inside the auth-provider edge."
-		},
-		{
 			"path": "src/routes/auth/confirm/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Email confirmation remains an auth-provider boundary."

@@ -353,13 +353,12 @@ describe('server auth hook', () => {
 		const limit = vi.fn();
 		beforeEach(() => {
 			limit.mockReset().mockResolvedValue({ limited: false });
-			vi.doMock('$lib/server/passwordUpdateRateLimit', () => ({
+			vi.doMock('$features/identity/passwordUpdateRateLimit.server', () => ({
 				checkPasswordUpdateRateLimit: limit,
-				PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Too many attempts',
 				passwordUpdateRateLimitAuditDetails: () => ({})
 			}));
 		});
-		afterEach(() => vi.doUnmock('$lib/server/passwordUpdateRateLimit'));
+		afterEach(() => vi.doUnmock('$features/identity/passwordUpdateRateLimit.server'));
 
 		it.each([null, 'recovery', 'invite'])('supplies bound session identity to the real %s handler', async (flow) => {
 			const h = await createAuthenticatedHookHarness({ data: false, error: null });

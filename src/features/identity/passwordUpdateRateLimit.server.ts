@@ -1,22 +1,12 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import {
 	checkDurableRateLimit,
-	createSupabaseDurableRateLimitStore,
 	durableRateLimitAuditDetails,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from './durableRateLimit';
-
-export const PASSWORD_UPDATE_RATE_LIMIT_MESSAGE = 'Too many password update attempts. Please wait before trying again.';
+} from '$lib/access/index.server';
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_REQUESTS = 5;
-
-export type PasswordUpdateRateLimitStore = DurableRateLimitStore;
-
-export function createSupabasePasswordUpdateRateLimitStore(supabase?: SupabaseClient): PasswordUpdateRateLimitStore {
-	return createSupabaseDurableRateLimitStore(supabase);
-}
 
 function requireRateLimitDimension(value: string, name: string): string {
 	const trimmedValue = value.trim();
@@ -30,7 +20,7 @@ export function checkPasswordUpdateRateLimit(input: {
 	userId: string;
 	ip?: string | null;
 	now?: Date;
-	store?: PasswordUpdateRateLimitStore;
+	store?: DurableRateLimitStore;
 }): Promise<DurableRateLimitDecision> {
 	const userId = requireRateLimitDimension(input.userId, 'userId');
 	return checkDurableRateLimit({
@@ -42,7 +32,7 @@ export function checkPasswordUpdateRateLimit(input: {
 		windowMs: WINDOW_MS,
 		maxRequests: MAX_REQUESTS,
 		now: input.now,
-		store: input.store ?? createSupabasePasswordUpdateRateLimitStore()
+		store: input.store
 	});
 }
 

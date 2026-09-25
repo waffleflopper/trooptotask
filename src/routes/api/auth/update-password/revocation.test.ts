@@ -4,9 +4,8 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
 import { passwordCompletionState } from '$features/identity/index.server';
 import { POST } from './+server';
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: async () => ({ limited: false }),
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Limited',
 	passwordUpdateRateLimitAuditDetails: () => ({})
 }));
 vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));

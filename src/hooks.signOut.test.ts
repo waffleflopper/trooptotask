@@ -89,7 +89,8 @@ it.each([
 			expect(await (await handle({ event: first, resolve })).json()).toMatchObject({ status: 503 });
 		else {
 			await expect(handle({ event: first, resolve })).rejects.toMatchObject({ status: 503 });
-			expect(await first.locals.safeGetSession()).toEqual({ session: null, user: null });
+			expect(first.locals.session).toBeNull();
+			expect(first.locals.user).toBeNull();
 			expect(resolve).not.toHaveBeenCalled();
 		}
 		expect(jar).toEqual(before);

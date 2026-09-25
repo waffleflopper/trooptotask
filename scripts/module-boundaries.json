@@ -213,7 +213,7 @@
 			"packet": "08-M13"
 		},
 		"identity": {
-			"roots": ["src/lib/auth/", "src/lib/components/auth/", "src/lib/preferences/"],
+			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/", "src/lib/preferences/"],
 			"files": [
 				"src/lib/server/accessRequestInvitationBlocking.test.ts",
 				"src/lib/server/accessRequestInvitationBlocking.ts",
@@ -247,8 +247,6 @@
 				"src/lib/server/authEmailOutbox.test.ts",
 				"src/lib/server/authEmailOutbox.ts",
 				"src/lib/server/authEmailTransport.test.ts",
-				"src/lib/server/authSession.test.ts",
-				"src/lib/server/authSession.ts",
 				"src/lib/server/auto-accept-org-invites.test.ts",
 				"src/lib/server/auto-accept-org-invites.ts",
 				"src/lib/server/core/useCases/userPreferences.test.ts",
@@ -822,7 +820,8 @@
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts"
 		],
-		"audit": ["src/lib/server/logSanitize.ts"]
+		"audit": ["src/lib/server/logSanitize.ts"],
+		"identity": ["src/features/identity/index.server.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

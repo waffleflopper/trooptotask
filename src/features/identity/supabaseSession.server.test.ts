@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildTrustedUserFromClaims, getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from './authSession';
+import { buildTrustedUserFromClaims, getSupabaseAuthStorageKey, hasSupabaseAuthCookie } from './supabaseSession.server';
 
-describe('authSession helpers', () => {
+describe('Supabase session boundary', () => {
 	it('derives the default Supabase SSR auth cookie storage key from the project URL', () => {
 		expect(getSupabaseAuthStorageKey('https://abcd1234.supabase.co')).toBe('sb-abcd1234-auth-token');
 		expect(getSupabaseAuthStorageKey('http://127.0.0.1:54321')).toBe('sb-127-auth-token');

@@ -4,7 +4,9 @@ This is the current register of unresolved architectural gaps. The [ownership in
 
 ## D-02 Provider-Boundary Leaks
 
-The route baseline retains 15 `locals.supabase` auth edges and 17 admin/provider wiring entries. These classifications do not make all current wiring the target architecture. [Governance checks](GOVERNANCE_CHECKS.md) describe their exact enforcement and limits; the Phase 08 inventory also owns remaining cross-module and provider leaks. Current Supabase Auth, SQL/RLS, Storage and transaction guarantees remain supported infrastructure.
+The route baseline retains 14 `locals.supabase` auth edges and 17 admin/provider wiring entries. These classifications do not make all current wiring the target architecture. [Governance checks](GOVERNANCE_CHECKS.md) describe their exact enforcement and limits; the Phase 08 inventory also owns remaining cross-module and provider leaks. Current Supabase Auth, SQL/RLS, Storage and transaction guarantees remain supported infrastructure.
+
+D01's `08-M01-01a` moves request session verification and logout into `src/features/identity/index.server.ts`, removes the central session helper and unused request getter, and retires logout's direct-provider baseline entry. The hook still composes its request-local provider client and remaining admission gates. This reduces the session/logout seam only; the portable actor and remaining Identity workflows are still mapped in [TODO](../stabilization/TODO.md#d01-bounded-tasks--identity-admission-and-account-security).
 
 Move business policy outside owned auth/provider adapters behind narrow feature operations, following [ADR 0004](adrs/0004-v1-provider-boundary-contract.md) and [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md). Complete each consumer cutover before removing its baseline entry. Do not add exceptions or reclassify remaining violations to pass governance.
 

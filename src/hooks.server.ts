@@ -1,17 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { type Handle, error, redirect } from '@sveltejs/kit';
-import type { Session, User } from '@supabase/supabase-js';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
-import {
-	buildTrustedUserFromClaims,
-	clearSupabaseAuthCookies,
-	getSupabaseAuthStorageKey,
-	hasSupabaseAuthCookie,
-	readSessionLifetime
-} from '$lib/server/authSession';
+import { readIdentitySession } from '$features/identity/index.server';
 import { isPublicRoute } from '$lib/server/publicRoutes';
 import {
 	getAuthenticatedRedirectPath,
@@ -37,37 +30,6 @@ const securityHeaders: Record<string, string> = {
 	'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 	'X-DNS-Prefetch-Control': 'off'
 };
-
-const SUPABASE_AUTH_STORAGE_KEY = getSupabaseAuthStorageKey(PUBLIC_SUPABASE_URL);
-const STALE_SUPABASE_AUTH_ERROR_CODES = new Set([
-	'refresh_token_not_found',
-	'refresh_token_already_used',
-	'session_not_found',
-	'session_expired'
-]);
-
-function getAuthErrorCode(error: unknown): string | null {
-	if (!error || typeof error !== 'object' || !('code' in error)) return null;
-	return typeof error.code === 'string' ? error.code : null;
-}
-
-function isStaleSupabaseAuthError(error: unknown): boolean {
-	const code = getAuthErrorCode(error);
-	return Boolean(code && STALE_SUPABASE_AUTH_ERROR_CODES.has(code));
-}
-
-type SafeSessionResult = { session: Session | null; user: User | null };
-
-function buildTrustedSession(session: Session, user: User): Session {
-	return {
-		access_token: session.access_token,
-		refresh_token: session.refresh_token,
-		expires_in: session.expires_in,
-		expires_at: session.expires_at,
-		token_type: session.token_type,
-		user
-	};
-}
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const clientIp = event.getClientAddress();
@@ -117,97 +79,25 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	});
 
-	// Cache auth verification within a single request to avoid redundant auth API calls.
-	let cachedSession: SafeSessionResult | null = null;
-	event.locals.safeGetSession = async () => {
-		if (cachedSession) return cachedSession;
-		const hasAuthCookie = hasSupabaseAuthCookie(
-			event.cookies.getAll().map(({ name }) => name),
-			SUPABASE_AUTH_STORAGE_KEY
+	event.locals.session = null;
+	event.locals.user = null;
+	// Public routes also need verified identity for conditional rendering.
+	const identity = await readIdentitySession({
+		supabase: event.locals.supabase,
+		cookies: event.cookies,
+		supabaseUrl: PUBLIC_SUPABASE_URL,
+		isLogout: event.url.pathname === '/auth/logout',
+		userStorage: requestUserStorage
+	});
+	if (identity.status === 'unavailable') {
+		error(
+			503,
+			identity.reason === 'lifetime'
+				? 'Unable to verify session lifetime'
+				: 'Unable to confirm sign-out. Please try again.'
 		);
-
-		if (!hasAuthCookie) {
-			cachedSession = { session: null, user: null };
-			return cachedSession;
-		}
-
-		const {
-			data: { session },
-			error: sessionError
-		} = await event.locals.supabase.auth.getSession().catch((error) => {
-			if (isStaleSupabaseAuthError(error)) {
-				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
-				return { data: { session: null }, error };
-			}
-			throw error;
-		});
-
-		if (sessionError || !session?.access_token) {
-			if (isStaleSupabaseAuthError(sessionError)) {
-				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
-			}
-			cachedSession = { session: null, user: null };
-			return cachedSession;
-		}
-
-		const { data: claimsData, error: claimsError } = await event.locals.supabase.auth
-			.getClaims(session.access_token)
-			.catch((error) => {
-				if (isStaleSupabaseAuthError(error)) {
-					clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
-					return { data: null, error };
-				}
-				throw error;
-			});
-		if (claimsError || !claimsData?.claims) {
-			if (isStaleSupabaseAuthError(claimsError)) {
-				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
-			}
-			cachedSession = { session: null, user: null };
-			return cachedSession;
-		}
-
-		const { data: userData, error: userError } = await event.locals.supabase.auth.getUser().catch((error) => {
-			if (isStaleSupabaseAuthError(error)) {
-				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
-				return { data: null, error };
-			}
-			throw error;
-		});
-		const authenticatedUser = userData?.user ?? null;
-		const userMatchesClaims = authenticatedUser?.id === claimsData.claims.sub;
-		if (userError || !userMatchesClaims) {
-			if (isStaleSupabaseAuthError(userError) || (!userError && !userMatchesClaims)) {
-				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
-			}
-			cachedSession = { session: null, user: null };
-			return cachedSession;
-		}
-		// Logout owns revocation/retry and must remain reachable during lookup outages.
-		if (event.url.pathname !== '/auth/logout') {
-			const lifetime = await readSessionLifetime(event.locals.supabase, session.access_token);
-			if (lifetime === 'unavailable') error(503, 'Unable to verify session lifetime');
-			if (lifetime === 'expired') {
-				// Invalidate the request cache before any public-route consumer can reuse it.
-				cachedSession = { session: null, user: null };
-				const revoked = await event.locals.supabase.auth.admin
-					.signOut(session.access_token, 'global')
-					.catch(() => null);
-				if (revoked?.error !== null) error(503, 'Unable to confirm sign-out. Please try again.');
-				clearSupabaseAuthCookies(event.cookies, SUPABASE_AUTH_STORAGE_KEY);
-				event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
-				return cachedSession;
-			}
-		}
-
-		await requestUserStorage.setItem(`${SUPABASE_AUTH_STORAGE_KEY}-user`, JSON.stringify({ user: authenticatedUser }));
-
-		const user = buildTrustedUserFromClaims(claimsData.claims, authenticatedUser);
-		cachedSession = { session: buildTrustedSession(session, user), user };
-		return cachedSession;
-	};
-	// Always attempt to get the session — public routes need user info for conditional rendering
-	const { session, user } = await event.locals.safeGetSession();
+	}
+	const { session, user } = identity;
 	event.locals.session = session;
 	event.locals.user = user;
 	event.locals.mfaPending = false;

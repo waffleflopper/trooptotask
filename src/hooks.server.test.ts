@@ -850,7 +850,8 @@ describe('server auth hook', () => {
 			h.sessionLookup.mockResolvedValueOnce({ data: '2026-09-15T12:00:00Z', error: null });
 			await expect(h.handle(h)).rejects.toMatchObject({ status: 303, location: '/auth/login' });
 			expect(h.resolve).not.toHaveBeenCalled();
-			expect(await h.event.locals.safeGetSession()).toEqual({ session: null, user: null });
+			expect(h.event.locals.session).toBeNull();
+			expect(h.event.locals.user).toBeNull();
 			// A separately verified current session has its own provider start fact.
 			const current = h.createEvent();
 			expect((await h.handle({ event: current, resolve: h.resolve })).status).toBe(200);
@@ -923,7 +924,7 @@ describe('server auth hook', () => {
 			).rejects.toMatchObject({ status: 303, location: '/' });
 		});
 
-		it('denies a missing provider session, clears only this project cookies and invalidates cached identity', async () => {
+		it('denies a missing provider session, clears only this project cookies and clears admitted identity', async () => {
 			const h = await createAuthenticatedHookHarness({ data: false, error: null });
 			h.sessionLookup.mockResolvedValue({ data: null, error: null });
 			const event = h.createEvent('/auth/login', {
@@ -933,7 +934,8 @@ describe('server auth hook', () => {
 				theme: 'dark'
 			});
 			expect((await h.handle({ event, resolve: h.resolve })).status).toBe(200);
-			expect(await event.locals.safeGetSession()).toEqual({ session: null, user: null });
+			expect(event.locals.session).toBeNull();
+			expect(event.locals.user).toBeNull();
 			expect(event.cookies.getAll()).toEqual([
 				{ name: 'sb-other-auth-token', value: 'unrelated' },
 				{ name: 'theme', value: 'dark' }

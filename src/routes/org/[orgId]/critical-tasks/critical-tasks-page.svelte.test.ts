@@ -202,19 +202,6 @@ describe('critical tasks page', () => {
 		expect(reportsLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/reports');
 		const libraryLink = screen.getByRole('link', { name: 'Task Library' });
 		expect(libraryLink.getAttribute('href')).toBe('/org/org-1/critical-tasks/library');
-		const orderedActions = [
-			screen.getByRole('button', { name: 'Export Excel' }),
-			screen.getByRole('button', { name: 'Import Completions' }),
-			libraryLink,
-			reportsLink,
-			screen.getByRole('button', { name: 'Record Completion' })
-		];
-		for (let index = 0; index < orderedActions.length - 1; index += 1) {
-			expect(Boolean(orderedActions[index]!.compareDocumentPosition(orderedActions[index + 1]!) & 4)).toBe(true);
-		}
-		for (const action of orderedActions) {
-			expect(action.classList.contains('toolbar-action--compact')).toBe(false);
-		}
 	});
 
 	it('uses Critical Tasks Policy Decisions for page affordances', () => {

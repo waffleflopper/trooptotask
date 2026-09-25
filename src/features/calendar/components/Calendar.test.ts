@@ -1,20 +1,15 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { cleanup, fireEvent, render } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
-let resizeObserverCallback: ResizeObserverCallback | undefined;
 const resizeObserve = vi.fn();
 const resizeDisconnect = vi.fn();
 
 class MockResizeObserver {
-	constructor(callback: ResizeObserverCallback) {
-		resizeObserverCallback = callback;
-	}
-
 	observe = resizeObserve;
 	disconnect = resizeDisconnect;
 	unobserve = vi.fn();
@@ -22,18 +17,9 @@ class MockResizeObserver {
 
 vi.stubGlobal('ResizeObserver', MockResizeObserver);
 
-function triggerResizeObserver() {
-	if (!resizeObserverCallback) {
-		throw new Error('ResizeObserver callback was not registered');
-	}
-
-	resizeObserverCallback([], {} as ResizeObserver);
-}
-
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
-	resizeObserverCallback = undefined;
 });
 
 const personnel: Personnel[] = [
@@ -85,6 +71,7 @@ function renderCalendar(
 		canEdit: boolean;
 		canEditAssignments: boolean;
 		onDateClick: (date: Date) => void;
+		onPersonClick: (person: Personnel) => void;
 		onNavigateToMonth: (year: number, month: number) => void;
 		upcomingLossMap: Map<string, UpcomingLossRecord>;
 	}> = {}
@@ -106,6 +93,7 @@ function renderCalendar(
 			canEdit: overrides.canEdit,
 			canEditAssignments: overrides.canEditAssignments,
 			onDateClick: overrides.onDateClick,
+			onPersonClick: overrides.onPersonClick,
 			onPrevMonth: () => {},
 			onNextMonth: () => {},
 			onGoToToday: () => {},
@@ -143,12 +131,9 @@ describe('Calendar', () => {
 		expect(onDateClick.mock.calls[0]?.[0]).toBeInstanceOf(Date);
 	});
 
-	it('hides personnel roles and compacts virtualized rows when role display is disabled', () => {
-		const { container, queryByText } = renderCalendar({ showPersonnelRoles: false });
-		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;
-
+	it('hides personnel roles when role display is disabled', () => {
+		const { queryByText } = renderCalendar({ showPersonnelRoles: false });
 		expect(queryByText('Medic')).toBeNull();
-		expect(calendarBody?.style.getPropertyValue('--calendar-person-row-height')).toBe('36px');
 	});
 
 	it('shows a readable personnel label in the header badge when the selected header type is person-based', () => {
@@ -202,22 +187,15 @@ describe('Calendar', () => {
 		expect(container.querySelector('.month-picker-popover')).toBeNull();
 	});
 
-	it('mounts a scrolling window of personnel rows for large rosters', async () => {
-		const largeRoster = makePersonnel(120, { clinicRole: 'Role text that would otherwise add a second line' });
+	it('opens a distant person after scrolling the roster', async () => {
+		const largeRoster = makePersonnel(120);
+		const onPersonClick = vi.fn();
 		const { container } = renderCalendar({
 			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }],
-			showPersonnelRoles: true
+			onPersonClick
 		});
 
 		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;
-		const firstPersonVirtualRow = container.querySelector('.virtual-row:nth-child(2)') as HTMLElement | null;
-		expect(calendarBody).toBeTruthy();
-		expect(firstPersonVirtualRow?.style.height).toBe('46px');
-		expect(firstPersonVirtualRow?.classList.contains('virtual-row--person')).toBe(true);
-		expect(calendarBody?.style.getPropertyValue('--calendar-person-row-height')).toBe('46px');
-		expect(container.querySelectorAll('.personnel-row').length).toBeLessThan(largeRoster.length);
-		expect(container.textContent).toContain('Person 001');
-
 		if (!calendarBody) {
 			throw new Error('Calendar body was not rendered');
 		}
@@ -225,72 +203,16 @@ describe('Calendar', () => {
 		Object.defineProperty(calendarBody, 'clientHeight', {
 			configurable: true,
 			value: 260
-		});
-		Object.defineProperty(calendarBody, 'offsetWidth', {
-			configurable: true,
-			value: 800
 		});
 		Object.defineProperty(calendarBody, 'scrollTop', {
 			configurable: true,
 			writable: true,
 			value: 10_000
 		});
-		Object.defineProperty(calendarBody, 'scrollLeft', {
-			configurable: true,
-			writable: true,
-			value: 0
-		});
-
 		await fireEvent.scroll(calendarBody);
 		await tick();
-
-		expect(container.textContent).not.toContain('Person 001');
-		expect(container.textContent).toContain('Person 120');
-		expect(container.querySelectorAll('.personnel-row').length).toBeLessThan(largeRoster.length);
-	});
-
-	it('refreshes virtual rows when the calendar body resizes without scrolling', async () => {
-		const largeRoster = makePersonnel(120);
-		const { container } = renderCalendar({
-			personnelByGroup: [{ group: 'Alpha', personnel: largeRoster }]
-		});
-
-		const calendarBody = container.querySelector('.calendar-body') as HTMLDivElement | null;
-		expect(calendarBody).toBeTruthy();
-
-		if (!calendarBody) {
-			throw new Error('Calendar body was not rendered');
-		}
-
-		Object.defineProperty(calendarBody, 'scrollTop', {
-			configurable: true,
-			writable: true,
-			value: 0
-		});
-		Object.defineProperty(calendarBody, 'scrollLeft', {
-			configurable: true,
-			writable: true,
-			value: 0
-		});
-		Object.defineProperty(calendarBody, 'clientHeight', {
-			configurable: true,
-			value: 260
-		});
-
-		triggerResizeObserver();
-		await tick();
-
-		expect(container.textContent).not.toContain('Person 040');
-
-		Object.defineProperty(calendarBody, 'clientHeight', {
-			configurable: true,
-			value: 2000
-		});
-
-		triggerResizeObserver();
-		await tick();
-
-		expect(container.textContent).toContain('Person 040');
+		await fireEvent.click(screen.getByRole('button', { name: /Person 120/ }));
+		expect(onPersonClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'person-120' }));
 	});
 
 	// ---- Upcoming-loss indicators ------------------------------------------

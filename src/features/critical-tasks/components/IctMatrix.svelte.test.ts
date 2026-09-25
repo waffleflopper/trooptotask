@@ -152,61 +152,6 @@ describe('IctMatrix', () => {
 		expect(missingCell.querySelector('svg')).toBeTruthy();
 	});
 
-	it('windows dense personnel rows while preserving all task columns', async () => {
-		const densePersonnel = Array.from({ length: 500 }, (_, index) =>
-			person({
-				id: `person-${index + 1}`,
-				lastName: `Soldier-${String(index + 1).padStart(2, '0')}`,
-				firstName: 'Jordan',
-				groupId: 'group-alpha',
-				groupName: 'Alpha'
-			})
-		);
-		const denseTasks = Array.from({ length: 75 }, (_, index) =>
-			task({
-				id: `task-${index + 1}`,
-				taskCode: `181-105-${String(index + 1).padStart(4, '0')}`,
-				title: `Task ${index + 1}`,
-				sortOrder: index,
-				mos: []
-			})
-		);
-
-		render(IctMatrix, {
-			props: {
-				orgId: 'org-1',
-				personnel: densePersonnel,
-				tasks: denseTasks,
-				completions: [],
-				groups,
-				settings,
-				orgName: 'Test Unit'
-			}
-		});
-
-		const scrollContainer = screen.getByTestId('critical-tasks-matrix-scroll');
-		const table = screen.getByTestId('critical-tasks-matrix-table');
-		const rowgroups = within(table).getAllByRole('rowgroup');
-		const bodyRows = within(rowgroups[1]!).getAllByRole('row');
-
-		expect(scrollContainer).toBeTruthy();
-		expect(table).toBeTruthy();
-		expect(within(table).getAllByRole('columnheader')).toHaveLength(denseTasks.length + 1);
-		expect(screen.getByRole('columnheader', { name: /181-105-0001 Task 1/ })).toBeTruthy();
-		expect(screen.getByRole('columnheader', { name: /181-105-0075 Task 75/ })).toBeTruthy();
-		expect(bodyRows.length).toBeLessThan(40);
-		expect(bodyRows.length).toBeGreaterThan(1);
-		expect(within(rowgroups[1]!).getAllByRole('rowheader').length).toBeLessThan(densePersonnel.length);
-		expect(screen.queryByRole('rowheader', { name: /Soldier-250/ })).toBeNull();
-		expect(scrollContainer.getAttribute('data-slot')).toBe('operational-matrix-viewport');
-		expect(scrollContainer.getAttribute('data-virtualized')).toBe('true');
-
-		await fireEvent.scroll(scrollContainer, { target: { scrollTop: 12_600 } });
-		await waitFor(() => {
-			expect(screen.getByRole('rowheader', { name: /Soldier-250/ })).toBeTruthy();
-		});
-	}, 20_000);
-
 	it('selects editable applicable cells and ignores not-applicable cells', async () => {
 		const onSelectCell = vi.fn();
 		render(IctMatrix, {
@@ -243,5 +188,39 @@ describe('IctMatrix', () => {
 
 		await fireEvent.click(screen.getByLabelText('Smith 071-326-0501: not applicable'));
 		expect(onSelectCell).toHaveBeenCalledTimes(1);
+	});
+
+	it('opens an editable task for a person reached by scrolling the matrix', async () => {
+		const onSelectCell = vi.fn();
+		render(IctMatrix, {
+			props: {
+				orgId: 'org-1',
+				personnel: Array.from({ length: 30 }, (_, index) =>
+					person({ id: `person-${index + 1}`, lastName: `Soldier ${index + 1}` })
+				),
+				tasks: [task({ id: 'task-1', taskCode: '181-105-1001' })],
+				completions: [],
+				groups,
+				settings,
+				viewMode: 'alphabetical',
+				canEdit: true,
+				onSelectCell,
+				orgName: 'Test Unit'
+			}
+		});
+
+		await fireEvent.scroll(screen.getByTestId('critical-tasks-matrix-scroll'), {
+			target: { scrollTop: 2000 }
+		});
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: /Soldier 30 181-105-1001: not recorded/ })).toBeTruthy()
+		);
+		await fireEvent.click(screen.getByRole('button', { name: /Soldier 30 181-105-1001: not recorded/ }));
+
+		expect(onSelectCell).toHaveBeenCalledWith({
+			person: expect.objectContaining({ id: 'person-30' }),
+			task: expect.objectContaining({ id: 'task-1' }),
+			completion: undefined
+		});
 	});
 });

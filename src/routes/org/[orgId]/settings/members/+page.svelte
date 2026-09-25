@@ -4,7 +4,7 @@
 	import { Edit, RefreshCw, Search, Trash2 } from '@lucide/svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
-	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
+	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';

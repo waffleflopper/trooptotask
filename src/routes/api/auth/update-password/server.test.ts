@@ -12,17 +12,8 @@ vi.mock('$lib/server/auditLog', () => ({
 	auditLog: auditLogMock
 }));
 
-vi.mock('$lib/server/passwordUpdateRateLimit', () => ({
-	PASSWORD_UPDATE_RATE_LIMIT_MESSAGE: 'Too many password update attempts. Please wait before trying again.',
-	checkPasswordUpdateRateLimit: checkPasswordUpdateRateLimitMock,
-	passwordUpdateRateLimitAuditDetails: vi.fn((decision) => ({
-		namespace: decision.namespace,
-		dimensions: decision.dimensions,
-		limitedDimensions: decision.limitedDimensions,
-		windowMs: decision.windowMs,
-		maxRequests: decision.maxRequests,
-		...(decision.retryAfterMs ? { retryAfterMs: decision.retryAfterMs } : {})
-	}))
+vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
+	checkPasswordUpdateRateLimit: checkPasswordUpdateRateLimitMock
 }));
 
 const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));
@@ -492,7 +483,8 @@ describe('POST /api/auth/update-password', () => {
 			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
 		});
 		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
-		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it('rate-limits recovery password updates before provider mutation', async () => {

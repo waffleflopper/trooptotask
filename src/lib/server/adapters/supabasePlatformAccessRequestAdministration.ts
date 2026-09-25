@@ -10,7 +10,7 @@ import {
 import { rejectAccessRequestAndBlockLinkedInvitations } from '$lib/server/accessRequestInvitationBlocking';
 import { notifyAdmins } from '$lib/server/notifications';
 import { checkPlatformAccessRequestSetupRateLimit } from '$lib/server/platformAccessRequestRateLimit';
-import { createSupabaseSensitiveActionAuthorizer } from '$lib/server/sensitiveActionAuthorizer';
+import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import {
 	createPlatformAccessRequestAdministration,

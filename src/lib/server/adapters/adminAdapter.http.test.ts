@@ -11,7 +11,7 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({}) }));
 
 function event(userId: string | null = 'admin-1'): RequestEvent {
 	return {
-		locals: { user: userId ? { id: userId } : null, supabase: {}, session: null },
+		locals: { actor: userId ? { userId } : null, user: userId ? { id: userId } : null, supabase: {}, session: null },
 		request: new Request('https://app.example.test/admin/audit'),
 		getClientAddress: () => '127.0.0.1'
 	} as RequestEvent;
@@ -51,6 +51,18 @@ describe('admin HTTP authorization', () => {
 		);
 		expect(isRedirect(caught)).toBe(true);
 		expect(caught).toMatchObject({ status: 303, location: '/auth/login' });
+		expect(protectedWork).not.toHaveBeenCalled();
+	});
+
+	it('rejects provider identity without admission before role lookup or protected work', async () => {
+		const request = event();
+		request.locals.actor = null;
+		const protectedWork = vi.fn();
+		await expect(loadWithAdminContext({ page: 'audit', fn: protectedWork })(request)).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
+		});
+		expect(lookupRole).not.toHaveBeenCalled();
 		expect(protectedWork).not.toHaveBeenCalled();
 	});
 

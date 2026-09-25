@@ -2,18 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MembershipRow } from '$lib/server/permissionContext';
 import { cacheRequestMembership, getCachedRequestMembership } from '$lib/server/membershipContextCache';
 
-const { getApiContextMock } = vi.hoisted(() => ({
-	getApiContextMock: vi.fn()
-}));
-
-vi.mock('$lib/server/supabase', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/supabase')>('$lib/server/supabase');
-	return {
-		...actual,
-		getApiContext: getApiContextMock
-	};
-});
-
 import { buildRouteContext, buildLayoutContext, buildLayoutContextFromMembership } from './httpAdapter';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
@@ -113,12 +101,8 @@ describe('buildLayoutContext', () => {
 		}
 	])('builds auth from cached $label without querying organization memberships', async ({ membership, assertAuth }) => {
 		const { supabase } = createMembershipSupabase(membership);
-		getApiContextMock.mockReturnValue({
-			supabase,
-			userId: USER_ID
-		});
 
-		const locals = {} as App.Locals;
+		const locals = { actor: { userId: USER_ID }, supabase } as unknown as App.Locals;
 		cacheRequestMembership(locals, USER_ID, ORG_ID, membership);
 
 		const ctx = await buildLayoutContext(locals, {} as never, ORG_ID);
@@ -136,12 +120,8 @@ describe('buildLayoutContext', () => {
 			access_scope_group_ids: ['group-123']
 		} satisfies MembershipRow;
 		const { supabase } = createMembershipSupabase(membership);
-		getApiContextMock.mockReturnValue({
-			supabase,
-			userId: USER_ID
-		});
 
-		const locals = {} as App.Locals;
+		const locals = { actor: { userId: USER_ID }, supabase } as unknown as App.Locals;
 
 		const seeded = await buildLayoutContextFromMembership(locals, {} as never, ORG_ID, membership);
 		const reused = await buildLayoutContext(locals, {} as never, ORG_ID);
@@ -162,12 +142,8 @@ describe('buildLayoutContext', () => {
 			access_scope_group_ids: ['group-123']
 		} satisfies MembershipRow;
 		const { supabase, query, select } = createMembershipSupabase(membership);
-		getApiContextMock.mockReturnValue({
-			supabase,
-			userId: USER_ID
-		});
 
-		const locals = {} as App.Locals;
+		const locals = { actor: { userId: USER_ID }, supabase } as unknown as App.Locals;
 
 		const first = await buildLayoutContext(locals, {} as never, ORG_ID);
 		const second = await buildLayoutContext(locals, {} as never, ORG_ID);
@@ -202,12 +178,8 @@ describe('buildLayoutContext', () => {
 		const supabase = {
 			from: vi.fn().mockReturnValue({ select })
 		};
-		getApiContextMock.mockReturnValue({
-			supabase,
-			userId: USER_ID
-		});
 
-		const locals = {} as App.Locals;
+		const locals = { actor: { userId: USER_ID }, supabase } as unknown as App.Locals;
 		const first = buildLayoutContext(locals, {} as never, ORG_ID);
 		const second = buildLayoutContext(locals, {} as never, ORG_ID);
 
@@ -241,12 +213,8 @@ describe('buildLayoutContext', () => {
 		const supabase = {
 			from: vi.fn().mockReturnValue({ select })
 		};
-		getApiContextMock.mockReturnValue({
-			supabase,
-			userId: USER_ID
-		});
 
-		const locals = {} as App.Locals;
+		const locals = { actor: { userId: USER_ID }, supabase } as unknown as App.Locals;
 
 		await expect(buildLayoutContext(locals, {} as never, ORG_ID)).rejects.toThrow('membership query failed');
 		const ctx = await buildLayoutContext(locals, {} as never, ORG_ID);
@@ -277,12 +245,8 @@ describe('buildLayoutContext', () => {
 			access_scope_group_ids: ['group-live']
 		} satisfies MembershipRow;
 		const { supabase } = createMembershipSupabase(queriedMembership);
-		getApiContextMock.mockReturnValue({
-			supabase,
-			userId: USER_ID
-		});
 
-		const locals = {} as App.Locals;
+		const locals = { actor: { userId: USER_ID }, supabase } as unknown as App.Locals;
 		cacheRequestMembership(locals, cache.userId, cache.orgId, cachedMembership);
 
 		const ctx = await buildLayoutContext(locals, {} as never, ORG_ID);
@@ -305,15 +269,16 @@ describe('request-bound sensitive-action authorization', () => {
 				auth: { mfa: { getAuthenticatorAssuranceLevel: assurance } },
 				rpc: vi.fn().mockResolvedValue({ data: false, error: null })
 			});
-			getApiContextMock.mockReturnValue({ supabase, userId: USER_ID });
 			const locals = {
+				supabase,
+				actor: { userId: USER_ID },
 				user: { id: USER_ID },
 				session: {
 					access_token: 'verified-token',
 					expires_at: Math.floor(Date.now() / 1000) + 3600,
 					user: { id: USER_ID }
 				}
-			} as App.Locals;
+			} as unknown as App.Locals;
 			cacheRequestMembership(locals, USER_ID, ORG_ID, membership);
 			const ctx =
 				kind === 'membership'

@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { writable, type Writable } from 'svelte/store';
 import { page } from '$app/stores';
-import { goto, replaceState } from '$app/navigation';
+import { goto } from '$app/navigation';
 import Page from './+page.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
@@ -150,37 +150,6 @@ it.each([
 		expect(screen.queryByRole('alert')).toBeNull();
 	}
 );
-
-it('clears an exchanged recovery hash and retries unavailable status without exchanging the credentials again', async () => {
-	recoveryPage.set({ data: { hasSession: false }, state: {} });
-	window.history.replaceState(
-		{},
-		'',
-		'/auth/reset-password#access_token=synthetic-access&refresh_token=synthetic-refresh'
-	);
-	const fetchMock = vi
-		.fn()
-		.mockResolvedValueOnce(Response.json({ ok: true }))
-		.mockRejectedValueOnce(new TypeError('Failed to fetch'))
-		.mockResolvedValueOnce(Response.json({ currentLevel: 'aal1', nextLevel: 'aal1' }));
-	vi.stubGlobal('fetch', fetchMock);
-	render(Page);
-	expect(await screen.findByRole('alert')).toBeTruthy();
-	expect(replaceState).toHaveBeenCalledWith('/auth/reset-password', {});
-	expect(screen.queryByLabelText(/^New Password/)).toBeNull();
-	await fireEvent.click(screen.getByRole('button', { name: 'Retry security check' }));
-	expect(await screen.findByLabelText(/^New Password/)).toBeEnabled();
-	expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-		'/api/auth/establish-session',
-		'/api/auth/mfa/status',
-		'/api/auth/mfa/status'
-	]);
-	expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-		accessToken: 'synthetic-access',
-		refreshToken: 'synthetic-refresh',
-		flow: 'recovery'
-	});
-});
 
 it('keeps a missing recovery session unavailable without offering a status retry', async () => {
 	recoveryPage.set({ data: { hasSession: false }, state: {} });

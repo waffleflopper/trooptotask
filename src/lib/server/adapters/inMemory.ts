@@ -31,11 +31,6 @@ import type {
 	QueryPorts,
 	QueryWithRawStorePorts
 } from '../core/ports';
-import type {
-	SensitiveActionAuthorizeInput,
-	SensitiveActionDecision,
-	SensitiveActionAuthorizer
-} from '$lib/server/sensitiveActionAuthorizer';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
@@ -44,6 +39,9 @@ import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalT
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
+type SensitiveActionAuthorizer = UseCaseContext['sensitiveActionAuthorizer'];
+type SensitiveActionAuthorizeInput = Parameters<SensitiveActionAuthorizer['authorize']>[0];
+type SensitiveActionDecision = Awaited<ReturnType<SensitiveActionAuthorizer['authorize']>>;
 
 const FULL_CAPABILITY_MAP: CapabilityMap = {
 	calendar: 'configure',

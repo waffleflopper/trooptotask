@@ -9,10 +9,8 @@ import {
 } from './platformAccessRequestAdministration';
 import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
 import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
-import {
-	createSupabaseSensitiveActionAuthorizer,
-	type SensitiveActionDecision
-} from '$lib/server/sensitiveActionAuthorizer';
+import { type SensitiveActionDecision } from '$features/identity/contracts';
+import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 
 const now = new Date('2026-05-22T12:00:00.000Z');
 

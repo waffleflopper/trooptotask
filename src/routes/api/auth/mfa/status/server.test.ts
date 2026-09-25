@@ -33,7 +33,7 @@ describe('GET /api/auth/mfa/status', () => {
 	it('returns an auth error when assurance level lookup fails', async () => {
 		const getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
 			data: null,
-			error: { message: 'Session is missing or invalid.' }
+			error: { message: 'Session is missing or invalid. refresh_token=private-status-secret' }
 		});
 
 		const response = await GET({
@@ -49,9 +49,9 @@ describe('GET /api/auth/mfa/status', () => {
 		} as unknown as Parameters<typeof GET>[0]);
 
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({
-			error: 'Session is missing or invalid.'
-		});
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-status-secret');
 	});
 });
 
@@ -96,11 +96,13 @@ describe('assurance result boundary', () => {
 		const response = await GET(
 			event(async () => ({
 				data: { currentLevel: 'aal2', nextLevel: 'aal2' },
-				error: { message: 'Session is invalid.' }
+				error: { message: 'Session is invalid. access_token=private-status-secret' }
 			}))
 		);
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({ error: 'Session is invalid.' });
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-status-secret');
 	});
 
 	it('reports a thrown lookup as unavailable and allows a later successful request', async () => {

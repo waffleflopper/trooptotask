@@ -24,6 +24,7 @@ describe('POST /api/auth/mfa/disable', () => {
 				body: JSON.stringify({ code: '123456' })
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -59,6 +60,7 @@ describe('POST /api/auth/mfa/disable', () => {
 				body: JSON.stringify({ code: '12ab' })
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -96,6 +98,7 @@ describe('POST /api/auth/mfa/disable', () => {
 				body: JSON.stringify({ code: '123456' })
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -123,7 +126,7 @@ describe('POST /api/auth/mfa/disable', () => {
 			}
 		});
 		const challengeAndVerify = vi.fn().mockResolvedValue({
-			error: { message: 'Invalid authenticator code.' }
+			error: { message: 'Invalid authenticator code. refresh_token=private-management-secret' }
 		});
 		const unenroll = vi.fn();
 
@@ -134,6 +137,7 @@ describe('POST /api/auth/mfa/disable', () => {
 				body: JSON.stringify({ code: '123456' })
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -147,9 +151,9 @@ describe('POST /api/auth/mfa/disable', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({
-			error: 'Invalid authenticator code.'
-		});
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-management-secret');
 		expect(unenroll).not.toHaveBeenCalled();
 	});
 
@@ -164,7 +168,7 @@ describe('POST /api/auth/mfa/disable', () => {
 			error: null
 		});
 		const unenroll = vi.fn().mockResolvedValue({
-			error: { message: 'Failed to disable MFA.' }
+			error: { message: 'Failed to disable MFA. refresh_token=private-management-secret' }
 		});
 
 		const response = await POST({
@@ -174,6 +178,7 @@ describe('POST /api/auth/mfa/disable', () => {
 				body: JSON.stringify({ code: '123456' })
 			}),
 			locals: {
+				actor: { userId: 'synthetic-user' },
 				supabase: {
 					auth: {
 						mfa: {
@@ -187,9 +192,9 @@ describe('POST /api/auth/mfa/disable', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({
-			error: 'Failed to disable MFA.'
-		});
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-management-secret');
 	});
 });
 
@@ -225,7 +230,7 @@ describe('fresh-challenge disable boundary', () => {
 					headers: { 'Content-Type': 'application/json' },
 					body
 				}),
-				locals: { supabase: { auth: { mfa } } }
+				locals: { actor: { userId: 'synthetic-user' }, supabase: { auth: { mfa } } }
 			} as unknown as Parameters<typeof POST>[0]);
 		return { factors, challenge, mfa, request };
 	}
@@ -280,10 +285,15 @@ describe('fresh-challenge disable boundary', () => {
 
 	it.each(['invalid', 'expired', 'replayed'])('cannot delete after a provider-rejected %s code', async (reason) => {
 		const h = harness();
-		h.mfa.challengeAndVerify.mockResolvedValueOnce({ data: h.challenge, error: { message: reason } } as never);
+		h.mfa.challengeAndVerify.mockResolvedValueOnce({
+			data: h.challenge,
+			error: { message: `${reason}: access_token=private-management-secret` }
+		} as never);
 		const response = await h.request();
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({ error: reason });
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-management-secret');
 		expect(h.mfa.unenroll).not.toHaveBeenCalled();
 		expect(h.factors.map((factor) => factor.id)).toContain('owned-totp');
 	});

@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import type { PageProps } from './$types';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { redirectToSensitiveActionStepUp } from '$lib/auth/sensitiveActionStepUp';
+	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';

@@ -92,26 +92,26 @@ export function createSupabaseAppShellRequest(
 			};
 		}
 
-		if (!config.locals.user) {
+		if (!config.locals.actor) {
 			throw redirect(303, '/auth/login');
 		}
 
-		const user = config.locals.user;
+		const actor = config.locals.actor;
 
 		return {
 			kind: 'ready',
 			orgUrlSegment,
 			access: createOrgAccessPortFn({
 				orgId: org.id,
-				userId: user.id,
+				userId: actor.userId,
 				userSupabase: config.locals.supabase,
 				orgName: org.name ?? 'Organization',
 				wrapMembershipLoad: (loadMembershipRow) =>
-					getOrLoadRequestMembership(config.locals, user.id, org.id, loadMembershipRow)
+					getOrLoadRequestMembership(config.locals, actor.userId, org.id, loadMembershipRow)
 			}),
 			chrome: createFirstPaintChromePortFn({
 				orgId: org.id,
-				userId: user.id,
+				userId: actor.userId,
 				userSupabase: config.locals.supabase,
 				supabase
 			})
@@ -121,13 +121,13 @@ export function createSupabaseAppShellRequest(
 	async function resolveDeferredChromePort(): Promise<AppShellDeferredChromePort> {
 		const { org } = await resolveOrgRoute();
 
-		if (!config.locals.user) {
+		if (!config.locals.actor) {
 			throw redirect(303, '/auth/login');
 		}
 
 		return createDeferredChromePortFn({
 			orgId: org.id,
-			userId: config.locals.user.id,
+			userId: config.locals.actor.userId,
 			userSupabase: config.locals.supabase
 		});
 	}

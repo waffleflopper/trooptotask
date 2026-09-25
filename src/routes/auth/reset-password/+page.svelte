@@ -1,6 +1,6 @@
 <script lang="ts">
-	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
-	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	import { hasPendingPasswordCompletion, PasswordCompletion, PasswordMfaChallenge } from '$features/identity';
+	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -12,8 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, tick } from 'svelte';
-	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
-	import { establishSession, readSessionTokens, type SessionTokens } from '$lib/auth/establishSession';
+	import type { MfaStatus } from '$features/identity/contracts';
 
 	const hasSession = $derived($page.data.hasSession);
 
@@ -24,9 +23,6 @@
 	let success = $state(false);
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
-	let sessionError = $state(false);
-	let establishingSession = $state(false);
-	let tokens: SessionTokens | null = null;
 	let statusError = $state(false);
 	let checkingStatus = $state(false);
 	let requiresMfa = $state(false);
@@ -83,13 +79,13 @@
 				await goto(response.url);
 				return;
 			}
-			const payload = await response.json();
+			const payload = (await response.json()) as (Partial<MfaStatus> & { error?: unknown }) | null;
 			if (
 				!response.ok ||
 				!payload ||
 				payload.error ||
-				!['aal1', 'aal2'].includes(payload.currentLevel) ||
-				!['aal1', 'aal2'].includes(payload.nextLevel)
+				!['aal1', 'aal2'].includes(payload.currentLevel ?? '') ||
+				!['aal1', 'aal2'].includes(payload.nextLevel ?? '')
 			) {
 				statusError = true;
 				return;
@@ -105,31 +101,11 @@
 		}
 	}
 
-	async function verifySession() {
-		if (!tokens || establishingSession) return;
-		establishingSession = true;
-		try {
-			const result = await establishSession(tokens, 'recovery');
-			if (result === 'ready') {
-				sessionError = false;
-				tokens = null;
-				replaceState(resolve('/auth/reset-password'), $page.state);
-				await loadMfaStatus();
-			} else {
-				tokenError = result === 'invalid';
-				sessionError = result === 'unavailable';
-			}
-		} finally {
-			establishingSession = false;
-		}
-	}
-
 	onMount(() => {
-		// An incoming link takes precedence over an existing account's session.
+		// Provider fragments cannot prove whether a session came from recovery.
 		if (window.location.hash) {
-			tokens = readSessionTokens(window.location.hash);
-			if (tokens) void verifySession();
-			else tokenError = true;
+			replaceState(resolve('/auth/reset-password'), $page.state);
+			tokenError = true;
 		} else if (hasSession) {
 			completion = $page.data.passwordCompletion ?? null;
 			if (completion === 'complete') {
@@ -266,15 +242,11 @@
 				<p>Your password has been reset successfully.</p>
 				<p>Redirecting you to sign in now.</p>
 			</AuthNotice>
-		{:else if sessionError}
-			<AuthNotice tone="error" message="We could not verify this session. Please try again." />
-			<Button type="button" onclick={verifySession} disabled={establishingSession} class="w-full">
-				{#if establishingSession}<Spinner />Verifying session...{:else}Retry verification{/if}
-			</Button>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Reset link unavailable" centered>
-				<p>This reset link is invalid or has expired.</p>
+				<p>This reset link uses an older format or has expired. Request a fresh reset email.</p>
 			</AuthNotice>
+			<Button href={resolve('/auth/forgot-password')}>Request a new reset link</Button>
 		{:else if statusError}
 			<AuthNotice tone="error" message="We could not verify your account security settings. Please try again." />
 			<Button type="button" onclick={loadMfaStatus} disabled={checkingStatus} class="w-full">

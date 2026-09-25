@@ -1,7 +1,7 @@
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
 import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-import { passwordAttempt } from '$lib/server/passwordCompletion';
+import { passwordAttempt } from '$features/identity/index.server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
@@ -9,25 +9,25 @@ vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
 	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2, unavailable: 0 })
 }));
 
-vi.mock('$lib/server/userProfile', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$lib/server/userProfile')>();
+vi.mock('$features/identity/index.server', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$features/identity/index.server')>();
 	return {
 		...actual,
-		upsertCurrentUserProfile: vi.fn().mockResolvedValue(undefined)
+		upsertUserProfile: vi.fn().mockResolvedValue(undefined)
 	};
 });
 
-import { upsertCurrentUserProfile } from '$lib/server/userProfile';
+import { upsertUserProfile } from '$features/identity/index.server';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 import { POST } from './+server';
 
 describe('POST /api/auth/finalize-invite', () => {
 	afterEach(() => {
-		vi.mocked(upsertCurrentUserProfile).mockClear();
+		vi.mocked(upsertUserProfile).mockClear();
 		vi.mocked(autoAcceptOrgInvites).mockClear();
 	});
 
-	it('finalizes the invite and clears the pending invite flow marker', async () => {
+	it('finalizes the invite and replaces its pending marker with completed session authority', async () => {
 		attemptStore.row = {
 			actor: 'user-123',
 			session: '00000000-0000-4000-8000-000000000001',
@@ -37,7 +37,7 @@ describe('POST /api/auth/finalize-invite', () => {
 			expiresAt: 4102444800,
 			acquired: false
 		};
-		const cookies = { get: vi.fn(), delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			locals: {
@@ -68,13 +68,14 @@ describe('POST /api/auth/finalize-invite', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true, accepted: 2, unavailable: 0, activated: true });
-		expect(upsertCurrentUserProfile).toHaveBeenCalledWith(expect.any(Object), {
+		expect(upsertUserProfile).toHaveBeenCalledWith(expect.any(Object), 'user-123', {
 			firstName: 'Jane',
 			lastName: 'Smith',
 			rank: 'SGT'
 		});
 		expect(autoAcceptOrgInvites).toHaveBeenCalledWith(expect.any(Object), 'person@example.com');
-		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it.each([null, 'started', 'failed', 'pending', 'expired', 'unavailable', 'complete'] as const)(
@@ -125,7 +126,7 @@ describe('POST /api/auth/finalize-invite', () => {
 				expect(response.status).toBe(409);
 				expect(await response.json()).toMatchObject({ accepted: 0, activated: false });
 				expect(autoAcceptOrgInvites).not.toHaveBeenCalled();
-				expect(upsertCurrentUserProfile).not.toHaveBeenCalled();
+				expect(upsertUserProfile).not.toHaveBeenCalled();
 				expect(cookies.delete).not.toHaveBeenCalled();
 			}
 		}

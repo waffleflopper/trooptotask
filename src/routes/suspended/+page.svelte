@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
 
 	// Server-side guard ensures only suspended users see this
@@ -15,7 +16,9 @@
 			<p class="contact-label">Support</p>
 			<p class="contact">support@trooptotask.org</p>
 		</div>
-		<Button href="/auth/login" variant="outline">Back to Login</Button>
+		<form method="POST" action={resolve('/auth/logout')}>
+			<Button type="submit" variant="outline">Sign out</Button>
+		</form>
 	</div>
 </div>
 

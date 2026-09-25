@@ -59,7 +59,7 @@ function fixture() {
 		body.set('currentPassword', ' OldPassword12 ');
 		return {
 			request: new Request('https://app.invalid/account/security?/updateEmail', { method: 'POST', body }),
-			locals: { user, session, supabase: { auth }, mfaPending: false },
+			locals: { actor: { userId: user.id }, user, session, supabase: { auth }, mfaPending: false },
 			cookies,
 			getClientAddress: () => '192.0.2.1'
 		} as unknown as Parameters<typeof POST>[0];
@@ -194,11 +194,13 @@ describe('email proof and completion', () => {
 	});
 });
 
-it.each(['missing session', 'wrong session actor', 'missing token', 'missing email'])(
+it.each(['missing actor', 'wrong actor', 'missing session', 'wrong session actor', 'missing token', 'missing email'])(
 	'denies %s before proof or mutation',
 	async (kind) => {
 		const h = fixture();
 		const event = h.event();
+		if (kind === 'missing actor') event.locals.actor = null;
+		if (kind === 'wrong actor') event.locals.actor = { userId: 'other' };
 		if (kind === 'missing session') event.locals.session = null;
 		if (kind === 'wrong session actor')
 			event.locals.session = { ...event.locals.session!, user: { ...event.locals.user!, id: 'other' } };
@@ -207,6 +209,7 @@ it.each(['missing session', 'wrong session actor', 'missing token', 'missing ema
 		expect(await POST(event)).toMatchObject({ status: 401 });
 		h.denied();
 		expect(provider.signIn).not.toHaveBeenCalled();
+		expect(provider.limit).not.toHaveBeenCalled();
 	}
 );
 it('redirects anonymous requests without provider effects', async () => {
@@ -242,6 +245,7 @@ it.each(['duplicate email', 'duplicate password', 'file password', 'oversized em
 		expect(await POST(event)).toMatchObject({ status: 400 });
 		h.denied();
 		expect(provider.signIn).not.toHaveBeenCalled();
+		expect(provider.limit).not.toHaveBeenCalled();
 	}
 );
 

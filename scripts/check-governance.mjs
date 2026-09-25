@@ -184,7 +184,7 @@ function legacyRouteAuthorizationScanFiles() {
 		'src/lib/server/core/ports.ts',
 		...walkRelative('src/lib/server/core/useCases').filter(isProductionSourceFile),
 		'src/lib/server/adapters/httpAdapter.ts',
-		'src/lib/server/adapters/supabaseAuthContext.ts',
+		'src/features/identity/authorization.server.ts',
 		'src/lib/server/adapters/inMemory.ts',
 		'src/lib/server/permissionContext.ts',
 		'src/lib/server/entitySchema.ts',

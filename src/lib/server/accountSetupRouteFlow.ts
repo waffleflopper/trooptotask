@@ -15,7 +15,7 @@ import {
 } from './accountSetupRateLimit';
 import { auditLog } from './auditLog';
 import { durableRateLimitAuditDetails } from './durableRateLimit';
-import { getAuthenticatedRedirectPath } from './mfaGate';
+import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
 import { getAdminClient, getSupabaseClient } from './supabase';
 import { mapProviderPasswordError, validatePassword } from './validation';
 

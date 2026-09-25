@@ -6,7 +6,7 @@ import {
 	isMfaStepUpRequired,
 	sanitizePendingAuthFlow,
 	shouldRedirectIncompleteAuthSession
-} from './mfaGate';
+} from './mfaGate.server';
 
 describe('mfaGate', () => {
 	it('detects when an authenticated session still requires MFA step-up', () => {

@@ -19,7 +19,12 @@ const createdAt = '2026-06-01T00:00:00.000Z';
 function event(authenticated = true) {
 	const url = new URL(`/admin/users/${userId}`, 'http://localhost');
 	return {
-		locals: { user: authenticated ? { id: 'admin-1' } : null, supabase: {}, session: null },
+		locals: {
+			actor: authenticated ? { userId: 'admin-1' } : null,
+			user: authenticated ? { id: 'admin-1' } : null,
+			supabase: {},
+			session: null
+		},
 		params: { userId },
 		url,
 		request: new Request(url),

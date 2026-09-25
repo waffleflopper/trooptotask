@@ -647,8 +647,10 @@ describe('server auth hook', () => {
 				if (throws) harness.rpc.mockRejectedValue(new Error('provider unavailable'));
 				const resolve = dispatch(route);
 				const attempt = harness.handle({ event: harness.createEvent(route.path), resolve });
-				if (throws) await expect(attempt).rejects.toThrow('provider unavailable');
-				else await expect(attempt).rejects.toMatchObject({ status: 500 });
+				await expect(attempt).rejects.toMatchObject({
+					status: 500,
+					body: { message: 'Unable to verify account status' }
+				});
 				expect(resolve).not.toHaveBeenCalled();
 				expectNoFactorChanges(harness);
 			});
@@ -971,6 +973,7 @@ describe('server auth hook', () => {
 			location: '/auth/login'
 		});
 		expect(anonymous.locals.user).toBeNull();
+		expect(anonymous.locals.actor).toBeNull();
 		expect(anonymous.locals.session).toBeNull();
 		expect(harness.getClientOptions().auth?.userStorage?.getItem('sb-example-auth-token-user')).toBeNull();
 		expect(authenticatedStorage?.getItem('sb-example-auth-token-user')).toContain('"id":"user-1"');
@@ -1063,7 +1066,9 @@ describe('server auth hook', () => {
 				data: { currentLevel: 'aal1', nextLevel: 'aal2' },
 				error: null
 			});
-			expect((await harness.handle({ event: harness.createEvent(path), resolve: harness.resolve })).status).toBe(200);
+			const event = harness.createEvent(path);
+			expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+			expect(event.locals.actor).toBeNull();
 			expect(harness.resolve).toHaveBeenCalled();
 		}
 	);
@@ -1076,6 +1081,7 @@ describe('server auth hook', () => {
 		});
 		expect((await harness.handle(harness)).status).toBe(200);
 		expect(harness.event.locals.mfaPending).toBe(false);
+		expect(harness.event.locals.actor).toEqual({ userId: 'user-1' });
 		expect(harness.resolve).toHaveBeenCalled();
 	});
 
@@ -1112,6 +1118,7 @@ describe('server auth hook', () => {
 		});
 		const event = harness.createEvent(path, { 'sb-example-auth-token': 'session', ttt_pending_auth_flow: flow });
 		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+		expect(event.locals.actor).toBeNull();
 		expect(harness.resolve).toHaveBeenCalled();
 	});
 
@@ -1222,7 +1229,9 @@ describe('server auth hook', () => {
 		'keeps the suspended user exit or completion path %s reachable',
 		async (path) => {
 			const harness = await createAuthenticatedHookHarness({ data: true, error: null });
-			expect((await harness.handle({ event: harness.createEvent(path), resolve: harness.resolve })).status).toBe(200);
+			const event = harness.createEvent(path);
+			expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+			expect(event.locals.actor).toBeNull();
 			expect(harness.resolve).toHaveBeenCalled();
 		}
 	);
@@ -1239,7 +1248,10 @@ describe('server auth hook', () => {
 	it('denies a protected write when the suspension provider throws', async () => {
 		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
 		harness.rpc.mockRejectedValue(new Error('provider unavailable'));
-		await expect(harness.handle(harness)).rejects.toThrow('provider unavailable');
+		await expect(harness.handle(harness)).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Unable to verify account status' }
+		});
 		expect(harness.resolve).not.toHaveBeenCalled();
 	});
 

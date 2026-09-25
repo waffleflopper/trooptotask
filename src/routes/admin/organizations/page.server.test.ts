@@ -39,7 +39,12 @@ import { load } from './+page.server';
 function event(path = '/admin/organizations', authenticated = true) {
 	const url = new URL(path, 'http://localhost');
 	return {
-		locals: { user: authenticated ? { id: 'admin-1' } : null, supabase: {}, session: null },
+		locals: {
+			actor: authenticated ? { userId: 'admin-1' } : null,
+			user: authenticated ? { id: 'admin-1' } : null,
+			supabase: {},
+			session: null
+		},
 		url,
 		request: new Request(url),
 		getClientAddress: () => '127.0.0.1'

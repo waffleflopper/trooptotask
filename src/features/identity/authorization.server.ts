@@ -4,17 +4,13 @@
  * Wraps the real PermissionContext built from the user's membership row.
  * Exposes authorization data used by policy evaluation.
  */
-import type { AuthContext } from '../core/ports';
+import type { AdmittedActor } from './contracts';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
-export function createSupabaseAuthContextAdapter(
-	permCtx: PermissionContext,
-	userId: string,
-	orgId: string
-): AuthContext {
+export function createIdentityAuthorization(permCtx: PermissionContext, actor: AdmittedActor, orgId: string) {
 	return {
 		get userId() {
-			return userId;
+			return actor.userId;
 		},
 		get orgId() {
 			return orgId;

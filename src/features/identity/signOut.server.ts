@@ -1,7 +1,7 @@
 import { PUBLIC_SUPABASE_URL } from '$env/static/public';
 import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName } from './mfaGate.server';
 import { clearSupabaseAuthCookies, getSupabaseAuthStorageKey } from './supabaseSession.server';
 
 // Logout deliberately reads the provider again: it must allow retries even when

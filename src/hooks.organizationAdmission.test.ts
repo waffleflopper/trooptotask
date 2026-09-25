@@ -145,7 +145,7 @@ function fixture() {
 	};
 	serverClient.mockReturnValue(client);
 	adminClient.mockReturnValue(provider);
-	const locals = { user, supabase: client, session: null } as unknown as App.Locals;
+	const locals = { actor: { userId: USER }, user, supabase: client, session: null } as unknown as App.Locals;
 	function event(segment = 'alpha', method = 'POST', suffix = '/api/groups'): RequestEvent {
 		const url = new URL(`http://app.invalid/org/${segment}${suffix}`);
 		return {
@@ -417,6 +417,7 @@ describe('Organization shell admission with real provider mapping', () => {
 	it('denies an anonymous shell before reading provider data', async () => {
 		const f = fixture();
 		f.locals.user = null;
+		f.locals.actor = null;
 		await expect(f.load()).rejects.toMatchObject({ status: 401 });
 		expect(f.transport).not.toHaveBeenCalled();
 	});

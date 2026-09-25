@@ -1,4 +1,4 @@
-import { isPublicRoute } from './publicRoutes';
+import { isPublicRoute } from './publicRoutes.server';
 import type { Cookies } from '@sveltejs/kit';
 
 type AssuranceLevelState = {
@@ -6,7 +6,7 @@ type AssuranceLevelState = {
 	nextLevel?: string | null;
 };
 
-export type PendingAuthFlow = 'recovery' | 'invite' | null;
+import type { PendingAuthFlow } from './contracts';
 
 const AUTH_FLOW_COOKIE = 'ttt_pending_auth_flow';
 

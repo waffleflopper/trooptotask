@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { actions, load } from './+page.server';
-import type { PendingAuthFlow } from '$lib/server/mfaGate';
+import type { PendingAuthFlow } from '$features/identity/contracts';
 
 type ActionEvent = Parameters<(typeof actions)['default']>[0];
 

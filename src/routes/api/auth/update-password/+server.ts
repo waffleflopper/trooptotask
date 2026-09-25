@@ -10,7 +10,7 @@ import {
 	passwordUpdateRateLimitAuditDetails
 } from '$lib/server/passwordUpdateRateLimit';
 import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName } from '$features/identity/index.server';
 
 export const POST: RequestHandler = async ({ request, locals, cookies, getClientAddress }) => {
 	const { user, session } = locals;

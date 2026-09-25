@@ -4,15 +4,7 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/publi
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
-import { readIdentitySession } from '$features/identity/index.server';
-import { isPublicRoute } from '$lib/server/publicRoutes';
-import {
-	getAuthenticatedRedirectPath,
-	getPendingAuthFlowCookieName,
-	isMfaStepUpRequired,
-	sanitizePendingAuthFlow,
-	shouldRedirectIncompleteAuthSession
-} from '$lib/server/mfaGate';
+import { readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
 import { requireActiveOrganization } from '$lib/server/adapters/supabaseOrganizationAdmission';
 import '$lib/server/env'; // validate env vars on startup
 
@@ -79,6 +71,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	});
 
+	event.locals.actor = null;
+	event.locals.mfaPending = false;
+	event.locals.authFlow = null;
 	event.locals.session = null;
 	event.locals.user = null;
 	// Public routes also need verified identity for conditional rendering.
@@ -100,81 +95,22 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const { session, user } = identity;
 	event.locals.session = session;
 	event.locals.user = user;
-	event.locals.mfaPending = false;
-	event.locals.authFlow = sanitizePendingAuthFlow(event.cookies.get(getPendingAuthFlowCookieName()));
-
-	if (!event.locals.session && event.locals.authFlow) {
-		// Auth transitions own pending-cookie changes even when identity lookup is unavailable.
-		if (
-			event.request.method !== 'POST' ||
-			!['/auth/logout', '/api/auth/establish-session'].includes(event.url.pathname)
-		) {
-			event.cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
-		}
-		event.locals.authFlow = null;
+	const admission = await readIdentityAdmission({
+		supabase: event.locals.supabase,
+		session,
+		user,
+		cookies: event.cookies,
+		pathname: event.url.pathname,
+		method: event.request.method
+	});
+	if (admission.status === 'unavailable') error(admission.code, admission.message);
+	if (admission.status === 'redirect') {
+		if (admission.code === 302) return new Response(null, { status: 302, headers: { Location: admission.location } });
+		redirect(303, admission.location);
 	}
-
-	// Logout must remain available even when assurance cannot be verified.
-	if (event.locals.session && event.url.pathname !== '/auth/logout') {
-		const { data: assuranceData, error: assuranceError } = await event.locals.supabase.auth.mfa
-			.getAuthenticatorAssuranceLevel()
-			.catch(() => {
-				error(503, 'Unable to verify authentication status');
-			});
-
-		if (assuranceError) {
-			console.error('Failed to read authenticator assurance level:', assuranceError.message);
-		}
-		if (
-			assuranceError ||
-			!assuranceData ||
-			!['aal1', 'aal2'].includes(assuranceData.currentLevel ?? '') ||
-			!['aal1', 'aal2'].includes(assuranceData.nextLevel ?? '')
-		) {
-			error(503, 'Unable to verify authentication status');
-		}
-		event.locals.mfaPending = isMfaStepUpRequired(assuranceData);
-	}
-
-	// MFA completion routes allow incomplete authentication, but still require identity.
-	const isMfaEndpoint = event.url.pathname === '/api/auth/mfa' || event.url.pathname.startsWith('/api/auth/mfa/');
-	if (!event.locals.session && (isMfaEndpoint || !isPublicRoute(event.url.pathname))) {
-		redirect(303, '/auth/login');
-	}
-
-	if (
-		shouldRedirectIncompleteAuthSession(
-			event.url.pathname,
-			!!event.locals.session,
-			event.locals.mfaPending,
-			event.locals.authFlow
-		)
-	) {
-		redirect(303, getAuthenticatedRedirectPath(event.locals.authFlow, event.locals.mfaPending));
-	}
-
-	// Keep auth completion reachable; factor management requires an active account.
-	const isMfaCompletion = ['/api/auth/mfa/status', '/api/auth/mfa/verify'].includes(event.url.pathname);
-	const skipSuspensionCheck =
-		(!isMfaEndpoint || isMfaCompletion) &&
-		['/auth', '/api/auth', '/suspended'].some((p) => event.url.pathname.startsWith(p));
-	if (event.locals.user && !skipSuspensionCheck) {
-		const { data: isSuspended, error: suspensionError } = await event.locals.supabase.rpc('is_user_suspended', {
-			check_user_id: event.locals.user.id
-		});
-		if (suspensionError) {
-			console.error('Failed to check user suspension status:', suspensionError.message);
-		}
-		if (suspensionError || typeof isSuspended !== 'boolean') {
-			error(500, 'Unable to verify account status');
-		}
-		if (isSuspended) {
-			return new Response(null, {
-				status: 302,
-				headers: { Location: '/suspended' }
-			});
-		}
-	}
+	event.locals.actor = admission.actor;
+	event.locals.mfaPending = admission.mfaPending;
+	event.locals.authFlow = admission.authFlow;
 
 	// Layouts do not protect endpoints/actions. Keep page GETs available for the
 	// suspended shell, but admit every Organization write/API request on fresh status.

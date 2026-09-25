@@ -16,7 +16,8 @@
 import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import type { z } from 'zod';
-import { getAdminClient, getApiContext } from '$lib/server/supabase';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getAdminClient } from '$lib/server/supabase';
 import {
 	createPermissionContextFromMembership,
 	getMembershipRow,
@@ -27,7 +28,7 @@ import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 import { createSupabaseDataStore } from './supabaseDataStore';
-import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
+import { createIdentityAuthorization } from '$features/identity/index.server';
 import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createScopedDataStore } from './scopedDataStore';
@@ -53,6 +54,25 @@ import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 import type { LeaderNoteContext, LeaderNoteRow } from '$features/personnel/index.server';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+
+/**
+ * Gets authentication context for API routes.
+ * Throws 401 if the request does not have an admitted actor.
+ */
+export function getApiContext(
+	locals: App.Locals,
+	_cookies: Cookies,
+	_orgId: string
+): { supabase: SupabaseClient; userId: string } {
+	if (!locals.actor) {
+		throw error(401, 'Unauthorized');
+	}
+
+	return {
+		supabase: locals.supabase,
+		userId: locals.actor.userId
+	};
+}
 
 interface BuildContextResult {
 	ctx: UseCaseContext;
@@ -156,7 +176,7 @@ async function createRequestAuthorizationPorts(config: {
 	);
 
 	const permCtx = createPermissionContextFromMembership(membership);
-	const auth = createSupabaseAuthContextAdapter(permCtx, config.userId, config.orgId);
+	const auth = createIdentityAuthorization(permCtx, { userId: config.userId }, config.orgId);
 	const scope = createSupabaseScopeEnforcementAdapter({
 		supabase: config.supabase,
 		orgId: config.orgId,
@@ -305,7 +325,7 @@ export async function buildLayoutContextFromMembership(
 
 	cacheRequestMembership(locals, userId, orgId, membership);
 	const permCtx = createPermissionContextFromMembership(membership);
-	const auth = createSupabaseAuthContextAdapter(permCtx, userId, orgId);
+	const auth = createIdentityAuthorization(permCtx, { userId }, orgId);
 	const scope = createSupabaseScopeEnforcementAdapter({
 		supabase,
 		orgId,

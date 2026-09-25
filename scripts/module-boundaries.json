@@ -203,7 +203,8 @@
 				"src/lib/types/starterConfigurationPacks.ts",
 				"src/tests/check-governance.test.ts",
 				"src/tests/no-google-fonts.test.ts",
-				"src/tests/security-posture.test.ts"
+				"src/tests/security-posture.test.ts",
+				"src/app.d.ts"
 			],
 			"packet": "08-M15"
 		},
@@ -239,8 +240,6 @@
 				"src/lib/server/accountSetupSessions.test.ts",
 				"src/lib/server/accountSetupSessions.ts",
 				"src/lib/server/adapters/supabaseAccountSetupLinkIssuance.ts",
-				"src/lib/server/adapters/supabaseAuthContext.test.ts",
-				"src/lib/server/adapters/supabaseAuthContext.ts",
 				"src/lib/server/authConfirm.ts",
 				"src/lib/server/authCookies.test.ts",
 				"src/lib/server/authCookies.ts",
@@ -254,8 +253,6 @@
 				"src/lib/server/currentUserEmailConfirmation.ts",
 				"src/lib/server/forgotPasswordRateLimit.test.ts",
 				"src/lib/server/forgotPasswordRateLimit.ts",
-				"src/lib/server/mfaGate.test.ts",
-				"src/lib/server/mfaGate.ts",
 				"src/lib/server/passwordCompletion.test.ts",
 				"src/lib/server/passwordCompletion.ts",
 				"src/lib/server/passwordCompletionLoaders.test.ts",
@@ -264,8 +261,6 @@
 				"src/lib/server/passwordUpdateRateLimit.ts",
 				"src/lib/server/publicAppOrigin.test.ts",
 				"src/lib/server/publicAppOrigin.ts",
-				"src/lib/server/publicRoutes.test.ts",
-				"src/lib/server/publicRoutes.ts",
 				"src/lib/server/sensitiveActionAuthorizer.test.ts",
 				"src/lib/server/sensitiveActionAuthorizer.ts",
 				"src/lib/server/sessionAssurance.ts",
@@ -557,7 +552,6 @@
 		"shared": {
 			"roots": ["src/lib/stores/core/", "src/lib/test-support/"],
 			"files": [
-				"src/app.d.ts",
 				"src/d3-scale.d.ts",
 				"src/lib/accessRequests.ts",
 				"src/lib/domain/currencyStatus.test.ts",
@@ -821,7 +815,7 @@
 			"src/lib/utils/modalRegistry.svelte.ts"
 		],
 		"audit": ["src/lib/server/logSanitize.ts"],
-		"identity": ["src/features/identity/index.server.ts"]
+		"identity": ["src/features/identity/index.server.ts", "src/features/identity/contracts.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

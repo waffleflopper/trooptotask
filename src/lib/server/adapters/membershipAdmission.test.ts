@@ -93,7 +93,7 @@ function fixture(membership: MembershipRow = member) {
 	});
 	// The service client is never used to establish membership. Keep any audit output local too.
 	adminClient.mockReturnValue(supabase);
-	const locals = { user: { id: USER }, supabase, session: null } as App.Locals;
+	const locals = { actor: { userId: USER }, user: { id: USER }, supabase, session: null } as App.Locals;
 	return { tables, state, fetch, locals };
 }
 
@@ -170,7 +170,22 @@ describe('request membership admission through real context construction', () =>
 	it('rejects anonymous requests even with a seeded membership and never reads or writes provider data', async () => {
 		const f = fixture();
 		f.locals.user = null;
+		f.locals.actor = null;
 		cacheRequestMembership(f.locals, null, ORG, { role: 'owner' });
+		const before = structuredClone(f.tables);
+		await expect(write(event(f.locals))).rejects.toMatchObject({ status: 401 });
+		await expect(buildLayoutContext(f.locals, {} as never, ORG)).rejects.toMatchObject({ status: 401 });
+		await expect(buildLayoutContextFromMembership(f.locals, {} as never, ORG, member)).rejects.toMatchObject({
+			status: 401
+		});
+		expect(f.fetch).not.toHaveBeenCalled();
+		expect(f.tables).toEqual(before);
+	});
+
+	it('denies provider identity without application admission before any membership read or effect', async () => {
+		const f = fixture();
+		f.locals.actor = null;
+		cacheRequestMembership(f.locals, USER, ORG, { role: 'owner' });
 		const before = structuredClone(f.tables);
 		await expect(write(event(f.locals))).rejects.toMatchObject({ status: 401 });
 		await expect(buildLayoutContext(f.locals, {} as never, ORG)).rejects.toMatchObject({ status: 401 });
@@ -265,8 +280,10 @@ describe('request membership admission through real context construction', () =>
 	it('does not reuse an owner grant across users or Organizations within request locals', async () => {
 		const f = fixture();
 		await buildLayoutContext(f.locals, {} as never, OTHER_ORG);
+		f.locals.actor = { userId: OTHER_USER };
 		f.locals.user = { id: OTHER_USER } as App.Locals['user'];
 		await buildRouteContext(event(f.locals));
+		f.locals.actor = { userId: USER };
 		f.locals.user = { id: USER } as App.Locals['user'];
 		const ctx = await buildLayoutContext(f.locals, {} as never, ORG);
 		expect(ctx.auth.role).toBe('member');
@@ -278,7 +295,12 @@ describe('request membership admission through real context construction', () =>
 		const f = fixture();
 		await buildRouteContext(event(f.locals));
 		f.tables.organization_memberships = [];
-		const nextLocals = { user: f.locals.user, supabase: f.locals.supabase, session: null } as App.Locals;
+		const nextLocals = {
+			actor: f.locals.actor,
+			user: f.locals.user,
+			supabase: f.locals.supabase,
+			session: null
+		} as App.Locals;
 		const before = structuredClone(f.tables.personnel);
 		await expect(write(event(nextLocals))).rejects.toMatchObject({ status: 403 });
 		expect(f.tables.personnel).toEqual(before);

@@ -1,4 +1,4 @@
-import { getPublicPageUser } from '$lib/server/mfaGate';
+import { getPublicPageUser } from '$features/identity/index.server';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {

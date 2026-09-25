@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createSupabaseAuthContextAdapter } from './supabaseAuthContext';
+import { createIdentityAuthorization } from './authorization.server';
 import type { PermissionContext } from '$lib/server/permissionContext';
 
 function makePermissionContext(overrides?: Partial<PermissionContext>): PermissionContext {
@@ -33,7 +33,7 @@ describe('SupabaseAuthContextAdapter', () => {
 			scopeSet: { kind: 'groups', groupIds: ['group-A'] }
 		});
 
-		const auth = createSupabaseAuthContextAdapter(permCtx, userId, orgId);
+		const auth = createIdentityAuthorization(permCtx, { userId }, orgId);
 
 		expect(auth.userId).toBe('user-123');
 		expect(auth.orgId).toBe('org-456');

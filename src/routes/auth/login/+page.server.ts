@@ -2,7 +2,7 @@ import { fail, redirect, isRedirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { validateEmail } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
-import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
+import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
 import { sanitizeAuthNextPath } from '$lib/auth/redirects';
 
 export const load: PageServerLoad = async ({ locals, url }) => {

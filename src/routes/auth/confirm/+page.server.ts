@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import { getAuthConfirmState } from '$lib/server/authConfirm';
-import { setPendingAuthFlowCookie } from '$lib/server/mfaGate';
+import { setPendingAuthFlowCookie } from '$features/identity/index.server';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => {

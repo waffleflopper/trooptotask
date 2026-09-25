@@ -45,7 +45,7 @@ let memberships: PlatformMembershipRecord[];
 
 function event(form: Record<string, string> = { targetUserId, confirmName: 'Able Company' }, id = orgId): RequestEvent {
 	return {
-		locals: { user: { id: 'admin-1' }, supabase: {}, session: null },
+		locals: { actor: { userId: 'admin-1' }, user: { id: 'admin-1' }, supabase: {}, session: null },
 		params: { orgId: id },
 		request: new Request(`http://localhost/admin/organizations/${id}`, {
 			method: 'POST',

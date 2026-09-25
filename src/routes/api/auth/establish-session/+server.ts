@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import type { RequestHandler } from './$types';
-import { setPendingAuthFlowCookie } from '$lib/server/mfaGate';
+import { setPendingAuthFlowCookie } from '$features/identity/index.server';
 import { getAuthCookieOptions } from '$lib/server/authCookies';
 
 function reply(body: { ok: true } | { error: string }, status: number) {

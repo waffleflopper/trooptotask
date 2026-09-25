@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { isMfaStepUpRequired } from './mfaGate';
+import { isMfaStepUpRequired } from '$features/identity/index.server';
 
 type SessionAssurance = 'allowed' | 'mfa_required' | 'expired' | 'unavailable';
 

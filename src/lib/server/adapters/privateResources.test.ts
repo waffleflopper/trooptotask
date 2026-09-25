@@ -155,7 +155,12 @@ function fixture(member: MembershipRow = membership) {
 		});
 	}
 	adminClient.mockReturnValue(client('service'));
-	const locals = { user: { id: USER }, session: null, supabase: client('caller') } as App.Locals;
+	const locals = {
+		actor: { userId: USER },
+		user: { id: USER },
+		session: null,
+		supabase: client('caller')
+	} as App.Locals;
 	return { tables, requests, state, locals };
 }
 
@@ -224,7 +229,10 @@ describe('private resource HTTP admission and provider ownership', () => {
 						}
 					: membership
 			);
-			if (denial === 'anonymous') f.locals.user = null;
+			if (denial === 'anonymous') {
+				f.locals.user = null;
+				f.locals.actor = null;
+			}
 			if (denial === 'nonmember') f.tables.organization_memberships[0].organization_id = FOREIGN_ORG;
 			const before = structuredClone(f.tables);
 			await expect(op.handler(event(f, op.method, op.id, 'doc-b', op.body))).rejects.toMatchObject({

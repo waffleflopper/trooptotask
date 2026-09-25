@@ -1,6 +1,6 @@
 import type { Cookies } from '@sveltejs/kit';
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName } from './mfaGate.server';
 import {
 	buildTrustedUserFromClaims,
 	clearSupabaseAuthCookies,

@@ -3,7 +3,7 @@ import { passwordCompletionState } from '$lib/server/passwordCompletion';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/auto-accept-org-invites';
-import { getPendingAuthFlowCookieName } from '$lib/server/mfaGate';
+import { getPendingAuthFlowCookieName } from '$features/identity/index.server';
 import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isPublicRoute } from './publicRoutes';
+import { isPublicRoute } from './publicRoutes.server';
 
 describe('isPublicRoute', () => {
 	it('allows unauthenticated auth bootstrap routes', () => {

@@ -8,7 +8,7 @@ import {
 import { auditLog } from '$lib/server/auditLog';
 import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
-import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
+import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (locals.session) {

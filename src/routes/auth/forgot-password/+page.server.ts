@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { auditLog } from '$lib/server/auditLog';
-import { getAuthenticatedRedirectPath } from '$lib/server/mfaGate';
+import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
 import { getAuthConfirmRedirectTo } from '$lib/server/authConfirm';
 import {
 	checkForgotPasswordRateLimit,

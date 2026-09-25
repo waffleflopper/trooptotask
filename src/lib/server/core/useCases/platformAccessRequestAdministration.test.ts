@@ -8,7 +8,7 @@ import {
 	type PlatformAccessRequestAdminRow
 } from './platformAccessRequestAdministration';
 import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
+import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$features/identity/index.server';
 import { type SensitiveActionDecision } from '$features/identity/contracts';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 

@@ -5,7 +5,7 @@ import {
 	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
-import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, type AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
+import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, type AccessRequestSetupState } from '$features/identity/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { GroupEntity } from '$lib/server/entities/group';
 import {

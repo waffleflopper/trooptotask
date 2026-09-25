@@ -1,4 +1,4 @@
-import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks';
+import { createAccountSetupLinkService, type AccountSetupLinkStore } from '$features/identity/index.server';
 import { mapProviderPasswordError } from './validation';
 
 export type AccountSetupCompletionInvalidStatus =

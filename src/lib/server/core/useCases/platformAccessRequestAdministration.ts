@@ -1,6 +1,6 @@
 import { getAccessRequestHeardAboutLabel } from '$features/identity/contracts';
-import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$lib/server/accountSetupLinks';
-import type { AuthEmailOutboxStatus } from '$lib/server/authEmailOutbox';
+import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$features/identity/index.server';
+import type { AuthEmailOutboxStatus } from '$features/identity/index.server';
 import {
 	classifyAccessRequestSetupState,
 	findLatestAccessRequestSetupDelivery,
@@ -9,7 +9,7 @@ import {
 	type AccessRequestAuthEmailOutbox,
 	type AccessRequestSetupLink,
 	type AccessRequestSetupState
-} from '$lib/server/accessRequestSetupState';
+} from '$features/identity/index.server';
 import type {
 	BlockedOrganizationInvitation,
 	RejectAccessRequestAndBlockInvitationsResult

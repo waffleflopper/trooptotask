@@ -32,8 +32,9 @@ vi.mock('$lib/server/supabase', () => ({
 	getSupabaseClient: vi.fn().mockReturnValue({ session: true })
 }));
 
-vi.mock('$lib/server/accountSetupLinks', () => ({
-	createAccountSetupLinkService: vi.fn(() => ({ validateToken }))
+vi.mock('$features/identity/index.server', () => ({
+	createAccountSetupLinkService: vi.fn(() => ({ validateToken })),
+	getAuthenticatedRedirectPath: vi.fn(() => '/dashboard')
 }));
 
 vi.mock('$lib/server/accountSetupCompletion', () => ({

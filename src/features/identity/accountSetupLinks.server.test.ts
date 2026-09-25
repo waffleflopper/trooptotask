@@ -4,7 +4,7 @@ import {
 	type AccountSetupLinkAccessRequest,
 	type AccountSetupLinkRecord,
 	type AccountSetupLinkStore
-} from './accountSetupLinks';
+} from './accountSetupLinks.server';
 
 function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): AccountSetupLinkStore & {
 	links: AccountSetupLinkRecord[];

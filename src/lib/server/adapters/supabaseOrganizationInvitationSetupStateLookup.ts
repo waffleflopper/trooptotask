@@ -4,7 +4,7 @@ import {
 	type AccessRequestAuthEmailOutbox,
 	type AccessRequestSetupLink,
 	type AccessRequestSetupState
-} from '$lib/server/accessRequestSetupState';
+} from '$features/identity/index.server';
 import type { OrganizationInvitationSetupStateLookupPort } from '$lib/server/core/ports';
 
 const SETUP_STATE_SELECT =

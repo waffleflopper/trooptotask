@@ -1,6 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CreateAccountSetupLinkResult } from './accountSetupLinks';
-import { makePublicAppUrl } from './publicAppOrigin';
 
 export type AuthEmailPurpose = 'account_setup';
 export type AuthEmailOutboxStatus = 'pending' | 'sent' | 'failed';
@@ -27,7 +25,6 @@ export interface CreateSetupEmailOutboxInput {
 }
 
 export interface AuthEmailOutboxStore {
-	getSetupEmailDelivery(id: string): Promise<AuthEmailOutboxRecord | null>;
 	insertSetupEmailDelivery(input: CreateSetupEmailOutboxInput): Promise<AuthEmailOutboxRecord>;
 	markSetupEmailDeliverySent(id: string, sentAt: Date): Promise<AuthEmailOutboxRecord>;
 	markSetupEmailDeliveryFailed(id: string, failedAt: Date, lastError: string): Promise<AuthEmailOutboxRecord>;
@@ -62,7 +59,8 @@ function normalizeEmail(email: string): string {
 function redactSetupSecrets(message: string): string {
 	return message
 		.replace(/https?:\/\/[^\s"'<>]+\/auth\/setup-account\?token=[^\s"'<>]+/gi, '[redacted setup url]')
-		.replace(/\btoken=[^&\s"'<>]+/gi, 'token=[redacted]');
+		.replace(/\btoken=[^&\s"'<>]+/gi, 'token=[redacted]')
+		.replace(/\b[A-Fa-f0-9]{64}\b/g, '[redacted hash]');
 }
 
 function errorMessage(error: unknown): string {
@@ -133,61 +131,8 @@ export async function sendAccountSetupOutboxDelivery(
 	}
 }
 
-interface AccountSetupLinkRecoveryService {
-	createForAccessRequest(accessRequestId: string): Promise<CreateAccountSetupLinkResult>;
-}
-
-export type RecoverAccountSetupEmailDeliveryResult =
-	| {
-			status: 'sent' | 'failed';
-			outbox: AuthEmailOutboxRecord;
-			error?: string;
-			replacement: { setupLinkId: string; revokedSetupLinkIds: string[] };
-	  }
-	| { status: 'missing' | 'not-recoverable' | 'setup-link-not-created' };
-
-export async function recoverAccountSetupEmailDelivery(
-	store: AuthEmailOutboxStore,
-	setupLinks: AccountSetupLinkRecoveryService,
-	sendSetupEmail: SetupEmailSender,
-	input: { outboxId: string; publicOrigin: string; now?: Date }
-): Promise<RecoverAccountSetupEmailDeliveryResult> {
-	const existing = await store.getSetupEmailDelivery(input.outboxId);
-	if (!existing) return { status: 'missing' };
-	if (existing.status !== 'pending' && existing.status !== 'failed') return { status: 'not-recoverable' };
-
-	const replacement = await setupLinks.createForAccessRequest(existing.accessRequestId);
-	if (replacement.status !== 'created') {
-		return { status: 'setup-link-not-created' };
-	}
-
-	const delivery = await sendAccountSetupOutboxDelivery(store, sendSetupEmail, {
-		accessRequestId: existing.accessRequestId,
-		setupLinkId: replacement.link.id,
-		email: existing.recipient,
-		setupUrl: makePublicAppUrl(replacement.setupPath, { inboundOrigin: input.publicOrigin }),
-		expiresAt: replacement.expiresAt,
-		now: input.now
-	});
-	const replacementDetails = {
-		setupLinkId: replacement.link.id,
-		revokedSetupLinkIds: replacement.revokedLinks.map((link) => link.id)
-	};
-
-	return delivery.status === 'sent'
-		? { status: 'sent', outbox: delivery.outbox, replacement: replacementDetails }
-		: { status: 'failed', outbox: delivery.outbox, error: delivery.error, replacement: replacementDetails };
-}
-
 export function createSupabaseAuthEmailOutboxStore(client: SupabaseClient): AuthEmailOutboxStore {
 	return {
-		async getSetupEmailDelivery(id) {
-			const { data, error } = await client.from('auth_email_outbox').select('*').eq('id', id).maybeSingle();
-
-			if (error) throw error;
-			return data ? mapOutboxRow(data as AuthEmailOutboxRow) : null;
-		},
-
 		async insertSetupEmailDelivery(input) {
 			const { data, error } = await client
 				.from('auth_email_outbox')

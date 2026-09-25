@@ -1,5 +1,6 @@
-import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$lib/server/accountSetupLinks';
-import type { AuthEmailOutboxStatus } from '$lib/server/authEmailOutbox';
+import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from './accountSetupLinks.server';
+import type { AuthEmailOutboxStatus } from './authEmailOutbox.server';
+import type { AccessRequestSetupState } from './contracts';
 
 export interface AccessRequestSetupLink {
 	id: string;
@@ -31,17 +32,6 @@ export interface AccessRequestAuthEmailOutbox {
  * at this link by name, so the two must stay in step (ADR 0012).
  */
 export const ACCOUNT_SETUP_RECOVERY_LINK_LABEL = "Didn't get your setup link?";
-
-export type AccessRequestSetupState =
-	| 'not_sent'
-	| 'delivery_failed'
-	| 'delivery_pending'
-	| 'claimed'
-	| 'pending'
-	| 'expired'
-	| 'replaced'
-	| 'failed'
-	| 'completed';
 
 export interface AccessRequestSetupStateSource {
 	setup_completed_at: string | null;

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAccountSetupRouteFlow } from './accountSetupRouteFlow';
 import type { AccountSetupCompletionStore } from './accountSetupCompletion';
-import type { AccountSetupLinkRecord } from './accountSetupLinks';
+import type { AccountSetupLinkRecord } from '$features/identity/index.server';
 import type { AccountSetupSession } from './accountSetupSessions';
 
 function makeSetupLink(overrides: Partial<AccountSetupLinkRecord> = {}): AccountSetupLinkRecord {

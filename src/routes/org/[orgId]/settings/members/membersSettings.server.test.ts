@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
+import type { AccessRequestSetupState } from '$features/identity/index.server';
 import type { AuthContext, UseCaseContext } from '$lib/server/core/ports';
 import type { SettingsAccessSourceRow } from '../settingsMemberAccessReadModel.server';
 import {

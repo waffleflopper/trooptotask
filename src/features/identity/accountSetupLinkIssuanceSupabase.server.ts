@@ -3,8 +3,8 @@ import {
 	createAccountSetupLinkService,
 	createSupabaseAccountSetupLinkStore,
 	sendAccountSetupLinkEmail
-} from '$lib/server/accountSetupLinks';
-import { createSupabaseAuthEmailOutboxStore, sendAccountSetupOutboxDelivery } from '$lib/server/authEmailOutbox';
+} from './accountSetupLinks.server';
+import { createSupabaseAuthEmailOutboxStore, sendAccountSetupOutboxDelivery } from './authEmailOutbox.server';
 import type {
 	AccountSetupLinkIssuanceCreator,
 	AccountSetupLinkIssuanceDelivery

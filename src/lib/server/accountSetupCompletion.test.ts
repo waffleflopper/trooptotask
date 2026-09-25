@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AccountSetupLinkAccessRequest, AccountSetupLinkRecord } from './accountSetupLinks';
+import type { AccountSetupLinkAccessRequest, AccountSetupLinkRecord } from '$features/identity/index.server';
 import {
 	createAccountSetupCompletionService,
 	type AccountSetupAuthAdapter,
 	type AccountSetupCompletionStore
 } from './accountSetupCompletion';
-import { createAccountSetupLinkService } from './accountSetupLinks';
+import { createAccountSetupLinkService } from '$features/identity/index.server';
 import { createSupabaseAccountSetupAuthAdapter } from './accountSetupCompletionSupabase';
 import { createAccountSetupRouteFlow } from './accountSetupRouteFlow';
 import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './validation';

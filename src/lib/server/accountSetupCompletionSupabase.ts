@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabaseAccountSetupLinkStore } from '$lib/server/accountSetupLinks';
+import { createSupabaseAccountSetupLinkStore } from '$features/identity/index.server';
 import type { AccountSetupAuthAdapter, AccountSetupCompletionStore } from '$lib/server/accountSetupCompletion';
 import {
 	findUserEmailIdentityByEmail,

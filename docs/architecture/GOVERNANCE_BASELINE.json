@@ -78,11 +78,6 @@
 			"reason": "Platform Administration user detail and identity commands still build service-role user directory, audit, and identity command adapters from the admin context."
 		},
 		{
-			"path": "src/routes/api/cleanup-account-setup-links/+server.ts",
-			"classification": "cron-edge",
-			"reason": "Cron cleanup of stale account setup links still builds its service-role cleanup store in the route."
-		},
-		{
 			"path": "src/routes/api/cleanup-archived-records/+server.ts",
 			"classification": "cron-edge",
 			"reason": "Cron archive-retention cleanup still creates service-role data and storage adapters in the route."

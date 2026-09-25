@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 import { addUtcDays } from './accountSetupDates';
+import { getAdminClient } from '$lib/server/supabase';
 
 export const ACCOUNT_SETUP_LINK_EXPIRY_DAYS = 14;
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
@@ -709,4 +710,8 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 			return count ?? 0;
 		}
 	};
+}
+
+export function cleanupAccountSetupLinks(): Promise<AccountSetupLinkCleanupResult> {
+	return createAccountSetupLinkService(createSupabaseAccountSetupLinkStore(getAdminClient())).cleanupStaleLinks();
 }

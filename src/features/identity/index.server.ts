@@ -53,6 +53,41 @@ export {
 } from './accountSetupLinkIssuance.server';
 export { createSupabaseAccountSetupLinkIssuancePorts } from './accountSetupLinkIssuanceSupabase.server';
 export {
+	cleanupAccountSetupLinks,
+	createAccountSetupLinkService,
+	createSupabaseAccountSetupLinkStore,
+	sendAccountSetupLinkEmail,
+	type AccountSetupLinkAccessRequest,
+	type AccountSetupLinkFailureReason,
+	type AccountSetupLinkRecord,
+	type AccountSetupLinkRevocationReason,
+	type AccountSetupLinkStore,
+	type CreateAccountSetupLinkInput,
+	type CreateAccountSetupLinkResult,
+	type ValidateAccountSetupLinkResult
+} from './accountSetupLinks.server';
+export {
+	classifyAccessRequestSetupState,
+	findLatestAccessRequestSetupDelivery,
+	normalizeAccessRequestSetupDeliveries,
+	normalizeAccessRequestSetupLinks,
+	resolveAccessRequestSetupState,
+	ACCOUNT_SETUP_RECOVERY_LINK_LABEL,
+	type AccessRequestAuthEmailOutbox,
+	type AccessRequestSetupLink,
+	type AccessRequestSetupStateSource
+} from './accessRequestSetupState.server';
+export type { AccessRequestSetupState } from './contracts';
+export {
+	createSupabaseAuthEmailOutboxStore,
+	sendAccountSetupOutboxDelivery,
+	type AuthEmailOutboxRecord,
+	type AuthEmailOutboxStatus,
+	type AuthEmailOutboxStore,
+	type CreateSetupEmailOutboxInput,
+	type SendAccountSetupOutboxDeliveryResult
+} from './authEmailOutbox.server';
+export {
 	ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
 	checkAccessRequestSubmissionRateLimit
 } from './accessRequestRateLimit.server';

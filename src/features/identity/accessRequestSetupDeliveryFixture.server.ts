@@ -3,14 +3,10 @@ import type {
 	AccessRequestSetupRequest,
 	CreatePendingAccessRequestInput
 } from './accessRequestSetupDelivery.server';
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkInput } from '$lib/server/accountSetupLinks';
-import type { AuthEmailOutboxRecord } from '$lib/server/authEmailOutbox';
-import {
-	AUTH_WORKFLOW_CREATED_AT,
-	AUTH_WORKFLOW_REVIEWED_AT,
-	accountSetupLinkFixture,
-	createAuthEmailOutboxStore
-} from '$lib/test-support/authWorkflowFixtures';
+import type { AccountSetupLinkRecord, CreateAccountSetupLinkInput } from './accountSetupLinks.server';
+import type { AuthEmailOutboxRecord } from './authEmailOutbox.server';
+import { AUTH_WORKFLOW_CREATED_AT, AUTH_WORKFLOW_REVIEWED_AT } from '$lib/test-support/authWorkflowFixtures';
+import { accountSetupLinkFixture, createAuthEmailOutboxStore } from './accountSetupFixtures.server';
 
 export function accessRequestFixture(overrides: Partial<AccessRequestSetupRequest> = {}): AccessRequestSetupRequest {
 	return {

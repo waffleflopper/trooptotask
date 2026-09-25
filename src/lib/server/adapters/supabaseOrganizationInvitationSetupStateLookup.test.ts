@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AccessRequestSetupStateSource } from '$lib/server/accessRequestSetupState';
+import type { AccessRequestSetupStateSource } from '$features/identity/index.server';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
 
 const now = '2026-09-18T12:00:00.000Z';

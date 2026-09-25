@@ -3,7 +3,7 @@ import {
 	createAccountSetupLinkService,
 	type AccountSetupLinkRecord,
 	type ValidateAccountSetupLinkResult
-} from './accountSetupLinks';
+} from '$features/identity/index.server';
 import { createAccountSetupSession, type AccountSetupSession } from './accountSetupSessions';
 import {
 	createSupabaseAccountSetupAuthAdapter,

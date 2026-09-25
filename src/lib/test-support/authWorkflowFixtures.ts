@@ -1,11 +1,4 @@
 import type { TargetMemberAccessCommand } from '$lib/access/memberAccessCommands';
-import type { AccountSetupAuthAdapter } from '../server/accountSetupCompletion';
-import type { AccountSetupLinkRecord } from '../server/accountSetupLinks';
-import type {
-	AuthEmailOutboxRecord,
-	AuthEmailOutboxStore,
-	CreateSetupEmailOutboxInput
-} from '../server/authEmailOutbox';
 import type {
 	OrganizationInvitationEmailOutboxRecord,
 	OrganizationInvitationEmailOutboxStore
@@ -19,30 +12,6 @@ export const AUTH_WORKFLOW_NOW = new Date('2026-05-22T12:00:00.000Z');
 export const AUTH_WORKFLOW_REVIEWED_AT = new Date('2026-05-02T12:00:00.000Z');
 export const AUTH_WORKFLOW_CREATED_AT = new Date('2026-05-01T12:00:00.000Z');
 export const AUTH_WORKFLOW_SETUP_EXPIRES_AT = new Date('2026-06-05T12:00:00.000Z');
-
-export function fixedAuthWorkflowTime(now: Date = AUTH_WORKFLOW_NOW): { now: Date; nowFn: () => Date } {
-	return {
-		now,
-		nowFn: () => new Date(now)
-	};
-}
-
-export function accountSetupLinkFixture(overrides: Partial<AccountSetupLinkRecord> = {}): AccountSetupLinkRecord {
-	return {
-		id: 'setup-link-1',
-		accessRequestId: 'request-1',
-		tokenHash: 'token-hash-1',
-		expiresAt: AUTH_WORKFLOW_SETUP_EXPIRES_AT,
-		createdAt: AUTH_WORKFLOW_NOW,
-		claimedAt: null,
-		failedAt: null,
-		failureReason: null,
-		usedAt: null,
-		revokedAt: null,
-		revocationReason: null,
-		...overrides
-	};
-}
 
 export interface OrganizationInvitationFixture {
 	id: string;
@@ -120,26 +89,6 @@ export function memberAccessFixture(overrides: Partial<TargetMemberAccessCommand
 	};
 }
 
-export function authEmailOutboxRecordFixture(
-	input: CreateSetupEmailOutboxInput,
-	overrides: Partial<AuthEmailOutboxRecord> = {}
-): AuthEmailOutboxRecord {
-	return {
-		id: 'outbox-1',
-		accessRequestId: input.accessRequestId,
-		setupLinkId: input.setupLinkId,
-		recipient: input.recipient,
-		purpose: 'account_setup',
-		status: 'pending',
-		attemptCount: 0,
-		lastError: null,
-		createdAt: input.createdAt,
-		updatedAt: input.createdAt,
-		sentAt: null,
-		...overrides
-	};
-}
-
 export function organizationInvitationEmailOutboxRecordFixture(
 	input: { organizationId: string; invitationId: string; recipient: string; createdAt: Date },
 	overrides: Partial<OrganizationInvitationEmailOutboxRecord> = {}
@@ -157,40 +106,6 @@ export function organizationInvitationEmailOutboxRecordFixture(
 		sentAt: null,
 		...overrides
 	};
-}
-
-export function createAuthEmailOutboxStore() {
-	const records: AuthEmailOutboxRecord[] = [];
-	const store: AuthEmailOutboxStore & { records: AuthEmailOutboxRecord[] } = {
-		records,
-		async getSetupEmailDelivery(id) {
-			return records.find((record) => record.id === id) ?? null;
-		},
-		async insertSetupEmailDelivery(input) {
-			const record = authEmailOutboxRecordFixture(input, { id: `outbox-${records.length + 1}` });
-			records.push(record);
-			return record;
-		},
-		async markSetupEmailDeliverySent(id, sentAt) {
-			const record = findOutboxRecord(records, id);
-			record.status = 'sent';
-			record.attemptCount = 1;
-			record.lastError = null;
-			record.updatedAt = sentAt;
-			record.sentAt = sentAt;
-			return record;
-		},
-		async markSetupEmailDeliveryFailed(id, failedAt, lastError) {
-			const record = findOutboxRecord(records, id);
-			record.status = 'failed';
-			record.attemptCount = 1;
-			record.lastError = lastError;
-			record.updatedAt = failedAt;
-			record.sentAt = null;
-			return record;
-		}
-	};
-	return store;
 }
 
 export function createOrganizationInvitationEmailOutboxStore() {
@@ -225,29 +140,6 @@ export function createOrganizationInvitationEmailOutboxStore() {
 		}
 	};
 	return store;
-}
-
-export function createFakeAccountSetupAuthAdapter(
-	options: { userId?: string; createError?: Error; signInError?: Error } = {}
-): AccountSetupAuthAdapter & {
-	createdUsers: Array<{ email: string; password: string }>;
-	signIns: Array<{ email: string; password: string }>;
-} {
-	const createdUsers: Array<{ email: string; password: string }> = [];
-	const signIns: Array<{ email: string; password: string }> = [];
-	return {
-		createdUsers,
-		signIns,
-		async createOrActivateConfirmedUser(input) {
-			createdUsers.push(input);
-			if (options.createError) throw options.createError;
-			return { userId: options.userId ?? 'user-1' };
-		},
-		async signInWithPassword(input) {
-			signIns.push(input);
-			if (options.signInError) throw options.signInError;
-		}
-	};
 }
 
 export function createFakeOrganizationInvitationDeliveryPort(status: 'sent' | 'failed' = 'sent') {

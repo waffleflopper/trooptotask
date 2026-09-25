@@ -1,6 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL } from './accessRequestSetupState';
+import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL } from '$features/identity/index.server';
 import { makePublicAppUrl } from './publicAppOrigin';
 
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';

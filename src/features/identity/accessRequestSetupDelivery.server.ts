@@ -4,13 +4,13 @@ import {
 	createSupabaseAccountSetupLinkStore,
 	sendAccountSetupLinkEmail,
 	type AccountSetupLinkStore
-} from '$lib/server/accountSetupLinks';
+} from './accountSetupLinks.server';
 import {
 	createSupabaseAuthEmailOutboxStore,
 	sendAccountSetupOutboxDelivery,
 	type AuthEmailOutboxStore
-} from '$lib/server/authEmailOutbox';
-import { addUtcDays } from '$lib/server/accountSetupDates';
+} from './authEmailOutbox.server';
+import { addUtcDays } from './accountSetupDates';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 import { getAdminClient } from '$lib/server/supabase';
 import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS } from './contracts';

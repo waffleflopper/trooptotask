@@ -1,5 +1,5 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { AccessRequestSetupState } from '$lib/server/accessRequestSetupState';
+import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { Personnel } from '$lib/types';
 

@@ -1,5 +1,5 @@
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
-import type { SendAccountSetupOutboxDeliveryResult } from '$lib/server/authEmailOutbox';
+import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from './accountSetupLinks.server';
+import type { SendAccountSetupOutboxDeliveryResult } from './authEmailOutbox.server';
 import { makePublicAppUrl } from '$lib/server/publicAppOrigin';
 
 /**

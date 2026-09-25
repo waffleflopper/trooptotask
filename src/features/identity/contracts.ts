@@ -6,6 +6,7 @@ export interface AdmittedActor {
 export type PendingAuthFlow = 'recovery' | 'invite' | null;
 
 export const ACCESS_REQUEST_SETUP_RENEWAL_DAYS = 90;
+export { addUtcDays } from './accountSetupDates';
 
 export const ACCESS_REQUEST_HEARD_ABOUT_OPTIONS = [
 	{ value: 'word_of_mouth', label: 'Word of mouth' },
@@ -117,3 +118,14 @@ export interface SensitiveActionAuthorizer {
 }
 
 export type PasswordCompletionState = 'started' | 'failed' | 'pending' | 'complete' | 'expired' | 'unavailable' | null;
+
+export type AccessRequestSetupState =
+	| 'not_sent'
+	| 'delivery_failed'
+	| 'delivery_pending'
+	| 'claimed'
+	| 'pending'
+	| 'expired'
+	| 'replaced'
+	| 'failed'
+	| 'completed';

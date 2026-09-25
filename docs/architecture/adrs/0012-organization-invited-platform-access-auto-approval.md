@@ -20,7 +20,7 @@ The approval-rescind exposure remains a required repair under stabilization
 - `inviteOrganizationMember` already bridges such an invitation into an `access_requests` row (`shouldBridgeAccessRequest = !existingUserAccount && !isBillingEnabled`, `src/lib/server/core/useCases/orgSettingsMemberManagement.ts:287`).
 - `accept_organization_invitation` returns `setup_required` until that **Access Request**'s setup completes, so the invitation cannot be accepted until a platform admin acts.
 - ADR 0009 established app-owned **Account Setup Links** but assumed a single issuer: **Platform Access Request Administration** approval and resend.
-- Raw setup tokens are stored as `sha256` only (`src/lib/server/accountSetupLinks.ts:188`) and are unrecoverable after issuance.
+- Raw setup tokens are stored as `sha256` only (originally `src/lib/server/accountSetupLinks.ts:188`; now `src/features/identity/accountSetupLinks.server.ts:hashSetupToken`) and are unrecoverable after issuance.
 - `access_requests_pending_email_idx` is `UNIQUE (lower(email)) WHERE status = 'pending'` — the only database-level guard against two rows for one email.
 - `access_requests` and `access_request_organization_invitation_links` are readable only under `is_platform_admin()`. The organization store is built from the user's RLS client (`src/lib/server/adapters/httpAdapter.ts:98`), so organization-scoped surfaces cannot see either table.
 - The organization members settings screen already computes `deliveryStatus`, `deliveryStatusLabel`, and `deliveryLastError` for every pending invitation and renders none of them.

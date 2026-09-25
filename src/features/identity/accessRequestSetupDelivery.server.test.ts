@@ -3,7 +3,7 @@ import {
 	createAccessRequestSetupDeliveryService,
 	type AccessRequestSetupDeliveryStore
 } from './accessRequestSetupDelivery.server';
-import { accountSetupLinkFixture, fixedAuthWorkflowTime } from '$lib/test-support/authWorkflowFixtures';
+import { accountSetupLinkFixture, fixedAuthWorkflowTime } from './accountSetupFixtures.server';
 import {
 	accessRequestFixture,
 	createAccessRequestSetupDeliveryStore

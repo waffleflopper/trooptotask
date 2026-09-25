@@ -23,7 +23,7 @@ import {
 	type AccountSetupLinkIssuanceOrigin,
 	type AccountSetupLinkIssuanceResult,
 	type AccountSetupLinkNotCreatedReason
-} from '$lib/server/accountSetupLinkIssuance';
+} from '$features/identity/index.server';
 import {
 	PLATFORM_ACCESS_REQUEST_APPROVE_ACTION,
 	PLATFORM_ACCESS_REQUEST_REJECT_ACTION,

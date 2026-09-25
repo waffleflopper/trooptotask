@@ -8,7 +8,7 @@ import { createSupabaseAuthEmailOutboxStore, sendAccountSetupOutboxDelivery } fr
 import type {
 	AccountSetupLinkIssuanceCreator,
 	AccountSetupLinkIssuanceDelivery
-} from '$lib/server/accountSetupLinkIssuance';
+} from './accountSetupLinkIssuance.server';
 
 /**
  * The service-role halves of `accountSetupLinkIssuance`. Every issuer composes the module

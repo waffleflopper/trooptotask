@@ -43,6 +43,16 @@ export { updateIdentityPassword } from './updatePassword.server';
 export { sendPublicRecoveryEmail, sendPlatformAuthEmail } from '$lib/server/authEmailDelivery';
 export { createPublicAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery.server';
 export {
+	createAccountSetupLinkIssuance,
+	redactProviderError,
+	type AccountSetupLinkIssuanceCreator,
+	type AccountSetupLinkIssuanceDelivery,
+	type AccountSetupLinkIssuanceOrigin,
+	type AccountSetupLinkIssuanceResult,
+	type AccountSetupLinkNotCreatedReason
+} from './accountSetupLinkIssuance.server';
+export { createSupabaseAccountSetupLinkIssuancePorts } from './accountSetupLinkIssuanceSupabase.server';
+export {
 	ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
 	checkAccessRequestSubmissionRateLimit
 } from './accessRequestRateLimit.server';

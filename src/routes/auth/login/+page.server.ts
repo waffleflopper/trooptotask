@@ -1,9 +1,9 @@
-import { fail, redirect, isRedirect } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { validateEmail } from '$lib/server/validation';
 import { auditLog } from '$lib/server/auditLog';
-import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
-import { sanitizeAuthNextPath } from '$lib/auth/redirects';
+import { getAuthenticatedRedirectPath, loginIdentity } from '$features/identity/index.server';
+import { sanitizeAuthNextPath } from '$features/identity/contracts';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const reauth = url.searchParams.get('reauth') === '1';
@@ -46,60 +46,22 @@ export const actions: Actions = {
 		) {
 			return fail(400, { error: 'Enter a valid email address and password.', email: email.slice(0, 254), nextPath });
 		}
-		const unavailable = () => {
+		const result = await loginIdentity(locals, { email, password });
+		if (result.status !== 'authenticated') {
 			auditLog(
 				{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
 				{ userId: null }
 			);
-			return fail(503, { error: 'Unable to complete sign in. Please try again.', email, nextPath });
-		};
-		try {
-			const { data, error } = await locals.supabase.auth.signInWithPassword({ email, password });
-
-			if (error) {
-				if (error.status && error.status >= 500) return unavailable();
-				auditLog(
-					{ action: 'auth.login_failure', resourceType: 'user', severity: 'warning', details: { email } },
-					{ userId: null }
-				);
-				return fail(400, { error: 'Email or password is incorrect', email, nextPath });
-			}
-
-			if (
-				typeof data?.user?.id !== 'string' ||
-				!data.user.id ||
-				data.session?.user?.id !== data.user.id ||
-				typeof data.session?.access_token !== 'string' ||
-				!data.session.access_token ||
-				typeof data.session?.refresh_token !== 'string' ||
-				!data.session.refresh_token
-			)
-				return unavailable();
-
-			// Check if user has MFA enabled and needs to complete verification
-			const { data: aalData, error: assuranceError } = await locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-			if (
-				assuranceError ||
-				!aalData ||
-				!['aal1', 'aal2'].includes(aalData.currentLevel ?? '') ||
-				!['aal1', 'aal2'].includes(aalData.nextLevel ?? '')
-			)
-				return unavailable();
-
-			auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
-			if (aalData?.nextLevel === 'aal2' && aalData?.currentLevel === 'aal1') {
-				const suffix = nextPath ? `?next=${encodeURIComponent(nextPath)}` : '';
-				redirect(303, `/auth/mfa-verify${suffix}`);
-			}
-
-			redirect(303, nextPath ?? '/dashboard');
-		} catch (err) {
-			if (isRedirect(err)) {
-				throw err;
-			}
-			// Provider exceptions can contain submitted credentials. Never log them.
-			console.error('Login provider unavailable');
-			return unavailable();
+			return result.status === 'invalid'
+				? fail(400, { error: 'Email or password is incorrect', email, nextPath })
+				: fail(503, { error: 'Unable to complete sign in. Please try again.', email, nextPath });
 		}
+
+		auditLog({ action: 'auth.login_success', resourceType: 'user', details: { email } }, { userId: null });
+		if (result.mfaPending) {
+			const suffix = nextPath ? `?next=${encodeURIComponent(nextPath)}` : '';
+			redirect(303, `/auth/mfa-verify${suffix}`);
+		}
+		redirect(303, nextPath ?? '/dashboard');
 	}
 };

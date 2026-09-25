@@ -56,11 +56,6 @@
 			"reason": "Password reset request remains an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/auth/login/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Password login and AAL checks remain provider-specific auth work."
-		},
-		{
 			"path": "src/routes/auth/reset-password/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Password reset exchange remains an auth-provider boundary."

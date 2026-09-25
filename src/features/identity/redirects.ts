@@ -2,7 +2,7 @@
  * Keeps auth return paths inside the app. Backslashes are rejected instead of
  * normalized because browsers and URL parsers can treat them like path slashes.
  */
-export function sanitizeAuthNextPath(value: FormDataEntryValue | string | null | undefined): string | null {
+export function sanitizeAuthNextPath(value: unknown): string | null {
 	if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//') || value.includes('\\')) {
 		return null;
 	}

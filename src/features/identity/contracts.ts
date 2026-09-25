@@ -4,3 +4,5 @@ export interface AdmittedActor {
 }
 
 export type PendingAuthFlow = 'recovery' | 'invite' | null;
+
+export { sanitizeAuthNextPath } from './redirects';

@@ -11,26 +11,6 @@
 			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."
 		},
 		{
-			"path": "src/routes/api/auth/mfa/disable/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA disable flow is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/enroll/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA enrollment is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/enroll/cancel/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA enrollment cancellation is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/enroll/verify/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA enrollment verification is an auth-provider boundary."
-		},
-		{
 			"path": "src/routes/api/auth/update-password/+server.ts",
 			"classification": "auth-edge",
 			"reason": "Password updates remain inside the auth-provider edge."

@@ -3,6 +3,7 @@
 	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
 	let completion = $state<PasswordCompletionState>(null);
 	import { onMount, tick, untrack } from 'svelte';
+	import type { MfaActionResponse } from '$features/identity/contracts';
 	import { PasswordMfaChallenge } from '$features/identity';
 	let passwordMfaRequired = $state(false);
 	import { goto } from '$app/navigation';
@@ -148,7 +149,7 @@
 				return;
 			}
 
-			const payload = (await response.json()) as { ok?: boolean; error?: string } | null;
+			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
 				mfaError = payload?.error ?? 'Verification failed';
 				return;
@@ -182,9 +183,9 @@
 					await goto(response.url);
 					return;
 				}
-				if (!response.ok) {
-					const payload = (await response.json()) as { error?: string };
-					mfaError = payload.error ?? 'Failed to cancel MFA enrollment';
+				const payload = (await response.json()) as MfaActionResponse | null;
+				if (!response.ok || payload?.ok !== true) {
+					mfaError = payload?.error ?? 'Failed to cancel MFA enrollment';
 					return;
 				}
 			}
@@ -220,7 +221,7 @@
 				return;
 			}
 
-			const payload = (await response.json()) as { ok?: boolean; error?: string } | null;
+			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
 				mfaError = payload?.error ?? 'Failed to disable MFA';
 				return;

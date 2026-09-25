@@ -55,7 +55,7 @@ describe('MFA admission redirects from an open security page', () => {
 });
 
 describe('pending enrollment cancellation', () => {
-	it.each(['provider rejection', 'network failure'])(
+	it.each(['provider rejection', 'network failure', 'unacknowledged success'])(
 		'retains enrollment through %s and clears it only after retry succeeds',
 		async (failure) => {
 			let finishCancel!: (response: Response) => void;
@@ -63,6 +63,7 @@ describe('pending enrollment cancellation', () => {
 				.fn()
 				.mockResolvedValueOnce(Response.json({ factorId: 'pending-factor', qrCode: 'data:image/svg+xml,synthetic' }));
 			if (failure === 'network failure') fetchMock.mockRejectedValueOnce(new Error('Connection lost'));
+			else if (failure === 'unacknowledged success') fetchMock.mockResolvedValueOnce(Response.json({}));
 			else fetchMock.mockResolvedValueOnce(Response.json({ error: 'Cancellation unavailable' }, { status: 503 }));
 			fetchMock.mockImplementationOnce(
 				() =>
@@ -81,9 +82,7 @@ describe('pending enrollment cancellation', () => {
 			const code = await screen.findByLabelText('Verification code');
 			await fireEvent.input(code, { target: { value: '123456' } });
 			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-			expect(
-				await screen.findByText(failure === 'network failure' ? 'Connection lost' : 'Cancellation unavailable')
-			).toBeTruthy();
+			expect(await screen.findByRole('alert')).toBeTruthy();
 			expect(screen.getByLabelText('Verification code')).toHaveValue('123456');
 			expect(screen.getByRole('img', { name: 'MFA QR Code' })).toHaveAttribute('src', 'data:image/svg+xml,synthetic');
 			await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

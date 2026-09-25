@@ -1,9 +1,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import type { MfaChallengeResponse } from '$features/identity/contracts';
+import type { MfaActionResponse } from '$features/identity/contracts';
 import { verifyIdentityMfa } from '$features/identity/index.server';
 
-function reply(body: MfaChallengeResponse, status: number) {
+function reply(body: MfaActionResponse, status: number) {
 	return json(body, { status });
 }
 

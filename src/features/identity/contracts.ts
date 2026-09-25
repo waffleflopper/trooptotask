@@ -12,4 +12,4 @@ export interface MfaStatus {
 	nextLevel: 'aal1' | 'aal2';
 }
 
-export type MfaChallengeResponse = { ok: true; error?: never } | { ok?: never; error: string };
+export type MfaActionResponse = { ok: true; error?: never } | { ok?: never; error: string };

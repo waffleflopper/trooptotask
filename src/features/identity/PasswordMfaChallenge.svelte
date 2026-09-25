@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import type { MfaChallengeResponse } from './contracts';
+	import type { MfaActionResponse } from './contracts';
 	import { onMount, tick } from 'svelte';
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
@@ -33,7 +33,7 @@
 				await goto(response.url);
 				return;
 			}
-			const payload = (await response.json()) as MfaChallengeResponse | null;
+			const payload = (await response.json()) as MfaActionResponse | null;
 			if (!response.ok || payload?.ok !== true) {
 				error = payload?.error ?? 'Verification failed.';
 				return;

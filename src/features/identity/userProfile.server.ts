@@ -7,9 +7,9 @@ import type { UserProfile } from './contracts';
 type UserProfileFormInput = { firstName: unknown; lastName: unknown; rank: unknown };
 
 export function parseUserProfileForm(input: UserProfileFormInput): Omit<UserProfile, 'userId'> | { error: string } {
-	const firstName = requireString(String(input.firstName ?? ''), 80);
-	const lastName = requireString(String(input.lastName ?? ''), 80);
-	const rank = validateEnum(sanitizeString(String(input.rank ?? ''), 20), ALL_RANKS);
+	const firstName = requireString(typeof input.firstName === 'string' ? input.firstName : null, 80);
+	const lastName = requireString(typeof input.lastName === 'string' ? input.lastName : null, 80);
+	const rank = validateEnum(sanitizeString(typeof input.rank === 'string' ? input.rank : null, 20), ALL_RANKS);
 
 	if (!firstName) return { error: 'First name is required' };
 	if (!lastName) return { error: 'Last name is required' };

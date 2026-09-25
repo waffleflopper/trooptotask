@@ -29,6 +29,10 @@ Personnel consumes an Organization-owned member-label read; Calendar consumes Pe
 
 D01 records the target without claiming implementation. D02 proves dependency and privilege restrictions in the real source graph, including SvelteKit's recognized server-only paths. D03/Phase 08 move each authorized capability and all its consumers, then delete replaced internal paths. Current authentication, membership, stored identifiers and supported route behavior stay authoritative throughout. No future provider, native client, SDK or new general API is implied.
 
+## Implementation status
+
+D02 delivered the declaration/checker in [PR #1341](https://github.com/waffleflopper/trooptotask/pull/1341); D03 delivered the consumed portable note contract and complete pilot in [PR #1345](https://github.com/waffleflopper/trooptotask/pull/1345). The future tense above records the original decision, not missing implementation. D04 integrated verification and all remaining Phase 08 packets remain open in [TODO](../../stabilization/TODO.md).
+
 ## Links
 
 - [Phase 07 parent #1280](https://github.com/waffleflopper/trooptotask/issues/1280); [D01 #1335](https://github.com/waffleflopper/trooptotask/issues/1335)

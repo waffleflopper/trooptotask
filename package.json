@@ -13,7 +13,6 @@
 	"scripts": {
 		"dev": "vite dev",
 		"postinstall": "node ./scripts/patch-bits-ui-timers.mjs",
-		"prepare": "node ./scripts/setup-githooks.mjs",
 		"build": "vite build",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",

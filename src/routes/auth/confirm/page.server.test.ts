@@ -342,6 +342,22 @@ describe('POST /auth/confirm', () => {
 		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
 	});
 
+	it('does not mark a different admitted account after email confirmation', async () => {
+		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
+		const cookies = { set: vi.fn() };
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					body: new URLSearchParams({ tokenHash: 'email-token', type: 'email', next: '/dashboard' })
+				}),
+				locals: { supabase: { auth: { verifyOtp } }, actor: { userId: 'other-user' } },
+				cookies
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({ status: 303, location: '/auth/login?next=%2Fdashboard' });
+		expect(cookies.set).not.toHaveBeenCalled();
+	});
+
 	it.each([
 		{ type: 'email', actor: null },
 		{ type: 'signup', actor: null },
@@ -525,5 +541,28 @@ describe('POST /auth/confirm', () => {
 			status: 303,
 			location: '/auth/login?error=auth_link_invalid'
 		});
+	});
+
+	it('rejects an unavailable verifier without a marker or secret-bearing log', async () => {
+		const verifyOtp = vi.fn().mockRejectedValue(new Error('secret-token-hash'));
+		const cookies = { set: vi.fn() };
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					body: new URLSearchParams({
+						tokenHash: 'secret-token-hash',
+						type: 'recovery',
+						next: '/auth/reset-password'
+					})
+				}),
+				locals: { supabase: { auth: { verifyOtp } } },
+				cookies
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({ status: 303, location: '/auth/login?error=auth_link_invalid' });
+		expect(cookies.set).not.toHaveBeenCalled();
+		expect(JSON.stringify(consoleError.mock.calls)).not.toContain('secret-token-hash');
+		consoleError.mockRestore();
 	});
 });

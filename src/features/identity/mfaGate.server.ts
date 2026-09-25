@@ -90,14 +90,13 @@ export function isPasswordAuthenticatedSession(session: FlowSession, user: FlowU
 	return sessionBinding(session, user)?.passwordAuthenticated === true;
 }
 
-function setAuthSessionMarker(
-	cookies: Pick<Cookies, 'set'>,
+export function createAuthSessionMarker(
 	authFlow: AuthSessionMarker,
 	session: FlowSession,
 	user: FlowUser
-): boolean {
+): { name: string; value: string; options: Parameters<Cookies['set']>[2] } | null {
 	const binding = sessionBinding(session, user);
-	if (!binding) return false;
+	if (!binding) return null;
 	const maxAge = authFlow === 'complete' ? COMPLETED_FLOW_MAX_AGE_SECONDS : AUTH_FLOW_MAX_AGE_SECONDS;
 	const marker: FlowMarker = {
 		version: 1,
@@ -107,13 +106,22 @@ function setAuthSessionMarker(
 		expiresAt: Date.now() + maxAge * 1000
 	};
 	const payload = Buffer.from(JSON.stringify(marker)).toString('base64url');
-	cookies.set(AUTH_FLOW_COOKIE, `${payload}.${flowSignature(payload).toString('base64url')}`, {
-		path: '/',
-		httpOnly: true,
-		sameSite: 'lax',
-		secure: !import.meta.env.DEV,
-		maxAge
-	});
+	return {
+		name: AUTH_FLOW_COOKIE,
+		value: `${payload}.${flowSignature(payload).toString('base64url')}`,
+		options: { path: '/', httpOnly: true, sameSite: 'lax', secure: !import.meta.env.DEV, maxAge }
+	};
+}
+
+function setAuthSessionMarker(
+	cookies: Pick<Cookies, 'set'>,
+	authFlow: AuthSessionMarker,
+	session: FlowSession,
+	user: FlowUser
+): boolean {
+	const marker = createAuthSessionMarker(authFlow, session, user);
+	if (!marker) return false;
+	cookies.set(marker.name, marker.value, marker.options);
 	return true;
 }
 

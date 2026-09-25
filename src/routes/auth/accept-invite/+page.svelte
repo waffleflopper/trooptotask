@@ -12,7 +12,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, onDestroy, tick } from 'svelte';
-	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
+	import { PasswordMfaChallenge } from '$features/identity';
 	import { establishSession, readSessionTokens, type SessionTokens } from '$features/identity';
 
 	const hasSession = $derived($page.data.hasSession);

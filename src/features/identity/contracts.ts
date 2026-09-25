@@ -6,3 +6,10 @@ export interface AdmittedActor {
 export type PendingAuthFlow = 'recovery' | 'invite' | null;
 
 export { sanitizeAuthNextPath } from './redirects';
+
+export interface MfaStatus {
+	currentLevel: 'aal1' | 'aal2';
+	nextLevel: 'aal1' | 'aal2';
+}
+
+export type MfaChallengeResponse = { ok: true; error?: never } | { ok?: never; error: string };

@@ -3,7 +3,7 @@
 	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
 	let completion = $state<PasswordCompletionState>(null);
 	import { onMount, tick, untrack } from 'svelte';
-	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
+	import { PasswordMfaChallenge } from '$features/identity';
 	let passwordMfaRequired = $state(false);
 	import { goto } from '$app/navigation';
 	import { enhance } from '$app/forms';

@@ -112,7 +112,7 @@ describe('POST /api/auth/mfa/verify', () => {
 			}
 		});
 		const challengeAndVerify = vi.fn().mockResolvedValue({
-			error: { message: 'Invalid authentication code.' }
+			error: { message: 'Invalid authentication code. access_token=private-challenge-secret' }
 		});
 
 		const response = await POST({
@@ -134,9 +134,9 @@ describe('POST /api/auth/mfa/verify', () => {
 		} as unknown as Parameters<typeof POST>[0]);
 
 		expect(response.status).toBe(401);
-		expect(await response.json()).toEqual({
-			error: 'Invalid authentication code.'
-		});
+		const body = await response.json();
+		expect(body).toEqual({ error: expect.any(String) });
+		expect(JSON.stringify(body)).not.toContain('private-challenge-secret');
 	});
 });
 
@@ -229,10 +229,15 @@ describe('verified-factor challenge boundary', () => {
 		async (reason) => {
 			const h = harness();
 			const before = structuredClone(h.factors);
-			h.mfa.challengeAndVerify.mockResolvedValueOnce({ data: h.tokens, error: { message: reason } } as never);
+			h.mfa.challengeAndVerify.mockResolvedValueOnce({
+				data: h.tokens,
+				error: { message: `${reason}: refresh_token=private-challenge-secret` }
+			} as never);
 			const response = await h.request();
 			expect(response.status).toBe(401);
-			expect(await response.json()).toEqual({ error: reason });
+			const body = await response.json();
+			expect(body).toEqual({ error: expect.any(String) });
+			expect(JSON.stringify(body)).not.toContain('private-challenge-secret');
 			expect(h.session.currentLevel).toBe('aal1');
 			expect(h.factors).toEqual(before);
 			expect((await h.request(JSON.stringify({ code: '654321' }))).status).toBe(200);

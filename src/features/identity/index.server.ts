@@ -17,3 +17,4 @@ export {
 export { isPublicRoute } from './publicRoutes.server';
 export { createIdentityAuthorization } from './authorization.server';
 export { establishIdentitySession } from './establishSession.server';
+export { readIdentityMfaStatus, verifyIdentityMfa } from './mfa.server';

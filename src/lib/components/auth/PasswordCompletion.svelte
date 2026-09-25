@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import AuthNotice from './AuthNotice.svelte';
-	import PasswordMfaChallenge from './PasswordMfaChallenge.svelte';
+	import { PasswordMfaChallenge } from '$features/identity';
 	let {
 		state: completionState,
 		oncomplete,

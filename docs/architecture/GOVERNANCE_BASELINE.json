@@ -31,16 +31,6 @@
 			"reason": "MFA enrollment verification is an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/api/auth/mfa/status/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA status lookup is an auth-provider boundary."
-		},
-		{
-			"path": "src/routes/api/auth/mfa/verify/+server.ts",
-			"classification": "auth-edge",
-			"reason": "MFA challenge verification is an auth-provider boundary."
-		},
-		{
 			"path": "src/routes/api/auth/update-password/+server.ts",
 			"classification": "auth-edge",
 			"reason": "Password updates remain inside the auth-provider edge."

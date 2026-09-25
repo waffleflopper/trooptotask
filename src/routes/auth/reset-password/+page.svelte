@@ -12,7 +12,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, tick } from 'svelte';
-	import PasswordMfaChallenge from '$lib/components/auth/PasswordMfaChallenge.svelte';
+	import { PasswordMfaChallenge } from '$features/identity';
+	import type { MfaStatus } from '$features/identity/contracts';
 	import { establishSession, readSessionTokens, type SessionTokens } from '$features/identity';
 
 	const hasSession = $derived($page.data.hasSession);
@@ -83,13 +84,13 @@
 				await goto(response.url);
 				return;
 			}
-			const payload = await response.json();
+			const payload = (await response.json()) as (Partial<MfaStatus> & { error?: unknown }) | null;
 			if (
 				!response.ok ||
 				!payload ||
 				payload.error ||
-				!['aal1', 'aal2'].includes(payload.currentLevel) ||
-				!['aal1', 'aal2'].includes(payload.nextLevel)
+				!['aal1', 'aal2'].includes(payload.currentLevel ?? '') ||
+				!['aal1', 'aal2'].includes(payload.nextLevel ?? '')
 			) {
 				statusError = true;
 				return;

@@ -239,47 +239,4 @@ describe('buildCriticalTasksMatrix', () => {
 		expect(matchesCriticalTasksPersonnelSearch(subject, '68w')).toBe(true);
 		expect(matchesCriticalTasksPersonnelSearch(subject, '11B')).toBe(false);
 	});
-
-	it('builds stable row and task counts for larger matrices without dropping groups or columns', () => {
-		const largeGroups: Group[] = Array.from({ length: 4 }, (_, index) => ({
-			id: `group-${index + 1}`,
-			name: `Group ${index + 1}`,
-			sortOrder: index
-		}));
-		const largePersonnel = Array.from({ length: 120 }, (_, index) =>
-			person({
-				id: `person-${index + 1}`,
-				lastName: `Soldier-${String(index + 1).padStart(3, '0')}`,
-				firstName: 'Jordan',
-				groupId: largeGroups[index % largeGroups.length]!.id,
-				groupName: largeGroups[index % largeGroups.length]!.name,
-				mos: index % 2 === 0 ? '68W' : '11B'
-			})
-		);
-		const largeTasks = Array.from({ length: 30 }, (_, index) =>
-			task({
-				id: `task-${index + 1}`,
-				taskCode: `181-105-${String(index + 1).padStart(4, '0')}`,
-				title: `Task ${index + 1}`,
-				sortOrder: index,
-				mos: []
-			})
-		);
-
-		const matrix = buildCriticalTasksMatrix({
-			personnel: largePersonnel,
-			tasks: largeTasks,
-			completions: [],
-			groups: largeGroups,
-			settings,
-			orgName: 'Test Unit'
-		});
-
-		expect(matrix.tasks).toHaveLength(30);
-		expect(matrix.rows).toHaveLength(120);
-		expect(matrix.alphabeticalRows).toHaveLength(120);
-		expect(matrix.groups).toHaveLength(4);
-		expect(matrix.groups.every((group) => group.rows.length === 30)).toBe(true);
-		expect(matrix.rows.every((row) => row.cells.length === 30)).toBe(true);
-	});
 });

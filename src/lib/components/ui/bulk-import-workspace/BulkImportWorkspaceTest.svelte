@@ -2,7 +2,6 @@
 	import * as BulkImportWorkspace from './index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as DataTable from '$lib/components/ui/data-table/index.js';
-	import type { BulkImportPreviewCellPresentation, BulkImportRowStatusDescriptionMode } from './types.js';
 
 	type ImportRow = {
 		id: string;
@@ -22,14 +21,6 @@
 		{ key: 'name', header: 'Name', value: (row: ImportRow) => row.name },
 		{ key: 'status', header: 'Status', value: (row: ImportRow) => row.status }
 	];
-
-	let {
-		statusDescriptionMode = 'inline',
-		cellPresentation = 'default'
-	}: {
-		statusDescriptionMode?: BulkImportRowStatusDescriptionMode;
-		cellPresentation?: BulkImportPreviewCellPresentation;
-	} = $props();
 
 	let source = $state<'upload' | 'paste' | 'manual'>('upload');
 	let pasteValue = $state('');
@@ -95,8 +86,6 @@
 			row.status === 'valid'
 				? { tone: 'valid', description: 'Ready to import.' }
 				: { tone: 'error', label: 'Missing value', description: 'Value is required.' }}
-		{statusDescriptionMode}
-		{cellPresentation}
 		selectedCountLabel={(selected, total) => `${selected} selectable rows chosen from ${total} preview rows`}
 		ariaLabel="Bulk import preview"
 	/>

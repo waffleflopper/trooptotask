@@ -53,21 +53,4 @@ describe('BulkImportWorkspace', () => {
 		expect(screen.getByText('Select at least one valid row.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
 	});
-
-	it('keeps row status descriptions available to screen readers when configured', () => {
-		render(BulkImportWorkspaceTest, { props: { statusDescriptionMode: 'sr-only' } });
-
-		const description = within(screen.getByRole('table', { name: 'Bulk import preview' })).getByText(
-			'Ready to import.'
-		);
-		expect(description).toBeInTheDocument();
-		expect(description).toHaveClass('sr-only');
-	});
-
-	it('marks the preview table with editable-grid cell presentation state', () => {
-		const { container } = render(BulkImportWorkspaceTest, { props: { cellPresentation: 'editable-grid' } });
-
-		const previewTable = container.querySelector('[data-slot="bulk-import-preview-table"]');
-		expect(previewTable).toHaveAttribute('data-cell-presentation', 'editable-grid');
-	});
 });

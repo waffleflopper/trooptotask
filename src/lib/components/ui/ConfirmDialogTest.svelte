@@ -2,14 +2,10 @@
 	import ConfirmDialog from './ConfirmDialog.svelte';
 
 	let {
-		variant = 'destructive',
 		disabled = false,
-		loading = false,
 		asyncConfirm = false
 	}: {
-		variant?: 'destructive' | 'danger' | 'warning' | 'primary' | 'secondary';
 		disabled?: boolean;
-		loading?: boolean;
 		asyncConfirm?: boolean;
 	} = $props();
 
@@ -40,9 +36,8 @@
 		message="This explains the consequence."
 		confirmLabel="Confirm action"
 		cancelLabel="Stand down"
-		{variant}
+		variant="destructive"
 		{disabled}
-		{loading}
 		onConfirm={handleConfirm}
 		onCancel={handleCancel}
 	/>

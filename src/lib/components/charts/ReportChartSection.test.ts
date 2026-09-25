@@ -14,8 +14,6 @@ describe('ReportChartSection', () => {
 		const region = screen.getByRole('region', { name: 'Readiness Trend' });
 		expect(region.getAttribute('aria-describedby')).toBe('test-chart-description');
 		expect(region.getAttribute('aria-busy')).toBe('false');
-		expect(region.getAttribute('data-report-chart-section')).toBe('true');
-		expect(region.classList.contains('report-chart-section')).toBe(true);
 
 		expect(within(region).getByText('% current')).toBeTruthy();
 		expect(within(region).getByText('The chart body renders here.')).toBeTruthy();

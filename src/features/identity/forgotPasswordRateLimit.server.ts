@@ -6,7 +6,7 @@ import {
 	normalizeRateLimitEmail,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from './durableRateLimit';
+} from '$lib/access/index.server';
 
 export const FORGOT_PASSWORD_RATE_LIMIT_MESSAGE =
 	'Too many password recovery requests. Please wait before trying again.';

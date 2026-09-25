@@ -228,8 +228,6 @@
 				"src/lib/server/auto-accept-org-invites.ts",
 				"src/lib/server/core/useCases/userPreferences.test.ts",
 				"src/lib/server/core/useCases/userPreferences.ts",
-				"src/lib/server/forgotPasswordRateLimit.test.ts",
-				"src/lib/server/forgotPasswordRateLimit.ts",
 				"src/lib/server/publicAppOrigin.test.ts",
 				"src/lib/server/publicAppOrigin.ts",
 				"src/lib/server/userEmailIdentities.ts",

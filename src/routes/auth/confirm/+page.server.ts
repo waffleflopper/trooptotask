@@ -38,9 +38,11 @@ export const actions: Actions = {
 				!setPendingAuthFlowCookie(cookies, confirmation.type, data.session, data.user)
 			)
 				redirect(303, '/auth/login?error=auth_link_invalid');
-		} else if (confirmation.type === 'email' && data?.session && data.user && locals.actor?.userId === data.user.id) {
+		} else {
 			// Email changes may continue an already admitted account. A signup link
 			// cannot promote a new OTP session into general application access.
+			if (confirmation.type !== 'email' || !data?.session || !data.user || locals.actor?.userId !== data.user.id)
+				redirect(303, `/auth/login?next=${encodeURIComponent(confirmation.next)}`);
 			if (!setCompletedAuthFlowCookie(cookies, data.session, data.user))
 				redirect(303, '/auth/login?error=auth_link_invalid');
 		}

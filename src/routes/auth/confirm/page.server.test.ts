@@ -290,7 +290,7 @@ describe('POST /auth/confirm', () => {
 		expect(marker).not.toBe('recovery');
 	});
 
-	it('verifies a valid signup email token even when the provider returns no session', async () => {
+	it('verifies a signup email token without a session and continues through sign-in', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { set: vi.fn() };
 
@@ -316,7 +316,7 @@ describe('POST /auth/confirm', () => {
 			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/new'
+			location: '/auth/login?next=%2Forg%2Fnew'
 		});
 
 		expect(verifyOtp).toHaveBeenCalledWith({
@@ -342,7 +342,11 @@ describe('POST /auth/confirm', () => {
 		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
 	});
 
-	it.each(['email', 'signup'])('does not admit a new %s OTP session from confirmation alone', async (type) => {
+	it.each([
+		{ type: 'email', actor: null },
+		{ type: 'signup', actor: null },
+		{ type: 'signup', actor: { userId: verifiedUser.id } }
+	])('does not admit a $type OTP session from confirmation alone', async ({ type, actor }) => {
 		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
 		const cookies = { set: vi.fn() };
 		await expect(
@@ -351,14 +355,14 @@ describe('POST /auth/confirm', () => {
 					method: 'POST',
 					body: new URLSearchParams({ tokenHash: 'signup-token', type, next: '/org/new' })
 				}),
-				locals: { supabase: { auth: { verifyOtp } }, actor: null },
+				locals: { supabase: { auth: { verifyOtp } }, actor },
 				cookies
 			} as unknown as Parameters<(typeof actions)['default']>[0])
-		).rejects.toMatchObject({ status: 303, location: '/org/new' });
+		).rejects.toMatchObject({ status: 303, location: '/auth/login?next=%2Forg%2Fnew' });
 		expect(cookies.set).not.toHaveBeenCalled();
 	});
 
-	it('verifies an invitation-aware signup email token and redirects to the dashboard without accepting the invitation', async () => {
+	it('verifies an invitation-aware signup email token and continues through sign-in', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { set: vi.fn() };
 
@@ -384,7 +388,7 @@ describe('POST /auth/confirm', () => {
 			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/dashboard'
+			location: '/auth/login?next=%2Fdashboard'
 		});
 
 		expect(verifyOtp).toHaveBeenCalledWith({
@@ -394,7 +398,7 @@ describe('POST /auth/confirm', () => {
 		expect(cookies.set).not.toHaveBeenCalled();
 	});
 
-	it('verifies a provider signup token even when the provider returns no session', async () => {
+	it('verifies a provider signup token without a session and continues through sign-in', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { set: vi.fn() };
 
@@ -420,7 +424,7 @@ describe('POST /auth/confirm', () => {
 			} as unknown as Parameters<(typeof actions)['default']>[0])
 		).rejects.toMatchObject({
 			status: 303,
-			location: '/org/new'
+			location: '/auth/login?next=%2Forg%2Fnew'
 		});
 
 		expect(verifyOtp).toHaveBeenCalledWith({

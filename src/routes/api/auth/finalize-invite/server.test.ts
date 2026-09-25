@@ -9,21 +9,21 @@ vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
 	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2, unavailable: 0 })
 }));
 
-vi.mock('$lib/server/userProfile', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$lib/server/userProfile')>();
+vi.mock('$features/identity/index.server', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$features/identity/index.server')>();
 	return {
 		...actual,
-		upsertCurrentUserProfile: vi.fn().mockResolvedValue(undefined)
+		upsertUserProfile: vi.fn().mockResolvedValue(undefined)
 	};
 });
 
-import { upsertCurrentUserProfile } from '$lib/server/userProfile';
+import { upsertUserProfile } from '$features/identity/index.server';
 import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
 import { POST } from './+server';
 
 describe('POST /api/auth/finalize-invite', () => {
 	afterEach(() => {
-		vi.mocked(upsertCurrentUserProfile).mockClear();
+		vi.mocked(upsertUserProfile).mockClear();
 		vi.mocked(autoAcceptOrgInvites).mockClear();
 	});
 
@@ -68,7 +68,7 @@ describe('POST /api/auth/finalize-invite', () => {
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toEqual({ ok: true, accepted: 2, unavailable: 0, activated: true });
-		expect(upsertCurrentUserProfile).toHaveBeenCalledWith(expect.any(Object), {
+		expect(upsertUserProfile).toHaveBeenCalledWith(expect.any(Object), 'user-123', {
 			firstName: 'Jane',
 			lastName: 'Smith',
 			rank: 'SGT'
@@ -125,7 +125,7 @@ describe('POST /api/auth/finalize-invite', () => {
 				expect(response.status).toBe(409);
 				expect(await response.json()).toMatchObject({ accepted: 0, activated: false });
 				expect(autoAcceptOrgInvites).not.toHaveBeenCalled();
-				expect(upsertCurrentUserProfile).not.toHaveBeenCalled();
+				expect(upsertUserProfile).not.toHaveBeenCalled();
 				expect(cookies.delete).not.toHaveBeenCalled();
 			}
 		}

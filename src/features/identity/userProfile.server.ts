@@ -2,18 +2,9 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ALL_RANKS } from '$lib/types';
 import { requireString, sanitizeString, validateEnum } from '$lib/server/validation';
 
-export type UserProfile = {
-	userId: string;
-	firstName: string;
-	lastName: string;
-	rank: string;
-};
+import type { UserProfile } from './contracts';
 
-export type UserProfileFormInput = {
-	firstName: FormDataEntryValue | null;
-	lastName: FormDataEntryValue | null;
-	rank: FormDataEntryValue | null;
-};
+type UserProfileFormInput = { firstName: unknown; lastName: unknown; rank: unknown };
 
 export function parseUserProfileForm(input: UserProfileFormInput): Omit<UserProfile, 'userId'> | { error: string } {
 	const firstName = requireString(String(input.firstName ?? ''), 80);
@@ -27,7 +18,10 @@ export function parseUserProfileForm(input: UserProfileFormInput): Omit<UserProf
 	return { firstName, lastName, rank };
 }
 
-export async function loadUserProfile(supabase: SupabaseClient, userId: string): Promise<UserProfile | null> {
+export async function loadUserProfile(
+	{ supabase }: { supabase: SupabaseClient },
+	userId: string
+): Promise<UserProfile | null> {
 	const { data, error } = await supabase
 		.from('user_profiles')
 		.select('user_id, first_name, last_name, rank')
@@ -52,17 +46,16 @@ export async function loadUserProfile(supabase: SupabaseClient, userId: string):
 	};
 }
 
-export async function loadCurrentUserProfile(locals: App.Locals): Promise<UserProfile | null> {
-	if (!locals.user) return null;
-	return loadUserProfile(locals.supabase, locals.user.id);
-}
-
-export async function upsertUserProfile(supabase: SupabaseClient, profile: UserProfile): Promise<void> {
+export async function upsertUserProfile(
+	{ supabase }: { supabase: SupabaseClient },
+	userId: string,
+	profile: Omit<UserProfile, 'userId'>
+): Promise<void> {
 	const result = await supabase
 		.from('user_profiles')
 		.upsert(
 			{
-				user_id: profile.userId,
+				user_id: userId,
 				first_name: profile.firstName,
 				last_name: profile.lastName,
 				rank: profile.rank
@@ -74,22 +67,10 @@ export async function upsertUserProfile(supabase: SupabaseClient, profile: UserP
 
 	if (
 		result?.error !== null ||
-		result.data?.user_id !== profile.userId ||
+		result.data?.user_id !== userId ||
 		result.data?.first_name !== profile.firstName ||
 		result.data?.last_name !== profile.lastName ||
 		result.data?.rank !== profile.rank
 	)
 		throw new Error('Unable to confirm profile save');
-}
-
-export async function upsertCurrentUserProfile(
-	locals: App.Locals,
-	profile: Omit<UserProfile, 'userId'>
-): Promise<void> {
-	if (!locals.user) throw new Error('Authentication is required');
-
-	await upsertUserProfile(locals.supabase, {
-		userId: locals.user.id,
-		...profile
-	});
 }

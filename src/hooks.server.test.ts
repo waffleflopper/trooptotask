@@ -302,14 +302,15 @@ describe('server auth hook', () => {
 			accept.mockReset().mockResolvedValue({ accepted: 1 });
 			profile.mockReset().mockResolvedValue(undefined);
 			vi.doMock('$lib/server/auto-accept-org-invites', () => ({ autoAcceptOrgInvites: accept }));
-			vi.doMock('$lib/server/userProfile', () => ({
+			vi.doMock('$features/identity/index.server', async (original) => ({
+				...(await original<typeof import('$features/identity/index.server')>()),
 				parseUserProfileForm: () => ({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT' }),
-				upsertCurrentUserProfile: profile
+				upsertUserProfile: profile
 			}));
 		});
 		afterEach(() => {
 			vi.doUnmock('$lib/server/auto-accept-org-invites');
-			vi.doUnmock('$lib/server/userProfile');
+			vi.doUnmock('$features/identity/index.server');
 		});
 		it.each(['pending at hook', 'newly pending', 'unavailable after hook'])(
 			'denies finalization for %s without writes or clearing the invite marker, then retries',

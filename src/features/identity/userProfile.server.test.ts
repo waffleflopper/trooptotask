@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseUserProfileForm } from './userProfile';
+import { parseUserProfileForm } from './userProfile.server';
 
 describe('parseUserProfileForm', () => {
 	it('accepts required profile fields with a controlled-list rank', () => {
@@ -38,7 +38,7 @@ describe('profile provider acknowledgment', () => {
 			upsert: () => query,
 			single: async () => result
 		};
-		return { from: () => query } as unknown as import('@supabase/supabase-js').SupabaseClient;
+		return { supabase: { from: () => query } as unknown as import('@supabase/supabase-js').SupabaseClient };
 	}
 	it.each([
 		undefined,
@@ -49,17 +49,17 @@ describe('profile provider acknowledgment', () => {
 		{ data: { ...row, user_id: 'other' }, error: null },
 		{ data: { ...row, first_name: 12 }, error: null }
 	])('rejects unavailable or unbound profile reads and writes: %j', async (result) => {
-		const { loadUserProfile, upsertUserProfile } = await import('./userProfile');
+		const { loadUserProfile, upsertUserProfile } = await import('./userProfile.server');
 		await expect(loadUserProfile(client(result), 'actor')).rejects.toThrow();
-		await expect(upsertUserProfile(client(result), profile)).rejects.toThrow();
+		await expect(upsertUserProfile(client(result), 'actor', profile)).rejects.toThrow();
 	});
 	it('distinguishes confirmed absence from a confirmed profile and write', async () => {
-		const { loadUserProfile, upsertUserProfile } = await import('./userProfile');
+		const { loadUserProfile, upsertUserProfile } = await import('./userProfile.server');
 		await expect(loadUserProfile(client({ data: null, error: null }), 'actor')).resolves.toBeNull();
 		await expect(loadUserProfile(client({ data: row, error: null }), 'actor')).resolves.toEqual(profile);
 		await expect(
 			loadUserProfile(client({ data: { ...row, first_name: null, last_name: null, rank: null }, error: null }), 'actor')
 		).resolves.toEqual({ userId: 'actor', firstName: '', lastName: '', rank: '' });
-		await expect(upsertUserProfile(client({ data: row, error: null }), profile)).resolves.toBeUndefined();
+		await expect(upsertUserProfile(client({ data: row, error: null }), 'actor', profile)).resolves.toBeUndefined();
 	});
 });

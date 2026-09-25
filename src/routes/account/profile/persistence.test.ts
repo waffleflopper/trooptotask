@@ -14,10 +14,10 @@ it('keeps profile-save failure retryable until the bound saved row is acknowledg
 		}
 	});
 	const event = {
-		locals: { user: { id: 'actor' }, supabase },
+		locals: { actor: { userId: 'actor' }, user: { id: 'actor' }, supabase },
 		request: new Request('http://app.invalid/account/profile', {
 			method: 'POST',
-			body: new URLSearchParams({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT' })
+			body: new URLSearchParams({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT', userId: 'forged-subject' })
 		})
 	};
 	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -26,7 +26,7 @@ it('keeps profile-save failure retryable until the bound saved row is acknowledg
 		acknowledge = true;
 		event.request = new Request('http://app.invalid/account/profile', {
 			method: 'POST',
-			body: new URLSearchParams({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT' })
+			body: new URLSearchParams({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT', userId: 'forged-subject' })
 		});
 		expect(await actions.default(event as never)).toMatchObject({ success: expect.any(String) });
 		expect(await load(event as never)).toMatchObject({

@@ -7,9 +7,9 @@ vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/server/auto-accept-org-invites')>()),
 	autoAcceptOrgInvites: effects.accept
 }));
-vi.mock('$lib/server/userProfile', async (original) => ({
-	...(await original<typeof import('$lib/server/userProfile')>()),
-	upsertCurrentUserProfile: effects.profile
+vi.mock('$features/identity/index.server', async (original) => ({
+	...(await original<typeof import('$features/identity/index.server')>()),
+	upsertUserProfile: effects.profile
 }));
 import { POST } from './+server';
 const now = new Date('2026-09-18T05:00:00Z');
@@ -153,7 +153,7 @@ describe('invite finalization request admission', () => {
 		const h = fixture();
 		h.readAssurance.mockResolvedValue(assurance(current, next));
 		expect((await POST(h.event())).status).toBe(200);
-		expect(effects.profile).toHaveBeenCalledExactlyOnceWith(h.locals, {
+		expect(effects.profile).toHaveBeenCalledExactlyOnceWith(h.locals, h.locals.user.id, {
 			firstName: 'Jane',
 			lastName: 'Smith',
 			rank: 'SGT'

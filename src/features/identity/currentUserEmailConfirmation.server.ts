@@ -1,27 +1,23 @@
-type EmailConfirmationStatus = 'confirmed' | 'unconfirmed' | 'unavailable';
-
-export interface CurrentUserEmailConfirmation {
-	status: EmailConfirmationStatus;
-	email: string | null;
-}
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { CurrentUserEmailConfirmation } from './contracts';
 
 export async function verifyCurrentUserEmailConfirmation(
-	locals: Pick<App.Locals, 'supabase'>,
-	expectedUser: Pick<NonNullable<App.Locals['user']>, 'id' | 'email'>
+	{ supabase }: { supabase: SupabaseClient },
+	expectedUser: { userId: string; email?: string | null }
 ): Promise<CurrentUserEmailConfirmation> {
 	try {
-		const { data, error } = await locals.supabase.auth.getUser();
+		const { data, error } = await supabase.auth.getUser();
 
 		if (error) {
-			console.error('[org/new] auth.getUser email confirmation verification failed:', error);
+			console.error('Email confirmation verification failed');
 			return unavailableConfirmation(expectedUser.email ?? null);
 		}
 
 		const providerUser = data?.user;
 		if (!providerUser) return unavailableConfirmation(expectedUser.email ?? null);
 
-		if (providerUser.id !== expectedUser.id) {
-			console.error('[org/new] auth.getUser returned an unexpected user during email confirmation verification');
+		if (providerUser.id !== expectedUser.userId) {
+			console.error('Email confirmation verification returned an unexpected user');
 			return unavailableConfirmation(expectedUser.email ?? null);
 		}
 
@@ -35,8 +31,8 @@ export async function verifyCurrentUserEmailConfirmation(
 					: 'unconfirmed',
 			email
 		};
-	} catch (error) {
-		console.error('[org/new] auth.getUser email confirmation verification threw:', error);
+	} catch {
+		console.error('Email confirmation verification unavailable');
 		return unavailableConfirmation(expectedUser.email ?? null);
 	}
 }

@@ -24,3 +24,6 @@ export {
 	cancelIdentityMfaEnrollment,
 	disableIdentityMfa
 } from './mfaManagement.server';
+
+export { loadUserProfile, parseUserProfileForm, upsertUserProfile } from './userProfile.server';
+export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmation.server';

@@ -4,7 +4,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/auto-accept-org-invites';
 import { getPendingAuthFlowCookieName } from '$features/identity/index.server';
-import { parseUserProfileForm, upsertCurrentUserProfile } from '$lib/server/userProfile';
+import { parseUserProfileForm, upsertUserProfile } from '$features/identity/index.server';
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
 	return parseUserProfileForm({
@@ -82,7 +82,7 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 	try {
 		const profile = parseMetadataProfile((user as { user_metadata?: Record<string, unknown> }).user_metadata);
 		if (!('error' in profile)) {
-			await upsertCurrentUserProfile(locals, profile);
+			await upsertUserProfile(locals, user.id, profile);
 		}
 
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();

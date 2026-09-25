@@ -18,6 +18,7 @@ const confirmed = {
 function event(providerUser: Record<string, unknown> | null = confirmed, fields = { name: '  Alpha   Company  ' }) {
 	return {
 		locals: {
+			actor: { userId: owner.id },
 			user: owner,
 			supabase: { auth: { getUser: vi.fn().mockResolvedValue({ data: { user: providerUser }, error: null }) } }
 		},
@@ -49,6 +50,23 @@ describe('org/new admission through real provisioning', () => {
 		createPort.mockReturnValue(port);
 	});
 	afterEach(() => vi.restoreAllMocks());
+
+	it.each([
+		['load', load],
+		['action', actions.default]
+	] as const)(
+		'denies %s without an admitted actor before provider lookup or Organization creation',
+		async (_, handler) => {
+			const request = event();
+			const locals = { ...request.locals, actor: null };
+			await expect(handler({ ...request, locals } as never)).rejects.toMatchObject({
+				status: 303,
+				location: '/auth/login'
+			});
+			expect(locals.supabase.auth.getUser).not.toHaveBeenCalled();
+			expect(createPort).not.toHaveBeenCalled();
+		}
+	);
 
 	it.each([
 		['load', load],

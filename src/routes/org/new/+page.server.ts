@@ -2,18 +2,19 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createSupabaseOrgProvisioningPort } from '$lib/server/adapters/supabaseOrgProvisioning';
 import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
-import {
-	verifyCurrentUserEmailConfirmation,
-	type CurrentUserEmailConfirmation
-} from '$lib/server/currentUserEmailConfirmation';
+import { verifyCurrentUserEmailConfirmation } from '$features/identity/index.server';
+import type { CurrentUserEmailConfirmation } from '$features/identity/contracts';
 
 const EMAIL_CONFIRMATION_REQUIRED_MESSAGE = 'Confirm your email before creating an Organization.';
 const EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE = 'Unable to verify email confirmation right now. Try again in a moment.';
 
 export const load: PageServerLoad = async ({ locals }) => {
-	if (!locals.user) throw redirect(303, '/auth/login');
+	if (!locals.actor || !locals.user) throw redirect(303, '/auth/login');
 
-	const emailConfirmation = await verifyCurrentUserEmailConfirmation(locals, locals.user);
+	const emailConfirmation = await verifyCurrentUserEmailConfirmation(locals, {
+		userId: locals.actor.userId,
+		email: locals.user.email
+	});
 	if (emailConfirmation.status !== 'confirmed') {
 		return emailConfirmationLoadData(emailConfirmation);
 	}
@@ -28,8 +29,11 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
 	default: async ({ request, locals }) => {
 		const user = locals.user;
-		if (!user) throw redirect(303, '/auth/login');
-		const emailConfirmation = await verifyCurrentUserEmailConfirmation(locals, user);
+		if (!locals.actor || !user) throw redirect(303, '/auth/login');
+		const emailConfirmation = await verifyCurrentUserEmailConfirmation(locals, {
+			userId: locals.actor.userId,
+			email: user.email
+		});
 		if (emailConfirmation.status === 'unconfirmed') {
 			return fail(403, { error: EMAIL_CONFIRMATION_REQUIRED_MESSAGE });
 		}
@@ -43,7 +47,7 @@ export const actions: Actions = {
 		try {
 			result = await provisionOrganization(createSupabaseOrgProvisioningPort(locals), {
 				name: (formData.get('name') as string) ?? '',
-				userId: user.id,
+				userId: locals.actor.userId,
 				email: emailConfirmation.email
 			});
 		} catch (error) {

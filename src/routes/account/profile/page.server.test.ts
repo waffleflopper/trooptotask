@@ -1,19 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { upsertCurrentUserProfileMock } = vi.hoisted(() => ({
-	upsertCurrentUserProfileMock: vi.fn()
+const { upsertUserProfileMock } = vi.hoisted(() => ({
+	upsertUserProfileMock: vi.fn()
 }));
 
-vi.mock('$lib/server/userProfile', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/userProfile')>('$lib/server/userProfile');
+vi.mock('$features/identity/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/identity/index.server')>(
+		'$features/identity/index.server'
+	);
 
 	return {
 		...actual,
-		upsertCurrentUserProfile: upsertCurrentUserProfileMock
+		upsertUserProfile: upsertUserProfileMock
 	};
 });
 
-import { actions } from './+page.server';
+import { actions, load } from './+page.server';
+import { load as loadAccountLayout } from '../+layout.server';
 
 function makeProfileRequest(form: Record<string, string>): Request {
 	return new Request('http://localhost/account/profile', {
@@ -25,14 +28,30 @@ function makeProfileRequest(form: Record<string, string>): Request {
 describe('account profile page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		upsertCurrentUserProfileMock.mockResolvedValue(undefined);
+		upsertUserProfileMock.mockResolvedValue(undefined);
+	});
+
+	it.each([
+		['profile load', load],
+		['profile save', actions.default],
+		['account layout', loadAccountLayout]
+	] as const)('denies %s when provider identity has no admitted actor', async (_, handler) => {
+		const from = vi.fn();
+		const request = makeProfileRequest({ firstName: 'Jane', lastName: 'Smith', rank: 'SGT' });
+		await expect(
+			handler({
+				locals: { actor: null, user: { id: 'user-1' }, supabase: { from } },
+				request,
+				url: new URL(request.url)
+			} as never)
+		).rejects.toMatchObject({ status: 303, location: '/auth/login' });
+		expect(from).not.toHaveBeenCalled();
+		expect(upsertUserProfileMock).not.toHaveBeenCalled();
 	});
 
 	it('returns a generic 500 when profile persistence exposes provider details', async () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		upsertCurrentUserProfileMock.mockRejectedValueOnce(
-			new Error('relation "user_profiles" does not exist provider_secret')
-		);
+		upsertUserProfileMock.mockRejectedValueOnce(new Error('relation "user_profiles" does not exist provider_secret'));
 
 		const result = await actions.default({
 			request: makeProfileRequest({
@@ -40,7 +59,7 @@ describe('account profile page server', () => {
 				lastName: 'Hayes',
 				rank: 'CPT'
 			}),
-			locals: { user: { id: 'user-1' } }
+			locals: { actor: { userId: 'user-1' }, user: { id: 'user-1' } }
 		} as never);
 
 		expect(result).toMatchObject({
@@ -64,13 +83,13 @@ describe('account profile page server', () => {
 				lastName: 'Hayes',
 				rank: 'CPT'
 			}),
-			locals: { user: { id: 'user-1' } }
+			locals: { actor: { userId: 'user-1' }, user: { id: 'user-1' } }
 		} as never);
 
 		expect(result).toMatchObject({
 			status: 400,
 			data: { error: 'First name is required' }
 		});
-		expect(upsertCurrentUserProfileMock).not.toHaveBeenCalled();
+		expect(upsertUserProfileMock).not.toHaveBeenCalled();
 	});
 });

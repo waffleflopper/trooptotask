@@ -13,3 +13,15 @@ export interface MfaStatus {
 }
 
 export type MfaActionResponse = { ok: true; error?: never } | { ok?: never; error: string };
+
+export interface UserProfile {
+	userId: string;
+	firstName: string;
+	lastName: string;
+	rank: string;
+}
+
+export interface CurrentUserEmailConfirmation {
+	status: 'confirmed' | 'unconfirmed' | 'unavailable';
+	email: string | null;
+}

@@ -93,3 +93,5 @@ export interface SensitiveActionAuthorizeInput {
 export interface SensitiveActionAuthorizer {
 	authorize(input: SensitiveActionAuthorizeInput): Promise<SensitiveActionDecision>;
 }
+
+export type PasswordCompletionState = 'started' | 'failed' | 'pending' | 'complete' | 'expired' | 'unavailable' | null;

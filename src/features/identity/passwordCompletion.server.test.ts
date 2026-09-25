@@ -2,13 +2,12 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptSt
 import { expect, it, vi } from 'vitest';
 import { attemptStore } from '../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../tests/fixtures/passwordSession';
-import { passwordAttempt, passwordCompletionState } from './passwordCompletion';
-const identity = () =>
-	({
-		user: { id: 'actor' },
-		session: { access_token: passwordSessionToken('actor'), expires_at: Date.now() / 1000 + 60 },
-		authFlow: 'invite'
-	}) as App.Locals;
+import { passwordAttempt, passwordCompletionState } from './passwordCompletion.server';
+const identity = () => ({
+	user: { id: 'actor' },
+	session: { access_token: passwordSessionToken('actor'), expires_at: Date.now() / 1000 + 60 },
+	authFlow: 'invite' as const
+});
 it.each(['opaque', 'e30.e30.signature', passwordSessionToken('different')])(
 	'denies unusable admitted identity %#',
 	async (token) => {

@@ -1,11 +1,16 @@
 import { getAdminClient } from '$lib/server/supabase';
-import type { PasswordCompletionState } from '$lib/auth/passwordCompletion';
+import type { PasswordCompletionState, PendingAuthFlow } from './contracts';
 
-type Identity = Pick<App.Locals, 'user' | 'session' | 'authFlow'>;
+// The caller supplies hook-verified identity, including limited recovery/invite sessions.
+type PasswordCompletionIdentity = {
+	user: { id: string } | null;
+	session: { access_token: string; expires_at?: number } | null;
+	authFlow: PendingAuthFlow;
+};
 export type PasswordAttempt = {
 	id: string;
 	state: 'started' | 'pending' | 'complete' | 'failed';
-	flow: 'recovery' | 'invite' | null;
+	flow: PendingAuthFlow;
 	expiresAt: number;
 	acquired: boolean;
 };
@@ -13,21 +18,21 @@ type Result = PasswordAttempt | 'expired' | 'unavailable' | null;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function passwordAttempt(
-	locals: Identity,
+	identity: PasswordCompletionIdentity,
 	action: 'read' | 'begin' | 'reconcile' | 'complete' | 'restart' = 'read',
 	id?: string
 ): Promise<Result> {
-	if (!locals.user || !locals.session) return null;
+	if (!identity.user || !identity.session) return null;
 	try {
 		// Claims belong to the token already verified by hook admission.
-		const claims = JSON.parse(Buffer.from(locals.session.access_token.split('.')[1], 'base64url').toString());
-		if (claims.sub !== locals.user.id || !uuid.test(claims.session_id)) return 'unavailable';
+		const claims = JSON.parse(Buffer.from(identity.session.access_token.split('.')[1], 'base64url').toString());
+		if (claims.sub !== identity.user.id || !uuid.test(claims.session_id)) return 'unavailable';
 		const result = await getAdminClient().rpc('password_change_attempt', {
-			p_actor: locals.user.id,
+			p_actor: identity.user.id,
 			p_session: claims.session_id,
 			p_action: action,
-			p_flow: locals.authFlow ?? null,
-			p_expires_at: new Date(locals.session.expires_at! * 1000).toISOString(),
+			p_flow: identity.authFlow ?? null,
+			p_expires_at: new Date(identity.session.expires_at! * 1000).toISOString(),
 			p_id: id ?? null
 		});
 		if (result?.error !== null || !result.data || typeof result.data !== 'object') return 'unavailable';
@@ -43,7 +48,7 @@ export async function passwordAttempt(
 			typeof value.acquired !== 'boolean' ||
 			(value.acquired && (action !== 'begin' || value.state !== 'started')) ||
 			(id !== undefined && value.id !== id) ||
-			(value.flow !== (locals.authFlow ?? null) && !(value.state === 'complete' && !locals.authFlow))
+			(value.flow !== (identity.authFlow ?? null) && !(value.state === 'complete' && !identity.authFlow))
 		)
 			return 'unavailable';
 		return value;
@@ -51,7 +56,7 @@ export async function passwordAttempt(
 		return 'unavailable';
 	}
 }
-export async function passwordCompletionState(locals: Identity): Promise<PasswordCompletionState> {
-	const attempt = await passwordAttempt(locals);
+export async function passwordCompletionState(identity: PasswordCompletionIdentity): Promise<PasswordCompletionState> {
+	const attempt = await passwordAttempt(identity);
 	return typeof attempt === 'object' ? (attempt?.state ?? null) : attempt;
 }

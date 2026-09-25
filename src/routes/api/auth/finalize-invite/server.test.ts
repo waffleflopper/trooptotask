@@ -1,7 +1,7 @@
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
 import { attemptStore } from '../../../../tests/fixtures/passwordAttempt';
 import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession';
-import { passwordAttempt } from '$lib/server/passwordCompletion';
+import { passwordAttempt } from '$features/identity/index.server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({

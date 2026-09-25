@@ -4,7 +4,7 @@ import {
 	parseUserProfileForm,
 	upsertUserProfile
 } from '$features/identity/index.server';
-import { passwordCompletionState } from '$lib/server/passwordCompletion';
+import { passwordCompletionState } from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/auto-accept-org-invites';

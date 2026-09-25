@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
-	import type { PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	import type { PasswordCompletionState } from './contracts';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import AuthNotice from './AuthNotice.svelte';
-	import { PasswordMfaChallenge } from '$features/identity';
+	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
+	import PasswordMfaChallenge from './PasswordMfaChallenge.svelte';
 	let {
 		state: completionState,
 		oncomplete,

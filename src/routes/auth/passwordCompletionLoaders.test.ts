@@ -1,11 +1,9 @@
-vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
 import { expect, it, vi } from 'vitest';
-import { passwordSessionToken } from '../../tests/fixtures/passwordSession';
-import { passwordAttempt } from './passwordCompletion';
-import { attemptStore } from '../../tests/fixtures/passwordAttempt';
-import { load as security } from '../../routes/account/security/+page.server';
-import { load as recovery } from '../../routes/auth/reset-password/+page.server';
-import { load as invite } from '../../routes/auth/accept-invite/+page.server';
+const rpc = vi.hoisted(() => vi.fn());
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc }) }));
+import { load as security } from '../account/security/+page.server';
+import { load as recovery } from './reset-password/+page.server';
+import { load as invite } from './accept-invite/+page.server';
 it.each([
 	{ flow: null, load: security },
 	{ flow: 'recovery', load: recovery },
@@ -23,7 +21,8 @@ it.each([
 		};
 		const session = {
 			user: { id: 'actor' },
-			access_token: passwordSessionToken('actor'),
+			// Synthetic claims at the already-verified hook boundary.
+			access_token: `synthetic.${Buffer.from(JSON.stringify({ sub: 'actor', session_id: '00000000-0000-4000-8000-000000000001' })).toString('base64url')}.signature`,
 			expires_at: Date.now() / 1000 + 60
 		};
 		const provider = {
@@ -39,16 +38,24 @@ it.each([
 			authFlow: flow,
 			supabase: { auth: provider }
 		} as unknown as App.Locals;
+		const attemptId = '00000000-0000-4000-8000-000000000099';
 		for (const state of ['started', 'pending', 'complete', 'failed'] as const) {
-			await passwordAttempt(locals, 'begin');
-			attemptStore.row!.state = state;
+			// Arrange independently stored facts; reload must read them without starting a mutation.
+			rpc.mockReset().mockResolvedValue({
+				data: { id: attemptId, state, flow, expiresAt: session.expires_at, acquired: false },
+				error: null
+			});
 			cookies.set.mockClear();
 			const data = await load({ locals, cookies } as unknown as Parameters<typeof security>[0] &
 				Parameters<typeof recovery>[0] &
 				Parameters<typeof invite>[0]);
 			expect(data).toMatchObject({ passwordCompletion: state });
 			expect(JSON.stringify(data)).not.toContain(session.access_token);
-			expect(JSON.stringify(data)).not.toContain(attemptStore.row!.id);
+			expect(JSON.stringify(data)).not.toContain(attemptId);
+			expect(rpc).toHaveBeenCalledExactlyOnceWith(
+				'password_change_attempt',
+				expect.objectContaining({ p_action: 'read' })
+			);
 			expect(cookies.set).not.toHaveBeenCalled();
 			expect(cookies.delete).not.toHaveBeenCalled();
 			expect(provider.updateUser).not.toHaveBeenCalled();

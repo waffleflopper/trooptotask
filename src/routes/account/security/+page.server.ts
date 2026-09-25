@@ -1,5 +1,5 @@
 import { readIdentitySecurity, updateIdentityEmail } from '$features/identity/index.server';
-import { passwordCompletionState } from '$lib/server/passwordCompletion';
+import { passwordCompletionState } from '$features/identity/index.server';
 import type { PageServerLoad, Actions } from './$types';
 import { fail, redirect } from '@sveltejs/kit';
 

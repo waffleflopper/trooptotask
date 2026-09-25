@@ -1,5 +1,3 @@
-export type PasswordCompletionState = 'started' | 'failed' | 'pending' | 'complete' | 'expired' | 'unavailable' | null;
-
 export function hasPendingPasswordCompletion(response: Response, payload: unknown): boolean {
 	return (
 		response.status === 202 &&

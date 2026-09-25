@@ -1,10 +1,9 @@
 <script lang="ts">
-	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
-	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	import { hasPendingPasswordCompletion, PasswordCompletion, PasswordMfaChallenge } from '$features/identity';
+	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
 	import { onMount, tick, untrack } from 'svelte';
 	import type { MfaActionResponse } from '$features/identity/contracts';
-	import { PasswordMfaChallenge } from '$features/identity';
 	let passwordMfaRequired = $state(false);
 	import { goto, invalidateAll } from '$app/navigation';
 	import { enhance } from '$app/forms';

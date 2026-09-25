@@ -1,6 +1,6 @@
 <script lang="ts">
-	import PasswordCompletion from '$lib/components/auth/PasswordCompletion.svelte';
-	import { hasPendingPasswordCompletion, type PasswordCompletionState } from '$lib/auth/passwordCompletion';
+	import { hasPendingPasswordCompletion, PasswordCompletion, PasswordMfaChallenge } from '$features/identity';
+	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -12,7 +12,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, tick } from 'svelte';
-	import { PasswordMfaChallenge } from '$features/identity';
 	import type { MfaStatus } from '$features/identity/contracts';
 	import { establishSession, readSessionTokens, type SessionTokens } from '$features/identity';
 

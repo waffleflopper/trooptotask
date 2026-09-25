@@ -5,7 +5,7 @@ import {
 } from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { passwordAttempt, type PasswordAttempt } from '$lib/server/passwordCompletion';
+import { passwordAttempt, type PasswordAttempt } from '$features/identity/index.server';
 import { auditLog } from '$lib/server/auditLog';
 import {
 	checkPasswordUpdateRateLimit,

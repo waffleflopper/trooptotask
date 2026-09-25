@@ -1,5 +1,7 @@
 import { getAdminClient } from '$lib/server/supabase';
 import type { PasswordCompletionState, PendingAuthFlow } from './contracts';
+import type { Cookies } from '@sveltejs/kit';
+import { readAuthSessionMarker } from './mfaGate.server';
 
 // The caller supplies hook-verified identity, including limited recovery/invite sessions.
 type PasswordCompletionIdentity = {
@@ -59,4 +61,24 @@ export async function passwordAttempt(
 export async function passwordCompletionState(identity: PasswordCompletionIdentity): Promise<PasswordCompletionState> {
 	const attempt = await passwordAttempt(identity);
 	return typeof attempt === 'object' ? (attempt?.state ?? null) : attempt;
+}
+
+/** The reset page is available only to a verified recovery flow or its completed OTP session. */
+export async function recoveryPasswordPageState(
+	identity: PasswordCompletionIdentity & {
+		session: (NonNullable<PasswordCompletionIdentity['session']> & { user: { id: string } }) | null;
+	},
+	cookies: Pick<Cookies, 'get'>
+): Promise<{ hasSession: boolean; passwordCompletion: PasswordCompletionState }> {
+	const inactive = { hasSession: false, passwordCompletion: null };
+	if (!identity.user || !identity.session || identity.session.user.id !== identity.user.id) return inactive;
+	if (identity.authFlow === 'recovery')
+		return { hasSession: true, passwordCompletion: await passwordCompletionState(identity) };
+	if (identity.authFlow !== null || readAuthSessionMarker(cookies, identity.session, identity.user) !== 'complete')
+		return inactive;
+
+	const attempt = await passwordAttempt(identity);
+	return attempt && typeof attempt === 'object' && attempt.flow === 'recovery' && attempt.state === 'complete'
+		? { hasSession: true, passwordCompletion: 'complete' }
+		: inactive;
 }

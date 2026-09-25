@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  scope:
+    name: Select checks
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      application: ${{ steps.changes.outputs.application }}
+      database: ${{ steps.changes.outputs.database }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - id: changes
+        run: node scripts/ci/changes.mjs
+
+  validation:
+    name: Repository and application
+    needs: scope
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      PUBLIC_SUPABASE_URL: http://127.0.0.1:59999
+      PUBLIC_SUPABASE_ANON_KEY: ci-synthetic-anon
+      SUPABASE_SERVICE_ROLE_KEY: ci-synthetic-service
+      ACCOUNT_SETUP_LINK_SECRET: ci-synthetic-setup
+      ACCOUNT_SETUP_SESSION_SECRET: ci-synthetic-session
+      APP_PUBLIC_ORIGIN: ''
+      PUBLIC_APP_ORIGIN: ''
+      PUBLIC_SITE_URL: ''
+      APP_PUBLIC_ORIGIN_ALLOWLIST: ''
+      VITEST_MAX_WORKERS: '2'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install -g npm@11.12.1
+      - id: install
+        run: npm ci
+      - name: Documentation and whitespace
+        run: node scripts/ci/changes.mjs --documents
+      - name: CI database runner safety
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
+        run: python3 -m unittest discover -s scripts/ci -p 'test_*.py'
+      - name: Format
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
+        run: npm run format:check
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
+        run: npm run lint
+      - name: Governance
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
+        run: npm run governance:check
+      - name: Svelte and TypeScript
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
+        run: npm run check
+      - name: Vitest
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
+        run: npm run test
+      - name: Production build and server-only boundary
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && needs.scope.outputs.application == 'true' }}
+        run: npm run build
+        env:
+          APP_PUBLIC_ORIGIN: http://127.0.0.1:4173
+
+  database:
+    name: Database contracts
+    needs: scope
+    if: ${{ needs.scope.outputs.database == 'true' }}
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: .nvmrc
+      - run: npm install -g npm@11.12.1
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+          github-token: ${{ github.token }}
+      - name: Replay migrations and test isolated SQL contracts
+        run: python3 scripts/ci/database.py

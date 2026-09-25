@@ -22,8 +22,12 @@ This owns verification for repository work. Stabilization also follows the [prog
 Choose the checks from what changed:
 
 - **Documentation only:** For prose, glossary, agent instructions and reference examples that do not change executable behavior, use the documentation checks below. Application tests, type checks and a production build are not required. If a doc is executable input to tooling, verify that consumer too.
-- **Application changes:** Source, runtime configuration, dependencies, schema, executable scripts and tests require the complete sequence below for the final candidate. Run focused checks while editing, then record each required result even if an earlier check fails. Apply database and computer-use checks when their boundaries change.
+- **Application changes:** Source, runtime configuration, dependencies, schema, executable scripts and tests require the complete sequence below for the final candidate. Run focused checks while editing; Depot CI runs the complete read-only sequence for the candidate. Format locally before submission and record each required result even if an earlier check fails. Apply database and computer-use checks when their boundaries change.
 - **Stabilization acceptance:** Documentation-only maintenance does not replace a task's required behavioral evidence or phase acceptance checks.
+
+Full validation is a candidate acceptance requirement, not permission to push. Use focused local feedback during development and the [Depot CI workflow](../ci.md) for complete candidate validation. An authorized push or review handoff may have CI pending; report that status honestly and verify the final candidate before accepting or merging it. A passing Depot run for the exact commit (or an identified working-tree patch) supplies the same evidence as a local run. Do not repeat the full sequence locally merely to push or because hosted results came from Depot rather than GitHub Actions.
+
+Robert intentionally keeps this private, single-contributor repository on its current GitHub plan with `main` unprotected. He reviews CI results before merging. Missing paid branch protection/rulesets is not a failing check, defect or unmet acceptance requirement. Actual failed, cancelled or unavailable validation remains explicit.
 
 Once checks pass, repeat or broaden them only for subsequent changes, failures or unresolved concerns. Recording results alone needs documentation validation, not another unchanged runtime run.
 

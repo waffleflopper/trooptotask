@@ -1,23 +1,23 @@
-import { createAccountSetupCompletionService, type AccountSetupCompletionStore } from './accountSetupCompletion';
+import { createAccountSetupCompletionService, type AccountSetupCompletionStore } from './accountSetupCompletion.server';
 import {
 	createAccountSetupLinkService,
 	type AccountSetupLinkRecord,
 	type ValidateAccountSetupLinkResult
-} from '$features/identity/index.server';
-import { createAccountSetupSession, type AccountSetupSession } from './accountSetupSessions';
+} from './accountSetupLinks.server';
+import { createAccountSetupSession, type AccountSetupSession } from './accountSetupSessions.server';
 import {
 	createSupabaseAccountSetupAuthAdapter,
 	createSupabaseAccountSetupCompletionStore
-} from './accountSetupCompletionSupabase';
+} from './accountSetupCompletionSupabase.server';
 import {
 	ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE,
 	checkAccountSetupCompletionRateLimit
-} from './accountSetupRateLimit';
-import { auditLog } from './auditLog';
-import { durableRateLimitAuditDetails } from './durableRateLimit';
-import { getAuthenticatedRedirectPath } from '$features/identity/index.server';
-import { getAdminClient, getSupabaseClient } from './supabase';
-import { mapProviderPasswordError, validatePassword } from './validation';
+} from './accountSetupRateLimit.server';
+import { durableRateLimitAuditDetails } from '$lib/access/index.server';
+import type { auditLog } from '$lib/audit/index.server';
+import { getAuthenticatedRedirectPath } from './mfaGate.server';
+import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
+import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
 
 type AccountSetupLinkService = Pick<ReturnType<typeof createAccountSetupLinkService>, 'validateToken'>;
 type AccountSetupCompletionService = Pick<
@@ -63,7 +63,7 @@ interface AccountSetupRouteFlowDependencies {
 	setupLinks: () => AccountSetupLinkService;
 	completion: () => AccountSetupCompletionService;
 	checkCompletionRateLimit?: AccountSetupRateLimitCheck;
-	audit?: AccountSetupAudit;
+	audit: AccountSetupAudit;
 	now?: () => Date;
 }
 
@@ -197,7 +197,7 @@ function auditAccountSetupFailed(
 
 export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowDependencies) {
 	const checkCompletionRateLimit = dependencies.checkCompletionRateLimit ?? checkAccountSetupCompletionRateLimit;
-	const audit = dependencies.audit ?? auditLog;
+	const audit = dependencies.audit;
 	const now = dependencies.now ?? (() => new Date());
 
 	return {
@@ -442,7 +442,7 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 	};
 }
 
-export function createSupabaseAccountSetupRouteFlow(locals: App.Locals) {
+export function createSupabaseAccountSetupRouteFlow(locals: App.Locals, audit: AccountSetupAudit) {
 	let providers: {
 		store: AccountSetupCompletionStore;
 		setupLinks: AccountSetupLinkService;
@@ -468,6 +468,7 @@ export function createSupabaseAccountSetupRouteFlow(locals: App.Locals) {
 	return createAccountSetupRouteFlow({
 		store: () => getProviders().store,
 		setupLinks: () => getProviders().setupLinks,
-		completion: () => getProviders().completion
+		completion: () => getProviders().completion,
+		audit
 	});
 }

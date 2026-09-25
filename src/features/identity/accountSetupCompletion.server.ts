@@ -1,5 +1,5 @@
-import { createAccountSetupLinkService, type AccountSetupLinkStore } from '$features/identity/index.server';
-import { mapProviderPasswordError } from './validation';
+import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks.server';
+import { mapProviderPasswordError } from '$lib/server/validation';
 
 export type AccountSetupCompletionInvalidStatus =
 	| 'missing'
@@ -190,18 +190,6 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 	}
 
 	return {
-		async complete(input: { rawToken: string; password: string }): Promise<AccountSetupCompletionResult> {
-			const claim = await setupLinks.claimToken(input.rawToken);
-			if (claim.status === 'completed') {
-				return { status: 'used' };
-			}
-			if (claim.status !== 'claim-started') {
-				return { status: claim.status };
-			}
-
-			return finishClaim({ claim, password: input.password });
-		},
-
 		async completeSetupSession(input: {
 			setupLinkId: string;
 			accessRequestId: string;

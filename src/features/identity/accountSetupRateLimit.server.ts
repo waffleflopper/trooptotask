@@ -5,7 +5,7 @@ import {
 	normalizeRateLimitEmail,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from './durableRateLimit';
+} from '$lib/access/index.server';
 
 export const ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE =
 	'Too many fresh-link requests. Please wait before trying again, or contact support if you still need access.';

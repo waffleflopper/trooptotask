@@ -64,14 +64,6 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 		async getSetupLink(id) {
 			return links.find((link) => link.id === id) ?? null;
 		},
-		async claimPendingLink(id, claimedAt) {
-			const link = links.find((candidate) => candidate.id === id);
-			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
-				return null;
-			}
-			link.claimedAt = claimedAt;
-			return link;
-		},
 		async claimSetupLinkForSession(input) {
 			const request = requests.get(input.accessRequestId);
 			const link = links.find((candidate) => candidate.id === input.setupLinkId);
@@ -203,7 +195,11 @@ describe('Account Setup Links', () => {
 
 		const first = await service.createForAccessRequest('request-1');
 		if (first.status !== 'created') throw new Error('expected setup link');
-		await service.claimToken('first-token');
+		await store.claimSetupLinkForSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			claimedAt: new Date('2026-05-18T12:00:00.000Z')
+		});
 
 		const replacementService = createAccountSetupLinkService(store, {
 			now: () => new Date('2026-05-19T12:00:00.000Z'),
@@ -273,7 +269,13 @@ describe('Account Setup Links', () => {
 		});
 
 		expect(await service.validateToken('setup-token')).toEqual({ status: 'access-request-not-approved' });
-		expect(await service.claimToken('setup-token')).toEqual({ status: 'access-request-not-approved' });
+		expect(
+			await store.claimSetupLinkForSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				claimedAt: new Date('2026-05-18T12:00:00.000Z')
+			})
+		).toEqual({ status: 'access-request-not-approved' });
 		expect(store.links[0].claimedAt).toBeNull();
 	});
 
@@ -285,8 +287,16 @@ describe('Account Setup Links', () => {
 		});
 		await service.createForAccessRequest('request-1');
 
-		const claimed = await service.claimToken('setup-token');
-		const secondAttempt = await service.claimToken('setup-token');
+		const claimed = await store.claimSetupLinkForSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			claimedAt: new Date('2026-05-18T12:00:00.000Z')
+		});
+		const secondAttempt = await store.claimSetupLinkForSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			claimedAt: new Date('2026-05-18T12:00:00.000Z')
+		});
 		const completed =
 			claimed.status === 'claim-started' ? await service.markClaimCompleted(claimed.link.id) : { status: 'unexpected' };
 
@@ -296,27 +306,8 @@ describe('Account Setup Links', () => {
 		expect(store.links[0].claimedAt).toEqual(new Date('2026-05-18T12:00:00.000Z'));
 		expect(store.links[0].usedAt).toEqual(new Date('2026-05-18T12:00:00.000Z'));
 
-		const cleanupEligible = await service.listCleanupEligibleLinks({
-			olderThan: new Date('2026-05-19T12:00:00.000Z')
-		});
+		const cleanupEligible = await store.listCleanupEligible(new Date('2026-05-19T12:00:00.000Z'));
 		expect(cleanupEligible.map((link) => link.id)).toEqual(['link-1']);
-	});
-
-	it('supports explicit revocation for an approved Access Request without exposing token details', async () => {
-		const store = makeStore([approvedRequest]);
-		const service = createAccountSetupLinkService(store, {
-			now: () => new Date('2026-05-18T12:00:00.000Z'),
-			generateToken: () => 'setup-token'
-		});
-		await service.createForAccessRequest('request-1');
-
-		await service.revokeUnusedForAccessRequest('request-1');
-
-		expect(store.links[0]).toMatchObject({
-			accessRequestId: 'request-1',
-			revokedAt: new Date('2026-05-18T12:00:00.000Z')
-		});
-		expect(await service.validateToken('setup-token')).toEqual({ status: 'replaced' });
 	});
 
 	it('revokes expired unused links during cleanup without deleting Access Requests or User Accounts', async () => {

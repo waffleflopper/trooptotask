@@ -56,7 +56,7 @@
 			"packet": "08-M03"
 		},
 		"audit": {
-			"roots": [],
+			"roots": ["src/lib/audit/"],
 			"files": [
 				"src/lib/server/adapters/supabaseAudit.test.ts",
 				"src/lib/server/adapters/supabaseAudit.ts",
@@ -220,16 +220,6 @@
 				"src/lib/server/accessRequestInvitationBlocking.ts",
 				"src/lib/server/accessRequestInvitationOrigin.test.ts",
 				"src/lib/server/accessRequestInvitationOrigin.ts",
-				"src/lib/server/accountSetupCompletion.test.ts",
-				"src/lib/server/accountSetupCompletion.ts",
-				"src/lib/server/accountSetupCompletionSupabase.test.ts",
-				"src/lib/server/accountSetupCompletionSupabase.ts",
-				"src/lib/server/accountSetupRateLimit.test.ts",
-				"src/lib/server/accountSetupRateLimit.ts",
-				"src/lib/server/accountSetupRouteFlow.test.ts",
-				"src/lib/server/accountSetupRouteFlow.ts",
-				"src/lib/server/accountSetupSessions.test.ts",
-				"src/lib/server/accountSetupSessions.ts",
 				"src/lib/server/authConfirm.ts",
 				"src/lib/server/authEmailDelivery.test.ts",
 				"src/lib/server/authEmailDelivery.ts",
@@ -789,7 +779,7 @@
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts"
 		],
-		"audit": ["src/lib/server/logSanitize.ts"],
+		"audit": ["src/lib/audit/index.server.ts", "src/lib/server/logSanitize.ts"],
 		"identity": [
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",

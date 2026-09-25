@@ -42,6 +42,16 @@ export { passwordAttempt, passwordCompletionState, type PasswordAttempt } from '
 export { updateIdentityPassword } from './updatePassword.server';
 export { sendPublicRecoveryEmail, sendPlatformAuthEmail } from '$lib/server/authEmailDelivery';
 export { createPublicAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery.server';
+export { createSupabaseAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
+export {
+	readAccountSetupSessionCookie,
+	setAccountSetupSessionCookie,
+	clearAccountSetupSessionCookie
+} from './accountSetupSessions.server';
+export {
+	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
+	checkAccountSetupRenewalRateLimit
+} from './accountSetupRateLimit.server';
 export {
 	createAccountSetupLinkIssuance,
 	redactProviderError,
@@ -54,17 +64,10 @@ export {
 export { createSupabaseAccountSetupLinkIssuancePorts } from './accountSetupLinkIssuanceSupabase.server';
 export {
 	cleanupAccountSetupLinks,
-	createAccountSetupLinkService,
-	createSupabaseAccountSetupLinkStore,
-	sendAccountSetupLinkEmail,
-	type AccountSetupLinkAccessRequest,
 	type AccountSetupLinkFailureReason,
 	type AccountSetupLinkRecord,
 	type AccountSetupLinkRevocationReason,
-	type AccountSetupLinkStore,
-	type CreateAccountSetupLinkInput,
-	type CreateAccountSetupLinkResult,
-	type ValidateAccountSetupLinkResult
+	type CreateAccountSetupLinkResult
 } from './accountSetupLinks.server';
 export {
 	classifyAccessRequestSetupState,
@@ -79,12 +82,8 @@ export {
 } from './accessRequestSetupState.server';
 export type { AccessRequestSetupState } from './contracts';
 export {
-	createSupabaseAuthEmailOutboxStore,
-	sendAccountSetupOutboxDelivery,
 	type AuthEmailOutboxRecord,
 	type AuthEmailOutboxStatus,
-	type AuthEmailOutboxStore,
-	type CreateSetupEmailOutboxInput,
 	type SendAccountSetupOutboxDeliveryResult
 } from './authEmailOutbox.server';
 export {

@@ -89,14 +89,6 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 		async getSetupLink(id) {
 			return setupLinks.find((link) => link.id === id) ?? null;
 		},
-		async claimPendingLink(id, claimedAt) {
-			const link = setupLinks.find((item) => item.id === id);
-			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
-				return null;
-			}
-			link.claimedAt = claimedAt;
-			return link;
-		},
 		async claimSetupLinkForSession(input) {
 			const link = setupLinks.find((item) => item.id === input.setupLinkId);
 			const request = requests.find((item) => item.id === input.accessRequestId);

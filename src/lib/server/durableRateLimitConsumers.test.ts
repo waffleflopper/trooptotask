@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkAccountSetupCompletionRateLimit, checkAccountSetupRenewalRateLimit } from './accountSetupRateLimit';
 import { checkForgotPasswordRateLimit } from './forgotPasswordRateLimit';
 import { checkOrganizationInvitationRateLimit } from './organizationInvitationRateLimit';
 import { checkPlatformAccessRequestSetupRateLimit } from './platformAccessRequestRateLimit';
@@ -14,30 +13,6 @@ type Policy = {
 	budgets: [number, number][];
 };
 const policies: Policy[] = [
-	{
-		name: 'Account Setup renewal',
-		check: (store) => checkAccountSetupRenewalRateLimit({ ...identity, store }),
-		budgets: [
-			[3600, 3],
-			[3600, 3]
-		]
-	},
-	{
-		name: 'Account Setup completion',
-		check: (store) =>
-			checkAccountSetupCompletionRateLimit({
-				...identity,
-				setupLinkId: 'synthetic-link',
-				accessRequestId: 'synthetic-request',
-				store
-			}),
-		budgets: [
-			[900, 5],
-			[900, 5],
-			[900, 5],
-			[900, 5]
-		]
-	},
 	{
 		name: 'password recovery',
 		check: (store) => checkForgotPasswordRateLimit({ ...identity, store }),
@@ -117,7 +92,7 @@ describe('durable limiter policy consumers', () => {
 		}
 	);
 
-	it('shares normalized identities within a policy and partitions separate policies and actors', async () => {
+	it('shares normalized identities within a policy and partitions separate actors', async () => {
 		const keys: string[] = [];
 		const store = createSupabaseDurableRateLimitStore({
 			rpc: async (_name: string, input: { p_bucket_key: string }) => {
@@ -128,9 +103,7 @@ describe('durable limiter policy consumers', () => {
 		await checkForgotPasswordRateLimit({ email: ' Synthetic@Example.test ', now, store });
 		await checkForgotPasswordRateLimit({ email: 'synthetic@example.test', now, store });
 		await checkForgotPasswordRateLimit({ email: 'other@example.test', now, store });
-		await checkAccountSetupRenewalRateLimit({ email: 'synthetic@example.test', now, store });
 		expect(keys[0]).toBe(keys[1]);
 		expect(keys[2]).not.toBe(keys[0]);
-		expect(keys[3]).not.toBe(keys[0]);
 	});
 });

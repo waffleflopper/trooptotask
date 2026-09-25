@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	createSupabaseAccountSetupAuthAdapter,
 	createSupabaseAccountSetupCompletionStore
-} from './accountSetupCompletionSupabase';
-import { normalizeUserEmailIdentity } from './userEmailIdentities';
+} from './accountSetupCompletionSupabase.server';
+import { normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
 
 type Call = { method: string; args: unknown[] };
 
@@ -226,7 +226,11 @@ describe('Supabase Account Setup auth adapter', () => {
 				return {
 					update: vi.fn(() => ({
 						eq: vi.fn(() => ({
-							is: vi.fn().mockResolvedValue({ error: null })
+							is: vi.fn(() => ({
+								select: vi.fn(() => ({
+									maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'request-1' }, error: null })
+								}))
+							}))
 						}))
 					}))
 				};
@@ -248,6 +252,24 @@ describe('Supabase Account Setup auth adapter', () => {
 		expect(from).toHaveBeenCalledWith('user_profiles');
 		expect(from).toHaveBeenCalledWith('access_requests');
 		expect(from).not.toHaveBeenCalledWith('organization_members');
+	});
+
+	it('rejects a zero-row Access Request completion update', async () => {
+		const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+		const from = vi.fn(() => ({
+			update: () => ({
+				eq: () => ({
+					is: () => ({ select: () => ({ maybeSingle }) })
+				})
+			})
+		}));
+		const store = createSupabaseAccountSetupCompletionStore({ from } as never);
+
+		await expect(
+			store.markAccessRequestSetupCompleted('request-1', 'user-123', new Date('2026-05-22T12:00:00.000Z'))
+		).rejects.toThrow('Access Request setup completion was not recorded');
+		expect(from).toHaveBeenCalledWith('access_requests');
+		expect(maybeSingle).toHaveBeenCalledOnce();
 	});
 
 	it('claims setup sessions through the database-owned transition RPC', async () => {

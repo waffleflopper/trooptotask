@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabaseAccountSetupLinkStore } from '$features/identity/index.server';
-import type { AccountSetupAuthAdapter, AccountSetupCompletionStore } from '$lib/server/accountSetupCompletion';
+import { createSupabaseAccountSetupLinkStore } from './accountSetupLinks.server';
+import type { AccountSetupAuthAdapter, AccountSetupCompletionStore } from './accountSetupCompletion.server';
 import {
 	findUserEmailIdentityByEmail,
 	normalizeUserEmailIdentity,
@@ -28,17 +28,22 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 	return {
 		...setupLinkStore,
 		async markAccessRequestSetupCompleted(accessRequestId, userId, completedAt) {
-			const { error } = await client
+			const { data, error } = await client
 				.from('access_requests')
 				.update({
 					setup_completed_at: completedAt.toISOString(),
 					setup_user_id: userId
 				})
 				.eq('id', accessRequestId)
-				.is('setup_completed_at', null);
+				.is('setup_completed_at', null)
+				.select('id')
+				.maybeSingle();
 
 			if (error) {
 				throw error;
+			}
+			if (!data) {
+				throw new Error('Access Request setup completion was not recorded');
 			}
 		},
 		async upsertUserProfile(input) {

@@ -66,7 +66,6 @@ export interface AccountSetupLinkStore {
 	insertSetupLink(input: CreateAccountSetupLinkInput): Promise<AccountSetupLinkRecord>;
 	findByTokenHash(tokenHash: string): Promise<AccountSetupLinkRecord | null>;
 	getSetupLink(id: string): Promise<AccountSetupLinkRecord | null>;
-	claimPendingLink(id: string, claimedAt: Date): Promise<AccountSetupLinkRecord | null>;
 	claimSetupLinkForSession(input: {
 		setupLinkId: string;
 		accessRequestId: string;
@@ -456,27 +455,6 @@ export function createAccountSetupLinkService(
 			return validation;
 		},
 
-		async claimToken(rawToken: string): Promise<ClaimAccountSetupLinkResult> {
-			const validation = await this.validateToken(rawToken);
-			if (validation.status !== 'valid') {
-				return validation;
-			}
-
-			const claimedAt = now();
-			const claimedLink = await store.claimPendingLink(validation.link.id, claimedAt);
-			if (!claimedLink) {
-				const current = await store.findByTokenHash(hashSetupToken(rawToken));
-				const currentState = getValidationStatus(current, claimedAt);
-				return currentState.status === 'valid' ? { status: 'claimed' } : currentState;
-			}
-
-			return {
-				status: 'claim-started',
-				accessRequestId: validation.accessRequestId,
-				link: claimedLink
-			};
-		},
-
 		async markClaimCompleted(linkId: string): Promise<CompleteClaimedAccountSetupLinkResult> {
 			const completedAt = now();
 			const completedLink = await store.markCompleted(linkId, completedAt);
@@ -508,10 +486,6 @@ export function createAccountSetupLinkService(
 			};
 		},
 
-		async listCleanupEligibleLinks(input: { olderThan: Date }): Promise<AccountSetupLinkRecord[]> {
-			return store.listCleanupEligible(input.olderThan);
-		},
-
 		async cleanupStaleLinks(input: { olderThan?: Date } = {}): Promise<AccountSetupLinkCleanupResult> {
 			const cleanupAt = now();
 			const cutoff = input.olderThan ?? cleanupAt;
@@ -528,10 +502,6 @@ export function createAccountSetupLinkService(
 				deletedAccessRequestCount: 0,
 				deletedUserAccountCount: 0
 			};
-		},
-
-		async revokeUnusedForAccessRequest(accessRequestId: string): Promise<AccountSetupLinkRecord[]> {
-			return store.revokeUnusedLinksForAccessRequest(accessRequestId, now());
 		}
 	};
 }
@@ -601,23 +571,6 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 				.from('account_setup_links')
 				.select(SETUP_LINK_SELECT)
 				.eq('id', id)
-				.maybeSingle();
-
-			throwSupabaseError(error);
-			return data ? mapSetupLinkRow(data as AccountSetupLinkRow) : null;
-		},
-
-		async claimPendingLink(id, claimedAt) {
-			const { data, error } = await client
-				.from('account_setup_links')
-				.update({ claimed_at: claimedAt.toISOString() })
-				.eq('id', id)
-				.gt('expires_at', claimedAt.toISOString())
-				.is('claimed_at', null)
-				.is('failed_at', null)
-				.is('used_at', null)
-				.is('revoked_at', null)
-				.select(SETUP_LINK_SELECT)
 				.maybeSingle();
 
 			throwSupabaseError(error);

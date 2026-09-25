@@ -4,11 +4,12 @@ import {
 	clearAccountSetupSessionCookie,
 	readAccountSetupSessionCookie,
 	setAccountSetupSessionCookie
-} from '$lib/server/accountSetupSessions';
-import { createSupabaseAccountSetupRouteFlow } from '$lib/server/accountSetupRouteFlow';
+} from '$features/identity/index.server';
+import { createSupabaseAccountSetupRouteFlow } from '$features/identity/index.server';
+import { auditLog } from '$lib/audit/index.server';
 
 export const load: PageServerLoad = async ({ cookies, locals, url }) => {
-	const flow = createSupabaseAccountSetupRouteFlow(locals);
+	const flow = createSupabaseAccountSetupRouteFlow(locals, auditLog);
 	const result = await flow.resolveLoad({
 		session: locals.session,
 		authFlow: locals.authFlow,
@@ -43,7 +44,7 @@ export const load: PageServerLoad = async ({ cookies, locals, url }) => {
 export const actions: Actions = {
 	default: async ({ cookies, getClientAddress, request, locals }) => {
 		const formData = await request.formData();
-		const flow = createSupabaseAccountSetupRouteFlow(locals);
+		const flow = createSupabaseAccountSetupRouteFlow(locals, auditLog);
 		const result = await flow.completeSetup({
 			setupSession: readAccountSetupSessionCookie(cookies),
 			password: String(formData.get('password') ?? ''),

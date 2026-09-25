@@ -7,7 +7,7 @@ import {
 import {
 	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
 	checkAccountSetupRenewalRateLimit
-} from '$lib/server/accountSetupRateLimit';
+} from '$features/identity/index.server';
 import { auditLog } from '$lib/server/auditLog';
 import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { sanitizeString, validateEmail } from '$lib/server/validation';

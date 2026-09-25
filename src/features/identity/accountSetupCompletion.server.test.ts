@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AccountSetupLinkAccessRequest, AccountSetupLinkRecord } from '$features/identity/index.server';
+import type { AccountSetupLinkAccessRequest, AccountSetupLinkRecord } from './accountSetupLinks.server';
 import {
 	createAccountSetupCompletionService,
 	type AccountSetupAuthAdapter,
 	type AccountSetupCompletionStore
-} from './accountSetupCompletion';
-import { createAccountSetupLinkService } from '$features/identity/index.server';
-import { createSupabaseAccountSetupAuthAdapter } from './accountSetupCompletionSupabase';
-import { createAccountSetupRouteFlow } from './accountSetupRouteFlow';
-import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './validation';
+} from './accountSetupCompletion.server';
+import { createAccountSetupLinkService } from './accountSetupLinks.server';
+import { createSupabaseAccountSetupAuthAdapter } from './accountSetupCompletionSupabase.server';
+import { createAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
+import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from '$lib/server/validation';
 
 function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCompletionStore & {
 	links: AccountSetupLinkRecord[];
@@ -66,17 +66,7 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 		async getSetupLink(id) {
 			return links.find((link) => link.id === id) ?? null;
 		},
-		async claimPendingLink(id, claimedAt) {
-			this.onClaim?.();
-			const link = links.find((candidate) => candidate.id === id);
-			if (!link || link.claimedAt || link.failedAt || link.usedAt || link.revokedAt || link.expiresAt <= claimedAt) {
-				return null;
-			}
-			link.claimedAt = claimedAt;
-			return link;
-		},
 		async claimSetupLinkForSession(input) {
-			this.onClaim?.();
 			const link = links.find((candidate) => candidate.id === input.setupLinkId);
 			if (!link || link.accessRequestId !== input.accessRequestId) {
 				return { status: 'missing' };
@@ -90,6 +80,7 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			if (link.revokedAt) return { status: link.revocationReason === 'replaced' ? 'replaced' : 'revoked' };
 			if (link.expiresAt <= input.claimedAt) return { status: 'expired' };
 			link.claimedAt = input.claimedAt;
+			this.onClaim?.();
 			return { status: 'claim-started', accessRequestId: link.accessRequestId, link };
 		},
 		async markCompleted(id, completedAt) {
@@ -181,7 +172,11 @@ describe('Account Setup completion', () => {
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
 		expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledWith({
@@ -197,7 +192,7 @@ describe('Account Setup completion', () => {
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
 
-	it('allows only one in-flight setup session to mutate credentials and rejects replay after completion', async () => {
+	it('allows only one in-flight completion of the same setup link and rejects replay', async () => {
 		const store = makeStore({ ...approvedRequest });
 		await addSetupToken(store);
 		const started = Promise.withResolvers<void>();
@@ -263,14 +258,15 @@ describe('Account Setup completion', () => {
 		});
 	});
 
-	it('rejects the raw setup credential at the exact fourteen-day expiry without account effects', async () => {
+	it('rejects the setup session at the exact fourteen-day link expiry without account effects', async () => {
 		const store = makeStore({ ...approvedRequest });
 		await addSetupToken(store);
 		vi.setSystemTime(new Date('2026-06-01T12:00:00.000Z'));
 		const auth = makeAuth();
 		expect(
-			await createAccountSetupCompletionService(store, auth).complete({
-				rawToken: 'setup-token',
+			await createAccountSetupCompletionService(store, auth).completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
 				password: 'ValidPassword123!'
 			})
 		).toEqual({ status: 'expired' });
@@ -291,7 +287,11 @@ describe('Account Setup completion', () => {
 		await addSetupToken(store);
 		const service = createAccountSetupCompletionService(store, makeAuth());
 
-		await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(store.profiles).toEqual([{ userId: 'user-123', firstName: 'Legacy', lastName: 'Requester' }]);
 	});
@@ -303,7 +303,11 @@ describe('Account Setup completion', () => {
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
@@ -314,12 +318,18 @@ describe('Account Setup completion', () => {
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 	});
 
-	it('returns token-state outcomes without creating a User Account', async () => {
+	it('returns missing-link state without creating a User Account', async () => {
 		const store = makeStore(approvedRequest);
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		await expect(service.complete({ rawToken: 'missing-token', password: 'ValidPassword123!' })).resolves.toEqual({
+		await expect(
+			service.completeSetupSession({
+				setupLinkId: 'missing-link',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			})
+		).resolves.toEqual({
 			status: 'missing'
 		});
 		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
@@ -333,8 +343,14 @@ describe('Account Setup completion', () => {
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		await expect(service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' })).resolves.toEqual({
-			status: 'used'
+		await expect(
+			service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			})
+		).resolves.toEqual({
+			status: 'access-request-completed'
 		});
 		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 	});
@@ -347,7 +363,11 @@ describe('Account Setup completion', () => {
 		});
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({ status: 'account-create-failed', message: 'Supabase unavailable' });
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
@@ -432,7 +452,11 @@ describe('Account Setup completion', () => {
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({ status: 'access-request-not-approved' });
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
@@ -452,7 +476,11 @@ describe('Account Setup completion', () => {
 		});
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({ status: 'account-create-failed', message: 'Supabase unavailable' });
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
@@ -472,7 +500,11 @@ describe('Account Setup completion', () => {
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
@@ -494,7 +526,11 @@ describe('Account Setup completion', () => {
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
@@ -515,7 +551,11 @@ describe('Account Setup completion', () => {
 		const auth = makeAuth();
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
@@ -538,7 +578,11 @@ describe('Account Setup completion', () => {
 		});
 		const service = createAccountSetupCompletionService(store, auth);
 
-		const result = await service.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
+		const result = await service.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
 
 		expect(result).toEqual({
 			status: 'sign-in-failed',
@@ -557,8 +601,16 @@ describe('Account Setup completion', () => {
 		const firstService = createAccountSetupCompletionService(store, firstAuth);
 		const secondService = createAccountSetupCompletionService(store, secondAuth);
 
-		const first = await firstService.complete({ rawToken: 'setup-token', password: 'ValidPassword123!' });
-		const second = await secondService.complete({ rawToken: 'setup-token', password: 'DifferentPassword123!' });
+		const first = await firstService.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'ValidPassword123!'
+		});
+		const second = await secondService.completeSetupSession({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1',
+			password: 'DifferentPassword123!'
+		});
 
 		expect(first).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
 		expect(second).toEqual({ status: 'used' });
@@ -594,7 +646,6 @@ describe('Account Setup completion', () => {
 			const store = makeStore(approvedRequest);
 			await addSetupToken(store);
 			const claimSpy = vi.spyOn(store, 'claimSetupLinkForSession');
-			const legacyClaimSpy = vi.spyOn(store, 'claimPendingLink');
 			const auth = makeAuth();
 			const service = createAccountSetupCompletionService(store, auth);
 
@@ -610,7 +661,6 @@ describe('Account Setup completion', () => {
 				accessRequestId: 'request-1',
 				claimedAt: expect.any(Date)
 			});
-			expect(legacyClaimSpy).not.toHaveBeenCalled();
 		});
 
 		it('does not mutate auth when the scoped setup link is already claimed', async () => {

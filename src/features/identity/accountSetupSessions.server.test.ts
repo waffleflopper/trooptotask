@@ -5,7 +5,7 @@ import {
 	createAccountSetupSession,
 	readAccountSetupSessionCookie,
 	setAccountSetupSessionCookie
-} from './accountSetupSessions';
+} from './accountSetupSessions.server';
 
 function makeCookieJar() {
 	const values = new Map<string, string>();

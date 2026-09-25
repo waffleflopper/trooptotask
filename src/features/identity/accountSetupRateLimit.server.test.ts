@@ -4,7 +4,7 @@ import {
 	checkAccountSetupCompletionRateLimit,
 	checkAccountSetupRenewalRateLimit,
 	createSupabaseAccountSetupRateLimitStore
-} from './accountSetupRateLimit';
+} from './accountSetupRateLimit.server';
 
 function makeSharedStore(): AccountSetupRateLimitStore & { keys: string[] } {
 	const buckets = new Map<string, { count: number; resetAt: number }>();

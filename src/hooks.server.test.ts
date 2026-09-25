@@ -81,7 +81,7 @@ describe('server auth hook', () => {
 	async function createAuthenticatedHookHarness(
 		rpcResult: {
 			data: boolean | null;
-			error: { message: string } | null;
+			error?: { message: string } | null;
 		},
 		options: { authenticatedUserId?: string; lastSignInAt?: string; sessionStartedAt?: string } = {}
 	) {
@@ -635,6 +635,7 @@ describe('server auth hook', () => {
 
 		describe.each([
 			{ label: 'missing suspension status', result: { data: null, error: null }, throws: false },
+			{ label: 'missing suspension acknowledgment', result: { data: false }, throws: false },
 			{
 				label: 'suspension error with data',
 				result: { data: false, error: { message: 'unavailable' } },
@@ -647,12 +648,14 @@ describe('server auth hook', () => {
 				const harness = await createAuthenticatedHookHarness(result);
 				if (throws) harness.rpc.mockRejectedValue(new Error('provider unavailable'));
 				const resolve = dispatch(route);
-				const attempt = harness.handle({ event: harness.createEvent(route.path), resolve });
+				const event = harness.createEvent(route.path);
+				const attempt = harness.handle({ event, resolve });
 				await expect(attempt).rejects.toMatchObject({
 					status: 500,
 					body: { message: 'Unable to verify account status' }
 				});
 				expect(resolve).not.toHaveBeenCalled();
+				expect(event.locals.actor).toBeNull();
 				expectNoFactorChanges(harness);
 			});
 		});

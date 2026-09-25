@@ -74,7 +74,7 @@ export async function readIdentityAdmission({
 		const suspension = await Promise.resolve(supabase.rpc('is_user_suspended', { check_user_id: user.id })).catch(
 			() => null
 		);
-		if (suspension?.error || typeof suspension?.data !== 'boolean') {
+		if (suspension?.error !== null || typeof suspension?.data !== 'boolean') {
 			return { status: 'unavailable', code: 500, message: 'Unable to verify account status' };
 		}
 		if (suspension.data) return { status: 'redirect', code: 302, location: '/suspended' };

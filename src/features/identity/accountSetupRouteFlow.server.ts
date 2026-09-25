@@ -17,7 +17,7 @@ import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 import type { auditLog } from '$lib/audit/index.server';
 import { getAuthenticatedRedirectPath } from './mfaGate.server';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
-import { PASSWORD_PROVIDER_REJECTION_MESSAGE, validatePassword } from '$lib/server/validation';
+import { PASSWORD_PROVIDER_REJECTION_MESSAGE, validatePassword } from './passwordPolicy';
 
 type AccountSetupLinkService = Pick<ReturnType<typeof createAccountSetupLinkService>, 'validateToken'>;
 type AccountSetupCompletionService = Pick<

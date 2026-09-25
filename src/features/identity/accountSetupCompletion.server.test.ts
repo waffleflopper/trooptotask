@@ -9,7 +9,7 @@ import {
 import { createAccountSetupLinkService } from './accountSetupLinks.server';
 import { createSupabaseAccountSetupAuthAdapter } from './accountSetupCompletionSupabase.server';
 import { createAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
-import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from '$lib/server/validation';
+import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './passwordPolicy';
 
 function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCompletionStore & {
 	links: AccountSetupLinkRecord[];

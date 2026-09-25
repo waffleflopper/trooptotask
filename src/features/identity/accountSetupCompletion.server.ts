@@ -1,5 +1,5 @@
 import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks.server';
-import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from '$lib/server/validation';
+import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './passwordPolicy';
 
 // Only the Auth adapter may produce this after receiving a structured provider
 // rejection. General transport/client errors cannot prove that Auth did not write.

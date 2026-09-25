@@ -1,17 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-	sanitizeString,
-	validateEmail,
-	validateUUID,
-	validateEnum,
-	requireString,
-	validatePassword,
-	mapProviderPasswordError,
-	PASSWORD_PROVIDER_REJECTION_MESSAGE,
-	PASSWORD_MIN_LENGTH_MESSAGE,
-	PASSWORD_MAX_LENGTH_MESSAGE,
-	PASSWORD_REQUIREMENTS_MESSAGE
-} from './validation';
+import { sanitizeString, validateEmail, validateUUID, validateEnum, requireString } from './validation';
 
 describe('sanitizeString', () => {
 	it('trims whitespace', () => {
@@ -111,55 +99,5 @@ describe('requireString', () => {
 
 	it('respects maxLength', () => {
 		expect(requireString('abcdef', 3)).toBe('abc');
-	});
-});
-
-describe('validatePassword', () => {
-	it('accepts valid password with 12+ chars, mixed case, and digit', () => {
-		expect(validatePassword('SecurePass12')).toBeNull();
-		expect(validatePassword('MyPassword123!')).toBeNull();
-	});
-
-	it('rejects password shorter than 12 characters', () => {
-		expect(validatePassword('Short1Aa')).toBe(PASSWORD_MIN_LENGTH_MESSAGE);
-	});
-
-	it('rejects password without lowercase letter', () => {
-		expect(validatePassword('ALLUPPERCASE1')).toBe(PASSWORD_REQUIREMENTS_MESSAGE);
-	});
-
-	it('rejects password without uppercase letter', () => {
-		expect(validatePassword('alllowercase1')).toBe(PASSWORD_REQUIREMENTS_MESSAGE);
-	});
-
-	it('rejects password without digit', () => {
-		expect(validatePassword('NoDigitsHereAbc')).toBe(PASSWORD_REQUIREMENTS_MESSAGE);
-	});
-
-	it('rejects password longer than 128 characters', () => {
-		const longPassword = 'Aa1' + 'x'.repeat(126);
-		expect(validatePassword(longPassword)).toBe(PASSWORD_MAX_LENGTH_MESSAGE);
-	});
-
-	it('rejects empty password', () => {
-		expect(validatePassword('')).toBe(PASSWORD_MIN_LENGTH_MESSAGE);
-	});
-
-	it('maps provider-side password policy errors to stable user-facing copy', () => {
-		expect(mapProviderPasswordError({ name: 'AuthWeakPasswordError', message: 'Rejected' })).toBe(
-			PASSWORD_PROVIDER_REJECTION_MESSAGE
-		);
-		expect(mapProviderPasswordError({ code: 'weak_password', message: 'Rejected' })).toBe(
-			PASSWORD_PROVIDER_REJECTION_MESSAGE
-		);
-		expect(mapProviderPasswordError({ message: 'Password should be at least 12 characters' })).toBe(
-			PASSWORD_PROVIDER_REJECTION_MESSAGE
-		);
-		expect(mapProviderPasswordError('Weak password: password does not meet requirement')).toBe(
-			PASSWORD_PROVIDER_REJECTION_MESSAGE
-		);
-		expect(mapProviderPasswordError(null)).toBeNull();
-		expect(mapProviderPasswordError(undefined)).toBeNull();
-		expect(mapProviderPasswordError({ message: 'Database is temporarily unavailable' })).toBeNull();
 	});
 });

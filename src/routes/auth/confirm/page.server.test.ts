@@ -1,6 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import { actions, load } from './+page.server';
 
+const verifiedUser = { id: 'verified-user' };
+const verifiedSession = {
+	user: verifiedUser,
+	access_token: `header.${Buffer.from(
+		JSON.stringify({
+			sub: verifiedUser.id,
+			session_id: '00000000-0000-4000-8000-000000000001',
+			amr: [{ method: 'otp' }]
+		})
+	).toString('base64url')}.signature`
+};
+const verifiedFlowResult = () => ({ data: { user: verifiedUser, session: verifiedSession }, error: null });
+
 describe('GET /auth/confirm', () => {
 	it('renders a confirmation state for a valid invite link without verifying the token', async () => {
 		const verifyOtp = vi.fn();
@@ -158,7 +171,7 @@ describe('GET /auth/confirm', () => {
 
 describe('POST /auth/confirm', () => {
 	it('verifies a valid invite token and redirects to the invite flow', async () => {
-		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
 		const cookies = { set: vi.fn() };
 
 		await expect(
@@ -192,19 +205,21 @@ describe('POST /auth/confirm', () => {
 		});
 		expect(cookies.set).toHaveBeenCalledWith(
 			'ttt_pending_auth_flow',
-			'invite',
+			expect.any(String),
 			expect.objectContaining({
 				path: '/',
 				httpOnly: true,
 				sameSite: 'lax'
 			})
 		);
+		const marker = cookies.set.mock.calls[0][1];
+		expect(marker).not.toBe('invite');
 	});
 
 	it('does not reestablish the invite flow when the provider rejects a replayed confirmation', async () => {
 		const verifyOtp = vi
 			.fn()
-			.mockResolvedValueOnce({ error: null })
+			.mockResolvedValueOnce(verifiedFlowResult())
 			.mockResolvedValueOnce({ error: { code: 'otp_expired' } });
 		const cookies = { set: vi.fn() };
 		const from = vi.fn(() => {
@@ -230,7 +245,7 @@ describe('POST /auth/confirm', () => {
 	});
 
 	it('verifies a valid recovery token and redirects to the reset-password flow', async () => {
-		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
+		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
 		const cookies = { set: vi.fn() };
 
 		await expect(
@@ -264,16 +279,18 @@ describe('POST /auth/confirm', () => {
 		});
 		expect(cookies.set).toHaveBeenCalledWith(
 			'ttt_pending_auth_flow',
-			'recovery',
+			expect.any(String),
 			expect.objectContaining({
 				path: '/',
 				httpOnly: true,
 				sameSite: 'lax'
 			})
 		);
+		const marker = cookies.set.mock.calls[0][1];
+		expect(marker).not.toBe('recovery');
 	});
 
-	it('verifies a valid signup email token and redirects without setting a pending invite or recovery flow', async () => {
+	it('verifies a valid signup email token even when the provider returns no session', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { set: vi.fn() };
 
@@ -306,6 +323,38 @@ describe('POST /auth/confirm', () => {
 			token_hash: 'signup-token',
 			type: 'email'
 		});
+		expect(cookies.set).not.toHaveBeenCalled();
+	});
+
+	it('binds an email confirmation session only for the same already admitted account', async () => {
+		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
+		const cookies = { set: vi.fn() };
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					body: new URLSearchParams({ tokenHash: 'email-token', type: 'email', next: '/dashboard' })
+				}),
+				locals: { supabase: { auth: { verifyOtp } }, actor: { userId: verifiedUser.id } },
+				cookies
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({ status: 303, location: '/dashboard' });
+		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
+	});
+
+	it.each(['email', 'signup'])('does not admit a new %s OTP session from confirmation alone', async (type) => {
+		const verifyOtp = vi.fn().mockResolvedValue(verifiedFlowResult());
+		const cookies = { set: vi.fn() };
+		await expect(
+			actions.default({
+				request: new Request('http://localhost/auth/confirm', {
+					method: 'POST',
+					body: new URLSearchParams({ tokenHash: 'signup-token', type, next: '/org/new' })
+				}),
+				locals: { supabase: { auth: { verifyOtp } }, actor: null },
+				cookies
+			} as unknown as Parameters<(typeof actions)['default']>[0])
+		).rejects.toMatchObject({ status: 303, location: '/org/new' });
 		expect(cookies.set).not.toHaveBeenCalled();
 	});
 
@@ -345,7 +394,7 @@ describe('POST /auth/confirm', () => {
 		expect(cookies.set).not.toHaveBeenCalled();
 	});
 
-	it('verifies a provider signup token and redirects without setting a pending invite or recovery flow', async () => {
+	it('verifies a provider signup token even when the provider returns no session', async () => {
 		const verifyOtp = vi.fn().mockResolvedValue({ error: null });
 		const cookies = { set: vi.fn() };
 

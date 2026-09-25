@@ -72,7 +72,13 @@ it.each([undefined, null, {}, { error: undefined }, { error: false }, { error: {
 		expect(await retry.json()).toEqual({ ok: true });
 		expect(h.auth.updateUser).toHaveBeenCalledOnce();
 		expect(await h.state()).toBe('complete');
-		expect(h.cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+		const marker = h.cookies.get('ttt_pending_auth_flow')!;
+		expect(JSON.parse(Buffer.from(marker.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+			flow: 'complete',
+			userId: 'actor',
+			sessionId: '00000000-0000-4000-8000-000000000001'
+		});
+		expect(marker.split('.')[1]).toMatch(/^[\w-]+$/);
 		h.locals.authFlow = null;
 		const replay = await POST(h.event({ password: 'DifferentPassword12' }));
 		expect(await replay.json()).toEqual({ ok: true });

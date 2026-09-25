@@ -3,6 +3,7 @@ import type { Handle } from '@sveltejs/kit';
 import { afterEach, expect, it, vi } from 'vitest';
 import { handle } from './hooks.server';
 import { actions } from './routes/auth/logout/+page.server';
+import { setPendingAuthFlowCookie } from '$features/identity/index.server';
 
 vi.mock('$env/static/public', () => ({
 	PUBLIC_SUPABASE_URL: 'https://signout.invalid',
@@ -17,12 +18,12 @@ it.each([
 	{ path: '/dashboard', flow: 'invite', status: 404 },
 	{ path: '/auth/logout', flow: 'recovery', status: 401 },
 	{ path: '/auth/logout', flow: 'invite', status: 403 },
-	{ path: '/auth/logout', flow: 'invite', status: 404 }
+	{ path: '/auth/logout', flow: 'invite', status: 404 },
+	{ path: '/auth/logout', flow: null, status: 401 }
 ])(
-	'keeps real SSR cookies and denies dispatch on $status at $path, then permits retry',
+	'keeps real SSR cookies with $flow marker and denies dispatch on $status at $path, then permits retry',
 	async ({ path, flow, status }) => {
 		const jar = new Map([
-			['ttt_pending_auth_flow', flow],
 			['sb-another-auth-token', 'unrelated-session'],
 			['theme', 'dark']
 		]);
@@ -35,7 +36,7 @@ it.each([
 		};
 		const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 		const now = Math.floor(Date.now() / 1000);
-		const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, aud: 'authenticated', exp: now + 3600, iat: now, aal: 'aal1' })}.${encode('synthetic-signature')}`;
+		const token = `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({ sub: user.id, session_id: '00000000-0000-4000-8000-000000000001', amr: [{ method: 'otp' }], aud: 'authenticated', exp: now + 3600, iat: now, aal: 'aal1' })}.${encode('synthetic-signature')}`;
 		let denied = true;
 		const revoked: string[] = [];
 		vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -62,6 +63,15 @@ it.each([
 			}
 		});
 		expect((await setup.auth.setSession({ access_token: token, refresh_token: 'synthetic-refresh' })).error).toBeNull();
+		if (flow)
+			expect(
+				setPendingAuthFlowCookie(
+					{ set: (name, value) => jar.set(name, value) },
+					flow as 'recovery' | 'invite',
+					{ user, access_token: token },
+					user
+				)
+			).toBe(true);
 		const before = new Map(jar);
 		const request = () =>
 			({

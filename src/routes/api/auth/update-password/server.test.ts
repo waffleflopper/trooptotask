@@ -483,7 +483,8 @@ describe('POST /api/auth/update-password', () => {
 			data: { ttt_password_attempt: '00000000-0000-4000-8000-000000000099' }
 		});
 		expect(signOut).toHaveBeenCalledWith(passwordSessionToken('user-123', 'synthetic-token'), 'others');
-		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it('rate-limits recovery password updates before provider mutation', async () => {

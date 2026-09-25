@@ -9,10 +9,10 @@ export {
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
 	getPublicPageUser,
+	setCompletedAuthFlowCookie,
 	setPendingAuthFlowCookie
 } from './mfaGate.server';
 export { createIdentityAuthorization } from './authorization.server';
-export { establishIdentitySession } from './establishSession.server';
 export { readIdentityMfaStatus, verifyIdentityMfa } from './mfa.server';
 export {
 	enrollIdentityMfa,

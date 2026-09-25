@@ -12,7 +12,6 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { onMount, onDestroy, tick } from 'svelte';
-	import { establishSession, readSessionTokens, type SessionTokens } from '$features/identity';
 
 	const hasSession = $derived($page.data.hasSession);
 
@@ -30,9 +29,6 @@
 	onDestroy(() => clearTimeout(navigationTimer));
 	let sessionReady = $state(false);
 	let tokenError = $state(false);
-	let sessionError = $state(false);
-	let establishingSession = $state(false);
-	let tokens: SessionTokens | null = null;
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
@@ -87,31 +83,11 @@
 		}
 	}
 
-	async function verifySession() {
-		if (!tokens || establishingSession) return;
-		establishingSession = true;
-		try {
-			const result = await establishSession(tokens, 'invite');
-			if (result === 'ready') {
-				sessionError = false;
-				tokens = null;
-				replaceState(resolve('/auth/accept-invite'), $page.state);
-				sessionReady = true;
-			} else {
-				tokenError = result === 'invalid';
-				sessionError = result === 'unavailable';
-			}
-		} finally {
-			establishingSession = false;
-		}
-	}
-
 	onMount(() => {
-		// An incoming link takes precedence over an existing account's session.
+		// Provider fragments cannot prove whether a session came from an invite.
 		if (window.location.hash) {
-			tokens = readSessionTokens(window.location.hash);
-			if (tokens) void verifySession();
-			else tokenError = true;
+			replaceState(resolve('/auth/accept-invite'), $page.state);
+			tokenError = true;
 		} else if (hasSession) {
 			noPendingInvite = $page.data.invitePending === false;
 			completion = $page.data.passwordCompletion ?? null;
@@ -296,14 +272,9 @@
 				{:else}<p>Redirecting you to the dashboard now.</p>{/if}
 			</AuthNotice>
 			<Button href={resolve('/dashboard')}>Continue to dashboard</Button>
-		{:else if sessionError}
-			<AuthNotice tone="error" message="We could not verify this session. Please try again." />
-			<Button type="button" onclick={verifySession} disabled={establishingSession} class="w-full">
-				{#if establishingSession}<Spinner />Verifying session...{:else}Retry verification{/if}
-			</Button>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Invite unavailable" centered>
-				<p>This invite link is invalid or has expired.</p>
+				<p>This invite link uses an older format or has expired. Request a fresh invite.</p>
 				<p><a href={resolve('/auth/renew-invite')}>Need a fresh invite? Renew it here.</a></p>
 			</AuthNotice>
 		{:else if !sessionReady}

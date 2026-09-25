@@ -3,7 +3,7 @@
 		{
 			"path": "src/routes/api/auth/finalize-invite/+server.ts",
 			"classification": "auth-edge",
-			"reason": "Invite finalization is still anchored to auth/session establishment and Supabase-backed invite acceptance."
+			"reason": "Invite finalization still coordinates verified Identity completion with Supabase-backed invitation acceptance."
 		},
 		{
 			"path": "src/routes/auth/confirm/+page.server.ts",

@@ -1,5 +1,8 @@
 import { isPublicRoute } from './publicRoutes.server';
 import type { Cookies } from '@sveltejs/kit';
+import type { Session, User } from '@supabase/supabase-js';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { env } from '$env/dynamic/private';
 
 type AssuranceLevelState = {
 	currentLevel?: string | null;
@@ -9,11 +12,57 @@ type AssuranceLevelState = {
 import type { PendingAuthFlow } from './contracts';
 
 const AUTH_FLOW_COOKIE = 'ttt_pending_auth_flow';
+const AUTH_FLOW_MAX_AGE_SECONDS = 60 * 60;
+const COMPLETED_FLOW_MAX_AGE_SECONDS = 24 * 60 * 60;
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+type FlowSession = Pick<Session, 'access_token'> & { user: Pick<User, 'id'> };
+type FlowUser = Pick<User, 'id'>;
+type AuthSessionMarker = Exclude<PendingAuthFlow, null> | 'complete';
+type FlowMarker = {
+	version: 1;
+	flow: AuthSessionMarker;
+	userId: string;
+	sessionId: string;
+	expiresAt: number;
+};
+
+function flowSecret(): string {
+	const secret = env.ACCOUNT_SETUP_SESSION_SECRET ?? process.env.ACCOUNT_SETUP_SESSION_SECRET;
+	if (secret) return secret;
+	if (import.meta.env.DEV) return 'dev-account-setup-session-secret';
+	throw new Error('ACCOUNT_SETUP_SESSION_SECRET is required for pending auth flows');
+}
+
+function flowSignature(payload: string): Buffer {
+	return createHmac('sha256', flowSecret()).update('identity-pending-flow:v1:').update(payload).digest();
+}
+
+function sessionBinding(
+	session: FlowSession,
+	user: FlowUser
+): { sessionId: string; passwordAuthenticated: boolean } | null {
+	if (session.user?.id !== user.id) return null;
+	try {
+		const parts = session.access_token.split('.');
+		if (parts.length !== 3) return null;
+		const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as Record<string, unknown>;
+		if (claims.sub !== user.id || typeof claims.session_id !== 'string' || !SESSION_ID.test(claims.session_id))
+			return null;
+		return {
+			sessionId: claims.session_id,
+			passwordAuthenticated:
+				Array.isArray(claims.amr) &&
+				claims.amr.some((entry) => entry && typeof entry === 'object' && entry.method === 'password')
+		};
+	} catch {
+		return null;
+	}
+}
 
 const pendingFlowRoutes: Record<Exclude<PendingAuthFlow, null>, string[]> = {
 	recovery: [
 		'/auth/reset-password',
-		'/api/auth/establish-session',
 		'/api/auth/mfa/status',
 		'/api/auth/mfa/verify',
 		'/api/auth/update-password',
@@ -23,7 +72,6 @@ const pendingFlowRoutes: Record<Exclude<PendingAuthFlow, null>, string[]> = {
 		'/api/auth/mfa/status',
 		'/api/auth/mfa/verify',
 		'/auth/accept-invite',
-		'/api/auth/establish-session',
 		'/api/auth/update-password',
 		'/api/auth/finalize-invite',
 		'/auth/logout'
@@ -38,21 +86,89 @@ export function getPendingAuthFlowCookieName(): string {
 	return AUTH_FLOW_COOKIE;
 }
 
-export function setPendingAuthFlowCookie(
+export function isPasswordAuthenticatedSession(session: FlowSession, user: FlowUser): boolean {
+	return sessionBinding(session, user)?.passwordAuthenticated === true;
+}
+
+function setAuthSessionMarker(
 	cookies: Pick<Cookies, 'set'>,
-	authFlow: Exclude<PendingAuthFlow, null>
-): void {
-	cookies.set(AUTH_FLOW_COOKIE, authFlow, {
+	authFlow: AuthSessionMarker,
+	session: FlowSession,
+	user: FlowUser
+): boolean {
+	const binding = sessionBinding(session, user);
+	if (!binding) return false;
+	const maxAge = authFlow === 'complete' ? COMPLETED_FLOW_MAX_AGE_SECONDS : AUTH_FLOW_MAX_AGE_SECONDS;
+	const marker: FlowMarker = {
+		version: 1,
+		flow: authFlow,
+		userId: user.id,
+		sessionId: binding.sessionId,
+		expiresAt: Date.now() + maxAge * 1000
+	};
+	const payload = Buffer.from(JSON.stringify(marker)).toString('base64url');
+	cookies.set(AUTH_FLOW_COOKIE, `${payload}.${flowSignature(payload).toString('base64url')}`, {
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
 		secure: !import.meta.env.DEV,
-		maxAge: 60 * 60
+		maxAge
 	});
+	return true;
 }
 
-export function sanitizePendingAuthFlow(value: string | null | undefined): PendingAuthFlow {
-	return value === 'recovery' || value === 'invite' ? value : null;
+export function setPendingAuthFlowCookie(
+	cookies: Pick<Cookies, 'set'>,
+	authFlow: Exclude<PendingAuthFlow, null>,
+	session: FlowSession,
+	user: FlowUser
+): boolean {
+	return setAuthSessionMarker(cookies, authFlow, session, user);
+}
+
+export function setCompletedAuthFlowCookie(
+	cookies: Pick<Cookies, 'set'>,
+	session: FlowSession,
+	user: FlowUser
+): boolean {
+	return setAuthSessionMarker(cookies, 'complete', session, user);
+}
+
+export function readAuthSessionMarker(
+	cookies: Pick<Cookies, 'get'>,
+	session: FlowSession,
+	user: FlowUser
+): AuthSessionMarker | null {
+	const value = cookies.get(AUTH_FLOW_COOKIE);
+	const binding = sessionBinding(session, user);
+	if (!value || !binding) return null;
+	const parts = value.split('.');
+	if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
+	try {
+		const expected = flowSignature(parts[0]);
+		const actual = Buffer.from(parts[1], 'base64url');
+		if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+		const marker = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8')) as Partial<FlowMarker>;
+		return marker.version === 1 &&
+			(marker.flow === 'recovery' || marker.flow === 'invite' || marker.flow === 'complete') &&
+			marker.userId === user.id &&
+			marker.sessionId === binding.sessionId &&
+			typeof marker.expiresAt === 'number' &&
+			marker.expiresAt > Date.now()
+			? marker.flow
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+export function readPendingAuthFlowCookie(
+	cookies: Pick<Cookies, 'get'>,
+	session: FlowSession,
+	user: FlowUser
+): PendingAuthFlow {
+	const marker = readAuthSessionMarker(cookies, session, user);
+	return marker === 'complete' ? null : marker;
 }
 
 export function getAuthenticatedRedirectPath(authFlow: PendingAuthFlow, mfaPending: boolean): string {

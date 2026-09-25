@@ -27,7 +27,7 @@ describe('POST /api/auth/finalize-invite', () => {
 		vi.mocked(autoAcceptOrgInvites).mockClear();
 	});
 
-	it('finalizes the invite and clears the pending invite flow marker', async () => {
+	it('finalizes the invite and replaces its pending marker with completed session authority', async () => {
 		attemptStore.row = {
 			actor: 'user-123',
 			session: '00000000-0000-4000-8000-000000000001',
@@ -37,7 +37,7 @@ describe('POST /api/auth/finalize-invite', () => {
 			expiresAt: 4102444800,
 			acquired: false
 		};
-		const cookies = { get: vi.fn(), delete: vi.fn() };
+		const cookies = { get: vi.fn(), set: vi.fn(), delete: vi.fn() };
 
 		const response = await POST({
 			locals: {
@@ -74,7 +74,8 @@ describe('POST /api/auth/finalize-invite', () => {
 			rank: 'SGT'
 		});
 		expect(autoAcceptOrgInvites).toHaveBeenCalledWith(expect.any(Object), 'person@example.com');
-		expect(cookies.delete).toHaveBeenCalledWith('ttt_pending_auth_flow', { path: '/' });
+		expect(cookies.set).toHaveBeenCalledWith('ttt_pending_auth_flow', expect.any(String), expect.any(Object));
+		expect(cookies.delete).not.toHaveBeenCalled();
 	});
 
 	it.each([null, 'started', 'failed', 'pending', 'expired', 'unavailable', 'complete'] as const)(

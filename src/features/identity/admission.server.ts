@@ -5,8 +5,9 @@ import { isPublicRoute } from './publicRoutes.server';
 import {
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
+	isPasswordAuthenticatedSession,
 	isMfaStepUpRequired,
-	sanitizePendingAuthFlow,
+	readAuthSessionMarker,
 	shouldRedirectIncompleteAuthSession
 } from './mfaGate.server';
 
@@ -32,13 +33,14 @@ export async function readIdentityAdmission({
 	pathname: string;
 	method: string;
 }): Promise<AdmissionResult> {
-	let authFlow = sanitizePendingAuthFlow(cookies.get(getPendingAuthFlowCookieName()));
+	const hasFlowCookie = cookies.get(getPendingAuthFlowCookieName()) !== undefined;
+	const marker = session && user ? readAuthSessionMarker(cookies, session, user) : null;
+	const authFlow = marker === 'complete' ? null : marker;
 	let mfaPending = false;
-	if (!session && authFlow) {
-		if (method !== 'POST' || !['/auth/logout', '/api/auth/establish-session'].includes(pathname)) {
+	if (hasFlowCookie && !marker) {
+		if (session || method !== 'POST' || pathname !== '/auth/logout') {
 			cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
 		}
-		authFlow = null;
 	}
 
 	if (session && pathname !== '/auth/logout') {
@@ -78,7 +80,8 @@ export async function readIdentityAdmission({
 			return { status: 'unavailable', code: 500, message: 'Unable to verify account status' };
 		}
 		if (suspension.data) return { status: 'redirect', code: 302, location: '/suspended' };
-		if (session && !mfaPending && !authFlow) actor = { userId: user.id };
+		if (session && !mfaPending && !authFlow && (marker === 'complete' || isPasswordAuthenticatedSession(session, user)))
+			actor = { userId: user.id };
 	}
 	return { status: 'allowed', actor, mfaPending, authFlow };
 }

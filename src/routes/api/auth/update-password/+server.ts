@@ -1,4 +1,8 @@
-import { getPendingAuthFlowCookieName, updateIdentityPassword } from '$features/identity/index.server';
+import {
+	getPendingAuthFlowCookieName,
+	setCompletedAuthFlowCookie,
+	updateIdentityPassword
+} from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { auditLog } from '$lib/server/auditLog';
@@ -103,7 +107,12 @@ export const POST: RequestHandler = async ({ request, locals, cookies, getClient
 				{ status: 429, headers: { 'Retry-After': String(result.retryAfterSeconds) } }
 			);
 		case 'complete':
-			if (result.clearRecoveryFlow) cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+			if (
+				result.clearRecoveryFlow &&
+				(!locals.session || !locals.user || !setCompletedAuthFlowCookie(cookies, locals.session, locals.user))
+			) {
+				cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+			}
 			return json({ ok: true });
 	}
 };

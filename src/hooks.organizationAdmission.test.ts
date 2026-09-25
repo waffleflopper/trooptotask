@@ -119,6 +119,12 @@ function fixture() {
 		created_at: now,
 		last_sign_in_at: now
 	};
+	const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+	const accessToken = `${encode({ alg: 'HS256' })}.${encode({
+		sub: USER,
+		session_id: '00000000-0000-4000-8000-000000000001',
+		amr: [{ method: 'password' }]
+	})}.synthetic`;
 	const client = {
 		from: provider.from.bind(provider),
 		rpc: vi.fn((name: string) =>
@@ -128,7 +134,13 @@ function fixture() {
 		),
 		auth: {
 			getSession: vi.fn().mockResolvedValue({
-				data: { session: { user, access_token: 'synthetic', refresh_token: 'synthetic-refresh' } },
+				data: {
+					session: {
+						user,
+						access_token: accessToken,
+						refresh_token: 'synthetic-refresh'
+					}
+				},
 				error: null
 			}),
 			getClaims: vi.fn().mockResolvedValue({

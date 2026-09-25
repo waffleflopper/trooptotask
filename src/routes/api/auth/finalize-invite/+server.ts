@@ -2,6 +2,7 @@ import {
 	checkSessionAssurance,
 	getPendingAuthFlowCookieName,
 	parseUserProfileForm,
+	setCompletedAuthFlowCookie,
 	upsertUserProfile
 } from '$features/identity/index.server';
 import { passwordCompletionState } from '$features/identity/index.server';
@@ -91,7 +92,9 @@ export const POST: RequestHandler = async ({ locals, cookies }) => {
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
 		const accepted = await autoAcceptOrgInvites(locals.supabase, user.email);
 		if (session.expires_at <= Date.now() / 1000) return inactiveSession();
-		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		if (!setCompletedAuthFlowCookie(cookies, session, user)) {
+			cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		}
 
 		return json({ ok: true, ...accepted, activated: true });
 	} catch (error) {

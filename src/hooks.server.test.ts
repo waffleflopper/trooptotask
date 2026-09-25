@@ -2,6 +2,7 @@ import { attemptStore } from './tests/fixtures/passwordAttempt';
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
 vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { passwordSessionToken } from './tests/fixtures/passwordSession';
+import { setCompletedAuthFlowCookie, setPendingAuthFlowCookie } from './features/identity/index.server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies, Handle, RequestHandler } from '@sveltejs/kit';
 import { POST as enrollMfa } from './routes/api/auth/mfa/enroll/+server';
@@ -32,6 +33,26 @@ interface TestUserStorage {
 }
 
 const NOW = new Date('2026-09-16T12:00:00Z');
+
+function signedFlow(flow: string, sessionId = '00000000-0000-4000-8000-000000000001'): string {
+	if (flow !== 'recovery' && flow !== 'invite' && flow !== 'complete') throw new Error('Invalid synthetic auth flow');
+	let marker: string | undefined;
+	const cookies = {
+		set: (_name: string, value: string) => {
+			marker = value;
+		}
+	} as Pick<Cookies, 'set'>;
+	const session = {
+		access_token: passwordSessionToken('user-1', 'admitted', sessionId, 'otp'),
+		user: { id: 'user-1' }
+	};
+	const issued =
+		flow === 'complete'
+			? setCompletedAuthFlowCookie(cookies, session, { id: 'user-1' })
+			: setPendingAuthFlowCookie(cookies, flow, session, { id: 'user-1' });
+	if (!issued || !marker) throw new Error('Unable to issue synthetic auth flow');
+	return marker;
+}
 
 interface TestServerClientOptions {
 	cookies: {
@@ -83,7 +104,12 @@ describe('server auth hook', () => {
 			data: boolean | null;
 			error?: { message: string } | null;
 		},
-		options: { authenticatedUserId?: string; lastSignInAt?: string; sessionStartedAt?: string } = {}
+		options: {
+			authenticatedUserId?: string;
+			lastSignInAt?: string;
+			sessionStartedAt?: string;
+			authMethod?: 'password' | 'otp';
+		} = {}
 	) {
 		const now = new Date();
 		const user = {
@@ -98,7 +124,12 @@ describe('server auth hook', () => {
 		};
 		const authenticatedUser = { ...user, id: options.authenticatedUserId ?? user.id };
 		const session = {
-			access_token: passwordSessionToken('user-1'),
+			access_token: passwordSessionToken(
+				'user-1',
+				'admitted',
+				'00000000-0000-4000-8000-000000000001',
+				options.authMethod
+			),
 			refresh_token: 'refresh-token',
 			expires_in: 3600,
 			expires_at: Math.floor(now.getTime() / 1000) + 3600,
@@ -328,20 +359,20 @@ describe('server auth hook', () => {
 					);
 				const event = h.createEvent('/api/auth/finalize-invite', {
 					'sb-example-auth-token': 'session',
-					ttt_pending_auth_flow: 'invite'
+					ttt_pending_auth_flow: signedFlow('invite')
 				});
 				const dispatch = (event: Parameters<Handle>[0]['event']) => POST(event as Parameters<typeof POST>[0]);
 				const response = await h.handle({ event, resolve: dispatch });
 				expect(response.status).toBe(mode === 'unavailable after hook' ? 503 : 403);
 				expect(profile).not.toHaveBeenCalled();
 				expect(accept).not.toHaveBeenCalled();
-				expect(event.cookies.get('ttt_pending_auth_flow')).toBe('invite');
+				expect(event.cookies.get('ttt_pending_auth_flow')).toBe(signedFlow('invite'));
 				expect(event.cookies.set).not.toHaveBeenCalled();
 				const retry = await h.handle({ event, resolve: dispatch });
 				expect(retry.status).toBe(200);
 				expect(accept).toHaveBeenCalledExactlyOnceWith(expect.any(Object), 'user@example.com');
 				expect(profile).toHaveBeenCalledTimes(1);
-				expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+				expect(event.cookies.get('ttt_pending_auth_flow')).toBe(signedFlow('complete'));
 				const replay = await h.handle({ event, resolve: dispatch });
 				expect(replay.status).toBe(403);
 				expect(accept).toHaveBeenCalledTimes(1);
@@ -359,12 +390,30 @@ describe('server auth hook', () => {
 		});
 		afterEach(() => vi.doUnmock('$features/identity/passwordUpdateRateLimit.server'));
 
+		it('does not skip current-password proof for a forged recovery cookie', async () => {
+			const h = await createAuthenticatedHookHarness({ data: false, error: null });
+			const { POST } = await import('./routes/api/auth/update-password/+server');
+			const event = h.createEvent('/api/auth/update-password', {
+				'sb-example-auth-token': 'session',
+				ttt_pending_auth_flow: 'recovery'
+			});
+			event.request = new Request(event.url, {
+				method: 'POST',
+				body: JSON.stringify({ password: 'NewSecurePass12' })
+			});
+			const response = await h.handle({ event, resolve: (event) => POST(event as Parameters<typeof POST>[0]) });
+			expect(response.status).toBe(400);
+			expect(await response.json()).toEqual({ error: 'Current password is required' });
+			expect(h.updateUser).not.toHaveBeenCalled();
+			expect(event.locals.authFlow).toBeNull();
+		});
+
 		it.each([null, 'recovery', 'invite'])('supplies bound session identity to the real %s handler', async (flow) => {
 			const h = await createAuthenticatedHookHarness({ data: false, error: null });
 			const { POST } = await import('./routes/api/auth/update-password/+server');
 			const event = h.createEvent('/api/auth/update-password', {
 				'sb-example-auth-token': 'session',
-				...(flow ? { ttt_pending_auth_flow: flow } : {})
+				...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 			});
 			event.request = new Request(event.url, {
 				method: 'POST',
@@ -390,7 +439,9 @@ describe('server auth hook', () => {
 			if (flow) expect(h.signInWithPassword).not.toHaveBeenCalled();
 			else
 				expect(h.signInWithPassword).toHaveBeenCalledWith({ email: 'user@example.com', password: 'OldSecurePass12' });
-			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow === 'invite' ? 'invite' : undefined);
+			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(
+				flow === 'invite' ? signedFlow('invite') : flow === 'recovery' ? signedFlow('complete') : undefined
+			);
 		});
 
 		it.each([null, 'recovery', 'invite'])(
@@ -406,7 +457,7 @@ describe('server auth hook', () => {
 				const request = () => {
 					const event = h.createEvent('/api/auth/update-password', {
 						'sb-example-auth-token': 'session',
-						...(flow ? { ttt_pending_auth_flow: flow } : {})
+						...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 					});
 					event.request = new Request(event.url, {
 						method: 'POST',
@@ -424,7 +475,7 @@ describe('server auth hook', () => {
 				expect(await response.json()).toMatchObject({ code: 'mfa_required' });
 				expect(h.updateUser).not.toHaveBeenCalled();
 				expect(h.signOut).not.toHaveBeenCalled();
-				expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow ?? undefined);
+				expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow ? signedFlow(flow) : undefined);
 				const retry = await h.handle({
 					event: request(),
 					resolve: (event) => POST(event as Parameters<typeof POST>[0])
@@ -445,7 +496,7 @@ describe('server auth hook', () => {
 				h.signOut.mockResolvedValueOnce({ error: { message: 'Unavailable' } });
 				const initial = h.createEvent('/api/auth/update-password', {
 					'sb-example-auth-token': 'session',
-					ttt_pending_auth_flow: flow
+					ttt_pending_auth_flow: signedFlow(flow)
 				});
 				initial.request = new Request(initial.url, {
 					method: 'POST',
@@ -456,7 +507,7 @@ describe('server auth hook', () => {
 					resolve: (event) => POST(event as Parameters<typeof POST>[0])
 				});
 				expect(partial.status).toBe(202);
-				expect(initial.cookies.get('ttt_pending_auth_flow')).toBe(flow);
+				expect(initial.cookies.get('ttt_pending_auth_flow')).toBe(signedFlow(flow));
 				const reloaded = h.createEvent(
 					'/api/auth/update-password',
 					Object.fromEntries(initial.cookies.getAll().map(({ name, value }) => [name, value]))
@@ -475,7 +526,9 @@ describe('server auth hook', () => {
 					[passwordSessionToken('user-1'), 'others'],
 					[passwordSessionToken('user-1'), 'others']
 				]);
-				expect(reloaded.cookies.get('ttt_pending_auth_flow')).toBe(flow === 'invite' ? flow : undefined);
+				expect(reloaded.cookies.get('ttt_pending_auth_flow')).toBe(
+					flow === 'invite' ? signedFlow('invite') : flow === 'recovery' ? signedFlow('complete') : undefined
+				);
 			}
 		);
 
@@ -671,7 +724,7 @@ describe('server auth hook', () => {
 				});
 				const event = harness.createEvent(route.path, {
 					'sb-example-auth-token': 'session',
-					...(flow ? { ttt_pending_auth_flow: flow } : {})
+					...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 				});
 				const resolve = dispatch(route);
 				await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location });
@@ -689,7 +742,7 @@ describe('server auth hook', () => {
 				});
 				const event = harness.createEvent(route.path, {
 					'sb-example-auth-token': 'session',
-					...(flow ? { ttt_pending_auth_flow: flow } : {})
+					...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 				});
 				const response = await harness.handle({ event, resolve: dispatch(route) });
 				expect(response.status).toBe(200);
@@ -794,7 +847,7 @@ describe('server auth hook', () => {
 				'sb-example-auth-token.1': 'stale-second-chunk',
 				'sb-other-auth-token': 'other-project-cookie',
 				theme: 'dark',
-				ttt_pending_auth_flow: 'invite'
+				ttt_pending_auth_flow: signedFlow('invite')
 			});
 			const stale = Object.assign(new Error('Synthetic stale credential'), { code });
 			if (thrown) harness[stage].mockRejectedValue(stale);
@@ -833,7 +886,7 @@ describe('server auth hook', () => {
 		);
 		const event = harness.createEvent('/dashboard', {
 			'sb-example-auth-token': 'expired-session',
-			ttt_pending_auth_flow: 'recovery'
+			ttt_pending_auth_flow: signedFlow('recovery')
 		});
 
 		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
@@ -911,11 +964,11 @@ describe('server auth hook', () => {
 			h.sessionLookup.mockRejectedValue(new Error('unavailable'));
 			const event = h.createEvent('/api/auth/update-password', {
 				'sb-example-auth-token': 'session',
-				ttt_pending_auth_flow: 'recovery'
+				ttt_pending_auth_flow: signedFlow('recovery')
 			});
 			await expect(h.handle({ event, resolve: h.resolve })).rejects.toMatchObject({ status: 503 });
 			expect(h.resolve).not.toHaveBeenCalled();
-			expect(event.cookies.get('ttt_pending_auth_flow')).toBe('recovery');
+			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(signedFlow('recovery'));
 			const { actions } = await import('./routes/auth/logout/+page.server');
 			await expect(
 				h.handle({
@@ -934,7 +987,7 @@ describe('server auth hook', () => {
 			const event = h.createEvent('/auth/login', {
 				'sb-example-auth-token.0': 'session',
 				'sb-other-auth-token': 'unrelated',
-				ttt_pending_auth_flow: 'invite',
+				ttt_pending_auth_flow: signedFlow('invite'),
 				theme: 'dark'
 			});
 			expect((await h.handle({ event, resolve: h.resolve })).status).toBe(200);
@@ -1095,12 +1148,89 @@ describe('server auth hook', () => {
 		{ flow: 'invite', destination: '/auth/accept-invite', path: '/auth/reset-password' }
 	])('restricts $flow sessions before dispatching $path', async ({ flow, destination, path }) => {
 		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
-		const event = harness.createEvent(path, { 'sb-example-auth-token': 'session', ttt_pending_auth_flow: flow });
+		const event = harness.createEvent(path, {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: signedFlow(flow)
+		});
 		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
 			status: 303,
 			location: destination
 		});
 		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it('does not grant recovery authority from an unsigned cookie on a verified session', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		const event = harness.createEvent('/dashboard', {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: 'recovery'
+		});
+		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+		expect(event.locals.authFlow).toBeNull();
+		expect(event.locals.actor).toEqual({ userId: 'user-1' });
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+		expect(harness.resolve).toHaveBeenCalled();
+	});
+
+	it('does not grant invite authority from a marker issued for a different session', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+		const event = harness.createEvent('/dashboard', {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: signedFlow('invite', '00000000-0000-4000-8000-000000000002')
+		});
+		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+		expect(event.locals.authFlow).toBeNull();
+		expect(event.locals.actor).toEqual({ userId: 'user-1' });
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
+		expect(harness.resolve).toHaveBeenCalled();
+	});
+
+	it.each([
+		{ label: 'missing', marker: undefined },
+		{ label: 'forged', marker: 'recovery' },
+		{ label: 'different session', marker: signedFlow('invite', '00000000-0000-4000-8000-000000000002') }
+	])('discards an OTP session with a $label completion marker before application access', async ({ marker }) => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null }, { authMethod: 'otp' });
+		const event = harness.createEvent('/dashboard', {
+			'sb-example-auth-token': 'session',
+			...(marker ? { ttt_pending_auth_flow: marker } : {})
+		});
+		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
+		});
+		expect(event.locals.actor).toBeNull();
+		expect(event.locals.session).toBeNull();
+		expect(event.cookies.get('sb-example-auth-token')).toBeUndefined();
+		expect(harness.resolve).not.toHaveBeenCalled();
+	});
+
+	it('admits a completed OTP session only while its signed session marker is present', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null }, { authMethod: 'otp' });
+		const event = harness.createEvent('/dashboard', {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: signedFlow('complete')
+		});
+		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
+		expect(event.locals.authFlow).toBeNull();
+		expect(event.locals.actor).toEqual({ userId: 'user-1' });
+	});
+
+	it('revokes an OTP provider session on logout after its completion marker is lost', async () => {
+		const harness = await createAuthenticatedHookHarness({ data: false, error: null }, { authMethod: 'otp' });
+		const event = harness.createEvent('/auth/logout', { 'sb-example-auth-token': 'session' });
+		const { actions } = await import('./routes/auth/logout/+page.server');
+		const resolve = vi.fn(async (requestEvent: Parameters<Handle>[0]['event']) => {
+			await actions.default({ ...requestEvent, params: {}, route: { id: '/auth/logout' } });
+			return new Response('unreachable');
+		});
+		await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location: '/' });
+		expect(event.locals.actor).toBeNull();
+		expect(harness.signOut).toHaveBeenCalledWith(
+			passwordSessionToken('user-1', 'admitted', '00000000-0000-4000-8000-000000000001', 'otp'),
+			'global'
+		);
+		expect(event.cookies.get('sb-example-auth-token')).toBeUndefined();
 	});
 
 	it.each([
@@ -1118,7 +1248,10 @@ describe('server auth hook', () => {
 			data: { currentLevel: 'aal1', nextLevel: 'aal2' },
 			error: null
 		});
-		const event = harness.createEvent(path, { 'sb-example-auth-token': 'session', ttt_pending_auth_flow: flow });
+		const event = harness.createEvent(path, {
+			'sb-example-auth-token': 'session',
+			ttt_pending_auth_flow: signedFlow(flow)
+		});
 		expect((await harness.handle({ event, resolve: harness.resolve })).status).toBe(200);
 		expect(event.locals.actor).toBeNull();
 		expect(harness.resolve).toHaveBeenCalled();
@@ -1130,7 +1263,7 @@ describe('server auth hook', () => {
 		harness.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: null, error: { message: 'unavailable' } });
 		const event = harness.createEvent('/api/auth/update-password', {
 			'sb-example-auth-token': 'session',
-			ttt_pending_auth_flow: flow
+			ttt_pending_auth_flow: signedFlow(flow)
 		});
 		await expect(harness.handle({ event, resolve: harness.resolve })).rejects.toMatchObject({ status: 503 });
 		expect(harness.resolve).not.toHaveBeenCalled();
@@ -1141,7 +1274,7 @@ describe('server auth hook', () => {
 		harness.getAuthenticatorAssuranceLevel.mockRejectedValue(new Error('provider unavailable'));
 		const event = harness.createEvent('/auth/logout', {
 			'sb-example-auth-token': 'session',
-			...(flow ? { ttt_pending_auth_flow: flow } : {})
+			...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 		});
 		const { actions } = await import('./routes/auth/logout/+page.server');
 		const resolve = vi.fn(async (event: Parameters<Handle>[0]['event']) => {
@@ -1161,7 +1294,7 @@ describe('server auth hook', () => {
 			harness.signOut.mockResolvedValueOnce({ error: { message: 'revocation unavailable' } });
 			const event = harness.createEvent('/auth/logout', {
 				'sb-example-auth-token': 'session',
-				...(flow ? { ttt_pending_auth_flow: flow } : {})
+				...(flow ? { ttt_pending_auth_flow: signedFlow(flow) } : {})
 			});
 			const { actions } = await import('./routes/auth/logout/+page.server');
 			const resolve = async (event: Parameters<Handle>[0]['event']) => {
@@ -1170,7 +1303,7 @@ describe('server auth hook', () => {
 			};
 			const failure = await harness.handle({ event, resolve });
 			expect(await failure.json()).toMatchObject({ status: 503 });
-			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow ?? undefined);
+			expect(event.cookies.get('ttt_pending_auth_flow')).toBe(flow ? signedFlow(flow) : undefined);
 			await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location: '/' });
 			expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
 		}
@@ -1182,7 +1315,7 @@ describe('server auth hook', () => {
 		harness.signOut.mockResolvedValueOnce({ error: { message: 'revocation unavailable' } });
 		const event = harness.createEvent('/auth/logout', {
 			'sb-example-auth-token': 'session',
-			ttt_pending_auth_flow: 'recovery'
+			ttt_pending_auth_flow: signedFlow('recovery')
 		});
 		const { actions } = await import('./routes/auth/logout/+page.server');
 		const resolve = async (event: Parameters<Handle>[0]['event']) => {
@@ -1192,28 +1325,9 @@ describe('server auth hook', () => {
 		const failure = await harness.handle({ event, resolve });
 		expect(await failure.json()).toMatchObject({ status: 503 });
 		expect(event.locals.user).toBeNull();
-		expect(event.cookies.get('ttt_pending_auth_flow')).toBe('recovery');
+		expect(event.cookies.get('ttt_pending_auth_flow')).toBe(signedFlow('recovery'));
 		await expect(harness.handle({ event, resolve })).rejects.toMatchObject({ status: 303, location: '/' });
 		expect(event.cookies.get('ttt_pending_auth_flow')).toBeUndefined();
-	});
-
-	it('does not erase a pending flow before a denied session exchange when identity lookup is unavailable', async () => {
-		const harness = await createAuthenticatedHookHarness({ data: false, error: null });
-		harness.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'identity unavailable' } });
-		const event = harness.createEvent('/api/auth/establish-session', {
-			'sb-example-auth-token': 'session',
-			ttt_pending_auth_flow: 'recovery'
-		});
-		event.request = new Request(event.url, { method: 'POST', body: '{}' });
-		const { POST } = await import('./routes/api/auth/establish-session/+server');
-		const response = await harness.handle({
-			event,
-			resolve: (event) => Promise.resolve(POST({ ...event, params: {}, route: { id: '/api/auth/establish-session' } }))
-		});
-		expect(response.status).toBe(400);
-		expect(event.locals.user).toBeNull();
-		expect(event.locals.authFlow).toBeNull();
-		expect(event.cookies.get('ttt_pending_auth_flow')).toBe('recovery');
 	});
 
 	it.each(['/org/organization-a/api/personnel', '/api/announcements/dismiss'])(

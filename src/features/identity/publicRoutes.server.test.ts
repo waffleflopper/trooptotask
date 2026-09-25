@@ -3,7 +3,6 @@ import { isPublicRoute } from './publicRoutes.server';
 
 describe('isPublicRoute', () => {
 	it('allows unauthenticated auth bootstrap routes', () => {
-		expect(isPublicRoute('/api/auth/establish-session')).toBe(true);
 		expect(isPublicRoute('/api/auth/mfa/status')).toBe(true);
 		expect(isPublicRoute('/api/auth/update-password')).toBe(true);
 		expect(isPublicRoute('/api/auth/mfa/verify')).toBe(true);

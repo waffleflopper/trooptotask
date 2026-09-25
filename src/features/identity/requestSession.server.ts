@@ -1,6 +1,6 @@
 import type { Cookies } from '@sveltejs/kit';
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
-import { getPendingAuthFlowCookieName } from './mfaGate.server';
+import { getPendingAuthFlowCookieName, isPasswordAuthenticatedSession, readAuthSessionMarker } from './mfaGate.server';
 import {
 	buildTrustedUserFromClaims,
 	clearSupabaseAuthCookies,
@@ -128,8 +128,21 @@ export async function readIdentitySession({
 		}
 	}
 
-	await userStorage.setItem(`${storageKey}-user`, JSON.stringify({ user: authenticatedUser }));
-
 	const user = buildTrustedUserFromClaims(claimsData.claims, authenticatedUser);
-	return { status: 'resolved', session: buildTrustedSession(session, user), user };
+	const trustedSession = buildTrustedSession(session, user);
+	// Email OTP creates a real provider session. Without an app-issued marker it
+	// must not become ordinary access when a pending cookie is removed or expires.
+	// Logout retains verified credentials to revoke the provider session globally.
+	if (
+		!isLogout &&
+		!isPasswordAuthenticatedSession(trustedSession, user) &&
+		!readAuthSessionMarker(cookies, trustedSession, user)
+	) {
+		clearSupabaseAuthCookies(cookies, storageKey);
+		cookies.delete(getPendingAuthFlowCookieName(), { path: '/' });
+		return { status: 'resolved', session: null, user: null };
+	}
+
+	await userStorage.setItem(`${storageKey}-user`, JSON.stringify({ user: authenticatedUser }));
+	return { status: 'resolved', session: trustedSession, user };
 }

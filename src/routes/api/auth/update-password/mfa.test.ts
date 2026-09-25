@@ -138,7 +138,15 @@ describe.each([null, 'recovery', 'invite'] as const)('mutation MFA for %s', (flo
 		const h = fixture(flow);
 		h.auth.mfa.getAuthenticatorAssuranceLevel.mockResolvedValueOnce(assurance(current, next));
 		expect((await POST(h.event())).status).toBe(200);
-		expect(h.cookies.set).not.toHaveBeenCalled();
+		if (flow === 'recovery') {
+			const marker = h.cookies.set.mock.calls.find(([name]) => name === 'ttt_pending_auth_flow')?.[1];
+			expect(JSON.parse(Buffer.from(marker!.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+				flow: 'complete',
+				userId: 'actor',
+				sessionId: '00000000-0000-4000-8000-000000000001'
+			});
+			expect(marker!.split('.')[1]).toMatch(/^[\w-]+$/);
+		} else expect(h.cookies.set).not.toHaveBeenCalled();
 		if (flow === 'invite') expect(h.cookies.delete).not.toHaveBeenCalled();
 	});
 });

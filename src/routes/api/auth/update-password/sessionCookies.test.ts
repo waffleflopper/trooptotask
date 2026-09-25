@@ -227,6 +227,15 @@ it.each(['missing actor', 'wrong actor', 'provider unavailable', 'accepted', 're
 		expect(response.status).toBe(outcome === 'accepted' ? 200 : outcome.startsWith('revoke') ? 202 : 409);
 		expect(await response.text()).not.toContain('private');
 		expect(revocations).toEqual(outcome === 'accepted' || outcome.startsWith('revoke') ? ['others'] : []);
-		expect(cookies.delete).toHaveBeenCalledTimes(outcome === 'accepted' ? 1 : 0);
+		const marker = cookies.set.mock.calls.find(([name]) => name === 'ttt_pending_auth_flow')?.[1];
+		if (outcome === 'accepted') {
+			expect(JSON.parse(Buffer.from(marker!.split('.')[0], 'base64url').toString('utf8'))).toMatchObject({
+				flow: 'complete',
+				userId: user.id,
+				sessionId: '00000000-0000-4000-8000-000000000001'
+			});
+			expect(marker!.split('.')[1]).toMatch(/^[\w-]+$/);
+		} else expect(marker).toBeUndefined();
+		expect(cookies.delete).not.toHaveBeenCalled();
 	}
 );

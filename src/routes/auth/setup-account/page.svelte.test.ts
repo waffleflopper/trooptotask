@@ -1,11 +1,29 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
 import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 
 vi.mock('$app/forms', () => ({ enhance: () => undefined }));
 afterEach(cleanup);
+
+it('allows a 128-character setup password but blocks a matching 129-character password before submission', async () => {
+	render(Page, { data: { session: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	const password = screen.getByLabelText(/^Password/);
+	const confirm = screen.getByLabelText(/^Confirm Password/);
+	const submit = screen.getByRole('button', { name: 'Set Up Account' });
+	const accepted = `Aa1${'x'.repeat(125)}`;
+	await fireEvent.input(password, { target: { value: accepted } });
+	await fireEvent.input(confirm, { target: { value: accepted } });
+	expect(submit).toBeEnabled();
+	const tooLong = `${accepted}x`;
+	await fireEvent.input(password, { target: { value: tooLong } });
+	await fireEvent.input(confirm, { target: { value: tooLong } });
+	expect(submit).toBeDisabled();
+	expect(screen.getByText('128 characters or fewer').closest('li')).toHaveTextContent(
+		'Needed: 128 characters or fewer'
+	);
+});
 
 it('keeps the submission failure visible when claiming the link clears the setup session', async () => {
 	const page = render(Page, { data: { session: null, state: 'valid', email: 'synthetic@example.test' }, form: null });

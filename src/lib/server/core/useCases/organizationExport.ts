@@ -1,4 +1,5 @@
 import type { DataStore } from '../ports';
+import type { LeaderNoteDataSource } from '$features/personnel/index.server';
 import {
 	assertOrganizationDataExportManifestIsSafe,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,
@@ -27,7 +28,8 @@ export const ORGANIZATION_EXPORT_SECTIONS = ORGANIZATION_DATA_EXPORT_SECTIONS;
 
 export async function loadOrganizationExportPayload(
 	store: DataStore,
-	orgId: string
+	orgId: string,
+	leaderNotes: Pick<LeaderNoteDataSource, 'exportRows'>
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const exportSections = ORGANIZATION_DATA_EXPORT_SECTIONS;
@@ -36,6 +38,9 @@ export async function loadOrganizationExportPayload(
 		entries.push(
 			...(await Promise.all(
 				batch.map(async (section) => {
+					if (section.key === 'leaderNotes') {
+						return [section.key, await leaderNotes.exportRows(orgId)] as const;
+					}
 					const rows = await store.findMany<Record<string, unknown>>(
 						section.table,
 						orgId,

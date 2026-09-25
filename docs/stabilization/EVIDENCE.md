@@ -143,7 +143,7 @@ Every application leaf passed all seven G commands. Earlier fixture/mock/type/ow
 
 ## Phase 08 D01 — Integrated acceptance
 
-**Candidate/checkpoint (September 25):** #1349 remains open under #1281/milestone 6; branch `stabilization/08-d01-identity-access`, verified implementation `4790324b835e19ac8f455db9d253ee56b2a367f1`, base/fetched default `03d1dcaa6a0820347b851ce4b9924f6108094683`, PR none (branch and issue searches include all states). **AWAITING_PR:** all mapped child tasks, affected consumers/deletions, verification and independent review are complete locally. Documentation closeout changes no runtime. Owned isolated resources are cleaned. Stop for owner publication/review; no other child or phase is unlocked.
+**Candidate/checkpoint (September 25):** #1349 remains open under #1281/milestone 6; branch `stabilization/08-d01-identity-access`, verified implementation `4790324b835e19ac8f455db9d253ee56b2a367f1`, base/fetched default `03d1dcaa6a0820347b851ce4b9924f6108094683`, [PR #1379](https://github.com/waffleflopper/trooptotask/pull/1379) open. **AWAITING_MERGE:** all mapped child tasks, affected consumers/deletions, verification and independent review are complete locally. Publication/checkpoint documentation changes no runtime. Owned isolated resources are cleaned. The PR tracks review and exact-head CI; no other child or phase is unlocked.
 
 **Independent review PASS:** parallel Standards and Spec reviews pinned `03d1dcaa..808cde32`, full file inventory and commits. Standards found no hard violation and three low-priority retained smells; Spec found no missing requirement, scope creep or confirmed incorrect behavior. **e2a resolves two smells:** private auth-context helper ignores no parameters and exposes no unused export; the password audit pass-through and obsolete mocks are deleted, with production using Access's existing public operation. A new MFA challenge abstraction was declined: completion and management have different admission/removal policies, and no incorrect behavior or current need was established. Both reviewers independently rechecked the final e2a diff and accepted it with no new finding. Their source review did not claim to rerun tests or browser/SQL evidence.
 
@@ -185,29 +185,9 @@ One Account Back action briefly displayed a previously denied Organization's 404
 
 ### PR handoff
 
-Base `main` at `03d1dcaa6a0820347b851ce4b9924f6108094683`; head `stabilization/08-d01-identity-access`. Child #1349 remains open; no PR exists. No other child is unlocked.
+Base `main` at `03d1dcaa6a0820347b851ce4b9924f6108094683`; head `stabilization/08-d01-identity-access`. [PR #1379](https://github.com/waffleflopper/trooptotask/pull/1379) is open and linked to this thread, with `Closes #1349` and no parent-closing reference. Child #1349 remains open; no other child is unlocked. The PR body records validation, limits and the work-record link. Exact-head Depot checks and external reviews are tracked on the PR; they are not inferred from earlier local results.
 
-**Title:** `[V1 stabilization][08][D01] Own identity admission and account security`
-
-**Owner action:** review the candidate and release settings, then publish this branch/PR when authorized. These commands are prepared, not executed:
-
-```bash
-git status --short
-git log -1 --oneline
-git diff --stat origin/main...HEAD
-cat > /tmp/t2t-d01-pr-body.md <<'PR'
-Authentication and account-security orchestration was spread across hooks, routes and shared helpers. Identity now owns request admission, session/logout, MFA, profile/email, sensitive-action confirmation and durable password updates. All affected consumers moved; pending recovery/invite sessions retain limited authority, replaced internal paths are deleted, and suspended accounts can sign out.
-
-All seven required commands pass: 553 test files / 5,019 tests, production build and zero Svelte/type diagnostics. Isolated SQL: 23 suites / 503 assertions. Production-mode synthetic browser journeys and independent Standards/Spec reviews are recorded with limits and cleanup in docs/stabilization/EVIDENCE.md. No schema change or remote migration.
-
-Phase 08 parent: #1281; workflow: #1275.
-Closes #1349
-PR
-git push -u origin stabilization/08-d01-identity-access
-gh pr create --repo waffleflopper/trooptotask --base main --head stabilization/08-d01-identity-access --title '[V1 stabilization][08][D01] Own identity admission and account security' --body-file /tmp/t2t-d01-pr-body.md
-```
-
-After publication, register the returned PR URL in T3 and inspect exact-candidate Depot checks before any separately authorized merge. No merge command is supplied. Vercel may deploy on branch push or merge; external project targets/settings are unknown and require owner verification. Inspected Vercel/package/Depot configuration has no remote migration step. Existing notice, backups, application/schema compatibility and retirement obligations remain in [RELEASE](RELEASE.md); this child adds no migration or destructive schema change.
+Vercel may create a branch preview or deploy on merge; external project targets/settings are unknown and require owner verification. Inspected Vercel/package/Depot configuration has no remote migration step. Existing notice, backups, application/schema compatibility and retirement obligations remain in [RELEASE](RELEASE.md); this child adds no migration or destructive schema change. The PR stays open for review and separately authorized merge.
 
 ## Unresolved findings and evidence limits
 

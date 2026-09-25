@@ -199,16 +199,17 @@ def validate(repository):
              "-c", "SELECT pg_reload_conf();"], workdir)
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True
-        execute([
-            "docker", "run", "--rm", "--name", runner,
-            "--network", f"supabase_network_{project_id}",
-            "--mount", f"type=bind,src={workdir / 'supabase'},dst=/tests,readonly",
-            "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
-            "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
-            PG_PROVE_IMAGE, "pg_prove", "--verbose",
-            "/tests/migration-tests/calendar_group_assignees.sql",
-        ], workdir)
-        print("Fresh replay, SQL contracts and Calendar upgrade regression passed.", flush=True)
+        for migration_test in ("calendar_group_assignees.sql", "account_setup_claim_gate.sql"):
+            execute([
+                "docker", "run", "--rm", "--name", runner,
+                "--network", f"supabase_network_{project_id}",
+                "--mount", f"type=bind,src={workdir / 'supabase'},dst=/tests,readonly",
+                "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
+                "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
+                PG_PROVE_IMAGE, "pg_prove", "--verbose",
+                f"/tests/migration-tests/{migration_test}",
+            ], workdir)
+        print("Fresh replay, SQL contracts and upgrade regressions passed.", flush=True)
     finally:
         for sock in held_ports:
             sock.close()

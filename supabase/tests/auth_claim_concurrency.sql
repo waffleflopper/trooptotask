@@ -12,8 +12,14 @@ SELECT dblink_exec('winner', $$ SET statement_timeout = '10s' $$);
 SELECT dblink_exec('contender', $$ SET statement_timeout = '10s' $$);
 SELECT dblink_exec('winner',$fixture$ INSERT INTO auth.users(id,email) VALUES ('a4000000-0000-4000-8000-000000000001','race-owner@example.test'),('a4000000-0000-4000-8000-000000000002','race-invitee@example.test');
 INSERT INTO public.organizations(id,name,created_by) VALUES ('a4000000-0000-4000-8000-000000000101','Concurrent Invitation','a4000000-0000-4000-8000-000000000001');
-INSERT INTO public.access_requests(id,email,name,status) VALUES ('a4000000-0000-4000-8000-000000000201','race-invitee@example.test','Concurrent Setup','approved');
-INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES ('a4000000-0000-4000-8000-000000000301','a4000000-0000-4000-8000-000000000201','synthetic-race-hash',now()+interval '1 day');
+INSERT INTO public.access_requests(id,email,name,status) VALUES
+('a4000000-0000-4000-8000-000000000201','race-invitee@example.test','Concurrent Setup','approved'),
+('a4000000-0000-4000-8000-000000000202','shared-claim@example.test','First same-email request','approved'),
+('a4000000-0000-4000-8000-000000000203','shared-claim@example.test','Second same-email request','approved');
+INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES
+('a4000000-0000-4000-8000-000000000301','a4000000-0000-4000-8000-000000000201','synthetic-race-hash',now()+interval '1 day'),
+('a4000000-0000-4000-8000-000000000302','a4000000-0000-4000-8000-000000000202','synthetic-same-email-first-hash',now()+interval '1 day'),
+('a4000000-0000-4000-8000-000000000303','a4000000-0000-4000-8000-000000000203','synthetic-same-email-second-hash',now()+interval '1 day');
 INSERT INTO public.organization_invitations(id,organization_id,email,invited_by,role,member_preset,access_scope_kind) VALUES ('a4000000-0000-4000-8000-000000000401','a4000000-0000-4000-8000-000000000101','race-invitee@example.test','a4000000-0000-4000-8000-000000000001','member','viewer','organization'); $fixture$);
 CREATE FUNCTION pg_temp.contender_waits_for_lock() RETURNS boolean LANGUAGE plpgsql AS $$
 DECLARE deadline timestamptz := clock_timestamp() + interval '5 seconds';
@@ -36,6 +42,26 @@ SELECT dblink_exec('winner','COMMIT');
 SELECT is((SELECT status FROM dblink_get_result('contender') AS result(status text)),'claimed','competing setup claim observes the winner and cannot repeat it');
 SELECT * FROM dblink_get_result('contender') AS result(status text);
 SELECT dblink_exec('contender','COMMIT');
+-- Two different Access Request rows cannot each claim a link for the same
+-- stored email. The contender must wait on the email advisory lock, then see
+-- the winner's committed claim in a fresh statement snapshot.
+SELECT dblink_exec('winner','BEGIN');
+SELECT dblink_exec('winner','SET LOCAL ROLE service_role');
+SELECT dblink_exec('contender','BEGIN');
+SELECT dblink_exec('contender','SET LOCAL ROLE service_role');
+SELECT is((SELECT status FROM dblink('winner',$call$ SELECT claim_status FROM public.claim_account_setup_link_for_session('a4000000-0000-4000-8000-000000000302','a4000000-0000-4000-8000-000000000202') $call$) AS result(status text)),'claim-started','first same-email request acquires claim');
+SELECT dblink_send_query('contender',$call$ SELECT claim_status FROM public.claim_account_setup_link_for_session('a4000000-0000-4000-8000-000000000303','a4000000-0000-4000-8000-000000000203') $call$);
+SELECT ok(pg_temp.contender_waits_for_lock(),'cross-request same-email claim waits for the uncommitted winner');
+SELECT dblink_exec('winner','COMMIT');
+SELECT is((SELECT status FROM dblink_get_result('contender') AS result(status text)),'claim-in-progress','cross-request contender sees the committed claim');
+SELECT * FROM dblink_get_result('contender') AS result(status text);
+SELECT dblink_exec('contender','COMMIT');
+SELECT ok((SELECT claimed_at IS NULL FROM public.account_setup_links WHERE id='a4000000-0000-4000-8000-000000000303'),'cross-request loser remains unclaimed');
+SELECT dblink_exec('winner',$release$ UPDATE public.account_setup_links SET failed_at=now(), failure_reason='account-create-failed' WHERE id='a4000000-0000-4000-8000-000000000302' $release$);
+SELECT dblink_exec('contender','BEGIN');
+SELECT dblink_exec('contender','SET LOCAL ROLE service_role');
+SELECT is((SELECT status FROM dblink('contender',$call$ SELECT claim_status FROM public.claim_account_setup_link_for_session('a4000000-0000-4000-8000-000000000303','a4000000-0000-4000-8000-000000000203') $call$) AS result(status text)),'claim-started','explicitly failed winner releases other same-email request');
+SELECT dblink_exec('contender','COMMIT');
 SELECT dblink_exec('winner','BEGIN');
 SELECT dblink_exec('winner','SET LOCAL ROLE authenticated');
 SELECT dblink_exec('winner',$jwt$ SET LOCAL request.jwt.claim.sub='a4000000-0000-4000-8000-000000000002'; SET LOCAL request.jwt.claims='{"sub":"a4000000-0000-4000-8000-000000000002","email":"race-invitee@example.test"}'; $jwt$);
@@ -51,7 +77,7 @@ SELECT * FROM dblink_get_result('contender') AS result(status text);
 SELECT dblink_exec('contender','COMMIT');
 SELECT is((SELECT count(*)::integer FROM public.organization_memberships WHERE organization_id='a4000000-0000-4000-8000-000000000101' AND user_id='a4000000-0000-4000-8000-000000000002'),1,'concurrent acceptance creates exactly one membership');
 SELECT ok((SELECT claimed_at IS NOT NULL AND used_at IS NULL FROM public.account_setup_links WHERE id='a4000000-0000-4000-8000-000000000301'),'one setup claim persists without completing the account');
-SELECT dblink_exec('winner',$cleanup$ DELETE FROM public.organizations WHERE id='a4000000-0000-4000-8000-000000000101'; DELETE FROM public.access_requests WHERE id='a4000000-0000-4000-8000-000000000201'; DELETE FROM auth.users WHERE id IN ('a4000000-0000-4000-8000-000000000001','a4000000-0000-4000-8000-000000000002'); $cleanup$);
+SELECT dblink_exec('winner',$cleanup$ DELETE FROM public.organizations WHERE id='a4000000-0000-4000-8000-000000000101'; DELETE FROM public.access_requests WHERE id IN ('a4000000-0000-4000-8000-000000000201','a4000000-0000-4000-8000-000000000202','a4000000-0000-4000-8000-000000000203'); DELETE FROM auth.users WHERE id IN ('a4000000-0000-4000-8000-000000000001','a4000000-0000-4000-8000-000000000002'); $cleanup$);
 SELECT dblink_disconnect('winner');
 SELECT dblink_disconnect('contender');
 SELECT * FROM finish();

@@ -313,4 +313,19 @@ describe('Supabase Account Setup auth adapter', () => {
 			p_claimed_at: '2026-05-22T12:01:00.000Z'
 		});
 	});
+
+	it('preserves the email claim denial returned by the database', async () => {
+		const rpc = vi.fn().mockReturnValue({
+			single: vi.fn().mockResolvedValue({ data: { claim_status: 'claim-in-progress' }, error: null })
+		});
+		const store = createSupabaseAccountSetupCompletionStore({ rpc } as never);
+
+		await expect(
+			store.claimSetupLinkForSession({
+				setupLinkId: 'link-2',
+				accessRequestId: 'request-1',
+				claimedAt: new Date('2026-05-22T12:01:00.000Z')
+			})
+		).resolves.toEqual({ status: 'claim-in-progress' });
+	});
 });

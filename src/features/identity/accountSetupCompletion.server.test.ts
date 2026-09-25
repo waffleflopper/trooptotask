@@ -681,6 +681,25 @@ describe('Account Setup completion', () => {
 			expect(store.completions).toEqual([]);
 		});
 
+		it('does not mutate auth when another link holds the email claim', async () => {
+			const store = makeStore(approvedRequest);
+			await addSetupToken(store);
+			const claim = vi.spyOn(store, 'claimSetupLinkForSession').mockResolvedValue({ status: 'claim-in-progress' });
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			const result = await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			});
+
+			expect(result).toEqual({ status: 'claim-in-progress' });
+			expect(claim).toHaveBeenCalledOnce();
+			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+			expect(store.links[0].claimedAt).toBeNull();
+		});
+
 		it('reports expiration when the scoped setup link expires before submit', async () => {
 			const store = makeStore(approvedRequest);
 			await addSetupToken(store);

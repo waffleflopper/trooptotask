@@ -263,6 +263,41 @@ describe('createAccountSetupRouteFlow', () => {
 		);
 		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
 	});
+
+	it('returns support guidance when another link already holds the email claim', async () => {
+		const { flow, store, completion, audit } = makeFlow();
+		store.getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null
+		});
+		completion.completeSetupSession.mockResolvedValueOnce({ status: 'claim-in-progress' });
+
+		const result = await flow.completeSetup({
+			setupSession: makeSetupSession(),
+			password: 'ValidPassword123!',
+			confirmPassword: 'ValidPassword123!',
+			clientIp: '203.0.113.10',
+			userAgent: 'vitest-agent'
+		});
+
+		expect(result).toEqual({
+			type: 'failure',
+			status: 409,
+			error:
+				'Another account setup attempt is still in progress. If it does not finish, contact platform support before trying another link.',
+			clearSession: true
+		});
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'account_setup.failed',
+				details: expect.objectContaining({ failureCategory: 'claim-in-progress' })
+			}),
+			expect.anything()
+		);
+		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
+	});
 	it.each([
 		['expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
 		['replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],

@@ -40,7 +40,7 @@ export type AccountSetupLoadResult =
 
 export type AccountSetupCompletionResult =
 	| { type: 'redirect'; path: string; clearSession: true }
-	| { type: 'failure'; status: 400 | 429 | 500; error: string; clearSession?: true };
+	| { type: 'failure'; status: 400 | 409 | 429 | 500; error: string; clearSession?: true };
 
 interface AccountSetupLoadInput {
 	session: App.Locals['session'];
@@ -77,6 +77,8 @@ function tokenStateMessage(state: string): string {
 			return 'This Account Setup Link was replaced. Check your inbox for the newest setup email.';
 		case 'claimed':
 			return 'This Account Setup Link is already being used. Request a fresh setup link if setup does not finish.';
+		case 'claim-in-progress':
+			return 'Another account setup attempt is still in progress. If it does not finish, contact platform support before trying another link.';
 		case 'failed':
 			return 'This Account Setup Link could not finish setup. Request a fresh setup link and try again.';
 		case 'completed':
@@ -426,6 +428,19 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 					failureCategory: 'sign-in-failed'
 				});
 				return { type: 'failure', status: 500, error: manualSignInMessage(), clearSession: true };
+			}
+
+			if (completion.status === 'claim-in-progress') {
+				await auditAccountSetupFailed(audit, {
+					...setupAuditContext,
+					failureCategory: 'claim-in-progress'
+				});
+				return {
+					type: 'failure',
+					status: 409,
+					error: tokenStateMessage(completion.status),
+					clearSession: true
+				};
 			}
 
 			await auditAccountSetupFailed(audit, {

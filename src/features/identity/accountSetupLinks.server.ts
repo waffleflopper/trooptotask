@@ -141,7 +141,7 @@ export type ValidateAccountSetupLinkResult =
 
 export type ClaimAccountSetupLinkResult =
 	| { status: 'claim-started'; accessRequestId: string; link: AccountSetupLinkRecord }
-	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> | 'access-request-completed' };
+	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> | 'access-request-completed' | 'claim-in-progress' };
 
 export type CompleteClaimedAccountSetupLinkResult =
 	| { status: 'completed'; accessRequestId: string; link: AccountSetupLinkRecord }

@@ -8,6 +8,7 @@ export type AccountSetupCompletionInvalidStatus =
 	| 'replaced'
 	| 'used'
 	| 'claimed'
+	| 'claim-in-progress'
 	| 'failed'
 	| 'access-request-not-approved';
 

@@ -33,8 +33,8 @@ export function createSupabaseOrgProvisioningPort(
 			return error?.message ?? null;
 		},
 
-		async seedDefaultGroups(organizationId, groups) {
-			return seedGroups(organizationId, groups);
+		async seedDefaultGroups(organizationId) {
+			return seedGroups(organizationId);
 		},
 
 		async seedDefaultStatusTypes(organizationId, statusTypes) {

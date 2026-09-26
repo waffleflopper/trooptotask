@@ -5,7 +5,7 @@ import { seedDefaultGroups, seedDefaultRankCatalog } from '$features/personnel/i
 export function createOrganizationProvisioningDelivery(locals: Pick<App.Locals, 'supabase'>) {
 	return createSupabaseOrgProvisioningPort(
 		locals,
-		(orgId, groups) => seedDefaultGroups(locals.supabase, orgId, groups),
+		(orgId) => seedDefaultGroups(locals.supabase, orgId),
 		(orgId) => seedDefaultRankCatalog(locals.supabase, orgId)
 	);
 }

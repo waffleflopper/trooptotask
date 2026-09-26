@@ -13,7 +13,7 @@ function httpPort(handle: (request: Request) => Promise<Response>) {
 	});
 	return createSupabaseOrgProvisioningPort(
 		{ supabase } as never,
-		(orgId, groups) => seedDefaultGroups(supabase, orgId, groups),
+		(orgId) => seedDefaultGroups(supabase, orgId),
 		(orgId) => seedDefaultRankCatalog(supabase, orgId)
 	);
 }
@@ -51,7 +51,14 @@ describe('provisioning provider boundary', () => {
 		for (const { id } of creations) {
 			expect(writes).toEqual(
 				expect.arrayContaining([
-					{ table: 'groups', body: expect.arrayContaining([{ organization_id: id, name: 'Alpha', sort_order: 1 }]) },
+					{
+						table: 'groups',
+						body: [
+							{ organization_id: id, name: 'Leadership', sort_order: 0 },
+							{ organization_id: id, name: 'Alpha', sort_order: 1 },
+							{ organization_id: id, name: 'Bravo', sort_order: 2 }
+						]
+					},
 					{
 						table: 'assignment_types',
 						body: expect.arrayContaining([
@@ -129,9 +136,12 @@ describe('provisioning provider boundary', () => {
 		{
 			name: 'Groups',
 			table: 'groups',
-			write: (port: ReturnType<typeof httpPort>) =>
-				port.seedDefaultGroups('org-1', [{ name: 'Leadership', sortOrder: 0 }]),
-			body: [{ organization_id: 'org-1', name: 'Leadership', sort_order: 0 }]
+			write: (port: ReturnType<typeof httpPort>) => port.seedDefaultGroups('org-1'),
+			body: [
+				{ organization_id: 'org-1', name: 'Leadership', sort_order: 0 },
+				{ organization_id: 'org-1', name: 'Alpha', sort_order: 1 },
+				{ organization_id: 'org-1', name: 'Bravo', sort_order: 2 }
+			]
 		},
 		{
 			name: 'statuses',

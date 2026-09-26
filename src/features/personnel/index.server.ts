@@ -27,9 +27,7 @@ export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
 export { createLeaderNoteDataSource } from './leaderNoteDataSource.server';
 export {
 	addOrganizationRankServicePack,
-	buildDefaultRankCatalogSeeds,
 	bulkSetOrganizationRankCatalogState,
-	ensureOrganizationRankCatalog,
 	loadOrganizationRankCatalog,
 	loadOrganizationRankCatalogReferenceSummaries,
 	reactivateOrganizationRankCatalogEntry,

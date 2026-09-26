@@ -118,7 +118,7 @@ describe('org/new admission through real provisioning', () => {
 			userId: 'user-1',
 			email: 'owner@example.test'
 		});
-		expect(port.seedDefaultGroups).toHaveBeenCalledWith('org-1', expect.any(Array));
+		expect(port.seedDefaultGroups).toHaveBeenCalledWith('org-1');
 	});
 
 	it.each(['', ' \t\n '])('rejects blank name %j without any creation effects', async (name) => {

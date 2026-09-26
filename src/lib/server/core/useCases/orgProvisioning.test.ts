@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	provisionOrganization,
 	type OrgProvisioningAssignmentTypeSeed,
-	type OrgProvisioningGroupSeed,
 	type OrgProvisioningPort,
 	type OrgProvisioningSpecialDaySeed,
 	type OrgProvisioningStatusTypeSeed
@@ -16,7 +15,7 @@ function createOrgProvisioningPort(
 ): OrgProvisioningPort & {
 	createRequests: string[];
 	ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }>;
-	groupSeeds: Array<{ organizationId: string; groups: OrgProvisioningGroupSeed[] }>;
+	groupSeeds: string[];
 	statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }>;
 	assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }>;
 	federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }>;
@@ -24,7 +23,7 @@ function createOrgProvisioningPort(
 } {
 	const createRequests: string[] = [];
 	const ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }> = [];
-	const groupSeeds: Array<{ organizationId: string; groups: OrgProvisioningGroupSeed[] }> = [];
+	const groupSeeds: string[] = [];
 	const statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }> = [];
 	const assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }> =
 		[];
@@ -47,8 +46,8 @@ function createOrgProvisioningPort(
 			ownerEmailUpdates.push(input);
 			return null;
 		},
-		async seedDefaultGroups(organizationId, groups) {
-			groupSeeds.push({ organizationId, groups });
+		async seedDefaultGroups(organizationId) {
+			groupSeeds.push(organizationId);
 			return null;
 		},
 		async seedDefaultStatusTypes(organizationId, statusTypes) {
@@ -95,16 +94,7 @@ describe('provisionOrganization', () => {
 				email: 'owner@example.com'
 			}
 		]);
-		expect(port.groupSeeds).toEqual([
-			{
-				organizationId: 'org-1',
-				groups: [
-					{ name: 'Leadership', sortOrder: 0 },
-					{ name: 'Alpha', sortOrder: 1 },
-					{ name: 'Bravo', sortOrder: 2 }
-				]
-			}
-		]);
+		expect(port.groupSeeds).toEqual(['org-1']);
 		expect(port.statusTypeSeeds).toEqual([
 			{
 				organizationId: 'org-1',

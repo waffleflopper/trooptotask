@@ -543,6 +543,20 @@ function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): UseCase
 	};
 }
 
+function createInMemoryPersonnelCriticalTasksRosterPort(
+	rawStore: DataStore
+): UseCaseContext['personnelCriticalTasksRoster'] {
+	return {
+		async listActiveForReadiness(actor) {
+			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
+		},
+		async findForHistory(actor, personnelId) {
+			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
+			return rows[0] ? inMemoryPersonnelFromRow(rows[0]) : null;
+		}
+	};
+}
+
 function createInMemoryTrainingOnboardingReferencesPort(
 	rawStore: DataStore
 ): UseCaseContext['trainingOnboardingReferences'] {
@@ -679,6 +693,7 @@ export function createTestContext(overrides?: {
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
+		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
@@ -748,7 +763,11 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 export function createWritePortsContext(options?: { auth?: Parameters<typeof createTestAuthContext>[0] }): WritePorts &
 	Pick<
 		UseCaseContext,
-		'personnelTrainingRoster' | 'personnelCalendarRoster' | 'personnelOnboardingRoster' | 'trainingOnboardingReferences'
+		| 'personnelTrainingRoster'
+		| 'personnelCriticalTasksRoster'
+		| 'personnelCalendarRoster'
+		| 'personnelOnboardingRoster'
+		| 'trainingOnboardingReferences'
 	> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
@@ -765,6 +784,7 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 
 		criticalTasksReadModel,
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
+		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
@@ -776,7 +796,11 @@ export function createWriteWithNotificationsPortsContext(options?: {
 }): WriteWithNotificationsPorts &
 	Pick<
 		UseCaseContext,
-		'personnelTrainingRoster' | 'personnelCalendarRoster' | 'personnelOnboardingRoster' | 'trainingOnboardingReferences'
+		| 'personnelTrainingRoster'
+		| 'personnelCriticalTasksRoster'
+		| 'personnelCalendarRoster'
+		| 'personnelOnboardingRoster'
+		| 'trainingOnboardingReferences'
 	> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
@@ -795,6 +819,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
+		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
@@ -830,6 +855,7 @@ export function createQueryPortsContext(options?: {
 		auth,
 		criticalTasksReadModel,
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
+		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
@@ -853,6 +879,7 @@ export function createQueryWithRawStorePortsContext(options?: {
 		rawStore,
 		criticalTasksReadModel,
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
+		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)

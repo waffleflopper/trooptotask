@@ -31,14 +31,17 @@ ACCOUNT_SETUP_UPGRADE_MIGRATIONS = (
 STAGED_UPGRADE_MIGRATIONS = (
     *ACCOUNT_SETUP_UPGRADE_MIGRATIONS,
     "20260926000300_training_record_scope.sql",
+    "20260926000400_critical_tasks_read_scope.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
     "training_record_populated_before.sql",
+    "critical_tasks_populated_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
     "training_record_populated_after.sql",
+    "critical_tasks_populated_after.sql",
 )
 
 
@@ -239,7 +242,7 @@ def validate(repository, *, staged_upgrade=False):
                     PG_PROVE_IMAGE, "pg_prove", "--verbose",
                     f"/tests/migration-tests/{name}",
                 ], workdir)
-            print("Populated account setup and Training upgrades passed.", flush=True)
+            print("Populated account setup, Training and Critical Tasks upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True

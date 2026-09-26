@@ -2,6 +2,7 @@ import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
+import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
@@ -196,6 +197,7 @@ export interface WritePorts {
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
+	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
 	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
@@ -219,6 +221,7 @@ export interface QueryPorts {
 	auth: AuthContext;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
+	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
@@ -245,6 +248,7 @@ export interface UseCaseContext {
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;
+	personnelCriticalTasksRoster: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster: PersonnelOnboardingRosterPort;
 	trainingOnboardingReferences: TrainingOnboardingReferencesPort;

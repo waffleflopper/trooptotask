@@ -32,6 +32,12 @@ export interface PersonnelTrainingRosterPort {
 	findGroupIdsForWrites(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
 }
 
+/** Personnel facts exposed to Critical Tasks after its own lane admission. */
+export interface PersonnelCriticalTasksRosterPort {
+	listActiveForReadiness(actor: PersonnelRosterActor): Promise<Personnel[]>;
+	findForHistory(actor: PersonnelRosterActor, personnelId: string): Promise<Personnel | null>;
+}
+
 export {
 	createRosterReadModel,
 	formatRosterPersonDisplayName,

@@ -33,7 +33,6 @@ import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { fetchCriticalTasksSettings } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
-import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;
@@ -138,8 +137,9 @@ async function buildDashboardFromSource(
 
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
+	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
 	const [personnel, groupRows, taskRows, settings, rankCatalog] = await Promise.all([
-		loadRosterPersonnel(ctx, { status: 'active' }),
+		ctx.personnelCriticalTasksRoster.listActiveForReadiness(ctx.auth),
 		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),

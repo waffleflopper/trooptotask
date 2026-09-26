@@ -40,6 +40,7 @@ import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingS
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
 import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
 import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelCriticalTasksRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelOnboardingRosterPort } from '$features/personnel/index.server';
 import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
@@ -210,6 +211,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
+	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
@@ -237,6 +239,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			ratingSchemePersonnelLookup,
 			signInRosterPersonnelLookup,
 			personnelTrainingRoster,
+			personnelCriticalTasksRoster,
 			personnelCalendarRoster,
 			personnelOnboardingRoster,
 			trainingOnboardingReferences,
@@ -293,6 +296,7 @@ export async function buildLayoutContext(
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
+	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
@@ -319,6 +323,7 @@ export async function buildLayoutContext(
 		ratingSchemePersonnelLookup,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
+		personnelCriticalTasksRoster,
 		personnelCalendarRoster,
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,
@@ -363,6 +368,7 @@ export async function buildLayoutContextFromMembership(
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
+	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
@@ -389,6 +395,7 @@ export async function buildLayoutContextFromMembership(
 		ratingSchemePersonnelLookup,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
+		personnelCriticalTasksRoster,
 		personnelCalendarRoster,
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,

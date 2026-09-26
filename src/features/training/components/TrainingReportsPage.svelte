@@ -9,7 +9,7 @@
 	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { rosterStore } from '$features/personnel';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingStatus } from '$features/training/training.types';

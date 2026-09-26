@@ -16,7 +16,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { rosterStore } from '$features/personnel';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);

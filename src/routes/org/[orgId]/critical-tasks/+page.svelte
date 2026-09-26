@@ -8,7 +8,7 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { rosterStore } from '$features/personnel';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import IctCompletionBulkImport from '$features/critical-tasks/components/IctCompletionBulkImport.svelte';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';

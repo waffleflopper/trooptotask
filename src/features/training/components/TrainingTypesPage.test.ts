@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingTypesPage from './TrainingTypesPage.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
@@ -65,14 +65,14 @@ const trainingType: TrainingType = {
 
 describe('TrainingTypesPage', () => {
 	beforeEach(() => {
-		rosterStore.load(personnel, 'org-1');
+		personnelRosterHydration.load(personnel, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 	});
 
 	afterEach(() => {
 		cleanup();
-		rosterStore.load([], 'org-test-reset');
+		personnelRosterHydration.load([], 'org-test-reset');
 		trainingRankCatalogStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 	});
@@ -172,7 +172,7 @@ describe('TrainingTypesPage', () => {
 	});
 
 	it('does not carry observed Personnel ranks retired by the catalog into new type applicability', async () => {
-		rosterStore.load(
+		personnelRosterHydration.load(
 			[
 				...personnel,
 				{
@@ -212,7 +212,7 @@ describe('TrainingTypesPage', () => {
 	});
 
 	it('keeps observed Personnel aliases that resolve to active catalog ranks selectable', async () => {
-		rosterStore.load([{ ...personnel[0], rank: 'sgt' }] as Personnel[], 'org-1');
+		personnelRosterHydration.load([{ ...personnel[0], rank: 'sgt' }] as Personnel[], 'org-1');
 
 		render(TrainingTypesPage, {
 			props: {

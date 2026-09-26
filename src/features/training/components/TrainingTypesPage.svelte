@@ -16,7 +16,7 @@
 	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 	import { rankCodesForOptions } from '$lib/domain/rankOptions';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { rosterStore } from '$features/personnel';
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import {

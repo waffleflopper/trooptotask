@@ -6,7 +6,7 @@ import type { PersonnelTraining, TrainingType, TrainingView } from './training.t
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -37,7 +37,7 @@ export interface TrainingWorkspaceHydrator {
 }
 
 const defaultTrainingHydrationStores: TrainingHydrationStores = {
-	personnelStore: rosterStore,
+	personnelStore: personnelRosterHydration,
 	groupsStore,
 	trainingTypesStore,
 	trainingViewsStore,

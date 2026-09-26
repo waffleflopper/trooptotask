@@ -7,7 +7,7 @@ import { trainingViewsStore } from '$features/training/stores/trainingViews.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -53,7 +53,7 @@ function makePageData() {
 
 describe('training page', () => {
 	beforeEach(() => {
-		rosterStore.startLoading();
+		personnelRosterHydration.startLoading();
 		groupsStore.startLoading();
 		trainingTypesStore.startLoading();
 		trainingViewsStore.startLoading();
@@ -63,7 +63,7 @@ describe('training page', () => {
 
 	afterEach(() => {
 		cleanup();
-		rosterStore.load([], 'org-test-reset');
+		personnelRosterHydration.load([], 'org-test-reset');
 		groupsStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');

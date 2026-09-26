@@ -4,7 +4,7 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
@@ -17,7 +17,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 afterEach(() => {
 	cleanup();
 	onboardingStore.load([], 'org-1');
-	rosterStore.load([], 'org-test-reset');
+	personnelRosterHydration.load([], 'org-test-reset');
 });
 
 describe('onboarding history page', () => {
@@ -36,7 +36,7 @@ describe('onboarding history page', () => {
 	});
 
 	it('keeps archived personnel visible in completed history records', () => {
-		rosterStore.load(
+		personnelRosterHydration.load(
 			[
 				{
 					id: 'p-archived',
@@ -79,7 +79,7 @@ describe('onboarding history page', () => {
 	});
 
 	it('renders completed and cancelled history records while excluding active onboardings', () => {
-		rosterStore.load(
+		personnelRosterHydration.load(
 			[
 				{
 					id: 'p-completed',

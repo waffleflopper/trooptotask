@@ -137,7 +137,7 @@ Keep feature-specific logic inside the feature module unless it is truly shared 
 - Page contexts are valid in v1, but they should not silently become god objects.
 - If a context starts to own too many unrelated concerns, that is a signal to deepen module boundaries rather than keep stuffing logic into it.
 - Prefer pushing stable calculations and business rules into smaller modules with thinner public interfaces.
-- The pure `Roster Read Model` now lives in Personnel and is consumed through its portable contract. The shared client store and `$lib/server/core/useCases/rosterReadModel.ts` remain current D03 cutover work because Calendar, Training, Dashboard, Onboarding, Rating Scheme, settings archives and shell hydration read the same Organization roster. Shared placement does not make those paths ownerless. Preserve `full`/`scoped` and `active`/`archived`/`all` meanings in [Roster Read Model](ROSTER_READ_MODEL.md).
+- The pure `Roster Read Model` lives in Personnel and is consumed through its portable contract. Personnel's Web seam owns one read-only roster view plus the controlled workspace hydration operation. `$lib/server/core/useCases/rosterReadModel.ts` remains current D03 cutover work because server Calendar, Training, Dashboard, Onboarding, Rating Scheme and settings archives read the same Organization roster. Shared placement does not make that path ownerless. Preserve `full`/`scoped` and `active`/`archived`/`all` meanings in [Roster Read Model](ROSTER_READ_MODEL.md).
 
 ### Client read models
 

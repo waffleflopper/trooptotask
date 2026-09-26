@@ -4,7 +4,7 @@ import { specialDaysStore } from './stores/specialDays.svelte';
 import { statusTypesStore } from './stores/statusTypes.svelte';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import { mergeById } from '$lib/utils/mergeById';
 import {
 	createFeatureLaneWorkspaceHydrator,
@@ -52,7 +52,7 @@ export interface CalendarWorkspaceHydrator {
 }
 
 const defaultCalendarHydrationStores: CalendarHydrationStores = {
-	personnelStore: rosterStore,
+	personnelStore: personnelRosterHydration,
 	groupsStore,
 	statusTypesStore,
 	availabilityEntriesStore: availabilityStore,

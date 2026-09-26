@@ -4,7 +4,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -51,7 +51,7 @@ export interface DashboardWorkspaceHydrator {
 }
 
 const defaultDashboardHydrationStores: DashboardHydrationStores = {
-	personnelStore: rosterStore,
+	personnelStore: personnelRosterHydration,
 	groupsStore,
 	statusTypesStore,
 	availabilityEntriesStore: availabilityStore,

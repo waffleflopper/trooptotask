@@ -3,7 +3,7 @@
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { rosterStore } from '$features/personnel';
 	import TrainingReportsPage from '$features/training/components/TrainingReportsPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';

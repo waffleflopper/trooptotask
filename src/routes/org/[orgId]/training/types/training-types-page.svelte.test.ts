@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
@@ -114,13 +114,13 @@ const trainingType: TrainingType = {
 
 describe('training types page', () => {
 	beforeEach(() => {
-		rosterStore.load([], 'org-stale');
+		personnelRosterHydration.load([], 'org-stale');
 		trainingTypesStore.load([], 'org-stale');
 	});
 
 	afterEach(() => {
 		cleanup();
-		rosterStore.load([], 'org-test-reset');
+		personnelRosterHydration.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 	});
 
@@ -140,7 +140,7 @@ describe('training types page', () => {
 	});
 
 	it('renders the resolved page once current-org stores hydrate', async () => {
-		rosterStore.load(personnel, 'org-1');
+		personnelRosterHydration.load(personnel, 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 
 		render(Page, {

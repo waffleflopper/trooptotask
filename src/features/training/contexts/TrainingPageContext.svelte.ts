@@ -4,7 +4,7 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { rosterStore } from '$features/personnel';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

@@ -8,7 +8,7 @@ import type {
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { TrainingType } from '$features/training/training.types';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -48,7 +48,7 @@ export interface OnboardingWorkspaceHydrator {
 type OnboardingTemplatesResolved = Pick<OnboardingTemplatesWorkspaceHydrationTarget, 'templates' | 'steps'>;
 
 const defaultOnboardingHydrationStores: OnboardingHydrationStores = {
-	personnelStore: rosterStore,
+	personnelStore: personnelRosterHydration,
 	groupsStore,
 	trainingTypesStore,
 	onboardingTemplateStore,

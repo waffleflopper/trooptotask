@@ -1,6 +1,6 @@
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from './stores/personnel.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import {
 	createFeatureLaneWorkspaceHydrator,
@@ -37,7 +37,7 @@ export interface PersonnelWorkspaceHydrator {
 }
 
 const defaultPersonnelHydrationStores: PersonnelHydrationStores = {
-	personnelStore: rosterStore,
+	personnelStore: personnelRosterHydration,
 	groupsStore,
 	statusTypesStore,
 	pinnedGroupsStore

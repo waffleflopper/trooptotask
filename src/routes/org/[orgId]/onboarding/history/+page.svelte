@@ -3,7 +3,7 @@
 	import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { rosterStore } from '$features/personnel';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import {
 		formatTimestamp,

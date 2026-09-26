@@ -376,8 +376,7 @@
 				"src/lib/stores/groups.svelte.test.ts",
 				"src/lib/stores/groups.svelte.ts",
 				"src/lib/stores/pinnedGroups.svelte.test.ts",
-				"src/lib/stores/pinnedGroups.svelte.ts",
-				"src/lib/stores/roster.svelte.ts"
+				"src/lib/stores/pinnedGroups.svelte.ts"
 			],
 			"packet": "08-M04"
 		},

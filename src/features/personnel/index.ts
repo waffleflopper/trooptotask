@@ -1,7 +1,8 @@
 // Personnel feature barrel export
 
 // Stores
-export { personnelStore } from './stores/personnel.svelte';
+export { personnelStore, rosterStore, personnelRosterHydration } from './stores/personnel.svelte';
+export type { RosterReadStore } from './stores/personnel.svelte';
 
 // Context
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';

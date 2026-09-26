@@ -32,12 +32,12 @@ import {
 	formatTimestamp
 } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 
 afterEach(() => {
-	rosterStore.load([], 'org-test-reset');
+	personnelRosterHydration.load([], 'org-test-reset');
 	startOnboardingMock.mockReset();
 });
 
@@ -100,7 +100,7 @@ describe('OnboardingPageContext policy affordances', () => {
 	});
 
 	it('checks per-personnel scope for onboarding record actions', () => {
-		rosterStore.load(
+		personnelRosterHydration.load(
 			[
 				{
 					id: 'p-1',

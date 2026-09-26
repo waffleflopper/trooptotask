@@ -2,7 +2,7 @@ import { ictTasksStore } from './stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from './stores/personnelIctCompletions.svelte';
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from './criticalTasks.types';
 import { groupsStore, type Group } from '$lib/stores/groups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -73,7 +73,7 @@ export function resetCriticalTasksWorkspaceStatus(): void {
 }
 
 const defaultCriticalTasksHydrationStores: CriticalTasksHydrationStores = {
-	personnelStore: rosterStore,
+	personnelStore: personnelRosterHydration,
 	groupsStore,
 	ictTasksStore,
 	personnelIctCompletionsStore

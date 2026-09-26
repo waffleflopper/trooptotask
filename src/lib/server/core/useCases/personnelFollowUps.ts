@@ -8,7 +8,7 @@ import {
 	loadPersonnelContributorLabels,
 	mapFollowUpRow,
 	PERSONNEL_FOLLOW_UP_SPEC,
-	requirePersonnelArtifactAccess,
+	personnelArtifactWriter,
 	type FollowUpRow
 } from './personnelArtifactLifecycle';
 
@@ -55,11 +55,10 @@ export async function createPersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 	}
 
 	const input = parsed.data;
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
 	const now = new Date().toISOString();
 
-	const row = await ctx.store.insert<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
-		personnel_id: input.personnelId,
+	const row = await writer.insert<FollowUpRow>('personnel_follow_ups', {
 		title: input.title,
 		notes: input.notes,
 		due_date: input.dueDate,
@@ -86,19 +85,16 @@ export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: 
 	}
 
 	const input = parsed.data;
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
 
-	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
-		id: input.followUpId,
-		personnel_id: input.personnelId
-	});
+	const current = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
 	if (!current) fail(404, 'Follow-up not found');
 	if (current.status === 'archived' && input.status !== 'archived') {
 		fail(409, 'Archived follow-ups cannot be reopened');
 	}
 
 	const now = new Date().toISOString();
-	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
+	const row = await writer.update<FollowUpRow>('personnel_follow_ups', input.followUpId, {
 		status: input.status,
 		completed_at: input.status === 'completed' ? now : null,
 		archived_at: input.status === 'archived' ? now : null,
@@ -122,18 +118,15 @@ export async function updatePersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 	}
 
 	const input = parsed.data;
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
 
-	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
-		id: input.followUpId,
-		personnel_id: input.personnelId
-	});
+	const current = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
 	if (!current) fail(404, 'Follow-up not found');
 	if (current.status === 'archived') {
 		fail(409, 'Archived follow-ups cannot be edited');
 	}
 
-	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
+	const row = await writer.update<FollowUpRow>('personnel_follow_ups', input.followUpId, {
 		title: input.title,
 		notes: input.notes,
 		due_date: input.dueDate,
@@ -167,15 +160,12 @@ export async function restorePersonnelFollowUp(ctx: UseCaseContext, rawInput: un
 	}
 
 	const input = parsed.data;
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
-	const current = await ctx.store.findOne<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, {
-		id: input.followUpId,
-		personnel_id: input.personnelId
-	});
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
+	const current = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
 	if (!current) fail(404, 'Follow-up not found');
 	if (current.status !== 'archived') fail(409, 'Only archived follow-ups can be restored');
 
-	const row = await ctx.store.update<FollowUpRow>('personnel_follow_ups', ctx.auth.orgId, input.followUpId, {
+	const row = await writer.update<FollowUpRow>('personnel_follow_ups', input.followUpId, {
 		status: 'open',
 		completed_at: null,
 		archived_at: null,

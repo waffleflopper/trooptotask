@@ -38,6 +38,7 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelArtifactWritePort } from '$features/personnel/index.server';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
 import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
@@ -211,6 +212,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -240,6 +242,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			criticalTasksReadModel,
 			personnelRatingSchemeRoster,
 			personnelAwardAcknowledgement,
+			personnelArtifactWrites,
 			signInRosterPersonnelLookup,
 			personnelTrainingRoster,
 			personnelCriticalTasksRoster,
@@ -298,6 +301,7 @@ export async function buildLayoutContext(
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -326,6 +330,7 @@ export async function buildLayoutContext(
 		criticalTasksReadModel,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
+		personnelArtifactWrites,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
 		personnelCriticalTasksRoster,
@@ -372,6 +377,7 @@ export async function buildLayoutContextFromMembership(
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -400,6 +406,7 @@ export async function buildLayoutContextFromMembership(
 		criticalTasksReadModel,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
+		personnelArtifactWrites,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
 		personnelCriticalTasksRoster,

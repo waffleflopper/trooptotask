@@ -494,6 +494,58 @@ function createInMemoryPersonnelAwardAcknowledgementPort(
 	};
 }
 
+function createInMemoryPersonnelArtifactWritePort(
+	rawStore: DataStore
+): NonNullable<UseCaseContext['personnelArtifactWrites']> {
+	return {
+		async forPerson(actor, personnelId) {
+			const person = await rawStore.findOne<{ group_id: string | null }>('personnel', actor.orgId, {
+				id: personnelId
+			});
+			if (!person) throw Object.assign(new Error('Personnel record not found'), { status: 404 });
+			if (
+				!actor.isPrivileged &&
+				(actor.capabilityMap.personnel === 'none' || actor.capabilityMap.personnel === 'view')
+			) {
+				throw Object.assign(new Error('You do not have permission to use personnel data'), { status: 403 });
+			}
+			if (
+				!actor.isPrivileged &&
+				actor.scopeSet.kind === 'groups' &&
+				(!person.group_id || !actor.scopeSet.groupIds.includes(person.group_id))
+			) {
+				throw Object.assign(new Error('You do not have access to records outside your assigned scope'), {
+					status: 403
+				});
+			}
+			return {
+				find<T>(table: string, id: string) {
+					return rawStore.findOne<T>(table, actor.orgId, { id, personnel_id: personnelId });
+				},
+				insert<T>(table: string, data: Record<string, unknown>) {
+					if ('organization_id' in data || 'personnel_id' in data) {
+						throw Object.assign(new Error('Artifact Person is bound by the write session'), { status: 400 });
+					}
+					return rawStore.insert<T>(table, actor.orgId, { ...data, personnel_id: personnelId });
+				},
+				async update<T>(table: string, id: string, patch: Record<string, unknown>) {
+					if ('id' in patch || 'organization_id' in patch || 'personnel_id' in patch) {
+						throw Object.assign(new Error('Artifact identity cannot be changed'), { status: 400 });
+					}
+					const row = await rawStore.findOne(table, actor.orgId, { id, personnel_id: personnelId });
+					if (!row) throw new Error('Artifact not found');
+					return rawStore.update<T>(table, actor.orgId, id, patch);
+				},
+				async delete(table: string, id: string) {
+					const row = await rawStore.findOne(table, actor.orgId, { id, personnel_id: personnelId });
+					if (!row) return;
+					await rawStore.delete(table, actor.orgId, id);
+				}
+			};
+		}
+	};
+}
+
 function inMemoryPersonnelFromRow(row: Row) {
 	return {
 		id: row.id as string,
@@ -728,6 +780,7 @@ export function createTestContext(overrides?: {
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
+		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),

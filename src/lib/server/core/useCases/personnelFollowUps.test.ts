@@ -194,6 +194,25 @@ describe('personnel follow-ups', () => {
 		});
 	});
 
+	it('does not edit a follow-up through a different Person in the same Organization', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		ctx.store.seed('personnel', [{ id: 'person-2', organization_id: ctx.auth.orgId, group_id: null }]);
+		const created = await createPersonnelFollowUp(ctx, { personnelId: 'person-1', title: 'Keep this' });
+
+		await expect(
+			updatePersonnelFollowUp(ctx, {
+				personnelId: 'person-2',
+				followUpId: created.id,
+				title: 'Wrong Person'
+			})
+		).rejects.toMatchObject({ status: 404 });
+		const saved = await ctx.store.findOne<{ title: string }>('personnel_follow_ups', ctx.auth.orgId, {
+			id: created.id
+		});
+		expect(saved?.title).toBe('Keep this');
+	});
+
 	it('delegates Soldier scope enforcement to the scope port', async () => {
 		const requireGroupAccess = vi.fn(async () => {
 			throw { status: 403, message: 'Group scope denied' };

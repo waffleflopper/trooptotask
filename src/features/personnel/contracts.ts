@@ -74,6 +74,24 @@ export interface PersonnelAwardAcknowledgementPort {
 	listAcknowledgedPersonnelIds(actor: PersonnelRosterActor): Promise<string[]>;
 }
 
+/** Write-only operations over a single admitted Person's sensitive artifacts. */
+export type PersonnelArtifactTable =
+	| 'personnel_follow_ups'
+	| 'counseling_records'
+	| 'personnel_documents'
+	| 'leader_notes';
+
+export interface PersonnelArtifactWriter {
+	find<T>(table: PersonnelArtifactTable, id: string): Promise<T | null>;
+	insert<T>(table: PersonnelArtifactTable, data: Record<string, unknown>): Promise<T>;
+	update<T>(table: PersonnelArtifactTable, id: string, patch: Record<string, unknown>): Promise<T>;
+	delete(table: PersonnelArtifactTable, id: string): Promise<void>;
+}
+
+export interface PersonnelArtifactWritePort {
+	forPerson(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelArtifactWriter>;
+}
+
 /** Personnel facts exposed to Critical Tasks after its own lane admission. */
 export interface PersonnelCriticalTasksRosterPort {
 	listActiveForReadiness(actor: PersonnelRosterActor): Promise<Personnel[]>;

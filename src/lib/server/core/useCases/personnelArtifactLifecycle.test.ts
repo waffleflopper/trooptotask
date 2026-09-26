@@ -28,7 +28,7 @@ interface TestArtifactDto {
 }
 
 const TEST_SPEC: PersonnelArtifactSpec<TestArtifactRow, TestArtifactDto> = {
-	table: 'test_artifacts',
+	table: 'counseling_records',
 	noun: 'Test artifact',
 	nounPlural: 'test artifacts',
 	auditPrefix: 'personnel.test_artifact',
@@ -52,7 +52,7 @@ const TEST_SPEC: PersonnelArtifactSpec<TestArtifactRow, TestArtifactDto> = {
 
 const STATUS_SPEC: PersonnelArtifactSpec<TestArtifactRow, TestArtifactDto> = {
 	...TEST_SPEC,
-	table: 'status_artifacts',
+	table: 'personnel_follow_ups',
 	noun: 'Status artifact',
 	nounPlural: 'status artifacts',
 	auditPrefix: 'personnel.status_artifact',
@@ -89,7 +89,7 @@ function seedRows(ctx: ReturnType<typeof configureContext>) {
 			display_name: 'SSG Rivera'
 		}
 	]);
-	ctx.store.seed('test_artifacts', [
+	ctx.store.seed('counseling_records', [
 		{
 			id: 'active-old',
 			organization_id: ctx.auth.orgId,
@@ -118,7 +118,7 @@ function seedRows(ctx: ReturnType<typeof configureContext>) {
 			archived_at: '2026-05-04T00:00:00Z'
 		}
 	]);
-	ctx.store.seed('status_artifacts', [
+	ctx.store.seed('personnel_follow_ups', [
 		{
 			id: 'status-active',
 			organization_id: ctx.auth.orgId,

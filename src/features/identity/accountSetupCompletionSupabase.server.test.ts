@@ -3,7 +3,7 @@ import {
 	createSupabaseAccountSetupAuthAdapter,
 	createSupabaseAccountSetupCompletionStore
 } from './accountSetupCompletionSupabase.server';
-import { AccountSetupPasswordRejectedError } from './accountSetupCompletion.server';
+import { AccountSetupIdentityMismatchError, AccountSetupPasswordRejectedError } from './accountSetupCompletion.server';
 import { normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
 
 type Call = { method: string; args: unknown[] };
@@ -28,18 +28,6 @@ function createIdentityLookupBuilder(
 		eq: track('eq'),
 		maybeSingle: (...args: unknown[]) => {
 			calls.push({ method: 'maybeSingle', args });
-			return result;
-		}
-	};
-
-	return { builder, calls };
-}
-
-function createIdentityUpsertBuilder(result: { error: unknown } = { error: null }) {
-	const calls: Call[] = [];
-	const builder = {
-		upsert: (...args: unknown[]) => {
-			calls.push({ method: 'upsert', args });
 			return result;
 		}
 	};
@@ -97,72 +85,64 @@ function makeSessionClient() {
 }
 
 describe('Supabase Account Setup auth adapter', () => {
+	it('treats an incomplete database reconciliation result as support-only', async () => {
+		const store = createSupabaseAccountSetupCompletionStore({
+			rpc: vi.fn().mockResolvedValue({ data: { state: 'committed' }, error: null })
+		} as never);
+
+		await expect(store.reconcileClaim({ setupLinkId: 'link-1', accessRequestId: 'request-1' })).resolves.toEqual({
+			state: 'support-required'
+		});
+	});
+
+	it('updates an indexed existing User Account with the admitted setup attempt', async () => {
+		const { builder: lookupBuilder } = createIdentityLookupBuilder();
+		const adminClient = makeAdminClient({ tableBuilders: [lookupBuilder] });
+		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
+
+		await adapter.createOrActivateConfirmedUser({
+			email: ' Soldier@Example.MIL ',
+			password: 'ValidPassword123!',
+			attemptId: 'admitted-attempt-1'
+		});
+
+		expect(adminClient.auth.admin.createUser).not.toHaveBeenCalled();
+		expect(adminClient.auth.admin.updateUserById).toHaveBeenCalledWith('existing-user-1', {
+			password: 'ValidPassword123!',
+			email_confirm: true,
+			user_metadata: { ttt_setup_attempt: 'admitted-attempt-1' }
+		});
+	});
+
 	it('normalizes User Account email identities', () => {
 		expect(normalizeUserEmailIdentity(' Soldier@Example.MIL ')).toBe('soldier@example.mil');
 	});
 
-	it('records an indexed identity when creating a new confirmed User Account', async () => {
-		const { builder: upsertBuilder, calls: upsertCalls } = createIdentityUpsertBuilder();
+	it('creates a confirmed User Account with the admitted setup attempt', async () => {
+		const { builder: lookupBuilder } = createIdentityLookupBuilder({ data: null, error: null });
 		const adminClient = makeAdminClient({
 			createUserResult: {
 				data: { user: { id: 'new-user-1' } },
 				error: null
 			},
-			tableBuilders: [upsertBuilder]
+			tableBuilders: [lookupBuilder]
 		});
 		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
 
 		const result = await adapter.createOrActivateConfirmedUser({
 			email: ' Soldier@Example.MIL ',
-			password: 'ValidPassword123!'
+			password: 'ValidPassword123!',
+			attemptId: 'admitted-attempt-1'
 		});
 
 		expect(result).toEqual({ userId: 'new-user-1' });
 		expect(adminClient.auth.admin.createUser).toHaveBeenCalledWith({
 			email: 'soldier@example.mil',
 			password: 'ValidPassword123!',
-			email_confirm: true
-		});
-		expect(upsertCalls).toContainEqual({
-			method: 'upsert',
-			args: [{ user_id: 'new-user-1', normalized_email: 'soldier@example.mil' }, { onConflict: 'user_id' }]
+			email_confirm: true,
+			user_metadata: { ttt_setup_attempt: 'admitted-attempt-1' }
 		});
 		expect(adminClient.auth.admin.updateUserById).not.toHaveBeenCalled();
-	});
-
-	it.each([
-		{ code: 'user_already_exists', status: 422, message: 'User already exists' },
-		{ code: 'email_exists', status: 422, message: 'Email already exists' },
-		{ status: 422, message: 'A user with this email address has already been registered' }
-	])('activates an existing User Account by indexed identity lookup for %j', async (providerError) => {
-		const { builder: lookupBuilder, calls: lookupCalls } = createIdentityLookupBuilder({
-			data: { user_id: 'existing-user-2', normalized_email: 'soldier@example.mil' },
-			error: null
-		});
-		const { builder: upsertBuilder, calls: upsertCalls } = createIdentityUpsertBuilder();
-		const adminClient = makeAdminClient({
-			createUserResult: { data: { user: null }, error: providerError },
-			tableBuilders: [lookupBuilder, upsertBuilder]
-		});
-		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
-
-		const result = await adapter.createOrActivateConfirmedUser({
-			email: ' Soldier@Example.MIL ',
-			password: 'ValidPassword123!'
-		});
-
-		expect(result).toEqual({ userId: 'existing-user-2' });
-		expect(adminClient.from).toHaveBeenNthCalledWith(1, 'user_email_identities');
-		expect(lookupCalls).toContainEqual({ method: 'select', args: ['user_id, normalized_email'] });
-		expect(lookupCalls).toContainEqual({ method: 'eq', args: ['normalized_email', 'soldier@example.mil'] });
-		expect(adminClient.auth.admin.updateUserById).toHaveBeenCalledWith('existing-user-2', {
-			password: 'ValidPassword123!',
-			email_confirm: true
-		});
-		expect(upsertCalls).toContainEqual({
-			method: 'upsert',
-			args: [{ user_id: 'existing-user-2', normalized_email: 'soldier@example.mil' }, { onConflict: 'user_id' }]
-		});
 	});
 
 	it.each([
@@ -179,28 +159,35 @@ describe('Supabase Account Setup auth adapter', () => {
 
 		const attempt = adapter.createOrActivateConfirmedUser({
 			email: 'soldier@example.mil',
-			password: 'ValidPassword123!'
+			password: 'ValidPassword123!',
+			attemptId: 'admitted-attempt-1'
 		});
 		if ('code' in providerError) {
 			await expect(attempt).rejects.toBeInstanceOf(AccountSetupPasswordRejectedError);
 		} else {
 			await expect(attempt).rejects.toBe(providerError);
 		}
-		expect(adminClient.from).not.toHaveBeenCalled();
 		expect(adminClient.auth.admin.updateUserById).not.toHaveBeenCalled();
 	});
 
-	it('fails clearly when an existing-user error has no indexed identity', async () => {
+	it.each([
+		{ code: 'user_already_exists', message: 'User already exists' },
+		{ message: 'A user with this email address has already been registered' }
+	])('does not update an unindexed Auth user after duplicate create result %j', async (providerError) => {
 		const { builder: lookupBuilder } = createIdentityLookupBuilder({ data: null, error: null });
-		const adminClient = makeAdminClient({ tableBuilders: [lookupBuilder] });
+		const adminClient = makeAdminClient({
+			createUserResult: { data: { user: null }, error: providerError },
+			tableBuilders: [lookupBuilder]
+		});
 		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
 
 		await expect(
 			adapter.createOrActivateConfirmedUser({
 				email: 'soldier@example.mil',
-				password: 'ValidPassword123!'
+				password: 'ValidPassword123!',
+				attemptId: 'admitted-attempt-1'
 			})
-		).rejects.toThrow('Could not find existing User Account email identity');
+		).rejects.toBeInstanceOf(AccountSetupIdentityMismatchError);
 		expect(adminClient.auth.admin.updateUserById).not.toHaveBeenCalled();
 	});
 
@@ -218,16 +205,18 @@ describe('Supabase Account Setup auth adapter', () => {
 		await expect(
 			adapter.createOrActivateConfirmedUser({
 				email: 'soldier@example.mil',
-				password: 'short'
+				password: 'short',
+				attemptId: 'admitted-attempt-1'
 			})
 		).rejects.toEqual({ message: 'Password should be at least 12 characters' });
 		expect(adminClient.auth.admin.updateUserById).toHaveBeenCalledWith('existing-user-1', {
 			password: 'short',
-			email_confirm: true
+			email_confirm: true,
+			user_metadata: { ttt_setup_attempt: 'admitted-attempt-1' }
 		});
 	});
 
-	it('classifies a structured password rejection on an existing User Account without writing its identity', async () => {
+	it('classifies a structured password rejection on an existing User Account', async () => {
 		const { builder: lookupBuilder } = createIdentityLookupBuilder();
 		const adminClient = makeAdminClient({
 			tableBuilders: [lookupBuilder],
@@ -239,62 +228,13 @@ describe('Supabase Account Setup auth adapter', () => {
 		const adapter = createSupabaseAccountSetupAuthAdapter(adminClient as never, makeSessionClient() as never);
 
 		await expect(
-			adapter.createOrActivateConfirmedUser({ email: 'soldier@example.mil', password: 'RejectedPassword123!' })
+			adapter.createOrActivateConfirmedUser({
+				email: 'soldier@example.mil',
+				password: 'RejectedPassword123!',
+				attemptId: 'admitted-attempt-1'
+			})
 		).rejects.toBeInstanceOf(AccountSetupPasswordRejectedError);
 		expect(adminClient.auth.admin.updateUserById).toHaveBeenCalledOnce();
-		expect(adminClient.from).toHaveBeenCalledTimes(1);
-	});
-
-	it('records setup completion without creating an Organization Membership', async () => {
-		const from = vi.fn((table: string) => {
-			if (table === 'access_requests') {
-				return {
-					update: vi.fn(() => ({
-						eq: vi.fn(() => ({
-							is: vi.fn(() => ({
-								select: vi.fn(() => ({
-									maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'request-1' }, error: null })
-								}))
-							}))
-						}))
-					}))
-				};
-			}
-
-			if (table === 'user_profiles') {
-				return {
-					upsert: vi.fn().mockResolvedValue({ error: null })
-				};
-			}
-
-			throw new Error(`Unexpected setup persistence effect: ${table}`);
-		});
-		const store = createSupabaseAccountSetupCompletionStore({ from } as never);
-
-		await store.upsertUserProfile({ userId: 'user-123', firstName: 'Person', lastName: 'Example' });
-		await store.markAccessRequestSetupCompleted('request-1', 'user-123', new Date('2026-05-22T12:00:00.000Z'));
-
-		expect(from).toHaveBeenCalledWith('user_profiles');
-		expect(from).toHaveBeenCalledWith('access_requests');
-		expect(from).not.toHaveBeenCalledWith('organization_members');
-	});
-
-	it('rejects a zero-row Access Request completion update', async () => {
-		const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
-		const from = vi.fn(() => ({
-			update: () => ({
-				eq: () => ({
-					is: () => ({ select: () => ({ maybeSingle }) })
-				})
-			})
-		}));
-		const store = createSupabaseAccountSetupCompletionStore({ from } as never);
-
-		await expect(
-			store.markAccessRequestSetupCompleted('request-1', 'user-123', new Date('2026-05-22T12:00:00.000Z'))
-		).rejects.toThrow('Access Request setup completion was not recorded');
-		expect(from).toHaveBeenCalledWith('access_requests');
-		expect(maybeSingle).toHaveBeenCalledOnce();
 	});
 
 	it('claims setup sessions through the database-owned transition RPC', async () => {

@@ -23,6 +23,78 @@ it('allows a 72-character setup password but blocks a matching 73-character pass
 	expect(screen.getByText('72 characters or fewer').closest('li')).toHaveTextContent('Needed: 72 characters or fewer');
 });
 
+it('offers an optional password-free status check on a fresh valid link without hiding normal setup', () => {
+	render(Page, { data: { session: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
+	const setupForm = screen.getByRole('button', { name: 'Set Up Account' }).closest('form');
+	const statusForm = screen.getByRole('button', { name: 'Check setup status' }).closest('form');
+	expect(setupForm).toHaveAttribute('action', '?/complete');
+	expect(statusForm).toHaveAttribute('action', '?/recover');
+	expect(within(statusForm!).queryByLabelText(/^Password/)).not.toBeInTheDocument();
+	expect(within(setupForm!).getByLabelText(/^Password/)).toBeInTheDocument();
+});
+
+it('offers a password-free status check after a held claim and keeps it available after reload', async () => {
+	const page = render(Page, {
+		data: { session: null, state: 'valid', email: 'synthetic@example.test' },
+		form: { recoveryState: 'recovery-available', message: 'Check setup status to continue safely.' }
+	});
+	const statusForm = screen.getByRole('button', { name: 'Check setup status' }).closest('form');
+	expect(statusForm).toHaveAttribute('action', '?/recover');
+	expect(within(statusForm!).queryByLabelText(/^Password/)).not.toBeInTheDocument();
+	expect(screen.queryByRole('button', { name: 'Set Up Account' })).not.toBeInTheDocument();
+
+	await page.rerender({
+		data: { session: null, state: 'recovery-available', email: 'synthetic@example.test' },
+		form: null
+	});
+	expect(screen.getByRole('button', { name: 'Check setup status' })).toBeInTheDocument();
+});
+
+it('does not keep offering status checks if the link expires while an action response is in flight', () => {
+	render(Page, {
+		data: { session: null, state: 'expired', message: 'This Account Setup Link has expired.' },
+		form: { recoveryState: 'recovery-available', message: 'Check setup status to continue safely.' }
+	});
+	expect(screen.queryByRole('button', { name: 'Check setup status' })).not.toBeInTheDocument();
+	expect(screen.getByRole('link', { name: /Request a fresh setup link/i })).toHaveAttribute(
+		'href',
+		'/auth/renew-invite'
+	);
+});
+
+it('shows the password form again only after a fenced attempt leaves this link valid', () => {
+	render(Page, {
+		data: { session: null, state: 'valid', email: 'synthetic@example.test' },
+		form: { recoveryState: 'retry-password', message: 'You can choose a password with this link.' }
+	});
+	expect(screen.getByRole('button', { name: 'Set Up Account' }).closest('form')).toHaveAttribute(
+		'action',
+		'?/complete'
+	);
+	expect(screen.queryByRole('button', { name: 'Check setup status' })).not.toBeInTheDocument();
+});
+
+it('guides a recovered person to sign in or reset a password without requesting another write', () => {
+	render(Page, {
+		data: { session: null, state: 'recovered', message: 'Account setup is complete.' },
+		form: null
+	});
+	expect(screen.getByRole('status')).toHaveTextContent('Account setup is complete.');
+	expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/auth/login');
+	expect(screen.getByRole('link', { name: 'Reset your password' })).toHaveAttribute('href', '/auth/forgot-password');
+	expect(screen.queryByRole('button', { name: 'Set Up Account' })).not.toBeInTheDocument();
+});
+
+it('shows completed setup instead of a stale action error or another setup link', () => {
+	render(Page, {
+		data: { session: null, state: 'used', message: 'This setup link has already been used.' },
+		form: { error: 'Too many setup attempts.', supportRequired: false }
+	});
+	expect(screen.getByRole('status')).toHaveTextContent('already been used');
+	expect(screen.queryByRole('link', { name: /Request a fresh setup link/i })).not.toBeInTheDocument();
+	expect(screen.getByRole('link', { name: 'Reset your password' })).toHaveAttribute('href', '/auth/forgot-password');
+});
+
 it('keeps the submission failure visible when claiming the link clears the setup session', async () => {
 	const page = render(Page, { data: { session: null, state: 'valid', email: 'synthetic@example.test' }, form: null });
 	const error = 'Choose a different password, then request a fresh setup link.';

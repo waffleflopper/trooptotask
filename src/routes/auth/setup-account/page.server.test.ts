@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { resolveLoad, completeSetup } = vi.hoisted(() => ({
+const { resolveLoad, completeSetup, recoverSetup } = vi.hoisted(() => ({
 	resolveLoad: vi.fn(),
-	completeSetup: vi.fn()
+	completeSetup: vi.fn(),
+	recoverSetup: vi.fn()
 }));
 
 vi.mock('$features/identity/index.server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/identity/index.server')>()),
-	createSupabaseAccountSetupRouteFlow: vi.fn(() => ({ resolveLoad, completeSetup }))
+	createSupabaseAccountSetupRouteFlow: vi.fn(() => ({ resolveLoad, completeSetup, recoverSetup }))
 }));
 
 import { actions, load } from './+page.server';
@@ -44,7 +45,7 @@ function actionEvent(cookies: ReturnType<typeof makeCookies>, fields: Record<str
 		locals: { session: null, authFlow: null, mfaPending: false },
 		getClientAddress: () => '203.0.113.10',
 		request: { formData: () => Promise.resolve(form), headers: new Headers({ 'user-agent': 'vitest-agent' }) }
-	} as unknown as Parameters<(typeof actions)['default']>[0];
+	} as unknown as Parameters<(typeof actions)['complete']>[0];
 }
 
 const setupSession = {
@@ -98,13 +99,84 @@ describe('/auth/setup-account transport', () => {
 		expect(resolveLoad).toHaveBeenLastCalledWith(expect.objectContaining({ rawToken: '', setupSession }));
 	});
 
+	it('keeps a status check available after a lost password-response and reload', async () => {
+		const cookies = makeCookies();
+		await establishSession(cookies);
+		completeSetup.mockResolvedValueOnce({
+			type: 'progress',
+			state: 'recovery-available',
+			message: 'Check setup status to continue safely.'
+		});
+		expect(await actions.complete(actionEvent(cookies))).toMatchObject({
+			recoveryState: 'recovery-available'
+		});
+		expect(cookies.delete).not.toHaveBeenCalledWith('ttt_account_setup_session', { path: '/auth/setup-account' });
+		expect(cookies.set).toHaveBeenCalledWith(
+			'ttt_account_setup_recovery_state',
+			'link-1:pending',
+			expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/auth/setup-account' })
+		);
+
+		resolveLoad.mockResolvedValueOnce({ state: 'valid', email: 'soldier@example.mil' });
+		expect(await load(loadEvent(cookies))).toEqual({ state: 'recovery-available', email: 'soldier@example.mil' });
+	});
+
+	it('requires a signed setup session for status checking and never reads a posted password', async () => {
+		const cookies = makeCookies();
+		const formData = vi.fn(() => Promise.reject(new Error('Recovery must not read the password form')));
+		const event = {
+			...actionEvent(cookies),
+			request: { formData, headers: new Headers({ 'user-agent': 'vitest-agent' }) }
+		} as unknown as Parameters<(typeof actions)['recover']>[0];
+		expect(await actions.recover(event)).toMatchObject({ status: 400 });
+		expect(recoverSetup).not.toHaveBeenCalled();
+		await establishSession(cookies);
+		recoverSetup.mockResolvedValueOnce({
+			type: 'progress',
+			state: 'recovered',
+			message: 'Account setup is complete.'
+		});
+		expect(await actions.recover(event)).toMatchObject({ recoveryState: 'recovered' });
+		expect(recoverSetup).toHaveBeenCalledWith({
+			setupSession,
+			clientIp: '203.0.113.10',
+			userAgent: 'vitest-agent'
+		});
+		expect(formData).not.toHaveBeenCalled();
+		expect(cookies.delete).not.toHaveBeenCalledWith('ttt_account_setup_session', { path: '/auth/setup-account' });
+		resolveLoad.mockResolvedValueOnce({
+			state: 'used',
+			message: 'This setup link has already been used.',
+			clearSession: true
+		});
+		expect(await load(loadEvent(cookies))).toMatchObject({ state: 'recovered' });
+
+		resolveLoad.mockResolvedValueOnce({
+			state: 'redirect-setup',
+			path: '/auth/setup-account',
+			session: { ...setupSession, setupLinkId: 'link-2' }
+		});
+		await expect(load(loadEvent(cookies, 'other-token'))).rejects.toMatchObject({ status: 303 });
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_recovery_state', { path: '/auth/setup-account' });
+		resolveLoad.mockResolvedValueOnce({ state: 'valid', email: 'other@example.test' });
+		expect(await load(loadEvent(cookies))).toMatchObject({ state: 'valid', email: 'other@example.test' });
+	});
+
+	it('does not show recovered success from a receipt without its matching signed setup session', async () => {
+		const cookies = makeCookies();
+		cookies.values.set('ttt_account_setup_recovery_state', 'other-link:recovered');
+		resolveLoad.mockResolvedValueOnce({ state: 'missing', message: 'This setup session has expired.' });
+		expect(await load(loadEvent(cookies))).toEqual({ state: 'missing', message: 'This setup session has expired.' });
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_recovery_state', { path: '/auth/setup-account' });
+	});
+
 	it('binds completion to the signed session despite submitted identity fields', async () => {
 		const cookies = makeCookies();
 		await establishSession(cookies);
 		completeSetup.mockResolvedValueOnce({ type: 'redirect', path: '/dashboard', clearSession: true });
 
 		await expect(
-			actions.default(
+			actions.complete(
 				actionEvent(cookies, {
 					email: 'other@example.test',
 					accessRequestId: 'other-request',
@@ -127,7 +199,7 @@ describe('/auth/setup-account transport', () => {
 		const cookies = makeCookies();
 		completeSetup.mockResolvedValueOnce({ type: 'failure', status: 400, error: 'Setup session expired' });
 
-		expect(await actions.default(actionEvent(cookies, { token: 'raw-token' }))).toMatchObject({
+		expect(await actions.complete(actionEvent(cookies, { token: 'raw-token' }))).toMatchObject({
 			status: 400,
 			data: { error: 'Setup session expired' }
 		});
@@ -145,7 +217,7 @@ describe('/auth/setup-account transport', () => {
 			supportRequired: true
 		});
 
-		expect(await actions.default(actionEvent(cookies))).toMatchObject({
+		expect(await actions.complete(actionEvent(cookies))).toMatchObject({
 			status: 500,
 			data: { error: expect.stringContaining('request ID request-1'), supportRequired: true }
 		});

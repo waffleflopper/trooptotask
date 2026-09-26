@@ -31,20 +31,3 @@ export async function findUserEmailIdentityByEmail(
 
 	return data ? { userId: data.user_id, normalizedEmail: data.normalized_email } : null;
 }
-
-export async function upsertUserEmailIdentity(
-	client: SupabaseClient,
-	input: { userId: string; email: string }
-): Promise<void> {
-	const { error } = await client.from('user_email_identities').upsert(
-		{
-			user_id: input.userId,
-			normalized_email: normalizeUserEmailIdentity(input.email)
-		},
-		{ onConflict: 'user_id' }
-	);
-
-	if (error) {
-		throw error;
-	}
-}

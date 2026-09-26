@@ -5,7 +5,7 @@ BEGIN;
 DO $$
 BEGIN
   IF (SELECT count(*) FROM supabase_migrations.schema_migrations
-      WHERE version IN ('20260923000100', '20260923000200')) <> 0 THEN
+      WHERE version IN ('20260923000100', '20260923000200', '20260926000100')) <> 0 THEN
     RAISE EXCEPTION 'Account Setup upgrade fixture requires the pre-D02 schema';
   END IF;
   IF NOT has_table_privilege('authenticated', 'public.account_setup_links', 'UPDATE') THEN

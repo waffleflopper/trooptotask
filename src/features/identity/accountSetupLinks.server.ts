@@ -16,6 +16,7 @@ export type AccountSetupLinkFailureReason =
 	| 'access-request-not-approved'
 	| 'account-create-failed'
 	| 'completion-tracking-failed'
+	| 'reconciled-no-write'
 	| 'operator-released';
 
 type AutomaticAccountSetupLinkFailureReason = Exclude<AccountSetupLinkFailureReason, 'operator-released'>;
@@ -139,8 +140,8 @@ export type CreateAccountSetupLinkResult =
 	| { status: 'concurrent-create' };
 
 export type ValidateAccountSetupLinkResult =
-	| { status: 'valid'; accessRequestId: string; link: AccountSetupLinkRecord }
-	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid'> };
+	| { status: 'valid' | 'claimed'; accessRequestId: string; link: AccountSetupLinkRecord }
+	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid' | 'claimed'> };
 
 export type ClaimAccountSetupLinkResult =
 	| { status: 'claim-started'; accessRequestId: string; link: AccountSetupLinkRecord }
@@ -281,10 +282,6 @@ function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): Va
 		return { status: 'failed' };
 	}
 
-	if (link.claimedAt) {
-		return { status: 'claimed' };
-	}
-
 	if (link.revokedAt) {
 		if (link.revocationReason === 'replaced') {
 			return { status: 'replaced' };
@@ -294,6 +291,10 @@ function getValidationStatus(link: AccountSetupLinkRecord | null, now: Date): Va
 
 	if (link.expiresAt <= now) {
 		return { status: 'expired' };
+	}
+
+	if (link.claimedAt) {
+		return { status: 'claimed', accessRequestId: link.accessRequestId, link };
 	}
 
 	return { status: 'valid', accessRequestId: link.accessRequestId, link };
@@ -438,7 +439,7 @@ export function createAccountSetupLinkService(
 		async validateToken(rawToken: string): Promise<ValidateAccountSetupLinkResult> {
 			const link = await store.findByTokenHash(hashSetupToken(rawToken));
 			const validation = getValidationStatus(link, now());
-			if (validation.status !== 'valid') {
+			if (validation.status !== 'valid' && validation.status !== 'claimed') {
 				return validation;
 			}
 
@@ -447,7 +448,7 @@ export function createAccountSetupLinkService(
 				return { status: 'missing' };
 			}
 
-			if (accessRequest.setupCompletedAt) {
+			if (accessRequest.setupCompletedAt && validation.status !== 'claimed') {
 				return { status: 'completed' };
 			}
 

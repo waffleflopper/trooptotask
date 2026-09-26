@@ -5,6 +5,7 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
@@ -28,7 +29,6 @@ import {
 	type IctReportSummary
 } from '$features/critical-tasks/utils/ictReports';
 import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
-import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { fetchCriticalTasksSettings } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
@@ -138,11 +138,9 @@ async function buildDashboardFromSource(
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
 	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
-	const [personnel, groupRows, taskRows, settings, rankCatalog] = await Promise.all([
+	const [personnel, groups, taskRows, settings, rankCatalog] = await Promise.all([
 		ctx.personnelCriticalTasksRoster.listActiveForReadiness(ctx.auth),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listGroupCatalog(ctx),
 		ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
 			isNull: { archived_at: true },
 			orderBy: [
@@ -156,7 +154,7 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 
 	return {
 		personnel,
-		groups: GroupEntity.fromDbArray(groupRows),
+		groups,
 		tasks: IctTaskEntity.fromDbArray(taskRows),
 		settings,
 		rankCatalog

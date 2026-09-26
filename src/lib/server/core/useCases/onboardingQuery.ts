@@ -5,11 +5,11 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/training.types';
 import type { Group } from '$features/personnel/contracts';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { GroupEntity } from '$lib/server/entities/group';
 import { requireOnboardingViewPolicy, type OnboardingTrainingPorts } from './onboardingPolicy';
 
 export interface OnboardingBootstrap {
@@ -95,7 +95,7 @@ export async function fetchOnboardingBootstrap(
 			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
 			: null;
 
-	const [templateRows, templateStepRows, onboardingRows, personnel, groupRows, trainingTypeRows, scopePersonnel] =
+	const [templateRows, templateStepRows, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel] =
 		await Promise.all([
 			ctx.store.findMany<Record<string, unknown>>('onboarding_templates', orgId, undefined, {
 				orderBy: [{ column: 'name', ascending: true }]
@@ -108,9 +108,7 @@ export async function fetchOnboardingBootstrap(
 				...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
 			}),
 			ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
-			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
+			listGroupCatalog(ctx),
 			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
 			scopedAllPersonnel
 		]);
@@ -118,7 +116,6 @@ export async function fetchOnboardingBootstrap(
 	const templates = OnboardingTemplateEntity.fromDbArray(templateRows);
 	const templateSteps = OnboardingTemplateStepEntity.fromDbArray(templateStepRows);
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
-	const groups = GroupEntity.fromDbArray(groupRows);
 	const trainingTypes = trainingTypeRows;
 
 	// personnel_onboardings has no group column so the scoped store cannot filter it automatically.

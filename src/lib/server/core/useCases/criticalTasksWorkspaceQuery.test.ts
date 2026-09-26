@@ -48,7 +48,9 @@ describe('criticalTasksWorkspaceQuery', () => {
 				organization_id: 'test-org',
 				name: 'Alpha',
 				sort_order: 0
-			}
+			},
+			{ id: 'group-bravo', organization_id: 'test-org', name: 'Bravo', sort_order: 1 },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -1 }
 		]);
 		ctx.store.seed('personnel', [
 			{
@@ -135,7 +137,8 @@ describe('criticalTasksWorkspaceQuery', () => {
 				id: 'group-alpha',
 				name: 'Alpha',
 				sortOrder: 0
-			})
+			}),
+			expect.objectContaining({ id: 'group-bravo', name: 'Bravo', sortOrder: 1 })
 		]);
 		await expect(bootstrap.ictTasks).resolves.toEqual([
 			expect.objectContaining({

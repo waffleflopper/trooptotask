@@ -6,8 +6,8 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
-import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 
@@ -37,11 +37,11 @@ export async function fetchCriticalTasksSettings(
 	});
 }
 
-function loadCriticalTasksItems<T>(
+function loadCriticalTasksItems<R, T>(
 	orgId: string,
 	label: string,
-	load: Promise<Record<string, unknown>[]>,
-	mapRows: (rows: Record<string, unknown>[]) => T
+	load: Promise<R>,
+	mapRows: (rows: R) => T
 ): Promise<T> {
 	return load.then(mapRows).catch((error) => {
 		console.error(`[critical-tasks-workspace] Failed to load ${label}`, {
@@ -66,14 +66,7 @@ export async function fetchCriticalTasksBootstrap(
 		});
 		throw error;
 	});
-	const groups = loadCriticalTasksItems(
-		orgId,
-		'groups',
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		(rows) => GroupEntity.fromDbArray(rows) as Group[]
-	);
+	const groups = loadCriticalTasksItems(orgId, 'groups', listGroupCatalog(ctx), (groups): Group[] => groups);
 	const ictTasks = loadCriticalTasksItems(
 		orgId,
 		'ICT tasks',

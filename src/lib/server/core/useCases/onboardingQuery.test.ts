@@ -215,6 +215,11 @@ describe('fetchOnboardingBootstrap', () => {
 				}
 			}
 		});
+		ctx.store.seed('groups', [
+			{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -1 }
+		]);
 		ctx.store.seed('personnel', [
 			{
 				id: 'archived-in-scope',
@@ -243,6 +248,7 @@ describe('fetchOnboardingBootstrap', () => {
 		]);
 
 		const history = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
+		expect(history.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		expect(history.personnel).toMatchObject([
 			{ id: 'archived-in-scope', archivedAt: '2026-08-01', groupName: 'Alpha' }
 		]);

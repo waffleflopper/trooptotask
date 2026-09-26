@@ -1,4 +1,8 @@
-export { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
+export {
+	evaluateFeaturePolicy,
+	policyResourceForGroup,
+	requireFeaturePolicy
+} from '$lib/server/core/useCases/featurePolicy';
 export { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
 export {
 	checkDurableRateLimit,

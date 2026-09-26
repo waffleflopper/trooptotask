@@ -310,6 +310,7 @@ describe('fetchPersonnelBootstrap — loss warning window', () => {
 
 	it('returns personnel IDs with acknowledged award tracking from personnel_extended_info', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
+		seedPersonnel(ctx.store);
 		ctx.store.seed('personnel_extended_info', [
 			{
 				id: 'pei-1',

@@ -24,6 +24,8 @@ export { createSupabasePersonnelOnboardingRosterPort } from './onboardingRoster.
 export type { PersonnelOnboardingRosterPort } from './contracts';
 export { createSupabasePersonnelRatingSchemeRosterPort } from './ratingSchemeRoster.server';
 export type { PersonnelRatingSchemeRosterPort } from './contracts';
+export { createSupabasePersonnelAwardAcknowledgementPort } from './awardAcknowledgement.server';
+export type { PersonnelAwardAcknowledgementPort } from './contracts';
 export { archiveLeaderNotesWithPersonnel, restoreLeaderNotesWithPersonnel } from './leaderNoteArchive.server';
 export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
 export { createLeaderNoteDataSource } from './leaderNoteDataSource.server';

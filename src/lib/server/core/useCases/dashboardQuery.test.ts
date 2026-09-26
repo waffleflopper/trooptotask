@@ -179,6 +179,10 @@ describe('fetchDashboardBootstrap', () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
 
+		store.seed('personnel', [
+			{ id: 'p-1', organization_id: ORG, group_id: 'g-1' },
+			{ id: 'p-2', organization_id: ORG, group_id: 'g-1' }
+		]);
 		store.seed('personnel_extended_info', [
 			{
 				id: 'ext-1',

@@ -69,6 +69,11 @@ export interface PersonnelRatingSchemeRosterPort {
 	listActiveReferences(actor: PersonnelRosterActor): Promise<PersonnelLookup[]>;
 }
 
+/** Narrow award acknowledgement flags visible with the Personnel roster. */
+export interface PersonnelAwardAcknowledgementPort {
+	listAcknowledgedPersonnelIds(actor: PersonnelRosterActor): Promise<string[]>;
+}
+
 /** Personnel facts exposed to Critical Tasks after its own lane admission. */
 export interface PersonnelCriticalTasksRosterPort {
 	listActiveForReadiness(actor: PersonnelRosterActor): Promise<Personnel[]>;

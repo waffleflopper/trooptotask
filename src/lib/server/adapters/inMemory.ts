@@ -472,6 +472,28 @@ async function inMemoryPersonnelRows(
 	});
 }
 
+function createInMemoryPersonnelAwardAcknowledgementPort(
+	rawStore: DataStore
+): NonNullable<UseCaseContext['personnelAwardAcknowledgement']> {
+	return {
+		async listAcknowledgedPersonnelIds(actor) {
+			if (!actor.isPrivileged && actor.capabilityMap.personnel === 'none') return [];
+
+			const [people, acknowledgements] = await Promise.all([
+				inMemoryPersonnelRows(rawStore, actor, 'all'),
+				rawStore.findMany<Row>('personnel_extended_info', actor.orgId, undefined, {
+					isNull: { award_tracking_acknowledged_at: false }
+				})
+			]);
+			const visibleIds = new Set(people.map((person) => person.id));
+			return acknowledgements
+				.map((row) => row.personnel_id as string)
+				.filter((id) => visibleIds.has(id))
+				.sort();
+		}
+	};
+}
+
 function inMemoryPersonnelFromRow(row: Row) {
 	return {
 		id: row.id as string,
@@ -705,6 +727,7 @@ export function createTestContext(overrides?: {
 		storagePort,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
+		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
@@ -867,6 +890,7 @@ export function createQueryPortsContext(options?: {
 		store,
 		auth,
 		criticalTasksReadModel,
+		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
@@ -891,6 +915,7 @@ export function createQueryWithRawStorePortsContext(options?: {
 		auth,
 		rawStore,
 		criticalTasksReadModel,
+		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),

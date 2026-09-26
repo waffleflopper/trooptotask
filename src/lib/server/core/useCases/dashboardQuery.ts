@@ -124,7 +124,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null),
-		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
+		listAwardTrackingAcknowledgedPersonnelIds(ctx)
 	]);
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 

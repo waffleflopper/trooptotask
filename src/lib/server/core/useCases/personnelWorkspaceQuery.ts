@@ -58,7 +58,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null),
-		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
+		listAwardTrackingAcknowledgedPersonnelIds(ctx)
 	]);
 
 	const scopedAllPersonnel = ctx.auth.scopeSet.kind === 'groups' ? personnel : allPersonnel;

@@ -2,7 +2,8 @@ import { availabilityStore } from '$features/calendar/stores/availability.svelte
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import {

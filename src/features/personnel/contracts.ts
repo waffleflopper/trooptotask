@@ -2,6 +2,13 @@ import { z } from 'zod';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel } from '$lib/types';
 
+/** Stable Organization Group identity and display order. */
+export interface Group {
+	id: string;
+	name: string;
+	sortOrder: number;
+}
+
 /** Trusted request authorization facts; structurally matches the shared AuthContext. */
 export interface PersonnelRosterActor {
 	readonly userId: string;

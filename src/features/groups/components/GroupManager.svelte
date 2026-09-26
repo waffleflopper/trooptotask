@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';

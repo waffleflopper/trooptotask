@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { GroupEntity } from './group';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 
 describe('GroupEntity', () => {
 	it('fromDb produces correct Group shape matching existing transform', () => {

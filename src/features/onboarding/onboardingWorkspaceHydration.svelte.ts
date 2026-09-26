@@ -7,7 +7,8 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { TrainingType } from '$features/training/training.types';
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,

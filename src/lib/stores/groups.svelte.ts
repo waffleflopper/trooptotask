@@ -10,12 +10,7 @@
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
-
-export interface Group {
-	id: string;
-	name: string;
-	sortOrder: number;
-}
+import type { Group } from '$features/personnel/contracts';
 
 interface GroupExtensions extends Record<string, unknown> {
 	readonly names: string[];

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';

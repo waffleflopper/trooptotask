@@ -16,7 +16,7 @@ import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadOrganizationRankCatalog } from '$lib/server/core/useCases/rankCatalog';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '../training.types';
 

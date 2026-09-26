@@ -1,6 +1,6 @@
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import { GroupEntity } from '$lib/server/entities/group';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';

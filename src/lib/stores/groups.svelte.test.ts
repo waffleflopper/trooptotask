@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { groupsStore, type Group } from './groups.svelte';
+import { groupsStore } from './groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 
 const mockGroups: Group[] = [
 	{ id: '1', name: 'Alpha', sortOrder: 0 },

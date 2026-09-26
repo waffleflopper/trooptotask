@@ -18,7 +18,7 @@
 	} from '$features/critical-tasks/utils/criticalTasksMatrix';
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import { CriticalTaskStatusBadge } from '$lib/components/ui/requirement-status-badge';
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$lib/types';
 
 	type IctMatrixViewMode = 'alphabetical' | 'by-group';

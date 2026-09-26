@@ -1,4 +1,5 @@
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { personnelRosterHydration } from './stores/personnel.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';

@@ -6,7 +6,7 @@ import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining'
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { GroupEntity } from '$lib/server/entities/group';
 import type { Personnel } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
 import { comparePersonnelByCatalogRankThenName } from '$lib/domain/personnelRank';

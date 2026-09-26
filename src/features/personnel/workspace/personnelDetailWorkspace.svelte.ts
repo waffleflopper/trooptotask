@@ -13,7 +13,7 @@ import type {
 } from '$features/personnel/personnel-detail.types';
 import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
 import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import { SvelteDate } from 'svelte/reactivity';
 import { ArtifactDraft } from './artifactDraft.svelte';

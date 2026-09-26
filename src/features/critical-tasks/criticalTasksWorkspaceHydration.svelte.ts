@@ -1,7 +1,8 @@
 import { ictTasksStore } from './stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from './stores/personnelIctCompletions.svelte';
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from './criticalTasks.types';
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,

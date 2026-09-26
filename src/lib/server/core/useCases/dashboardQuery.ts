@@ -10,7 +10,7 @@
  */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { Personnel, StatusType, AvailabilityEntry, AssignmentType, DailyAssignment } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';

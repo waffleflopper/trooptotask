@@ -687,7 +687,11 @@ Props: `label: string`, `alternate?: boolean`, `title?: Snippet`, `children: Sni
 Guidance:
 
 - Alternate sections with `alternate` when you need rhythm across long-form pages.
-- Use `.contact-card` inside section content for disclosure/support email callouts.
+- Use `PublicContactCard` inside section content for disclosure and support email callouts.
+
+### `public/PublicContactCard.svelte`
+
+Shared email callout for public legal and security pages. `email` is required; `subject` optionally adds an encoded email subject. Keep page-specific instructions in the surrounding section.
 
 ### `public/PublicSiteNav.svelte`, `public/PublicCta.svelte`, `public/PublicFooter.svelte`
 

@@ -109,35 +109,6 @@
 		font-weight: 600;
 	}
 
-	.content-inner :global(.contact-card) {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.875rem 1.25rem;
-		background: var(--brass-muted);
-		border: 1px solid color-mix(in srgb, var(--brass) 28%, transparent);
-		border-radius: var(--radius);
-	}
-
-	.content-inner :global(.contact-card svg) {
-		flex: 0 0 auto;
-		color: var(--brass-text);
-	}
-
-	.content-inner :global(.contact-card a) {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		letter-spacing: 0.06em;
-		text-decoration: none;
-		text-transform: uppercase;
-	}
-
-	.content-inner :global(.contact-card a:hover) {
-		color: var(--brass-text);
-		text-decoration: underline;
-	}
-
 	@media (max-width: 640px) {
 		.content-section {
 			padding: 3rem 1rem;

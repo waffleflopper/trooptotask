@@ -1,4 +1,5 @@
 <script lang="ts">
+	import PublicContactCard from '$lib/components/public/PublicContactCard.svelte';
 	import PublicContentSection from '$lib/components/public/PublicContentSection.svelte';
 	import PublicPageHeader from '$lib/components/public/PublicPageHeader.svelte';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
@@ -64,7 +65,7 @@
 	</PublicContentSection>
 
 	<PublicContentSection id="access-control" label="03 // Access Control">
-		{#snippet title()}Every request is authorized.{/snippet}
+		{#snippet title()}Protected actions require authorization.{/snippet}
 		<p>
 			Authentication is handled via Supabase Auth with support for email/password and multi-factor authentication
 			(TOTP). Sessions are enforced with a 24-hour absolute timeout and secure cookie handling.
@@ -72,8 +73,9 @@
 		<p>
 			Authorization uses a layered approach: role-based access control (RBAC) at the application level with admin,
 			editor, and viewer roles, combined with PostgreSQL Row-Level Security (RLS) policies that enforce tenant isolation
-			at the database layer. Every API endpoint validates organization membership and role permissions server-side
-			before processing requests. Sensitive document uploads and downloads are mediated through application endpoints,
+			at the database layer. Organization-scoped operations use server-side membership and permission checks before
+			accessing protected data. Public access requests use validation and rate limits, while maintenance endpoints
+			require a separate secret. Sensitive document uploads and downloads are mediated through application endpoints,
 			with private storage access enforced by explicit policies and short-lived signed URLs.
 		</p>
 	</PublicContentSection>
@@ -145,22 +147,7 @@
 			If you discover a security vulnerability in TroopToTask, we encourage responsible disclosure. Please report
 			findings to:
 		</p>
-		<div class="contact-card">
-			<svg
-				viewBox="0 0 24 24"
-				width="20"
-				height="20"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			>
-				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-				<polyline points="22,6 12,13 2,6" />
-			</svg>
-			<a href="mailto:security@trooptotask.org?subject=Security%20vulnerability%20report">security@trooptotask.org</a>
-		</div>
+		<PublicContactCard email="security@trooptotask.org" subject="Security vulnerability report" />
 		<p>
 			We ask that you provide a reasonable amount of time for us to address reported issues before public disclosure. We
 			will acknowledge receipt within 48 hours and aim to provide a resolution timeline within 5 business days.

@@ -103,7 +103,6 @@
 	showCta={false}
 	showFaqLink
 	faqHref="/#faq"
-	roadmapHref="/#cta"
 >
 	<!-- ───────────────────────── HERO ───────────────────────── -->
 	<section class="hero">

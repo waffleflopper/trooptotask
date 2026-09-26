@@ -4,13 +4,12 @@
 	import PublicFooter from './PublicFooter.svelte';
 	import PublicSiteNav from './PublicSiteNav.svelte';
 
-	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
+	type PublicAnchorHref = '/' | '/#faq';
 
 	interface Props {
 		user?: unknown;
 		active?: 'about' | 'security';
 		bodyClass?: string;
-		roadmapHref?: PublicAnchorHref;
 		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		showClassificationBar?: boolean;
@@ -29,7 +28,6 @@
 		user,
 		active,
 		bodyClass = '',
-		roadmapHref = '/#roadmap',
 		faqHref = '/#faq',
 		showFaqLink = false,
 		showClassificationBar = true,
@@ -54,7 +52,7 @@
 		</div>
 	{/if}
 
-	<PublicSiteNav {user} {active} {roadmapHref} {faqHref} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
+	<PublicSiteNav {user} {active} {faqHref} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
 
 	<main class={`public-body ${bodyClass}`.trim()}>
 		{@render children()}

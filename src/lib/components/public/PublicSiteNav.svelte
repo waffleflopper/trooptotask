@@ -3,30 +3,21 @@
 	import BrandWordmark from '$lib/components/ui/brand-wordmark/BrandWordmark.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
+	type PublicAnchorHref = '/' | '/#faq';
 
 	interface Props {
 		user?: unknown;
 		active?: 'about' | 'security';
-		roadmapHref?: PublicAnchorHref;
 		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		overlay?: boolean;
 		scrolled?: boolean;
 	}
 
-	let {
-		user,
-		active,
-		roadmapHref = '/#roadmap',
-		faqHref = '/#faq',
-		showFaqLink = false,
-		overlay = false,
-		scrolled = false
-	}: Props = $props();
+	let { user, active, faqHref = '/#faq', showFaqLink = false, overlay = false, scrolled = false }: Props = $props();
 </script>
 
-<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled} data-roadmap-href={roadmapHref}>
+<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled}>
 	<div class="nav-container">
 		<a href={resolve('/')} class="nav-brand">
 			<BrandWordmark hideSubtitleOnMobile />

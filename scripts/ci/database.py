@@ -32,6 +32,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     *ACCOUNT_SETUP_UPGRADE_MIGRATIONS,
     "20260926000300_training_record_scope.sql",
     "20260926000400_critical_tasks_read_scope.sql",
+    "20260926000500_critical_tasks_task_reference_integrity.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -42,6 +43,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
     "training_record_populated_after.sql",
     "critical_tasks_populated_after.sql",
+    "critical_tasks_task_reference_after.sql",
 )
 
 

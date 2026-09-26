@@ -15,7 +15,7 @@ CREATE TEMP TABLE critical_tasks_current_rows AS
 SELECT 'auth.users'::text AS table_name, id AS row_id, to_jsonb(row_value) AS row_data
   FROM auth.users AS row_value WHERE id = 'b9000000-0000-4000-8000-000000000001'
 UNION ALL
-SELECT 'public.organizations', id, to_jsonb(row_value) FROM public.organizations AS row_value WHERE id = 'b9000000-0000-4000-8000-000000000101'
+SELECT 'public.organizations', id, to_jsonb(row_value) FROM public.organizations AS row_value WHERE id IN ('b9000000-0000-4000-8000-000000000101','b9000000-0000-4000-8000-000000000102')
 UNION ALL
 SELECT 'public.groups', id, to_jsonb(row_value) FROM public.groups AS row_value WHERE id = 'b9000000-0000-4000-8000-000000000201'
 UNION ALL
@@ -23,10 +23,10 @@ SELECT 'public.organization_memberships', id, to_jsonb(row_value) FROM public.or
 UNION ALL
 SELECT 'public.personnel', id, to_jsonb(row_value) FROM public.personnel AS row_value WHERE id IN ('b9000000-0000-4000-8000-000000000301','b9000000-0000-4000-8000-000000000302')
 UNION ALL
-SELECT 'public.ict_tasks', id, to_jsonb(row_value) FROM public.ict_tasks AS row_value WHERE id = 'b9000000-0000-4000-8000-000000000401'
+SELECT 'public.ict_tasks', id, to_jsonb(row_value) FROM public.ict_tasks AS row_value WHERE id IN ('b9000000-0000-4000-8000-000000000401','b9000000-0000-4000-8000-000000000402')
 UNION ALL
-SELECT 'public.personnel_ict_completions', id, to_jsonb(row_value) FROM public.personnel_ict_completions AS row_value WHERE id IN ('b9000000-0000-4000-8000-000000000501','b9000000-0000-4000-8000-000000000502');
-SELECT is((SELECT count(*)::integer FROM critical_tasks_current_rows), 9, 'all historical Critical Tasks rows remain');
+SELECT 'public.personnel_ict_completions', id, to_jsonb(row_value) FROM public.personnel_ict_completions AS row_value WHERE id IN ('b9000000-0000-4000-8000-000000000501','b9000000-0000-4000-8000-000000000502','b9000000-0000-4000-8000-000000000503');
+SELECT is((SELECT count(*)::integer FROM critical_tasks_current_rows), 12, 'all historical Critical Tasks rows remain');
 SELECT results_eq(
   $$ SELECT table_name, row_id, row_data FROM critical_tasks_current_rows ORDER BY table_name, row_id $$,
   $$ SELECT table_name, row_id, row_data FROM upgrade_fixture.critical_tasks_before_rows ORDER BY table_name, row_id $$,

@@ -192,3 +192,23 @@ D03's [integrated candidate record](EVIDENCE.md#phase-06-d03-classification-and-
 Before any further releasing action or hosted migration, the owner must verify whether the D02 merge triggered deployment or migration, which application version is deployed, and that all old Duty-dependent instances, workers, requests and external jobs are drained; inspect the actual hosted schema/data and ambiguous provenance; arrange user notice and a tested backup/restore point; review the exact forward migration and application/schema compatibility. D01 supplies synthetic preflight and an explicit failure report, not permission to guess from labels or remove saved Calendar data. Vercel reported a successful PR check, but external deployment settings and the hosted state are unverified; no automatic remote migration appears in repository configuration. Do not run hosted SQL through this workflow.
 
 The owner sequence is: verify the no-Duty application is deployed and drain old instances, workers, in-flight requests and external callers; arrange notice, a backup/PITR point and a tested restore covering data, Auth, Storage and relevant configuration; capture and privately review the hosted catalog, migration ledger, exact Calendar provenance and retained access baseline; compare these with the reviewed migration and local artifacts; then separately apply the complete forward migration under a controlled write/caller window. Afterward, compare retained Calendar IDs, dates, assignees, types, labels, Organization/Group access and authorized/denied CRUD, and retire external Duty-only jobs/configuration. Preserve Personnel Duty Role, Sign-In Rosters and valid persisted Calendar assignments/types by default. A failed migration rolls back the D02 transaction; the owner must investigate and retry only after resolving the cause. After the destructive commit, an older Duty-dependent binary or job is unsafe. Reverse DDL cannot reconstruct discarded Duty records, and restoration must reconcile later writes. The D03 repository proof does not certify production; hosted results need separately operated release evidence. Phase 07 activation and its current checkpoint are owned by [TODO](TODO.md); this release record neither advances that queue nor authorizes hosted execution.
+
+## Phase 08 D03 Critical Tasks task-reference preflight
+
+The local forward migration `20260926000500_critical_tasks_task_reference_integrity.sql` adds a composite Organization/task foreign key to completions while retaining the earlier task-ID relationship. It uses `NOT VALID` to avoid changing or rejecting unknown historical rows. [PostgreSQL's ALTER TABLE contract](https://www.postgresql.org/docs/17/sql-altertable.html) says new inserts and updates are checked, but preexisting rows are not certified until validation. Local synthetic tests prove this boundary; no hosted data or catalog was inspected.
+
+Before any separately authorized hosted application or later `VALIDATE CONSTRAINT`, the owner should privately run this **read-only count** with a role that has full-table visibility (for example, `BYPASSRLS`) and preserve the result outside Git. `row_security = off` makes the query fail if RLS would filter either table; a failed or partially visible count is not a clean preflight:
+
+```sql
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL row_security = off;
+SELECT count(*) AS mismatched_completion_task_references
+FROM public.personnel_ict_completions AS completion
+LEFT JOIN public.ict_tasks AS task
+  ON task.id = completion.ict_task_id
+ AND task.organization_id = completion.organization_id
+WHERE task.id IS NULL;
+ROLLBACK;
+```
+
+A nonzero count needs a separately reviewed, row-specific disposition before historical validation; do not infer that any completion may be deleted or reassigned. Adding the unique `(organization_id, id)` key on `ict_tasks` takes an `ACCESS EXCLUSIVE` lock while PostgreSQL builds its index, and the migration holds that lock through its transaction. Inspect the task-table size and long-running transactions privately, then plan a controlled write window; `NOT VALID` only avoids scanning historical completion rows. Confirm the ordered migration ledger, backup/recovery point, active application compatibility and actual deployment triggers before release. The repository's local proof authorizes no remote query, migration, deployment or merge.

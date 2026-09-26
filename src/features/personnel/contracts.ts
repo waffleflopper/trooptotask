@@ -19,6 +19,12 @@ export interface PersonnelCalendarRosterPort {
 	findGroupIds(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
 }
 
+/** Personnel facts exposed to the Onboarding lane after Onboarding authorization. */
+export interface PersonnelOnboardingRosterPort {
+	listRoster(actor: PersonnelRosterActor, status: 'active' | 'all'): Promise<Personnel[]>;
+	findGroupIds(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
+}
+
 /** Personnel read for an already-authorized Training workspace. */
 export interface PersonnelTrainingRosterCandidatesPort {
 	listActiveCandidates(orgId: string, scopeSet: ScopeSet): Promise<Personnel[]>;

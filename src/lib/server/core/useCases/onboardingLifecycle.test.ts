@@ -5,7 +5,7 @@ import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding
 
 const operatorCapabilityMap: CapabilityMap = {
 	calendar: 'none',
-	personnel: 'view',
+	personnel: 'none',
 	training: 'none',
 	criticalTasks: 'none',
 	onboarding: 'operate',

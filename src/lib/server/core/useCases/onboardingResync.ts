@@ -8,7 +8,7 @@
  * This is triggered from the template-edit flow, not from normal lifecycle events.
  */
 import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
+import type { OnboardingWorkflowPorts } from './onboardingPolicy';
 import { requireOnboardingConfigurePolicy, requireOnboardingManagePolicyForOnboarding } from './onboardingPolicy';
 
 interface StepProgressRow {
@@ -74,7 +74,11 @@ function mapToResult(row: StepProgressRow): ResyncStepResult {
 	};
 }
 
-async function performDiff(ctx: WritePorts, onboardingId: string, templateId: string): Promise<ResyncStepResult[]> {
+async function performDiff(
+	ctx: OnboardingWorkflowPorts,
+	onboardingId: string,
+	templateId: string
+): Promise<ResyncStepResult[]> {
 	// Fetch current template steps
 	const templateSteps = await ctx.store.findMany<TemplateStepRow>(
 		'onboarding_template_steps',
@@ -173,7 +177,7 @@ async function performDiff(ctx: WritePorts, onboardingId: string, templateId: st
 	return results;
 }
 
-export async function resyncOnboarding(ctx: WritePorts, onboardingId: string): Promise<ResyncResult> {
+export async function resyncOnboarding(ctx: OnboardingWorkflowPorts, onboardingId: string): Promise<ResyncResult> {
 	await requireOnboardingConfigurePolicy(ctx, onboardingId);
 	await requireOnboardingManagePolicyForOnboarding(ctx, onboardingId);
 
@@ -220,7 +224,7 @@ interface SwitchResult extends ResyncResult {
 	templateId: string;
 }
 
-export async function switchTemplate(ctx: WritePorts, input: SwitchTemplateInput): Promise<SwitchResult> {
+export async function switchTemplate(ctx: OnboardingWorkflowPorts, input: SwitchTemplateInput): Promise<SwitchResult> {
 	await requireOnboardingConfigurePolicy(ctx, input.onboardingId);
 	await requireOnboardingManagePolicyForOnboarding(ctx, input.onboardingId);
 

@@ -41,6 +41,7 @@ import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supa
 import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
 import { createSupabasePersonnelTrainingRosterCandidatesPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelOnboardingRosterPort } from '$features/personnel/index.server';
 import { createSupabaseOnboardingCalendarMarkersPort } from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
@@ -209,6 +210,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
@@ -234,6 +236,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			signInRosterPersonnelLookup,
 			personnelTrainingRosterCandidates,
 			personnelCalendarRoster,
+			personnelOnboardingRoster,
 			onboardingCalendarMarkers,
 			organizationInvitationSetupStateLookup,
 			rawStore: store
@@ -288,6 +291,7 @@ export async function buildLayoutContext(
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
@@ -312,6 +316,7 @@ export async function buildLayoutContext(
 		signInRosterPersonnelLookup,
 		personnelTrainingRosterCandidates,
 		personnelCalendarRoster,
+		personnelOnboardingRoster,
 		onboardingCalendarMarkers,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
@@ -354,6 +359,7 @@ export async function buildLayoutContextFromMembership(
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
@@ -378,6 +384,7 @@ export async function buildLayoutContextFromMembership(
 		signInRosterPersonnelLookup,
 		personnelTrainingRosterCandidates,
 		personnelCalendarRoster,
+		personnelOnboardingRoster,
 		onboardingCalendarMarkers,
 		organizationInvitationSetupStateLookup,
 		rawStore: store

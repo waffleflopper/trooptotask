@@ -199,6 +199,94 @@ describe('fetchOnboardingBootstrap', () => {
 		});
 	});
 
+	it('keeps archived subjects and their completed workflows in scoped Onboarding history', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				orgId: ORG,
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['g1'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'view',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.store.seed('personnel', [
+			{
+				id: 'archived-in-scope',
+				organization_id: ORG,
+				group_id: 'g1',
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'Jane',
+				archived_at: '2026-08-01',
+				groups: { name: 'Alpha' }
+			},
+			{
+				id: 'archived-out-of-scope',
+				organization_id: ORG,
+				group_id: 'g2',
+				rank: 'CPL',
+				last_name: 'Jones',
+				first_name: 'John',
+				archived_at: '2026-08-01',
+				groups: { name: 'Bravo' }
+			}
+		]);
+		ctx.store.seed('personnel_onboardings', [
+			makeOnboardingRow({ id: 'visible-history', personnel_id: 'archived-in-scope', status: 'completed' }),
+			makeOnboardingRow({ id: 'hidden-history', personnel_id: 'archived-out-of-scope', status: 'completed' })
+		]);
+
+		const history = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
+		expect(history.personnel).toMatchObject([
+			{ id: 'archived-in-scope', archivedAt: '2026-08-01', groupName: 'Alpha' }
+		]);
+		expect(history.onboardings.map((onboarding) => onboarding.id)).toEqual(['visible-history']);
+		await expect(fetchOnboardingBootstrap(ctx, { mode: 'active' })).resolves.toMatchObject({
+			personnel: [],
+			onboardings: []
+		});
+	});
+
+	it('keeps archived workflows in default all mode while returning an active roster', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				orgId: ORG,
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['g1'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'view',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: 'active', organization_id: ORG, group_id: 'g1', archived_at: null },
+			{ id: 'archived', organization_id: ORG, group_id: 'g1', archived_at: '2026-08-01' },
+			{ id: 'outside', organization_id: ORG, group_id: 'g2', archived_at: '2026-08-01' }
+		]);
+		ctx.store.seed('personnel_onboardings', [
+			makeOnboardingRow({ id: 'current', personnel_id: 'active' }),
+			makeOnboardingRow({ id: 'past', personnel_id: 'archived', status: 'completed' }),
+			makeOnboardingRow({ id: 'hidden', personnel_id: 'outside', status: 'completed' })
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx);
+		expect(result.personnel.map((person) => person.id)).toEqual(['active']);
+		expect(result.onboardings.map((onboarding) => onboarding.id)).toEqual(['current', 'past']);
+	});
+
 	it('filters onboardings to scoped group personnel only', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		ctx.store.seed('personnel', [

@@ -7,6 +7,7 @@
  */
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
+import type { OnboardingWorkflowPorts } from './onboardingPolicy';
 import { requireOnboardingManagePolicyForOnboarding, requireOnboardingManagePolicyForStep } from './onboardingPolicy';
 
 interface ToggleCheckboxInput {
@@ -28,7 +29,7 @@ interface AdvanceStageInput {
 	stageName: string;
 }
 
-export async function advanceStage(ctx: WritePorts, input: AdvanceStageInput): Promise<StepResult> {
+export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceStageInput): Promise<StepResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const step = await ctx.store.findOne<{
@@ -185,7 +186,7 @@ export async function getTrainingStepCompletionStatuses(
 }
 
 export async function refreshTrainingSteps(
-	ctx: WritePorts,
+	ctx: OnboardingWorkflowPorts,
 	input: RefreshTrainingInput
 ): Promise<TrainingStepResult[]> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, input.onboardingId);
@@ -210,7 +211,7 @@ interface NoteResult {
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 }
 
-export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<NoteResult> {
+export async function addNote(ctx: OnboardingWorkflowPorts, input: AddNoteInput): Promise<NoteResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const userId = ctx.auth.userId;
@@ -251,7 +252,7 @@ export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<Not
 	};
 }
 
-export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promise<void> {
+export async function removeInactiveStep(ctx: OnboardingWorkflowPorts, stepId: string): Promise<void> {
 	await requireOnboardingManagePolicyForStep(ctx, stepId);
 
 	const step = await ctx.store.findOne<{ id: string; active: boolean }>('onboarding_step_progress', ctx.auth.orgId, {
@@ -275,7 +276,7 @@ export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promi
 	});
 }
 
-export async function toggleCheckbox(ctx: WritePorts, input: ToggleCheckboxInput): Promise<StepResult> {
+export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: ToggleCheckboxInput): Promise<StepResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const step = await ctx.store.findOne<{

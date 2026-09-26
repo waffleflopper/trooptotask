@@ -203,6 +203,10 @@ export class OnboardingPageContext {
 		}).visible;
 	}
 
+	get canAddPerson(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords).allowed;
+	}
+
 	// ── Derived ────────────────────────────────────────────────
 
 	get hasTemplateSteps() {

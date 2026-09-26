@@ -449,49 +449,78 @@ function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; 
 	};
 }
 
+async function inMemoryPersonnelRows(
+	rawStore: DataStore,
+	actor: AuthContext,
+	status: 'active' | 'all',
+	ids?: string[]
+) {
+	if (actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0) return [];
+	if (ids && ids.length === 0) return [];
+	return rawStore.findMany<Row>('personnel', actor.orgId, undefined, {
+		select: '*, groups(name)',
+		...(status === 'active' ? { isNull: { archived_at: true } } : {}),
+		inFilters: {
+			...(actor.scopeSet.kind === 'groups' ? { group_id: actor.scopeSet.groupIds } : {}),
+			...(ids ? { id: ids } : {})
+		},
+		orderBy: [
+			{ column: 'last_name', ascending: true },
+			{ column: 'first_name', ascending: true },
+			{ column: 'id', ascending: true }
+		]
+	});
+}
+
+function inMemoryPersonnelFromRow(row: Row) {
+	return {
+		id: row.id as string,
+		slug: row.slug as string,
+		rank: row.rank as string,
+		lastName: row.last_name as string,
+		firstName: row.first_name as string,
+		mos: (row.mos as string) ?? '',
+		clinicRole: (row.clinic_role as string) ?? '',
+		ets: (row.ets as string | null) ?? null,
+		deros: (row.deros as string | null) ?? null,
+		groupId: (row.group_id as string | null) ?? null,
+		groupName: ((row.groups as { name?: string } | null)?.name as string) ?? '',
+		archivedAt: (row.archived_at as string | null) ?? null
+	};
+}
+
 function createInMemoryPersonnelCalendarRosterPort(
 	rawStore: DataStore
 ): NonNullable<UseCaseContext['personnelCalendarRoster']> {
-	async function rows(actor: AuthContext, status: 'active' | 'all', ids?: string[]) {
-		if (actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0) return [];
-		if (ids && ids.length === 0) return [];
-		return rawStore.findMany<Row>('personnel', actor.orgId, undefined, {
-			select: '*, groups(name)',
-			...(status === 'active' ? { isNull: { archived_at: true } } : {}),
-			inFilters: {
-				...(actor.scopeSet.kind === 'groups' ? { group_id: actor.scopeSet.groupIds } : {}),
-				...(ids ? { id: ids } : {})
-			},
-			orderBy: [
-				{ column: 'last_name', ascending: true },
-				{ column: 'first_name', ascending: true },
-				{ column: 'id', ascending: true }
-			]
-		});
-	}
 	return {
 		async listActive(actor) {
-			return (await rows(actor, 'active')).map((row) => ({
-				id: row.id as string,
-				slug: row.slug as string,
-				rank: row.rank as string,
-				lastName: row.last_name as string,
-				firstName: row.first_name as string,
-				mos: (row.mos as string) ?? '',
-				clinicRole: (row.clinic_role as string) ?? '',
-				ets: (row.ets as string | null) ?? null,
-				deros: (row.deros as string | null) ?? null,
-				groupId: (row.group_id as string | null) ?? null,
-				groupName: ((row.groups as { name?: string } | null)?.name as string) ?? '',
-				archivedAt: (row.archived_at as string | null) ?? null
-			}));
+			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
 		},
 		async listAssigneeIds(actor) {
-			return (await rows(actor, 'all')).map((row) => row.id as string);
+			return (await inMemoryPersonnelRows(rawStore, actor, 'all')).map((row) => row.id as string);
 		},
 		async findGroupIds(actor, ids) {
 			return new Map(
-				(await rows(actor, 'all', ids)).map((row) => [row.id as string, (row.group_id as string) ?? null])
+				(await inMemoryPersonnelRows(rawStore, actor, 'all', ids)).map((row) => [
+					row.id as string,
+					(row.group_id as string) ?? null
+				])
+			);
+		}
+	};
+}
+
+function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): UseCaseContext['personnelOnboardingRoster'] {
+	return {
+		async listRoster(actor, status) {
+			return (await inMemoryPersonnelRows(rawStore, actor, status)).map(inMemoryPersonnelFromRow);
+		},
+		async findGroupIds(actor, ids) {
+			return new Map(
+				(await inMemoryPersonnelRows(rawStore, actor, 'all', ids)).map((row) => [
+					row.id as string,
+					(row.group_id as string | null) ?? null
+				])
 			);
 		}
 	};
@@ -567,6 +596,7 @@ export function createTestContext(overrides?: {
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
 	};
 }
@@ -631,7 +661,7 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 // ---------------------------------------------------------------------------
 
 export function createWritePortsContext(options?: { auth?: Parameters<typeof createTestAuthContext>[0] }): WritePorts &
-	Pick<UseCaseContext, 'personnelCalendarRoster'> & {
+	Pick<UseCaseContext, 'personnelCalendarRoster' | 'personnelOnboardingRoster'> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
 		criticalTasksReadModel: CriticalTasksReadModelPort;
@@ -646,14 +676,15 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 		audit: createTestAuditPort(),
 
 		criticalTasksReadModel,
-		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore)
+		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore)
 	};
 }
 
 export function createWriteWithNotificationsPortsContext(options?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 }): WriteWithNotificationsPorts &
-	Pick<UseCaseContext, 'personnelCalendarRoster'> & {
+	Pick<UseCaseContext, 'personnelCalendarRoster' | 'personnelOnboardingRoster'> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
 		notifications: ReturnType<typeof createTestNotificationPort>;
@@ -670,7 +701,8 @@ export function createWriteWithNotificationsPortsContext(options?: {
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
-		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore)
+		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore)
 	};
 }
 
@@ -703,6 +735,7 @@ export function createQueryPortsContext(options?: {
 		auth,
 		criticalTasksReadModel,
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
 	};
 }
@@ -722,6 +755,7 @@ export function createQueryWithRawStorePortsContext(options?: {
 		auth,
 		rawStore,
 		criticalTasksReadModel,
-		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore)
+		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore)
 	};
 }

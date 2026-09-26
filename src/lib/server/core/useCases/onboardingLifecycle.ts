@@ -9,7 +9,7 @@
  * For retention logic (auto-archive when complete), see `onboardingRetention.ts`.
  */
 import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
+import type { OnboardingWorkflowPorts } from './onboardingPolicy';
 import { subjectDetails } from '$lib/server/auditDetails';
 import { formatToday } from '$lib/utils/dates';
 import {
@@ -49,7 +49,7 @@ interface StartResult {
 	steps: StepResult[];
 }
 
-export async function startOnboarding(ctx: WritePorts, input: StartInput): Promise<StartResult> {
+export async function startOnboarding(ctx: OnboardingWorkflowPorts, input: StartInput): Promise<StartResult> {
 	await requireOnboardingManagePolicyForPersonnel(ctx, input.personnelId);
 
 	// Enforce one-active-per-soldier
@@ -208,7 +208,7 @@ interface LifecycleResult {
 	completedAt: string | null;
 }
 
-export async function cancelOnboarding(ctx: WritePorts, id: string): Promise<LifecycleResult> {
+export async function cancelOnboarding(ctx: OnboardingWorkflowPorts, id: string): Promise<LifecycleResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
@@ -247,7 +247,7 @@ export async function cancelOnboarding(ctx: WritePorts, id: string): Promise<Lif
 	};
 }
 
-export async function reopenOnboarding(ctx: WritePorts, id: string): Promise<LifecycleResult> {
+export async function reopenOnboarding(ctx: OnboardingWorkflowPorts, id: string): Promise<LifecycleResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
@@ -289,7 +289,7 @@ interface CompleteResult extends LifecycleResult {
 	incompleteCount: number;
 }
 
-export async function completeOnboarding(ctx: WritePorts, id: string): Promise<CompleteResult> {
+export async function completeOnboarding(ctx: OnboardingWorkflowPorts, id: string): Promise<CompleteResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {

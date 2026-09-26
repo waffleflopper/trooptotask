@@ -1,6 +1,6 @@
 import { groupCatalogHydration } from './stores/groups.svelte';
 import type { Group } from '$features/personnel/contracts';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { pinnedGroupsHydration } from './stores/pinnedGroups.svelte';
 import { personnelRosterHydration } from './stores/personnel.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import {
@@ -41,7 +41,7 @@ const defaultPersonnelHydrationStores: PersonnelHydrationStores = {
 	personnelStore: personnelRosterHydration,
 	groupsStore: groupCatalogHydration,
 	statusTypesStore,
-	pinnedGroupsStore
+	pinnedGroupsStore: pinnedGroupsHydration
 };
 
 function createTargetDescriptor<T>(

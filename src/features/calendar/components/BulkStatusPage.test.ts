@@ -58,7 +58,8 @@ vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	mergeCalendarRangeIntoStores: mergeCalendarRangeIntoStoresMock
 }));
 
-vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
+vi.mock('$features/personnel', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/personnel')>()),
 	pinnedGroupsStore: { list: [] }
 }));
 

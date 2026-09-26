@@ -6,7 +6,7 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelRosterHydration } from '$features/personnel';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { pinnedGroupsHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
@@ -123,7 +123,7 @@ describe('TrainingPageView', () => {
 		trainingTypesStore.load([trainingType], 'org-1');
 		trainingViewsStore.load([], 'org-1');
 		personnelTrainingsStore.load([], 'org-1');
-		pinnedGroupsStore.load(['Alpha'], 'org-1');
+		pinnedGroupsHydration.load(['Alpha'], 'org-1');
 	});
 
 	afterEach(() => {
@@ -135,7 +135,7 @@ describe('TrainingPageView', () => {
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
-		pinnedGroupsStore.load([], 'org-test-reset');
+		pinnedGroupsHydration.load([], 'org-test-reset');
 	});
 
 	it.each([['alphabetical'], ['by-group']] as const)('mounts only one matrix for %s view mode', (viewMode) => {

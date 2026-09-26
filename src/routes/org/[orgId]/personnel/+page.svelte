@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+	import { pinnedGroupsStore } from '$features/personnel';
 	import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { PersonnelPageData } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';

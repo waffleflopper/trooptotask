@@ -368,9 +368,7 @@
 				"src/lib/server/entities/pinnedGroups.test.ts",
 				"src/lib/server/entities/pinnedGroups.ts",
 				"src/lib/server/groupAccess.test.ts",
-				"src/lib/server/groupAccess.ts",
-				"src/lib/stores/pinnedGroups.svelte.test.ts",
-				"src/lib/stores/pinnedGroups.svelte.ts"
+				"src/lib/server/groupAccess.ts"
 			],
 			"packet": "08-M04"
 		},

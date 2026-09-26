@@ -5,7 +5,7 @@
 	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';

@@ -4,7 +4,7 @@ import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';

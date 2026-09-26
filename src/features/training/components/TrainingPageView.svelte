@@ -12,7 +12,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';

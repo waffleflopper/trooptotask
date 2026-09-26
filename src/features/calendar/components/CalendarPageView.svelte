@@ -12,7 +12,7 @@
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
-	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+	import { pinnedGroupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { groupsStore } from '$features/personnel';
 

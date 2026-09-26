@@ -4,6 +4,7 @@
 export { personnelStore, rosterStore, personnelRosterHydration } from './stores/personnel.svelte';
 export type { RosterReadStore } from './stores/personnel.svelte';
 export { groupsStore, groupCatalogHydration } from './stores/groups.svelte';
+export { pinnedGroupsStore, pinnedGroupsHydration } from './stores/pinnedGroups.svelte';
 
 // Context
 export { PersonnelPageContext } from './contexts/PersonnelPageContext.svelte';

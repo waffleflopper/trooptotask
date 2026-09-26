@@ -6,7 +6,7 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupCatalogHydration } from '$features/personnel';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
@@ -58,7 +58,7 @@ describe('training page', () => {
 		trainingTypesStore.startLoading();
 		trainingViewsStore.startLoading();
 		personnelTrainingsStore.startLoading();
-		pinnedGroupsStore.load([], 'org-1');
+		pinnedGroupsHydration.load([], 'org-1');
 	});
 
 	afterEach(() => {
@@ -68,7 +68,7 @@ describe('training page', () => {
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
-		pinnedGroupsStore.load([], 'org-test-reset');
+		pinnedGroupsHydration.load([], 'org-test-reset');
 	});
 
 	it('renders the training shell while workspace data is still streaming', () => {

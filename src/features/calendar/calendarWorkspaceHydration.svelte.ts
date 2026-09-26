@@ -4,7 +4,7 @@ import { specialDaysStore } from './stores/specialDays.svelte';
 import { statusTypesStore } from './stores/statusTypes.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
 import { mergeById } from '$lib/utils/mergeById';
 import {
@@ -59,7 +59,7 @@ const defaultCalendarHydrationStores: CalendarHydrationStores = {
 	availabilityEntriesStore: availabilityStore,
 	specialDaysStore,
 	calendarAssignmentsStore: dailyAssignmentsStore,
-	pinnedGroupsStore
+	pinnedGroupsStore: pinnedGroupsHydration
 };
 
 function hasStringId(value: unknown): value is { id: string } {

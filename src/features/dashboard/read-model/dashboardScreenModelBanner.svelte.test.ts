@@ -37,7 +37,8 @@ vi.mock('$lib/stores/whatsNew.svelte', () => ({ whatsNewStore: { show: vi.fn(), 
 // Stub all stores — each returns a minimal reactive-compatible object
 vi.mock('$features/personnel', () => ({
 	rosterStore: { items: [] },
-	groupsStore: { items: [], loading: false }
+	groupsStore: { items: [], loading: false },
+	pinnedGroupsStore: { list: [], load: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [] }
@@ -50,9 +51,6 @@ vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 }));
 vi.mock('$features/training/stores/trainingTypes.svelte', () => ({
 	trainingTypesStore: { items: [] }
-}));
-vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
-	pinnedGroupsStore: { list: [], load: vi.fn() }
 }));
 vi.mock('$features/rating-scheme/utils/ratingScheme', () => ({
 	getRatingDueStatus: vi.fn((_end: string, status: string) => {

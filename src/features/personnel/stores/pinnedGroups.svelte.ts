@@ -5,7 +5,7 @@
  * back on API failure. A `#pendingMutations` counter prevents same-Organization hydration
  * from overwriting in-flight client changes. An Organization version isolates late responses.
  *
- * Persisted server-side per user (see `pinnedGroupCrud.ts`). Workspace hydration supplies
+ * Persisted server-side per user (see `pinnedGroupOperations.server.ts`). Workspace hydration supplies
  * each Organization snapshot.
  */
 export class PinnedGroupsStore {

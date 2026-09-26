@@ -11,6 +11,7 @@ export type { PersonnelTrainingRosterPort } from './contracts';
 export { loadRosterPersonnel } from './rosterRead.server';
 export { findGroupNamesByIds, listGroupCatalog } from './groupCatalog.server';
 export { listPinnedGroupNames } from './pinnedGroupNames.server';
+export { pinGroup, replacePinnedGroups, unpinGroup } from './pinnedGroupOperations.server';
 export { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 export type { PersonnelCriticalTasksRosterPort } from './contracts';
 export { createSupabasePersonnelCalendarRosterPort } from './calendarRoster.server';

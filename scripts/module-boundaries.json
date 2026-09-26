@@ -349,8 +349,6 @@
 				"src/lib/server/core/useCases/personnelSlug.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.test.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.ts",
-				"src/lib/server/core/useCases/pinnedGroupCrud.test.ts",
-				"src/lib/server/core/useCases/pinnedGroupCrud.ts",
 				"src/lib/server/core/useCases/rankCatalog.test.ts",
 				"src/lib/server/core/useCases/rankCatalog.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",

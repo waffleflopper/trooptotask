@@ -112,7 +112,7 @@ export function createAccessRequestSetupDeliveryStore(requests: AccessRequestSet
 		},
 		async markFailed(id, failedAt, failureReason) {
 			const link = setupLinks.find((item) => item.id === id);
-			if (!link || !link.claimedAt || link.failedAt || link.usedAt || link.revokedAt) return null;
+			if (!link || !link.claimedAt || link.failedAt || link.usedAt) return null;
 			link.failedAt = failedAt;
 			link.failureReason = failureReason;
 			return link;

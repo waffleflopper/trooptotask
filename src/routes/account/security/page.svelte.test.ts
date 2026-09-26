@@ -15,7 +15,7 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-it('allows a 128-character account password but blocks a matching 129-character password before submission', async () => {
+it('allows a 72-character account password but blocks a matching 73-character password before submission', async () => {
 	render(Page, {
 		props: {
 			data: { hasMFA: false, currentEmail: 'synthetic@example.test', pendingEmail: null } as PageData,
@@ -25,10 +25,10 @@ it('allows a 128-character account password but blocks a matching 129-character 
 	const passwordCard = within(screen.getByRole('heading', { name: 'Password' }).closest('[data-slot="card"]')!);
 	await fireEvent.input(passwordCard.getByLabelText('Current password'), { target: { value: 'OldPassword12' } });
 	const password = passwordCard.getByLabelText('New password');
-	expect(password).toHaveAccessibleDescription(/128 characters or fewer/);
+	expect(password).toHaveAccessibleDescription(/72 characters or fewer/);
 	const confirm = passwordCard.getByLabelText('Confirm new password');
 	const submit = passwordCard.getByRole('button', { name: 'Update Password' });
-	const accepted = `Aa1${'x'.repeat(125)}`;
+	const accepted = `Aa1${'x'.repeat(69)}`;
 	await fireEvent.input(password, { target: { value: accepted } });
 	await fireEvent.input(confirm, { target: { value: accepted } });
 	expect(submit).toBeEnabled();
@@ -36,8 +36,8 @@ it('allows a 128-character account password but blocks a matching 129-character 
 	await fireEvent.input(password, { target: { value: tooLong } });
 	await fireEvent.input(confirm, { target: { value: tooLong } });
 	expect(submit).toBeDisabled();
-	const lengthStatus = screen.getByText('128 characters or fewer').closest('li');
-	expect(lengthStatus).toHaveTextContent('Needed: 128 characters or fewer');
+	const lengthStatus = screen.getByText('72 characters or fewer').closest('li');
+	expect(lengthStatus).toHaveTextContent('Needed: 72 characters or fewer');
 	expect(lengthStatus).toHaveAttribute('aria-live', 'polite');
 });
 

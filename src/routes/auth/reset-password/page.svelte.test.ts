@@ -114,13 +114,13 @@ it.each([
 	}
 });
 
-it('allows a 128-character recovery password but blocks a matching 129-character password before submission', async () => {
+it('allows a 72-character recovery password but blocks a matching 73-character password before submission', async () => {
 	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ currentLevel: 'aal1', nextLevel: 'aal1' })));
 	render(Page);
 	const password = await screen.findByLabelText(/^New Password/);
 	const confirm = screen.getByLabelText(/^Confirm New Password/);
 	const submit = screen.getByRole('button', { name: 'Update Password' });
-	const accepted = `Aa1${'x'.repeat(125)}`;
+	const accepted = `Aa1${'x'.repeat(69)}`;
 	await fireEvent.input(password, { target: { value: accepted } });
 	await fireEvent.input(confirm, { target: { value: accepted } });
 	expect(submit).toBeEnabled();
@@ -128,9 +128,7 @@ it('allows a 128-character recovery password but blocks a matching 129-character
 	await fireEvent.input(password, { target: { value: tooLong } });
 	await fireEvent.input(confirm, { target: { value: tooLong } });
 	expect(submit).toBeDisabled();
-	expect(screen.getByText('128 characters or fewer').closest('li')).toHaveTextContent(
-		'Needed: 128 characters or fewer'
-	);
+	expect(screen.getByText('72 characters or fewer').closest('li')).toHaveTextContent('Needed: 72 characters or fewer');
 });
 
 it.each([

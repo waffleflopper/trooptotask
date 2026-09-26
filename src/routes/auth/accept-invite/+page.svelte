@@ -319,7 +319,7 @@
 					bind:value={password}
 					required
 					placeholder="At least 12 characters"
-					hint="Use 12 to 128 characters with uppercase, lowercase, and a number."
+					hint="Use 12 to 72 characters with uppercase, lowercase, and a number."
 				>
 					{#snippet action()}
 						<AuthPasswordToggle visible={showPassword} onclick={() => (showPassword = !showPassword)} />
@@ -331,7 +331,7 @@
 						<span class="sr-only">{requirements.minLength ? 'Met: ' : 'Needed: '}</span>At least 12 characters
 					</li>
 					<li class={requirements.maxLength ? 'text-success' : undefined}>
-						<span class="sr-only">{requirements.maxLength ? 'Met: ' : 'Needed: '}</span>128 characters or fewer
+						<span class="sr-only">{requirements.maxLength ? 'Met: ' : 'Needed: '}</span>72 characters or fewer
 					</li>
 					<li class={requirements.uppercase ? 'text-success' : undefined}>
 						<span class="sr-only">{requirements.uppercase ? 'Met: ' : 'Needed: '}</span>One uppercase letter

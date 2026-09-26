@@ -23,17 +23,17 @@
 		{
 			question: 'I already have my roster in a spreadsheet. Do I have to re-enter everyone by hand?',
 			answer:
-				'The bulk import tool lets you paste your spreadsheet directly and walks you through mapping your columns to the right fields. Name, rank, MOS, section, assignment, whatever you have. You can be up and running with a full roster in a few minutes, not a few hours.'
+				'Upload an Excel or CSV roster, map its columns to the right personnel fields, and review the rows before importing. Name, rank, MOS, section, and other roster details can come from your existing file.'
 		},
 		{
 			question: 'What kind of training data can I track?',
 			answer:
-				'Anything your unit requires. You create the training types and set an expiration window for each one. TroopToTask then tracks every Soldier against it and color-codes the matrix: green for current, yellow at 60 days, orange at 30, red for overdue. You can mark Soldiers as exempt, track pass/fail or attendance, and export the whole thing for your training briefing.'
+				"Anything your unit requires. You create training types and set their expiration and warning windows. TroopToTask then tracks every Soldier against them and color-codes the matrix for current, approaching expiration, and overdue records using each type's settings. You can mark Soldiers as exempt, track pass/fail or attendance, and export a training report for your briefing."
 		},
 		{
 			question: 'Can I export data, or does everything stay locked inside the app?',
 			answer:
-				"Both. The data lives in TroopToTask so it's always current, and you can pull it out whenever you need it. Personnel rosters, training matrices, and calendar exports go to Excel with color-coding intact. Independent sign-in rosters can be printed from the browser."
+				'You can export personnel rosters, training reports, and calendars to Excel. Calendar exports retain status colors; training reports include readable status labels. Independent sign-in rosters can be printed from the browser.'
 		},
 		{
 			question: 'Is this secure enough for personnel data?',
@@ -120,7 +120,6 @@
 	{navScrolled}
 	showCta={false}
 	showFaqLink
-	faqHref="/#faq"
 >
 	<!-- ───────────────────────── HERO ───────────────────────── -->
 	<section class="hero">

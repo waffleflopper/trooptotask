@@ -3,18 +3,15 @@
 	import BrandWordmark from '$lib/components/ui/brand-wordmark/BrandWordmark.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
-	type PublicAnchorHref = '/' | '/#faq';
-
 	interface Props {
 		user?: unknown;
 		active?: 'about' | 'security';
-		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		overlay?: boolean;
 		scrolled?: boolean;
 	}
 
-	let { user, active, faqHref = '/#faq', showFaqLink = false, overlay = false, scrolled = false }: Props = $props();
+	let { user, active, showFaqLink = false, overlay = false, scrolled = false }: Props = $props();
 </script>
 
 <nav class="public-nav" class:overlay class:scrolled={overlay && scrolled}>
@@ -27,7 +24,7 @@
 			<a href={resolve('/about')} class="nav-link" class:active={active === 'about'}>About</a>
 			<a href={resolve('/security')} class="nav-link" class:active={active === 'security'}>Security</a>
 			{#if showFaqLink}
-				<a href={resolve(faqHref)} class="nav-link">FAQ</a>
+				<a href={resolve('/#faq')} class="nav-link">FAQ</a>
 			{/if}
 		</div>
 

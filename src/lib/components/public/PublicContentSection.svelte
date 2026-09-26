@@ -5,7 +5,7 @@
 		id?: string;
 		label: string;
 		alternate?: boolean;
-		title?: Snippet;
+		title: Snippet;
 		children: Snippet;
 	}
 
@@ -15,9 +15,7 @@
 <section {id} class:alt={alternate} class="content-section">
 	<div class="content-inner">
 		<div class="content-label">{label}</div>
-		{#if title}
-			<h2>{@render title()}</h2>
-		{/if}
+		<h2>{@render title()}</h2>
 		{@render children()}
 	</div>
 </section>

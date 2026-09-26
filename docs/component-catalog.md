@@ -642,7 +642,7 @@ Use these for any top-level marketing, legal, or trust page so the public site k
 The shared wordmark lives in `src/lib/components/ui/brand-wordmark/BrandWordmark.svelte`. Public navigation and account-access pages use that same Web UI component so its lettering and subtitle stay consistent.
 
 ```svelte
-<PublicShell user={data.user} active="security" bodyClass="security-page">
+<PublicShell user={data.user} active="security">
 	<PublicPageHeader label="Security">
 		{#snippet title()}Built for controlled <em>personnel data.</em>{/snippet}
 		<p>Role-scoped access, encryption, and audit history for unit workflows.</p>
@@ -659,19 +659,19 @@ The shared wordmark lives in `src/lib/components/ui/brand-wordmark/BrandWordmark
 
 Shared public wrapper that renders the classification bar, site nav, optional CTA, and footer around page content.
 
-Props: `user?: unknown`, `active?: 'security'`, `bodyClass?: string`, `faqHref?: string`, `showFaqLink?: boolean`, `showCta?: boolean`, `ctaTitleBefore?: string`, `ctaEmphasis?: string`, `ctaSubtitle?: string`, `children: Snippet`, `cta?: Snippet`
+Props: `user?: unknown`, `active?: 'about' | 'security'`, `bodyClass?: string`, `showFaqLink?: boolean`, `showClassificationBar?: boolean`, `showCta?: boolean`, `navOverlay?: boolean`, `navScrolled?: boolean`, `children: Snippet`
 
 Guidance:
 
 - Prefer this over duplicating nav/footer/CTA markup in public routes.
-- Use `showFaqLink` with `faqHref="/#faq"` when the page offers the landing FAQ link.
-- Pass a custom `cta` snippet only when the default shared CTA is not enough.
+- Use `showFaqLink` on the landing page; it links to `/#faq`.
+- Use `showCta={false}` when the route has its own final action section.
 
 ### `public/PublicPageHeader.svelte`
 
 Shared inner-page hero/header for marketing, legal, and trust pages.
 
-Props: `label: string`, `title: Snippet`, `children?: Snippet`
+Props: `label: string`, `title: Snippet`, `children: Snippet`
 
 Guidance:
 
@@ -682,7 +682,7 @@ Guidance:
 
 Shared section framing for legal/trust/public longform pages.
 
-Props: `label: string`, `alternate?: boolean`, `title?: Snippet`, `children: Snippet`
+Props: `id?: string`, `label: string`, `alternate?: boolean`, `title: Snippet`, `children: Snippet`
 
 Guidance:
 

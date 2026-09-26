@@ -385,6 +385,30 @@ describe('fetchCalendarBootstrap', () => {
 		expect(result.pinnedGroups).toEqual(['Alpha']);
 	});
 
+	it('returns no Group choices for a Calendar viewer with an empty Group scope', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedCalendarData(ctx.store);
+
+		const result = await fetchCalendarBootstrap(ctx, RANGE);
+
+		expect(result.groups).toEqual([]);
+		expect(result.personnel).toEqual([]);
+	});
+
 	it('returns the configured loss warning window from the organizations row', async () => {
 		const ctx = buildCtx();
 		seedCalendarData(ctx.store);

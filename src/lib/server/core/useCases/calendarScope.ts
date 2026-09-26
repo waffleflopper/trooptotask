@@ -44,13 +44,6 @@ export async function resolveCalendarAssigneeScope(ctx: QueryPorts): Promise<Cal
 	};
 }
 
-export function groupInFilter(
-	scope: CalendarGroupScope | null,
-	column: string
-): InFilterOptions | Record<string, never> {
-	return scope ? { inFilters: { [column]: scope.groupIds } } : {};
-}
-
 export function personnelInFilter(
 	scope: CalendarAssigneeScope | null,
 	column: string

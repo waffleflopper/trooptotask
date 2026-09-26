@@ -13,13 +13,12 @@ import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
-import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 import {
 	filterRowsByCalendarAssigneeScope,
-	groupInFilter,
 	personnelInFilter,
 	requirePersonnelCalendarRoster,
 	resolveCalendarAssigneeScope
@@ -215,33 +214,28 @@ export async function fetchCalendarBootstrap(
 		})
 		.then((rows) => DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(rows, calendarScope)));
 
-	const [assignmentTypeRows, pinnedGroupRows, personnel, groupRows, statusTypeRows, orgSettingsRow] = await Promise.all(
-		[
-			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+	const [assignmentTypeRows, pinnedGroupRows, personnel, groups, statusTypeRows, orgSettingsRow] = await Promise.all([
+		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>(
+			'user_pinned_groups',
+			orgId,
+			{ user_id: ctx.auth.userId },
+			{
 				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>(
-				'user_pinned_groups',
-				orgId,
-				{ user_id: ctx.auth.userId },
-				{
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}
-			),
-			requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
-			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-				...groupInFilter(calendarScope, 'id'),
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-				select: StatusTypeEntity.select,
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store
-				.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
-				.catch(() => null)
-		]
-	);
+			}
+		),
+		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
+		listGroupCatalog(ctx, { groupIds: calendarScope?.groupIds }),
+		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
+			select: StatusTypeEntity.select,
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store
+			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
+			.catch(() => null)
+	]);
 
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
@@ -254,7 +248,7 @@ export async function fetchCalendarBootstrap(
 		dailyAssignments,
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
 		personnel,
-		groups: GroupEntity.fromDbArray(groupRows),
+		groups,
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		lossWarningWindowDays
 	};

@@ -129,4 +129,28 @@ describe('fetchCalendarReportData', () => {
 		expect(result.allPersonnel.map((person) => person.id)).toEqual(['p1']);
 		expect(result.groups.map((group) => group.id)).toEqual(['g1']);
 	});
+
+	it('returns no report Groups or Personnel for an empty Group scope', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedData(ctx.store);
+
+		const result = await fetchCalendarReportData(ctx);
+
+		expect(result.groups).toEqual([]);
+		expect(result.allPersonnel).toEqual([]);
+	});
 });

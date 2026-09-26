@@ -408,6 +408,66 @@ describe('approveDeletionRequest', () => {
 		});
 	});
 
+	it('lets an Organization reviewer without Personnel capability approve a counseling deletion', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx, { resource_type: 'counseling_record', resource_id: 'cr-1' });
+		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'test-org', personnel_id: 'p-1' }]);
+
+		await approveDeletionRequest(ctx, 'dr-1');
+
+		expect(await ctx.store.findOne('counseling_records', 'test-org', { id: 'cr-1' })).toBeNull();
+		expect(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).toMatchObject({
+			status: 'approved'
+		});
+	});
+
+	it('keeps a foreign or missing counseling deletion request pending', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { resource_type: 'counseling_record', resource_id: 'cr-1' });
+		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'other-org', personnel_id: 'p-1' }]);
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 404 });
+
+		expect(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).toMatchObject({
+			status: 'pending'
+		});
+		expect(await ctx.store.findOne('counseling_records', 'other-org', { id: 'cr-1' })).not.toBeNull();
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it('keeps a counseling deletion request pending when its bound effect fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { resource_type: 'counseling_record', resource_id: 'cr-1' });
+		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'test-org', personnel_id: 'p-1' }]);
+		ctx.personnelGovernanceDeletion = {
+			deleteApprovedCounselingRecord: async () => {
+				throw new Error('Storage remove failed');
+			}
+		};
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('Storage remove failed');
+		expect(await ctx.store.findOne('counseling_records', 'test-org', { id: 'cr-1' })).not.toBeNull();
+		expect(await ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it('leaves personnel deletion requests pending when archival fails', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);

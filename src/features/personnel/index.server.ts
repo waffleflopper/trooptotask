@@ -30,6 +30,8 @@ export { createSupabasePersonnelArtifactWritePort } from './artifactWrites.serve
 export type { PersonnelArtifactWritePort } from './contracts';
 export { createSupabasePersonnelOrganizationExportPort } from './organizationExport.server';
 export type { PersonnelOrganizationExportPort } from './contracts';
+export { createSupabasePersonnelGovernanceDeletionPort } from './governanceDeletion.server';
+export type { PersonnelGovernanceDeletionPort } from './contracts';
 export { archiveLeaderNotesWithPersonnel, restoreLeaderNotesWithPersonnel } from './leaderNoteArchive.server';
 export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
 export { createLeaderNoteDataSource } from './leaderNoteDataSource.server';

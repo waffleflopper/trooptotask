@@ -101,6 +101,11 @@ export interface PersonnelArtifactWritePort {
 	): Promise<PersonnelArtifactArchiveWriter>;
 }
 
+/** Organization governance approval of one retained counseling deletion request. */
+export interface PersonnelGovernanceDeletionPort {
+	deleteApprovedCounselingRecord(actor: PersonnelRosterActor, recordId: string): Promise<void>;
+}
+
 /** Raw Personnel history included only in an authorized Organization data export. */
 export const PERSONNEL_ORGANIZATION_EXPORT_TABLES = [
 	'personnel_extended_info',

@@ -8,6 +8,7 @@ import type { PersonnelOnboardingRosterPort } from '$features/personnel/contract
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
 import type { PersonnelArtifactWritePort } from '$features/personnel/contracts';
+import type { PersonnelGovernanceDeletionPort } from '$features/personnel/contracts';
 import type { PersonnelOrganizationExportPort } from '$features/personnel/contracts';
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
@@ -177,6 +178,7 @@ export interface WritePorts {
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
+	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
@@ -230,6 +232,7 @@ export interface UseCaseContext {
 	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
+	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
 	personnelOrganizationExport?: PersonnelOrganizationExportPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;

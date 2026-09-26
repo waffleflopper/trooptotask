@@ -53,6 +53,33 @@ function createInMemoryPersonnelOrganizationExportPort(
 	};
 }
 
+function createInMemoryPersonnelGovernanceDeletionPort(
+	rawStore: DataStore,
+	storage: StoragePort
+): NonNullable<UseCaseContext['personnelGovernanceDeletion']> {
+	return {
+		async deleteApprovedCounselingRecord(actor, recordId) {
+			if (actor.role !== 'owner' && actor.role !== 'admin') {
+				throw Object.assign(new Error('Deletion review access denied'), { status: 403 });
+			}
+			const row = await rawStore.findOne<{ personnel_id?: string; file_path?: string | null }>(
+				'counseling_records',
+				actor.orgId,
+				{ id: recordId }
+			);
+			if (!row) throw Object.assign(new Error('Counseling record not found'), { status: 404 });
+			if (row.file_path) {
+				const prefix = `${actor.orgId}/counseling-records/${row.personnel_id}/`;
+				if (!row.file_path.startsWith(prefix) || row.file_path.length === prefix.length) {
+					throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
+				}
+				await storage.remove('counseling-files', [row.file_path]);
+			}
+			await rawStore.delete('counseling_records', actor.orgId, recordId);
+		}
+	};
+}
+
 const FULL_CAPABILITY_MAP: CapabilityMap = {
 	calendar: 'configure',
 	personnel: 'configure',
@@ -880,6 +907,7 @@ export function createTestContext(overrides?: {
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
@@ -965,6 +993,7 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const storagePort = createTestStoragePort();
 	return {
 		store,
 		rawStore,
@@ -972,7 +1001,8 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 		audit: createTestAuditPort(),
 
 		criticalTasksReadModel,
-		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, createTestStoragePort()),
+		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
@@ -1000,6 +1030,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
 	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const storagePort = createTestStoragePort();
 	return {
 		store,
 		rawStore,
@@ -1008,7 +1039,8 @@ export function createWriteWithNotificationsPortsContext(options?: {
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
-		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, createTestStoragePort()),
+		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),

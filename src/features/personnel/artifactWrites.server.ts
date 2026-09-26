@@ -38,7 +38,7 @@ function assertArtifactTable(table: string): void {
 	if (!ARTIFACT_TABLES.has(table)) fail(400, 'Unsupported Personnel artifact table');
 }
 
-function artifactFileTarget(kind: 'counseling' | 'document', orgId: string, personnelId: string, path: string) {
+export function artifactFileTarget(kind: 'counseling' | 'document', orgId: string, personnelId: string, path: string) {
 	const prefix =
 		kind === 'counseling'
 			? `${orgId}/counseling-records/${personnelId}/`

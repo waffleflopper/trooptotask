@@ -155,7 +155,12 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 		});
 		await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
 	} else {
-		await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
+		if (resourceType === 'counseling_record') {
+			if (!ctx.personnelGovernanceDeletion) throw new Error('Personnel governance deletion port is required');
+			await ctx.personnelGovernanceDeletion.deleteApprovedCounselingRecord(ctx.auth, resourceId);
+		} else {
+			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
+		}
 	}
 
 	const reviewedAt = new Date().toISOString();

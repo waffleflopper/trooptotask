@@ -35,6 +35,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20260926000500_critical_tasks_task_reference_integrity.sql",
     "20260926000600_calendar_unassigned_scope.sql",
     "20260926000700_personnel_unassigned_scope.sql",
+    "20260926000800_personnel_counseling_file_scope.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -42,6 +43,7 @@ STAGED_UPGRADE_FIXTURES = (
     "critical_tasks_populated_before.sql",
     "calendar_unassigned_populated_before.sql",
     "personnel_unassigned_populated_before.sql",
+    "personnel_counseling_file_populated_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -50,6 +52,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "critical_tasks_task_reference_after.sql",
     "calendar_unassigned_populated_after.sql",
     "personnel_unassigned_populated_after.sql",
+    "personnel_counseling_file_populated_after.sql",
 )
 
 
@@ -250,7 +253,7 @@ def validate(repository, *, staged_upgrade=False):
                     PG_PROVE_IMAGE, "pg_prove", "--verbose",
                     f"/tests/migration-tests/{name}",
                 ], workdir)
-            print("Populated account setup, Training, Critical Tasks, Calendar and Personnel upgrades passed.", flush=True)
+            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel and counseling file upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True

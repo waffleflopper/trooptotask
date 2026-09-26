@@ -11,12 +11,12 @@
 	let { class: className, titleClass, subtitleClass, hideSubtitleOnMobile = false }: Props = $props();
 </script>
 
-<div class={cn('public-brand-mark', className)}>
-	<div class={cn('public-brand-mark__wordmark', titleClass)}>Troop<span>To</span>Task</div>
+<div class={cn('brand-wordmark', className)}>
+	<div class={cn('brand-wordmark__wordmark', titleClass)}>Troop<span>To</span>Task</div>
 	<div
 		class={cn(
-			'public-brand-mark__subtitle',
-			hideSubtitleOnMobile && 'public-brand-mark__subtitle--mobile-hidden',
+			'brand-wordmark__subtitle',
+			hideSubtitleOnMobile && 'brand-wordmark__subtitle--mobile-hidden',
 			subtitleClass
 		)}
 	>
@@ -25,11 +25,11 @@
 </div>
 
 <style>
-	.public-brand-mark {
+	.brand-wordmark {
 		color: inherit;
 	}
 
-	.public-brand-mark__wordmark {
+	.brand-wordmark__wordmark {
 		font-family: 'Barlow Condensed', sans-serif;
 		font-size: var(--public-brand-title-size, 22px);
 		font-weight: 800;
@@ -37,11 +37,11 @@
 		line-height: 1;
 	}
 
-	.public-brand-mark__wordmark span {
+	.brand-wordmark__wordmark span {
 		color: var(--public-brand-accent, var(--accent));
 	}
 
-	.public-brand-mark__subtitle {
+	.brand-wordmark__subtitle {
 		margin-top: 0.25rem;
 		color: var(--public-brand-subtitle-color, var(--muted-foreground));
 		font-family: 'IBM Plex Mono', monospace;
@@ -52,11 +52,11 @@
 	}
 
 	@media (max-width: 640px) {
-		.public-brand-mark__wordmark {
+		.brand-wordmark__wordmark {
 			font-size: var(--public-brand-title-size-mobile, 18px);
 		}
 
-		.public-brand-mark__subtitle--mobile-hidden {
+		.brand-wordmark__subtitle--mobile-hidden {
 			display: none;
 		}
 	}

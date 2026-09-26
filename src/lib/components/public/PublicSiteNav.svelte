@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import PublicBrandMark from './PublicBrandMark.svelte';
+	import BrandWordmark from '$lib/components/ui/brand-wordmark/BrandWordmark.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 
 	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
@@ -29,7 +29,7 @@
 <nav class="public-nav" class:overlay class:scrolled={overlay && scrolled} data-roadmap-href={roadmapHref}>
 	<div class="nav-container">
 		<a href={resolve('/')} class="nav-brand">
-			<PublicBrandMark hideSubtitleOnMobile />
+			<BrandWordmark hideSubtitleOnMobile />
 		</a>
 
 		<div class="nav-links">
@@ -143,7 +143,7 @@
 		flex-shrink: 0;
 	}
 
-	.nav-brand :global(.public-brand-mark) {
+	.nav-brand :global(.brand-wordmark) {
 		--public-brand-accent: var(--brass);
 		--public-brand-subtitle-color: var(--_muted);
 	}

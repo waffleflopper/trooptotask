@@ -5,6 +5,7 @@ import {
 	getAuthenticatedRedirectPath,
 	requestPublicPasswordRecovery
 } from '$features/identity/index.server';
+import { auditLog } from '$lib/audit/index.server';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (locals.session) {
@@ -16,12 +17,15 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
 	default: async ({ getClientAddress, request, url }) => {
 		const formData = await request.formData();
-		const result = await requestPublicPasswordRecovery({
-			email: formData.get('email'),
-			clientAddress: getClientAddress,
-			origin: url.origin,
-			userAgent: request.headers.get('user-agent') ?? ''
-		});
+		const result = await requestPublicPasswordRecovery(
+			{
+				email: formData.get('email'),
+				clientAddress: getClientAddress,
+				origin: url.origin,
+				userAgent: request.headers.get('user-agent') ?? ''
+			},
+			{ audit: auditLog }
+		);
 		if (result.status === 'invalid-email') {
 			return fail(400, { error: 'Enter a valid email address', email: result.email });
 		}

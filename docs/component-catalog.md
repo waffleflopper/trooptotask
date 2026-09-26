@@ -639,6 +639,8 @@ Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` he
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
 
+The shared wordmark lives in `src/lib/components/ui/brand-wordmark/BrandWordmark.svelte`. Public navigation and account-access pages use that same Web UI component so its lettering and subtitle stay consistent.
+
 ```svelte
 <PublicShell user={data.user} active="security" bodyClass="security-page" roadmapHref="/#roadmap">
 	<PublicPageHeader label="Security">

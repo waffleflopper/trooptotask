@@ -1,4 +1,4 @@
-import { auditLog } from '$lib/audit/index.server';
+import type { IdentityAuditWriter } from './auditWriter.server';
 import { getAuthConfirmRedirectTo } from './authConfirm.server';
 import { sendPublicRecoveryEmail } from './authEmailDelivery.server';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
@@ -10,26 +10,20 @@ export type PublicPasswordRecoveryRequestResult =
 	| { status: 'accepted'; email: string };
 
 type Dependencies = {
-	checkRateLimit: typeof checkForgotPasswordRateLimit;
-	sendEmail: typeof sendPublicRecoveryEmail;
-	audit: typeof auditLog;
-};
-
-const defaultDependencies: Dependencies = {
-	checkRateLimit: checkForgotPasswordRateLimit,
-	sendEmail: sendPublicRecoveryEmail,
-	audit: auditLog
+	checkRateLimit?: typeof checkForgotPasswordRateLimit;
+	sendEmail?: typeof sendPublicRecoveryEmail;
+	audit: IdentityAuditWriter;
 };
 
 export async function requestPublicPasswordRecovery(
 	input: { email: unknown; clientAddress: () => string; origin: string; userAgent: string },
-	deps: Dependencies = defaultDependencies
+	deps: Dependencies
 ): Promise<PublicPasswordRecoveryRequestResult> {
 	const email = sanitizeString(typeof input.email === 'string' ? input.email : null, 254);
 	if (!email || !validateEmail(email)) return { status: 'invalid-email', email };
 
 	const ip = input.clientAddress();
-	const decision = await deps.checkRateLimit({ email, ip });
+	const decision = await (deps.checkRateLimit ?? checkForgotPasswordRateLimit)({ email, ip });
 	if (decision.limited) {
 		await deps.audit(
 			{
@@ -45,7 +39,7 @@ export async function requestPublicPasswordRecovery(
 
 	const redirectTo = getAuthConfirmRedirectTo(input.origin, 'recovery');
 	try {
-		await deps.sendEmail(email, redirectTo);
+		await (deps.sendEmail ?? sendPublicRecoveryEmail)(email, redirectTo);
 	} catch {
 		// Public recovery never reveals whether this address has an account or delivery succeeded.
 	}

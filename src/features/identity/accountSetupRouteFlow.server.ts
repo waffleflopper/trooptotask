@@ -14,7 +14,7 @@ import {
 	checkAccountSetupCompletionRateLimit
 } from './accountSetupRateLimit.server';
 import { durableRateLimitAuditDetails } from '$lib/access/index.server';
-import type { auditLog } from '$lib/audit/index.server';
+import type { IdentityAuditWriter } from './auditWriter.server';
 import { getAuthenticatedRedirectPath } from './mfaGate.server';
 import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
 import { PASSWORD_PROVIDER_REJECTION_MESSAGE, validatePassword } from './passwordPolicy';
@@ -24,7 +24,7 @@ type AccountSetupCompletionService = Pick<
 	ReturnType<typeof createAccountSetupCompletionService>,
 	'completeSetupSession'
 >;
-type AccountSetupAudit = typeof auditLog;
+type AccountSetupAudit = IdentityAuditWriter;
 type AccountSetupRateLimitCheck = typeof checkAccountSetupCompletionRateLimit;
 
 export type AccountSetupPageState =

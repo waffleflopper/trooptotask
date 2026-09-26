@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { requestRecoveryMock } = vi.hoisted(() => ({ requestRecoveryMock: vi.fn() }));
+const { requestRecoveryMock, auditMock } = vi.hoisted(() => ({
+	requestRecoveryMock: vi.fn(),
+	auditMock: vi.fn()
+}));
+
+vi.mock('$lib/audit/index.server', () => ({ auditLog: auditMock }));
 
 vi.mock('$features/identity/index.server', () => ({
 	FORGOT_PASSWORD_RATE_LIMIT_MESSAGE: 'Too many password recovery requests. Please wait before trying again.',
@@ -32,12 +37,15 @@ describe('/auth/forgot-password delivery', () => {
 	it('passes request context to Identity and returns the quiet accepted result', async () => {
 		requestRecoveryMock.mockResolvedValue({ status: 'accepted', email: 'soldier@example.mil' });
 		await expect(actions.default(makeActionEvent())).resolves.toEqual({ success: true, email: 'soldier@example.mil' });
-		expect(requestRecoveryMock).toHaveBeenCalledWith({
-			email: 'soldier@example.mil',
-			clientAddress: expect.any(Function),
-			origin: 'http://localhost:4173',
-			userAgent: 'vitest-agent'
-		});
+		expect(requestRecoveryMock).toHaveBeenCalledWith(
+			{
+				email: 'soldier@example.mil',
+				clientAddress: expect.any(Function),
+				origin: 'http://localhost:4173',
+				userAgent: 'vitest-agent'
+			},
+			{ audit: auditMock }
+		);
 	});
 
 	it('maps an invalid email to the existing form failure', async () => {

@@ -39,6 +39,11 @@ export {
 } from './rankCatalogOperations.server';
 export { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdministration.server';
 export { seedDefaultRankCatalog } from './rankCatalogSeed.server';
+export {
+	createActivePersonnelRankResolver,
+	createPersonnelCatalogRankResolver,
+	normalizeActivePersonnelRank
+} from './rankValidation.server';
 export type {
 	LeaderNoteDataSource,
 	LeaderNoteExportRecord,

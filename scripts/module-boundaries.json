@@ -334,7 +334,6 @@
 				"src/lib/server/core/useCases/personnelFollowUps.ts",
 				"src/lib/server/core/useCases/personnelMergeBatch.test.ts",
 				"src/lib/server/core/useCases/personnelMergeBatch.ts",
-				"src/lib/server/core/useCases/personnelRankCatalog.ts",
 				"src/lib/server/core/useCases/personnelReadinessLanes.test.ts",
 				"src/lib/server/core/useCases/personnelReadinessLanes.ts",
 				"src/lib/server/core/useCases/personnelSlug.test.ts",

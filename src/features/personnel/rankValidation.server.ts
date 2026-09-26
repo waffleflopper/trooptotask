@@ -1,14 +1,16 @@
-import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
 import { sanitizeString } from '$lib/server/validation';
-import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import { loadOrganizationRankCatalog } from './rankCatalogOperations.server';
 
-type RankCatalogPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit'>;
+type RankCatalogPorts = Parameters<typeof loadOrganizationRankCatalog>[0];
 
-export const UNKNOWN_PERSONNEL_RANK_MESSAGE =
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
+
+const UNKNOWN_PERSONNEL_RANK_MESSAGE =
 	'Unknown rank "{rank}". Update the Organization rank catalog in Organization Settings -> Ranks, then try again.';
 
-export interface PersonnelRankResolver {
+interface PersonnelRankResolver {
 	normalize(input: string): string | null;
 	errorMessage(input: string): string;
 }
@@ -57,7 +59,7 @@ export async function createPersonnelCatalogRankResolver(ports: RankCatalogPorts
 	};
 }
 
-export function unknownPersonnelRankMessage(rank: string): string {
+function unknownPersonnelRankMessage(rank: string): string {
 	return UNKNOWN_PERSONNEL_RANK_MESSAGE.replace('{rank}', rank);
 }
 

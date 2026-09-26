@@ -13,7 +13,7 @@ import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
 import { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug';
-import { createActivePersonnelRankResolver } from './personnelRankCatalog';
+import { createActivePersonnelRankResolver } from '$features/personnel/index.server';
 import { listGroupCatalog } from '$features/personnel/index.server';
 
 const entity = PersonnelEntity;

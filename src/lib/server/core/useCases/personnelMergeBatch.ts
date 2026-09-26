@@ -4,7 +4,7 @@ import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
-import { createPersonnelCatalogRankResolver } from './personnelRankCatalog';
+import { createPersonnelCatalogRankResolver } from '$features/personnel/index.server';
 import { listGroupCatalog } from '$features/personnel/index.server';
 
 const entity = PersonnelEntity;

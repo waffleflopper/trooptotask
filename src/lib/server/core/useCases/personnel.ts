@@ -15,7 +15,7 @@ import { evaluateFeaturePolicy, policyResourceForGroup, requireFeaturePolicy } f
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug';
 import { createDeletionRequest } from './deletionRequests';
 import { archivePersonnelOwnedArtifacts, restorePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
-import { normalizeActivePersonnelRank } from './personnelRankCatalog';
+import { normalizeActivePersonnelRank } from '$features/personnel/index.server';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';

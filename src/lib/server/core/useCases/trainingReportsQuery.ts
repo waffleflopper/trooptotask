@@ -1,15 +1,7 @@
-/**
- * Training reports query — fetches all personnel training records for report generation.
- *
- * Returns the raw `PersonnelTraining` rows without aggregation. The training reports feature
- * uses these to compute per-type and per-personnel completion metrics client-side.
- *
- * Unlike `trainingSummaryQuery.ts` (which pre-aggregates), this gives the full dataset so
- * the reports UI can filter and group dynamically.
- */
+/** Training report page, detail, and workbook projection. */
 import type { QueryPorts } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';
+import type { TrainingStatus, TrainingType } from '$features/training/training.types';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { GroupEntity } from '$lib/server/entities/group';
@@ -31,11 +23,6 @@ import {
 import { writeWorkbookBuffer } from '$lib/export/workbook';
 import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
 import { requireFeaturePolicy } from './featurePolicy';
-import { loadRosterPersonnel } from './rosterReadModel';
-
-export interface TrainingReportsData {
-	trainings: PersonnelTraining[];
-}
 
 export interface TrainingReportSort {
 	column: 'name' | 'rank' | 'group' | string;
@@ -94,13 +81,6 @@ export interface TrainingReportData {
 
 const DEFAULT_REPORT_PAGE_SIZE = 25;
 const MAX_REPORT_PAGE_SIZE = 100;
-
-export async function fetchTrainingReportsData(ctx: QueryPorts): Promise<TrainingReportsData> {
-	await requireTrainingRecordView(ctx);
-	const rows = await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId);
-	const trainings = PersonnelTrainingEntity.fromDbArray(rows);
-	return { trainings };
-}
 
 async function requireTrainingRecordView(ctx: QueryPorts): Promise<void> {
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
@@ -180,9 +160,10 @@ async function buildTrainingReportRows(
 	const orgId = ctx.auth.orgId;
 	const filters = input.filters ?? {};
 	const sort = normalizeSort(input.sort);
+	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
 
 	const [personnel, typeRows, trainingRows, rankCatalog] = await Promise.all([
-		loadRosterPersonnel(ctx, { status: 'active' }),
+		ctx.personnelTrainingRoster.listActiveForReports(ctx.auth),
 		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),

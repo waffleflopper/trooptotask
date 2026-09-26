@@ -1,6 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabasePersonnelTrainingRosterCandidatesPort } from './trainingRosterCandidates.server';
+import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
+
+function actor(training: 'none' | 'view' = 'view', groupIds: string[] = ['group-1']) {
+	return createTestAuthContext({
+		orgId: 'org-1',
+		role: 'member',
+		isPrivileged: false,
+		scopeSet: { kind: 'groups', groupIds },
+		capabilityMap: {
+			calendar: 'none',
+			personnel: 'none',
+			training,
+			criticalTasks: 'none',
+			onboarding: 'none',
+			ratingScheme: 'none'
+		}
+	});
+}
 
 function createPersonnelQueryMock(result: unknown | unknown[]) {
 	const results = Array.isArray(result) ? [...result] : [result];
@@ -22,7 +40,7 @@ function createPersonnelQueryMock(result: unknown | unknown[]) {
 	return { supabase: { from: vi.fn().mockReturnValue(query) }, query };
 }
 
-describe('Personnel Training roster candidates', () => {
+describe('Personnel Training roster', () => {
 	it('reads active people only in the authorized Organization and Group, ordered for Training', async () => {
 		const { supabase, query } = createPersonnelQueryMock({
 			data: [
@@ -43,8 +61,8 @@ describe('Personnel Training roster candidates', () => {
 			],
 			error: null
 		});
-		const port = createSupabasePersonnelTrainingRosterCandidatesPort(() => supabase as unknown as SupabaseClient);
-		const result = await port.listActiveCandidates('org-1', { kind: 'groups', groupIds: ['group-1'] });
+		const port = createSupabasePersonnelTrainingRosterPort(() => supabase as unknown as SupabaseClient);
+		const result = await port.listActiveForWorkspace(actor());
 
 		expect(query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
 		expect(query.is).toHaveBeenCalledWith('archived_at', null);
@@ -85,9 +103,14 @@ describe('Personnel Training roster candidates', () => {
 			{ data: Array.from({ length: 500 }, (_, index) => row(index)), error: null },
 			{ data: [row(500)], error: null }
 		]);
-		const port = createSupabasePersonnelTrainingRosterCandidatesPort(() => supabase as unknown as SupabaseClient);
+		const port = createSupabasePersonnelTrainingRosterPort(() => supabase as unknown as SupabaseClient);
 
-		const candidates = await port.listActiveCandidates('org-1', { kind: 'organization' });
+		const candidates = await port.listActiveForReports(
+			createTestAuthContext({
+				...actor(),
+				scopeSet: { kind: 'organization' }
+			})
+		);
 
 		expect(candidates).toHaveLength(501);
 		expect(candidates[500]?.id).toBe('person-500');
@@ -97,14 +120,23 @@ describe('Personnel Training roster candidates', () => {
 
 	it('returns no people for an empty Group scope without using the admin client', async () => {
 		const getAdminClient = vi.fn();
-		const port = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient as () => SupabaseClient);
-		await expect(port.listActiveCandidates('org-1', { kind: 'groups', groupIds: [] })).resolves.toEqual([]);
+		const port = createSupabasePersonnelTrainingRosterPort(getAdminClient as () => SupabaseClient);
+		await expect(port.listActiveForWorkspace(actor('view', []))).resolves.toEqual([]);
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+
+	it('denies a member without Training access before opening the admin provider', async () => {
+		const getAdminClient = vi.fn();
+		const port = createSupabasePersonnelTrainingRosterPort(getAdminClient as () => SupabaseClient);
+
+		await expect(port.listActiveForWorkspace(actor('none'))).rejects.toMatchObject({ status: 403 });
+		await expect(port.listActiveForReports(actor('none'))).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('propagates provider errors without returning incomplete candidate data', async () => {
 		const { supabase } = createPersonnelQueryMock({ data: null, error: { message: 'query failed' } });
-		const port = createSupabasePersonnelTrainingRosterCandidatesPort(() => supabase as unknown as SupabaseClient);
-		await expect(port.listActiveCandidates('org-1', { kind: 'organization' })).rejects.toThrow('query failed');
+		const port = createSupabasePersonnelTrainingRosterPort(() => supabase as unknown as SupabaseClient);
+		await expect(port.listActiveForReports(actor())).rejects.toThrow('query failed');
 	});
 });

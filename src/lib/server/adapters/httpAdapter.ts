@@ -39,7 +39,7 @@ import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksRead
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
 import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
-import { createSupabasePersonnelTrainingRosterCandidatesPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelOnboardingRosterPort } from '$features/personnel/index.server';
 import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
@@ -209,7 +209,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
-	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
+	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
@@ -236,7 +236,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			criticalTasksReadModel,
 			ratingSchemePersonnelLookup,
 			signInRosterPersonnelLookup,
-			personnelTrainingRosterCandidates,
+			personnelTrainingRoster,
 			personnelCalendarRoster,
 			personnelOnboardingRoster,
 			trainingOnboardingReferences,
@@ -292,7 +292,7 @@ export async function buildLayoutContext(
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
-	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
+	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
@@ -318,7 +318,7 @@ export async function buildLayoutContext(
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
 		signInRosterPersonnelLookup,
-		personnelTrainingRosterCandidates,
+		personnelTrainingRoster,
 		personnelCalendarRoster,
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,
@@ -362,7 +362,7 @@ export async function buildLayoutContextFromMembership(
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
-	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
+	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
@@ -388,7 +388,7 @@ export async function buildLayoutContextFromMembership(
 		criticalTasksReadModel,
 		ratingSchemePersonnelLookup,
 		signInRosterPersonnelLookup,
-		personnelTrainingRosterCandidates,
+		personnelTrainingRoster,
 		personnelCalendarRoster,
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,

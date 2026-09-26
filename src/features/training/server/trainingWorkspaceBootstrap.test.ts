@@ -3,7 +3,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { TrainingWorkspaceData } from './trainingWorkspaceBootstrap';
 import type { Personnel } from '$lib/types';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { PersonnelTrainingRosterCandidatesPort } from '$features/personnel/index.server';
+import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
 
 const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
@@ -31,7 +31,7 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			store: {
 				findMany: findManyMock
 			},
-			personnelTrainingRosterCandidates: undefined as PersonnelTrainingRosterCandidatesPort | undefined
+			personnelTrainingRoster: undefined as unknown as PersonnelTrainingRosterPort
 		}
 	};
 });
@@ -60,7 +60,11 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			ratingScheme: 'view'
 		};
 		mockCtx.auth.scopeSet = { kind: 'organization' };
-		mockCtx.personnelTrainingRosterCandidates = undefined;
+		mockCtx.personnelTrainingRoster = {
+			listActiveForWorkspace: listRosterCandidatesMock,
+			listActiveForReports: vi.fn()
+		};
+		listRosterCandidatesMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -117,7 +121,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		});
 	});
 
-	it('loads Training roster candidates through the sign-in roster lookup without Personnel lane access', async () => {
+	it('loads Training roster candidates through the Personnel-owned Training port without Personnel lane access', async () => {
 		const personnel = [
 			{
 				id: 'p-alpha',
@@ -141,11 +145,12 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			ratingScheme: 'view'
 		};
 		mockCtx.auth.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
-		mockCtx.personnelTrainingRosterCandidates = {
-			listActiveCandidates: listRosterCandidatesMock
-		};
 		listRosterCandidatesMock.mockResolvedValue(personnel);
-		findManyMock.mockResolvedValue([]);
+		findManyMock.mockImplementation((table: string) =>
+			table === 'personnel'
+				? Promise.reject(new Error('Personnel SELECT denied for this Training-only actor'))
+				: Promise.resolve([])
+		);
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
 			locals: {} as App.Locals,
@@ -155,6 +160,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		const workspace = await routeData.training.data;
 
 		await expect(workspace.data.personnel).resolves.toEqual(personnel);
+		expect(listRosterCandidatesMock).toHaveBeenCalledWith(mockCtx.auth);
 		await expect(workspace.data.rankCatalog).resolves.toEqual([]);
 	});
 

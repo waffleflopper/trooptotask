@@ -1,7 +1,7 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
-import type { PersonnelTrainingRosterCandidatesPort } from '$features/personnel/contracts';
+import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
@@ -217,6 +217,7 @@ export interface QueryPorts {
 	store: DataStore;
 	auth: AuthContext;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
@@ -242,7 +243,7 @@ export interface UseCaseContext {
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
-	personnelTrainingRosterCandidates?: PersonnelTrainingRosterCandidatesPort;
+	personnelTrainingRoster: PersonnelTrainingRosterPort;
 	personnelCalendarRoster: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster: PersonnelOnboardingRosterPort;
 	trainingOnboardingReferences: TrainingOnboardingReferencesPort;

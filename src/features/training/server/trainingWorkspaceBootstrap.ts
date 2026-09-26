@@ -14,7 +14,6 @@ import {
 } from '$lib/server/core/streamedWorkspace';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
 import { loadOrganizationRankCatalog } from '$lib/server/core/useCases/rankCatalog';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
 import type { Group } from '$lib/stores/groups.svelte';
@@ -101,11 +100,7 @@ function loadTrainingItems<T>(config: {
 }
 
 async function loadTrainingRosterPersonnel(ctx: UseCaseContext): Promise<Personnel[]> {
-	if (ctx.personnelTrainingRosterCandidates) {
-		return ctx.personnelTrainingRosterCandidates.listActiveCandidates(ctx.auth.orgId, ctx.auth.scopeSet);
-	}
-
-	return loadRosterPersonnel(ctx, { status: 'active' });
+	return ctx.personnelTrainingRoster.listActiveForWorkspace(ctx.auth);
 }
 
 async function loadTrainingRankCatalog(ctx: UseCaseContext): Promise<RankCatalogEntry[]> {

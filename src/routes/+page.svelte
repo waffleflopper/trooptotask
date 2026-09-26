@@ -7,6 +7,7 @@
 
 	let navScrolled = $state(false);
 	let openFaq = $state(-1);
+	let revealEnabled = $state(false);
 
 	const faqs = [
 		{
@@ -44,6 +45,20 @@
 	onMount(() => {
 		const heroEl = document.querySelector('.hero') as HTMLElement;
 		let navObs: IntersectionObserver | undefined;
+		let revealObs: IntersectionObserver | undefined;
+		if (typeof IntersectionObserver === 'undefined') {
+			const updateNav = () => (navScrolled = heroEl ? heroEl.getBoundingClientRect().bottom <= 57 : false);
+			updateNav();
+			window.addEventListener('scroll', updateNav, { passive: true });
+			window.addEventListener('hashchange', updateNav);
+			window.addEventListener('resize', updateNav);
+			return () => {
+				window.removeEventListener('scroll', updateNav);
+				window.removeEventListener('hashchange', updateNav);
+				window.removeEventListener('resize', updateNav);
+			};
+		}
+
 		if (heroEl) {
 			navObs = new IntersectionObserver(([e]) => (navScrolled = !e.isIntersecting), {
 				threshold: 0,
@@ -52,21 +67,24 @@
 			navObs.observe(heroEl);
 		}
 
-		const revealObs = new IntersectionObserver(
-			(entries) => {
-				for (const entry of entries) {
-					if (!entry.isIntersecting) continue;
-					(entry.target as HTMLElement).classList.add('revealed');
-					revealObs.unobserve(entry.target);
-				}
-			},
-			{ threshold: 0.08 }
-		);
-		for (const el of document.querySelectorAll('.reveal')) revealObs.observe(el);
+		if (window.matchMedia?.('(prefers-reduced-motion: no-preference)').matches ?? true) {
+			revealObs = new IntersectionObserver(
+				(entries, observer) => {
+					for (const entry of entries) {
+						if (!entry.isIntersecting) continue;
+						(entry.target as HTMLElement).classList.add('revealed');
+						observer.unobserve(entry.target);
+					}
+				},
+				{ threshold: 0.08 }
+			);
+			for (const el of document.querySelectorAll('.reveal')) revealObs.observe(el);
+			revealEnabled = true;
+		}
 
 		return () => {
 			navObs?.disconnect();
-			revealObs.disconnect();
+			revealObs?.disconnect();
 		};
 	});
 </script>
@@ -96,7 +114,7 @@
 
 <PublicShell
 	user={data.user}
-	bodyClass="landing-redesign"
+	bodyClass={`landing-redesign${revealEnabled ? ' reveal-enabled' : ''}`}
 	showClassificationBar={false}
 	navOverlay={true}
 	{navScrolled}
@@ -321,8 +339,10 @@
 					<div class="faq__item reveal" class:open={openFaq === i}>
 						<button
 							class="faq__trigger"
+							type="button"
 							onclick={() => (openFaq = openFaq === i ? -1 : i)}
 							aria-expanded={openFaq === i}
+							aria-controls={`faq-answer-${i}`}
 						>
 							<span>{faq.question}</span>
 							<svg
@@ -337,10 +357,8 @@
 								<polyline points="6 9 12 15 18 9"></polyline>
 							</svg>
 						</button>
-						<div class="faq__answer">
-							<div class="faq__answer-inner">
-								<p>{faq.answer}</p>
-							</div>
+						<div class="faq__answer" id={`faq-answer-${i}`} hidden={openFaq !== i}>
+							<p>{faq.answer}</p>
 						</div>
 					</div>
 				{/each}
@@ -373,25 +391,19 @@
 
 <style>
 	/* ── Reveal Animation ── */
-	:global(.reveal) {
-		opacity: 0;
-		transform: translateY(24px);
-		transition:
-			opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-			transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-		transition-delay: var(--reveal-delay, 0s);
-	}
+	@media (prefers-reduced-motion: no-preference) {
+		:global(.reveal-enabled .reveal) {
+			opacity: 0;
+			transform: translateY(24px);
+			transition:
+				opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+				transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+			transition-delay: var(--reveal-delay, 0s);
+		}
 
-	:global(.reveal.revealed) {
-		opacity: 1;
-		transform: translateY(0);
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		:global(.reveal) {
+		:global(.reveal-enabled .reveal.revealed) {
 			opacity: 1;
-			transform: none;
-			transition: none;
+			transform: translateY(0);
 		}
 	}
 
@@ -836,21 +848,7 @@
 		transform: rotate(180deg);
 	}
 
-	.faq__answer {
-		display: grid;
-		grid-template-rows: 0fr;
-		transition: grid-template-rows 300ms cubic-bezier(0.25, 1, 0.5, 1);
-	}
-
-	.faq__item.open .faq__answer {
-		grid-template-rows: 1fr;
-	}
-
-	.faq__answer-inner {
-		overflow: hidden;
-	}
-
-	.faq__answer-inner p {
+	.faq__answer p {
 		margin: 0;
 		padding-bottom: 1.5rem;
 		color: var(--muted-foreground);

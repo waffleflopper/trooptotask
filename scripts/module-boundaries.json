@@ -483,7 +483,12 @@
 				"src/routes/security/",
 				"src/routes/terms/"
 			],
-			"files": ["src/routes/+error.svelte", "src/routes/+page.server.ts", "src/routes/+page.svelte"],
+			"files": [
+				"src/routes/+error.svelte",
+				"src/routes/+page.server.ts",
+				"src/routes/+page.svelte",
+				"src/routes/page.svelte.test.ts"
+			],
 			"packet": "08-M17"
 		},
 		"rating-scheme": {
@@ -605,6 +610,7 @@
 		"src/routes/": [
 			"src/routes/+page.server.ts",
 			"src/routes/+page.svelte",
+			"src/routes/page.svelte.test.ts",
 			"src/routes/+error.svelte",
 			"src/routes/about/",
 			"src/routes/privacy/",

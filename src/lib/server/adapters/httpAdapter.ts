@@ -86,6 +86,10 @@ interface BuildContextResult {
 /** Bind the admitted request to Personnel's typed note collaborators. */
 export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteContext {
 	const orgId = ctx.auth.orgId;
+	const writerFor = (personnelId: string) => {
+		if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
+		return ctx.personnelArtifactWrites.forPerson(ctx.auth, personnelId);
+	};
 	return {
 		actor: ctx.auth,
 		scope: ctx.scope,
@@ -133,22 +137,23 @@ export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteConte
 				);
 				return [...tied, ...older];
 			},
-			find(personnelId, noteId) {
-				return ctx.store.findOne<LeaderNoteRow>('leader_notes', orgId, { id: noteId, personnel_id: personnelId });
+			async find(personnelId, noteId) {
+				return (await writerFor(personnelId)).find<LeaderNoteRow>('leader_notes', noteId);
 			},
-			insert(input) {
-				return ctx.store.insert<LeaderNoteRow>('leader_notes', orgId, {
-					personnel_id: input.personnelId,
+			async insert(input) {
+				return (await writerFor(input.personnelId)).insert<LeaderNoteRow>('leader_notes', {
 					author: input.author,
 					text: input.text,
 					created_at: input.createdAt
 				});
 			},
-			update(noteId, archivedAt) {
-				return ctx.store.update<LeaderNoteRow>('leader_notes', orgId, noteId, { archived_at: archivedAt });
+			async update(personnelId, noteId, archivedAt) {
+				return (await writerFor(personnelId)).update<LeaderNoteRow>('leader_notes', noteId, {
+					archived_at: archivedAt
+				});
 			},
-			delete(noteId) {
-				return ctx.store.delete('leader_notes', orgId, noteId);
+			async delete(personnelId, noteId) {
+				return (await writerFor(personnelId)).delete('leader_notes', noteId);
 			}
 		},
 		contributorLabels: (userIds) =>

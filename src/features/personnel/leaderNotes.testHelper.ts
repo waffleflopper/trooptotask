@@ -4,6 +4,10 @@ import type { LeaderNoteContext, LeaderNoteRow } from './index.server';
 
 export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>): LeaderNoteContext {
 	const orgId = ctx.auth.orgId;
+	const writerFor = (personnelId: string) => {
+		if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
+		return ctx.personnelArtifactWrites.forPerson(ctx.auth, personnelId);
+	};
 	return {
 		actor: ctx.auth,
 		scope: ctx.scope,
@@ -35,18 +39,16 @@ export function testLeaderNoteContext(ctx: ReturnType<typeof createTestContext>)
 					)
 					.slice(0, limit);
 			},
-			find: (personnelId, noteId) =>
-				ctx.store.findOne<LeaderNoteRow>('leader_notes', orgId, { id: noteId, personnel_id: personnelId }),
-			insert: (input) =>
-				ctx.store.insert<LeaderNoteRow>('leader_notes', orgId, {
-					personnel_id: input.personnelId,
+			find: async (personnelId, noteId) => (await writerFor(personnelId)).find<LeaderNoteRow>('leader_notes', noteId),
+			insert: async (input) =>
+				(await writerFor(input.personnelId)).insert<LeaderNoteRow>('leader_notes', {
 					author: input.author,
 					text: input.text,
 					created_at: input.createdAt
 				}),
-			update: (noteId, archivedAt) =>
-				ctx.store.update<LeaderNoteRow>('leader_notes', orgId, noteId, { archived_at: archivedAt }),
-			delete: (noteId) => ctx.store.delete('leader_notes', orgId, noteId)
+			update: async (personnelId, noteId, archivedAt) =>
+				(await writerFor(personnelId)).update<LeaderNoteRow>('leader_notes', noteId, { archived_at: archivedAt }),
+			delete: async (personnelId, noteId) => (await writerFor(personnelId)).delete('leader_notes', noteId)
 		},
 		contributorLabels: (userIds) =>
 			loadOrganizationMemberLabels(

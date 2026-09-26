@@ -1,49 +1,29 @@
 import type { RankCatalogEntry } from '$features/personnel/contracts';
-import { defineStore } from '$lib/stores/core';
 
-type StoredRankCatalogEntry = RankCatalogEntry & { id: string };
-
-const rankCatalogStore = defineStore<StoredRankCatalogEntry>({
-	table: 'organization_rank_catalog'
-});
-
-function toStoredEntry(entry: RankCatalogEntry): StoredRankCatalogEntry {
-	return {
-		...entry,
-		id: entry.code
-	};
-}
-
-function toRankCatalogEntry(entry: StoredRankCatalogEntry): RankCatalogEntry {
-	return {
-		code: entry.code,
-		label: entry.label,
-		service: entry.service,
-		category: entry.category,
-		payGrade: entry.payGrade,
-		state: entry.state,
-		sortOrder: entry.sortOrder
-	};
-}
+let items = $state.raw<RankCatalogEntry[]>([]);
+let orgId = $state('');
+let loading = $state(true);
 
 export const trainingRankCatalogStore = {
 	get items(): RankCatalogEntry[] {
-		return rankCatalogStore.items.map(toRankCatalogEntry);
+		return items;
 	},
 
 	get orgId(): string {
-		return rankCatalogStore.orgId;
+		return orgId;
 	},
 
 	get loading(): boolean {
-		return rankCatalogStore.loading;
+		return loading;
 	},
 
-	load(items: RankCatalogEntry[], orgId: string): void {
-		rankCatalogStore.load(items.map(toStoredEntry), orgId);
+	load(nextItems: RankCatalogEntry[], nextOrgId: string): void {
+		items = nextItems;
+		orgId = nextOrgId;
+		loading = false;
 	},
 
 	startLoading(): void {
-		rankCatalogStore.startLoading();
+		loading = true;
 	}
 };

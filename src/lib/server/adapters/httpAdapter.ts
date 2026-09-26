@@ -41,6 +41,7 @@ import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supa
 import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
 import { createSupabasePersonnelTrainingRosterCandidatesPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
+import { createSupabaseOnboardingCalendarMarkersPort } from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
@@ -208,6 +209,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -232,6 +234,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			signInRosterPersonnelLookup,
 			personnelTrainingRosterCandidates,
 			personnelCalendarRoster,
+			onboardingCalendarMarkers,
 			organizationInvitationSetupStateLookup,
 			rawStore: store
 		},
@@ -285,6 +288,7 @@ export async function buildLayoutContext(
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -308,6 +312,7 @@ export async function buildLayoutContext(
 		signInRosterPersonnelLookup,
 		personnelTrainingRosterCandidates,
 		personnelCalendarRoster,
+		onboardingCalendarMarkers,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
@@ -349,6 +354,7 @@ export async function buildLayoutContextFromMembership(
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRosterCandidates = createSupabasePersonnelTrainingRosterCandidatesPort(getAdminClient);
 	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -372,6 +378,7 @@ export async function buildLayoutContextFromMembership(
 		signInRosterPersonnelLookup,
 		personnelTrainingRosterCandidates,
 		personnelCalendarRoster,
+		onboardingCalendarMarkers,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};

@@ -3,6 +3,7 @@ import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { PersonnelTrainingRosterCandidatesPort } from '$features/personnel/contracts';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -214,6 +215,7 @@ export interface QueryPorts {
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
+	onboardingCalendarMarkers?: OnboardingCalendarMarkersPort;
 }
 
 /** Query operations needing unscoped access (e.g., shared data) */
@@ -236,6 +238,7 @@ export interface UseCaseContext {
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRosterCandidates?: PersonnelTrainingRosterCandidatesPort;
 	personnelCalendarRoster: PersonnelCalendarRosterPort;
+	onboardingCalendarMarkers: OnboardingCalendarMarkersPort;
 	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;

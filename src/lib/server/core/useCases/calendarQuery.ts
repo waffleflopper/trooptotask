@@ -69,11 +69,9 @@ export interface CalendarBootstrap {
 }
 
 export async function getActiveOnboardingPersonnelIds(ctx: QueryPorts): Promise<string[]> {
-	const rows = await ctx.store.findMany<{ personnel_id: string }>('personnel_onboardings', ctx.auth.orgId, {
-		status: 'in_progress'
-	});
-
-	return [...new Set(rows.map((row) => row.personnel_id))];
+	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
+	if (!ctx.onboardingCalendarMarkers) throw new Error('Onboarding Calendar marker lookup is unavailable');
+	return ctx.onboardingCalendarMarkers.listActivePersonnelIds(ctx.auth.orgId);
 }
 
 export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarData> {

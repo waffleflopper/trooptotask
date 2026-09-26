@@ -342,50 +342,32 @@ describe('fetchCalendarData', () => {
 });
 
 describe('getActiveOnboardingPersonnelIds', () => {
-	it('returns personnel IDs for in_progress onboardings', async () => {
+	it('returns only active marker IDs for visible Personnel in this Organization', async () => {
 		const ctx = buildCtx();
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: ORG, group_id: 'g-1' },
+			{ id: 'p-2', organization_id: ORG, group_id: 'g-1' },
+			{ id: 'p-3', organization_id: ORG, group_id: null },
+			{ id: 'foreign', organization_id: 'other-org', group_id: 'g-1' }
+		]);
 		ctx.store.seed('personnel_onboardings', [
 			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
-			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-2', status: 'in_progress' }
+			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
+			{ id: 'ob-3', organization_id: ORG, personnel_id: 'p-2', status: 'completed' },
+			{ id: 'ob-4', organization_id: ORG, personnel_id: 'p-3', status: 'in_progress' },
+			{ id: 'ob-5', organization_id: 'other-org', personnel_id: 'foreign', status: 'in_progress' }
 		]);
-
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual(expect.arrayContaining(['p-1', 'p-2']));
-		expect(result).toHaveLength(2);
+		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual(['p-1', 'p-3']);
 	});
 
-	it('excludes cancelled and completed onboardings', async () => {
-		const ctx = buildCtx();
+	it('preserves owner access to unassigned markers even with an empty Group scope', async () => {
+		const ctx = buildCtx({ auth: { role: 'owner', scopeSet: { kind: 'groups', groupIds: [] } } });
+		ctx.store.seed('personnel', [{ id: 'unassigned', organization_id: ORG, group_id: null }]);
 		ctx.store.seed('personnel_onboardings', [
-			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
-			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-2', status: 'cancelled' },
-			{ id: 'ob-3', organization_id: ORG, personnel_id: 'p-3', status: 'completed' }
+			{ id: 'ob-owner', organization_id: ORG, personnel_id: 'unassigned', status: 'in_progress' }
 		]);
 
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual(['p-1']);
-	});
-
-	it('returns empty array when no active onboardings exist', async () => {
-		const ctx = buildCtx();
-
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual([]);
-	});
-
-	it('deduplicates personnel with multiple active onboardings', async () => {
-		const ctx = buildCtx();
-		ctx.store.seed('personnel_onboardings', [
-			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
-			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' }
-		]);
-
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual(['p-1']);
+		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual(['unassigned']);
 	});
 });
 

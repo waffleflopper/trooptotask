@@ -497,6 +497,39 @@ function createInMemoryPersonnelCalendarRosterPort(
 	};
 }
 
+function createInMemoryOnboardingCalendarMarkersPort(
+	rawStore: DataStore,
+	auth: AuthContext
+): UseCaseContext['onboardingCalendarMarkers'] {
+	return {
+		async listActivePersonnelIds(orgId) {
+			const organizationWide = auth.scopeSet.kind === 'organization' || auth.role === 'owner' || auth.role === 'admin';
+			if (
+				orgId !== auth.orgId ||
+				(!organizationWide && auth.scopeSet.kind === 'groups' && auth.scopeSet.groupIds.length === 0)
+			) {
+				return [];
+			}
+			const [onboardings, personnel] = await Promise.all([
+				rawStore.findMany<{ personnel_id: string }>('personnel_onboardings', orgId, { status: 'in_progress' }),
+				rawStore.findMany<{ id: string; group_id: string | null }>('personnel', orgId)
+			]);
+			const visibleIds = new Set(
+				personnel
+					.filter((person) =>
+						organizationWide
+							? true
+							: person.group_id !== null &&
+								auth.scopeSet.kind === 'groups' &&
+								auth.scopeSet.groupIds.includes(person.group_id)
+					)
+					.map((person) => person.id)
+			);
+			return [...new Set(onboardings.map((row) => row.personnel_id).filter((id) => visibleIds.has(id)))].sort();
+		}
+	};
+}
+
 /** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
 export function createTestContext(overrides?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
@@ -533,7 +566,8 @@ export function createTestContext(overrides?: {
 		storagePort,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
-		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore)
+		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
+		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
 	};
 }
 
@@ -668,7 +702,8 @@ export function createQueryPortsContext(options?: {
 		store,
 		auth,
 		criticalTasksReadModel,
-		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore)
+		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
+		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
 	};
 }
 

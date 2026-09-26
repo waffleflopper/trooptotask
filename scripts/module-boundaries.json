@@ -760,7 +760,11 @@
 		"calendar": ["src/features/calendar/index.ts"],
 		"critical-tasks": [],
 		"dashboard": ["src/features/dashboard/index.ts"],
-		"onboarding": ["src/features/onboarding/index.ts"],
+		"onboarding": [
+			"src/features/onboarding/contracts.ts",
+			"src/features/onboarding/index.ts",
+			"src/features/onboarding/index.server.ts"
+		],
 		"personnel": [
 			"src/features/personnel/contracts.ts",
 			"src/features/personnel/index.ts",

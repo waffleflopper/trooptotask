@@ -27,11 +27,18 @@ function client(row: Record<string, unknown> | null = { group_id: 'alpha' }) {
 		insert: vi.fn().mockReturnThis(),
 		update: vi.fn().mockReturnThis(),
 		delete: vi.fn().mockReturnThis(),
+		is: vi.fn().mockReturnThis(),
+		range: vi.fn().mockResolvedValue({ data: [{ file_size_bytes: 12 }, { file_size_bytes: 18 }], error: null }),
 		maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }),
 		single: vi.fn().mockResolvedValue({ data: { id: 'artifact-1', personnel_id: 'person-1' }, error: null })
 	};
 	const from = vi.fn(() => query);
-	return { from, query, value: { from } as unknown as SupabaseClient };
+	const storageBucket = {
+		upload: vi.fn().mockResolvedValue({ error: null }),
+		remove: vi.fn().mockResolvedValue({ error: null })
+	};
+	const storage = { from: vi.fn(() => storageBucket) };
+	return { from, query, storage, storageBucket, value: { from, storage } as unknown as SupabaseClient };
 }
 
 describe('Person-bound artifact writes', () => {
@@ -88,5 +95,31 @@ describe('Person-bound artifact writes', () => {
 			writer.update('personnel_follow_ups', 'artifact-1', { organization_id: 'org-2' })
 		).rejects.toMatchObject({ status: 400 });
 		expect(admin.from).not.toHaveBeenCalled();
+	});
+
+	it('counts only bound active documents and protects the Person file prefix', async () => {
+		const request = client();
+		const admin = client();
+		const writer = await createSupabasePersonnelArtifactWritePort(request.value, () => admin.value).forPerson(
+			member('operate'),
+			'person-1'
+		);
+
+		await expect(writer.sumActiveDocumentBytes()).resolves.toBe(30);
+		expect(admin.query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
+		expect(admin.query.eq).toHaveBeenCalledWith('personnel_id', 'person-1');
+		expect(admin.query.is).toHaveBeenCalledWith('archived_at', null);
+
+		const file = new File(['pdf'], 'record.pdf', { type: 'application/pdf' });
+		const path = 'org-1/counseling-records/person-1/record.pdf';
+		await writer.uploadFile('counseling', path, file);
+		await writer.removeFile('counseling', path);
+		expect(admin.storage.from).toHaveBeenCalledWith('counseling-files');
+		expect(admin.storageBucket.upload).toHaveBeenCalledWith(path, file, { upsert: false });
+		expect(admin.storageBucket.remove).toHaveBeenCalledWith([path]);
+		await expect(writer.removeFile('document', 'org-1/personnel/person-2/documents/x.pdf')).rejects.toMatchObject({
+			status: 400
+		});
+		expect(admin.storageBucket.remove).toHaveBeenCalledTimes(1);
 	});
 });

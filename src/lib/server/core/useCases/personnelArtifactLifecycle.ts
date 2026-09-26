@@ -271,13 +271,13 @@ export async function deleteArtifact<TRow, TDto>(
 	ctx: UseCaseContext,
 	spec: PersonnelArtifactSpec<TRow, TDto>,
 	input: { personnelId: string; id: string },
-	hooks: { onDeleted?(row: TRow): Promise<void> } = {}
+	hooks: { onDeleted?(row: TRow, writer: PersonnelArtifactWriter): Promise<void> } = {}
 ): Promise<void> {
 	const { row, writer } = await loadArtifactForWrite(ctx, spec, input.personnelId, input.id);
 	if (!spec.isArchived(row)) fail(409, `Archive ${spec.nounPlural} before deleting them`);
 
 	await writer.delete(spec.table, input.id);
-	await hooks.onDeleted?.(row);
+	await hooks.onDeleted?.(row, writer);
 	ctx.audit.log({ action: `${spec.auditPrefix}.deleted`, resourceType: 'personnel', resourceId: input.personnelId });
 }
 

@@ -495,7 +495,8 @@ function createInMemoryPersonnelAwardAcknowledgementPort(
 }
 
 function createInMemoryPersonnelArtifactWritePort(
-	rawStore: DataStore
+	rawStore: DataStore,
+	storage: StoragePort
 ): NonNullable<UseCaseContext['personnelArtifactWrites']> {
 	return {
 		async forPerson(actor, personnelId) {
@@ -540,6 +541,36 @@ function createInMemoryPersonnelArtifactWritePort(
 					const row = await rawStore.findOne(table, actor.orgId, { id, personnel_id: personnelId });
 					if (!row) return;
 					await rawStore.delete(table, actor.orgId, id);
+				},
+				async sumActiveDocumentBytes() {
+					const rows = await rawStore.findMany<{ file_size_bytes: number }>(
+						'personnel_documents',
+						actor.orgId,
+						{ personnel_id: personnelId },
+						{ isNull: { archived_at: true } }
+					);
+					return rows.reduce((sum, row) => sum + (row.file_size_bytes ?? 0), 0);
+				},
+				async uploadFile(kind: 'counseling' | 'document', path: string, file: unknown) {
+					if (!(file instanceof File)) throw Object.assign(new Error('An artifact file is required'), { status: 400 });
+					const prefix =
+						kind === 'counseling'
+							? `${actor.orgId}/counseling-records/${personnelId}/`
+							: `${actor.orgId}/personnel/${personnelId}/documents/`;
+					if (!path.startsWith(prefix) || path.length === prefix.length) {
+						throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
+					}
+					await storage.upload(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', path, file);
+				},
+				async removeFile(kind: 'counseling' | 'document', path: string) {
+					const prefix =
+						kind === 'counseling'
+							? `${actor.orgId}/counseling-records/${personnelId}/`
+							: `${actor.orgId}/personnel/${personnelId}/documents/`;
+					if (!path.startsWith(prefix) || path.length === prefix.length) {
+						throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
+					}
+					await storage.remove(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', [path]);
 				}
 			};
 		}
@@ -780,7 +811,7 @@ export function createTestContext(overrides?: {
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
-		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore),
+		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),

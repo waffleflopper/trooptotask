@@ -39,6 +39,33 @@ function configureContext() {
 }
 
 describe('personnel counseling records', () => {
+	it('lets a Personnel operator upload counseling without gaining sensitive reads', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		const created = await createPersonnelCounselingRecord(ctx, {
+			personnelId: 'person-1',
+			dateConducted: '2026-09-26',
+			title: 'Signed counseling',
+			file: new File(VALID_PDF_BYTES, 'signed.pdf', { type: 'application/pdf' })
+		});
+		expect(created.title).toBe('Signed counseling');
+		expect(ctx.storagePort.files).toHaveLength(1);
+		await expect(listPersonnelCounselingRecords(ctx, 'person-1')).rejects.toMatchObject({ status: 403 });
+	});
+
 	it('uploads a signed counseling PDF and lists records newest first', async () => {
 		const ctx = configureContext();
 		seedPersonnel(ctx);

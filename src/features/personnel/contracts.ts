@@ -86,6 +86,10 @@ export interface PersonnelArtifactWriter {
 	insert<T>(table: PersonnelArtifactTable, data: Record<string, unknown>): Promise<T>;
 	update<T>(table: PersonnelArtifactTable, id: string, patch: Record<string, unknown>): Promise<T>;
 	delete(table: PersonnelArtifactTable, id: string): Promise<void>;
+	sumActiveDocumentBytes(): Promise<number>;
+	/** The server implementation accepts only a File after runtime validation. */
+	uploadFile(kind: 'counseling' | 'document', path: string, file: unknown): Promise<void>;
+	removeFile(kind: 'counseling' | 'document', path: string): Promise<void>;
 }
 
 export interface PersonnelArtifactWritePort {

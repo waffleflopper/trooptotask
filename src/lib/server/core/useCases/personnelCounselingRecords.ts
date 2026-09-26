@@ -15,7 +15,7 @@ import {
 	loadPersonnelContributorLabels,
 	mapCounselingRow,
 	PERSONNEL_COUNSELING_RECORD_SPEC,
-	requirePersonnelArtifactAccess,
+	personnelArtifactWriter,
 	restoreArtifact,
 	type CounselingRecordRow
 } from './personnelArtifactLifecycle';
@@ -77,7 +77,7 @@ export async function createPersonnelCounselingRecord(
 	await assertPdf(rawInput.file);
 
 	const input = parsed.data;
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
 
 	const filename = safeFilename(rawInput.file.name);
 	const filePath = buildSensitiveFilePath({
@@ -86,12 +86,11 @@ export async function createPersonnelCounselingRecord(
 		recordId: input.personnelId,
 		filename: `${crypto.randomUUID()}-${filename}`
 	});
-	await ctx.storage.upload(COUNSELING_RECORDS_BUCKET, filePath, rawInput.file);
+	await writer.uploadFile('counseling', filePath, rawInput.file);
 
 	let row: CounselingRecordRow;
 	try {
-		row = await ctx.store.insert<CounselingRecordRow>('counseling_records', ctx.auth.orgId, {
-			personnel_id: input.personnelId,
+		row = await writer.insert<CounselingRecordRow>('counseling_records', {
 			date_conducted: input.dateConducted,
 			title: input.title,
 			subject: input.title,
@@ -103,7 +102,7 @@ export async function createPersonnelCounselingRecord(
 			created_at: new Date().toISOString()
 		});
 	} catch (error) {
-		await ctx.storage.remove(COUNSELING_RECORDS_BUCKET, [filePath]);
+		await writer.removeFile('counseling', filePath);
 		throw error;
 	}
 
@@ -140,8 +139,8 @@ export async function deletePersonnelCounselingRecord(
 		PERSONNEL_COUNSELING_RECORD_SPEC,
 		{ personnelId: input.personnelId, id: input.recordId },
 		{
-			onDeleted: async (row) => {
-				if (row.file_path) await ctx.storage.remove(COUNSELING_RECORDS_BUCKET, [row.file_path]);
+			onDeleted: async (row, writer) => {
+				if (row.file_path) await writer.removeFile('counseling', row.file_path);
 			}
 		}
 	);

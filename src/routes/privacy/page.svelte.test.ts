@@ -21,8 +21,9 @@ describe('privacy page contact', () => {
 			}
 		});
 
-		const deletionRequest = screen.getByText(/To request account deletion/i);
-		expect(within(deletionRequest).getByRole('link', { name: 'privacy@trooptotask.org' })).toHaveAttribute(
+		const retention = document.getElementById('data-retention');
+		expect(retention).not.toBeNull();
+		expect(within(retention!).getByRole('link', { name: 'privacy@trooptotask.org' })).toHaveAttribute(
 			'href',
 			'mailto:privacy@trooptotask.org'
 		);

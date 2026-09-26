@@ -96,7 +96,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="08 // Termination">
+	<PublicContentSection id="termination" label="08 // Termination">
 		{#snippet title()}Access may be revoked.{/snippet}
 		<p>
 			We may suspend or terminate your access to the service at any time for violation of these terms or for any other

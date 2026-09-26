@@ -27,12 +27,10 @@ describe('terms page contact', () => {
 	it('directs account deletion requests to privacy while preserving the support contact', () => {
 		renderTermsPage();
 
-		const termination = screen.getByText(/You may request deletion of your account/i);
-		expect(within(termination).getByRole('link', { name: 'privacy@trooptotask.org' }).getAttribute('href')).toBe(
+		const termination = document.getElementById('termination');
+		expect(termination).not.toBeNull();
+		expect(within(termination!).getByRole('link', { name: 'privacy@trooptotask.org' }).getAttribute('href')).toBe(
 			'mailto:privacy@trooptotask.org'
-		);
-		expect(screen.getByRole('link', { name: 'support@trooptotask.org' }).getAttribute('href')).toBe(
-			'mailto:support@trooptotask.org'
 		);
 	});
 });

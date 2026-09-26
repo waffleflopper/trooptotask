@@ -60,7 +60,7 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="05 // Data Retention">
+	<PublicContentSection id="data-retention" label="05 // Data Retention">
 		{#snippet title()}Kept only as long as needed.{/snippet}
 		<p>
 			Organization data follows record-specific deletion and archive controls. Personnel and related records may be

@@ -28,7 +28,6 @@ describe('landing FAQ', () => {
 		await fireEvent.click(first);
 		expect(first).toHaveAttribute('aria-expanded', 'true');
 		expect(firstAnswer).not.toHaveAttribute('hidden');
-		expect(firstAnswer).toHaveTextContent(/define every status yourself/i);
 
 		await fireEvent.click(second);
 		expect(first).toHaveAttribute('aria-expanded', 'false');

@@ -10,7 +10,7 @@ D01 moves request session/logout, actor admission, login, verified confirmation-
 
 Move business policy outside owned auth/provider adapters behind narrow feature operations, following [ADR 0004](adrs/0004-v1-provider-boundary-contract.md) and [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md). Complete each consumer cutover before removing its baseline entry. Do not add exceptions or reclassify remaining violations to pass governance.
 
-D03 has moved Critical Tasks workspace, report/export, history and batch import Personnel reads to a Personnel-owned, Critical Tasks-authorized server seam. Completion reads and active read-model RPCs now use strict Critical Tasks SQL scope without borrowing Personnel SELECT; new/changed completion task references must also match the row's Organization at the database boundary. The remaining Critical Tasks direct-write Personnel references are tracked in the same [D03 queue](../stabilization/TODO.md#d03-bounded-tasks--personnel-roster-groups-and-rank), so this partial cutover does not close the wider provider-boundary inventory.
+D03 has moved Critical Tasks workspace, report/export, history, batch import and direct completion write Personnel reads to a Personnel-owned, Critical Tasks-authorized server seam. Completion reads and active read-model RPCs use strict Critical Tasks SQL scope without borrowing Personnel SELECT; new/changed completion task references must also match the row's Organization at the database boundary. The broader [D03 queue](../stabilization/TODO.md#d03-bounded-tasks--personnel-roster-groups-and-rank) still owns integrated lane proof and remaining roster, Group and rank migrations, so this cutover does not close the wider provider-boundary inventory.
 
 ## D-05 Legacy Clinic Vocabulary
 

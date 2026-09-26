@@ -48,7 +48,7 @@ import { createSupabaseOnboardingCalendarMarkersPort } from '$features/onboardin
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
-import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import {
 	enforceLoadAuthorization,
@@ -640,6 +640,8 @@ export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): R
 
 export interface EntityHandlerHooks {
 	policyAction?: FeatureLanePolicyAction;
+	policyResourceForPersonnel?: (ctx: UseCaseContext, personnelId: string) => Promise<PolicyResource>;
+	policyResourceForRecord?: (ctx: UseCaseContext, recordId: string) => Promise<PolicyResource>;
 	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 }
@@ -666,6 +668,8 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		entity,
 		auditResource: getEntityAuditResource(entity),
 		policyAction,
+		policyResourceForPersonnel: hooks?.policyResourceForPersonnel,
+		policyResourceForRecord: hooks?.policyResourceForRecord,
 		beforeDelete: hooks?.beforeDelete
 			? async (ctx: UseCaseContext, id: string) => hooks.beforeDelete!(ctx, id)
 			: undefined,

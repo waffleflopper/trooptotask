@@ -159,4 +159,32 @@ describe('Personnel Critical Tasks roster', () => {
 		await expect(port.listForBatchImport(actor('operate', []))).resolves.toEqual([]);
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
+
+	it('resolves active and archived write references only in the actor Organization and Group', async () => {
+		const port = createSupabasePersonnelCriticalTasksRosterPort(createPersonnelClient(rows));
+		await expect(port.findForCompletionWrite(actor('operate'), 'active-alpha')).resolves.toEqual({
+			groupId: 'group-1',
+			archivedAt: null
+		});
+		await expect(port.findForCompletionWrite(actor('operate'), 'archived-alpha')).resolves.toEqual({
+			groupId: 'group-1',
+			archivedAt: '2026-01-01'
+		});
+		await expect(port.findForCompletionWrite(actor('operate'), 'active-bravo')).resolves.toBeNull();
+		await expect(port.findForCompletionWrite(actor('operate'), 'foreign')).resolves.toBeNull();
+		await expect(port.findForCompletionWrite(actor('operate'), 'unassigned')).resolves.toBeNull();
+		await expect(port.findForCompletionWrite(actor('operate', null), 'unassigned')).resolves.toEqual({
+			groupId: null,
+			archivedAt: null
+		});
+	});
+
+	it('denies write-reference lookup before admin access and opens no client for an empty Group', async () => {
+		const getAdminClient = vi.fn();
+		const port = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient as () => SupabaseClient);
+		await expect(port.findForCompletionWrite(actor('view'), 'active-alpha')).rejects.toMatchObject({ status: 403 });
+		await expect(port.findForCompletionWrite(actor('none'), 'active-alpha')).rejects.toMatchObject({ status: 403 });
+		await expect(port.findForCompletionWrite(actor('operate', []), 'active-alpha')).resolves.toBeNull();
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
 });

@@ -51,6 +51,18 @@ export function createSupabasePersonnelCriticalTasksRosterPort(
 				status: 'all'
 			});
 			return PersonnelEntity.fromDbArray(rows);
+		},
+		async findForCompletionWrite(actor, personnelId) {
+			await requireCompletionWrite(actor);
+			const rows = await queryScopedPersonnelRows(getAdminClient, actor.orgId, actor.scopeSet, {
+				select: 'id, group_id, archived_at, last_name, first_name',
+				status: 'all',
+				ids: [personnelId]
+			});
+			const row = rows[0];
+			return row
+				? { groupId: (row.group_id as string | null) ?? null, archivedAt: (row.archived_at as string | null) ?? null }
+				: null;
 		}
 	};
 }

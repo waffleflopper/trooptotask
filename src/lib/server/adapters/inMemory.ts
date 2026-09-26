@@ -556,6 +556,16 @@ function createInMemoryPersonnelCriticalTasksRosterPort(
 		},
 		async listForBatchImport(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'all')).map(inMemoryPersonnelFromRow);
+		},
+		async findForCompletionWrite(actor, personnelId) {
+			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
+			const row = rows[0];
+			return row
+				? {
+						groupId: (row.group_id as string | null) ?? null,
+						archivedAt: (row.archived_at as string | null) ?? null
+					}
+				: null;
 		}
 	};
 }

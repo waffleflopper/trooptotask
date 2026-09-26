@@ -4,7 +4,9 @@ import {
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
+import type { AuditPort, AuthContext, DataStore, UseCaseContext, WritePorts } from '$lib/server/core/ports';
+import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import { requirePersonnelCalendarRoster } from './calendarScope';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
@@ -13,8 +15,14 @@ interface CalendarPolicyPorts {
 	audit?: AuditPort;
 
 	store?: DataStore;
-	rawStore?: DataStore;
+	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 }
+
+export type CalendarPersonnelPolicyPorts = CalendarPolicyPorts & {
+	store: DataStore;
+	personnelCalendarRoster: PersonnelCalendarRosterPort;
+};
+export type CalendarWritePorts = WritePorts & Pick<UseCaseContext, 'personnelCalendarRoster'>;
 
 export const CALENDAR_POLICY_ACTIONS = POLICY_ACTION_CATALOG.calendar;
 
@@ -36,7 +44,7 @@ export async function requireCalendarPolicy(
 }
 
 export async function requireCalendarPersonnelPolicy(
-	ports: CalendarPolicyPorts & { store: DataStore },
+	ports: CalendarPersonnelPolicyPorts,
 	action: FeatureLanePolicyAction,
 	personnelIds: string[]
 ): Promise<void> {
@@ -46,21 +54,15 @@ export async function requireCalendarPersonnelPolicy(
 		return;
 	}
 
-	const lookupStore = ports.rawStore ?? ports.store;
-	const personnelRows = await lookupStore.findMany<Record<string, unknown>>('personnel', ports.auth.orgId, undefined, {
-		inFilters: { id: uniquePersonnelIds },
-		select: 'id, group_id'
-	});
-	const personnelById = new Map(personnelRows.map((row) => [row.id, row]));
-	const groupIds = new Set(
-		uniquePersonnelIds.map((id) => {
-			const groupId = personnelById.get(id)?.group_id;
-			return typeof groupId === 'string' && groupId.length > 0 ? groupId : null;
-		})
-	);
-
-	// Missing rows can be hidden by RLS; they cannot grant unscoped access.
-	for (const groupId of groupIds) {
+	await requireCalendarPolicy(ports, action);
+	const personnelById = await requirePersonnelCalendarRoster(ports).findGroupIds(ports.auth, uniquePersonnelIds);
+	for (const id of uniquePersonnelIds) {
+		if (!personnelById.has(id)) {
+			// Group-scoped missing rows cannot become an Organization-level grant.
+			await requireCalendarPolicy(ports, action, { kind: 'organization' });
+			continue;
+		}
+		const groupId = personnelById.get(id);
 		await requireCalendarPolicy(ports, action, groupId ? { kind: 'group', groupId } : { kind: 'organization' });
 	}
 }

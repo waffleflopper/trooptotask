@@ -157,6 +157,14 @@ describe('fetchCalendarData', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
 				scopeSet: { kind: 'groups', groupIds: ['g1', 'g2'] }
 			}
 		});
@@ -201,6 +209,18 @@ describe('fetchCalendarData', () => {
 				group_id: 'g3',
 				groups: { name: 'Charlie' },
 				archived_at: null
+			},
+			{
+				id: 'p4',
+				organization_id: ORG,
+				rank: 'PFC',
+				last_name: 'Old',
+				first_name: 'Olive',
+				mos: '11B',
+				clinic_role: 'Soldier',
+				group_id: 'g1',
+				groups: { name: 'Alpha' },
+				archived_at: '2026-02-01T00:00:00Z'
 			}
 		]);
 		ctx.store.seed('availability_entries', [
@@ -226,7 +246,8 @@ describe('fetchCalendarData', () => {
 		ctx.store.seed('daily_assignments', [
 			{ id: 'da-1', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p2' },
 			{ id: 'da-2', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p3' },
-			{ id: 'da-3', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'g1' }
+			{ id: 'da-3', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'g1' },
+			{ id: 'da-4', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p4' }
 		]);
 
 		const result = await fetchCalendarBootstrap(ctx, RANGE);
@@ -238,7 +259,8 @@ describe('fetchCalendarData', () => {
 		]);
 		await expect(result.dailyAssignments).resolves.toEqual([
 			expect.objectContaining({ id: 'da-1', assigneeId: 'p2' }),
-			expect.objectContaining({ id: 'da-3', assigneeId: 'g1' })
+			expect.objectContaining({ id: 'da-3', assigneeId: 'g1' }),
+			expect.objectContaining({ id: 'da-4', assigneeId: 'p4' })
 		]);
 	});
 

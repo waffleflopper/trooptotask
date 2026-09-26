@@ -21,9 +21,9 @@ import {
 	filterRowsByCalendarAssigneeScope,
 	groupInFilter,
 	personnelInFilter,
+	requirePersonnelCalendarRoster,
 	resolveCalendarAssigneeScope
 } from './calendarScope';
-import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface CalendarDateRange {
 	rangeStart: string;
@@ -230,10 +230,7 @@ export async function fetchCalendarBootstrap(
 					orderBy: [{ column: 'sort_order', ascending: true }]
 				}
 			),
-			loadRosterPersonnel(ctx, {
-				status: 'active',
-				inFilters: calendarScope ? { group_id: calendarScope.groupIds } : undefined
-			}),
+			requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 			ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
 				...groupInFilter(calendarScope, 'id'),
 				orderBy: [{ column: 'sort_order', ascending: true }]

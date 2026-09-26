@@ -1,6 +1,23 @@
 import { z } from 'zod';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel } from '$lib/types';
+
+/** Trusted request authorization facts; structurally matches the shared AuthContext. */
+export interface PersonnelRosterActor {
+	readonly userId: string;
+	readonly orgId: string;
+	readonly role: 'owner' | 'admin' | 'member';
+	readonly isPrivileged: boolean;
+	readonly canManageMembers: boolean;
+	readonly capabilityMap: CapabilityMap;
+	readonly scopeSet: ScopeSet;
+}
+
+export interface PersonnelCalendarRosterPort {
+	listActive(actor: PersonnelRosterActor): Promise<Personnel[]>;
+	listAssigneeIds(actor: PersonnelRosterActor): Promise<string[]>;
+	findGroupIds(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
+}
 
 /** Personnel read for an already-authorized Training workspace. */
 export interface PersonnelTrainingRosterCandidatesPort {

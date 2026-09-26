@@ -4,7 +4,7 @@
  * Calendar-owned slot write rules live in `daily-assignment-slots`; this file keeps the
  * existing public use-case API stable for routes and tests.
  */
-import type { WritePorts } from '$lib/server/core/ports';
+import type { CalendarWritePorts } from './calendarPolicy';
 import {
 	clearDailyAssignmentSlot,
 	createDailyAssignmentSlot,
@@ -19,28 +19,28 @@ export interface ReplaceInput {
 	records: Array<{ assignmentTypeId: string; assigneeId: string }>;
 }
 
-export async function replaceDailyAssignments(ctx: WritePorts, input: ReplaceInput): Promise<unknown[]> {
+export async function replaceDailyAssignments(ctx: CalendarWritePorts, input: ReplaceInput): Promise<unknown[]> {
 	return replaceDailyAssignmentDay(ctx, input);
 }
 
-export async function createDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+export async function createDailyAssignment(ctx: CalendarWritePorts, input: Record<string, unknown>): Promise<unknown> {
 	return createDailyAssignmentSlot(ctx, input);
 }
 
-export async function setDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+export async function setDailyAssignment(ctx: CalendarWritePorts, input: Record<string, unknown>): Promise<unknown> {
 	return setDailyAssignmentSlot(ctx, input);
 }
 
-export async function updateDailyAssignment(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+export async function updateDailyAssignment(ctx: CalendarWritePorts, input: Record<string, unknown>): Promise<unknown> {
 	return updateDailyAssignmentSlot(ctx, input);
 }
 
-export async function deleteDailyAssignment(ctx: WritePorts, id: string): Promise<void> {
+export async function deleteDailyAssignment(ctx: CalendarWritePorts, id: string): Promise<void> {
 	await deleteDailyAssignmentSlot(ctx, id);
 }
 
 export async function clearDailyAssignment(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	input: { date: string; assignmentTypeId: string }
 ): Promise<void> {
 	await clearDailyAssignmentSlot(ctx, input);

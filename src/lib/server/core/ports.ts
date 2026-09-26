@@ -2,6 +2,7 @@ import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { PersonnelTrainingRosterCandidatesPort } from '$features/personnel/contracts';
+import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -191,6 +192,7 @@ export interface WritePorts {
 	audit: AuditPort;
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 }
 
 /** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
@@ -211,6 +213,7 @@ export interface QueryPorts {
 	auth: AuthContext;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
+	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 }
 
 /** Query operations needing unscoped access (e.g., shared data) */
@@ -232,6 +235,7 @@ export interface UseCaseContext {
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRosterCandidates?: PersonnelTrainingRosterCandidatesPort;
+	personnelCalendarRoster: PersonnelCalendarRosterPort;
 	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;

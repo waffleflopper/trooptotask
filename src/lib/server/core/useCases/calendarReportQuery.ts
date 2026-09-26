@@ -4,8 +4,7 @@ import type { Group } from '$lib/stores/groups.svelte';
 import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
-import { groupInFilter, resolveCalendarGroupScope } from './calendarScope';
-import { loadRosterPersonnel } from './rosterReadModel';
+import { groupInFilter, requirePersonnelCalendarRoster, resolveCalendarGroupScope } from './calendarScope';
 
 export interface CalendarReportData {
 	allPersonnel: Personnel[];
@@ -20,13 +19,7 @@ export async function fetchCalendarReportData(ctx: QueryWithRawStorePorts): Prom
 	const scope = resolveCalendarGroupScope(ctx);
 
 	const [allPersonnel, statusTypeRows, groupRows] = await Promise.all([
-		loadRosterPersonnel(
-			{ auth: ctx.auth, store: ctx.rawStore },
-			{
-				status: 'active',
-				inFilters: scope ? { group_id: scope.groupIds } : undefined
-			}
-		),
+		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
 			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]

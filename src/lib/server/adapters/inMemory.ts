@@ -526,6 +526,72 @@ function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): UseCa
 	};
 }
 
+function createInMemoryTrainingOnboardingReferencesPort(
+	rawStore: DataStore
+): UseCaseContext['trainingOnboardingReferences'] {
+	return {
+		async listTypes(actor) {
+			const rows = await rawStore.findMany<Row>('training_types', actor.orgId, undefined, {
+				orderBy: [
+					{ column: 'sort_order', ascending: true },
+					{ column: 'id', ascending: true }
+				]
+			});
+			return rows.map((row) => ({
+				id: row.id as string,
+				name: row.name as string,
+				description: (row.description as string | null) ?? null,
+				expirationMonths: (row.expiration_months as number | null) ?? null,
+				warningDaysYellow: (row.warning_days_yellow as number) ?? 60,
+				warningDaysOrange: (row.warning_days_orange as number) ?? 30,
+				appliesToRoles: (row.applies_to_roles as string[]) ?? [],
+				appliesToMos: (row.applies_to_mos as string[]) ?? [],
+				appliesToRanks: (row.applies_to_ranks as string[]) ?? [],
+				excludedRoles: (row.excluded_roles as string[]) ?? [],
+				excludedMos: (row.excluded_mos as string[]) ?? [],
+				excludedRanks: (row.excluded_ranks as string[]) ?? [],
+				color: (row.color as string) ?? '#6b7280',
+				sortOrder: (row.sort_order as number) ?? 0,
+				expirationDateOnly: (row.expiration_date_only as boolean) ?? false,
+				canBeExempted: (row.can_be_exempted as boolean) ?? false,
+				exemptPersonnelIds: (row.exempt_personnel_ids as string[]) ?? [],
+				isOptional: (row.is_optional as boolean) ?? false
+			}));
+		},
+		async completedTypeIds(actor, personnelIds, trainingTypeIds) {
+			if (
+				personnelIds.length === 0 ||
+				trainingTypeIds.length === 0 ||
+				(actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0)
+			) {
+				return new Map();
+			}
+			const [personnel, types] = await Promise.all([
+				inMemoryPersonnelRows(rawStore, actor, 'all', personnelIds),
+				rawStore.findMany<{ id: string }>('training_types', actor.orgId, undefined, {
+					inFilters: { id: trainingTypeIds }
+				})
+			]);
+			const inScopeIds = new Set(personnel.map((person) => person.id as string));
+			const inScopeTypeIds = types.map((type) => type.id);
+			if (inScopeIds.size === 0 || inScopeTypeIds.length === 0) return new Map();
+			const records = await rawStore.findMany<{ personnel_id: string; training_type_id: string }>(
+				'personnel_trainings',
+				actor.orgId,
+				undefined,
+				{ inFilters: { personnel_id: [...inScopeIds], training_type_id: inScopeTypeIds } }
+			);
+			const completed = new Map<string, Set<string>>();
+			for (const record of records) {
+				const types = completed.get(record.personnel_id) ?? new Set<string>();
+				types.add(record.training_type_id);
+				completed.set(record.personnel_id, types);
+			}
+			return completed;
+		}
+	};
+}
+
 function createInMemoryOnboardingCalendarMarkersPort(
 	rawStore: DataStore,
 	auth: AuthContext
@@ -597,6 +663,7 @@ export function createTestContext(overrides?: {
 		criticalTasksReadModel,
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
 		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
 	};
 }
@@ -661,7 +728,7 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 // ---------------------------------------------------------------------------
 
 export function createWritePortsContext(options?: { auth?: Parameters<typeof createTestAuthContext>[0] }): WritePorts &
-	Pick<UseCaseContext, 'personnelCalendarRoster' | 'personnelOnboardingRoster'> & {
+	Pick<UseCaseContext, 'personnelCalendarRoster' | 'personnelOnboardingRoster' | 'trainingOnboardingReferences'> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
 		criticalTasksReadModel: CriticalTasksReadModelPort;
@@ -677,14 +744,15 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 
 		criticalTasksReadModel,
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
-		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore)
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
 	};
 }
 
 export function createWriteWithNotificationsPortsContext(options?: {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 }): WriteWithNotificationsPorts &
-	Pick<UseCaseContext, 'personnelCalendarRoster' | 'personnelOnboardingRoster'> & {
+	Pick<UseCaseContext, 'personnelCalendarRoster' | 'personnelOnboardingRoster' | 'trainingOnboardingReferences'> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
 		notifications: ReturnType<typeof createTestNotificationPort>;
@@ -702,7 +770,8 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
-		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore)
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
 	};
 }
 
@@ -736,6 +805,7 @@ export function createQueryPortsContext(options?: {
 		criticalTasksReadModel,
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
 		onboardingCalendarMarkers: createInMemoryOnboardingCalendarMarkersPort(rawStore, auth)
 	};
 }
@@ -756,6 +826,7 @@ export function createQueryWithRawStorePortsContext(options?: {
 		rawStore,
 		criticalTasksReadModel,
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
-		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore)
+		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
+		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
 	};
 }

@@ -4,6 +4,7 @@ import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { PersonnelTrainingRosterCandidatesPort } from '$features/personnel/contracts';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
+import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
 
 /** Options for DataStore.findMany queries */
@@ -196,6 +197,7 @@ export interface WritePorts {
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
+	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
 }
 
 /** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
@@ -218,6 +220,7 @@ export interface QueryPorts {
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
+	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
 	onboardingCalendarMarkers?: OnboardingCalendarMarkersPort;
 }
 
@@ -242,6 +245,7 @@ export interface UseCaseContext {
 	personnelTrainingRosterCandidates?: PersonnelTrainingRosterCandidatesPort;
 	personnelCalendarRoster: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster: PersonnelOnboardingRosterPort;
+	trainingOnboardingReferences: TrainingOnboardingReferencesPort;
 	onboardingCalendarMarkers: OnboardingCalendarMarkersPort;
 	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */

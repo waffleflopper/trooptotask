@@ -773,7 +773,11 @@
 		],
 		"rating-scheme": ["src/features/rating-scheme/index.ts"],
 		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts"],
-		"training": ["src/features/training/index.ts"],
+		"training": [
+			"src/features/training/contracts.ts",
+			"src/features/training/index.ts",
+			"src/features/training/index.server.ts"
+		],
 		"web-ui": [
 			"src/lib/components/BannerStack.svelte",
 			"src/lib/components/BrandMark.svelte",

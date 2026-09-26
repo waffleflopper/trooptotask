@@ -5,7 +5,7 @@ import { availabilityStore } from '$features/calendar/stores/availability.svelte
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$features/personnel';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
@@ -31,7 +31,8 @@ vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [], loading: false, load: vi.fn() }
 }));
-vi.mock('$lib/stores/groups.svelte', () => ({
+vi.mock('$features/personnel', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/personnel')>()),
 	groupsStore: { items: [], loading: false }
 }));
 

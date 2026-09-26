@@ -5,7 +5,7 @@ import TrainingReportsPage from './TrainingReportsPage.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
@@ -125,7 +125,7 @@ function makeServerReport(
 describe('TrainingReportsPage', () => {
 	beforeEach(() => {
 		personnelRosterHydration.load(personnel, 'org-1');
-		groupsStore.load(groups, 'org-1');
+		groupCatalogHydration.load(groups, 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 		personnelTrainingsStore.load([], 'org-1');
 	});
@@ -135,7 +135,7 @@ describe('TrainingReportsPage', () => {
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
 		personnelRosterHydration.load([], 'org-test-reset');
-		groupsStore.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
 	});

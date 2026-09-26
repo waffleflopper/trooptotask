@@ -14,7 +14,7 @@
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { groupsStore } from '$features/personnel';
 
 	interface Props {
 		ctx: CalendarPageContext;

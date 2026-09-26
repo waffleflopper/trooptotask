@@ -6,7 +6,7 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { rosterStore } from '$features/personnel';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$features/personnel';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';

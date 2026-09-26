@@ -13,7 +13,7 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { groupsStore } from '$features/personnel';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { rosterStore } from '$features/personnel';

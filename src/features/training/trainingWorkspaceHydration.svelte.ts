@@ -4,7 +4,7 @@ import { trainingTypesStore } from './stores/trainingTypes.svelte';
 import { trainingViewsStore } from './stores/trainingViews.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { personnelRosterHydration } from '$features/personnel';
@@ -39,7 +39,7 @@ export interface TrainingWorkspaceHydrator {
 
 const defaultTrainingHydrationStores: TrainingHydrationStores = {
 	personnelStore: personnelRosterHydration,
-	groupsStore,
+	groupsStore: groupCatalogHydration,
 	trainingTypesStore,
 	trainingViewsStore,
 	personnelTrainingsStore,

@@ -10,7 +10,7 @@ import type { Group } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelRosterHydration } from '$features/personnel';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 
@@ -162,7 +162,7 @@ describe('TrainingPageContext', () => {
 		queueUserPreferencesPatchMock.mockReset();
 		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
 		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
-		groupsStore.load(mockGroups, 'org-1');
+		groupCatalogHydration.load(mockGroups, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
 		trainingViewsStore.load([], 'org-1');
 	});
@@ -445,7 +445,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('clears invalid persisted group and view selections after hydrated stores arrive', () => {
-			groupsStore.load([], 'org-stale');
+			groupCatalogHydration.load([], 'org-stale');
 			trainingViewsStore.load([], 'org-stale');
 
 			const ctx = new TrainingPageContext(
@@ -466,7 +466,7 @@ describe('TrainingPageContext', () => {
 			expect(ctx.selectedGroupId).toBe('missing-group');
 			expect(ctx.selectedViewId).toBe('missing-view');
 
-			groupsStore.load(mockGroups, 'org-1');
+			groupCatalogHydration.load(mockGroups, 'org-1');
 			trainingViewsStore.load(
 				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
 				'org-1'
@@ -478,7 +478,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('persists a reconciled selection patch only once even when multiple getters are read', async () => {
-			groupsStore.load([], 'org-stale');
+			groupCatalogHydration.load([], 'org-stale');
 			trainingViewsStore.load([], 'org-stale');
 
 			const ctx = new TrainingPageContext(
@@ -496,7 +496,7 @@ describe('TrainingPageContext', () => {
 				makeOrg()
 			);
 
-			groupsStore.load(mockGroups, 'org-1');
+			groupCatalogHydration.load(mockGroups, 'org-1');
 			trainingViewsStore.load(
 				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
 				'org-1'

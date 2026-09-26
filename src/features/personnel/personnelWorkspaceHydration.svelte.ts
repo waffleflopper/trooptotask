@@ -1,4 +1,4 @@
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from './stores/groups.svelte';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { personnelRosterHydration } from './stores/personnel.svelte';
@@ -39,7 +39,7 @@ export interface PersonnelWorkspaceHydrator {
 
 const defaultPersonnelHydrationStores: PersonnelHydrationStores = {
 	personnelStore: personnelRosterHydration,
-	groupsStore,
+	groupsStore: groupCatalogHydration,
 	statusTypesStore,
 	pinnedGroupsStore
 };

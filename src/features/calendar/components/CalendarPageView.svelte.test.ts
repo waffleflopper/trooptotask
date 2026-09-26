@@ -13,7 +13,7 @@ import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignment
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { calendarStore } from '../stores/calendar.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$features/personnel';
 import type { Personnel } from '$lib/types';
 
 const { exportMonthToExcelMock, printMonthCalendarMock } = vi.hoisted(() => ({
@@ -38,7 +38,8 @@ vi.mock('$features/calendar/stores/specialDays.svelte', () => ({
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [], loading: false, load: vi.fn() }
 }));
-vi.mock('$lib/stores/groups.svelte', () => ({
+vi.mock('$features/personnel', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/personnel')>()),
 	groupsStore: { items: [], loading: false }
 }));
 

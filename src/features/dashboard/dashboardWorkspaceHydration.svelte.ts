@@ -2,7 +2,7 @@ import { availabilityStore } from '$features/calendar/stores/availability.svelte
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { personnelRosterHydration } from '$features/personnel';
@@ -53,7 +53,7 @@ export interface DashboardWorkspaceHydrator {
 
 const defaultDashboardHydrationStores: DashboardHydrationStores = {
 	personnelStore: personnelRosterHydration,
-	groupsStore,
+	groupsStore: groupCatalogHydration,
 	statusTypesStore,
 	availabilityEntriesStore: availabilityStore,
 	calendarAssignmentsStore: dailyAssignmentsStore,

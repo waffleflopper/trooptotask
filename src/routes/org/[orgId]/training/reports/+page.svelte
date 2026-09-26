@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { groupsStore } from '$features/personnel';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { rosterStore } from '$features/personnel';
 	import TrainingReportsPage from '$features/training/components/TrainingReportsPage.svelte';

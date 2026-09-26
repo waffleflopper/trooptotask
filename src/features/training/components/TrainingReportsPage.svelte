@@ -14,7 +14,7 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingStatus } from '$features/training/training.types';
 	import type { Personnel } from '$lib/types';
-	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { groupsStore } from '$features/personnel';
 	import type { Group } from '$features/personnel/contracts';
 	import type { TrainingReportData, TrainingReportDetail } from '$lib/server/core/useCases/trainingReportsQuery';
 	import {

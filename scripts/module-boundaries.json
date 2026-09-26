@@ -369,8 +369,6 @@
 				"src/lib/server/entities/pinnedGroups.ts",
 				"src/lib/server/groupAccess.test.ts",
 				"src/lib/server/groupAccess.ts",
-				"src/lib/stores/groups.svelte.test.ts",
-				"src/lib/stores/groups.svelte.ts",
 				"src/lib/stores/pinnedGroups.svelte.test.ts",
 				"src/lib/stores/pinnedGroups.svelte.ts"
 			],

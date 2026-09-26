@@ -7,7 +7,7 @@ import { trainingViewsStore } from '$features/training/stores/trainingViews.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
@@ -119,7 +119,7 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 describe('TrainingPageView', () => {
 	beforeEach(() => {
 		personnelRosterHydration.load(personnel, 'org-1');
-		groupsStore.load(groups, 'org-1');
+		groupCatalogHydration.load(groups, 'org-1');
 		trainingTypesStore.load([trainingType], 'org-1');
 		trainingViewsStore.load([], 'org-1');
 		personnelTrainingsStore.load([], 'org-1');
@@ -131,7 +131,7 @@ describe('TrainingPageView', () => {
 		vi.unstubAllGlobals();
 		vi.useRealTimers();
 		personnelRosterHydration.load([], 'org-test-reset');
-		groupsStore.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
@@ -151,7 +151,7 @@ describe('TrainingPageView', () => {
 
 	it('keeps the loading skeleton while another orgs training stores are still on screen', () => {
 		personnelRosterHydration.load(personnel, 'org-stale');
-		groupsStore.load(groups, 'org-stale');
+		groupCatalogHydration.load(groups, 'org-stale');
 		trainingTypesStore.load([trainingType], 'org-stale');
 		personnelTrainingsStore.load([], 'org-stale');
 

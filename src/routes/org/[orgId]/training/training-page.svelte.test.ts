@@ -5,7 +5,7 @@ import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { personnelRosterHydration } from '$features/personnel';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
@@ -54,7 +54,7 @@ function makePageData() {
 describe('training page', () => {
 	beforeEach(() => {
 		personnelRosterHydration.startLoading();
-		groupsStore.startLoading();
+		groupCatalogHydration.startLoading();
 		trainingTypesStore.startLoading();
 		trainingViewsStore.startLoading();
 		personnelTrainingsStore.startLoading();
@@ -64,7 +64,7 @@ describe('training page', () => {
 	afterEach(() => {
 		cleanup();
 		personnelRosterHydration.load([], 'org-test-reset');
-		groupsStore.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');

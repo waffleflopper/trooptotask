@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { RatingSchemePersonnelLookupPort, RatingSchemePersonnelLookupRecord } from '$lib/server/core/ports';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { requireFeaturePolicy } from '$lib/access/index.server';
+import type { PersonnelRatingSchemeRosterPort } from './contracts';
 
 interface RatingSchemePersonnelLookupRow {
 	id: string;
@@ -8,13 +10,19 @@ interface RatingSchemePersonnelLookupRow {
 	first_name: string | null;
 }
 
-export function createSupabaseRatingSchemePersonnelLookupPort(
+export function createSupabasePersonnelRatingSchemeRosterPort(
 	supabase: SupabaseClient
-): RatingSchemePersonnelLookupPort {
+): PersonnelRatingSchemeRosterPort {
 	return {
-		async listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]> {
+		async listActiveReferences(actor) {
+			await requireFeaturePolicy(
+				{ auth: actor },
+				POLICY_ACTION_CATALOG.ratingScheme.readRosterReferences,
+				{ kind: 'unscoped' },
+				'personnel'
+			);
 			const { data, error } = await supabase.rpc('list_rating_scheme_personnel_lookup', {
-				p_organization_id: orgId
+				p_organization_id: actor.orgId
 			});
 
 			if (error) {

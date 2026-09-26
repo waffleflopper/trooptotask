@@ -5,6 +5,7 @@ import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts'
 import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
+import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
@@ -55,17 +56,6 @@ export interface CriticalTasksReadModelPort {
 		orgId: string,
 		filters?: CriticalTasksReadModelFilters
 	): Promise<CriticalTasksCompletionTrendPoint[]>;
-}
-
-export interface RatingSchemePersonnelLookupRecord {
-	id: string;
-	rank: string;
-	lastName: string;
-	firstName: string;
-}
-
-export interface RatingSchemePersonnelLookupPort {
-	listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]>;
 }
 
 /**
@@ -209,7 +199,7 @@ export interface QueryPorts {
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
-	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
+	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
 	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
@@ -232,7 +222,7 @@ export interface UseCaseContext {
 	storage: StoragePort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
-	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
+	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster: PersonnelCriticalTasksRosterPort;

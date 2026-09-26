@@ -5,16 +5,16 @@ import { createQueryWithRawStorePortsContext } from '$lib/server/adapters/inMemo
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { RatingSchemeWorkspaceData } from './ratingSchemeWorkspaceBootstrap';
 
-const { loadWithContextMock, findManyMock, findOneMock, listPersonnelLookupMock, mockCtx } = vi.hoisted(() => {
+const { loadWithContextMock, findManyMock, findOneMock, listActiveReferencesMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
 	const findOneMock = vi.fn();
-	const listPersonnelLookupMock = vi.fn();
+	const listActiveReferencesMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
 	return {
 		findManyMock,
 		findOneMock,
-		listPersonnelLookupMock,
+		listActiveReferencesMock,
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
@@ -37,8 +37,8 @@ const { loadWithContextMock, findManyMock, findOneMock, listPersonnelLookupMock,
 				findMany: findManyMock,
 				findOne: findOneMock
 			},
-			ratingSchemePersonnelLookup: {
-				listPersonnelLookup: listPersonnelLookupMock
+			personnelRatingSchemeRoster: {
+				listActiveReferences: listActiveReferencesMock
 			}
 		}
 	};
@@ -85,7 +85,7 @@ describe('streamRatingSchemeWorkspaceBootstrap', () => {
 		vi.clearAllMocks();
 		findOneMock.mockResolvedValue({ loss_warning_window_days: 120 });
 		findManyMock.mockResolvedValue([makeRatingSchemeRow()]);
-		listPersonnelLookupMock.mockResolvedValue([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
+		listActiveReferencesMock.mockResolvedValue([{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -129,10 +129,10 @@ describe('streamRatingSchemeWorkspaceBootstrap', () => {
 		});
 	});
 
-	it('keeps Rating Scheme projection owned by the Rating Scheme lookup and entry sources', async () => {
+	it('composes Rating Scheme entries with Personnel-owned roster references', async () => {
 		const result = await fetchRatingSchemeWorkspaceData(mockCtx as never);
 
-		expect(listPersonnelLookupMock).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111');
+		expect(listActiveReferencesMock).toHaveBeenCalledWith(mockCtx.auth);
 		expect(findManyMock).toHaveBeenCalledWith(
 			'rating_scheme_entries',
 			'11111111-1111-1111-1111-111111111111',
@@ -162,8 +162,8 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 		const ctx = createQueryWithRawStorePortsContext();
 		ctx.store.seed('rating_scheme_entries', [makeRatingSchemeRow({ organization_id: 'test-org' })]);
 		ctx.store.seed('organizations', [{ id: 'test-org', loss_warning_window_days: 120 }]);
-		ctx.ratingSchemePersonnelLookup = {
-			listPersonnelLookup: vi.fn().mockResolvedValue([
+		ctx.personnelRatingSchemeRoster = {
+			listActiveReferences: vi.fn().mockResolvedValue([
 				{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
 				{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
 			])
@@ -184,7 +184,7 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 		expect(result).not.toHaveProperty('awardTrackingAcknowledgedPersonnelIds');
 	});
 
-	it('uses the dedicated Rating Scheme personnel lookup port without requiring Personnel access', async () => {
+	it('uses the Personnel-owned Rating Scheme roster port without requiring Personnel access', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
 			auth: {
 				role: 'member',
@@ -199,14 +199,14 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 				}
 			}
 		});
-		const listPersonnelLookup = vi
+		const listActiveReferences = vi
 			.fn()
 			.mockResolvedValue([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
-		ctx.ratingSchemePersonnelLookup = { listPersonnelLookup };
+		ctx.personnelRatingSchemeRoster = { listActiveReferences };
 
 		const result = await fetchRatingSchemeWorkspaceData(ctx);
 
-		expect(listPersonnelLookup).toHaveBeenCalledWith('test-org');
+		expect(listActiveReferences).toHaveBeenCalledWith(ctx.auth);
 		expect(result.personnelLookup).toEqual([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
 	});
 
@@ -225,16 +225,16 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 				}
 			}
 		});
-		ctx.ratingSchemePersonnelLookup = { listPersonnelLookup: vi.fn().mockResolvedValue([]) };
+		ctx.personnelRatingSchemeRoster = { listActiveReferences: vi.fn().mockResolvedValue([]) };
 
 		await expect(fetchRatingSchemeWorkspaceData(ctx)).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('requires the dedicated Rating Scheme personnel lookup port', async () => {
+	it('requires the Personnel-owned Rating Scheme roster port', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
 
 		await expect(fetchRatingSchemeWorkspaceData(ctx)).rejects.toThrow(
-			'Rating Scheme personnel lookup port is required'
+			'Personnel Rating Scheme roster port is required'
 		);
 	});
 });

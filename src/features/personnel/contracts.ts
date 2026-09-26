@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { Personnel } from '$lib/types';
+import type { Personnel, PersonnelLookup } from '$lib/types';
 
 /** Stable Organization Group identity and display order. */
 export interface Group {
@@ -62,6 +62,11 @@ export interface PersonnelTrainingRosterPort {
 	listActiveForWorkspace(actor: PersonnelRosterActor): Promise<Personnel[]>;
 	listActiveForReports(actor: PersonnelRosterActor): Promise<Personnel[]>;
 	findGroupIdsForWrites(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
+}
+
+/** Active, scoped Personnel references for the independently authorized Rating Scheme lane. */
+export interface PersonnelRatingSchemeRosterPort {
+	listActiveReferences(actor: PersonnelRosterActor): Promise<PersonnelLookup[]>;
 }
 
 /** Personnel facts exposed to Critical Tasks after its own lane admission. */

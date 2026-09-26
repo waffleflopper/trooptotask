@@ -464,8 +464,6 @@
 		"rating-scheme": {
 			"roots": ["src/features/rating-scheme/"],
 			"files": [
-				"src/lib/server/adapters/supabaseRatingSchemePersonnelLookup.test.ts",
-				"src/lib/server/adapters/supabaseRatingSchemePersonnelLookup.ts",
 				"src/lib/server/core/useCases/ratingSchemeEntryCrud.test.ts",
 				"src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
 				"src/lib/server/entities/ratingSchemeEntry.test.ts",

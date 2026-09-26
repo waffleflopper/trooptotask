@@ -22,6 +22,8 @@ export { createSupabasePersonnelCalendarRosterPort } from './calendarRoster.serv
 export type { PersonnelCalendarRosterPort } from './contracts';
 export { createSupabasePersonnelOnboardingRosterPort } from './onboardingRoster.server';
 export type { PersonnelOnboardingRosterPort } from './contracts';
+export { createSupabasePersonnelRatingSchemeRosterPort } from './ratingSchemeRoster.server';
+export type { PersonnelRatingSchemeRosterPort } from './contracts';
 export { archiveLeaderNotesWithPersonnel, restoreLeaderNotesWithPersonnel } from './leaderNoteArchive.server';
 export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
 export { createLeaderNoteDataSource } from './leaderNoteDataSource.server';

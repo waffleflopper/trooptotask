@@ -36,7 +36,7 @@ import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
-import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
+import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
 import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
@@ -208,7 +208,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 
 	const notifications = createSupabaseNotificationAdapter();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -236,7 +236,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			storage: createSupabaseStorageAdapter(supabase),
 			sensitiveActionAuthorizer,
 			criticalTasksReadModel,
-			ratingSchemePersonnelLookup,
+			personnelRatingSchemeRoster,
 			signInRosterPersonnelLookup,
 			personnelTrainingRoster,
 			personnelCriticalTasksRoster,
@@ -293,7 +293,7 @@ export async function buildLayoutContext(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -320,7 +320,7 @@ export async function buildLayoutContext(
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
-		ratingSchemePersonnelLookup,
+		personnelRatingSchemeRoster,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
 		personnelCriticalTasksRoster,
@@ -365,7 +365,7 @@ export async function buildLayoutContextFromMembership(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -392,7 +392,7 @@ export async function buildLayoutContextFromMembership(
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
-		ratingSchemePersonnelLookup,
+		personnelRatingSchemeRoster,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
 		personnelCriticalTasksRoster,

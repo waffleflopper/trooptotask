@@ -21,7 +21,7 @@ Callers must make roster status visible when status matters:
 
 ## Server Usage
 
-Server use cases that need the request-visible Personnel roster use `loadRosterPersonnel(...)` from `src/features/personnel/index.server.ts`. It accepts active, archived or all status and the archived-newest order used by settings. The caller supplies its request store and owns its feature policy check; Personnel RLS still limits visible rows. Personnel's workspace explicitly loads a scoped roster and a lookup from its second user-authenticated store, then keeps the lookup scoped for Group actors. Dashboard and settings use their request stores. Calendar, Onboarding, Training and Critical Tasks use their separate Personnel-owned lane-authorized ports.
+Server use cases that need the request-visible Personnel roster use `loadRosterPersonnel(...)` from `src/features/personnel/index.server.ts`. It accepts active, archived or all status and the archived-newest order used by settings. The caller supplies its request store and owns its feature policy check; Personnel RLS still limits visible rows. Personnel's workspace explicitly loads a scoped roster and a lookup from its second user-authenticated store, then keeps the lookup scoped for Group actors. Dashboard and settings use their request stores. Calendar, Onboarding, Training, Critical Tasks and Rating Scheme use separate Personnel-owned lane-authorized ports; Rating Scheme's narrow active lookup keeps its authenticated SQL RPC and independent Rating Scheme policy.
 
 The server query centralizes the Personnel entity select, status filter and default name order. After loading rows, callers can build the portable read model and choose `full(...)` or `scoped(...)` explicitly.
 

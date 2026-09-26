@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
+import {
+	createInMemoryDataStore,
+	createQueryPortsContext,
+	createQueryWithRawStorePortsContext
+} from '$lib/server/adapters/inMemory';
 import {
 	fetchTrainingReportDetailPage,
 	fetchTrainingReportPage,
@@ -331,7 +335,7 @@ describe('Training report projections', () => {
 	});
 
 	it('returns only scoped report rows for a Training-only member whose Personnel SELECT is denied', async () => {
-		const ctx = createQueryPortsContext({
+		const ctx = createQueryWithRawStorePortsContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -346,7 +350,7 @@ describe('Training report projections', () => {
 				}
 			}
 		});
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		const store = ctx.rawStore;
 
 		store.seed('personnel', [
 			{
@@ -420,11 +424,16 @@ describe('Training report projections', () => {
 			}
 		]);
 
-		const scopedFindMany = ctx.store.findMany.bind(ctx.store);
-		ctx.store.findMany = ((table, orgId, filters, options) => {
+		const authorizedRoster = await ctx.personnelTrainingRoster!.listActiveForReports(ctx.auth);
+		ctx.personnelTrainingRoster = {
+			...ctx.personnelTrainingRoster!,
+			listActiveForReports: async () => authorizedRoster
+		};
+		const rawFindMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+		ctx.rawStore.findMany = ((table, orgId, filters, options) => {
 			if (table === 'personnel') throw new Error('Personnel SELECT denied for this Training-only actor');
-			return scopedFindMany(table, orgId, filters, options);
-		}) as typeof ctx.store.findMany;
+			return rawFindMany(table, orgId, filters, options);
+		}) as typeof ctx.rawStore.findMany;
 
 		const result = await fetchTrainingReportPage(ctx);
 

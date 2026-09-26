@@ -29,6 +29,7 @@ export interface PersonnelOnboardingRosterPort {
 export interface PersonnelTrainingRosterPort {
 	listActiveForWorkspace(actor: PersonnelRosterActor): Promise<Personnel[]>;
 	listActiveForReports(actor: PersonnelRosterActor): Promise<Personnel[]>;
+	findGroupIdsForWrites(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
 }
 
 export {

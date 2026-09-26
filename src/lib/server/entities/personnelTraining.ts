@@ -1,7 +1,7 @@
 /**
  * Personnel training entity — maps `personnel_trainings`.
- * Org-scoped only; training records are not filtered by group on reads so the training
- * matrix can show the full org. `expirationDate` is computed from `completionDate +
+ * Training records use Training-lane SQL RLS for Organization and Group reads.
+ * `expirationDate` is computed from `completionDate +
  * training_type.expiration_months` by `calculateExpirationDate` in `trainingRecords.ts`.
  */
 import { z } from 'zod';

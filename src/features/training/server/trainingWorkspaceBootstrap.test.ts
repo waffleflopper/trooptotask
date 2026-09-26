@@ -62,7 +62,8 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		mockCtx.auth.scopeSet = { kind: 'organization' };
 		mockCtx.personnelTrainingRoster = {
 			listActiveForWorkspace: listRosterCandidatesMock,
-			listActiveForReports: vi.fn()
+			listActiveForReports: vi.fn(),
+			findGroupIdsForWrites: vi.fn()
 		};
 		listRosterCandidatesMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {

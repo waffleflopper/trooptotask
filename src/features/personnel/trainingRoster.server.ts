@@ -24,6 +24,20 @@ export function createSupabasePersonnelTrainingRosterPort(
 
 	return {
 		listActiveForWorkspace: (actor) => listActive(actor, 'workspace'),
-		listActiveForReports: (actor) => listActive(actor, 'reports')
+		listActiveForReports: (actor) => listActive(actor, 'reports'),
+		async findGroupIdsForWrites(actor, personnelIds) {
+			await requireFeaturePolicy(
+				{ auth: actor },
+				POLICY_ACTION_CATALOG.training.recordCompletions,
+				{ kind: 'unscoped' },
+				'personnel'
+			);
+			const rows = await queryScopedPersonnelRows(getAdminClient, actor.orgId, actor.scopeSet, {
+				select: 'id, group_id, last_name, first_name',
+				status: 'all',
+				ids: personnelIds
+			});
+			return new Map(rows.map((row) => [row.id as string, (row.group_id as string | null) ?? null]));
+		}
 	};
 }

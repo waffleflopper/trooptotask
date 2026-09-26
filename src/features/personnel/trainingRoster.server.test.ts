@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
 
-function actor(training: 'none' | 'view' = 'view', groupIds: string[] = ['group-1']) {
+function actor(training: 'none' | 'view' | 'operate' = 'view', groupIds: string[] = ['group-1']) {
 	return createTestAuthContext({
 		orgId: 'org-1',
 		role: 'member',
@@ -131,6 +131,46 @@ describe('Personnel Training roster', () => {
 
 		await expect(port.listActiveForWorkspace(actor('none'))).rejects.toMatchObject({ status: 403 });
 		await expect(port.listActiveForReports(actor('none'))).rejects.toMatchObject({ status: 403 });
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+
+	it('returns archived same-Group write references without leaking another Group or Organization', async () => {
+		const rows = [
+			{ id: 'archived-alpha', organization_id: 'org-1', group_id: 'group-1', archived_at: '2026-01-01' },
+			{ id: 'active-bravo', organization_id: 'org-1', group_id: 'group-2', archived_at: null },
+			{ id: 'other-org', organization_id: 'org-2', group_id: 'group-1', archived_at: null }
+		];
+		let filtered = rows;
+		const query = {
+			select: () => query,
+			eq: (column: string, value: string) => {
+				filtered = filtered.filter((row) => row[column as keyof typeof row] === value);
+				return query;
+			},
+			in: (column: string, values: string[]) => {
+				filtered = filtered.filter((row) => values.includes(row[column as keyof typeof row] as string));
+				return query;
+			},
+			order: () => query,
+			range: (from: number, to: number) => Promise.resolve({ data: filtered.slice(from, to + 1), error: null })
+		};
+		const getAdminClient = vi.fn(() => ({ from: () => query }) as unknown as SupabaseClient);
+		const port = createSupabasePersonnelTrainingRosterPort(getAdminClient);
+
+		await expect(
+			port.findGroupIdsForWrites(
+				actor('operate'),
+				rows.map((row) => row.id)
+			)
+		).resolves.toEqual(new Map([['archived-alpha', 'group-1']]));
+		await expect(port.findGroupIdsForWrites(actor('operate', []), ['archived-alpha'])).resolves.toEqual(new Map());
+		expect(getAdminClient).toHaveBeenCalledTimes(1);
+	});
+
+	it('denies write references to view-only members before the admin provider', async () => {
+		const getAdminClient = vi.fn();
+		const port = createSupabasePersonnelTrainingRosterPort(getAdminClient as () => SupabaseClient);
+		await expect(port.findGroupIdsForWrites(actor('view'), ['archived-alpha'])).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 

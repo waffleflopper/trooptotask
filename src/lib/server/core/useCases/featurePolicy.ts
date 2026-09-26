@@ -15,12 +15,11 @@ interface FeaturePolicyPorts {
 }
 
 interface FeaturePolicyResourcePorts {
-	store: Pick<DataStore, 'findOne' | 'findMany'>;
+	store: Pick<DataStore, 'findOne'>;
 	auth: Pick<AuthContext, 'orgId'>;
 }
 
 interface PersonnelPolicyResourceRow {
-	id: string;
 	group_id: string | null;
 }
 
@@ -39,27 +38,6 @@ export async function policyResourceForPersonnel(
 		'group_id'
 	);
 	return policyResourceForGroup(personnel?.group_id);
-}
-
-export async function policyResourcesForPersonnel(
-	ports: FeaturePolicyResourcePorts,
-	personnelIds: string[]
-): Promise<Map<string, PolicyResource>> {
-	if (personnelIds.length === 0) {
-		return new Map();
-	}
-
-	const rows = await ports.store.findMany<PersonnelPolicyResourceRow>('personnel', ports.auth.orgId, undefined, {
-		inFilters: { id: personnelIds },
-		select: 'id, group_id'
-	});
-	const resources = new Map(rows.map((row) => [row.id, policyResourceForGroup(row.group_id)]));
-	for (const personnelId of personnelIds) {
-		if (!resources.has(personnelId)) {
-			resources.set(personnelId, { kind: 'organization' });
-		}
-	}
-	return resources;
 }
 
 export async function requireFeaturePolicy(

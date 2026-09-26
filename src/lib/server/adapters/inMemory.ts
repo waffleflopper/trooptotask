@@ -531,7 +531,15 @@ function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): UseCase
 		(await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
 	return {
 		listActiveForWorkspace: listActive,
-		listActiveForReports: listActive
+		listActiveForReports: listActive,
+		async findGroupIdsForWrites(actor, ids) {
+			return new Map(
+				(await inMemoryPersonnelRows(rawStore, actor, 'all', ids)).map((row) => [
+					row.id as string,
+					(row.group_id as string | null) ?? null
+				])
+			);
+		}
 	};
 }
 

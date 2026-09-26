@@ -167,11 +167,10 @@ inspector_port = 8283
                 self.assertTrue((self.source / "private-seed.sql").exists())
 
     def test_failed_staged_migration_stops_only_its_disposable_project(self):
-        for name in database.ACCOUNT_SETUP_UPGRADE_MIGRATIONS:
+        for name in database.STAGED_UPGRADE_MIGRATIONS:
             (self.source / "migrations" / name).write_text("SELECT 1;")
-        (self.source / "migration-tests/account_setup_populated_before.sql").write_text(
-            "SELECT 'synthetic fixture';"
-        )
+        for name in database.STAGED_UPGRADE_FIXTURES:
+            (self.source / "migration-tests" / name).write_text("SELECT 'synthetic fixture';")
         calls = []
 
         def process(command, workdir, **kwargs):
@@ -179,28 +178,30 @@ inspector_port = 8283
             if command[:3] == ["docker", "context", "inspect"]:
                 return subprocess.CompletedProcess(command, 0, stdout="unix:///var/run/docker.sock")
             if command[:3] == ["supabase", "migration", "up"]:
-                self.assertEqual(command, ["supabase", "migration", "up", "--local", "--yes"])
+                self.assertEqual(command, ["supabase", "migration", "up", "--local", "--yes", "--include-all"])
                 self.assertTrue(all((workdir / "supabase/migrations" / name).exists()
-                                    for name in database.ACCOUNT_SETUP_UPGRADE_MIGRATIONS))
+                                    for name in database.STAGED_UPGRADE_MIGRATIONS))
                 raise subprocess.CalledProcessError(1, command)
             if command[:2] == ["supabase", "start"]:
                 self.assertTrue(all(not (workdir / "supabase/migrations" / name).exists()
-                                    for name in database.ACCOUNT_SETUP_UPGRADE_MIGRATIONS))
+                                    for name in database.STAGED_UPGRADE_MIGRATIONS))
             return subprocess.CompletedProcess(command, 0)
 
         with patch.object(database, "run", side_effect=process), \
                 contextlib.redirect_stdout(io.StringIO()), \
                 self.assertRaises(subprocess.CalledProcessError):
             database.validate(self.repository, staged_upgrade=True)
-        fixture_call = next((command, kwargs) for command, _, kwargs in calls
-                            if command[:3] == ["docker", "exec", "-i"])
-        self.assertEqual(fixture_call[1]["input_text"], "SELECT 'synthetic fixture';")
+        fixture_calls = [(command, kwargs) for command, _, kwargs in calls
+                         if command[:3] == ["docker", "exec", "-i"]]
+        self.assertEqual(len(fixture_calls), len(database.STAGED_UPGRADE_FIXTURES))
+        self.assertTrue(all(kwargs["input_text"] == "SELECT 'synthetic fixture';"
+                            for _, kwargs in fixture_calls))
         workdir = next(path for command, path, _ in calls if command == ["supabase", "--version"])
         self.assertEqual([command for command, _, _ in calls if command[:2] == ["supabase", "stop"]],
                          [["supabase", "stop", "--project-id", workdir.name, "--no-backup"]])
         self.assertFalse(workdir.exists())
         self.assertTrue(all((self.source / "migrations" / name).exists()
-                            for name in database.ACCOUNT_SETUP_UPGRADE_MIGRATIONS))
+                            for name in database.STAGED_UPGRADE_MIGRATIONS))
 
 
 if __name__ == "__main__":

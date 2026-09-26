@@ -25,6 +25,20 @@ export type { PersonnelOnboardingRosterPort } from './contracts';
 export { archiveLeaderNotesWithPersonnel, restoreLeaderNotesWithPersonnel } from './leaderNoteArchive.server';
 export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
 export { createLeaderNoteDataSource } from './leaderNoteDataSource.server';
+export {
+	addOrganizationRankServicePack,
+	buildDefaultRankCatalogSeeds,
+	bulkSetOrganizationRankCatalogState,
+	ensureOrganizationRankCatalog,
+	loadOrganizationRankCatalog,
+	loadOrganizationRankCatalogReferenceSummaries,
+	reactivateOrganizationRankCatalogEntry,
+	removeOrganizationRankCatalogEntry,
+	retireOrganizationRankCatalogEntry,
+	saveOrganizationRankCatalogEntry
+} from './rankCatalogOperations.server';
+export { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdministration.server';
+export { seedDefaultRankCatalog } from './rankCatalogSeed.server';
 export type {
 	LeaderNoteDataSource,
 	LeaderNoteExportRecord,

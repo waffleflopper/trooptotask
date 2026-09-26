@@ -14,6 +14,11 @@ export { BUILT_IN_RANK_CATALOG, compareRankCodes, resolveBuiltInRank } from './r
 export type { RankCatalogEntry, RankCategory, RankPayGrade, RankService, RankState } from './rankCatalog';
 export { observedRankCodesForOptions, rankCodesForOptions } from './rankOptions';
 export { comparePersonnelByCatalogRankThenName, comparePersonnelByRankThenName } from './personnelRank';
+export type {
+	OrganizationRankCatalogEntry,
+	OrganizationRankCatalogReferenceSummary,
+	OrganizationRankCatalogSource
+} from './rankCatalogContracts';
 
 /** Canonical Personnel facts used when saving a Sign-in Roster snapshot. */
 export interface SignInRosterPersonnelLookupRecord {

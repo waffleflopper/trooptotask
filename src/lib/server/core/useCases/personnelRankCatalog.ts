@@ -1,7 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
 import { sanitizeString } from '$lib/server/validation';
-import { loadOrganizationRankCatalog } from './rankCatalog';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 
 type RankCatalogPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit'>;
 

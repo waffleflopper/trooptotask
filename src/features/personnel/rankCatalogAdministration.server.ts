@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdminClient } from '$lib/server/supabase';
-import type { RankCatalogAdministrationPort } from '$lib/server/core/useCases/rankCatalog';
-import { fail } from '$lib/server/core/errors';
+import type { RankCatalogAdministrationPort } from './rankCatalogOperations.server';
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 export function createSupabaseRankCatalogAdministrationPort(
 	_locals: Pick<App.Locals, 'supabase'>,

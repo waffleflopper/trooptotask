@@ -13,7 +13,7 @@ import {
 } from '$lib/server/core/streamedWorkspace';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { loadOrganizationRankCatalog } from '$lib/server/core/useCases/rankCatalog';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';

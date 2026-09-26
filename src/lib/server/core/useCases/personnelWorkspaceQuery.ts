@@ -6,7 +6,8 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { requireFeaturePolicy } from './featurePolicy';
 import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
-import { loadOrganizationRankCatalog, type OrganizationRankCatalogEntry } from './rankCatalog';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import type { OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 
 export interface PersonnelBootstrap {
 	personnel: Personnel[];

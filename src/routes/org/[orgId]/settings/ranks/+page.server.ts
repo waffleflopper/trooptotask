@@ -2,7 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseRankCatalogAdministrationPort } from '$lib/server/adapters/supabaseRankCatalogAdministration';
+import { createSupabaseRankCatalogAdministrationPort } from '$features/personnel/index.server';
 import { fail } from '$lib/server/core/errors';
 import {
 	addOrganizationRankServicePack,
@@ -11,7 +11,7 @@ import {
 	removeOrganizationRankCatalogEntry,
 	retireOrganizationRankCatalogEntry,
 	saveOrganizationRankCatalogEntry
-} from '$lib/server/core/useCases/rankCatalog';
+} from '$features/personnel/index.server';
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 import { loadRanksSettings } from '../settingsRanks.server';

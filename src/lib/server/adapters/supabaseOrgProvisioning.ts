@@ -1,7 +1,6 @@
 import type {
 	OrgProvisioningAssignmentTypeSeed,
 	OrgProvisioningCreateResult,
-	OrgProvisioningRankCatalogSeed,
 	OrgProvisioningPort,
 	OrgProvisioningSpecialDaySeed,
 	OrgProvisioningStatusTypeSeed
@@ -9,7 +8,8 @@ import type {
 
 export function createSupabaseOrgProvisioningPort(
 	locals: Pick<App.Locals, 'supabase'>,
-	seedGroups: OrgProvisioningPort['seedDefaultGroups']
+	seedGroups: OrgProvisioningPort['seedDefaultGroups'],
+	seedRankCatalog: OrgProvisioningPort['seedDefaultRankCatalog']
 ): OrgProvisioningPort {
 	const supabase = locals.supabase;
 
@@ -70,16 +70,8 @@ export function createSupabaseOrgProvisioningPort(
 			return firstErrorMessage;
 		},
 
-		async seedDefaultRankCatalog(organizationId, entries) {
-			const { error } = await supabase.from('organization_rank_catalog').upsert(
-				entries.map((entry) => serializeRankCatalogSeed(organizationId, entry)),
-				{
-					onConflict: 'organization_id,code',
-					ignoreDuplicates: true
-				}
-			);
-
-			return error?.message ?? null;
+		async seedDefaultRankCatalog(organizationId) {
+			return seedRankCatalog(organizationId);
 		}
 	};
 }
@@ -112,19 +104,5 @@ function serializeSpecialDaySeed(organizationId: string, specialDay: OrgProvisio
 		date: specialDay.date,
 		name: specialDay.name,
 		type: specialDay.type
-	};
-}
-
-function serializeRankCatalogSeed(organizationId: string, entry: OrgProvisioningRankCatalogSeed) {
-	return {
-		organization_id: organizationId,
-		code: entry.code,
-		label: entry.label,
-		service: entry.service,
-		category: entry.category,
-		pay_grade: entry.payGrade,
-		state: entry.state,
-		source: entry.source,
-		sort_order: entry.sortOrder
 	};
 }

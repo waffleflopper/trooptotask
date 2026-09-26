@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabaseRankCatalogAdministrationPort } from './supabaseRankCatalogAdministration';
+import { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdministration.server';
 
 describe('createSupabaseRankCatalogAdministrationPort', () => {
 	it('deletes unused rank catalog entries through the atomic RPC', async () => {

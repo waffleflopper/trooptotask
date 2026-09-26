@@ -7,13 +7,37 @@ import {
 	type RankPayGrade,
 	type RankService,
 	type RankState
-} from '$features/personnel/contracts';
+} from './rankCatalog';
+import type {
+	OrganizationRankCatalogEntry,
+	OrganizationRankCatalogReferenceSummary,
+	OrganizationRankCatalogSource,
+	SaveOrganizationRankCatalogEntryInput,
+	AddOrganizationRankServicePackResult,
+	BulkSetOrganizationRankCatalogStateResult
+} from './rankCatalogContracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
-import { fail } from '$lib/server/core/errors';
 import { sanitizeString } from '$lib/server/validation';
-import { requireFeaturePolicy } from './featurePolicy';
-import { requireGovernancePolicy } from './governancePolicy';
+import { requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
+
+type RankActor = Parameters<typeof requireGovernancePolicy>[0]['auth'];
+type RankAudit = Parameters<typeof requireGovernancePolicy>[0]['audit'];
+
+interface RankCatalogStore {
+	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
+	findMany<T>(table: string, orgId: string): Promise<T[]>;
+	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
+	upsertMany<T>(
+		table: string,
+		orgId: string,
+		rows: Record<string, unknown>[],
+		options: { onConflict: string }
+	): Promise<T[]>;
+}
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 const RANK_CATALOG_TABLE = 'organization_rank_catalog';
 const RANK_SERVICES = new Set<RankService>([
@@ -67,51 +91,6 @@ const RANK_PAY_GRADES = new Set<RankPayGrade>([
 const PG_INTEGER_MIN = -2_147_483_648;
 const PG_INTEGER_MAX = 2_147_483_647;
 
-export type OrganizationRankCatalogSource = 'built-in' | 'discovered' | 'custom';
-
-export interface OrganizationRankCatalogEntry extends RankCatalogEntry {
-	organizationId: string;
-	source: OrganizationRankCatalogSource;
-}
-
-export type SaveOrganizationRankCatalogEntryInput = Omit<RankCatalogEntry, 'source'> & {
-	intent?: 'create' | 'update' | 'upsert';
-	originalCode?: string;
-};
-
-export interface AddOrganizationRankServicePackResult {
-	service: RankService;
-	addedCount: number;
-	skippedExistingCount: number;
-	entries: OrganizationRankCatalogEntry[];
-}
-
-export interface BulkSetOrganizationRankCatalogStateResult {
-	service: RankService;
-	targetState: RankState;
-	changedCount: number;
-	entries: OrganizationRankCatalogEntry[];
-}
-
-export interface OrganizationRankCatalogActiveReferences {
-	personnel: number;
-	trainingApplicability: number;
-	total: number;
-}
-
-export interface OrganizationRankCatalogHistoricalReferences {
-	signInRosterFilters: number;
-	signInRosterSnapshots: number;
-	total: number;
-}
-
-export interface OrganizationRankCatalogReferenceSummary {
-	code: string;
-	activeReferences: OrganizationRankCatalogActiveReferences;
-	historicalReferences: OrganizationRankCatalogHistoricalReferences;
-	canDelete: boolean;
-}
-
 export interface RankCatalogAdministrationPort {
 	deleteRankCatalogEntry(orgId: string, entryId: string, code: string): Promise<void>;
 }
@@ -148,16 +127,14 @@ interface SignInRosterRankReferenceRow {
 }
 
 interface RankCatalogPorts {
-	auth: AuthContext;
-	store: DataStore;
-	rawStore?: DataStore;
-	audit: AuditPort;
-
-	rankCatalogAdministration?: RankCatalogAdministrationPort;
+	auth: RankActor;
+	store: RankCatalogStore;
+	rawStore?: RankCatalogStore;
+	audit: RankAudit;
 }
 
 type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'> & {
-	audit?: AuditPort;
+	audit?: RankAudit;
 };
 
 type RankCatalogReadAuthorization = 'personnel-view' | 'training-view' | 'organization-governance';
@@ -166,7 +143,7 @@ interface RankCatalogReadOptions {
 	authorization?: RankCatalogReadAuthorization;
 }
 
-const NOOP_AUDIT_PORT: AuditPort = { log() {} };
+const NOOP_AUDIT_PORT: RankAudit = { log() {} };
 
 async function requireRankCatalogReadPolicy(
 	ports: RankCatalogReadPorts,
@@ -564,7 +541,7 @@ export async function reactivateOrganizationRankCatalogEntry(
 }
 
 export async function removeOrganizationRankCatalogEntry(
-	ports: RankCatalogPorts,
+	ports: RankCatalogPorts & { rankCatalogAdministration: RankCatalogAdministrationPort },
 	input: { code: string }
 ): Promise<void> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
@@ -605,11 +582,7 @@ export async function removeOrganizationRankCatalogEntry(
 		fail(409, 'Rank is referenced by Organization data. Retire it instead.');
 	}
 
-	if (ports.rankCatalogAdministration) {
-		await ports.rankCatalogAdministration.deleteRankCatalogEntry(ports.auth.orgId, existing.id, code);
-	} else {
-		await storeForRankCatalog(ports).delete(RANK_CATALOG_TABLE, ports.auth.orgId, existing.id);
-	}
+	await ports.rankCatalogAdministration.deleteRankCatalogEntry(ports.auth.orgId, existing.id, code);
 
 	ports.audit.log({
 		action: 'organization.rank_catalog.deleted',
@@ -803,7 +776,7 @@ function createRankReferenceMatcher(codes: readonly string[]): RankReferenceMatc
 	for (const code of codes) {
 		const normalized = code.toUpperCase();
 		const existing = normalizedCodes.get(normalized);
-		if (!existing) {
+		if (existing === undefined) {
 			normalizedCodes.set(normalized, code);
 		} else if (existing !== code) {
 			normalizedCodes.set(normalized, null);
@@ -855,6 +828,6 @@ function sortCatalog(entries: OrganizationRankCatalogEntry[]): OrganizationRankC
 	return entries.toSorted((a, b) => compareRankCodes(a.code, b.code, { catalog: entries }));
 }
 
-function storeForRankCatalog(ports: Pick<RankCatalogPorts, 'rawStore' | 'store'>): DataStore {
+function storeForRankCatalog(ports: Pick<RankCatalogPorts, 'rawStore' | 'store'>): RankCatalogStore {
 	return ports.rawStore ?? ports.store;
 }

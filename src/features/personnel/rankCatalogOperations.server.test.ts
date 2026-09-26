@@ -12,7 +12,7 @@ import {
 	removeOrganizationRankCatalogEntry,
 	retireOrganizationRankCatalogEntry,
 	saveOrganizationRankCatalogEntry
-} from './rankCatalog';
+} from './rankCatalogOperations.server';
 
 const DEFAULT_SEEDED_RANK_SERVICES = new Set(['army', 'civilian', 'custom']);
 const DEFAULT_SEEDED_RANK_COUNT = BUILT_IN_RANK_CATALOG.filter((entry) =>
@@ -27,6 +27,17 @@ const NO_CAPABILITIES = {
 	onboarding: 'none',
 	ratingScheme: 'none'
 } as const;
+
+function withAtomicDelete(ctx: ReturnType<typeof createTestContext>) {
+	return {
+		...ctx,
+		rankCatalogAdministration: {
+			async deleteRankCatalogEntry(orgId: string, entryId: string): Promise<void> {
+				await ctx.rawStore.delete('organization_rank_catalog', orgId, entryId);
+			}
+		}
+	};
+}
 
 describe('organization rank catalog', () => {
 	it('seeds built-in defaults and returns the Organization catalog without rewriting Personnel rank strings', async () => {
@@ -812,7 +823,7 @@ describe('organization rank catalog', () => {
 		]);
 
 		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(ctx, { codes: ['DET-SGT'] });
-		await expect(removeOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' })).rejects.toMatchObject({
+		await expect(removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'DET-SGT' })).rejects.toMatchObject({
 			status: 409,
 			message: 'Rank is referenced by Organization data. Retire it instead.'
 		});
@@ -896,6 +907,17 @@ describe('organization rank catalog', () => {
 		expect(byCode.get('Gen')?.activeReferences.personnel).toBe(0);
 	});
 
+	it('does not assign a mixed-case reference to any of three ambiguous catalog codes', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('personnel', [{ id: 'person-ambiguous', organization_id: 'test-org', rank: 'dEt' }]);
+
+		const summaries = await loadOrganizationRankCatalogReferenceSummaries(ctx, {
+			codes: ['DET', 'Det', 'det']
+		});
+
+		expect(summaries.map((summary) => summary.activeReferences.personnel)).toEqual([0, 0, 0]);
+	});
+
 	it('blocks hard deletion when active rank references exist but allows retiring the referenced rank', async () => {
 		const ctx = createTestContext();
 		await saveOrganizationRankCatalogEntry(ctx, {
@@ -917,7 +939,7 @@ describe('organization rank catalog', () => {
 			}
 		]);
 
-		await expect(removeOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' })).rejects.toMatchObject({
+		await expect(removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'DET-SGT' })).rejects.toMatchObject({
 			status: 409,
 			message: 'Rank is referenced by active Organization data. Retire it instead.'
 		});
@@ -979,7 +1001,7 @@ describe('organization rank catalog', () => {
 			code: 'DET-SGT'
 		});
 		expect(storedRank?.id).toBeTruthy();
-		await removeOrganizationRankCatalogEntry(ctx, { code: 'DET-SGT' });
+		await removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'DET-SGT' });
 
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
 			expect.arrayContaining([expect.objectContaining({ code: 'DET-SGT' })])
@@ -1030,7 +1052,7 @@ describe('organization rank catalog', () => {
 			}
 		]);
 
-		await removeOrganizationRankCatalogEntry(ctx, { code: 'det' });
+		await removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'det' });
 
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
 			expect.arrayContaining([expect.objectContaining({ code: 'DET' })])
@@ -1054,7 +1076,9 @@ describe('organization rank catalog', () => {
 			status: 403,
 			message: 'This action requires an organization admin or owner role'
 		});
-		await expect(removeOrganizationRankCatalogEntry(personnelEditorCtx, { code: 'DET-SGT' })).rejects.toMatchObject({
+		await expect(
+			removeOrganizationRankCatalogEntry(withAtomicDelete(personnelEditorCtx), { code: 'DET-SGT' })
+		).rejects.toMatchObject({
 			status: 403,
 			message: 'This action requires an organization admin or owner role'
 		});

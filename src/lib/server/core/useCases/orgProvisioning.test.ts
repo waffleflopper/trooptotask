@@ -3,7 +3,6 @@ import {
 	provisionOrganization,
 	type OrgProvisioningAssignmentTypeSeed,
 	type OrgProvisioningGroupSeed,
-	type OrgProvisioningRankCatalogSeed,
 	type OrgProvisioningPort,
 	type OrgProvisioningSpecialDaySeed,
 	type OrgProvisioningStatusTypeSeed
@@ -21,7 +20,7 @@ function createOrgProvisioningPort(
 	statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }>;
 	assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }>;
 	federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }>;
-	rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }>;
+	rankCatalogSeeds: string[];
 } {
 	const createRequests: string[] = [];
 	const ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }> = [];
@@ -30,7 +29,7 @@ function createOrgProvisioningPort(
 	const assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }> =
 		[];
 	const federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }> = [];
-	const rankCatalogSeeds: Array<{ organizationId: string; entries: OrgProvisioningRankCatalogSeed[] }> = [];
+	const rankCatalogSeeds: string[] = [];
 
 	return {
 		createRequests,
@@ -64,8 +63,8 @@ function createOrgProvisioningPort(
 			federalHolidaySeeds.push({ organizationId, specialDays });
 			return null;
 		},
-		async seedDefaultRankCatalog(organizationId, entries) {
-			rankCatalogSeeds.push({ organizationId, entries });
+		async seedDefaultRankCatalog(organizationId) {
+			rankCatalogSeeds.push(organizationId);
 			return options.rankCatalogError ?? null;
 		}
 	};
@@ -180,58 +179,7 @@ describe('provisionOrganization', () => {
 				{ date: '2028-12-25', name: 'Christmas Day', type: 'federal-holiday' }
 			])
 		);
-		expect(port.rankCatalogSeeds).toHaveLength(1);
-		expect(port.rankCatalogSeeds[0]?.organizationId).toBe('org-1');
-		expect(port.rankCatalogSeeds[0]?.entries.map((entry) => entry.code).sort()).toEqual(
-			[
-				'GEN',
-				'LTG',
-				'MG',
-				'BG',
-				'COL',
-				'LTC',
-				'MAJ',
-				'CPT',
-				'1LT',
-				'2LT',
-				'CW5',
-				'CW4',
-				'CW3',
-				'CW2',
-				'WO1',
-				'CSM',
-				'SGM',
-				'1SG',
-				'MSG',
-				'SFC',
-				'SSG',
-				'SGT',
-				'CPL',
-				'SPC',
-				'SP4',
-				'PFC',
-				'PV2',
-				'PV1',
-				'CIV',
-				'CUSTOM'
-			].sort()
-		);
-		expect(port.rankCatalogSeeds[0]?.entries).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					code: 'SGT',
-					label: 'Sergeant',
-					service: 'army',
-					category: 'enlisted',
-					payGrade: 'E-5',
-					state: 'active',
-					source: 'built-in'
-				})
-			])
-		);
-		expect(port.rankCatalogSeeds[0]?.entries).not.toEqual(
-			expect.arrayContaining([expect.objectContaining({ service: 'navy' })])
-		);
+		expect(port.rankCatalogSeeds).toEqual(['org-1']);
 	});
 
 	it('collapses repeated internal whitespace before creating the organization', async () => {

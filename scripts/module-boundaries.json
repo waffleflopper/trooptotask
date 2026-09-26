@@ -310,8 +310,6 @@
 			"files": [
 				"src/lib/domain/readinessSignals.test.ts",
 				"src/lib/domain/readinessSignals.ts",
-				"src/lib/server/adapters/supabaseRankCatalogAdministration.test.ts",
-				"src/lib/server/adapters/supabaseRankCatalogAdministration.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/personnel.test.ts",
@@ -343,8 +341,6 @@
 				"src/lib/server/core/useCases/personnelSlug.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.test.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.ts",
-				"src/lib/server/core/useCases/rankCatalog.test.ts",
-				"src/lib/server/core/useCases/rankCatalog.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
 				"src/lib/server/entities/counselingRecord.ts",
 				"src/lib/server/entities/personnel.test.ts",

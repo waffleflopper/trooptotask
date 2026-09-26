@@ -283,35 +283,41 @@ describe('/api/sign-in-rosters route config', () => {
 		});
 	});
 
-	it('sorts rank snapshots with the Organization rank catalog and keeps unknown ranks last', async () => {
+	it('sorts a Training-only scoped sign-in snapshot with active and retired ranks before unknown ranks', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
-					calendar: 'view',
+					calendar: 'none',
 					personnel: 'none',
 					training: 'operate',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'organization' }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
 			}
 		});
 		ctx.rawStore.seed('organization_rank_catalog', [
+			rankCatalogRow({ code: 'SSG', label: 'Staff Sergeant', service: 'army', pay_grade: 'E-6', state: 'retired' }),
 			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
 			rankCatalogRow({ code: 'SGT', label: 'Sergeant', service: 'army', pay_grade: 'E-5' }),
 			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
 		]);
 		ctx.signInRosterPersonnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
+				signInPersonnel({ id: 'retired', rank: 'SSG', lastName: 'Charlie' }),
 				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', lastName: 'Able' }),
 				signInPersonnel({ id: 'navy-e5', rank: 'PO2', lastName: 'Baker' }),
 				signInPersonnel({ id: 'army-e5', rank: 'SGT', lastName: 'Able' }),
 				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', lastName: 'Charlie' })
 			])
 		};
+		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
+			if (table === 'organization_rank_catalog') throw new Error('Rank catalog requires the roster raw store');
+			return ctx.rawStore.findMany(table, ...args);
+		});
 
 		await handleUseCaseRequest(_postConfig, ctx, {
 			title: 'Joint Sign-In',
@@ -319,7 +325,7 @@ describe('/api/sign-in-rosters route config', () => {
 			blankDate: false,
 			separateByGroup: false,
 			sortBy: 'rank',
-			personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5']
+			personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5', 'retired']
 		});
 
 		const stored = await ctx.store.findMany<{ personnel_snapshot?: Array<{ id: string }> }>(
@@ -327,6 +333,7 @@ describe('/api/sign-in-rosters route config', () => {
 			ctx.auth.orgId
 		);
 		expect((stored[0]?.personnel_snapshot as Array<{ id: string }>).map((row) => row.id)).toEqual([
+			'retired',
 			'navy-e5',
 			'army-e5',
 			'air-force-e5',

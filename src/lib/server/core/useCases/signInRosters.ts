@@ -1,13 +1,12 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { sortSignInRosterRows } from '$features/sign-in-rosters/signInRosterRankOrder';
-import { findGroupNamesByIds } from '$features/personnel/index.server';
+import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { fail } from '$lib/server/core/errors';
 import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
 import type { UseCaseContext } from '$lib/server/core/ports';
 
 const MAX_ROSTER_PERSONNEL = 500;
-const RANK_CATALOG_TABLE = 'organization_rank_catalog';
 
 type PersonnelRow = SignInRosterPersonnelLookupRecord;
 
@@ -43,7 +42,13 @@ export async function prepareSignInRosterSnapshot(
 
 	const groupNames = await loadGroupNames(ctx, rows);
 	const sortBy = input.sortBy === 'rank' ? 'rank' : 'alphabetical';
-	const rankCatalog = sortBy === 'rank' ? await loadSignInRosterRankCatalog(ctx) : [];
+	const rankCatalog =
+		sortBy === 'rank'
+			? await loadOrganizationRankCatalog(
+					{ auth: ctx.auth, store: ctx.rawStore },
+					{ authorization: 'training-records' }
+				)
+			: [];
 	const rowById = rowsById(rows);
 	const personnelSnapshot = sortSnapshot(
 		personnelIds.map((id) => canonicalSnapshotFor(rowById.get(id)!, groupNames)),
@@ -163,28 +168,6 @@ function sortSnapshot(
 	rankCatalog?: readonly RankCatalogEntry[]
 ): CanonicalSignInRosterSnapshot[] {
 	return sortSignInRosterRows(snapshot, sortBy, rankCatalog);
-}
-
-async function loadSignInRosterRankCatalog(ctx: UseCaseContext): Promise<RankCatalogEntry[]> {
-	const rows = await ctx.rawStore.findMany<{
-		code: string;
-		label: string;
-		service: RankCatalogEntry['service'];
-		category: RankCatalogEntry['category'];
-		pay_grade: RankCatalogEntry['payGrade'];
-		state: RankCatalogEntry['state'];
-		sort_order: number;
-	}>(RANK_CATALOG_TABLE, ctx.auth.orgId);
-
-	return rows.map((row) => ({
-		code: row.code,
-		label: row.label,
-		service: row.service,
-		category: row.category,
-		payGrade: row.pay_grade,
-		state: row.state,
-		sortOrder: row.sort_order
-	}));
 }
 
 function sanitizeFilterConfig(value: unknown): { groups: string[]; ranks: string[] } | null {

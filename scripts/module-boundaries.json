@@ -4,8 +4,6 @@
 			"roots": ["src/lib/access/"],
 			"files": [
 				"src/lib/server/adapters/scopeRules.ts",
-				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
-				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/featurePolicy.ts",
 				"src/lib/server/core/useCases/governancePolicy.ts",
 				"src/lib/server/core/useCases/identityPolicy.ts",
@@ -319,6 +317,8 @@
 				"src/lib/domain/readinessSignals.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.test.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.ts",
+				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
+				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/groupCrud.test.ts",
 				"src/lib/server/core/useCases/personnel.test.ts",
 				"src/lib/server/core/useCases/personnel.ts",
@@ -362,9 +362,7 @@
 				"src/lib/server/entities/personnelOnboarding.test.ts",
 				"src/lib/server/entities/personnelOnboarding.ts",
 				"src/lib/server/entities/personnelTraining.test.ts",
-				"src/lib/server/entities/personnelTraining.ts",
-				"src/lib/server/groupAccess.test.ts",
-				"src/lib/server/groupAccess.ts"
+				"src/lib/server/entities/personnelTraining.ts"
 			],
 			"packet": "08-M04"
 		},

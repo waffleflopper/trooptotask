@@ -289,7 +289,9 @@ def validate(repository, *, staged_upgrade=False):
         })
         run(["node", str(repository / "scripts/ci/account_setup_provider_probe.mjs")],
             workdir, environment=provider_environment)
-        print("Fresh replay, SQL contracts, migration regressions and provider probe passed.", flush=True)
+        run(["node", str(repository / "scripts/ci/personnel_roster_provider_probe.mjs")],
+            workdir, environment=provider_environment)
+        print("Fresh replay, SQL contracts, migration regressions and provider probes passed.", flush=True)
     finally:
         for sock in held_ports:
             sock.close()

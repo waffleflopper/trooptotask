@@ -42,6 +42,7 @@ const WEB_PACKAGES = [
 	'layerchart',
 	'mode-watcher',
 	'@fontsource/',
+	'devalue',
 	'tw-animate-css',
 	'tailwindcss',
 	'@tailwindcss/',
@@ -60,6 +61,19 @@ const PORTABLE_WEB_GLOBALS = new Set([
 	'atob',
 	'btoa'
 ]);
+
+function matchingOwners(file: string, manifest: Manifest): string[] {
+	return Object.keys(manifest.owners).filter((owner) => {
+		const declaration = manifest.owners[owner];
+		return (
+			declaration.files.includes(file) ||
+			declaration.roots.some(
+				(root) =>
+					file.startsWith(root) && !(manifest.rootExclusions[root] ?? []).some((excluded) => file.startsWith(excluded))
+			)
+		);
+	});
+}
 
 function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
 	const violations: Violation[] = [];
@@ -93,17 +107,7 @@ function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
 	}
 
 	function ownerOf(file: string): string | undefined {
-		const matches = ownerIds.filter((owner) => {
-			const declaration = manifest.owners[owner];
-			return (
-				declaration.files.includes(file) ||
-				declaration.roots.some(
-					(root) =>
-						file.startsWith(root) &&
-						!(manifest.rootExclusions[root] ?? []).some((excluded) => file.startsWith(excluded))
-				)
-			);
-		});
+		const matches = matchingOwners(file, manifest);
 		if (matches.length !== 1) {
 			add('ownership', file, matches.length ? `Duplicate owners: ${matches.join(', ')}` : 'Missing owner', '07-02b');
 			return undefined;
@@ -448,5 +452,5 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 	if (violations.length) process.exitCode = 1;
 }
 
-export { checkModuleBoundaries };
+export { checkModuleBoundaries, matchingOwners };
 export type { Manifest, Violation };

@@ -14,7 +14,7 @@ import {
 	type AccountSetupLinkIssuanceCreator,
 	type AccountSetupLinkIssuanceDelivery,
 	type AccountSetupLinkNotCreatedReason
-} from '$lib/server/accountSetupLinkIssuance';
+} from '$features/identity/index.server';
 import {
 	ORGANIZATION_MEMBER_INVITE_HIGH_PRIVILEGE_ACTION,
 	ORGANIZATION_MEMBER_REMOVE_HIGH_PRIVILEGE_ACTION,

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { mapProviderPasswordError, validatePassword } from '$lib/server/validation';
+import { mapProviderPasswordError, validatePassword } from './passwordPolicy';
 import type { PasswordCompletionState, PendingAuthFlow } from './contracts';
 import { passwordAttempt, type PasswordAttempt } from './passwordCompletion.server';
 import { checkSessionAssurance } from './sessionAssurance.server';

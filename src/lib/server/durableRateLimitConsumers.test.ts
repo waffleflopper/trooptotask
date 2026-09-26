@@ -1,7 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkAccessRequestSubmissionRateLimit } from './accessRequestRateLimit';
-import { checkAccountSetupCompletionRateLimit, checkAccountSetupRenewalRateLimit } from './accountSetupRateLimit';
-import { checkForgotPasswordRateLimit } from './forgotPasswordRateLimit';
 import { checkOrganizationInvitationRateLimit } from './organizationInvitationRateLimit';
 import { checkPlatformAccessRequestSetupRateLimit } from './platformAccessRequestRateLimit';
 import { createSupabaseDurableRateLimitStore, type DurableRateLimitStore } from './durableRateLimit';
@@ -15,46 +12,6 @@ type Policy = {
 	budgets: [number, number][];
 };
 const policies: Policy[] = [
-	{
-		name: 'Access Request submission',
-		check: (store) => checkAccessRequestSubmissionRateLimit({ ...identity, store }),
-		budgets: [
-			[3600, 5],
-			[3600, 5]
-		]
-	},
-	{
-		name: 'Account Setup renewal',
-		check: (store) => checkAccountSetupRenewalRateLimit({ ...identity, store }),
-		budgets: [
-			[3600, 3],
-			[3600, 3]
-		]
-	},
-	{
-		name: 'Account Setup completion',
-		check: (store) =>
-			checkAccountSetupCompletionRateLimit({
-				...identity,
-				setupLinkId: 'synthetic-link',
-				accessRequestId: 'synthetic-request',
-				store
-			}),
-		budgets: [
-			[900, 5],
-			[900, 5],
-			[900, 5],
-			[900, 5]
-		]
-	},
-	{
-		name: 'password recovery',
-		check: (store) => checkForgotPasswordRateLimit({ ...identity, store }),
-		budgets: [
-			[3600, 3],
-			[3600, 3]
-		]
-	},
 	...(['create', 'resend'] as const).map(
 		(action): Policy => ({
 			name: `Organization invitation ${action}`,
@@ -125,21 +82,4 @@ describe('durable limiter policy consumers', () => {
 			await expect(check(store)).rejects.toBe(failure);
 		}
 	);
-
-	it('shares normalized identities within a policy and partitions separate policies and actors', async () => {
-		const keys: string[] = [];
-		const store = createSupabaseDurableRateLimitStore({
-			rpc: async (_name: string, input: { p_bucket_key: string }) => {
-				keys.push(input.p_bucket_key);
-				return { data: [{ limited: false, retry_after_ms: 900_000 }], error: null };
-			}
-		} as never);
-		await checkForgotPasswordRateLimit({ email: ' Synthetic@Example.test ', now, store });
-		await checkForgotPasswordRateLimit({ email: 'synthetic@example.test', now, store });
-		await checkForgotPasswordRateLimit({ email: 'other@example.test', now, store });
-		await checkAccountSetupRenewalRateLimit({ email: 'synthetic@example.test', now, store });
-		expect(keys[0]).toBe(keys[1]);
-		expect(keys[2]).not.toBe(keys[0]);
-		expect(keys[3]).not.toBe(keys[0]);
-	});
 });

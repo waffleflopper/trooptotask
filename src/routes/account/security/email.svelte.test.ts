@@ -97,6 +97,21 @@ it.each(['failure', 'error', 'invalid-success'])(
 		expect(transport.update).toHaveBeenCalledWith({ reset: false });
 	}
 );
+it('shows a global throttle as an email action error without losing the draft', async () => {
+	transport.send.mockResolvedValueOnce({
+		type: 'failure',
+		status: 429,
+		data: { error: 'Too many requests. Please wait and try again.' }
+	});
+	const h = await fixture();
+	await fireEvent.submit(h.form);
+	await screen.findByText('Too many requests. Please wait and try again.');
+	expect(h.email).toHaveValue('new@example.test');
+	expect(h.password).toHaveValue(' OldPassword12 ');
+	await waitFor(() => expect(h.password).toHaveFocus());
+	expect(screen.queryByText('Confirmation sent')).toBeNull();
+	expect(transport.update).not.toHaveBeenCalled();
+});
 it('restores provider pending confirmation on reload without claiming the address is already current', () => {
 	render(Page, {
 		props: {

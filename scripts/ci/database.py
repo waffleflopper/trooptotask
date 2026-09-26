@@ -23,6 +23,10 @@ EXCLUDED_SERVICES = (
 # Matches Supabase CLI 2.101.0's pgTAP runner. Unlike `test db <file>`,
 # mounting the copied tree lets migration tests resolve relative psql includes.
 PG_PROVE_IMAGE = "public.ecr.aws/supabase/pg_prove:3.36"
+ACCOUNT_SETUP_UPGRADE_MIGRATIONS = (
+    "20260923000100_guard_account_setup_claims.sql",
+    "20260923000200_release_account_setup_claim_for_staff.sql",
+)
 
 
 def port_fields(config, prefix=()):
@@ -146,7 +150,7 @@ def local_docker_environment(workdir):
     return environment
 
 
-def run(command, workdir, *, quiet=False, check=True, environment=None):
+def run(command, workdir, *, quiet=False, check=True, environment=None, input_text=None):
     print("+ " + " ".join(command), flush=True)
     result = subprocess.run(
         command, cwd=workdir, env=clean_environment() if environment is None else environment,
@@ -154,6 +158,7 @@ def run(command, workdir, *, quiet=False, check=True, environment=None):
         stdout=subprocess.PIPE if quiet else None,
         stderr=subprocess.STDOUT if quiet else None,
         text=True,
+        input=input_text,
     )
     if quiet and check and result.returncode:
         # Supabase startup prints generated credentials. Never publish that output.
@@ -163,7 +168,7 @@ def run(command, workdir, *, quiet=False, check=True, environment=None):
     return result
 
 
-def validate(repository):
+def validate(repository, *, staged_upgrade=False):
     execute = partial(run, environment=local_docker_environment(repository))
     source = tomllib.loads((repository / "supabase/config.toml").read_text())
     held_ports = reserve_ports(len(list(port_fields(source))))
@@ -176,6 +181,9 @@ def validate(repository):
     try:
         ports = [sock.getsockname()[1] for sock in held_ports]
         config = prepare_project(repository, workdir, project_id, ports)
+        if staged_upgrade:
+            for name in ACCOUNT_SETUP_UPGRADE_MIGRATIONS:
+                (workdir / "supabase/migrations" / name).unlink()
         print(f"Disposable project: {project_id}; directory: {workdir}", flush=True)
         print("Ports: " + ", ".join(
             f"{'.'.join(field)}={port}"
@@ -183,7 +191,7 @@ def validate(repository):
         ), flush=True)
         migrations = sorted((workdir / "supabase/migrations").glob("*.sql"))
         print(f"Replay: {len(migrations)} migrations, {migrations[0].name} "
-              f"through {migrations[-1].name}", flush=True)
+              f"through {migrations[-1].name}; staged upgrade: {staged_upgrade}", flush=True)
         execute(["supabase", "--version"], workdir)
         for sock in held_ports:
             sock.close()
@@ -197,18 +205,42 @@ def validate(repository):
         # Grants, RLS, SQLSTATE expectations and test assertions remain intact.
         execute([*psql, "-c", "ALTER SYSTEM SET supautils.hint_roles = '';",
              "-c", "SELECT pg_reload_conf();"], workdir)
+        if staged_upgrade:
+            fixture = (workdir / "supabase/migration-tests/account_setup_populated_before.sql")
+            execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
+            for name in ACCOUNT_SETUP_UPGRADE_MIGRATIONS:
+                shutil.copy2(repository / "supabase/migrations" / name,
+                             workdir / "supabase/migrations" / name)
+            execute(["supabase", "migration", "up", "--local", "--yes"], workdir)
+            runner_started = True
+            execute([
+                "docker", "run", "--rm", "--name", runner,
+                "--network", f"supabase_network_{project_id}",
+                "--mount", f"type=bind,src={workdir / 'supabase'},dst=/tests,readonly",
+                "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
+                "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
+                PG_PROVE_IMAGE, "pg_prove", "--verbose",
+                "/tests/migration-tests/account_setup_populated_after.sql",
+            ], workdir)
+            print("Populated account setup upgrade passed.", flush=True)
+            return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True
-        execute([
-            "docker", "run", "--rm", "--name", runner,
-            "--network", f"supabase_network_{project_id}",
-            "--mount", f"type=bind,src={workdir / 'supabase'},dst=/tests,readonly",
-            "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
-            "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
-            PG_PROVE_IMAGE, "pg_prove", "--verbose",
-            "/tests/migration-tests/calendar_group_assignees.sql",
-        ], workdir)
-        print("Fresh replay, SQL contracts and Calendar upgrade regression passed.", flush=True)
+        for migration_test in (
+            "calendar_group_assignees.sql",
+            "account_setup_claim_gate.sql",
+            "account_setup_staff_release.sql",
+        ):
+            execute([
+                "docker", "run", "--rm", "--name", runner,
+                "--network", f"supabase_network_{project_id}",
+                "--mount", f"type=bind,src={workdir / 'supabase'},dst=/tests,readonly",
+                "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
+                "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
+                PG_PROVE_IMAGE, "pg_prove", "--verbose",
+                f"/tests/migration-tests/{migration_test}",
+            ], workdir)
+        print("Fresh replay, SQL contracts and migration regression tests passed.", flush=True)
     finally:
         for sock in held_ports:
             sock.close()
@@ -235,7 +267,9 @@ def main():
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, interrupted)
     try:
-        validate(Path(__file__).resolve().parents[2])
+        repository = Path(__file__).resolve().parents[2]
+        validate(repository)
+        validate(repository, staged_upgrade=True)
     except (subprocess.CalledProcessError, OSError, ValueError, RuntimeError) as error:
         print(f"Database validation failed: {error}", flush=True)
         raise SystemExit(1) from error

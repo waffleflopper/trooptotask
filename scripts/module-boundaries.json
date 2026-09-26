@@ -56,7 +56,7 @@
 			"packet": "08-M03"
 		},
 		"audit": {
-			"roots": [],
+			"roots": ["src/lib/audit/"],
 			"files": [
 				"src/lib/server/adapters/supabaseAudit.test.ts",
 				"src/lib/server/adapters/supabaseAudit.ts",
@@ -220,38 +220,11 @@
 				"src/lib/server/accessRequestInvitationBlocking.ts",
 				"src/lib/server/accessRequestInvitationOrigin.test.ts",
 				"src/lib/server/accessRequestInvitationOrigin.ts",
-				"src/lib/server/accessRequestRateLimit.test.ts",
-				"src/lib/server/accessRequestRateLimit.ts",
-				"src/lib/server/accessRequestSetupDelivery.test.ts",
-				"src/lib/server/accessRequestSetupDelivery.ts",
-				"src/lib/server/accessRequestSetupState.ts",
-				"src/lib/server/accountSetupCompletion.test.ts",
-				"src/lib/server/accountSetupCompletion.ts",
-				"src/lib/server/accountSetupCompletionSupabase.test.ts",
-				"src/lib/server/accountSetupCompletionSupabase.ts",
-				"src/lib/server/accountSetupDates.ts",
-				"src/lib/server/accountSetupLinkIssuance.ts",
-				"src/lib/server/accountSetupLinks.test.ts",
-				"src/lib/server/accountSetupLinks.ts",
-				"src/lib/server/accountSetupRateLimit.test.ts",
-				"src/lib/server/accountSetupRateLimit.ts",
-				"src/lib/server/accountSetupRouteFlow.test.ts",
-				"src/lib/server/accountSetupRouteFlow.ts",
-				"src/lib/server/accountSetupSessions.test.ts",
-				"src/lib/server/accountSetupSessions.ts",
-				"src/lib/server/adapters/supabaseAccountSetupLinkIssuance.ts",
-				"src/lib/server/authConfirm.ts",
-				"src/lib/server/authEmailDelivery.test.ts",
-				"src/lib/server/authEmailDelivery.ts",
-				"src/lib/server/authEmailOutbox.test.ts",
-				"src/lib/server/authEmailOutbox.ts",
 				"src/lib/server/authEmailTransport.test.ts",
 				"src/lib/server/auto-accept-org-invites.test.ts",
 				"src/lib/server/auto-accept-org-invites.ts",
 				"src/lib/server/core/useCases/userPreferences.test.ts",
 				"src/lib/server/core/useCases/userPreferences.ts",
-				"src/lib/server/forgotPasswordRateLimit.test.ts",
-				"src/lib/server/forgotPasswordRateLimit.ts",
 				"src/lib/server/publicAppOrigin.test.ts",
 				"src/lib/server/publicAppOrigin.ts",
 				"src/lib/server/userEmailIdentities.ts",
@@ -510,7 +483,12 @@
 				"src/routes/security/",
 				"src/routes/terms/"
 			],
-			"files": ["src/routes/+error.svelte", "src/routes/+page.server.ts", "src/routes/+page.svelte"],
+			"files": [
+				"src/routes/+error.svelte",
+				"src/routes/+page.server.ts",
+				"src/routes/+page.svelte",
+				"src/routes/page.svelte.test.ts"
+			],
 			"packet": "08-M17"
 		},
 		"rating-scheme": {
@@ -541,7 +519,6 @@
 			"roots": ["src/lib/stores/core/", "src/lib/test-support/"],
 			"files": [
 				"src/d3-scale.d.ts",
-				"src/lib/accessRequests.ts",
 				"src/lib/domain/currencyStatus.test.ts",
 				"src/lib/domain/currencyStatus.ts",
 				"src/lib/domain/readinessRollup.test.ts",
@@ -633,6 +610,7 @@
 		"src/routes/": [
 			"src/routes/+page.server.ts",
 			"src/routes/+page.svelte",
+			"src/routes/page.svelte.test.ts",
 			"src/routes/+error.svelte",
 			"src/routes/about/",
 			"src/routes/privacy/",
@@ -802,7 +780,7 @@
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts"
 		],
-		"audit": ["src/lib/server/logSanitize.ts"],
+		"audit": ["src/lib/audit/index.server.ts", "src/lib/server/logSanitize.ts"],
 		"identity": [
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",

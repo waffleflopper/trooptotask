@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { hasPendingPasswordCompletion, PasswordCompletion, PasswordMfaChallenge } from '$features/identity';
+	import {
+		hasPendingPasswordCompletion,
+		PasswordCompletion,
+		PasswordMfaChallenge,
+		passwordRequirements
+	} from '$features/identity';
 	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
 	import { onMount, tick, untrack } from 'svelte';
@@ -65,7 +70,16 @@
 					return;
 				}
 				if (result.type === 'failure') {
-					emailResult = result.data as ActionData;
+					const failure = result.data as ActionData & { error?: unknown };
+					emailResult =
+						typeof failure?.emailError === 'string'
+							? failure
+							: {
+									emailError:
+										typeof failure?.error === 'string'
+											? failure.error
+											: 'Unable to confirm the email request. Please try again.'
+								};
 					emailMfaRequired = emailResult?.code === 'mfa_required';
 				} else if (
 					result.type === 'success' &&
@@ -101,14 +115,9 @@
 	// Local acknowledgments apply until authoritative loader data changes.
 	let mfaEnabled = $derived(data.hasMFA);
 	const pendingEmail = $derived(confirmedPendingEmail ?? data.pendingEmail);
-	const hasMinLength = $derived(newPassword.length >= 12);
-	const hasUppercase = $derived(/[A-Z]/.test(newPassword));
-	const hasLowercase = $derived(/[a-z]/.test(newPassword));
-	const hasDigit = $derived(/[0-9]/.test(newPassword));
+	const requirements = $derived(passwordRequirements(newPassword));
 	const passwordsMatch = $derived(newPassword.length > 0 && newPassword === confirmPassword);
-	const passwordReady = $derived(
-		currentPassword.length > 0 && hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch
-	);
+	const passwordReady = $derived(currentPassword.length > 0 && requirements.valid && passwordsMatch);
 
 	async function startEnroll() {
 		if (loading) return;
@@ -490,7 +499,13 @@
 						<Field.Root>
 							<Field.Label for="new-password">New password</Field.Label>
 							<Field.Control>
-								<Input id="new-password" type="password" autocomplete="new-password" bind:value={newPassword} />
+								<Input
+									id="new-password"
+									type="password"
+									autocomplete="new-password"
+									aria-describedby="new-password-requirements"
+									bind:value={newPassword}
+								/>
 							</Field.Control>
 						</Field.Root>
 
@@ -502,12 +517,25 @@
 						</Field.Root>
 					</div>
 
-					<ul class="grid gap-1 text-sm text-muted-foreground">
-						<li class={hasMinLength ? 'text-foreground' : undefined}>At least 12 characters</li>
-						<li class={hasUppercase ? 'text-foreground' : undefined}>Includes uppercase</li>
-						<li class={hasLowercase ? 'text-foreground' : undefined}>Includes lowercase</li>
-						<li class={hasDigit ? 'text-foreground' : undefined}>Includes a number</li>
-						<li class={passwordsMatch ? 'text-foreground' : undefined}>Passwords match</li>
+					<ul id="new-password-requirements" class="grid gap-1 text-sm text-muted-foreground">
+						<li class={requirements.minLength ? 'text-foreground' : undefined}>
+							<span class="sr-only">{requirements.minLength ? 'Met: ' : 'Needed: '}</span>At least 12 characters
+						</li>
+						<li class={requirements.maxLength ? 'text-foreground' : undefined} aria-live="polite" aria-atomic="true">
+							<span class="sr-only">{requirements.maxLength ? 'Met: ' : 'Needed: '}</span>72 characters or fewer
+						</li>
+						<li class={requirements.uppercase ? 'text-foreground' : undefined}>
+							<span class="sr-only">{requirements.uppercase ? 'Met: ' : 'Needed: '}</span>Includes uppercase
+						</li>
+						<li class={requirements.lowercase ? 'text-foreground' : undefined}>
+							<span class="sr-only">{requirements.lowercase ? 'Met: ' : 'Needed: '}</span>Includes lowercase
+						</li>
+						<li class={requirements.digit ? 'text-foreground' : undefined}>
+							<span class="sr-only">{requirements.digit ? 'Met: ' : 'Needed: '}</span>Includes a number
+						</li>
+						<li class={passwordsMatch ? 'text-foreground' : undefined}>
+							<span class="sr-only">{passwordsMatch ? 'Met: ' : 'Needed: '}</span>Passwords match
+						</li>
 					</ul>
 
 					<div class="flex justify-end">

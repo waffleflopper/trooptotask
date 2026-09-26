@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
-import { createSupabaseAccountSetupLinkIssuancePorts } from '$lib/server/adapters/supabaseAccountSetupLinkIssuance';
+import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { createSupabaseOrganizationInvitationDeliveryPort } from '$lib/server/organizationInvitationDelivery';
 import { createSupabaseOrganizationInvitationRateLimiter } from '$lib/server/organizationInvitationRateLimit';

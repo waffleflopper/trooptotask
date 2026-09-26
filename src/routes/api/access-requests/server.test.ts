@@ -6,19 +6,17 @@ const { auditLogMock, checkRateLimitMock, submitAccessRequestMock } = vi.hoisted
 	submitAccessRequestMock: vi.fn()
 }));
 
-vi.mock('$lib/server/accessRequestRateLimit', () => ({
+vi.mock('$features/identity/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/identity/index.server')>()),
 	ACCESS_REQUEST_RATE_LIMIT_MESSAGE: 'Too many access request attempts. Please wait before trying again.',
-	checkAccessRequestSubmissionRateLimit: checkRateLimitMock
+	checkAccessRequestSubmissionRateLimit: checkRateLimitMock,
+	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
+		submitAccessRequest: submitAccessRequestMock
+	}))
 }));
 
 vi.mock('$lib/server/auditLog', () => ({
 	auditLog: auditLogMock
-}));
-
-vi.mock('$lib/server/accessRequestSetupDelivery', () => ({
-	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
-		submitAccessRequest: submitAccessRequestMock
-	}))
 }));
 
 import { POST } from './+server';
@@ -89,6 +87,28 @@ describe('POST /api/access-requests', () => {
 		expect(response.status).toBe(200);
 		await expect(response.json()).resolves.toEqual({ success: true });
 		expect(checkRateLimitMock).toHaveBeenCalled();
+	});
+
+	it('does not expose whether an email has a nonrenewable reviewed request', async () => {
+		submitAccessRequestMock.mockResolvedValueOnce({ status: 'no-public-action' });
+
+		const response = await POST(makeEvent());
+
+		expect(response.status).toBe(200);
+		await expect(response.json()).resolves.toEqual({ success: true });
+	});
+
+	it.each([
+		[{ email: '' }, 'Email, first name, and last name are required'],
+		[{ email: 'invalid' }, 'Invalid email format'],
+		[{ heardAbout: 'unlisted' }, 'Select how you heard about TroopToTask']
+	] as const)('rejects invalid public input before limiting or writing', async (input, message) => {
+		await expect(POST(makeEvent(makeRequest(input)))).rejects.toMatchObject({
+			status: 400,
+			body: { message }
+		});
+		expect(checkRateLimitMock).not.toHaveBeenCalled();
+		expect(submitAccessRequestMock).not.toHaveBeenCalled();
 	});
 
 	it('audits setup link revocations when a duplicate approved request gets a fresh setup link', async () => {

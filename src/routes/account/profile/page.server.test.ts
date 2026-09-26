@@ -69,10 +69,8 @@ describe('account profile page server', () => {
 		const serialized = JSON.stringify(result);
 		expect(serialized).not.toContain('user_profiles');
 		expect(serialized).not.toContain('provider_secret');
-		expect(consoleError).toHaveBeenCalledWith(
-			'[profile] Failed to save profile:',
-			expect.stringContaining('provider_secret')
-		);
+		expect(consoleError).toHaveBeenCalledWith('[profile] Failed to save profile');
+		expect(JSON.stringify(consoleError.mock.calls)).not.toContain('provider_secret');
 		consoleError.mockRestore();
 	});
 
@@ -90,6 +88,19 @@ describe('account profile page server', () => {
 			status: 400,
 			data: { error: 'First name is required' }
 		});
+		expect(upsertUserProfileMock).not.toHaveBeenCalled();
+	});
+
+	it('rejects a file submitted as a profile field before persistence', async () => {
+		const body = new FormData();
+		body.set('firstName', new File(['unexpected'], 'name.txt', { type: 'text/plain' }));
+		body.set('lastName', 'Hayes');
+		body.set('rank', 'CPT');
+		const result = await actions.default({
+			request: new Request('http://localhost/account/profile', { method: 'POST', body }),
+			locals: { actor: { userId: 'user-1' }, user: { id: 'user-1' } }
+		} as never);
+		expect(result).toMatchObject({ status: 400, data: { error: 'First name is required' } });
 		expect(upsertUserProfileMock).not.toHaveBeenCalled();
 	});
 });

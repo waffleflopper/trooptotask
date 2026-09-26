@@ -4,7 +4,7 @@
 	interface Props {
 		label: string;
 		title: Snippet;
-		children?: Snippet;
+		children: Snippet;
 	}
 
 	let { label, title, children }: Props = $props();
@@ -15,11 +15,9 @@
 	<div class="page-header-content">
 		<div class="section-label">{label}</div>
 		<h1>{@render title()}</h1>
-		{#if children}
-			<div class="page-header-copy">
-				{@render children()}
-			</div>
-		{/if}
+		<div class="page-header-copy">
+			{@render children()}
+		</div>
 	</div>
 </section>
 

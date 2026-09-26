@@ -43,8 +43,6 @@
 		<div class="footer__meta">
 			<div class="footer-label">trooptotask.org</div>
 			<div class="footer__meta-divider"></div>
-			<div class="footer-label">Version 2.0</div>
-			<div class="footer__meta-divider"></div>
 			<div class="footer-label">Built for unit leaders</div>
 		</div>
 	</div>

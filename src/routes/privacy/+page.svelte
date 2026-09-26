@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import PublicContactCard from '$lib/components/public/PublicContactCard.svelte';
 	import PublicContentSection from '$lib/components/public/PublicContentSection.svelte';
 	import PublicPageHeader from '$lib/components/public/PublicPageHeader.svelte';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
@@ -12,7 +13,7 @@
 	<meta name="description" content="Privacy policy for Troop to Task military unit management software." />
 </svelte:head>
 
-<PublicShell user={data.user} bodyClass="legal-page">
+<PublicShell user={data.user}>
 	<PublicPageHeader label="Privacy Policy">
 		{#snippet title()}Your privacy, <em>respected.</em>{/snippet}
 		<p>TroopToTask is committed to protecting your personal information and the personnel data you entrust to us.</p>
@@ -59,12 +60,13 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="05 // Data Retention">
+	<PublicContentSection id="data-retention" label="05 // Data Retention">
 		{#snippet title()}Kept only as long as needed.{/snippet}
 		<p>
-			We retain your data for as long as your account is active. When you delete personnel records, counseling records,
-			or other data, it is permanently removed from our database. If you delete your account, all associated data is
-			deleted. Audit logs may be retained for compliance purposes for up to 1 year after account deletion.
+			Organization data follows record-specific deletion and archive controls. Personnel and related records may be
+			archived before permanent removal under your Organization's retention settings. To request account deletion, email
+			<a href="mailto:privacy@trooptotask.org">privacy@trooptotask.org</a>. Our team will assist with the request.
+			Applicable audit records remain under our one-year retention policy.
 		</p>
 	</PublicContentSection>
 
@@ -72,9 +74,9 @@
 		{#snippet title()}You are in control.{/snippet}
 		<p>
 			You have the right to: access all data stored about you and your organization; export your data at any time via
-			our export features; correct inaccurate information; delete your data and account; request information about how
-			your data is processed. Organization owners can manage these rights for their organization's data through the
-			application.
+			our export features; correct inaccurate information; request deletion of your account and personal data; request
+			information about how your data is processed. Organization owners can manage these rights for their organization's
+			data through the application.
 		</p>
 	</PublicContentSection>
 
@@ -110,21 +112,6 @@
 	<PublicContentSection label="10 // Contact" alternate>
 		{#snippet title()}Get in touch.{/snippet}
 		<p>For privacy-related inquiries, contact us at:</p>
-		<div class="contact-card">
-			<svg
-				viewBox="0 0 24 24"
-				width="20"
-				height="20"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			>
-				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-				<polyline points="22,6 12,13 2,6" />
-			</svg>
-			<a href="mailto:privacy@trooptotask.org">privacy@trooptotask.org</a>
-		</div>
+		<PublicContactCard email="privacy@trooptotask.org" />
 	</PublicContentSection>
 </PublicShell>

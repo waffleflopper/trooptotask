@@ -11,11 +11,6 @@
 			"reason": "Email confirmation remains an auth-provider boundary."
 		},
 		{
-			"path": "src/routes/auth/reset-password/+page.server.ts",
-			"classification": "auth-edge",
-			"reason": "Password reset exchange remains an auth-provider boundary."
-		},
-		{
 			"path": "src/routes/suspended/+page.server.ts",
 			"classification": "auth-edge",
 			"reason": "Suspension checks remain part of the session/auth gate."
@@ -76,11 +71,6 @@
 			"path": "src/routes/admin/users/[userId]/+page.server.ts",
 			"classification": "platform-admin-edge",
 			"reason": "Platform Administration user detail and identity commands still build service-role user directory, audit, and identity command adapters from the admin context."
-		},
-		{
-			"path": "src/routes/api/cleanup-account-setup-links/+server.ts",
-			"classification": "cron-edge",
-			"reason": "Cron cleanup of stale account setup links still builds its service-role cleanup store in the route."
 		},
 		{
 			"path": "src/routes/api/cleanup-archived-records/+server.ts",

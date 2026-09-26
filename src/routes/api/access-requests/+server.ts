@@ -1,14 +1,14 @@
 import { error, isHttpError, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { isAccessRequestHeardAbout } from '$lib/accessRequests';
+import { isAccessRequestHeardAbout } from '$features/identity/contracts';
 import {
 	ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
-	checkAccessRequestSubmissionRateLimit
-} from '$lib/server/accessRequestRateLimit';
+	checkAccessRequestSubmissionRateLimit,
+	createPublicAccessRequestSetupDeliveryService
+} from '$features/identity/index.server';
 import { auditLog } from '$lib/server/auditLog';
 import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
-import { createPublicAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 
 export const POST: RequestHandler = async ({ getClientAddress, request }) => {
 	const body = await request.json();

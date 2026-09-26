@@ -5,17 +5,39 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { writable, type Writable } from 'svelte/store';
 import { page } from '$app/stores';
 import { goto } from '$app/navigation';
+import { tick } from 'svelte';
 import Page from './+page.svelte';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn().mockResolvedValue(undefined), replaceState: vi.fn() }));
 vi.mock('$app/stores', () => ({ page: writable({ data: { hasSession: true }, state: {} }) }));
-const recoveryPage = page as unknown as Writable<{ data: { hasSession: boolean }; state: object }>;
+const recoveryPage = page as unknown as Writable<{
+	data: { hasSession: boolean; passwordCompletion?: 'complete' | null };
+	state: object;
+}>;
 afterEach(() => {
 	recoveryPage.set({ data: { hasSession: true }, state: {} });
 	window.history.replaceState({}, '', '/auth/reset-password');
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.clearAllMocks();
+	vi.useRealTimers();
+});
+
+it('takes a completed recovery reload to the dashboard without navigating after the page is left', async () => {
+	recoveryPage.set({ data: { hasSession: true, passwordCompletion: 'complete' }, state: {} });
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	const first = render(Page);
+	await tick();
+	expect(screen.getByRole('heading', { name: 'Password updated' })).toBeVisible();
+	await vi.advanceTimersByTimeAsync(3000);
+	expect(goto).toHaveBeenCalledWith('/dashboard');
+	first.unmount();
+	vi.mocked(goto).mockClear();
+	const second = render(Page);
+	await tick();
+	second.unmount();
+	await vi.advanceTimersByTimeAsync(3000);
+	expect(goto).not.toHaveBeenCalled();
 });
 
 it.each(['status', 'verification'])(
@@ -90,6 +112,23 @@ it.each([
 		expect(await screen.findByLabelText(/^New Password/)).toBeEnabled();
 		expect(screen.queryByLabelText('Authenticator Code')).toBeNull();
 	}
+});
+
+it('allows a 72-character recovery password but blocks a matching 73-character password before submission', async () => {
+	vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ currentLevel: 'aal1', nextLevel: 'aal1' })));
+	render(Page);
+	const password = await screen.findByLabelText(/^New Password/);
+	const confirm = screen.getByLabelText(/^Confirm New Password/);
+	const submit = screen.getByRole('button', { name: 'Update Password' });
+	const accepted = `Aa1${'x'.repeat(69)}`;
+	await fireEvent.input(password, { target: { value: accepted } });
+	await fireEvent.input(confirm, { target: { value: accepted } });
+	expect(submit).toBeEnabled();
+	const tooLong = `${accepted}x`;
+	await fireEvent.input(password, { target: { value: tooLong } });
+	await fireEvent.input(confirm, { target: { value: tooLong } });
+	expect(submit).toBeDisabled();
+	expect(screen.getByText('72 characters or fewer').closest('li')).toHaveTextContent('Needed: 72 characters or fewer');
 });
 
 it.each([

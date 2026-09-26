@@ -3,26 +3,18 @@
 
 	interface Props {
 		user?: unknown;
-		titleBefore?: string;
-		emphasis?: string;
-		subtitle?: string;
 	}
 
-	let {
-		user,
-		titleBefore = 'Ready to streamline',
-		emphasis = 'your unit?',
-		subtitle = 'Request reviewed access for your formation.'
-	}: Props = $props();
+	let { user }: Props = $props();
 </script>
 
 <section class="cta">
 	<div class="cta-container">
 		<h2 class="cta-title">
-			{titleBefore}<br />
-			<em>{emphasis}</em>
+			Ready to streamline<br />
+			<em>your unit?</em>
 		</h2>
-		<p class="cta-subtitle">{subtitle}</p>
+		<p class="cta-subtitle">Request reviewed access for your formation.</p>
 		{#if user}
 			<a href={resolve('/dashboard?show=all')} class="cta-btn">
 				Go to Dashboard

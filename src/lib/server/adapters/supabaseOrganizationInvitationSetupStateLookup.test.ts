@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { AccessRequestSetupStateSource } from '$lib/server/accessRequestSetupState';
+import type { AccessRequestSetupStateSource } from '$features/identity/index.server';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
 
 const now = '2026-09-18T12:00:00.000Z';
@@ -25,8 +25,17 @@ const delivery = {
 	updated_at: now,
 	sent_at: now
 };
-function source(overrides: Partial<AccessRequestSetupStateSource> = {}): AccessRequestSetupStateSource {
-	return { setup_completed_at: null, account_setup_links: [link], auth_email_outbox: [delivery], ...overrides };
+interface RequestSource extends AccessRequestSetupStateSource {
+	email: string;
+}
+function source(overrides: Partial<RequestSource> = {}): RequestSource {
+	return {
+		email: 'invitee@example.com',
+		setup_completed_at: null,
+		account_setup_links: [link],
+		auth_email_outbox: [delivery],
+		...overrides
+	};
 }
 
 afterEach(() => vi.useRealTimers());
@@ -46,6 +55,10 @@ describe('Organization invitation setup-state lookup', () => {
 				fetch: async (input, init) => {
 					const url = new URL(String(input));
 					expect(init?.method).toBe('GET');
+					if (url.pathname === '/rest/v1/account_setup_links') {
+						expect(url.searchParams.get('access_requests.email')).toBe('in.(invitee@example.com)');
+						return Response.json([]);
+					}
 					expect(url.pathname).toBe('/rest/v1/access_request_organization_invitation_links');
 					// Apply the actual wire filters to adversarial rows; omitted scope leaks a fixture.
 					const selected = rows.filter((row) => {
@@ -109,12 +122,14 @@ describe('Organization invitation setup-state lookup', () => {
 			const client = createClient('http://localhost:9', 'synthetic-service-key', {
 				auth: { persistSession: false, autoRefreshToken: false },
 				global: {
-					fetch: async () =>
-						Response.json([
-							{ organization_invitation_id: 'invite-object', access_requests: request },
-							{ organization_invitation_id: 'invite-array', access_requests: [request] },
-							{ organization_invitation_id: 'missing-request', access_requests: null }
-						])
+					fetch: async (input) =>
+						new URL(String(input)).pathname === '/rest/v1/account_setup_links'
+							? Response.json([])
+							: Response.json([
+									{ organization_invitation_id: 'invite-object', access_requests: request },
+									{ organization_invitation_id: 'invite-array', access_requests: [request] },
+									{ organization_invitation_id: 'missing-request', access_requests: null }
+								])
 				}
 			});
 			const port = createSupabaseOrganizationInvitationSetupStateLookupPort(() => client);
@@ -128,6 +143,74 @@ describe('Organization invitation setup-state lookup', () => {
 			);
 		}
 	);
+
+	it('uses one email-scoped claim lookup so a different Access Request cannot hide a held setup attempt', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(now);
+		const paths: string[] = [];
+		const client = createClient('http://localhost:9', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					paths.push(url.pathname);
+					if (url.pathname === '/rest/v1/account_setup_links') {
+						expect(url.searchParams.get('claimed_at')).toBe('not.is.null');
+						expect(url.searchParams.get('failed_at')).toBe('is.null');
+						expect(url.searchParams.get('used_at')).toBe('is.null');
+						expect(url.searchParams.get('revoked_at')).toBeNull();
+						expect(url.searchParams.get('expires_at')).toBeNull();
+						expect(url.searchParams.get('access_requests.email')).toContain('invitee@example.com');
+						return Response.json([{ access_requests: { email: 'invitee@example.com' } }]);
+					}
+					return Response.json([
+						{ organization_invitation_id: 'invite-held', access_requests: source() },
+						{
+							organization_invitation_id: 'invite-completed',
+							access_requests: source({ setup_completed_at: now })
+						},
+						{
+							organization_invitation_id: 'invite-other',
+							access_requests: source({ email: 'other@example.com' })
+						}
+					]);
+				}
+			}
+		});
+		const port = createSupabaseOrganizationInvitationSetupStateLookupPort(() => client);
+
+		expect(
+			await port.findSetupStateByInvitationId('org-a', ['invite-held', 'invite-completed', 'invite-other'])
+		).toEqual(
+			new Map([
+				['invite-held', 'claimed'],
+				['invite-completed', 'completed'],
+				['invite-other', 'pending']
+			])
+		);
+		expect(paths).toEqual(['/rest/v1/access_request_organization_invitation_links', '/rest/v1/account_setup_links']);
+	});
+
+	it('skips the held-claim lookup when every linked account setup is complete', async () => {
+		const paths: string[] = [];
+		const client = createClient('http://localhost:9', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input) => {
+					paths.push(new URL(String(input)).pathname);
+					return Response.json([
+						{ organization_invitation_id: 'invite-completed', access_requests: source({ setup_completed_at: now }) }
+					]);
+				}
+			}
+		});
+		const port = createSupabaseOrganizationInvitationSetupStateLookupPort(() => client);
+
+		expect(await port.findSetupStateByInvitationId('org-a', ['invite-completed'])).toEqual(
+			new Map([['invite-completed', 'completed']])
+		);
+		expect(paths).toEqual(['/rest/v1/access_request_organization_invitation_links']);
+	});
 
 	it('propagates provider denial so the consumer cannot present unavailable state as a fresh credential', async () => {
 		const client = createClient('http://localhost:9', 'synthetic-service-key', {

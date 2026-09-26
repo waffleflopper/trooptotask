@@ -4,44 +4,28 @@
 	import PublicFooter from './PublicFooter.svelte';
 	import PublicSiteNav from './PublicSiteNav.svelte';
 
-	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
-
 	interface Props {
 		user?: unknown;
 		active?: 'about' | 'security';
 		bodyClass?: string;
-		roadmapHref?: PublicAnchorHref;
-		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		showClassificationBar?: boolean;
 		showCta?: boolean;
-		showFooter?: boolean;
-		ctaTitleBefore?: string;
-		ctaEmphasis?: string;
-		ctaSubtitle?: string;
 		navOverlay?: boolean;
 		navScrolled?: boolean;
 		children: Snippet;
-		cta?: Snippet;
 	}
 
 	let {
 		user,
 		active,
 		bodyClass = '',
-		roadmapHref = '/#roadmap',
-		faqHref = '/#faq',
 		showFaqLink = false,
 		showClassificationBar = true,
 		showCta = true,
-		showFooter = true,
-		ctaTitleBefore = 'Ready to streamline',
-		ctaEmphasis = 'your unit?',
-		ctaSubtitle = 'Request reviewed access for your formation.',
 		navOverlay = false,
 		navScrolled = false,
-		children,
-		cta
+		children
 	}: Props = $props();
 </script>
 
@@ -54,23 +38,17 @@
 		</div>
 	{/if}
 
-	<PublicSiteNav {user} {active} {roadmapHref} {faqHref} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
+	<PublicSiteNav {user} {active} {showFaqLink} overlay={navOverlay} scrolled={navScrolled} />
 
 	<main class={`public-body ${bodyClass}`.trim()}>
 		{@render children()}
 	</main>
 
 	{#if showCta}
-		{#if cta}
-			{@render cta()}
-		{:else}
-			<PublicCta {user} titleBefore={ctaTitleBefore} emphasis={ctaEmphasis} subtitle={ctaSubtitle} />
-		{/if}
+		<PublicCta {user} />
 	{/if}
 
-	{#if showFooter}
-		<PublicFooter />
-	{/if}
+	<PublicFooter />
 </div>
 
 <style>

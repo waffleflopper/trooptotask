@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { hasPendingPasswordCompletion, PasswordCompletion, PasswordMfaChallenge } from '$features/identity';
+	import {
+		hasPendingPasswordCompletion,
+		PasswordCompletion,
+		PasswordMfaChallenge,
+		passwordRequirements,
+		validatePassword
+	} from '$features/identity';
 	import type { PasswordCompletionState } from '$features/identity/contracts';
 	let completion = $state<PasswordCompletionState>(null);
 	import { goto, replaceState } from '$app/navigation';
@@ -11,7 +17,7 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import type { MfaStatus } from '$features/identity/contracts';
 
 	const hasSession = $derived($page.data.hasSession);
@@ -28,26 +34,12 @@
 	let requiresMfa = $state(false);
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
+	let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(navigationTimer));
 
-	const hasMinLength = $derived(password.length >= 12);
-	const hasUppercase = $derived(/[A-Z]/.test(password));
-	const hasLowercase = $derived(/[a-z]/.test(password));
-	const hasDigit = $derived(/\d/.test(password));
+	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
-	const canSubmit = $derived(hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch && !loading);
-
-	function getPasswordError(value: string): string | null {
-		if (!value || value.length < 12) {
-			return 'Password must be at least 12 characters';
-		}
-		if (value.length > 128) {
-			return 'Password must be 128 characters or fewer';
-		}
-		if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
-			return 'Password must include uppercase, lowercase, and a number';
-		}
-		return null;
-	}
+	const canSubmit = $derived(requirements.valid && passwordsMatch && !loading);
 
 	async function readJsonResult(
 		response: Response
@@ -128,7 +120,7 @@
 		if (loading || requiresMfa || completion) return;
 		error = '';
 
-		const passwordError = getPasswordError(password);
+		const passwordError = validatePassword(password);
 		if (passwordError) {
 			error = passwordError;
 			return;
@@ -192,7 +184,8 @@
 	function finishPassword() {
 		completion = null;
 		success = true;
-		setTimeout(() => goto(resolve('/auth/login')), 3000);
+		clearTimeout(navigationTimer);
+		navigationTimer = setTimeout(() => goto(resolve('/dashboard')), 3000);
 	}
 </script>
 
@@ -217,7 +210,7 @@
 						? 'Choose a new password'
 						: 'Verifying reset link'}
 	panelDescription={success
-		? "You'll be redirected to sign in shortly."
+		? "You'll be redirected to your dashboard shortly."
 		: tokenError
 			? 'This reset link can no longer be used.'
 			: statusError
@@ -233,14 +226,14 @@
 	supportPoints={[
 		'Choose the new password you want to use going forward.',
 		'If the link is no longer valid, request a new reset email.',
-		'After updating the password, sign in normally.'
+		'Use your new password the next time you sign in.'
 	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if success}
 			<AuthNotice tone="success" title="Password updated" centered>
 				<p>Your password has been reset successfully.</p>
-				<p>Redirecting you to sign in now.</p>
+				<p>Redirecting you to your dashboard now.</p>
 			</AuthNotice>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Reset link unavailable" centered>
@@ -289,7 +282,7 @@
 					bind:value={password}
 					required
 					placeholder="At least 12 characters"
-					hint="Use at least 12 characters with uppercase, lowercase, and a number."
+					hint="Use 12 to 72 characters with uppercase, lowercase, and a number."
 				>
 					{#snippet action()}
 						<AuthPasswordToggle visible={showPassword} onclick={() => (showPassword = !showPassword)} />
@@ -297,10 +290,21 @@
 				</AuthField>
 
 				<ul class="grid gap-2 text-xs leading-normal text-muted-foreground" aria-live="polite">
-					<li class={hasMinLength ? 'text-success' : undefined}>At least 12 characters</li>
-					<li class={hasUppercase ? 'text-success' : undefined}>One uppercase letter</li>
-					<li class={hasLowercase ? 'text-success' : undefined}>One lowercase letter</li>
-					<li class={hasDigit ? 'text-success' : undefined}>One number</li>
+					<li class={requirements.minLength ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.minLength ? 'Met: ' : 'Needed: '}</span>At least 12 characters
+					</li>
+					<li class={requirements.maxLength ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.maxLength ? 'Met: ' : 'Needed: '}</span>72 characters or fewer
+					</li>
+					<li class={requirements.uppercase ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.uppercase ? 'Met: ' : 'Needed: '}</span>One uppercase letter
+					</li>
+					<li class={requirements.lowercase ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.lowercase ? 'Met: ' : 'Needed: '}</span>One lowercase letter
+					</li>
+					<li class={requirements.digit ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.digit ? 'Met: ' : 'Needed: '}</span>One number
+					</li>
 				</ul>
 
 				<AuthField

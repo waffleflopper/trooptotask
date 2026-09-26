@@ -3,8 +3,7 @@ import type {
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
 } from '$lib/server/core/useCases/orgSettingsMemberManagement';
-import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS } from '$lib/server/accessRequestSetupDelivery';
-import { addUtcDays } from '$lib/server/accountSetupDates';
+import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS, addUtcDays } from '$features/identity/contracts';
 import { getAdminClient } from '$lib/server/supabase';
 import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
 import type { SupabaseClient } from '@supabase/supabase-js';

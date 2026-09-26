@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkModuleBoundaries, type Manifest, type Violation } from './module-boundaries.ts';
+import { checkModuleBoundaries, matchingOwners, type Manifest, type Violation } from './module-boundaries.ts';
 import { scanRepository } from './module-imports.ts';
 
 function git(...args: string[]): string {
@@ -25,7 +25,57 @@ function violationKey(issue: Violation): string {
 	return [issue.kind, issue.file, issue.message, issue.packet].join('\0');
 }
 
-function newViolations(current: Violation[], before: Violation[]): Violation[] {
+function currentCycleOwners(issue: Violation): Set<string> | null {
+	const prefix = 'Strongly connected owners: ';
+	if (issue.kind !== 'current-cycle' || !issue.message.startsWith(prefix)) return null;
+	return new Set(issue.message.slice(prefix.length).split(', '));
+}
+
+function ownerDependencyEdges(graph: ReturnType<typeof scanRepository>, manifest: Manifest): Set<string> {
+	const owners = new Map<string, string | undefined>();
+	const ownerOf = (file: string) => {
+		if (!owners.has(file)) {
+			const matches = matchingOwners(file, manifest);
+			owners.set(file, matches.length === 1 ? matches[0] : undefined);
+		}
+		return owners.get(file);
+	};
+	const edges = new Set<string>();
+	for (const edge of graph.edges) {
+		if (edge.classification !== 'local' || !edge.to) continue;
+		const from = ownerOf(edge.from);
+		const to = ownerOf(edge.to);
+		if (from && to && from !== to) edges.add(`${from}\0${to}`);
+	}
+	return edges;
+}
+
+function shrankExistingCycle(
+	issue: Violation,
+	before: Violation[],
+	beforeEdges?: Set<string>,
+	currentEdges?: Set<string>
+): boolean {
+	const owners = currentCycleOwners(issue);
+	if (!owners || !beforeEdges || !currentEdges) return false;
+	for (const edge of currentEdges) {
+		const [from, to] = edge.split('\0');
+		if (owners.has(from) && owners.has(to) && !beforeEdges.has(edge)) return false;
+	}
+	return before.some((previous) => {
+		const previousOwners = currentCycleOwners(previous);
+		return (
+			previousOwners && owners.size < previousOwners.size && [...owners].every((owner) => previousOwners.has(owner))
+		);
+	});
+}
+
+function newViolations(
+	current: Violation[],
+	before: Violation[],
+	beforeEdges?: Set<string>,
+	currentEdges?: Set<string>
+): Violation[] {
 	const remaining = new Map<string, number>();
 	for (const issue of before) {
 		const key = violationKey(issue);
@@ -34,7 +84,7 @@ function newViolations(current: Violation[], before: Violation[]): Violation[] {
 	return current.filter((issue) => {
 		const key = violationKey(issue);
 		const count = remaining.get(key) ?? 0;
-		if (count === 0) return true;
+		if (count === 0) return !shrankExistingCycle(issue, before, beforeEdges, currentEdges);
 		remaining.set(key, count - 1);
 		return false;
 	});
@@ -56,9 +106,16 @@ function scanCommittedSource(commit: string) {
 function runModuleGovernance() {
 	const manifest = JSON.parse(readFileSync('scripts/module-boundaries.json', 'utf8')) as Manifest;
 	const comparison = comparisonCommit();
-	const before = checkModuleBoundaries(scanCommittedSource(comparison), manifest);
-	const current = checkModuleBoundaries(scanRepository(process.cwd()), manifest);
-	const introduced = newViolations(current, before);
+	const beforeGraph = scanCommittedSource(comparison);
+	const currentGraph = scanRepository(process.cwd());
+	const before = checkModuleBoundaries(beforeGraph, manifest);
+	const current = checkModuleBoundaries(currentGraph, manifest);
+	const introduced = newViolations(
+		current,
+		before,
+		ownerDependencyEdges(beforeGraph, manifest),
+		ownerDependencyEdges(currentGraph, manifest)
+	);
 	const completedScope = current.filter((issue) => issue.packet.startsWith('07-'));
 	const packets = Object.entries(Object.groupBy(current, (issue) => issue.packet))
 		.map(([packet, issues]) => `${packet}: ${issues?.length ?? 0}`)
@@ -68,4 +125,4 @@ function runModuleGovernance() {
 	return [...new Set([...introduced, ...completedScope])];
 }
 
-export { newViolations, runModuleGovernance };
+export { newViolations, ownerDependencyEdges, runModuleGovernance };

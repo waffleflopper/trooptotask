@@ -17,7 +17,7 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import type { MfaStatus } from '$features/identity/contracts';
 
 	const hasSession = $derived($page.data.hasSession);
@@ -34,6 +34,8 @@
 	let requiresMfa = $state(false);
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
+	let navigationTimer: ReturnType<typeof setTimeout> | undefined;
+	onDestroy(() => clearTimeout(navigationTimer));
 
 	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
@@ -182,7 +184,8 @@
 	function finishPassword() {
 		completion = null;
 		success = true;
-		setTimeout(() => goto(resolve('/auth/login')), 3000);
+		clearTimeout(navigationTimer);
+		navigationTimer = setTimeout(() => goto(resolve('/dashboard')), 3000);
 	}
 </script>
 
@@ -207,7 +210,7 @@
 						? 'Choose a new password'
 						: 'Verifying reset link'}
 	panelDescription={success
-		? "You'll be redirected to sign in shortly."
+		? "You'll be redirected to your dashboard shortly."
 		: tokenError
 			? 'This reset link can no longer be used.'
 			: statusError
@@ -223,14 +226,14 @@
 	supportPoints={[
 		'Choose the new password you want to use going forward.',
 		'If the link is no longer valid, request a new reset email.',
-		'After updating the password, sign in normally.'
+		'Use your new password the next time you sign in.'
 	]}
 >
 	<div class="flex flex-col gap-5">
 		{#if success}
 			<AuthNotice tone="success" title="Password updated" centered>
 				<p>Your password has been reset successfully.</p>
-				<p>Redirecting you to sign in now.</p>
+				<p>Redirecting you to your dashboard now.</p>
 			</AuthNotice>
 		{:else if tokenError}
 			<AuthNotice tone="error" title="Reset link unavailable" centered>

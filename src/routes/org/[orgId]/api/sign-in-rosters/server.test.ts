@@ -88,6 +88,59 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
+	it('looks up only missing same-Organization Group labels and leaves unknown labels blank', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'organization' },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.rawStore.seed('groups', [
+			{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign' }
+		]);
+		ctx.signInRosterPersonnelLookup = {
+			findPersonnelForRosterSnapshot: async () => [
+				{ id: 'p-known', rank: 'SGT', last_name: 'Smith', first_name: 'Jane', group_id: GROUP_ALPHA, group_name: null },
+				{
+					id: 'p-unknown',
+					rank: 'SPC',
+					last_name: 'Taylor',
+					first_name: 'Morgan',
+					group_id: 'foreign',
+					group_name: null
+				}
+			]
+		};
+		const groupRead = vi.spyOn(ctx.rawStore, 'findMany');
+
+		await handleUseCaseRequest(_postConfig, ctx, {
+			title: 'Training attendance',
+			personnelIds: ['p-known', 'p-unknown']
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
+		expect(stored[0].personnel_snapshot).toEqual([
+			expect.objectContaining({ id: 'p-known', group: 'Alpha' }),
+			expect.objectContaining({ id: 'p-unknown', group: '' })
+		]);
+		expect(groupRead.mock.calls.find(([table]) => table === 'groups')).toMatchObject([
+			'groups',
+			ctx.auth.orgId,
+			undefined,
+			{ select: 'id, name', inFilters: { id: [GROUP_ALPHA, 'foreign'] } }
+		]);
+	});
+
 	it('uses policy-first route configs for sign-in roster reads and creation', () => {
 		expect('permission' in _getConfig).toBe(false);
 		expect('permission' in _postConfig).toBe(false);

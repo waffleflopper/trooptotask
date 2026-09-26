@@ -1,6 +1,7 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { sortSignInRosterRows } from '$features/sign-in-rosters/signInRosterRankOrder';
+import { findGroupNamesByIds } from '$features/personnel/index.server';
 import { fail } from '$lib/server/core/errors';
 import type { SignInRosterPersonnelLookupRecord, UseCaseContext } from '$lib/server/core/ports';
 
@@ -126,17 +127,8 @@ async function loadGroupNames(ctx: UseCaseContext, rows: PersonnelRow[]): Promis
 	);
 	if (missingGroupIds.length === 0) return names;
 
-	const groupRows = await ctx.rawStore.findMany<{ id: string; name?: string | null }>(
-		'groups',
-		ctx.auth.orgId,
-		undefined,
-		{
-			select: 'id, name',
-			inFilters: { id: missingGroupIds }
-		}
-	);
-	for (const row of groupRows) {
-		if (typeof row.name === 'string') names.set(row.id, row.name);
+	for (const [id, name] of await findGroupNamesByIds({ auth: ctx.auth, store: ctx.rawStore }, missingGroupIds)) {
+		names.set(id, name);
 	}
 	return names;
 }

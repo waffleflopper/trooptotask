@@ -39,7 +39,8 @@ function makeFlow() {
 		validateToken: vi.fn()
 	};
 	const completion = {
-		completeSetupSession: vi.fn()
+		completeSetupSession: vi.fn(),
+		recoverSetupSession: vi.fn()
 	};
 	const checkCompletionRateLimit = vi.fn().mockResolvedValue({ limited: false });
 	const audit = vi.fn();
@@ -98,6 +99,38 @@ describe('createAccountSetupRouteFlow', () => {
 			}
 		});
 		expect(setupLinks.validateToken).toHaveBeenCalledWith('raw-token');
+	});
+
+	it('keeps recovery available when Access Request tracking finished before its claimed link', async () => {
+		const { flow, setupLinks, store } = makeFlow();
+		const link = makeSetupLink({ claimedAt: new Date('2026-05-18T11:59:00.000Z') });
+		setupLinks.validateToken.mockResolvedValueOnce({ status: 'claimed', accessRequestId: 'request-1', link });
+		store.getAccessRequest.mockResolvedValue({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: '2026-05-18T11:59:30.000Z'
+		});
+		store.getSetupLink.mockResolvedValueOnce(link);
+
+		expect(
+			await flow.resolveLoad({
+				session: null,
+				authFlow: null,
+				mfaPending: false,
+				rawToken: 'claimed-token',
+				setupSession: null
+			})
+		).toMatchObject({ state: 'redirect-setup', session: { setupLinkId: 'link-1' } });
+		expect(
+			await flow.resolveLoad({
+				session: null,
+				authFlow: null,
+				mfaPending: false,
+				rawToken: '',
+				setupSession: makeSetupSession()
+			})
+		).toEqual({ state: 'recovery-available', email: 'soldier@example.mil' });
 	});
 
 	it('redirects authenticated users without resolving setup providers', async () => {
@@ -264,7 +297,7 @@ describe('createAccountSetupRouteFlow', () => {
 		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
 	});
 
-	it('returns support guidance when another link already holds the email claim', async () => {
+	it('offers recovery without clearing the signed session when another link holds the email claim', async () => {
 		const { flow, store, completion, audit } = makeFlow();
 		store.getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
@@ -272,7 +305,7 @@ describe('createAccountSetupRouteFlow', () => {
 			status: 'approved',
 			setupCompletedAt: null
 		});
-		completion.completeSetupSession.mockResolvedValueOnce({ status: 'claim-in-progress' });
+		completion.completeSetupSession.mockResolvedValueOnce({ status: 'recovery-available' });
 
 		const result = await flow.completeSetup({
 			setupSession: makeSetupSession(),
@@ -282,28 +315,39 @@ describe('createAccountSetupRouteFlow', () => {
 			userAgent: 'vitest-agent'
 		});
 
-		expect(result).toEqual({
-			type: 'failure',
-			status: 409,
-			error:
-				'Another account setup attempt is still in progress. If it does not finish, contact platform support before trying another link. Give support request ID request-1.',
-			clearSession: true,
-			supportRequired: true
-		});
-		expect(audit).toHaveBeenCalledWith(
-			expect.objectContaining({
-				action: 'account_setup.failed',
-				details: expect.objectContaining({ failureCategory: 'claim-in-progress' })
-			}),
-			expect.anything()
-		);
+		expect(result).toMatchObject({ type: 'progress', state: 'recovery-available' });
+		expect(result).not.toHaveProperty('clearSession');
+		expect(result).not.toHaveProperty('supportRequired');
 		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
 	});
 
-	it.each([
-		['setup-support-required', 'account-create-uncertain'],
-		['setup-finalization-failed', 'setup-finalization-failed']
-	] as const)('holds %s attempts behind support guidance and an audit reference', async (status, category) => {
+	it('checks a signed setup session without a password and returns a safe retry after the old attempt is fenced', async () => {
+		const { flow, store, completion, checkCompletionRateLimit } = makeFlow();
+		store.getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null
+		});
+		completion.recoverSetupSession.mockResolvedValueOnce({ status: 'retry-password' });
+		const input = {
+			setupSession: makeSetupSession(),
+			clientIp: '203.0.113.10',
+			userAgent: 'vitest-agent'
+		};
+
+		expect(await flow.recoverSetup(input)).toMatchObject({ type: 'progress', state: 'retry-password' });
+		expect(completion.recoverSetupSession).toHaveBeenCalledWith({
+			setupLinkId: 'link-1',
+			accessRequestId: 'request-1'
+		});
+		expect(checkCompletionRateLimit).toHaveBeenCalledWith(expect.objectContaining({ setupLinkId: 'link-1' }));
+		expect(completion.recoverSetupSession).not.toHaveBeenCalledWith(
+			expect.objectContaining({ password: expect.anything() })
+		);
+	});
+
+	it('audits a recovered setup completion without exposing a password or raw token', async () => {
 		const { flow, store, completion, audit } = makeFlow();
 		store.getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
@@ -311,7 +355,34 @@ describe('createAccountSetupRouteFlow', () => {
 			status: 'approved',
 			setupCompletedAt: null
 		});
-		completion.completeSetupSession.mockResolvedValueOnce({ status });
+		completion.recoverSetupSession.mockResolvedValueOnce({ status: 'recovered', userId: 'user-1' });
+		const result = await flow.recoverSetup({
+			setupSession: makeSetupSession(),
+			clientIp: '203.0.113.10',
+			userAgent: 'vitest-agent'
+		});
+		expect(result).toMatchObject({ type: 'progress', state: 'recovered' });
+		expect(audit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				action: 'account_setup.completed',
+				resourceId: 'link-1',
+				details: expect.objectContaining({ accessRequestId: 'request-1', userId: 'user-1' })
+			}),
+			expect.anything()
+		);
+		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
+		expect(JSON.stringify(audit.mock.calls)).not.toContain('raw-token');
+	});
+
+	it('keeps an unverifiable attempt behind support guidance and an audit reference', async () => {
+		const { flow, store, completion, audit } = makeFlow();
+		store.getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null
+		});
+		completion.completeSetupSession.mockResolvedValueOnce({ status: 'setup-support-required' });
 
 		const result = await flow.completeSetup({
 			setupSession: makeSetupSession(),
@@ -332,19 +403,35 @@ describe('createAccountSetupRouteFlow', () => {
 			expect.objectContaining({
 				action: 'account_setup.failed',
 				resourceId: 'link-1',
-				details: expect.objectContaining({ accessRequestId: 'request-1', failureCategory: category })
+				details: expect.objectContaining({ accessRequestId: 'request-1', failureCategory: 'account-create-uncertain' })
 			}),
 			expect.anything()
 		);
 		expect(JSON.stringify(audit.mock.calls)).not.toContain('ValidPassword123!');
 	});
+
+	it('keeps status checking available when finalization can be retried', async () => {
+		const { flow, store, completion } = makeFlow();
+		store.getAccessRequest.mockResolvedValueOnce({
+			id: 'request-1',
+			email: 'soldier@example.mil',
+			status: 'approved',
+			setupCompletedAt: null
+		});
+		completion.completeSetupSession.mockResolvedValueOnce({ status: 'setup-finalization-failed' });
+		const result = await flow.completeSetup({
+			setupSession: makeSetupSession(),
+			password: 'ValidPassword123!',
+			confirmPassword: 'ValidPassword123!',
+			clientIp: '203.0.113.10',
+			userAgent: 'vitest-agent'
+		});
+		expect(result).toMatchObject({ type: 'progress', state: 'recovery-available' });
+		expect(result).not.toHaveProperty('clearSession');
+	});
 	it.each([
 		['expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
-		['replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
-		[
-			'claimed',
-			'This Account Setup Link is already being used. If setup does not finish, contact platform support before trying another link.'
-		]
+		['replaced', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.']
 	] as const)('maps %s raw-token states to recovery without reading a request', async (status, message) => {
 		const { flow, setupLinks, store } = makeFlow();
 		setupLinks.validateToken.mockResolvedValueOnce({ status });
@@ -481,7 +568,7 @@ describe('createAccountSetupRouteFlow', () => {
 		);
 		expect(audit.mock.calls.some(([event]) => event.action === 'account_setup.claimed')).toBe(false);
 	});
-	it('treats an already completed Access Request as used before reading its setup link', async () => {
+	it('treats a completed Access Request with a consumed link as used', async () => {
 		const { flow, store } = makeFlow();
 		store.getAccessRequest.mockResolvedValueOnce({
 			id: 'request-1',
@@ -489,6 +576,7 @@ describe('createAccountSetupRouteFlow', () => {
 			status: 'approved',
 			setupCompletedAt: '2026-05-18T12:01:00.000Z'
 		});
+		store.getSetupLink.mockResolvedValueOnce(makeSetupLink({ usedAt: new Date('2026-05-18T12:01:00.000Z') }));
 		await expect(
 			flow.resolveLoad({
 				session: null,
@@ -502,7 +590,6 @@ describe('createAccountSetupRouteFlow', () => {
 			message: 'This setup link has already been used. Sign in or reset your password if you need access.',
 			clearSession: true
 		});
-		expect(store.getSetupLink).not.toHaveBeenCalled();
 	});
 
 	it('rejects a signed session whose setup link belongs to another Access Request', async () => {

@@ -1,6 +1,14 @@
 # Account Setup held-claim recovery
 
-An Account Setup Link that has been claimed holds password setup for its normalized email until the attempt completes or is explicitly released. A newer link can be delivered while a claim is held, but it cannot change that account's password. The Platform Access Requests screen shows the held setup link and Access Request IDs. Organization members see support guidance without the platform IDs.
+An Account Setup Link that has been claimed holds password setup for its normalized email until the attempt completes or is reconciled. A newer link can be delivered while a claim is held, but delivery alone cannot change that account's password. The Platform Access Requests screen shows the held setup link and Access Request IDs. Organization members see support guidance without the platform IDs.
+
+## Self-service recovery for witnessed attempts
+
+A person with a valid setup link for an approved Access Request can choose **Check setup status** on the setup page. The server checks the specific held attempt for that normalized email. A committed Auth create/update is witnessed in the provider database transaction. The server finishes identity, profile, Access Request, and setup-link tracking without changing the password again, then directs the person to sign in or reset their password if needed. If no Auth write committed, reconciliation fences the attempt first; a delayed marked provider write then rolls back. The person can use a fresh setup link to choose a password. If another valid link was already delivered for the same email, that link can continue after the old attempt is fenced.
+
+An expired, revoked, replaced, or unapproved link cannot authorize recovery; the page directs the person to a fresh eligible link or approval guidance. A claim created before the attempt-witness migration has no witness; conflicting or unavailable records also cannot be reconciled automatically. Those exceptional states show support guidance and use the staff procedure below. Do not infer provider completion from a timed-out browser request, a newly sent link, or elapsed time.
+
+One support case does not have a held claim to release: if Auth rejects creation because the user already exists but the Auth-owned email identity index has no matching row, reconciliation fences the new attempt and fails its link. Staff must investigate and repair the Auth/identity inconsistency through the separately authorized data-repair process. `release_account_setup_claim_for_staff` rejects that failed link and cannot repair the identity index. Do not tell the person that another fresh link alone will resolve it.
 
 ## Decide whether release is safe
 

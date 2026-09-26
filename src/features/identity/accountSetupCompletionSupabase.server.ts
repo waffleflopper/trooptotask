@@ -1,24 +1,24 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createSupabaseAccountSetupLinkStore } from './accountSetupLinks.server';
 import {
+	AccountSetupIdentityMismatchError,
 	AccountSetupPasswordRejectedError,
+	type AccountSetupClaimReconciliation,
 	type AccountSetupAuthAdapter,
 	type AccountSetupCompletionStore
 } from './accountSetupCompletion.server';
-import {
-	findUserEmailIdentityByEmail,
-	normalizeUserEmailIdentity,
-	upsertUserEmailIdentity
-} from '$lib/server/userEmailIdentities';
+import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
+
+function isStructuredPasswordRejection(error: unknown): boolean {
+	return typeof error === 'object' && error !== null && 'code' in error && error.code === 'weak_password';
+}
 
 function isExistingUserError(error: unknown): boolean {
 	const code =
 		typeof error === 'object' && error && 'code' in error && typeof error.code === 'string'
 			? error.code.toLowerCase()
 			: '';
-	if (code) {
-		return code === 'user_already_exists' || code === 'email_exists';
-	}
+	if (code) return code === 'user_already_exists' || code === 'email_exists';
 	const message =
 		typeof error === 'object' && error && 'message' in error && typeof error.message === 'string'
 			? error.message.toLowerCase()
@@ -26,8 +26,43 @@ function isExistingUserError(error: unknown): boolean {
 	return message.includes('already been registered') || message.includes('already exists');
 }
 
-function isStructuredPasswordRejection(error: unknown): boolean {
-	return typeof error === 'object' && error !== null && 'code' in error && error.code === 'weak_password';
+function readReconciliation(data: unknown): AccountSetupClaimReconciliation {
+	if (!data || typeof data !== 'object' || !('state' in data)) return { state: 'support-required' };
+	if (data.state === 'clear') return { state: 'clear' };
+	if (data.state === 'support-required') return { state: 'support-required' };
+	if (
+		!('sourceLinkId' in data) ||
+		typeof data.sourceLinkId !== 'string' ||
+		!('sourceAccessRequestId' in data) ||
+		typeof data.sourceAccessRequestId !== 'string'
+	)
+		return { state: 'support-required' };
+	if (data.state === 'fenced') {
+		return { state: 'fenced', sourceLinkId: data.sourceLinkId, sourceAccessRequestId: data.sourceAccessRequestId };
+	}
+	if (data.state === 'committed' && 'userId' in data && typeof data.userId === 'string') {
+		return {
+			state: 'committed',
+			sourceLinkId: data.sourceLinkId,
+			sourceAccessRequestId: data.sourceAccessRequestId,
+			userId: data.userId
+		};
+	}
+	return { state: 'support-required' };
+}
+
+function readCompletion(data: unknown): { state: 'completed'; userId: string } | { state: 'support-required' } {
+	if (
+		data &&
+		typeof data === 'object' &&
+		'state' in data &&
+		data.state === 'completed' &&
+		'userId' in data &&
+		typeof data.userId === 'string'
+	) {
+		return { state: 'completed', userId: data.userId };
+	}
+	return { state: 'support-required' };
 }
 
 export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient): AccountSetupCompletionStore {
@@ -35,38 +70,33 @@ export function createSupabaseAccountSetupCompletionStore(client: SupabaseClient
 
 	return {
 		...setupLinkStore,
-		async markAccessRequestSetupCompleted(accessRequestId, userId, completedAt) {
+		async readAttemptId(setupLinkId) {
 			const { data, error } = await client
-				.from('access_requests')
-				.update({
-					setup_completed_at: completedAt.toISOString(),
-					setup_user_id: userId
-				})
-				.eq('id', accessRequestId)
-				.is('setup_completed_at', null)
+				.from('account_setup_attempts')
 				.select('id')
-				.maybeSingle();
-
-			if (error) {
-				throw error;
-			}
-			if (!data) {
-				throw new Error('Access Request setup completion was not recorded');
-			}
+				.eq('setup_link_id', setupLinkId)
+				.maybeSingle<{ id: string }>();
+			if (error) throw error;
+			return data?.id ?? null;
 		},
-		async upsertUserProfile(input) {
-			const { error } = await client.from('user_profiles').upsert(
-				{
-					user_id: input.userId,
-					first_name: input.firstName,
-					last_name: input.lastName
-				},
-				{ onConflict: 'user_id', ignoreDuplicates: true }
-			);
-
-			if (error) {
-				throw error;
-			}
+		async reconcileClaim(input) {
+			const { data, error } = await client.rpc('reconcile_account_setup_claim', {
+				p_target_setup_link_id: input.setupLinkId,
+				p_target_access_request_id: input.accessRequestId
+			});
+			if (error) throw error;
+			return readReconciliation(data);
+		},
+		async completeRecovery(input) {
+			const { data, error } = await client.rpc('complete_account_setup_recovery', {
+				p_source_setup_link_id: input.sourceLinkId,
+				p_target_setup_link_id: input.targetLinkId,
+				p_target_access_request_id: input.targetAccessRequestId,
+				p_first_name: input.firstName,
+				p_last_name: input.lastName
+			});
+			if (error) throw error;
+			return readCompletion(data);
 		}
 	};
 }
@@ -78,44 +108,29 @@ export function createSupabaseAccountSetupAuthAdapter(
 	return {
 		async createOrActivateConfirmedUser(input) {
 			const email = normalizeUserEmailIdentity(input.email);
-			const created = await adminClient.auth.admin.createUser({
-				email,
-				password: input.password,
-				email_confirm: true
-			});
-
-			if (!created.error && created.data.user) {
-				await upsertUserEmailIdentity(adminClient, { userId: created.data.user.id, email });
-				return { userId: created.data.user.id };
-			}
-
-			if (!isExistingUserError(created.error)) {
-				if (isStructuredPasswordRejection(created.error)) {
-					throw new AccountSetupPasswordRejectedError('Provider rejected setup password');
-				}
-				throw created.error ?? new Error('Could not create User Account');
-			}
-
 			const existingIdentity = await findUserEmailIdentityByEmail(adminClient, email);
-			if (!existingIdentity) {
-				throw new Error('Could not find existing User Account email identity');
-			}
-
-			const updated = await adminClient.auth.admin.updateUserById(existingIdentity.userId, {
-				password: input.password,
-				email_confirm: true
-			});
-
-			if (updated.error) {
-				if (isStructuredPasswordRejection(updated.error)) {
+			const mutation = existingIdentity
+				? await adminClient.auth.admin.updateUserById(existingIdentity.userId, {
+						password: input.password,
+						email_confirm: true,
+						user_metadata: { ttt_setup_attempt: input.attemptId }
+					})
+				: await adminClient.auth.admin.createUser({
+						email,
+						password: input.password,
+						email_confirm: true,
+						user_metadata: { ttt_setup_attempt: input.attemptId }
+					});
+			if (mutation.error || !mutation.data?.user) {
+				if (isStructuredPasswordRejection(mutation.error)) {
 					throw new AccountSetupPasswordRejectedError('Provider rejected setup password');
 				}
-				throw updated.error;
+				if (!existingIdentity && isExistingUserError(mutation.error)) {
+					throw new AccountSetupIdentityMismatchError('Existing Auth user has no email identity');
+				}
+				throw mutation.error ?? new Error('Could not set up User Account');
 			}
-
-			await upsertUserEmailIdentity(adminClient, { userId: existingIdentity.userId, email });
-
-			return { userId: existingIdentity.userId };
+			return { userId: mutation.data.user.id };
 		},
 
 		async signInWithPassword(input) {

@@ -1,9 +1,8 @@
 import { createAccountSetupLinkService, type AccountSetupLinkStore } from './accountSetupLinks.server';
 import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './passwordPolicy';
 
-// Only the Auth adapter may produce this after receiving a structured provider
-// rejection. General transport/client errors cannot prove that Auth did not write.
 export class AccountSetupPasswordRejectedError extends Error {}
+export class AccountSetupIdentityMismatchError extends Error {}
 
 export type AccountSetupCompletionInvalidStatus =
 	| 'missing'
@@ -16,18 +15,39 @@ export type AccountSetupCompletionInvalidStatus =
 	| 'failed'
 	| 'access-request-not-approved';
 
+export type AccountSetupClaimReconciliation =
+	| { state: 'clear' }
+	| { state: 'fenced'; sourceLinkId: string; sourceAccessRequestId: string }
+	| { state: 'committed'; sourceLinkId: string; sourceAccessRequestId: string; userId: string }
+	| { state: 'support-required' };
+
 export interface AccountSetupCompletionStore extends AccountSetupLinkStore {
-	markAccessRequestSetupCompleted(accessRequestId: string, userId: string, completedAt: Date): Promise<void>;
-	upsertUserProfile(input: { userId: string; firstName: string; lastName: string }): Promise<void>;
+	readAttemptId(setupLinkId: string): Promise<string | null>;
+	reconcileClaim(input: { setupLinkId: string; accessRequestId: string }): Promise<AccountSetupClaimReconciliation>;
+	completeRecovery(input: {
+		sourceLinkId: string;
+		targetLinkId: string;
+		targetAccessRequestId: string;
+		firstName: string | null;
+		lastName: string | null;
+	}): Promise<{ state: 'completed'; userId: string } | { state: 'support-required' }>;
 }
 
 export interface AccountSetupAuthAdapter {
-	createOrActivateConfirmedUser(input: { email: string; password: string }): Promise<{ userId: string }>;
+	createOrActivateConfirmedUser(input: {
+		email: string;
+		password: string;
+		attemptId: string;
+	}): Promise<{ userId: string }>;
 	signInWithPassword(input: { email: string; password: string }): Promise<void>;
 }
 
 export type AccountSetupCompletionResult =
 	| { status: 'completed'; accessRequestId: string; userId: string }
+	| { status: 'recovered'; userId: string }
+	| { status: 'recovery-available' }
+	| { status: 'retry-password' }
+	| { status: 'fresh-link-required' }
 	| { status: AccountSetupCompletionInvalidStatus }
 	| { status: 'access-request-missing' }
 	| { status: 'access-request-completed' }
@@ -37,32 +57,10 @@ export type AccountSetupCompletionResult =
 	| { status: 'sign-in-failed'; message: string };
 
 const SETUP_FINALIZATION_FAILED_MESSAGE =
-	'Account setup could not finish after the password step. Contact platform support before using another setup link.';
+	'Your password step finished, but account setup could not finish. Check setup status to retry safely.';
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-	if (error instanceof Error && error.message) {
-		return error.message;
-	}
-	if (typeof error === 'object' && error && 'message' in error && typeof error.message === 'string') {
-		return error.message;
-	}
-	return fallback;
-}
-
-function splitLegacyFullName(name: string | null | undefined): { firstName: string; lastName: string } | null {
-	const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
-	if (parts.length < 2) {
-		return null;
-	}
-
-	return {
-		firstName: parts[0],
-		lastName: parts.slice(1).join(' ')
-	};
 }
 
 function resolveProfileName(accessRequest: {
@@ -72,11 +70,9 @@ function resolveProfileName(accessRequest: {
 }): { firstName: string; lastName: string } | null {
 	const firstName = accessRequest.firstName?.trim();
 	const lastName = accessRequest.lastName?.trim();
-	if (firstName && lastName) {
-		return { firstName, lastName };
-	}
-
-	return splitLegacyFullName(accessRequest.name);
+	if (firstName && lastName) return { firstName, lastName };
+	const parts = (accessRequest.name ?? '').trim().split(/\s+/).filter(Boolean);
+	return parts.length < 2 ? null : { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
 async function markClaimFailedSafely(
@@ -86,12 +82,7 @@ async function markClaimFailedSafely(
 ): Promise<boolean> {
 	try {
 		return (await setupLinks.markClaimFailed(linkId, failureReason)).status === 'failed';
-	} catch (error) {
-		console.error('Failed to mark Account Setup Link failure state:', {
-			setupLinkId: linkId,
-			failureReason,
-			error: errorMessage(error, 'Unknown setup failure persistence error')
-		});
+	} catch {
 		return false;
 	}
 }
@@ -99,105 +90,75 @@ async function markClaimFailedSafely(
 export function createAccountSetupCompletionService(store: AccountSetupCompletionStore, auth: AccountSetupAuthAdapter) {
 	const setupLinks = createAccountSetupLinkService(store);
 
-	async function finishClaim(input: {
-		claim: { accessRequestId: string; link: { id: string } };
-		password: string;
-	}): Promise<AccountSetupCompletionResult> {
-		let accessRequest: Awaited<ReturnType<AccountSetupCompletionStore['getAccessRequest']>>;
+	async function finishCommitted(
+		claim: Extract<AccountSetupClaimReconciliation, { state: 'committed' }>,
+		target: { setupLinkId: string; accessRequestId: string },
+		password?: string
+	): Promise<AccountSetupCompletionResult> {
 		try {
-			accessRequest = await store.getAccessRequest(input.claim.accessRequestId);
-		} catch {
-			return { status: 'setup-support-required' };
-		}
-		if (!accessRequest?.email) {
-			const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-missing');
-			return { status: released ? 'access-request-missing' : 'setup-support-required' };
-		}
-
-		if (accessRequest.setupCompletedAt) {
-			const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-completed');
-			return { status: released ? 'access-request-completed' : 'setup-support-required' };
-		}
-
-		if (accessRequest.status !== 'approved') {
-			const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'access-request-not-approved');
-			return { status: released ? 'access-request-not-approved' : 'setup-support-required' };
-		}
-
-		const email = normalizeEmail(accessRequest.email);
-		let userId: string;
-		try {
-			const user = await auth.createOrActivateConfirmedUser({
-				email,
-				password: input.password
+			const source = await store.getAccessRequest(claim.sourceAccessRequestId);
+			if (!source?.email || source.status !== 'approved') return { status: 'setup-support-required' };
+			const name = resolveProfileName(source);
+			const result = await store.completeRecovery({
+				sourceLinkId: claim.sourceLinkId,
+				targetLinkId: target.setupLinkId,
+				targetAccessRequestId: target.accessRequestId,
+				firstName: name?.firstName ?? null,
+				lastName: name?.lastName ?? null
 			});
-			userId = user.userId;
-		} catch (error) {
-			if (error instanceof AccountSetupPasswordRejectedError) {
-				const released = await markClaimFailedSafely(setupLinks, input.claim.link.id, 'account-create-failed');
-				if (released) {
-					return { status: 'account-create-failed', message: PASSWORD_PROVIDER_REJECTION_MESSAGE };
-				}
+			if (result.state !== 'completed' || result.userId !== claim.userId) {
+				return { status: 'setup-support-required' };
 			}
-			return { status: 'setup-support-required' };
-		}
-
-		const completedAt = new Date();
-		const profileName = resolveProfileName(accessRequest);
-		if (profileName) {
+			if (!password) return { status: 'recovered', userId: claim.userId };
 			try {
-				await store.upsertUserProfile({ userId, ...profileName });
+				await auth.signInWithPassword({ email: normalizeEmail(source.email), password });
 			} catch {
 				return {
-					status: 'setup-finalization-failed',
-					message: SETUP_FINALIZATION_FAILED_MESSAGE
+					status: 'sign-in-failed',
+					message: 'Setup finished. Sign in with the password you chose earlier, or reset it if needed.'
 				};
 			}
-		}
-
-		try {
-			await store.markAccessRequestSetupCompleted(input.claim.accessRequestId, userId, completedAt);
+			return { status: 'completed', accessRequestId: claim.sourceAccessRequestId, userId: claim.userId };
 		} catch {
-			return {
-				status: 'setup-finalization-failed',
-				message: SETUP_FINALIZATION_FAILED_MESSAGE
-			};
+			return { status: 'setup-finalization-failed', message: SETUP_FINALIZATION_FAILED_MESSAGE };
 		}
+	}
 
-		let completed: Awaited<ReturnType<typeof setupLinks.markClaimCompleted>>;
-		try {
-			completed = await setupLinks.markClaimCompleted(input.claim.link.id);
-		} catch {
-			return {
-				status: 'setup-finalization-failed',
-				message: SETUP_FINALIZATION_FAILED_MESSAGE
-			};
-		}
-
-		if (completed.status !== 'completed') {
-			return {
-				status: 'setup-finalization-failed',
-				message: SETUP_FINALIZATION_FAILED_MESSAGE
-			};
-		}
-
-		try {
-			await auth.signInWithPassword({ email, password: input.password });
-		} catch (error) {
-			return {
-				status: 'sign-in-failed',
-				message: errorMessage(error, 'Your account was created, but sign-in did not finish. Please sign in manually.')
-			};
-		}
-
-		return {
-			status: 'completed',
-			accessRequestId: input.claim.accessRequestId,
-			userId
-		};
+	async function validateRecoveryTarget(input: { setupLinkId: string; accessRequestId: string }) {
+		const link = await store.getSetupLink(input.setupLinkId);
+		if (!link || link.accessRequestId !== input.accessRequestId) return { status: 'missing' } as const;
+		if (link.usedAt) return { status: 'used' } as const;
+		if (link.failedAt) return { status: 'failed' } as const;
+		if (link.revokedAt) return { status: link.revocationReason === 'replaced' ? 'replaced' : 'revoked' } as const;
+		if (link.expiresAt <= new Date()) return { status: 'expired' } as const;
+		const request = await store.getAccessRequest(input.accessRequestId);
+		if (!request?.email) return { status: 'access-request-missing' } as const;
+		if (request.status !== 'approved') return { status: 'access-request-not-approved' } as const;
+		if (request.setupCompletedAt && !link.claimedAt) return { status: 'access-request-completed' } as const;
+		return null;
 	}
 
 	return {
+		async recoverSetupSession(input: {
+			setupLinkId: string;
+			accessRequestId: string;
+		}): Promise<AccountSetupCompletionResult> {
+			const invalid = await validateRecoveryTarget(input);
+			if (invalid) return invalid;
+			let reconciliation: AccountSetupClaimReconciliation;
+			try {
+				reconciliation = await store.reconcileClaim(input);
+			} catch {
+				return { status: 'setup-support-required' };
+			}
+			if (reconciliation.state === 'committed') return finishCommitted(reconciliation, input);
+			if (reconciliation.state === 'support-required') return { status: 'setup-support-required' };
+			if (reconciliation.state === 'fenced' && reconciliation.sourceLinkId === input.setupLinkId) {
+				return { status: 'fresh-link-required' };
+			}
+			return { status: 'retry-password' };
+		},
+
 		async completeSetupSession(input: {
 			setupLinkId: string;
 			accessRequestId: string;
@@ -209,12 +170,62 @@ export function createAccountSetupCompletionService(store: AccountSetupCompletio
 				claimedAt: new Date()
 			});
 			if (claim.status === 'completed') return { status: 'used' };
+			if (claim.status === 'claimed' || claim.status === 'claim-in-progress') {
+				return { status: 'recovery-available' };
+			}
 			if (claim.status !== 'claim-started') return { status: claim.status };
 
-			return finishClaim({
-				claim,
-				password: input.password
-			});
+			let request: Awaited<ReturnType<AccountSetupCompletionStore['getAccessRequest']>>;
+			try {
+				request = await store.getAccessRequest(claim.accessRequestId);
+			} catch {
+				return { status: 'setup-support-required' };
+			}
+			if (!request?.email) {
+				const released = await markClaimFailedSafely(setupLinks, claim.link.id, 'access-request-missing');
+				return { status: released ? 'access-request-missing' : 'setup-support-required' };
+			}
+			if (request.setupCompletedAt || request.status !== 'approved') {
+				const reason = request.setupCompletedAt ? 'access-request-completed' : 'access-request-not-approved';
+				const released = await markClaimFailedSafely(setupLinks, claim.link.id, reason);
+				return { status: released ? reason : 'setup-support-required' };
+			}
+
+			let attemptId: string | null;
+			try {
+				attemptId = await store.readAttemptId(claim.link.id);
+			} catch {
+				return { status: 'setup-support-required' };
+			}
+			if (!attemptId) return { status: 'setup-support-required' };
+
+			let providerRejected = false;
+			let providerIdentityMismatch = false;
+			let providerSucceeded = false;
+			try {
+				await auth.createOrActivateConfirmedUser({
+					email: normalizeEmail(request.email),
+					password: input.password,
+					attemptId
+				});
+				providerSucceeded = true;
+			} catch (error) {
+				providerRejected = error instanceof AccountSetupPasswordRejectedError;
+				providerIdentityMismatch = error instanceof AccountSetupIdentityMismatchError;
+			}
+
+			let reconciliation: AccountSetupClaimReconciliation;
+			try {
+				reconciliation = await store.reconcileClaim(input);
+			} catch {
+				return { status: 'setup-support-required' };
+			}
+			if (reconciliation.state === 'committed') return finishCommitted(reconciliation, input, input.password);
+			if (reconciliation.state !== 'fenced') return { status: 'setup-support-required' };
+			if (providerSucceeded) return { status: 'setup-support-required' };
+			if (providerIdentityMismatch) return { status: 'setup-support-required' };
+			if (providerRejected) return { status: 'account-create-failed', message: PASSWORD_PROVIDER_REJECTION_MESSAGE };
+			return { status: 'fresh-link-required' };
 		}
 	};
 }

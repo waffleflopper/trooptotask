@@ -26,6 +26,7 @@ PG_PROVE_IMAGE = "public.ecr.aws/supabase/pg_prove:3.36"
 ACCOUNT_SETUP_UPGRADE_MIGRATIONS = (
     "20260923000100_guard_account_setup_claims.sql",
     "20260923000200_release_account_setup_claim_for_staff.sql",
+    "20260926000100_reconcile_account_setup_attempts.sql",
 )
 
 
@@ -240,7 +241,25 @@ def validate(repository, *, staged_upgrade=False):
                 PG_PROVE_IMAGE, "pg_prove", "--verbose",
                 f"/tests/migration-tests/{migration_test}",
             ], workdir)
-        print("Fresh replay, SQL contracts and migration regression tests passed.", flush=True)
+        # Exercise actual GoTrue admin calls after historical migration
+        # reapplication tests. The provider probe persists new failure reasons
+        # that older migrations correctly did not know about.
+        status_output = execute(["supabase", "status", "-o", "json"], workdir, quiet=True).stdout
+        # CLI notices can precede or follow the JSON because quiet mode
+        # combines stdout and stderr; never print the credential-bearing body.
+        json_start = status_output.find("{")
+        if json_start < 0:
+            raise RuntimeError("Disposable Supabase status contained no JSON")
+        status, _ = json.JSONDecoder().raw_decode(status_output[json_start:])
+        provider_environment = local_docker_environment(repository)
+        provider_environment.update({
+            "T2T_PROBE_API_URL": status["API_URL"],
+            "T2T_PROBE_SERVICE_KEY": status["SERVICE_ROLE_KEY"],
+            "T2T_PROBE_ANON_KEY": status["ANON_KEY"],
+        })
+        run(["node", str(repository / "scripts/ci/account_setup_provider_probe.mjs")],
+            workdir, environment=provider_environment)
+        print("Fresh replay, SQL contracts, migration regressions and provider probe passed.", flush=True)
     finally:
         for sock in held_ports:
             sock.close()

@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccountSetupLinkAccessRequest, AccountSetupLinkRecord } from './accountSetupLinks.server';
 import {
+	AccountSetupIdentityMismatchError,
 	AccountSetupPasswordRejectedError,
 	createAccountSetupCompletionService,
 	type AccountSetupAuthAdapter,
+	type AccountSetupClaimReconciliation,
 	type AccountSetupCompletionStore
 } from './accountSetupCompletion.server';
 import { createAccountSetupLinkService } from './accountSetupLinks.server';
-import { createSupabaseAccountSetupAuthAdapter } from './accountSetupCompletionSupabase.server';
 import { createAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
 import { PASSWORD_PROVIDER_REJECTION_MESSAGE } from './passwordPolicy';
 
@@ -21,6 +22,7 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 	failMarkFailed?: boolean;
 	revokeBeforeMarkUsed?: boolean;
 	onClaim?: () => void;
+	recoveryState?: AccountSetupClaimReconciliation;
 } {
 	const links: AccountSetupLinkRecord[] = [];
 	const completions: Array<{ accessRequestId: string; userId: string }> = [];
@@ -116,17 +118,47 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 		async countActiveLinks() {
 			return 0;
 		},
-		async markAccessRequestSetupCompleted(accessRequestId, userId) {
-			if (this.failCompletion) {
-				throw new Error('completion write failed');
-			}
-			completions.push({ accessRequestId, userId });
+		async readAttemptId() {
+			return 'admitted-attempt-1';
 		},
-		async upsertUserProfile(input) {
-			if (this.failProfile) {
-				throw new Error('profile write failed');
+		async reconcileClaim() {
+			const recoveryState = this.recoveryState;
+			if (recoveryState?.state === 'fenced') {
+				const link = links.find((candidate) => candidate.id === recoveryState.sourceLinkId);
+				if (link) {
+					link.failedAt = new Date();
+					link.failureReason = 'reconciled-no-write';
+				}
 			}
-			profiles.push(input);
+			if (recoveryState) return recoveryState;
+			const held = links.find((link) => link.claimedAt && !link.usedAt && !link.failedAt);
+			return held
+				? {
+						state: 'committed' as const,
+						sourceLinkId: held.id,
+						sourceAccessRequestId: held.accessRequestId,
+						userId: 'user-123'
+					}
+				: { state: 'clear' as const };
+		},
+		async completeRecovery(input) {
+			if (this.failCompletion) throw new Error('completion write failed');
+			if (this.failMarkCompleted) throw new Error('link completion write failed');
+			const source = links.find((candidate) => candidate.id === input.sourceLinkId);
+			const target = links.find((candidate) => candidate.id === input.targetLinkId);
+			if (this.revokeBeforeMarkUsed && source) source.revokedAt = new Date();
+			if (source?.revokedAt && input.sourceLinkId === input.targetLinkId) return { state: 'support-required' as const };
+			if (this.failProfile) throw new Error('profile write failed');
+			if (input.firstName && input.lastName && !profiles.some((profile) => profile.userId === 'user-123')) {
+				profiles.push({ userId: 'user-123', firstName: input.firstName, lastName: input.lastName });
+			}
+			if (source) source.usedAt = new Date();
+			if (target) target.usedAt = new Date();
+			if (source) completions.push({ accessRequestId: source.accessRequestId, userId: 'user-123' });
+			if (target && target.accessRequestId !== source?.accessRequestId) {
+				completions.push({ accessRequestId: target.accessRequestId, userId: 'user-123' });
+			}
+			return { state: 'completed' as const, userId: 'user-123' };
 		}
 	};
 }
@@ -158,6 +190,66 @@ const approvedRequest: AccountSetupLinkAccessRequest = {
 };
 
 describe('Account Setup completion', () => {
+	it('finishes a witnessed prior Auth write after a lost response without another password mutation', async () => {
+		const store = makeStore({ ...approvedRequest });
+		await addSetupToken(store);
+		store.links[0].claimedAt = new Date('2026-05-18T11:59:00.000Z');
+		store.recoveryState = {
+			state: 'committed',
+			sourceLinkId: 'link-1',
+			sourceAccessRequestId: 'request-1',
+			userId: 'user-123'
+		};
+		const auth = makeAuth();
+		const service = createAccountSetupCompletionService(store, auth);
+
+		const result = await service.recoverSetupSession({ setupLinkId: 'link-1', accessRequestId: 'request-1' });
+
+		expect(result).toEqual({ status: 'recovered', userId: 'user-123' });
+		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
+		expect(store.profiles).toEqual([{ userId: 'user-123', firstName: 'Person', lastName: 'Example' }]);
+		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+		expect(store.links[0].usedAt).toBeInstanceOf(Date);
+	});
+
+	it('finishes both approved Access Requests when a different setup link recovers the same email', async () => {
+		const store = makeStore({ ...approvedRequest });
+		await addSetupToken(store);
+		const original = store.links[0];
+		original.claimedAt = new Date('2026-05-18T11:59:00.000Z');
+		const target = await store.insertSetupLink({
+			accessRequestId: 'request-2',
+			tokenHash: 'different-request-token-hash',
+			expiresAt: new Date('2026-06-01T12:00:00.000Z'),
+			createdAt: new Date('2026-05-18T12:00:00.000Z')
+		});
+		store.getAccessRequest = vi.fn(async (id) =>
+			id === 'request-1' ? { ...approvedRequest } : id === 'request-2' ? { ...approvedRequest, id } : null
+		);
+		store.recoveryState = {
+			state: 'committed',
+			sourceLinkId: original.id,
+			sourceAccessRequestId: 'request-1',
+			userId: 'user-123'
+		};
+		const auth = makeAuth();
+
+		expect(
+			await createAccountSetupCompletionService(store, auth).recoverSetupSession({
+				setupLinkId: target.id,
+				accessRequestId: 'request-2'
+			})
+		).toEqual({ status: 'recovered', userId: 'user-123' });
+		expect(store.completions).toEqual([
+			{ accessRequestId: 'request-1', userId: 'user-123' },
+			{ accessRequestId: 'request-2', userId: 'user-123' }
+		]);
+		expect(original.usedAt).toBeInstanceOf(Date);
+		expect(target.usedAt).toBeInstanceOf(Date);
+		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
+	});
+
 	beforeEach(() => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-05-18T12:00:00.000Z'));
@@ -182,7 +274,8 @@ describe('Account Setup completion', () => {
 		expect(result).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
 		expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledWith({
 			email: 'person@example.com',
-			password: 'ValidPassword123!'
+			password: 'ValidPassword123!',
+			attemptId: 'admitted-attempt-1'
 		});
 		expect(auth.signInWithPassword).toHaveBeenCalledWith({
 			email: 'person@example.com',
@@ -210,7 +303,7 @@ describe('Account Setup completion', () => {
 		await started.promise;
 		try {
 			expect(await service.completeSetupSession({ ...input, password: 'LosingPassword123!' })).toEqual({
-				status: 'claimed'
+				status: 'recovery-available'
 			});
 			expect(store.completions).toEqual([]);
 			expect(auth.signInWithPassword).not.toHaveBeenCalled();
@@ -221,7 +314,8 @@ describe('Account Setup completion', () => {
 		expect(await service.completeSetupSession(input)).toEqual({ status: 'used' });
 		expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledExactlyOnceWith({
 			email: 'person@example.com',
-			password: 'WinnerPassword123!'
+			password: 'WinnerPassword123!',
+			attemptId: 'admitted-attempt-1'
 		});
 		expect(auth.signInWithPassword).toHaveBeenCalledExactlyOnceWith({
 			email: 'person@example.com',
@@ -255,7 +349,8 @@ describe('Account Setup completion', () => {
 		expect(store.links[1].usedAt).toEqual(new Date('2026-05-18T12:00:00.000Z'));
 		expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledExactlyOnceWith({
 			email: 'person@example.com',
-			password: 'NewerPassword123!'
+			password: 'NewerPassword123!',
+			attemptId: 'admitted-attempt-1'
 		});
 	});
 
@@ -310,13 +405,9 @@ describe('Account Setup completion', () => {
 			password: 'ValidPassword123!'
 		});
 
-		expect(result).toEqual({
-			status: 'setup-finalization-failed',
-			message:
-				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
-		});
+		expect(result).toEqual({ status: 'setup-support-required' });
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
-		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+		expect(store.completions).toEqual([]);
 	});
 
 	it('returns missing-link state without creating a User Account', async () => {
@@ -357,10 +448,11 @@ describe('Account Setup completion', () => {
 	});
 
 	it.each(['Supabase unavailable', 'Password should be at least 12 characters'])(
-		'holds the setup claim when the provider outcome is unknown: %s',
+		'fences a witnessed no-write after an uncertain provider response: %s',
 		async (providerMessage) => {
 			const store = makeStore(approvedRequest);
 			await addSetupToken(store);
+			store.recoveryState = { state: 'fenced', sourceLinkId: 'link-1', sourceAccessRequestId: 'request-1' };
 			const auth = makeAuth({
 				createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new Error(providerMessage))
 			});
@@ -372,10 +464,10 @@ describe('Account Setup completion', () => {
 				password: 'ValidPassword123!'
 			});
 
-			expect(result).toEqual({ status: 'setup-support-required' });
+			expect(result).toEqual({ status: 'fresh-link-required' });
 			expect(store.links[0].claimedAt).toBeInstanceOf(Date);
-			expect(store.links[0].failedAt).toBeNull();
-			expect(store.links[0].failureReason).toBeNull();
+			expect(store.links[0].failedAt).toBeInstanceOf(Date);
+			expect(store.links[0].failureReason).toBe('reconciled-no-write');
 			expect(store.links[0].usedAt).toBeNull();
 		}
 	);
@@ -383,25 +475,12 @@ describe('Account Setup completion', () => {
 	it('explains a provider password rejection and completes a fresh setup with a different password', async () => {
 		const store = makeStore(approvedRequest);
 		await addSetupToken(store);
-		const createUser = vi
+		store.recoveryState = { state: 'fenced', sourceLinkId: 'link-1', sourceAccessRequestId: 'request-1' };
+		const createOrActivateConfirmedUser = vi
 			.fn()
-			.mockResolvedValueOnce({
-				data: { user: null },
-				error: {
-					code: 'weak_password',
-					message: 'Password has appeared in a data breach.',
-					status: 422
-				}
-			})
-			.mockResolvedValueOnce({ data: { user: { id: 'user-123' } }, error: null });
-		const signInWithPassword = vi.fn().mockResolvedValue({ error: null });
-		const auth = createSupabaseAccountSetupAuthAdapter(
-			{
-				auth: { admin: { createUser } },
-				from: () => ({ upsert: async () => ({ error: null }) })
-			} as never,
-			{ auth: { signInWithPassword } } as never
-		);
+			.mockRejectedValueOnce(new AccountSetupPasswordRejectedError())
+			.mockResolvedValue({ userId: 'user-123' });
+		const auth = makeAuth({ createOrActivateConfirmedUser });
 		const service = createAccountSetupCompletionService(store, auth);
 		const flow = createAccountSetupRouteFlow({
 			store: () => store,
@@ -424,11 +503,12 @@ describe('Account Setup completion', () => {
 			error: expect.stringContaining(PASSWORD_PROVIDER_REJECTION_MESSAGE)
 		});
 		expect(store.completions).toEqual([]);
-		expect(signInWithPassword).not.toHaveBeenCalled();
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].failedAt).toBeInstanceOf(Date);
 		expect(await flow.completeSetup(input)).toMatchObject({ type: 'failure' });
-		expect(createUser).toHaveBeenCalledTimes(1);
+		expect(createOrActivateConfirmedUser).toHaveBeenCalledTimes(1);
 
+		store.recoveryState = undefined;
 		await addSetupToken(store, 'fresh-setup-token');
 		expect(
 			await flow.completeSetup({
@@ -440,10 +520,30 @@ describe('Account Setup completion', () => {
 		).toEqual({ type: 'redirect', path: '/dashboard', clearSession: true });
 		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
 		expect(store.links[1].usedAt).toBeInstanceOf(Date);
-		expect(signInWithPassword).toHaveBeenCalledWith({
+		expect(auth.signInWithPassword).toHaveBeenCalledWith({
 			email: 'person@example.com',
 			password: 'DifferentSynthetic456!'
 		});
+	});
+
+	it('requires support when Auth reports an existing user missing from the email identity index', async () => {
+		const store = makeStore({ ...approvedRequest });
+		await addSetupToken(store);
+		store.recoveryState = { state: 'fenced', sourceLinkId: 'link-1', sourceAccessRequestId: 'request-1' };
+		const auth = makeAuth({
+			createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new AccountSetupIdentityMismatchError())
+		});
+		const service = createAccountSetupCompletionService(store, auth);
+
+		expect(
+			await service.completeSetupSession({
+				setupLinkId: 'link-1',
+				accessRequestId: 'request-1',
+				password: 'ValidPassword123!'
+			})
+		).toEqual({ status: 'setup-support-required' });
+		expect(store.completions).toEqual([]);
+		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 	});
 
 	it('marks the claimed setup link failed when approval is withdrawn after claim starts', async () => {
@@ -489,11 +589,10 @@ describe('Account Setup completion', () => {
 		expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 	});
 
-	it('keeps a rejected-password claim held when release persistence fails', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+	it('keeps a rejected-password claim held when reconciliation persistence fails', async () => {
 		const store = makeStore(approvedRequest);
-		store.failMarkFailed = true;
 		await addSetupToken(store);
+		store.reconcileClaim = vi.fn().mockRejectedValue(new Error('database unavailable'));
 		const auth = makeAuth({
 			createOrActivateConfirmedUser: vi.fn().mockRejectedValue(new AccountSetupPasswordRejectedError())
 		});
@@ -509,11 +608,6 @@ describe('Account Setup completion', () => {
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
 		expect(store.links[0].failedAt).toBeNull();
 		expect(store.links[0].usedAt).toBeNull();
-		expect(consoleError).toHaveBeenCalledWith(
-			'Failed to mark Account Setup Link failure state:',
-			expect.objectContaining({ setupLinkId: 'link-1', failureReason: 'account-create-failed' })
-		);
-		consoleError.mockRestore();
 	});
 
 	it('keeps the claim held when profile setup fails after Auth', async () => {
@@ -531,8 +625,7 @@ describe('Account Setup completion', () => {
 
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
-			message:
-				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
+			message: 'Your password step finished, but account setup could not finish. Check setup status to retry safely.'
 		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
@@ -541,6 +634,37 @@ describe('Account Setup completion', () => {
 		expect(store.links[0].usedAt).toBeNull();
 		expect(store.completions).toEqual([]);
 	});
+
+	it.each(['profile', 'completion'] as const)(
+		'retries %s finalization after a witnessed Auth write without changing the password again',
+		async (failedStep) => {
+			const store = makeStore({ ...approvedRequest });
+			await addSetupToken(store);
+			if (failedStep === 'profile') store.failProfile = true;
+			else store.failCompletion = true;
+			const auth = makeAuth();
+			const service = createAccountSetupCompletionService(store, auth);
+
+			expect(
+				await service.completeSetupSession({
+					setupLinkId: 'link-1',
+					accessRequestId: 'request-1',
+					password: 'ValidPassword123!'
+				})
+			).toMatchObject({ status: 'setup-finalization-failed' });
+			store.failProfile = false;
+			store.failCompletion = false;
+
+			expect(await service.recoverSetupSession({ setupLinkId: 'link-1', accessRequestId: 'request-1' })).toEqual({
+				status: 'recovered',
+				userId: 'user-123'
+			});
+			expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledTimes(1);
+			expect(auth.signInWithPassword).not.toHaveBeenCalled();
+			expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+			expect(store.links[0].usedAt).toBeInstanceOf(Date);
+		}
+	);
 
 	it('keeps the claim held when completion tracking fails after Auth', async () => {
 		const store = makeStore(approvedRequest);
@@ -557,8 +681,7 @@ describe('Account Setup completion', () => {
 
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
-			message:
-				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
+			message: 'Your password step finished, but account setup could not finish. Check setup status to retry safely.'
 		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
@@ -582,15 +705,14 @@ describe('Account Setup completion', () => {
 
 		expect(result).toEqual({
 			status: 'setup-finalization-failed',
-			message:
-				'Account setup could not finish after the password step. Contact platform support before using another setup link.'
+			message: 'Your password step finished, but account setup could not finish. Check setup status to retry safely.'
 		});
 		expect(auth.signInWithPassword).not.toHaveBeenCalled();
 		expect(store.links[0].claimedAt).toBeInstanceOf(Date);
 		expect(store.links[0].failedAt).toBeNull();
 		expect(store.links[0].failureReason).toBeNull();
 		expect(store.links[0].usedAt).toBeNull();
-		expect(store.completions).toEqual([{ accessRequestId: 'request-1', userId: 'user-123' }]);
+		expect(store.completions).toEqual([]);
 	});
 
 	it('leaves completed setup durable when automatic sign-in fails and returns manual sign-in guidance', async () => {
@@ -609,7 +731,7 @@ describe('Account Setup completion', () => {
 
 		expect(result).toEqual({
 			status: 'sign-in-failed',
-			message: 'Invalid login credentials'
+			message: 'Setup finished. Sign in with the password you chose earlier, or reset it if needed.'
 		});
 		expect(store.links[0].usedAt).toBeInstanceOf(Date);
 		expect(store.links[0].failedAt).toBeNull();
@@ -658,7 +780,8 @@ describe('Account Setup completion', () => {
 			expect(result).toEqual({ status: 'completed', accessRequestId: 'request-1', userId: 'user-123' });
 			expect(auth.createOrActivateConfirmedUser).toHaveBeenCalledWith({
 				email: 'person@example.com',
-				password: 'ValidPassword123!'
+				password: 'ValidPassword123!',
+				attemptId: 'admitted-attempt-1'
 			});
 			expect(store.links[0].claimedAt).toBeInstanceOf(Date);
 			expect(store.links[0].usedAt).toBeInstanceOf(Date);
@@ -699,7 +822,7 @@ describe('Account Setup completion', () => {
 				password: 'ValidPassword123!'
 			});
 
-			expect(result).toEqual({ status: 'claimed' });
+			expect(result).toEqual({ status: 'recovery-available' });
 			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 			expect(store.completions).toEqual([]);
 		});
@@ -717,7 +840,7 @@ describe('Account Setup completion', () => {
 				password: 'ValidPassword123!'
 			});
 
-			expect(result).toEqual({ status: 'claim-in-progress' });
+			expect(result).toEqual({ status: 'recovery-available' });
 			expect(claim).toHaveBeenCalledOnce();
 			expect(auth.createOrActivateConfirmedUser).not.toHaveBeenCalled();
 			expect(store.links[0].claimedAt).toBeNull();

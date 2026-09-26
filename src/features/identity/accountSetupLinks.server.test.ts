@@ -213,6 +213,32 @@ describe('Account Setup Links', () => {
 		expect(store.links[1].revokedAt).toBeNull();
 	});
 
+	it('keeps a live claimed link available as recovery proof but denies expired or revoked claims', async () => {
+		const request: AccountSetupLinkAccessRequest = { ...approvedRequest };
+		const store = makeStore([request]);
+		const service = createAccountSetupLinkService(store, {
+			now: () => new Date('2026-05-18T12:00:00.000Z'),
+			generateToken: () => 'recovery-token'
+		});
+		await service.createForAccessRequest('request-1');
+		store.links[0].claimedAt = new Date('2026-05-18T11:59:00.000Z');
+
+		expect(await service.validateToken('recovery-token')).toMatchObject({
+			status: 'claimed',
+			accessRequestId: 'request-1',
+			link: { id: 'link-1' }
+		});
+		request.setupCompletedAt = new Date('2026-05-18T12:00:00.000Z');
+		expect(await service.validateToken('recovery-token')).toMatchObject({ status: 'claimed' });
+		store.links[0].revokedAt = new Date('2026-05-18T12:00:00.000Z');
+		store.links[0].revocationReason = 'replaced';
+		expect(await service.validateToken('recovery-token')).toEqual({ status: 'replaced' });
+		store.links[0].revokedAt = null;
+		store.links[0].revocationReason = null;
+		store.links[0].expiresAt = new Date('2026-05-18T12:00:00.000Z');
+		expect(await service.validateToken('recovery-token')).toEqual({ status: 'expired' });
+	});
+
 	it('returns clear validation outcomes for valid, expired, revoked, replaced, claimed, failed, completed, and missing tokens', async () => {
 		const store = makeStore([approvedRequest]);
 		const service = createAccountSetupLinkService(store, {
@@ -237,7 +263,10 @@ describe('Account Setup Links', () => {
 		store.links[0].revokedAt = null;
 		store.links[0].revocationReason = null;
 		store.links[0].claimedAt = new Date('2026-05-18T13:30:00.000Z');
-		expect(await service.validateToken('valid-token')).toEqual({ status: 'claimed' });
+		expect(await service.validateToken('valid-token')).toMatchObject({
+			status: 'claimed',
+			accessRequestId: 'request-1'
+		});
 
 		store.links[0].failedAt = new Date('2026-05-18T13:45:00.000Z');
 		store.links[0].failureReason = 'account-create-failed';

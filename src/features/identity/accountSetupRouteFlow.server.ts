@@ -22,7 +22,7 @@ import { PASSWORD_PROVIDER_REJECTION_MESSAGE, validatePassword } from './passwor
 type AccountSetupLinkService = Pick<ReturnType<typeof createAccountSetupLinkService>, 'validateToken'>;
 type AccountSetupCompletionService = Pick<
 	ReturnType<typeof createAccountSetupCompletionService>,
-	'completeSetupSession'
+	'completeSetupSession' | 'recoverSetupSession'
 >;
 type AccountSetupAudit = IdentityAuditWriter;
 type AccountSetupRateLimitCheck = typeof checkAccountSetupCompletionRateLimit;
@@ -36,10 +36,17 @@ export type AccountSetupLoadResult =
 	| { state: 'redirect-authenticated'; path: string }
 	| { state: 'redirect-setup'; session: AccountSetupSession; path: string }
 	| { state: 'valid'; email: string }
+	| { state: 'recovery-available'; email: string }
 	| { state: AccountSetupPageState; message: string; clearSession?: true };
 
 export type AccountSetupCompletionResult =
 	| { type: 'redirect'; path: string; clearSession: true }
+	| {
+			type: 'progress';
+			state: 'recovery-available' | 'recovered' | 'retry-password' | 'fresh-link-required';
+			message: string;
+			clearSession?: true;
+	  }
 	| { type: 'failure'; status: 400 | 409 | 429 | 500; error: string; clearSession?: true; supportRequired?: true };
 
 interface AccountSetupLoadInput {
@@ -54,6 +61,12 @@ interface AccountSetupCompletionInput {
 	setupSession: AccountSetupSession | null;
 	password: string;
 	confirmPassword: string;
+	clientIp: string;
+	userAgent: string;
+}
+
+interface AccountSetupRecoveryInput {
+	setupSession: AccountSetupSession | null;
 	clientIp: string;
 	userAgent: string;
 }
@@ -97,9 +110,9 @@ function tokenStateMessage(state: string): string {
 function getSetupLinkState(link: AccountSetupLinkRecord, now: Date): string {
 	if (link.usedAt) return 'used';
 	if (link.failedAt) return 'failed';
-	if (link.claimedAt) return 'claimed';
 	if (link.revokedAt) return link.revocationReason === 'replaced' ? 'replaced' : 'revoked';
 	if (link.expiresAt <= now) return 'expired';
+	if (link.claimedAt) return 'claimed';
 	return 'valid';
 }
 
@@ -113,6 +126,34 @@ function setupSupportMessage(accessRequestId: string): string {
 
 function manualSignInMessage(): string {
 	return 'Your account was created successfully, but automatic sign-in could not finish. Please sign in manually.';
+}
+
+function recoveryProgress(
+	status: 'recovery-available' | 'recovered' | 'retry-password' | 'fresh-link-required'
+): Extract<AccountSetupCompletionResult, { type: 'progress' }> {
+	switch (status) {
+		case 'recovery-available':
+			return { type: 'progress', state: status, message: 'Check setup status to continue safely.' };
+		case 'recovered':
+			return {
+				type: 'progress',
+				state: status,
+				message: 'Account setup is complete. Sign in with the password you chose, or reset it if needed.'
+			};
+		case 'retry-password':
+			return {
+				type: 'progress',
+				state: status,
+				message: 'This setup link is ready. You can choose a password now.'
+			};
+		case 'fresh-link-required':
+			return {
+				type: 'progress',
+				state: status,
+				message: 'The earlier password attempt did not finish. Request a fresh setup link to try again.',
+				clearSession: true
+			};
+	}
 }
 
 function auditAccountSetupClaimed(
@@ -217,7 +258,7 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 
 			if (input.rawToken) {
 				const validation = await dependencies.setupLinks().validateToken(input.rawToken);
-				if (validation.status !== 'valid') {
+				if (validation.status !== 'valid' && validation.status !== 'claimed') {
 					return {
 						state: validation.status,
 						message: tokenStateMessage(validation.status),
@@ -234,7 +275,7 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 					};
 				}
 
-				if (accessRequest.setupCompletedAt) {
+				if (accessRequest.setupCompletedAt && validation.status !== 'claimed') {
 					return {
 						state: 'used',
 						message: tokenStateMessage('access-request-completed'),
@@ -277,14 +318,6 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 				};
 			}
 
-			if (accessRequest.setupCompletedAt) {
-				return {
-					state: 'used',
-					message: tokenStateMessage('access-request-completed'),
-					clearSession: true
-				};
-			}
-
 			if (accessRequest.status !== 'approved') {
 				return {
 					state: 'access-request-not-approved',
@@ -303,6 +336,18 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 			}
 
 			const setupLinkState = getSetupLinkState(setupLink, now());
+			if (setupLinkState === 'claimed') {
+				return { state: 'recovery-available', email: accessRequest.email };
+			}
+
+			if (accessRequest.setupCompletedAt) {
+				return {
+					state: 'used',
+					message: tokenStateMessage('access-request-completed'),
+					clearSession: true
+				};
+			}
+
 			if (setupLinkState !== 'valid') {
 				return {
 					state: setupLinkState as AccountSetupPageState,
@@ -380,6 +425,14 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 				clientIp: input.clientIp,
 				userAgent: input.userAgent
 			};
+			if (
+				completion.status === 'recovery-available' ||
+				completion.status === 'recovered' ||
+				completion.status === 'retry-password' ||
+				completion.status === 'fresh-link-required'
+			) {
+				return recoveryProgress(completion.status);
+			}
 			const postClaimOutcome =
 				(completion.status === 'completed' && 'userId' in completion) ||
 				completion.status === 'account-create-failed' ||
@@ -434,13 +487,7 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 					...setupAuditContext,
 					failureCategory: 'setup-finalization-failed'
 				});
-				return {
-					type: 'failure',
-					status: 500,
-					error: setupSupportMessage(setupAuditContext.accessRequestId),
-					clearSession: true,
-					supportRequired: true
-				};
+				return recoveryProgress('recovery-available');
 			}
 
 			if (completion.status === 'sign-in-failed') {
@@ -475,6 +522,76 @@ export function createAccountSetupRouteFlow(dependencies: AccountSetupRouteFlowD
 				error: tokenStateMessage(completion.status),
 				clearSession: true
 			};
+		},
+
+		async recoverSetup(input: AccountSetupRecoveryInput): Promise<AccountSetupCompletionResult> {
+			if (!input.setupSession) {
+				return { type: 'failure', status: 400, error: tokenStateMessage('session-expired'), clearSession: true };
+			}
+
+			const accessRequest = await dependencies.store().getAccessRequest(input.setupSession.accessRequestId);
+			const rateLimit = await checkCompletionRateLimit({
+				setupLinkId: input.setupSession.setupLinkId,
+				accessRequestId: input.setupSession.accessRequestId,
+				email: accessRequest?.email ?? null,
+				ip: input.clientIp
+			});
+			if (rateLimit.limited) {
+				await audit(
+					{
+						action: 'account_setup.completion_rate_limited',
+						resourceType: 'account_setup_link',
+						resourceId: input.setupSession.setupLinkId,
+						severity: 'warning',
+						details: {
+							accessRequestId: input.setupSession.accessRequestId,
+							rateLimit: durableRateLimitAuditDetails(rateLimit)
+						}
+					},
+					{ userId: null, ip: input.clientIp, userAgent: input.userAgent }
+				);
+				return { type: 'failure', status: 429, error: ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE };
+			}
+
+			const recovery = await dependencies.completion().recoverSetupSession({
+				setupLinkId: input.setupSession.setupLinkId,
+				accessRequestId: input.setupSession.accessRequestId
+			});
+			if (recovery.status === 'recovered') {
+				await auditAccountSetupCompleted(audit, {
+					setupLinkId: input.setupSession.setupLinkId,
+					accessRequestId: input.setupSession.accessRequestId,
+					userId: recovery.userId,
+					clientIp: input.clientIp,
+					userAgent: input.userAgent
+				});
+				return recoveryProgress('recovered');
+			}
+			if (
+				recovery.status === 'recovery-available' ||
+				recovery.status === 'retry-password' ||
+				recovery.status === 'fresh-link-required'
+			) {
+				return recoveryProgress(recovery.status);
+			}
+			if (recovery.status === 'setup-finalization-failed') return recoveryProgress('recovery-available');
+			if (recovery.status === 'setup-support-required') {
+				await auditAccountSetupFailed(audit, {
+					setupLinkId: input.setupSession.setupLinkId,
+					accessRequestId: input.setupSession.accessRequestId,
+					failureCategory: 'reconciliation-unverifiable',
+					clientIp: input.clientIp,
+					userAgent: input.userAgent
+				});
+				return {
+					type: 'failure',
+					status: 500,
+					error: setupSupportMessage(input.setupSession.accessRequestId),
+					clearSession: true,
+					supportRequired: true
+				};
+			}
+			return { type: 'failure', status: 400, error: tokenStateMessage(recovery.status), clearSession: true };
 		}
 	};
 }

@@ -14,16 +14,29 @@
 	let password = $state('');
 	let confirmPassword = $state('');
 	let loading = $state(false);
+	let checkingStatus = $state(false);
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
 	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
+	const recoveryState = $derived(
+		data.state === 'valid' ||
+			data.state === 'recovery-available' ||
+			form?.recoveryState === 'recovered' ||
+			form?.recoveryState === 'fresh-link-required'
+			? (form?.recoveryState ?? data.state)
+			: data.state
+	);
+	const statusCheckAvailable = $derived(recoveryState === 'recovery-available');
+	const recovered = $derived(recoveryState === 'recovered');
+	const setupFinished = $derived(recovered || recoveryState === 'used' || recoveryState === 'completed');
+	const showPasswordForm = $derived(recoveryState === 'valid' || recoveryState === 'retry-password');
 	const supportRequired = $derived(
 		data.state === 'claimed' || data.state === 'support-required' || form?.supportRequired === true
 	);
 	const canSubmit = $derived(
-		data.state === 'valid' && !supportRequired && requirements.valid && passwordsMatch && !loading
+		showPasswordForm && !supportRequired && requirements.valid && passwordsMatch && !loading && !checkingStatus
 	);
 </script>
 
@@ -38,38 +51,97 @@
 	panelEyebrow="Account setup"
 	panelTitle={supportRequired
 		? 'Setup needs support'
-		: data.state === 'valid'
-			? 'Choose your password'
-			: 'Setup link unavailable'}
+		: statusCheckAvailable
+			? 'Check your setup status'
+			: setupFinished
+				? 'Account setup complete'
+				: showPasswordForm
+					? 'Choose your password'
+					: 'Setup link unavailable'}
 	panelDescription={supportRequired
 		? 'Contact platform support to resolve this setup attempt.'
-		: data.state === 'valid'
-			? `This setup link is approved for ${data.email}.`
-			: 'Request a fresh setup link if your approval is still eligible.'}
+		: statusCheckAvailable
+			? 'Your earlier setup attempt may still be finishing. Check its status before choosing another password.'
+			: setupFinished
+				? 'Continue by signing in with the password you chose.'
+				: showPasswordForm && 'email' in data
+					? `This setup link is approved for ${data.email}.`
+					: 'Request a fresh setup link if your approval is still eligible.'}
 	supportLabel="Account setup"
 	supportTitle="One link, one account."
 	supportDescription="Account Setup Links activate only your User Account. Organization membership is handled separately inside TroopToTask."
 	supportPoints={supportRequired
 		? ['A fresh setup link cannot finish while this attempt needs platform support.']
-		: [
-				'Choose your own password; TroopToTask never emails temporary passwords.',
-				'Use the newest setup email if you requested more than one link.',
-				'Expired setup links can be renewed from the fresh-link request page.'
-			]}
+		: statusCheckAvailable
+			? [
+					'Check setup status before trying another password.',
+					'A fresh link alone cannot resolve an unfinished setup attempt.'
+				]
+			: setupFinished
+				? ['Sign in with the password you chose earlier.', 'Reset your password if you no longer know it.']
+				: [
+						'Choose your own password; TroopToTask never emails temporary passwords.',
+						'Use the newest setup email if you requested more than one link.',
+						'An expired link can be renewed, but a new link does not resolve an unfinished setup attempt.'
+					]}
 >
 	<div class="flex flex-col gap-5">
-		{#if data.state !== 'valid' || supportRequired}
-			<AuthNotice tone="error" title={supportRequired ? 'Setup needs support' : 'Setup link unavailable'} centered>
-				<p>{form?.error ?? data.message}</p>
-				{#if !supportRequired}<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>{/if}
+		{#if supportRequired}
+			<AuthNotice tone="error" title="Setup needs support" centered>
+				<p>
+					{form?.error ??
+						('message' in data ? data.message : 'Contact platform support to resolve this setup attempt.')}
+				</p>
+			</AuthNotice>
+		{:else if statusCheckAvailable}
+			{#if form?.error}<AuthNotice tone="error" message={form.error} />{/if}
+			<AuthNotice
+				tone="info"
+				title="Setup status"
+				message={form?.message ?? 'Check whether your earlier setup finished before trying another password.'}
+			/>
+			<form
+				method="POST"
+				action="?/recover"
+				use:enhance={() => {
+					loading = true;
+					return async ({ update }) => {
+						loading = false;
+						await update();
+					};
+				}}
+			>
+				<Button type="submit" disabled={loading} class="w-full">
+					{#if loading}<Spinner />Checking setup...{:else}Check setup status{/if}
+				</Button>
+			</form>
+		{:else if setupFinished}
+			<AuthNotice
+				tone="success"
+				title="Account setup complete"
+				message={recovered
+					? (form?.message ?? ('message' in data ? data.message : 'Your account setup is complete.'))
+					: 'message' in data
+						? data.message
+						: 'Your account setup is complete.'}
+				centered
+			/>
+		{:else if !showPasswordForm}
+			<AuthNotice tone="error" title="Setup link unavailable" centered>
+				<p>{form?.message ?? form?.error ?? ('message' in data ? data.message : 'This setup link is unavailable.')}</p>
+				<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
 			</AuthNotice>
 		{:else}
 			{#if form?.error}
 				<AuthNotice tone="error" message={form.error} />
 			{/if}
+			{#if recoveryState === 'retry-password' && form?.message}
+				<AuthNotice tone="info" message={form.message} />
+			{/if}
 
 			<form
 				method="POST"
+				action="?/complete"
 				use:enhance={() => {
 					loading = true;
 					return async ({ update }) => {
@@ -144,6 +216,28 @@
 					{/if}
 				</Button>
 			</form>
+			{#if recoveryState === 'valid'}
+				<div class="flex flex-col gap-2 border-t border-border pt-4">
+					<p class="text-sm leading-relaxed text-muted-foreground">
+						Did an earlier setup stop without a result? Check its status before trying another password.
+					</p>
+					<form
+						method="POST"
+						action="?/recover"
+						use:enhance={() => {
+							checkingStatus = true;
+							return async ({ update }) => {
+								checkingStatus = false;
+								await update();
+							};
+						}}
+					>
+						<Button type="submit" variant="outline" disabled={loading || checkingStatus} class="w-full">
+							{#if checkingStatus}<Spinner />Checking setup...{:else}Check setup status{/if}
+						</Button>
+					</form>
+				</div>
+			{/if}
 		{/if}
 
 		<div
@@ -156,7 +250,10 @@
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>Already set up? <a href={resolve('/auth/login')}>Sign in</a>.</p>
-			{#if !supportRequired}
+			{#if setupFinished}
+				<p>Need a different password? <a href={resolve('/auth/forgot-password')}>Reset your password</a>.</p>
+			{/if}
+			{#if !supportRequired && showPasswordForm}
 				<p>Need a new setup email? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
 			{/if}
 			<p>Still waiting on approval? <a href={resolve('/auth/request-access')}>Request access</a>.</p>

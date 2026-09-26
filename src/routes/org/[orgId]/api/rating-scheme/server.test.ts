@@ -9,7 +9,7 @@ const validInput = {
 	evalType: 'OER',
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-06-30',
-	status: 'draft'
+	status: 'active'
 };
 
 describe('POST /api/rating-scheme', () => {
@@ -20,6 +20,14 @@ describe('POST /api/rating-scheme', () => {
 		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
 		expect(_putConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.updateEntries);
 		expect(_deleteConfig.policyAction).toBe(POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion);
+	});
+
+	it('rejects an unsupported status before a database mutation', async () => {
+		const ctx = createTestContext();
+		await expect(handleUseCaseRequest(_postConfig, ctx, { ...validInput, status: 'draft' })).rejects.toMatchObject({
+			status: 400
+		});
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual([]);
 	});
 
 	it('authorizes through Rating Scheme policy decisions instead of legacy route permissions', async () => {
@@ -57,5 +65,48 @@ describe('POST /api/rating-scheme', () => {
 			ratedPersonId: 'person-1',
 			evalType: 'OER'
 		});
+	});
+
+	it('lets a Rating-only Group operator write an in-Group entry and denies other and unassigned People', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				}
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: 'group-alpha' },
+			{ id: 'person-2', organization_id: ctx.auth.orgId, group_id: 'group-bravo' },
+			{ id: 'person-3', organization_id: ctx.auth.orgId, group_id: null }
+		]);
+
+		const created = (await handleUseCaseRequest(_postConfig, ctx, validInput)) as { id: string; ratedPersonId: string };
+		expect(created.ratedPersonId).toBe('person-1');
+		for (const ratedPersonId of ['person-2', 'person-3']) {
+			await expect(handleUseCaseRequest(_postConfig, ctx, { ...validInput, ratedPersonId })).rejects.toMatchObject({
+				status: 403
+			});
+			await expect(handleUseCaseRequest(_putConfig, ctx, { id: created.id, ratedPersonId })).rejects.toMatchObject({
+				status: 403
+			});
+		}
+		await expect(handleUseCaseRequest(_putConfig, ctx, { id: created.id, status: 'completed' })).resolves.toMatchObject(
+			{
+				status: 'completed'
+			}
+		);
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: created.id })).resolves.toEqual({
+			requiresApproval: true
+		});
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);
 	});
 });

@@ -770,6 +770,25 @@ function createInMemoryPersonnelCriticalTasksRosterPort(
 	};
 }
 
+function createInMemoryPersonnelRatingSchemeRosterPort(
+	rawStore: DataStore
+): NonNullable<UseCaseContext['personnelRatingSchemeRoster']> {
+	return {
+		async listActiveReferences(actor) {
+			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map((row) => ({
+				id: row.id as string,
+				rank: (row.rank as string) ?? '',
+				lastName: (row.last_name as string) ?? '',
+				firstName: (row.first_name as string) ?? ''
+			}));
+		},
+		async findRatedPersonGroupForWrite(actor, personnelId) {
+			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
+			return rows[0] ? { groupId: (rows[0].group_id as string | null) ?? null } : null;
+		}
+	};
+}
+
 function createInMemoryTrainingOnboardingReferencesPort(
 	rawStore: DataStore
 ): UseCaseContext['trainingOnboardingReferences'] {
@@ -911,6 +930,7 @@ export function createTestContext(overrides?: {
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
+		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
@@ -1005,6 +1025,7 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
+		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
@@ -1043,6 +1064,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
+		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)
@@ -1080,6 +1102,7 @@ export function createQueryPortsContext(options?: {
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
+		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore),
@@ -1105,6 +1128,7 @@ export function createQueryWithRawStorePortsContext(options?: {
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
+		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
 		personnelOnboardingRoster: createInMemoryPersonnelOnboardingRosterPort(rawStore),
 		trainingOnboardingReferences: createInMemoryTrainingOnboardingReferencesPort(rawStore)

@@ -50,7 +50,7 @@ export const RatingSchemeEntryEntity = defineEntity<RatingSchemeEntry>({
 		}),
 		ratingPeriodStart: field(z.string(), { column: 'rating_period_start' }),
 		ratingPeriodEnd: field(z.string(), { column: 'rating_period_end' }),
-		status: field(z.string(), { column: 'status' }),
+		status: field(z.enum(['active', 'completed', 'change-of-rater']), { column: 'status' }),
 		notes: field(z.string().nullable().optional(), { insertDefault: null }),
 		reportType: field(z.string().nullable().optional(), {
 			column: 'report_type',

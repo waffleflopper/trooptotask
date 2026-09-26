@@ -78,7 +78,9 @@ export async function fetchRatingSchemeWorkspaceData(ctx: QueryWithRawStorePorts
 
 	const [personnelLookup, ratingSchemeRows, orgSettingsRow] = await Promise.all([
 		loadRatingSchemePersonnelLookup(ctx),
-		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, undefined, {
+		// Rating Scheme RLS already scopes these rows. The generic scoped store derives
+		// Person IDs through Personnel SELECT, which a Rating-only member cannot use.
+		ctx.rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', ctx.auth.orgId, undefined, {
 			orderBy: [{ column: 'rating_period_end', ascending: true }]
 		}),
 		ctx.store

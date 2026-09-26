@@ -6,12 +6,25 @@ function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
 	return createTestContext(overrides);
 }
 
+function seedRatedPerson(ctx: ReturnType<typeof buildContext>, groupId: string | null = null) {
+	ctx.store.seed('personnel', [
+		{
+			id: 'person-1',
+			organization_id: ctx.auth.orgId,
+			rank: 'SGT',
+			last_name: 'Smith',
+			first_name: 'John',
+			group_id: groupId
+		}
+	]);
+}
+
 const validInput = {
 	ratedPersonId: 'person-1',
 	evalType: 'OER',
 	ratingPeriodStart: '2026-01-01',
 	ratingPeriodEnd: '2026-06-30',
-	status: 'draft'
+	status: 'active'
 };
 
 describe('Rating scheme entry — create', () => {
@@ -55,6 +68,7 @@ describe('Rating scheme entry — create', () => {
 
 	it('creates an entry, persists it, and audits', async () => {
 		const ctx = buildContext();
+		seedRatedPerson(ctx);
 		const { create } = createRatingSchemeEntryUseCases();
 
 		const result = (await create(ctx, { ...validInput })) as Record<string, unknown>;
@@ -62,7 +76,7 @@ describe('Rating scheme entry — create', () => {
 		expect(result).toMatchObject({
 			ratedPersonId: 'person-1',
 			evalType: 'OER',
-			status: 'draft'
+			status: 'active'
 		});
 
 		const stored = await ctx.store.findMany('rating_scheme_entries', 'test-org');
@@ -77,6 +91,7 @@ describe('Rating scheme entry — create', () => {
 
 	it('coerces empty strings to null on create', async () => {
 		const ctx = buildContext();
+		seedRatedPerson(ctx);
 		const { create } = createRatingSchemeEntryUseCases();
 
 		await create(ctx, { ...validInput, raterName: '', seniorRaterName: '' });
@@ -150,7 +165,7 @@ describe('Rating scheme entry — create', () => {
 		expect(result.ratedPersonId).toBe('person-1');
 	});
 
-	it('treats unassigned rated people as unscoped for scoped Rating Scheme writes', async () => {
+	it('denies a Group member write for an unassigned rated Person', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -178,9 +193,14 @@ describe('Rating scheme entry — create', () => {
 		]);
 		const { create } = createRatingSchemeEntryUseCases();
 
-		const result = (await create(ctx, { ...validInput })) as Record<string, unknown>;
-
-		expect(result.ratedPersonId).toBe('person-1');
+		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual([]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'policy.denied',
+				details: expect.objectContaining({ reasonCode: 'denied:out-of-scope' })
+			})
+		);
 	});
 
 	it('denies create outside the member multi-Group scope set', async () => {
@@ -228,6 +248,7 @@ describe('Rating scheme entry — create', () => {
 describe('Rating scheme entry — update', () => {
 	it('updates an entry and audits', async () => {
 		const ctx = buildContext();
+		seedRatedPerson(ctx);
 		const { update } = createRatingSchemeEntryUseCases();
 
 		ctx.store.seed('rating_scheme_entries', [
@@ -237,13 +258,13 @@ describe('Rating scheme entry — update', () => {
 				eval_type: 'OER',
 				rating_period_start: '2026-01-01',
 				rating_period_end: '2026-06-30',
-				status: 'draft',
+				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);
 
-		const result = (await update(ctx, { id: 'rs-1', status: 'complete' })) as Record<string, unknown>;
-		expect(result.status).toBe('complete');
+		const result = (await update(ctx, { id: 'rs-1', status: 'completed' })) as Record<string, unknown>;
+		expect(result.status).toBe('completed');
 
 		expect(ctx.auditPort.events[0]).toMatchObject({
 			action: 'rating_scheme.updated',
@@ -253,6 +274,7 @@ describe('Rating scheme entry — update', () => {
 
 	it('coerces empty strings to null on update', async () => {
 		const ctx = buildContext();
+		seedRatedPerson(ctx);
 		const { update } = createRatingSchemeEntryUseCases();
 
 		ctx.store.seed('rating_scheme_entries', [
@@ -262,7 +284,7 @@ describe('Rating scheme entry — update', () => {
 				eval_type: 'OER',
 				rating_period_start: '2026-01-01',
 				rating_period_end: '2026-06-30',
-				status: 'draft',
+				status: 'active',
 				rater_name: 'Old Rater',
 				organization_id: 'test-org'
 			}
@@ -281,6 +303,7 @@ describe('Rating scheme entry — update', () => {
 describe('Rating scheme entry — delete', () => {
 	it('deletes entry, audits, and notifies admins', async () => {
 		const ctx = buildContext();
+		seedRatedPerson(ctx);
 		const { remove } = createRatingSchemeEntryUseCases();
 
 		ctx.store.seed('rating_scheme_entries', [
@@ -288,7 +311,7 @@ describe('Rating scheme entry — delete', () => {
 				id: 'rs-1',
 				rated_person_id: 'person-1',
 				eval_type: 'OER',
-				status: 'draft',
+				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);
@@ -321,6 +344,7 @@ describe('Rating scheme entry — delete', () => {
 				}
 			}
 		});
+		seedRatedPerson(ctx);
 		const { remove } = createRatingSchemeEntryUseCases();
 
 		ctx.store.seed('rating_scheme_entries', [
@@ -328,7 +352,7 @@ describe('Rating scheme entry — delete', () => {
 				id: 'rs-1',
 				rated_person_id: 'person-1',
 				eval_type: 'OER',
-				status: 'draft',
+				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);
@@ -356,6 +380,7 @@ describe('Rating scheme entry — delete', () => {
 				}
 			}
 		});
+		seedRatedPerson(ctx);
 		const { remove } = createRatingSchemeEntryUseCases();
 
 		ctx.store.seed('rating_scheme_entries', [
@@ -363,7 +388,7 @@ describe('Rating scheme entry — delete', () => {
 				id: 'rs-1',
 				rated_person_id: 'person-1',
 				eval_type: 'OER',
-				status: 'draft',
+				status: 'active',
 				organization_id: 'test-org'
 			}
 		]);

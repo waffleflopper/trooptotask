@@ -5,6 +5,13 @@ import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpA
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
+const completionHandlers = entityHandlers(PersonnelIctCompletionEntity, {
+	policyResourceForPersonnel: async (ctx, personnelId) => {
+		const person = await ctx.personnelCriticalTasksRoster.findForCompletionWrite(ctx.auth, personnelId);
+		return person?.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' };
+	}
+});
+
 describe('PersonnelIctCompletionEntity', () => {
 	it('maps database rows to personnel ICT completion records', () => {
 		const result = PersonnelIctCompletionEntity.fromDb({
@@ -94,7 +101,6 @@ describe('PersonnelIctCompletionEntity', () => {
 	});
 
 	it('rejects completion writes when the user lacks Critical Tasks operate capability', async () => {
-		const handlers = entityHandlers(PersonnelIctCompletionEntity);
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -111,7 +117,7 @@ describe('PersonnelIctCompletionEntity', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(handlers._configs.POST!, ctx, {
+			handleUseCaseRequest(completionHandlers._configs.POST!, ctx, {
 				personnelId: 'person-1',
 				ictTaskId: 'task-1',
 				completedAt: '2026-04-01',
@@ -124,7 +130,6 @@ describe('PersonnelIctCompletionEntity', () => {
 	});
 
 	it('enforces scoped-group access for create and update writes', async () => {
-		const handlers = entityHandlers(PersonnelIctCompletionEntity);
 		const outsideId = '22222222-2222-4222-8222-222222222222';
 		const ctx = createTestContext({
 			auth: {
@@ -144,7 +149,7 @@ describe('PersonnelIctCompletionEntity', () => {
 			{ id: 'person-outside', organization_id: 'test-org', group_id: 'group-2' }
 		]);
 
-		const created = (await handleUseCaseRequest(handlers._configs.POST!, ctx, {
+		const created = (await handleUseCaseRequest(completionHandlers._configs.POST!, ctx, {
 			personnelId: 'person-inside',
 			ictTaskId: 'task-1',
 			completedAt: '2026-04-01',
@@ -154,7 +159,7 @@ describe('PersonnelIctCompletionEntity', () => {
 		expect(created.personnelId).toBe('person-inside');
 
 		await expect(
-			handleUseCaseRequest(handlers._configs.POST!, ctx, {
+			handleUseCaseRequest(completionHandlers._configs.POST!, ctx, {
 				personnelId: 'person-outside',
 				ictTaskId: 'task-1',
 				completedAt: '2026-04-01',
@@ -162,7 +167,7 @@ describe('PersonnelIctCompletionEntity', () => {
 			})
 		).rejects.toMatchObject({ status: 403 });
 
-		await handleUseCaseRequest(handlers._configs.PUT!, ctx, {
+		await handleUseCaseRequest(completionHandlers._configs.PUT!, ctx, {
 			id: created.id,
 			notes: 'Corrected entry'
 		});
@@ -180,7 +185,7 @@ describe('PersonnelIctCompletionEntity', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(handlers._configs.PUT!, ctx, {
+			handleUseCaseRequest(completionHandlers._configs.PUT!, ctx, {
 				id: outsideId,
 				notes: 'Unauthorized update'
 			})

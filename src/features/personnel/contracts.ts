@@ -64,9 +64,13 @@ export interface PersonnelTrainingRosterPort {
 	findGroupIdsForWrites(actor: PersonnelRosterActor, personnelIds: string[]): Promise<Map<string, string | null>>;
 }
 
-/** Active, scoped Personnel references for the independently authorized Rating Scheme lane. */
+/** Scoped Personnel references for the independently authorized Rating Scheme lane. */
 export interface PersonnelRatingSchemeRosterPort {
 	listActiveReferences(actor: PersonnelRosterActor): Promise<PersonnelLookup[]>;
+	findRatedPersonGroupForWrite(
+		actor: PersonnelRosterActor,
+		personnelId: string
+	): Promise<{ groupId: string | null } | null>;
 }
 
 /** Narrow award acknowledgement flags visible with the Personnel roster. */

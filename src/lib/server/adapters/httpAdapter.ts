@@ -217,7 +217,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 
 	const notifications = createSupabaseNotificationAdapter();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
@@ -310,7 +310,7 @@ export async function buildLayoutContext(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
@@ -390,7 +390,7 @@ export async function buildLayoutContextFromMembership(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);

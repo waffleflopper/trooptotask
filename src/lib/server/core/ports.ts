@@ -183,6 +183,7 @@ export interface WritePorts {
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
+	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
 	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
 }
 

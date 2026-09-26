@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import type { PersonnelRatingSchemeRosterPort } from './contracts';
+import { queryScopedPersonnelRows } from './scopedRosterQuery.server';
 
 interface RatingSchemePersonnelLookupRow {
 	id: string;
@@ -11,7 +12,8 @@ interface RatingSchemePersonnelLookupRow {
 }
 
 export function createSupabasePersonnelRatingSchemeRosterPort(
-	supabase: SupabaseClient
+	supabase: SupabaseClient,
+	getAdminClient: () => SupabaseClient
 ): PersonnelRatingSchemeRosterPort {
 	return {
 		async listActiveReferences(actor) {
@@ -35,6 +37,20 @@ export function createSupabasePersonnelRatingSchemeRosterPort(
 				lastName: row.last_name ?? '',
 				firstName: row.first_name ?? ''
 			}));
+		},
+		async findRatedPersonGroupForWrite(actor, personnelId) {
+			await requireFeaturePolicy(
+				{ auth: actor },
+				POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
+				{ kind: 'unscoped' },
+				'personnel'
+			);
+			const rows = await queryScopedPersonnelRows(getAdminClient, actor.orgId, actor.scopeSet, {
+				select: 'id, group_id',
+				status: 'all',
+				ids: [personnelId]
+			});
+			return rows[0] ? { groupId: (rows[0].group_id as string | null) ?? null } : null;
 		}
 	};
 }

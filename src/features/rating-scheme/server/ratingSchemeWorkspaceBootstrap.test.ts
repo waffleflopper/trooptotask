@@ -37,8 +37,13 @@ const { loadWithContextMock, findManyMock, findOneMock, listActiveReferencesMock
 				findMany: findManyMock,
 				findOne: findOneMock
 			},
+			rawStore: {
+				findMany: findManyMock,
+				findOne: findOneMock
+			},
 			personnelRatingSchemeRoster: {
-				listActiveReferences: listActiveReferencesMock
+				listActiveReferences: listActiveReferencesMock,
+				findRatedPersonGroupForWrite: vi.fn()
 			}
 		}
 	};
@@ -166,7 +171,8 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 			listActiveReferences: vi.fn().mockResolvedValue([
 				{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
 				{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
-			])
+			]),
+			findRatedPersonGroupForWrite: vi.fn()
 		};
 
 		const result = await fetchRatingSchemeWorkspaceData(ctx);
@@ -196,18 +202,23 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 					criticalTasks: 'none',
 					onboarding: 'none',
 					ratingScheme: 'view'
-				}
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 			}
 		});
+		ctx.rawStore.seed('rating_scheme_entries', [
+			makeRatingSchemeRow({ id: 'rs-group', organization_id: 'test-org', rated_person_id: 'p2' })
+		]);
 		const listActiveReferences = vi
 			.fn()
 			.mockResolvedValue([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
-		ctx.personnelRatingSchemeRoster = { listActiveReferences };
+		ctx.personnelRatingSchemeRoster = { listActiveReferences, findRatedPersonGroupForWrite: vi.fn() };
 
 		const result = await fetchRatingSchemeWorkspaceData(ctx);
 
 		expect(listActiveReferences).toHaveBeenCalledWith(ctx.auth);
 		expect(result.personnelLookup).toEqual([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
+		expect(result.ratingSchemeEntries.map((entry) => entry.id)).toEqual(['rs-group']);
 	});
 
 	it('does not allow adjacent Personnel capability to read Rating Scheme roster references', async () => {
@@ -225,13 +236,17 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 				}
 			}
 		});
-		ctx.personnelRatingSchemeRoster = { listActiveReferences: vi.fn().mockResolvedValue([]) };
+		ctx.personnelRatingSchemeRoster = {
+			listActiveReferences: vi.fn().mockResolvedValue([]),
+			findRatedPersonGroupForWrite: vi.fn()
+		};
 
 		await expect(fetchRatingSchemeWorkspaceData(ctx)).rejects.toMatchObject({ status: 403 });
 	});
 
 	it('requires the Personnel-owned Rating Scheme roster port', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
+		ctx.personnelRatingSchemeRoster = undefined;
 
 		await expect(fetchRatingSchemeWorkspaceData(ctx)).rejects.toThrow(
 			'Personnel Rating Scheme roster port is required'

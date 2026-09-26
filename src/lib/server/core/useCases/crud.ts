@@ -194,10 +194,10 @@ async function resolvePersonnelPolicyResource<C extends WritePorts>(
 	personnelId: string,
 	policyResourceForPersonnel?: (ctx: C, personnelId: string) => Promise<PolicyResource>
 ): Promise<PolicyResource> {
-	if (policyResourceForPersonnel) return policyResourceForPersonnel(ctx, personnelId);
-	const store = getUnscopedStore(ctx);
-	const person = await store.findOne<{ group_id?: string | null }>('personnel', ctx.auth.orgId, { id: personnelId });
-	return person?.group_id ? { kind: 'group', groupId: person.group_id } : { kind: 'organization' };
+	if (!policyResourceForPersonnel) {
+		throw new Error('Personnel-scoped CRUD requires a policy resource resolver');
+	}
+	return policyResourceForPersonnel(ctx, personnelId);
 }
 
 function getUnscopedStore<C extends WritePorts>(ctx: C): DataStore {

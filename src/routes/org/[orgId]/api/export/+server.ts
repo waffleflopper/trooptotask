@@ -1,4 +1,3 @@
-import { bindLeaderNoteDataSource } from '$lib/server/adapters/leaderNoteDataSource';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
@@ -29,11 +28,8 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 			requestedByEmail: input.email,
 			auditAction: 'export.created',
 			buildArtifact: async () => {
-				const exportData = await loadOrganizationExportPayload(
-					ctx.rawStore,
-					orgId,
-					bindLeaderNoteDataSource(ctx.rawStore)
-				);
+				if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
+				const exportData = await loadOrganizationExportPayload(ctx.rawStore, ctx.auth, ctx.personnelOrganizationExport);
 				const jsonStr = JSON.stringify(exportData, null, 2);
 				const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
 

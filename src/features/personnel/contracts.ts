@@ -101,6 +101,25 @@ export interface PersonnelArtifactWritePort {
 	): Promise<PersonnelArtifactArchiveWriter>;
 }
 
+/** Raw Personnel history included only in an authorized Organization data export. */
+export const PERSONNEL_ORGANIZATION_EXPORT_TABLES = [
+	'personnel_extended_info',
+	'counseling_records',
+	'leader_notes',
+	'personnel_follow_ups',
+	'personnel_documents'
+] as const;
+
+export type PersonnelOrganizationExportTable = (typeof PERSONNEL_ORGANIZATION_EXPORT_TABLES)[number];
+
+export function isPersonnelOrganizationExportTable(table: string): table is PersonnelOrganizationExportTable {
+	return (PERSONNEL_ORGANIZATION_EXPORT_TABLES as readonly string[]).includes(table);
+}
+
+export interface PersonnelOrganizationExportPort {
+	listRows(actor: PersonnelRosterActor, table: PersonnelOrganizationExportTable): Promise<Record<string, unknown>[]>;
+}
+
 export interface PersonnelArtifactRef {
 	id: string;
 	personnelId: string;

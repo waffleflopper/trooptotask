@@ -1,5 +1,6 @@
 import type { DataStore } from '../ports';
-import type { LeaderNoteDataSource } from '$features/personnel/index.server';
+import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from '$features/personnel/contracts';
+import { isPersonnelOrganizationExportTable } from '$features/personnel/contracts';
 import {
 	assertOrganizationDataExportManifestIsSafe,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,
@@ -28,18 +29,19 @@ export const ORGANIZATION_EXPORT_SECTIONS = ORGANIZATION_DATA_EXPORT_SECTIONS;
 
 export async function loadOrganizationExportPayload(
 	store: DataStore,
-	orgId: string,
-	leaderNotes: Pick<LeaderNoteDataSource, 'exportRows'>
+	actor: PersonnelRosterActor,
+	personnelExport: PersonnelOrganizationExportPort
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
+	const orgId = actor.orgId;
 	const exportSections = ORGANIZATION_DATA_EXPORT_SECTIONS;
 	const entries: Array<readonly [string, Record<string, unknown>[]]> = [];
 	for (const batch of chunkArray(exportSections, ORGANIZATION_EXPORT_QUERY_BATCH_SIZE)) {
 		entries.push(
 			...(await Promise.all(
 				batch.map(async (section) => {
-					if (section.key === 'leaderNotes') {
-						return [section.key, await leaderNotes.exportRows(orgId)] as const;
+					if (section.areaKey === 'personnel' && isPersonnelOrganizationExportTable(section.table)) {
+						return [section.key, await personnelExport.listRows(actor, section.table)] as const;
 					}
 					const rows = await store.findMany<Record<string, unknown>>(
 						section.table,

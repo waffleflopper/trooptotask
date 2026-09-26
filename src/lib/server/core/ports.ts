@@ -8,6 +8,7 @@ import type { PersonnelOnboardingRosterPort } from '$features/personnel/contract
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
 import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
 import type { PersonnelArtifactWritePort } from '$features/personnel/contracts';
+import type { PersonnelOrganizationExportPort } from '$features/personnel/contracts';
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
@@ -229,6 +230,7 @@ export interface UseCaseContext {
 	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
+	personnelOrganizationExport?: PersonnelOrganizationExportPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster: PersonnelCriticalTasksRosterPort;

@@ -62,15 +62,34 @@ describe('POST /api/export', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				canManageMembers: true
+				canManageMembers: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
 			}
 		});
+		ctx.rawStore.seed('leader_notes', [
+			{ id: 'own-note', organization_id: ctx.auth.orgId, personnel_id: 'p-1', text: 'Retained history' },
+			{ id: 'foreign-note', organization_id: 'other-org', personnel_id: 'p-2', text: 'Foreign' }
+		]);
+		ctx.rawStore.seed('personnel_extended_info', [
+			{ id: 'own-detail', organization_id: ctx.auth.orgId, personnel_id: 'p-1' }
+		]);
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			email: 'member-manager@example.com'
 		});
 
 		expect(result.status).toBe('ready');
+		if (result.status !== 'ready') throw new Error('Expected export to be ready');
+		const payload = JSON.parse(result.artifact.body);
+		expect(payload.leaderNotes.map((row: { id: string }) => row.id)).toEqual(['own-note']);
+		expect(payload.personnelExtendedInfo.map((row: { id: string }) => row.id)).toEqual(['own-detail']);
 	});
 
 	it('includes ETS and DEROS in the organization personnel export payload', async () => {

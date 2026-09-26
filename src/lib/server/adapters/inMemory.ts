@@ -43,6 +43,16 @@ type SensitiveActionAuthorizer = UseCaseContext['sensitiveActionAuthorizer'];
 type SensitiveActionAuthorizeInput = Parameters<SensitiveActionAuthorizer['authorize']>[0];
 type SensitiveActionDecision = Awaited<ReturnType<SensitiveActionAuthorizer['authorize']>>;
 
+function createInMemoryPersonnelOrganizationExportPort(
+	rawStore: DataStore
+): NonNullable<UseCaseContext['personnelOrganizationExport']> {
+	return {
+		listRows(actor, table) {
+			return rawStore.findMany<Record<string, unknown>>(table, actor.orgId);
+		}
+	};
+}
+
 const FULL_CAPABILITY_MAP: CapabilityMap = {
 	calendar: 'configure',
 	personnel: 'configure',
@@ -870,6 +880,7 @@ export function createTestContext(overrides?: {
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),

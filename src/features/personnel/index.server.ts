@@ -28,6 +28,8 @@ export { createSupabasePersonnelAwardAcknowledgementPort } from './awardAcknowle
 export type { PersonnelAwardAcknowledgementPort } from './contracts';
 export { createSupabasePersonnelArtifactWritePort } from './artifactWrites.server';
 export type { PersonnelArtifactWritePort } from './contracts';
+export { createSupabasePersonnelOrganizationExportPort } from './organizationExport.server';
+export type { PersonnelOrganizationExportPort } from './contracts';
 export { archiveLeaderNotesWithPersonnel, restoreLeaderNotesWithPersonnel } from './leaderNoteArchive.server';
 export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
 export { createLeaderNoteDataSource } from './leaderNoteDataSource.server';
@@ -48,8 +50,4 @@ export {
 	createPersonnelCatalogRankResolver,
 	normalizeActivePersonnelRank
 } from './rankValidation.server';
-export type {
-	LeaderNoteDataSource,
-	LeaderNoteExportRecord,
-	LeaderNoteSourcePersistence
-} from './leaderNoteDataSource.server';
+export type { LeaderNoteDataSource, LeaderNoteSourcePersistence } from './leaderNoteDataSource.server';

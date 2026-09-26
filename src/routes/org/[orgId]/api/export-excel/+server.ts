@@ -1,4 +1,3 @@
-import { bindLeaderNoteDataSource } from '$lib/server/adapters/leaderNoteDataSource';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
@@ -26,16 +25,12 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		email: event.locals.user?.email
 	}),
 	fn: async (ctx, input) => {
-		const orgId = ctx.auth.orgId;
 		return executeOrganizationDataExport(ctx, {
 			requestedByEmail: input.email,
 			auditAction: 'export.excel_created',
 			buildArtifact: async () => {
-				const exportData = await loadOrganizationExportPayload(
-					ctx.rawStore,
-					orgId,
-					bindLeaderNoteDataSource(ctx.rawStore)
-				);
+				if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
+				const exportData = await loadOrganizationExportPayload(ctx.rawStore, ctx.auth, ctx.personnelOrganizationExport);
 				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);
 

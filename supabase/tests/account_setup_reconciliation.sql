@@ -31,6 +31,8 @@ SELECT ok(has_table_privilege('service_role','public.account_setup_attempts','SE
  AND NOT has_table_privilege('service_role','public.account_setup_attempts','INSERT,UPDATE,DELETE'),
  'service role can read marker but cannot bypass admission with direct writes');
 SELECT ok(NOT has_function_privilege('authenticated','public.reconcile_account_setup_claim(uuid,uuid)','EXECUTE')
+ AND NOT has_function_privilege('anon','public.reconcile_account_setup_claim(uuid,uuid)','EXECUTE')
+ AND NOT has_function_privilege('authenticated','public.complete_account_setup_recovery(uuid,uuid,uuid,text,text)','EXECUTE')
  AND NOT has_function_privilege('anon','public.complete_account_setup_recovery(uuid,uuid,uuid,text,text)','EXECUTE'),
  'recovery RPCs are not browser callable');
 SET LOCAL ROLE authenticated;
@@ -38,6 +40,15 @@ SELECT throws_ok('SELECT * FROM public.account_setup_attempts','42501',NULL,'bro
 SELECT throws_ok($$SELECT public.reconcile_account_setup_claim('e2000000-0000-4000-8000-000000000002','e1000000-0000-4000-8000-000000000002')$$,
  '42501',NULL,'browser recovery RPC denied');
 RESET ROLE;
+
+-- A malformed approved request cannot enter the email-scoped recovery lock.
+INSERT INTO public.access_requests(id,email,name,status) VALUES
+ ('e1000000-0000-4000-8000-000000000010','','Blank Email','approved');
+INSERT INTO public.account_setup_links(id,access_request_id,token_hash,expires_at) VALUES
+ ('e2000000-0000-4000-8000-000000000010','e1000000-0000-4000-8000-000000000010','blank-email','2030-01-01');
+SELECT is(public.reconcile_account_setup_claim('e2000000-0000-4000-8000-000000000010',
+ 'e1000000-0000-4000-8000-000000000010')->>'state',
+ 'support-required','blank approved email cannot authorize reconciliation');
 
 SELECT is(public.reconcile_account_setup_claim('e2000000-0000-4000-8000-000000000007','e1000000-0000-4000-8000-000000000007')->>'state',
  'support-required','historical held claim stays staff-only');

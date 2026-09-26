@@ -159,6 +159,9 @@ BEGIN
 	WHERE id = p_target_access_request_id FOR NO KEY UPDATE;
 	IF NOT FOUND THEN RETURN pg_catalog.jsonb_build_object('state', 'support-required'); END IF;
 	setup_email := pg_catalog.lower(pg_catalog.btrim(target_request.email));
+	IF setup_email IS NULL OR setup_email = '' THEN
+		RETURN pg_catalog.jsonb_build_object('state', 'support-required');
+	END IF;
 	PERFORM pg_catalog.pg_advisory_xact_lock(
 		pg_catalog.hashtextextended('account-setup-claim:' || setup_email, 0));
 	SELECT * INTO target_link FROM public.account_setup_links

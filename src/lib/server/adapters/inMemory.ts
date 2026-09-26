@@ -553,6 +553,9 @@ function createInMemoryPersonnelCriticalTasksRosterPort(
 		async findForHistory(actor, personnelId) {
 			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
 			return rows[0] ? inMemoryPersonnelFromRow(rows[0]) : null;
+		},
+		async listForBatchImport(actor) {
+			return (await inMemoryPersonnelRows(rawStore, actor, 'all')).map(inMemoryPersonnelFromRow);
 		}
 	};
 }

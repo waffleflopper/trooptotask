@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { importIctCompletionsBatch } from './ictCompletionsBatch';
 
@@ -311,19 +311,19 @@ describe('importIctCompletionsBatch', () => {
 		expect(stored).toEqual([]);
 	});
 
-	it('imports matched completion rows after policy allows the shared group scope', async () => {
+	it('imports for a Critical Tasks-only Group operator without a request-store Personnel read', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
 				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 				capabilityMap: {
-					calendar: 'view',
-					personnel: 'view',
-					training: 'view',
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
 					criticalTasks: 'operate',
-					onboarding: 'view',
-					ratingScheme: 'view'
+					onboarding: 'none',
+					ratingScheme: 'none'
 				}
 			}
 		});
@@ -354,6 +354,11 @@ describe('importIctCompletionsBatch', () => {
 				created_at: '2026-04-01T00:00:00Z'
 			}
 		]);
+		const requestFindMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) => {
+			if (args[0] === 'personnel') throw new Error('Personnel SELECT denied for this request');
+			return requestFindMany(...args);
+		});
 
 		const result = await importIctCompletionsBatch(ctx, {
 			records: [
@@ -375,5 +380,70 @@ describe('importIctCompletionsBatch', () => {
 
 		const stored = await ctx.store.findMany<{ id: string }>('personnel_ict_completions', 'test-org');
 		expect(stored).toHaveLength(1);
+	});
+
+	it('keeps successful rows and reports exact failed rows when bulk insert falls back', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-allowed',
+				organization_id: 'test-org',
+				rank: 'SGT',
+				first_name: 'Amy',
+				last_name: 'Able',
+				group_id: 'group-alpha',
+				archived_at: null
+			},
+			{
+				id: 'person-rejected',
+				organization_id: 'test-org',
+				rank: 'SPC',
+				first_name: 'Ben',
+				last_name: 'Baker',
+				group_id: 'group-alpha',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'task-1',
+				organization_id: 'test-org',
+				task_code: 'T-1',
+				title: 'Task One',
+				mos: [],
+				archived_at: null
+			}
+		]);
+		vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(new Error('bulk insert unavailable'));
+		const storeInsert = ctx.store.insert.bind(ctx.store);
+		vi.spyOn(ctx.store, 'insert').mockImplementation((...args) => {
+			if ((args[2] as Record<string, unknown>).personnel_id === 'person-rejected') {
+				throw new Error('row rejected');
+			}
+			return storeInsert(...args);
+		});
+
+		const result = await importIctCompletionsBatch(ctx, {
+			records: [
+				{
+					rowNumber: 2,
+					values: { rank: 'SGT', firstName: 'Amy', lastName: 'Able', taskCode: 'T-1', completedAt: '2026-04-15' }
+				},
+				{
+					rowNumber: 3,
+					values: { rank: 'SPC', firstName: 'Ben', lastName: 'Baker', taskCode: 'T-1', completedAt: '2026-04-15' }
+				}
+			]
+		});
+
+		expect(result.inserted).toEqual([expect.objectContaining({ personnelId: 'person-allowed' })]);
+		expect(result.updated).toEqual([]);
+		expect(result.errors).toEqual([
+			{ rowNumber: 3, personnelName: 'SPC Ben Baker', taskCode: 'T-1', message: 'row rejected' }
+		]);
+		expect(await ctx.store.findMany('personnel_ict_completions', 'test-org')).toEqual([
+			expect.objectContaining({ personnel_id: 'person-allowed' })
+		]);
+		expect(ctx.audit.events).toEqual([expect.objectContaining({ details: { inserted: 1, updated: 0, errors: 1 } })]);
 	});
 });

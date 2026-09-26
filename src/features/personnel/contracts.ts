@@ -36,6 +36,7 @@ export interface PersonnelTrainingRosterPort {
 export interface PersonnelCriticalTasksRosterPort {
 	listActiveForReadiness(actor: PersonnelRosterActor): Promise<Personnel[]>;
 	findForHistory(actor: PersonnelRosterActor, personnelId: string): Promise<Personnel | null>;
+	listForBatchImport(actor: PersonnelRosterActor): Promise<Personnel[]>;
 }
 
 export {

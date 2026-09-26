@@ -3,12 +3,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 
-function actor(criticalTasks: 'none' | 'view' = 'view', groupIds: string[] = ['group-1']) {
+function actor(criticalTasks: 'none' | 'view' | 'operate' = 'view', groupIds: string[] | null = ['group-1']) {
 	return createTestAuthContext({
 		orgId: 'org-1',
 		role: 'member',
 		isPrivileged: false,
-		scopeSet: { kind: 'groups', groupIds },
+		scopeSet: groupIds === null ? { kind: 'organization' } : { kind: 'groups', groupIds },
 		capabilityMap: {
 			calendar: 'none',
 			personnel: 'none',
@@ -87,6 +87,15 @@ describe('Personnel Critical Tasks roster', () => {
 			rank: 'SPC',
 			first_name: 'Finn',
 			last_name: 'Foreign'
+		},
+		{
+			id: 'unassigned',
+			organization_id: 'org-1',
+			group_id: null,
+			archived_at: null,
+			rank: 'SPC',
+			first_name: 'Uma',
+			last_name: 'Unassigned'
 		}
 	];
 
@@ -122,6 +131,32 @@ describe('Personnel Critical Tasks roster', () => {
 		const port = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient as () => SupabaseClient);
 		await expect(port.listActiveForReadiness(actor('view', []))).resolves.toEqual([]);
 		await expect(port.findForHistory(actor('view', []), 'active-alpha')).resolves.toBeNull();
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+
+	it('returns all-status same-Organization batch candidates under Critical Tasks operate and exact Group scope', async () => {
+		const getAdminClient = createPersonnelClient(rows);
+		const port = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
+
+		await expect(port.listForBatchImport(actor('operate'))).resolves.toEqual([
+			expect.objectContaining({ id: 'active-alpha', archivedAt: null }),
+			expect.objectContaining({ id: 'archived-alpha', archivedAt: '2026-01-01' })
+		]);
+		await expect(port.listForBatchImport(actor('operate', null))).resolves.toEqual([
+			expect.objectContaining({ id: 'active-alpha' }),
+			expect.objectContaining({ id: 'archived-alpha' }),
+			expect.objectContaining({ id: 'active-bravo' }),
+			expect.objectContaining({ id: 'unassigned' })
+		]);
+	});
+
+	it('denies batch roster access without record-completion permission before opening the admin provider', async () => {
+		const getAdminClient = vi.fn();
+		const port = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient as () => SupabaseClient);
+		await expect(port.listForBatchImport(actor('view'))).rejects.toMatchObject({ status: 403 });
+		await expect(port.listForBatchImport(actor('none'))).rejects.toMatchObject({ status: 403 });
+		expect(getAdminClient).not.toHaveBeenCalled();
+		await expect(port.listForBatchImport(actor('operate', []))).resolves.toEqual([]);
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 });

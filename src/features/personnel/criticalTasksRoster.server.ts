@@ -14,6 +14,15 @@ async function requireReadiness(actor: PersonnelRosterActor): Promise<void> {
 	);
 }
 
+async function requireCompletionWrite(actor: PersonnelRosterActor): Promise<void> {
+	await requireFeaturePolicy(
+		{ auth: actor },
+		POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
+		{ kind: 'unscoped' },
+		'personnel'
+	);
+}
+
 export function createSupabasePersonnelCriticalTasksRosterPort(
 	getAdminClient: () => SupabaseClient
 ): PersonnelCriticalTasksRosterPort {
@@ -34,6 +43,14 @@ export function createSupabasePersonnelCriticalTasksRosterPort(
 				ids: [personnelId]
 			});
 			return rows[0] ? PersonnelEntity.fromDb(rows[0]) : null;
+		},
+		async listForBatchImport(actor) {
+			await requireCompletionWrite(actor);
+			const rows = await queryScopedPersonnelRows(getAdminClient, actor.orgId, actor.scopeSet, {
+				select: PersonnelEntity.select,
+				status: 'all'
+			});
+			return PersonnelEntity.fromDbArray(rows);
 		}
 	};
 }

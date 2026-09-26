@@ -99,16 +99,8 @@ function validatePersonnelIds(values: unknown[], invalidMessage: string): string
 }
 
 async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): Promise<PersonnelRow[]> {
-	if (ctx.signInRosterPersonnelLookup) {
-		const rows = await ctx.signInRosterPersonnelLookup.findPersonnelForRosterSnapshot(ctx.auth.orgId, personnelIds);
-		const order = new Map(personnelIds.map((id, index) => [id, index]));
-		return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-	}
-
-	const rows = await ctx.rawStore.findMany<PersonnelRow>('personnel', ctx.auth.orgId, undefined, {
-		select: 'id, rank, last_name, first_name, group_id, groups(name)',
-		inFilters: { id: personnelIds }
-	});
+	if (!ctx.signInRosterPersonnelLookup) throw new Error('Sign-in roster Personnel lookup is unavailable');
+	const rows = await ctx.signInRosterPersonnelLookup.findPersonnelForRosterSnapshot(ctx.auth.orgId, personnelIds);
 	const order = new Map(personnelIds.map((id, index) => [id, index]));
 	return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
@@ -116,7 +108,7 @@ async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): P
 async function loadGroupNames(ctx: UseCaseContext, rows: PersonnelRow[]): Promise<Map<string, string>> {
 	const names = new Map<string, string>();
 	for (const row of rows) {
-		const groupName = groupNameForRow(row);
+		const groupName = row.group_name;
 		if (row.group_id && typeof groupName === 'string') {
 			names.set(row.group_id, groupName);
 		}
@@ -147,15 +139,6 @@ function assertPersonnelRowsWithinScope(scopeSet: ScopeSet, rows: PersonnelRow[]
 function scopeGroupIdsForRows(rows: PersonnelRow[]): string[] {
 	if (rows.some((row) => !row.group_id)) return [];
 	return uniqueStrings(rows.map((row) => row.group_id).filter((id): id is string => typeof id === 'string'));
-}
-
-function groupNameForRow(row: PersonnelRow): string | null {
-	if (typeof row.group_name === 'string') return row.group_name;
-	if (Array.isArray(row.groups)) {
-		const first = row.groups.find((group) => typeof group?.name === 'string');
-		return first?.name ?? null;
-	}
-	return row.groups?.name ?? null;
 }
 
 function rowsById(rows: PersonnelRow[]): Map<string, PersonnelRow> {

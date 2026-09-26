@@ -38,7 +38,7 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
 import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
-import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
+import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelCriticalTasksRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';

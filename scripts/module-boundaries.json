@@ -318,6 +318,8 @@
 				"src/lib/domain/readinessSignals.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.test.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.ts",
+				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.test.ts",
+				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/personnel.test.ts",
@@ -524,11 +526,7 @@
 		},
 		"sign-in-rosters": {
 			"roots": ["src/features/sign-in-rosters/"],
-			"files": [
-				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.test.ts",
-				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.ts",
-				"src/lib/server/core/useCases/signInRosters.ts"
-			],
+			"files": ["src/lib/server/core/useCases/signInRosters.ts"],
 			"packet": "08-M11"
 		},
 		"training": {

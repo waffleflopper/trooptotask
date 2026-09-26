@@ -9,6 +9,12 @@ const GROUP_ALPHA = 'group-alpha';
 const GROUP_BRAVO = 'group-bravo';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
+	ctx.signInRosterPersonnelLookup ??= {
+		findPersonnelForRosterSnapshot: (orgId, personnelIds) =>
+			ctx.rawStore.findMany<SignInRosterPersonnelLookupRecord>('personnel', orgId, undefined, {
+				inFilters: { id: personnelIds }
+			})
+	};
 	ctx.rawStore.seed('groups', [
 		{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
 		{ id: GROUP_BRAVO, organization_id: ctx.auth.orgId, name: 'Bravo' }

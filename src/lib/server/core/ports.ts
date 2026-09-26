@@ -74,7 +74,6 @@ export interface SignInRosterPersonnelLookupRecord {
 	first_name?: string | null;
 	group_id?: string | null;
 	group_name?: string | null;
-	groups?: { name?: string | null } | { name?: string | null }[] | null;
 }
 
 export interface SignInRosterPersonnelLookupPort {

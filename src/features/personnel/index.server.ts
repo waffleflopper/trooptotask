@@ -7,6 +7,7 @@ export {
 } from './leaderNotes.server';
 export type { LeaderNoteContext, LeaderNoteRow } from './leaderNotes.server';
 export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
+export { createSupabaseSignInRosterPersonnelLookupPort } from '$lib/server/adapters/supabaseSignInRosterPersonnelLookup';
 export type { PersonnelTrainingRosterPort } from './contracts';
 export { loadRosterPersonnel } from './rosterRead.server';
 export { findGroupNamesByIds, listGroupCatalog } from './groupCatalog.server';

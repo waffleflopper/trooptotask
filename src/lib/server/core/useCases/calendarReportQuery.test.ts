@@ -55,7 +55,7 @@ function seedData(store: ReturnType<typeof createInMemoryDataStore>) {
 }
 
 describe('fetchCalendarReportData', () => {
-	it('returns allPersonnel (unscoped, no archived), statusTypes, and groups', async () => {
+	it('returns Organization-wide active Personnel, status types, and groups', async () => {
 		const ctx = buildCtx();
 		seedData(ctx.store);
 
@@ -76,16 +76,6 @@ describe('fetchCalendarReportData', () => {
 		const result = await fetchCalendarReportData(ctx);
 
 		expect(result.allPersonnel.find((p) => p.id === 'p-archived')).toBeUndefined();
-	});
-
-	it('uses rawStore (unscoped) for personnel', async () => {
-		const ctx = buildCtx();
-		// Only seed into rawStore to confirm it reads from there
-		seedData(ctx.rawStore as ReturnType<typeof createInMemoryDataStore>);
-
-		const result = await fetchCalendarReportData(ctx);
-
-		expect(result.allPersonnel).toHaveLength(2);
 	});
 
 	it('requires Calendar view capability through a report policy decision', async () => {

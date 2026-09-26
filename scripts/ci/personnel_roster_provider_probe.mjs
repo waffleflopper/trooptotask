@@ -34,18 +34,18 @@ function dataOrThrow(result, step) {
 	return result.data;
 }
 
-function capabilities(lane) {
-	return Object.fromEntries(laneNames.map((name) => [name, name === lane ? 'view' : 'none']));
+function capabilities(lane, level) {
+	return Object.fromEntries(laneNames.map((name) => [name, name === lane ? level : 'none']));
 }
 
-async function createActor(label, lane, orgId, groupIds) {
+async function createActor(label, lane, orgId, groupIds, level = 'view') {
 	const email = `probe-roster-${label}-${randomUUID()}@example.test`;
 	const user = dataOrThrow(
 		await service.auth.admin.createUser({ email, password, email_confirm: true }),
 		`${label} Auth user`
 	).user;
 	assert.ok(user?.id);
-	const capabilityMap = capabilities(lane);
+	const capabilityMap = capabilities(lane, level);
 	const scopeSet = groupIds === null ? { kind: 'organization' } : { kind: 'groups', groupIds };
 	const client = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
 	dataOrThrow(await client.auth.signInWithPassword({ email, password }), `${label} sign-in`);
@@ -81,6 +81,16 @@ const actors = {
 	onboardingEmpty: await createActor('onboarding-empty', 'onboarding', ids.orgA, []),
 	calendarForeign: await createActor('calendar-foreign', 'calendar', ids.orgB, [ids.groupB]),
 	onboardingForeign: await createActor('onboarding-foreign', 'onboarding', ids.orgB, [ids.groupB]),
+	trainingGroup: await createActor('training-group', 'training', ids.orgA, [ids.groupA1], 'operate'),
+	trainingOrg: await createActor('training-org', 'training', ids.orgA, null, 'operate'),
+	trainingEmpty: await createActor('training-empty', 'training', ids.orgA, [], 'operate'),
+	trainingForeign: await createActor('training-foreign', 'training', ids.orgB, [ids.groupB], 'operate'),
+	trainingViewer: await createActor('training-viewer', 'training', ids.orgA, [ids.groupA1]),
+	criticalGroup: await createActor('critical-group', 'criticalTasks', ids.orgA, [ids.groupA1], 'operate'),
+	criticalOrg: await createActor('critical-org', 'criticalTasks', ids.orgA, null, 'operate'),
+	criticalEmpty: await createActor('critical-empty', 'criticalTasks', ids.orgA, [], 'operate'),
+	criticalForeign: await createActor('critical-foreign', 'criticalTasks', ids.orgB, [ids.groupB], 'operate'),
+	criticalViewer: await createActor('critical-viewer', 'criticalTasks', ids.orgA, [ids.groupA1]),
 	denied: await createActor('denied', null, ids.orgA, [ids.groupA1])
 };
 
@@ -192,8 +202,16 @@ try {
 	const { createSupabasePersonnelOnboardingRosterPort } = await vite.ssrLoadModule(
 		'/src/features/personnel/onboardingRoster.server.ts'
 	);
+	const { createSupabasePersonnelTrainingRosterPort } = await vite.ssrLoadModule(
+		'/src/features/personnel/trainingRoster.server.ts'
+	);
+	const { createSupabasePersonnelCriticalTasksRosterPort } = await vite.ssrLoadModule(
+		'/src/features/personnel/criticalTasksRoster.server.ts'
+	);
 	const calendar = createSupabasePersonnelCalendarRosterPort(() => service);
 	const onboarding = createSupabasePersonnelOnboardingRosterPort(() => service);
+	const training = createSupabasePersonnelTrainingRosterPort(() => service);
+	const criticalTasks = createSupabasePersonnelCriticalTasksRosterPort(() => service);
 	const idsOf = (people) => people.map((person) => person.id);
 	const groupEntries = (groups) => [...groups];
 
@@ -252,9 +270,72 @@ try {
 	assert.deepEqual(await emptyOnboarding.findGroupIds(actors.onboardingEmpty.actor, [ids.activeA1]), new Map());
 	await assert.rejects(emptyCalendar.listActive(actors.denied.actor), (error) => error.status === 403);
 	await assert.rejects(emptyOnboarding.listRoster(actors.denied.actor, 'all'), (error) => error.status === 403);
+
+	assert.deepEqual(idsOf(await training.listActiveForWorkspace(actors.trainingGroup.actor)), [ids.activeA1]);
+	assert.deepEqual(idsOf(await training.listActiveForReports(actors.trainingGroup.actor)), [ids.activeA1]);
+	assert.deepEqual(idsOf(await training.listActiveForWorkspace(actors.trainingViewer.actor)), [ids.activeA1]);
+	assert.deepEqual(idsOf(await training.listActiveForReports(actors.trainingViewer.actor)), [ids.activeA1]);
+	assert.deepEqual(
+		await training.findGroupIdsForWrites(actors.trainingGroup.actor, [...orgAll, ids.foreign]),
+		new Map(groupAll.map((id) => [id, ids.groupA1]))
+	);
+	assert.deepEqual(idsOf(await training.listActiveForWorkspace(actors.trainingOrg.actor)), orgActive);
+	assert.deepEqual(idsOf(await training.listActiveForReports(actors.trainingOrg.actor)), orgActive);
+	assert.deepEqual(
+		await training.findGroupIdsForWrites(actors.trainingOrg.actor, [...orgAll, ids.foreign]),
+		new Map([
+			[ids.activeA1, ids.groupA1],
+			[ids.archivedA1, ids.groupA1],
+			[ids.activeA2, ids.groupA2],
+			[ids.activeUnassigned, null],
+			[ids.archivedUnassigned, null]
+		])
+	);
+	assert.deepEqual(idsOf(await training.listActiveForReports(actors.trainingForeign.actor)), [ids.foreign]);
+	assert.deepEqual(await training.findGroupIdsForWrites(actors.trainingForeign.actor, [ids.activeA1]), new Map());
+	const emptyTraining = createSupabasePersonnelTrainingRosterPort(noAdminClient);
+	assert.deepEqual(await emptyTraining.listActiveForWorkspace(actors.trainingEmpty.actor), []);
+	assert.deepEqual(await emptyTraining.findGroupIdsForWrites(actors.trainingEmpty.actor, [ids.activeA1]), new Map());
+	await assert.rejects(emptyTraining.listActiveForReports(actors.denied.actor), (error) => error.status === 403);
+	await assert.rejects(
+		emptyTraining.findGroupIdsForWrites(actors.trainingViewer.actor, [ids.activeA1]),
+		(error) => error.status === 403
+	);
+
+	assert.deepEqual(idsOf(await criticalTasks.listActiveForReadiness(actors.criticalGroup.actor)), [ids.activeA1]);
+	assert.deepEqual(idsOf(await criticalTasks.listActiveForReadiness(actors.criticalViewer.actor)), [ids.activeA1]);
+	assert.equal((await criticalTasks.findForHistory(actors.criticalViewer.actor, ids.archivedA1))?.id, ids.archivedA1);
+	assert.deepEqual(
+		(await criticalTasks.findForHistory(actors.criticalGroup.actor, ids.archivedA1))?.id,
+		ids.archivedA1
+	);
+	assert.equal(await criticalTasks.findForHistory(actors.criticalGroup.actor, ids.activeA2), null);
+	assert.deepEqual(idsOf(await criticalTasks.listForBatchImport(actors.criticalGroup.actor)), groupAll);
+	const archivedGroupWrite = await criticalTasks.findForCompletionWrite(actors.criticalGroup.actor, ids.archivedA1);
+	assert.equal(archivedGroupWrite?.groupId, ids.groupA1);
+	assert.equal(new Date(archivedGroupWrite.archivedAt).toISOString(), '2030-01-01T00:00:00.000Z');
+	assert.equal(await criticalTasks.findForCompletionWrite(actors.criticalGroup.actor, ids.activeUnassigned), null);
+	assert.deepEqual(idsOf(await criticalTasks.listActiveForReadiness(actors.criticalOrg.actor)), orgActive);
+	assert.deepEqual(idsOf(await criticalTasks.listForBatchImport(actors.criticalOrg.actor)), orgAll);
+	assert.equal(
+		(await criticalTasks.findForHistory(actors.criticalOrg.actor, ids.archivedUnassigned))?.id,
+		ids.archivedUnassigned
+	);
+	assert.deepEqual(await criticalTasks.findForCompletionWrite(actors.criticalOrg.actor, ids.activeUnassigned), {
+		groupId: null,
+		archivedAt: null
+	});
+	assert.deepEqual(idsOf(await criticalTasks.listActiveForReadiness(actors.criticalForeign.actor)), [ids.foreign]);
+	assert.equal(await criticalTasks.findForHistory(actors.criticalForeign.actor, ids.activeA1), null);
+	const emptyCritical = createSupabasePersonnelCriticalTasksRosterPort(noAdminClient);
+	assert.deepEqual(await emptyCritical.listActiveForReadiness(actors.criticalEmpty.actor), []);
+	assert.deepEqual(await emptyCritical.listForBatchImport(actors.criticalEmpty.actor), []);
+	assert.equal(await emptyCritical.findForHistory(actors.criticalEmpty.actor, ids.activeA1), null);
+	await assert.rejects(emptyCritical.listActiveForReadiness(actors.denied.actor), (error) => error.status === 403);
+	await assert.rejects(emptyCritical.listForBatchImport(actors.criticalViewer.actor), (error) => error.status === 403);
 } finally {
 	await vite.close();
 	process.chdir(previousCwd);
 }
 
-console.log('Disposable Calendar/Onboarding lane-only Personnel RLS and live roster provider witness passed.');
+console.log('Disposable four-lane Personnel RLS and live roster provider witness passed.');

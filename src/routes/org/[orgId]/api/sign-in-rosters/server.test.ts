@@ -10,10 +10,23 @@ const GROUP_BRAVO = 'group-bravo';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.signInRosterPersonnelLookup ??= {
-		findPersonnelForRosterSnapshot: (orgId, personnelIds) =>
-			ctx.rawStore.findMany<SignInRosterPersonnelLookupRecord>('personnel', orgId, undefined, {
-				inFilters: { id: personnelIds }
-			})
+		findPersonnelForRosterSnapshot: async (orgId, personnelIds) => {
+			const rows = await ctx.rawStore.findMany<{
+				id: string;
+				rank: string | null;
+				last_name: string | null;
+				first_name: string | null;
+				group_id: string | null;
+			}>('personnel', orgId, undefined, { inFilters: { id: personnelIds } });
+			return rows.map((row) => ({
+				id: row.id,
+				rank: row.rank,
+				lastName: row.last_name,
+				firstName: row.first_name,
+				groupId: row.group_id,
+				groupName: null
+			}));
+		}
 	};
 	ctx.rawStore.seed('groups', [
 		{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
@@ -62,10 +75,10 @@ describe('/api/sign-in-rosters route config', () => {
 				{
 					id: 'p-alpha',
 					rank: 'SGT',
-					last_name: 'Smith',
-					first_name: 'Jane',
-					group_id: GROUP_ALPHA,
-					group_name: 'Alpha'
+					lastName: 'Smith',
+					firstName: 'Jane',
+					groupId: GROUP_ALPHA,
+					groupName: 'Alpha'
 				}
 			]
 		};
@@ -116,14 +129,14 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 		ctx.signInRosterPersonnelLookup = {
 			findPersonnelForRosterSnapshot: async () => [
-				{ id: 'p-known', rank: 'SGT', last_name: 'Smith', first_name: 'Jane', group_id: GROUP_ALPHA, group_name: null },
+				{ id: 'p-known', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: GROUP_ALPHA, groupName: null },
 				{
 					id: 'p-unknown',
 					rank: 'SPC',
-					last_name: 'Taylor',
-					first_name: 'Morgan',
-					group_id: 'foreign',
-					group_name: null
+					lastName: 'Taylor',
+					firstName: 'Morgan',
+					groupId: 'foreign',
+					groupName: null
 				}
 			]
 		};
@@ -162,10 +175,10 @@ describe('/api/sign-in-rosters route config', () => {
 			{
 				id: 'p-alpha',
 				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				group_id: GROUP_ALPHA,
-				group_name: 'Alpha'
+				lastName: 'Smith',
+				firstName: 'Jane',
+				groupId: GROUP_ALPHA,
+				groupName: 'Alpha'
 			}
 		]);
 		const ctx = createTestContext({
@@ -255,10 +268,10 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 		ctx.signInRosterPersonnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
-				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', last_name: 'Able' }),
-				signInPersonnel({ id: 'navy-e5', rank: 'PO2', last_name: 'Baker' }),
-				signInPersonnel({ id: 'army-e5', rank: 'SGT', last_name: 'Able' }),
-				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', last_name: 'Charlie' })
+				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', lastName: 'Able' }),
+				signInPersonnel({ id: 'navy-e5', rank: 'PO2', lastName: 'Baker' }),
+				signInPersonnel({ id: 'army-e5', rank: 'SGT', lastName: 'Able' }),
+				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', lastName: 'Charlie' })
 			])
 		};
 
@@ -301,8 +314,8 @@ describe('/api/sign-in-rosters route config', () => {
 		});
 		ctx.signInRosterPersonnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
-				signInPersonnel({ id: 'p-smith', rank: 'SGT', last_name: 'Smith', first_name: 'Jane' }),
-				signInPersonnel({ id: 'p-adams', rank: 'PO2', last_name: 'Adams', first_name: 'Avery' })
+				signInPersonnel({ id: 'p-smith', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }),
+				signInPersonnel({ id: 'p-adams', rank: 'PO2', lastName: 'Adams', firstName: 'Avery' })
 			])
 		};
 
@@ -354,18 +367,18 @@ describe('/api/sign-in-rosters route config', () => {
 				{
 					id: 'p-alpha',
 					rank: 'SGT',
-					last_name: 'Smith',
-					first_name: 'Jane',
-					group_id: GROUP_ALPHA,
-					group_name: 'Alpha'
+					lastName: 'Smith',
+					firstName: 'Jane',
+					groupId: GROUP_ALPHA,
+					groupName: 'Alpha'
 				},
 				{
 					id: 'p-unassigned',
 					rank: 'SPC',
-					last_name: 'Taylor',
-					first_name: 'Morgan',
-					group_id: null,
-					group_name: null
+					lastName: 'Taylor',
+					firstName: 'Morgan',
+					groupId: null,
+					groupName: null
 				}
 			])
 		};
@@ -559,10 +572,10 @@ function signInPersonnel(overrides: Partial<SignInRosterPersonnelLookupRecord>):
 	return {
 		id: overrides.id ?? 'person-1',
 		rank: overrides.rank ?? 'SGT',
-		last_name: overrides.last_name ?? 'Able',
-		first_name: overrides.first_name ?? 'Alex',
-		group_id: GROUP_ALPHA,
-		group_name: 'Alpha',
+		lastName: overrides.lastName ?? 'Able',
+		firstName: overrides.firstName ?? 'Alex',
+		groupId: GROUP_ALPHA,
+		groupName: 'Alpha',
 		...overrides
 	};
 }

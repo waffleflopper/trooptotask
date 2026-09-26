@@ -61,18 +61,18 @@ describe('SupabaseSignInRosterPersonnelLookupPort', () => {
 			{
 				id: 'person-1',
 				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				group_id: 'group-1',
-				group_name: 'Alpha'
+				lastName: 'Smith',
+				firstName: 'Jane',
+				groupId: 'group-1',
+				groupName: 'Alpha'
 			},
 			{
 				id: 'person-2',
 				rank: null,
-				last_name: null,
-				first_name: null,
-				group_id: null,
-				group_name: null
+				lastName: null,
+				firstName: null,
+				groupId: null,
+				groupName: null
 			}
 		]);
 	});

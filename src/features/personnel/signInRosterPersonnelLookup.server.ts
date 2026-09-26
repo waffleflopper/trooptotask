@@ -1,9 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SignInRosterPersonnelLookupPort, SignInRosterPersonnelLookupRecord } from './contracts';
 
-type SupabaseSignInRosterPersonnelRow = SignInRosterPersonnelLookupRecord & {
+interface SupabaseSignInRosterPersonnelRow {
+	id: string;
+	rank: string | null;
+	last_name: string | null;
+	first_name: string | null;
+	group_id: string | null;
 	groups?: { name?: string | null } | { name?: string | null }[] | null;
-};
+}
 
 export function createSupabaseSignInRosterPersonnelLookupPort(
 	getAdminClient: () => SupabaseClient
@@ -28,10 +33,10 @@ export function createSupabaseSignInRosterPersonnelLookupPort(
 			return ((data ?? []) as SupabaseSignInRosterPersonnelRow[]).map((row) => ({
 				id: row.id,
 				rank: row.rank ?? null,
-				last_name: row.last_name ?? null,
-				first_name: row.first_name ?? null,
-				group_id: row.group_id ?? null,
-				group_name: groupNameForRow(row)
+				lastName: row.last_name ?? null,
+				firstName: row.first_name ?? null,
+				groupId: row.group_id ?? null,
+				groupName: groupNameForRow(row)
 			}));
 		}
 	};

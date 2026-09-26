@@ -13,10 +13,10 @@ export interface Group {
 export interface SignInRosterPersonnelLookupRecord {
 	id: string;
 	rank?: string | null;
-	last_name?: string | null;
-	first_name?: string | null;
-	group_id?: string | null;
-	group_name?: string | null;
+	lastName?: string | null;
+	firstName?: string | null;
+	groupId?: string | null;
+	groupName?: string | null;
 }
 
 export interface SignInRosterPersonnelLookupPort {

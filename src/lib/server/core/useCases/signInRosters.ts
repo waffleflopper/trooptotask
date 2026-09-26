@@ -109,14 +109,14 @@ async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): P
 async function loadGroupNames(ctx: UseCaseContext, rows: PersonnelRow[]): Promise<Map<string, string>> {
 	const names = new Map<string, string>();
 	for (const row of rows) {
-		const groupName = row.group_name;
-		if (row.group_id && typeof groupName === 'string') {
-			names.set(row.group_id, groupName);
+		const groupName = row.groupName;
+		if (row.groupId && typeof groupName === 'string') {
+			names.set(row.groupId, groupName);
 		}
 	}
 
 	const missingGroupIds = uniqueStrings(
-		rows.map((row) => row.group_id).filter((id): id is string => typeof id === 'string' && !names.has(id))
+		rows.map((row) => row.groupId).filter((id): id is string => typeof id === 'string' && !names.has(id))
 	);
 	if (missingGroupIds.length === 0) return names;
 
@@ -131,15 +131,15 @@ function assertPersonnelRowsWithinScope(scopeSet: ScopeSet, rows: PersonnelRow[]
 
 	const allowedGroups = new Set(scopeSet.groupIds);
 	for (const row of rows) {
-		if (!row.group_id || !allowedGroups.has(row.group_id)) {
+		if (!row.groupId || !allowedGroups.has(row.groupId)) {
 			fail(403, 'You do not have access to personnel outside your group');
 		}
 	}
 }
 
 function scopeGroupIdsForRows(rows: PersonnelRow[]): string[] {
-	if (rows.some((row) => !row.group_id)) return [];
-	return uniqueStrings(rows.map((row) => row.group_id).filter((id): id is string => typeof id === 'string'));
+	if (rows.some((row) => !row.groupId)) return [];
+	return uniqueStrings(rows.map((row) => row.groupId).filter((id): id is string => typeof id === 'string'));
 }
 
 function rowsById(rows: PersonnelRow[]): Map<string, PersonnelRow> {
@@ -150,10 +150,10 @@ function canonicalSnapshotFor(row: PersonnelRow, groupNames: Map<string, string>
 	return {
 		id: row.id,
 		rank: row.rank ?? '',
-		lastName: row.last_name ?? '',
-		firstName: row.first_name ?? '',
-		group: row.group_id ? (groupNames.get(row.group_id) ?? '') : '',
-		groupId: row.group_id ?? null
+		lastName: row.lastName ?? '',
+		firstName: row.firstName ?? '',
+		group: row.groupId ? (groupNames.get(row.groupId) ?? '') : '',
+		groupId: row.groupId ?? null
 	};
 }
 

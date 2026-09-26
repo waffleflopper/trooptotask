@@ -10,6 +10,8 @@ export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.serv
 export type { PersonnelTrainingRosterPort } from './contracts';
 export { loadRosterPersonnel } from './rosterRead.server';
 export { findGroupNamesByIds, listGroupCatalog } from './groupCatalog.server';
+export { createGroup, updateGroup, deleteGroup } from './groupOperations.server';
+export { seedDefaultGroups } from './groupSeed.server';
 export { listPinnedGroupNames } from './pinnedGroupNames.server';
 export { pinGroup, replacePinnedGroups, unpinGroup } from './pinnedGroupOperations.server';
 export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';

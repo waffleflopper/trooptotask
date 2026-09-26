@@ -1,4 +1,4 @@
-import { GroupEntity } from '$lib/server/entities/group';
+import { GroupEntity } from './groupEntity.server';
 import type { Group } from './contracts';
 
 interface GroupCatalogQueryContext {

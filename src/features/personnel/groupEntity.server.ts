@@ -1,12 +1,8 @@
-/**
- * Group entity — maps the `groups` table.
- * Groups are org-level (no per-group scoping). Sorted by `sort_order` ascending.
- * Requires `personnel` permission feature area for writes.
- */
+/** Personnel's persisted Group shape, validation and row mapping. */
 import { z } from 'zod';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { Group } from '$features/personnel/contracts';
+import type { Group } from './contracts';
 
 export const GroupEntity = defineEntity<Group>({
 	table: 'groups',

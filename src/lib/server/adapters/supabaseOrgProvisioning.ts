@@ -1,14 +1,16 @@
 import type {
 	OrgProvisioningAssignmentTypeSeed,
 	OrgProvisioningCreateResult,
-	OrgProvisioningGroupSeed,
 	OrgProvisioningRankCatalogSeed,
 	OrgProvisioningPort,
 	OrgProvisioningSpecialDaySeed,
 	OrgProvisioningStatusTypeSeed
 } from '$lib/server/core/useCases/orgProvisioning';
 
-export function createSupabaseOrgProvisioningPort(locals: Pick<App.Locals, 'supabase'>): OrgProvisioningPort {
+export function createSupabaseOrgProvisioningPort(
+	locals: Pick<App.Locals, 'supabase'>,
+	seedGroups: OrgProvisioningPort['seedDefaultGroups']
+): OrgProvisioningPort {
 	const supabase = locals.supabase;
 
 	return {
@@ -32,11 +34,7 @@ export function createSupabaseOrgProvisioningPort(locals: Pick<App.Locals, 'supa
 		},
 
 		async seedDefaultGroups(organizationId, groups) {
-			const { error } = await supabase
-				.from('groups')
-				.insert(groups.map((group) => serializeGroupSeed(organizationId, group)));
-
-			return error?.message ?? null;
+			return seedGroups(organizationId, groups);
 		},
 
 		async seedDefaultStatusTypes(organizationId, statusTypes) {
@@ -83,14 +81,6 @@ export function createSupabaseOrgProvisioningPort(locals: Pick<App.Locals, 'supa
 
 			return error?.message ?? null;
 		}
-	};
-}
-
-function serializeGroupSeed(organizationId: string, group: OrgProvisioningGroupSeed) {
-	return {
-		organization_id: organizationId,
-		name: group.name,
-		sort_order: group.sortOrder
 	};
 }
 

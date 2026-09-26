@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseOrgProvisioningPort } from './supabaseOrgProvisioning';
 import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
+import { seedDefaultGroups } from '$features/personnel/index.server';
 
 // Exercise the real SDK wire format without connecting to a provider. SQL/RLS and
 // transaction guarantees belong to the isolated database contract in 02-03-04.
@@ -10,7 +11,9 @@ function httpPort(handle: (request: Request) => Promise<Response>) {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: { fetch: (input, init) => handle(new Request(input, init)) }
 	});
-	return createSupabaseOrgProvisioningPort({ supabase } as never);
+	return createSupabaseOrgProvisioningPort({ supabase } as never, (orgId, groups) =>
+		seedDefaultGroups(supabase, orgId, groups)
+	);
 }
 
 function providerFailure(message: string) {

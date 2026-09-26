@@ -1,4 +1,3 @@
-export { GroupEntity } from './group';
 export { StatusTypeEntity } from './statusType';
 export { AssignmentTypeEntity } from './assignmentType';
 export { TrainingTypeEntity } from './trainingType';

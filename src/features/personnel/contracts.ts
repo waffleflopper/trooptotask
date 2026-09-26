@@ -12,11 +12,11 @@ export interface Group {
 /** Canonical Personnel facts used when saving a Sign-in Roster snapshot. */
 export interface SignInRosterPersonnelLookupRecord {
 	id: string;
-	rank?: string | null;
-	lastName?: string | null;
-	firstName?: string | null;
-	groupId?: string | null;
-	groupName?: string | null;
+	rank: string | null;
+	lastName: string | null;
+	firstName: string | null;
+	groupId: string | null;
+	groupName: string | null;
 }
 
 export interface SignInRosterPersonnelLookupPort {

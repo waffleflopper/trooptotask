@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -53,6 +55,42 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('/api/sign-in-rosters route config', () => {
+	it("saves the Personnel provider's mapped Group and name facts in a canonical snapshot", async () => {
+		const requests: URL[] = [];
+		const supabase = createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					requests.push(new URL(String(input)));
+					return Response.json([
+						{
+							id: 'person-1',
+							rank: 'SGT',
+							last_name: 'Smith',
+							first_name: 'Jane',
+							group_id: GROUP_ALPHA,
+							groups: { name: 'Alpha' }
+						}
+					]);
+				}
+			}
+		});
+		const ctx = createTestContext();
+		ctx.signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
+
+		await handleUseCaseRequest(_postConfig, ctx, { title: 'Training attendance', personnelIds: ['person-1'] });
+
+		const saved = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
+		expect(saved[0]).toMatchObject({
+			scope_group_ids: [GROUP_ALPHA],
+			personnel_snapshot: [
+				{ id: 'person-1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
+			]
+		});
+		expect(requests).toHaveLength(1);
+		expect(requests[0].pathname).toBe('/rest/v1/personnel');
+	});
+
 	it('creates and reloads an independent sign-in roster with Calendar denied and no duty records', async () => {
 		const ctx = createTestContext({
 			auth: {

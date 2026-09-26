@@ -20,9 +20,9 @@ INSERT INTO public.organization_memberships (
   organization_id, user_id, role, member_preset, capability_overrides,
   access_scope_kind, access_scope_group_ids
 ) VALUES
-  ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000001', 'member', 'viewer', '{"personnel":"operate","training":"none"}', 'groups', ARRAY['e8000000-0000-4000-8000-000000000201']::uuid[]),
-  ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000002', 'member', 'viewer', '{"personnel":"operate","training":"none"}', 'groups', ARRAY[]::uuid[]),
-  ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000003', 'member', 'viewer', '{"personnel":"operate","training":"none"}', 'organization', ARRAY[]::uuid[]),
+  ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000001', 'member', 'viewer', '{"personnel":"configure","training":"none"}', 'groups', ARRAY['e8000000-0000-4000-8000-000000000201']::uuid[]),
+  ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000002', 'member', 'viewer', '{"personnel":"configure","training":"none"}', 'groups', ARRAY[]::uuid[]),
+  ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000003', 'member', 'viewer', '{"personnel":"configure","training":"none"}', 'organization', ARRAY[]::uuid[]),
   ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000004', 'member', 'viewer', '{"personnel":"view","training":"none"}', 'groups', ARRAY['e8000000-0000-4000-8000-000000000201']::uuid[]),
   ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000005', 'member', 'viewer', '{"personnel":"none","training":"view"}', 'groups', ARRAY['e8000000-0000-4000-8000-000000000201']::uuid[]),
   ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000006', 'member', 'viewer', '{"personnel":"none","training":"operate"}', 'groups', ARRAY['e8000000-0000-4000-8000-000000000201']::uuid[]);
@@ -58,44 +58,44 @@ INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VAL
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'e8000000-0000-4000-8000-000000000001', true);
-SELECT ok(public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'), 'Group operator can read in-Group counseling file');
-SELECT ok(public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'), 'Group operator can write in-Group counseling file');
-SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Group operator cannot call read helper for unassigned Person');
-SELECT ok(NOT public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Group operator cannot call write helper for unassigned Person');
-SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000102/counseling-records/e8000000-0000-4000-8000-000000000303/foreign.pdf'), 'Group operator cannot call read helper for foreign Organization');
+SELECT ok(public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'), 'Group configurator can read in-Group counseling file');
+SELECT ok(public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'), 'Group configurator can write in-Group counseling file');
+SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Group configurator cannot call read helper for unassigned Person');
+SELECT ok(NOT public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Group configurator cannot call write helper for unassigned Person');
+SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000102/counseling-records/e8000000-0000-4000-8000-000000000303/foreign.pdf'), 'Group configurator cannot call read helper for foreign Organization');
 SELECT is((SELECT string_agg(id::text, ',' ORDER BY id) FROM storage.objects),
-  'e8000000-0000-4000-8000-000000000601', 'Group operator sees only in-Group counseling object');
-SELECT is((SELECT count(*)::integer FROM public.personnel_follow_ups), 0, 'Group operator cannot read unassigned follow-up');
-SELECT is((SELECT count(*)::integer FROM public.personnel_documents), 0, 'Group operator cannot read unassigned document metadata');
-SELECT is((SELECT count(*)::integer FROM public.counseling_records), 0, 'Group operator cannot read unassigned counseling record');
-SELECT is((SELECT count(*)::integer FROM public.leader_notes), 0, 'Group operator cannot read unassigned leader note');
+  'e8000000-0000-4000-8000-000000000601', 'Group configurator sees only in-Group counseling object');
+SELECT is((SELECT count(*)::integer FROM public.personnel_follow_ups), 0, 'Group configurator cannot read unassigned follow-up');
+SELECT is((SELECT count(*)::integer FROM public.personnel_documents), 0, 'Group configurator cannot read unassigned document metadata');
+SELECT is((SELECT count(*)::integer FROM public.counseling_records), 0, 'Group configurator cannot read unassigned counseling record');
+SELECT is((SELECT count(*)::integer FROM public.leader_notes), 0, 'Group configurator cannot read unassigned leader note');
 SAVEPOINT denied_group_storage_writes;
 WITH changed AS (UPDATE public.personnel_follow_ups SET title = 'Denied' WHERE id = 'e8000000-0000-4000-8000-000000000501' RETURNING id)
-SELECT is(count(*)::integer, 0, 'Group operator cannot edit unassigned follow-up') FROM changed;
+SELECT is(count(*)::integer, 0, 'Group configurator cannot edit unassigned follow-up') FROM changed;
 SELECT throws_ok($$ INSERT INTO public.personnel_documents (organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by)
   VALUES ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000302', 'Denied', 'e8000000-0000-4000-8000-000000000101/personnel/e8000000-0000-4000-8000-000000000302/documents/denied.pdf', 128, 'application/pdf', 'fixture') $$,
-  '42501', NULL, 'Group operator cannot create unassigned document');
+  '42501', NULL, 'Group configurator cannot create unassigned document');
 SELECT throws_ok($$ INSERT INTO public.counseling_records (organization_id, personnel_id, date_conducted, subject, title, uploaded_by)
   VALUES ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000302', '2030-01-02', 'Denied', 'Denied', 'fixture') $$,
-  '42501', NULL, 'Group operator cannot create unassigned counseling record');
+  '42501', NULL, 'Group configurator cannot create unassigned counseling record');
 SELECT throws_ok($$ INSERT INTO public.leader_notes (organization_id, personnel_id, author, text)
   VALUES ('e8000000-0000-4000-8000-000000000101', 'e8000000-0000-4000-8000-000000000302', 'fixture', 'Denied') $$,
-  '42501', NULL, 'Group operator cannot create unassigned leader note');
+  '42501', NULL, 'Group configurator cannot create unassigned leader note');
 SELECT throws_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
   VALUES ('personnel-documents', 'e8000000-0000-4000-8000-000000000101/personnel/e8000000-0000-4000-8000-000000000302/documents/denied.pdf', 'e8000000-0000-4000-8000-000000000001', 'e8000000-0000-4000-8000-000000000001', '{}'::jsonb) $$,
-  '42501', NULL, 'Group operator cannot create unassigned document file');
+  '42501', NULL, 'Group configurator cannot create unassigned document file');
 WITH changed AS (UPDATE storage.objects SET metadata = '{"denied":true}' WHERE id = 'e8000000-0000-4000-8000-000000000602' RETURNING id)
-SELECT is(count(*)::integer, 0, 'Group operator cannot update unassigned counseling object') FROM changed;
+SELECT is(count(*)::integer, 0, 'Group configurator cannot update unassigned counseling object') FROM changed;
 SELECT throws_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
   VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/new.pdf', 'e8000000-0000-4000-8000-000000000001', 'e8000000-0000-4000-8000-000000000001', '{}'::jsonb) $$,
-  '42501', NULL, 'Group operator cannot insert unassigned counseling object');
+  '42501', NULL, 'Group configurator cannot insert unassigned counseling object');
 ROLLBACK TO SAVEPOINT denied_group_storage_writes;
 SAVEPOINT allowed_group_storage_writes;
 SELECT lives_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
   VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/new.pdf', 'e8000000-0000-4000-8000-000000000001', 'e8000000-0000-4000-8000-000000000001', '{}'::jsonb) $$,
-  'Group operator can create in-Group counseling object');
+  'Group configurator can create in-Group counseling object');
 WITH changed AS (UPDATE storage.objects SET metadata = '{"allowed":true}' WHERE id = 'e8000000-0000-4000-8000-000000000601' RETURNING id)
-SELECT is(count(*)::integer, 1, 'Group operator can update in-Group counseling object') FROM changed;
+SELECT is(count(*)::integer, 1, 'Group configurator can update in-Group counseling object') FROM changed;
 ROLLBACK TO SAVEPOINT allowed_group_storage_writes;
 
 SELECT set_config('request.jwt.claim.sub', 'e8000000-0000-4000-8000-000000000002', true);
@@ -104,22 +104,22 @@ SELECT is((SELECT count(*)::integer FROM storage.objects), 0, 'empty Group scope
 SELECT is((SELECT count(*)::integer FROM public.counseling_records), 0, 'empty Group scope reads no counseling records');
 
 SELECT set_config('request.jwt.claim.sub', 'e8000000-0000-4000-8000-000000000003', true);
-SELECT ok(public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Organization operator can call read helper for unassigned Person');
-SELECT ok(public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Organization operator can call write helper for unassigned Person');
-SELECT is((SELECT count(*)::integer FROM storage.objects WHERE bucket_id = 'counseling-files'), 2, 'Organization operator reads assigned and unassigned counseling objects');
-SELECT is((SELECT count(*)::integer FROM public.counseling_records), 1, 'Organization operator reads unassigned counseling record');
-SELECT is((SELECT count(*)::integer FROM public.personnel_documents), 1, 'Organization operator reads unassigned document metadata');
-SELECT is((SELECT count(*)::integer FROM public.leader_notes), 1, 'Organization operator reads unassigned leader note');
+SELECT ok(public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Organization configurator can call read helper for unassigned Person');
+SELECT ok(public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/unassigned.pdf'), 'Organization configurator can call write helper for unassigned Person');
+SELECT is((SELECT count(*)::integer FROM storage.objects WHERE bucket_id = 'counseling-files'), 2, 'Organization configurator reads assigned and unassigned counseling objects');
+SELECT is((SELECT count(*)::integer FROM public.counseling_records), 1, 'Organization configurator reads unassigned counseling record');
+SELECT is((SELECT count(*)::integer FROM public.personnel_documents), 1, 'Organization configurator reads unassigned document metadata');
+SELECT is((SELECT count(*)::integer FROM public.leader_notes), 1, 'Organization configurator reads unassigned leader note');
 SAVEPOINT allowed_org_storage_writes;
 SELECT lives_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
   VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/new.pdf', 'e8000000-0000-4000-8000-000000000003', 'e8000000-0000-4000-8000-000000000003', '{}'::jsonb) $$,
-  'Organization operator can create unassigned counseling object');
+  'Organization configurator can create unassigned counseling object');
 WITH changed AS (UPDATE storage.objects SET metadata = '{"allowed":true}' WHERE id = 'e8000000-0000-4000-8000-000000000602' RETURNING id)
-SELECT is(count(*)::integer, 1, 'Organization operator can update unassigned counseling object') FROM changed;
+SELECT is(count(*)::integer, 1, 'Organization configurator can update unassigned counseling object') FROM changed;
 ROLLBACK TO SAVEPOINT allowed_org_storage_writes;
 
 SELECT set_config('request.jwt.claim.sub', 'e8000000-0000-4000-8000-000000000004', true);
-SELECT ok(public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'), 'Group viewer can read in-Group counseling file');
+SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'), 'Group viewer cannot read in-Group counseling file');
 SELECT ok(NOT public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'), 'Group viewer cannot write in-Group counseling file');
 
 SELECT set_config('request.jwt.claim.sub', 'e8000000-0000-4000-8000-000000000005', true);

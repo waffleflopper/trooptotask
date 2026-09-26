@@ -38,6 +38,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20260926000800_personnel_counseling_file_scope.sql",
     "20260926000900_rating_scheme_unassigned_scope.sql",
     "20260926001000_personnel_extended_info_scope.sql",
+    "20260926001100_personnel_sensitive_artifact_reads.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

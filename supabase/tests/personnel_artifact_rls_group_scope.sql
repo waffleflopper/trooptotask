@@ -125,7 +125,7 @@ VALUES
 		'10000000-0000-4000-8000-000000069001',
 		'member',
 		'viewer',
-		'{}'::jsonb,
+		'{"personnel":"configure"}'::jsonb,
 		'organization',
 		ARRAY[]::uuid[],
 		'rls-artifact-org-viewer-069@example.test'
@@ -136,7 +136,7 @@ VALUES
 		'10000000-0000-4000-8000-000000069002',
 		'member',
 		'viewer',
-		'{}'::jsonb,
+		'{"personnel":"configure"}'::jsonb,
 		'groups',
 		ARRAY['30000000-0000-4000-8000-000000069001']::uuid[],
 		'rls-artifact-group-viewer-069@example.test'
@@ -147,7 +147,7 @@ VALUES
 		'10000000-0000-4000-8000-000000069003',
 		'member',
 		'operator',
-		'{}'::jsonb,
+		'{"personnel":"configure"}'::jsonb,
 		'groups',
 		ARRAY['30000000-0000-4000-8000-000000069001']::uuid[],
 		'rls-artifact-group-operator-069@example.test'
@@ -341,17 +341,17 @@ SELECT set_config('request.jwt.claim.email', 'rls-artifact-org-viewer-069@exampl
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069001'),
 	1,
-	'organization-scope personnel viewer can read in-org follow ups'
+	'organization-scope Personnel configurator can read in-org follow ups'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_documents WHERE id = '70000000-0000-4000-8000-000000069001'),
 	1,
-	'organization-scope personnel viewer can read in-org personnel documents'
+	'organization-scope Personnel configurator can read in-org personnel documents'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069006'),
 	1,
-	'organization-scope personnel viewer can read follow ups for unassigned personnel'
+	'organization-scope Personnel configurator can read follow ups for unassigned personnel'
 );
 
 RESET ROLE;
@@ -362,27 +362,27 @@ SELECT set_config('request.jwt.claim.email', 'rls-artifact-group-viewer-069@exam
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069001'),
 	1,
-	'group-scoped personnel viewer can read follow ups for scoped personnel'
+	'group-scoped Personnel configurator can read follow ups for scoped personnel'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_documents WHERE id = '70000000-0000-4000-8000-000000069001'),
 	1,
-	'group-scoped personnel viewer can read documents for scoped personnel'
+	'group-scoped Personnel configurator can read documents for scoped personnel'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069002'),
 	0,
-	'group-scoped personnel viewer cannot read follow ups for another same-org group'
+	'group-scoped Personnel configurator cannot read follow ups for another same-org group'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_follow_ups WHERE id = '60000000-0000-4000-8000-000000069006'),
 	0,
-	'group-scoped personnel viewer cannot read follow ups for unassigned personnel'
+	'group-scoped Personnel configurator cannot read follow ups for unassigned personnel'
 );
 SELECT is(
 	(SELECT count(*)::integer FROM public.personnel_documents WHERE id = '70000000-0000-4000-8000-000000069002'),
 	0,
-	'group-scoped personnel viewer cannot read documents for another same-org group'
+	'group-scoped Personnel configurator cannot read documents for another same-org group'
 );
 SELECT is(
 	(
@@ -391,7 +391,7 @@ SELECT is(
 		WHERE id = '80000000-0000-4000-8000-000000069002'
 	),
 	0,
-	'group-scoped personnel viewer cannot read out-of-scope personnel document storage objects'
+	'group-scoped Personnel configurator cannot read out-of-scope personnel document storage objects'
 );
 SELECT is(
 	(
@@ -400,7 +400,7 @@ SELECT is(
 		WHERE id = '80000000-0000-4000-8000-000000069001'
 	),
 	1,
-	'group-scoped personnel viewer can read in-scope personnel document storage objects'
+	'group-scoped Personnel configurator can read in-scope personnel document storage objects'
 );
 
 RESET ROLE;
@@ -447,7 +447,7 @@ SELECT lives_ok(
 			'rls-artifact-group-operator-069@example.test'
 		)
 	$$,
-	'group-scoped personnel operator can insert follow ups for scoped personnel'
+	'group-scoped Personnel configurator can insert follow ups for scoped personnel'
 );
 SELECT throws_ok(
 	$$
@@ -474,7 +474,7 @@ SELECT throws_ok(
 	$$,
 	'42501',
 	'new row violates row-level security policy for table "personnel_follow_ups"',
-	'group-scoped personnel operator cannot insert follow ups for another same-org group'
+	'group-scoped Personnel configurator cannot insert follow ups for another same-org group'
 );
 SELECT throws_ok(
 	$$
@@ -501,7 +501,7 @@ SELECT throws_ok(
 	$$,
 	'42501',
 	'new row violates row-level security policy for table "personnel_follow_ups"',
-	'group-scoped personnel operator cannot insert follow ups for unassigned personnel'
+	'group-scoped Personnel configurator cannot insert follow ups for unassigned personnel'
 );
 WITH updated AS (
 	UPDATE public.personnel_follow_ups
@@ -512,7 +512,7 @@ WITH updated AS (
 SELECT is(
 	(SELECT count(*)::integer FROM updated),
 	1,
-	'group-scoped personnel operator can update follow ups for scoped personnel'
+	'group-scoped Personnel configurator can update follow ups for scoped personnel'
 );
 WITH updated AS (
 	UPDATE public.personnel_follow_ups
@@ -523,7 +523,7 @@ WITH updated AS (
 SELECT is(
 	(SELECT count(*)::integer FROM updated),
 	0,
-	'group-scoped personnel operator cannot update follow ups for another same-org group'
+	'group-scoped Personnel configurator cannot update follow ups for another same-org group'
 );
 WITH updated AS (
 	UPDATE public.personnel_follow_ups
@@ -534,7 +534,7 @@ WITH updated AS (
 SELECT is(
 	(SELECT count(*)::integer FROM updated),
 	0,
-	'group-scoped personnel operator cannot update follow ups for unassigned personnel'
+	'group-scoped Personnel configurator cannot update follow ups for unassigned personnel'
 );
 WITH deleted AS (
 	DELETE FROM public.personnel_follow_ups
@@ -544,7 +544,7 @@ WITH deleted AS (
 SELECT is(
 	(SELECT count(*)::integer FROM deleted),
 	1,
-	'group-scoped personnel operator can delete follow ups for scoped personnel'
+	'group-scoped Personnel configurator can delete follow ups for scoped personnel'
 );
 WITH deleted AS (
 	DELETE FROM public.personnel_follow_ups
@@ -554,7 +554,7 @@ WITH deleted AS (
 SELECT is(
 	(SELECT count(*)::integer FROM deleted),
 	0,
-	'group-scoped personnel operator cannot delete follow ups for another same-org group'
+	'group-scoped Personnel configurator cannot delete follow ups for another same-org group'
 );
 WITH deleted AS (
 	DELETE FROM public.personnel_follow_ups
@@ -564,7 +564,7 @@ WITH deleted AS (
 SELECT is(
 	(SELECT count(*)::integer FROM deleted),
 	0,
-	'group-scoped personnel operator cannot delete follow ups for unassigned personnel'
+	'group-scoped Personnel configurator cannot delete follow ups for unassigned personnel'
 );
 
 SELECT lives_ok(
@@ -590,7 +590,7 @@ SELECT lives_ok(
 			'rls-artifact-group-operator-069@example.test'
 		)
 	$$,
-	'group-scoped personnel operator can insert documents for scoped personnel'
+	'group-scoped Personnel configurator can insert documents for scoped personnel'
 );
 SELECT throws_ok(
 	$$
@@ -617,7 +617,7 @@ SELECT throws_ok(
 	$$,
 	'42501',
 	'new row violates row-level security policy for table "personnel_documents"',
-	'group-scoped personnel operator cannot insert documents for another same-org group'
+	'group-scoped Personnel configurator cannot insert documents for another same-org group'
 );
 WITH updated AS (
 	UPDATE public.personnel_documents
@@ -628,7 +628,7 @@ WITH updated AS (
 SELECT is(
 	(SELECT count(*)::integer FROM updated),
 	1,
-	'group-scoped personnel operator can update documents for scoped personnel'
+	'group-scoped Personnel configurator can update documents for scoped personnel'
 );
 WITH updated AS (
 	UPDATE public.personnel_documents
@@ -639,7 +639,7 @@ WITH updated AS (
 SELECT is(
 	(SELECT count(*)::integer FROM updated),
 	0,
-	'group-scoped personnel operator cannot update documents for another same-org group'
+	'group-scoped Personnel configurator cannot update documents for another same-org group'
 );
 WITH deleted AS (
 	DELETE FROM public.personnel_documents
@@ -649,7 +649,7 @@ WITH deleted AS (
 SELECT is(
 	(SELECT count(*)::integer FROM deleted),
 	1,
-	'group-scoped personnel operator can delete documents for scoped personnel'
+	'group-scoped Personnel configurator can delete documents for scoped personnel'
 );
 WITH deleted AS (
 	DELETE FROM public.personnel_documents
@@ -659,7 +659,7 @@ WITH deleted AS (
 SELECT is(
 	(SELECT count(*)::integer FROM deleted),
 	0,
-	'group-scoped personnel operator cannot delete documents for another same-org group'
+	'group-scoped Personnel configurator cannot delete documents for another same-org group'
 );
 
 RESET ROLE;

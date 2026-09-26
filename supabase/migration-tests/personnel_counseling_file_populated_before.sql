@@ -11,7 +11,8 @@ $$;
 INSERT INTO auth.users (id, email) VALUES
   ('e9000000-0000-4000-8000-000000000001', 'file-upgrade-group@example.test'),
   ('e9000000-0000-4000-8000-000000000002', 'file-upgrade-org@example.test'),
-  ('e9000000-0000-4000-8000-000000000003', 'file-upgrade-training@example.test');
+  ('e9000000-0000-4000-8000-000000000003', 'file-upgrade-training@example.test'),
+  ('e9000000-0000-4000-8000-000000000004', 'file-upgrade-configurator@example.test');
 INSERT INTO public.organizations (id, name, created_by) VALUES
   ('e9000000-0000-4000-8000-000000000101', 'Counseling File Upgrade', 'e9000000-0000-4000-8000-000000000001');
 INSERT INTO public.groups (id, organization_id, name) VALUES
@@ -22,7 +23,8 @@ INSERT INTO public.organization_memberships (
 ) VALUES
   ('e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000001', 'member', 'viewer', '{"personnel":"operate","training":"none"}', 'groups', ARRAY['e9000000-0000-4000-8000-000000000201']::uuid[]),
   ('e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000002', 'member', 'viewer', '{"personnel":"operate","training":"none"}', 'organization', ARRAY[]::uuid[]),
-  ('e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000003', 'member', 'viewer', '{"personnel":"none","training":"view"}', 'groups', ARRAY['e9000000-0000-4000-8000-000000000201']::uuid[]);
+  ('e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000003', 'member', 'viewer', '{"personnel":"none","training":"view"}', 'groups', ARRAY['e9000000-0000-4000-8000-000000000201']::uuid[]),
+  ('e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000004', 'member', 'viewer', '{"personnel":"configure","training":"none"}', 'groups', ARRAY['e9000000-0000-4000-8000-000000000201']::uuid[]);
 INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug, archived_at) VALUES
   ('e9000000-0000-4000-8000-000000000301', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000201', 'SPC', 'Alpha', 'Archived', 'file-upgrade-alpha', '2029-01-01'),
   ('e9000000-0000-4000-8000-000000000302', 'e9000000-0000-4000-8000-000000000101', NULL, 'SPC', 'Unassigned', 'Archived', 'file-upgrade-unassigned', '2029-01-01');
@@ -40,14 +42,28 @@ INSERT INTO public.sign_in_rosters (
 INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
   ('e9000000-0000-4000-8000-000000000501', 'counseling-files', 'e9000000-0000-4000-8000-000000000101/counseling-records/e9000000-0000-4000-8000-000000000301/alpha.pdf', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000001', '{}'::jsonb),
   ('e9000000-0000-4000-8000-000000000502', 'counseling-files', 'e9000000-0000-4000-8000-000000000101/counseling-records/e9000000-0000-4000-8000-000000000302/unassigned.pdf', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000001', '{}'::jsonb),
-  ('e9000000-0000-4000-8000-000000000503', 'counseling-files', 'e9000000-0000-4000-8000-000000000101/sign-in-rosters/e9000000-0000-4000-8000-000000000401/alpha.pdf', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000001', '{}'::jsonb);
+  ('e9000000-0000-4000-8000-000000000503', 'counseling-files', 'e9000000-0000-4000-8000-000000000101/sign-in-rosters/e9000000-0000-4000-8000-000000000401/alpha.pdf', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000001', '{}'::jsonb),
+  ('e9000000-0000-4000-8000-000000000504', 'personnel-documents', 'e9000000-0000-4000-8000-000000000101/personnel/e9000000-0000-4000-8000-000000000301/documents/alpha.pdf', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000001', '{}'::jsonb),
+  ('e9000000-0000-4000-8000-000000000505', 'personnel-documents', 'e9000000-0000-4000-8000-000000000101/personnel/e9000000-0000-4000-8000-000000000302/documents/unassigned.pdf', 'e9000000-0000-4000-8000-000000000001', 'e9000000-0000-4000-8000-000000000001', '{}'::jsonb);
+INSERT INTO public.counseling_records (id, organization_id, personnel_id, date_conducted, subject, title, uploaded_by) VALUES
+  ('e9000000-0000-4000-8000-000000000601', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000301', '2030-01-01', 'Assigned', 'Assigned', 'fixture'),
+  ('e9000000-0000-4000-8000-000000000602', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000302', '2030-01-02', 'Unassigned', 'Unassigned', 'fixture');
+INSERT INTO public.leader_notes (id, organization_id, personnel_id, author, text) VALUES
+  ('e9000000-0000-4000-8000-000000000611', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000301', 'fixture', 'Assigned note'),
+  ('e9000000-0000-4000-8000-000000000612', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000302', 'fixture', 'Unassigned note');
+INSERT INTO public.personnel_follow_ups (id, organization_id, personnel_id, title, notes, due_date, status, created_by) VALUES
+  ('e9000000-0000-4000-8000-000000000621', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000301', 'Assigned follow-up', 'Retained', '2030-02-01', 'open', 'fixture'),
+  ('e9000000-0000-4000-8000-000000000622', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000302', 'Unassigned follow-up', 'Retained', '2030-02-02', 'open', 'fixture');
+INSERT INTO public.personnel_documents (id, organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by) VALUES
+  ('e9000000-0000-4000-8000-000000000631', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000301', 'Assigned document', 'e9000000-0000-4000-8000-000000000101/personnel/e9000000-0000-4000-8000-000000000301/documents/alpha.pdf', 128, 'application/pdf', 'fixture'),
+  ('e9000000-0000-4000-8000-000000000632', 'e9000000-0000-4000-8000-000000000101', 'e9000000-0000-4000-8000-000000000302', 'Unassigned document', 'e9000000-0000-4000-8000-000000000101/personnel/e9000000-0000-4000-8000-000000000302/documents/unassigned.pdf', 256, 'application/pdf', 'fixture');
 
 CREATE TABLE upgrade_fixture.personnel_counseling_file_before_rows (
   table_name text NOT NULL, row_id uuid NOT NULL, row_data jsonb NOT NULL,
   PRIMARY KEY (table_name, row_id)
 );
 INSERT INTO upgrade_fixture.personnel_counseling_file_before_rows
-SELECT 'auth.users', id, to_jsonb(row_value) FROM auth.users AS row_value WHERE id IN ('e9000000-0000-4000-8000-000000000001','e9000000-0000-4000-8000-000000000002','e9000000-0000-4000-8000-000000000003')
+SELECT 'auth.users', id, to_jsonb(row_value) FROM auth.users AS row_value WHERE id IN ('e9000000-0000-4000-8000-000000000001','e9000000-0000-4000-8000-000000000002','e9000000-0000-4000-8000-000000000003','e9000000-0000-4000-8000-000000000004')
 UNION ALL
 SELECT 'public.organizations', id, to_jsonb(row_value) FROM public.organizations AS row_value WHERE id = 'e9000000-0000-4000-8000-000000000101'
 UNION ALL
@@ -59,10 +75,18 @@ SELECT 'public.personnel', id, to_jsonb(row_value) FROM public.personnel AS row_
 UNION ALL
 SELECT 'public.sign_in_rosters', id, to_jsonb(row_value) FROM public.sign_in_rosters AS row_value WHERE id = 'e9000000-0000-4000-8000-000000000401'
 UNION ALL
-SELECT 'storage.objects', id, to_jsonb(row_value) FROM storage.objects AS row_value WHERE id IN ('e9000000-0000-4000-8000-000000000501','e9000000-0000-4000-8000-000000000502','e9000000-0000-4000-8000-000000000503');
+SELECT 'storage.objects', id, to_jsonb(row_value) FROM storage.objects AS row_value WHERE id IN ('e9000000-0000-4000-8000-000000000501','e9000000-0000-4000-8000-000000000502','e9000000-0000-4000-8000-000000000503','e9000000-0000-4000-8000-000000000504','e9000000-0000-4000-8000-000000000505')
+UNION ALL
+SELECT 'public.counseling_records', id, to_jsonb(row_value) FROM public.counseling_records AS row_value WHERE organization_id = 'e9000000-0000-4000-8000-000000000101'
+UNION ALL
+SELECT 'public.leader_notes', id, to_jsonb(row_value) FROM public.leader_notes AS row_value WHERE organization_id = 'e9000000-0000-4000-8000-000000000101'
+UNION ALL
+SELECT 'public.personnel_follow_ups', id, to_jsonb(row_value) FROM public.personnel_follow_ups AS row_value WHERE organization_id = 'e9000000-0000-4000-8000-000000000101'
+UNION ALL
+SELECT 'public.personnel_documents', id, to_jsonb(row_value) FROM public.personnel_documents AS row_value WHERE organization_id = 'e9000000-0000-4000-8000-000000000101';
 DO $$
 BEGIN
-  IF (SELECT count(*) FROM upgrade_fixture.personnel_counseling_file_before_rows) <> 14 THEN
+  IF (SELECT count(*) FROM upgrade_fixture.personnel_counseling_file_before_rows) <> 26 THEN
     RAISE EXCEPTION 'Counseling file upgrade fixture is incomplete';
   END IF;
 END;
@@ -71,7 +95,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'e9000000-0000-4000-8000-000000000001', true);
 DO $$
 BEGIN
-  IF (SELECT count(*) FROM storage.objects) <> 2 THEN
+  IF (SELECT count(*) FROM storage.objects WHERE bucket_id = 'counseling-files') <> 2 THEN
     RAISE EXCEPTION 'Pre-upgrade Group file access changed';
   END IF;
 END;

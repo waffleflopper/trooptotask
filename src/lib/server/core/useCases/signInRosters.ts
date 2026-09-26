@@ -1,5 +1,5 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { sortSignInRosterRows } from '$features/sign-in-rosters/signInRosterRankOrder';
 import { findGroupNamesByIds } from '$features/personnel/index.server';
 import { fail } from '$lib/server/core/errors';

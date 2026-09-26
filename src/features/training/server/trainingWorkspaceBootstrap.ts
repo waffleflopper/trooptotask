@@ -11,7 +11,7 @@ import {
 	type HydrationItems,
 	type WorkspaceHydrationTarget
 } from '$lib/server/core/streamedWorkspace';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadOrganizationRankCatalog } from '$lib/server/core/useCases/rankCatalog';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';

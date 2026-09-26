@@ -308,12 +308,6 @@
 		"personnel": {
 			"roots": ["src/features/personnel/"],
 			"files": [
-				"src/lib/domain/personnelRank.test.ts",
-				"src/lib/domain/personnelRank.ts",
-				"src/lib/domain/rankCatalog.test.ts",
-				"src/lib/domain/rankCatalog.ts",
-				"src/lib/domain/rankOptions.test.ts",
-				"src/lib/domain/rankOptions.ts",
 				"src/lib/domain/readinessSignals.test.ts",
 				"src/lib/domain/readinessSignals.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.test.ts",

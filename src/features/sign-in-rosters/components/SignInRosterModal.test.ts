@@ -29,7 +29,7 @@ vi.mock('jspdf-autotable', () => ({
 }));
 
 import SignInRosterModal from './SignInRosterModal.svelte';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { SignInRoster } from '../sign-in-rosters.types';
 

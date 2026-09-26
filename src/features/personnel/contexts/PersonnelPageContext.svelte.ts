@@ -1,6 +1,6 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$lib/types';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
 	type PersonnelGroup,

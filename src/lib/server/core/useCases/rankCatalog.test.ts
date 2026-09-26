@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
+import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	addOrganizationRankServicePack,

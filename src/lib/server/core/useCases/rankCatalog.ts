@@ -7,7 +7,7 @@ import {
 	type RankPayGrade,
 	type RankService,
 	type RankState
-} from '$lib/domain/rankCatalog';
+} from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';

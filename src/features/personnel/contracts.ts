@@ -9,6 +9,12 @@ export interface Group {
 	sortOrder: number;
 }
 
+/** Read-only rank meaning and ordering shared with other feature lanes. */
+export { BUILT_IN_RANK_CATALOG, compareRankCodes, resolveBuiltInRank } from './rankCatalog';
+export type { RankCatalogEntry, RankCategory, RankPayGrade, RankService, RankState } from './rankCatalog';
+export { observedRankCodesForOptions, rankCodesForOptions } from './rankOptions';
+export { comparePersonnelByCatalogRankThenName, comparePersonnelByRankThenName } from './personnelRank';
+
 /** Canonical Personnel facts used when saving a Sign-in Roster snapshot. */
 export interface SignInRosterPersonnelLookupRecord {
 	id: string;

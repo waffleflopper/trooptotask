@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import type { RankCategory, RankPayGrade, RankService, RankState } from '$lib/domain/rankCatalog';
+import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseRankCatalogAdministrationPort } from '$lib/server/adapters/supabaseRankCatalogAdministration';
 import { fail } from '$lib/server/core/errors';

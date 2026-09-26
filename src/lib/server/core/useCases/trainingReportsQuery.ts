@@ -7,9 +7,9 @@ import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { listGroupCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
-import { comparePersonnelByCatalogRankThenName } from '$lib/domain/personnelRank';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
+import { observedRankCodesForOptions } from '$features/personnel/contracts';
+import { comparePersonnelByCatalogRankThenName } from '$features/personnel/contracts';
 import {
 	buildPivotTableFromMatrix,
 	buildTrainingReportWorkbook,

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonnelImportPage from './PersonnelImportPage.svelte';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 
 const { beforeNavigateMock, gotoMock, invalidateAllMock, parseFileMock } = vi.hoisted(() => ({
 	beforeNavigateMock: vi.fn(),

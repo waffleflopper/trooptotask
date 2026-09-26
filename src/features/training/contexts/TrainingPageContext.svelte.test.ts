@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import type { Personnel } from '$lib/types';

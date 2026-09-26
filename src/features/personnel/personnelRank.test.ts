@@ -50,7 +50,7 @@ describe('personnel rank ordering', () => {
 		]);
 	});
 
-	it('orders DA6 roster rows by highest pay grade then name', () => {
+	it('orders roster rows by highest pay grade then name', () => {
 		const ordered = [
 			person({ id: 'spc-z', rank: 'SPC', lastName: 'Zulu' }),
 			person({ id: 'cpt-b', rank: 'CPT', lastName: 'Baker' }),

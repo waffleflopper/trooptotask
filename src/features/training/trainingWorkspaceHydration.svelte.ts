@@ -3,7 +3,7 @@ import { trainingRankCatalogStore } from './stores/rankCatalog.svelte';
 import { trainingTypesStore } from './stores/trainingTypes.svelte';
 import { trainingViewsStore } from './stores/trainingViews.svelte';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';

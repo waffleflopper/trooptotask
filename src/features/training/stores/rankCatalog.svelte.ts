@@ -1,4 +1,4 @@
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { defineStore } from '$lib/stores/core';
 
 type StoredRankCatalogEntry = RankCatalogEntry & { id: string };

@@ -4,7 +4,7 @@ import {
 	type RankPayGrade,
 	type RankService,
 	type RankState
-} from '$lib/domain/rankCatalog';
+} from '$features/personnel/contracts';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
 	loadOrganizationRankCatalog,

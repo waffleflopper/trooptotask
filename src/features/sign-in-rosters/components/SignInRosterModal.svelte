@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { BUILT_IN_RANK_CATALOG, type RankCatalogEntry } from '$lib/domain/rankCatalog';
+	import { BUILT_IN_RANK_CATALOG, type RankCatalogEntry } from '$features/personnel/contracts';
 	import type { Personnel } from '$lib/types';
 	import type { SignInRoster } from '../sign-in-rosters.types';
 	import { ALL_RANKS } from '$lib/types';

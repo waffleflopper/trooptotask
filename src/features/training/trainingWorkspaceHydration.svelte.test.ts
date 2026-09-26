@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';

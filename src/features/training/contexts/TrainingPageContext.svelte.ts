@@ -10,7 +10,7 @@ import { groupsStore } from '$features/personnel';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type {
 	TrainingMatrixViewMode,
 	UserOrgPreferences,

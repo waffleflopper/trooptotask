@@ -3,7 +3,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { TrainingWorkspaceData } from './trainingWorkspaceBootstrap';
 import type { Personnel } from '$lib/types';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { SignInRosterPersonnelLookupPort } from '$lib/server/core/ports';
+import type { PersonnelTrainingRosterCandidatesPort } from '$features/personnel/index.server';
 
 const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
@@ -31,7 +31,7 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			store: {
 				findMany: findManyMock
 			},
-			signInRosterPersonnelLookup: undefined as SignInRosterPersonnelLookupPort | undefined
+			personnelTrainingRosterCandidates: undefined as PersonnelTrainingRosterCandidatesPort | undefined
 		}
 	};
 });
@@ -60,7 +60,7 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			ratingScheme: 'view'
 		};
 		mockCtx.auth.scopeSet = { kind: 'organization' };
-		mockCtx.signInRosterPersonnelLookup = undefined;
+		mockCtx.personnelTrainingRosterCandidates = undefined;
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -141,9 +141,8 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			ratingScheme: 'view'
 		};
 		mockCtx.auth.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
-		mockCtx.signInRosterPersonnelLookup = {
-			findPersonnelForRosterSnapshot: vi.fn(),
-			listPersonnelForRosterCandidates: listRosterCandidatesMock
+		mockCtx.personnelTrainingRosterCandidates = {
+			listActiveCandidates: listRosterCandidatesMock
 		};
 		listRosterCandidatesMock.mockResolvedValue(personnel);
 		findManyMock.mockResolvedValue([]);

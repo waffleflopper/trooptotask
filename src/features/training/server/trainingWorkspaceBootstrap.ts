@@ -101,8 +101,8 @@ function loadTrainingItems<T>(config: {
 }
 
 async function loadTrainingRosterPersonnel(ctx: UseCaseContext): Promise<Personnel[]> {
-	if (ctx.signInRosterPersonnelLookup) {
-		return ctx.signInRosterPersonnelLookup.listPersonnelForRosterCandidates(ctx.auth.orgId, ctx.auth.scopeSet);
+	if (ctx.personnelTrainingRosterCandidates) {
+		return ctx.personnelTrainingRosterCandidates.listActiveCandidates(ctx.auth.orgId, ctx.auth.scopeSet);
 	}
 
 	return loadRosterPersonnel(ctx, { status: 'active' });

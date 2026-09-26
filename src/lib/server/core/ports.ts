@@ -1,7 +1,7 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
-import type { Personnel } from '$lib/types';
+import type { PersonnelTrainingRosterCandidatesPort } from '$features/personnel/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -74,7 +74,6 @@ export interface SignInRosterPersonnelLookupRecord {
 
 export interface SignInRosterPersonnelLookupPort {
 	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
-	listPersonnelForRosterCandidates(orgId: string, scopeSet: ScopeSet): Promise<Personnel[]>;
 }
 
 /**
@@ -232,6 +231,7 @@ export interface UseCaseContext {
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
+	personnelTrainingRosterCandidates?: PersonnelTrainingRosterCandidatesPort;
 	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;

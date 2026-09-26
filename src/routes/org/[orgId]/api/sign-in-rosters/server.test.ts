@@ -61,8 +61,7 @@ describe('/api/sign-in-rosters route config', () => {
 					group_id: GROUP_ALPHA,
 					group_name: 'Alpha'
 				}
-			],
-			listPersonnelForRosterCandidates: async () => []
+			]
 		};
 		const created = (await handleUseCaseRequest(_postConfig, ctx, {
 			title: 'Independent training attendance',
@@ -130,8 +129,7 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		ctx.signInRosterPersonnelLookup = {
-			findPersonnelForRosterSnapshot,
-			listPersonnelForRosterCandidates: vi.fn(async () => [])
+			findPersonnelForRosterSnapshot
 		};
 		seedPersonnel(ctx);
 
@@ -197,7 +195,6 @@ describe('/api/sign-in-rosters route config', () => {
 			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
 		]);
 		ctx.signInRosterPersonnelLookup = {
-			listPersonnelForRosterCandidates: vi.fn(async () => []),
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', last_name: 'Able' }),
 				signInPersonnel({ id: 'navy-e5', rank: 'PO2', last_name: 'Baker' }),
@@ -244,7 +241,6 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		ctx.signInRosterPersonnelLookup = {
-			listPersonnelForRosterCandidates: vi.fn(async () => []),
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				signInPersonnel({ id: 'p-smith', rank: 'SGT', last_name: 'Smith', first_name: 'Jane' }),
 				signInPersonnel({ id: 'p-adams', rank: 'PO2', last_name: 'Adams', first_name: 'Avery' })
@@ -295,7 +291,6 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		ctx.signInRosterPersonnelLookup = {
-			listPersonnelForRosterCandidates: vi.fn(async () => []),
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				{
 					id: 'p-alpha',

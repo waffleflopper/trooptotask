@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { Personnel } from '$lib/types';
+
+/** Personnel read for an already-authorized Training workspace. */
+export interface PersonnelTrainingRosterCandidatesPort {
+	listActiveCandidates(orgId: string, scopeSet: ScopeSet): Promise<Personnel[]>;
+}
 
 export {
 	createRosterReadModel,

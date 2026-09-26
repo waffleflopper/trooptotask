@@ -3,7 +3,20 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
-import type { PersonnelArtifactTable, PersonnelArtifactWritePort, PersonnelArtifactWriter } from './contracts';
+import type {
+	PersonnelArtifactArchiveWriter,
+	PersonnelArtifactRef,
+	PersonnelArtifactTable,
+	PersonnelArtifactWritePort,
+	PersonnelArtifactWriter
+} from './contracts';
+
+const ARTIFACT_TABLES: ReadonlySet<string> = new Set([
+	'personnel_follow_ups',
+	'counseling_records',
+	'personnel_documents',
+	'leader_notes'
+]);
 
 function fail(status: number, message: string): never {
 	throw Object.assign(new Error(message), { status });
@@ -19,6 +32,10 @@ function assertArtifactInsert(data: Record<string, unknown>): void {
 	if ('organization_id' in data || 'personnel_id' in data) {
 		fail(400, 'Artifact Person is bound by the write session');
 	}
+}
+
+function assertArtifactTable(table: string): void {
+	if (!ARTIFACT_TABLES.has(table)) fail(400, 'Unsupported Personnel artifact table');
 }
 
 function artifactFileTarget(kind: 'counseling' | 'document', orgId: string, personnelId: string, path: string) {
@@ -60,8 +77,10 @@ export function createSupabasePersonnelArtifactWritePort(
 				personnelId
 			);
 			const admin = getAdminClient();
-			const base = (table: PersonnelArtifactTable) =>
-				admin.from(table).select('*').eq('organization_id', actor.orgId).eq('personnel_id', personnelId);
+			const base = (table: PersonnelArtifactTable) => {
+				assertArtifactTable(table);
+				return admin.from(table).select('*').eq('organization_id', actor.orgId).eq('personnel_id', personnelId);
+			};
 
 			const writer: PersonnelArtifactWriter = {
 				async find<T>(table: PersonnelArtifactTable, id: string) {
@@ -70,6 +89,7 @@ export function createSupabasePersonnelArtifactWritePort(
 					return (data as T | null) ?? null;
 				},
 				async insert<T>(table: PersonnelArtifactTable, data: Record<string, unknown>) {
+					assertArtifactTable(table);
 					assertArtifactInsert(data);
 					const { data: inserted, error } = await admin
 						.from(table)
@@ -80,6 +100,7 @@ export function createSupabasePersonnelArtifactWritePort(
 					return inserted as T;
 				},
 				async update<T>(table: PersonnelArtifactTable, id: string, patch: Record<string, unknown>) {
+					assertArtifactTable(table);
 					assertArtifactPatch(patch);
 					const { data, error } = await admin
 						.from(table)
@@ -93,6 +114,7 @@ export function createSupabasePersonnelArtifactWritePort(
 					return data as T;
 				},
 				async delete(table, id) {
+					assertArtifactTable(table);
 					const { error } = await admin
 						.from(table)
 						.delete()
@@ -129,6 +151,66 @@ export function createSupabasePersonnelArtifactWritePort(
 				}
 			};
 			return writer;
+		},
+		async forPeople(actor, personnelIds, action): Promise<PersonnelArtifactArchiveWriter> {
+			const ids = [...new Set(personnelIds)];
+			if (ids.length === 0) fail(400, 'At least one Person is required');
+			const result = await selectAllSupabaseRows<{ id: string; group_id: string | null }>(async (from, to) => {
+				const { data, error } = await requestClient
+					.from('personnel')
+					.select('id, group_id')
+					.eq('organization_id', actor.orgId)
+					.in('id', ids)
+					.range(from, to);
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message?: string }).message ?? 'Personnel lookup failed');
+			const people = result.data ?? [];
+			if (people.length !== ids.length) fail(404, 'Personnel record not found');
+			for (const person of people) {
+				await requireFeaturePolicy(
+					{ auth: actor },
+					action === 'archive'
+						? POLICY_ACTION_CATALOG.personnel.archiveRecords
+						: POLICY_ACTION_CATALOG.personnel.restoreRecords,
+					policyResourceForGroup(person.group_id),
+					'personnel',
+					person.id
+				);
+			}
+			const allowed = new Set(ids);
+			const admin = getAdminClient();
+			return {
+				async listCandidates(table, options): Promise<PersonnelArtifactRef[]> {
+					assertArtifactTable(table);
+					const rows = await selectAllSupabaseRows<{ id: string; personnel_id: string }>(async (from, to) => {
+						let query = admin
+							.from(table)
+							.select('id, personnel_id')
+							.eq('organization_id', actor.orgId)
+							.in('personnel_id', ids);
+						query =
+							options.archivedAt === null ? query.is('archived_at', null) : query.eq('archived_at', options.archivedAt);
+						if (options.status) query = query.eq('status', options.status);
+						const { data, error } = await query.range(from, to);
+						return { data, error };
+					});
+					if (rows.error) throw new Error((rows.error as { message?: string }).message ?? 'Artifact lookup failed');
+					return (rows.data ?? []).map((row) => ({ id: row.id, personnelId: row.personnel_id }));
+				},
+				async update(table, row, patch) {
+					assertArtifactTable(table);
+					assertArtifactPatch(patch);
+					if (!allowed.has(row.personnelId)) fail(403, 'Artifact Person is outside the authorized batch');
+					const { error } = await admin
+						.from(table)
+						.update(patch)
+						.eq('organization_id', actor.orgId)
+						.eq('personnel_id', row.personnelId)
+						.eq('id', row.id);
+					if (error) throw new Error(error.message);
+				}
+			};
 		}
 	};
 }

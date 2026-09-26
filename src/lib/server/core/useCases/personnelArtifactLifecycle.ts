@@ -77,18 +77,16 @@ export interface PersonnelArtifactSpec<TRow, TDto> {
 	archivePatch?(now: string): Partial<TRow>;
 	restorePatch?(): Partial<TRow>;
 	ownedArchive?: {
-		filters?: Record<string, unknown>;
+		filters?: { status?: 'open' };
 		archivePatch(archivedAt: string): Partial<TRow>;
-		restoreFilters(personnelArchivedAt: string): Record<string, unknown>;
 		restorePatch(): Partial<TRow>;
 	};
 }
 
 interface PersonnelOwnedArchiveSpec {
-	table: string;
-	filters?: Record<string, unknown>;
+	table: PersonnelArtifactTable;
+	filters?: { status?: 'open' };
 	archivePatch(archivedAt: string): Record<string, unknown>;
-	restoreFilters(personnelArchivedAt: string): Record<string, unknown>;
 	restorePatch(): Record<string, unknown>;
 }
 
@@ -372,7 +370,6 @@ export const PERSONNEL_COUNSELING_RECORD_SPEC: PersonnelArtifactSpec<CounselingR
 	restorePatch: binaryRestorePatch,
 	ownedArchive: {
 		archivePatch: binaryArchivePatch,
-		restoreFilters: (personnelArchivedAt) => ({ archived_at: personnelArchivedAt }),
 		restorePatch: binaryRestorePatch
 	}
 };
@@ -395,7 +392,6 @@ export const PERSONNEL_DOCUMENT_SPEC: PersonnelArtifactSpec<PersonnelDocumentRow
 	restorePatch: binaryRestorePatch,
 	ownedArchive: {
 		archivePatch: binaryArchivePatch,
-		restoreFilters: (personnelArchivedAt) => ({ archived_at: personnelArchivedAt }),
 		restorePatch: binaryRestorePatch
 	}
 };
@@ -421,7 +417,6 @@ export const PERSONNEL_FOLLOW_UP_SPEC: PersonnelArtifactSpec<FollowUpRow, Person
 	ownedArchive: {
 		filters: { status: 'open' },
 		archivePatch: (archivedAt) => ({ status: 'archived', archived_at: archivedAt }),
-		restoreFilters: (personnelArchivedAt) => ({ archived_at: personnelArchivedAt }),
 		restorePatch: () => ({ status: 'open', archived_at: null })
 	}
 };
@@ -449,7 +444,6 @@ export function personnelOwnedArchiveSpecs(): PersonnelOwnedArchiveSpec[] {
 			table: spec.table,
 			filters: spec.ownedArchive.filters,
 			archivePatch: (archivedAt) => spec.ownedArchive!.archivePatch(archivedAt) as Record<string, unknown>,
-			restoreFilters: spec.ownedArchive.restoreFilters,
 			restorePatch: () => spec.ownedArchive!.restorePatch() as Record<string, unknown>
 		};
 	});

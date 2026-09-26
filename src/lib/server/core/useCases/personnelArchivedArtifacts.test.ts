@@ -138,6 +138,50 @@ function seedActiveAndArchivedArtifacts(ctx: ReturnType<typeof createTestContext
 }
 
 describe('personnel archived artifacts', () => {
+	it('rejects a mixed-Group archive batch before changing any artifact', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: 'alpha' },
+			{ id: 'person-2', organization_id: ctx.auth.orgId, group_id: 'bravo' }
+		]);
+		ctx.store.seed('personnel_follow_ups', [
+			{
+				id: 'follow-up-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				status: 'open',
+				archived_at: null
+			},
+			{
+				id: 'follow-up-2',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-2',
+				status: 'open',
+				archived_at: null
+			}
+		]);
+
+		await expect(
+			archivePersonnelOwnedArtifacts(ctx, ['person-1', 'person-2'], '2026-09-26T00:00:00Z')
+		).rejects.toMatchObject({ status: 403 });
+		const rows = await ctx.rawStore.findMany<{ archived_at: string | null }>('personnel_follow_ups', ctx.auth.orgId);
+		expect(rows.map((row) => row.archived_at)).toEqual([null, null]);
+	});
+
 	it('archives active personnel-owned artifacts without resetting existing archive timestamps', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);

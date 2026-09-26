@@ -573,6 +573,64 @@ function createInMemoryPersonnelArtifactWritePort(
 					await storage.remove(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', [path]);
 				}
 			};
+		},
+		async forPeople(actor, personnelIds) {
+			const ids = [...new Set(personnelIds)];
+			if (ids.length === 0) throw Object.assign(new Error('At least one Person is required'), { status: 400 });
+			const people = await rawStore.findMany<{ id: string; group_id: string | null }>(
+				'personnel',
+				actor.orgId,
+				undefined,
+				{
+					inFilters: { id: ids }
+				}
+			);
+			if (people.length !== ids.length) throw Object.assign(new Error('Personnel record not found'), { status: 404 });
+			if (!actor.isPrivileged && actor.capabilityMap.personnel !== 'configure') {
+				throw Object.assign(new Error('You do not have permission to use personnel data'), { status: 403 });
+			}
+			const groupIds = actor.scopeSet.kind === 'groups' ? actor.scopeSet.groupIds : null;
+			if (
+				!actor.isPrivileged &&
+				groupIds &&
+				people.some((person) => !person.group_id || !groupIds.includes(person.group_id))
+			) {
+				throw Object.assign(new Error('You do not have access to records outside your assigned scope'), {
+					status: 403
+				});
+			}
+			const allowed = new Set(ids);
+			return {
+				async listCandidates(table, options) {
+					const rows = await rawStore.findMany<{ id: string; personnel_id: string }>(
+						table,
+						actor.orgId,
+						{
+							...(options.archivedAt === null ? {} : { archived_at: options.archivedAt }),
+							...(options.status ? { status: options.status } : {})
+						},
+						{
+							inFilters: { personnel_id: ids },
+							...(options.archivedAt === null ? { isNull: { archived_at: true } } : {})
+						}
+					);
+					return rows.map((row) => ({ id: row.id, personnelId: row.personnel_id }));
+				},
+				async update(table, row, patch) {
+					if (!allowed.has(row.personnelId)) {
+						throw Object.assign(new Error('Artifact Person is outside the authorized batch'), { status: 403 });
+					}
+					if ('id' in patch || 'organization_id' in patch || 'personnel_id' in patch) {
+						throw Object.assign(new Error('Artifact identity cannot be changed'), { status: 400 });
+					}
+					const existing = await rawStore.findOne(table, actor.orgId, {
+						id: row.id,
+						personnel_id: row.personnelId
+					});
+					if (!existing) return;
+					await rawStore.update(table, actor.orgId, row.id, patch);
+				}
+			};
 		}
 	};
 }
@@ -903,6 +961,7 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 		audit: createTestAuditPort(),
 
 		criticalTasksReadModel,
+		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, createTestStoragePort()),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),
@@ -938,6 +997,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
+		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, createTestStoragePort()),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelCalendarRoster: createInMemoryPersonnelCalendarRosterPort(rawStore),

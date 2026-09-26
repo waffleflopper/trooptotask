@@ -175,6 +175,7 @@ export interface WritePorts {
 	audit: AuditPort;
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	personnelArtifactWrites?: PersonnelArtifactWritePort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;

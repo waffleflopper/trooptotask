@@ -267,6 +267,35 @@ function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Re
 }
 
 describe('approveDeletionRequest', () => {
+	it('lets an Organization admin approve a Personnel archive without a Personnel capability', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx);
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
+		ctx.store.seed('leader_notes', [
+			{ id: 'note-1', organization_id: ctx.auth.orgId, personnel_id: 'person-1', archived_at: null }
+		]);
+
+		await approveDeletionRequest(ctx, 'dr-1');
+		const person = await ctx.store.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, { id: 'person-1' });
+		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).resolves.toMatchObject({
+			archived_at: person?.archived_at
+		});
+	});
+
 	it('approves a personnel deletion request: updates status, archives personnel, notifies requester, audit logs', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);

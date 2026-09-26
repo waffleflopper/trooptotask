@@ -94,6 +94,24 @@ export interface PersonnelArtifactWriter {
 
 export interface PersonnelArtifactWritePort {
 	forPerson(actor: PersonnelRosterActor, personnelId: string): Promise<PersonnelArtifactWriter>;
+	forPeople(
+		actor: PersonnelRosterActor,
+		personnelIds: string[],
+		action: 'archive' | 'restore'
+	): Promise<PersonnelArtifactArchiveWriter>;
+}
+
+export interface PersonnelArtifactRef {
+	id: string;
+	personnelId: string;
+}
+
+export interface PersonnelArtifactArchiveWriter {
+	listCandidates(
+		table: PersonnelArtifactTable,
+		options: { archivedAt: string | null; status?: 'open' }
+	): Promise<PersonnelArtifactRef[]>;
+	update(table: PersonnelArtifactTable, row: PersonnelArtifactRef, patch: Record<string, unknown>): Promise<void>;
 }
 
 /** Personnel facts exposed to Critical Tasks after its own lane admission. */

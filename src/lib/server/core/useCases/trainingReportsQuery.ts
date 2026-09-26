@@ -4,7 +4,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { TrainingStatus, TrainingType } from '$features/training/training.types';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { GroupEntity } from '$lib/server/entities/group';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
@@ -219,15 +219,10 @@ async function buildTrainingReportRows(
 }
 
 async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput = {}): Promise<BuiltTrainingReport> {
-	const orgId = ctx.auth.orgId;
-	const { personnel, pivotRows, trainingTypes, reportMatrix, rankCatalog, sort } = await buildTrainingReportRows(
-		ctx,
-		input
-	);
-	const groupRows = await ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-		orderBy: [{ column: 'sort_order', ascending: true }]
-	});
-	const groups = GroupEntity.fromDbArray(groupRows);
+	const [{ personnel, pivotRows, trainingTypes, reportMatrix, rankCatalog, sort }, groups] = await Promise.all([
+		buildTrainingReportRows(ctx, input),
+		listGroupCatalog(ctx)
+	]);
 
 	return {
 		dashboard: computeReadinessDashboardFromMatrix(reportMatrix),

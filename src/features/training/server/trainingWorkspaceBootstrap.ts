@@ -1,6 +1,6 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { GroupEntity } from '$lib/server/entities/group';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
@@ -83,12 +83,12 @@ function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspace
 	return hydration;
 }
 
-function loadTrainingItems<T>(config: {
+function loadTrainingItems<R, T>(config: {
 	orgId: string;
 	label: string;
 	phase: TrainingLoadPhase;
-	load: () => Promise<Record<string, unknown>[]>;
-	mapRows: (rows: Record<string, unknown>[]) => T;
+	load: () => Promise<R>;
+	mapRows: (rows: R) => T;
 }): Promise<T> {
 	return withTrainingTiming(config.orgId, config.phase, () => config.load().then(config.mapRows)).catch((error) => {
 		console.error(`[training-workspace] Failed to load ${config.label}`, {
@@ -122,11 +122,8 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		orgId: requestedOrgId,
 		label: 'groups',
 		phase: 'groups',
-		load: () =>
-			ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-		mapRows: (rows) => GroupEntity.fromDbArray(rows) as Group[]
+		load: () => listGroupCatalog(ctx),
+		mapRows: (groups): Group[] => groups
 	});
 	const trainingTypes = loadTrainingItems({
 		orgId: requestedOrgId,

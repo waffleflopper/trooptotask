@@ -20,12 +20,11 @@ import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
-import { loadRosterPersonnel } from '$features/personnel/index.server';
+import { listGroupCatalog, loadRosterPersonnel } from '$features/personnel/index.server';
 
 export interface DashboardData {
 	availabilityEntries: AvailabilityEntry[];
@@ -100,7 +99,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ratingSchemeRows,
 		activeOnboardings,
 		personnel,
-		groupRows,
+		groups,
 		statusTypeRows,
 		trainingTypeRows,
 		orgSettingsRow,
@@ -123,9 +122,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		}),
 		loadActiveOnboardings(ctx, orgId),
 		loadRosterPersonnel(ctx, { status: 'active' }),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listGroupCatalog(ctx),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
 			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -148,7 +145,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
 		activeOnboardings,
 		personnel,
-		groups: GroupEntity.fromDbArray(groupRows),
+		groups,
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),
 		lossWarningWindowDays,

@@ -150,7 +150,14 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		findManyMock.mockImplementation((table: string) =>
 			table === 'personnel'
 				? Promise.reject(new Error('Personnel SELECT denied for this Training-only actor'))
-				: Promise.resolve([])
+				: Promise.resolve(
+						table === 'groups'
+							? [
+									{ id: 'group-alpha', name: 'Alpha', sort_order: 0 },
+									{ id: 'group-bravo', name: 'Bravo', sort_order: 1 }
+								]
+							: []
+					)
 		);
 
 		const routeData = await streamTrainingWorkspaceBootstrap({
@@ -161,6 +168,10 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		const workspace = await routeData.training.data;
 
 		await expect(workspace.data.personnel).resolves.toEqual(personnel);
+		await expect(workspace.data.groups).resolves.toEqual([
+			expect.objectContaining({ id: 'group-alpha', name: 'Alpha' }),
+			expect.objectContaining({ id: 'group-bravo', name: 'Bravo' })
+		]);
 		expect(listRosterCandidatesMock).toHaveBeenCalledWith(mockCtx.auth);
 		await expect(workspace.data.rankCatalog).resolves.toEqual([]);
 	});

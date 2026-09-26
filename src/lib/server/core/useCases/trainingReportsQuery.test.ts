@@ -351,6 +351,10 @@ describe('Training report projections', () => {
 			}
 		});
 		const store = ctx.rawStore;
+		store.seed('groups', [
+			{ id: 'group-1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'group-2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+		]);
 
 		store.seed('personnel', [
 			{
@@ -439,6 +443,7 @@ describe('Training report projections', () => {
 
 		expect(result.detail.totalRows).toBe(1);
 		expect(result.detail.rows[0].person.id).toBe('p-alpha');
+		expect(result.filterOptions.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 	});
 
 	it('generates an authorized full workbook export without applying detail pagination', async () => {

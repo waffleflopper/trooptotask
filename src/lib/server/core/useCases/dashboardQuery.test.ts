@@ -137,6 +137,25 @@ describe('fetchDashboardData', () => {
 });
 
 describe('fetchDashboardBootstrap', () => {
+	it('keeps the full same-Organization Group catalog beside scoped Personnel facts', async () => {
+		const ctx = buildCtx({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('groups', [
+			{ id: 'g1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'g2', organization_id: ORG, name: 'Bravo', sort_order: 1 },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -1 }
+		]);
+		store.seed('personnel', [
+			{ id: 'p1', organization_id: ORG, group_id: 'g1', archived_at: null },
+			{ id: 'p2', organization_id: ORG, group_id: 'g2', archived_at: null }
+		]);
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
+	});
+
 	it('returns the configured loss warning window from the organizations row', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

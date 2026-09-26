@@ -3,7 +3,8 @@ import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import { sortSignInRosterRows } from '$features/sign-in-rosters/signInRosterRankOrder';
 import { findGroupNamesByIds } from '$features/personnel/index.server';
 import { fail } from '$lib/server/core/errors';
-import type { SignInRosterPersonnelLookupRecord, UseCaseContext } from '$lib/server/core/ports';
+import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
+import type { UseCaseContext } from '$lib/server/core/ports';
 
 const MAX_ROSTER_PERSONNEL = 500;
 const RANK_CATALOG_TABLE = 'organization_rank_catalog';

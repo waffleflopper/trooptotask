@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
+import { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 
 function createPersonnelQueryMock(result: unknown) {
 	const query = {

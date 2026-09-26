@@ -318,8 +318,6 @@
 				"src/lib/domain/readinessSignals.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.test.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.ts",
-				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.test.ts",
-				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/personnel.test.ts",

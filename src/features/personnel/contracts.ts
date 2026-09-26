@@ -9,6 +9,20 @@ export interface Group {
 	sortOrder: number;
 }
 
+/** Canonical Personnel facts used when saving a Sign-in Roster snapshot. */
+export interface SignInRosterPersonnelLookupRecord {
+	id: string;
+	rank?: string | null;
+	last_name?: string | null;
+	first_name?: string | null;
+	group_id?: string | null;
+	group_name?: string | null;
+}
+
+export interface SignInRosterPersonnelLookupPort {
+	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
+}
+
 /** Trusted request authorization facts; structurally matches the shared AuthContext. */
 export interface PersonnelRosterActor {
 	readonly userId: string;

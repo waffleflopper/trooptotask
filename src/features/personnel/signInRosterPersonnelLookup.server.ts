@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SignInRosterPersonnelLookupPort, SignInRosterPersonnelLookupRecord } from '$lib/server/core/ports';
+import type { SignInRosterPersonnelLookupPort, SignInRosterPersonnelLookupRecord } from './contracts';
 
 type SupabaseSignInRosterPersonnelRow = SignInRosterPersonnelLookupRecord & {
 	groups?: { name?: string | null } | { name?: string | null }[] | null;

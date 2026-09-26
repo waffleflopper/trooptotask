@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import type { SignInRosterPersonnelLookupRecord } from '$lib/server/core/ports';
+import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
 import { _getConfig, _postConfig } from './+server';
 
 const GROUP_ALPHA = 'group-alpha';

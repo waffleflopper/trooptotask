@@ -5,6 +5,7 @@ import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts'
 import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
+import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
 
@@ -65,19 +66,6 @@ export interface RatingSchemePersonnelLookupRecord {
 
 export interface RatingSchemePersonnelLookupPort {
 	listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]>;
-}
-
-export interface SignInRosterPersonnelLookupRecord {
-	id: string;
-	rank?: string | null;
-	last_name?: string | null;
-	first_name?: string | null;
-	group_id?: string | null;
-	group_name?: string | null;
-}
-
-export interface SignInRosterPersonnelLookupPort {
-	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
 }
 
 /**

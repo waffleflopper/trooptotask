@@ -150,6 +150,21 @@ describe('/auth/setup-account transport', () => {
 			data: { error: expect.stringContaining('request ID request-1'), supportRequired: true }
 		});
 		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_session', { path: '/auth/setup-account' });
+		expect(cookies.set).toHaveBeenCalledWith(
+			'ttt_account_setup_support',
+			'1',
+			expect.objectContaining({ path: '/auth/setup-account', httpOnly: true, sameSite: 'lax' })
+		);
+
+		resolveLoad.mockResolvedValueOnce({ state: 'missing', message: 'This setup session has expired.' });
+		expect(await load(loadEvent(cookies))).toEqual({
+			state: 'support-required',
+			message: 'Contact platform support to resolve the previous setup attempt before trying another link.'
+		});
+
+		resolveLoad.mockResolvedValueOnce({ state: 'redirect-setup', path: '/auth/setup-account', session: setupSession });
+		await expect(load(loadEvent(cookies, 'new-synthetic-token'))).rejects.toMatchObject({ status: 303 });
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_support', { path: '/auth/setup-account' });
 	});
 
 	it('clears rejected sessions and returns the flow recovery state', async () => {

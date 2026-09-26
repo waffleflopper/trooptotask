@@ -53,6 +53,27 @@ it('keeps staff recovery visible after an uncertain claim without offering a new
 	expect(screen.queryByRole('button', { name: 'Set Up Account' })).not.toBeInTheDocument();
 });
 
+it('keeps staff recovery guidance after reloading a cleared setup session', () => {
+	render(Page, {
+		data: {
+			session: null,
+			state: 'support-required',
+			message: 'Contact platform support to resolve the previous setup attempt before trying another link.'
+		},
+		form: null
+	});
+
+	expect(screen.getByRole('heading', { name: 'Setup needs support' })).toBeInTheDocument();
+	expect(screen.getByRole('alert')).toHaveTextContent('Contact platform support');
+	expect(
+		screen.getByText('A fresh setup link cannot finish while this attempt needs platform support.')
+	).toBeInTheDocument();
+	expect(
+		screen.queryByText('Expired setup links can be renewed from the fresh-link request page.')
+	).not.toBeInTheDocument();
+	expect(screen.queryByRole('link', { name: /Request a fresh setup link/i })).not.toBeInTheDocument();
+});
+
 it('does not resubmit an uncertain claim when the loaded link still appears valid', async () => {
 	render(Page, {
 		data: { session: null, state: 'valid', email: 'synthetic@example.test' },

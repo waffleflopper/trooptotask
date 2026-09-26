@@ -19,7 +19,9 @@
 
 	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
-	const supportRequired = $derived(data.state === 'claimed' || form?.supportRequired === true);
+	const supportRequired = $derived(
+		data.state === 'claimed' || data.state === 'support-required' || form?.supportRequired === true
+	);
 	const canSubmit = $derived(
 		data.state === 'valid' && !supportRequired && requirements.valid && passwordsMatch && !loading
 	);
@@ -47,11 +49,13 @@
 	supportLabel="Account setup"
 	supportTitle="One link, one account."
 	supportDescription="Account Setup Links activate only your User Account. Organization membership is handled separately inside TroopToTask."
-	supportPoints={[
-		'Choose your own password; TroopToTask never emails temporary passwords.',
-		'Use the newest setup email if you requested more than one link.',
-		'Expired setup links can be renewed from the fresh-link request page.'
-	]}
+	supportPoints={supportRequired
+		? ['A fresh setup link cannot finish while this attempt needs platform support.']
+		: [
+				'Choose your own password; TroopToTask never emails temporary passwords.',
+				'Use the newest setup email if you requested more than one link.',
+				'Expired setup links can be renewed from the fresh-link request page.'
+			]}
 >
 	<div class="flex flex-col gap-5">
 		{#if data.state !== 'valid' || supportRequired}

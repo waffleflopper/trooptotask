@@ -1,4 +1,5 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
+import { countArchivedPersonnel } from '$features/personnel/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';
 
 export interface SettingsShellOrganizationSource {
@@ -50,11 +51,7 @@ export async function loadSettingsShell(
 			{ status: 'pending' },
 			{ select: 'id', limit: 0 }
 		),
-		ctx.store.findManyWithCount('personnel', ctx.auth.orgId, undefined, {
-			select: 'id',
-			isNull: { archived_at: false },
-			limit: 0
-		}),
+		countArchivedPersonnel(ctx),
 		ctx.store.findManyWithCount('deletion_requests', ctx.auth.orgId, { status: 'pending' }, { select: 'id', limit: 0 })
 	]);
 	const isOwner = ctx.auth.role === 'owner';
@@ -86,7 +83,7 @@ export async function loadSettingsShell(
 		},
 		navBadges: {
 			pendingInvitationsCount: pendingInvitations.count ?? 0,
-			archivedPersonnelCount: archivedPersonnel.count ?? 0,
+			archivedPersonnelCount: archivedPersonnel,
 			pendingApprovalsCount: pendingApprovals.count ?? 0
 		}
 	};

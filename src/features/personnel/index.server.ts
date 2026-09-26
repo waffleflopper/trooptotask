@@ -9,7 +9,7 @@ export type { LeaderNoteContext, LeaderNoteRow } from './leaderNotes.server';
 export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
 export { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 export type { PersonnelTrainingRosterPort } from './contracts';
-export { loadRosterPersonnel } from './rosterRead.server';
+export { countArchivedPersonnel, loadRosterPersonnel } from './rosterRead.server';
 export { findGroupNamesByIds, listGroupCatalog } from './groupCatalog.server';
 export { createGroup, updateGroup, deleteGroup } from './groupOperations.server';
 export { seedDefaultGroups } from './groupSeed.server';

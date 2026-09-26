@@ -119,8 +119,8 @@ export async function fetchOnboardingBootstrap(
 	const trainingTypes = trainingTypeRows;
 
 	// personnel_onboardings has no group column so the scoped store cannot filter it automatically.
-	// When scoped, query personnel (which the scoped store does filter by group) to get the
-	// personnel ID set, then restrict onboardings to those members.
+	// The Personnel-owned roster applies the actor's Group scope; use its IDs to
+	// restrict onboardings to those members.
 	let onboardings = allOnboardings;
 	if (ctx.auth.scopeSet.kind === 'groups') {
 		const scopedPersonnelIds = new Set((scopePersonnel ?? personnel).map((p) => p.id));

@@ -43,3 +43,23 @@ export async function loadRosterPersonnel(
 
 	return PersonnelEntity.fromDbArray(rows);
 }
+
+/** Count archived Personnel for an already admitted Organization settings request. */
+export async function countArchivedPersonnel(ctx: {
+	auth: { orgId: string };
+	store: {
+		findManyWithCount(
+			table: string,
+			orgId: string,
+			filters: undefined,
+			options: { select: string; isNull: Record<string, boolean>; limit: number }
+		): Promise<{ count: number | null }>;
+	};
+}): Promise<number> {
+	const result = await ctx.store.findManyWithCount(PersonnelEntity.table, ctx.auth.orgId, undefined, {
+		select: 'id',
+		isNull: { archived_at: false },
+		limit: 0
+	});
+	return result.count ?? 0;
+}

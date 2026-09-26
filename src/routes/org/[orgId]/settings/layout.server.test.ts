@@ -206,14 +206,14 @@ describe('settings layout server load', () => {
 			{ id: 'person-1', organization_id: 'org-1', archived_at: '2026-04-01T12:00:00Z' },
 			{ id: 'person-2', organization_id: 'org-1', archived_at: '2026-04-02T12:00:00Z' },
 			{ id: 'person-3', organization_id: 'org-1', archived_at: '2026-04-03T12:00:00Z' },
-			{ id: 'active-person', organization_id: 'org-1', archived_at: null }
+			{ id: 'active-person', organization_id: 'org-1', archived_at: null },
+			{ id: 'foreign-archived', organization_id: 'org-2', archived_at: '2026-04-04T12:00:00Z' }
 		]);
 		ctx.store.seed('deletion_requests', [
 			{ id: 'approval-1', organization_id: 'org-1', status: 'pending' },
 			{ id: 'approval-2', organization_id: 'org-1', status: 'pending' },
 			{ id: 'approval-approved', organization_id: 'org-1', status: 'approved' }
 		]);
-		const findManyWithCount = vi.spyOn(ctx.store, 'findManyWithCount');
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
 			loadWithContextCore(ctx, config)
 		);
@@ -242,26 +242,6 @@ describe('settings layout server load', () => {
 		});
 		expect(result).not.toHaveProperty('settingsShell.invitations');
 		expect(result).not.toHaveProperty('settingsShell.archivedPersonnel');
-		expect(findManyWithCount).toHaveBeenCalledWith(
-			'organization_invitations',
-			'org-1',
-			{ status: 'pending' },
-			{
-				select: 'id',
-				limit: 0
-			}
-		);
-		expect(findManyWithCount).toHaveBeenCalledWith('personnel', 'org-1', undefined, {
-			select: 'id',
-			isNull: { archived_at: false },
-			limit: 0
-		});
-		expect(findManyWithCount).toHaveBeenCalledWith(
-			'deletion_requests',
-			'org-1',
-			{ status: 'pending' },
-			{ select: 'id', limit: 0 }
-		);
 	});
 
 	it('lets policy denials block non-governance members before layout data is returned', async () => {

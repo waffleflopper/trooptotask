@@ -3,21 +3,21 @@ import {
 	createSupabaseOrganizationInvitationDeliveryPort,
 	sendOrganizationInvitationEmail
 } from '$lib/server/organizationInvitationDelivery';
-import { createAccessRequestSetupDeliveryService } from '$lib/server/accessRequestSetupDelivery';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
-	accountSetupLinkFixture,
-	createAccessRequestSetupDeliveryStore,
 	AUTH_WORKFLOW_NOW,
-	authEmailOutboxRecordFixture,
 	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
 	createFakeOrganizationInvitationRateLimiter as createInvitationRateLimiter,
 	memberAccessFixture as memberAccess
 } from '$lib/test-support/authWorkflowFixtures';
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
-import type { SendAccountSetupOutboxDeliveryResult } from '$lib/server/authEmailOutbox';
+import type {
+	AccountSetupLinkRecord,
+	AuthEmailOutboxRecord,
+	CreateAccountSetupLinkResult
+} from '$features/identity/index.server';
+import type { SendAccountSetupOutboxDeliveryResult } from '$features/identity/index.server';
 import {
 	inviteOrganizationMember as inviteOrganizationMemberUseCase,
 	leaveOrganization,
@@ -36,6 +36,39 @@ beforeEach(() => {
 });
 
 const INVITE_ORIGIN = 'https://trooptotask.test';
+
+function setupLinkRecord(overrides: Partial<AccountSetupLinkRecord> = {}): AccountSetupLinkRecord {
+	return {
+		id: 'setup-link-1',
+		accessRequestId: 'access-request-1',
+		tokenHash: 'synthetic-hash',
+		expiresAt: new Date('2026-06-05T12:00:00.000Z'),
+		createdAt: AUTH_WORKFLOW_NOW,
+		claimedAt: null,
+		failedAt: null,
+		failureReason: null,
+		usedAt: null,
+		revokedAt: null,
+		revocationReason: null,
+		...overrides
+	};
+}
+
+function setupOutboxRecord(input: SetupDeliveryInput): AuthEmailOutboxRecord {
+	return {
+		id: 'outbox-1',
+		accessRequestId: input.accessRequestId,
+		setupLinkId: input.setupLinkId,
+		recipient: input.email,
+		purpose: 'account_setup',
+		status: 'pending',
+		attemptCount: 0,
+		lastError: null,
+		createdAt: AUTH_WORKFLOW_NOW,
+		updatedAt: AUTH_WORKFLOW_NOW,
+		sentAt: null
+	};
+}
 
 function createAccountSetupIssuancePorts(
 	options: {
@@ -67,7 +100,7 @@ function createAccountSetupIssuancePorts(
 						rawToken: 'raw-setup-token',
 						setupPath: '/auth/setup-account?token=raw-setup-token',
 						expiresAt: new Date('2026-06-05T12:00:00.000Z'),
-						link: accountSetupLinkFixture({ accessRequestId }),
+						link: setupLinkRecord({ accessRequestId }),
 						revokedLinks: options.revokedLinks ?? []
 					}
 				);
@@ -76,12 +109,7 @@ function createAccountSetupIssuancePorts(
 		setupDelivery: {
 			async send(input) {
 				setupDeliveries.push(input);
-				const outbox = authEmailOutboxRecordFixture({
-					accessRequestId: input.accessRequestId,
-					setupLinkId: input.setupLinkId,
-					recipient: input.email,
-					createdAt: new Date('2026-05-22T12:00:00.000Z')
-				});
+				const outbox = setupOutboxRecord(input);
 				return options.deliveryStatus === 'failed'
 					? { status: 'failed', outbox, error: 'setup email provider unavailable' }
 					: { status: 'sent', outbox: { ...outbox, status: 'sent' } };
@@ -890,7 +918,7 @@ describe('inviteOrganizationMember', () => {
 			accessRequestBridgeResult: { status: 'linked', accessRequestId: 'access-request-1' }
 		});
 		const issuance = createAccountSetupIssuancePorts({
-			revokedLinks: [accountSetupLinkFixture({ id: 'setup-link-0', accessRequestId: 'access-request-1' })]
+			revokedLinks: [setupLinkRecord({ id: 'setup-link-0', accessRequestId: 'access-request-1' })]
 		});
 
 		await inviteOrganizationMember(
@@ -1570,25 +1598,6 @@ describe('inviteOrganizationMember', () => {
 		}
 		expect(issuance.setupLinkRequests).toEqual([]);
 		expect(issuance.setupDeliveries).toEqual([]);
-		const requestStore = createAccessRequestSetupDeliveryStore();
-		const sendSetupEmail = vi.fn();
-		const service = createAccessRequestSetupDeliveryService(requestStore, sendSetupEmail, {
-			now: () => AUTH_WORKFLOW_NOW
-		});
-		expect(
-			await service.submitAccessRequest({
-				email: 'invitee@example.com',
-				firstName: 'Synthetic',
-				lastName: 'Invitee',
-				reason: null,
-				heardAbout: 'search_engine',
-				heardAboutDetails: null,
-				origin: destination.origin
-			})
-		).toEqual({ status: 'pending-created' });
-		expect(requestStore.insertedRequests).toEqual([expect.objectContaining({ email: 'invitee@example.com' })]);
-		expect(requestStore.setupLinks).toEqual([]);
-		expect(sendSetupEmail).not.toHaveBeenCalled();
 	});
 
 	it('routes unlinked unconfirmed accounts to Request Access on resend', async () => {

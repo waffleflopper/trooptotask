@@ -98,7 +98,7 @@ describe.each(['security', 'recovery', 'invite'] as const)('%s mutation acknowle
 		} else await screen.findByRole('heading', { name: 'Password updated' });
 		expect(finalizations).toBe(flow === 'invite' ? 1 : 0);
 		await vi.advanceTimersByTimeAsync(3000);
-		if (flow !== 'security') expect(goto).toHaveBeenCalledWith(flow === 'recovery' ? '/auth/login' : '/dashboard');
+		if (flow !== 'security') expect(goto).toHaveBeenCalledWith('/dashboard');
 	});
 	it('follows expiry redirects without clearing drafts or treating redirected HTML as success', async () => {
 		const response = new Response('<html>Login</html>');

@@ -1,76 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-	complete,
-	completeSetupSession,
-	validateToken,
-	getAccessRequest,
-	getSetupLink,
-	checkCompletionRateLimit,
-	auditLogMock,
-	setupStore
-} = vi.hoisted(() => {
-	const setupStore = {
-		getAccessRequest: vi.fn(),
-		findByTokenHash: vi.fn(),
-		getSetupLink: vi.fn()
-	};
-	return {
-		complete: vi.fn(),
-		completeSetupSession: vi.fn(),
-		validateToken: vi.fn(),
-		getAccessRequest: setupStore.getAccessRequest,
-		getSetupLink: setupStore.getSetupLink,
-		checkCompletionRateLimit: vi.fn(),
-		auditLogMock: vi.fn(),
-		setupStore
-	};
-});
-
-vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: vi.fn().mockReturnValue({ admin: true }),
-	getSupabaseClient: vi.fn().mockReturnValue({ session: true })
+const { resolveLoad, completeSetup } = vi.hoisted(() => ({
+	resolveLoad: vi.fn(),
+	completeSetup: vi.fn()
 }));
 
-vi.mock('$lib/server/accountSetupLinks', () => ({
-	createAccountSetupLinkService: vi.fn(() => ({ validateToken }))
-}));
-
-vi.mock('$lib/server/accountSetupCompletion', () => ({
-	createAccountSetupCompletionService: vi.fn(() => ({ complete, completeSetupSession }))
-}));
-
-vi.mock('$lib/server/accountSetupCompletionSupabase', () => ({
-	createSupabaseAccountSetupCompletionStore: vi.fn(() => setupStore),
-	createSupabaseAccountSetupAuthAdapter: vi.fn(() => ({}))
-}));
-
-vi.mock('$lib/server/accountSetupRateLimit', () => ({
-	ACCOUNT_SETUP_ATTEMPT_RATE_LIMIT_MESSAGE:
-		'Too many setup attempts. Please wait before trying again, or request a fresh setup link if this one no longer works.',
-	checkAccountSetupCompletionRateLimit: checkCompletionRateLimit
-}));
-
-vi.mock('$lib/server/auditLog', () => ({
-	auditLog: auditLogMock
+vi.mock('$features/identity/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/identity/index.server')>()),
+	createSupabaseAccountSetupRouteFlow: vi.fn(() => ({ resolveLoad, completeSetup }))
 }));
 
 import { actions, load } from './+page.server';
-import {
-	ACCOUNT_SETUP_SESSION_COOKIE,
-	setAccountSetupSessionCookie,
-	createAccountSetupSession
-} from '$lib/server/accountSetupSessions';
 
-function makeRequest(input: { password?: string; confirmPassword?: string }) {
-	const formData = new FormData();
-	formData.set('password', input.password ?? 'ValidPassword123!');
-	formData.set('confirmPassword', input.confirmPassword ?? input.password ?? 'ValidPassword123!');
-	return { formData: vi.fn().mockResolvedValue(formData), headers: new Headers({ 'user-agent': 'vitest-agent' }) };
-}
-
-function makeCookies(initial: Record<string, string> = {}) {
-	const values = new Map(Object.entries(initial));
+function makeCookies() {
+	const values = new Map<string, string>();
 	return {
 		get: vi.fn((name: string) => values.get(name)),
 		set: vi.fn((name: string, value: string) => values.set(name, value)),
@@ -79,58 +22,50 @@ function makeCookies(initial: Record<string, string> = {}) {
 	};
 }
 
-function makeSetupSessionCookie(input: { setupLinkId?: string; accessRequestId?: string } = {}) {
-	const cookies = makeCookies();
-	setAccountSetupSessionCookie(
-		cookies,
-		createAccountSetupSession({
-			setupLinkId: input.setupLinkId ?? 'link-1',
-			accessRequestId: input.accessRequestId ?? 'request-1',
-			now: new Date()
-		})
-	);
-	return cookies.values.get(ACCOUNT_SETUP_SESSION_COOKIE) ?? '';
-}
-
-function makeSetupLink(overrides: Record<string, unknown> = {}) {
+function loadEvent(cookies: ReturnType<typeof makeCookies>, token = '') {
 	return {
-		id: 'link-1',
-		accessRequestId: 'request-1',
-		tokenHash: 'hash',
-		expiresAt: new Date('2026-06-01T12:00:00.000Z'),
-		createdAt: new Date('2026-05-22T12:00:00.000Z'),
-		claimedAt: null,
-		failedAt: null,
-		failureReason: null,
-		usedAt: null,
-		revokedAt: null,
-		revocationReason: null,
-		...overrides
-	};
+		cookies,
+		locals: { session: null, authFlow: null, mfaPending: false },
+		url: new URL(`https://trooptotask.test/auth/setup-account${token ? `?token=${token}` : ''}`)
+	} as unknown as Parameters<typeof load>[0];
 }
 
-function makeLoadEvent(input: { token?: string; session?: unknown; cookies?: ReturnType<typeof makeCookies> } = {}) {
-	const url = new URL('http://localhost/auth/setup-account');
-	if (input.token) {
-		url.searchParams.set('token', input.token);
+function actionEvent(cookies: ReturnType<typeof makeCookies>, fields: Record<string, string> = {}) {
+	const form = new FormData();
+	for (const [key, value] of Object.entries({
+		password: 'ValidPassword123!',
+		confirmPassword: 'ValidPassword123!',
+		...fields
+	})) {
+		form.set(key, value);
 	}
 	return {
-		cookies: input.cookies ?? makeCookies(),
-		locals: {
-			session: input.session ?? null,
-			authFlow: null,
-			mfaPending: false
-		},
-		url
-	} as unknown as Parameters<typeof load>[0];
+		cookies,
+		locals: { session: null, authFlow: null, mfaPending: false },
+		getClientAddress: () => '203.0.113.10',
+		request: { formData: () => Promise.resolve(form), headers: new Headers({ 'user-agent': 'vitest-agent' }) }
+	} as unknown as Parameters<(typeof actions)['default']>[0];
+}
+
+const setupSession = {
+	setupLinkId: 'link-1',
+	accessRequestId: 'request-1',
+	expiresAt: new Date('2026-05-18T12:10:00Z').getTime()
+};
+
+async function establishSession(cookies: ReturnType<typeof makeCookies>) {
+	resolveLoad.mockResolvedValueOnce({ state: 'redirect-setup', path: '/auth/setup-account', session: setupSession });
+	await expect(load(loadEvent(cookies, 'synthetic-token'))).rejects.toMatchObject({
+		status: 303,
+		location: '/auth/setup-account'
+	});
 }
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['Date'] });
-	vi.setSystemTime(new Date('2026-05-18T12:00:00.000Z'));
+	vi.setSystemTime(new Date('2026-05-18T12:00:00Z'));
 	vi.clearAllMocks();
 	vi.stubEnv('ACCOUNT_SETUP_SESSION_SECRET', 'test-account-setup-session-secret');
-	checkCompletionRateLimit.mockReturnValue({ limited: false });
 });
 
 afterEach(() => {
@@ -138,583 +73,110 @@ afterEach(() => {
 	vi.unstubAllEnvs();
 });
 
-describe('/auth/setup-account load', () => {
-	it('returns expired setup-session recovery copy when no token or session is present', async () => {
-		const result = await load(makeLoadEvent());
-
-		expect(result).toEqual({
-			state: 'missing',
-			message: 'This setup session has expired. Open the newest setup email or request a fresh setup link.'
-		});
-		expect(validateToken).not.toHaveBeenCalled();
-	});
-
-	it('maps invalid token states to recovery copy', async () => {
-		validateToken.mockResolvedValueOnce({ status: 'expired' });
-
-		const result = await load(makeLoadEvent({ token: 'expired-token' }));
-
-		expect(result).toEqual({
-			state: 'expired',
-			message: 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'
-		});
-		expect(validateToken).toHaveBeenCalledWith('expired-token');
-	});
-
-	it('exchanges a valid raw token for an HTTP-only setup session and redirects to a tokenless URL', async () => {
+describe('/auth/setup-account transport', () => {
+	it('exchanges a raw token for a signed HTTP-only cookie and tokenless redirect', async () => {
 		const cookies = makeCookies();
-		validateToken.mockResolvedValueOnce({
-			status: 'valid',
-			accessRequestId: 'request-1',
-			link: makeSetupLink()
-		});
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setupCompletedAt: null
-		});
+		await establishSession(cookies);
 
-		await expect(load(makeLoadEvent({ token: 'valid-token', cookies }))).rejects.toMatchObject({
-			status: 303,
-			location: '/auth/setup-account'
-		});
-
+		expect(resolveLoad).toHaveBeenCalledWith(
+			expect.objectContaining({ rawToken: 'synthetic-token', setupSession: null })
+		);
 		expect(cookies.set).toHaveBeenCalledWith(
-			ACCOUNT_SETUP_SESSION_COOKIE,
+			'ttt_account_setup_session',
 			expect.any(String),
-			expect.objectContaining({
-				httpOnly: true,
-				maxAge: 600,
-				path: '/auth/setup-account',
-				sameSite: 'lax'
-			})
+			expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/auth/setup-account', maxAge: 600 })
 		);
+		expect(cookies.values.get('ttt_account_setup_session')).not.toContain('synthetic-token');
 	});
 
-	it('returns valid state and email from a tokenless setup-session load without page token data', async () => {
-		const cookies = makeCookies({
-			[ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie()
-		});
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setupCompletedAt: null
-		});
-		getSetupLink.mockResolvedValueOnce(makeSetupLink());
-
-		const result = await load(makeLoadEvent({ cookies }));
-
-		expect(result).toEqual({
-			state: 'valid',
-			email: 'soldier@example.mil'
-		});
-		expect(result).not.toHaveProperty('token');
-		expect(validateToken).not.toHaveBeenCalled();
-	});
-
-	it('maps completed Access Requests to used-link copy', async () => {
-		validateToken.mockResolvedValueOnce({
-			status: 'valid',
-			accessRequestId: 'request-1',
-			link: makeSetupLink()
-		});
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setupCompletedAt: '2026-05-18T12:00:00.000Z'
-		});
-
-		const result = await load(makeLoadEvent({ token: 'used-token' }));
-
-		expect(result).toEqual({
-			state: 'used',
-			message: 'This setup link has already been used. Sign in or reset your password if you need access.'
-		});
-	});
-
-	it('refuses a valid token when the Access Request is no longer approved', async () => {
+	it('loads a tokenless page using the signed setup session', async () => {
 		const cookies = makeCookies();
-		validateToken.mockResolvedValueOnce({
-			status: 'valid',
-			accessRequestId: 'request-1',
-			link: makeSetupLink()
-		});
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'rejected',
-			setupCompletedAt: null
-		});
+		await establishSession(cookies);
+		resolveLoad.mockResolvedValueOnce({ state: 'valid', email: 'soldier@example.mil' });
 
-		const result = await load(makeLoadEvent({ token: 'valid-token', cookies }));
-
-		expect(result).toEqual({
-			state: 'access-request-not-approved',
-			message: 'This Account Setup Link is no longer approved. Request access again or contact support.'
-		});
-		expect(cookies.delete).toHaveBeenCalledWith(ACCOUNT_SETUP_SESSION_COOKIE, {
-			path: '/auth/setup-account'
-		});
+		expect(await load(loadEvent(cookies))).toEqual({ state: 'valid', email: 'soldier@example.mil' });
+		expect(resolveLoad).toHaveBeenLastCalledWith(expect.objectContaining({ rawToken: '', setupSession }));
 	});
 
-	it('maps replaced tokenless setup-session links to recovery copy and clears the session', async () => {
-		const cookies = makeCookies({
-			[ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie()
-		});
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setupCompletedAt: null
-		});
-		getSetupLink.mockResolvedValueOnce(
-			makeSetupLink({
-				revokedAt: new Date('2026-05-23T12:00:00.000Z'),
-				revocationReason: 'replaced'
-			})
-		);
-
-		const result = await load(makeLoadEvent({ cookies }));
-
-		expect(result).toEqual({
-			state: 'replaced',
-			message: 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'
-		});
-		expect(cookies.delete).toHaveBeenCalledWith(ACCOUNT_SETUP_SESSION_COOKIE, {
-			path: '/auth/setup-account'
-		});
-	});
-
-	it('refuses a tokenless setup session when the Access Request is no longer approved', async () => {
-		const cookies = makeCookies({
-			[ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie()
-		});
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'rejected',
-			setupCompletedAt: null
-		});
-
-		const result = await load(makeLoadEvent({ cookies }));
-
-		expect(result).toEqual({
-			state: 'access-request-not-approved',
-			message: 'This Account Setup Link is no longer approved. Request access again or contact support.'
-		});
-		expect(getSetupLink).not.toHaveBeenCalled();
-		expect(cookies.delete).toHaveBeenCalledWith(ACCOUNT_SETUP_SESSION_COOKIE, {
-			path: '/auth/setup-account'
-		});
-	});
-
-	it('rejects a setup session paired with a different Access Request link', async () => {
-		const cookies = makeCookies({ [ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie() });
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setupCompletedAt: null
-		});
-		getSetupLink.mockResolvedValueOnce(makeSetupLink({ accessRequestId: 'request-other' }));
-		expect(await load(makeLoadEvent({ cookies }))).toMatchObject({ state: 'missing' });
-		expect(cookies.values.has(ACCOUNT_SETUP_SESSION_COOKIE)).toBe(false);
-	});
-
-	it('redirects authenticated users before token validation', async () => {
-		await expect(
-			load(makeLoadEvent({ token: 'valid-token', session: { user: { id: 'user-1' } } }))
-		).rejects.toMatchObject({
-			status: 303,
-			location: '/dashboard'
-		});
-		expect(validateToken).not.toHaveBeenCalled();
-	});
-});
-
-describe('/auth/setup-account actions', () => {
-	function makeActionEvent(
-		input: { cookies?: ReturnType<typeof makeCookies>; request?: ReturnType<typeof makeRequest> } = {}
-	) {
-		return {
-			cookies:
-				input.cookies ??
-				makeCookies({
-					[ACCOUNT_SETUP_SESSION_COOKIE]: makeSetupSessionCookie()
-				}),
-			getClientAddress: vi.fn(() => '203.0.113.10'),
-			request: input.request ?? makeRequest({}),
-			locals: { supabase: {} }
-		} as unknown as Parameters<(typeof actions)['default']>[0];
-	}
-
-	function expectClaimedAudit() {
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'account_setup.claimed',
-				resourceType: 'account_setup_link',
-				resourceId: 'link-1',
-				details: {
-					accessRequestId: 'request-1',
-					stateTransition: 'pending.claimed'
-				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'vitest-agent'
-			}
-		);
-	}
-
-	function expectFailedAudit(failureCategory: string) {
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'account_setup.failed',
-				resourceType: 'account_setup_link',
-				resourceId: 'link-1',
-				severity: 'warning',
-				details: {
-					accessRequestId: 'request-1',
-					failureCategory,
-					outcome: 'failed'
-				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'vitest-agent'
-			}
-		);
-	}
-
-	function expectNoClaimedAudit() {
-		const auditActions = auditLogMock.mock.calls.map(([event]) => (event as { action?: string }).action);
-		expect(auditActions).not.toContain('account_setup.claimed');
-	}
-
-	it('rejects expired or missing setup sessions before password handling', async () => {
-		const result = await actions.default(
-			makeActionEvent({
-				cookies: makeCookies(),
-				request: makeRequest({})
-			})
-		);
-
-		expect(result).toMatchObject({
-			status: 400,
-			data: {
-				error: 'This setup session has expired. Open the newest setup email or request a fresh setup link.'
-			}
-		});
-		expect(completeSetupSession).not.toHaveBeenCalled();
-	});
-
-	it('cannot replace the signed setup identity with submitted email, request, link or raw token fields', async () => {
-		const request = makeRequest({});
-		const form = await request.formData();
-		form.set('email', 'other@example.test');
-		form.set('accessRequestId', 'other-request');
-		form.set('setupLinkId', 'other-link');
-		form.set('token', 'other-raw-token');
-		completeSetupSession.mockResolvedValueOnce({ status: 'completed', accessRequestId: 'request-1', userId: 'user-1' });
-		await expect(actions.default(makeActionEvent({ request }))).rejects.toMatchObject({
-			status: 303,
-			location: '/dashboard'
-		});
-		expect(completeSetupSession).toHaveBeenCalledWith({
-			setupLinkId: 'link-1',
-			accessRequestId: 'request-1',
-			password: 'ValidPassword123!'
-		});
-		expect(complete).not.toHaveBeenCalled();
-	});
-
-	it('does not accept a posted raw token in place of the HTTP-only setup session', async () => {
-		const request = makeRequest({});
-		(await request.formData()).set('token', 'valid-token');
-		expect(await actions.default(makeActionEvent({ request, cookies: makeCookies() }))).toMatchObject({ status: 400 });
-		expect(completeSetupSession).not.toHaveBeenCalled();
-		expect(complete).not.toHaveBeenCalled();
-	});
-
-	it('validates password confirmation before creating a User Account', async () => {
-		const result = await actions.default(
-			makeActionEvent({
-				request: makeRequest({ password: 'ValidPassword123!', confirmPassword: 'DifferentPassword123!' })
-			})
-		);
-
-		expect(result).toMatchObject({
-			status: 400,
-			data: { error: 'Passwords do not match' }
-		});
-		expect(completeSetupSession).not.toHaveBeenCalled();
-	});
-
-	it('validates weak setup passwords before claiming the setup session', async () => {
-		const result = await actions.default(
-			makeActionEvent({
-				request: makeRequest({ password: 'short', confirmPassword: 'short' })
-			})
-		);
-
-		expect(result).toMatchObject({
-			status: 400,
-			data: { error: 'Password must be at least 12 characters' }
-		});
-		expect(checkCompletionRateLimit).not.toHaveBeenCalled();
-		expect(completeSetupSession).not.toHaveBeenCalled();
-	});
-
-	it.each([
-		['revoked', 'This Account Setup Link was replaced. Check your inbox for the newest setup email.'],
-		['expired', 'This Account Setup Link has expired. Request a fresh setup link and use the newest email.'],
-		['used', 'This setup link has already been used. Sign in or reset your password if you need access.'],
-		['claimed', 'This Account Setup Link is already being used. Request a fresh setup link if setup does not finish.'],
-		['missing', 'This Account Setup Link is invalid. Request a fresh setup link and try again.']
-	] as const)('maps pre-claim %s setup-session states without claimed audit', async (status, message) => {
-		completeSetupSession.mockResolvedValueOnce({ status });
-
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 400,
-			data: { error: message }
-		});
-		expectFailedAudit(status);
-		expectNoClaimedAudit();
-	});
-
-	it('maps no-longer-approved setup-session completion to support copy', async () => {
-		completeSetupSession.mockResolvedValueOnce({ status: 'access-request-not-approved' });
-
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 400,
-			data: {
-				error: 'This Account Setup Link is no longer approved. Request access again or contact support.'
-			}
-		});
-		expectFailedAudit('access-request-not-approved');
-		expectNoClaimedAudit();
-	});
-
-	it('does not treat an already-completed link response as a successful setup redirect', async () => {
-		completeSetupSession.mockResolvedValueOnce({ status: 'completed' });
-
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 400,
-			data: {
-				error: 'This setup link has already been used. Sign in or reset your password if you need access.'
-			}
-		});
-	});
-
-	it('audits completed setup with safe lifecycle metadata before redirecting', async () => {
-		completeSetupSession.mockResolvedValueOnce({
-			status: 'completed',
-			accessRequestId: 'request-1',
-			userId: 'user-123'
-		});
+	it('binds completion to the signed session despite submitted identity fields', async () => {
+		const cookies = makeCookies();
+		await establishSession(cookies);
+		completeSetup.mockResolvedValueOnce({ type: 'redirect', path: '/dashboard', clearSession: true });
 
 		await expect(
 			actions.default(
-				makeActionEvent({
-					request: makeRequest({ password: 'ValidPassword123!', confirmPassword: 'ValidPassword123!' })
+				actionEvent(cookies, {
+					email: 'other@example.test',
+					accessRequestId: 'other-request',
+					setupLinkId: 'other-link',
+					token: 'other-raw-token'
 				})
 			)
-		).rejects.toMatchObject({
-			status: 303,
-			location: '/dashboard'
+		).rejects.toMatchObject({ status: 303, location: '/dashboard' });
+		expect(completeSetup).toHaveBeenCalledWith({
+			setupSession,
+			password: 'ValidPassword123!',
+			confirmPassword: 'ValidPassword123!',
+			clientIp: '203.0.113.10',
+			userAgent: 'vitest-agent'
 		});
-
-		expectClaimedAudit();
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'account_setup.completed',
-				resourceType: 'account_setup_link',
-				resourceId: 'link-1',
-				details: {
-					accessRequestId: 'request-1',
-					userId: 'user-123',
-					outcome: 'completed'
-				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'vitest-agent'
-			}
-		);
-		const auditPayload = JSON.stringify(auditLogMock.mock.calls);
-		expect(auditPayload).not.toContain('ValidPassword123!');
-		expect(auditPayload).not.toContain('/auth/setup-account?token=');
-		expect(auditPayload).not.toContain(ACCOUNT_SETUP_SESSION_COOKIE);
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_session', { path: '/auth/setup-account' });
 	});
 
-	it('returns provider-edge failures without accepting an Organization Invitation', async () => {
-		completeSetupSession.mockResolvedValueOnce({ status: 'account-create-failed', message: 'Supabase unavailable' });
+	it('cannot use a posted raw token without a signed setup session', async () => {
+		const cookies = makeCookies();
+		completeSetup.mockResolvedValueOnce({ type: 'failure', status: 400, error: 'Setup session expired' });
 
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 500,
-			data: {
-				error:
-					'We could not finish account setup after claiming this link. Request a fresh setup link or ask an admin to resend setup.'
-			}
-		});
-		expect(completeSetupSession).toHaveBeenCalledWith({
-			setupLinkId: 'link-1',
-			accessRequestId: 'request-1',
-			password: 'ValidPassword123!'
-		});
-		expectClaimedAudit();
-		expectFailedAudit('account-create-failed');
-		const auditPayload = JSON.stringify(auditLogMock.mock.calls);
-		expect(auditPayload).not.toContain('ValidPassword123!');
-		expect(auditPayload).not.toContain('Supabase unavailable');
-		expect(auditPayload).not.toContain('/auth/setup-account?token=');
-	});
-
-	it('returns clear policy copy when Supabase rejects the setup password after app validation', async () => {
-		completeSetupSession.mockResolvedValueOnce({
-			status: 'account-create-failed',
-			message: 'Password should be at least 12 characters'
-		});
-
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
+		expect(await actions.default(actionEvent(cookies, { token: 'raw-token' }))).toMatchObject({
 			status: 400,
-			data: {
-				error:
-					'That password was rejected by account security rules. Choose a different, unique password with at least 12 characters, including uppercase, lowercase, and a number. Request a fresh setup link, then try again.'
-			}
+			data: { error: 'Setup session expired' }
 		});
+		expect(completeSetup).toHaveBeenCalledWith(expect.objectContaining({ setupSession: null }));
 	});
 
-	it('rate-limits setup completion attempts by setup session and email before account mutation', async () => {
-		getAccessRequest.mockResolvedValueOnce({
-			id: 'request-1',
-			email: 'soldier@example.mil',
-			status: 'approved',
-			setupCompletedAt: null
-		});
-		checkCompletionRateLimit.mockReturnValueOnce({
-			limited: true,
-			retryAfterMs: 60_000,
-			namespace: 'account-setup-completion',
-			dimensions: ['link', 'request', 'email', 'ip'],
-			limitedDimensions: ['link'],
-			windowMs: 900_000,
-			maxRequests: 5
+	it('carries the staff recovery state through the action after clearing the claimed session', async () => {
+		const cookies = makeCookies();
+		await establishSession(cookies);
+		completeSetup.mockResolvedValueOnce({
+			type: 'failure',
+			status: 500,
+			error: 'Contact platform support. Give support request ID request-1.',
+			clearSession: true,
+			supportRequired: true
 		});
 
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 429,
-			data: {
-				error:
-					'Too many setup attempts. Please wait before trying again, or request a fresh setup link if this one no longer works.'
-			}
+		expect(await actions.default(actionEvent(cookies))).toMatchObject({
+			status: 500,
+			data: { error: expect.stringContaining('request ID request-1'), supportRequired: true }
 		});
-		expect(checkCompletionRateLimit).toHaveBeenCalledWith({
-			setupLinkId: 'link-1',
-			accessRequestId: 'request-1',
-			email: 'soldier@example.mil',
-			ip: '203.0.113.10'
-		});
-		expect(auditLogMock).toHaveBeenCalledWith(
-			{
-				action: 'account_setup.completion_rate_limited',
-				resourceType: 'account_setup_link',
-				resourceId: 'link-1',
-				severity: 'warning',
-				details: {
-					accessRequestId: 'request-1',
-					rateLimit: expect.objectContaining({
-						namespace: 'account-setup-completion',
-						limitedDimensions: ['link'],
-						retryAfterMs: 60_000
-					})
-				}
-			},
-			{
-				userId: null,
-				ip: '203.0.113.10',
-				userAgent: 'vitest-agent'
-			}
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_session', { path: '/auth/setup-account' });
+		expect(cookies.set).toHaveBeenCalledWith(
+			'ttt_account_setup_support',
+			'1',
+			expect.objectContaining({ path: '/auth/setup-account', httpOnly: true, sameSite: 'lax' })
 		);
-		expect(JSON.stringify(auditLogMock.mock.calls)).not.toContain('/auth/setup-account?token=');
-		expect(completeSetupSession).not.toHaveBeenCalled();
+
+		resolveLoad.mockResolvedValueOnce({ state: 'missing', message: 'This setup session has expired.' });
+		expect(await load(loadEvent(cookies))).toEqual({
+			state: 'support-required',
+			message: 'Contact platform support to resolve the previous setup attempt before trying another link.'
+		});
+
+		resolveLoad.mockResolvedValueOnce({ state: 'redirect-setup', path: '/auth/setup-account', session: setupSession });
+		await expect(load(loadEvent(cookies, 'new-synthetic-token'))).rejects.toMatchObject({ status: 303 });
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_support', { path: '/auth/setup-account' });
 	});
 
-	it('rate-limits setup completion attempts when request email lookup is unavailable', async () => {
-		getAccessRequest.mockResolvedValueOnce(null);
-		checkCompletionRateLimit.mockReturnValueOnce({ limited: true, retryAfterMs: 60_000 });
-
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 429,
-			data: {
-				error:
-					'Too many setup attempts. Please wait before trying again, or request a fresh setup link if this one no longer works.'
-			}
-		});
-		expect(checkCompletionRateLimit).toHaveBeenCalledWith({
-			setupLinkId: 'link-1',
-			accessRequestId: 'request-1',
-			email: null,
-			ip: '203.0.113.10'
-		});
-		expect(completeSetupSession).not.toHaveBeenCalled();
-	});
-
-	it('returns recovery copy when setup finalization fails after claim', async () => {
-		completeSetupSession.mockResolvedValueOnce({
-			status: 'setup-finalization-failed',
-			message:
-				'Account setup could not finish after this link was claimed. Request a fresh setup link or ask an admin to resend setup.'
+	it('clears rejected sessions and returns the flow recovery state', async () => {
+		const cookies = makeCookies();
+		await establishSession(cookies);
+		resolveLoad.mockResolvedValueOnce({
+			state: 'replaced',
+			message: 'Open the newest setup email',
+			clearSession: true
 		});
 
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 500,
-			data: {
-				error:
-					'We could not finish account setup after claiming this link. Request a fresh setup link or ask an admin to resend setup.'
-			}
-		});
-		expectClaimedAudit();
-		expectFailedAudit('setup-finalization-failed');
-	});
-
-	it('returns manual sign-in guidance when setup succeeds but automatic sign-in fails', async () => {
-		completeSetupSession.mockResolvedValueOnce({
-			status: 'sign-in-failed',
-			message: 'Invalid login credentials'
-		});
-
-		const result = await actions.default(makeActionEvent());
-
-		expect(result).toMatchObject({
-			status: 500,
-			data: {
-				error: 'Your account was created successfully, but automatic sign-in could not finish. Please sign in manually.'
-			}
-		});
-		expectClaimedAudit();
-		expectFailedAudit('sign-in-failed');
+		expect(await load(loadEvent(cookies))).toEqual({ state: 'replaced', message: 'Open the newest setup email' });
+		expect(cookies.delete).toHaveBeenCalledWith('ttt_account_setup_session', { path: '/auth/setup-account' });
 	});
 });

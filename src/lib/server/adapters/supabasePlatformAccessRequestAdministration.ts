@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
-import { createSupabaseAccountSetupLinkIssuancePorts } from './supabaseAccountSetupLinkIssuance';
+import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import {
 	ACCESS_REQUEST_INVITATION_ORIGIN_SELECT,
 	listSupabaseInviterProfiles,

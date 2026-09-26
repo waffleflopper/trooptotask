@@ -3,6 +3,7 @@ export {
 	checkDurableRateLimit,
 	createSupabaseDurableRateLimitStore,
 	durableRateLimitAuditDetails,
+	normalizeRateLimitEmail,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
 } from '$lib/server/durableRateLimit';

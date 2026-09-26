@@ -12,9 +12,9 @@ import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$lib/server/aut
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
 	return parseUserProfileForm({
-		firstName: String(metadata?.firstName ?? metadata?.first_name ?? ''),
-		lastName: String(metadata?.lastName ?? metadata?.last_name ?? ''),
-		rank: String(metadata?.rank ?? '')
+		firstName: metadata?.firstName ?? metadata?.first_name ?? null,
+		lastName: metadata?.lastName ?? metadata?.last_name ?? null,
+		rank: metadata?.rank ?? null
 	});
 }
 

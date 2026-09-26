@@ -37,7 +37,65 @@ export {
 } from './sensitiveActionAuthorizer.server';
 export { confirmSensitiveIdentity } from './confirmSensitiveIdentity.server';
 
-export { passwordAttempt, passwordCompletionState, type PasswordAttempt } from './passwordCompletion.server';
+export {
+	passwordAttempt,
+	passwordCompletionState,
+	recoveryPasswordPageState,
+	type PasswordAttempt
+} from './passwordCompletion.server';
 
 export { updateIdentityPassword } from './updatePassword.server';
-export { sendPublicRecoveryEmail, sendPlatformAuthEmail } from '$lib/server/authEmailDelivery';
+export { sendPlatformAuthEmail } from './authEmailDelivery.server';
+export { getAuthConfirmState, getAuthConfirmRedirectTo } from './authConfirm.server';
+export { confirmAuthLink } from './confirmAuthLink.server';
+export { requestPublicPasswordRecovery } from './passwordRecoveryRequest.server';
+export { FORGOT_PASSWORD_RATE_LIMIT_MESSAGE } from './forgotPasswordRateLimit.server';
+export { createPublicAccessRequestSetupDeliveryService } from './accessRequestSetupDelivery.server';
+export { createSupabaseAccountSetupRouteFlow } from './accountSetupRouteFlow.server';
+export {
+	readAccountSetupSessionCookie,
+	setAccountSetupSessionCookie,
+	clearAccountSetupSessionCookie
+} from './accountSetupSessions.server';
+export {
+	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE,
+	checkAccountSetupRenewalRateLimit
+} from './accountSetupRateLimit.server';
+export {
+	createAccountSetupLinkIssuance,
+	redactProviderError,
+	type AccountSetupLinkIssuanceCreator,
+	type AccountSetupLinkIssuanceDelivery,
+	type AccountSetupLinkIssuanceOrigin,
+	type AccountSetupLinkIssuanceResult,
+	type AccountSetupLinkNotCreatedReason
+} from './accountSetupLinkIssuance.server';
+export { createSupabaseAccountSetupLinkIssuancePorts } from './accountSetupLinkIssuanceSupabase.server';
+export {
+	cleanupAccountSetupLinks,
+	type AccountSetupLinkFailureReason,
+	type AccountSetupLinkRecord,
+	type AccountSetupLinkRevocationReason,
+	type CreateAccountSetupLinkResult
+} from './accountSetupLinks.server';
+export {
+	classifyAccessRequestSetupState,
+	findLatestAccessRequestSetupDelivery,
+	normalizeAccessRequestSetupDeliveries,
+	normalizeAccessRequestSetupLinks,
+	resolveAccessRequestSetupState,
+	ACCOUNT_SETUP_RECOVERY_LINK_LABEL,
+	type AccessRequestAuthEmailOutbox,
+	type AccessRequestSetupLink,
+	type AccessRequestSetupStateSource
+} from './accessRequestSetupState.server';
+export type { AccessRequestSetupState } from './contracts';
+export {
+	type AuthEmailOutboxRecord,
+	type AuthEmailOutboxStatus,
+	type SendAccountSetupOutboxDeliveryResult
+} from './authEmailOutbox.server';
+export {
+	ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
+	checkAccessRequestSubmissionRateLimit
+} from './accessRequestRateLimit.server';

@@ -5,7 +5,7 @@
 		id?: string;
 		label: string;
 		alternate?: boolean;
-		title?: Snippet;
+		title: Snippet;
 		children: Snippet;
 	}
 
@@ -15,9 +15,7 @@
 <section {id} class:alt={alternate} class="content-section">
 	<div class="content-inner">
 		<div class="content-label">{label}</div>
-		{#if title}
-			<h2>{@render title()}</h2>
-		{/if}
+		<h2>{@render title()}</h2>
 		{@render children()}
 	</div>
 </section>
@@ -107,35 +105,6 @@
 	.content-inner :global(strong) {
 		color: var(--foreground);
 		font-weight: 600;
-	}
-
-	.content-inner :global(.contact-card) {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.875rem 1.25rem;
-		background: var(--brass-muted);
-		border: 1px solid color-mix(in srgb, var(--brass) 28%, transparent);
-		border-radius: var(--radius);
-	}
-
-	.content-inner :global(.contact-card svg) {
-		flex: 0 0 auto;
-		color: var(--brass-text);
-	}
-
-	.content-inner :global(.contact-card a) {
-		font-family: 'IBM Plex Mono', monospace;
-		font-size: 0.8125rem;
-		font-weight: 500;
-		letter-spacing: 0.06em;
-		text-decoration: none;
-		text-transform: uppercase;
-	}
-
-	.content-inner :global(.contact-card a:hover) {
-		color: var(--brass-text);
-		text-decoration: underline;
 	}
 
 	@media (max-width: 640px) {

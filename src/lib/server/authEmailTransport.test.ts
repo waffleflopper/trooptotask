@@ -1,23 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sendAccountSetupLinkEmail } from './accountSetupLinks';
 import { sendOrganizationInvitationEmail } from './organizationInvitationDelivery';
 
 vi.mock('$env/dynamic/private', () => ({ env: process.env }));
 
 const recipient = 'invitee@example.test';
 const deliveries = [
-	{
-		purpose: 'account setup',
-		send: (fetchImpl: typeof fetch) =>
-			sendAccountSetupLinkEmail(
-				{
-					email: recipient,
-					setupUrl: 'https://app.example.test/auth/setup-account?token=synthetic-token',
-					expiresAt: new Date('2026-10-01T12:00:00Z')
-				},
-				fetchImpl
-			)
-	},
 	{
 		purpose: 'organization invitation',
 		send: (fetchImpl: typeof fetch) =>

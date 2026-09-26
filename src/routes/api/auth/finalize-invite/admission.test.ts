@@ -150,6 +150,14 @@ describe('invite finalization request admission', () => {
 		expect((await POST(h.event())).status).toBe(401);
 		h.denied();
 	});
+	it('does not save malformed provider metadata as a profile during invite activation', async () => {
+		const h = fixture();
+		h.locals.user.user_metadata.firstName = { unexpected: 'object' } as never;
+		const response = await POST(h.event());
+		expect(response.status).toBe(200);
+		expect(effects.profile).not.toHaveBeenCalled();
+		expect(effects.accept).toHaveBeenCalledExactlyOnceWith(h.locals.supabase, 'verified@example.test');
+	});
 	it.each([
 		['aal1', 'aal1'],
 		['aal2', 'aal2'],

@@ -65,6 +65,7 @@
 		"@vercel/speed-insights": "^2.0.0",
 		"bits-ui": "^2.18.1",
 		"clsx": "^2.1.1",
+		"devalue": "^5.9.4",
 		"exceljs": "^4.4.0",
 		"jspdf": "^4.2.1",
 		"jspdf-autotable": "^5.0.8",

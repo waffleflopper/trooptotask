@@ -32,7 +32,9 @@
 		};
 	};
 
-	function setupStateVariant(state: string): BadgeVariant {
+	function setupStateVariant(req: AccessRequestCard): BadgeVariant {
+		if (req.held_setup_claim) return 'warning';
+		const state = req.setup_state;
 		if (state === 'completed') return 'success';
 		if (state === 'failed' || state === 'delivery_failed') return 'danger';
 		if (state === 'expired') return 'warning';
@@ -46,8 +48,8 @@
 		return 'Send Fresh Setup';
 	}
 
-	function canSendSetup(state: string): boolean {
-		return state !== 'completed' && state !== 'delivery_pending';
+	function canSendSetup(req: AccessRequestCard): boolean {
+		return req.setup_state !== 'completed' && req.setup_state !== 'delivery_pending';
 	}
 
 	function setupDeliverySummary(req: PageData['reviewed'][number]): string | null {
@@ -206,7 +208,7 @@
 										<Badge variant="warning">Auto-approved</Badge>
 									{/if}
 									{#if req.status === 'approved'}
-										<Badge variant={setupStateVariant(req.setup_state)}>Setup {req.setup_state_label}</Badge>
+										<Badge variant={setupStateVariant(req)}>Setup {req.setup_state_label}</Badge>
 									{/if}
 								</div>
 								<p class="truncate text-sm text-muted-foreground">{req.email}</p>
@@ -229,6 +231,13 @@
 								{#if req.status === 'approved'}
 									<div class="grid gap-1 text-xs text-muted-foreground">
 										<p>{req.setup_state_detail}</p>
+										{#if req.held_setup_claim}
+											<p>
+												Held claim {req.held_setup_claim.linkId} on Access Request
+												{req.held_setup_claim.accessRequestId} since
+												{formatDisplayDateTime(req.held_setup_claim.claimedAt)}
+											</p>
+										{/if}
 										{#if req.setup_link_id}
 											<p>Setup link ID {req.setup_link_id}</p>
 										{/if}
@@ -264,7 +273,7 @@
 									</div>
 								{/if}
 							</div>
-							{#if req.status === 'approved' && canSendSetup(req.setup_state)}
+							{#if req.status === 'approved' && canSendSetup(req)}
 								<form method="POST" action="?/resend" use:enhance={stepUpEnhance(`${req.id}-resend`)}>
 									<input type="hidden" name="requestId" value={req.id} />
 									<Button type="submit" variant="outline" disabled={loadingId !== null}>

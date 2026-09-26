@@ -639,8 +639,10 @@ Compatibility note: the legacy `src/lib/components/ui/BulkImportTable.svelte` he
 
 Use these for any top-level marketing, legal, or trust page so the public site keeps one shared shell and one navigation/footer contract.
 
+The shared wordmark lives in `src/lib/components/ui/brand-wordmark/BrandWordmark.svelte`. Public navigation and account-access pages use that same Web UI component so its lettering and subtitle stay consistent.
+
 ```svelte
-<PublicShell user={data.user} active="security" bodyClass="security-page" roadmapHref="/#roadmap">
+<PublicShell user={data.user} active="security">
 	<PublicPageHeader label="Security">
 		{#snippet title()}Built for controlled <em>personnel data.</em>{/snippet}
 		<p>Role-scoped access, encryption, and audit history for unit workflows.</p>
@@ -657,19 +659,19 @@ Use these for any top-level marketing, legal, or trust page so the public site k
 
 Shared public wrapper that renders the classification bar, site nav, optional CTA, and footer around page content.
 
-Props: `user?: unknown`, `active?: 'security'`, `bodyClass?: string`, `roadmapHref?: string`, `faqHref?: string`, `showFaqLink?: boolean`, `showCta?: boolean`, `ctaTitleBefore?: string`, `ctaEmphasis?: string`, `ctaSubtitle?: string`, `children: Snippet`, `cta?: Snippet`
+Props: `user?: unknown`, `active?: 'about' | 'security'`, `bodyClass?: string`, `showFaqLink?: boolean`, `showClassificationBar?: boolean`, `showCta?: boolean`, `navOverlay?: boolean`, `navScrolled?: boolean`, `children: Snippet`
 
 Guidance:
 
 - Prefer this over duplicating nav/footer/CTA markup in public routes.
-- Use `roadmapHref="#roadmap"` and `faqHref="#faq"` on the landing page; use `/#roadmap` for inner pages.
-- Pass a custom `cta` snippet only when the default shared CTA is not enough.
+- Use `showFaqLink` on the landing page; it links to `/#faq`.
+- Use `showCta={false}` when the route has its own final action section.
 
 ### `public/PublicPageHeader.svelte`
 
 Shared inner-page hero/header for marketing, legal, and trust pages.
 
-Props: `label: string`, `title: Snippet`, `children?: Snippet`
+Props: `label: string`, `title: Snippet`, `children: Snippet`
 
 Guidance:
 
@@ -680,12 +682,16 @@ Guidance:
 
 Shared section framing for legal/trust/public longform pages.
 
-Props: `label: string`, `alternate?: boolean`, `title?: Snippet`, `children: Snippet`
+Props: `id?: string`, `label: string`, `alternate?: boolean`, `title: Snippet`, `children: Snippet`
 
 Guidance:
 
 - Alternate sections with `alternate` when you need rhythm across long-form pages.
-- Use `.contact-card` inside section content for disclosure/support email callouts.
+- Use `PublicContactCard` inside section content for disclosure and support email callouts.
+
+### `public/PublicContactCard.svelte`
+
+Shared email callout for public legal and security pages. `email` is required; `subject` optionally adds an encoded email subject. Keep page-specific instructions in the surrounding section.
 
 ### `public/PublicSiteNav.svelte`, `public/PublicCta.svelte`, `public/PublicFooter.svelte`
 

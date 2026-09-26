@@ -3,7 +3,7 @@
 	import AuthField from '$lib/components/auth/AuthField.svelte';
 	import AuthNotice from '$lib/components/auth/AuthNotice.svelte';
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
-	import { ACCESS_REQUEST_HEARD_ABOUT_OPTIONS } from '$lib/accessRequests';
+	import { ACCESS_REQUEST_HEARD_ABOUT_OPTIONS } from '$features/identity/index';
 	import { Button } from '$lib/components/ui/button';
 	import * as Field from '$lib/components/ui/field';
 	import * as Select from '$lib/components/ui/select';
@@ -51,7 +51,7 @@
 
 			if (!res.ok) {
 				const data = await res.json();
-				errorMsg = data.message || 'Something went wrong. Please try again.';
+				errorMsg = data.error || data.message || 'Something went wrong. Please try again.';
 				return;
 			}
 

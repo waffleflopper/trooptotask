@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
-import { sendPlatformAuthEmail } from '$features/identity/index.server';
+import { getAuthConfirmRedirectTo, sendPlatformAuthEmail } from '$features/identity/index.server';
 import { checkDurableRateLimit, createSupabaseDurableRateLimitStore } from '$lib/access/index.server';
 import {
 	createPlatformUserIdentityCommands,
@@ -23,7 +23,7 @@ export function createSupabasePlatformUserIdentityCommandStore(
 			const { data, error } = await supabase.auth.admin.getUserById(userId);
 			if (error) {
 				if (isNotFoundAuthError(error)) return { status: 'not_found' };
-				console.error('[admin/users] auth.admin.getUserById error:', error);
+				console.error('[admin/users] Unable to load user identity');
 				return { status: 'provider_error', message: 'Failed to load user identity' };
 			}
 
@@ -65,7 +65,8 @@ export function createSupabasePlatformUserIdentityCommandStore(
 export function createSupabasePlatformUserIdentityCommands(ctx: AdminContext): PlatformUserIdentityCommands {
 	return createPlatformUserIdentityCommands({
 		store: createSupabasePlatformUserIdentityCommandStore(ctx.adminClient),
-		audit: { log: (event) => ctx.audit(event) }
+		audit: { log: (event) => ctx.audit(event) },
+		confirmationUrl: getAuthConfirmRedirectTo
 	});
 }
 

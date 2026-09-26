@@ -18,6 +18,11 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
+it('keeps the shared wordmark as a home link on account access', () => {
+	render(Page, { data: { session: null, reauth: false, nextPath: null }, form: null });
+	expect(screen.getByRole('link', { name: /Troop To Task Unit Readiness Platform/i })).toHaveAttribute('href', '/');
+});
+
 it('submits the supplied continuation unchanged before and after a rejected login', async () => {
 	const nextPath = '/org/alpha/calendar?view=month&label=A%26B#today';
 	const data = { session: null, reauth: true, nextPath };

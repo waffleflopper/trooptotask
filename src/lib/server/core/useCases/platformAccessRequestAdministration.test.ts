@@ -8,7 +8,7 @@ import {
 	type PlatformAccessRequestAdminRow
 } from './platformAccessRequestAdministration';
 import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
-import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$lib/server/accountSetupLinks';
+import type { AccountSetupLinkRecord, CreateAccountSetupLinkResult } from '$features/identity/index.server';
 import { type SensitiveActionDecision } from '$features/identity/contracts';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 
@@ -344,7 +344,8 @@ describe('Platform Access Request Administration', () => {
 				auth_email_outbox: [makeOutbox({ setup_link_id: 'link-completed' })]
 			})
 		];
-		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue(rows) }) });
+		const isolatedRows = rows.map((row) => ({ ...row, email: `${row.id}@example.mil` }));
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue(isolatedRows) }) });
 
 		const result = await admin.list({ now });
 		const reviewedById = Object.fromEntries(result.reviewed.map((request) => [request.id, request]));
@@ -376,6 +377,58 @@ describe('Platform Access Request Administration', () => {
 		expect(reviewedById['delivery-failed'].setup_delivery_last_error).toBe(
 			'mail provider failed [redacted setup url] token=[redacted] [redacted hash]'
 		);
+	});
+
+	it('shows an unresolved older or cross-request claim above a newly delivered setup link', async () => {
+		const held = makeSetupLink({
+			id: 'held-link',
+			created_at: '2026-05-18T13:00:00.000Z',
+			claimed_at: '2026-05-19T12:00:00.000Z',
+			expires_at: '2026-05-20T12:00:00.000Z',
+			revoked_at: '2026-05-20T13:00:00.000Z',
+			revocation_reason: 'replaced'
+		});
+		const fresh = makeSetupLink({ id: 'fresh-link', created_at: '2026-05-21T13:00:00.000Z' });
+		const rows = [
+			makeAccessRequestRow({
+				id: 'request-held',
+				account_setup_links: [fresh, held],
+				auth_email_outbox: [makeOutbox({ setup_link_id: 'fresh-link' })]
+			}),
+			makeAccessRequestRow({
+				id: 'request-other',
+				email: 'SOLDIER@example.mil',
+				account_setup_links: [makeSetupLink({ id: 'other-fresh' })]
+			})
+		];
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue(rows) }) });
+
+		const result = await admin.list({ now });
+		for (const request of result.reviewed) {
+			expect(request.setup_state_label).toBe('Claim held');
+			expect(request.setup_state_detail).toContain('Sending another setup link will not unlock it');
+			expect(request.held_setup_claim).toEqual({
+				accessRequestId: 'request-held',
+				linkId: 'held-link',
+				claimedAt: '2026-05-19T12:00:00.000Z'
+			});
+		}
+		expect(result.reviewed[0].setup_link_id).toBe('fresh-link');
+	});
+
+	it('keeps a completed request visible for staff when its link never reached a terminal state', async () => {
+		const row = makeAccessRequestRow({
+			setup_completed_at: '2026-05-20T12:00:00.000Z',
+			account_setup_links: [makeSetupLink({ id: 'held-link', claimed_at: '2026-05-19T12:00:00.000Z' })]
+		});
+		const { admin } = makeDeps({ store: makeStore({ listAccessRequests: vi.fn().mockResolvedValue([row]) }) });
+
+		const result = await admin.list({ now });
+		expect(result.reviewed[0]).toMatchObject({
+			setup_state: 'completed',
+			setup_state_label: 'Completed, claim held',
+			held_setup_claim: { accessRequestId: row.id, linkId: 'held-link' }
+		});
 	});
 
 	it('includes organization invitation origin context in the admin list model', async () => {

@@ -1,42 +1,30 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import PublicBrandMark from './PublicBrandMark.svelte';
+	import BrandWordmark from '$lib/components/ui/brand-wordmark/BrandWordmark.svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
-
-	type PublicAnchorHref = '/' | '/#faq' | '/#roadmap' | '/#cta';
 
 	interface Props {
 		user?: unknown;
 		active?: 'about' | 'security';
-		roadmapHref?: PublicAnchorHref;
-		faqHref?: PublicAnchorHref;
 		showFaqLink?: boolean;
 		overlay?: boolean;
 		scrolled?: boolean;
 	}
 
-	let {
-		user,
-		active,
-		roadmapHref = '/#roadmap',
-		faqHref = '/#faq',
-		showFaqLink = false,
-		overlay = false,
-		scrolled = false
-	}: Props = $props();
+	let { user, active, showFaqLink = false, overlay = false, scrolled = false }: Props = $props();
 </script>
 
-<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled} data-roadmap-href={roadmapHref}>
+<nav class="public-nav" class:overlay class:scrolled={overlay && scrolled}>
 	<div class="nav-container">
 		<a href={resolve('/')} class="nav-brand">
-			<PublicBrandMark hideSubtitleOnMobile />
+			<BrandWordmark hideSubtitleOnMobile />
 		</a>
 
 		<div class="nav-links">
 			<a href={resolve('/about')} class="nav-link" class:active={active === 'about'}>About</a>
 			<a href={resolve('/security')} class="nav-link" class:active={active === 'security'}>Security</a>
 			{#if showFaqLink}
-				<a href={resolve(faqHref)} class="nav-link">FAQ</a>
+				<a href={resolve('/#faq')} class="nav-link">FAQ</a>
 			{/if}
 		</div>
 
@@ -143,7 +131,7 @@
 		flex-shrink: 0;
 	}
 
-	.nav-brand :global(.public-brand-mark) {
+	.nav-brand :global(.brand-wordmark) {
 		--public-brand-accent: var(--brass);
 		--public-brand-subtitle-color: var(--_muted);
 	}

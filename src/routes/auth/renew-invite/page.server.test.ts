@@ -6,13 +6,11 @@ const { requestFreshSetupLinkMock, checkRenewalRateLimitMock, auditLogMock } = v
 	auditLogMock: vi.fn()
 }));
 
-vi.mock('$lib/server/accessRequestSetupDelivery', () => ({
+vi.mock('$features/identity/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/identity/index.server')>()),
 	createPublicAccessRequestSetupDeliveryService: vi.fn(() => ({
 		requestFreshSetupLink: requestFreshSetupLinkMock
-	}))
-}));
-
-vi.mock('$lib/server/accountSetupRateLimit', () => ({
+	})),
 	ACCOUNT_SETUP_RENEWAL_RATE_LIMIT_MESSAGE:
 		'Too many fresh-link requests. Please wait before trying again, or contact support if you still need access.',
 	checkAccountSetupRenewalRateLimit: checkRenewalRateLimitMock

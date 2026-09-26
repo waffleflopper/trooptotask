@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { type Handle, error, redirect } from '@sveltejs/kit';
+import { stringify } from 'devalue';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
 import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
@@ -36,7 +37,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 			},
 			{ userId: null, ip: clientIp }
 		);
-		return new Response(JSON.stringify({ error: 'Too many requests' }), {
+		const enhancedForm = event.request.headers.get('x-sveltekit-action') === 'true';
+		const body = enhancedForm
+			? { type: 'failure', status: 429, data: stringify({ error: 'Too many requests. Please wait and try again.' }) }
+			: { error: 'Too many requests' };
+		return new Response(JSON.stringify(body), {
 			status: 429,
 			headers: {
 				'Content-Type': 'application/json',

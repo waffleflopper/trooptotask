@@ -1,4 +1,5 @@
 import { attemptStore } from './tests/fixtures/passwordAttempt';
+import { parse } from 'devalue';
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({ rpc: attemptStore.rpc }) }));
 vi.mock('$env/dynamic/private', () => ({ env: { ACCOUNT_SETUP_SESSION_SECRET: 'synthetic-receipt-secret' } }));
 import { passwordSessionToken } from './tests/fixtures/passwordSession';
@@ -600,6 +601,31 @@ describe('server auth hook', () => {
 				expect((await harness.handle({ event: request(), resolve: harness.resolve })).status).toBe(200);
 			}
 		);
+
+		it('returns an action failure that an enhanced login form can display when throttled', async () => {
+			const harness = await createAuthenticatedHookHarness({ data: false, error: null });
+			const request = () => {
+				const event = harness.createEvent('/auth/login', {});
+				event.getClientAddress = () => '198.51.100.15';
+				event.request = new Request(event.url, {
+					method: 'POST',
+					headers: { 'x-sveltekit-action': 'true' }
+				});
+				return event;
+			};
+			for (let attempt = 0; attempt < 10; attempt++) {
+				expect((await harness.handle({ event: request(), resolve: harness.resolve })).status).toBe(200);
+			}
+			vi.clearAllMocks();
+			const response = await harness.handle({ event: request(), resolve: harness.resolve });
+			expect(response.status).toBe(429);
+			expect(response.headers.get('Retry-After')).toBe('900');
+			const result = await response.json();
+			expect(result).toMatchObject({ type: 'failure', status: 429 });
+			expect(parse(result.data)).toEqual({ error: 'Too many requests. Please wait and try again.' });
+			expect(harness.resolve).not.toHaveBeenCalled();
+			expect(harness.createServerClient).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('MFA endpoint request admission', () => {

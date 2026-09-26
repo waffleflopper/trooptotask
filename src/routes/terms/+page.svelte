@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import PublicContactCard from '$lib/components/public/PublicContactCard.svelte';
 	import PublicContentSection from '$lib/components/public/PublicContentSection.svelte';
 	import PublicPageHeader from '$lib/components/public/PublicPageHeader.svelte';
 	import PublicShell from '$lib/components/public/PublicShell.svelte';
@@ -12,7 +13,7 @@
 	<meta name="description" content="Terms of Use for TroopToTask, a military personnel management platform." />
 </svelte:head>
 
-<PublicShell user={data.user} bodyClass="legal-page">
+<PublicShell user={data.user}>
 	<PublicPageHeader label="Terms of Use">
 		{#snippet title()}Terms of <em>Use</em>{/snippet}
 		<p>
@@ -95,12 +96,14 @@
 		</p>
 	</PublicContentSection>
 
-	<PublicContentSection label="08 // Termination">
+	<PublicContentSection id="termination" label="08 // Termination">
 		{#snippet title()}Access may be revoked.{/snippet}
 		<p>
 			We may suspend or terminate your access to the service at any time for violation of these terms or for any other
-			reason at our discretion. You may delete your account and data at any time. Upon termination, your right to use
-			the service ceases immediately.
+			reason at our discretion. You may request deletion of your account and personal data at any time by emailing
+			<a href="mailto:privacy@trooptotask.org">privacy@trooptotask.org</a>. Our team will assist with the request,
+			subject to applicable audit-record retention described in our <a href={resolve('/privacy')}>Privacy Policy</a>.
+			Upon termination, your right to use the service ceases immediately.
 		</p>
 	</PublicContentSection>
 
@@ -115,21 +118,6 @@
 	<PublicContentSection label="10 // Contact">
 		{#snippet title()}Questions about these terms?{/snippet}
 		<p>If you have questions about these terms, contact us at:</p>
-		<div class="contact-card">
-			<svg
-				viewBox="0 0 24 24"
-				width="20"
-				height="20"
-				fill="none"
-				stroke="currentColor"
-				stroke-width="2"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			>
-				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-				<polyline points="22,6 12,13 2,6" />
-			</svg>
-			<a href="mailto:support@trooptotask.org">support@trooptotask.org</a>
-		</div>
+		<PublicContactCard email="support@trooptotask.org" />
 	</PublicContentSection>
 </PublicShell>

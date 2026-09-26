@@ -7,6 +7,7 @@
 	import AuthShell from '$lib/components/auth/AuthShell.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Spinner } from '$lib/components/ui/spinner';
+	import { passwordRequirements } from '$features/identity';
 
 	let { data, form } = $props();
 
@@ -16,13 +17,13 @@
 	let showPassword = $state(false);
 	let showConfirmPassword = $state(false);
 
-	const hasMinLength = $derived(password.length >= 12);
-	const hasUppercase = $derived(/[A-Z]/.test(password));
-	const hasLowercase = $derived(/[a-z]/.test(password));
-	const hasDigit = $derived(/\d/.test(password));
+	const requirements = $derived(passwordRequirements(password));
 	const passwordsMatch = $derived(password === confirmPassword && confirmPassword.length > 0);
+	const supportRequired = $derived(
+		data.state === 'claimed' || data.state === 'support-required' || form?.supportRequired === true
+	);
 	const canSubmit = $derived(
-		data.state === 'valid' && hasMinLength && hasUppercase && hasLowercase && hasDigit && passwordsMatch && !loading
+		data.state === 'valid' && !supportRequired && requirements.valid && passwordsMatch && !loading
 	);
 </script>
 
@@ -35,24 +36,32 @@
 	title="Set up your TroopToTask account."
 	description="Use the setup link from your approval email to choose your password and activate your User Account."
 	panelEyebrow="Account setup"
-	panelTitle={data.state === 'valid' ? 'Choose your password' : 'Setup link unavailable'}
-	panelDescription={data.state === 'valid'
-		? `This setup link is approved for ${data.email}.`
-		: 'Request a fresh setup link if your approval is still eligible.'}
+	panelTitle={supportRequired
+		? 'Setup needs support'
+		: data.state === 'valid'
+			? 'Choose your password'
+			: 'Setup link unavailable'}
+	panelDescription={supportRequired
+		? 'Contact platform support to resolve this setup attempt.'
+		: data.state === 'valid'
+			? `This setup link is approved for ${data.email}.`
+			: 'Request a fresh setup link if your approval is still eligible.'}
 	supportLabel="Account setup"
 	supportTitle="One link, one account."
 	supportDescription="Account Setup Links activate only your User Account. Organization membership is handled separately inside TroopToTask."
-	supportPoints={[
-		'Choose your own password; TroopToTask never emails temporary passwords.',
-		'Use the newest setup email if you requested more than one link.',
-		'Expired setup links can be renewed from the fresh-link request page.'
-	]}
+	supportPoints={supportRequired
+		? ['A fresh setup link cannot finish while this attempt needs platform support.']
+		: [
+				'Choose your own password; TroopToTask never emails temporary passwords.',
+				'Use the newest setup email if you requested more than one link.',
+				'Expired setup links can be renewed from the fresh-link request page.'
+			]}
 >
 	<div class="flex flex-col gap-5">
-		{#if data.state !== 'valid'}
-			<AuthNotice tone="error" title="Setup link unavailable" centered>
+		{#if data.state !== 'valid' || supportRequired}
+			<AuthNotice tone="error" title={supportRequired ? 'Setup needs support' : 'Setup link unavailable'} centered>
 				<p>{form?.error ?? data.message}</p>
-				<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
+				{#if !supportRequired}<p><a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>{/if}
 			</AuthNotice>
 		{:else}
 			{#if form?.error}
@@ -80,6 +89,7 @@
 					bind:value={password}
 					required
 					placeholder="At least 12 characters"
+					hint="Use 12 to 72 characters with uppercase, lowercase, and a number."
 				>
 					{#snippet action()}
 						<AuthPasswordToggle visible={showPassword} onclick={() => (showPassword = !showPassword)} />
@@ -87,10 +97,21 @@
 				</AuthField>
 
 				<ul class="grid gap-2 text-xs leading-normal text-muted-foreground" aria-live="polite">
-					<li class={hasMinLength ? 'text-success' : undefined}>At least 12 characters</li>
-					<li class={hasUppercase ? 'text-success' : undefined}>One uppercase letter</li>
-					<li class={hasLowercase ? 'text-success' : undefined}>One lowercase letter</li>
-					<li class={hasDigit ? 'text-success' : undefined}>One number</li>
+					<li class={requirements.minLength ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.minLength ? 'Met: ' : 'Needed: '}</span>At least 12 characters
+					</li>
+					<li class={requirements.maxLength ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.maxLength ? 'Met: ' : 'Needed: '}</span>72 characters or fewer
+					</li>
+					<li class={requirements.uppercase ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.uppercase ? 'Met: ' : 'Needed: '}</span>One uppercase letter
+					</li>
+					<li class={requirements.lowercase ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.lowercase ? 'Met: ' : 'Needed: '}</span>One lowercase letter
+					</li>
+					<li class={requirements.digit ? 'text-success' : undefined}>
+						<span class="sr-only">{requirements.digit ? 'Met: ' : 'Needed: '}</span>One number
+					</li>
 				</ul>
 
 				<AuthField
@@ -135,7 +156,9 @@
 
 		<div class="flex flex-col gap-2 text-sm leading-relaxed text-muted-foreground">
 			<p>Already set up? <a href={resolve('/auth/login')}>Sign in</a>.</p>
-			<p>Need a new setup email? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
+			{#if !supportRequired}
+				<p>Need a new setup email? <a href={resolve('/auth/renew-invite')}>Request a fresh setup link</a>.</p>
+			{/if}
 			<p>Still waiting on approval? <a href={resolve('/auth/request-access')}>Request access</a>.</p>
 		</div>
 	</div>

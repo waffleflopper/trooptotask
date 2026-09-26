@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getAuthConfirmRedirectTo } from '$features/identity/index.server';
 import {
 	createPlatformUserIdentityCommands,
 	type PlatformUserIdentityCommandStore
@@ -20,7 +21,8 @@ function makeCommands(options: Partial<PlatformUserIdentityCommandStore> = {}) {
 		store,
 		commands: createPlatformUserIdentityCommands({
 			store,
-			audit: { log: audit }
+			audit: { log: audit },
+			confirmationUrl: getAuthConfirmRedirectTo
 		})
 	};
 }
@@ -42,7 +44,11 @@ describe('PlatformUserIdentityCommands', () => {
 			sendPasswordResetEmail,
 			sendInviteEmail: vi.fn().mockResolvedValue({ ok: true })
 		};
-		const commands = createPlatformUserIdentityCommands({ store, audit: { log: audit } });
+		const commands = createPlatformUserIdentityCommands({
+			store,
+			audit: { log: audit },
+			confirmationUrl: getAuthConfirmRedirectTo
+		});
 
 		const result = await commands.sendPasswordReset({
 			userId: USER_ID,

@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import MoonIcon from '@lucide/svelte/icons/moon';
 	import SunIcon from '@lucide/svelte/icons/sun';
-	import PublicBrandMark from '$lib/components/public/PublicBrandMark.svelte';
+	import BrandWordmark from '$lib/components/ui/brand-wordmark/BrandWordmark.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { cn } from '$lib/utils';
@@ -56,7 +56,7 @@
 				href={resolve('/')}
 				class="auth-brand inline-flex flex-col gap-0.5 text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
 			>
-				<PublicBrandMark />
+				<BrandWordmark />
 			</a>
 
 			<div class="flex items-center gap-2">

@@ -5,6 +5,7 @@ import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
 import { createPersonnelCatalogRankResolver } from './personnelRankCatalog';
+import { listGroupCatalog } from '$features/personnel/index.server';
 
 const entity = PersonnelEntity;
 const MAX_BATCH_SIZE = 500;
@@ -86,7 +87,7 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
 			isNull: { archived_at: true }
 		}),
-		ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId),
+		listGroupCatalog(ctx),
 		createPersonnelCatalogRankResolver(ctx)
 	]);
 

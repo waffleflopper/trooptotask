@@ -11,6 +11,7 @@ import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import { listGroupCatalog } from '$features/personnel/index.server';
 
 export interface PersonnelExportInput {
 	personnelId: string;
@@ -61,7 +62,7 @@ export async function exportPersonnelWorkbook(
 		),
 		ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId, {}, { select: 'id, name' }),
 		ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId, {}, { select: 'id, name' }),
-		ctx.rawStore.findMany<Record<string, unknown>>('groups', orgId, {}, { select: 'id, name' })
+		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore })
 	]);
 
 	// Extended info is a separate table without org_id scoping - query by personnel_id.
@@ -75,7 +76,7 @@ export async function exportPersonnelWorkbook(
 	const statusTypeMap = new Map<string, string>();
 	for (const s of statusTypes) statusTypeMap.set(s.id as string, s.name as string);
 	const groupMap = new Map<string, string>();
-	for (const g of groups) groupMap.set(g.id as string, g.name as string);
+	for (const g of groups) groupMap.set(g.id, g.name);
 
 	const workbook = await createWorkbook();
 

@@ -1,13 +1,12 @@
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
-import { GroupEntity } from '$lib/server/entities/group';
 import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { requireFeaturePolicy } from './featurePolicy';
-import { loadRosterPersonnel } from '$features/personnel/index.server';
+import { listGroupCatalog, loadRosterPersonnel } from '$features/personnel/index.server';
 import { loadOrganizationRankCatalog, type OrganizationRankCatalogEntry } from './rankCatalog';
 
 export interface PersonnelBootstrap {
@@ -40,7 +39,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 	const [
 		personnel,
 		allPersonnel,
-		groupRows,
+		groups,
 		statusTypeRows,
 		rankCatalog,
 		pinnedGroupRows,
@@ -49,9 +48,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 	] = await Promise.all([
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		loadRosterPersonnel({ auth: ctx.auth, store: ctx.rawStore }, { status: 'active' }),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listGroupCatalog(ctx),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
 			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -79,7 +76,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 	return {
 		personnel,
 		personnelLookup: toPersonnelLookup(scopedAllPersonnel),
-		groups: GroupEntity.fromDbArray(groupRows),
+		groups,
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		rankCatalog,
 		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),

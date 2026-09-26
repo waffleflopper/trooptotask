@@ -14,6 +14,7 @@ import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
 import { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug';
 import { createActivePersonnelRankResolver } from './personnelRankCatalog';
+import { listGroupCatalog } from '$features/personnel/index.server';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
@@ -91,7 +92,7 @@ export async function importPersonnelBatch(ctx: WritePorts, input: BatchInput): 
 	}
 
 	// Fetch groups for name matching
-	const groups = await ctx.store.findMany<{ id: string; name: string }>('groups', ctx.auth.orgId);
+	const groups = await listGroupCatalog(ctx);
 	const groupMap = new Map(groups.map((g) => [g.name.toLowerCase(), g.id]));
 
 	// Validate all records

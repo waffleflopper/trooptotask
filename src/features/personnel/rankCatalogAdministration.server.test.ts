@@ -5,7 +5,7 @@ import { createSupabaseRankCatalogAdministrationPort } from './rankCatalogAdmini
 describe('createSupabaseRankCatalogAdministrationPort', () => {
 	it('deletes unused rank catalog entries through the atomic RPC', async () => {
 		const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
-		const port = createSupabaseRankCatalogAdministrationPort({ supabase: {} } as never, {
+		const port = createSupabaseRankCatalogAdministrationPort({
 			getAdminClient: () => ({ rpc }) as unknown as SupabaseClient
 		});
 
@@ -23,7 +23,7 @@ describe('createSupabaseRankCatalogAdministrationPort', () => {
 			data: null,
 			error: { code: '23503', message: 'Rank is referenced by Organization data. Retire it instead.' }
 		});
-		const port = createSupabaseRankCatalogAdministrationPort({ supabase: {} } as never, {
+		const port = createSupabaseRankCatalogAdministrationPort({
 			getAdminClient: () => ({ rpc }) as unknown as SupabaseClient
 		});
 
@@ -38,7 +38,7 @@ describe('createSupabaseRankCatalogAdministrationPort', () => {
 		{ code: 'P0002', message: 'Rank is referenced by Organization data. Retire it instead.' }
 	])('does not classify unrelated RPC errors as a reference conflict: $code $message', async (error) => {
 		const rpc = vi.fn().mockResolvedValue({ data: null, error });
-		const port = createSupabaseRankCatalogAdministrationPort({ supabase: {} } as never, {
+		const port = createSupabaseRankCatalogAdministrationPort({
 			getAdminClient: () => ({ rpc }) as unknown as SupabaseClient
 		});
 
@@ -53,7 +53,7 @@ describe('createSupabaseRankCatalogAdministrationPort', () => {
 			data: null,
 			error: { message: 'Rank is referenced by Organization data. Retire it instead.' }
 		});
-		const port = createSupabaseRankCatalogAdministrationPort({ supabase: {} } as never, {
+		const port = createSupabaseRankCatalogAdministrationPort({
 			getAdminClient: () => ({ rpc }) as unknown as SupabaseClient
 		});
 

@@ -7,7 +7,6 @@ function fail(status: number, message: string): never {
 }
 
 export function createSupabaseRankCatalogAdministrationPort(
-	_locals: Pick<App.Locals, 'supabase'>,
 	deps: { getAdminClient?: () => SupabaseClient } = {}
 ): RankCatalogAdministrationPort {
 	const getAdminClientFn = deps.getAdminClient ?? getAdminClient;

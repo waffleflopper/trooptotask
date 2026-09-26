@@ -142,7 +142,7 @@ export const actions: Actions = {
 			await removeOrganizationRankCatalogEntry(
 				{
 					...ctx,
-					rankCatalogAdministration: createSupabaseRankCatalogAdministrationPort(locals)
+					rankCatalogAdministration: createSupabaseRankCatalogAdministrationPort()
 				},
 				{ code }
 			);

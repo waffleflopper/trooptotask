@@ -100,7 +100,10 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: .nvmrc
+          cache: npm
       - run: npm install -g npm@11.12.1
+      - name: Install production dependencies for the provider probe
+        run: npm ci --omit=dev --ignore-scripts
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
           version: 2.101.0

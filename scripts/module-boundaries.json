@@ -307,7 +307,7 @@
 			"packet": "08-M02"
 		},
 		"personnel": {
-			"roots": ["src/features/groups/", "src/features/personnel/"],
+			"roots": ["src/features/personnel/"],
 			"files": [
 				"src/lib/domain/personnelRank.test.ts",
 				"src/lib/domain/personnelRank.ts",
@@ -760,8 +760,7 @@
 		"personnel": [
 			"src/features/personnel/contracts.ts",
 			"src/features/personnel/index.ts",
-			"src/features/personnel/index.server.ts",
-			"src/features/groups/index.ts"
+			"src/features/personnel/index.server.ts"
 		],
 		"rating-scheme": ["src/features/rating-scheme/index.ts"],
 		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts"],

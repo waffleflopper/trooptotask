@@ -3,7 +3,7 @@
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
-	import GroupManager from '$features/groups/components/GroupManager.svelte';
+	import GroupManager from './GroupManager.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';

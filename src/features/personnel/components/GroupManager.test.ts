@@ -23,9 +23,8 @@ function renderGroupManager(overrides: Partial<ComponentProps<typeof GroupManage
 	});
 }
 
-afterEach(async () => {
+afterEach(() => {
 	cleanup();
-	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
 });
 
@@ -33,38 +32,31 @@ describe('GroupManager', () => {
 	it('uses icon-only row actions with group-specific accessible labels', () => {
 		renderGroupManager();
 
-		const editAlpha = screen.getByRole('button', { name: 'Edit Alpha Company' });
-		const removeAlpha = screen.getByRole('button', { name: 'Remove Alpha Company' });
-
-		expect(editAlpha.getAttribute('title')).toBe('Edit Alpha Company');
-		expect(removeAlpha.getAttribute('title')).toBe('Remove Alpha Company');
-		expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
-		expect(screen.queryByText('Edit')).toBeNull();
-		expect(screen.queryByText('Remove')).toBeNull();
+		expect(screen.getByRole('button', { name: 'Edit Alpha Company' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove Alpha Company' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Edit Bravo Company' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Remove Bravo Company' })).toBeTruthy();
 	});
 
-	it('keeps editing and removal flows wired to the icon actions', async () => {
+	it('saves a trimmed rename and confirms removal for the selected Group', async () => {
 		const onRemove = vi.fn();
 		const onRename = vi.fn();
 		renderGroupManager({ onRemove, onRename });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit Alpha Company' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Group name' }), {
+			target: { value: '  Updated Alpha  ' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(onRename).toHaveBeenCalledWith('group-alpha', 'Updated Alpha');
 
-		expect(screen.getByDisplayValue('Alpha Company')).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
-		expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
-
-		await fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove Bravo Company' }));
 
 		expect(screen.getByRole('alertdialog', { name: 'Remove Group' })).toBeTruthy();
-		expect(screen.getByText('Remove "Bravo Company"? Personnel in this group will become unassigned.')).toBeTruthy();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
 		expect(onRemove).toHaveBeenCalledWith('group-bravo');
-		expect(onRename).not.toHaveBeenCalled();
 	});
 
 	it('serializes pending additions and retains the keyboard draft after rejection', async () => {

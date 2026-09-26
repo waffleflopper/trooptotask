@@ -9,7 +9,7 @@
 	import { groupsStore } from '$lib/stores/groups.svelte';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
-	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Personnel } from '$lib/types';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';

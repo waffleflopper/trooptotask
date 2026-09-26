@@ -8,7 +8,7 @@ import { rosterStore } from '$lib/stores/roster.svelte';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
+import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
 import type {

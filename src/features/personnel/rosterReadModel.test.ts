@@ -72,6 +72,32 @@ describe('createRosterReadModel', () => {
 		).toEqual(['alpha-1', 'bravo-1']);
 	});
 
+	it('keeps archived and unassigned records outside active Group-scoped views', () => {
+		const roster = createRosterReadModel({
+			personnel: [
+				...personnel,
+				makePerson({
+					id: 'archived-alpha',
+					lastName: 'Zulu',
+					groupId: 'group-a',
+					groupName: 'Alpha',
+					archivedAt: '2026-01-01'
+				}),
+				makePerson({ id: 'archived-unassigned', archivedAt: '2026-01-01' })
+			]
+		});
+
+		expect(
+			roster.scoped({ kind: 'groups', groupIds: ['group-a'] }, { status: 'active' }).personnel.map((p) => p.id)
+		).toEqual(['alpha-1']);
+		expect(
+			roster.scoped({ kind: 'groups', groupIds: ['group-a'] }, { status: 'archived' }).personnel.map((p) => p.id)
+		).toEqual(['archived-alpha']);
+		expect(
+			roster.scoped({ kind: 'groups', groupIds: ['group-a'] }, { status: 'all' }).personnel.map((p) => p.id)
+		).toEqual(['alpha-1', 'archived-alpha']);
+	});
+
 	it('builds grouped roster options from the scoped roster before group and search filters', () => {
 		const roster = createRosterReadModel({
 			personnel,

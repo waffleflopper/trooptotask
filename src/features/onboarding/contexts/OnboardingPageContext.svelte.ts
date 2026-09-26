@@ -4,7 +4,7 @@ import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { createRosterReadModel, type RosterReadModelView } from '$lib/domain/rosterReadModel';
+import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';

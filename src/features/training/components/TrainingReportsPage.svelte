@@ -8,7 +8,7 @@
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { rosterStore } from '$lib/stores/roster.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';

@@ -317,8 +317,6 @@
 				"src/lib/domain/rankOptions.ts",
 				"src/lib/domain/readinessSignals.test.ts",
 				"src/lib/domain/readinessSignals.ts",
-				"src/lib/domain/rosterReadModel.test.ts",
-				"src/lib/domain/rosterReadModel.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.test.ts",
 				"src/lib/server/adapters/supabaseRankCatalogAdministration.ts",
 				"src/lib/server/core/useCases/groupCrud.test.ts",

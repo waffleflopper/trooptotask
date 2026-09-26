@@ -10,7 +10,7 @@ import {
 	createRosterReadModel,
 	type CreateRosterReadModelInput,
 	type RosterReadModel
-} from '$lib/domain/rosterReadModel';
+} from '$features/personnel/rosterReadModel';
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import type { Personnel } from '$lib/types';

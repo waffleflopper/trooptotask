@@ -1,7 +1,7 @@
 import { browser } from '$app/environment';
 import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
-import { createRosterReadModel, type RosterReadModelView } from '$lib/domain/rosterReadModel';
+import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { rosterStore } from '$lib/stores/roster.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';

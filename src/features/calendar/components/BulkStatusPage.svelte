@@ -9,7 +9,7 @@
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { page } from '$app/state';
 	import { goto, invalidate } from '$app/navigation';
 	import { resolve } from '$app/paths';

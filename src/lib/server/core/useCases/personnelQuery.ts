@@ -15,7 +15,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { requireFeaturePolicy } from './featurePolicy';
 import { rosterPersonnelFindOptions } from './rosterReadModel';
-import type { RosterStatus } from '$lib/domain/rosterReadModel';
+import type { RosterStatus } from '$features/personnel/rosterReadModel';
 
 export interface PersonnelQueryOptions {
 	status?: RosterStatus;

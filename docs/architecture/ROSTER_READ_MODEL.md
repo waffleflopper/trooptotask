@@ -2,6 +2,8 @@
 
 The Roster Read Model is the shared read seam for displaying and selecting Personnel Records across feature surfaces. It owns roster status filtering, Scope Set visibility, grouping, search, and display ordering. Personnel still owns roster write workflows such as create, edit, archive, import, and bulk archive.
 
+The pure read model and its types are owned by Personnel and exposed through `src/features/personnel/contracts.ts`. Current shared roster state and server query helpers still live at their older paths until the remaining D03 consumer cutovers.
+
 ## Client Usage
 
 Use `rosterStore.readModel(...)` when the org shell has hydrated the current roster. Use `createRosterReadModel(...)` only when a component or test has an explicit fallback roster payload.

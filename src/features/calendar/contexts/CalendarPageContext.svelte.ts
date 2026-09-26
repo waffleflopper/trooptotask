@@ -6,7 +6,7 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
 import { groupsStore } from '$lib/stores/groups.svelte';
-import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+import { createRosterReadModel } from '$features/personnel/contracts';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';

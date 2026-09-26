@@ -3,7 +3,7 @@ import {
 	type CreateRosterReadModelInput,
 	type RosterReadModel,
 	type RosterStatus
-} from '$lib/domain/rosterReadModel';
+} from '$features/personnel/rosterReadModel';
 import type { AuthContext, DataStore, FindOptions } from '$lib/server/core/ports';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { Personnel } from '$lib/types';

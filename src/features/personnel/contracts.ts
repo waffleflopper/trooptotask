@@ -1,5 +1,22 @@
 import { z } from 'zod';
 
+export {
+	createRosterReadModel,
+	formatRosterPersonDisplayName,
+	matchesRosterSearch,
+	rosterGroupFilterValue
+} from './rosterReadModel';
+export type {
+	CreateRosterReadModelInput,
+	PersonnelGroup,
+	RosterGroupFilterOption,
+	RosterReadModel,
+	RosterReadModelView,
+	RosterScopeSelection,
+	RosterStatus,
+	RosterViewOptions
+} from './rosterReadModel';
+
 /** JSON note returned by the current Personnel page, API and archive operations. */
 export interface PersonnelLeaderNote {
 	id: string;

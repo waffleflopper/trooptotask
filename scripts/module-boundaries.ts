@@ -42,6 +42,7 @@ const WEB_PACKAGES = [
 	'layerchart',
 	'mode-watcher',
 	'@fontsource/',
+	'devalue',
 	'tw-animate-css',
 	'tailwindcss',
 	'@tailwindcss/',

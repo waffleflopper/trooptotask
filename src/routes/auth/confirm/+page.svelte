@@ -8,6 +8,7 @@
 	let { data } = $props();
 
 	let loading = $state(false);
+	let submitError = $state('');
 
 	const validConfirmation = $derived(data.confirmation.status === 'valid' ? data.confirmation : null);
 	const confirmationTitle = $derived(
@@ -67,13 +68,24 @@
 					Select <strong>{submitLabel}</strong> to verify this email link and continue.
 				</p>
 			</AuthNotice>
+			{#if submitError}
+				<AuthNotice tone="error" message={submitError} />
+			{/if}
 
 			<form
 				method="POST"
 				use:enhance={() => {
 					loading = true;
-					return async ({ update }) => {
+					submitError = '';
+					return async ({ result, update }) => {
 						loading = false;
+						if (result.type === 'failure') {
+							submitError =
+								typeof result.data?.error === 'string'
+									? result.data.error
+									: 'Unable to verify this email link. Please try again.';
+							return;
+						}
 						await update();
 					};
 				}}

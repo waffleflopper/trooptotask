@@ -70,7 +70,16 @@
 					return;
 				}
 				if (result.type === 'failure') {
-					emailResult = result.data as ActionData;
+					const failure = result.data as ActionData & { error?: unknown };
+					emailResult =
+						typeof failure?.emailError === 'string'
+							? failure
+							: {
+									emailError:
+										typeof failure?.error === 'string'
+											? failure.error
+											: 'Unable to confirm the email request. Please try again.'
+								};
 					emailMfaRequired = emailResult?.code === 'mfa_required';
 				} else if (
 					result.type === 'success' &&

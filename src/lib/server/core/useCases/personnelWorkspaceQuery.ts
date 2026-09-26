@@ -1,12 +1,11 @@
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
-import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { requireFeaturePolicy } from './featurePolicy';
-import { listGroupCatalog, loadRosterPersonnel } from '$features/personnel/index.server';
+import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
 import { loadOrganizationRankCatalog, type OrganizationRankCatalogEntry } from './rankCatalog';
 
 export interface PersonnelBootstrap {
@@ -42,7 +41,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		groups,
 		statusTypeRows,
 		rankCatalog,
-		pinnedGroupRows,
+		pinnedGroups,
 		orgSettingsRow,
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
@@ -54,16 +53,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		loadOrganizationRankCatalog(ctx),
-		userId
-			? ctx.store.findMany<Record<string, unknown>>(
-					'user_pinned_groups',
-					orgId,
-					{ user_id: userId },
-					{
-						orderBy: [{ column: 'sort_order', ascending: true }]
-					}
-				)
-			: Promise.resolve([]),
+		userId ? listPinnedGroupNames(ctx) : Promise.resolve([]),
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null),
@@ -79,7 +69,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		groups,
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		rankCatalog,
-		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
+		pinnedGroups,
 		lossWarningWindowDays,
 		awardTrackingAcknowledgedPersonnelIds
 	};

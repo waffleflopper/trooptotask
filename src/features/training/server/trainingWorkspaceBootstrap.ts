@@ -1,8 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { listGroupCatalog, listPinnedGroupNames } from '$features/personnel/index.server';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -149,16 +148,8 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		orgId: requestedOrgId,
 		label: 'pinned groups',
 		phase: 'pinned-groups',
-		load: () =>
-			ctx.store.findMany<Record<string, unknown>>(
-				'user_pinned_groups',
-				canonicalOrgId,
-				{ user_id: ctx.auth.userId },
-				{
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}
-			),
-		mapRows: (rows) => PinnedGroupsEntity.fromDbArray(rows)
+		load: () => listPinnedGroupNames(ctx),
+		mapRows: (names) => names
 	});
 	const personnelTrainings = loadTrainingItems({
 		orgId: requestedOrgId,

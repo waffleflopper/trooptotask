@@ -2,7 +2,7 @@
 
 The Roster Read Model is the shared read seam for displaying and selecting Personnel Records across feature surfaces. It owns roster status filtering, Scope Set visibility, grouping, search, and display ordering. Personnel still owns roster write workflows such as create, edit, archive, import, and bulk archive.
 
-The pure read model and its types are owned by Personnel and exposed through `src/features/personnel/contracts.ts`. The one Organization-local client backing is owned by Personnel and exposed through its Web entrypoint; other feature workspaces hydrate it through the controlled Personnel operation. Server query helpers still live at their older paths until the remaining D03 consumer cutover.
+The pure read model and its types are owned by Personnel and exposed through `src/features/personnel/contracts.ts`. The one Organization-local client backing is owned by Personnel and exposed through its Web entrypoint; other feature workspaces hydrate it through the controlled Personnel operation. Personnel also owns the server roster query through `src/features/personnel/index.server.ts`.
 
 ## Client Usage
 
@@ -21,9 +21,9 @@ Callers must make roster status visible when status matters:
 
 ## Server Usage
 
-Server use cases should use `loadRosterPersonnel(...)`, `loadRosterReadModel(...)`, or `createRosterReadModelFromDbRows(...)` from `src/lib/server/core/useCases/rosterReadModel.ts` when they need roster-shaped Personnel rows.
+Server use cases that need the request-visible Personnel roster use `loadRosterPersonnel(...)` from `src/features/personnel/index.server.ts`. It accepts active, archived or all status and the archived-newest order used by settings. The caller supplies its request store and owns its feature policy check; Personnel RLS still limits visible rows. Personnel's workspace explicitly loads a scoped roster and a lookup from its second user-authenticated store, then keeps the lookup scoped for Group actors. Dashboard and settings use their request stores. Calendar, Onboarding, Training and Critical Tasks use their separate Personnel-owned lane-authorized ports.
 
-These helpers centralize the Personnel entity select, active/archived/all filtering, and default roster ordering. They do not replace feature authorization. The caller still owns the feature policy check and still chooses whether the loaded model is read with `full(...)` or `scoped(...)`.
+The server query centralizes the Personnel entity select, status filter and default name order. After loading rows, callers can build the portable read model and choose `full(...)` or `scoped(...)` explicitly.
 
 ## Write Boundary
 

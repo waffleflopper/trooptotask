@@ -4,8 +4,8 @@
  * Personnel operations use scoped writes, rank validation and artifact lifecycle handling.
  * Archive requests approval when the actor cannot archive directly.
  *
- * For bulk import, see `personnelBatch.ts`. For queries, see `personnelQuery.ts`
- * and `personnelWorkspaceQuery.ts`.
+ * For bulk import, see `personnelBatch.ts`. The workspace roster is loaded
+ * through `personnelWorkspaceQuery.ts`.
  */
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

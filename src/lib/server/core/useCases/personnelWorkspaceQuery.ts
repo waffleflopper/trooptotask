@@ -7,7 +7,7 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { requireFeaturePolicy } from './featurePolicy';
-import { loadRosterPersonnel } from './rosterReadModel';
+import { loadRosterPersonnel } from '$features/personnel/index.server';
 import { loadOrganizationRankCatalog, type OrganizationRankCatalogEntry } from './rankCatalog';
 
 export interface PersonnelBootstrap {

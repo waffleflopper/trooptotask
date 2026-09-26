@@ -25,7 +25,7 @@ import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
-import { loadRosterPersonnel } from './rosterReadModel';
+import { loadRosterPersonnel } from '$features/personnel/index.server';
 
 export interface DashboardData {
 	availabilityEntries: AvailabilityEntry[];

@@ -8,6 +8,7 @@ export {
 export type { LeaderNoteContext, LeaderNoteRow } from './leaderNotes.server';
 export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.server';
 export type { PersonnelTrainingRosterPort } from './contracts';
+export { loadRosterPersonnel } from './rosterRead.server';
 export { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 export type { PersonnelCriticalTasksRosterPort } from './contracts';
 export { createSupabasePersonnelCalendarRosterPort } from './calendarRoster.server';

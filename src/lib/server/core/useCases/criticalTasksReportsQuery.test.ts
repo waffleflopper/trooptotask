@@ -127,7 +127,14 @@ describe('fetchCriticalTasksReportSummary', () => {
 		ctx.store.findMany = ((table, orgId, filters, options) =>
 			table === 'personnel'
 				? Promise.reject(new Error('Personnel SELECT denied for this Critical Tasks-only actor'))
-				: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
+				: table === 'organization_rank_catalog'
+					? Promise.resolve([])
+					: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
+		const privilegedFindMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+		ctx.rawStore.findMany = ((table, orgId, filters, options) =>
+			table === 'organization_rank_catalog'
+				? Promise.reject(new Error('Report rank catalog must use the authorized request store'))
+				: privilegedFindMany(table, orgId, filters, options)) as typeof ctx.rawStore.findMany;
 
 		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
 			filters: { mos: ['68W', '11B'] },

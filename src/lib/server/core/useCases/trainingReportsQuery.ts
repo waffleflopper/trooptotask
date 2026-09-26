@@ -4,7 +4,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { TrainingStatus, TrainingType } from '$features/training/training.types';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
@@ -104,28 +104,6 @@ function uniqueSorted(values: Array<string | null | undefined>): string[] {
 	return [...new Set(values.filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b));
 }
 
-async function loadReportRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
-	const rows = await ctx.store.findMany<{
-		code: string;
-		label: string;
-		service: RankCatalogEntry['service'];
-		category: RankCatalogEntry['category'];
-		pay_grade: RankCatalogEntry['payGrade'];
-		state: RankCatalogEntry['state'];
-		sort_order: number;
-	}>('organization_rank_catalog', ctx.auth.orgId);
-
-	return rows.map((row) => ({
-		code: row.code,
-		label: row.label,
-		service: row.service,
-		category: row.category,
-		payGrade: row.pay_grade,
-		state: row.state,
-		sortOrder: row.sort_order
-	}));
-}
-
 function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
 	return {
 		id: type.id,
@@ -168,7 +146,7 @@ async function buildTrainingReportRows(
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
 		ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId),
-		loadReportRankCatalog(ctx)
+		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'training-records' })
 	]);
 
 	const trainingTypes = TrainingTypeEntity.fromDbArray(typeRows);

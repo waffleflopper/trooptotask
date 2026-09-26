@@ -286,6 +286,41 @@ describe('organization rank catalog', () => {
 		});
 	});
 
+	it.each([
+		{ authorization: 'critical-tasks-readiness', lane: 'criticalTasks' },
+		{ authorization: 'training-records', lane: 'training' }
+	] as const)(
+		'reads ranks for $lane-only reports and denies actors without that lane',
+		async ({ authorization, lane }) => {
+			const ownerCtx = createTestContext();
+			await ensureOrganizationRankCatalog(ownerCtx);
+			const rows = await ownerCtx.rawStore.findMany<Record<string, unknown>>('organization_rank_catalog', 'test-org');
+			const laneViewerCtx = createTestContext({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					canManageMembers: false,
+					capabilityMap: { ...NO_CAPABILITIES, [lane]: 'view' }
+				}
+			});
+			laneViewerCtx.rawStore.seed('organization_rank_catalog', rows);
+			const deniedCtx = createTestContext({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					canManageMembers: false,
+					capabilityMap: NO_CAPABILITIES
+				}
+			});
+			deniedCtx.rawStore.seed('organization_rank_catalog', rows);
+
+			await expect(loadOrganizationRankCatalog(laneViewerCtx, { authorization })).resolves.toEqual(
+				expect.arrayContaining([expect.objectContaining({ code: 'SGT' })])
+			);
+			await expect(loadOrganizationRankCatalog(deniedCtx, { authorization })).rejects.toMatchObject({ status: 403 });
+		}
+	);
+
 	it('does not let roster-view-only users trigger rank catalog seed writes', async () => {
 		const rosterViewerCtx = createTestContext({
 			auth: {

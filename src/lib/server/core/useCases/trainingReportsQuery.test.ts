@@ -436,8 +436,16 @@ describe('Training report projections', () => {
 		const rawFindMany = ctx.rawStore.findMany.bind(ctx.rawStore);
 		ctx.rawStore.findMany = ((table, orgId, filters, options) => {
 			if (table === 'personnel') throw new Error('Personnel SELECT denied for this Training-only actor');
+			if (table === 'organization_rank_catalog') {
+				throw new Error('Report rank catalog must use the authorized request store');
+			}
 			return rawFindMany(table, orgId, filters, options);
 		}) as typeof ctx.rawStore.findMany;
+		const requestFindMany = ctx.store.findMany.bind(ctx.store);
+		ctx.store.findMany = ((table, orgId, filters, options) =>
+			table === 'organization_rank_catalog'
+				? Promise.resolve([])
+				: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
 
 		const result = await fetchTrainingReportPage(ctx);
 

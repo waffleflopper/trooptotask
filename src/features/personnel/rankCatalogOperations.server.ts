@@ -137,7 +137,12 @@ type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'
 	audit?: RankAudit;
 };
 
-type RankCatalogReadAuthorization = 'personnel-view' | 'training-view' | 'organization-governance';
+type RankCatalogReadAuthorization =
+	| 'personnel-view'
+	| 'training-view'
+	| 'training-records'
+	| 'critical-tasks-readiness'
+	| 'organization-governance';
 
 interface RankCatalogReadOptions {
 	authorization?: RankCatalogReadAuthorization;
@@ -163,7 +168,11 @@ async function requireRankCatalogReadPolicy(
 	const action =
 		authorization === 'training-view'
 			? POLICY_ACTION_CATALOG.training.viewMatrix
-			: POLICY_ACTION_CATALOG.personnel.viewRoster;
+			: authorization === 'training-records'
+				? POLICY_ACTION_CATALOG.training.viewRecords
+				: authorization === 'critical-tasks-readiness'
+					? POLICY_ACTION_CATALOG.criticalTasks.viewReadiness
+					: POLICY_ACTION_CATALOG.personnel.viewRoster;
 	await requireFeaturePolicy(ports, action, { kind: 'unscoped' }, 'organization_rank_catalog', undefined);
 }
 

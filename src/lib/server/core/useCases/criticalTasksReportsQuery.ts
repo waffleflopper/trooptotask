@@ -5,7 +5,7 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
@@ -92,28 +92,6 @@ function buildCriticalTasksReportScope(source: CriticalTasksReportSource): IctRe
 	};
 }
 
-async function loadCriticalTasksRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
-	const rows = await ctx.store.findMany<{
-		code: string;
-		label: string;
-		service: RankCatalogEntry['service'];
-		category: RankCatalogEntry['category'];
-		pay_grade: RankCatalogEntry['payGrade'];
-		state: RankCatalogEntry['state'];
-		sort_order: number;
-	}>('organization_rank_catalog', ctx.auth.orgId);
-
-	return rows.map((row) => ({
-		code: row.code,
-		label: row.label,
-		service: row.service,
-		category: row.category,
-		payGrade: row.pay_grade,
-		state: row.state,
-		sortOrder: row.sort_order
-	}));
-}
-
 async function buildDashboardFromSource(
 	ctx: QueryPorts,
 	source: CriticalTasksReportSource,
@@ -149,7 +127,7 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 			]
 		}),
 		fetchCriticalTasksSettings(ctx),
-		loadCriticalTasksRankCatalog(ctx)
+		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'critical-tasks-readiness' })
 	]);
 
 	return {

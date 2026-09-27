@@ -1,9 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-	provisionOrganization,
-	type OrgProvisioningAssignmentTypeSeed,
-	type OrgProvisioningPort
-} from './orgProvisioning';
+import { provisionOrganization, type OrgProvisioningPort } from './orgProvisioning';
 
 function createOrgProvisioningPort(
 	options: {
@@ -15,7 +11,7 @@ function createOrgProvisioningPort(
 	ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }>;
 	groupSeeds: string[];
 	statusTypeSeeds: string[];
-	assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }>;
+	assignmentTypeSeeds: string[];
 	federalHolidaySeeds: string[];
 	rankCatalogSeeds: string[];
 } {
@@ -23,8 +19,7 @@ function createOrgProvisioningPort(
 	const ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }> = [];
 	const groupSeeds: string[] = [];
 	const statusTypeSeeds: string[] = [];
-	const assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }> =
-		[];
+	const assignmentTypeSeeds: string[] = [];
 	const federalHolidaySeeds: string[] = [];
 	const rankCatalogSeeds: string[] = [];
 
@@ -52,8 +47,8 @@ function createOrgProvisioningPort(
 			statusTypeSeeds.push(organizationId);
 			return null;
 		},
-		async seedDefaultAssignmentTypes(organizationId, assignmentTypes) {
-			assignmentTypeSeeds.push({ organizationId, assignmentTypes });
+		async seedDefaultAssignmentTypes(organizationId) {
+			assignmentTypeSeeds.push(organizationId);
 			return null;
 		},
 		async seedFederalHolidays(organizationId) {
@@ -92,20 +87,7 @@ describe('provisionOrganization', () => {
 		]);
 		expect(port.groupSeeds).toEqual(['org-1']);
 		expect(port.statusTypeSeeds).toEqual(['org-1']);
-		expect(port.assignmentTypeSeeds).toEqual([
-			{
-				organizationId: 'org-1',
-				assignmentTypes: [
-					{
-						name: 'Staff Duty',
-						shortName: 'SD',
-						assignTo: 'personnel',
-						color: '#dc2626',
-						sortOrder: 0
-					}
-				]
-			}
-		]);
+		expect(port.assignmentTypeSeeds).toEqual(['org-1']);
 		expect(port.federalHolidaySeeds).toEqual(['org-1']);
 		expect(port.rankCatalogSeeds).toEqual(['org-1']);
 	});

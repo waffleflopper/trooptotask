@@ -1,5 +1,6 @@
 import type { DataStore, StoragePort } from '$lib/server/core/ports';
 import type { LeaderNoteDataSource } from '$features/personnel/index.server';
+import { cleanupExpiredAssignmentTypes, type AssignmentTypeRetentionPort } from '$features/calendar/index.server';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
 import { notifyAdminsViaStore, retentionCutoff } from './retentionSupport';
@@ -29,9 +30,7 @@ interface ArchiveRetentionPorts {
 	store: DataStore;
 	storage: StoragePort;
 	leaderNotes: Pick<LeaderNoteDataSource, 'deleteExpired'>;
-	assignmentTypes: {
-		deleteExpiredUnreferenced(orgId: string, ids: string[], cutoff: string): Promise<number>;
-	};
+	assignmentTypes: AssignmentTypeRetentionPort;
 }
 
 interface CleanupFamilyIdentity {
@@ -122,13 +121,7 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		key: 'assignment-types',
 		table: 'assignment_types',
 		label: 'Assignment Types',
-		timestampColumn: 'archived_at',
-		deleteCandidates: (ports, orgId, rows, cutoff) =>
-			ports.assignmentTypes.deleteExpiredUnreferenced(
-				orgId,
-				rows.map((row) => row.id),
-				cutoff
-			)
+		cleanup: (ports, orgId, cutoff) => cleanupExpiredAssignmentTypes(ports.store, ports.assignmentTypes, orgId, cutoff)
 	}
 ];
 

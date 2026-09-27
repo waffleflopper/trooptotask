@@ -3,7 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { createSupabaseOrgProvisioningPort } from './supabaseOrgProvisioning';
 import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
 import { seedDefaultGroups, seedDefaultRankCatalog } from '$features/personnel/index.server';
-import { seedDefaultStatusTypes, seedFederalHolidays } from '$features/calendar/index.server';
+import {
+	seedDefaultAssignmentTypes,
+	seedDefaultStatusTypes,
+	seedFederalHolidays
+} from '$features/calendar/index.server';
 
 // Exercise the real SDK wire format without connecting to a provider. SQL/RLS and
 // transaction guarantees belong to the isolated database contract in 02-03-04.
@@ -17,7 +21,8 @@ function httpPort(handle: (request: Request) => Promise<Response>) {
 		(orgId) => seedDefaultGroups(supabase, orgId),
 		(orgId) => seedDefaultRankCatalog(supabase, orgId),
 		(orgId) => seedFederalHolidays(supabase, orgId),
-		(orgId) => seedDefaultStatusTypes(supabase, orgId)
+		(orgId) => seedDefaultStatusTypes(supabase, orgId),
+		(orgId) => seedDefaultAssignmentTypes(supabase, orgId)
 	);
 }
 
@@ -181,10 +186,7 @@ describe('provisioning provider boundary', () => {
 		{
 			name: 'manual assignments',
 			table: 'assignment_types',
-			write: (port: ReturnType<typeof httpPort>) =>
-				port.seedDefaultAssignmentTypes('org-1', [
-					{ name: 'Staff Duty', shortName: 'SD', assignTo: 'personnel', color: '#dc2626', sortOrder: 0 }
-				]),
+			write: (port: ReturnType<typeof httpPort>) => port.seedDefaultAssignmentTypes('org-1'),
 			body: [
 				{
 					organization_id: 'org-1',

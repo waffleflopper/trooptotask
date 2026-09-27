@@ -1386,15 +1386,18 @@ async function checkStateIsolation(ctx) {
 	);
 	await drive.evaluate(`() => {
 		const original = window.fetch;
-		const probe = { seen: false, original };
+		const probe = { seen: false, retryStarted: false, retryStatus: null, original };
 		window.__verifyCalendarRangeFailure = probe;
-		window.fetch = (...args) => {
+		window.fetch = async (...args) => {
 			if (!probe.seen && String(args[0]).includes(${JSON.stringify(`${orgPath(f)}/api/calendar-range`)})) {
 				probe.seen = true;
 				return Promise.resolve(new Response(JSON.stringify({ error: 'Synthetic range failure' }),
 					{ status: 503, headers: { 'Content-Type': 'application/json' } }));
 			}
-			return original(...args);
+			const response = await original(...args);
+			if (probe.retryStarted && String(args[0]).includes(${JSON.stringify(`${orgPath(f)}/api/calendar-range`)}))
+				probe.retryStatus = response.status;
+			return response;
 		};
 		return true;
 	}`);
@@ -1415,24 +1418,37 @@ async function checkStateIsolation(ctx) {
 			'A failed additional range load shows a scoped, actionable retry state',
 			{ failureSeen }
 		);
+		await drive.evaluate(`() => { window.__verifyCalendarRangeFailure.retryStarted = true; return true; }`);
+		await h.clickButton('Retry calendar load');
+		let retried = '';
+		let retryStatus = null;
+		for (let attempt = 0; attempt < 50; attempt++) {
+			retried = await drive.snapshot();
+			retryStatus = await drive.evaluate(`() => window.__verifyCalendarRangeFailure?.retryStatus ?? null`);
+			if (
+				retryStatus === 200 &&
+				!retried.includes('Additional calendar data is temporarily unavailable.') &&
+				!retried.includes('Retry calendar load') &&
+				!retried.includes('Loading additional calendar dates') &&
+				retried.includes('Verification Leave')
+			) break;
+			await sleep(100);
+		}
+		check(
+			retryStatus === 200 &&
+				!retried.includes('Additional calendar data is temporarily unavailable.') &&
+				!retried.includes('Retry calendar load') &&
+				!retried.includes('Loading additional calendar dates') &&
+				retried.includes('Verification Leave') &&
+				!retried.includes('Foreign Private Status'),
+			'Retry loads the Calendar range without mixing foreign catalog data',
+			{ retryStatus }
+		);
 	} finally {
 		await drive.evaluate(
 			`() => { const probe = window.__verifyCalendarRangeFailure; if (probe?.original) window.fetch = probe.original; return true; }`
 		);
 	}
-	await h.clickButton('Retry calendar load');
-	let retried = '';
-	for (let attempt = 0; attempt < 40; attempt++) {
-		retried = await drive.snapshot();
-		if (!retried.includes('Retry calendar load') && !retried.includes('Loading additional calendar dates')) break;
-		await sleep(100);
-	}
-	check(
-		!retried.includes('Retry calendar load') &&
-			retried.includes('Verification Leave') &&
-			!retried.includes('Foreign Private Status'),
-		'Retry loads the Calendar range without mixing foreign catalog data'
-	);
 	const foreign = await open(`${orgPath(f, 'orgB')}/calendar/settings`, ['Calendar Settings', 'Access restricted']);
 	check(
 		!foreign.includes('Verification Leave') && !foreign.includes('Verification Unit Closure'),

@@ -24,7 +24,7 @@ vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
 }));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: { items: [], loading: false, load: vi.fn() }
+	availabilityStore: { items: [], loading: false, load: vi.fn(), update: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
@@ -117,6 +117,7 @@ describe('CalendarPageContext', () => {
 		vi.mocked(queueUserPreferencesPatch).mockClear();
 		vi.mocked(loadCalendarRange).mockReset();
 		vi.mocked(availabilityStore.load).mockReset();
+		vi.mocked(availabilityStore.update).mockReset();
 		ctx = new CalendarPageContext(mockData, org);
 	});
 
@@ -352,6 +353,23 @@ describe('CalendarPageContext', () => {
 			expect(ctx.selectedPerson).toBeNull();
 			expect(ctx.selectedDate).toBeNull();
 		});
+	});
+
+	it('does not return an old Organization edit as saved after navigation', async () => {
+		let currentData = mockData;
+		let resolveUpdate!: (saved: boolean) => void;
+		vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
+		const navigatedCtx = new CalendarPageContext(() => currentData, org);
+		const pending = navigatedCtx.handleUpdateAvailability('entry-1', {
+			statusTypeId: 'leave',
+			startDate: '2026-04-07',
+			endDate: '2026-04-07',
+			note: null
+		});
+		currentData = { ...mockData, orgId: 'org2' };
+		resolveUpdate(true);
+
+		expect(await pending).toBeNull();
 	});
 
 	describe('reconcileAvailability', () => {

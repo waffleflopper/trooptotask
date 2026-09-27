@@ -27,6 +27,10 @@ function renderModal(
 		statusTypes?: StatusType[];
 		existingEntries?: AvailabilityEntry[];
 		onAdd?: (data: Omit<AvailabilityEntry, 'id'>) => Promise<AvailabilityEntry | null>;
+		onUpdate?: (
+			id: string,
+			changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
+		) => Promise<AvailabilityEntry | null>;
 		onRemove?: (id: string) => Promise<boolean>;
 		onReconcile?: (dates: string[], expectedOrgId: string) => Promise<AvailabilityEntry[] | null>;
 	} = {}
@@ -39,6 +43,15 @@ function renderModal(
 			statusTypes: overrides.statusTypes ?? [],
 			existingEntries: overrides.existingEntries ?? [],
 			onAdd: overrides.onAdd ?? vi.fn(async (data: Omit<AvailabilityEntry, 'id'>) => ({ id: 'saved-entry', ...data })),
+			onUpdate:
+				overrides.onUpdate ??
+				vi.fn(
+					async (id: string, changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>) => ({
+						id,
+						personnelId: person.id,
+						...changes
+					})
+				),
 			onRemove: overrides.onRemove ?? vi.fn().mockResolvedValue(true),
 			onReconcile: overrides.onReconcile ?? vi.fn().mockResolvedValue(overrides.existingEntries ?? []),
 			onClose: vi.fn()
@@ -214,91 +227,122 @@ describe('AvailabilityModal — saved status feedback', () => {
 
 	it('waits for the replacement write before announcing an edit', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
-		let resolveAdd!: (entry: AvailabilityEntry) => void;
-		const onAdd = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveAdd = resolve)));
+		let resolveUpdate!: (entry: AvailabilityEntry) => void;
+		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
+		const onAdd = vi.fn();
+		const onRemove = vi.fn();
 		renderModal(new Date(2026, 3, 7), {
 			statusTypes,
 			existingEntries: [existingEntry],
-			onRemove: vi.fn().mockResolvedValue(true),
+			onRemove,
+			onUpdate,
 			onAdd
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
 
-		await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
+		await waitFor(() =>
+			expect(onUpdate).toHaveBeenCalledWith(existingEntry.id, {
+				statusTypeId: 'leave',
+				startDate: '2026-04-07',
+				endDate: '2026-04-07',
+				note: null
+			})
+		);
 		expect(successToast).not.toHaveBeenCalled();
-		resolveAdd({ ...existingEntry, id: 'entry-2' });
+		resolveUpdate(existingEntry);
 		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000));
+		expect(onAdd).not.toHaveBeenCalled();
+		expect(onRemove).not.toHaveBeenCalled();
 	});
 
-	it('does not start a replacement write after closing during the old entry removal', async () => {
+	it('does not publish edit feedback after closing while the single update is pending', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		let resolveRemove!: (removed: boolean) => void;
-		const onRemove = vi.fn(() => new Promise<boolean>((resolve) => (resolveRemove = resolve)));
-		const onAdd = vi.fn().mockResolvedValue({ ...existingEntry, id: 'entry-2' });
+		let resolveUpdate!: (entry: AvailabilityEntry) => void;
+		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
+		const onAdd = vi.fn();
+		const onRemove = vi.fn();
 		const { unmount } = renderModal(new Date(2026, 3, 7), {
 			statusTypes,
 			existingEntries: [existingEntry],
 			onRemove,
+			onUpdate,
 			onAdd
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
-		await waitFor(() => expect(onRemove).toHaveBeenCalledWith(existingEntry.id));
+		await waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
 		unmount();
-		resolveRemove(true);
+		resolveUpdate(existingEntry);
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(onAdd).not.toHaveBeenCalled();
+		expect(onRemove).not.toHaveBeenCalled();
 		expect(successToast).not.toHaveBeenCalled();
 		expect(errorToast).not.toHaveBeenCalled();
 	});
 
-	it('keeps the edit dialog open while removing the old entry', async () => {
-		let resolveRemove!: (removed: boolean) => void;
-		const onRemove = vi.fn(() => new Promise<boolean>((resolve) => (resolveRemove = resolve)));
-		const onAdd = vi.fn().mockResolvedValue({ ...existingEntry, id: 'entry-2' });
+	it('keeps the edit dialog open while saving the update', async () => {
+		let resolveUpdate!: (entry: AvailabilityEntry) => void;
+		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
 		renderModal(new Date(2026, 3, 7), {
 			statusTypes,
 			existingEntries: [existingEntry],
-			onRemove,
-			onAdd
+			onUpdate
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
-		await waitFor(() => expect(onRemove).toHaveBeenCalledWith(existingEntry.id));
+		await waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
 		expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Cancel Edit' })).toHaveProperty('disabled', true);
 		await fireEvent.keyDown(document, { key: 'Escape' });
 		expect(screen.getByRole('dialog', { name: 'Set Personnel Status' })).toBeTruthy();
 
-		resolveRemove(true);
-		await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
+		resolveUpdate(existingEntry);
 	});
 
-	it('shows the persisted deletion when an edit fails after removing its old entry', async () => {
+	it('restores the previous status when an edit fails', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
-		const onReconcile = vi.fn().mockResolvedValue([]);
+		const onReconcile = vi.fn().mockResolvedValue([existingEntry]);
 		renderModal(new Date(2026, 3, 7), {
 			statusTypes,
 			existingEntries: [existingEntry],
-			onRemove: vi.fn().mockResolvedValue(true),
-			onAdd: vi.fn().mockRejectedValue(new Error('Save failed')),
+			onUpdate: vi.fn().mockRejectedValue(new Error('Save failed')),
 			onReconcile
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Changed' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
 
-		await waitFor(() => expect(errorToast).toHaveBeenCalledWith(expect.stringContaining('replacement')));
+		await waitFor(() => expect(errorToast).toHaveBeenCalledWith(expect.stringContaining('Could not save status')));
 		expect(successToast).not.toHaveBeenCalled();
 		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
-		expect(screen.queryByRole('button', { name: 'Edit status' })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Add Status' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Edit status' })).toBeTruthy();
+	});
+
+	it('confirms an edited row by its retained ID when the update response is lost', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onReconcile = vi.fn().mockResolvedValue([{ ...existingEntry, note: 'Changed' }]);
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			existingEntries: [existingEntry],
+			onUpdate: vi.fn().mockRejectedValue(new Error('Response lost')),
+			onReconcile
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: 'Changed' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+
+		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000));
+		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
+		expect(errorToast).not.toHaveBeenCalled();
 	});
 });

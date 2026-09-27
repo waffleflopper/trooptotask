@@ -22,12 +22,17 @@
 		statusTypes: StatusType[];
 		existingEntries: AvailabilityEntry[];
 		onAdd: (data: Omit<AvailabilityEntry, 'id'>) => Promise<AvailabilityEntry | null>;
+		onUpdate: (
+			id: string,
+			changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
+		) => Promise<AvailabilityEntry | null>;
 		onRemove: (id: string) => Promise<boolean>;
 		onReconcile: (dates: string[], expectedOrgId: string) => Promise<AvailabilityEntry[] | null>;
 		onClose: () => void;
 	}
 
-	let { orgId, person, date, statusTypes, existingEntries, onAdd, onRemove, onReconcile, onClose }: Props = $props();
+	let { orgId, person, date, statusTypes, existingEntries, onAdd, onUpdate, onRemove, onReconcile, onClose }: Props =
+		$props();
 	let active = true;
 	onDestroy(() => {
 		active = false;
@@ -170,11 +175,14 @@
 		}
 
 		try {
-			if (previousEntry) {
-				if (!(await onRemove(previousEntry.id))) throw new Error('Could not remove previous status');
-				if (!active) return;
-			}
-			const savedEntry = await onAdd(newData);
+			const savedEntry = previousEntry
+				? await onUpdate(previousEntry.id, {
+						statusTypeId: newData.statusTypeId,
+						startDate: newData.startDate,
+						endDate: newData.endDate,
+						note: newData.note
+					})
+				: await onAdd(newData);
 			if (!savedEntry) throw new Error('Could not confirm saved status');
 			if (!active) return;
 			localEntries = localEntries.filter((entry) => entry.id !== temporaryId);
@@ -184,16 +192,18 @@
 			toastStore.success(successMessage(newData, !!previousEntry), 5000);
 			resetForm();
 		} catch {
-			const savedEntries = await reconcileFailure([...new Set([dateStr, newData.startDate])], expectedOrgId);
+			const savedEntries = await reconcileFailure(
+				[...new Set([dateStr, newData.startDate, ...(previousEntry ? [previousEntry.startDate] : [])])],
+				expectedOrgId
+			);
 			if (!savedEntries) return;
-			const replacement = savedEntries.find((entry) => !knownIds.has(entry.id) && matchesSubmission(entry, newData));
+			const replacement = savedEntries.find(
+				(entry) =>
+					(previousEntry ? entry.id === previousEntry.id : !knownIds.has(entry.id)) && matchesSubmission(entry, newData)
+			);
 			if (replacement) {
 				toastStore.success(successMessage(newData, !!previousEntry), 5000);
 				resetForm();
-			} else if (previousEntry && !savedEntries.some((entry) => entry.id === previousEntry.id)) {
-				// Replacement is delete-then-create; a failed second write leaves no old row.
-				editingEntry = null;
-				toastStore.error('Previous status was removed, but the replacement was not saved. Try adding it again.');
 			} else {
 				toastStore.error('Could not save status. Try again.');
 			}

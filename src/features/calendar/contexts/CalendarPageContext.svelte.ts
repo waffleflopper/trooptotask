@@ -332,6 +332,17 @@ export class CalendarPageContext {
 		return this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey ? saved : null;
 	}
 
+	async handleUpdateAvailability(
+		id: string,
+		changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
+	): Promise<AvailabilityEntry | null> {
+		const orgId = this.#data.orgId;
+		const accessKey = this.#calendarAccessKey();
+		const saved = await availabilityStore.update(id, changes);
+		if (!saved || this.#data.orgId !== orgId || this.#calendarAccessKey() !== accessKey) return null;
+		return availabilityStore.items.find((entry) => entry.id === id) ?? null;
+	}
+
 	async handleRemoveAvailability(id: string): Promise<boolean> {
 		const orgId = this.#data.orgId;
 		const accessKey = this.#calendarAccessKey();

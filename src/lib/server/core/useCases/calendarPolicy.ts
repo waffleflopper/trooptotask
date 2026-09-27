@@ -23,6 +23,7 @@ export type CalendarPersonnelPolicyPorts = CalendarPolicyPorts & {
 	personnelCalendarRoster: PersonnelCalendarRosterPort;
 };
 export type CalendarWritePorts = WritePorts & Pick<UseCaseContext, 'personnelCalendarRoster'>;
+export type CalendarWriteWithNotificationsPorts = CalendarWritePorts & Pick<UseCaseContext, 'notifications'>;
 
 export const CALENDAR_POLICY_ACTIONS = POLICY_ACTION_CATALOG.calendar;
 

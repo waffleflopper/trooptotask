@@ -1,15 +1,15 @@
 import type {
 	OrgProvisioningAssignmentTypeSeed,
 	OrgProvisioningCreateResult,
-	OrgProvisioningPort,
-	OrgProvisioningStatusTypeSeed
+	OrgProvisioningPort
 } from '$lib/server/core/useCases/orgProvisioning';
 
 export function createSupabaseOrgProvisioningPort(
 	locals: Pick<App.Locals, 'supabase'>,
 	seedGroups: OrgProvisioningPort['seedDefaultGroups'],
 	seedRankCatalog: OrgProvisioningPort['seedDefaultRankCatalog'],
-	seedHolidays: OrgProvisioningPort['seedFederalHolidays']
+	seedHolidays: OrgProvisioningPort['seedFederalHolidays'],
+	seedStatuses: OrgProvisioningPort['seedDefaultStatusTypes']
 ): OrgProvisioningPort {
 	const supabase = locals.supabase;
 
@@ -37,12 +37,8 @@ export function createSupabaseOrgProvisioningPort(
 			return seedGroups(organizationId);
 		},
 
-		async seedDefaultStatusTypes(organizationId, statusTypes) {
-			const { error } = await supabase
-				.from('status_types')
-				.insert(statusTypes.map((statusType) => serializeStatusTypeSeed(organizationId, statusType)));
-
-			return error?.message ?? null;
+		async seedDefaultStatusTypes(organizationId) {
+			return seedStatuses(organizationId);
 		},
 
 		async seedDefaultAssignmentTypes(organizationId, assignmentTypes) {
@@ -60,17 +56,6 @@ export function createSupabaseOrgProvisioningPort(
 		async seedDefaultRankCatalog(organizationId) {
 			return seedRankCatalog(organizationId);
 		}
-	};
-}
-
-function serializeStatusTypeSeed(organizationId: string, statusType: OrgProvisioningStatusTypeSeed) {
-	return {
-		organization_id: organizationId,
-		name: statusType.name,
-		color: statusType.color,
-		text_color: statusType.textColor,
-
-		sort_order: statusType.sortOrder
 	};
 }
 

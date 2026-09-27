@@ -6,13 +6,6 @@ export interface OrgProvisioningCreateResult {
 	errorMessage: string | null;
 }
 
-export interface OrgProvisioningStatusTypeSeed {
-	name: string;
-	color: string;
-	textColor: string;
-	sortOrder: number;
-}
-
 export interface OrgProvisioningAssignmentTypeSeed {
 	name: string;
 	shortName: string;
@@ -29,7 +22,7 @@ export interface OrgProvisioningPort {
 		email: string | undefined;
 	}): Promise<string | null>;
 	seedDefaultGroups(organizationId: string): Promise<string | null>;
-	seedDefaultStatusTypes(organizationId: string, statusTypes: OrgProvisioningStatusTypeSeed[]): Promise<string | null>;
+	seedDefaultStatusTypes(organizationId: string): Promise<string | null>;
 	seedDefaultAssignmentTypes(
 		organizationId: string,
 		assignmentTypes: OrgProvisioningAssignmentTypeSeed[]
@@ -37,51 +30,6 @@ export interface OrgProvisioningPort {
 	seedFederalHolidays(organizationId: string): Promise<string | null>;
 	seedDefaultRankCatalog(organizationId: string): Promise<string | null>;
 }
-
-const DEFAULT_STATUS_TYPES: OrgProvisioningStatusTypeSeed[] = [
-	{
-		name: 'Leave',
-		color: '#48bb78',
-		textColor: '#ffffff',
-		sortOrder: 0
-	},
-	{
-		name: 'School',
-		color: '#4299e1',
-		textColor: '#ffffff',
-		sortOrder: 1
-	},
-	{
-		name: 'Training / TDY',
-		color: '#9f7aea',
-		textColor: '#ffffff',
-		sortOrder: 2
-	},
-	{
-		name: 'Appointment',
-		color: '#ed8936',
-		textColor: '#ffffff',
-		sortOrder: 3
-	},
-	{
-		name: 'Sick',
-		color: '#e53e3e',
-		textColor: '#ffffff',
-		sortOrder: 4
-	},
-	{
-		name: 'Other Duty / Detail',
-		color: '#a0522d',
-		textColor: '#ffffff',
-		sortOrder: 5
-	},
-	{
-		name: 'CQ/SD',
-		color: '#dc2626',
-		textColor: '#ffffff',
-		sortOrder: 6
-	}
-];
 
 const DEFAULT_ASSIGNMENT_TYPES: OrgProvisioningAssignmentTypeSeed[] = [
 	{
@@ -120,7 +68,7 @@ export async function provisionOrganization(
 	logBootstrapError('Owner membership email update error:', ownerEmailUpdateError);
 
 	logBootstrapError('Groups seed error:', await port.seedDefaultGroups(created.orgId));
-	logBootstrapError('Status types seed error:', await port.seedDefaultStatusTypes(created.orgId, DEFAULT_STATUS_TYPES));
+	logBootstrapError('Status types seed error:', await port.seedDefaultStatusTypes(created.orgId));
 	logBootstrapError(
 		'Assignment types seed error:',
 		await port.seedDefaultAssignmentTypes(created.orgId, DEFAULT_ASSIGNMENT_TYPES)

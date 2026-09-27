@@ -35,6 +35,15 @@ function getOrgColumn(table: string): string {
 
 function throwMutationError(table: string, error: { code?: string; message: string }): never {
 	if (
+		table === 'availability_entries' &&
+		error.code === '23503' &&
+		error.message.includes('"availability_entries_org_status_type_fkey"')
+	) {
+		// The referenced status is absent from this Organization. Keep a foreign
+		// catalog's existence private and return a useful client error.
+		fail(404, 'Status type is unavailable for this Organization');
+	}
+	if (
 		table === 'daily_assignments' &&
 		error.code === '23505' &&
 		error.message.includes('unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key"')

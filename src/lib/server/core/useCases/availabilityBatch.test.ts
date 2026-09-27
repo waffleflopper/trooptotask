@@ -14,6 +14,10 @@ describe('createAvailabilityBatch', () => {
 
 	it('inserts records, transforms result, and logs audit event', async () => {
 		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
+			{ id: 'p-2', organization_id: 'test-org', group_id: 'group-a' }
+		]);
 
 		const result = await createAvailabilityBatch(ctx, { records: validRecords });
 
@@ -105,6 +109,21 @@ describe('createAvailabilityBatch', () => {
 
 		const stored = await ctx.store.findMany('availability_entries', 'test-org');
 		expect(stored).toHaveLength(0);
+	});
+
+	it('rejects a foreign Person before writing any batch row', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: 'test-org', group_id: 'group-a' },
+			{ id: 'p-foreign', organization_id: 'another-org', group_id: 'group-a' }
+		]);
+
+		await expect(
+			createAvailabilityBatch(ctx, {
+				records: [validRecords[0], { ...validRecords[1], personnelId: 'p-foreign' }]
+			})
+		).rejects.toMatchObject({ status: 404, message: 'Person not found' });
+		expect(await ctx.store.findMany('availability_entries', 'test-org')).toHaveLength(0);
 	});
 
 	it('requires Calendar operate capability and records denied-write audit details', async () => {

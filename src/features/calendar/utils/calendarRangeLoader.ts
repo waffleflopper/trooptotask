@@ -1,7 +1,7 @@
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
-import type { CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarRangeData } from '$features/calendar/calendar.types';
 import type { CalendarBufferedRange } from './calendarRange';
 import { mergeById } from '$lib/utils/mergeById';
 

@@ -8,6 +8,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
+import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$lib/types';
 import {
@@ -19,8 +20,11 @@ import {
 vi.mock('$lib/preferences/userPreferences.client', () => ({
 	queueUserPreferencesPatch: vi.fn()
 }));
+vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
+	loadCalendarRange: vi.fn()
+}));
 vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: { items: [], loading: false, load: vi.fn() }
+	availabilityStore: { items: [], loading: false, load: vi.fn(), update: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
@@ -111,6 +115,9 @@ describe('CalendarPageContext', () => {
 		mutableStatusTypesStore.loading = false;
 		mutableGroupsStore.loading = false;
 		vi.mocked(queueUserPreferencesPatch).mockClear();
+		vi.mocked(loadCalendarRange).mockReset();
+		vi.mocked(availabilityStore.load).mockReset();
+		vi.mocked(availabilityStore.update).mockReset();
 		ctx = new CalendarPageContext(mockData, org);
 	});
 
@@ -345,6 +352,135 @@ describe('CalendarPageContext', () => {
 			ctx.closeAvailabilityModal();
 			expect(ctx.selectedPerson).toBeNull();
 			expect(ctx.selectedDate).toBeNull();
+		});
+	});
+
+	it('does not return an old Organization edit as saved after navigation', async () => {
+		let currentData = mockData;
+		let resolveUpdate!: (saved: boolean) => void;
+		vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
+		const navigatedCtx = new CalendarPageContext(() => currentData, org);
+		const pending = navigatedCtx.handleUpdateAvailability('entry-1', {
+			statusTypeId: 'leave',
+			startDate: '2026-04-07',
+			endDate: '2026-04-07',
+			note: null
+		});
+		currentData = { ...mockData, orgId: 'org2' };
+		resolveUpdate(true);
+
+		expect(await pending).toBeNull();
+	});
+
+	describe('reconcileAvailability', () => {
+		it('reads both the clicked date and replacement date after an uncertain edit', async () => {
+			const savedEntry = {
+				id: 'saved-2',
+				personnelId: 'p1',
+				statusTypeId: 'leave',
+				startDate: '2026-04-09',
+				endDate: '2026-04-09',
+				note: null
+			};
+			vi.mocked(loadCalendarRange)
+				.mockResolvedValueOnce({
+					rangeStart: '2026-04-07',
+					rangeEnd: '2026-04-07',
+					availabilityEntries: [],
+					specialDays: [],
+					dailyAssignments: []
+				})
+				.mockResolvedValueOnce({
+					rangeStart: '2026-04-09',
+					rangeEnd: '2026-04-09',
+					availabilityEntries: [savedEntry],
+					specialDays: [],
+					dailyAssignments: []
+				});
+
+			const saved = await ctx.reconcileAvailability(['2026-04-07', '2026-04-09'], 'org1');
+
+			expect(loadCalendarRange).toHaveBeenCalledWith('org1', {
+				rangeStart: '2026-04-07',
+				rangeEnd: '2026-04-07'
+			});
+			expect(loadCalendarRange).toHaveBeenCalledWith('org1', {
+				rangeStart: '2026-04-09',
+				rangeEnd: '2026-04-09'
+			});
+			expect(saved).toEqual([savedEntry]);
+		});
+
+		it('does not reload availability for an old Organization after navigation', async () => {
+			const currentData = { ...mockData, orgId: 'org2' };
+			const navigatedCtx = new CalendarPageContext(() => currentData, org);
+			const result = await navigatedCtx.reconcileAvailability(['2026-04-07'], 'org1');
+
+			expect(result).toBeNull();
+			expect(loadCalendarRange).not.toHaveBeenCalled();
+			expect(availabilityStore.load).not.toHaveBeenCalled();
+		});
+
+		it('does not apply a late response after switching Organizations', async () => {
+			let currentData = mockData;
+			let resolveRange!: (value: Awaited<ReturnType<typeof loadCalendarRange>>) => void;
+			vi.mocked(loadCalendarRange).mockImplementation(() => new Promise((resolve) => (resolveRange = resolve)));
+			const navigatedCtx = new CalendarPageContext(() => currentData, org);
+			const pending = navigatedCtx.reconcileAvailability(['2026-04-07'], 'org1');
+			currentData = { ...mockData, orgId: 'org2' };
+			resolveRange({
+				rangeStart: '2026-04-07',
+				rangeEnd: '2026-04-07',
+				availabilityEntries: [],
+				specialDays: [],
+				dailyAssignments: []
+			});
+
+			expect(await pending).toBeNull();
+			expect(availabilityStore.load).not.toHaveBeenCalled();
+		});
+
+		it('treats a failed late range read as abandoned after an Organization switch', async () => {
+			let currentData = mockData;
+			let rejectRange!: (error: Error) => void;
+			vi.mocked(loadCalendarRange).mockImplementation(() => new Promise((_, reject) => (rejectRange = reject)));
+			const navigatedCtx = new CalendarPageContext(() => currentData, org);
+			const pending = navigatedCtx.reconcileAvailability(['2026-04-07'], 'org1');
+			currentData = { ...mockData, orgId: 'org2' };
+			rejectRange(new Error('Old range unavailable'));
+
+			expect(await pending).toBeNull();
+			expect(availabilityStore.load).not.toHaveBeenCalled();
+		});
+
+		it('reports a failed range read while the same Organization is still open', async () => {
+			vi.mocked(loadCalendarRange).mockRejectedValueOnce(new Error('Current range unavailable'));
+
+			await expect(ctx.reconcileAvailability(['2026-04-07'], 'org1')).rejects.toThrow('Current range unavailable');
+		});
+
+		it('does not merge a response after Calendar scope narrows in the same Organization', async () => {
+			let access = makeMockOrg();
+			let resolveRange!: (value: Awaited<ReturnType<typeof loadCalendarRange>>) => void;
+			vi.mocked(loadCalendarRange).mockImplementation(() => new Promise((resolve) => (resolveRange = resolve)));
+			const mutableOrg = new Proxy(org, {
+				get(_target, property) {
+					return Reflect.get(access, property);
+				}
+			});
+			const scopedCtx = new CalendarPageContext(mockData, mutableOrg);
+			const pending = scopedCtx.reconcileAvailability(['2026-04-07'], 'org1');
+			access = makeMockOrg({ scopeSet: { kind: 'groups', groupIds: [] } });
+			resolveRange({
+				rangeStart: '2026-04-07',
+				rangeEnd: '2026-04-07',
+				availabilityEntries: [],
+				specialDays: [],
+				dailyAssignments: []
+			});
+
+			expect(await pending).toBeNull();
+			expect(availabilityStore.load).not.toHaveBeenCalled();
 		});
 	});
 

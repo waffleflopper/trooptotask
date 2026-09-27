@@ -240,3 +240,23 @@ ROLLBACK;
 ```
 
 A nonzero count needs a separately reviewed, row-specific disposition before historical validation; do not infer that any completion may be deleted or reassigned. Adding the unique `(organization_id, id)` key on `ict_tasks` takes an `ACCESS EXCLUSIVE` lock while PostgreSQL builds its index, and the migration holds that lock through its transaction. Inspect the task-table size and long-running transactions privately, then plan a controlled write window; `NOT VALID` only avoids scanning historical completion rows. Confirm the ordered migration ledger, backup/recovery point, active application compatibility and actual deployment triggers before release. The repository's local proof authorizes no remote query, migration, deployment or merge.
+
+## Phase 08 Calendar catalog and status-reference preflight
+
+The local forward migration `20260926001300_calendar_catalog_scope.sql` requires Calendar `configure` with Organization scope for assignment-type, status-type and special-day writes. It adds a composite Organization/status foreign key with a same-Organization delete cascade. It replaces the global status-ID delete cascade with a deferred `NO ACTION` reference. Both constraints are `NOT VALID`: new or changed references are checked, but historical rows are not certified. Existing rows are untouched. A historical cross-Organization status reference would block deletion of that status rather than delete another Organization's availability. This case is a synthetic safety check, not a finding in the hosted data. Robert reports no such links in the live database as of September 27; this work has not independently queried hosted catalog or data. The application removes its separate availability predelete and relies on the database's atomic same-Organization cascade.
+
+Before separately authorized hosted application or later `VALIDATE CONSTRAINT`, the operator should run this **read-only count** privately with a role that can see both complete tables (for example, `BYPASSRLS`). Keep the result outside Git. `row_security = off` fails if RLS would hide rows, so a failed or partially visible count is not a clean preflight:
+
+```sql
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL row_security = off;
+SELECT count(*) AS mismatched_availability_status_references
+FROM public.availability_entries AS availability
+LEFT JOIN public.status_types AS status
+  ON status.id = availability.status_type_id
+ AND status.organization_id = availability.organization_id
+WHERE status.id IS NULL;
+ROLLBACK;
+```
+
+A nonzero count needs a separately reviewed, row-specific disposition before validation; do not infer that a saved availability row or status may be deleted or reassigned. Until resolved, deletion of the referenced status fails safely. The owner-reported absence of mismatches does not replace a fresh, complete preflight at release time. Creating the unique `(organization_id, id)` key on `status_types` takes an `ACCESS EXCLUSIVE` lock while PostgreSQL builds its index, held through the migration transaction. Inspect table size and long-running transactions privately and plan a controlled write window; `NOT VALID` only avoids scanning historical availability. Temporarily pause only status-type deletion and drain in-flight deletes before applying this migration; keep that pause through deployment and drainage of the old application binary. This is a precaution for the mixed-version interval, not a claim that mismatches exist: the old binary predeletes availability in a separate request, which could lose rows if the new deferred reference rejects the later status deletion; the new binary before migration could still invoke the old global cascade. Apply the migration first, then deploy the new binary while deletion remains paused; resume it after schema/application compatibility and old-instance drainage are verified. Confirm the ordered ledger, backup/recovery point and release triggers. Repository proof permits no remote query, migration, deployment or merge.

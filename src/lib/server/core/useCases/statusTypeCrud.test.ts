@@ -7,16 +7,11 @@ import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
 
 const ST_ID = '00000000-0000-4000-a000-000000000001';
 
-// Same config entityHandlers() derives — validates the pattern without HTTP layer
+// Same status behavior configured by the route, exercised at the use-case boundary.
 const useCases = createCrudUseCases<WriteWithNotificationsPorts>({
 	entity: StatusTypeEntity,
 	auditResource: getEntityAuditResource(StatusTypeEntity),
 	policyAction: StatusTypeEntity.policyAction!,
-	beforeDelete: async (ctx, id) => {
-		await ctx.store.deleteWhere('availability_entries', ctx.auth.orgId, {
-			status_type_id: id
-		});
-	},
 	afterDelete: async (ctx) => {
 		await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 			type: 'config_type_deleted',
@@ -119,7 +114,7 @@ describe('StatusType CRUD use case', () => {
 		expect(result.name).toBe('TDY');
 	});
 
-	it('cascade-deletes availability_entries before deleting status type', async () => {
+	it('does not audit or notify success when status deletion fails', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		ctx.store.seed('status_types', [
 			{
@@ -131,21 +126,13 @@ describe('StatusType CRUD use case', () => {
 				organization_id: 'test-org'
 			}
 		]);
-		ctx.store.seed('availability_entries', [
-			{ id: 'ae-1', status_type_id: ST_ID, organization_id: 'test-org' },
-			{ id: 'ae-2', status_type_id: ST_ID, organization_id: 'test-org' },
-			{ id: 'ae-3', status_type_id: 'st-other', organization_id: 'test-org' }
-		]);
-		await useCases.remove(ctx, ST_ID);
-
-		// Related availability entries for ST_ID should be deleted
-		const remaining = await ctx.store.findMany('availability_entries', 'test-org');
-		expect(remaining).toHaveLength(1);
-		expect((remaining[0] as Record<string, unknown>).status_type_id).toBe('st-other');
-
-		// Status type itself should be deleted
-		const stored = await ctx.store.findOne('status_types', 'test-org', { id: ST_ID });
-		expect(stored).toBeNull();
+		ctx.store.delete = async () => {
+			throw new Error('Status still has a historical reference');
+		};
+		await expect(useCases.remove(ctx, ST_ID)).rejects.toThrow('historical reference');
+		expect(await ctx.store.findOne('status_types', 'test-org', { id: ST_ID })).not.toBeNull();
+		expect(ctx.audit.events.some((event) => event.action === 'status_type.deleted')).toBe(false);
+		expect(ctx.notifications.notifications).toHaveLength(0);
 	});
 
 	it('notifies admins after delete', async () => {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -15,16 +16,27 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface Props {
+		orgId: string;
 		person: Personnel;
 		date: Date;
 		statusTypes: StatusType[];
 		existingEntries: AvailabilityEntry[];
-		onAdd: (data: Omit<AvailabilityEntry, 'id'>) => void;
-		onRemove: (id: string) => void;
+		onAdd: (data: Omit<AvailabilityEntry, 'id'>) => Promise<AvailabilityEntry | null>;
+		onUpdate: (
+			id: string,
+			changes: Pick<AvailabilityEntry, 'statusTypeId' | 'startDate' | 'endDate' | 'note'>
+		) => Promise<AvailabilityEntry | null>;
+		onRemove: (id: string) => Promise<boolean>;
+		onReconcile: (dates: string[], expectedOrgId: string) => Promise<AvailabilityEntry[] | null>;
 		onClose: () => void;
 	}
 
-	let { person, date, statusTypes, existingEntries, onAdd, onRemove, onClose }: Props = $props();
+	let { orgId, person, date, statusTypes, existingEntries, onAdd, onUpdate, onRemove, onReconcile, onClose }: Props =
+		$props();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const dateStr = $derived(formatDate(date));
 
@@ -48,6 +60,8 @@
 	let endDate = $state(initialDateStr());
 	let editingEntry = $state<AvailabilityEntry | null>(null);
 	let note = $state('');
+	let saving = $state(false);
+	let uncertain = $state(false);
 
 	const dateDisplay = $derived(
 		date.toLocaleDateString('en-US', {
@@ -89,8 +103,59 @@
 		note = '';
 	}
 
-	function handleSubmit() {
-		if (!selectedStatusId || !startDate || !endDate || startDate > endDate) return;
+	function matchesSubmission(entry: AvailabilityEntry, submitted: Omit<AvailabilityEntry, 'id'>): boolean {
+		return (
+			entry.personnelId === submitted.personnelId &&
+			entry.statusTypeId === submitted.statusTypeId &&
+			entry.startDate === submitted.startDate &&
+			entry.endDate === submitted.endDate &&
+			(entry.note ?? null) === submitted.note
+		);
+	}
+
+	function successMessage(data: Omit<AvailabilityEntry, 'id'>, wasEditing: boolean): string {
+		const statusName = statusTypes.find((status) => status.id === data.statusTypeId)?.name ?? 'Status';
+		const start = new Date(data.startDate + 'T00:00:00').toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric'
+		});
+		const end = new Date(data.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		return `${statusName} ${wasEditing ? 'updated' : 'added'} — ${data.startDate === data.endDate ? start : `${start}–${end}`}`;
+	}
+
+	async function reconcileFailure(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
+		if (!active) return null;
+		try {
+			const savedEntries = await onReconcile(dates, expectedOrgId);
+			if (!active) return null;
+			if (savedEntries === null) {
+				uncertain = true;
+				return null;
+			}
+			localEntries = savedEntries.filter(
+				(entry) => entry.personnelId === person.id && dateStr >= entry.startDate && dateStr <= entry.endDate
+			);
+			return savedEntries;
+		} catch {
+			if (!active) return null;
+			uncertain = true;
+			toastStore.error('Could not confirm the saved status. Reload the calendar before trying again.');
+			return null;
+		}
+	}
+
+	function resetForm() {
+		editingEntry = null;
+		selectedStatusId = statusTypes[0]?.id ?? '';
+		startDate = dateStr;
+		endDate = dateStr;
+		note = '';
+	}
+
+	async function handleSubmit() {
+		if (saving || uncertain || !selectedStatusId || !startDate || !endDate || startDate > endDate) return;
+		saving = true;
+		const expectedOrgId = orgId;
 
 		const newData = {
 			personnelId: person.id,
@@ -99,38 +164,53 @@
 			endDate,
 			note: note.trim() || null
 		};
-		const wasEditing = !!editingEntry;
-
-		if (editingEntry) {
-			// Remove the old entry from local state immediately
-			localEntries = localEntries.filter((e) => e.id !== editingEntry!.id);
-			onRemove(editingEntry.id);
-			editingEntry = null;
-		}
-
-		// Add to local state immediately so the list updates without waiting for prop
+		const previousEntry = editingEntry;
+		const knownIds = new Set(existingEntries.map((entry) => entry.id));
+		const temporaryId = `temp-${crypto.randomUUID()}`;
+		localEntries = previousEntry ? localEntries.filter((entry) => entry.id !== previousEntry.id) : localEntries;
+		// Keep the visual update immediate while the server confirms the write.
 		if (dateStr >= newData.startDate && dateStr <= newData.endDate) {
-			const tempEntry: AvailabilityEntry = { id: `temp-${crypto.randomUUID()}`, ...newData };
+			const tempEntry: AvailabilityEntry = { id: temporaryId, ...newData };
 			localEntries = [...localEntries, tempEntry];
 		}
-		onAdd(newData);
 
-		const statusName = statusTypes.find((s) => s.id === newData.statusTypeId)?.name ?? 'Status';
-		const dateLabel =
-			newData.startDate === newData.endDate
-				? new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-				: `${new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${new Date(newData.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-
-		toastStore.success(
-			wasEditing ? `${statusName} updated — ${dateLabel}` : `${statusName} added — ${dateLabel}`,
-			5000
-		);
-
-		// Reset form
-		selectedStatusId = statusTypes[0]?.id ?? '';
-		startDate = dateStr;
-		endDate = dateStr;
-		note = '';
+		try {
+			const savedEntry = previousEntry
+				? await onUpdate(previousEntry.id, {
+						statusTypeId: newData.statusTypeId,
+						startDate: newData.startDate,
+						endDate: newData.endDate,
+						note: newData.note
+					})
+				: await onAdd(newData);
+			if (!savedEntry) throw new Error('Could not confirm saved status');
+			if (!active) return;
+			// The bound store may have supplied this saved row before the callback resolved.
+			localEntries = localEntries.filter((entry) => entry.id !== temporaryId && entry.id !== savedEntry.id);
+			if (dateStr >= savedEntry.startDate && dateStr <= savedEntry.endDate) {
+				localEntries = [...localEntries, savedEntry];
+			}
+			toastStore.success(successMessage(newData, !!previousEntry), 5000);
+			resetForm();
+		} catch {
+			const savedEntries = await reconcileFailure(
+				[...new Set([dateStr, newData.startDate, ...(previousEntry ? [previousEntry.startDate] : [])])],
+				expectedOrgId
+			);
+			if (!savedEntries) return;
+			const replacement = savedEntries.find(
+				(entry) =>
+					(previousEntry ? entry.id === previousEntry.id : !knownIds.has(entry.id)) && matchesSubmission(entry, newData)
+			);
+			if (replacement) {
+				toastStore.success(successMessage(newData, !!previousEntry), 5000);
+				resetForm();
+			} else {
+				toastStore.error('Could not save status. Try again.');
+			}
+		} finally {
+			saving = false;
+		}
 	}
 
 	let removeEntryId = $state<string | null>(null);
@@ -139,12 +219,27 @@
 		removeEntryId = entryId;
 	}
 
-	function doRemove() {
-		if (removeEntryId) {
-			localEntries = localEntries.filter((e) => e.id !== removeEntryId);
-			onRemove(removeEntryId);
+	async function doRemove() {
+		if (!removeEntryId || saving || uncertain) return;
+		saving = true;
+		const expectedOrgId = orgId;
+		const id = removeEntryId;
+		removeEntryId = null;
+		localEntries = localEntries.filter((entry) => entry.id !== id);
+		try {
+			if (!(await onRemove(id))) throw new Error('Could not confirm removal');
+			if (!active) return;
 			toastStore.success('Status removed');
-			removeEntryId = null;
+		} catch {
+			const savedEntries = await reconcileFailure([dateStr], expectedOrgId);
+			if (!savedEntries) return;
+			if (savedEntries.some((entry) => entry.id === id)) {
+				toastStore.error('Could not remove status. Try again.');
+			} else {
+				toastStore.success('Status removed');
+			}
+		} finally {
+			saving = false;
 		}
 	}
 
@@ -168,8 +263,8 @@
 	}
 </script>
 
-<AppDialog.Root open {onClose}>
-	<AppDialog.Content>
+<AppDialog.Root open closeBlocked={saving} {onClose}>
+	<AppDialog.Content closeBlocked={saving}>
 		<AppDialog.Header>
 			<AppDialog.Title id="availability-title">Set Personnel Status</AppDialog.Title>
 			<AppDialog.Description>
@@ -179,7 +274,12 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body class="space-y-4">
-			{#if localEntries.length > 0}
+			{#if uncertain}
+				<p role="alert" class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">
+					Saved status could not be confirmed. Reload the calendar before making another change.
+				</p>
+			{/if}
+			{#if !uncertain && localEntries.length > 0}
 				<div class="border-b pb-4">
 					<h4 class="mb-3 text-sm font-medium">Current Status</h4>
 					{#each localEntries as entry (entry.id)}
@@ -214,6 +314,7 @@
 									onclick={() => startEdit(entry)}
 									title="Edit"
 									aria-label="Edit status"
+									disabled={saving || uncertain}
 								>
 									<PencilIcon />
 								</Button>
@@ -223,6 +324,7 @@
 									onclick={() => handleRemove(entry.id)}
 									title="Remove"
 									aria-label="Remove status"
+									disabled={saving || uncertain}
 								>
 									<Trash2Icon />
 								</Button>
@@ -298,10 +400,10 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={editingEntry ? cancelEdit : onClose}>
-				{editingEntry ? 'Cancel Edit' : 'Cancel'}
+			<Button variant="outline" onclick={uncertain ? onClose : editingEntry ? cancelEdit : onClose} disabled={saving}>
+				{uncertain ? 'Close' : editingEntry ? 'Cancel Edit' : 'Cancel'}
 			</Button>
-			<Button onclick={handleSubmit} disabled={!selectedStatusId || !!dateError}>
+			<Button onclick={handleSubmit} disabled={saving || uncertain || !selectedStatusId || !!dateError}>
 				{editingEntry ? 'Update Status' : 'Add Status'}
 			</Button>
 		</AppDialog.Footer>

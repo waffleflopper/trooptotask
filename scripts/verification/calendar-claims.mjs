@@ -1431,7 +1431,8 @@ async function checkStateIsolation(ctx) {
 				!retried.includes('Retry calendar load') &&
 				!retried.includes('Loading additional calendar dates') &&
 				retried.includes('Verification Leave')
-			) break;
+			)
+				break;
 			await sleep(100);
 		}
 		check(

@@ -15,7 +15,8 @@ $$;
 CREATE SCHEMA IF NOT EXISTS upgrade_fixture;
 INSERT INTO auth.users (id, email) VALUES
   ('e5000000-0000-4000-8000-000000000001', 'calendar-catalog-operator@example.test'),
-  ('e5000000-0000-4000-8000-000000000002', 'calendar-catalog-group-config@example.test');
+  ('e5000000-0000-4000-8000-000000000002', 'calendar-catalog-group-config@example.test'),
+  ('e5000000-0000-4000-8000-000000000003', 'calendar-catalog-bravo-config@example.test');
 INSERT INTO public.organizations (id, name, created_by) VALUES
   ('e5000000-0000-4000-8000-000000000101', 'Catalog Upgrade Alpha', 'e5000000-0000-4000-8000-000000000001'),
   ('e5000000-0000-4000-8000-000000000102', 'Catalog Upgrade Bravo', 'e5000000-0000-4000-8000-000000000001');
@@ -30,7 +31,10 @@ INSERT INTO public.organization_memberships (
    'organization', ARRAY[]::uuid[]),
   ('e5000000-0000-4000-8000-000000000101', 'e5000000-0000-4000-8000-000000000002',
    'member', 'viewer', '{"calendar":"configure","personnel":"none"}',
-   'groups', ARRAY['e5000000-0000-4000-8000-000000000201']::uuid[]);
+   'groups', ARRAY['e5000000-0000-4000-8000-000000000201']::uuid[]),
+  ('e5000000-0000-4000-8000-000000000102', 'e5000000-0000-4000-8000-000000000003',
+   'member', 'viewer', '{"calendar":"configure","personnel":"none"}',
+   'organization', ARRAY[]::uuid[]);
 INSERT INTO public.personnel (id, organization_id, group_id, rank, first_name, last_name, slug)
 VALUES ('e5000000-0000-4000-8000-000000000301', 'e5000000-0000-4000-8000-000000000101',
         'e5000000-0000-4000-8000-000000000201', 'SPC', 'Catalog', 'Person', 'calendar-catalog-upgrade');

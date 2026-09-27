@@ -1,6 +1,6 @@
 -- #1352: Calendar catalogs are Organization configuration, and an availability
 -- status reference must belong to the availability row's Organization.
--- This forward repair changes no existing rows or the original status-ID FK.
+-- This forward repair changes no existing rows.
 BEGIN;
 
 CREATE OR REPLACE FUNCTION public.can_manage_calendar_configuration(p_organization_id uuid)
@@ -27,9 +27,9 @@ ON public.special_days FOR ALL
 USING (public.can_manage_calendar_configuration(organization_id))
 WITH CHECK (public.can_manage_calendar_configuration(organization_id));
 
--- The original availability_entries_status_type_id_fkey retains its name and
--- ON DELETE CASCADE behavior. The composite FK checks new/changed references
--- without asserting that unknown historical rows are already valid.
+-- The composite FK checks new/changed references without asserting that
+-- unknown historical rows are already valid. It cascades only within the
+-- status's Organization.
 ALTER TABLE public.status_types
   ADD CONSTRAINT status_types_organization_id_id_key UNIQUE (organization_id, id);
 
@@ -38,6 +38,21 @@ ALTER TABLE public.availability_entries
   FOREIGN KEY (organization_id, status_type_id)
   REFERENCES public.status_types (organization_id, id)
   ON DELETE CASCADE
+  NOT VALID;
+
+-- Keep the ID reference for historical mismatches, but stop its global
+-- cascade. A deferred check lets the composite FK remove same-Organization
+-- availability first; a foreign-Organization historical row then prevents
+-- the status deletion at commit without losing either Organization's rows.
+ALTER TABLE public.availability_entries
+  DROP CONSTRAINT availability_entries_status_type_id_fkey;
+
+ALTER TABLE public.availability_entries
+  ADD CONSTRAINT availability_entries_status_type_id_fkey
+  FOREIGN KEY (status_type_id)
+  REFERENCES public.status_types (id)
+  ON DELETE NO ACTION
+  DEFERRABLE INITIALLY DEFERRED
   NOT VALID;
 
 COMMIT;

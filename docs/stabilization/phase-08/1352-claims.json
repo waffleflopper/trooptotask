@@ -1,0 +1,127 @@
+{
+	"schema": 1,
+	"issue": "waffleflopper/trooptotask#1352",
+	"requirements": [
+		{
+			"claim": "calendar-availability-lifecycle",
+			"behavior": "A Calendar operator adds, replaces through the existing edit flow, and removes ordinary availability for an allowed Person. The screen may update optimistically, but added/updated/removed/saved success messages wait for confirmed persistence. Chosen status, inclusive dates and note agree with saved rows after reload; failures restore accurate state and show an error, and untouched historical rows remain unchanged.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 availability read/write and retained saved Calendar facts; Robert\u2019s September 26, 2026 clarification: optimistic visual updates are retained, but success/saved messages must wait for confirmed persistence.",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/features/calendar/components/AvailabilityModal.test.ts",
+				"Partial existing check: src/features/calendar/stores/availability.svelte.test.ts",
+				"Partial existing check: src/routes/org/[orgId]/api/availability/server.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		},
+		{
+			"claim": "calendar-availability-bulk",
+			"behavior": "Authorized bulk add, import and removal use the selected allowed People, status and dates; invalid or ambiguous import rows are reported, partial overlaps are explicitly reviewed before whole-entry removal, and a failed chunk reports partial success accurately after reload without inventing an all-or-nothing transaction.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 availability read/write with complete bulk/import consumers",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/lib/server/core/useCases/availabilityBatch.test.ts",
+				"Partial existing check: src/features/calendar/utils/availabilityMutation.test.ts",
+				"Partial existing check: src/features/calendar/utils/availabilityImport.test.ts",
+				"Partial existing check: src/features/calendar/components/BulkStatusImport.svelte.test.ts",
+				"Partial existing check: src/features/calendar/components/BulkStatusRemove.svelte.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		},
+		{
+			"claim": "calendar-availability-scope",
+			"behavior": "Calendar-only actors retain their lane: Organization scope includes unassigned People, Group scope includes only granted People, and empty Group scope includes none. Viewer writes, missing capability, other-Group/unassigned targets for Group actors, and foreign-Organization single/batch reads or writes are denied without altering or disclosing protected rows; current authenticated RLS remains enforced.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 positive/negative Organization and Group access without Personnel permission piggybacking",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/lib/server/core/useCases/availabilityBatch.test.ts",
+				"Partial existing check: src/lib/server/core/useCases/calendarQuery.test.ts",
+				"Partial existing check: src/routes/org/[orgId]/api/availability/server.test.ts",
+				"Partial existing check: src/features/personnel/calendarRoster.server.test.ts",
+				"Partial existing check: supabase/tests/calendar_lane_unassigned_scope.sql",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof.",
+				"Missing: direct SQL catalog configuration scope and same-Organization statusTypeId reference cases need inspection/reproduction; current availability SQL suite does not prove them."
+			]
+		},
+		{
+			"claim": "calendar-status-type-lifecycle",
+			"behavior": "A Calendar configurator creates, renames, recolors and explicitly deletes an ordinary status through settings. Edits retain the existing status identity, persisted sort order and referenced availability; confirmed deletion applies the supported availability cleanup and notification/audit effects. Reload and Calendar labels agree with saved data, and denied or failed operations never appear successful. Ordering preservation is checked at the API/entity boundary; no ordering UI is required.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 status catalog read/write, reverse consumers and deliberate deletion effects",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/lib/server/core/useCases/statusTypeCrud.test.ts",
+				"Partial existing check: src/lib/server/entities/statusType.test.ts",
+				"Partial existing check: src/features/calendar/components/CalendarSettingsPage.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		},
+		{
+			"claim": "calendar-assignment-type-lifecycle",
+			"behavior": "A Calendar configurator creates and edits person- and Group-targeted assignment types and header choice through supported settings, preserving seeded exemptPersonnelIds and saved assignment references during edits. Confirmed ordinary-type deletion deliberately removes assignments referencing that type; unrelated assignments and archived historical types/rows remain unchanged. Referenced archived types remain readable where needed and excluded from editable choices. Reload retains the chosen fields. No exemption editor is required.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 assignment-type catalog read/write and preservation of referenced types and independent manual assignments",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/lib/server/core/useCases/assignmentTypeCrud.test.ts",
+				"Partial existing check: src/lib/server/entities/assignmentType.test.ts",
+				"Partial existing check: src/features/calendar/components/CalendarSettingsPage.test.ts",
+				"Partial existing check: src/features/calendar/components/DailyAssignmentModal.test.ts",
+				"Partial existing check: src/features/calendar/utils/calendarRenderState.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		},
+		{
+			"claim": "calendar-special-day-lifecycle",
+			"behavior": "A Calendar configurator creates, edits and deletes an Organization closure, and explicitly resets federal holidays; expected holiday dates are independently specified for the fixture year, closures and foreign-Organization data survive the reset, and Calendar labels and settings agree after reload. Rejected or failed operations retain an actionable error state.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 special-day CRUD/reset and reverse Calendar consumers",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/lib/server/core/useCases/specialDayCrud.test.ts",
+				"Partial existing check: src/routes/org/[orgId]/api/special-days/server.test.ts",
+				"Partial existing check: src/features/calendar/stores/specialDays.svelte.test.ts",
+				"Partial existing check: src/features/calendar/components/CalendarSettingsPage.test.ts",
+				"Partial existing check: src/features/calendar/utils/calendarRenderState.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		},
+		{
+			"claim": "calendar-catalog-authorization",
+			"behavior": "Calendar view/operate actors can consume permitted catalog data but cannot configure statuses, assignment types or special days; configure with Organization authority permits those writes. Foreign Organization, empty/limited Group authority without Organization configuration permission, and missing Calendar capability cannot gain configuration access through direct requests. Denial saves no rows and reveals no protected data.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 each catalog positive/negative read/write with authoritative server policy and RLS",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/lib/access/policyEvaluator.test.ts",
+				"Partial existing check: src/lib/server/core/useCases/statusTypeCrud.test.ts",
+				"Partial existing check: src/lib/server/core/useCases/assignmentTypeCrud.test.ts",
+				"Partial existing check: src/lib/server/core/useCases/specialDayCrud.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		},
+		{
+			"claim": "calendar-availability-consumers",
+			"behavior": "For a fixed synthetic interval and explicit expected rows, Calendar month/long-range views, affected Dashboard projections and Calendar status-day report/download consumers display or export the same authorized saved availability, catalog labels and special-day facts. Moving between ranges or reloading does not drop historical facts, invent Duty Roster lineage or expose other scopes.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 all reverse read/report/export consumers of the migrated D04 contracts",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/lib/server/core/useCases/calendarQuery.test.ts",
+				"Partial existing check: src/lib/server/core/useCases/calendarReportQuery.test.ts",
+				"Partial existing check: src/lib/server/core/useCases/dashboardQuery.test.ts",
+				"Partial existing check: src/features/calendar/utils/calendarReports.test.ts",
+				"Partial existing check: src/features/calendar/components/reports/calendarReportWorkbookExport.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		},
+		{
+			"claim": "calendar-state-isolation",
+			"behavior": "While using the affected Calendar stores and settings, switching Organization or narrowing identity/permission scope clears inaccessible data and prevents a late prior-scope response or pending mutation from targeting/restoring the old scope. Loading, failure/retry and keyboard/dialog operation remain usable; final reload reflects only authorized persisted state.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 request-local authority, Organization-scoped state, stale-request protection and complete UI/store cutover in parent #1281",
+			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
+			"coverage": [
+				"Partial existing check: src/features/calendar/contexts/CalendarPageContext.test.ts",
+				"Partial existing check: src/features/calendar/calendarWorkspaceHydration.svelte.test.ts",
+				"Partial existing check: src/features/calendar/contexts/CalendarRangeCoordinator.svelte.test.ts",
+				"Partial existing check: src/features/calendar/components/CalendarSettingsPage.test.ts",
+				"Missing: proposed live claim is not implemented in scripts/verification/claims.mjs; Calendar-capable actors and scenario fixtures must be added before baseline proof."
+			]
+		}
+	]
+}

@@ -91,6 +91,20 @@ function seedPersonnel(store: ReturnType<typeof createInMemoryDataStore>) {
 }
 
 describe('fetchPersonnelBootstrap', () => {
+	it('returns the full same-Organization Group catalog in saved order', async () => {
+		const ctx = createQueryWithRawStorePortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
+		seedPersonnel(ctx.store);
+		ctx.store.seed('groups', [
+			{ id: 'g0', organization_id: ORG, name: 'Earlier', sort_order: -1 },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -2 }
+		]);
+
+		const result = await fetchPersonnelBootstrap(ctx);
+
+		expect(result.groups.map((group) => group.name)).toEqual(['Earlier', 'Alpha', 'Bravo']);
+		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
+	});
+
 	it('returns scoped personnel plus a minimal lookup projection for an unscoped member', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
 		seedPersonnel(ctx.store);
@@ -296,6 +310,7 @@ describe('fetchPersonnelBootstrap — loss warning window', () => {
 
 	it('returns personnel IDs with acknowledged award tracking from personnel_extended_info', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
+		seedPersonnel(ctx.store);
 		ctx.store.seed('personnel_extended_info', [
 			{
 				id: 'pei-1',

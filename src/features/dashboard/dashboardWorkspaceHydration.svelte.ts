@@ -2,9 +2,10 @@ import { availabilityStore } from '$features/calendar/stores/availability.svelte
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { groupCatalogHydration } from '$features/personnel';
+import type { Group } from '$features/personnel/contracts';
+import { pinnedGroupsHydration } from '$features/personnel';
+import { personnelRosterHydration } from '$features/personnel';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
@@ -51,13 +52,13 @@ export interface DashboardWorkspaceHydrator {
 }
 
 const defaultDashboardHydrationStores: DashboardHydrationStores = {
-	personnelStore: rosterStore,
-	groupsStore,
+	personnelStore: personnelRosterHydration,
+	groupsStore: groupCatalogHydration,
 	statusTypesStore,
 	availabilityEntriesStore: availabilityStore,
 	calendarAssignmentsStore: dailyAssignmentsStore,
 	trainingTypesStore,
-	pinnedGroupsStore
+	pinnedGroupsStore: pinnedGroupsHydration
 };
 
 function createTargetDescriptor<T>(

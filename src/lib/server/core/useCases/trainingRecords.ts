@@ -12,7 +12,7 @@ import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyResource } fr
 import { addMonthsClamped, formatDate, parseDate } from '$lib/utils/dates';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import type { WritePorts } from '$lib/server/core/ports';
-import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -44,6 +44,42 @@ function canHardDeleteTrainingRecord(ctx: WritePorts, resource: PolicyResource):
 	}).allowed;
 }
 
+export async function policyResourcesForTrainingPersonnel(
+	ctx: WritePorts,
+	personnelIds: string[],
+	resourceId?: string
+): Promise<Map<string, PolicyResource>> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.training.recordCompletions,
+		{ kind: 'unscoped' },
+		AUDIT_RESOURCE,
+		resourceId
+	);
+	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
+	const groupIds = await ctx.personnelTrainingRoster.findGroupIdsForWrites(ctx.auth, personnelIds);
+	const resources = new Map<string, PolicyResource>();
+	for (const id of personnelIds) {
+		if (!groupIds.has(id)) {
+			await requireFeaturePolicy(
+				ctx,
+				POLICY_ACTION_CATALOG.training.recordCompletions,
+				{ kind: 'organization' },
+				AUDIT_RESOURCE,
+				resourceId ?? id
+			);
+			fail(404, 'Personnel not found');
+		}
+		resources.set(id, policyResourceForGroup(groupIds.get(id)));
+	}
+	return resources;
+}
+
+async function policyResourceForTrainingPersonnel(ctx: WritePorts, personnelId: string, resourceId?: string) {
+	const resources = await policyResourcesForTrainingPersonnel(ctx, [personnelId], resourceId);
+	return resources.get(personnelId) ?? { kind: 'organization' as const };
+}
+
 async function policyResourceForTrainingRecord(ctx: WritePorts, recordId: string): Promise<PolicyResource> {
 	const record = await ctx.store.findOne<TrainingRecordResourceRow>(
 		entity.table,
@@ -54,7 +90,7 @@ async function policyResourceForTrainingRecord(ctx: WritePorts, recordId: string
 	if (!record?.personnel_id) {
 		return { kind: 'organization' };
 	}
-	return policyResourceForPersonnel(ctx, record.personnel_id);
+	return policyResourceForTrainingPersonnel(ctx, record.personnel_id, recordId);
 }
 
 export async function createTrainingRecord(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
@@ -66,7 +102,7 @@ export async function createTrainingRecord(ctx: WritePorts, input: Record<string
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.training.recordCompletions,
-		await policyResourceForPersonnel(ctx, personnelId),
+		await policyResourceForTrainingPersonnel(ctx, personnelId),
 		AUDIT_RESOURCE
 	);
 

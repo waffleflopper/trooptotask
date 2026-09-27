@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 	import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
-	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { rosterStore } from '$features/personnel';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import {
 		formatTimestamp,

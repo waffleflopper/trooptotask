@@ -1,17 +1,10 @@
 import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString } from '$lib/server/validation';
-import { buildDefaultRankCatalogSeeds } from './rankCatalog';
-import type { OrganizationRankCatalogSource, OrganizationRankCatalogEntry } from './rankCatalog';
 
 export interface OrgProvisioningCreateResult {
 	orgId: string | null;
 	errorMessage: string | null;
-}
-
-export interface OrgProvisioningGroupSeed {
-	name: string;
-	sortOrder: number;
 }
 
 export interface OrgProvisioningStatusTypeSeed {
@@ -35,13 +28,6 @@ export interface OrgProvisioningSpecialDaySeed {
 	type: string;
 }
 
-export interface OrgProvisioningRankCatalogSeed extends Omit<
-	OrganizationRankCatalogEntry,
-	'organizationId' | 'source'
-> {
-	source: OrganizationRankCatalogSource;
-}
-
 export interface OrgProvisioningPort {
 	createOrganizationWithOwner(name: string): Promise<OrgProvisioningCreateResult>;
 	updateOwnerMembershipEmail(input: {
@@ -49,21 +35,15 @@ export interface OrgProvisioningPort {
 		userId: string;
 		email: string | undefined;
 	}): Promise<string | null>;
-	seedDefaultGroups(organizationId: string, groups: OrgProvisioningGroupSeed[]): Promise<string | null>;
+	seedDefaultGroups(organizationId: string): Promise<string | null>;
 	seedDefaultStatusTypes(organizationId: string, statusTypes: OrgProvisioningStatusTypeSeed[]): Promise<string | null>;
 	seedDefaultAssignmentTypes(
 		organizationId: string,
 		assignmentTypes: OrgProvisioningAssignmentTypeSeed[]
 	): Promise<string | null>;
 	seedFederalHolidays(organizationId: string, specialDays: OrgProvisioningSpecialDaySeed[]): Promise<string | null>;
-	seedDefaultRankCatalog(organizationId: string, entries: OrgProvisioningRankCatalogSeed[]): Promise<string | null>;
+	seedDefaultRankCatalog(organizationId: string): Promise<string | null>;
 }
-
-const DEFAULT_GROUPS: OrgProvisioningGroupSeed[] = [
-	{ name: 'Leadership', sortOrder: 0 },
-	{ name: 'Alpha', sortOrder: 1 },
-	{ name: 'Bravo', sortOrder: 2 }
-];
 
 const DEFAULT_STATUS_TYPES: OrgProvisioningStatusTypeSeed[] = [
 	{
@@ -146,7 +126,7 @@ export async function provisionOrganization(
 	});
 	logBootstrapError('Owner membership email update error:', ownerEmailUpdateError);
 
-	logBootstrapError('Groups seed error:', await port.seedDefaultGroups(created.orgId, DEFAULT_GROUPS));
+	logBootstrapError('Groups seed error:', await port.seedDefaultGroups(created.orgId));
 	logBootstrapError('Status types seed error:', await port.seedDefaultStatusTypes(created.orgId, DEFAULT_STATUS_TYPES));
 	logBootstrapError(
 		'Assignment types seed error:',
@@ -159,29 +139,13 @@ export async function provisionOrganization(
 		type: holiday.type
 	}));
 	logBootstrapError('Holidays seed error:', await port.seedFederalHolidays(created.orgId, holidaySeeds));
-	const rankCatalogSeedError = await port.seedDefaultRankCatalog(
-		created.orgId,
-		buildDefaultRankCatalogProvisioningSeeds(created.orgId)
-	);
+	const rankCatalogSeedError = await port.seedDefaultRankCatalog(created.orgId);
 	if (rankCatalogSeedError) {
 		console.error('Rank catalog seed error:', rankCatalogSeedError);
 		fail(500, rankCatalogSeedError);
 	}
 
 	return { orgId: created.orgId };
-}
-
-function buildDefaultRankCatalogProvisioningSeeds(organizationId: string): OrgProvisioningRankCatalogSeed[] {
-	return buildDefaultRankCatalogSeeds(organizationId).map((entry) => ({
-		code: entry.code,
-		label: entry.label,
-		service: entry.service,
-		category: entry.category,
-		payGrade: entry.pay_grade,
-		state: entry.state,
-		source: entry.source,
-		sortOrder: entry.sort_order
-	}));
 }
 
 function logBootstrapError(label: string, errorMessage: string | null): void {

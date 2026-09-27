@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
 

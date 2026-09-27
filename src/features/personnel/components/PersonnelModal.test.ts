@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PersonnelModal from './PersonnelModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 
 afterEach(async () => {
 	cleanup();

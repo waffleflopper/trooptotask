@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -15,6 +15,7 @@
 
 	interface Props {
 		personnel: Personnel[];
+		canAddPerson: boolean;
 		existingOnboardingPersonnelIds: string[];
 		groups: Group[];
 		templates: OnboardingTemplate[];
@@ -26,6 +27,7 @@
 
 	let {
 		personnel,
+		canAddPerson,
 		existingOnboardingPersonnelIds,
 		groups,
 		templates,
@@ -112,9 +114,11 @@
 				<div class="grid gap-3 rounded-lg border bg-card p-3">
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Member</p>
-						<Button size="sm" variant="outline" type="button" onclick={() => (showAddPersonModal = true)}>
-							Add Person
-						</Button>
+						{#if canAddPerson}
+							<Button size="sm" variant="outline" type="button" onclick={() => (showAddPersonModal = true)}>
+								Add Person
+							</Button>
+						{/if}
 					</div>
 
 					<Combobox.Root items={personnelOptions} bind:value={selectedPersonnelId} label="Member" autoHighlight>

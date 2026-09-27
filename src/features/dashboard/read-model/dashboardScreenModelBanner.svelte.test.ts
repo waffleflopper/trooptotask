@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createDashboardScreenModel, type DashboardScreenModel } from './dashboardScreenModel.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { rosterStore } from '$features/personnel';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$features/personnel';
 import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
 import type { DashboardPageData } from '../dashboard.types';
 
@@ -35,8 +35,10 @@ vi.mock('$lib/data/changelog', () => ({ changelog: [] }));
 vi.mock('$lib/stores/whatsNew.svelte', () => ({ whatsNewStore: { show: vi.fn(), close: vi.fn() } }));
 
 // Stub all stores — each returns a minimal reactive-compatible object
-vi.mock('$lib/stores/roster.svelte', () => ({
-	rosterStore: { items: [] }
+vi.mock('$features/personnel', () => ({
+	rosterStore: { items: [] },
+	groupsStore: { items: [], loading: false },
+	pinnedGroupsStore: { list: [], load: vi.fn() }
 }));
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [] }
@@ -49,12 +51,6 @@ vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 }));
 vi.mock('$features/training/stores/trainingTypes.svelte', () => ({
 	trainingTypesStore: { items: [] }
-}));
-vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
-	pinnedGroupsStore: { list: [], load: vi.fn() }
-}));
-vi.mock('$lib/stores/groups.svelte', () => ({
-	groupsStore: { items: [], loading: false }
 }));
 vi.mock('$features/rating-scheme/utils/ratingScheme', () => ({
 	getRatingDueStatus: vi.fn((_end: string, status: string) => {

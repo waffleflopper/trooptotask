@@ -383,7 +383,7 @@ describe('createStore', () => {
 			});
 			store.load([{ id: '1', name: 'Existing' }], 'org-1');
 
-			store.add({ name: 'New' });
+			const pendingAdd = store.add({ name: 'New' });
 
 			// Different org — should go through
 			store.load([{ id: '10', name: 'Other Org Item' }], 'org-2');
@@ -391,6 +391,76 @@ describe('createStore', () => {
 			expect(store.items).toEqual([{ id: '10', name: 'Other Org Item' }]);
 
 			resolveCreate({ id: 'server-1', name: 'New' });
+			expect(await pendingAdd).toBeNull();
+			expect(store.items).toEqual([{ id: '10', name: 'Other Org Item' }]);
+		});
+
+		it('keeps a new organization row when the old organization remove finishes later', async () => {
+			let resolveRemove!: (result: 'deleted') => void;
+			const store = makeStore({
+				adapterOverrides: {
+					remove: () =>
+						new Promise((resolve) => {
+							resolveRemove = resolve;
+						})
+				}
+			});
+			store.load([{ id: 'shared-id', name: 'Old Org Group' }], 'org-1');
+			const pendingRemove = store.remove('shared-id');
+			store.load([{ id: 'shared-id', name: 'New Org Group' }], 'org-2');
+
+			resolveRemove('deleted');
+			expect(await pendingRemove).toBe('error');
+			expect(store.items).toEqual([{ id: 'shared-id', name: 'New Org Group' }]);
+		});
+
+		it('ignores an old organization remove rejection after switching organizations', async () => {
+			let rejectRemove!: (error: Error) => void;
+			const store = makeStore({
+				adapterOverrides: {
+					remove: () =>
+						new Promise((_resolve, reject) => {
+							rejectRemove = reject;
+						})
+				}
+			});
+			store.load([{ id: 'shared-id', name: 'Old Org Group' }], 'org-1');
+			const pendingRemove = store.remove('shared-id');
+			store.load([{ id: 'shared-id', name: 'New Org Group' }], 'org-2');
+
+			rejectRemove(new Error('Old request failed'));
+			expect(await pendingRemove).toBe('error');
+			expect(store.items).toEqual([{ id: 'shared-id', name: 'New Org Group' }]);
+		});
+
+		it('rolls back a rejected remove in the current organization', async () => {
+			const store = makeStore({
+				adapterOverrides: { remove: async () => Promise.reject(new Error('Current request failed')) }
+			});
+			store.load([{ id: 'group-a', name: 'Alpha' }], 'org-1');
+
+			await expect(store.remove('group-a')).rejects.toThrow('Current request failed');
+			expect(store.items).toEqual([{ id: 'group-a', name: 'Alpha' }]);
+			expect(store.busy).toBe(false);
+		});
+
+		it('keeps a new organization row when the old organization rename finishes later', async () => {
+			let resolveUpdate!: (item: TestItem) => void;
+			const store = makeStore({
+				adapterOverrides: {
+					update: () =>
+						new Promise((resolve) => {
+							resolveUpdate = resolve;
+						})
+				}
+			});
+			store.load([{ id: 'shared-id', name: 'Old Org Group' }], 'org-1');
+			const pendingRename = store.update('shared-id', { name: 'Renamed' });
+			store.load([{ id: 'shared-id', name: 'New Org Group' }], 'org-2');
+
+			resolveUpdate({ id: 'shared-id', name: 'Renamed' });
+			expect(await pendingRename).toBe(false);
+			expect(store.items).toEqual([{ id: 'shared-id', name: 'New Org Group' }]);
 		});
 
 		it('should allow load after all mutations complete', async () => {

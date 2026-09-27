@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
+import { pinnedGroupsHydration } from '$features/personnel';
 import type { Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
@@ -183,7 +183,7 @@ function deniedAffordance(overrides: Partial<ClientAffordance> = {}): ClientAffo
 describe('PersonnelPageView', () => {
 	beforeEach(() => {
 		personnelStore.load(personnel, 'org-1');
-		pinnedGroupsStore.load([], 'org-1');
+		pinnedGroupsHydration.load([], 'org-1');
 		vi.stubGlobal('fetch', vi.fn());
 		gotoMock.mockReset();
 		invalidateAllMock.mockReset();
@@ -195,7 +195,7 @@ describe('PersonnelPageView', () => {
 	afterEach(() => {
 		cleanup();
 		personnelStore.load([], 'org-test-reset');
-		pinnedGroupsStore.load([], 'org-test-reset');
+		pinnedGroupsHydration.load([], 'org-test-reset');
 		vi.unstubAllGlobals();
 	});
 
@@ -352,17 +352,35 @@ describe('PersonnelPageView', () => {
 		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
 	});
 
-	it('renders grouped roster pin controls without crashing', () => {
+	it('shows a pin immediately and restores the button after a denied save', async () => {
 		const ctx = {
 			...makeCtx(),
 			viewMode: 'by-group'
 		} as unknown as PersonnelPageContext;
+		let rejectSave!: (error: Error) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise((_resolve, reject) => {
+						rejectSave = reject;
+					})
+			)
+		);
 
 		render(PersonnelPageView, {
 			props: { ctx }
 		});
 
-		expect(screen.getByRole('button', { name: 'Pin Alpha' })).toBeTruthy();
+		const pin = screen.getByRole('button', { name: 'Pin Alpha' });
+		expect(pin.getAttribute('aria-pressed')).toBe('false');
+		await fireEvent.click(pin);
+		expect(screen.getByRole('button', { name: 'Unpin Alpha' }).getAttribute('aria-pressed')).toBe('true');
+
+		rejectSave(new Error('Save denied'));
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Pin Alpha' }).getAttribute('aria-pressed')).toBe('false')
+		);
 	});
 
 	describe('upcoming-loss indicators', () => {

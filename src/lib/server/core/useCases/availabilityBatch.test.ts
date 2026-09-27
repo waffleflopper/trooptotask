@@ -161,12 +161,13 @@ describe('createAvailabilityBatch', () => {
 			status: 403,
 			message: 'You do not have access to that Calendar scope'
 		});
+		// The scoped Personnel lookup does not reveal the hidden Group ID to the audit caller.
 		expect(ctx.audit.events[0]).toMatchObject({
 			action: 'policy.denied',
 			details: {
 				policyAction: 'calendar.manageAvailability',
 				reasonCode: 'denied:out-of-scope',
-				resource: { kind: 'group', groupId: 'group-c' }
+				resource: { kind: 'organization' }
 			}
 		});
 	});

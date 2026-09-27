@@ -28,6 +28,40 @@ ACCOUNT_SETUP_UPGRADE_MIGRATIONS = (
     "20260923000200_release_account_setup_claim_for_staff.sql",
     "20260926000100_reconcile_account_setup_attempts.sql",
 )
+STAGED_UPGRADE_MIGRATIONS = (
+    *ACCOUNT_SETUP_UPGRADE_MIGRATIONS,
+    "20260926000300_training_record_scope.sql",
+    "20260926000400_critical_tasks_read_scope.sql",
+    "20260926000500_critical_tasks_task_reference_integrity.sql",
+    "20260926000600_calendar_unassigned_scope.sql",
+    "20260926000700_personnel_unassigned_scope.sql",
+    "20260926000800_personnel_counseling_file_scope.sql",
+    "20260926000900_rating_scheme_unassigned_scope.sql",
+    "20260926001000_personnel_extended_info_scope.sql",
+    "20260926001100_personnel_sensitive_artifact_reads.sql",
+    "20260926001200_atomic_counseling_deletion_approval.sql",
+)
+STAGED_UPGRADE_FIXTURES = (
+    "account_setup_populated_before.sql",
+    "training_record_populated_before.sql",
+    "critical_tasks_populated_before.sql",
+    "calendar_unassigned_populated_before.sql",
+    "personnel_unassigned_populated_before.sql",
+    "personnel_counseling_file_populated_before.sql",
+    "rating_scheme_populated_before.sql",
+    "personnel_extended_info_populated_before.sql",
+)
+STAGED_UPGRADE_CONTRACTS = (
+    "account_setup_populated_after.sql",
+    "training_record_populated_after.sql",
+    "critical_tasks_populated_after.sql",
+    "critical_tasks_task_reference_after.sql",
+    "calendar_unassigned_populated_after.sql",
+    "personnel_unassigned_populated_after.sql",
+    "personnel_counseling_file_populated_after.sql",
+    "rating_scheme_populated_after.sql",
+    "personnel_extended_info_populated_after.sql",
+)
 
 
 def port_fields(config, prefix=()):
@@ -183,7 +217,7 @@ def validate(repository, *, staged_upgrade=False):
         ports = [sock.getsockname()[1] for sock in held_ports]
         config = prepare_project(repository, workdir, project_id, ports)
         if staged_upgrade:
-            for name in ACCOUNT_SETUP_UPGRADE_MIGRATIONS:
+            for name in STAGED_UPGRADE_MIGRATIONS:
                 (workdir / "supabase/migrations" / name).unlink()
         print(f"Disposable project: {project_id}; directory: {workdir}", flush=True)
         print("Ports: " + ", ".join(
@@ -207,23 +241,27 @@ def validate(repository, *, staged_upgrade=False):
         execute([*psql, "-c", "ALTER SYSTEM SET supautils.hint_roles = '';",
              "-c", "SELECT pg_reload_conf();"], workdir)
         if staged_upgrade:
-            fixture = (workdir / "supabase/migration-tests/account_setup_populated_before.sql")
-            execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
-            for name in ACCOUNT_SETUP_UPGRADE_MIGRATIONS:
+            for name in STAGED_UPGRADE_FIXTURES:
+                fixture = workdir / "supabase/migration-tests" / name
+                execute([*psql[:2], "-i", *psql[2:]], workdir, input_text=fixture.read_text())
+            for name in STAGED_UPGRADE_MIGRATIONS:
                 shutil.copy2(repository / "supabase/migrations" / name,
                              workdir / "supabase/migrations" / name)
-            execute(["supabase", "migration", "up", "--local", "--yes"], workdir)
+            # These held migrations can now sort before newer, already applied
+            # migrations. CLI requires --include-all for that staged replay.
+            execute(["supabase", "migration", "up", "--local", "--yes", "--include-all"], workdir)
             runner_started = True
-            execute([
-                "docker", "run", "--rm", "--name", runner,
-                "--network", f"supabase_network_{project_id}",
-                "--mount", f"type=bind,src={workdir / 'supabase'},dst=/tests,readonly",
-                "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
-                "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
-                PG_PROVE_IMAGE, "pg_prove", "--verbose",
-                "/tests/migration-tests/account_setup_populated_after.sql",
-            ], workdir)
-            print("Populated account setup upgrade passed.", flush=True)
+            for name in STAGED_UPGRADE_CONTRACTS:
+                execute([
+                    "docker", "run", "--rm", "--name", runner,
+                    "--network", f"supabase_network_{project_id}",
+                    "--mount", f"type=bind,src={workdir / 'supabase'},dst=/tests,readonly",
+                    "-e", "PGHOST=db", "-e", "PGPORT=5432", "-e", "PGUSER=postgres",
+                    "-e", "PGPASSWORD=postgres", "-e", "PGDATABASE=postgres",
+                    PG_PROVE_IMAGE, "pg_prove", "--verbose",
+                    f"/tests/migration-tests/{name}",
+                ], workdir)
+            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme and extended info upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True
@@ -259,7 +297,9 @@ def validate(repository, *, staged_upgrade=False):
         })
         run(["node", str(repository / "scripts/ci/account_setup_provider_probe.mjs")],
             workdir, environment=provider_environment)
-        print("Fresh replay, SQL contracts, migration regressions and provider probe passed.", flush=True)
+        run(["node", str(repository / "scripts/ci/personnel_roster_provider_probe.mjs")],
+            workdir, environment=provider_environment)
+        print("Fresh replay, SQL contracts, migration regressions and provider probes passed.", flush=True)
     finally:
         for sock in held_ports:
             sock.close()

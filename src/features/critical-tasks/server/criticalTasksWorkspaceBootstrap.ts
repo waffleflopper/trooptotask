@@ -8,7 +8,7 @@ import {
 	type WorkspaceHydrationTarget
 } from '$lib/server/core/streamedWorkspace';
 import { fetchCriticalTasksBootstrap } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from '../criticalTasks.types';
 

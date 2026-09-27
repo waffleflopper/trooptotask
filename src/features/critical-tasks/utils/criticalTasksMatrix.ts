@@ -5,9 +5,9 @@ import type {
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
-import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+import { createRosterReadModel } from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 

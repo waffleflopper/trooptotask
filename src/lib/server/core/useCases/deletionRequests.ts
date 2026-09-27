@@ -148,23 +148,32 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 		fail(400, `Unsupported resource type: ${resourceType}`);
 	}
 
-	if (resourceType === 'personnel') {
-		const archivedAt = new Date().toISOString();
-		await ctx.store.update(tableName, ctx.auth.orgId, resourceId, {
-			archived_at: archivedAt
-		});
-		await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
+	if (resourceType === 'counseling_record') {
+		if (!ctx.personnelGovernanceDeletion) throw new Error('Personnel governance deletion port is required');
+		await ctx.personnelGovernanceDeletion.deleteApprovedCounselingRecord(
+			ctx.auth,
+			requestId,
+			resourceId,
+			new Date().toISOString()
+		);
 	} else {
-		await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
-	}
+		if (resourceType === 'personnel') {
+			const archivedAt = new Date().toISOString();
+			await ctx.store.update(tableName, ctx.auth.orgId, resourceId, {
+				archived_at: archivedAt
+			});
+			await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
+		} else {
+			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
+		}
 
-	const reviewedAt = new Date().toISOString();
-	await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {
-		status: 'approved',
-		reviewed_by: ctx.auth.userId,
-		reviewed_at: reviewedAt,
-		denial_reason: null
-	});
+		await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {
+			status: 'approved',
+			reviewed_by: ctx.auth.userId,
+			reviewed_at: new Date().toISOString(),
+			denial_reason: null
+		});
+	}
 
 	// Notify the requester
 	const isPersonnel = resourceType === 'personnel';

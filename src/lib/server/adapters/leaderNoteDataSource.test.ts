@@ -3,7 +3,7 @@ import { createInMemoryDataStore } from './inMemory';
 import { bindLeaderNoteDataSource } from './leaderNoteDataSource';
 
 describe('composed leader-note data source', () => {
-	it('exports all authorized raw notes and deletes only notes strictly older than the archive cutoff', async () => {
+	it('deletes only notes strictly older than the archive cutoff', async () => {
 		const store = createInMemoryDataStore();
 		const note = {
 			id: 'active',
@@ -20,7 +20,6 @@ describe('composed leader-note data source', () => {
 		const foreign = { ...expired, id: 'foreign', organization_id: 'org-2' };
 		store.seed('leader_notes', [note, expired, boundary, recent, foreign]);
 		const source = bindLeaderNoteDataSource(store);
-		expect(await source.exportRows('org-1')).toEqual([note, expired, boundary, recent]);
 		expect(await source.deleteExpired('org-1', '2025-05-30T12:00:00.000Z')).toBe(1);
 		expect(await store.findMany('leader_notes', 'org-1')).toEqual([note, boundary, recent]);
 		expect(await store.findMany('leader_notes', 'org-2')).toEqual([foreign]);

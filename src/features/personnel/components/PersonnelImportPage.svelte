@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$lib/types';
-	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';

@@ -6,7 +6,7 @@ import OnboardingModals from './OnboardingModals.svelte';
 import { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { PersonnelOnboarding } from '../onboarding.types';
@@ -49,7 +49,7 @@ function mount() {
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['Date'] });
 	vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
-	rosterStore.load(
+	personnelRosterHydration.load(
 		[
 			{
 				id: 'person-1',
@@ -99,7 +99,7 @@ afterEach(() => {
 	vi.useRealTimers();
 	onboardingStore.load([], 'reset');
 	onboardingTemplateStore.load([], [], 'reset');
-	rosterStore.load([], 'reset');
+	personnelRosterHydration.load([], 'reset');
 });
 
 describe('Onboarding retained interactions', () => {

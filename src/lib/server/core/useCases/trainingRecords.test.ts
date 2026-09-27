@@ -247,6 +247,58 @@ describe('createTrainingRecord', () => {
 		expect(stored).toHaveLength(2);
 	});
 
+	it('uses all-status Training references for archived same-Group personnel when user Personnel SELECT is denied', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-archived',
+				organization_id: 'test-org',
+				group_id: 'group-a',
+				archived_at: '2026-01-01',
+				last_name: 'Archived',
+				first_name: 'Ann'
+			}
+		]);
+		seedTrainingType(ctx);
+		const scopedFindOne = ctx.store.findOne.bind(ctx.store);
+		ctx.store.findOne = ((table, orgId, filters, select) =>
+			table === 'personnel'
+				? Promise.reject(new Error('Personnel SELECT denied for this Training-only actor'))
+				: scopedFindOne(table, orgId, filters, select)) as typeof ctx.store.findOne;
+
+		const created = (await createTrainingRecord(ctx, { ...validInput, personnelId: 'p-archived' })) as { id: string };
+		await expect(updateTrainingRecord(ctx, { id: created.id, notes: 'Updated' })).resolves.toMatchObject({
+			notes: 'Updated'
+		});
+		await expect(deleteTrainingRecord(ctx, created.id)).resolves.toEqual({ requiresApproval: true });
+	});
+
+	it('rejects missing and foreign-Organization Personnel references before a record write', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		ctx.store.seed('personnel', [{ id: 'p-foreign', organization_id: 'other-org', group_id: null }]);
+
+		for (const personnelId of ['p-missing', 'p-foreign']) {
+			await expect(createTrainingRecord(ctx, { ...validInput, personnelId })).rejects.toMatchObject({ status: 404 });
+		}
+		await expect(ctx.store.findMany('personnel_trainings', 'test-org')).resolves.toEqual([]);
+	});
+
 	it('denies record writes when Training capability is view-only and audits the attempt', async () => {
 		const ctx = buildContext({
 			auth: {

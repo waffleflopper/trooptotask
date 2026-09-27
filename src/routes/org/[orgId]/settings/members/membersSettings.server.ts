@@ -6,8 +6,8 @@ import {
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
 import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, type AccessRequestSetupState } from '$features/identity/index.server';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { GroupEntity } from '$lib/server/entities/group';
 import {
 	buildSettingsInvitationAccessRow,
 	buildSettingsMemberAccessRow,
@@ -70,7 +70,7 @@ export interface BuildMembersSettingsDataInput {
 	invitationSetupStates?: Map<string, AccessRequestSetupState>;
 	pendingApprovalSummary?: PendingApprovalSummary;
 	approvalRequests?: DeletionRequestRow[];
-	groups: Record<string, unknown>[];
+	groups: Array<{ id: string; name: string }>;
 	now?: Date;
 }
 
@@ -95,7 +95,7 @@ export async function loadMembersSettings(
 	ctx: MembersSettingsLoadContext,
 	input: LoadMembersSettingsInput
 ): Promise<MembersSettingsData> {
-	const [membershipRows, invitationRows, invitationDeliveryRows, groupRows, approvalRequests] = await Promise.all([
+	const [membershipRows, invitationRows, invitationDeliveryRows, groups, approvalRequests] = await Promise.all([
 		ctx.store.findMany<SettingsAccessSourceRow>('organization_memberships', ctx.auth.orgId, undefined, {
 			select:
 				'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
@@ -114,9 +114,7 @@ export async function loadMembersSettings(
 				orderBy: [{ column: 'created_at', ascending: false }]
 			}
 		),
-		ctx.store.findMany<Record<string, unknown>>('groups', ctx.auth.orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listGroupCatalog(ctx),
 		ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
 			orderBy: [{ column: 'created_at', ascending: false }]
 		})
@@ -131,7 +129,7 @@ export async function loadMembersSettings(
 		invitationDeliveries: invitationDeliveryRows,
 		invitationSetupStates: await loadInvitationSetupStates(ctx, invitationRows),
 		approvalRequests,
-		groups: groupRows
+		groups
 	});
 }
 
@@ -186,7 +184,7 @@ export function buildMembersSettingsData(input: BuildMembersSettingsDataInput): 
 
 export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput): MembersSettingsSection {
 	const canManageMembers = input.canManageMembers;
-	const groups = GroupEntity.fromDbArray(input.groups).map((group) => ({ id: group.id, name: group.name }));
+	const groups = input.groups.map(({ id, name }) => ({ id, name }));
 	const availablePresetOptions = canManageMembers ? [...SETTINGS_ACCESS_OPTIONS] : [];
 	const members = input.members.map((row) =>
 		shapeMemberRow(buildSettingsMemberAccessRow(row), groups, availablePresetOptions)

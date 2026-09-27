@@ -5,13 +5,11 @@ import type {
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
-import type { Group } from '$lib/stores/groups.svelte';
-import type { Personnel } from '$lib/types';
+import type { Group } from '$features/personnel/contracts';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
-import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
-import { loadRosterPersonnel } from './rosterReadModel';
 
 interface OrgCriticalTasksSettingsRow {
 	critical_tasks_default_expiration_months?: number | null;
@@ -39,11 +37,11 @@ export async function fetchCriticalTasksSettings(
 	});
 }
 
-function loadCriticalTasksItems<T>(
+function loadCriticalTasksItems<R, T>(
 	orgId: string,
 	label: string,
-	load: Promise<Record<string, unknown>[]>,
-	mapRows: (rows: Record<string, unknown>[]) => T
+	load: Promise<R>,
+	mapRows: (rows: R) => T
 ): Promise<T> {
 	return load.then(mapRows).catch((error) => {
 		console.error(`[critical-tasks-workspace] Failed to load ${label}`, {
@@ -60,21 +58,15 @@ export async function fetchCriticalTasksBootstrap(
 ): Promise<CriticalTasksWorkspaceData> {
 	const orgId = ctx.auth.orgId;
 	const settings = await fetchCriticalTasksSettings(ctx);
-	const personnel = loadRosterPersonnel(ctx, { status: 'active' }).catch((error) => {
+	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
+	const personnel = ctx.personnelCriticalTasksRoster.listActiveForReadiness(ctx.auth).catch((error) => {
 		console.error('[critical-tasks-workspace] Failed to load personnel', {
 			orgId,
 			error
 		});
 		throw error;
-	}) as Promise<Personnel[]>;
-	const groups = loadCriticalTasksItems(
-		orgId,
-		'groups',
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		(rows) => GroupEntity.fromDbArray(rows) as Group[]
-	);
+	});
+	const groups = loadCriticalTasksItems(orgId, 'groups', listGroupCatalog(ctx), (groups): Group[] => groups);
 	const ictTasks = loadCriticalTasksItems(
 		orgId,
 		'ICT tasks',

@@ -5,9 +5,9 @@ import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { groupCatalogHydration } from '$features/personnel';
+import { pinnedGroupsHydration } from '$features/personnel';
+import { personnelRosterHydration } from '$features/personnel';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
@@ -53,22 +53,22 @@ function makePageData() {
 
 describe('training page', () => {
 	beforeEach(() => {
-		rosterStore.startLoading();
-		groupsStore.startLoading();
+		personnelRosterHydration.startLoading();
+		groupCatalogHydration.startLoading();
 		trainingTypesStore.startLoading();
 		trainingViewsStore.startLoading();
 		personnelTrainingsStore.startLoading();
-		pinnedGroupsStore.load([], 'org-1');
+		pinnedGroupsHydration.load([], 'org-1');
 	});
 
 	afterEach(() => {
 		cleanup();
-		rosterStore.load([], 'org-test-reset');
-		groupsStore.load([], 'org-test-reset');
+		personnelRosterHydration.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
-		pinnedGroupsStore.load([], 'org-test-reset');
+		pinnedGroupsHydration.load([], 'org-test-reset');
 	});
 
 	it('renders the training shell while workspace data is still streaming', () => {

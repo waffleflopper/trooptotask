@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
+import {
+	createInMemoryDataStore,
+	createQueryPortsContext,
+	createQueryWithRawStorePortsContext
+} from '$lib/server/adapters/inMemory';
 import {
 	fetchTrainingReportDetailPage,
 	fetchTrainingReportPage,
-	fetchTrainingReportsData,
 	generateTrainingReportWorkbookExport
 } from './trainingReportsQuery';
 
@@ -16,7 +19,7 @@ function buildCtx() {
 	return createQueryPortsContext();
 }
 
-describe('fetchTrainingReportsData', () => {
+describe('Training report projections', () => {
 	it('returns a filtered, sorted, paginated report page with server-computed cells and dashboard counts', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
@@ -331,9 +334,27 @@ describe('fetchTrainingReportsData', () => {
 		expect(detail.sort).toEqual({ column: 'name', direction: 'asc' });
 	});
 
-	it('limits report rows to the caller scoped group', async () => {
-		const ctx = createQueryPortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } } });
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+	it('returns only scoped report rows for a Training-only member whose Personnel SELECT is denied', async () => {
+		const ctx = createQueryWithRawStorePortsContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'view',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		const store = ctx.rawStore;
+		store.seed('groups', [
+			{ id: 'group-1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'group-2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+		]);
 
 		store.seed('personnel', [
 			{
@@ -407,10 +428,30 @@ describe('fetchTrainingReportsData', () => {
 			}
 		]);
 
+		const authorizedRoster = await ctx.personnelTrainingRoster!.listActiveForReports(ctx.auth);
+		ctx.personnelTrainingRoster = {
+			...ctx.personnelTrainingRoster!,
+			listActiveForReports: async () => authorizedRoster
+		};
+		const rawFindMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+		ctx.rawStore.findMany = ((table, orgId, filters, options) => {
+			if (table === 'personnel') throw new Error('Personnel SELECT denied for this Training-only actor');
+			if (table === 'organization_rank_catalog') {
+				throw new Error('Report rank catalog must use the authorized request store');
+			}
+			return rawFindMany(table, orgId, filters, options);
+		}) as typeof ctx.rawStore.findMany;
+		const requestFindMany = ctx.store.findMany.bind(ctx.store);
+		ctx.store.findMany = ((table, orgId, filters, options) =>
+			table === 'organization_rank_catalog'
+				? Promise.resolve([])
+				: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
+
 		const result = await fetchTrainingReportPage(ctx);
 
 		expect(result.detail.totalRows).toBe(1);
 		expect(result.detail.rows[0].person.id).toBe('p-alpha');
+		expect(result.filterOptions.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 	});
 
 	it('generates an authorized full workbook export without applying detail pagination', async () => {
@@ -494,30 +535,6 @@ describe('fetchTrainingReportsData', () => {
 		expect(sheet.getColumn(1).values).not.toContain('Bravo, Ben');
 	});
 
-	it('fetches training records from the store and returns them', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt-1',
-				organization_id: ORG,
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
-				completion_date: '2026-01-01',
-				expiration_date: '2027-01-01',
-				notes: null,
-				certificate_url: null
-			}
-		]);
-
-		const result = await fetchTrainingReportsData(ctx);
-
-		expect(result.trainings).toHaveLength(1);
-		expect(result.trainings[0].personnelId).toBe('p-1');
-		expect(result.trainings[0].trainingTypeId).toBe('tt-1');
-	});
-
 	it('denies report reads without Training view capability', async () => {
 		const ctx = createQueryPortsContext({
 			auth: {
@@ -534,42 +551,9 @@ describe('fetchTrainingReportsData', () => {
 			}
 		});
 
-		await expect(fetchTrainingReportsData(ctx)).rejects.toMatchObject({ status: 403 });
 		await expect(fetchTrainingReportPage(ctx)).rejects.toMatchObject({ status: 403 });
 		await expect(fetchTrainingReportDetailPage(ctx)).rejects.toMatchObject({ status: 403 });
 		await expect(generateTrainingReportWorkbookExport(ctx)).rejects.toMatchObject({ status: 403 });
-	});
-
-	it('returns empty array when no training records exist', async () => {
-		const ctx = buildCtx();
-
-		const result = await fetchTrainingReportsData(ctx);
-
-		expect(result.trainings).toHaveLength(0);
-	});
-
-	it('transforms snake_case DB rows to camelCase', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt-1',
-				organization_id: ORG,
-				personnel_id: 'p-1',
-				training_type_id: 'tt-1',
-				completion_date: '2026-03-15',
-				expiration_date: '2027-03-15',
-				notes: 'test note',
-				certificate_url: null
-			}
-		]);
-
-		const result = await fetchTrainingReportsData(ctx);
-
-		expect(result.trainings[0].completionDate).toBe('2026-03-15');
-		expect(result.trainings[0].expirationDate).toBe('2027-03-15');
-		expect(result.trainings[0].notes).toBe('test note');
 	});
 });
 

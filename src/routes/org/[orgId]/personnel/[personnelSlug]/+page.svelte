@@ -3,7 +3,7 @@
 	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 	import type { PersonnelWorkspaceResult } from '$features/personnel/server/personnelWorkspaceBootstrap';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 

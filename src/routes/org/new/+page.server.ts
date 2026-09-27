@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { createSupabaseOrgProvisioningPort } from '$lib/server/adapters/supabaseOrgProvisioning';
+import { createOrganizationProvisioningDelivery } from '$lib/server/organizationProvisioningDelivery';
 import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
 import { verifyCurrentUserEmailConfirmation } from '$features/identity/index.server';
 import type { CurrentUserEmailConfirmation } from '$features/identity/contracts';
@@ -45,7 +45,7 @@ export const actions: Actions = {
 		let result: { orgId: string };
 
 		try {
-			result = await provisionOrganization(createSupabaseOrgProvisioningPort(locals), {
+			result = await provisionOrganization(createOrganizationProvisioningDelivery(locals), {
 				name: (formData.get('name') as string) ?? '',
 				userId: locals.actor.userId,
 				email: emailConfirmation.email

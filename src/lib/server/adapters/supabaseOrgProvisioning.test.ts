@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseOrgProvisioningPort } from './supabaseOrgProvisioning';
 import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
+import { seedDefaultGroups, seedDefaultRankCatalog } from '$features/personnel/index.server';
 
 // Exercise the real SDK wire format without connecting to a provider. SQL/RLS and
 // transaction guarantees belong to the isolated database contract in 02-03-04.
@@ -10,7 +11,11 @@ function httpPort(handle: (request: Request) => Promise<Response>) {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: { fetch: (input, init) => handle(new Request(input, init)) }
 	});
-	return createSupabaseOrgProvisioningPort({ supabase } as never);
+	return createSupabaseOrgProvisioningPort(
+		{ supabase } as never,
+		(orgId) => seedDefaultGroups(supabase, orgId),
+		(orgId) => seedDefaultRankCatalog(supabase, orgId)
+	);
 }
 
 function providerFailure(message: string) {
@@ -46,7 +51,14 @@ describe('provisioning provider boundary', () => {
 		for (const { id } of creations) {
 			expect(writes).toEqual(
 				expect.arrayContaining([
-					{ table: 'groups', body: expect.arrayContaining([{ organization_id: id, name: 'Alpha', sort_order: 1 }]) },
+					{
+						table: 'groups',
+						body: [
+							{ organization_id: id, name: 'Leadership', sort_order: 0 },
+							{ organization_id: id, name: 'Alpha', sort_order: 1 },
+							{ organization_id: id, name: 'Bravo', sort_order: 2 }
+						]
+					},
 					{
 						table: 'assignment_types',
 						body: expect.arrayContaining([
@@ -124,9 +136,12 @@ describe('provisioning provider boundary', () => {
 		{
 			name: 'Groups',
 			table: 'groups',
-			write: (port: ReturnType<typeof httpPort>) =>
-				port.seedDefaultGroups('org-1', [{ name: 'Leadership', sortOrder: 0 }]),
-			body: [{ organization_id: 'org-1', name: 'Leadership', sort_order: 0 }]
+			write: (port: ReturnType<typeof httpPort>) => port.seedDefaultGroups('org-1'),
+			body: [
+				{ organization_id: 'org-1', name: 'Leadership', sort_order: 0 },
+				{ organization_id: 'org-1', name: 'Alpha', sort_order: 1 },
+				{ organization_id: 'org-1', name: 'Bravo', sort_order: 2 }
+			]
 		},
 		{
 			name: 'statuses',
@@ -174,36 +189,6 @@ describe('provisioning provider boundary', () => {
 			write: (port: ReturnType<typeof httpPort>) =>
 				port.seedFederalHolidays('org-1', [{ date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' }]),
 			body: [{ organization_id: 'org-1', date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' }]
-		},
-		{
-			name: 'ranks',
-			table: 'organization_rank_catalog',
-			write: (port: ReturnType<typeof httpPort>) =>
-				port.seedDefaultRankCatalog('org-1', [
-					{
-						code: 'SGT',
-						label: 'Sergeant',
-						service: 'army',
-						category: 'enlisted',
-						payGrade: 'E-5',
-						state: 'active',
-						source: 'built-in',
-						sortOrder: 0
-					}
-				]),
-			body: [
-				{
-					organization_id: 'org-1',
-					code: 'SGT',
-					label: 'Sergeant',
-					service: 'army',
-					category: 'enlisted',
-					pay_grade: 'E-5',
-					state: 'active',
-					source: 'built-in',
-					sort_order: 0
-				}
-			]
 		}
 	];
 
@@ -239,12 +224,23 @@ describe('provisioning provider boundary', () => {
 		expect(received).toEqual(days.map((day) => ({ organization_id: 'org-1', ...day })));
 	});
 
-	it('sends duplicate-ignore rank writes scoped to Organization and code', async () => {
-		const port = httpPort(async (request) => {
-			expect(new URL(request.url).searchParams.get('on_conflict')).toBe('organization_id,code');
-			expect(request.headers.get('prefer')).toContain('resolution=ignore-duplicates');
-			return new Response(null, { status: 201 });
-		});
-		expect(await writes[5].write(port)).toBeNull();
+	it('seeds the retained rank defaults with duplicate-ignore and surfaces provider denial', async () => {
+		for (const denied of [false, true]) {
+			const port = httpPort(async (request) => {
+				expect(new URL(request.url).pathname).toBe('/rest/v1/organization_rank_catalog');
+				expect(new URL(request.url).searchParams.get('on_conflict')).toBe('organization_id,code');
+				expect(request.headers.get('prefer')).toContain('resolution=ignore-duplicates');
+				const rows = (await request.json()) as Array<Record<string, unknown>>;
+				expect(rows).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({ organization_id: 'org-1', code: 'SGT', pay_grade: 'E-5', source: 'built-in' }),
+						expect.objectContaining({ organization_id: 'org-1', code: 'CIV', source: 'built-in' })
+					])
+				);
+				expect(new Set(rows.map((row) => row.service))).toEqual(new Set(['army', 'civilian', 'custom']));
+				return denied ? providerFailure('Rank seed denied') : new Response(null, { status: 201 });
+			});
+			expect(await port.seedDefaultRankCatalog('org-1')).toBe(denied ? 'Rank seed denied' : null);
+		}
 	});
 });

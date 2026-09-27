@@ -4,14 +4,16 @@ import {
 	type RankPayGrade,
 	type RankService,
 	type RankState
-} from '$lib/domain/rankCatalog';
+} from '$features/personnel/contracts';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
 	loadOrganizationRankCatalog,
-	loadOrganizationRankCatalogReferenceSummaries,
-	type OrganizationRankCatalogEntry,
-	type OrganizationRankCatalogReferenceSummary
-} from '$lib/server/core/useCases/rankCatalog';
+	loadOrganizationRankCatalogReferenceSummaries
+} from '$features/personnel/index.server';
+import type {
+	OrganizationRankCatalogEntry,
+	OrganizationRankCatalogReferenceSummary
+} from '$features/personnel/contracts';
 import type {
 	SettingsRankCatalogRow,
 	SettingsRankOption,

@@ -6,7 +6,7 @@ import type {
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/training.types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 
 const { fetchOnboardingBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {

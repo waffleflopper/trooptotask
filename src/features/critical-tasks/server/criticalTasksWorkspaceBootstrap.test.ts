@@ -2,16 +2,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { CriticalTasksWorkspaceData } from './criticalTasksWorkspaceBootstrap';
 
-const { findLatestCompletionsMock, findManyMock, findOneMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
+const {
+	findLatestCompletionsMock,
+	findManyMock,
+	findOneMock,
+	listActiveForReadinessMock,
+	loadWithContextMock,
+	mockCtx
+} = vi.hoisted(() => {
 	const findLatestCompletionsMock = vi.fn();
 	const findManyMock = vi.fn();
 	const findOneMock = vi.fn();
+	const listActiveForReadinessMock = vi.fn();
 	const loadWithContextMock = vi.fn();
 
 	return {
 		findLatestCompletionsMock,
 		findManyMock,
 		findOneMock,
+		listActiveForReadinessMock,
 		loadWithContextMock,
 		mockCtx: {
 			auth: {
@@ -24,6 +33,9 @@ const { findLatestCompletionsMock, findManyMock, findOneMock, loadWithContextMoc
 			},
 			criticalTasksReadModel: {
 				findLatestCompletions: findLatestCompletionsMock
+			},
+			personnelCriticalTasksRoster: {
+				listActiveForReadiness: listActiveForReadinessMock
 			}
 		}
 	};
@@ -49,6 +61,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 			critical_tasks_expiring_soon_warning_days: 45
 		});
 		findLatestCompletionsMock.mockResolvedValue([]);
+		listActiveForReadinessMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
 			return config.defer ? { data } : data;
@@ -57,10 +70,10 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 
 	it('streams a lane-keyed Critical Tasks workspace result with explicit hydration targets', async () => {
 		const deferredRows = new Promise<Record<string, unknown>[]>(() => undefined);
+		listActiveForReadinessMock.mockReturnValue(deferredRows);
 
 		findManyMock.mockImplementation((table: string) => {
 			switch (table) {
-				case 'personnel':
 				case 'groups':
 				case 'ict_tasks':
 				case 'personnel_ict_completions':

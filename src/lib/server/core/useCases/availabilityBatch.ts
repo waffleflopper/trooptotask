@@ -8,8 +8,7 @@
  */
 import { fail } from '$lib/server/core/errors';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import type { WritePorts } from '$lib/server/core/ports';
-import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy } from './calendarPolicy';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, type CalendarWritePorts } from './calendarPolicy';
 
 const entity = AvailabilityEntryEntity;
 const AUDIT_RESOURCE = 'availability';
@@ -26,7 +25,7 @@ interface CreateAvailabilityBatchInput {
 }
 
 export async function createAvailabilityBatch(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	input: CreateAvailabilityBatchInput
 ): Promise<{ inserted: unknown[] }> {
 	const { records } = input;
@@ -60,7 +59,7 @@ interface DeleteAvailabilityBatchInput {
 }
 
 export async function deleteAvailabilityBatch(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	input: DeleteAvailabilityBatchInput
 ): Promise<{ deleted: number }> {
 	const { ids } = input;

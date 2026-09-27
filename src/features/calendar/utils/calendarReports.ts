@@ -1,5 +1,5 @@
 import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
-import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
+import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
 
 // --- Shared helpers ---
 

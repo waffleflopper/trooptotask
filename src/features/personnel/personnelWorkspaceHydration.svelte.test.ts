@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel, StatusType } from '$lib/types';
 import { createPersonnelWorkspaceHydrator, type PersonnelHydrationStores } from './personnelWorkspaceHydration.svelte';
 import type { PersonnelWorkspaceHydration } from './server/personnelWorkspaceBootstrap';

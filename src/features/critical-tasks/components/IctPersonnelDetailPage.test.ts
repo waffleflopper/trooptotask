@@ -224,6 +224,150 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByText('Observed on lane 2')).toBeTruthy();
 	});
 
+	it('shows archived personnel completion history read-only when the active workspace omits it', () => {
+		ictTasksStore.load([activeTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(IctPersonnelDetailPage, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					criticalTasks: criticalTasksLayoutData,
+					criticalTasksPersonnelHistory: {
+						personnel: { ...history.personnel, archivedAt: '2026-04-14T12:00:00Z' },
+						rows: [
+							{
+								completion: activeCompletion,
+								task: activeTask,
+								taskCode: activeTask.taskCode,
+								taskTitle: activeTask.title,
+								taskArchivedAt: null
+							}
+						]
+					}
+				}
+			}
+		});
+
+		const table = screen.getByRole('table', { name: 'Applicable Critical Tasks' });
+		expect(within(table).getByText('Demonstration')).toBeTruthy();
+		expect(within(table).getByText('01 JAN 2098')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Input Task' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Edit completion for 181-105-1001' })).toBeNull();
+	});
+
+	it('retains an archived person’s completion when their current MOS no longer includes the task', () => {
+		ictTasksStore.load([activeTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+
+		render(IctPersonnelDetailPage, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					criticalTasks: criticalTasksLayoutData,
+					criticalTasksPersonnelHistory: {
+						personnel: { ...history.personnel, mos: '11B', archivedAt: '2026-04-14T12:00:00Z' },
+						rows: [
+							{
+								completion: activeCompletion,
+								task: activeTask,
+								taskCode: activeTask.taskCode,
+								taskTitle: activeTask.title,
+								taskArchivedAt: null
+							}
+						]
+					}
+				}
+			}
+		});
+
+		const table = screen.getByRole('table', { name: 'ICT completion history' });
+		expect(within(table).getByText('181-105-1001')).toBeTruthy();
+		expect(within(table).getByText('Demonstration')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Input Task' })).toBeNull();
+	});
+
+	it('closes an edit dialog when navigation changes to an archived person', async () => {
+		ictTasksStore.load([activeTask], 'org-1');
+		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
+		const { rerender } = render(IctPersonnelDetailPage, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					criticalTasks: criticalTasksLayoutData,
+					criticalTasksPersonnelHistory: { ...history, rows: [] }
+				}
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit completion for 181-105-1001' }));
+		expect(screen.getByRole('dialog', { name: 'Edit ICT Completion' })).toBeTruthy();
+
+		await rerender({
+			data: {
+				orgId: 'org-1',
+				criticalTasks: criticalTasksLayoutData,
+				criticalTasksPersonnelHistory: {
+					personnel: { ...history.personnel, id: 'p-archived', archivedAt: '2026-04-14T12:00:00Z' },
+					rows: []
+				}
+			}
+		});
+
+		expect(screen.queryByRole('dialog', { name: 'Edit ICT Completion' })).toBeNull();
+
+		await rerender({
+			data: {
+				orgId: 'org-1',
+				criticalTasks: criticalTasksLayoutData,
+				criticalTasksPersonnelHistory: {
+					personnel: { ...history.personnel, id: 'p-third' },
+					rows: []
+				}
+			}
+		});
+		expect(screen.queryByRole('dialog', { name: 'Edit ICT Completion' })).toBeNull();
+	});
+
+	it('does not reopen task input after switching from a read-only person to another operator record', async () => {
+		ictTasksStore.load([activeTask], 'org-1');
+		personnelIctCompletionsStore.load([], 'org-1');
+		const { rerender } = render(IctPersonnelDetailPage, {
+			props: {
+				data: {
+					orgId: 'org-1',
+					criticalTasks: criticalTasksLayoutData,
+					criticalTasksPersonnelHistory: { ...history, rows: [] }
+				}
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Input Task' }));
+		expect(screen.getByRole('dialog')).toBeTruthy();
+
+		await rerender({
+			data: {
+				orgId: 'org-1',
+				criticalTasks: criticalTasksLayoutData,
+				criticalTasksPersonnelHistory: {
+					personnel: { ...history.personnel, id: 'p-archived', archivedAt: '2026-04-14T12:00:00Z' },
+					rows: []
+				}
+			}
+		});
+		expect(screen.queryByRole('dialog')).toBeNull();
+
+		await rerender({
+			data: {
+				orgId: 'org-1',
+				criticalTasks: criticalTasksLayoutData,
+				criticalTasksPersonnelHistory: {
+					personnel: { ...history.personnel, id: 'p-third' },
+					rows: []
+				}
+			}
+		});
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
 	it('shows log and edit actions for Critical Tasks operators on active task rows', () => {
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');

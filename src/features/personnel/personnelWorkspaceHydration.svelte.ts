@@ -1,6 +1,7 @@
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { groupCatalogHydration } from './stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
+import { pinnedGroupsHydration } from './stores/pinnedGroups.svelte';
+import { personnelRosterHydration } from './stores/personnel.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import {
 	createFeatureLaneWorkspaceHydrator,
@@ -37,10 +38,10 @@ export interface PersonnelWorkspaceHydrator {
 }
 
 const defaultPersonnelHydrationStores: PersonnelHydrationStores = {
-	personnelStore: rosterStore,
-	groupsStore,
+	personnelStore: personnelRosterHydration,
+	groupsStore: groupCatalogHydration,
 	statusTypesStore,
-	pinnedGroupsStore
+	pinnedGroupsStore: pinnedGroupsHydration
 };
 
 function createTargetDescriptor<T>(

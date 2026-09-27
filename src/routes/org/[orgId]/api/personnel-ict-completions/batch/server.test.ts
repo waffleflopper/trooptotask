@@ -5,7 +5,21 @@ import { _postConfig } from './+server';
 
 describe('personnel ICT completions batch API', () => {
 	it('imports completion rows without creating or mutating personnel or ICT task definitions', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'operate',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-1',
@@ -116,5 +130,30 @@ describe('personnel ICT completions batch API', () => {
 		expect(personnelAfter).toEqual(personnelBefore);
 		expect(tasksAfter).toEqual(tasksBefore);
 		expect(completionsAfter).toEqual([]);
+	});
+
+	it('denies a view-only Critical Tasks member before importing a completion', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'view',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				records: [
+					{ rowNumber: 2, values: { firstName: 'Jane', lastName: 'Smith', taskCode: 'T-1', completedAt: '2026-04-15' } }
+				]
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([]);
 	});
 });

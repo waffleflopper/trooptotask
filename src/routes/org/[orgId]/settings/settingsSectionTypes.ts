@@ -1,7 +1,7 @@
 import type { CapabilityLevel, DurableFeatureLane, MembershipRole, ScopeSet } from '$lib/access/memberAccessShape';
-import type { RankCategory, RankPayGrade, RankService, RankState } from '$lib/domain/rankCatalog';
+import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
 import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
-import type { OrganizationRankCatalogReferenceSummary } from '$lib/server/core/useCases/rankCatalog';
+import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
 import type { DeletionRequestRow } from './settingsRows.server';
 import type { EditablePreset } from './settingsMemberAccessConstants';
 import type { SettingsInvitationAccessRow, SettingsMemberAccessRow } from './settingsMemberAccessModel';

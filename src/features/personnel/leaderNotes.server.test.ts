@@ -100,6 +100,33 @@ describe('personnel leader notes', () => {
 		});
 	});
 
+	it('lets a Personnel operator create and archive a note without gaining the notes list', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		const notes = testLeaderNoteContext(ctx);
+		const created = await createPersonnelLeaderNote(notes, { personnelId: 'person-1', text: 'Action needed' });
+		await expect(
+			archivePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id })
+		).resolves.toMatchObject({
+			id: created.id,
+			archivedAt: expect.any(String)
+		});
+		await expect(listPersonnelLeaderNotes(notes, 'person-1')).rejects.toMatchObject({ status: 403 });
+	});
+
 	it('blocks group-scoped users outside the Soldier scope', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -128,11 +155,15 @@ describe('personnel leader notes', () => {
 	it('keeps note mutations scoped to the requested Soldier and retains archive conflicts', async () => {
 		const ctx = createTestContext();
 		seedPersonnel(ctx);
+		ctx.store.seed('personnel', [{ id: 'person-2', organization_id: ctx.auth.orgId, group_id: null }]);
 		const notes = testLeaderNoteContext(ctx);
 		await expect(listPersonnelLeaderNotes(notes, 'missing-person')).rejects.toMatchObject({ status: 404 });
 		const created = await createPersonnelLeaderNote(notes, { personnelId: 'person-1', text: 'Observation' });
 		await expect(
 			archivePersonnelLeaderNote(notes, { personnelId: 'missing-person', noteId: created.id })
+		).rejects.toMatchObject({ status: 404 });
+		await expect(
+			archivePersonnelLeaderNote(notes, { personnelId: 'person-2', noteId: created.id })
 		).rejects.toMatchObject({ status: 404 });
 		await expect(
 			deletePersonnelLeaderNote(notes, { personnelId: 'person-1', noteId: created.id })

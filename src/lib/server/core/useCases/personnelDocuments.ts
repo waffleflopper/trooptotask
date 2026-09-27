@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { PersonnelDocument } from '$features/personnel/personnel-detail.types';
+import type { PersonnelArtifactWriter } from '$features/personnel/contracts';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
@@ -11,7 +12,7 @@ import {
 	loadPersonnelContributorLabels,
 	mapDocumentRow,
 	PERSONNEL_DOCUMENT_SPEC,
-	requirePersonnelArtifactAccess,
+	personnelArtifactWriter,
 	requirePersonnelArtifactReadAccess,
 	restoreArtifact,
 	type PersonnelDocumentRow
@@ -109,20 +110,14 @@ async function loadDocumentStorageCapBytes(ctx: UseCaseContext): Promise<number>
 	return settings?.personnel_document_storage_cap_bytes ?? DEFAULT_PERSONNEL_DOCUMENT_STORAGE_CAP_BYTES;
 }
 
-async function sumPersonnelDocumentBytes(ctx: UseCaseContext, personnelId: string): Promise<number> {
-	const rows = await ctx.store.findMany<Pick<PersonnelDocumentRow, 'file_size_bytes'>>(
-		'personnel_documents',
-		ctx.auth.orgId,
-		{ personnel_id: personnelId },
-		{ select: 'file_size_bytes', isNull: { archived_at: true } }
-	);
-	return rows.reduce((total, row) => total + (row.file_size_bytes ?? 0), 0);
-}
-
-async function assertStorageCap(ctx: UseCaseContext, personnelId: string, nextBytes: number): Promise<void> {
+async function assertStorageCap(
+	ctx: UseCaseContext,
+	writer: PersonnelArtifactWriter,
+	nextBytes: number
+): Promise<void> {
 	const [capBytes, currentBytes] = await Promise.all([
 		loadDocumentStorageCapBytes(ctx),
-		sumPersonnelDocumentBytes(ctx, personnelId)
+		writer.sumActiveDocumentBytes()
 	]);
 	if (currentBytes + nextBytes > capBytes) {
 		fail(409, 'This Soldier has reached the document storage cap.');
@@ -149,17 +144,16 @@ export async function createPersonnelDocument(
 	await assertAcceptedDocumentFile(rawInput.file);
 
 	const input = parsed.data;
-	await requirePersonnelArtifactAccess(ctx, input.personnelId);
-	await assertStorageCap(ctx, input.personnelId, rawInput.file.size);
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
+	await assertStorageCap(ctx, writer, rawInput.file.size);
 
 	const filename = safeFilename(rawInput.file.name);
 	const filePath = `${ctx.auth.orgId}/personnel/${input.personnelId}/documents/${crypto.randomUUID()}-${filename}`;
-	await ctx.storage.upload(PERSONNEL_DOCUMENTS_BUCKET, filePath, rawInput.file);
+	await writer.uploadFile('document', filePath, rawInput.file);
 
 	let row: PersonnelDocumentRow;
 	try {
-		row = await ctx.store.insert<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
-			personnel_id: input.personnelId,
+		row = await writer.insert<PersonnelDocumentRow>('personnel_documents', {
 			title: derivePersonnelDocumentTitle({ title: input.title, filename: rawInput.file.name }),
 			file_path: filePath,
 			file_size_bytes: rawInput.file.size,
@@ -168,7 +162,7 @@ export async function createPersonnelDocument(
 			created_at: new Date().toISOString()
 		});
 	} catch (error) {
-		await ctx.storage.remove(PERSONNEL_DOCUMENTS_BUCKET, [filePath]);
+		await writer.removeFile('document', filePath);
 		throw error;
 	}
 
@@ -221,8 +215,8 @@ export async function deletePersonnelDocument(
 		PERSONNEL_DOCUMENT_SPEC,
 		{ personnelId: input.personnelId, id: input.documentId },
 		{
-			onDeleted: async (row) => {
-				await ctx.storage.remove(PERSONNEL_DOCUMENTS_BUCKET, [row.file_path]);
+			onDeleted: async (row, writer) => {
+				await writer.removeFile('document', row.file_path);
 			}
 		}
 	);

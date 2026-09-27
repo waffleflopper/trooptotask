@@ -2,9 +2,10 @@ import { availabilityStore } from './stores/availability.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 import { specialDaysStore } from './stores/specialDays.svelte';
 import { statusTypesStore } from './stores/statusTypes.svelte';
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { groupCatalogHydration } from '$features/personnel';
+import type { Group } from '$features/personnel/contracts';
+import { pinnedGroupsHydration } from '$features/personnel';
+import { personnelRosterHydration } from '$features/personnel';
 import { mergeById } from '$lib/utils/mergeById';
 import {
 	createFeatureLaneWorkspaceHydrator,
@@ -52,13 +53,13 @@ export interface CalendarWorkspaceHydrator {
 }
 
 const defaultCalendarHydrationStores: CalendarHydrationStores = {
-	personnelStore: rosterStore,
-	groupsStore,
+	personnelStore: personnelRosterHydration,
+	groupsStore: groupCatalogHydration,
 	statusTypesStore,
 	availabilityEntriesStore: availabilityStore,
 	specialDaysStore,
 	calendarAssignmentsStore: dailyAssignmentsStore,
-	pinnedGroupsStore
+	pinnedGroupsStore: pinnedGroupsHydration
 };
 
 function hasStringId(value: unknown): value is { id: string } {

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { DataStore } from '../ports';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
 import { buildOrganizationDataExportWorkbook } from './organizationExportWorkbook';
 import {
 	loadOrganizationExportPayload,
@@ -33,8 +35,8 @@ describe('organization export inventory', () => {
 			}
 		} as Pick<DataStore, 'findMany'> as DataStore;
 
-		const payload = await loadOrganizationExportPayload(store, 'org-1', {
-			exportRows: (orgId) => store.findMany('leader_notes', orgId)
+		const payload = await loadOrganizationExportPayload(store, createTestAuthContext({ orgId: 'org-1' }), {
+			listRows: (actor, table) => store.findMany(table, actor.orgId)
 		});
 
 		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
@@ -161,30 +163,46 @@ describe('retained Organization export projection', () => {
 				{ id: 'person-1', organization_id: 'org-1', first_name: 'Alex', last_name: 'Example', clinic_role: 'Therapist' }
 			]
 		};
+		const fetchRows = async (input: RequestInfo | URL, denySensitive: boolean) => {
+			const url = new URL(String(input));
+			const table = url.pathname.split('/').at(-1)!;
+			if (
+				denySensitive &&
+				[
+					'personnel_extended_info',
+					'counseling_records',
+					'leader_notes',
+					'personnel_follow_ups',
+					'personnel_documents'
+				].includes(table)
+			)
+				return Response.json({ message: 'Direct sensitive read denied' }, { status: 403 });
+			if (commercialTables.has(table) || /^(duty_|advanced_duty_)/.test(table))
+				return Response.json({ message: 'Retired storage is unavailable' }, { status: 404 });
+			const scopeColumn = table === 'organizations' ? 'id' : 'organization_id';
+			const scope = url.searchParams.get(scopeColumn)?.replace(/^eq\./, '');
+			const rows = (providerRows[table] ?? []).filter((row) => row[scopeColumn] === scope);
+			const selection = url.searchParams.get('select');
+			if (!selection || selection === '*') return Response.json(rows);
+			const columns = selection.split(',');
+			if (rows.some((row) => columns.some((column) => !(column in row))))
+				return Response.json({ message: 'Unknown column' }, { status: 400 });
+			return Response.json(rows.map((row) => Object.fromEntries(columns.map((column) => [column, row[column]]))));
+		};
 		const client = createClient('http://export-provider.test', 'synthetic-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
-			global: {
-				fetch: async (input) => {
-					const url = new URL(String(input));
-					const table = url.pathname.split('/').at(-1)!;
-					if (commercialTables.has(table) || /^(duty_|advanced_duty_)/.test(table))
-						return Response.json({ message: 'Retired storage is unavailable' }, { status: 404 });
-					const scopeColumn = table === 'organizations' ? 'id' : 'organization_id';
-					const scope = url.searchParams.get(scopeColumn)?.replace(/^eq\./, '');
-					const rows = (providerRows[table] ?? []).filter((row) => row[scopeColumn] === scope);
-					const selection = url.searchParams.get('select');
-					if (!selection || selection === '*') return Response.json(rows);
-					const columns = selection.split(',');
-					if (rows.some((row) => columns.some((column) => !(column in row))))
-						return Response.json({ message: 'Unknown column' }, { status: 400 });
-					return Response.json(rows.map((row) => Object.fromEntries(columns.map((column) => [column, row[column]]))));
-				}
-			}
+			global: { fetch: (input) => fetchRows(input, true) }
+		});
+		const adminClient = createClient('http://export-provider.test', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: { fetch: (input) => fetchRows(input, false) }
 		});
 		const store = createSupabaseDataStore(client);
-		const result = await loadOrganizationExportPayload(store, 'org-1', {
-			exportRows: (orgId) => store.findMany('leader_notes', orgId)
-		});
+		const result = await loadOrganizationExportPayload(
+			store,
+			createTestAuthContext({ orgId: 'org-1' }),
+			createSupabasePersonnelOrganizationExportPort(() => adminClient)
+		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');
 		expect(json.leaderNotes).toEqual([activeNote, archivedNote]);

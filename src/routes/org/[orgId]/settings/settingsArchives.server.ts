@@ -1,6 +1,6 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
+import { loadRosterPersonnel } from '$features/personnel/index.server';
 import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from './settingsPolicyConstraints';
 import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './settingsSectionTypes';
 import type { OrganizationSettingsRow } from './settingsRows.server';
@@ -35,7 +35,7 @@ export async function loadArchivesSettings(
 		),
 		loadRosterPersonnel(ctx, {
 			status: 'archived',
-			orderBy: [{ column: 'archived_at', ascending: false }]
+			order: 'archived-newest'
 		})
 	]);
 

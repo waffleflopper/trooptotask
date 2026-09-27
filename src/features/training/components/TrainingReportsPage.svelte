@@ -8,13 +8,14 @@
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import { createRosterReadModel } from '$features/personnel/contracts';
+	import { rosterStore } from '$features/personnel';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingStatus } from '$features/training/training.types';
 	import type { Personnel } from '$lib/types';
-	import { groupsStore, type Group } from '$lib/stores/groups.svelte';
+	import { groupsStore } from '$features/personnel';
+	import type { Group } from '$features/personnel/contracts';
 	import type { TrainingReportData, TrainingReportDetail } from '$lib/server/core/useCases/trainingReportsQuery';
 	import {
 		buildTrainingReportDetailUrl,

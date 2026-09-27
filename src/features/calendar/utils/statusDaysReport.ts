@@ -1,6 +1,6 @@
 import type { AvailabilityEntry } from '$lib/types';
 import type { Personnel } from '$lib/types';
-import { comparePersonnelByRankThenName } from '$lib/domain/personnelRank';
+import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
 
 export interface StatusDayRow {
 	person: Personnel;

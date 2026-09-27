@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { BUILT_IN_RANK_CATALOG } from '$lib/domain/rankCatalog';
+import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { saveOrganizationRankCatalogEntry } from '$lib/server/core/useCases/rankCatalog';
+import { saveOrganizationRankCatalogEntry } from '$features/personnel/index.server';
 import { buildRanksSettingsData, loadRanksSettings } from './settingsRanks.server';
 
 const NO_CAPABILITIES = {

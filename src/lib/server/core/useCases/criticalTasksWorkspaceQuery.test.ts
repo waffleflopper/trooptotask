@@ -20,7 +20,21 @@ describe('criticalTasksWorkspaceQuery', () => {
 	});
 
 	it('returns settings immediately while leaving workspace lists promise-backed', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({
+			auth: {
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'view',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
 		ctx.store.seed('organizations', [
 			{
 				id: 'test-org',
@@ -34,7 +48,9 @@ describe('criticalTasksWorkspaceQuery', () => {
 				organization_id: 'test-org',
 				name: 'Alpha',
 				sort_order: 0
-			}
+			},
+			{ id: 'group-bravo', organization_id: 'test-org', name: 'Bravo', sort_order: 1 },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -1 }
 		]);
 		ctx.store.seed('personnel', [
 			{
@@ -92,6 +108,11 @@ describe('criticalTasksWorkspaceQuery', () => {
 				created_at: '2026-04-02T12:00:00Z'
 			}
 		]);
+		const requestFindMany = ctx.store.findMany.bind(ctx.store);
+		ctx.store.findMany = ((table, orgId, filters, options) =>
+			table === 'personnel'
+				? Promise.reject(new Error('Personnel SELECT denied for this Critical Tasks-only actor'))
+				: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
 
 		const bootstrap = await fetchCriticalTasksBootstrap(ctx);
 
@@ -116,7 +137,8 @@ describe('criticalTasksWorkspaceQuery', () => {
 				id: 'group-alpha',
 				name: 'Alpha',
 				sortOrder: 0
-			})
+			}),
+			expect.objectContaining({ id: 'group-bravo', name: 'Bravo', sortOrder: 1 })
 		]);
 		await expect(bootstrap.ictTasks).resolves.toEqual([
 			expect.objectContaining({

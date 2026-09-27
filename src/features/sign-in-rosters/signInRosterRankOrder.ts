@@ -1,5 +1,5 @@
-import { compareRankCodes, type RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { observedRankCodesForOptions, rankCodesForOptions } from '$lib/domain/rankOptions';
+import { compareRankCodes, type RankCatalogEntry } from '$features/personnel/contracts';
+import { observedRankCodesForOptions, rankCodesForOptions } from '$features/personnel/contracts';
 
 export interface SignInRosterRankSortRow {
 	rank: string;

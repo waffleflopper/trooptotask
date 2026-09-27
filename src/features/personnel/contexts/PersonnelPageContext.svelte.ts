@@ -1,7 +1,11 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$lib/types';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
+import {
+	createRosterReadModel,
+	type PersonnelGroup,
+	type RosterReadModelView
+} from '$features/personnel/rosterReadModel';
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';

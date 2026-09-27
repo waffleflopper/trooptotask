@@ -9,9 +9,9 @@
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { calculateExpirationDate } from './trainingRecords';
+import { calculateExpirationDate, policyResourcesForTrainingPersonnel } from './trainingRecords';
 import type { WritePorts } from '$lib/server/core/ports';
-import { policyResourcesForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { requireFeaturePolicy } from './featurePolicy';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
@@ -56,7 +56,7 @@ export async function importTrainingRecords(
 	}
 
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
-	const personnelResources = await policyResourcesForPersonnel(ctx, uniquePersonnelIds);
+	const personnelResources = await policyResourcesForTrainingPersonnel(ctx, uniquePersonnelIds);
 	for (const personnelId of uniquePersonnelIds) {
 		await requireFeaturePolicy(
 			ctx,

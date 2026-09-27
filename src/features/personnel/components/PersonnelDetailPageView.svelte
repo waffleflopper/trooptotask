@@ -13,7 +13,7 @@
 		createPersonnelDetailWorkspace,
 		type PersonnelDetailTone
 	} from '$features/personnel/workspace/personnelDetailWorkspace.svelte';
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '$lib/types';
 	import { cn } from '$lib/utils';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';

@@ -6,10 +6,10 @@
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import { Toggle } from '$lib/components/ui/toggle';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
+	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { rosterStore } from '$lib/stores/roster.svelte';
-	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { rosterStore } from '$features/personnel';
+	import { groupsStore } from '$features/personnel';
 	import IctCompletionBulkImport from '$features/critical-tasks/components/IctCompletionBulkImport.svelte';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';

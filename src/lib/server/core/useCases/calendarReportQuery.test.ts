@@ -55,7 +55,7 @@ function seedData(store: ReturnType<typeof createInMemoryDataStore>) {
 }
 
 describe('fetchCalendarReportData', () => {
-	it('returns allPersonnel (unscoped, no archived), statusTypes, and groups', async () => {
+	it('returns Organization-wide active Personnel, status types, and groups', async () => {
 		const ctx = buildCtx();
 		seedData(ctx.store);
 
@@ -76,16 +76,6 @@ describe('fetchCalendarReportData', () => {
 		const result = await fetchCalendarReportData(ctx);
 
 		expect(result.allPersonnel.find((p) => p.id === 'p-archived')).toBeUndefined();
-	});
-
-	it('uses rawStore (unscoped) for personnel', async () => {
-		const ctx = buildCtx();
-		// Only seed into rawStore to confirm it reads from there
-		seedData(ctx.rawStore as ReturnType<typeof createInMemoryDataStore>);
-
-		const result = await fetchCalendarReportData(ctx);
-
-		expect(result.allPersonnel).toHaveLength(2);
 	});
 
 	it('requires Calendar view capability through a report policy decision', async () => {
@@ -138,5 +128,29 @@ describe('fetchCalendarReportData', () => {
 
 		expect(result.allPersonnel.map((person) => person.id)).toEqual(['p1']);
 		expect(result.groups.map((group) => group.id)).toEqual(['g1']);
+	});
+
+	it('returns no report Groups or Personnel for an empty Group scope', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedData(ctx.store);
+
+		const result = await fetchCalendarReportData(ctx);
+
+		expect(result.groups).toEqual([]);
+		expect(result.allPersonnel).toEqual([]);
 	});
 });

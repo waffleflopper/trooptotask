@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { personnelStore } from './personnel.svelte';
+import { personnelRosterHydration, personnelStore, rosterStore } from './personnel.svelte';
 import type { Personnel } from '$lib/types';
 
 const mockPersonnel: Personnel[] = [
@@ -63,6 +63,7 @@ describe('personnelStore', () => {
 			personnelStore.addBatchResults([newPerson]);
 			expect(personnelStore.items).toHaveLength(4);
 			expect(personnelStore.getById('4')?.lastName).toBe('Person');
+			expect(rosterStore.readModel().full().getById('4')?.lastName).toBe('Person');
 		});
 	});
 
@@ -91,5 +92,26 @@ describe('personnelStore', () => {
 			expect(view.personnel.map((person) => person.id)).toEqual(['3']);
 			expect(view.personnelByGroup.map((group) => group.group)).toEqual(['Bravo']);
 		});
+	});
+
+	it('replaces the public roster when hydration switches Organizations', () => {
+		expect(
+			rosterStore
+				.readModel()
+				.full({ status: 'active' })
+				.personnel.map((person) => person.id)
+				.sort()
+		).toEqual(['1', '2', '3']);
+
+		personnelRosterHydration.load([{ ...mockPersonnel[0], id: 'other-org-person' }], 'org-2');
+
+		expect(rosterStore.orgId).toBe('org-2');
+		expect(
+			rosterStore
+				.readModel()
+				.full({ status: 'active' })
+				.personnel.map((person) => person.id)
+		).toEqual(['other-org-person']);
+		expect(rosterStore.items.some((person) => person.id === '1')).toBe(false);
 	});
 });

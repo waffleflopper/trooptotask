@@ -4,7 +4,21 @@ import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery'
 
 describe('fetchCriticalTasksPersonnelHistory', () => {
 	it('returns completion history with archived ICT task metadata intact', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'view',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
 		ctx.store.seed('personnel', [
 			{
 				id: 'p-1',
@@ -14,7 +28,7 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 				last_name: 'Smith',
 				mos: '68W',
 				clinic_role: 'Medic',
-				group_id: null,
+				group_id: 'group-a',
 				archived_at: null
 			}
 		]);
@@ -70,6 +84,11 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 				created_at: '2026-04-02T12:00:00Z'
 			}
 		]);
+		const requestFindOne = ctx.store.findOne.bind(ctx.store);
+		ctx.store.findOne = ((table, orgId, filters, select) =>
+			table === 'personnel'
+				? Promise.reject(new Error('Personnel SELECT denied for this Critical Tasks-only actor'))
+				: requestFindOne(table, orgId, filters, select)) as typeof ctx.store.findOne;
 
 		const result = await fetchCriticalTasksPersonnelHistory(ctx, 'p-1');
 

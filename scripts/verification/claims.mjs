@@ -2,11 +2,27 @@ import { randomUUID } from 'node:crypto';
 import { checked, provider } from './fixtures.mjs';
 import { Blocked, sleep } from './core.mjs';
 
+const calendarClaimNames = [
+	'calendar-availability-lifecycle',
+	'calendar-availability-bulk',
+	'calendar-availability-scope',
+	'calendar-status-type-lifecycle',
+	'calendar-assignment-type-lifecycle',
+	'calendar-special-day-lifecycle',
+	'calendar-catalog-authorization',
+	'calendar-availability-consumers',
+	'calendar-state-isolation'
+];
+// The owned browser lives across prove calls. Reuse each normally signed-in
+// actor context so the complete claim set stays within ordinary login limits.
+const actorPages = new Map();
+
 export const claimNames = [
 	'group-persistence',
 	'group-authorization',
 	'personnel-scope',
-	'personnel-organization-scope'
+	'personnel-organization-scope',
+	...calendarClaimNames
 ];
 class ClaimFailure extends Error {}
 export const textContent = (result) =>
@@ -40,13 +56,33 @@ export function driver(call, state, fixture) {
 			throw new Blocked('MCP_FORMAT', 'DevTools evaluation response format changed; inspect native tool output.');
 		return JSON.parse(block[1]);
 	}
-	async function login(role) {
+	async function login(role, options = {}) {
 		const actor = fixture.actors[role];
-		if (!actor) throw new Blocked('FIXTURE', 'Choose manager, viewer, scoped, or foreign.');
+		if (!actor) throw new Blocked('FIXTURE', `Unknown synthetic actor ${role}.`);
+		const orgId =
+			fixture.calendarActors?.[role]?.organization === 'orgB' || role === 'foreign'
+				? fixture.ids.orgB
+				: fixture.ids.orgA;
+		const destination = options.path ?? 'personnel';
+		const target = `/org/${orgId}/${destination}`;
+		const cacheKey = `${state.origin}:${role}`;
+		const existing = actorPages.get(cacheKey);
+		if (existing) {
+			pageId = existing.pageId;
+			if (existing.path !== target) {
+				await tool('navigate_page', { type: 'url', url: `${state.origin}${target}` });
+				existing.path = target;
+				await tool('wait_for', {
+					text: options.readyText ?? ['Able, Synthetic', 'Foreign, Synthetic'],
+					timeout: 20000
+				});
+			}
+			return { pageId, role, origin: state.origin, orgId };
+		}
 		// A new isolated browser context uses normal password sign-in, never injected cookies.
 		const result = textContent(
 			await call('new_page', {
-				url: `${state.origin}/auth/login?next=/org/${role === 'foreign' ? fixture.ids.orgB : fixture.ids.orgA}/personnel`,
+				url: `${state.origin}/auth/login?next=${target}`,
 				isolatedContext: `verify-${role}-${randomUUID()}`
 			})
 		);
@@ -61,10 +97,27 @@ export function driver(call, state, fixture) {
 		await tool('fill', { uid: await uid('textbox', 'Email Address'), value: actor.email });
 		await tool('fill', { uid: await uid('textbox', 'Password'), value: actor.password });
 		await tool('click', { uid: await uid('button', 'Sign In') });
-		await tool('wait_for', { text: ['Able, Synthetic', 'Foreign, Synthetic'], timeout: 20000 });
-		return { pageId, role, origin: state.origin };
+		await tool('wait_for', { text: options.readyText ?? ['Able, Synthetic', 'Foreign, Synthetic'], timeout: 20000 });
+		actorPages.set(cacheKey, { pageId, path: target });
+		return { pageId, role, origin: state.origin, orgId };
 	}
-	return { tool, snapshot, uid, evaluate, login };
+	async function navigate(path, readyText) {
+		await tool('navigate_page', { type: 'url', url: `${state.origin}${path}` });
+		for (const actor of actorPages.values()) if (actor.pageId === pageId) actor.path = path;
+		if (readyText) await tool('wait_for', { text: readyText, timeout: 20000 });
+		return snapshot();
+	}
+	async function request(method, path, body) {
+		return evaluate(`async () => {
+			const response = await fetch(${JSON.stringify(path)}, {
+				method: ${JSON.stringify(method)},
+				headers: { 'Content-Type': 'application/json' },
+				${body === undefined ? '' : `body: JSON.stringify(${JSON.stringify(body)})`}
+			});
+			return { status: response.status, body: await response.text() };
+		}`);
+	}
+	return { tool, snapshot, uid, evaluate, login, navigate, request };
 }
 
 export async function prove(claim, session, state, fixture, call) {
@@ -75,6 +128,10 @@ export async function prove(claim, session, state, fixture, call) {
 		);
 	const drive = driver(call, state, fixture);
 	const service = await provider(session);
+	if (calendarClaimNames.includes(claim)) {
+		const { proveCalendarClaim } = await import('./calendar-claims.mjs');
+		return proveCalendarClaim(claim, { drive, service, fixture });
+	}
 	const observations = [];
 	const role = claim === 'group-persistence' ? 'manager' : claim === 'personnel-scope' ? 'scoped' : 'viewer';
 	const scope = { role, organizationId: fixture.ids.orgA, groupIds: role === 'scoped' ? [fixture.ids.groupA] : null };

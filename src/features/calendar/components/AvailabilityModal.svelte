@@ -185,7 +185,8 @@
 				: await onAdd(newData);
 			if (!savedEntry) throw new Error('Could not confirm saved status');
 			if (!active) return;
-			localEntries = localEntries.filter((entry) => entry.id !== temporaryId);
+			// The bound store may have supplied this saved row before the callback resolved.
+			localEntries = localEntries.filter((entry) => entry.id !== temporaryId && entry.id !== savedEntry.id);
 			if (dateStr >= savedEntry.startDate && dateStr <= savedEntry.endDate) {
 				localEntries = [...localEntries, savedEntry];
 			}

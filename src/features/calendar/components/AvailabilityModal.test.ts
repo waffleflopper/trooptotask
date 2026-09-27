@@ -257,6 +257,29 @@ describe('AvailabilityModal — saved status feedback', () => {
 		expect(onRemove).not.toHaveBeenCalled();
 	});
 
+	it('shows one saved status when the bound entries refresh before an edit returns', async () => {
+		const savedEntry = { ...existingEntry, note: 'Saved edit' };
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		let resolveUpdate!: (entry: AvailabilityEntry) => void;
+		const onUpdate = vi.fn(() => new Promise<AvailabilityEntry>((resolve) => (resolveUpdate = resolve)));
+		const view = renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			existingEntries: [existingEntry],
+			onUpdate
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.input(screen.getByLabelText('Note'), { target: { value: savedEntry.note } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+		await waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
+		await view.rerender({ existingEntries: [savedEntry] });
+		resolveUpdate(savedEntry);
+
+		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000));
+		expect(screen.getAllByRole('button', { name: 'Edit status' })).toHaveLength(1);
+		expect(screen.getByText('Saved edit')).toBeTruthy();
+	});
+
 	it('does not publish edit feedback after closing while the single update is pending', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');

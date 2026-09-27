@@ -1,15 +1,18 @@
 // Calendar feature barrel export
 
 // Types
-export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
-export { DEFAULT_STATUS_TYPES } from '$lib/types';
+export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType } from './contracts';
+export type { DailyAssignment } from '$lib/types';
 
-// Stores
-export { availabilityStore } from './stores/availability.svelte';
-export { calendarStore } from './stores/calendar.svelte';
-export { specialDaysStore } from './stores/specialDays.svelte';
-export { statusTypesStore } from './stores/statusTypes.svelte';
-export { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
+// Web reads and workspace hydration for other features
+export {
+	calendarStatusSource,
+	calendarAvailabilitySource,
+	calendarAssignmentsSource,
+	calendarStatusHydration,
+	calendarAvailabilityHydration,
+	calendarAssignmentsHydration
+} from './webSources.svelte';
 
 // Utils
 export { getDefaultFederalHolidays } from './utils/federalHolidays';

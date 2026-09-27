@@ -9,7 +9,7 @@ import {
 } from '$lib/export/workbook';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { AvailabilityEntry } from '$lib/types';
+import type { PersonnelAvailabilityPeriod } from '$features/personnel/contracts';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 import { listGroupCatalog } from '$features/personnel/index.server';
@@ -29,7 +29,7 @@ export async function exportPersonnelWorkbook(
 	listAvailabilityHistory: (
 		ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
 		personnelId: string
-	) => Promise<AvailabilityEntry[]>,
+	) => Promise<PersonnelAvailabilityPeriod[]>,
 	listStatusTypeLabels: (
 		store: UseCaseContext['rawStore'],
 		orgId: string

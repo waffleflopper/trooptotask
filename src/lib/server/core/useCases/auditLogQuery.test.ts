@@ -1,6 +1,36 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { fetchAuditLogPreview, fetchAuditLogs } from './auditLogQuery';
+import {
+	fetchAuditLogPreview as queryAuditLogPreview,
+	fetchAuditLogs as queryAuditLogs,
+	type AuditLogPreviewInput,
+	type AuditLogQueryInput,
+	type AuditStatusTypeNameResolver
+} from './auditLogQuery';
+
+const resolveStatusTypeNames: AuditStatusTypeNameResolver = async (store, orgId, ids) => {
+	if (ids.length === 0) return new Map();
+	const rows = await store.findMany<{ id: string; name: string }>('status_types', orgId, undefined, {
+		inFilters: { id: ids }
+	});
+	return new Map(rows.map(({ id, name }) => [id, name]));
+};
+
+function fetchAuditLogs(
+	ctx: Parameters<typeof queryAuditLogs>[0],
+	store: Parameters<typeof queryAuditLogs>[1],
+	input: AuditLogQueryInput
+) {
+	return queryAuditLogs(ctx, store, input, resolveStatusTypeNames);
+}
+
+function fetchAuditLogPreview(
+	ctx: Parameters<typeof queryAuditLogPreview>[0],
+	store: Parameters<typeof queryAuditLogPreview>[1],
+	input: AuditLogPreviewInput
+) {
+	return queryAuditLogPreview(ctx, store, input, resolveStatusTypeNames);
+}
 
 const ORG = 'test-org';
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import { createPersonnelWorkspaceHydrator, type PersonnelHydrationStores } from './personnelWorkspaceHydration.svelte';
 import type { PersonnelWorkspaceHydration } from './server/personnelWorkspaceBootstrap';
 
@@ -62,7 +63,7 @@ function createStores() {
 	return {
 		personnelStore: createLoadable<Personnel>(),
 		groupsStore: createLoadable<Group>(),
-		statusTypesStore: createLoadable<StatusType>(),
+		statusTypesStore: createLoadable<PersonnelCalendarStatusSnapshot>(),
 		pinnedGroupsStore: createPinnedGroupsLoadable()
 	} satisfies PersonnelHydrationStores;
 }
@@ -72,7 +73,7 @@ describe('Personnel workspace hydration adapter', () => {
 		const stores = createStores();
 		const person = { id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel;
 		const group = { id: 'g1', name: 'Alpha', sortOrder: 0 } as Group;
-		const statusType = { id: 'st1', name: 'Leave' } as StatusType;
+		const statusType = { id: 'st1', name: 'Leave' } as PersonnelCalendarStatusSnapshot;
 		const deferredPersonnel = deferred<Personnel[]>();
 		const hydration: PersonnelWorkspaceHydration = {
 			orgId: 'org-1',

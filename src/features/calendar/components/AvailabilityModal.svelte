@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
+	import type { Personnel } from '$lib/types';
+	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';

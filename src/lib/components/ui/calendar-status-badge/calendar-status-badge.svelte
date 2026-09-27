@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
 	import { Badge } from '$lib/components/ui/badge/index.js';
-	import type { StatusType } from '$lib/types';
+	import type { StatusType } from '$features/calendar/contracts';
 	import { cn, type WithElementRef } from '$lib/utils.js';
 
 	export type CalendarBadgeStatusType = Pick<StatusType, 'id' | 'name' | 'color' | 'textColor'>;

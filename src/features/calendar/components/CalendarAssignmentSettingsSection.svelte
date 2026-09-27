@@ -9,7 +9,7 @@
 	import { NativeSelect } from '$lib/components/ui/native-select';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import type { AssignmentType } from '$lib/types';
+	import type { AssignmentType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 

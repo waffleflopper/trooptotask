@@ -24,6 +24,12 @@ interface ActivationCountRow {
 	organization_id: string;
 }
 
+type CalendarCatalogTable = 'status_types' | 'assignment_types';
+type PlatformCalendarCatalogCounter = (
+	organizationIds: string[],
+	countRows: (table: CalendarCatalogTable, organizationIds: string[]) => Promise<Map<string, number>>
+) => Promise<{ statusTypes: Map<string, number>; assignmentTypes: Map<string, number> }>;
+
 type RpcCountRow<T extends string> = {
 	organization_id: string;
 } & Record<T, number | string | null>;
@@ -123,7 +129,10 @@ function applyCounts(
 	}
 }
 
-export function createSupabasePlatformActivationHealthStore(supabase: SupabaseClient): PlatformActivationHealthStore {
+export function createSupabasePlatformActivationHealthStore(
+	supabase: SupabaseClient,
+	countCalendarCatalogs: PlatformCalendarCatalogCounter
+): PlatformActivationHealthStore {
 	return {
 		async listActivationOrganizationFacts(input): Promise<PlatformActivationOrganizationFacts[]> {
 			const response = (await supabase
@@ -149,8 +158,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				activePersonnelCounts,
 				memberCounts,
 				leaderMemberCounts,
-				statusTypeCounts,
-				assignmentTypeCounts,
+				calendarCatalogCounts,
 				onboardingTemplateStepCounts,
 				trainingTypeCounts,
 				ratingSchemeEntryCounts
@@ -158,8 +166,7 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 				countRowsByExistingRpc(supabase, 'count_personnel_by_organization', 'personnel_count', organizationIds),
 				countRowsByExistingRpc(supabase, 'count_memberships_by_organization', 'membership_count', organizationIds),
 				countRowsByOrganization(supabase, 'organization_memberships', organizationIds, { roles: ['owner', 'admin'] }),
-				countRowsByOrganization(supabase, 'status_types', organizationIds),
-				countRowsByOrganization(supabase, 'assignment_types', organizationIds),
+				countCalendarCatalogs(organizationIds, (table, ids) => countRowsByOrganization(supabase, table, ids)),
 				countRowsByOrganization(supabase, 'onboarding_template_steps', organizationIds),
 				countRowsByOrganization(supabase, 'training_types', organizationIds),
 				countRowsByOrganization(supabase, 'rating_scheme_entries', organizationIds)
@@ -168,8 +175,8 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 			applyCounts(factsByOrgId, activePersonnelCounts, 'activePersonnel');
 			applyCounts(factsByOrgId, memberCounts, 'members');
 			applyCounts(factsByOrgId, leaderMemberCounts, 'leaderMembers');
-			applyCounts(factsByOrgId, statusTypeCounts, 'statusTypes');
-			applyCounts(factsByOrgId, assignmentTypeCounts, 'assignmentTypes');
+			applyCounts(factsByOrgId, calendarCatalogCounts.statusTypes, 'statusTypes');
+			applyCounts(factsByOrgId, calendarCatalogCounts.assignmentTypes, 'assignmentTypes');
 			applyCounts(factsByOrgId, onboardingTemplateStepCounts, 'onboardingTemplateSteps');
 			applyCounts(factsByOrgId, trainingTypeCounts, 'trainingTypes');
 			applyCounts(factsByOrgId, ratingSchemeEntryCounts, 'ratingSchemeEntries');
@@ -179,8 +186,11 @@ export function createSupabasePlatformActivationHealthStore(supabase: SupabaseCl
 	};
 }
 
-export function createSupabasePlatformActivationHealth(ctx: AdminContext): PlatformActivationHealth {
+export function createSupabasePlatformActivationHealth(
+	ctx: AdminContext,
+	countCalendarCatalogs: PlatformCalendarCatalogCounter
+): PlatformActivationHealth {
 	return createPlatformActivationHealth({
-		store: createSupabasePlatformActivationHealthStore(ctx.adminClient)
+		store: createSupabasePlatformActivationHealthStore(ctx.adminClient, countCalendarCatalogs)
 	});
 }

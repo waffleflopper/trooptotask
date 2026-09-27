@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SpecialDayEntity } from './specialDayEntity.server';
-import type { SpecialDay } from '$lib/types';
+import type { SpecialDay } from '$features/calendar/contracts';
 
 describe('SpecialDayEntity', () => {
 	it('fromDb produces correct SpecialDay shape', () => {

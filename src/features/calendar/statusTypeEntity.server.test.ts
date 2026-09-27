@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { StatusTypeEntity } from './statusTypeEntity.server';
-import type { StatusType } from '$lib/types';
+import type { StatusType } from '$features/calendar/contracts';
 
 describe('StatusTypeEntity', () => {
 	it('fromDb produces correct StatusType shape (snake_case → camelCase)', () => {

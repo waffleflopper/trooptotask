@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { StatusType } from '$features/calendar/contracts';
 import StatusDaysSummary from './StatusDaysSummary.svelte';
 import PersonnelTempo from './PersonnelTempo.svelte';
 import GroupReadiness from './GroupReadiness.svelte';

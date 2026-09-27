@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { AssignmentType, SpecialDay, StatusType } from '$lib/types';
+import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
 
 const { orgContextMock, statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, specialDaysStoreMock } =
 	vi.hoisted(() => ({

@@ -1,4 +1,4 @@
-import type { AssignmentType, StatusType } from '$lib/types';
+import type { AssignmentType, StatusType } from '$features/calendar/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type WorkbookRow } from '$lib/export/workbook';
 import type {
 	AssignmentCoverageResult,

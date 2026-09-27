@@ -1,4 +1,4 @@
-import type { AvailabilityEntry } from '$lib/types';
+import type { AvailabilityEntry } from '$features/calendar/contracts';
 import type { Personnel } from '$lib/types';
 import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
 

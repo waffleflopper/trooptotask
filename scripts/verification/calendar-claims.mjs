@@ -1331,21 +1331,46 @@ async function checkAvailabilityConsumers(ctx) {
 		'Long-range view renders the seeded statuses and closure',
 		longSeptember
 	);
+	const waitForLongRange = async (label, expectedLeave) => {
+		let view;
+		for (let attempt = 0; attempt < 50; attempt++) {
+			view = await drive.evaluate(`() => {
+				const text = document.body.innerText;
+				return {
+					label: document.querySelector('[data-testid="long-range-date-label"]')?.textContent,
+					leave: [...document.querySelectorAll('.status-cell[title]')].filter(cell => cell.title === 'Verification Leave').length,
+					loading: text.includes('Loading additional calendar dates...'),
+					error: text.includes('Additional calendar data is temporarily unavailable.'),
+					retry: text.includes('Retry calendar load')
+				};
+			}`);
+			if (view.label?.trim() === label && expectedLeave(view.leave) && !view.loading && !view.error && !view.retry)
+				return view;
+			if (view.label?.trim() === label && (view.error || view.retry)) break;
+			await sleep(100);
+		}
+		const network = await drive.tool('list_network_requests', { resourceTypes: ['fetch', 'xhr'] });
+		const source = network.content?.map((item) => item.text ?? '').join('\n') ?? '';
+		const statuses = [...source.matchAll(/GET [^\n]*\/api\/calendar-range\?[^\n]* \[(\d{3})\]/g)];
+		view.rangeStatus = Number(statuses.at(-1)?.[1]) || null;
+		if (view.loading || view.error || view.retry || view.rangeStatus === 429)
+			throw new Blocked('RANGE_LOAD', `${label} Calendar range did not settle: ${JSON.stringify(view)}`);
+		return view;
+	};
 	for (let index = 0; index < 2; index++) await clickButton('Prev 3 Months');
-	const historicalView = await drive.evaluate(`() => ({
-		label: document.querySelector('[data-testid="long-range-date-label"]')?.textContent,
-		historical: [...document.querySelectorAll('.status-cell[title]')].filter(cell => cell.title === 'Verification Leave').length
-	})`);
+	const historicalView = await waitForLongRange('March 2026 – May 2026', (leave) => leave === 1);
 	check(
-		historicalView.label?.includes('March 2026') && historicalView.historical === 1,
+		historicalView.label?.trim() === 'March 2026 – May 2026' && historicalView.leave === 1,
 		'Moving to the historical quarter renders the single retained March leave day',
 		historicalView
 	);
 	for (let index = 0; index < 2; index++) await clickButton('Next 3 Months');
-	const returnedView = await drive.evaluate(
-		`() => [...document.querySelectorAll('.status-cell[title]')].filter(cell => cell.title === 'Verification Leave').length >= 3`
+	const returnedView = await waitForLongRange('September 2026 – November 2026', (leave) => leave >= 3);
+	check(
+		returnedView.label?.trim() === 'September 2026 – November 2026' && returnedView.leave >= 3,
+		'Moving back to September restores the same saved availability',
+		returnedView
 	);
-	check(returnedView, 'Moving back to September restores the same saved availability');
 	const dashboard = await open(`${orgPath(f)}`, ['Dashboard', 'Overview']);
 	check(
 		dashboard.includes('Verification Training') &&

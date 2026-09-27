@@ -240,3 +240,23 @@ ROLLBACK;
 ```
 
 A nonzero count needs a separately reviewed, row-specific disposition before historical validation; do not infer that any completion may be deleted or reassigned. Adding the unique `(organization_id, id)` key on `ict_tasks` takes an `ACCESS EXCLUSIVE` lock while PostgreSQL builds its index, and the migration holds that lock through its transaction. Inspect the task-table size and long-running transactions privately, then plan a controlled write window; `NOT VALID` only avoids scanning historical completion rows. Confirm the ordered migration ledger, backup/recovery point, active application compatibility and actual deployment triggers before release. The repository's local proof authorizes no remote query, migration, deployment or merge.
+
+## Phase 08 Calendar catalog and status-reference preflight
+
+The local forward migration `20260926001300_calendar_catalog_scope.sql` requires Calendar `configure` with Organization scope for assignment-type, status-type and special-day writes. It adds a composite Organization/status foreign key to availability while retaining the original status-ID foreign key and its delete cascade. The new constraint is `NOT VALID`: new or changed references are checked, but historical rows are not certified. No hosted catalog or data has been inspected.
+
+Before separately authorized hosted application or later `VALIDATE CONSTRAINT`, the operator should run this **read-only count** privately with a role that can see both complete tables (for example, `BYPASSRLS`). Keep the result outside Git. `row_security = off` fails if RLS would hide rows, so a failed or partially visible count is not a clean preflight:
+
+```sql
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL row_security = off;
+SELECT count(*) AS mismatched_availability_status_references
+FROM public.availability_entries AS availability
+LEFT JOIN public.status_types AS status
+  ON status.id = availability.status_type_id
+ AND status.organization_id = availability.organization_id
+WHERE status.id IS NULL;
+ROLLBACK;
+```
+
+A nonzero count needs a separately reviewed, row-specific disposition before validation; do not infer that a saved availability row or status may be deleted or reassigned. Creating the unique `(organization_id, id)` key on `status_types` takes an `ACCESS EXCLUSIVE` lock while PostgreSQL builds its index, held through the migration transaction. Inspect table size and long-running transactions privately and plan a controlled write window; `NOT VALID` only avoids scanning historical availability. Confirm the ordered migration ledger, backup/recovery point, application/schema compatibility and release triggers. Repository proof permits no remote query, migration, deployment or merge.

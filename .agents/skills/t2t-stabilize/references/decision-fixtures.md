@@ -26,6 +26,7 @@ Use A, except P1 contained `Closes #1352` and the issue is closed. A dependent i
 - CodeRabbit reviewed base B/head H and found one actionable authorization defect and two optional wording suggestions. Independent acceptance identified stale catalog proof. No other consumer omission was found.
 - A repair commit H2 exists locally, unpushed. CI passes H only. CodeRabbit's completed H review remains available; the local runner cannot use `gh pr checks`, but read-only host check runs and Depot results are accessible.
 - The user has authorized publication and fixes, but no review-thread replies/resolution or merge.
+- Run a second variant where `finish-pr` is absent from the runner's catalog and available skill roots; the same Git/host/Depot tools remain available.
 
 ## E — Completed issue
 

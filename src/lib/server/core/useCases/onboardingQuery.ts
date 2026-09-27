@@ -4,16 +4,13 @@ import type {
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/training.types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
 import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { GroupEntity } from '$lib/server/entities/group';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import type { WritePorts } from '$lib/server/core/ports';
-import { requireOnboardingViewPolicy } from './onboardingPolicy';
-import { loadRosterPersonnel } from './rosterReadModel';
+import { requireOnboardingViewPolicy, type OnboardingTrainingPorts } from './onboardingPolicy';
 
 export interface OnboardingBootstrap {
 	onboardingTemplates: OnboardingTemplate[];
@@ -69,7 +66,7 @@ function collectActiveTrainingTypeIds(onboarding: PersonnelOnboarding): string[]
 }
 
 async function readCompletedTrainingTypeIdsByPersonnelId(
-	ctx: WritePorts,
+	ctx: OnboardingTrainingPorts,
 	trainingOnboardings: PersonnelOnboarding[]
 ): Promise<Map<string, Set<string>>> {
 	const personnelIds = [...new Set(trainingOnboardings.map((onboarding) => onboarding.personnelId))];
@@ -81,64 +78,52 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 		return new Map();
 	}
 
-	const trainingRecords = await ctx.store.findMany<{ personnel_id: string; training_type_id: string }>(
-		'personnel_trainings',
-		ctx.auth.orgId,
-		undefined,
-		{ inFilters: { personnel_id: personnelIds, training_type_id: trainingTypeIds } }
-	);
-
-	const completedTrainingTypeIdsByPersonnelId = new Map<string, Set<string>>();
-	for (const record of trainingRecords) {
-		const completedTypeIds = completedTrainingTypeIdsByPersonnelId.get(record.personnel_id) ?? new Set<string>();
-		completedTypeIds.add(record.training_type_id);
-		completedTrainingTypeIdsByPersonnelId.set(record.personnel_id, completedTypeIds);
-	}
-
-	return completedTrainingTypeIdsByPersonnelId;
+	return ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, personnelIds, trainingTypeIds);
 }
 
 export async function fetchOnboardingBootstrap(
-	ctx: WritePorts,
+	ctx: OnboardingTrainingPorts,
 	options: FetchOnboardingBootstrapOptions = {}
 ): Promise<OnboardingBootstrap> {
 	await requireOnboardingViewPolicy(ctx);
 
 	const orgId = ctx.auth.orgId;
-	const onboardingQuery = onboardingQueryFiltersForMode(options.mode ?? 'all');
+	const mode = options.mode ?? 'all';
+	const onboardingQuery = onboardingQueryFiltersForMode(mode);
+	const scopedAllPersonnel =
+		ctx.auth.scopeSet.kind === 'groups' && mode === 'all'
+			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
+			: null;
 
-	const [templateRows, templateStepRows, onboardingRows, personnel, groupRows, trainingTypeRows] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('onboarding_templates', orgId, undefined, {
-			orderBy: [{ column: 'name', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
-			select: PersonnelOnboardingEntity.select,
-			...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
-		}),
-		loadRosterPersonnel(ctx, { status: 'active' }),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		})
-	]);
+	const [templateRows, templateStepRows, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel] =
+		await Promise.all([
+			ctx.store.findMany<Record<string, unknown>>('onboarding_templates', orgId, undefined, {
+				orderBy: [{ column: 'name', ascending: true }]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', orgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
+				select: PersonnelOnboardingEntity.select,
+				...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
+			}),
+			ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
+			listGroupCatalog(ctx),
+			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
+			scopedAllPersonnel
+		]);
 
 	const templates = OnboardingTemplateEntity.fromDbArray(templateRows);
 	const templateSteps = OnboardingTemplateStepEntity.fromDbArray(templateStepRows);
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
-	const groups = GroupEntity.fromDbArray(groupRows);
-	const trainingTypes = TrainingTypeEntity.fromDbArray(trainingTypeRows);
+	const trainingTypes = trainingTypeRows;
 
 	// personnel_onboardings has no group column so the scoped store cannot filter it automatically.
-	// When scoped, query personnel (which the scoped store does filter by group) to get the
-	// personnel ID set, then restrict onboardings to those members.
+	// The Personnel-owned roster applies the actor's Group scope; use its IDs to
+	// restrict onboardings to those members.
 	let onboardings = allOnboardings;
 	if (ctx.auth.scopeSet.kind === 'groups') {
-		const scopedPersonnelIds = new Set(personnel.map((p) => p.id));
+		const scopedPersonnelIds = new Set((scopePersonnel ?? personnel).map((p) => p.id));
 		onboardings = allOnboardings.filter((o) => scopedPersonnelIds.has(o.personnelId));
 	}
 

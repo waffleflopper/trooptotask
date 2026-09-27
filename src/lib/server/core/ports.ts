@@ -1,7 +1,18 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
-import type { Personnel } from '$lib/types';
+import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
+import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
+import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
+import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
+import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
+import type { PersonnelArtifactWritePort } from '$features/personnel/contracts';
+import type { PersonnelGovernanceDeletionPort } from '$features/personnel/contracts';
+import type { PersonnelOrganizationExportPort } from '$features/personnel/contracts';
+import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
+import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
+import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -49,32 +60,6 @@ export interface CriticalTasksReadModelPort {
 		orgId: string,
 		filters?: CriticalTasksReadModelFilters
 	): Promise<CriticalTasksCompletionTrendPoint[]>;
-}
-
-export interface RatingSchemePersonnelLookupRecord {
-	id: string;
-	rank: string;
-	lastName: string;
-	firstName: string;
-}
-
-export interface RatingSchemePersonnelLookupPort {
-	listPersonnelLookup(orgId: string): Promise<RatingSchemePersonnelLookupRecord[]>;
-}
-
-export interface SignInRosterPersonnelLookupRecord {
-	id: string;
-	rank?: string | null;
-	last_name?: string | null;
-	first_name?: string | null;
-	group_id?: string | null;
-	group_name?: string | null;
-	groups?: { name?: string | null } | { name?: string | null }[] | null;
-}
-
-export interface SignInRosterPersonnelLookupPort {
-	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
-	listPersonnelForRosterCandidates(orgId: string, scopeSet: ScopeSet): Promise<Personnel[]>;
 }
 
 /**
@@ -192,6 +177,14 @@ export interface WritePorts {
 	audit: AuditPort;
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	personnelArtifactWrites?: PersonnelArtifactWritePort;
+	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
+	personnelTrainingRoster?: PersonnelTrainingRosterPort;
+	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
+	personnelCalendarRoster?: PersonnelCalendarRosterPort;
+	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
+	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
+	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
 }
 
 /** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
@@ -211,7 +204,14 @@ export interface QueryPorts {
 	store: DataStore;
 	auth: AuthContext;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
-	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
+	personnelTrainingRoster?: PersonnelTrainingRosterPort;
+	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
+	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
+	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
+	personnelCalendarRoster?: PersonnelCalendarRosterPort;
+	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
+	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
+	onboardingCalendarMarkers?: OnboardingCalendarMarkersPort;
 }
 
 /** Query operations needing unscoped access (e.g., shared data) */
@@ -230,8 +230,18 @@ export interface UseCaseContext {
 	storage: StoragePort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
-	ratingSchemePersonnelLookup?: RatingSchemePersonnelLookupPort;
+	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
+	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
+	personnelArtifactWrites?: PersonnelArtifactWritePort;
+	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
+	personnelOrganizationExport?: PersonnelOrganizationExportPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
+	personnelTrainingRoster: PersonnelTrainingRosterPort;
+	personnelCriticalTasksRoster: PersonnelCriticalTasksRosterPort;
+	personnelCalendarRoster: PersonnelCalendarRosterPort;
+	personnelOnboardingRoster: PersonnelOnboardingRosterPort;
+	trainingOnboardingReferences: TrainingOnboardingReferencesPort;
+	onboardingCalendarMarkers: OnboardingCalendarMarkersPort;
 	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
 	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
 	rawStore: DataStore;

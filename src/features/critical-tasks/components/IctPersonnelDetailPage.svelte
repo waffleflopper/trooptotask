@@ -70,12 +70,20 @@
 	const recordCompletionAffordance = $derived(
 		criticalTasksRecordCompletionAffordance(org, criticalTasksPolicyResourceForGroup(history.personnel.groupId))
 	);
-	const canRecordCompletion = $derived(recordCompletionAffordance.allowed);
+	const canRecordCompletion = $derived(!history.personnel.archivedAt && recordCompletionAffordance.allowed);
 	let activeEditorRow = $state<ActiveTaskRow | null>(null);
 	let showTaskInputModal = $state(false);
+	let displayedPersonId: string | null = null;
 	let taskSearch = $state('');
 	let statusFilter = $state<IctStatusFilter>('all');
 	let categoryFilter = $state('all');
+	$effect.pre(() => {
+		const nextPersonId = history.personnel.id;
+		if (displayedPersonId === nextPersonId) return;
+		displayedPersonId = nextPersonId;
+		activeEditorRow = null;
+		showTaskInputModal = false;
+	});
 
 	function compareCompletionRecency(a: PersonnelIctCompletion, b: PersonnelIctCompletion): number {
 		const completedAtDiff = a.completedAt.localeCompare(b.completedAt);
@@ -84,7 +92,10 @@
 	}
 
 	function latestCompletionForTask(taskId: string): PersonnelIctCompletion | undefined {
-		return personnelIctCompletionsStore.items
+		const completions = history.personnel.archivedAt
+			? history.rows.map((row) => row.completion)
+			: personnelIctCompletionsStore.items;
+		return completions
 			.filter((completion) => completion.personnelId === history.personnel.id && completion.ictTaskId === taskId)
 			.sort(compareCompletionRecency)
 			.at(-1);
@@ -132,7 +143,11 @@
 			})
 	);
 
-	const archivedHistoryRows = $derived(history.rows.filter((row) => row.taskArchivedAt !== null || row.task === null));
+	const archivedHistoryRows = $derived(
+		history.personnel.archivedAt
+			? history.rows
+			: history.rows.filter((row) => row.taskArchivedAt !== null || row.task === null)
+	);
 	const currentUserDisplayName = $derived(getCurrentUserDisplayName());
 	const applicableTaskOptions = $derived(activeRows.map((row) => row.task));
 	const canInputTask = $derived(canRecordCompletion && applicableTaskOptions.length > 0);
@@ -363,6 +378,10 @@
 		saveData: Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>,
 		existingId?: string
 	): Promise<void> {
+		if (!canRecordCompletion || saveData.personnelId !== history.personnel.id) {
+			throw new Error('ICT completion editing is unavailable for this person');
+		}
+
 		if (existingId) {
 			const updated = await personnelIctCompletionsStore.update(existingId, saveData);
 			if (!updated) {
@@ -675,7 +694,11 @@
 		<div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 			<div>
 				<h2 id="ict-history-title" class="text-xl font-semibold">Historical Completions</h2>
-				<p class="mt-1 text-sm text-muted-foreground">Archived task records retained for audit context. Read-only.</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					{history.personnel.archivedAt
+						? 'Retained completion records for this archived person. Read-only.'
+						: 'Archived task records retained for audit context. Read-only.'}
+				</p>
 			</div>
 			<span class="font-mono text-xs uppercase tracking-[0.08em] text-muted-foreground"
 				>Audit archive · {archivedHistoryRows.length} records</span
@@ -716,7 +739,9 @@
 					{#if archivedHistoryRows.length === 0}
 						<tr>
 							<td class="px-3 py-10 text-center text-muted-foreground" colspan="6"
-								>No ICT completion history recorded for this person.</td
+								>{history.personnel.archivedAt
+									? 'No completion history recorded for this person.'
+									: 'No archived task completions recorded.'}</td
 							>
 						</tr>
 					{:else}
@@ -778,7 +803,7 @@
 	</footer>
 </main>
 
-{#if activeEditorRow}
+{#if activeEditorRow && canRecordCompletion}
 	<IctCompletionModal
 		person={history.personnel}
 		task={activeEditorRow.task}
@@ -788,7 +813,7 @@
 		onSave={handleCompletionSave}
 		onClose={() => (activeEditorRow = null)}
 	/>
-{:else if showTaskInputModal}
+{:else if showTaskInputModal && canRecordCompletion}
 	<IctCompletionModal
 		person={history.personnel}
 		taskOptions={applicableTaskOptions}

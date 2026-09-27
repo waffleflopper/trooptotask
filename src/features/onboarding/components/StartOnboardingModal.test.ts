@@ -34,10 +34,29 @@ afterEach(async () => {
 });
 
 describe('StartOnboardingModal', () => {
+	it('offers existing members without an Add Person action when Personnel create is denied', () => {
+		render(StartOnboardingModal, {
+			props: {
+				personnel,
+				canAddPerson: false,
+				existingOnboardingPersonnelIds: [],
+				groups: [],
+				templates: [template],
+				onSubmit: vi.fn(),
+				onAddPerson: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+
+		expect(screen.getByRole('button', { name: 'Member' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Add Person' })).toBeNull();
+	});
+
 	it('renders as an accessible app dialog and preserves the disabled template-required state', () => {
 		render(StartOnboardingModal, {
 			props: {
 				personnel,
+				canAddPerson: true,
 				existingOnboardingPersonnelIds: [],
 				groups: [],
 				templates: [template],
@@ -62,6 +81,7 @@ describe('StartOnboardingModal', () => {
 		render(StartOnboardingModal, {
 			props: {
 				personnel,
+				canAddPerson: true,
 				existingOnboardingPersonnelIds: [],
 				groups: [],
 				templates: [template],
@@ -92,6 +112,7 @@ describe('StartOnboardingModal', () => {
 			render(StartOnboardingModal, {
 				props: {
 					personnel,
+					canAddPerson: true,
 					existingOnboardingPersonnelIds: [],
 					groups: [],
 					templates: [template],

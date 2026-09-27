@@ -1,4 +1,4 @@
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import { formatDate, getDayName, isToday, isWeekend } from '$lib/utils/dates';

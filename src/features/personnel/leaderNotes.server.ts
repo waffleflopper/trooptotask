@@ -24,8 +24,8 @@ export interface LeaderNotePersistence {
 	): Promise<LeaderNoteRow[]>;
 	find(personnelId: string, noteId: string): Promise<LeaderNoteRow | null>;
 	insert(input: { personnelId: string; author: string; text: string; createdAt: string }): Promise<LeaderNoteRow>;
-	update(noteId: string, archivedAt: string | null): Promise<LeaderNoteRow>;
-	delete(noteId: string): Promise<void>;
+	update(personnelId: string, noteId: string, archivedAt: string | null): Promise<LeaderNoteRow>;
+	delete(personnelId: string, noteId: string): Promise<void>;
 }
 
 export interface LeaderNoteContext {
@@ -129,7 +129,7 @@ export async function archivePersonnelLeaderNote(
 ): Promise<PersonnelLeaderNote> {
 	const existing = await loadNote(ctx, input.personnelId, input.noteId);
 	if (existing.archived_at) fail(409, 'Leader note is already archived');
-	const row = await ctx.persistence.update(input.noteId, new Date().toISOString());
+	const row = await ctx.persistence.update(input.personnelId, input.noteId, new Date().toISOString());
 	ctx.audit.log({ action: 'personnel.leader_note.archived', resourceType: 'personnel', resourceId: input.personnelId });
 	return (await mapRows(ctx, [row]))[0];
 }
@@ -139,7 +139,7 @@ export async function restorePersonnelLeaderNote(
 	input: { personnelId: string; noteId: string }
 ): Promise<PersonnelLeaderNote> {
 	await loadNote(ctx, input.personnelId, input.noteId);
-	const row = await ctx.persistence.update(input.noteId, null);
+	const row = await ctx.persistence.update(input.personnelId, input.noteId, null);
 	ctx.audit.log({ action: 'personnel.leader_note.restored', resourceType: 'personnel', resourceId: input.personnelId });
 	return (await mapRows(ctx, [row]))[0];
 }
@@ -150,6 +150,6 @@ export async function deletePersonnelLeaderNote(
 ): Promise<void> {
 	const row = await loadNote(ctx, input.personnelId, input.noteId);
 	if (!row.archived_at) fail(409, 'Archive leader notes before deleting them');
-	await ctx.persistence.delete(input.noteId);
+	await ctx.persistence.delete(input.personnelId, input.noteId);
 	ctx.audit.log({ action: 'personnel.leader_note.deleted', resourceType: 'personnel', resourceId: input.personnelId });
 }

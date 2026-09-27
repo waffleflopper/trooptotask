@@ -10,22 +10,20 @@
  */
 import type { QueryPorts } from '$lib/server/core/ports';
 import type { Personnel, StatusType, AvailabilityEntry, AssignmentType, DailyAssignment } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
-import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { GroupEntity } from '$lib/server/entities/group';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
-import { loadRosterPersonnel } from './rosterReadModel';
+import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
 
 export interface DashboardData {
 	availabilityEntries: AvailabilityEntry[];
@@ -72,7 +70,6 @@ async function loadActiveOnboardings(ctx: QueryPorts, orgId: string) {
 
 export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
-	const userId = ctx.auth.userId;
 	const serverNow = new Date();
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
@@ -96,11 +93,11 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 
 	const [
 		assignmentTypeRows,
-		pinnedGroupRows,
+		pinnedGroups,
 		ratingSchemeRows,
 		activeOnboardings,
 		personnel,
-		groupRows,
+		groups,
 		statusTypeRows,
 		trainingTypeRows,
 		orgSettingsRow,
@@ -109,23 +106,14 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
-		ctx.store.findMany<Record<string, unknown>>(
-			'user_pinned_groups',
-			orgId,
-			{ user_id: userId },
-			{
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}
-		),
+		listPinnedGroupNames(ctx),
 		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
 			select: 'id, rated_person_id, eval_type, rating_period_end, status',
 			orderBy: [{ column: 'rating_period_end', ascending: true }]
 		}),
 		loadActiveOnboardings(ctx, orgId),
 		loadRosterPersonnel(ctx, { status: 'active' }),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listGroupCatalog(ctx),
 		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
 			select: StatusTypeEntity.select,
 			orderBy: [{ column: 'sort_order', ascending: true }]
@@ -136,7 +124,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null),
-		listAwardTrackingAcknowledgedPersonnelIds(ctx.store, orgId)
+		listAwardTrackingAcknowledgedPersonnelIds(ctx)
 	]);
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
@@ -144,11 +132,11 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		availabilityEntries,
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
 		todayAssignments,
-		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
+		pinnedGroups,
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
 		activeOnboardings,
 		personnel,
-		groups: GroupEntity.fromDbArray(groupRows),
+		groups,
 		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
 		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),
 		lossWarningWindowDays,
@@ -158,56 +146,42 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 
 export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData> {
 	const orgId = ctx.auth.orgId;
-	const userId = ctx.auth.userId;
 
 	const serverNow = new Date();
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
-	const [
-		availabilityRows,
-		assignmentTypeRows,
-		dailyAssignmentRows,
-		pinnedGroupRows,
-		ratingSchemeRows,
-		activeOnboardings
-	] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: yesterday },
-				{ column: 'start_date', op: 'lte', value: twoWeeksOut }
-			]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: yesterday },
-				{ column: 'date', op: 'lte', value: twoWeeksOut }
-			]
-		}),
-		ctx.store.findMany<Record<string, unknown>>(
-			'user_pinned_groups',
-			orgId,
-			{ user_id: userId },
-			{
+	const [availabilityRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroups, ratingSchemeRows, activeOnboardings] =
+		await Promise.all([
+			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
+				select: AvailabilityEntryEntity.select,
+				rangeFilters: [
+					{ column: 'end_date', op: 'gte', value: yesterday },
+					{ column: 'start_date', op: 'lte', value: twoWeeksOut }
+				]
+			}),
+			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
 				orderBy: [{ column: 'sort_order', ascending: true }]
-			}
-		),
-		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
-			select: 'id, rated_person_id, eval_type, rating_period_end, status',
-			orderBy: [{ column: 'rating_period_end', ascending: true }]
-		}),
-		loadActiveOnboardings(ctx, orgId)
-	]);
+			}),
+			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: yesterday },
+					{ column: 'date', op: 'lte', value: twoWeeksOut }
+				]
+			}),
+			listPinnedGroupNames(ctx),
+			ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+				select: 'id, rated_person_id, eval_type, rating_period_end, status',
+				orderBy: [{ column: 'rating_period_end', ascending: true }]
+			}),
+			loadActiveOnboardings(ctx, orgId)
+		]);
 
 	return {
 		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
 		todayAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
-		pinnedGroups: PinnedGroupsEntity.fromDbArray(pinnedGroupRows),
+		pinnedGroups,
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
 		activeOnboardings
 	};

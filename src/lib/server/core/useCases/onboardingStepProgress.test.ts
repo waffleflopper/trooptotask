@@ -1,22 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import {
-	toggleCheckbox,
-	advanceStage,
-	refreshTrainingSteps,
-	addNote,
-	removeInactiveStep
-} from './onboardingStepProgress';
-
-const viewOnlyCapabilityMap: CapabilityMap = {
-	calendar: 'none',
-	personnel: 'view',
-	training: 'none',
-	criticalTasks: 'none',
-	onboarding: 'view',
-	ratingScheme: 'none'
-};
+import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './onboardingStepProgress';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
@@ -35,17 +19,6 @@ interface OnboardingStepFixture {
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 	template_step_id: string;
 	active: boolean;
-	organization_id: string;
-}
-
-interface PersonnelOnboardingFixture {
-	id: string;
-	personnel_id: string;
-	template_id: string | null;
-	status: string;
-	started_at: string | null;
-	completed_at: string | null;
-	cancelled_at: string | null;
 	organization_id: string;
 }
 
@@ -225,155 +198,6 @@ function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Part
 		}
 	]);
 }
-
-function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Partial<PersonnelOnboardingFixture>) {
-	ctx.store.seed('personnel_onboardings', [
-		{
-			id: 'ob-1',
-			personnel_id: 'p-1',
-			template_id: 'tmpl-1',
-			status: 'in_progress',
-			started_at: '2026-01-01T00:00:00Z',
-			completed_at: null,
-			cancelled_at: null,
-			organization_id: 'test-org',
-			...overrides
-		}
-	]);
-}
-
-describe('refreshTrainingSteps', () => {
-	it('sets completed=true for training steps with matching training records', async () => {
-		const ctx = buildContext();
-		seedOnboarding(ctx);
-		seedTrainingStep(ctx);
-		ctx.store.seed('personnel_trainings', [
-			{
-				id: 'pt-1',
-				personnel_id: 'p-1',
-				training_type_id: 'tt-cpr',
-				organization_id: 'test-org'
-			}
-		]);
-
-		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
-
-		expect(result).toHaveLength(1);
-		expect(result[0].completed).toBe(true);
-		expect(result[0].id).toBe('tr-step-1');
-		expect(await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'tr-step-1' })).toMatchObject({
-			completed: true
-		});
-	});
-
-	it('sets completed=false for training steps without matching training records', async () => {
-		const ctx = buildContext();
-		seedOnboarding(ctx);
-		seedTrainingStep(ctx, { completed: true }); // was true, should become false
-
-		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
-
-		expect(result).toHaveLength(1);
-		expect(result[0].completed).toBe(false);
-		expect(await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'tr-step-1' })).toMatchObject({
-			completed: false
-		});
-	});
-
-	it('only queries training records for the specific soldier and training type IDs', async () => {
-		const ctx = buildContext();
-		seedOnboarding(ctx);
-		seedTrainingStep(ctx);
-
-		// Training record for a DIFFERENT soldier
-		ctx.store.seed('personnel_trainings', [
-			{
-				id: 'pt-other',
-				personnel_id: 'p-other',
-				training_type_id: 'tt-cpr',
-				organization_id: 'test-org'
-			}
-		]);
-
-		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
-
-		expect(result[0].completed).toBe(false);
-	});
-
-	it('returns empty array when no training steps exist', async () => {
-		const ctx = buildContext();
-		seedOnboarding(ctx);
-		seedStep(ctx); // only a checkbox step
-
-		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
-
-		expect(result).toHaveLength(0);
-	});
-
-	it('handles multiple training steps with mixed completion', async () => {
-		const ctx = buildContext();
-		seedOnboarding(ctx);
-		seedTrainingStep(ctx);
-		ctx.store.seed('onboarding_step_progress', [
-			{
-				id: 'tr-step-2',
-				onboarding_id: 'ob-1',
-				step_name: 'First Aid',
-				step_type: 'training',
-				training_type_id: 'tt-firstaid',
-				stages: null,
-				sort_order: 1,
-				completed: false,
-				current_stage: null,
-				notes: [],
-				template_step_id: 'ts-4',
-				active: true,
-				organization_id: 'test-org'
-			}
-		]);
-
-		// Only CPR has a training record, not First Aid
-		ctx.store.seed('personnel_trainings', [
-			{
-				id: 'pt-1',
-				personnel_id: 'p-1',
-				training_type_id: 'tt-cpr',
-				organization_id: 'test-org'
-			}
-		]);
-
-		const result = await refreshTrainingSteps(ctx, { onboardingId: 'ob-1' });
-
-		expect(result).toHaveLength(2);
-		const cpr = result.find((s) => s.id === 'tr-step-1');
-		const firstAid = result.find((s) => s.id === 'tr-step-2');
-		expect(cpr?.completed).toBe(true);
-		expect(firstAid?.completed).toBe(false);
-	});
-
-	it('requires Onboarding operate policy before refreshing training steps', async () => {
-		const ctx = buildContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: viewOnlyCapabilityMap
-			}
-		});
-		seedOnboarding(ctx);
-		seedTrainingStep(ctx);
-
-		await expect(refreshTrainingSteps(ctx, { onboardingId: 'ob-1' })).rejects.toMatchObject({ status: 403 });
-		expect(ctx.audit.events).toContainEqual(
-			expect.objectContaining({
-				action: 'policy.denied',
-				details: expect.objectContaining({
-					policyAction: 'onboarding.manageWorkflows',
-					reasonCode: 'denied:missing-capability'
-				})
-			})
-		);
-	});
-});
 
 describe('addNote', () => {
 	it('appends a note with server-generated timestamp and authenticated userId', async () => {

@@ -18,7 +18,21 @@ function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
 
 describe('fetchCriticalTasksReportSummary', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
-		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
+		const ctx = createTestContext({
+			auth: {
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'view',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -109,6 +123,18 @@ describe('fetchCriticalTasksReportSummary', () => {
 				created_at: '2026-01-15T00:00:00Z'
 			}
 		]);
+		const requestFindMany = ctx.store.findMany.bind(ctx.store);
+		ctx.store.findMany = ((table, orgId, filters, options) =>
+			table === 'personnel'
+				? Promise.reject(new Error('Personnel SELECT denied for this Critical Tasks-only actor'))
+				: table === 'organization_rank_catalog'
+					? Promise.resolve([])
+					: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
+		const privilegedFindMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+		ctx.rawStore.findMany = ((table, orgId, filters, options) =>
+			table === 'organization_rank_catalog'
+				? Promise.reject(new Error('Report rank catalog must use the authorized request store'))
+				: privilegedFindMany(table, orgId, filters, options)) as typeof ctx.rawStore.findMany;
 
 		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
 			filters: { mos: ['68W', '11B'] },

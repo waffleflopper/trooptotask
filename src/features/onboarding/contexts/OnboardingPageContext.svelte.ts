@@ -1,10 +1,10 @@
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { rosterStore } from '$features/personnel';
+import { groupsStore } from '$features/personnel';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { createRosterReadModel, type RosterReadModelView } from '$lib/domain/rosterReadModel';
+import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
@@ -201,6 +201,10 @@ export class OnboardingPageContext {
 		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.configureWorkflows, {
 			kind: 'unscoped'
 		}).visible;
+	}
+
+	get canAddPerson(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords).allowed;
 	}
 
 	// ── Derived ────────────────────────────────────────────────

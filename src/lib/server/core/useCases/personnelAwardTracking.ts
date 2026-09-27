@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { DataStore, UseCaseContext } from '$lib/server/core/ports';
+import type { QueryPorts, UseCaseContext } from '$lib/server/core/ports';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 export interface PersonnelAwardTrackingInput {
@@ -19,13 +19,9 @@ interface PersonnelExtendedInfoRow {
 	award_tracking_acknowledged_at?: string | null;
 }
 
-export async function listAwardTrackingAcknowledgedPersonnelIds(store: DataStore, orgId: string): Promise<string[]> {
-	const rows = await store.findMany<PersonnelExtendedInfoRow>('personnel_extended_info', orgId, undefined, {
-		select: 'personnel_id, award_tracking_acknowledged_at',
-		isNull: { award_tracking_acknowledged_at: false }
-	});
-
-	return rows.map((row) => row.personnel_id);
+export async function listAwardTrackingAcknowledgedPersonnelIds(ctx: QueryPorts): Promise<string[]> {
+	if (!ctx.personnelAwardAcknowledgement) throw new Error('Personnel award acknowledgement port is required');
+	return ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth);
 }
 
 export async function setPersonnelAwardTrackingAcknowledged(

@@ -7,13 +7,15 @@
  *
  * Empty string fields are coerced to null before persistence (optional fields pattern).
  */
-import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import type { WriteWithNotificationsPorts } from '$lib/server/core/ports';
-import { requireFeaturePolicy } from './featurePolicy';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 import { requireGovernancePolicy } from './governancePolicy';
 
 const entity = RatingSchemeEntryEntity;
+export const ratingSchemeEntryCreateSchema = entity.createSchema;
+export const ratingSchemeEntryUpdateSchema = entity.updateSchema;
 const AUDIT_RESOURCE = 'rating_scheme';
 type RatingSchemePolicyPorts = WriteWithNotificationsPorts & { rawStore?: WriteWithNotificationsPorts['store'] };
 
@@ -36,23 +38,30 @@ function optionalPersonnelId(value: unknown): string | null | undefined {
 
 async function policyResourceForRatedPerson(
 	ctx: RatingSchemePolicyPorts,
-	personnelId: string | null | undefined
+	personnelId: string | null | undefined,
+	denialAction: FeatureLanePolicyAction = POLICY_ACTION_CATALOG.ratingScheme.updateEntries
 ): Promise<PolicyResource> {
 	if (!personnelId) {
 		return { kind: 'unscoped' };
 	}
 
-	const person = await (ctx.rawStore ?? ctx.store).findOne<{ group_id: string | null }>('personnel', ctx.auth.orgId, {
-		id: personnelId
-	});
-	if (!person?.group_id) {
-		return { kind: 'unscoped' };
+	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster provider unavailable');
+	const person = await ctx.personnelRatingSchemeRoster.findRatedPersonGroupForWrite(ctx.auth, personnelId);
+	if (!person) {
+		// The provider hides missing and out-of-scope People alike. Group members
+		// receive the usual policy denial; Organization-wide members get a 404.
+		await requireFeaturePolicy(ctx, denialAction, { kind: 'organization' }, AUDIT_RESOURCE, personnelId);
+		throw Object.assign(new Error('Rated person not found'), { status: 404 });
 	}
 
-	return { kind: 'group', groupId: person.group_id };
+	return policyResourceForGroup(person.groupId);
 }
 
-async function policyResourceForRatingSchemeEntry(ctx: RatingSchemePolicyPorts, id: string): Promise<PolicyResource> {
+async function policyResourceForRatingSchemeEntry(
+	ctx: RatingSchemePolicyPorts,
+	id: string,
+	denialAction: FeatureLanePolicyAction = POLICY_ACTION_CATALOG.ratingScheme.updateEntries
+): Promise<PolicyResource> {
 	const entry = await (ctx.rawStore ?? ctx.store).findOne<{ rated_person_id: string | null }>(
 		entity.table,
 		ctx.auth.orgId,
@@ -60,7 +69,8 @@ async function policyResourceForRatingSchemeEntry(ctx: RatingSchemePolicyPorts, 
 			id
 		}
 	);
-	return policyResourceForRatedPerson(ctx, entry?.rated_person_id);
+	if (!entry) throw Object.assign(new Error('Rating Scheme entry not found'), { status: 404 });
+	return policyResourceForRatedPerson(ctx, entry.rated_person_id, denialAction);
 }
 
 async function requireRatingSchemeUpdatePolicy(
@@ -84,7 +94,7 @@ export async function requireRatingSchemeEntryDeletionRequestPolicy(
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion,
-		await policyResourceForRatingSchemeEntry(ctx, id),
+		await policyResourceForRatingSchemeEntry(ctx, id, POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion),
 		AUDIT_RESOURCE,
 		id
 	);

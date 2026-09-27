@@ -8,7 +8,7 @@ import {
 	type WorkspaceHydrationTarget
 } from '$lib/server/core/streamedWorkspace';
 import { fetchPersonnelBootstrap, type PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel, StatusType } from '$lib/types';
 
 export const PERSONNEL_WORKSPACE_LANE_KEY = 'personnel' as const;

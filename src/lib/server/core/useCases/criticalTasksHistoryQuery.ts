@@ -1,6 +1,5 @@
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/criticalTasks.types';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import type { QueryPorts } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
@@ -9,14 +8,10 @@ export async function fetchCriticalTasksPersonnelHistory(
 	ctx: QueryPorts,
 	personnelId: string
 ): Promise<CriticalTasksPersonnelHistoryData> {
-	const personnelRow = await ctx.store.findOne<Record<string, unknown>>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		PersonnelEntity.select
-	);
+	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
+	const personnel = await ctx.personnelCriticalTasksRoster.findForHistory(ctx.auth, personnelId);
 
-	if (!personnelRow) {
+	if (!personnel) {
 		fail(404, 'Personnel record not found');
 	}
 
@@ -41,7 +36,7 @@ export async function fetchCriticalTasksPersonnelHistory(
 	const tasksById = new Map(IctTaskEntity.fromDbArray(taskRows).map((task) => [task.id, task]));
 
 	return {
-		personnel: PersonnelEntity.fromDb(personnelRow),
+		personnel,
 		rows: completions.map((completion) => {
 			const task = tasksById.get(completion.ictTaskId) ?? null;
 			return {

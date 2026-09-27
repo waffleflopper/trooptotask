@@ -1,8 +1,6 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createPinnedGroupUseCases } from '$lib/server/core/useCases/pinnedGroupCrud';
-
-const useCases = createPinnedGroupUseCases();
+import { pinGroup, replacePinnedGroups, unpinGroup } from '$features/personnel/index.server';
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
@@ -11,9 +9,9 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	fn: async (ctx, input) => {
 		if (input.action === 'replace') {
 			const groups = (input.groups as string[]) ?? [];
-			return useCases.replace(ctx, groups);
+			return replacePinnedGroups(ctx, groups);
 		}
-		return useCases.pin(ctx, {
+		return pinGroup(ctx, {
 			groupName: input.groupName as string,
 			sortOrder: (input.sortOrder as number) ?? 0
 		});
@@ -26,7 +24,7 @@ export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	mutation: true,
 
-	fn: (ctx, input) => useCases.unpin(ctx, input.groupName as string)
+	fn: (ctx, input) => unpinGroup(ctx, input.groupName as string)
 };
 
 export const DELETE = handle(_deleteConfig);

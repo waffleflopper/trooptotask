@@ -6,8 +6,8 @@
  * For lifecycle transitions (start, cancel, complete the whole record), see `onboardingLifecycle.ts`.
  */
 import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
-import { requireOnboardingManagePolicyForOnboarding, requireOnboardingManagePolicyForStep } from './onboardingPolicy';
+import type { OnboardingWorkflowPorts } from './onboardingPolicy';
+import { requireOnboardingManagePolicyForStep } from './onboardingPolicy';
 
 interface ToggleCheckboxInput {
 	stepId: string;
@@ -28,7 +28,7 @@ interface AdvanceStageInput {
 	stageName: string;
 }
 
-export async function advanceStage(ctx: WritePorts, input: AdvanceStageInput): Promise<StepResult> {
+export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceStageInput): Promise<StepResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const step = await ctx.store.findOne<{
@@ -86,120 +86,6 @@ export async function advanceStage(ctx: WritePorts, input: AdvanceStageInput): P
 	};
 }
 
-interface RefreshTrainingInput {
-	onboardingId: string;
-}
-
-interface TrainingStepResult {
-	id: string;
-	onboardingId: string;
-	stepName: string;
-	stepType: string;
-	trainingTypeId: string | null;
-	completed: boolean;
-}
-
-interface TrainingStepCompletion extends TrainingStepResult {
-	persistedCompleted: boolean;
-}
-
-type TrainingStepReadContext = Pick<WritePorts, 'store' | 'auth'>;
-
-interface TrainingStepRow {
-	id: string;
-	onboarding_id: string;
-	step_name: string;
-	step_type: string;
-	training_type_id: string | null;
-	completed: boolean;
-	active: boolean;
-}
-
-type ActiveTrainingStepRow = TrainingStepRow & { training_type_id: string };
-
-function isActiveTrainingStep(step: TrainingStepRow): step is ActiveTrainingStepRow {
-	return step.active && step.training_type_id !== null;
-}
-
-async function readTrainingStepCompletions(
-	ctx: TrainingStepReadContext,
-	input: RefreshTrainingInput
-): Promise<TrainingStepCompletion[]> {
-	const onboarding = await ctx.store.findOne<{ id: string; personnel_id: string }>(
-		'personnel_onboardings',
-		ctx.auth.orgId,
-		{ id: input.onboardingId }
-	);
-	if (!onboarding) {
-		fail(404, 'Onboarding not found');
-	}
-
-	const allSteps = await ctx.store.findMany<TrainingStepRow>('onboarding_step_progress', ctx.auth.orgId, {
-		onboarding_id: input.onboardingId,
-		step_type: 'training'
-	});
-
-	const trainingSteps = allSteps.filter(isActiveTrainingStep);
-	if (trainingSteps.length === 0) {
-		return [];
-	}
-
-	const trainingTypeIds = trainingSteps.map((step) => step.training_type_id);
-	const trainingRecords = await ctx.store.findMany<{ training_type_id: string }>(
-		'personnel_trainings',
-		ctx.auth.orgId,
-		{ personnel_id: onboarding.personnel_id },
-		{ inFilters: { training_type_id: trainingTypeIds } }
-	);
-
-	const completedTypeIds = new Set(trainingRecords.map((r) => r.training_type_id));
-
-	return trainingSteps.map((step) => ({
-		id: step.id,
-		onboardingId: step.onboarding_id,
-		stepName: step.step_name,
-		stepType: step.step_type,
-		trainingTypeId: step.training_type_id,
-		completed: completedTypeIds.has(step.training_type_id),
-		persistedCompleted: step.completed
-	}));
-}
-
-function toTrainingStepResult(result: TrainingStepCompletion): TrainingStepResult {
-	return {
-		id: result.id,
-		onboardingId: result.onboardingId,
-		stepName: result.stepName,
-		stepType: result.stepType,
-		trainingTypeId: result.trainingTypeId,
-		completed: result.completed
-	};
-}
-
-export async function getTrainingStepCompletionStatuses(
-	ctx: TrainingStepReadContext,
-	input: RefreshTrainingInput
-): Promise<TrainingStepResult[]> {
-	const results = await readTrainingStepCompletions(ctx, input);
-	return results.map(toTrainingStepResult);
-}
-
-export async function refreshTrainingSteps(
-	ctx: WritePorts,
-	input: RefreshTrainingInput
-): Promise<TrainingStepResult[]> {
-	await requireOnboardingManagePolicyForOnboarding(ctx, input.onboardingId);
-	const results = await readTrainingStepCompletions(ctx, input);
-
-	for (const result of results) {
-		if (result.persistedCompleted !== result.completed) {
-			await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, result.id, { completed: result.completed });
-		}
-	}
-
-	return results.map(toTrainingStepResult);
-}
-
 interface AddNoteInput {
 	stepId: string;
 	text: string;
@@ -210,7 +96,7 @@ interface NoteResult {
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 }
 
-export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<NoteResult> {
+export async function addNote(ctx: OnboardingWorkflowPorts, input: AddNoteInput): Promise<NoteResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const userId = ctx.auth.userId;
@@ -251,7 +137,7 @@ export async function addNote(ctx: WritePorts, input: AddNoteInput): Promise<Not
 	};
 }
 
-export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promise<void> {
+export async function removeInactiveStep(ctx: OnboardingWorkflowPorts, stepId: string): Promise<void> {
 	await requireOnboardingManagePolicyForStep(ctx, stepId);
 
 	const step = await ctx.store.findOne<{ id: string; active: boolean }>('onboarding_step_progress', ctx.auth.orgId, {
@@ -275,7 +161,7 @@ export async function removeInactiveStep(ctx: WritePorts, stepId: string): Promi
 	});
 }
 
-export async function toggleCheckbox(ctx: WritePorts, input: ToggleCheckboxInput): Promise<StepResult> {
+export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: ToggleCheckboxInput): Promise<StepResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
 	const step = await ctx.store.findOne<{

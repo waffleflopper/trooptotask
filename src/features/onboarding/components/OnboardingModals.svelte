@@ -26,6 +26,7 @@
 {#if ctx.modals.isOpen(MODAL_IDS.startOnboarding)}
 	<StartOnboardingModal
 		personnel={ctx.personnel}
+		canAddPerson={ctx.canAddPerson}
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
 		groups={ctx.groups}
 		templates={ctx.templates}

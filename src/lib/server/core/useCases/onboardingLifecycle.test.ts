@@ -5,7 +5,7 @@ import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding
 
 const operatorCapabilityMap: CapabilityMap = {
 	calendar: 'none',
-	personnel: 'view',
+	personnel: 'none',
 	training: 'none',
 	criticalTasks: 'none',
 	onboarding: 'operate',
@@ -208,13 +208,9 @@ describe('startOnboarding', () => {
 	it('removes the active onboarding parent when training lookup fails', async () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);
-		const originalFindMany = ctx.store.findMany.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
-			if (table === 'personnel_trainings') {
-				throw new Error('training lookup failed');
-			}
-			return originalFindMany(table, orgId, filters, options);
-		});
+		vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds').mockRejectedValue(
+			new Error('training lookup failed')
+		);
 
 		await expect(startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' })).rejects.toThrow(
 			'training lookup failed'
@@ -242,9 +238,17 @@ describe('startOnboarding', () => {
 		});
 		allowed.store.seed('personnel', [{ id: 'p-1', group_id: 'g-1', organization_id: 'test-org' }]);
 		seedTemplateWithSteps(allowed);
+		const userStoreFindMany = allowed.store.findMany.bind(allowed.store);
+		vi.spyOn(allowed.store, 'findMany').mockImplementation(async (table, orgId, filters, options) => {
+			if (table === 'personnel_trainings' || table === 'personnel') {
+				throw Object.assign(new Error('Training and Personnel SELECT denied by RLS'), { status: 403 });
+			}
+			return userStoreFindMany(table, orgId, filters, options);
+		});
 
 		await expect(startOnboarding(allowed, { personnelId: 'p-1', templateId: 'tmpl-1' })).resolves.toMatchObject({
-			personnelId: 'p-1'
+			personnelId: 'p-1',
+			steps: expect.arrayContaining([expect.objectContaining({ trainingTypeId: 'tt-cpr', completed: false })])
 		});
 
 		const denied = buildContext({
@@ -298,6 +302,8 @@ describe('startOnboarding', () => {
 	it('sets training step completed=true when a matching training record exists', async () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);
+		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org' }]);
+		ctx.store.seed('training_types', [{ id: 'tt-cpr', organization_id: 'test-org', name: 'CPR' }]);
 
 		// Seed a training record for CPR training for this soldier
 		ctx.store.seed('personnel_trainings', [

@@ -5,9 +5,9 @@ import Page from './+page.svelte';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 
 const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
@@ -150,7 +150,7 @@ describe('critical tasks page', () => {
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		mockOrgContext.scopeSet = { kind: 'organization' };
 		personnelStore.startLoading();
-		groupsStore.startLoading();
+		groupCatalogHydration.startLoading();
 		ictTasksStore.startLoading();
 		personnelIctCompletionsStore.startLoading();
 	});
@@ -161,7 +161,7 @@ describe('critical tasks page', () => {
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
 		personnelStore.load([], 'org-test-reset');
-		groupsStore.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		ictTasksStore.load([], 'org-test-reset');
 		personnelIctCompletionsStore.load([], 'org-test-reset');
 	});
@@ -186,7 +186,7 @@ describe('critical tasks page', () => {
 
 	it('shows the reports and task library affordances to owners and admins', async () => {
 		personnelStore.load([], 'org-1');
-		groupsStore.load([], 'org-1');
+		groupCatalogHydration.load([], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -211,7 +211,7 @@ describe('critical tasks page', () => {
 		mockOrgContext.isPrivileged = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'configure';
 		personnelStore.load([person()], 'org-1');
-		groupsStore.load([alphaGroup], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -234,7 +234,7 @@ describe('critical tasks page', () => {
 
 	it('opens the completion import modal from the page toolbar', async () => {
 		personnelStore.load([person()], 'org-1');
-		groupsStore.load([alphaGroup], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -277,7 +277,7 @@ describe('critical tasks page', () => {
 		vi.stubGlobal('fetch', fetchMock);
 
 		personnelStore.load([person()], 'org-1');
-		groupsStore.load([alphaGroup], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
 		ictTasksStore.load([{ ...ictTask, expirationMonths: 12 }], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -345,7 +345,7 @@ describe('critical tasks page', () => {
 		mockOrgContext.isPrivileged = false;
 		mockOrgContext.capabilityMap.criticalTasks = 'operate';
 		personnelStore.load([], 'org-1');
-		groupsStore.load([], 'org-1');
+		groupCatalogHydration.load([], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -386,7 +386,7 @@ describe('critical tasks page', () => {
 			],
 			'org-1'
 		);
-		groupsStore.load([alphaGroup, bravoGroup], 'org-1');
+		groupCatalogHydration.load([alphaGroup, bravoGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -438,7 +438,7 @@ describe('critical tasks page', () => {
 
 	it('links soldier names to the per-person detail page for Critical Tasks viewers', () => {
 		personnelStore.load([person({ id: 'smith', lastName: 'Smith' })], 'org-1');
-		groupsStore.load([alphaGroup], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -465,7 +465,7 @@ describe('critical tasks page', () => {
 		vi.stubGlobal('fetch', fetchMock);
 
 		personnelStore.load([person({ id: 'smith', lastName: 'Smith' })], 'org-1');
-		groupsStore.load([alphaGroup], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 
@@ -576,7 +576,7 @@ describe('critical tasks page', () => {
 		vi.stubGlobal('fetch', fetchMock);
 
 		personnelStore.load([person({ id: 'smith', lastName: 'Smith', mos: '68W' })], 'org-1');
-		groupsStore.load([alphaGroup], 'org-1');
+		groupCatalogHydration.load([alphaGroup], 'org-1');
 		ictTasksStore.load([ictTask, airwayTask], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 

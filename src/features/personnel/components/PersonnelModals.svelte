@@ -1,9 +1,9 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { groupsStore } from '$lib/stores/groups.svelte';
+	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
-	import GroupManager from '$features/groups/components/GroupManager.svelte';
+	import GroupManager from './GroupManager.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -54,7 +54,7 @@
 {#if modals.isOpen('personnel-modal')}
 	<PersonnelModal
 		personnel={editingPerson}
-		groups={groupsStore.items}
+		groups={groupManagementStore.items}
 		rankCatalog={ctx.data.rankCatalog ?? []}
 		onSubmit={handleSubmit}
 		onRemove={handleArchive}
@@ -64,19 +64,19 @@
 
 {#if modals.isOpen('group-manager')}
 	<GroupManager
-		groups={groupsStore.items}
+		groups={groupManagementStore.items}
 		onAdd={async (name) => {
-			if (!(await groupsStore.add(name))) throw new Error('A Group with that name already exists.');
+			if (!(await groupManagementStore.add(name))) throw new Error('A Group with that name already exists.');
 		}}
 		onRemove={async (id) => {
-			if (!(await groupsStore.remove(id))) throw new Error('Unable to remove Group. Try again.');
+			if (!(await groupManagementStore.remove(id))) throw new Error('Unable to remove Group. Try again.');
 			personnelStore.updateLocalWhere(
 				(p) => p.groupId === id,
 				(p) => ({ ...p, groupId: null, groupName: '' })
 			);
 		}}
 		onRename={async (id, name) => {
-			if (!(await groupsStore.rename(id, name))) throw new Error('Unable to rename Group. Try again.');
+			if (!(await groupManagementStore.rename(id, name))) throw new Error('Unable to rename Group. Try again.');
 			personnelStore.updateLocalWhere(
 				(p) => p.groupId === id,
 				(p) => ({ ...p, groupName: name })

@@ -1,14 +1,35 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import type { SignInRosterPersonnelLookupRecord } from '$lib/server/core/ports';
+import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
 import { _getConfig, _postConfig } from './+server';
 
 const GROUP_ALPHA = 'group-alpha';
 const GROUP_BRAVO = 'group-bravo';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
+	ctx.signInRosterPersonnelLookup ??= {
+		findPersonnelForRosterSnapshot: async (orgId, personnelIds) => {
+			const rows = await ctx.rawStore.findMany<{
+				id: string;
+				rank: string | null;
+				last_name: string | null;
+				first_name: string | null;
+				group_id: string | null;
+			}>('personnel', orgId, undefined, { inFilters: { id: personnelIds } });
+			return rows.map((row) => ({
+				id: row.id,
+				rank: row.rank,
+				lastName: row.last_name,
+				firstName: row.first_name,
+				groupId: row.group_id,
+				groupName: null
+			}));
+		}
+	};
 	ctx.rawStore.seed('groups', [
 		{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
 		{ id: GROUP_BRAVO, organization_id: ctx.auth.orgId, name: 'Bravo' }
@@ -34,6 +55,42 @@ function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('/api/sign-in-rosters route config', () => {
+	it("saves the Personnel provider's mapped Group and name facts in a canonical snapshot", async () => {
+		const requests: URL[] = [];
+		const supabase = createClient('http://127.0.0.1:9', 'synthetic-anon-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					requests.push(new URL(String(input)));
+					return Response.json([
+						{
+							id: 'person-1',
+							rank: 'SGT',
+							last_name: 'Smith',
+							first_name: 'Jane',
+							group_id: GROUP_ALPHA,
+							groups: { name: 'Alpha' }
+						}
+					]);
+				}
+			}
+		});
+		const ctx = createTestContext();
+		ctx.signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
+
+		await handleUseCaseRequest(_postConfig, ctx, { title: 'Training attendance', personnelIds: ['person-1'] });
+
+		const saved = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
+		expect(saved[0]).toMatchObject({
+			scope_group_ids: [GROUP_ALPHA],
+			personnel_snapshot: [
+				{ id: 'person-1', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', group: 'Alpha', groupId: GROUP_ALPHA }
+			]
+		});
+		expect(requests).toHaveLength(1);
+		expect(requests[0].pathname).toBe('/rest/v1/personnel');
+	});
+
 	it('creates and reloads an independent sign-in roster with Calendar denied and no duty records', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -56,13 +113,12 @@ describe('/api/sign-in-rosters route config', () => {
 				{
 					id: 'p-alpha',
 					rank: 'SGT',
-					last_name: 'Smith',
-					first_name: 'Jane',
-					group_id: GROUP_ALPHA,
-					group_name: 'Alpha'
+					lastName: 'Smith',
+					firstName: 'Jane',
+					groupId: GROUP_ALPHA,
+					groupName: 'Alpha'
 				}
-			],
-			listPersonnelForRosterCandidates: async () => []
+			]
 		};
 		const created = (await handleUseCaseRequest(_postConfig, ctx, {
 			title: 'Independent training attendance',
@@ -89,6 +145,59 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
+	it('looks up only missing same-Organization Group labels and leaves unknown labels blank', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'organization' },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.rawStore.seed('groups', [
+			{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign' }
+		]);
+		ctx.signInRosterPersonnelLookup = {
+			findPersonnelForRosterSnapshot: async () => [
+				{ id: 'p-known', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: GROUP_ALPHA, groupName: null },
+				{
+					id: 'p-unknown',
+					rank: 'SPC',
+					lastName: 'Taylor',
+					firstName: 'Morgan',
+					groupId: 'foreign',
+					groupName: null
+				}
+			]
+		};
+		const groupRead = vi.spyOn(ctx.rawStore, 'findMany');
+
+		await handleUseCaseRequest(_postConfig, ctx, {
+			title: 'Training attendance',
+			personnelIds: ['p-known', 'p-unknown']
+		});
+
+		const stored = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
+		expect(stored[0].personnel_snapshot).toEqual([
+			expect.objectContaining({ id: 'p-known', group: 'Alpha' }),
+			expect.objectContaining({ id: 'p-unknown', group: '' })
+		]);
+		expect(groupRead.mock.calls.find(([table]) => table === 'groups')).toMatchObject([
+			'groups',
+			ctx.auth.orgId,
+			undefined,
+			{ select: 'id, name', inFilters: { id: [GROUP_ALPHA, 'foreign'] } }
+		]);
+	});
+
 	it('uses policy-first route configs for sign-in roster reads and creation', () => {
 		expect('permission' in _getConfig).toBe(false);
 		expect('permission' in _postConfig).toBe(false);
@@ -104,10 +213,10 @@ describe('/api/sign-in-rosters route config', () => {
 			{
 				id: 'p-alpha',
 				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				group_id: GROUP_ALPHA,
-				group_name: 'Alpha'
+				lastName: 'Smith',
+				firstName: 'Jane',
+				groupId: GROUP_ALPHA,
+				groupName: 'Alpha'
 			}
 		]);
 		const ctx = createTestContext({
@@ -130,8 +239,7 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		ctx.signInRosterPersonnelLookup = {
-			findPersonnelForRosterSnapshot,
-			listPersonnelForRosterCandidates: vi.fn(async () => [])
+			findPersonnelForRosterSnapshot
 		};
 		seedPersonnel(ctx);
 
@@ -175,36 +283,41 @@ describe('/api/sign-in-rosters route config', () => {
 		});
 	});
 
-	it('sorts rank snapshots with the Organization rank catalog and keeps unknown ranks last', async () => {
+	it('sorts a Training-only scoped sign-in snapshot with active and retired ranks before unknown ranks', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
 				capabilityMap: {
-					calendar: 'view',
+					calendar: 'none',
 					personnel: 'none',
 					training: 'operate',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
 				},
-				scopeSet: { kind: 'organization' }
+				scopeSet: { kind: 'groups', groupIds: [GROUP_ALPHA] }
 			}
 		});
 		ctx.rawStore.seed('organization_rank_catalog', [
+			rankCatalogRow({ code: 'SSG', label: 'Staff Sergeant', service: 'army', pay_grade: 'E-6', state: 'retired' }),
 			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
 			rankCatalogRow({ code: 'SGT', label: 'Sergeant', service: 'army', pay_grade: 'E-5' }),
 			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
 		]);
 		ctx.signInRosterPersonnelLookup = {
-			listPersonnelForRosterCandidates: vi.fn(async () => []),
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
-				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', last_name: 'Able' }),
-				signInPersonnel({ id: 'navy-e5', rank: 'PO2', last_name: 'Baker' }),
-				signInPersonnel({ id: 'army-e5', rank: 'SGT', last_name: 'Able' }),
-				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', last_name: 'Charlie' })
+				signInPersonnel({ id: 'retired', rank: 'SSG', lastName: 'Charlie' }),
+				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', lastName: 'Able' }),
+				signInPersonnel({ id: 'navy-e5', rank: 'PO2', lastName: 'Baker' }),
+				signInPersonnel({ id: 'army-e5', rank: 'SGT', lastName: 'Able' }),
+				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', lastName: 'Charlie' })
 			])
 		};
+		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
+			if (table === 'organization_rank_catalog') throw new Error('Rank catalog requires the roster raw store');
+			return ctx.rawStore.findMany(table, ...args);
+		});
 
 		await handleUseCaseRequest(_postConfig, ctx, {
 			title: 'Joint Sign-In',
@@ -212,7 +325,7 @@ describe('/api/sign-in-rosters route config', () => {
 			blankDate: false,
 			separateByGroup: false,
 			sortBy: 'rank',
-			personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5']
+			personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5', 'retired']
 		});
 
 		const stored = await ctx.store.findMany<{ personnel_snapshot?: Array<{ id: string }> }>(
@@ -220,6 +333,7 @@ describe('/api/sign-in-rosters route config', () => {
 			ctx.auth.orgId
 		);
 		expect((stored[0]?.personnel_snapshot as Array<{ id: string }>).map((row) => row.id)).toEqual([
+			'retired',
 			'navy-e5',
 			'army-e5',
 			'air-force-e5',
@@ -244,10 +358,9 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		ctx.signInRosterPersonnelLookup = {
-			listPersonnelForRosterCandidates: vi.fn(async () => []),
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
-				signInPersonnel({ id: 'p-smith', rank: 'SGT', last_name: 'Smith', first_name: 'Jane' }),
-				signInPersonnel({ id: 'p-adams', rank: 'PO2', last_name: 'Adams', first_name: 'Avery' })
+				signInPersonnel({ id: 'p-smith', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }),
+				signInPersonnel({ id: 'p-adams', rank: 'PO2', lastName: 'Adams', firstName: 'Avery' })
 			])
 		};
 
@@ -295,23 +408,22 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		ctx.signInRosterPersonnelLookup = {
-			listPersonnelForRosterCandidates: vi.fn(async () => []),
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				{
 					id: 'p-alpha',
 					rank: 'SGT',
-					last_name: 'Smith',
-					first_name: 'Jane',
-					group_id: GROUP_ALPHA,
-					group_name: 'Alpha'
+					lastName: 'Smith',
+					firstName: 'Jane',
+					groupId: GROUP_ALPHA,
+					groupName: 'Alpha'
 				},
 				{
 					id: 'p-unassigned',
 					rank: 'SPC',
-					last_name: 'Taylor',
-					first_name: 'Morgan',
-					group_id: null,
-					group_name: null
+					lastName: 'Taylor',
+					firstName: 'Morgan',
+					groupId: null,
+					groupName: null
 				}
 			])
 		};
@@ -505,10 +617,10 @@ function signInPersonnel(overrides: Partial<SignInRosterPersonnelLookupRecord>):
 	return {
 		id: overrides.id ?? 'person-1',
 		rank: overrides.rank ?? 'SGT',
-		last_name: overrides.last_name ?? 'Able',
-		first_name: overrides.first_name ?? 'Alex',
-		group_id: GROUP_ALPHA,
-		group_name: 'Alpha',
+		lastName: overrides.lastName ?? 'Able',
+		firstName: overrides.firstName ?? 'Alex',
+		groupId: GROUP_ALPHA,
+		groupName: 'Alpha',
 		...overrides
 	};
 }

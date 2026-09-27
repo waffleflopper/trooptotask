@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { groupCatalogHydration } from '$features/personnel';
+import { personnelRosterHydration } from '$features/personnel';
 import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 
@@ -128,8 +128,8 @@ function makeTrainingReportData(rowCount = 1): TrainingReportData {
 
 describe('training reports page', () => {
 	beforeEach(() => {
-		rosterStore.load([], 'org-stale');
-		groupsStore.load([], 'org-stale');
+		personnelRosterHydration.load([], 'org-stale');
+		groupCatalogHydration.load([], 'org-stale');
 		trainingTypesStore.load([], 'org-stale');
 		personnelTrainingsStore.load([], 'org-stale');
 	});
@@ -137,8 +137,8 @@ describe('training reports page', () => {
 	afterEach(() => {
 		cleanup();
 		vi.unstubAllGlobals();
-		rosterStore.load([], 'org-test-reset');
-		groupsStore.load([], 'org-test-reset');
+		personnelRosterHydration.load([], 'org-test-reset');
+		groupCatalogHydration.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
 		personnelTrainingsStore.load([], 'org-test-reset');
 	});

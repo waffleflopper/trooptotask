@@ -20,6 +20,8 @@ export interface CrudConfig<C extends WritePorts = WritePorts> {
 	entity: EntityDefinition;
 	auditResource: string;
 	policyAction: FeatureLanePolicyAction;
+	policyResourceForPersonnel?: (ctx: C, personnelId: string) => Promise<PolicyResource>;
+	policyResourceForRecord?: (ctx: C, recordId: string) => Promise<PolicyResource>;
 	beforeDelete?: (ctx: C, id: string) => Promise<void>;
 	afterDelete?: (ctx: C, id: string) => Promise<void>;
 }
@@ -47,7 +49,7 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 			await requirePolicyDecisionForCrud(
 				ctx,
 				policyAction,
-				await resolvePolicyResourceForCreate(ctx, entity, validated),
+				await resolvePolicyResourceForCreate(ctx, entity, validated, config.policyResourceForPersonnel),
 				auditResource
 			);
 
@@ -69,7 +71,13 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 			await requirePolicyDecisionForCrud(
 				ctx,
 				policyAction,
-				await resolvePolicyResourceForRecord(ctx, entity, id),
+				await resolvePolicyResourceForRecord(
+					ctx,
+					entity,
+					id,
+					config.policyResourceForPersonnel,
+					config.policyResourceForRecord
+				),
 				auditResource,
 				id
 			);
@@ -96,7 +104,13 @@ export function createCrudUseCases<C extends WritePorts>(config: CrudConfig<C>):
 			await requirePolicyDecisionForCrud(
 				ctx,
 				policyAction,
-				await resolvePolicyResourceForRecord(ctx, entity, id),
+				await resolvePolicyResourceForRecord(
+					ctx,
+					entity,
+					id,
+					config.policyResourceForPersonnel,
+					config.policyResourceForRecord
+				),
 				auditResource,
 				id
 			);
@@ -138,7 +152,8 @@ async function requirePolicyDecisionForCrud<C extends WritePorts>(
 async function resolvePolicyResourceForCreate<C extends WritePorts>(
 	ctx: C,
 	entity: EntityDefinition,
-	data: Record<string, unknown>
+	data: Record<string, unknown>,
+	policyResourceForPersonnel?: (ctx: C, personnelId: string) => Promise<PolicyResource>
 ): Promise<PolicyResource> {
 	if (!entity.personnelIdField) {
 		return { kind: 'organization' };
@@ -149,14 +164,17 @@ async function resolvePolicyResourceForCreate<C extends WritePorts>(
 		return { kind: 'organization' };
 	}
 
-	return resolvePersonnelPolicyResource(ctx, personnelId);
+	return resolvePersonnelPolicyResource(ctx, personnelId, policyResourceForPersonnel);
 }
 
 async function resolvePolicyResourceForRecord<C extends WritePorts>(
 	ctx: C,
 	entity: EntityDefinition,
-	recordId: string
+	recordId: string,
+	policyResourceForPersonnel?: (ctx: C, personnelId: string) => Promise<PolicyResource>,
+	policyResourceForRecord?: (ctx: C, recordId: string) => Promise<PolicyResource>
 ): Promise<PolicyResource> {
+	if (policyResourceForRecord) return policyResourceForRecord(ctx, recordId);
 	if (entity.groupScope === 'none' || !entity.personnelIdField) {
 		return { kind: 'organization' };
 	}
@@ -168,16 +186,18 @@ async function resolvePolicyResourceForRecord<C extends WritePorts>(
 		return { kind: 'organization' };
 	}
 
-	return resolvePersonnelPolicyResource(ctx, personnelId);
+	return resolvePersonnelPolicyResource(ctx, personnelId, policyResourceForPersonnel);
 }
 
 async function resolvePersonnelPolicyResource<C extends WritePorts>(
 	ctx: C,
-	personnelId: string
+	personnelId: string,
+	policyResourceForPersonnel?: (ctx: C, personnelId: string) => Promise<PolicyResource>
 ): Promise<PolicyResource> {
-	const store = getUnscopedStore(ctx);
-	const person = await store.findOne<{ group_id?: string | null }>('personnel', ctx.auth.orgId, { id: personnelId });
-	return person?.group_id ? { kind: 'group', groupId: person.group_id } : { kind: 'organization' };
+	if (!policyResourceForPersonnel) {
+		throw new Error('Personnel-scoped CRUD requires a policy resource resolver');
+	}
+	return policyResourceForPersonnel(ctx, personnelId);
 }
 
 function getUnscopedStore<C extends WritePorts>(ctx: C): DataStore {

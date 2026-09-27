@@ -35,17 +35,14 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
-vi.mock('$lib/server/adapters/supabaseRankCatalogAdministration', () => ({
-	createSupabaseRankCatalogAdministrationPort: createSupabaseRankCatalogAdministrationPortMock
-}));
-
-vi.mock('$lib/server/core/useCases/rankCatalog', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/rankCatalog')>(
-		'$lib/server/core/useCases/rankCatalog'
+vi.mock('$features/personnel/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/personnel/index.server')>(
+		'$features/personnel/index.server'
 	);
 
 	return {
 		...actual,
+		createSupabaseRankCatalogAdministrationPort: createSupabaseRankCatalogAdministrationPortMock,
 		addOrganizationRankServicePack: addOrganizationRankServicePackMock,
 		bulkSetOrganizationRankCatalogState: bulkSetOrganizationRankCatalogStateMock,
 		reactivateOrganizationRankCatalogEntry: reactivateOrganizationRankCatalogEntryMock,

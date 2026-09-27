@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
 import { createCalendarWorkspaceHydrator, type CalendarHydrationStores } from './calendarWorkspaceHydration.svelte';
 import type { CalendarWorkspaceHydration } from './server/calendarWorkspaceBootstrap';

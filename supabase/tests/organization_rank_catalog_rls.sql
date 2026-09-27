@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(22);
+SELECT plan(26);
 
 INSERT INTO auth.users (
 	instance_id,
@@ -555,6 +555,42 @@ VALUES
 		'active',
 		'custom',
 		7
+	),
+	(
+		'40000000-0000-4000-8000-000000124705',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-TRAINING',
+		'Alpha Training Reference',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		8
+	),
+	(
+		'40000000-0000-4000-8000-000000124706',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-FILTER',
+		'Alpha Sign-In Filter',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		9
+	),
+	(
+		'40000000-0000-4000-8000-000000124707',
+		'20000000-0000-4000-8000-000000124701',
+		'ALPHA-SNAPSHOT',
+		'Alpha Sign-In Snapshot',
+		'custom',
+		'custom',
+		'ungraded',
+		'active',
+		'custom',
+		10
 	);
 
 INSERT INTO public.personnel (
@@ -573,6 +609,40 @@ VALUES (
 	'Alex',
 	'alex-blocked-rank'
 );
+
+INSERT INTO public.training_types (id, organization_id, name, excluded_ranks)
+VALUES (
+	'60000000-0000-4000-8000-000000124705',
+	'20000000-0000-4000-8000-000000124701',
+	'Alpha Training Rank Reference',
+	ARRAY['alpha-training']::text[]
+);
+
+INSERT INTO public.sign_in_rosters (
+	id,
+	organization_id,
+	title,
+	personnel_snapshot,
+	filter_config,
+	created_by
+)
+VALUES
+	(
+		'70000000-0000-4000-8000-000000124706',
+		'20000000-0000-4000-8000-000000124701',
+		'Alpha rank filter',
+		'[]'::jsonb,
+		'{"ranks":["alpha-filter"]}'::jsonb,
+		'10000000-0000-4000-8000-000000124701'
+	),
+	(
+		'70000000-0000-4000-8000-000000124707',
+		'20000000-0000-4000-8000-000000124701',
+		'Alpha saved rank',
+		'[{"rank":"alpha-snapshot"}]'::jsonb,
+		NULL,
+		'10000000-0000-4000-8000-000000124701'
+	);
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000124701', true);
@@ -646,6 +716,55 @@ SELECT is(
 	),
 	1,
 	'blocked atomic rank catalog delete preserves the target row'
+);
+
+SELECT throws_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124705',
+			'ALPHA-TRAINING'
+		)
+	$$,
+	'23503',
+	'Rank is referenced by Organization data. Retire it instead.',
+	'atomic rank catalog delete blocks normalized Training exclusions'
+);
+
+SELECT throws_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124706',
+			'ALPHA-FILTER'
+		)
+	$$,
+	'23503',
+	'Rank is referenced by Organization data. Retire it instead.',
+	'atomic rank catalog delete blocks normalized Sign-in Roster rank filters'
+);
+
+SELECT throws_ok(
+	$$
+		SELECT public.delete_unused_organization_rank_catalog_entry(
+			'20000000-0000-4000-8000-000000124701',
+			'40000000-0000-4000-8000-000000124707',
+			'ALPHA-SNAPSHOT'
+		)
+	$$,
+	'23503',
+	'Rank is referenced by Organization data. Retire it instead.',
+	'atomic rank catalog delete blocks normalized Sign-in Roster snapshot ranks'
+);
+
+SELECT is(
+	(
+		SELECT count(*)::integer
+		FROM public.organization_rank_catalog
+		WHERE code IN ('ALPHA-TRAINING', 'ALPHA-FILTER', 'ALPHA-SNAPSHOT')
+	),
+	3,
+	'all Training and Sign-in reference denials preserve their rank rows'
 );
 
 SELECT set_config('request.jwt.claim.sub', '', true);

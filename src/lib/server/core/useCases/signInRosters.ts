@@ -1,11 +1,12 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { sortSignInRosterRows } from '$features/sign-in-rosters/signInRosterRankOrder';
+import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { fail } from '$lib/server/core/errors';
-import type { SignInRosterPersonnelLookupRecord, UseCaseContext } from '$lib/server/core/ports';
+import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
+import type { UseCaseContext } from '$lib/server/core/ports';
 
 const MAX_ROSTER_PERSONNEL = 500;
-const RANK_CATALOG_TABLE = 'organization_rank_catalog';
 
 type PersonnelRow = SignInRosterPersonnelLookupRecord;
 
@@ -41,7 +42,13 @@ export async function prepareSignInRosterSnapshot(
 
 	const groupNames = await loadGroupNames(ctx, rows);
 	const sortBy = input.sortBy === 'rank' ? 'rank' : 'alphabetical';
-	const rankCatalog = sortBy === 'rank' ? await loadSignInRosterRankCatalog(ctx) : [];
+	const rankCatalog =
+		sortBy === 'rank'
+			? await loadOrganizationRankCatalog(
+					{ auth: ctx.auth, store: ctx.rawStore },
+					{ authorization: 'training-records' }
+				)
+			: [];
 	const rowById = rowsById(rows);
 	const personnelSnapshot = sortSnapshot(
 		personnelIds.map((id) => canonicalSnapshotFor(rowById.get(id)!, groupNames)),
@@ -98,16 +105,8 @@ function validatePersonnelIds(values: unknown[], invalidMessage: string): string
 }
 
 async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): Promise<PersonnelRow[]> {
-	if (ctx.signInRosterPersonnelLookup) {
-		const rows = await ctx.signInRosterPersonnelLookup.findPersonnelForRosterSnapshot(ctx.auth.orgId, personnelIds);
-		const order = new Map(personnelIds.map((id, index) => [id, index]));
-		return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-	}
-
-	const rows = await ctx.rawStore.findMany<PersonnelRow>('personnel', ctx.auth.orgId, undefined, {
-		select: 'id, rank, last_name, first_name, group_id, groups(name)',
-		inFilters: { id: personnelIds }
-	});
+	if (!ctx.signInRosterPersonnelLookup) throw new Error('Sign-in roster Personnel lookup is unavailable');
+	const rows = await ctx.signInRosterPersonnelLookup.findPersonnelForRosterSnapshot(ctx.auth.orgId, personnelIds);
 	const order = new Map(personnelIds.map((id, index) => [id, index]));
 	return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
@@ -115,28 +114,19 @@ async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): P
 async function loadGroupNames(ctx: UseCaseContext, rows: PersonnelRow[]): Promise<Map<string, string>> {
 	const names = new Map<string, string>();
 	for (const row of rows) {
-		const groupName = groupNameForRow(row);
-		if (row.group_id && typeof groupName === 'string') {
-			names.set(row.group_id, groupName);
+		const groupName = row.groupName;
+		if (row.groupId && typeof groupName === 'string') {
+			names.set(row.groupId, groupName);
 		}
 	}
 
 	const missingGroupIds = uniqueStrings(
-		rows.map((row) => row.group_id).filter((id): id is string => typeof id === 'string' && !names.has(id))
+		rows.map((row) => row.groupId).filter((id): id is string => typeof id === 'string' && !names.has(id))
 	);
 	if (missingGroupIds.length === 0) return names;
 
-	const groupRows = await ctx.rawStore.findMany<{ id: string; name?: string | null }>(
-		'groups',
-		ctx.auth.orgId,
-		undefined,
-		{
-			select: 'id, name',
-			inFilters: { id: missingGroupIds }
-		}
-	);
-	for (const row of groupRows) {
-		if (typeof row.name === 'string') names.set(row.id, row.name);
+	for (const [id, name] of await findGroupNamesByIds({ auth: ctx.auth, store: ctx.rawStore }, missingGroupIds)) {
+		names.set(id, name);
 	}
 	return names;
 }
@@ -146,24 +136,15 @@ function assertPersonnelRowsWithinScope(scopeSet: ScopeSet, rows: PersonnelRow[]
 
 	const allowedGroups = new Set(scopeSet.groupIds);
 	for (const row of rows) {
-		if (!row.group_id || !allowedGroups.has(row.group_id)) {
+		if (!row.groupId || !allowedGroups.has(row.groupId)) {
 			fail(403, 'You do not have access to personnel outside your group');
 		}
 	}
 }
 
 function scopeGroupIdsForRows(rows: PersonnelRow[]): string[] {
-	if (rows.some((row) => !row.group_id)) return [];
-	return uniqueStrings(rows.map((row) => row.group_id).filter((id): id is string => typeof id === 'string'));
-}
-
-function groupNameForRow(row: PersonnelRow): string | null {
-	if (typeof row.group_name === 'string') return row.group_name;
-	if (Array.isArray(row.groups)) {
-		const first = row.groups.find((group) => typeof group?.name === 'string');
-		return first?.name ?? null;
-	}
-	return row.groups?.name ?? null;
+	if (rows.some((row) => !row.groupId)) return [];
+	return uniqueStrings(rows.map((row) => row.groupId).filter((id): id is string => typeof id === 'string'));
 }
 
 function rowsById(rows: PersonnelRow[]): Map<string, PersonnelRow> {
@@ -174,10 +155,10 @@ function canonicalSnapshotFor(row: PersonnelRow, groupNames: Map<string, string>
 	return {
 		id: row.id,
 		rank: row.rank ?? '',
-		lastName: row.last_name ?? '',
-		firstName: row.first_name ?? '',
-		group: row.group_id ? (groupNames.get(row.group_id) ?? '') : '',
-		groupId: row.group_id ?? null
+		lastName: row.lastName ?? '',
+		firstName: row.firstName ?? '',
+		group: row.groupId ? (groupNames.get(row.groupId) ?? '') : '',
+		groupId: row.groupId ?? null
 	};
 }
 
@@ -187,28 +168,6 @@ function sortSnapshot(
 	rankCatalog?: readonly RankCatalogEntry[]
 ): CanonicalSignInRosterSnapshot[] {
 	return sortSignInRosterRows(snapshot, sortBy, rankCatalog);
-}
-
-async function loadSignInRosterRankCatalog(ctx: UseCaseContext): Promise<RankCatalogEntry[]> {
-	const rows = await ctx.rawStore.findMany<{
-		code: string;
-		label: string;
-		service: RankCatalogEntry['service'];
-		category: RankCatalogEntry['category'];
-		pay_grade: RankCatalogEntry['payGrade'];
-		state: RankCatalogEntry['state'];
-		sort_order: number;
-	}>(RANK_CATALOG_TABLE, ctx.auth.orgId);
-
-	return rows.map((row) => ({
-		code: row.code,
-		label: row.label,
-		service: row.service,
-		category: row.category,
-		payGrade: row.pay_grade,
-		state: row.state,
-		sortOrder: row.sort_order
-	}));
 }
 
 function sanitizeFilterConfig(value: unknown): { groups: string[]; ranks: string[] } | null {

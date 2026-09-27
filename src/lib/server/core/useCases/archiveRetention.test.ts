@@ -38,7 +38,6 @@ function buildPorts() {
 		storage,
 		assignmentTypes,
 		leaderNotes: createLeaderNoteDataSource({
-			exportRows: (orgId) => store.findMany('leader_notes', orgId),
 			findArchivedBefore: async (orgId, cutoff) => {
 				const notes = await store.findMany<{ id: string; archived_at: string | null }>('leader_notes', orgId);
 				return notes.filter((note) => note.archived_at !== null && Date.parse(note.archived_at) < Date.parse(cutoff));

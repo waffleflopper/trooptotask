@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import type { Personnel } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { personnelRosterHydration } from '$features/personnel';
+import { groupCatalogHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 
@@ -161,8 +161,8 @@ describe('TrainingPageContext', () => {
 		modals = makeModals();
 		queueUserPreferencesPatchMock.mockReset();
 		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
-		rosterStore.load([mockPerson, mockPerson2], 'org-1');
-		groupsStore.load(mockGroups, 'org-1');
+		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
+		groupCatalogHydration.load(mockGroups, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
 		trainingViewsStore.load([], 'org-1');
 	});
@@ -211,7 +211,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('returns empty array when no roles', () => {
-			rosterStore.load([{ ...mockPerson, clinicRole: null } as unknown as Personnel], 'org-1');
+			personnelRosterHydration.load([{ ...mockPerson, clinicRole: null } as unknown as Personnel], 'org-1');
 			const data = makeData();
 			const ctx = new TrainingPageContext(data, modals, makeOrg());
 			expect(ctx.availableRoles).toEqual([]);
@@ -220,7 +220,7 @@ describe('TrainingPageContext', () => {
 
 	it('reads personnel from the hydrated personnel store', () => {
 		const workspacePerson = { ...mockPerson, id: 'workspace-person', lastName: 'Workspace' };
-		rosterStore.load([workspacePerson], 'org-1');
+		personnelRosterHydration.load([workspacePerson], 'org-1');
 		const data = makeData();
 
 		const ctx = new TrainingPageContext(data, modals, makeOrg());
@@ -245,7 +245,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('filters unassigned personnel through the roster group filter value', async () => {
-			rosterStore.load([mockPerson, mockPerson2, unassignedPerson], 'org-1');
+			personnelRosterHydration.load([mockPerson, mockPerson2, unassignedPerson], 'org-1');
 			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
 
 			expect(ctx.groupFilterOptions).toContainEqual({ value: 'name:Unassigned', label: 'Unassigned' });
@@ -445,7 +445,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('clears invalid persisted group and view selections after hydrated stores arrive', () => {
-			groupsStore.load([], 'org-stale');
+			groupCatalogHydration.load([], 'org-stale');
 			trainingViewsStore.load([], 'org-stale');
 
 			const ctx = new TrainingPageContext(
@@ -466,7 +466,7 @@ describe('TrainingPageContext', () => {
 			expect(ctx.selectedGroupId).toBe('missing-group');
 			expect(ctx.selectedViewId).toBe('missing-view');
 
-			groupsStore.load(mockGroups, 'org-1');
+			groupCatalogHydration.load(mockGroups, 'org-1');
 			trainingViewsStore.load(
 				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
 				'org-1'
@@ -478,7 +478,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('persists a reconciled selection patch only once even when multiple getters are read', async () => {
-			groupsStore.load([], 'org-stale');
+			groupCatalogHydration.load([], 'org-stale');
 			trainingViewsStore.load([], 'org-stale');
 
 			const ctx = new TrainingPageContext(
@@ -496,7 +496,7 @@ describe('TrainingPageContext', () => {
 				makeOrg()
 			);
 
-			groupsStore.load(mockGroups, 'org-1');
+			groupCatalogHydration.load(mockGroups, 'org-1');
 			trainingViewsStore.load(
 				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
 				'org-1'

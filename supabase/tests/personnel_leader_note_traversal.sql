@@ -24,7 +24,7 @@ VALUES
 INSERT INTO public.organization_memberships
  (organization_id, user_id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids, email)
 VALUES ('20000000-0000-4000-8000-000000070401', '10000000-0000-4000-8000-000000070401',
- 'member', 'viewer', '{"personnel":"operate"}', 'groups',
+ 'member', 'viewer', '{"personnel":"configure"}', 'groups',
  ARRAY['30000000-0000-4000-8000-000000070401']::uuid[], 'note-traversal@example.test'),
  ('20000000-0000-4000-8000-000000070401', '10000000-0000-4000-8000-000000070402',
  'member', 'viewer', '{}', 'groups',
@@ -118,7 +118,7 @@ SELECT lives_ok(
  VALUES ('64000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000070401',
  '50000000-0000-4000-8000-000000070401', '10000000-0000-4000-8000-000000070401',
  'Scoped write fixture', '2026-09-24 13:00:00.123456+00')$$,
- 'scoped Personnel operator can create a note');
+ 'scoped Personnel configurator can create a note');
 SELECT results_eq(
  $$SELECT id, organization_id, personnel_id, author, text, created_at, archived_at
  FROM public.leader_notes WHERE id = '64000000-0000-4000-8000-000000000001'$$,
@@ -131,63 +131,63 @@ WITH archived AS (
  WHERE id = '64000000-0000-4000-8000-000000000001' RETURNING id, archived_at
 )
 SELECT is((SELECT archived_at FROM archived), '2026-09-25 13:00:00.654321+00'::timestamptz,
- 'scoped operator archives the note with its exact timestamp');
+ 'scoped configurator archives the note with its exact timestamp');
 WITH restored AS (
  UPDATE public.leader_notes SET archived_at = NULL
  WHERE id = '64000000-0000-4000-8000-000000000001' RETURNING id, archived_at
 )
 SELECT is((SELECT count(*)::integer FROM restored WHERE archived_at IS NULL), 1,
- 'scoped operator restores the note to active');
+ 'scoped configurator restores the note to active');
 
 SELECT throws_ok(
  $$INSERT INTO public.leader_notes (organization_id, personnel_id, author, text)
  VALUES ('20000000-0000-4000-8000-000000070401', '50000000-0000-4000-8000-000000070403', 'Synthetic', 'Denied Group')$$,
  '42501', 'new row violates row-level security policy for table "leader_notes"',
- 'operator cannot create a note for another Group');
+ 'configurator cannot create a note for another Group');
 SELECT throws_ok(
  $$INSERT INTO public.leader_notes (organization_id, personnel_id, author, text)
  VALUES ('20000000-0000-4000-8000-000000070402', '50000000-0000-4000-8000-000000070404', 'Synthetic', 'Denied Organization')$$,
  '42501', 'new row violates row-level security policy for table "leader_notes"',
- 'operator cannot create a note in another Organization');
+ 'configurator cannot create a note in another Organization');
 SELECT throws_ok(
  $$INSERT INTO public.leader_notes (organization_id, personnel_id, author, text)
  VALUES ('20000000-0000-4000-8000-000000070401', '50000000-0000-4000-8000-000000070404', 'Synthetic', 'Mismatched parent')$$,
  '42501', 'new row violates row-level security policy for table "leader_notes"',
- 'operator cannot attach an own-Organization note to foreign Personnel');
+ 'configurator cannot attach an own-Organization note to foreign Personnel');
 SELECT throws_ok(
  $$UPDATE public.leader_notes SET personnel_id = '50000000-0000-4000-8000-000000070403'
  WHERE id = '64000000-0000-4000-8000-000000000001'$$,
  '42501', 'new row violates row-level security policy for table "leader_notes"',
- 'operator cannot move an allowed note to another Group');
+ 'configurator cannot move an allowed note to another Group');
 SELECT throws_ok(
  $$UPDATE public.leader_notes SET organization_id = '20000000-0000-4000-8000-000000070402',
  personnel_id = '50000000-0000-4000-8000-000000070404'
  WHERE id = '64000000-0000-4000-8000-000000000001'$$,
  '42501', 'new row violates row-level security policy for table "leader_notes"',
- 'operator cannot move an allowed note to another Organization');
+ 'configurator cannot move an allowed note to another Organization');
 SELECT throws_ok(
  $$UPDATE public.leader_notes SET personnel_id = '50000000-0000-4000-8000-000000070404'
  WHERE id = '64000000-0000-4000-8000-000000000001'$$,
  '42501', 'new row violates row-level security policy for table "leader_notes"',
- 'operator cannot move an allowed note to mismatched foreign Personnel');
+ 'configurator cannot move an allowed note to mismatched foreign Personnel');
 WITH updated AS (
  UPDATE public.leader_notes SET archived_at = '2026-09-25 13:00:00+00'
  WHERE id = '63000000-0000-4000-8000-000000000002' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM updated), 0, 'operator cannot archive another Group note');
+SELECT is((SELECT count(*)::integer FROM updated), 0, 'configurator cannot archive another Group note');
 WITH updated AS (
  UPDATE public.leader_notes SET archived_at = '2026-09-25 13:00:00+00'
  WHERE id = '63000000-0000-4000-8000-000000000003' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM updated), 0, 'operator cannot archive another Organization note');
+SELECT is((SELECT count(*)::integer FROM updated), 0, 'configurator cannot archive another Organization note');
 WITH deleted AS (
  DELETE FROM public.leader_notes WHERE id = '63000000-0000-4000-8000-000000000002' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM deleted), 0, 'operator cannot delete another Group note');
+SELECT is((SELECT count(*)::integer FROM deleted), 0, 'configurator cannot delete another Group note');
 WITH deleted AS (
  DELETE FROM public.leader_notes WHERE id = '63000000-0000-4000-8000-000000000003' RETURNING id
 )
-SELECT is((SELECT count(*)::integer FROM deleted), 0, 'operator cannot delete another Organization note');
+SELECT is((SELECT count(*)::integer FROM deleted), 0, 'configurator cannot delete another Organization note');
 
 SELECT set_config('request.jwt.claim.sub', '10000000-0000-4000-8000-000000070402', true);
 SELECT set_config('request.jwt.claim.email', 'note-viewer@example.test', true);
@@ -229,7 +229,7 @@ WITH deleted AS (
  DELETE FROM public.leader_notes WHERE id = '64000000-0000-4000-8000-000000000001' RETURNING id
 )
 SELECT is((SELECT id FROM deleted), '64000000-0000-4000-8000-000000000001'::uuid,
- 'operator deletes the intended archived note');
+ 'configurator deletes the intended archived note');
 RESET ROLE;
 SELECT is((SELECT count(*)::integer FROM public.leader_notes WHERE id = '64000000-0000-4000-8000-000000000001'),
  0, 'deleted note is absent from persisted state');

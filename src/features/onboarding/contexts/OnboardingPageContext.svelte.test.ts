@@ -32,12 +32,12 @@ import {
 	formatTimestamp
 } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 
 afterEach(() => {
-	rosterStore.load([], 'org-test-reset');
+	personnelRosterHydration.load([], 'org-test-reset');
 	startOnboardingMock.mockReset();
 });
 
@@ -91,6 +91,26 @@ function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 }
 
 describe('OnboardingPageContext policy affordances', () => {
+	it('allows an Onboarding-only operator to start workflows without offering Personnel creation', () => {
+		const onboardingOnly = new OnboardingPageContext(
+			{ open: vi.fn() } as never,
+			makeOrgContext({ ...NONE_TEST_CAPABILITY_MAP, onboarding: 'operate' })
+		);
+		expect(onboardingOnly.canManageWorkflows).toBe(true);
+		expect(onboardingOnly.canAddPerson).toBe(false);
+
+		const personnelAdmin = new OnboardingPageContext(
+			{ open: vi.fn() } as never,
+			createTestOrgContext({
+				orgId: 'org-1',
+				userRole: 'member',
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'operate', personnel: 'configure' },
+				scopeSet: { kind: 'organization' }
+			})
+		);
+		expect(personnelAdmin.canAddPerson).toBe(true);
+	});
+
 	it('uses advisory Onboarding policy decisions instead of legacy permission flags', () => {
 		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
 
@@ -100,7 +120,7 @@ describe('OnboardingPageContext policy affordances', () => {
 	});
 
 	it('checks per-personnel scope for onboarding record actions', () => {
-		rosterStore.load(
+		personnelRosterHydration.load(
 			[
 				{
 					id: 'p-1',

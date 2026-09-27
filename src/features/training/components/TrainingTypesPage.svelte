@@ -13,10 +13,10 @@
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
-	import { rankCodesForOptions } from '$lib/domain/rankOptions';
-	import { createRosterReadModel } from '$lib/domain/rosterReadModel';
-	import { rosterStore } from '$lib/stores/roster.svelte';
+	import type { RankCatalogEntry } from '$features/personnel/contracts';
+	import { rankCodesForOptions } from '$features/personnel/contracts';
+	import { createRosterReadModel } from '$features/personnel/contracts';
+	import { rosterStore } from '$features/personnel';
 	import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import {

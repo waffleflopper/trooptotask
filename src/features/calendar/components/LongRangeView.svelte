@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Group } from '$lib/stores/groups.svelte';
+	import type { Group } from '$features/personnel/contracts';
 	import type {
 		Personnel,
 		AvailabilityEntry,

@@ -4,10 +4,11 @@ import type {
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
+import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
-import { observedRankCodesForOptions } from '$lib/domain/rankOptions';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
+import { observedRankCodesForOptions } from '$features/personnel/contracts';
 import {
 	buildCriticalTasksMatrix,
 	matchesCriticalTasksPersonnelSearch
@@ -28,12 +29,10 @@ import {
 	type IctReportSummary
 } from '$features/critical-tasks/utils/ictReports';
 import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
-import { GroupEntity } from '$lib/server/entities/group';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { fetchCriticalTasksSettings } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
-import { loadRosterPersonnel } from './rosterReadModel';
 
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;
@@ -93,28 +92,6 @@ function buildCriticalTasksReportScope(source: CriticalTasksReportSource): IctRe
 	};
 }
 
-async function loadCriticalTasksRankCatalog(ctx: QueryPorts): Promise<RankCatalogEntry[]> {
-	const rows = await ctx.store.findMany<{
-		code: string;
-		label: string;
-		service: RankCatalogEntry['service'];
-		category: RankCatalogEntry['category'];
-		pay_grade: RankCatalogEntry['payGrade'];
-		state: RankCatalogEntry['state'];
-		sort_order: number;
-	}>('organization_rank_catalog', ctx.auth.orgId);
-
-	return rows.map((row) => ({
-		code: row.code,
-		label: row.label,
-		service: row.service,
-		category: row.category,
-		payGrade: row.pay_grade,
-		state: row.state,
-		sortOrder: row.sort_order
-	}));
-}
-
 async function buildDashboardFromSource(
 	ctx: QueryPorts,
 	source: CriticalTasksReportSource,
@@ -138,11 +115,10 @@ async function buildDashboardFromSource(
 
 async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
-	const [personnel, groupRows, taskRows, settings, rankCatalog] = await Promise.all([
-		loadRosterPersonnel(ctx, { status: 'active' }),
-		ctx.store.findMany<Record<string, unknown>>('groups', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
+	const [personnel, groups, taskRows, settings, rankCatalog] = await Promise.all([
+		ctx.personnelCriticalTasksRoster.listActiveForReadiness(ctx.auth),
+		listGroupCatalog(ctx),
 		ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
 			isNull: { archived_at: true },
 			orderBy: [
@@ -151,12 +127,12 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 			]
 		}),
 		fetchCriticalTasksSettings(ctx),
-		loadCriticalTasksRankCatalog(ctx)
+		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'critical-tasks-readiness' })
 	]);
 
 	return {
 		personnel,
-		groups: GroupEntity.fromDbArray(groupRows),
+		groups,
 		tasks: IctTaskEntity.fromDbArray(taskRows),
 		settings,
 		rankCatalog

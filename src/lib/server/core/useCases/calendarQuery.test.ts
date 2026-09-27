@@ -157,6 +157,14 @@ describe('fetchCalendarData', () => {
 			auth: {
 				role: 'member',
 				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
 				scopeSet: { kind: 'groups', groupIds: ['g1', 'g2'] }
 			}
 		});
@@ -201,6 +209,18 @@ describe('fetchCalendarData', () => {
 				group_id: 'g3',
 				groups: { name: 'Charlie' },
 				archived_at: null
+			},
+			{
+				id: 'p4',
+				organization_id: ORG,
+				rank: 'PFC',
+				last_name: 'Old',
+				first_name: 'Olive',
+				mos: '11B',
+				clinic_role: 'Soldier',
+				group_id: 'g1',
+				groups: { name: 'Alpha' },
+				archived_at: '2026-02-01T00:00:00Z'
 			}
 		]);
 		ctx.store.seed('availability_entries', [
@@ -226,7 +246,8 @@ describe('fetchCalendarData', () => {
 		ctx.store.seed('daily_assignments', [
 			{ id: 'da-1', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p2' },
 			{ id: 'da-2', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p3' },
-			{ id: 'da-3', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'g1' }
+			{ id: 'da-3', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'g1' },
+			{ id: 'da-4', organization_id: ORG, date: '2026-03-01', assignment_type_id: 'at1', assignee_id: 'p4' }
 		]);
 
 		const result = await fetchCalendarBootstrap(ctx, RANGE);
@@ -238,7 +259,8 @@ describe('fetchCalendarData', () => {
 		]);
 		await expect(result.dailyAssignments).resolves.toEqual([
 			expect.objectContaining({ id: 'da-1', assigneeId: 'p2' }),
-			expect.objectContaining({ id: 'da-3', assigneeId: 'g1' })
+			expect.objectContaining({ id: 'da-3', assigneeId: 'g1' }),
+			expect.objectContaining({ id: 'da-4', assigneeId: 'p4' })
 		]);
 	});
 
@@ -320,50 +342,32 @@ describe('fetchCalendarData', () => {
 });
 
 describe('getActiveOnboardingPersonnelIds', () => {
-	it('returns personnel IDs for in_progress onboardings', async () => {
+	it('returns only active marker IDs for visible Personnel in this Organization', async () => {
 		const ctx = buildCtx();
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: ORG, group_id: 'g-1' },
+			{ id: 'p-2', organization_id: ORG, group_id: 'g-1' },
+			{ id: 'p-3', organization_id: ORG, group_id: null },
+			{ id: 'foreign', organization_id: 'other-org', group_id: 'g-1' }
+		]);
 		ctx.store.seed('personnel_onboardings', [
 			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
-			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-2', status: 'in_progress' }
+			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
+			{ id: 'ob-3', organization_id: ORG, personnel_id: 'p-2', status: 'completed' },
+			{ id: 'ob-4', organization_id: ORG, personnel_id: 'p-3', status: 'in_progress' },
+			{ id: 'ob-5', organization_id: 'other-org', personnel_id: 'foreign', status: 'in_progress' }
 		]);
-
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual(expect.arrayContaining(['p-1', 'p-2']));
-		expect(result).toHaveLength(2);
+		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual(['p-1', 'p-3']);
 	});
 
-	it('excludes cancelled and completed onboardings', async () => {
-		const ctx = buildCtx();
+	it('preserves owner access to unassigned markers even with an empty Group scope', async () => {
+		const ctx = buildCtx({ auth: { role: 'owner', scopeSet: { kind: 'groups', groupIds: [] } } });
+		ctx.store.seed('personnel', [{ id: 'unassigned', organization_id: ORG, group_id: null }]);
 		ctx.store.seed('personnel_onboardings', [
-			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
-			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-2', status: 'cancelled' },
-			{ id: 'ob-3', organization_id: ORG, personnel_id: 'p-3', status: 'completed' }
+			{ id: 'ob-owner', organization_id: ORG, personnel_id: 'unassigned', status: 'in_progress' }
 		]);
 
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual(['p-1']);
-	});
-
-	it('returns empty array when no active onboardings exist', async () => {
-		const ctx = buildCtx();
-
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual([]);
-	});
-
-	it('deduplicates personnel with multiple active onboardings', async () => {
-		const ctx = buildCtx();
-		ctx.store.seed('personnel_onboardings', [
-			{ id: 'ob-1', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' },
-			{ id: 'ob-2', organization_id: ORG, personnel_id: 'p-1', status: 'in_progress' }
-		]);
-
-		const result = await getActiveOnboardingPersonnelIds(ctx);
-
-		expect(result).toEqual(['p-1']);
+		expect(await getActiveOnboardingPersonnelIds(ctx)).toEqual(['unassigned']);
 	});
 });
 
@@ -379,6 +383,30 @@ describe('fetchCalendarBootstrap', () => {
 		expect(result.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((statusType) => statusType.name)).toEqual(['Leave']);
 		expect(result.pinnedGroups).toEqual(['Alpha']);
+	});
+
+	it('returns no Group choices for a Calendar viewer with an empty Group scope', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'view',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedCalendarData(ctx.store);
+
+		const result = await fetchCalendarBootstrap(ctx, RANGE);
+
+		expect(result.groups).toEqual([]);
+		expect(result.personnel).toEqual([]);
 	});
 
 	it('returns the configured loss warning window from the organizations row', async () => {

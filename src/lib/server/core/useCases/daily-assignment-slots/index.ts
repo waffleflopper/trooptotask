@@ -1,5 +1,5 @@
 import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
+import type { CalendarWritePorts } from '../calendarPolicy';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalendarPolicy } from '../calendarPolicy';
 
@@ -25,7 +25,7 @@ export type DailyAssignmentSlotBatchResult = {
 };
 
 export async function replaceDailyAssignmentDay(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	input: { date: string; records: DailyAssignmentDayRecord[] }
 ): Promise<unknown[]> {
 	const records = input.records.map((record) => ({ ...record, date: input.date }));
@@ -59,7 +59,10 @@ export async function replaceDailyAssignmentDay(
 	return inserted.map((row) => entity.fromDb(row));
 }
 
-export async function createDailyAssignmentSlot(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+export async function createDailyAssignmentSlot(
+	ctx: CalendarWritePorts,
+	input: Record<string, unknown>
+): Promise<unknown> {
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const record = toDailyAssignmentSlotRecord(validated);
 
@@ -77,7 +80,10 @@ export async function createDailyAssignmentSlot(ctx: WritePorts, input: Record<s
 	return entity.fromDb(row);
 }
 
-export async function setDailyAssignmentSlot(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+export async function setDailyAssignmentSlot(
+	ctx: CalendarWritePorts,
+	input: Record<string, unknown>
+): Promise<unknown> {
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const record = toDailyAssignmentSlotRecord(validated);
 
@@ -101,7 +107,10 @@ export async function setDailyAssignmentSlot(ctx: WritePorts, input: Record<stri
 	}
 }
 
-export async function updateDailyAssignmentSlot(ctx: WritePorts, input: Record<string, unknown>): Promise<unknown> {
+export async function updateDailyAssignmentSlot(
+	ctx: CalendarWritePorts,
+	input: Record<string, unknown>
+): Promise<unknown> {
 	const validated = entity.updateSchema.parse(input) as Record<string, unknown>;
 	const { id } = validated as { id: string };
 	const assigneeId = validated.assigneeId as string | undefined;
@@ -139,7 +148,7 @@ export async function updateDailyAssignmentSlot(ctx: WritePorts, input: Record<s
 	return entity.fromDb(row);
 }
 
-export async function deleteDailyAssignmentSlot(ctx: WritePorts, id: string): Promise<void> {
+export async function deleteDailyAssignmentSlot(ctx: CalendarWritePorts, id: string): Promise<void> {
 	const existingRow = await requireExistingAssignmentAccessById(ctx, id);
 	const assignmentTypeId = existingRow?.assignment_type_id;
 	const assigneeId = existingRow?.assignee_id;
@@ -157,7 +166,7 @@ export async function deleteDailyAssignmentSlot(ctx: WritePorts, id: string): Pr
 }
 
 export async function clearDailyAssignmentSlot(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	input: { date: string; assignmentTypeId: string }
 ): Promise<void> {
 	await requireExistingAssignmentAccess(ctx, {
@@ -178,7 +187,7 @@ export async function clearDailyAssignmentSlot(
 }
 
 export async function replaceDailyAssignmentSlotsBatch(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	input: { records: DailyAssignmentSlotRecord[] }
 ): Promise<DailyAssignmentSlotBatchResult> {
 	const inputRecords = input.records;
@@ -265,14 +274,14 @@ function toDailyAssignmentDbInsert(record: DailyAssignmentSlotRecord, orgId: str
 }
 
 async function findDailyAssignmentRows(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	filters: Record<string, unknown>
 ): Promise<Record<string, unknown>[]> {
 	return ctx.store.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters);
 }
 
 async function findDailyAssignmentRowsMatchingAny(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	slotFilters: AssignmentSlotFilter[]
 ): Promise<Record<string, unknown>[]> {
 	if (slotFilters.length === 0) return [];
@@ -293,7 +302,7 @@ async function findDailyAssignmentRowsMatchingAny(
 }
 
 async function tryRestoreDailyAssignmentRows(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	rows: Record<string, unknown>[],
 	primaryError: unknown,
 	message: string
@@ -326,7 +335,7 @@ function errorMessage(error: unknown): string {
 }
 
 async function getAssignmentTargets(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	assignmentTypeIds: string[]
 ): Promise<Map<string, AssignmentTarget>> {
 	const uniqueIds = [...new Set(assignmentTypeIds.filter((id) => typeof id === 'string' && id.length > 0))];
@@ -349,7 +358,10 @@ async function getAssignmentTargets(
 	return targets;
 }
 
-async function requireExistingAssignmentAccess(ctx: WritePorts, filters: Record<string, unknown>): Promise<void> {
+async function requireExistingAssignmentAccess(
+	ctx: CalendarWritePorts,
+	filters: Record<string, unknown>
+): Promise<void> {
 	const lookupStore = ctx.rawStore ?? ctx.store;
 	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters, {
 		select: 'assignee_id, assignment_type_id'
@@ -358,7 +370,7 @@ async function requireExistingAssignmentAccess(ctx: WritePorts, filters: Record<
 }
 
 async function requireExistingAssignmentAccessById(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	id: string
 ): Promise<Record<string, unknown> | null> {
 	const lookupStore = ctx.rawStore ?? ctx.store;
@@ -378,7 +390,7 @@ async function requireExistingAssignmentAccessById(
 }
 
 async function requireExistingAssignmentSlotPolicy(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	slotFilters: AssignmentSlotFilter[]
 ): Promise<Set<string>> {
 	if (slotFilters.length === 0) return new Set();
@@ -404,7 +416,10 @@ async function requireExistingAssignmentSlotPolicy(
 	return new Set(affectedRows.map((row) => toSlotKey(String(row.date), String(row.assignment_type_id))));
 }
 
-async function requireCalendarAssignmentRowsPolicy(ctx: WritePorts, rows: Record<string, unknown>[]): Promise<void> {
+async function requireCalendarAssignmentRowsPolicy(
+	ctx: CalendarWritePorts,
+	rows: Record<string, unknown>[]
+): Promise<void> {
 	await requireCalendarAssignmentPolicy(
 		ctx,
 		rows
@@ -419,7 +434,10 @@ async function requireCalendarAssignmentRowsPolicy(ctx: WritePorts, rows: Record
 	);
 }
 
-async function requireCalendarAssignmentPolicy(ctx: WritePorts, records: AssignmentPolicyRecord[]): Promise<void> {
+async function requireCalendarAssignmentPolicy(
+	ctx: CalendarWritePorts,
+	records: AssignmentPolicyRecord[]
+): Promise<void> {
 	if (records.length === 0) {
 		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments);
 		return;

@@ -1,8 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { GroupEntity } from '$lib/server/entities/group';
+import { listGroupCatalog, listPinnedGroupNames } from '$features/personnel/index.server';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { PinnedGroupsEntity } from '$lib/server/entities/pinnedGroups';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { TrainingViewEntity } from '$lib/server/entities/trainingView';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -12,12 +11,11 @@ import {
 	type HydrationItems,
 	type WorkspaceHydrationTarget
 } from '$lib/server/core/streamedWorkspace';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { loadRosterPersonnel } from '$lib/server/core/useCases/rosterReadModel';
-import { loadOrganizationRankCatalog } from '$lib/server/core/useCases/rankCatalog';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType, TrainingView } from '../training.types';
 
@@ -84,12 +82,12 @@ function createTrainingWorkspaceHydration(orgId: string, data: TrainingWorkspace
 	return hydration;
 }
 
-function loadTrainingItems<T>(config: {
+function loadTrainingItems<R, T>(config: {
 	orgId: string;
 	label: string;
 	phase: TrainingLoadPhase;
-	load: () => Promise<Record<string, unknown>[]>;
-	mapRows: (rows: Record<string, unknown>[]) => T;
+	load: () => Promise<R>;
+	mapRows: (rows: R) => T;
 }): Promise<T> {
 	return withTrainingTiming(config.orgId, config.phase, () => config.load().then(config.mapRows)).catch((error) => {
 		console.error(`[training-workspace] Failed to load ${config.label}`, {
@@ -101,11 +99,7 @@ function loadTrainingItems<T>(config: {
 }
 
 async function loadTrainingRosterPersonnel(ctx: UseCaseContext): Promise<Personnel[]> {
-	if (ctx.signInRosterPersonnelLookup) {
-		return ctx.signInRosterPersonnelLookup.listPersonnelForRosterCandidates(ctx.auth.orgId, ctx.auth.scopeSet);
-	}
-
-	return loadRosterPersonnel(ctx, { status: 'active' });
+	return ctx.personnelTrainingRoster.listActiveForWorkspace(ctx.auth);
 }
 
 async function loadTrainingRankCatalog(ctx: UseCaseContext): Promise<RankCatalogEntry[]> {
@@ -127,11 +121,8 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		orgId: requestedOrgId,
 		label: 'groups',
 		phase: 'groups',
-		load: () =>
-			ctx.store.findMany<Record<string, unknown>>('groups', canonicalOrgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-		mapRows: (rows) => GroupEntity.fromDbArray(rows) as Group[]
+		load: () => listGroupCatalog(ctx),
+		mapRows: (groups): Group[] => groups
 	});
 	const trainingTypes = loadTrainingItems({
 		orgId: requestedOrgId,
@@ -157,16 +148,8 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		orgId: requestedOrgId,
 		label: 'pinned groups',
 		phase: 'pinned-groups',
-		load: () =>
-			ctx.store.findMany<Record<string, unknown>>(
-				'user_pinned_groups',
-				canonicalOrgId,
-				{ user_id: ctx.auth.userId },
-				{
-					orderBy: [{ column: 'sort_order', ascending: true }]
-				}
-			),
-		mapRows: (rows) => PinnedGroupsEntity.fromDbArray(rows)
+		load: () => listPinnedGroupNames(ctx),
+		mapRows: (names) => names
 	});
 	const personnelTrainings = loadTrainingItems({
 		orgId: requestedOrgId,

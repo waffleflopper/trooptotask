@@ -1,5 +1,5 @@
 import type { ColumnDef } from '$lib/components/ui/data-table';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';

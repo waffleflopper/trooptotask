@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccessRequestSetupState } from '$features/identity/index.server';
 import type { AuthContext, UseCaseContext } from '$lib/server/core/ports';
+import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { SettingsAccessSourceRow } from '../settingsMemberAccessReadModel.server';
 import {
 	buildMembersSettingsSection,
@@ -353,6 +354,22 @@ describe('members settings setup-state lookup degradation', () => {
 });
 
 describe('members settings section shaping', () => {
+	it('offers every same-Organization Group in saved order', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		ctx.store.seed('groups', [
+			{ id: 'g2', organization_id: 'org-1', name: 'Bravo', sort_order: 2 },
+			{ id: 'g1', organization_id: 'org-1', name: 'Alpha', sort_order: 1 },
+			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: 0 }
+		]);
+
+		const data = await loadMembersSettings(ctx, { isAdmin: true });
+
+		expect(data.sections.members.groups).toEqual([
+			{ id: 'g1', name: 'Alpha' },
+			{ id: 'g2', name: 'Bravo' }
+		]);
+	});
+
 	it('splits actionable invitations from closed history', () => {
 		const section = buildSection({
 			invitations: [

@@ -82,6 +82,7 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		ctx.store.seed('personnel_onboardings', [
 			{ id: 'ob1', organization_id: ORG, personnel_id: 'p1', status: 'in_progress' }
 		]);
+		ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG, group_id: null }]);
 
 		const result = await loadWithContextCore(ctx, {
 			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,

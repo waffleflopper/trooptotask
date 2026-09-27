@@ -4,6 +4,7 @@ import type {
 	PersonnelDocument,
 	PersonnelFollowUp
 } from '$features/personnel/personnel-detail.types';
+import type { PersonnelArtifactTable, PersonnelArtifactWriter } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
@@ -65,7 +66,7 @@ export interface FollowUpRow {
 }
 
 export interface PersonnelArtifactSpec<TRow, TDto> {
-	table: string;
+	table: PersonnelArtifactTable;
 	noun: string;
 	nounPlural: string;
 	auditPrefix: string;
@@ -76,23 +77,30 @@ export interface PersonnelArtifactSpec<TRow, TDto> {
 	archivePatch?(now: string): Partial<TRow>;
 	restorePatch?(): Partial<TRow>;
 	ownedArchive?: {
-		filters?: Record<string, unknown>;
+		filters?: { status?: 'open' };
 		archivePatch(archivedAt: string): Partial<TRow>;
-		restoreFilters(personnelArchivedAt: string): Record<string, unknown>;
 		restorePatch(): Partial<TRow>;
 	};
 }
 
 interface PersonnelOwnedArchiveSpec {
-	table: string;
-	filters?: Record<string, unknown>;
+	table: PersonnelArtifactTable;
+	filters?: { status?: 'open' };
 	archivePatch(archivedAt: string): Record<string, unknown>;
-	restoreFilters(personnelArchivedAt: string): Record<string, unknown>;
 	restorePatch(): Record<string, unknown>;
 }
 
 export async function requirePersonnelArtifactAccess(ctx: UseCaseContext, personnelId: string): Promise<void> {
 	return requirePersonnelArtifactPolicy(ctx, personnelId, 'write');
+}
+
+export async function personnelArtifactWriter(
+	ctx: UseCaseContext,
+	personnelId: string
+): Promise<PersonnelArtifactWriter> {
+	await requirePersonnelArtifactAccess(ctx, personnelId);
+	if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
+	return ctx.personnelArtifactWrites.forPerson(ctx.auth, personnelId);
 }
 
 export async function requirePersonnelArtifactReadAccess(ctx: UseCaseContext, personnelId: string): Promise<void> {
@@ -210,13 +218,20 @@ export async function loadArtifact<TRow, TDto>(
 	personnelId: string,
 	id: string
 ): Promise<TRow> {
-	await requirePersonnelArtifactAccess(ctx, personnelId);
-	const row = await ctx.store.findOne<TRow>(spec.table, ctx.auth.orgId, {
-		id,
-		personnel_id: personnelId
-	});
-	if (!row) fail(404, `${spec.noun} not found`);
+	const { row } = await loadArtifactForWrite(ctx, spec, personnelId, id);
 	return row;
+}
+
+async function loadArtifactForWrite<TRow, TDto>(
+	ctx: UseCaseContext,
+	spec: PersonnelArtifactSpec<TRow, TDto>,
+	personnelId: string,
+	id: string
+): Promise<{ row: TRow; writer: PersonnelArtifactWriter }> {
+	const writer = await personnelArtifactWriter(ctx, personnelId);
+	const row = await writer.find<TRow>(spec.table, id);
+	if (!row) fail(404, `${spec.noun} not found`);
+	return { row, writer };
 }
 
 export async function archiveArtifact<TRow, TDto>(
@@ -224,15 +239,14 @@ export async function archiveArtifact<TRow, TDto>(
 	spec: PersonnelArtifactSpec<TRow, TDto>,
 	input: { personnelId: string; id: string }
 ): Promise<TDto> {
-	const existing = await loadArtifact(ctx, spec, input.personnelId, input.id);
+	const { row: existing, writer } = await loadArtifactForWrite(ctx, spec, input.personnelId, input.id);
 	if (spec.isArchived(existing)) fail(409, `${spec.noun} is already archived`);
 	if (!spec.archivePatch) throw new Error(`${spec.noun} does not use lifecycle archive`);
 
-	const row = await ctx.store.update<TRow>(
+	const row = await writer.update<TRow>(
 		spec.table,
-		ctx.auth.orgId,
 		input.id,
-		spec.archivePatch(new Date().toISOString())
+		spec.archivePatch(new Date().toISOString()) as Record<string, unknown>
 	);
 	ctx.audit.log({ action: `${spec.auditPrefix}.archived`, resourceType: 'personnel', resourceId: input.personnelId });
 	return mapSingleArtifact(ctx, spec, row);
@@ -243,10 +257,10 @@ export async function restoreArtifact<TRow, TDto>(
 	spec: PersonnelArtifactSpec<TRow, TDto>,
 	input: { personnelId: string; id: string }
 ): Promise<TDto> {
-	await loadArtifact(ctx, spec, input.personnelId, input.id);
+	const { writer } = await loadArtifactForWrite(ctx, spec, input.personnelId, input.id);
 	if (!spec.restorePatch) throw new Error(`${spec.noun} does not use lifecycle restore`);
 
-	const row = await ctx.store.update<TRow>(spec.table, ctx.auth.orgId, input.id, spec.restorePatch());
+	const row = await writer.update<TRow>(spec.table, input.id, spec.restorePatch() as Record<string, unknown>);
 	ctx.audit.log({ action: `${spec.auditPrefix}.restored`, resourceType: 'personnel', resourceId: input.personnelId });
 	return mapSingleArtifact(ctx, spec, row);
 }
@@ -255,13 +269,13 @@ export async function deleteArtifact<TRow, TDto>(
 	ctx: UseCaseContext,
 	spec: PersonnelArtifactSpec<TRow, TDto>,
 	input: { personnelId: string; id: string },
-	hooks: { onDeleted?(row: TRow): Promise<void> } = {}
+	hooks: { onDeleted?(row: TRow, writer: PersonnelArtifactWriter): Promise<void> } = {}
 ): Promise<void> {
-	const row = await loadArtifact(ctx, spec, input.personnelId, input.id);
+	const { row, writer } = await loadArtifactForWrite(ctx, spec, input.personnelId, input.id);
 	if (!spec.isArchived(row)) fail(409, `Archive ${spec.nounPlural} before deleting them`);
 
-	await ctx.store.delete(spec.table, ctx.auth.orgId, input.id);
-	await hooks.onDeleted?.(row);
+	await writer.delete(spec.table, input.id);
+	await hooks.onDeleted?.(row, writer);
 	ctx.audit.log({ action: `${spec.auditPrefix}.deleted`, resourceType: 'personnel', resourceId: input.personnelId });
 }
 
@@ -356,7 +370,6 @@ export const PERSONNEL_COUNSELING_RECORD_SPEC: PersonnelArtifactSpec<CounselingR
 	restorePatch: binaryRestorePatch,
 	ownedArchive: {
 		archivePatch: binaryArchivePatch,
-		restoreFilters: (personnelArchivedAt) => ({ archived_at: personnelArchivedAt }),
 		restorePatch: binaryRestorePatch
 	}
 };
@@ -379,7 +392,6 @@ export const PERSONNEL_DOCUMENT_SPEC: PersonnelArtifactSpec<PersonnelDocumentRow
 	restorePatch: binaryRestorePatch,
 	ownedArchive: {
 		archivePatch: binaryArchivePatch,
-		restoreFilters: (personnelArchivedAt) => ({ archived_at: personnelArchivedAt }),
 		restorePatch: binaryRestorePatch
 	}
 };
@@ -405,7 +417,6 @@ export const PERSONNEL_FOLLOW_UP_SPEC: PersonnelArtifactSpec<FollowUpRow, Person
 	ownedArchive: {
 		filters: { status: 'open' },
 		archivePatch: (archivedAt) => ({ status: 'archived', archived_at: archivedAt }),
-		restoreFilters: (personnelArchivedAt) => ({ archived_at: personnelArchivedAt }),
 		restorePatch: () => ({ status: 'open', archived_at: null })
 	}
 };
@@ -433,7 +444,6 @@ export function personnelOwnedArchiveSpecs(): PersonnelOwnedArchiveSpec[] {
 			table: spec.table,
 			filters: spec.ownedArchive.filters,
 			archivePatch: (archivedAt) => spec.ownedArchive!.archivePatch(archivedAt) as Record<string, unknown>,
-			restoreFilters: spec.ownedArchive.restoreFilters,
 			restorePatch: () => spec.ownedArchive!.restorePatch() as Record<string, unknown>
 		};
 	});

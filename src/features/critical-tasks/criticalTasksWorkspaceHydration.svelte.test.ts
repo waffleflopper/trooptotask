@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { IctTask, PersonnelIctCompletion } from './criticalTasks.types';
 import {

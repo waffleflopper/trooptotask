@@ -1,13 +1,14 @@
 import { browser } from '$app/environment';
 import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
-import { createRosterReadModel, type RosterReadModelView } from '$lib/domain/rosterReadModel';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
+import { rosterStore } from '$features/personnel';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import { pinnedGroupsStore } from '$lib/stores/pinnedGroups.svelte';
-import { groupsStore, type Group } from '$lib/stores/groups.svelte';
+import { pinnedGroupsStore } from '$features/personnel';
+import { groupsStore } from '$features/personnel';
+import type { Group } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate, parseDate } from '$lib/utils/dates';

@@ -6,7 +6,7 @@ import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onbo
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { personnelRosterHydration } from '$features/personnel';
 
 const throwRenderErrorMock = vi.fn();
 const modalRegistryState = vi.hoisted(() => ({
@@ -88,7 +88,7 @@ afterEach(() => {
 	modalRegistryState.startOnboardingOpen = false;
 	onboardingStore.load([], 'org-test-reset');
 	onboardingTemplateStore.load([], [], 'org-test-reset');
-	rosterStore.load([], 'org-test-reset');
+	personnelRosterHydration.load([], 'org-test-reset');
 });
 
 function createDeferred<T>() {
@@ -203,7 +203,7 @@ describe('onboarding page', () => {
 	});
 
 	it('renders only active onboardings on the active board when mixed data is seeded', () => {
-		rosterStore.load(
+		personnelRosterHydration.load(
 			[
 				{
 					id: 'p-active',

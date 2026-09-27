@@ -37,6 +37,49 @@ function configureContext() {
 }
 
 describe('personnel documents', () => {
+	it('lets a Personnel operator upload within the cap without gaining document reads', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('organizations', [{ id: ctx.auth.orgId, personnel_document_storage_cap_bytes: 12 }]);
+		ctx.store.seed('personnel_documents', [
+			{
+				id: 'existing',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				file_size_bytes: 8,
+				archived_at: null
+			}
+		]);
+		await expect(
+			createPersonnelDocument(ctx, {
+				personnelId: 'person-1',
+				file: new File([PDF_BYTES], 'over-cap.pdf', { type: 'application/pdf' })
+			})
+		).rejects.toMatchObject({ status: 409 });
+		await ctx.store.update('personnel_documents', ctx.auth.orgId, 'existing', {
+			archived_at: '2026-01-01'
+		});
+		const created = await createPersonnelDocument(ctx, {
+			personnelId: 'person-1',
+			file: new File([PDF_BYTES], 'allowed.pdf', { type: 'application/pdf' })
+		});
+		expect(created.title).toBe('allowed');
+		await expect(listPersonnelDocuments(ctx, 'person-1')).rejects.toMatchObject({ status: 403 });
+	});
+
 	it('uploads a valid document, derives a title from the filename, and lists newest first', async () => {
 		const ctx = configureContext();
 		seedPersonnel(ctx);

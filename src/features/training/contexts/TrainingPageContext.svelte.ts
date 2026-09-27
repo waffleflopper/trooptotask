@@ -4,13 +4,13 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
-import { rosterStore } from '$lib/stores/roster.svelte';
+import { rosterStore } from '$features/personnel';
 import { getTrainingStats } from '$features/training/utils/trainingStatus';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupsStore } from '$features/personnel';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$lib/domain/rosterReadModel';
+import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
-import type { RankCatalogEntry } from '$lib/domain/rankCatalog';
+import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type {
 	TrainingMatrixViewMode,
 	UserOrgPreferences,
@@ -19,7 +19,7 @@ import type {
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 

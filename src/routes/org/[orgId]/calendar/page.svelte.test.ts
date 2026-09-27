@@ -67,11 +67,9 @@ vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: { items: [], loading: false, load: vi.fn() }
 }));
 
-vi.mock('$lib/stores/groups.svelte', () => ({
-	groupsStore: { items: [], loading: false, names: [] }
-}));
-
-vi.mock('$lib/stores/pinnedGroups.svelte', () => ({
+vi.mock('$features/personnel', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/personnel')>()),
+	groupsStore: { items: [], loading: false, names: [] },
 	pinnedGroupsStore: { list: [] }
 }));
 

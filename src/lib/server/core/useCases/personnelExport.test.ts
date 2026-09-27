@@ -276,6 +276,33 @@ describe('Personnel export use case', () => {
 			}
 		]);
 	});
+	it('keeps Data Sheet and counseling rows in a Group-scoped configure export', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+			}
+		});
+		seedPersonnelExportDataset(ctx);
+
+		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID });
+		const workbook = await parseWorkbook(result._buffer);
+
+		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info'))).toContainEqual({
+			Field: 'Emergency Contact Name',
+			Value: 'Taylor Smith'
+		});
+		expect(worksheetRows(worksheetByName(workbook, 'Counseling Records'))).toHaveLength(2);
+	});
 	it('omits the legacy Leader Notes row when the person has no extended-info record', async () => {
 		const ctx = createTestContext();
 		seedPersonnelExportDataset(ctx);

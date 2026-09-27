@@ -30,7 +30,13 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 const crudConfig = {
 	entity: TestEntity,
 	auditResource: 'test_record',
-	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions
+	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
+	policyResourceForPersonnel: async (ctx: WritePorts, personnelId: string) => {
+		const person = await ctx.store.findOne<{ group_id?: string | null }>('personnel', ctx.auth.orgId, {
+			id: personnelId
+		});
+		return person?.group_id ? { kind: 'group' as const, groupId: person.group_id } : { kind: 'organization' as const };
+	}
 };
 
 describe('createCrudUseCases', () => {

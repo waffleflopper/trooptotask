@@ -1,11 +1,18 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
 import type { DataStore, WritePorts } from '$lib/server/core/ports';
-import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
+import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
+import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 const UNSCOPED_ONBOARDING_RESOURCE: PolicyResource = { kind: 'unscoped' };
 
 type OnboardingPolicyPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit'>;
+export type OnboardingWorkflowPorts = WritePorts & { personnelOnboardingRoster: PersonnelOnboardingRosterPort };
+export type OnboardingTrainingPorts = OnboardingWorkflowPorts & {
+	trainingOnboardingReferences: TrainingOnboardingReferencesPort;
+};
+type OnboardingResourcePorts = OnboardingPolicyPorts & Pick<OnboardingWorkflowPorts, 'personnelOnboardingRoster'>;
 
 interface PersonnelBackedRow {
 	personnel_id: string;
@@ -20,14 +27,15 @@ function policyLookupStore(ports: OnboardingPolicyPorts): DataStore {
 }
 
 export async function policyResourceForOnboardingPersonnel(
-	ports: OnboardingPolicyPorts,
+	ports: OnboardingResourcePorts,
 	personnelId: string
 ): Promise<PolicyResource> {
-	return policyResourceForPersonnel({ store: policyLookupStore(ports), auth: ports.auth }, personnelId);
+	const groupIds = await ports.personnelOnboardingRoster.findGroupIds(ports.auth, [personnelId]);
+	return policyResourceForGroup(groupIds.get(personnelId));
 }
 
 export async function policyResourceForOnboarding(
-	ports: OnboardingPolicyPorts,
+	ports: OnboardingResourcePorts,
 	onboardingId: string
 ): Promise<PolicyResource> {
 	const onboarding = await policyLookupStore(ports).findOne<PersonnelBackedRow>(
@@ -43,7 +51,7 @@ export async function policyResourceForOnboarding(
 }
 
 export async function policyResourceForOnboardingStep(
-	ports: OnboardingPolicyPorts,
+	ports: OnboardingResourcePorts,
 	stepId: string
 ): Promise<PolicyResource> {
 	const step = await policyLookupStore(ports).findOne<StepBackedRow>(
@@ -72,7 +80,7 @@ export async function requireOnboardingViewPolicy(ports: OnboardingPolicyPorts):
 }
 
 export async function requireOnboardingManagePolicyForPersonnel(
-	ports: OnboardingPolicyPorts,
+	ports: OnboardingResourcePorts,
 	personnelId: string
 ): Promise<void> {
 	await requireOnboardingPolicy(
@@ -83,7 +91,7 @@ export async function requireOnboardingManagePolicyForPersonnel(
 }
 
 export async function requireOnboardingManagePolicyForOnboarding(
-	ports: OnboardingPolicyPorts,
+	ports: OnboardingResourcePorts,
 	onboardingId: string
 ): Promise<void> {
 	await requireOnboardingPolicy(
@@ -95,7 +103,7 @@ export async function requireOnboardingManagePolicyForOnboarding(
 }
 
 export async function requireOnboardingManagePolicyForStep(
-	ports: OnboardingPolicyPorts,
+	ports: OnboardingResourcePorts,
 	stepId: string
 ): Promise<void> {
 	await requireOnboardingPolicy(

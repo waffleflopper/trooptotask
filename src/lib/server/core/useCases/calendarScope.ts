@@ -1,4 +1,5 @@
 import type { FindOptions, QueryPorts } from '$lib/server/core/ports';
+import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 
 export interface CalendarGroupScope {
 	groupIds: string[];
@@ -9,6 +10,11 @@ export interface CalendarAssigneeScope extends CalendarGroupScope {
 }
 
 type InFilterOptions = Pick<FindOptions, 'inFilters'>;
+
+export function requirePersonnelCalendarRoster(ctx: { personnelCalendarRoster?: PersonnelCalendarRosterPort }) {
+	if (!ctx.personnelCalendarRoster) throw new Error('Personnel Calendar roster provider unavailable');
+	return ctx.personnelCalendarRoster;
+}
 
 export function resolveCalendarGroupScope(ctx: Pick<QueryPorts, 'auth'>): CalendarGroupScope | null {
 	if (ctx.auth.scopeSet.kind !== 'groups') {
@@ -30,22 +36,12 @@ export async function resolveCalendarAssigneeScope(ctx: QueryPorts): Promise<Cal
 		return { ...groupScope, personnelIds: [] };
 	}
 
-	const personnelRows = await ctx.store.findMany<{ id: string }>('personnel', ctx.auth.orgId, undefined, {
-		inFilters: { group_id: groupScope.groupIds },
-		select: 'id'
-	});
+	const personnelIds = await requirePersonnelCalendarRoster(ctx).listAssigneeIds(ctx.auth);
 
 	return {
 		...groupScope,
-		personnelIds: personnelRows.map((row) => row.id)
+		personnelIds
 	};
-}
-
-export function groupInFilter(
-	scope: CalendarGroupScope | null,
-	column: string
-): InFilterOptions | Record<string, never> {
-	return scope ? { inFilters: { [column]: scope.groupIds } } : {};
 }
 
 export function personnelInFilter(

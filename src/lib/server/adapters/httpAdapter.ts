@@ -36,13 +36,23 @@ import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
-import { createSupabaseRatingSchemePersonnelLookupPort } from './supabaseRatingSchemePersonnelLookup';
+import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelArtifactWritePort } from '$features/personnel/index.server';
+import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelGovernanceDeletionPort } from '$features/personnel/index.server';
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
-import { createSupabaseSignInRosterPersonnelLookupPort } from './supabaseSignInRosterPersonnelLookup';
+import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelCriticalTasksRosterPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
+import { createSupabasePersonnelOnboardingRosterPort } from '$features/personnel/index.server';
+import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
+import { createSupabaseOnboardingCalendarMarkersPort } from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
-import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import {
 	enforceLoadAuthorization,
@@ -78,6 +88,10 @@ interface BuildContextResult {
 /** Bind the admitted request to Personnel's typed note collaborators. */
 export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteContext {
 	const orgId = ctx.auth.orgId;
+	const writerFor = (personnelId: string) => {
+		if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
+		return ctx.personnelArtifactWrites.forPerson(ctx.auth, personnelId);
+	};
 	return {
 		actor: ctx.auth,
 		scope: ctx.scope,
@@ -125,22 +139,23 @@ export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteConte
 				);
 				return [...tied, ...older];
 			},
-			find(personnelId, noteId) {
-				return ctx.store.findOne<LeaderNoteRow>('leader_notes', orgId, { id: noteId, personnel_id: personnelId });
+			async find(personnelId, noteId) {
+				return (await writerFor(personnelId)).find<LeaderNoteRow>('leader_notes', noteId);
 			},
-			insert(input) {
-				return ctx.store.insert<LeaderNoteRow>('leader_notes', orgId, {
-					personnel_id: input.personnelId,
+			async insert(input) {
+				return (await writerFor(input.personnelId)).insert<LeaderNoteRow>('leader_notes', {
 					author: input.author,
 					text: input.text,
 					created_at: input.createdAt
 				});
 			},
-			update(noteId, archivedAt) {
-				return ctx.store.update<LeaderNoteRow>('leader_notes', orgId, noteId, { archived_at: archivedAt });
+			async update(personnelId, noteId, archivedAt) {
+				return (await writerFor(personnelId)).update<LeaderNoteRow>('leader_notes', noteId, {
+					archived_at: archivedAt
+				});
 			},
-			delete(noteId) {
-				return ctx.store.delete('leader_notes', orgId, noteId);
+			async delete(personnelId, noteId) {
+				return (await writerFor(personnelId)).delete('leader_notes', noteId);
 			}
 		},
 		contributorLabels: (userIds) =>
@@ -202,8 +217,18 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 
 	const notifications = createSupabaseNotificationAdapter();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
+	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
+	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
+	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
+	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
+	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
+	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
+	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
+	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -224,8 +249,18 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			storage: createSupabaseStorageAdapter(supabase),
 			sensitiveActionAuthorizer,
 			criticalTasksReadModel,
-			ratingSchemePersonnelLookup,
+			personnelRatingSchemeRoster,
+			personnelAwardAcknowledgement,
+			personnelArtifactWrites,
+			personnelOrganizationExport,
+			personnelGovernanceDeletion,
 			signInRosterPersonnelLookup,
+			personnelTrainingRoster,
+			personnelCriticalTasksRoster,
+			personnelCalendarRoster,
+			personnelOnboardingRoster,
+			trainingOnboardingReferences,
+			onboardingCalendarMarkers,
 			organizationInvitationSetupStateLookup,
 			rawStore: store
 		},
@@ -275,8 +310,18 @@ export async function buildLayoutContext(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
+	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
+	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
+	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
+	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
+	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
+	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
+	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
+	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -296,8 +341,18 @@ export async function buildLayoutContext(
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
-		ratingSchemePersonnelLookup,
+		personnelRatingSchemeRoster,
+		personnelAwardAcknowledgement,
+		personnelArtifactWrites,
+		personnelOrganizationExport,
+		personnelGovernanceDeletion,
 		signInRosterPersonnelLookup,
+		personnelTrainingRoster,
+		personnelCriticalTasksRoster,
+		personnelCalendarRoster,
+		personnelOnboardingRoster,
+		trainingOnboardingReferences,
+		onboardingCalendarMarkers,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
@@ -335,8 +390,18 @@ export async function buildLayoutContextFromMembership(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const ratingSchemePersonnelLookup = createSupabaseRatingSchemePersonnelLookupPort(supabase);
+	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
+	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
+	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
+	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
+	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
+	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
+	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
+	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
+	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
+	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -356,8 +421,18 @@ export async function buildLayoutContextFromMembership(
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
-		ratingSchemePersonnelLookup,
+		personnelRatingSchemeRoster,
+		personnelAwardAcknowledgement,
+		personnelArtifactWrites,
+		personnelOrganizationExport,
+		personnelGovernanceDeletion,
 		signInRosterPersonnelLookup,
+		personnelTrainingRoster,
+		personnelCriticalTasksRoster,
+		personnelCalendarRoster,
+		personnelOnboardingRoster,
+		trainingOnboardingReferences,
+		onboardingCalendarMarkers,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
@@ -598,6 +673,8 @@ export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): R
 
 export interface EntityHandlerHooks {
 	policyAction?: FeatureLanePolicyAction;
+	policyResourceForPersonnel?: (ctx: UseCaseContext, personnelId: string) => Promise<PolicyResource>;
+	policyResourceForRecord?: (ctx: UseCaseContext, recordId: string) => Promise<PolicyResource>;
 	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
 }
@@ -624,6 +701,8 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		entity,
 		auditResource: getEntityAuditResource(entity),
 		policyAction,
+		policyResourceForPersonnel: hooks?.policyResourceForPersonnel,
+		policyResourceForRecord: hooks?.policyResourceForRecord,
 		beforeDelete: hooks?.beforeDelete
 			? async (ctx: UseCaseContext, id: string) => hooks.beforeDelete!(ctx, id)
 			: undefined,

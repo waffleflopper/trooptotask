@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore } from './inMemory';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import type { GroupScopeRule } from '$lib/server/core/ports';
+import type { DataStore, GroupScopeRule } from '$lib/server/core/ports';
 
 const ORG = 'org-1';
 const GROUP_A = 'group-a';
@@ -115,18 +115,19 @@ describe('ScopedDataStore', () => {
 			});
 		});
 
-		it('uses the default scope rules to filter personnel ICT completions by group', async () => {
+		it('reads SQL-authorized ICT completions when user Personnel SELECT is denied', async () => {
 			const inner = createInMemoryDataStore();
-			inner.seed('personnel', [
-				{ id: 'p-1', organization_id: ORG, first_name: 'Alice', last_name: 'Alpha', group_id: GROUP_A },
-				{ id: 'p-2', organization_id: ORG, first_name: 'Bob', last_name: 'Bravo', group_id: GROUP_B }
-			]);
 			inner.seed('personnel_ict_completions', [
-				{ id: 'ict-1', organization_id: ORG, personnel_id: 'p-1', ict_task_id: 'task-1' },
-				{ id: 'ict-2', organization_id: ORG, personnel_id: 'p-2', ict_task_id: 'task-1' }
+				{ id: 'ict-1', organization_id: ORG, personnel_id: 'p-1', ict_task_id: 'task-1' }
 			]);
-
-			const scoped = createScopedDataStore(inner, GROUP_A, defaultScopeRules);
+			const userStore: DataStore = {
+				...inner,
+				findMany: ((table, orgId, filters, options) =>
+					table === 'personnel'
+						? Promise.reject(new Error('Personnel SELECT denied'))
+						: inner.findMany(table, orgId, filters, options)) as DataStore['findMany']
+			};
+			const scoped = createScopedDataStore(userStore, GROUP_A, defaultScopeRules);
 
 			const results = await scoped.findMany<{ id: string }>('personnel_ict_completions', ORG);
 

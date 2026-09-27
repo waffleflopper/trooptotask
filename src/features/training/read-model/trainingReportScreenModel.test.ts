@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Group } from '$lib/stores/groups.svelte';
+import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';

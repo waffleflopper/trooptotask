@@ -9,7 +9,6 @@ import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { requirePolicyDecision } from './policyAuthorization';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadRosterPersonnel } from './rosterReadModel';
 
 const MAX_BATCH_SIZE = 500;
 
@@ -80,7 +79,8 @@ export async function importIctCompletionsBatch(
 		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
-	const personnel = await loadRosterPersonnel(ctx, { status: 'all' });
+	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
+	const personnel = await ctx.personnelCriticalTasksRoster.listForBatchImport(ctx.auth);
 	const taskRows = await ctx.store.findMany<Record<string, unknown>>(IctTaskEntity.table, ctx.auth.orgId, undefined, {
 		select: IctTaskEntity.select
 	});

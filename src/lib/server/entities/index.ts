@@ -1,4 +1,3 @@
-export { GroupEntity } from './group';
 export { StatusTypeEntity } from './statusType';
 export { AssignmentTypeEntity } from './assignmentType';
 export { TrainingTypeEntity } from './trainingType';
@@ -7,7 +6,6 @@ export { SpecialDayEntity } from './specialDay';
 export { DailyAssignmentEntity } from './dailyAssignment';
 export { PersonnelTrainingEntity } from './personnelTraining';
 export { RatingSchemeEntryEntity } from './ratingSchemeEntry';
-export { PinnedGroupsEntity } from './pinnedGroups';
 export { PersonnelEntity } from './personnel';
 export { OnboardingTemplateEntity } from './onboardingTemplate';
 export { OnboardingTemplateStepEntity } from './onboardingTemplateStep';

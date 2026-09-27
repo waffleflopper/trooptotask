@@ -4,8 +4,6 @@
 			"roots": ["src/lib/access/"],
 			"files": [
 				"src/lib/server/adapters/scopeRules.ts",
-				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
-				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/featurePolicy.ts",
 				"src/lib/server/core/useCases/governancePolicy.ts",
 				"src/lib/server/core/useCases/identityPolicy.ts",
@@ -187,6 +185,7 @@
 				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
+				"src/lib/server/adapters/supabaseOrgProvisioning.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
 				"src/lib/server/core/errors.ts",
 				"src/lib/server/core/featureLaneWorkspaceLoad.ts",
@@ -199,6 +198,7 @@
 				"src/lib/server/core/useCases/crud.ts",
 				"src/lib/server/core/useCases/starterConfigurationPacks.test.ts",
 				"src/lib/server/core/useCases/starterConfigurationPacks.ts",
+				"src/lib/server/organizationProvisioningDelivery.ts",
 				"src/lib/server/entities/index.ts",
 				"src/lib/types/starterConfigurationPacks.ts",
 				"src/tests/check-governance.test.ts",
@@ -278,7 +278,6 @@
 			"files": [
 				"src/lib/server/adapters/supabaseDashboardOrgAccess.test.ts",
 				"src/lib/server/adapters/supabaseDashboardOrgAccess.ts",
-				"src/lib/server/adapters/supabaseOrgProvisioning.test.ts",
 				"src/lib/server/adapters/supabaseOrgProvisioning.ts",
 				"src/lib/server/adapters/supabaseOrgSettingsAdministration.ts",
 				"src/lib/server/adapters/supabaseOrgSettingsMemberManagement.test.ts",
@@ -307,21 +306,12 @@
 			"packet": "08-M02"
 		},
 		"personnel": {
-			"roots": ["src/features/groups/", "src/features/personnel/"],
+			"roots": ["src/features/personnel/"],
 			"files": [
-				"src/lib/domain/personnelRank.test.ts",
-				"src/lib/domain/personnelRank.ts",
-				"src/lib/domain/rankCatalog.test.ts",
-				"src/lib/domain/rankCatalog.ts",
-				"src/lib/domain/rankOptions.test.ts",
-				"src/lib/domain/rankOptions.ts",
 				"src/lib/domain/readinessSignals.test.ts",
 				"src/lib/domain/readinessSignals.ts",
-				"src/lib/domain/rosterReadModel.test.ts",
-				"src/lib/domain/rosterReadModel.ts",
-				"src/lib/server/adapters/supabaseRankCatalogAdministration.test.ts",
-				"src/lib/server/adapters/supabaseRankCatalogAdministration.ts",
-				"src/lib/server/core/useCases/groupCrud.test.ts",
+				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
+				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/personnel.test.ts",
 				"src/lib/server/core/useCases/personnel.ts",
 				"src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts",
@@ -344,25 +334,14 @@
 				"src/lib/server/core/useCases/personnelFollowUps.ts",
 				"src/lib/server/core/useCases/personnelMergeBatch.test.ts",
 				"src/lib/server/core/useCases/personnelMergeBatch.ts",
-				"src/lib/server/core/useCases/personnelQuery.test.ts",
-				"src/lib/server/core/useCases/personnelQuery.ts",
-				"src/lib/server/core/useCases/personnelRankCatalog.ts",
 				"src/lib/server/core/useCases/personnelReadinessLanes.test.ts",
 				"src/lib/server/core/useCases/personnelReadinessLanes.ts",
 				"src/lib/server/core/useCases/personnelSlug.test.ts",
 				"src/lib/server/core/useCases/personnelSlug.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.test.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.ts",
-				"src/lib/server/core/useCases/pinnedGroupCrud.test.ts",
-				"src/lib/server/core/useCases/pinnedGroupCrud.ts",
-				"src/lib/server/core/useCases/rankCatalog.test.ts",
-				"src/lib/server/core/useCases/rankCatalog.ts",
-				"src/lib/server/core/useCases/rosterReadModel.test.ts",
-				"src/lib/server/core/useCases/rosterReadModel.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
 				"src/lib/server/entities/counselingRecord.ts",
-				"src/lib/server/entities/group.test.ts",
-				"src/lib/server/entities/group.ts",
 				"src/lib/server/entities/personnel.test.ts",
 				"src/lib/server/entities/personnel.ts",
 				"src/lib/server/entities/personnelIctCompletion.test.ts",
@@ -370,16 +349,7 @@
 				"src/lib/server/entities/personnelOnboarding.test.ts",
 				"src/lib/server/entities/personnelOnboarding.ts",
 				"src/lib/server/entities/personnelTraining.test.ts",
-				"src/lib/server/entities/personnelTraining.ts",
-				"src/lib/server/entities/pinnedGroups.test.ts",
-				"src/lib/server/entities/pinnedGroups.ts",
-				"src/lib/server/groupAccess.test.ts",
-				"src/lib/server/groupAccess.ts",
-				"src/lib/stores/groups.svelte.test.ts",
-				"src/lib/stores/groups.svelte.ts",
-				"src/lib/stores/pinnedGroups.svelte.test.ts",
-				"src/lib/stores/pinnedGroups.svelte.ts",
-				"src/lib/stores/roster.svelte.ts"
+				"src/lib/server/entities/personnelTraining.ts"
 			],
 			"packet": "08-M04"
 		},
@@ -494,8 +464,6 @@
 		"rating-scheme": {
 			"roots": ["src/features/rating-scheme/"],
 			"files": [
-				"src/lib/server/adapters/supabaseRatingSchemePersonnelLookup.test.ts",
-				"src/lib/server/adapters/supabaseRatingSchemePersonnelLookup.ts",
 				"src/lib/server/core/useCases/ratingSchemeEntryCrud.test.ts",
 				"src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
 				"src/lib/server/entities/ratingSchemeEntry.test.ts",
@@ -543,11 +511,7 @@
 		},
 		"sign-in-rosters": {
 			"roots": ["src/features/sign-in-rosters/"],
-			"files": [
-				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.test.ts",
-				"src/lib/server/adapters/supabaseSignInRosterPersonnelLookup.ts",
-				"src/lib/server/core/useCases/signInRosters.ts"
-			],
+			"files": ["src/lib/server/core/useCases/signInRosters.ts"],
 			"packet": "08-M11"
 		},
 		"training": {
@@ -763,16 +727,23 @@
 		"calendar": ["src/features/calendar/index.ts"],
 		"critical-tasks": [],
 		"dashboard": ["src/features/dashboard/index.ts"],
-		"onboarding": ["src/features/onboarding/index.ts"],
+		"onboarding": [
+			"src/features/onboarding/contracts.ts",
+			"src/features/onboarding/index.ts",
+			"src/features/onboarding/index.server.ts"
+		],
 		"personnel": [
 			"src/features/personnel/contracts.ts",
 			"src/features/personnel/index.ts",
-			"src/features/personnel/index.server.ts",
-			"src/features/groups/index.ts"
+			"src/features/personnel/index.server.ts"
 		],
 		"rating-scheme": ["src/features/rating-scheme/index.ts"],
 		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts"],
-		"training": ["src/features/training/index.ts"],
+		"training": [
+			"src/features/training/contracts.ts",
+			"src/features/training/index.ts",
+			"src/features/training/index.server.ts"
+		],
 		"web-ui": [
 			"src/lib/components/BannerStack.svelte",
 			"src/lib/components/BrandMark.svelte",

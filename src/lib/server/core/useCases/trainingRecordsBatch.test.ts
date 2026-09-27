@@ -163,18 +163,37 @@ describe('importTrainingRecords', () => {
 		seedTrainingType(ctx, { can_be_exempted: true, exempt_personnel_ids: ['p-existing'] });
 
 		const result = await importTrainingRecords(ctx, {
-			records: [{ personnelId: 'p-new', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
+			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
 		});
 
 		expect(result.inserted).toHaveLength(0);
 		expect(result.exempted).toHaveLength(1);
-		expect(result.exempted[0]).toMatchObject({ personnelId: 'p-new', trainingTypeId: 'tt-1' });
+		expect(result.exempted[0]).toMatchObject({ personnelId: 'p-1', trainingTypeId: 'tt-1' });
 		expect(result.errors).toHaveLength(0);
 
 		// Training type should have both existing and new personnel in exempt list
 		const types = await ctx.store.findMany<{ exempt_personnel_ids: string[] }>('training_types', 'test-org');
 		expect(types[0].exempt_personnel_ids).toContain('p-existing');
-		expect(types[0].exempt_personnel_ids).toContain('p-new');
+		expect(types[0].exempt_personnel_ids).toContain('p-1');
+	});
+
+	it('rejects missing and foreign-Organization exemption references without changing the type', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { can_be_exempted: true, exempt_personnel_ids: ['p-1'] });
+		ctx.store.seed('personnel', [{ id: 'p-foreign', organization_id: 'other-org', group_id: null }]);
+
+		for (const personnelId of ['p-missing', 'p-foreign']) {
+			await expect(
+				importTrainingRecords(ctx, {
+					records: [{ personnelId, trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
+				})
+			).rejects.toMatchObject({ status: 404 });
+		}
+		const type = await ctx.store.findOne<{ exempt_personnel_ids: string[] }>('training_types', 'test-org', {
+			id: 'tt-1'
+		});
+		expect(type?.exempt_personnel_ids).toEqual(['p-1']);
 	});
 
 	it('rejects exempt status when training type does not allow exemptions', async () => {
@@ -433,6 +452,49 @@ describe('importTrainingRecords', () => {
 			]
 		});
 
+		expect(result.inserted).toHaveLength(2);
+	});
+
+	it('imports archived same-Group Training references when user Personnel SELECT is denied', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['group-a'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'operate',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		ctx.store.seed('personnel', [
+			{
+				id: 'p-archived',
+				organization_id: 'test-org',
+				group_id: 'group-a',
+				archived_at: '2026-01-01',
+				last_name: 'Archived',
+				first_name: 'Ann'
+			}
+		]);
+		seedTrainingType(ctx);
+		const scopedFindMany = ctx.store.findMany.bind(ctx.store);
+		ctx.store.findMany = ((table, orgId, filters, options) =>
+			table === 'personnel'
+				? Promise.reject(new Error('Personnel SELECT denied for this Training-only actor'))
+				: scopedFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
+
+		const result = await importTrainingRecords(ctx, {
+			records: [
+				{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
+				{ personnelId: 'p-archived', trainingTypeId: 'tt-1', completionDate: '2025-06-02', status: 'completed' }
+			]
+		});
 		expect(result.inserted).toHaveLength(2);
 	});
 

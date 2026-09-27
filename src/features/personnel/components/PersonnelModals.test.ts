@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration, groupsStore } from '$features/personnel';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import type { Personnel } from '$lib/types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -28,7 +28,7 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 				firstName: 'Synthetic',
 				lastName: 'Person'
 			} as Personnel;
-			groupsStore.load([originalGroup], 'org-a');
+			groupCatalogHydration.load([originalGroup], 'org-a');
 			personnelStore.load([originalPerson], 'org-a');
 			let denied = true;
 			vi.stubGlobal(

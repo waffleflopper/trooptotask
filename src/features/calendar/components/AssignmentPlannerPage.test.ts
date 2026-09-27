@@ -5,7 +5,7 @@ import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import { groupsStore } from '$lib/stores/groups.svelte';
+import { groupCatalogHydration } from '$features/personnel';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { AssignmentType, Personnel } from '$lib/types';
 import { createTestOrgContext, type CreateOrgContextInput } from '$lib/test-support/orgContextBuilder';
@@ -98,7 +98,7 @@ describe('AssignmentPlannerPage', () => {
 		mockOrg = makeOrg();
 		calendarStore.goToMonth(2026, 8);
 		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
-		groupsStore.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+		groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
 	});
 
 	afterEach(() => {
@@ -202,7 +202,7 @@ it('offers each Group and assignment type once and saves monthly and quick-fill 
 	calendarStore.goToMonth(2026, 8);
 	const groupType = { ...modType, id: 'group-duty', name: 'Group Duty', shortName: 'GD', assignTo: 'group' as const };
 	dailyAssignmentsStore.load([groupType, modType], [], 'org-1');
-	groupsStore.load(
+	groupCatalogHydration.load(
 		[
 			{ id: 'group-alpha', name: 'Alpha Renamed', sortOrder: 0 },
 			{ id: 'group-bravo', name: 'Bravo', sortOrder: 1 }
@@ -253,7 +253,7 @@ describe('planner visible-month loading', () => {
 		mockOrg = makeOrg();
 		calendarStore.goToMonth(2026, 8);
 		dailyAssignmentsStore.load(assignmentTypes, [], 'org-1');
-		groupsStore.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
+		groupCatalogHydration.load([{ id: 'group-1', name: 'Alpha', sortOrder: 0 }], 'org-1');
 	});
 	afterEach(() => {
 		cleanup();

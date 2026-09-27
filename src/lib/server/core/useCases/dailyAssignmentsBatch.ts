@@ -4,7 +4,7 @@
  * Calendar-owned slot write rules live in `daily-assignment-slots`; this file keeps the
  * public batch API used by Calendar imports.
  */
-import type { WritePorts } from '$lib/server/core/ports';
+import type { CalendarWritePorts } from './calendarPolicy';
 import {
 	replaceDailyAssignmentSlotsBatch,
 	type DailyAssignmentSlotBatchResult,
@@ -12,7 +12,7 @@ import {
 } from './daily-assignment-slots';
 
 export async function batchDailyAssignments(
-	ctx: WritePorts,
+	ctx: CalendarWritePorts,
 	input: { records: DailyAssignmentSlotRecord[] }
 ): Promise<DailyAssignmentSlotBatchResult> {
 	return replaceDailyAssignmentSlotsBatch(ctx, input);

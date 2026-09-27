@@ -422,6 +422,25 @@ describe('CalendarPageContext', () => {
 			expect(availabilityStore.load).not.toHaveBeenCalled();
 		});
 
+		it('treats a failed late range read as abandoned after an Organization switch', async () => {
+			let currentData = mockData;
+			let rejectRange!: (error: Error) => void;
+			vi.mocked(loadCalendarRange).mockImplementation(() => new Promise((_, reject) => (rejectRange = reject)));
+			const navigatedCtx = new CalendarPageContext(() => currentData, org);
+			const pending = navigatedCtx.reconcileAvailability(['2026-04-07'], 'org1');
+			currentData = { ...mockData, orgId: 'org2' };
+			rejectRange(new Error('Old range unavailable'));
+
+			expect(await pending).toBeNull();
+			expect(availabilityStore.load).not.toHaveBeenCalled();
+		});
+
+		it('reports a failed range read while the same Organization is still open', async () => {
+			vi.mocked(loadCalendarRange).mockRejectedValueOnce(new Error('Current range unavailable'));
+
+			await expect(ctx.reconcileAvailability(['2026-04-07'], 'org1')).rejects.toThrow('Current range unavailable');
+		});
+
 		it('does not merge a response after Calendar scope narrows in the same Organization', async () => {
 			let access = makeMockOrg();
 			let resolveRange!: (value: Awaited<ReturnType<typeof loadCalendarRange>>) => void;

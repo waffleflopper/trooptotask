@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -27,6 +28,10 @@
 	}
 
 	let { orgId, person, date, statusTypes, existingEntries, onAdd, onRemove, onReconcile, onClose }: Props = $props();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const dateStr = $derived(formatDate(date));
 
@@ -114,11 +119,12 @@
 	}
 
 	async function reconcileFailure(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
+		if (!active) return null;
 		try {
 			const savedEntries = await onReconcile(dates, expectedOrgId);
+			if (!active) return null;
 			if (savedEntries === null) {
 				uncertain = true;
-				toastStore.error('Calendar access changed. Reload before changing this status again.');
 				return null;
 			}
 			localEntries = savedEntries.filter(
@@ -126,6 +132,7 @@
 			);
 			return savedEntries;
 		} catch {
+			if (!active) return null;
 			uncertain = true;
 			toastStore.error('Could not confirm the saved status. Reload the calendar before trying again.');
 			return null;
@@ -165,9 +172,11 @@
 		try {
 			if (previousEntry) {
 				if (!(await onRemove(previousEntry.id))) throw new Error('Could not remove previous status');
+				if (!active) return;
 			}
 			const savedEntry = await onAdd(newData);
 			if (!savedEntry) throw new Error('Could not confirm saved status');
+			if (!active) return;
 			localEntries = localEntries.filter((entry) => entry.id !== temporaryId);
 			if (dateStr >= savedEntry.startDate && dateStr <= savedEntry.endDate) {
 				localEntries = [...localEntries, savedEntry];
@@ -208,6 +217,7 @@
 		localEntries = localEntries.filter((entry) => entry.id !== id);
 		try {
 			if (!(await onRemove(id))) throw new Error('Could not confirm removal');
+			if (!active) return;
 			toastStore.success('Status removed');
 		} catch {
 			const savedEntries = await reconcileFailure([dateStr], expectedOrgId);

@@ -342,9 +342,15 @@ export class CalendarPageContext {
 	async reconcileAvailability(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
 		if (this.#data.orgId !== expectedOrgId) return null;
 		const accessKey = this.#calendarAccessKey();
-		const ranges = await Promise.all(
-			[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
-		);
+		let ranges: Awaited<ReturnType<typeof loadCalendarRange>>[];
+		try {
+			ranges = await Promise.all(
+				[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
+			);
+		} catch (error) {
+			if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
+			throw error;
+		}
 		if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
 		for (const range of ranges) {
 			const retained =

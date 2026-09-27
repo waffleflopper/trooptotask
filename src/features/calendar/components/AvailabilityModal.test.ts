@@ -174,6 +174,44 @@ describe('AvailabilityModal — saved status feedback', () => {
 		expect(successToast).not.toHaveBeenCalled();
 	});
 
+	it('keeps a stale-access warning inside the open modal without a global toast', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
+			onReconcile: vi.fn().mockResolvedValue(null)
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Reload the calendar'));
+		expect(screen.getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', true);
+		expect(errorToast).not.toHaveBeenCalled();
+		expect(successToast).not.toHaveBeenCalled();
+	});
+
+	it('does not publish old-scope feedback after the modal closes during reconciliation', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		let resolveReconcile!: (entries: AvailabilityEntry[] | null) => void;
+		const onReconcile = vi.fn(() => new Promise<AvailabilityEntry[] | null>((resolve) => (resolveReconcile = resolve)));
+		const { unmount } = renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
+			onReconcile
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+		await waitFor(() => expect(onReconcile).toHaveBeenCalledOnce());
+		unmount();
+		resolveReconcile(null);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(errorToast).not.toHaveBeenCalled();
+		expect(successToast).not.toHaveBeenCalled();
+	});
+
 	it('waits for the replacement write before announcing an edit', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		let resolveAdd!: (entry: AvailabilityEntry) => void;
@@ -192,6 +230,31 @@ describe('AvailabilityModal — saved status feedback', () => {
 		expect(successToast).not.toHaveBeenCalled();
 		resolveAdd({ ...existingEntry, id: 'entry-2' });
 		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave updated — Apr 7', 5000));
+	});
+
+	it('does not start a replacement write after closing during the old entry removal', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		let resolveRemove!: (removed: boolean) => void;
+		const onRemove = vi.fn(() => new Promise<boolean>((resolve) => (resolveRemove = resolve)));
+		const onAdd = vi.fn().mockResolvedValue({ ...existingEntry, id: 'entry-2' });
+		const { unmount } = renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			existingEntries: [existingEntry],
+			onRemove,
+			onAdd
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+		await waitFor(() => expect(onRemove).toHaveBeenCalledWith(existingEntry.id));
+		unmount();
+		resolveRemove(true);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(onAdd).not.toHaveBeenCalled();
+		expect(successToast).not.toHaveBeenCalled();
+		expect(errorToast).not.toHaveBeenCalled();
 	});
 
 	it('shows the persisted deletion when an edit fails after removing its old entry', async () => {

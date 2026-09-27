@@ -426,6 +426,51 @@ describe('CalendarSettingsPage', () => {
 		expect(errorToast).toHaveBeenCalledWith('Failed to delete closure');
 	});
 
+	it('keeps holiday reset confirmation open and reports a failed reset', async () => {
+		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('failed');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
+
+		expect(specialDaysStoreMock.resetFederalHolidays).toHaveBeenCalledOnce();
+		expect(screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' })).toBeTruthy();
+		expect(errorToast).toHaveBeenCalledWith('Failed to reset federal holidays');
+	});
+
+	it('reports when a saved holiday reset cannot refresh current days', async () => {
+		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('refresh-failed');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
+
+		expect(screen.queryByRole('alertdialog', { name: 'Reset Federal Holidays' })).toBeNull();
+		expect(errorToast).toHaveBeenCalledWith(
+			'Holiday reset saved, but Calendar could not refresh. Reload to see the latest days.'
+		);
+	});
+
+	it('does not show failure feedback for a reset superseded by an Organization change', async () => {
+		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('stale');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+
+		render(CalendarSettingsPage);
+		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
+		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
+		await fireEvent.click(within(dialog).getByRole('button', { name: 'Reset' }));
+
+		expect(screen.queryByRole('alertdialog', { name: 'Reset Federal Holidays' })).toBeNull();
+		expect(errorToast).not.toHaveBeenCalled();
+	});
+
 	it('keeps the closures year visible after changing the filter', async () => {
 		specialDaysStoreMock.items = [
 			{

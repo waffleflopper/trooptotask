@@ -77,7 +77,7 @@
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 special-day CRUD/reset and reverse Calendar consumers",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [
-				"Partial existing check: src/lib/server/core/useCases/specialDayCrud.test.ts",
+				"Partial existing check: src/features/calendar/specialDayOperations.server.test.ts",
 				"Partial existing check: src/routes/org/[orgId]/api/special-days/server.test.ts",
 				"Partial existing check: src/features/calendar/stores/specialDays.svelte.test.ts",
 				"Partial existing check: src/features/calendar/components/CalendarSettingsPage.test.ts",
@@ -94,7 +94,7 @@
 				"Partial existing check: src/lib/access/policyEvaluator.test.ts",
 				"Partial existing check: src/lib/server/core/useCases/statusTypeCrud.test.ts",
 				"Partial existing check: src/lib/server/core/useCases/assignmentTypeCrud.test.ts",
-				"Partial existing check: src/lib/server/core/useCases/specialDayCrud.test.ts",
+				"Partial existing check: src/features/calendar/specialDayOperations.server.test.ts",
 				"Authenticated SQL catalog policy proof: supabase/tests/calendar_catalog_scope.sql.",
 				"Isolated fresh/staged SQL proof: supabase/migration-tests/calendar_catalog_scope_before.sql and calendar_catalog_scope_after.sql cover Organization-only catalog writes and historical status references.",
 				"Reusable live check: scripts/verification/calendar-claims.mjs — calendar-catalog-authorization; requires fresh unchanged-app baseline and final-candidate receipt."

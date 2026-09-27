@@ -1,4 +1,3 @@
-import { getDefaultFederalHolidays } from '$features/calendar/utils/federalHolidays';
 import { fail } from '$lib/server/core/errors';
 import { sanitizeString } from '$lib/server/validation';
 
@@ -22,12 +21,6 @@ export interface OrgProvisioningAssignmentTypeSeed {
 	sortOrder: number;
 }
 
-export interface OrgProvisioningSpecialDaySeed {
-	date: string;
-	name: string;
-	type: string;
-}
-
 export interface OrgProvisioningPort {
 	createOrganizationWithOwner(name: string): Promise<OrgProvisioningCreateResult>;
 	updateOwnerMembershipEmail(input: {
@@ -41,7 +34,7 @@ export interface OrgProvisioningPort {
 		organizationId: string,
 		assignmentTypes: OrgProvisioningAssignmentTypeSeed[]
 	): Promise<string | null>;
-	seedFederalHolidays(organizationId: string, specialDays: OrgProvisioningSpecialDaySeed[]): Promise<string | null>;
+	seedFederalHolidays(organizationId: string): Promise<string | null>;
 	seedDefaultRankCatalog(organizationId: string): Promise<string | null>;
 }
 
@@ -133,12 +126,7 @@ export async function provisionOrganization(
 		await port.seedDefaultAssignmentTypes(created.orgId, DEFAULT_ASSIGNMENT_TYPES)
 	);
 
-	const holidaySeeds = getDefaultFederalHolidays().map((holiday) => ({
-		date: holiday.date,
-		name: holiday.name,
-		type: holiday.type
-	}));
-	logBootstrapError('Holidays seed error:', await port.seedFederalHolidays(created.orgId, holidaySeeds));
+	logBootstrapError('Holidays seed error:', await port.seedFederalHolidays(created.orgId));
 	const rankCatalogSeedError = await port.seedDefaultRankCatalog(created.orgId);
 	if (rankCatalogSeedError) {
 		console.error('Rank catalog seed error:', rankCatalogSeedError);

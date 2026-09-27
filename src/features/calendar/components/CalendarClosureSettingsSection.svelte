@@ -140,6 +140,29 @@
 		}
 	}
 
+	async function resetFederalHolidays() {
+		if (!canMutate) return;
+		try {
+			const result = await specialDaysStore.resetFederalHolidays();
+			if (result === 'stale') {
+				showResetConfirm = false;
+				return;
+			}
+			if (result === 'failed') {
+				showClosureMutationError('Failed to reset federal holidays');
+				return;
+			}
+			if (result === 'refresh-failed') {
+				showResetConfirm = false;
+				showClosureMutationError('Holiday reset saved, but Calendar could not refresh. Reload to see the latest days.');
+				return;
+			}
+			showResetConfirm = false;
+		} catch (error) {
+			showClosureMutationError('Failed to reset federal holidays', error);
+		}
+	}
+
 	function formatDisplayDate(dateStr: string): string {
 		return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
 			weekday: 'short',
@@ -314,10 +337,7 @@
 		message="Reset federal holidays to defaults? Custom closures will be preserved."
 		confirmLabel="Reset"
 		variant="warning"
-		onConfirm={() => {
-			specialDaysStore.resetFederalHolidays();
-			showResetConfirm = false;
-		}}
+		onConfirm={resetFederalHolidays}
 		onCancel={() => (showResetConfirm = false)}
 	/>
 {/if}

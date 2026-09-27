@@ -2,7 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig, _putConfig } from './+server';
+import { _getConfig, _postConfig, _putConfig, _deleteConfig } from './+server';
+
+describe('GET /api/special-days', () => {
+	it('returns only saved days from the authorized Organization', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('special_days', [
+			{ id: 'own-day', organization_id: 'test-org', date: '2026-09-28', name: 'Own closure', type: 'org-closure' },
+			{
+				id: 'foreign-day',
+				organization_id: 'other-org',
+				date: '2026-09-29',
+				name: 'Foreign closure',
+				type: 'org-closure'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(_getConfig, ctx, undefined);
+
+		expect(result).toEqual([expect.objectContaining({ id: 'own-day', name: 'Own closure' })]);
+	});
+});
 
 describe('POST /api/special-days', () => {
 	it('uses a policy-first route config for special-day creation and reset', () => {
@@ -73,5 +93,39 @@ describe('PUT /api/special-days', () => {
 			name: 'Staff Holiday',
 			type: 'org-closure'
 		});
+	});
+});
+
+describe('special-day configuration policy', () => {
+	it('denies read, edit, delete, and reset to a Calendar operator without changing saved days', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		const id = '11111111-1111-4111-8111-111111111111';
+		const saved = { id, organization_id: 'test-org', date: '2026-09-28', name: 'Clinic day', type: 'org-closure' };
+		ctx.store.seed('special_days', [saved]);
+
+		for (const run of [
+			() => handleUseCaseRequest(_getConfig, ctx, undefined),
+			() => handleUseCaseRequest(_putConfig, ctx, { id, name: 'Changed' }),
+			() => handleUseCaseRequest(_deleteConfig, ctx, { id }),
+			() => handleUseCaseRequest(_postConfig, ctx, { action: 'resetFederalHolidays' })
+		]) {
+			await expect(run()).rejects.toMatchObject({ status: 403 });
+		}
+		expect(await ctx.store.findMany('special_days', 'test-org')).toEqual([saved]);
 	});
 });

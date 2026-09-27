@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch';
+import { createAvailabilityBatch, deleteAvailabilityBatch } from './availabilityBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
@@ -59,7 +59,7 @@ describe('createAvailabilityBatch', () => {
 
 		await expect(createAvailabilityBatch(ctx, { records: [] })).rejects.toMatchObject({
 			status: 400,
-			message: 'records array is required'
+			body: { message: 'records array is required' }
 		});
 
 		const stored = await ctx.store.findMany('availability_entries', 'test-org');
@@ -77,7 +77,7 @@ describe('createAvailabilityBatch', () => {
 
 		await expect(createAvailabilityBatch(ctx, { records: tooMany })).rejects.toMatchObject({
 			status: 400,
-			message: 'Maximum 500 records per batch'
+			body: { message: 'Maximum 500 records per batch' }
 		});
 	});
 
@@ -122,7 +122,7 @@ describe('createAvailabilityBatch', () => {
 			createAvailabilityBatch(ctx, {
 				records: [validRecords[0], { ...validRecords[1], personnelId: 'p-foreign' }]
 			})
-		).rejects.toMatchObject({ status: 404, message: 'Person not found' });
+		).rejects.toMatchObject({ status: 404, body: { message: 'Person not found' } });
 		expect(await ctx.store.findMany('availability_entries', 'test-org')).toHaveLength(0);
 	});
 
@@ -247,7 +247,7 @@ describe('deleteAvailabilityBatch', () => {
 
 		await expect(deleteAvailabilityBatch(ctx, { ids: [] })).rejects.toMatchObject({
 			status: 400,
-			message: 'ids array is required'
+			body: { message: 'ids array is required' }
 		});
 	});
 
@@ -257,7 +257,7 @@ describe('deleteAvailabilityBatch', () => {
 
 		await expect(deleteAvailabilityBatch(ctx, { ids: tooMany })).rejects.toMatchObject({
 			status: 400,
-			message: 'Maximum 500 ids per batch'
+			body: { message: 'Maximum 500 ids per batch' }
 		});
 	});
 

@@ -2,7 +2,7 @@
  * Availability entry entity — maps `availability_entries`.
  * Group-scoped via `personnel_id` column. POST/DELETE use generated handlers;
  * the Calendar route owns a narrow PUT that cannot change personnel_id.
- * For bulk operations, see `availabilityBatch.ts`.
+ * For bulk operations, see `availabilityBatch.server.ts`.
  */
 import { z } from 'zod';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

@@ -1,44 +1,43 @@
-import { entityHandlers, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { createCrudUseCases } from '$lib/server/core/useCases/crud';
-import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { validateUUID } from '$lib/server/validation';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import {
+	availabilityUpdateInput,
+	createAvailability,
+	deleteAvailability,
+	updateAvailability
+} from '$features/calendar/index.server';
 
-const policyResourceForPersonnel = async (ctx: UseCaseContext, personnelId: string): Promise<PolicyResource> => {
-	if (!ctx.personnelCalendarRoster) throw new Error('Personnel Calendar roster provider unavailable');
-	const groups = await ctx.personnelCalendarRoster.findGroupIds(ctx.auth, [personnelId]);
-	if (!groups.has(personnelId)) {
-		// Let the normal Organization-resource policy conceal an out-of-scope
-		// target from Group members. Organization authority can identify a
-		// missing target before the database write.
-		if (ctx.auth.scopeSet.kind === 'organization' || ctx.auth.isPrivileged) fail(404, 'Person not found');
-		return { kind: 'organization' };
-	}
-	const groupId = groups.get(personnelId);
-	return groupId ? { kind: 'group', groupId } : { kind: 'organization' };
-};
-
-const handlers = entityHandlers(AvailabilityEntryEntity, { policyResourceForPersonnel });
-const updateUseCases = createCrudUseCases({
-	entity: AvailabilityEntryEntity,
+export const _postConfig = {
+	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.manageAvailability,
-	auditResource: 'availability',
-	policyResourceForPersonnel
-});
+	policyResource: { kind: 'unscoped' },
+	fn: (ctx, input) => createAvailability(ctx, input)
+} satisfies RouteConfig<Record<string, unknown>, unknown>;
 
 // Editing updates one saved row. The strict input prevents changing its Person or Organization.
 export const _putConfig = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.manageAvailability,
 	policyResource: { kind: 'unscoped' },
-	input: AvailabilityEntryEntity.updateSchema.omit({ personnelId: true }).strict(),
-	fn: (ctx, input) => updateUseCases.update(ctx, input)
+	input: availabilityUpdateInput,
+	fn: (ctx, input) => updateAvailability(ctx, input)
 } satisfies RouteConfig<Record<string, unknown>, unknown>;
 
-export const POST = handlers.POST;
-export const PUT = handle(_putConfig);
-export const DELETE = handlers.DELETE;
+export const _deleteConfig = {
+	mutation: true,
+	policyAction: POLICY_ACTION_CATALOG.calendar.manageAvailability,
+	policyResource: { kind: 'unscoped' },
+	fn: async (ctx, input) => {
+		const id = input?.id;
+		if (!id || typeof id !== 'string') fail(400, 'Missing id');
+		if (!validateUUID(id)) fail(400, 'Invalid resource ID');
+		await deleteAvailability(ctx, id);
+		return { success: true };
+	}
+} satisfies RouteConfig<Record<string, unknown>, unknown>;
 
-export const _postConfig = handlers._configs.POST!;
-export const _deleteConfig = handlers._configs.DELETE!;
+export const POST = handle(_postConfig);
+export const PUT = handle(_putConfig);
+export const DELETE = handle(_deleteConfig);

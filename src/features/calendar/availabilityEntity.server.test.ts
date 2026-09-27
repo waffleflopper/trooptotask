@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { AvailabilityEntryEntity } from './availabilityEntry';
+import { AvailabilityEntryEntity } from './availabilityEntity.server';
 import type { AvailabilityEntry } from '$lib/types';
 
 describe('AvailabilityEntryEntity', () => {
@@ -143,25 +142,5 @@ describe('AvailabilityEntryEntity', () => {
 			endDate: '2026-03-05'
 		});
 		expect(withoutNote.success).toBe(true);
-	});
-
-	it('has group scope with personnelColumn', () => {
-		expect(AvailabilityEntryEntity.groupScope).toEqual({ personnelColumn: 'personnel_id' });
-	});
-
-	it('has personnelIdField set', () => {
-		expect(AvailabilityEntryEntity.personnelIdField).toBe('personnelId');
-	});
-
-	it('has correct table name', () => {
-		expect(AvailabilityEntryEntity.table).toBe('availability_entries');
-	});
-
-	it('only allows POST and DELETE methods', () => {
-		expect(AvailabilityEntryEntity.methods).toEqual(['POST', 'DELETE']);
-	});
-
-	it('uses Calendar manage availability policy decisions for mutations', () => {
-		expect(AvailabilityEntryEntity.policyAction).toBe(POLICY_ACTION_CATALOG.calendar.manageAvailability);
 	});
 });

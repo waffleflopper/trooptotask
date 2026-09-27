@@ -47,11 +47,11 @@ export async function requireCalendarPersonnelPolicy(
 	ports: CalendarPersonnelPolicyPorts,
 	action: FeatureLanePolicyAction,
 	personnelIds: string[]
-): Promise<void> {
+): Promise<Map<string, string | null>> {
 	const uniquePersonnelIds = [...new Set(personnelIds.filter(Boolean))];
 	if (uniquePersonnelIds.length === 0) {
 		await requireCalendarPolicy(ports, action);
-		return;
+		return new Map();
 	}
 
 	await requireCalendarPolicy(ports, action);
@@ -65,6 +65,7 @@ export async function requireCalendarPersonnelPolicy(
 		const groupId = personnelById.get(id);
 		await requireCalendarPolicy(ports, action, groupId ? { kind: 'group', groupId } : { kind: 'organization' });
 	}
+	return personnelById;
 }
 
 async function evaluateCalendarPolicy(

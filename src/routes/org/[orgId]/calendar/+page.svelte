@@ -111,6 +111,24 @@
 		orgName: pageData.orgName ?? 'Troop to Task'
 	}));
 	const ctx = new CalendarPageContext(() => pageData, org);
+	let activeAccessKey: string | null = null;
+
+	$effect(() => {
+		const nextAccessKey = JSON.stringify([
+			data.shell.org.id,
+			shell?.user.id,
+			org.role,
+			org.capabilityMap.calendar,
+			org.scopeSet
+		]);
+		if (activeAccessKey !== null && activeAccessKey !== nextAccessKey) {
+			untrack(() => {
+				ctx.closeAvailabilityModal();
+				ctx.closeAssignmentModal();
+			});
+		}
+		activeAccessKey = nextAccessKey;
+	});
 
 	$effect(() => {
 		document.cookie = buildCalendarAnchorCookie(calendarStore.currentDate);

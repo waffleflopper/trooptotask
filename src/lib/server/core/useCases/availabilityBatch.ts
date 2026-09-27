@@ -39,7 +39,14 @@ export async function createAvailabilityBatch(
 	}
 
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
-	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, uniquePersonnelIds);
+	const people = await requireCalendarPersonnelPolicy(
+		ctx,
+		CALENDAR_POLICY_ACTIONS.manageAvailability,
+		uniquePersonnelIds
+	);
+	if (people.size !== uniquePersonnelIds.length) {
+		fail(404, 'Person not found');
+	}
 
 	// Transform and bulk insert
 	const rows = records.map((r) => entity.toDbInsert(r, ctx.auth.orgId));

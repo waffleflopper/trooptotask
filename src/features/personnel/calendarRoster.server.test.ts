@@ -79,6 +79,38 @@ describe('Personnel Calendar roster provider', () => {
 		expect(query.in).toHaveBeenCalledWith('id', ['p-old', 'p-outside']);
 	});
 
+	it('resolves a supported 500-Person Calendar batch within the provider URL budget', async () => {
+		const ids = Array.from({ length: 500 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`);
+		const client = {
+			from: () => {
+				let selectedIds: string[] = [];
+				const query = {
+					select: () => query,
+					eq: () => query,
+					is: () => query,
+					in: (column: string, values: string[]) => {
+						if (column === 'id') selectedIds = values;
+						return query;
+					},
+					order: () => query,
+					range: () => query,
+					then: (resolve: (value: unknown) => unknown) =>
+						Promise.resolve(
+							selectedIds.join(',').length > 7000
+								? { data: null, error: { message: 'URI too long' } }
+								: { data: selectedIds.map((id) => ({ id, group_id: 'g-1' })), error: null }
+						).then(resolve)
+				};
+				return query;
+			}
+		};
+		const roster = createSupabasePersonnelCalendarRosterPort(() => client as unknown as SupabaseClient);
+
+		const resolved = await roster.findGroupIds(calendarActor(), ids);
+		expect(resolved.size).toBe(ids.length);
+		expect(ids.every((id) => resolved.get(id) === 'g-1')).toBe(true);
+	});
+
 	it('does not open the admin client for an empty Group scope', async () => {
 		const { roster, getAdminClient } = provider({ data: [], error: null });
 		await expect(roster.listActive(calendarActor({ kind: 'groups', groupIds: [] }))).resolves.toEqual([]);

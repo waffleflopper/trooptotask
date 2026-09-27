@@ -39,6 +39,7 @@
 				"Partial existing check: src/routes/org/[orgId]/api/availability/server.test.ts",
 				"Partial existing check: src/features/personnel/calendarRoster.server.test.ts",
 				"Partial existing check: supabase/tests/calendar_lane_unassigned_scope.sql",
+				"Authenticated SQL catalog and status-reference proof: supabase/tests/calendar_catalog_scope.sql.",
 				"Isolated fresh/staged SQL proof: supabase/migration-tests/calendar_catalog_scope_before.sql and calendar_catalog_scope_after.sql, integrated by 20260926001300_calendar_catalog_scope.sql; new cross-Organization status references are denied while historical rows remain unvalidated.",
 				"Reusable live check: scripts/verification/calendar-claims.mjs — calendar-availability-scope; requires fresh unchanged-app baseline and final-candidate receipt.",
 				"The Calendar availability SQL suite remains a distinct provider gate from the live API/fixture receipt."
@@ -58,7 +59,7 @@
 		},
 		{
 			"claim": "calendar-assignment-type-lifecycle",
-			"behavior": "A Calendar configurator creates and edits person- and Group-targeted assignment types and header choice through supported settings, preserving seeded exemptPersonnelIds and saved assignment references during edits. Confirmed ordinary-type deletion deliberately removes assignments referencing that type; unrelated assignments and archived historical types/rows remain unchanged. Referenced archived types remain readable where needed and excluded from editable choices. Reload retains the chosen fields. No exemption editor is required.",
+			"behavior": "A Calendar configurator creates and edits person- and Group-targeted assignment types and header choice through supported settings, preserving seeded exemptPersonnelIds and saved assignment references during edits. Confirmed ordinary-type deletion deliberately removes assignments referencing that type; unrelated assignments and archived historical types/rows remain unchanged. Referenced archived types remain readable through authenticated Calendar range/bootstrap consumers and excluded from editable choices. Reload retains the chosen fields. No exemption editor is required.",
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 assignment-type catalog read/write and preservation of referenced types and independent manual assignments",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [
@@ -72,7 +73,7 @@
 		},
 		{
 			"claim": "calendar-special-day-lifecycle",
-			"behavior": "A Calendar configurator creates, edits and deletes an Organization closure, and explicitly resets federal holidays; expected holiday dates are independently specified for the fixture year, closures and foreign-Organization data survive the reset, and Calendar labels and settings agree after reload. Rejected or failed operations retain an actionable error state.",
+			"behavior": "A Calendar configurator creates, edits and deletes an Organization closure, and explicitly resets federal holidays; current-year holiday dates are independently calculated from federal observance rules, fixed 2026 closure history and foreign-Organization data survive the reset, and Calendar labels and settings agree after reload. Rejected or failed operations retain an actionable error state.",
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 special-day CRUD/reset and reverse Calendar consumers",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [
@@ -94,6 +95,7 @@
 				"Partial existing check: src/lib/server/core/useCases/statusTypeCrud.test.ts",
 				"Partial existing check: src/lib/server/core/useCases/assignmentTypeCrud.test.ts",
 				"Partial existing check: src/lib/server/core/useCases/specialDayCrud.test.ts",
+				"Authenticated SQL catalog policy proof: supabase/tests/calendar_catalog_scope.sql.",
 				"Isolated fresh/staged SQL proof: supabase/migration-tests/calendar_catalog_scope_before.sql and calendar_catalog_scope_after.sql cover Organization-only catalog writes and historical status references.",
 				"Reusable live check: scripts/verification/calendar-claims.mjs — calendar-catalog-authorization; requires fresh unchanged-app baseline and final-candidate receipt."
 			]

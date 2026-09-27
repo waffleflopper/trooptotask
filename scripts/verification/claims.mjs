@@ -103,23 +103,29 @@ export function driver(call, state, fixture) {
 			for (const actor of actorPages.values()) if (actor.pageId === pageId) actor.path = path;
 			try {
 				if (readyText) await tool('wait_for', { text: readyText, timeout: 20000 });
-				return snapshot();
+				const source = await snapshot();
+				if (!source.includes('Too many requests')) return source;
 			} catch (error) {
 				if (!(await snapshot()).includes('Too many requests')) throw error;
-				const limit = await evaluate(`async () => {
-					const response = await fetch(location.href);
-					return { status: response.status, retryAfter: response.headers.get('Retry-After') };
-				}`);
-				const seconds = Number(limit.retryAfter);
-				if (limit.status !== 429 || !Number.isFinite(seconds) || seconds < 1 || seconds > 61)
-					throw new Blocked(
-						'RATE_LIMIT',
-						`Calendar navigation received 429 with unusable Retry-After: ${JSON.stringify(limit)}.`
-					);
-				await sleep(seconds * 1000 + 250);
 			}
+			const limit = await evaluate(`async () => {
+				const response = await fetch(location.href);
+				return { status: response.status, retryAfter: response.headers.get('Retry-After') };
+			}`);
+			if (limit.status === 200) continue;
+			const seconds = Number(limit.retryAfter);
+			if (limit.status !== 429 || !Number.isFinite(seconds) || seconds < 1 || seconds > 61)
+				throw new Blocked(
+					'RATE_LIMIT',
+					`Calendar navigation received 429 with unusable Retry-After: ${JSON.stringify(limit)}.`
+				);
+			await sleep(seconds * 1000 + 250);
 		}
 		throw new Blocked('RATE_LIMIT', `Calendar navigation ${path} remained rate-limited after Retry-After pacing.`);
+	}
+	async function reload() {
+		const path = await evaluate('() => location.pathname + location.search');
+		return navigate(path);
 	}
 	async function request(method, path, body) {
 		return evaluate(`async () => {
@@ -131,7 +137,7 @@ export function driver(call, state, fixture) {
 			return { status: response.status, body: await response.text(), retryAfter: response.headers.get('Retry-After') };
 		}`);
 	}
-	return { tool, snapshot, uid, evaluate, login, navigate, request };
+	return { tool, snapshot, uid, evaluate, login, navigate, reload, request };
 }
 
 export async function prove(claim, session, state, fixture, call) {

@@ -20,6 +20,38 @@ function inclusiveOverlapDays(start, end, rangeStart, rangeEnd) {
 	return Math.max(0, Math.floor((through - from) / 86_400_000) + 1);
 }
 
+function expectedFederalHolidays(year) {
+	const date = (month, day) => new Date(Date.UTC(year, month - 1, day));
+	const iso = (value) => value.toISOString().slice(0, 10);
+	const observed = (value) => {
+		const weekday = value.getUTCDay();
+		if (weekday === 0) value.setUTCDate(value.getUTCDate() + 1);
+		if (weekday === 6) value.setUTCDate(value.getUTCDate() - 1);
+		return iso(value);
+	};
+	const nth = (month, weekday, ordinal) => {
+		const first = date(month, 1);
+		return iso(date(month, 1 + ((weekday - first.getUTCDay() + 7) % 7) + 7 * (ordinal - 1)));
+	};
+	const last = (month, weekday) => {
+		const end = date(month + 1, 0);
+		return iso(date(month, end.getUTCDate() - ((end.getUTCDay() - weekday + 7) % 7)));
+	};
+	return [
+		[observed(date(1, 1)), "New Year's Day"],
+		[nth(1, 1, 3), 'Martin Luther King Jr. Day'],
+		[nth(2, 1, 3), 'Presidents Day'],
+		[last(5, 1), 'Memorial Day'],
+		[observed(date(6, 19)), 'Juneteenth'],
+		[observed(date(7, 4)), 'Independence Day'],
+		[nth(9, 1, 1), 'Labor Day'],
+		[nth(10, 1, 2), 'Columbus Day'],
+		[observed(date(11, 11)), 'Veterans Day'],
+		[nth(11, 4, 4), 'Thanksgiving Day'],
+		[observed(date(12, 25)), 'Christmas Day']
+	];
+}
+
 function harness(drive, service, fixture, observations) {
 	const check = (condition, expected, actual = undefined) => {
 		observations.push({ expected, observed: !!condition, ...(actual === undefined ? {} : { actual }) });
@@ -52,6 +84,7 @@ function harness(drive, service, fixture, observations) {
 	const login = async (role, path = 'calendar', readyText = ['Calendar', 'Access restricted']) =>
 		drive.login(role, { path, readyText });
 	const open = async (path, readyText) => drive.navigate(path, readyText);
+	const reload = async () => drive.reload();
 	const clickButton = async (label) => drive.tool('click', { uid: await drive.uid('button', label) });
 	const fill = async (label, value) => drive.tool('fill', { uid: await drive.uid('textbox', label), value });
 	const rowAction = async (label, rowText) => {
@@ -64,10 +97,15 @@ function harness(drive, service, fixture, observations) {
 		if (result.matches !== 1) throw new Blocked('LOCATOR', `Expected one ${label} action for ${rowText}.`);
 	};
 	const section = async (label) => {
-		const source = await drive.snapshot();
-		const matches = source
-			.split('\n')
-			.filter((line) => /uid=/.test(line) && line.includes('button') && line.includes(label));
+		let matches = [];
+		for (let attempt = 0; attempt < 40; attempt++) {
+			const source = await drive.snapshot();
+			matches = source
+				.split('\n')
+				.filter((line) => /uid=/.test(line) && line.includes('button') && line.includes(label));
+			if (matches.length === 1) break;
+			await sleep(100);
+		}
 		if (matches.length !== 1)
 			throw new Blocked('LOCATOR', `Expected one Calendar settings section ${label}; found ${matches.length}.`);
 		await drive.tool('click', { uid: matches[0].match(/uid=([^\s]+)/)?.[1] });
@@ -103,6 +141,7 @@ function harness(drive, service, fixture, observations) {
 		waitRow,
 		login,
 		open,
+		reload,
 		clickButton,
 		fill,
 		rowAction,
@@ -237,7 +276,7 @@ async function checkStatusTypeLifecycle(ctx) {
 	check(!!created && created.organization_id === f.ids.orgA, 'Settings add creates one Organization A status', {
 		id: created?.id
 	});
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	check((await drive.snapshot()).includes(freshName), 'Created status remains in settings after reload');
 	const before = await row('status_types', f.ids.statusLeave);
 	await rowAction('Edit status type', 'Verification Leave');
@@ -260,7 +299,7 @@ async function checkStatusTypeLifecycle(ctx) {
 		'Edit preserves status identity, sort order and linked availability while saving name and colors',
 		{ edited, linkedId: referenced?.id }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	check(
 		(await drive.snapshot()).includes('Verification Leave Edited'),
 		'Reloaded settings reflects edited status label'
@@ -360,7 +399,7 @@ async function checkAssignmentTypeLifecycle(ctx) {
 		'Edit retains assignment type identity, order, exemptions and saved assignment reference',
 		{ edited }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await section('Assignment Types');
 	const reloaded = await drive.snapshot();
 	check(
@@ -381,6 +420,22 @@ async function checkAssignmentTypeLifecycle(ctx) {
 			!!(await row('assignment_types', f.ids.typeArchived)) &&
 			!!(await row('daily_assignments', f.ids.assignmentArchived)),
 		'Confirmed ordinary type deletion removes only linked assignments and retains unrelated and archived history'
+	);
+	const archivedRange = await request(
+		'GET',
+		`${orgPath(f)}/api/calendar-range?rangeStart=${f.dates.middle}&rangeEnd=${f.dates.middle}`
+	);
+	const archivedBootstrap = await request('GET', `${orgPath(f)}/calendar/__data.json`);
+	check(
+		archivedRange.status === 200 &&
+			archivedRange.body.includes(f.ids.assignmentArchived) &&
+			archivedBootstrap.status === 200 &&
+			archivedBootstrap.body.includes(f.ids.typeArchived) &&
+			archivedBootstrap.body.includes('Verification Archived Duty') &&
+			archivedBootstrap.body.includes(f.ids.assignmentArchived) &&
+			!archivedBootstrap.body.includes(f.ids.typeForeign),
+		'Authenticated Calendar range and bootstrap retain the archived type label and its referenced assignment without foreign data',
+		{ rangeStatus: archivedRange.status, bootstrapStatus: archivedBootstrap.status }
 	);
 	const header = await request('PUT', `${orgPath(f)}/api/assignment-types`, {
 		id: f.ids.typePersonnel,
@@ -423,19 +478,21 @@ async function checkAvailabilityLifecycle(ctx) {
 	);
 	await fill('Note', deniedMarker);
 	await clickButton('Add Status');
-	await sleep(400);
-	const failedSnapshot = await drive.snapshot();
+	let failedSnapshot = '';
+	let prematureSuccess = false;
+	let errorVisible = false;
+	for (let attempt = 0; attempt < 50; attempt++) {
+		failedSnapshot = await drive.snapshot();
+		prematureSuccess ||= failedSnapshot.includes('added —');
+		errorVisible = /failed|error|unable|denied|permission|could not/i.test(failedSnapshot);
+		if (errorVisible || prematureSuccess) break;
+		await sleep(100);
+	}
 	const failedRows = (await rows('availability_entries')).filter((entry) => entry.note === deniedMarker);
 	check(
-		failedRows.length === 0 &&
-			!failedSnapshot.includes('added —') &&
-			/failed|error|unable|denied|permission/i.test(failedSnapshot),
+		failedRows.length === 0 && !prematureSuccess && errorVisible,
 		'Failed save restores accurate state, shows an error, and emits no success before persistence',
-		{
-			saved: failedRows.length,
-			successVisible: failedSnapshot.includes('added —'),
-			errorVisible: /failed|error|unable|denied|permission/i.test(failedSnapshot)
-		}
+		{ saved: failedRows.length, successVisible: prematureSuccess, errorVisible }
 	);
 	checked(
 		await service
@@ -443,7 +500,7 @@ async function checkAvailabilityLifecycle(ctx) {
 			.update({ capability_overrides: membership.capability_overrides })
 			.eq('id', membership.id)
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await personCell('Able, Synthetic', day);
 	const addMarker = name('Saved availability');
 	await fill('Note', addMarker);
@@ -458,7 +515,7 @@ async function checkAvailabilityLifecycle(ctx) {
 		'Calendar modal saves chosen Person, status, inclusive date and note',
 		{ created }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await personCell('Able, Synthetic', day);
 	check((await drive.snapshot()).includes(addMarker), 'Saved availability survives full Calendar reload');
 	await clickButton('Edit status');
@@ -477,7 +534,7 @@ async function checkAvailabilityLifecycle(ctx) {
 		'Existing edit flow replaces the row with exactly the chosen saved fields',
 		{ replacement }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await personCell('Able, Synthetic', day);
 	check((await drive.snapshot()).includes(editedMarker), 'Replacement survives full Calendar reload');
 	await clickButton('Remove status');
@@ -490,7 +547,7 @@ async function checkAvailabilityLifecycle(ctx) {
 			(await row('availability_entries', f.ids.availabilityHistorical))?.note === 'Historical retained',
 		'Removal persists while unrelated historical availability remains unchanged'
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await personCell('Able, Synthetic', day);
 	check(!(await drive.snapshot()).includes(editedMarker), 'Removed availability remains absent after reload');
 }
@@ -510,7 +567,7 @@ async function checkSpecialDayLifecycle(ctx) {
 		'Settings closure creation persists the selected default local date and name',
 		{ date: createdRow?.date, id: createdRow?.id }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await section('Closures');
 	check((await drive.snapshot()).includes(addedName), 'Created closure is visible in settings after reload');
 	await rowAction('Edit closure', addedName);
@@ -548,7 +605,7 @@ async function checkSpecialDayLifecycle(ctx) {
 				.eq('id', membership.id)
 		);
 	}
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await section('Closures');
 	await rowAction('Edit closure', addedName);
 	const editedName = name('Verification Edited Closure');
@@ -574,38 +631,28 @@ async function checkSpecialDayLifecycle(ctx) {
 		'Reset confirmation describes closure preservation'
 	);
 	await clickButton('Reset');
-	const expected2026 = [
-		['2026-01-01', "New Year's Day"],
-		['2026-01-19', 'Martin Luther King Jr. Day'],
-		['2026-02-16', 'Presidents Day'],
-		['2026-05-25', 'Memorial Day'],
-		['2026-06-19', 'Juneteenth'],
-		['2026-07-03', 'Independence Day'],
-		['2026-09-07', 'Labor Day'],
-		['2026-10-12', 'Columbus Day'],
-		['2026-11-11', 'Veterans Day'],
-		['2026-11-26', 'Thanksgiving Day'],
-		['2026-12-25', 'Christmas Day']
-	];
+	const resetYear = new Date().getFullYear();
+	const expectedHolidays = expectedFederalHolidays(resetYear);
 	for (let attempt = 0; attempt < 30 && (await row('special_days', f.ids.holidayCustom)); attempt++) await sleep(100);
 	const days = await rows('special_days');
 	const foreignDays = await rows('special_days', 'orgB');
 	check(
-		expected2026.every(([date, label]) =>
+		expectedHolidays.every(([date, label]) =>
 			days.some((day) => day.date === date && day.name === label && day.type === 'federal-holiday')
 		) &&
 			!days.some((day) => day.id === f.ids.holidayCustom) &&
 			days.some((day) => day.id === f.ids.closureA) &&
 			foreignDays.some((day) => day.id === f.ids.closureB),
-		'Independently specified 2026 holidays replace custom federal rows while local and foreign closures persist',
+		'Independently specified current-year federal holidays replace custom rows while fixed 2026 and foreign closures persist',
 		{
-			expected2026,
-			observed2026: days
-				.filter((day) => day.type === 'federal-holiday' && day.date.startsWith('2026'))
+			resetYear,
+			expectedHolidays,
+			observed: days
+				.filter((day) => day.type === 'federal-holiday' && expectedHolidays.some(([date]) => date === day.date))
 				.map((day) => [day.date, day.name])
 		}
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	await section('Closures');
 	check(
 		(await drive.snapshot()).includes('Verification Unit Closure') &&
@@ -729,7 +776,7 @@ async function checkBulkPartialChunk(ctx) {
 				return true;
 			}`);
 		}
-		await drive.tool('navigate_page', { type: 'reload' });
+		await h.reload();
 		check(
 			(await rows('availability_entries')).filter((entry) => entry.note === marker).length === 500,
 			'After reload, only the first 500 bulk entries remain saved'
@@ -758,8 +805,9 @@ async function checkBulkImportAndRemoval(ctx) {
 	const imported = await waitRow('availability_entries', (entry) => entry.note === importMarker);
 	let importedResult = '';
 	for (let attempt = 0; attempt < 40; attempt++) {
-		importedResult = await drive.snapshot();
-		if (importedResult.includes('Import complete')) break;
+		importedResult = await drive.evaluate('() => document.body.innerText');
+		if (importedResult.includes('Import complete') && /1\s+status entry imported\s+successfully/.test(importedResult))
+			break;
 		await sleep(100);
 	}
 	check(
@@ -768,11 +816,11 @@ async function checkBulkImportAndRemoval(ctx) {
 			imported.status_type_id === f.ids.statusLeave &&
 			imported.start_date === f.dates.later &&
 			imported.end_date === f.dates.later &&
-			importedResult.includes('1 status entry imported successfully'),
+			/1\s+status entry imported\s+successfully/.test(importedResult),
 		'Completed UI import reports success and saves only the selected Person, status, date and note',
 		{ importedId: imported?.id }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	check(
 		(await rows('availability_entries')).filter((entry) => entry.note === importMarker).length === 1,
 		'Completed UI import remains saved after full reload'
@@ -811,7 +859,7 @@ async function checkBulkImportAndRemoval(ctx) {
 				!!(await row('availability_entries', f.ids.availabilityCurrent)),
 			'Confirmed UI removal deletes the whole selected overlap while retaining historical and other-Person entries'
 		);
-		await drive.tool('navigate_page', { type: 'reload' });
+		await h.reload();
 		check(!(await row('availability_entries', overlapId)), 'UI removal remains deleted after full reload');
 	} finally {
 		checked(await service.from('availability_entries').delete().eq('id', overlapId));
@@ -852,7 +900,7 @@ async function checkAvailabilityBulk(ctx) {
 		'Authorized batch saves exactly selected People, status, inclusive dates and note',
 		{ status: add.status, savedPeople: persisted.map((entry) => entry.personnel_id) }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	check(
 		(await rows('availability_entries')).filter((entry) => entry.note === marker).length === 2,
 		'Batch data survives full reload'
@@ -918,7 +966,7 @@ async function checkAvailabilityBulk(ctx) {
 		})
 	);
 	try {
-		await drive.tool('navigate_page', { type: 'reload' });
+		await h.reload();
 		await fill(
 			'Paste CSV data',
 			`Last name,First name,Start date,End date,Status\nAble,Synthetic,${dates.start},${dates.end},Verification Leave`
@@ -1159,7 +1207,8 @@ async function checkAvailabilityConsumers(ctx) {
 		let displayedYear = Number(dialog.querySelector('span')?.textContent);
 		const direction = displayedYear > 2026 ? 'Previous year' : 'Next year';
 		const yearButton = [...dialog.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === direction);
-		for (let attempt = 0; attempt < 10 && displayedYear !== 2026; attempt++) {
+		const steps = Math.abs(displayedYear - 2026);
+		for (let attempt = 0; attempt < steps && displayedYear !== 2026; attempt++) {
 			yearButton?.click();
 			await new Promise(resolve => setTimeout(resolve, 0));
 			displayedYear = Number(dialog.querySelector('span')?.textContent);
@@ -1236,7 +1285,7 @@ async function checkAvailabilityConsumers(ctx) {
 			!dashboard.includes('Foreign, Synthetic'),
 		'Dashboard projects Baker’s current saved training status as one unavailable Person without foreign facts'
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	const reloaded = await drive.snapshot();
 	check(!reloaded.includes('Foreign Private Status'), 'Dashboard remains scoped after reload');
 }
@@ -1525,7 +1574,7 @@ async function checkStateIsolation(ctx) {
 					.slice(0, 12)
 			}
 		);
-		await drive.tool('navigate_page', { type: 'reload' });
+		await h.reload();
 		check(!(await drive.snapshot()).includes(mutationMarker), 'Reloaded Organization B excludes the A mutation');
 	} finally {
 		await drive.evaluate(`() => {
@@ -1560,7 +1609,7 @@ async function checkStateIsolation(ctx) {
 		'Permission narrowing denies the already-open Calendar session and discloses no prior rows',
 		{ status: afterNarrowing.status }
 	);
-	await drive.tool('navigate_page', { type: 'reload' });
+	await h.reload();
 	const reloaded = await drive.snapshot();
 	check(
 		!reloaded.includes('Verification Leave'),

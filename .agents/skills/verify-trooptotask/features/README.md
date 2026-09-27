@@ -1,49 +1,51 @@
 # TroopToTask feature map
 
-This is a user-facing behavior map for the web app. Start with one relevant file, then drive every entry point and state the change could affect. The five initial files cover access, finding people, managing groups, moving through Calendar, and availability. Add another short file when work reaches an unmapped feature.
+This is the maintained user-facing map for the owned synthetic web app. Start with the relevant feature file; for a maintenance pass, exercise every file. The [verification skill](../SKILL.md) owns launch, doctor, native DevTools commands, narrowly scoped synthetic controls, evidence, and cleanup.
 
 ## Baseline preconditions
 
-- Run `doctor` on the owned production app before driving. Its candidate and origin must match `launch`.
-- Use the disposable synthetic organization and accounts created by `launch`. `manager` has Personnel and Group controls; `calendarOperate` has Calendar controls; `viewer` and `scoped` exercise read and scope limits.
-- `login ROLE` returns the actual page ID and organization ID. Use those values in commands. The UIDs in DevTools snapshots are temporary: take a new snapshot, read the UID beside the named control, and use it for the next `click` or `fill`.
-- Work in one worker/browser at a time. Worker `2` is a separate session only when every command includes `--worker 2`.
+- Run `npm run --silent verify:app -- doctor --worker 1` and keep its candidate, origin, and browser version. Use worker `2` only when every command, including the helper, names worker `2`. Never drive another worktree's session.
+- `fixture` reports Organization/Group/Person/status IDs and fixed dates. Organization A has Alpha/Able, Bravo/Baker, an unassigned Person, and a historical March status. Organization B has Foreign and private Calendar data. Today's seeded Baker training and the modal's default date use the local date returned by `fixture`.
+- Use `npm run --silent verify:app -- login manager|viewer|scoped --worker 1` for Personnel. Use `V='node .agents/skills/verify-trooptotask/helpers/control.mjs --worker 1'` then `$V actor ROLE calendar` (or `calendar/settings`, `calendar/bulk`, `calendar/reports`) for Calendar actors. Each actor gets an isolated browser context; record its returned page ID and Organization ID.
 
 ## Driving conventions
 
-The files use `PAGE` for the page ID from `login` and `UID` for a control from the latest snapshot. Set both to their actual values before running a command. For example, after the snapshot identifies the `Manage Groups` button:
+Use `PAGE` for the returned page ID. Take a fresh `take_snapshot` before every native `click` or `fill`, select the UID beside the named control, and repeat after a dialog or navigation. The literal command shape is:
 
 ```bash
-PAGE=2
-UID=4_27
-npm run --silent verify:app -- tool click "{\"pageId\":$PAGE,\"uid\":\"$UID\"}"
+npm run --silent verify:app -- tool take_snapshot "{\"pageId\":$PAGE}" --worker 1
+npm run --silent verify:app -- tool click "{\"pageId\":$PAGE,\"uid\":\"$UID\"}" --worker 1
 ```
 
-The values above came from one observed run and are not stable selectors. Match the control's accessible name in a fresh snapshot each time; when names repeat, use its containing dialog or row. After a mutation, reload or reopen through the UI before claiming persistence. Wait for an observable heading, row, or dialog rather than a fixed delay. Capture a before snapshot, after snapshot, screenshot, and the second read under `.verification/evidence/verify-trooptotask/<run-name>/`.
+Navigate between user pages through visible links and menus. For a fixed seeded date, use the Month and year picker, then choose the relevant named Person row and date cell. If several cells have the same name, the skill permits a narrowly scoped DOM click on that visible row/day button through `evaluate_script`; do not call application handlers. Read-only authenticated `fetch` through that same signed-in page can establish a denied status or compare known fixture IDs in page data. The helper's `rows` command gives exact disposable-provider readback; a disabled or hidden UI control alone cannot prove server authorization.
 
 ## Proof and skip reporting
 
-- Show the user action and resulting visible state. For saved data, confirm it through a second user-facing read after reload or reopening.
-- Check the exact role and organization in the session. A manager result does not establish what a scoped member can see.
-- For affected behavior, drive every reachable entry point and the success, cancel, empty, denied, and persistence states that apply. Name any skipped path and its unmet prerequisite.
-- Inspect network or console output when the visible state is ambiguous; use read-only evaluation only after the user path.
+In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/action/after snapshots, screenshots, request status where relevant, and a second read after reload for saved changes. Save a workbook itself when validating export. Write a concise scratch run note with candidate, role, Organization, expected and observed result, artifact paths, and one of **source-mapped**, **live-verified**, **failed**, or **unreachable** for each attempted path. A path is unreachable only with the attempted route and concrete prerequisite; a visible success in another path is no substitute. Restore armed controls and grants, clean helper seeds, run owned cleanup, and confirm evidence survived.
 
 ## Features
 
-### Access
+### Access and people
 
-- [Sign in and sign out](sign-in.md): public sign-in gate, synthetic sign-in, account menu, and session exit.
-
-### People
-
-- [Find personnel](find-personnel.md): roster search, grouped and alphabetical views, and opening a record.
-- [Manage groups](manage-groups.md): add, edit, remove, and persist organization groups.
+- [Sign in and sign out](sign-in.md): public gate, member session, account menu, sign-out and form failure.
+- [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
+- [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 
 ### Calendar
 
-- [Calendar navigation](calendar-navigation.md): month, today, long-range view, group filter, and search.
-- [Availability status](availability-status.md): inspect, add, edit, cancel, and remove a person's status.
+- [Calendar navigation](calendar-navigation.md): month, long range, group/search filter, seeded and historical dates, keyboard picker and range retry.
+- [Availability status](availability-status.md): add/edit/remove, persistence, failed save recovery and retained history.
+- [Calendar access](calendar-access.md): Organization and Group reads, denied single/batch writes, foreign status/Person protection and server readback.
+- [Bulk status changes](bulk-status.md): selection, import review, valid and invalid rows, whole-entry removal, and partial chunk feedback.
+- [Calendar catalogs](calendar-catalogs.md): status and assignment type settings, linked/archived records, deletion effects and configuration denials.
+- [Special days](special-days.md): closures, federal reset, failed edit and Organization boundary.
+- [Reports and history](reports-history.md): status-day report, downloaded workbook contents, Calendar history and Dashboard projection.
+- [Organization switching](organization-switching.md): A/B data isolation, delayed range/mutation responses and permission narrowing.
+
+## Distinct lower-level checks
+
+These browser recipes do not replace focused component, server, provider, or SQL checks. For a code change, run the affected Vitest files with `npm run test -- <file>` and follow the [Definition of Done](../../../../docs/architecture/DEFINITION_OF_DONE.md#required-commands). In particular, `src/features/calendar/utils/availabilityImport.test.ts`, `stores/availability.svelte.test.ts`, `components/CalendarSettingsPage.test.ts`, `stores/specialDays.svelte.test.ts`, Calendar route server tests, and Personnel/Group route tests cover behavior below the UI. The SQL controls `supabase/tests/calendar_lane_unassigned_scope.sql`, `calendar_catalog_scope.sql`, `calendar_persistence_isolation.sql`, and `personnel_unassigned_row_scope.sql` require the separately owned disposable database procedure in the Definition of Done; never aim them at the existing local or remote database. A browser request denial complements those checks and a UI affordance does not establish RLS.
 
 ## Feature entry contract
 
-Every feature file has one user-facing summary and these four H2 sections in order: `Sub-features`, `How to get to it (user POV)`, `Driving it with verify:app`, and `Gotchas`. Keep commands and expected observations together so an agent can run the file without reading application code.
+Every feature file starts with one user-facing summary and four H2 sections in order: `Sub-features`, `How to get to it (user POV)`, `Driving it with verify:app`, and `Gotchas`. Keep preconditions, concrete actions, expected observations, and evidence capture together. Group a journey by what a member is doing, not by a script or one assertion.

@@ -16,7 +16,8 @@ import {
 	type UserOrgPreferencesPatch
 } from '$lib/preferences/userPreferences';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
+import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
+import { mergeById } from '$lib/utils/mergeById';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -73,6 +74,10 @@ export class CalendarPageContext {
 
 	// ---- injected deps -----------------------------------------------------
 	readonly #org: OrgContext;
+
+	#calendarAccessKey(): string {
+		return JSON.stringify([this.#org.userId, this.#org.role, this.#org.capabilityMap.calendar, this.#org.scopeSet]);
+	}
 
 	// ---- selection state ---------------------------------------------------
 	selectedPerson = $state<Personnel | null>(null);
@@ -321,19 +326,38 @@ export class CalendarPageContext {
 	}
 
 	async handleAddAvailability(entry: Omit<AvailabilityEntry, 'id'>): Promise<AvailabilityEntry | null> {
-		return availabilityStore.add(entry);
+		const orgId = this.#data.orgId;
+		const accessKey = this.#calendarAccessKey();
+		const saved = await availabilityStore.add(entry);
+		return this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey ? saved : null;
 	}
 
 	async handleRemoveAvailability(id: string): Promise<boolean> {
-		return availabilityStore.removeBool(id);
+		const orgId = this.#data.orgId;
+		const accessKey = this.#calendarAccessKey();
+		const removed = await availabilityStore.removeBool(id);
+		return this.#data.orgId === orgId && this.#calendarAccessKey() === accessKey && removed;
 	}
 
-	async reconcileAvailability(date: string): Promise<AvailabilityEntry[] | null> {
-		const orgId = this.#data.orgId;
-		const range = await loadCalendarRange(orgId, { rangeStart: date, rangeEnd: date });
-		if (this.#data.orgId !== orgId) return null;
-		mergeCalendarRangeIntoStores(orgId, range);
-		return range.availabilityEntries;
+	async reconcileAvailability(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
+		if (this.#data.orgId !== expectedOrgId) return null;
+		const accessKey = this.#calendarAccessKey();
+		const ranges = await Promise.all(
+			[...new Set(dates)].map((date) => loadCalendarRange(expectedOrgId, { rangeStart: date, rangeEnd: date }))
+		);
+		if (this.#data.orgId !== expectedOrgId || this.#calendarAccessKey() !== accessKey) return null;
+		for (const range of ranges) {
+			const retained =
+				availabilityStore.orgId === expectedOrgId
+					? availabilityStore.items.filter(
+							(entry) => entry.endDate < range.rangeStart || entry.startDate > range.rangeEnd
+						)
+					: [];
+			availabilityStore.load(mergeById(retained, range.availabilityEntries), expectedOrgId);
+		}
+		return [
+			...new Map(ranges.flatMap((range) => range.availabilityEntries.map((entry) => [entry.id, entry]))).values()
+		];
 	}
 
 	closeAvailabilityModal(): void {

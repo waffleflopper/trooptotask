@@ -222,13 +222,14 @@
 {#if ctx.selectedPerson && ctx.selectedDate}
 	{#await loadAvailabilityModal() then { default: AvailabilityModal }}
 		<AvailabilityModal
+			orgId={data.orgId}
 			person={ctx.selectedPerson}
 			date={ctx.selectedDate}
 			statusTypes={statusTypesStore.items}
 			existingEntries={availabilityStore.items}
 			onAdd={(entry) => ctx.handleAddAvailability(entry)}
 			onRemove={(id) => ctx.handleRemoveAvailability(id)}
-			onReconcile={(date) => ctx.reconcileAvailability(date)}
+			onReconcile={(dates, expectedOrgId) => ctx.reconcileAvailability(dates, expectedOrgId)}
 			onClose={() => ctx.closeAvailabilityModal()}
 		/>
 	{:catch}

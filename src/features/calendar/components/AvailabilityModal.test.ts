@@ -28,16 +28,17 @@ function renderModal(
 		existingEntries?: AvailabilityEntry[];
 		onAdd?: (data: Omit<AvailabilityEntry, 'id'>) => Promise<AvailabilityEntry | null>;
 		onRemove?: (id: string) => Promise<boolean>;
-		onReconcile?: (date: string) => Promise<AvailabilityEntry[] | null>;
+		onReconcile?: (dates: string[], expectedOrgId: string) => Promise<AvailabilityEntry[] | null>;
 	} = {}
 ) {
 	return render(AvailabilityModal, {
 		props: {
+			orgId: 'org-a',
 			person,
 			date,
 			statusTypes: overrides.statusTypes ?? [],
 			existingEntries: overrides.existingEntries ?? [],
-			onAdd: overrides.onAdd ?? vi.fn().mockResolvedValue(null),
+			onAdd: overrides.onAdd ?? vi.fn(async (data: Omit<AvailabilityEntry, 'id'>) => ({ id: 'saved-entry', ...data })),
 			onRemove: overrides.onRemove ?? vi.fn().mockResolvedValue(true),
 			onReconcile: overrides.onReconcile ?? vi.fn().mockResolvedValue(overrides.existingEntries ?? []),
 			onClose: vi.fn()
@@ -135,8 +136,42 @@ describe('AvailabilityModal — saved status feedback', () => {
 
 		await waitFor(() => expect(errorToast).toHaveBeenCalled());
 		expect(successToast).not.toHaveBeenCalled();
-		expect(onReconcile).toHaveBeenCalledWith('2026-04-07');
+		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
 		expect(screen.queryByText('Current Status')).toBeNull();
+	});
+
+	it('recognizes a saved addition after its response is lost', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		const onReconcile = vi.fn().mockResolvedValue([{ ...existingEntry, id: 'saved-after-timeout' }]);
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
+			onReconcile
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		await waitFor(() => expect(successToast).toHaveBeenCalledWith('Leave added — Apr 7', 5000));
+		expect(errorToast).not.toHaveBeenCalled();
+		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
+	});
+
+	it('shows an unconfirmed state when both the write and refresh fail', async () => {
+		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			onAdd: vi.fn().mockRejectedValue(new Error('Response lost')),
+			onReconcile: vi.fn().mockRejectedValue(new Error('Refresh unavailable'))
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Add Status' }));
+
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Saved status could not be confirmed'));
+		expect(screen.getByRole('button', { name: 'Add Status' })).toHaveProperty('disabled', true);
+		expect(errorToast).toHaveBeenCalled();
+		expect(successToast).not.toHaveBeenCalled();
 	});
 
 	it('waits for the replacement write before announcing an edit', async () => {
@@ -176,7 +211,7 @@ describe('AvailabilityModal — saved status feedback', () => {
 
 		await waitFor(() => expect(errorToast).toHaveBeenCalledWith(expect.stringContaining('replacement')));
 		expect(successToast).not.toHaveBeenCalled();
-		expect(onReconcile).toHaveBeenCalledWith('2026-04-07');
+		expect(onReconcile).toHaveBeenCalledWith(['2026-04-07'], 'org-a');
 		expect(screen.queryByRole('button', { name: 'Edit status' })).toBeNull();
 		expect(screen.getByRole('button', { name: 'Add Status' })).toBeTruthy();
 	});

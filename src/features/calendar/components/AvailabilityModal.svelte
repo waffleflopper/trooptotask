@@ -15,17 +15,18 @@
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 
 	interface Props {
+		orgId: string;
 		person: Personnel;
 		date: Date;
 		statusTypes: StatusType[];
 		existingEntries: AvailabilityEntry[];
 		onAdd: (data: Omit<AvailabilityEntry, 'id'>) => Promise<AvailabilityEntry | null>;
 		onRemove: (id: string) => Promise<boolean>;
-		onReconcile: (date: string) => Promise<AvailabilityEntry[] | null>;
+		onReconcile: (dates: string[], expectedOrgId: string) => Promise<AvailabilityEntry[] | null>;
 		onClose: () => void;
 	}
 
-	let { person, date, statusTypes, existingEntries, onAdd, onRemove, onReconcile, onClose }: Props = $props();
+	let { orgId, person, date, statusTypes, existingEntries, onAdd, onRemove, onReconcile, onClose }: Props = $props();
 
 	const dateStr = $derived(formatDate(date));
 
@@ -50,6 +51,7 @@
 	let editingEntry = $state<AvailabilityEntry | null>(null);
 	let note = $state('');
 	let saving = $state(false);
+	let uncertain = $state(false);
 
 	const dateDisplay = $derived(
 		date.toLocaleDateString('en-US', {
@@ -91,22 +93,57 @@
 		note = '';
 	}
 
-	async function reconcileFailure(message: string) {
+	function matchesSubmission(entry: AvailabilityEntry, submitted: Omit<AvailabilityEntry, 'id'>): boolean {
+		return (
+			entry.personnelId === submitted.personnelId &&
+			entry.statusTypeId === submitted.statusTypeId &&
+			entry.startDate === submitted.startDate &&
+			entry.endDate === submitted.endDate &&
+			(entry.note ?? null) === submitted.note
+		);
+	}
+
+	function successMessage(data: Omit<AvailabilityEntry, 'id'>, wasEditing: boolean): string {
+		const statusName = statusTypes.find((status) => status.id === data.statusTypeId)?.name ?? 'Status';
+		const start = new Date(data.startDate + 'T00:00:00').toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric'
+		});
+		const end = new Date(data.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		return `${statusName} ${wasEditing ? 'updated' : 'added'} — ${data.startDate === data.endDate ? start : `${start}–${end}`}`;
+	}
+
+	async function reconcileFailure(dates: string[], expectedOrgId: string): Promise<AvailabilityEntry[] | null> {
 		try {
-			const savedEntries = await onReconcile(dateStr);
-			if (savedEntries === null) return;
+			const savedEntries = await onReconcile(dates, expectedOrgId);
+			if (savedEntries === null) {
+				uncertain = true;
+				toastStore.error('Calendar access changed. Reload before changing this status again.');
+				return null;
+			}
 			localEntries = savedEntries.filter(
 				(entry) => entry.personnelId === person.id && dateStr >= entry.startDate && dateStr <= entry.endDate
 			);
-			toastStore.error(message);
+			return savedEntries;
 		} catch {
+			uncertain = true;
 			toastStore.error('Could not confirm the saved status. Reload the calendar before trying again.');
+			return null;
 		}
 	}
 
+	function resetForm() {
+		editingEntry = null;
+		selectedStatusId = statusTypes[0]?.id ?? '';
+		startDate = dateStr;
+		endDate = dateStr;
+		note = '';
+	}
+
 	async function handleSubmit() {
-		if (saving || !selectedStatusId || !startDate || !endDate || startDate > endDate) return;
+		if (saving || uncertain || !selectedStatusId || !startDate || !endDate || startDate > endDate) return;
 		saving = true;
+		const expectedOrgId = orgId;
 
 		const newData = {
 			personnelId: person.id,
@@ -116,7 +153,7 @@
 			note: note.trim() || null
 		};
 		const previousEntry = editingEntry;
-		let removedPreviousEntry = false;
+		const knownIds = new Set(existingEntries.map((entry) => entry.id));
 		const temporaryId = `temp-${crypto.randomUUID()}`;
 		localEntries = previousEntry ? localEntries.filter((entry) => entry.id !== previousEntry.id) : localEntries;
 		// Keep the visual update immediate while the server confirms the write.
@@ -128,7 +165,6 @@
 		try {
 			if (previousEntry) {
 				if (!(await onRemove(previousEntry.id))) throw new Error('Could not remove previous status');
-				removedPreviousEntry = true;
 			}
 			const savedEntry = await onAdd(newData);
 			if (!savedEntry) throw new Error('Could not confirm saved status');
@@ -136,28 +172,22 @@
 			if (dateStr >= savedEntry.startDate && dateStr <= savedEntry.endDate) {
 				localEntries = [...localEntries, savedEntry];
 			}
-			const statusName = statusTypes.find((status) => status.id === newData.statusTypeId)?.name ?? 'Status';
-			const dateLabel =
-				newData.startDate === newData.endDate
-					? new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-					: `${new Date(newData.startDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}–${new Date(newData.endDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-			toastStore.success(
-				previousEntry ? `${statusName} updated — ${dateLabel}` : `${statusName} added — ${dateLabel}`,
-				5000
-			);
-			editingEntry = null;
-			selectedStatusId = statusTypes[0]?.id ?? '';
-			startDate = dateStr;
-			endDate = dateStr;
-			note = '';
+			toastStore.success(successMessage(newData, !!previousEntry), 5000);
+			resetForm();
 		} catch {
-			// A replacement is delete-then-create. If create fails after delete, the old row is gone.
-			if (removedPreviousEntry) editingEntry = null;
-			await reconcileFailure(
-				removedPreviousEntry
-					? 'Previous status was removed, but the replacement was not saved. Try adding it again.'
-					: 'Could not save status. Try again.'
-			);
+			const savedEntries = await reconcileFailure([...new Set([dateStr, newData.startDate])], expectedOrgId);
+			if (!savedEntries) return;
+			const replacement = savedEntries.find((entry) => !knownIds.has(entry.id) && matchesSubmission(entry, newData));
+			if (replacement) {
+				toastStore.success(successMessage(newData, !!previousEntry), 5000);
+				resetForm();
+			} else if (previousEntry && !savedEntries.some((entry) => entry.id === previousEntry.id)) {
+				// Replacement is delete-then-create; a failed second write leaves no old row.
+				editingEntry = null;
+				toastStore.error('Previous status was removed, but the replacement was not saved. Try adding it again.');
+			} else {
+				toastStore.error('Could not save status. Try again.');
+			}
 		} finally {
 			saving = false;
 		}
@@ -170,8 +200,9 @@
 	}
 
 	async function doRemove() {
-		if (!removeEntryId || saving) return;
+		if (!removeEntryId || saving || uncertain) return;
 		saving = true;
+		const expectedOrgId = orgId;
 		const id = removeEntryId;
 		removeEntryId = null;
 		localEntries = localEntries.filter((entry) => entry.id !== id);
@@ -179,7 +210,13 @@
 			if (!(await onRemove(id))) throw new Error('Could not confirm removal');
 			toastStore.success('Status removed');
 		} catch {
-			await reconcileFailure('Could not remove status. Try again.');
+			const savedEntries = await reconcileFailure([dateStr], expectedOrgId);
+			if (!savedEntries) return;
+			if (savedEntries.some((entry) => entry.id === id)) {
+				toastStore.error('Could not remove status. Try again.');
+			} else {
+				toastStore.success('Status removed');
+			}
 		} finally {
 			saving = false;
 		}
@@ -216,7 +253,12 @@
 		</AppDialog.Header>
 
 		<AppDialog.Body class="space-y-4">
-			{#if localEntries.length > 0}
+			{#if uncertain}
+				<p role="alert" class="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm">
+					Saved status could not be confirmed. Reload the calendar before making another change.
+				</p>
+			{/if}
+			{#if !uncertain && localEntries.length > 0}
 				<div class="border-b pb-4">
 					<h4 class="mb-3 text-sm font-medium">Current Status</h4>
 					{#each localEntries as entry (entry.id)}
@@ -251,7 +293,7 @@
 									onclick={() => startEdit(entry)}
 									title="Edit"
 									aria-label="Edit status"
-									disabled={saving}
+									disabled={saving || uncertain}
 								>
 									<PencilIcon />
 								</Button>
@@ -261,7 +303,7 @@
 									onclick={() => handleRemove(entry.id)}
 									title="Remove"
 									aria-label="Remove status"
-									disabled={saving}
+									disabled={saving || uncertain}
 								>
 									<Trash2Icon />
 								</Button>
@@ -337,10 +379,10 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={editingEntry ? cancelEdit : onClose} disabled={saving}>
-				{editingEntry ? 'Cancel Edit' : 'Cancel'}
+			<Button variant="outline" onclick={uncertain ? onClose : editingEntry ? cancelEdit : onClose} disabled={saving}>
+				{uncertain ? 'Close' : editingEntry ? 'Cancel Edit' : 'Cancel'}
 			</Button>
-			<Button onclick={handleSubmit} disabled={saving || !selectedStatusId || !!dateError}>
+			<Button onclick={handleSubmit} disabled={saving || uncertain || !selectedStatusId || !!dateError}>
 				{editingEntry ? 'Update Status' : 'Add Status'}
 			</Button>
 		</AppDialog.Footer>

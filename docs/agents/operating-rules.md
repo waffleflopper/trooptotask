@@ -10,6 +10,8 @@ If a repo or skill instruction requires a pause, link the exact file, quote the 
 
 Skills support the requested workflow; they do not add scope or external-action permission. A historical skill name in a reference is not a dependency on an unavailable tool. Follow the current session's delegation policy; use bounded independent investigations or reviews when authorized and useful. Avoid concurrent writes to the same files or shared test services, and verify the integrated result.
 
+Use [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md) for engineering modes and bounded worker briefs, and [t2t-verify](../../.agents/skills/t2t-verify/SKILL.md) for live app proof and Feature Map maintenance. Keep one primary review path proportional to risk: equivalence and ownership for mechanical changes, deeper review for authorization, persistence or changed behavior. Unrelated style suggestions do not become acceptance gates. Stop review when consequential findings are resolved; do not target zero suggestions or retry unavailable services indefinitely.
+
 ## Communication
 
 Robert has technical experience but is not overly technical. Lead with the outcome, use plain language and explain unfamiliar technical terms briefly. Keep progress updates focused on findings, decisions and blockers. Report what changed, verification results and remaining limitations without a work-log transcript.

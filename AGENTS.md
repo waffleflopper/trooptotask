@@ -28,6 +28,9 @@ For stabilization work, follow the [stabilization workflow](docs/agents/stabiliz
 
 Open the relevant sections when the task needs them; links are a reading map, not a mandatory reading sequence.
 
+- Engineering investigation, fixed-issue work, design uncertainty, review or bounded parallel work: [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md).
+- Driving the real app, browser debugging or maintaining flow knowledge: [t2t-verify](.agents/skills/t2t-verify/SKILL.md). Use `npm run verify:app -- --help`; update affected Feature Map entries and claims alongside behavior changes.
+
 - Adding, rewriting, pruning or reviewing tests: [Testing strategy](docs/architecture/TESTING.md).
 - Svelte/SvelteKit implementation or framework questions: [Svelte guidance](docs/agents/svelte.md).
 - Components, route UI, shared styling or app shell: [UI system](docs/agents/ui-system.md).

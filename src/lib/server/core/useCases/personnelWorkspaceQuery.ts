@@ -1,7 +1,6 @@
-import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
+import type { DataStore, QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
-import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { requireFeaturePolicy } from './featurePolicy';
@@ -31,7 +30,10 @@ function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
 	}));
 }
 
-export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Promise<PersonnelBootstrap> {
+export async function fetchPersonnelBootstrap(
+	ctx: QueryWithRawStorePorts,
+	listStatusTypes: (store: DataStore, orgId: string) => Promise<StatusType[]>
+): Promise<PersonnelBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.viewRoster, { kind: 'unscoped' }, 'personnel');
@@ -40,7 +42,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		personnel,
 		allPersonnel,
 		groups,
-		statusTypeRows,
+		statusTypes,
 		rankCatalog,
 		pinnedGroups,
 		orgSettingsRow,
@@ -49,10 +51,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		loadRosterPersonnel({ auth: ctx.auth, store: ctx.rawStore }, { status: 'active' }),
 		listGroupCatalog(ctx),
-		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-			select: StatusTypeEntity.select,
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listStatusTypes(ctx.store, orgId),
 		loadOrganizationRankCatalog(ctx),
 		userId ? listPinnedGroupNames(ctx) : Promise.resolve([]),
 		ctx.store
@@ -68,7 +67,7 @@ export async function fetchPersonnelBootstrap(ctx: QueryWithRawStorePorts): Prom
 		personnel,
 		personnelLookup: toPersonnelLookup(scopedAllPersonnel),
 		groups,
-		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		statusTypes,
 		rankCatalog,
 		pinnedGroups,
 		lossWarningWindowDays,

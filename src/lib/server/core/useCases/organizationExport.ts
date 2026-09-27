@@ -1,7 +1,7 @@
 import type { DataStore } from '../ports';
 import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from '$features/personnel/contracts';
 import { isPersonnelOrganizationExportTable } from '$features/personnel/contracts';
-import { listSpecialDayExportRows } from '$features/calendar/index.server';
+import { listSpecialDayExportRows, listStatusTypeExportRows } from '$features/calendar/index.server';
 import {
 	assertOrganizationDataExportManifestIsSafe,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,
@@ -47,6 +47,9 @@ export async function loadOrganizationExportPayload(
 					if (section.key === 'specialDays') {
 						return [section.key, await listSpecialDayExportRows(store, orgId)] as const;
 					}
+					if (section.key === 'statusTypes') {
+						return [section.key, await listStatusTypeExportRows(store, orgId)] as const;
+					}
 					const rows = await store.findMany<Record<string, unknown>>(
 						section.table,
 						orgId,
@@ -56,9 +59,7 @@ export async function loadOrganizationExportPayload(
 									select:
 										'id,name,created_by,created_at,url_slug,archive_retention_months,suspended_at,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,loss_warning_window_days,personnel_document_storage_cap_bytes'
 								}
-							: section.table === 'status_types'
-								? { select: 'id,organization_id,name,color,text_color,sort_order,created_at' }
-								: undefined
+							: undefined
 					);
 					return [section.key, rows] as const;
 				})

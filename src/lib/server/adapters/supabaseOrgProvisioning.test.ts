@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createSupabaseOrgProvisioningPort } from './supabaseOrgProvisioning';
 import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
 import { seedDefaultGroups, seedDefaultRankCatalog } from '$features/personnel/index.server';
-import { seedFederalHolidays } from '$features/calendar/index.server';
+import { seedDefaultStatusTypes, seedFederalHolidays } from '$features/calendar/index.server';
 
 // Exercise the real SDK wire format without connecting to a provider. SQL/RLS and
 // transaction guarantees belong to the isolated database contract in 02-03-04.
@@ -16,7 +16,8 @@ function httpPort(handle: (request: Request) => Promise<Response>) {
 		{ supabase } as never,
 		(orgId) => seedDefaultGroups(supabase, orgId),
 		(orgId) => seedDefaultRankCatalog(supabase, orgId),
-		(orgId) => seedFederalHolidays(supabase, orgId)
+		(orgId) => seedFederalHolidays(supabase, orgId),
+		(orgId) => seedDefaultStatusTypes(supabase, orgId)
 	);
 }
 
@@ -148,15 +149,7 @@ describe('provisioning provider boundary', () => {
 		{
 			name: 'statuses',
 			table: 'status_types',
-			write: (port: ReturnType<typeof httpPort>) =>
-				port.seedDefaultStatusTypes('org-1', [
-					{
-						name: 'Leave',
-						color: '#48bb78',
-						textColor: '#ffffff',
-						sortOrder: 0
-					}
-				]),
+			write: (port: ReturnType<typeof httpPort>) => port.seedDefaultStatusTypes('org-1'),
 			body: [
 				{
 					organization_id: 'org-1',
@@ -164,7 +157,25 @@ describe('provisioning provider boundary', () => {
 					color: '#48bb78',
 					text_color: '#ffffff',
 					sort_order: 0
-				}
+				},
+				{ organization_id: 'org-1', name: 'School', color: '#4299e1', text_color: '#ffffff', sort_order: 1 },
+				{
+					organization_id: 'org-1',
+					name: 'Training / TDY',
+					color: '#9f7aea',
+					text_color: '#ffffff',
+					sort_order: 2
+				},
+				{ organization_id: 'org-1', name: 'Appointment', color: '#ed8936', text_color: '#ffffff', sort_order: 3 },
+				{ organization_id: 'org-1', name: 'Sick', color: '#e53e3e', text_color: '#ffffff', sort_order: 4 },
+				{
+					organization_id: 'org-1',
+					name: 'Other Duty / Detail',
+					color: '#a0522d',
+					text_color: '#ffffff',
+					sort_order: 5
+				},
+				{ organization_id: 'org-1', name: 'CQ/SD', color: '#dc2626', text_color: '#ffffff', sort_order: 6 }
 			]
 		},
 		{

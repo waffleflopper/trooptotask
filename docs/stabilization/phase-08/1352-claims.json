@@ -20,7 +20,7 @@
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 availability read/write with complete bulk/import consumers",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [
-				"Partial existing check: src/lib/server/core/useCases/availabilityBatch.test.ts",
+				"Partial existing check: src/features/calendar/availabilityBatch.server.test.ts",
 				"Partial existing check: src/features/calendar/utils/availabilityMutation.test.ts",
 				"Partial existing check: src/features/calendar/utils/availabilityImport.test.ts",
 				"Partial existing check: src/features/calendar/components/BulkStatusImport.svelte.test.ts",
@@ -34,7 +34,7 @@
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 positive/negative Organization and Group access without Personnel permission piggybacking",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [
-				"Partial existing check: src/lib/server/core/useCases/availabilityBatch.test.ts",
+				"Partial existing check: src/features/calendar/availabilityBatch.server.test.ts",
 				"Partial existing check: src/lib/server/core/useCases/calendarQuery.test.ts",
 				"Partial existing check: src/routes/org/[orgId]/api/availability/server.test.ts",
 				"Partial existing check: src/features/personnel/calendarRoster.server.test.ts",
@@ -51,8 +51,8 @@
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 status catalog read/write, reverse consumers and deliberate deletion effects",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [
-				"Partial existing check: src/lib/server/core/useCases/statusTypeCrud.test.ts",
-				"Partial existing check: src/lib/server/entities/statusType.test.ts",
+				"Partial existing check: src/features/calendar/statusTypeOperations.server.test.ts",
+				"Partial existing check: src/features/calendar/statusTypeEntity.server.test.ts",
 				"Partial existing check: src/features/calendar/components/CalendarSettingsPage.test.ts",
 				"Reusable live check: scripts/verification/calendar-claims.mjs — calendar-status-type-lifecycle; requires fresh unchanged-app baseline and final-candidate receipt."
 			]
@@ -92,7 +92,7 @@
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [
 				"Partial existing check: src/lib/access/policyEvaluator.test.ts",
-				"Partial existing check: src/lib/server/core/useCases/statusTypeCrud.test.ts",
+				"Partial existing check: src/features/calendar/statusTypeOperations.server.test.ts",
 				"Partial existing check: src/lib/server/core/useCases/assignmentTypeCrud.test.ts",
 				"Partial existing check: src/features/calendar/specialDayOperations.server.test.ts",
 				"Authenticated SQL catalog policy proof: supabase/tests/calendar_catalog_scope.sql.",

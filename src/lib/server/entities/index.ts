@@ -1,4 +1,3 @@
-export { StatusTypeEntity } from './statusType';
 export { AssignmentTypeEntity } from './assignmentType';
 export { TrainingTypeEntity } from './trainingType';
 export { DailyAssignmentEntity } from './dailyAssignment';

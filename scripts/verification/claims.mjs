@@ -70,12 +70,8 @@ export function driver(call, state, fixture) {
 		if (existing) {
 			pageId = existing.pageId;
 			if (existing.path !== target) {
-				await tool('navigate_page', { type: 'url', url: `${state.origin}${target}` });
+				await navigate(target, options.readyText ?? ['Able, Synthetic', 'Foreign, Synthetic']);
 				existing.path = target;
-				await tool('wait_for', {
-					text: options.readyText ?? ['Able, Synthetic', 'Foreign, Synthetic'],
-					timeout: 20000
-				});
 			}
 			return { pageId, role, origin: state.origin, orgId };
 		}
@@ -102,10 +98,28 @@ export function driver(call, state, fixture) {
 		return { pageId, role, origin: state.origin, orgId };
 	}
 	async function navigate(path, readyText) {
-		await tool('navigate_page', { type: 'url', url: `${state.origin}${path}` });
-		for (const actor of actorPages.values()) if (actor.pageId === pageId) actor.path = path;
-		if (readyText) await tool('wait_for', { text: readyText, timeout: 20000 });
-		return snapshot();
+		for (let attempt = 0; attempt < 3; attempt++) {
+			await tool('navigate_page', { type: 'url', url: `${state.origin}${path}` });
+			for (const actor of actorPages.values()) if (actor.pageId === pageId) actor.path = path;
+			try {
+				if (readyText) await tool('wait_for', { text: readyText, timeout: 20000 });
+				return snapshot();
+			} catch (error) {
+				if (!(await snapshot()).includes('Too many requests')) throw error;
+				const limit = await evaluate(`async () => {
+					const response = await fetch(location.href);
+					return { status: response.status, retryAfter: response.headers.get('Retry-After') };
+				}`);
+				const seconds = Number(limit.retryAfter);
+				if (limit.status !== 429 || !Number.isFinite(seconds) || seconds < 1 || seconds > 61)
+					throw new Blocked(
+						'RATE_LIMIT',
+						`Calendar navigation received 429 with unusable Retry-After: ${JSON.stringify(limit)}.`
+					);
+				await sleep(seconds * 1000 + 250);
+			}
+		}
+		throw new Blocked('RATE_LIMIT', `Calendar navigation ${path} remained rate-limited after Retry-After pacing.`);
 	}
 	async function request(method, path, body) {
 		return evaluate(`async () => {
@@ -114,7 +128,7 @@ export function driver(call, state, fixture) {
 				headers: { 'Content-Type': 'application/json' },
 				${body === undefined ? '' : `body: JSON.stringify(${JSON.stringify(body)})`}
 			});
-			return { status: response.status, body: await response.text() };
+			return { status: response.status, body: await response.text(), retryAfter: response.headers.get('Retry-After') };
 		}`);
 	}
 	return { tool, snapshot, uid, evaluate, login, navigate, request };

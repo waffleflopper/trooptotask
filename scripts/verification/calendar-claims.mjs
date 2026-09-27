@@ -14,6 +14,12 @@ function parseResponse(response) {
 	}
 }
 
+function inclusiveOverlapDays(start, end, rangeStart, rangeEnd) {
+	const from = Math.max(Date.parse(`${start}T00:00:00Z`), Date.parse(`${rangeStart}T00:00:00Z`));
+	const through = Math.min(Date.parse(`${end}T00:00:00Z`), Date.parse(`${rangeEnd}T00:00:00Z`));
+	return Math.max(0, Math.floor((through - from) / 86_400_000) + 1);
+}
+
 function harness(drive, service, fixture, observations) {
 	const check = (condition, expected, actual = undefined) => {
 		observations.push({ expected, observed: !!condition, ...(actual === undefined ? {} : { actual }) });
@@ -21,7 +27,20 @@ function harness(drive, service, fixture, observations) {
 	const rows = async (table, org = 'orgA', columns = '*') =>
 		checked(await service.from(table).select(columns).eq('organization_id', fixture.ids[org]));
 	const row = async (table, id, org = 'orgA') => (await rows(table, org)).find((item) => item.id === id);
-	const request = async (method, path, body) => parseResponse(await drive.request(method, path, body));
+	const request = async (method, path, body) => {
+		for (let attempt = 0; attempt < 3; attempt++) {
+			const response = parseResponse(await drive.request(method, path, body));
+			if (response.status !== 429) return response;
+			const retrySeconds = Number(response.retryAfter);
+			if (!Number.isFinite(retrySeconds) || retrySeconds < 1 || retrySeconds > 61)
+				throw new Blocked(
+					'RATE_LIMIT',
+					`Calendar request received 429 with unusable Retry-After: ${response.retryAfter}.`
+				);
+			await sleep(retrySeconds * 1000 + 250);
+		}
+		throw new Blocked('RATE_LIMIT', 'Calendar request remained rate-limited after ordinary Retry-After pacing.');
+	};
 	const waitRow = async (table, predicate, org = 'orgA') => {
 		for (let attempt = 0; attempt < 40; attempt++) {
 			const match = (await rows(table, org)).find(predicate);
@@ -94,7 +113,7 @@ function harness(drive, service, fixture, observations) {
 }
 
 async function checkAvailabilityScope(ctx) {
-	const { fixture: f, h } = ctx;
+	const { fixture: f, h, service } = ctx;
 	const { check, request, login, rows } = h;
 	const { ids, dates } = f;
 	const range = (org) => `${orgPath(f, org)}/api/calendar-range?rangeStart=${dates.start}&rangeEnd=${dates.end}`;
@@ -155,6 +174,43 @@ async function checkAvailabilityScope(ctx) {
 			{ single: single.status, batch: batch.status }
 		);
 	}
+	await login('calendarOperate');
+	const foreignStatusMarkers = [name('Foreign status single'), name('Foreign status batch')];
+	const foreignStatusInput = (note) => ({
+		personnelId: ids.personA,
+		statusTypeId: ids.statusForeign,
+		startDate: dates.start,
+		endDate: dates.start,
+		note
+	});
+	const foreignStatusSingle = await request(
+		'POST',
+		`${orgPath(f)}/api/availability`,
+		foreignStatusInput(foreignStatusMarkers[0])
+	);
+	const foreignStatusBatch = await request('POST', `${orgPath(f)}/api/availability/batch`, {
+		records: [foreignStatusInput(foreignStatusMarkers[1])]
+	});
+	const leakedForeignStatuses = (await rows('availability_entries')).filter((entry) =>
+		foreignStatusMarkers.includes(entry.note)
+	);
+	check(
+		denied(foreignStatusSingle.status) && denied(foreignStatusBatch.status) && leakedForeignStatuses.length === 0,
+		'Same-Organization Person cannot save a foreign-Organization status through single or batch writes',
+		{
+			single: foreignStatusSingle.status,
+			batch: foreignStatusBatch.status,
+			saved: leakedForeignStatuses.length
+		}
+	);
+	if (leakedForeignStatuses.length)
+		checked(
+			await service
+				.from('availability_entries')
+				.delete()
+				.eq('organization_id', ids.orgA)
+				.in('note', foreignStatusMarkers)
+		);
 	const saved = [...(await rows('availability_entries', 'orgA')), ...(await rows('availability_entries', 'orgB'))];
 	check(
 		attempted.every((marker) => !saved.some((entry) => entry.note === marker)),
@@ -246,6 +302,14 @@ async function checkStatusTypeLifecycle(ctx) {
 		denied(deniedUpdate.status) && (await row('status_types', f.ids.statusLeave))?.name === 'Verification Leave Edited',
 		'Viewer update is denied without a misleading persisted change',
 		{ status: deniedUpdate.status }
+	);
+	// Restore the shared fixture label after proving the edit so later claims
+	// remain independently runnable against the explicitly seeded status name.
+	checked(
+		await ctx.service
+			.from('status_types')
+			.update({ name: before.name, color: before.color, text_color: before.text_color })
+			.eq('id', f.ids.statusLeave)
 	);
 }
 
@@ -561,6 +625,199 @@ async function checkSpecialDayLifecycle(ctx) {
 	check(denied(rejected.status), 'Foreign closure mutation is rejected', { status: rejected.status });
 }
 
+async function checkBulkPartialChunk(ctx) {
+	const { fixture: f, drive, h, service } = ctx;
+	const { check, open, setInput, rows } = h;
+	const runTag = randomUUID().slice(0, 8);
+	const marker = `Bulk partial ${runTag}`;
+	const people = Array.from({ length: 501 }, (_, index) => ({
+		id: randomUUID(),
+		organization_id: f.ids.orgA,
+		group_id: f.ids.groupA,
+		first_name: 'Synthetic',
+		last_name: `BulkChunk${String(index).padStart(3, '0')}`,
+		rank: 'SPC',
+		clinic_role: '',
+		slug: `verify-bulk-${runTag}-${String(index).padStart(3, '0')}`
+	}));
+	const clickExact = async (label) => {
+		const result = await drive.evaluate(`() => {
+			const matches = [...document.querySelectorAll('button')]
+				.filter(button => button.textContent?.trim() === ${JSON.stringify(label)});
+			if (matches.length === 1) matches[0].click();
+			return { matches: matches.length };
+		}`);
+		if (result.matches !== 1) throw new Blocked('LOCATOR', `Expected one bulk button ${label}.`);
+	};
+	checked(await service.from('personnel').insert(people));
+	try {
+		await open(`${orgPath(f)}/calendar/bulk?tab=add`, ['Define the status change']);
+		await setInput('input[placeholder="Search by name, rank, MOS, or role..."]', 'BulkChunk');
+		await setInput('#statusType', f.ids.statusLeave);
+		await setInput('#bulkNote', marker);
+		await clickExact('Select shown');
+		const selected = await drive.evaluate(
+			`() => document.querySelector('[data-slot="data-table-bulk-actions"]')?.textContent?.trim() ?? ''`
+		);
+		check(
+			selected.includes('501 of 501 selected'),
+			'Bulk UI selects exactly 501 synthetic People across the 500-row request boundary',
+			{ selected }
+		);
+		await clickExact('Review & Confirm');
+		await drive.evaluate(`() => {
+			const original = window.fetch;
+			const capture = { original, calls: [], notes: [], responses: [] };
+			window.__verifyBulkChunks = capture;
+			window.fetch = async (...args) => {
+				const [input, init] = args;
+				if (String(input).includes(${JSON.stringify(`${orgPath(f)}/api/availability/batch`)}) && init?.method === 'POST') {
+					const records = JSON.parse(init.body).records;
+					const ids = records.map(record => record.personnelId);
+					capture.calls.push(ids);
+					capture.notes.push([...new Set(records.map(record => record.note))]);
+					if (capture.calls.length === 2) {
+						capture.responses.push({ status: 503, body: 'Synthetic second-chunk failure' });
+						return new Response(JSON.stringify({ message: 'Synthetic second-chunk failure' }), {
+							status: 503, headers: { 'Content-Type': 'application/json' }
+						});
+					}
+					const response = await original(...args);
+					capture.responses.push({ status: response.status, body: (await response.clone().text()).slice(0, 300) });
+					return response;
+				}
+				return original(...args);
+			};
+			return true;
+		}`);
+		try {
+			await clickExact('Confirm Apply');
+			let feedback = { partial: false, retry: false };
+			for (let attempt = 0; attempt < 80; attempt++) {
+				feedback = await drive.evaluate(`() => ({
+					partial: document.body.innerText.includes('Applied status to 500 of 501 people'),
+					retry: document.body.innerText.includes('1 who failed are still selected')
+				})`);
+				if (feedback.partial) break;
+				await sleep(100);
+			}
+			const calls = await drive.evaluate('() => window.__verifyBulkChunks?.calls ?? []');
+			const transport = await drive.evaluate(`() => ({
+				notes: window.__verifyBulkChunks?.notes ?? [],
+				responses: window.__verifyBulkChunks?.responses ?? []
+			})`);
+			const saved = (await rows('availability_entries')).filter((entry) => entry.note === marker);
+			check(
+				calls.length === 2 &&
+					calls[0].length === 500 &&
+					calls[1].length === 1 &&
+					transport.responses[0]?.status === 200 &&
+					transport.responses[1]?.status === 503 &&
+					transport.notes.every((notes) => notes.length === 1 && notes[0] === marker) &&
+					feedback.partial &&
+					feedback.retry &&
+					saved.length === 500 &&
+					saved.every((entry) => calls[0].includes(entry.personnel_id)) &&
+					!saved.some((entry) => entry.personnel_id === calls[1][0]),
+				'UI reports first-chunk success, keeps the one failed Person selected, and saves no failed second-chunk row',
+				{ chunkSizes: calls.map((call) => call.length), transport, feedback, saved: saved.length }
+			);
+		} finally {
+			await drive.evaluate(`() => {
+				const capture = window.__verifyBulkChunks;
+				if (capture?.original) window.fetch = capture.original;
+				return true;
+			}`);
+		}
+		await drive.tool('navigate_page', { type: 'reload' });
+		check(
+			(await rows('availability_entries')).filter((entry) => entry.note === marker).length === 500,
+			'After reload, only the first 500 bulk entries remain saved'
+		);
+	} finally {
+		checked(await service.from('availability_entries').delete().eq('organization_id', f.ids.orgA).eq('note', marker));
+		checked(
+			await service.from('personnel').delete().eq('organization_id', f.ids.orgA).like('slug', `verify-bulk-${runTag}-%`)
+		);
+	}
+}
+
+async function checkBulkImportAndRemoval(ctx) {
+	const { fixture: f, drive, h, service } = ctx;
+	const { check, open, fill, clickButton, setInput, row, waitRow, rows } = h;
+	const importMarker = name('Imported through UI');
+	await open(`${orgPath(f)}/calendar/bulk?tab=import`, ['Bring in status rows']);
+	await fill(
+		'Paste CSV data',
+		`Last name,First name,Start date,End date,Status,Note\nAble,Synthetic,${f.dates.later},${f.dates.later},Verification Leave,${importMarker}`
+	);
+	await clickButton('Parse');
+	const preview = await drive.snapshot();
+	check(preview.includes('1 of 1 rows selected'), 'Valid import preview selects exactly the specified Person and row');
+	await clickButton('Next');
+	const imported = await waitRow('availability_entries', (entry) => entry.note === importMarker);
+	let importedResult = '';
+	for (let attempt = 0; attempt < 40; attempt++) {
+		importedResult = await drive.snapshot();
+		if (importedResult.includes('Import complete')) break;
+		await sleep(100);
+	}
+	check(
+		!!imported &&
+			imported.personnel_id === f.ids.personA &&
+			imported.status_type_id === f.ids.statusLeave &&
+			imported.start_date === f.dates.later &&
+			imported.end_date === f.dates.later &&
+			importedResult.includes('1 status entry imported successfully'),
+		'Completed UI import reports success and saves only the selected Person, status, date and note',
+		{ importedId: imported?.id }
+	);
+	await drive.tool('navigate_page', { type: 'reload' });
+	check(
+		(await rows('availability_entries')).filter((entry) => entry.note === importMarker).length === 1,
+		'Completed UI import remains saved after full reload'
+	);
+	checked(
+		await service.from('availability_entries').delete().eq('organization_id', f.ids.orgA).eq('note', importMarker)
+	);
+	const overlapId = randomUUID();
+	checked(
+		await service.from('availability_entries').insert({
+			id: overlapId,
+			organization_id: f.ids.orgA,
+			personnel_id: f.ids.personA,
+			status_type_id: f.ids.statusLeave,
+			start_date: f.dates.uiBefore,
+			end_date: f.dates.uiAfter,
+			note: 'Synthetic complete-overlap removal target'
+		})
+	);
+	try {
+		await open(`${orgPath(f)}/calendar/bulk?tab=remove`, ['Define what to remove']);
+		await setInput('#removeStatusType', f.ids.statusLeave);
+		await drive.tool('click', { uid: await drive.uid('checkbox', 'Select SPC Able, Synthetic') });
+		await clickButton('Review Matching Entries');
+		const review = await drive.snapshot();
+		check(
+			review.includes('1 partial overlap will also be removed entirely') &&
+				!!(await row('availability_entries', overlapId)),
+			'UI warns that a partially overlapping saved row will be removed in full before confirmation'
+		);
+		await clickButton('Confirm Removal');
+		for (let attempt = 0; attempt < 40 && (await row('availability_entries', overlapId)); attempt++) await sleep(100);
+		check(
+			!(await row('availability_entries', overlapId)) &&
+				!!(await row('availability_entries', f.ids.availabilityHistorical)) &&
+				!!(await row('availability_entries', f.ids.availabilityCurrent)),
+			'Confirmed UI removal deletes the whole selected overlap while retaining historical and other-Person entries'
+		);
+		await drive.tool('navigate_page', { type: 'reload' });
+		check(!(await row('availability_entries', overlapId)), 'UI removal remains deleted after full reload');
+	} finally {
+		checked(await service.from('availability_entries').delete().eq('id', overlapId));
+	}
+}
+
 async function checkAvailabilityBulk(ctx) {
 	const { fixture: f, drive, h, service } = ctx;
 	const { check, login, request, rows, open, fill, clickButton, setInput } = h;
@@ -613,10 +870,10 @@ async function checkAvailabilityBulk(ctx) {
 		]
 	});
 	check(
-		second.status >= 400 &&
+		denied(second.status) &&
 			(await rows('availability_entries')).filter((entry) => entry.note === marker).length === 2 &&
 			(await rows('availability_entries')).every((entry) => entry.note !== failedMarker),
-		'A later failed batch does not erase the earlier successful batch or pretend the failed row saved',
+		'A later authorization-denied batch does not erase the earlier successful batch or pretend the failed row saved',
 		{ failedStatus: second.status, retainedCount: persisted.length }
 	);
 	const removed = await request('DELETE', `${orgPath(f)}/api/availability/batch`, {
@@ -696,6 +953,8 @@ async function checkAvailabilityBulk(ctx) {
 		(await rows('availability_entries')).some((entry) => entry.id === ids.availabilityCurrent),
 		'Backing out of partial-overlap review preserves the complete saved entry'
 	);
+	await checkBulkImportAndRemoval(ctx);
+	await checkBulkPartialChunk(ctx);
 }
 
 async function checkCatalogAuthorization(ctx) {
@@ -771,14 +1030,9 @@ async function checkAvailabilityConsumers(ctx) {
 		const response = await request('GET', `${orgPath(f)}/api/calendar-range?rangeStart=${start}&rangeEnd=${end}`);
 		const expected =
 			start === dates.historical
-				? [
-						ids.availabilityHistorical,
-						ids.availabilityAlpha,
-						ids.availabilityBravo,
-						ids.availabilityCurrent,
-						ids.availabilityUnassigned
-					]
+				? [ids.availabilityHistorical, ids.availabilityAlpha, ids.availabilityBravo, ids.availabilityUnassigned]
 				: [ids.availabilityAlpha, ids.availabilityBravo, ids.availabilityUnassigned];
+		if (dates.uiBefore <= end && dates.uiAfter >= start) expected.push(ids.availabilityCurrent);
 		check(
 			response.status === 200 &&
 				expected.every((id) => response.body.includes(id)) &&
@@ -874,7 +1128,8 @@ async function checkAvailabilityConsumers(ctx) {
 		check(
 			!!sheet &&
 				statusDays('Able', 'Verification Leave') === 4 &&
-				statusDays('Baker', 'Verification Training') === 4 &&
+				statusDays('Baker', 'Verification Training') ===
+					1 + inclusiveOverlapDays(dates.uiBefore, dates.uiAfter, '2026-01-01', '2026-12-31') &&
 				statusDays('Unassigned', 'Verification Leave') === 1 &&
 				!findPerson('Foreign') &&
 				!headers.includes('Foreign Private Status') &&
@@ -889,11 +1144,90 @@ async function checkAvailabilityConsumers(ctx) {
 	} else {
 		check(false, 'Status-day export produces a downloadable workbook');
 	}
+	await login('calendarView');
 	const calendarPage = await open(`${orgPath(f)}/calendar`, ['Calendar']);
 	check(
 		calendarPage.includes('Verification Leave') && !calendarPage.includes('Foreign Private Status'),
 		'Calendar surface shows its saved status label, not the foreign label'
 	);
+	await drive.evaluate(
+		`() => { document.querySelector('[data-testid="calendar-month-label"]')?.click(); return true; }`
+	);
+	const selectedMonth = await drive.evaluate(`async () => {
+		const dialog = document.querySelector('[role="dialog"][aria-label="Month and year picker"]');
+		if (!dialog) return false;
+		let displayedYear = Number(dialog.querySelector('span')?.textContent);
+		const direction = displayedYear > 2026 ? 'Previous year' : 'Next year';
+		const yearButton = [...dialog.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === direction);
+		for (let attempt = 0; attempt < 10 && displayedYear !== 2026; attempt++) {
+			yearButton?.click();
+			await new Promise(resolve => setTimeout(resolve, 0));
+			displayedYear = Number(dialog.querySelector('span')?.textContent);
+		}
+		if (displayedYear !== 2026) return false;
+		const month = [...dialog.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Sep');
+		month?.click();
+		return !!month;
+	}`);
+	if (!selectedMonth) throw new Blocked('LOCATOR', 'Could not select September 2026 in Calendar month picker.');
+	for (let attempt = 0; attempt < 40; attempt++) {
+		if (
+			await drive.evaluate(
+				`() => document.querySelector('[data-testid="calendar-month-label"]')?.textContent?.includes('September 2026')`
+			)
+		)
+			break;
+		await sleep(100);
+	}
+	const renderedMonth = await drive.evaluate(`() => {
+		const cells = name => {
+			const row = [...document.querySelectorAll('.personnel-row')].find(row => row.querySelector('.personnel-info')?.textContent?.includes(name));
+			return [...(row?.querySelectorAll('[data-slot="date-cell"]') ?? [])].map(cell => cell.getAttribute('title') ?? '');
+		};
+		return { title: document.querySelector('[data-testid="calendar-month-label"]')?.textContent,
+			closure: [...document.querySelectorAll('.date-headers button[title]')].some(button => button.title.includes('Verification Unit Closure')),
+			able: cells('Able, Synthetic'), baker: cells('Baker, Synthetic'), unassigned: cells('Unassigned, Synthetic') };
+	}`);
+	check(
+		renderedMonth.title?.includes('September 2026') &&
+			renderedMonth.able.filter((title) => title.includes('Verification Leave - Alpha seeded leave')).length === 3 &&
+			renderedMonth.baker.some((title) => title.includes('Verification Training - Bravo seeded training')) &&
+			renderedMonth.unassigned.some((title) => title.includes('Verification Leave - Unassigned seeded leave')) &&
+			renderedMonth.closure,
+		'September month view renders the seeded Person statuses and Organization closure',
+		renderedMonth
+	);
+	await clickButton('3-Month');
+	const longSeptember = await drive.evaluate(`() => {
+		const titles = [...document.querySelectorAll('.status-cell[title]')].map(cell => cell.title);
+		return { label: document.querySelector('[data-testid="long-range-date-label"]')?.textContent,
+			leave: titles.filter(title => title === 'Verification Leave').length,
+			training: titles.filter(title => title === 'Verification Training').length,
+			closure: [...document.querySelectorAll('button[title="Verification Unit Closure"]')].length };
+	}`);
+	check(
+		longSeptember.label?.includes('September 2026') &&
+			longSeptember.leave >= 3 &&
+			longSeptember.training >= 1 &&
+			longSeptember.closure > 0,
+		'Long-range view renders the seeded statuses and closure',
+		longSeptember
+	);
+	for (let index = 0; index < 2; index++) await clickButton('Prev 3 Months');
+	const historicalView = await drive.evaluate(`() => ({
+		label: document.querySelector('[data-testid="long-range-date-label"]')?.textContent,
+		historical: [...document.querySelectorAll('.status-cell[title]')].filter(cell => cell.title === 'Verification Leave').length
+	})`);
+	check(
+		historicalView.label?.includes('March 2026') && historicalView.historical === 1,
+		'Moving to the historical quarter renders the single retained March leave day',
+		historicalView
+	);
+	for (let index = 0; index < 2; index++) await clickButton('Next 3 Months');
+	const returnedView = await drive.evaluate(
+		`() => [...document.querySelectorAll('.status-cell[title]')].filter(cell => cell.title === 'Verification Leave').length >= 3`
+	);
+	check(returnedView, 'Moving back to September restores the same saved availability');
 	const dashboard = await open(`${orgPath(f)}`, ['Dashboard', 'Overview']);
 	check(
 		dashboard.includes('Verification Training') &&
@@ -916,6 +1250,78 @@ async function checkStateIsolation(ctx) {
 	check(
 		first.includes('Verification Leave') && !first.includes('Foreign Private Status'),
 		'Organization A settings shows only Organization A catalog'
+	);
+	await open(`${orgPath(f)}/calendar`, ['Calendar']);
+	await drive.evaluate(
+		`() => { document.querySelector('[data-testid="calendar-month-label"]')?.click(); return true; }`
+	);
+	const pickerBefore = await drive.evaluate(`() => ({
+		open: !!document.querySelector('[role="dialog"][aria-label="Month and year picker"]'),
+		focused: document.activeElement?.textContent?.trim()
+	})`);
+	await drive.tool('press_key', { key: 'ArrowLeft' });
+	const pickerAfterArrow = await drive.evaluate(`() => document.activeElement?.textContent?.trim()`);
+	await drive.tool('press_key', { key: 'Escape' });
+	const pickerClosed = await drive.evaluate(
+		`() => !document.querySelector('[role="dialog"][aria-label="Month and year picker"]')`
+	);
+	check(
+		pickerBefore.open &&
+			!!pickerBefore.focused &&
+			!!pickerAfterArrow &&
+			pickerAfterArrow !== pickerBefore.focused &&
+			pickerClosed,
+		'Month picker supports keyboard focus movement and Escape dismissal',
+		{ pickerBefore, pickerAfterArrow, pickerClosed }
+	);
+	await drive.evaluate(`() => {
+		const original = window.fetch;
+		const probe = { seen: false, original };
+		window.__verifyCalendarRangeFailure = probe;
+		window.fetch = (...args) => {
+			if (!probe.seen && String(args[0]).includes(${JSON.stringify(`${orgPath(f)}/api/calendar-range`)})) {
+				probe.seen = true;
+				return Promise.resolve(new Response(JSON.stringify({ error: 'Synthetic range failure' }),
+					{ status: 503, headers: { 'Content-Type': 'application/json' } }));
+			}
+			return original(...args);
+		};
+		return true;
+	}`);
+	try {
+		await h.clickButton('3-Month');
+		let failure = '';
+		for (let attempt = 0; attempt < 40; attempt++) {
+			failure = await drive.snapshot();
+			if (failure.includes('Retry calendar load')) break;
+			await sleep(100);
+		}
+		const failureSeen = await drive.evaluate(`() => !!window.__verifyCalendarRangeFailure?.seen`);
+		check(
+			failureSeen &&
+				failure.includes('Additional calendar data is temporarily unavailable.') &&
+				failure.includes('Retry calendar load') &&
+				!failure.includes('Foreign Private Status'),
+			'A failed additional range load shows a scoped, actionable retry state',
+			{ failureSeen }
+		);
+	} finally {
+		await drive.evaluate(
+			`() => { const probe = window.__verifyCalendarRangeFailure; if (probe?.original) window.fetch = probe.original; return true; }`
+		);
+	}
+	await h.clickButton('Retry calendar load');
+	let retried = '';
+	for (let attempt = 0; attempt < 40; attempt++) {
+		retried = await drive.snapshot();
+		if (!retried.includes('Retry calendar load') && !retried.includes('Loading additional calendar dates')) break;
+		await sleep(100);
+	}
+	check(
+		!retried.includes('Retry calendar load') &&
+			retried.includes('Verification Leave') &&
+			!retried.includes('Foreign Private Status'),
+		'Retry loads the Calendar range without mixing foreign catalog data'
 	);
 	const foreign = await open(`${orgPath(f, 'orgB')}/calendar/settings`, ['Calendar Settings', 'Access restricted']);
 	check(
@@ -943,7 +1349,8 @@ async function checkStateIsolation(ctx) {
 		return true;
 	}`);
 	try {
-		await h.clickButton('3-Month');
+		const inLongView = await drive.evaluate(`() => !!document.querySelector('[data-testid="long-range-date-label"]')`);
+		await h.clickButton(inLongView ? 'Next 3 Months' : '3-Month');
 		let intercepted = false;
 		for (let attempt = 0; attempt < 40; attempt++) {
 			intercepted = await drive.evaluate('() => !!window.__verifyCalendarRangeBarrier?.seen');
@@ -1002,6 +1409,134 @@ async function checkStateIsolation(ctx) {
 			if (barrier?.original) window.fetch = barrier.original;
 			return true;
 		}`);
+	}
+	await open(`${orgPath(f)}/calendar`, ['Calendar']);
+	if (await drive.evaluate(`() => !!document.querySelector('[data-testid="long-range-date-label"]')`))
+		await h.clickButton('3-Month');
+	await h.clickButton('Today');
+	await h.personCell('Able, Synthetic', Number(dates.ui.slice(-2)));
+	const mutationMarker = name('Pending scoped availability');
+	await h.fill('Note', mutationMarker);
+	await drive.evaluate(`() => {
+		const original = window.fetch;
+		const barrier = { seen: false, release: null, status: null, original };
+		window.__verifyCalendarMutationBarrier = barrier;
+		window.fetch = async (...args) => {
+			const response = await original(...args);
+			if (!barrier.seen && String(args[0]).includes(${JSON.stringify(`${orgPath(f)}/api/availability`)}) && args[1]?.method === 'POST') {
+				barrier.seen = true;
+				barrier.status = response.status;
+				return new Promise(resolve => { barrier.release = () => resolve(response); });
+			}
+			return response;
+		};
+		return true;
+	}`);
+	try {
+		await h.clickButton('Add Status');
+		let savedMutation = null;
+		let heldMutation = null;
+		for (let attempt = 0; attempt < 50; attempt++) {
+			savedMutation = (await rows('availability_entries')).find((entry) => entry.note === mutationMarker);
+			heldMutation = await drive.evaluate(`() => ({
+				seen: !!window.__verifyCalendarMutationBarrier?.seen,
+				status: window.__verifyCalendarMutationBarrier?.status,
+				ready: !!window.__verifyCalendarMutationBarrier?.release
+			})`);
+			if (savedMutation && heldMutation.ready) break;
+			await sleep(100);
+		}
+		check(
+			!!savedMutation &&
+				heldMutation?.status === 200 &&
+				heldMutation.ready &&
+				savedMutation.organization_id === ids.orgA &&
+				savedMutation.personnel_id === ids.personA,
+			'Pending Calendar mutation has persisted only to Organization A while its response is held',
+			{ savedId: savedMutation?.id, heldMutation }
+		);
+		const switchButton = await drive.evaluate(`() => {
+			const button = [...document.querySelectorAll('button')].find(button => button.getAttribute('aria-label') === 'Switch organization');
+			button?.click();
+			return !!button;
+		}`);
+		if (!switchButton)
+			throw new Blocked('LOCATOR', 'Organization switcher unavailable during pending Calendar mutation.');
+		let selected = false;
+		for (let attempt = 0; attempt < 40; attempt++) {
+			selected = await drive.evaluate(`() => {
+				const item = [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent?.includes('Verification Organization B'));
+				if (item) item.click();
+				return !!item;
+			}`);
+			if (selected) break;
+			await sleep(100);
+		}
+		if (!selected) throw new Blocked('LOCATOR', 'Organization B switcher item unavailable during pending mutation.');
+		for (let attempt = 0; attempt < 60; attempt++) {
+			if ((await drive.evaluate(`() => location.pathname`)).startsWith(orgPath(f, 'orgB'))) break;
+			await sleep(100);
+		}
+		const pendingForeign = await drive.snapshot();
+		const pendingPath = await drive.evaluate(`() => location.pathname`);
+		check(
+			pendingPath.startsWith(orgPath(f, 'orgB')) &&
+				pendingForeign.includes('Foreign Private Status') &&
+				!pendingForeign.includes(mutationMarker) &&
+				!pendingForeign.includes('Verification Leave'),
+			'Organization B renders only its own Calendar while A mutation feedback remains pending',
+			{
+				path: pendingPath,
+				foreign: pendingForeign.includes('Foreign Private Status'),
+				oldStatus: pendingForeign.includes('Verification Leave'),
+				oldMutation: pendingForeign.includes(mutationMarker),
+				matches: pendingForeign
+					.split('\n')
+					.filter((line) => /Foreign Private Status|Verification Leave|Pending scoped availability/.test(line))
+					.slice(0, 12)
+			}
+		);
+		const release = await drive.evaluate(`() => {
+			const barrier = window.__verifyCalendarMutationBarrier;
+			if (!barrier?.release) return false;
+			barrier.release();
+			window.fetch = barrier.original;
+			return true;
+		}`);
+		if (!release) throw new Blocked('MUTATION_INTERCEPT', 'Held A mutation response could not be released.');
+		await sleep(300);
+		const settledForeign = await drive.snapshot();
+		const settledPath = await drive.evaluate(`() => location.pathname`);
+		check(
+			settledForeign.includes('Foreign Private Status') &&
+				!settledForeign.includes('Verification Leave') &&
+				!settledForeign.includes(mutationMarker) &&
+				(await rows('availability_entries')).some((entry) => entry.note === mutationMarker) &&
+				(await rows('availability_entries', 'orgB')).every((entry) => entry.note !== mutationMarker),
+			'Released A mutation response cannot restore A data or feedback into B; persisted A row remains scoped',
+			{
+				path: settledPath,
+				foreign: settledForeign.includes('Foreign Private Status'),
+				oldStatus: settledForeign.includes('Verification Leave'),
+				oldMutation: settledForeign.includes(mutationMarker),
+				matches: settledForeign
+					.split('\n')
+					.filter((line) => /Foreign Private Status|Verification Leave|Pending scoped availability/.test(line))
+					.slice(0, 12)
+			}
+		);
+		await drive.tool('navigate_page', { type: 'reload' });
+		check(!(await drive.snapshot()).includes(mutationMarker), 'Reloaded Organization B excludes the A mutation');
+	} finally {
+		await drive.evaluate(`() => {
+			const barrier = window.__verifyCalendarMutationBarrier;
+			if (barrier?.release) barrier.release();
+			if (barrier?.original) window.fetch = barrier.original;
+			return true;
+		}`);
+		checked(
+			await service.from('availability_entries').delete().eq('organization_id', ids.orgA).eq('note', mutationMarker)
+		);
 	}
 	await open(`${orgPath(f)}/calendar`, ['Calendar']);
 	const membership = checked(
@@ -1063,7 +1598,7 @@ export async function proveCalendarClaim(claim, { drive, service, fixture }) {
 		return { status: observations.every((item) => item.observed) ? 'PASS' : 'FAIL', claim, scope, observations };
 	} catch (error) {
 		return {
-			status: 'INCONCLUSIVE',
+			status: observations.some((item) => !item.observed) ? 'FAIL' : 'INCONCLUSIVE',
 			claim,
 			scope,
 			code: error.code ?? 'HARNESS',

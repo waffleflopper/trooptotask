@@ -2,14 +2,14 @@ import type {
 	OrgProvisioningAssignmentTypeSeed,
 	OrgProvisioningCreateResult,
 	OrgProvisioningPort,
-	OrgProvisioningSpecialDaySeed,
 	OrgProvisioningStatusTypeSeed
 } from '$lib/server/core/useCases/orgProvisioning';
 
 export function createSupabaseOrgProvisioningPort(
 	locals: Pick<App.Locals, 'supabase'>,
 	seedGroups: OrgProvisioningPort['seedDefaultGroups'],
-	seedRankCatalog: OrgProvisioningPort['seedDefaultRankCatalog']
+	seedRankCatalog: OrgProvisioningPort['seedDefaultRankCatalog'],
+	seedHolidays: OrgProvisioningPort['seedFederalHolidays']
 ): OrgProvisioningPort {
 	const supabase = locals.supabase;
 
@@ -53,21 +53,8 @@ export function createSupabaseOrgProvisioningPort(
 			return error?.message ?? null;
 		},
 
-		async seedFederalHolidays(organizationId, specialDays) {
-			let firstErrorMessage: string | null = null;
-
-			for (let index = 0; index < specialDays.length; index += 50) {
-				const batch = specialDays
-					.slice(index, index + 50)
-					.map((specialDay) => serializeSpecialDaySeed(organizationId, specialDay));
-				const { error } = await supabase.from('special_days').insert(batch);
-
-				if (error && !firstErrorMessage) {
-					firstErrorMessage = error.message;
-				}
-			}
-
-			return firstErrorMessage;
+		async seedFederalHolidays(organizationId) {
+			return seedHolidays(organizationId);
 		},
 
 		async seedDefaultRankCatalog(organizationId) {
@@ -95,14 +82,5 @@ function serializeAssignmentTypeSeed(organizationId: string, assignmentType: Org
 		assign_to: assignmentType.assignTo,
 		color: assignmentType.color,
 		sort_order: assignmentType.sortOrder
-	};
-}
-
-function serializeSpecialDaySeed(organizationId: string, specialDay: OrgProvisioningSpecialDaySeed) {
-	return {
-		organization_id: organizationId,
-		date: specialDay.date,
-		name: specialDay.name,
-		type: specialDay.type
 	};
 }

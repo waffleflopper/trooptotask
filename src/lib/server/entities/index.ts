@@ -1,7 +1,6 @@
 export { StatusTypeEntity } from './statusType';
 export { AssignmentTypeEntity } from './assignmentType';
 export { TrainingTypeEntity } from './trainingType';
-export { SpecialDayEntity } from './specialDay';
 export { DailyAssignmentEntity } from './dailyAssignment';
 export { PersonnelTrainingEntity } from './personnelTraining';
 export { RatingSchemeEntryEntity } from './ratingSchemeEntry';

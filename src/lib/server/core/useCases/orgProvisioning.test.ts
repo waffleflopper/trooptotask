@@ -3,7 +3,6 @@ import {
 	provisionOrganization,
 	type OrgProvisioningAssignmentTypeSeed,
 	type OrgProvisioningPort,
-	type OrgProvisioningSpecialDaySeed,
 	type OrgProvisioningStatusTypeSeed
 } from './orgProvisioning';
 
@@ -18,7 +17,7 @@ function createOrgProvisioningPort(
 	groupSeeds: string[];
 	statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }>;
 	assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }>;
-	federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }>;
+	federalHolidaySeeds: string[];
 	rankCatalogSeeds: string[];
 } {
 	const createRequests: string[] = [];
@@ -27,7 +26,7 @@ function createOrgProvisioningPort(
 	const statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }> = [];
 	const assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }> =
 		[];
-	const federalHolidaySeeds: Array<{ organizationId: string; specialDays: OrgProvisioningSpecialDaySeed[] }> = [];
+	const federalHolidaySeeds: string[] = [];
 	const rankCatalogSeeds: string[] = [];
 
 	return {
@@ -58,8 +57,8 @@ function createOrgProvisioningPort(
 			assignmentTypeSeeds.push({ organizationId, assignmentTypes });
 			return null;
 		},
-		async seedFederalHolidays(organizationId, specialDays) {
-			federalHolidaySeeds.push({ organizationId, specialDays });
+		async seedFederalHolidays(organizationId) {
+			federalHolidaySeeds.push(organizationId);
 			return null;
 		},
 		async seedDefaultRankCatalog(organizationId) {
@@ -76,8 +75,6 @@ describe('provisionOrganization', () => {
 	});
 
 	it('creates retained defaults for the new Organization with independent calendar and rank examples', async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date('2026-06-15T12:00:00Z'));
 		const port = createOrgProvisioningPort();
 		const result = await provisionOrganization(port, {
 			name: '  Alpha   Company  ',
@@ -158,17 +155,7 @@ describe('provisionOrganization', () => {
 				]
 			}
 		]);
-		expect(port.federalHolidaySeeds).toHaveLength(1);
-		expect(port.federalHolidaySeeds[0]?.organizationId).toBe('org-1');
-		expect(port.federalHolidaySeeds[0]?.specialDays).toHaveLength(44);
-		expect(port.federalHolidaySeeds[0]?.specialDays).toEqual(
-			expect.arrayContaining([
-				{ date: '2025-01-01', name: "New Year's Day", type: 'federal-holiday' },
-				{ date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' },
-				{ date: '2027-11-25', name: 'Thanksgiving Day', type: 'federal-holiday' },
-				{ date: '2028-12-25', name: 'Christmas Day', type: 'federal-holiday' }
-			])
-		);
+		expect(port.federalHolidaySeeds).toEqual(['org-1']);
 		expect(port.rankCatalogSeeds).toEqual(['org-1']);
 	});
 

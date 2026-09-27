@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SpecialDayEntity } from './specialDay';
+import { SpecialDayEntity } from './specialDayEntity.server';
 import type { SpecialDay } from '$lib/types';
 
 describe('SpecialDayEntity', () => {

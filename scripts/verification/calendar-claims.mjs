@@ -123,19 +123,24 @@ function harness(drive, service, fixture, observations) {
 		if (!result.found) throw new Blocked('LOCATOR', `No field ${selector} in current Calendar page.`);
 	};
 	const selectModalStatus = async (label) => {
-		const result = await drive.evaluate(`async () => {
-			const trigger = document.querySelector('#statusType');
-			if (!(trigger instanceof HTMLElement)) return { trigger: false, matches: 0, selected: false };
-			trigger.click();
-			await new Promise(resolve => setTimeout(resolve, 50));
-			const matches = [...document.querySelectorAll('[role="option"]')]
-				.filter(option => option.textContent?.trim() === ${JSON.stringify(label)});
-			if (matches.length === 1) matches[0].click();
-			await new Promise(resolve => setTimeout(resolve, 0));
-			return { trigger: true, matches: matches.length, selected: trigger.textContent?.includes(${JSON.stringify(label)}) };
+		const selected = await drive.evaluate(`() => document.querySelector('#statusType')?.textContent?.trim()`);
+		if (selected === label) return;
+		await drive.tool('click', { uid: await drive.uid('button', 'Status Type *') });
+		const options = await drive.evaluate(`() => {
+			const items = [...document.querySelectorAll('[role="option"]')];
+			return items.map(item => ({ label: item.textContent?.trim(), highlighted: item.hasAttribute('data-highlighted'), selected: item.getAttribute('aria-selected') === 'true' }));
 		}`);
-		if (!result.trigger || result.matches !== 1 || !result.selected)
-			throw new Blocked('LOCATOR', `Could not select Calendar status ${label}: ${JSON.stringify(result)}.`);
+		const target = options.findIndex((option) => option.label === label);
+		let from = options.findIndex((option) => option.highlighted);
+		if (from < 0) from = options.findIndex((option) => option.selected);
+		if (target < 0 || from < 0)
+			throw new Blocked('LOCATOR', `Could not locate Calendar status ${label}: ${JSON.stringify(options)}.`);
+		const step = target < from ? 'ArrowUp' : 'ArrowDown';
+		for (let index = 0; index < Math.abs(target - from); index++) await drive.tool('press_key', { key: step });
+		await drive.tool('press_key', { key: 'Enter' });
+		const after = await drive.evaluate(`() => document.querySelector('#statusType')?.textContent?.trim()`);
+		if (after !== label)
+			throw new Blocked('LOCATOR', `Calendar status selection remained ${after}; expected ${label}.`);
 	};
 	const personCell = async (personName, day) => {
 		const result = await drive.evaluate(`() => {

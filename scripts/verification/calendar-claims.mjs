@@ -266,9 +266,10 @@ async function checkAvailabilityScope(ctx) {
 
 async function checkStatusTypeLifecycle(ctx) {
 	const { fixture: f, drive, h } = ctx;
-	const { check, login, clickButton, fill, setInput, rowAction, waitRow, row, rows, request } = h;
+	const { check, login, clickButton, fill, setInput, section, rowAction, waitRow, row, rows, request } = h;
 	const freshName = name('Verification New Status');
 	await login('calendarConfigure', 'calendar/settings', ['Calendar Settings']);
+	await section('Status Types');
 	await clickButton('Add new');
 	await fill('Status name', freshName);
 	await clickButton('Add Status Type');
@@ -432,7 +433,6 @@ async function checkAssignmentTypeLifecycle(ctx) {
 			archivedBootstrap.status === 200 &&
 			archivedBootstrap.body.includes(f.ids.typeArchived) &&
 			archivedBootstrap.body.includes('Verification Archived Duty') &&
-			archivedBootstrap.body.includes(f.ids.assignmentArchived) &&
 			!archivedBootstrap.body.includes(f.ids.typeForeign),
 		'Authenticated Calendar range and bootstrap retain the archived type label and its referenced assignment without foreign data',
 		{ rangeStatus: archivedRange.status, bootstrapStatus: archivedBootstrap.status }

@@ -46,7 +46,7 @@ function renderImporter({
 }
 
 describe('BulkStatusImport', () => {
-	it('shows a success toast and notifies the parent after a successful import inserts rows', async () => {
+	it('keeps successful import results reviewable until Done refreshes the parent', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const fetchMock = vi.fn(async () => {
 			return {
@@ -86,8 +86,12 @@ describe('BulkStatusImport', () => {
 				})
 			});
 		});
-		expect(onComplete).toHaveBeenCalledTimes(1);
+		expect(await screen.findByRole('heading', { name: 'Import complete' })).toBeTruthy();
+		expect(screen.getByText(/status entry imported successfully/)).toBeTruthy();
+		expect(onComplete).not.toHaveBeenCalled();
 		expect(successToast).toHaveBeenCalledWith('Imported 1 status entry');
+		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+		expect(onComplete).toHaveBeenCalledTimes(1);
 	});
 
 	it('previews a single headerless pasted row', async () => {
@@ -186,6 +190,8 @@ describe('BulkStatusImport', () => {
 		expect(screen.getByText(/failed to import/)).toBeTruthy();
 		expect(successToast).toHaveBeenCalledWith('Imported 1 status entry');
 		expect(errorToast).not.toHaveBeenCalled();
+		expect(onComplete).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 		expect(onComplete).toHaveBeenCalledTimes(1);
 	});
 
@@ -249,6 +255,9 @@ describe('BulkStatusImport', () => {
 			);
 		});
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(await screen.findByRole('heading', { name: 'Import complete' })).toBeTruthy();
+		expect(onComplete).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: 'Done' }));
 		expect(onComplete).toHaveBeenCalledTimes(1);
 	});
 });

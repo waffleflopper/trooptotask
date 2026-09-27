@@ -10,7 +10,7 @@ import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment, Pe
 import type { Group } from '$features/personnel/contracts';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
 export type { CalendarRangeData } from '$features/calendar/calendar.types';
-import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
+import { listAvailabilityEntries } from '$features/calendar/index.server';
 import { SpecialDayEntity } from '$lib/server/entities/specialDay';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
@@ -20,7 +20,6 @@ import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
 import {
 	filterRowsByCalendarAssigneeScope,
-	personnelInFilter,
 	requirePersonnelCalendarRoster,
 	resolveCalendarAssigneeScope
 } from './calendarScope';
@@ -73,40 +72,34 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 	const { rangeStart, rangeEnd } = input;
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
-	const [availabilityRows, specialDayRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroups] = await Promise.all([
-		// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
-		ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			...personnelInFilter(calendarScope, 'personnel_id'),
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: rangeStart },
-				{ column: 'start_date', op: 'lte', value: rangeEnd }
-			]
-		}),
-		// Special days: single-column date range
-		ctx.store.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: rangeStart },
-				{ column: 'date', op: 'lte', value: rangeEnd }
-			],
-			orderBy: [{ column: 'date', ascending: true }]
-		}),
-		// Assignment types: no date filtering
-		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		// Daily assignments: single-column date range
-		ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: rangeStart },
-				{ column: 'date', op: 'lte', value: rangeEnd }
-			]
-		}),
-		listPinnedGroupNames(ctx)
-	]);
+	const [availabilityEntries, specialDayRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroups] =
+		await Promise.all([
+			// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
+			listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
+			// Special days: single-column date range
+			ctx.store.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: rangeStart },
+					{ column: 'date', op: 'lte', value: rangeEnd }
+				],
+				orderBy: [{ column: 'date', ascending: true }]
+			}),
+			// Assignment types: no date filtering
+			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+				orderBy: [{ column: 'sort_order', ascending: true }]
+			}),
+			// Daily assignments: single-column date range
+			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+				rangeFilters: [
+					{ column: 'date', op: 'gte', value: rangeStart },
+					{ column: 'date', op: 'lte', value: rangeEnd }
+				]
+			}),
+			listPinnedGroupNames(ctx)
+		]);
 
 	return {
-		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
+		availabilityEntries,
 		specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
 		dailyAssignments: DailyAssignmentEntity.fromDbArray(
@@ -124,15 +117,8 @@ export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQue
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
 	return withCalendarTiming(orgId, 'date-ranged-query', async () => {
-		const [availabilityRows, specialDayRows, dailyAssignmentRows] = await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-				select: AvailabilityEntryEntity.select,
-				...personnelInFilter(calendarScope, 'personnel_id'),
-				rangeFilters: [
-					{ column: 'end_date', op: 'gte', value: rangeStart },
-					{ column: 'start_date', op: 'lte', value: rangeEnd }
-				]
-			}),
+		const [availabilityEntries, specialDayRows, dailyAssignmentRows] = await Promise.all([
+			listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
 			ctx.store.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
 				rangeFilters: [
 					{ column: 'date', op: 'gte', value: rangeStart },
@@ -151,7 +137,7 @@ export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQue
 		return {
 			rangeStart,
 			rangeEnd,
-			availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
+			availabilityEntries,
 			specialDays: SpecialDayEntity.fromDbArray(specialDayRows),
 			dailyAssignments: DailyAssignmentEntity.fromDbArray(
 				filterRowsByCalendarAssigneeScope(dailyAssignmentRows, calendarScope)
@@ -170,16 +156,11 @@ export async function fetchCalendarBootstrap(
 	const { rangeStart, rangeEnd } = input;
 	const specialDaysRange = input.specialDaysRange ?? input;
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
-	const availabilityEntries = ctx.store
-		.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			...personnelInFilter(calendarScope, 'personnel_id'),
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: rangeStart },
-				{ column: 'start_date', op: 'lte', value: rangeEnd }
-			]
-		})
-		.then((rows) => AvailabilityEntryEntity.fromDbArray(rows));
+	const availabilityEntries = listAvailabilityEntries(ctx, {
+		rangeStart,
+		rangeEnd,
+		personnelIds: calendarScope?.personnelIds
+	});
 	const specialDays = ctx.store
 		.findMany<Record<string, unknown>>('special_days', orgId, undefined, {
 			rangeFilters: [

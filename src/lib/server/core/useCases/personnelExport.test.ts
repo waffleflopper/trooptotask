@@ -2,11 +2,31 @@ import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { exportPersonnelWorkbook } from './personnelExport';
+import type { AvailabilityEntry } from '$lib/types';
 
 type TestContext = ReturnType<typeof createTestContext>;
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
 const PERSONNEL_ID = '11111111-1111-4111-8111-111111111111';
+
+async function listAvailabilityHistory(): Promise<AvailabilityEntry[]> {
+	return [
+		{
+			id: 'availability-1',
+			personnelId: PERSONNEL_ID,
+			statusTypeId: 'status-type-1',
+			startDate: '2026-05-15',
+			endDate: '2026-05-17'
+		},
+		{
+			id: 'availability-older',
+			personnelId: PERSONNEL_ID,
+			statusTypeId: 'status-type-1',
+			startDate: '2025-12-01',
+			endDate: '2025-12-03'
+		}
+	];
+}
 
 function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 	return Buffer.from(buffer) as unknown as WorkbookLoadBuffer;
@@ -147,16 +167,6 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 			name: 'TDY'
 		}
 	]);
-	ctx.rawStore.seed('availability_entries', [
-		{
-			id: 'availability-1',
-			organization_id: ctx.auth.orgId,
-			personnel_id: PERSONNEL_ID,
-			status_type_id: 'status-type-1',
-			start_date: '2026-05-15',
-			end_date: '2026-05-17'
-		}
-	]);
 }
 
 describe('Personnel export use case', () => {
@@ -189,7 +199,9 @@ describe('Personnel export use case', () => {
 		]);
 		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
 
-		await expect(exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID })).rejects.toMatchObject({
+		await expect(
+			exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory)
+		).rejects.toMatchObject({
 			status: 403
 		});
 
@@ -200,7 +212,9 @@ describe('Personnel export use case', () => {
 		const ctx = createTestContext();
 		const findOneSpy = vi.spyOn(ctx.rawStore, 'findOne');
 
-		await expect(exportPersonnelWorkbook(ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+		await expect(
+			exportPersonnelWorkbook(ctx, { personnelId: 'person-1' }, listAvailabilityHistory)
+		).rejects.toMatchObject({
 			status: 400,
 			message: 'Invalid personnel ID'
 		});
@@ -212,7 +226,7 @@ describe('Personnel export use case', () => {
 		const ctx = createTestContext();
 		seedPersonnelExportDataset(ctx);
 
-		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID });
+		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory);
 		const workbook = await parseWorkbook(result._buffer);
 		const dateStr = new Date().toISOString().split('T')[0];
 
@@ -273,6 +287,11 @@ describe('Personnel export use case', () => {
 				Status: 'TDY',
 				'Start Date': '2026-05-15',
 				'End Date': '2026-05-17'
+			},
+			{
+				Status: 'TDY',
+				'Start Date': '2025-12-01',
+				'End Date': '2025-12-03'
 			}
 		]);
 	});
@@ -294,7 +313,7 @@ describe('Personnel export use case', () => {
 		});
 		seedPersonnelExportDataset(ctx);
 
-		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID });
+		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory);
 		const workbook = await parseWorkbook(result._buffer);
 
 		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info'))).toContainEqual({
@@ -307,7 +326,7 @@ describe('Personnel export use case', () => {
 		const ctx = createTestContext();
 		seedPersonnelExportDataset(ctx);
 		await ctx.rawStore.deleteManyByIds('personnel_extended_info', ctx.auth.orgId, ['extended-1']);
-		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID });
+		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory);
 		const workbook = await parseWorkbook(result._buffer);
 		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info')).some((row) => row.Field === 'Leader Notes')).toBe(
 			false

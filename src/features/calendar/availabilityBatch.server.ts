@@ -1,14 +1,18 @@
 /**
  * Bulk availability use case — set or clear availability for multiple personnel at once.
  *
- * `batchSetAvailability` inserts availability entries for the given personnel IDs
+ * `createAvailabilityBatch` inserts availability entries for the given personnel IDs
  * within a date range, up to MAX_BATCH_SIZE (500) entries per call.
  *
- * For single-record availability, use the entity CRUD route (AvailabilityEntryEntity).
+ * Single-record availability uses Calendar-owned operations behind the route.
  */
-import { fail } from '$lib/server/core/errors';
-import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
-import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, type CalendarWritePorts } from './calendarPolicy';
+import { error } from '@sveltejs/kit';
+import { AvailabilityEntryEntity } from './availabilityEntity.server';
+import {
+	CALENDAR_POLICY_ACTIONS,
+	requireCalendarPersonnelPolicy,
+	type CalendarWritePorts
+} from '$lib/server/core/useCases/calendarPolicy';
 
 const entity = AvailabilityEntryEntity;
 const AUDIT_RESOURCE = 'availability';
@@ -31,11 +35,11 @@ export async function createAvailabilityBatch(
 	const { records } = input;
 
 	if (!Array.isArray(records) || records.length === 0) {
-		fail(400, 'records array is required');
+		throw error(400, 'records array is required');
 	}
 
 	if (records.length > MAX_BATCH_SIZE) {
-		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+		throw error(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
 	const uniquePersonnelIds = [...new Set(records.map((r) => r.personnelId))];
@@ -45,7 +49,7 @@ export async function createAvailabilityBatch(
 		uniquePersonnelIds
 	);
 	if (people.size !== uniquePersonnelIds.length) {
-		fail(404, 'Person not found');
+		throw error(404, 'Person not found');
 	}
 
 	// Transform and bulk insert
@@ -72,11 +76,11 @@ export async function deleteAvailabilityBatch(
 	const { ids } = input;
 
 	if (!Array.isArray(ids) || ids.length === 0) {
-		fail(400, 'ids array is required');
+		throw error(400, 'ids array is required');
 	}
 
 	if (ids.length > MAX_BATCH_SIZE) {
-		fail(400, `Maximum ${MAX_BATCH_SIZE} ids per batch`);
+		throw error(400, `Maximum ${MAX_BATCH_SIZE} ids per batch`);
 	}
 
 	// Enforce group scope — look up personnel IDs from entries being deleted

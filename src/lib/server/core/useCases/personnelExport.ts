@@ -9,6 +9,7 @@ import {
 } from '$lib/export/workbook';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import type { AvailabilityEntry } from '$lib/types';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 import { listGroupCatalog } from '$features/personnel/index.server';
@@ -24,7 +25,11 @@ export interface PersonnelExportOutput {
 
 export async function exportPersonnelWorkbook(
 	ctx: UseCaseContext,
-	input: PersonnelExportInput
+	input: PersonnelExportInput,
+	listAvailabilityHistory: (
+		ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
+		personnelId: string
+	) => Promise<AvailabilityEntry[]>
 ): Promise<PersonnelExportOutput> {
 	const orgId = ctx.auth.orgId;
 	const id = input.personnelId;
@@ -52,14 +57,7 @@ export async function exportPersonnelWorkbook(
 				orderBy: [{ column: 'date_conducted', ascending: false }]
 			}
 		),
-		ctx.rawStore.findMany<Record<string, unknown>>(
-			'availability_entries',
-			orgId,
-			{ personnel_id: id },
-			{
-				orderBy: [{ column: 'start_date', ascending: false }]
-			}
-		),
+		listAvailabilityHistory(ctx, id),
 		ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId, {}, { select: 'id, name' }),
 		ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId, {}, { select: 'id, name' }),
 		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore })
@@ -171,9 +169,9 @@ export async function exportPersonnelWorkbook(
 			{ header: 'End Date', key: 'end_date', width: 14 }
 		],
 		(a) => ({
-			status: lookup(statusTypeMap, a.status_type_id),
-			start_date: a.start_date,
-			end_date: a.end_date
+			status: lookup(statusTypeMap, a.statusTypeId),
+			start_date: a.startDate,
+			end_date: a.endDate
 		})
 	);
 
@@ -196,12 +194,12 @@ export async function exportPersonnelWorkbook(
 	return { _buffer: buffer, _filename: `${personName}-export-${dateStr}.xlsx` };
 }
 
-function addMappedSheet(
+function addMappedSheet<T extends object>(
 	workbook: Workbook,
 	name: string,
-	data: Record<string, unknown>[],
+	data: T[],
 	columns: WorkbookColumn[],
-	mapper: (row: Record<string, unknown>) => Record<string, unknown>
+	mapper: (row: T) => Record<string, unknown>
 ) {
 	addTableSheet(workbook, { name, columns, rows: toWorkbookRows(data.map(mapper)) });
 }

@@ -5,7 +5,6 @@ import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
 import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
@@ -83,29 +82,25 @@ function dateRangeDetail(entry: AvailabilityEntry): string {
 export async function loadAvailabilityReadinessLane(
 	ctx: UseCaseContext,
 	personnelId: string,
-	asOf?: string | Date
+	asOf: string | Date | undefined,
+	listEntries: (
+		ctx: UseCaseContext,
+		input: { rangeStart: string; rangeEnd: string; personnelId: string; orderByEndDate: true }
+	) => Promise<AvailabilityEntry[]>
 ): Promise<PersonnelReadinessLane> {
 	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
 	const today = formatDate(asOfDate(asOf));
-	const [availabilityRows, statusRows] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>(
-			'availability_entries',
-			ctx.auth.orgId,
-			{ personnel_id: personnelId },
-			{
-				select: AvailabilityEntryEntity.select,
-				rangeFilters: [
-					{ column: 'start_date', op: 'lte', value: today },
-					{ column: 'end_date', op: 'gte', value: today }
-				],
-				orderBy: [{ column: 'end_date', ascending: true }]
-			}
-		),
+	const [entries, statusRows] = await Promise.all([
+		listEntries(ctx, {
+			rangeStart: today,
+			rangeEnd: today,
+			personnelId,
+			orderByEndDate: true
+		}),
 		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
 			select: StatusTypeEntity.select
 		})
 	]);
-	const entries = AvailabilityEntryEntity.fromDbArray(availabilityRows);
 	const statusById = new Map(StatusTypeEntity.fromDbArray(statusRows).map((status) => [status.id, status]));
 	const current = entries[0];
 	if (!current) {

@@ -1,6 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createAvailabilityBatch, deleteAvailabilityBatch } from '$lib/server/core/useCases/availabilityBatch';
+import { createAvailabilityBatch, deleteAvailabilityBatch } from '$features/calendar/index.server';
 
 // Use case functions validate input internally; handle() parses raw JSON body
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -78,7 +78,7 @@ describe('single-record Calendar availability', () => {
 				startDate: '2026-09-26',
 				endDate: '2026-09-26'
 			})
-		).rejects.toMatchObject({ status: 404, message: 'Person not found' });
+		).rejects.toMatchObject({ status: 404, body: { message: 'Person not found' } });
 		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toHaveLength(0);
 	});
 

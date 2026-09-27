@@ -492,36 +492,39 @@ async function checkAvailabilityLifecycle(ctx) {
 	await personCell('Able, Synthetic', day);
 	await selectModalStatus('Verification Leave');
 	const deniedMarker = name('Failure feedback');
-	checked(
-		await service
-			.from('organization_memberships')
-			.update({ capability_overrides: { ...membership.capability_overrides, calendar: 'view' } })
-			.eq('id', membership.id)
-	);
-	await fill('Note', deniedMarker);
-	await clickButton('Add Status');
-	let failedSnapshot = '';
-	let prematureSuccess = false;
-	let errorVisible = false;
-	for (let attempt = 0; attempt < 50; attempt++) {
-		failedSnapshot = await drive.snapshot();
-		prematureSuccess ||= failedSnapshot.includes('added —');
-		errorVisible = /failed|error|unable|denied|permission|could not/i.test(failedSnapshot);
-		if (errorVisible || prematureSuccess) break;
-		await sleep(100);
+	try {
+		checked(
+			await service
+				.from('organization_memberships')
+				.update({ capability_overrides: { ...membership.capability_overrides, calendar: 'view' } })
+				.eq('id', membership.id)
+		);
+		await fill('Note', deniedMarker);
+		await clickButton('Add Status');
+		let failedSnapshot = '';
+		let prematureSuccess = false;
+		let errorVisible = false;
+		for (let attempt = 0; attempt < 50; attempt++) {
+			failedSnapshot = await drive.snapshot();
+			prematureSuccess ||= failedSnapshot.includes('added —');
+			errorVisible = /failed|error|unable|denied|permission|could not/i.test(failedSnapshot);
+			if (errorVisible || prematureSuccess) break;
+			await sleep(100);
+		}
+		const failedRows = (await rows('availability_entries')).filter((entry) => entry.note === deniedMarker);
+		check(
+			failedRows.length === 0 && !prematureSuccess && errorVisible,
+			'Failed save restores accurate state, shows an error, and emits no success before persistence',
+			{ saved: failedRows.length, successVisible: prematureSuccess, errorVisible }
+		);
+	} finally {
+		checked(
+			await service
+				.from('organization_memberships')
+				.update({ capability_overrides: membership.capability_overrides })
+				.eq('id', membership.id)
+		);
 	}
-	const failedRows = (await rows('availability_entries')).filter((entry) => entry.note === deniedMarker);
-	check(
-		failedRows.length === 0 && !prematureSuccess && errorVisible,
-		'Failed save restores accurate state, shows an error, and emits no success before persistence',
-		{ saved: failedRows.length, successVisible: prematureSuccess, errorVisible }
-	);
-	checked(
-		await service
-			.from('organization_memberships')
-			.update({ capability_overrides: membership.capability_overrides })
-			.eq('id', membership.id)
-	);
 	await h.reload();
 	await personCell('Able, Synthetic', day);
 	await selectModalStatus('Verification Leave');
@@ -612,7 +615,12 @@ async function checkSpecialDayLifecycle(ctx) {
 				.eq('id', membership.id)
 		);
 		await clickButton('Save Changes');
-		const failed = await drive.snapshot();
+		let failed = '';
+		for (let attempt = 0; attempt < 50; attempt++) {
+			failed = await drive.snapshot();
+			if (failed.includes('Failed to save closure')) break;
+			await sleep(100);
+		}
 		check(
 			failed.includes('Edit Closure') &&
 				failed.includes(deniedName) &&
@@ -1632,9 +1640,19 @@ async function checkStateIsolation(ctx) {
 			return true;
 		}`);
 		if (!release) throw new Blocked('MUTATION_INTERCEPT', 'Held A mutation response could not be released.');
-		await sleep(300);
-		const settledForeign = await drive.snapshot();
+		let settledForeign = '';
+		let staleFeedback = false;
+		for (let attempt = 0; attempt < 12; attempt++) {
+			settledForeign = await drive.snapshot();
+			staleFeedback ||= /Calendar access changed|Could not confirm the saved status/.test(settledForeign);
+			await sleep(100);
+		}
 		const settledPath = await drive.evaluate(`() => location.pathname`);
+		check(
+			settledPath.startsWith(orgPath(f, 'orgB')) && !staleFeedback,
+			'Late Organization A reconciliation shows no stale access or save-confirmation toast in B',
+			{ path: settledPath, staleFeedback }
+		);
 		check(
 			settledForeign.includes('Foreign Private Status') &&
 				!settledForeign.includes('Verification Leave') &&
@@ -1675,29 +1693,38 @@ async function checkStateIsolation(ctx) {
 			.eq('user_id', f.actors.calendarSwitch.id)
 			.single()
 	);
-	const narrower = { ...membership.capability_overrides, calendar: 'none' };
-	checked(
-		await service.from('organization_memberships').update({ capability_overrides: narrower }).eq('id', membership.id)
-	);
-	const afterNarrowing = await request(
-		'GET',
-		`${orgPath(f)}/api/calendar-range?rangeStart=${dates.start}&rangeEnd=${dates.end}`
-	);
-	check(
-		denied(afterNarrowing.status) && !afterNarrowing.body.includes(ids.availabilityAlpha),
-		'Permission narrowing denies the already-open Calendar session and discloses no prior rows',
-		{ status: afterNarrowing.status }
-	);
-	await h.reload();
-	const reloaded = await drive.snapshot();
-	check(
-		!reloaded.includes('Verification Leave'),
-		'Reload after permission narrowing clears inaccessible Calendar labels'
-	);
-	check(
-		(await rows('availability_entries')).some((row) => row.id === ids.availabilityHistorical),
-		'Permission narrowing does not alter historical persisted availability'
-	);
+	try {
+		const narrower = { ...membership.capability_overrides, calendar: 'none' };
+		checked(
+			await service.from('organization_memberships').update({ capability_overrides: narrower }).eq('id', membership.id)
+		);
+		const afterNarrowing = await request(
+			'GET',
+			`${orgPath(f)}/api/calendar-range?rangeStart=${dates.start}&rangeEnd=${dates.end}`
+		);
+		check(
+			denied(afterNarrowing.status) && !afterNarrowing.body.includes(ids.availabilityAlpha),
+			'Permission narrowing denies the already-open Calendar session and discloses no prior rows',
+			{ status: afterNarrowing.status }
+		);
+		await h.reload();
+		const reloaded = await drive.snapshot();
+		check(
+			!reloaded.includes('Verification Leave'),
+			'Reload after permission narrowing clears inaccessible Calendar labels'
+		);
+		check(
+			(await rows('availability_entries')).some((row) => row.id === ids.availabilityHistorical),
+			'Permission narrowing does not alter historical persisted availability'
+		);
+	} finally {
+		checked(
+			await service
+				.from('organization_memberships')
+				.update({ capability_overrides: membership.capability_overrides })
+				.eq('id', membership.id)
+		);
+	}
 }
 
 export async function proveCalendarClaim(claim, { drive, service, fixture }) {

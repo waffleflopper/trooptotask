@@ -3,6 +3,32 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createAvailability, deleteAvailability, updateAvailability } from './availabilityOperations.server';
 
 describe('Calendar availability operations', () => {
+	it('reports missing entries to Organization operators without disclosing them to Group members', async () => {
+		const organization = createTestContext();
+		await expect(updateAvailability(organization, { id: 'missing', note: 'Updated' })).rejects.toMatchObject({
+			status: 404
+		});
+		await expect(deleteAvailability(organization, 'missing')).rejects.toMatchObject({ status: 404 });
+
+		const scoped = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+			}
+		});
+		await expect(updateAvailability(scoped, { id: 'missing', note: 'Updated' })).rejects.toMatchObject({ status: 403 });
+		await expect(deleteAvailability(scoped, 'missing')).rejects.toMatchObject({ status: 403 });
+	});
+
 	it('keeps a saved status attached to its Person and audits the single-record lifecycle', async () => {
 		const ctx = createTestContext();
 		const auditLog = vi.spyOn(ctx.audit, 'log');

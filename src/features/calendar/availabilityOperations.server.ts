@@ -26,6 +26,9 @@ async function policyResourceForRecord(ctx: CalendarWritePorts, id: string): Pro
 		ctx.auth.orgId,
 		{ id }
 	);
+	if (!row && (ctx.auth.scopeSet.kind === 'organization' || ctx.auth.isPrivileged)) {
+		throw error(404, 'Availability entry not found');
+	}
 	return typeof row?.personnel_id === 'string'
 		? policyResourceForPersonnel(ctx, row.personnel_id)
 		: { kind: 'organization' };

@@ -4,6 +4,8 @@ Use this guide for a stabilization task, phase activation or the next-task drive
 
 ## Checkpoints
 
+For an end-to-end request to continue a named issue through its next verified PR, use [t2t-stabilize](../../.agents/skills/t2t-stabilize/SKILL.md) to coordinate these checkpoints. That request includes review fixes for the selected PR; publication still needs the user's authorization, and the coordinator stops for owner merge. Intermediate PR acceptance follows its declared scope while whole-issue requirements and failures remain visible. Ordinary status/activation requests retain the stops below.
+
 For activation or each next-task invocation, read [workflow #1275](https://github.com/waffleflopper/trooptotask/issues/1275), the active phase parent/child and relevant comments. Reconcile [TODO](../stabilization/TODO.md), relevant [evidence](../stabilization/EVIDENCE.md), [program decisions](../architecture/ARCHITECTURE.md#stabilization-decisions), repository/default branch, local edits and actual open/closed PR state before choosing work. Recover stale metadata from verified issue mappings/PRs; record BLOCKED when uncertainty prevents verified advancement. A separate docs/tooling request does not advance the queue.
 
 - **Activation:** Verify preceding-phase acceptance and merged changes on fetched default content; checkboxes or closed issues alone do not suffice. Reconcile native children/milestone and map every actionable phase task. Start the first deliverable on a safe new local branch from current verified default content, preserving existing branches/unrelated edits. Carry small planning/instruction edits with that deliverable's PR. Record READY and STOP before implementation.

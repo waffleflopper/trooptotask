@@ -1669,13 +1669,13 @@ async function checkStateIsolation(ctx) {
 		let staleFeedback = false;
 		for (let attempt = 0; attempt < 12; attempt++) {
 			settledForeign = await drive.snapshot();
-			staleFeedback ||= /Calendar access changed|Could not confirm the saved status/.test(settledForeign);
+			staleFeedback ||= /Calendar access changed|Could not confirm the saved status|added —/.test(settledForeign);
 			await sleep(100);
 		}
 		const settledPath = await drive.evaluate(`() => location.pathname`);
 		check(
 			settledPath.startsWith(orgPath(f, 'orgB')) && !staleFeedback,
-			'Late Organization A reconciliation shows no stale access or save-confirmation toast in B',
+			'Late Organization A mutation shows no stale feedback toast in B',
 			{ path: settledPath, staleFeedback }
 		);
 		check(

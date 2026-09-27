@@ -289,89 +289,116 @@ async function checkStatusTypeLifecycle(ctx) {
 	const { fixture: f, drive, h } = ctx;
 	const { check, login, clickButton, fill, setInput, section, rowAction, waitRow, row, rows, request } = h;
 	const freshName = name('Verification New Status');
-	await login('calendarConfigure', 'calendar/settings', ['Calendar Settings']);
-	await section('Status Types');
-	await clickButton('Add new');
-	await fill('Status name', freshName);
-	await clickButton('Add Status Type');
-	const created = await waitRow('status_types', (item) => item.name === freshName);
-	check(!!created && created.organization_id === f.ids.orgA, 'Settings add creates one Organization A status', {
-		id: created?.id
-	});
-	await h.reload();
-	check((await drive.snapshot()).includes(freshName), 'Created status remains in settings after reload');
 	const before = await row('status_types', f.ids.statusLeave);
-	await rowAction('Edit status type', 'Verification Leave');
-	await fill('Status name', 'Verification Leave Edited');
-	await setInput('#edit-status-bg', '#15803d');
-	await setInput('#edit-status-text', '#fefce8');
-	await clickButton('Save Changes');
-	const edited = await waitRow(
-		'status_types',
-		(item) => item.id === f.ids.statusLeave && item.name === 'Verification Leave Edited'
-	);
-	const referenced = await row('availability_entries', f.ids.availabilityAlpha);
-	check(
-		!!edited &&
-			edited.id === before?.id &&
-			edited.sort_order === 11 &&
-			edited.color === '#15803d' &&
-			edited.text_color === '#fefce8' &&
-			referenced?.status_type_id === f.ids.statusLeave,
-		'Edit preserves status identity, sort order and linked availability while saving name and colors',
-		{ edited, linkedId: referenced?.id }
-	);
-	await h.reload();
-	check(
-		(await drive.snapshot()).includes('Verification Leave Edited'),
-		'Reloaded settings reflects edited status label'
-	);
-	const apiOrder = await request('PUT', `${orgPath(f)}/api/status-types`, { id: f.ids.statusLeave, sortOrder: 11 });
-	check(
-		apiOrder.status === 200 && (await row('status_types', f.ids.statusLeave))?.sort_order === 11,
-		'API/entity boundary preserves explicit status sort order',
-		{ status: apiOrder.status }
-	);
-	await rowAction('Delete status type', 'Verification Retiring Status');
-	const confirm = await drive.snapshot();
-	check(
-		confirm.includes('All schedule entries using this status will also be removed'),
-		'Deletion warns about affected availability'
-	);
-	await clickButton('Delete');
-	for (let attempt = 0; attempt < 30 && (await row('status_types', f.ids.statusDelete)); attempt++) await sleep(100);
-	check(
-		!(await row('status_types', f.ids.statusDelete)) &&
-			!(await row('availability_entries', f.ids.availabilityDelete)) &&
-			!!(await row('availability_entries', f.ids.availabilityHistorical)),
-		'Confirmed status deletion removes only its linked entries and retains unrelated historical rows'
-	);
-	const audit = checked(await ctx.service.from('audit_logs').select('action,resource_id').eq('org_id', f.ids.orgA));
-	const notifications = await rows('notifications');
-	check(
-		audit.some((event) => event.action === 'status_type.deleted' && event.resource_id === f.ids.statusDelete) &&
-			notifications.some((item) => item.type === 'config_type_deleted' && item.title === 'Status Type Deleted'),
-		'Status deletion records audit and administrator notification effects'
-	);
-	await login('calendarView');
-	const rejectedName = name('Denied update');
-	const deniedUpdate = await request('PUT', `${orgPath(f)}/api/status-types`, {
-		id: f.ids.statusLeave,
-		name: rejectedName
-	});
-	check(
-		denied(deniedUpdate.status) && (await row('status_types', f.ids.statusLeave))?.name === 'Verification Leave Edited',
-		'Viewer update is denied without a misleading persisted change',
-		{ status: deniedUpdate.status }
-	);
-	// Restore the shared fixture label after proving the edit so later claims
-	// remain independently runnable against the explicitly seeded status name.
-	checked(
-		await ctx.service
-			.from('status_types')
-			.update({ name: before.name, color: before.color, text_color: before.text_color })
-			.eq('id', f.ids.statusLeave)
-	);
+	const retiringStatus = await row('status_types', f.ids.statusDelete);
+	const retiringAvailability = await row('availability_entries', f.ids.availabilityDelete);
+	if (!before || !retiringStatus || !retiringAvailability)
+		throw new Blocked('FIXTURE', 'Calendar status lifecycle requires its seeded status and linked availability rows.');
+	try {
+		await login('calendarConfigure', 'calendar/settings', ['Calendar Settings']);
+		await section('Status Types');
+		await clickButton('Add new');
+		await fill('Status name', freshName);
+		await clickButton('Add Status Type');
+		const created = await waitRow('status_types', (item) => item.name === freshName);
+		check(!!created && created.organization_id === f.ids.orgA, 'Settings add creates one Organization A status', {
+			id: created?.id
+		});
+		await h.reload();
+		check((await drive.snapshot()).includes(freshName), 'Created status remains in settings after reload');
+		await rowAction('Edit status type', 'Verification Leave');
+		await fill('Status name', 'Verification Leave Edited');
+		await setInput('#edit-status-bg', '#15803d');
+		await setInput('#edit-status-text', '#fefce8');
+		await clickButton('Save Changes');
+		const edited = await waitRow(
+			'status_types',
+			(item) => item.id === f.ids.statusLeave && item.name === 'Verification Leave Edited'
+		);
+		const referenced = await row('availability_entries', f.ids.availabilityAlpha);
+		check(
+			!!edited &&
+				edited.id === before?.id &&
+				edited.sort_order === 11 &&
+				edited.color === '#15803d' &&
+				edited.text_color === '#fefce8' &&
+				referenced?.status_type_id === f.ids.statusLeave,
+			'Edit preserves status identity, sort order and linked availability while saving name and colors',
+			{ edited, linkedId: referenced?.id }
+		);
+		await h.reload();
+		check(
+			(await drive.snapshot()).includes('Verification Leave Edited'),
+			'Reloaded settings reflects edited status label'
+		);
+		const apiOrder = await request('PUT', `${orgPath(f)}/api/status-types`, { id: f.ids.statusLeave, sortOrder: 11 });
+		check(
+			apiOrder.status === 200 && (await row('status_types', f.ids.statusLeave))?.sort_order === 11,
+			'API/entity boundary preserves explicit status sort order',
+			{ status: apiOrder.status }
+		);
+		const priorAuditIds = new Set(
+			checked(await ctx.service.from('audit_logs').select('id').eq('org_id', f.ids.orgA)).map((event) => event.id)
+		);
+		const priorNotificationIds = new Set((await rows('notifications')).map((item) => item.id));
+		await rowAction('Delete status type', 'Verification Retiring Status');
+		const confirm = await drive.snapshot();
+		check(
+			confirm.includes('All schedule entries using this status will also be removed'),
+			'Deletion warns about affected availability'
+		);
+		await clickButton('Delete');
+		for (let attempt = 0; attempt < 30 && (await row('status_types', f.ids.statusDelete)); attempt++) await sleep(100);
+		check(
+			!(await row('status_types', f.ids.statusDelete)) &&
+				!(await row('availability_entries', f.ids.availabilityDelete)) &&
+				!!(await row('availability_entries', f.ids.availabilityHistorical)),
+			'Confirmed status deletion removes only its linked entries and retains unrelated historical rows'
+		);
+		const audit = checked(
+			await ctx.service.from('audit_logs').select('id,action,resource_id').eq('org_id', f.ids.orgA)
+		);
+		const notifications = await rows('notifications');
+		check(
+			audit.some(
+				(event) =>
+					!priorAuditIds.has(event.id) &&
+					event.action === 'status_type.deleted' &&
+					event.resource_id === f.ids.statusDelete
+			) &&
+				notifications.some(
+					(item) =>
+						!priorNotificationIds.has(item.id) &&
+						item.type === 'config_type_deleted' &&
+						item.title === 'Status Type Deleted'
+				),
+			'Status deletion records audit and administrator notification effects'
+		);
+		await login('calendarView');
+		const rejectedName = name('Denied update');
+		const deniedUpdate = await request('PUT', `${orgPath(f)}/api/status-types`, {
+			id: f.ids.statusLeave,
+			name: rejectedName
+		});
+		check(
+			denied(deniedUpdate.status) &&
+				(await row('status_types', f.ids.statusLeave))?.name === 'Verification Leave Edited',
+			'Viewer update is denied without a misleading persisted change',
+			{ status: deniedUpdate.status }
+		);
+	} finally {
+		// The deletion assertion needs the real cascade. Put both seeded rows back
+		// afterward so a retry in this owned session can prove it again.
+		checked(await ctx.service.from('status_types').upsert(retiringStatus));
+		checked(await ctx.service.from('availability_entries').upsert(retiringAvailability));
+		checked(
+			await ctx.service
+				.from('status_types')
+				.update({ name: before.name, color: before.color, text_color: before.text_color })
+				.eq('id', f.ids.statusLeave)
+		);
+		checked(await ctx.service.from('status_types').delete().eq('organization_id', f.ids.orgA).eq('name', freshName));
+	}
 }
 
 async function checkAssignmentTypeLifecycle(ctx) {

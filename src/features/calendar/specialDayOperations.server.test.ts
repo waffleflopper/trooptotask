@@ -1,28 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { createCrudUseCases } from './crud';
-import { SpecialDayEntity } from '$lib/server/entities/specialDay';
-import { createResetFederalHolidaysUseCase } from './specialDayCrud';
-import { getEntityAuditResource } from '$lib/server/entitySchema';
+import { createSpecialDay, deleteSpecialDay, resetFederalHolidays } from './specialDayOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
 
-function createSpecialDayCrudUseCases() {
-	return createCrudUseCases({
-		entity: SpecialDayEntity,
-		auditResource: getEntityAuditResource(SpecialDayEntity),
-		policyAction: SpecialDayEntity.policyAction!
-	});
-}
-
 describe('SpecialDay CRUD use case', () => {
 	it('creates a special day and audits', async () => {
 		const ctx = buildContext();
-		const { create } = createSpecialDayCrudUseCases();
 
-		const result = (await create(ctx, {
+		const result = (await createSpecialDay(ctx, {
 			date: '2026-12-25',
 			name: 'Christmas',
 			type: 'org-closure'
@@ -44,8 +32,7 @@ describe('SpecialDay CRUD use case', () => {
 			}
 		]);
 
-		const { remove } = createSpecialDayCrudUseCases();
-		await remove(ctx, 'sd-1');
+		await deleteSpecialDay(ctx, 'sd-1');
 
 		const stored = await ctx.store.findOne('special_days', 'test-org', { id: 'sd-1' });
 		expect(stored).toBeNull();
@@ -74,8 +61,7 @@ describe('resetFederalHolidays use case', () => {
 			}
 		]);
 
-		const resetUseCase = createResetFederalHolidaysUseCase();
-		const result = await resetUseCase(ctx);
+		const result = await resetFederalHolidays(ctx);
 
 		// Org-closure should survive
 		const closures = (await ctx.store.findMany('special_days', 'test-org', {
@@ -111,9 +97,7 @@ describe('resetFederalHolidays use case', () => {
 				}
 			}
 		});
-		const resetUseCase = createResetFederalHolidaysUseCase();
-
-		await expect(resetUseCase(ctx)).rejects.toMatchObject({
+		await expect(resetFederalHolidays(ctx)).rejects.toMatchObject({
 			status: 403,
 			message: 'This action requires Calendar configuration access'
 		});

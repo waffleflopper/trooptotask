@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createSupabaseOrgProvisioningPort } from './supabaseOrgProvisioning';
 import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
 import { seedDefaultGroups, seedDefaultRankCatalog } from '$features/personnel/index.server';
+import { seedFederalHolidays } from '$features/calendar/index.server';
 
 // Exercise the real SDK wire format without connecting to a provider. SQL/RLS and
 // transaction guarantees belong to the isolated database contract in 02-03-04.
@@ -14,7 +15,8 @@ function httpPort(handle: (request: Request) => Promise<Response>) {
 	return createSupabaseOrgProvisioningPort(
 		{ supabase } as never,
 		(orgId) => seedDefaultGroups(supabase, orgId),
-		(orgId) => seedDefaultRankCatalog(supabase, orgId)
+		(orgId) => seedDefaultRankCatalog(supabase, orgId),
+		(orgId) => seedFederalHolidays(supabase, orgId)
 	);
 }
 
@@ -182,13 +184,6 @@ describe('provisioning provider boundary', () => {
 					sort_order: 0
 				}
 			]
-		},
-		{
-			name: 'holidays',
-			table: 'special_days',
-			write: (port: ReturnType<typeof httpPort>) =>
-				port.seedFederalHolidays('org-1', [{ date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' }]),
-			body: [{ organization_id: 'org-1', date: '2026-07-03', name: 'Independence Day', type: 'federal-holiday' }]
 		}
 	];
 
@@ -208,21 +203,6 @@ describe('provisioning provider boundary', () => {
 			}
 		}
 	);
-
-	it('preserves an earlier holiday write error when a later batch succeeds', async () => {
-		const days = Array.from({ length: 51 }, (_, index) => ({
-			date: '2026-01-01',
-			name: `Synthetic holiday ${index}`,
-			type: 'federal-holiday'
-		}));
-		const received: unknown[] = [];
-		const port = httpPort(async (request) => {
-			received.push(...(await request.json()));
-			return received.length <= 50 ? providerFailure('First batch denied') : new Response(null, { status: 201 });
-		});
-		expect(await port.seedFederalHolidays('org-1', days)).toBe('First batch denied');
-		expect(received).toEqual(days.map((day) => ({ organization_id: 'org-1', ...day })));
-	});
 
 	it('seeds the retained rank defaults with duplicate-ignore and surfaces provider denial', async () => {
 		for (const denied of [false, true]) {

@@ -2,7 +2,7 @@
  * Special day entity — maps `special_days` (federal holidays + org closures shown on calendar).
  * Supports create, inline edit, and delete operations.
  * `type` is either `'federal-holiday'` or `'org-closure'`.
- * Federal holidays can be bulk-reset via `specialDayCrud.ts` `createResetFederalHolidaysUseCase`.
+ * Calendar owns the saved special-day mapping and operations.
  */
 import { z } from 'zod';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

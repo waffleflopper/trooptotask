@@ -102,7 +102,7 @@ describe('specialDaysStore', () => {
 
 			const result = await specialDaysStore.resetFederalHolidays();
 
-			expect(result).toBe(true);
+			expect(result).toBe('saved');
 			expect(specialDaysStore.items).toEqual(newDays);
 		});
 
@@ -111,8 +111,96 @@ describe('specialDaysStore', () => {
 
 			const result = await specialDaysStore.resetFederalHolidays();
 
-			expect(result).toBe(false);
+			expect(result).toBe('failed');
 			expect(specialDaysStore.items).toEqual(mockDays);
+		});
+
+		it('does not apply an earlier Organization reset after switching Organizations', async () => {
+			let resolveResponse!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (resolveResponse = resolve)))
+			);
+			const pending = specialDaysStore.resetFederalHolidays();
+			const newOrgDays = [
+				{ id: 'org-2-day', name: 'New unit closure', date: '2026-09-28', type: 'org-closure' as const }
+			];
+			specialDaysStore.load(newOrgDays, 'org-2');
+			resolveResponse({ ok: true, json: () => Promise.resolve(mockDays) });
+
+			expect(await pending).toBe('stale');
+			expect(specialDaysStore.items).toEqual(newOrgDays);
+		});
+
+		it('reconciles reset federal days after switching away and back while retaining unrelated closures', async () => {
+			let resolveResponse!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(() => new Promise((resolve) => (resolveResponse = resolve)))
+			);
+			const pending = specialDaysStore.resetFederalHolidays();
+			specialDaysStore.load([], 'org-2');
+			const retainedClosures = [
+				{ id: 'fresh-a', name: 'Later saved closure', date: '2026-09-29', type: 'org-closure' as const },
+				{ id: 'future-a', name: 'Future closure', date: '2032-09-29', type: 'org-closure' as const }
+			];
+			specialDaysStore.load([...mockDays, ...retainedClosures], 'org-1');
+			const resetHoliday = {
+				id: 'reset-holiday',
+				name: 'Reset holiday',
+				date: '2026-01-01',
+				type: 'federal-holiday' as const
+			};
+			resolveResponse({ ok: true, json: () => Promise.resolve([resetHoliday, mockDays[1]]) });
+
+			expect(await pending).toBe('saved');
+			expect(specialDaysStore.items).toEqual([mockDays[1], ...retainedClosures, resetHoliday]);
+		});
+
+		it('does not let an earlier reset response undo a newer reset', async () => {
+			let resolveFirst!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+			let resolveSecond!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockImplementationOnce(() => new Promise((resolve) => (resolveFirst = resolve)))
+					.mockImplementationOnce(() => new Promise((resolve) => (resolveSecond = resolve)))
+			);
+			const first = specialDaysStore.resetFederalHolidays();
+			const second = specialDaysStore.resetFederalHolidays();
+			const latest = [{ id: 'latest', name: 'Latest holiday', date: '2026-07-04', type: 'federal-holiday' as const }];
+			resolveSecond({ ok: true, json: () => Promise.resolve(latest) });
+			expect(await second).toBe('saved');
+			resolveFirst({ ok: true, json: () => Promise.resolve(mockDays) });
+
+			expect(await first).toBe('stale');
+			expect(specialDaysStore.items).toEqual(latest);
+		});
+
+		it('does not let another Organization supersede a pending reset after returning', async () => {
+			let resolveA!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+			let resolveB!: (value: { ok: boolean; json: () => Promise<unknown> }) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockImplementationOnce(() => new Promise((resolve) => (resolveA = resolve)))
+					.mockImplementationOnce(() => new Promise((resolve) => (resolveB = resolve)))
+			);
+			const pendingA = specialDaysStore.resetFederalHolidays();
+			specialDaysStore.load([], 'org-2');
+			const pendingB = specialDaysStore.resetFederalHolidays();
+			specialDaysStore.load(mockDays, 'org-1');
+			const resetHoliday = { id: 'reset-a', name: 'Reset A', date: '2026-01-01', type: 'federal-holiday' as const };
+			resolveA({ ok: true, json: () => Promise.resolve([resetHoliday, mockDays[1]]) });
+
+			expect(await pendingA).toBe('saved');
+			expect(specialDaysStore.items).toEqual([mockDays[1], resetHoliday]);
+
+			resolveB({ ok: true, json: () => Promise.resolve([]) });
+			expect(await pendingB).toBe('stale');
+			expect(specialDaysStore.items).toEqual([mockDays[1], resetHoliday]);
 		});
 	});
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig, _putConfig } from './+server';
+import { _postConfig, _putConfig, _deleteConfig } from './+server';
 
 describe('POST /api/special-days', () => {
 	it('uses a policy-first route config for special-day creation and reset', () => {
@@ -73,5 +73,38 @@ describe('PUT /api/special-days', () => {
 			name: 'Staff Holiday',
 			type: 'org-closure'
 		});
+	});
+});
+
+describe('special-day mutation policy', () => {
+	it('denies edit, delete, and reset to a Calendar operator without changing saved days', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'view',
+					training: 'view',
+					criticalTasks: 'view',
+					onboarding: 'view',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'organization' }
+			}
+		});
+		const id = '11111111-1111-4111-8111-111111111111';
+		const saved = { id, organization_id: 'test-org', date: '2026-09-28', name: 'Clinic day', type: 'org-closure' };
+		ctx.store.seed('special_days', [saved]);
+
+		for (const run of [
+			() => handleUseCaseRequest(_putConfig, ctx, { id, name: 'Changed' }),
+			() => handleUseCaseRequest(_deleteConfig, ctx, { id }),
+			() => handleUseCaseRequest(_postConfig, ctx, { action: 'resetFederalHolidays' })
+		]) {
+			await expect(run()).rejects.toMatchObject({ status: 403 });
+		}
+		expect(await ctx.store.findMany('special_days', 'test-org')).toEqual([saved]);
 	});
 });

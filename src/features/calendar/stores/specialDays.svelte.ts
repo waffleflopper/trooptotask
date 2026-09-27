@@ -15,28 +15,53 @@ import { formatDate } from '$lib/utils/dates';
 import type { SpecialDay } from '$lib/types';
 
 interface SpecialDayExtensions extends Record<string, unknown> {
+	load: Store<SpecialDay>['load'];
 	remove: (id: string) => Promise<boolean>;
-	resetFederalHolidays: () => Promise<boolean>;
+	resetFederalHolidays: () => Promise<'saved' | 'failed' | 'stale'>;
 	getByDate: (date: Date) => SpecialDay | undefined;
 	isSpecialDay: (date: Date) => boolean;
 	getByYear: (year: number) => SpecialDay[];
 }
 
 function enhance(base: Store<SpecialDay>): SpecialDayExtensions {
+	let generation = 0;
+	let resetSequence = 0;
+	const latestResetByOrg: Record<string, number> = {};
 	return {
+		load(items, orgId) {
+			generation++;
+			base.load(items, orgId);
+		},
 		remove: base.removeBool,
 
-		async resetFederalHolidays(): Promise<boolean> {
-			const res = await fetch(`/org/${base.orgId}/api/special-days`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ action: 'resetFederalHolidays' })
-			});
-			if (!res.ok) return false;
-			const allDays = await res.json();
-			base.removeLocalWhere(() => true);
-			base.appendLocal(allDays);
-			return true;
+		async resetFederalHolidays(): Promise<'saved' | 'failed' | 'stale'> {
+			const orgId = base.orgId;
+			const requestGeneration = ++generation;
+			const requestReset = ++resetSequence;
+			latestResetByOrg[orgId] = requestReset;
+			try {
+				const res = await fetch(`/org/${orgId}/api/special-days`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ action: 'resetFederalHolidays' })
+				});
+				if (base.orgId !== orgId || latestResetByOrg[orgId] !== requestReset) return 'stale';
+				if (!res.ok) return 'failed';
+				const allDays = (await res.json()) as SpecialDay[];
+				if (base.orgId !== orgId || latestResetByOrg[orgId] !== requestReset) return 'stale';
+				if (generation !== requestGeneration) {
+					// A newer load may contain closures outside the reset response's date range.
+					base.removeLocalWhere((day) => day.type === 'federal-holiday');
+					base.appendLocal(allDays.filter((day) => day.type === 'federal-holiday'));
+				} else {
+					base.removeLocalWhere(() => true);
+					base.appendLocal(allDays);
+				}
+				return 'saved';
+			} catch (error) {
+				if (base.orgId !== orgId || latestResetByOrg[orgId] !== requestReset) return 'stale';
+				throw error;
+			}
 		},
 
 		getByDate(date: Date): SpecialDay | undefined {

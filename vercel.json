@@ -4,7 +4,8 @@
 			"t3code/t2t-stabilize-skill": false,
 			"t3code/agent-verification-toolkit": false,
 			"stabilization/08-d04-calendar-pilot": false,
-			"stabilization/08-d04-availability": false
+			"stabilization/08-d04-availability": false,
+			"stabilization/08-d04-special-days": false
 		}
 	},
 	"installCommand": "npx npm@11.12.1 ci",

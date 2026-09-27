@@ -87,6 +87,14 @@ describe('retained Organization export projection', () => {
 			sort_order: 2,
 			created_at: '2026-09-01T00:00:00Z'
 		};
+		const specialDay = {
+			id: 'closure-1',
+			organization_id: 'org-1',
+			date: '2026-09-20',
+			name: 'Clinic stand-down',
+			type: 'org-closure',
+			created_at: '2026-09-01T00:00:00Z'
+		};
 		const activeNote = {
 			id: 'active-note',
 			organization_id: 'org-1',
@@ -148,6 +156,7 @@ describe('retained Organization export projection', () => {
 			],
 			groups: [{ id: 'group-1', organization_id: 'org-1', name: 'Alpha Group' }],
 			status_types: [statusType, { ...statusType, id: 'foreign-status', organization_id: 'foreign-org' }],
+			special_days: [specialDay, { ...specialDay, id: 'foreign-closure', organization_id: 'foreign-org' }],
 			availability_entries: [
 				{
 					id: 'availability-1',
@@ -214,6 +223,8 @@ describe('retained Organization export projection', () => {
 		expect(json.sections.organizationProfile).toEqual([profile]);
 		expect(json.dailyAssignments).toEqual([assignment, groupAssignment]);
 		expect(json.statusTypes).toEqual([statusType]);
+		expect(json.specialDays).toEqual([specialDay]);
+		expect(json.sections.specialDays).toEqual([specialDay]);
 		expect(json.signInRosters).toEqual(providerRows.sign_in_rosters);
 		expect(json.availabilityEntries).toEqual(providerRows.availability_entries);
 		expect(json.memberships).toEqual(providerRows.organization_memberships);
@@ -248,6 +259,8 @@ describe('retained Organization export projection', () => {
 		);
 		expect(workbook.getWorksheet('Calendar')!.getSheetValues().flat(2)).toContain('TDY');
 		expect(workbook.getWorksheet('Raw - Sign-in Rosters')!.getSheetValues().flat(2)).toContain('roster-1');
+		expect(workbook.getWorksheet('Raw - Special Days')!.getSheetValues().flat(2)).toContain('closure-1');
+		expect(workbook.getWorksheet('Raw - Special Days')!.getSheetValues().flat(2)).not.toContain('foreign-closure');
 		expect(workbook.worksheets.some((sheet) => /duty roster|advanced duty/i.test(sheet.name))).toBe(false);
 		for (const table of commercialTables)
 			expect(workbook.getWorksheet('Export Inventory')!.getSheetValues().flat(2)).not.toContain(table);

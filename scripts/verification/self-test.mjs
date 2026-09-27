@@ -3,6 +3,8 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
 	repository,
 	root,
@@ -14,6 +16,9 @@ import {
 	readJSON,
 	writeJSON,
 	candidate,
+	processIdentity,
+	stopOwnedProcess,
+	cleanEnvironment,
 	Blocked
 } from './core.mjs';
 
@@ -41,8 +46,9 @@ async function runExclusivePilot(worker) {
 	const candidateUnderTest = await candidate();
 	const results = [];
 	let ownsSession = false;
-	async function run(args, expected = 'PASS') {
+	async function run(args, expected = 'PASS', expectedCode) {
 		let stdout;
+		let exitCode = 0;
 		try {
 			({ stdout } = await execute(
 				process.execPath,
@@ -51,6 +57,7 @@ async function runExclusivePilot(worker) {
 			));
 		} catch (error) {
 			stdout = error.stdout;
+			exitCode = error.code;
 		}
 		let result;
 		try {
@@ -59,16 +66,17 @@ async function runExclusivePilot(worker) {
 			throw new Blocked('SELF_TEST_COMMAND', `${args[0]} did not produce JSON. Inspect private logs.`);
 		}
 		const status = result.status ?? (result.content ? 'PASS' : undefined);
-		results.push({ command: args[0], argument: args[0] === 'prove' ? args[1] : undefined, expected, result });
+		results.push({ command: args[0], argument: args[1], expected, exitCode, result });
 		if (result.candidate && result.candidate !== candidateUnderTest)
 			throw new Blocked(
 				'PILOT_CANDIDATE_CHANGED',
 				'Code changed during the pilot. Clean up and rerun the complete pilot on one candidate.'
 			);
-		if (status !== expected)
+		const expectedExit = expected === 'PASS' ? 0 : expected === 'FAIL' ? 1 : 2;
+		if (status !== expected || exitCode !== expectedExit || (expectedCode && result.code !== expectedCode))
 			throw new Blocked(
 				'SELF_TEST_MISMATCH',
-				`${args.join(' ')} expected ${expected}, observed ${status}. Inspect the recorded pilot evidence.`
+				`${args.join(' ')} expected ${expected}/${expectedCode ?? '*'} exit ${expectedExit}, observed ${status}/${result.code ?? '*'} exit ${exitCode}. Inspect the recorded pilot evidence.`
 			);
 		return result;
 	}
@@ -151,6 +159,50 @@ async function runExclusivePilot(worker) {
 		await run(['prove', 'group-authorization']);
 		await run(['prove', 'group-persistence']);
 		await run(['prove', 'personnel-scope']);
+		const owned = await readJSON(path.join(session, 'session.json'));
+		const pages = await run(['tool', 'list_pages', '{}']);
+		const pageId = Number(pages.content.find((item) => item.type === 'text').text.match(/(?:^|\n)(\d+):/)[1]);
+		const external = { pageId, type: 'url', url: 'https://example.com' };
+		await run(['tool', 'navigate_page', JSON.stringify(external)], 'BLOCKED', 'URL_NOT_OWNED');
+		await run(['tool', 'new_page', JSON.stringify({ url: external.url })], 'BLOCKED', 'URL_NOT_OWNED');
+		const credentials = new URL(owned.origin);
+		credentials.username = 'synthetic';
+		await run(['tool', 'navigate_page', JSON.stringify({ pageId, url: credentials.href })], 'BLOCKED', 'URL_NOT_OWNED');
+		await run(['tool', 'navigate_page', JSON.stringify({ pageId, url: `${owned.origin}/auth/login` })]);
+		const proxy = new Client({ name: 'verification-pilot', version: '1.0.0' });
+		try {
+			await proxy.connect(
+				new StdioClientTransport({
+					command: process.execPath,
+					args: [path.join(repository, 'scripts/verification/cli.mjs'), 'mcp', '--worker', worker],
+					env: cleanEnvironment(),
+					stderr: 'ignore'
+				})
+			);
+			const refusal = await proxy.callTool({ name: 'navigate_page', arguments: external });
+			const detail = JSON.parse(refusal.content[0].text);
+			results.push({ command: 'mcp navigate_page', expected: 'BLOCKED', result: refusal });
+			if (!refusal.isError || detail.status !== 'BLOCKED' || detail.code !== 'URL_NOT_OWNED')
+				throw new Blocked('SELF_TEST_MISMATCH', 'MCP navigation refusal must be an explicit BLOCKED tool error.');
+		} finally {
+			await proxy.close();
+		}
+		async function signalApp(signal) {
+			const current = await processIdentity(owned.appProcess.pid);
+			if (!current || current.start !== owned.appProcess.start || current.command !== owned.appProcess.command)
+				throw new Blocked('PROCESS_REPLACED', 'Pilot cannot establish app ownership; refusing to signal it.');
+			process.kill(current.pid, signal);
+		}
+		await signalApp('SIGSTOP');
+		try {
+			await run(['doctor'], 'INCONCLUSIVE', 'APP_ENDPOINT_UNAVAILABLE');
+		} finally {
+			await signalApp('SIGCONT');
+		}
+		await run(['doctor']);
+		await stopOwnedProcess(owned.mcpProcess);
+		await run(['doctor'], 'INCONCLUSIVE', 'DEVTOOLS_UNAVAILABLE');
+		await run(['tool', 'list_pages', '{}'], 'INCONCLUSIVE');
 	} catch (error) {
 		status = 'INCONCLUSIVE';
 		message = error.message;

@@ -34,6 +34,7 @@ const state = await readJSON(path.join(session, 'session.json'));
 state.supervisor = await processIdentity(process.pid);
 await writeJSON(path.join(session, 'session.json'), state);
 let app, client, transport, server, port;
+let ownedOrigins = [];
 let closing = false;
 let interrupted = false;
 for (const sig of ['SIGTERM', 'SIGINT'])
@@ -102,8 +103,21 @@ async function fresh() {
 		);
 	await environment('status', session);
 }
-async function call(name, args = {}) {
-	const result = await client.callTool({ name, arguments: args }, undefined, { timeout: 45000 });
+async function call(name, args = {}, timeout = 45000) {
+	if (['navigate_page', 'new_page'].includes(name) && args.url !== undefined) {
+		let url;
+		try {
+			url = new URL(args.url);
+		} catch {
+			/* Invalid URLs are refused by the same origin boundary. */
+		}
+		if (!url || url.username || url.password || !ownedOrigins.includes(url.origin))
+			throw new Blocked(
+				'URL_NOT_OWNED',
+				'Navigation requires an absolute URL on the owned app or provider origin, without credentials. Use doctor for the app origin.'
+			);
+	}
+	const result = await client.callTool({ name, arguments: args }, undefined, { timeout });
 	if (result.isError)
 		throw new Blocked(
 			'DEVTOOLS_TOOL',
@@ -170,6 +184,7 @@ try {
 	await environment('create', session, state.origin);
 	continuing();
 	const provider = await readJSON(path.join(session, 'provider.json'));
+	ownedOrigins = [new URL(state.origin).origin, new URL(provider.API_URL).origin];
 	const fixture = await seed(session);
 	const env = {
 		...cleanEnvironment(),
@@ -281,6 +296,27 @@ try {
 							await fresh();
 							switch (input.command) {
 								case 'doctor':
+									try {
+										const response = await fetch(`${state.origin}/auth/login`, {
+											signal: AbortSignal.timeout(5000),
+											redirect: 'error'
+										});
+										await response.body?.cancel();
+										if (!response.ok) throw new Error('App endpoint did not succeed');
+									} catch {
+										throw new Blocked(
+											'APP_ENDPOINT_UNAVAILABLE',
+											'Owned login endpoint did not respond successfully. Inspect app.log, then restart.'
+										);
+									}
+									try {
+										await call('list_pages', {}, 5000);
+									} catch {
+										throw new Blocked(
+											'DEVTOOLS_UNAVAILABLE',
+											'Owned DevTools cannot list browser pages. Cleanup and launch again before driving.'
+										);
+									}
 									result = {
 										status: 'PASS',
 										candidate: state.candidate,
@@ -311,7 +347,7 @@ try {
 						}
 					} catch (error) {
 						result = {
-							status: 'INCONCLUSIVE',
+							status: error.code === 'URL_NOT_OWNED' ? 'BLOCKED' : 'INCONCLUSIVE',
 							code: error.code ?? 'HARNESS',
 							message:
 								error instanceof Blocked

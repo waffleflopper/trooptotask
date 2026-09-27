@@ -1,4 +1,4 @@
-export { listAvailabilityEntries } from './availabilityRead.server';
+export { listAvailabilityEntries, listPersonnelAvailabilityHistory } from './availabilityRead.server';
 export {
 	availabilityUpdateInput,
 	createAvailability,

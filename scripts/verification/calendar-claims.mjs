@@ -122,6 +122,21 @@ function harness(drive, service, fixture, observations) {
 		}`);
 		if (!result.found) throw new Blocked('LOCATOR', `No field ${selector} in current Calendar page.`);
 	};
+	const selectModalStatus = async (label) => {
+		const result = await drive.evaluate(`async () => {
+			const trigger = document.querySelector('#statusType');
+			if (!(trigger instanceof HTMLElement)) return { trigger: false, matches: 0, selected: false };
+			trigger.click();
+			await new Promise(resolve => setTimeout(resolve, 50));
+			const matches = [...document.querySelectorAll('[role="option"]')]
+				.filter(option => option.textContent?.trim() === ${JSON.stringify(label)});
+			if (matches.length === 1) matches[0].click();
+			await new Promise(resolve => setTimeout(resolve, 0));
+			return { trigger: true, matches: matches.length, selected: trigger.textContent?.includes(${JSON.stringify(label)}) };
+		}`);
+		if (!result.trigger || result.matches !== 1 || !result.selected)
+			throw new Blocked('LOCATOR', `Could not select Calendar status ${label}: ${JSON.stringify(result)}.`);
+	};
 	const personCell = async (personName, day) => {
 		const result = await drive.evaluate(`() => {
 			const matches = [...document.querySelectorAll('.personnel-row')].filter(row => row.querySelector('.personnel-info')?.textContent?.includes(${JSON.stringify(personName)}));
@@ -147,6 +162,7 @@ function harness(drive, service, fixture, observations) {
 		rowAction,
 		section,
 		setInput,
+		selectModalStatus,
 		personCell
 	};
 }
@@ -457,7 +473,7 @@ async function checkAssignmentTypeLifecycle(ctx) {
 
 async function checkAvailabilityLifecycle(ctx) {
 	const { fixture: f, drive, h, service } = ctx;
-	const { check, login, clickButton, fill, personCell, waitRow, row, rows } = h;
+	const { check, login, clickButton, fill, personCell, selectModalStatus, waitRow, row, rows } = h;
 	const day = Number(f.dates.ui.slice(-2));
 	const membership = checked(
 		await service
@@ -469,6 +485,7 @@ async function checkAvailabilityLifecycle(ctx) {
 	);
 	await login('calendarOperate', 'calendar', ['Able, Synthetic']);
 	await personCell('Able, Synthetic', day);
+	await selectModalStatus('Verification Leave');
 	const deniedMarker = name('Failure feedback');
 	checked(
 		await service
@@ -502,6 +519,7 @@ async function checkAvailabilityLifecycle(ctx) {
 	);
 	await h.reload();
 	await personCell('Able, Synthetic', day);
+	await selectModalStatus('Verification Leave');
 	const addMarker = name('Saved availability');
 	await fill('Note', addMarker);
 	await clickButton('Add Status');
@@ -801,14 +819,48 @@ async function checkBulkImportAndRemoval(ctx) {
 	await clickButton('Parse');
 	const preview = await drive.snapshot();
 	check(preview.includes('1 of 1 rows selected'), 'Valid import preview selects exactly the specified Person and row');
-	await clickButton('Next');
-	const imported = await waitRow('availability_entries', (entry) => entry.note === importMarker);
+	await drive.evaluate(`() => {
+		const original = window.fetch;
+		const capture = { original, request: null, response: null };
+		window.__verifyImportRequest = capture;
+		window.fetch = async (...args) => {
+			const [input, init] = args;
+			const isImport = String(input).includes(${JSON.stringify(`${orgPath(f)}/api/availability/batch`)}) && init?.method === 'POST';
+			if (isImport) {
+				const records = JSON.parse(init.body).records;
+				capture.request = { count: records.length, notes: [...new Set(records.map(record => record.note))] };
+			}
+			const response = await original(...args);
+			if (isImport) capture.response = { status: response.status, body: (await response.clone().text()).slice(0, 300) };
+			return response;
+		};
+		return true;
+	}`);
+	let imported = null;
 	let importedResult = '';
-	for (let attempt = 0; attempt < 40; attempt++) {
-		importedResult = await drive.evaluate('() => document.body.innerText');
-		if (importedResult.includes('Import complete') && /1\s+status entry imported\s+successfully/.test(importedResult))
-			break;
-		await sleep(100);
+	let transport = null;
+	try {
+		await clickButton('Next');
+		imported = await waitRow('availability_entries', (entry) => entry.note === importMarker);
+		for (let attempt = 0; attempt < 40; attempt++) {
+			importedResult = await drive.evaluate(`() => {
+				const heading = [...document.querySelectorAll('h2')].find(node => node.textContent?.trim() === 'Import complete');
+				return heading?.closest('section')?.innerText ?? document.body.innerText;
+			}`);
+			if (importedResult.includes('Import complete') && /1\s+status entry imported\s+successfully/.test(importedResult))
+				break;
+			await sleep(100);
+		}
+		transport = await drive.evaluate(`() => ({
+			request: window.__verifyImportRequest?.request ?? null,
+			response: window.__verifyImportRequest?.response ?? null
+		})`);
+	} finally {
+		await drive.evaluate(`() => {
+			const capture = window.__verifyImportRequest;
+			if (capture?.original) window.fetch = capture.original;
+			return true;
+		}`);
 	}
 	check(
 		!!imported &&
@@ -816,9 +868,13 @@ async function checkBulkImportAndRemoval(ctx) {
 			imported.status_type_id === f.ids.statusLeave &&
 			imported.start_date === f.dates.later &&
 			imported.end_date === f.dates.later &&
+			transport?.request?.count === 1 &&
+			transport.request.notes.length === 1 &&
+			transport.request.notes[0] === importMarker &&
+			transport.response?.status === 200 &&
 			/1\s+status entry imported\s+successfully/.test(importedResult),
 		'Completed UI import reports success and saves only the selected Person, status, date and note',
-		{ importedId: imported?.id }
+		{ importedId: imported?.id, transport, visibleResult: importedResult.slice(0, 700) }
 	);
 	await h.reload();
 	check(
@@ -1464,6 +1520,7 @@ async function checkStateIsolation(ctx) {
 		await h.clickButton('3-Month');
 	await h.clickButton('Today');
 	await h.personCell('Able, Synthetic', Number(dates.ui.slice(-2)));
+	await h.selectModalStatus('Verification Leave');
 	const mutationMarker = name('Pending scoped availability');
 	await h.fill('Note', mutationMarker);
 	await drive.evaluate(`() => {

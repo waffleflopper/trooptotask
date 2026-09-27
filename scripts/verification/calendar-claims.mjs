@@ -404,103 +404,126 @@ async function checkStatusTypeLifecycle(ctx) {
 async function checkAssignmentTypeLifecycle(ctx) {
 	const { fixture: f, drive, h } = ctx;
 	const { check, login, clickButton, fill, setInput, section, rowAction, waitRow, row, rows, request } = h;
-	await login('calendarConfigure', 'calendar/settings', ['Calendar Settings']);
-	await section('Assignment Types');
 	const personName = name('Verification New Person Duty');
-	await clickButton('Add new');
-	await fill('Full name', personName);
-	await fill('Short code', 'VPN');
-	await clickButton('Add Assignment Type');
-	const createdPerson = await waitRow('assignment_types', (item) => item.name === personName);
-	check(
-		!!createdPerson && createdPerson.assign_to === 'personnel',
-		'Settings creates a Person-targeted assignment type',
-		{ id: createdPerson?.id }
-	);
 	const groupName = name('Verification New Group Duty');
-	await clickButton('Add new');
-	await fill('Full name', groupName);
-	await fill('Short code', 'VGN');
-	await setInput('#add-assign-to', 'group');
-	await clickButton('Add Assignment Type');
-	const createdGroup = await waitRow('assignment_types', (item) => item.name === groupName);
-	check(!!createdGroup && createdGroup.assign_to === 'group', 'Settings creates a Group-targeted assignment type', {
-		id: createdGroup?.id
-	});
 	const before = await row('assignment_types', f.ids.typePersonnel);
-	await rowAction('Edit assignment type', 'Verification Staff Duty');
-	await fill('Full name', 'Verification Staff Duty Edited');
-	await fill('Short code', 'VSE');
-	await setInput('#edit-assign-color', '#15803d');
-	await clickButton('Save Changes');
-	const edited = await waitRow(
-		'assignment_types',
-		(item) => item.id === f.ids.typePersonnel && item.name === 'Verification Staff Duty Edited'
-	);
-	check(
-		!!edited &&
-			edited.id === before?.id &&
-			edited.short_name === 'VSE' &&
-			edited.color === '#15803d' &&
-			edited.sort_order === 11 &&
-			edited.exempt_personnel_ids?.includes(f.ids.personB) &&
-			(await row('daily_assignments', f.ids.assignmentPersonnel))?.assignment_type_id === f.ids.typePersonnel,
-		'Edit retains assignment type identity, order, exemptions and saved assignment reference',
-		{ edited }
-	);
-	await h.reload();
-	await section('Assignment Types');
-	const reloaded = await drive.snapshot();
-	check(
-		reloaded.includes('Verification Staff Duty Edited') && !reloaded.includes('Verification Archived Duty'),
-		'Reloaded settings shows edited active type and excludes archived type from editable choices'
-	);
-	await rowAction('Delete assignment type', 'Verification Retiring Duty');
-	check(
-		(await drive.snapshot()).includes('All assignments using this type will also be removed'),
-		'Deletion warns about affected assignments'
-	);
-	await clickButton('Delete');
-	for (let attempt = 0; attempt < 30 && (await row('assignment_types', f.ids.typeDelete)); attempt++) await sleep(100);
-	check(
-		!(await row('assignment_types', f.ids.typeDelete)) &&
-			!(await row('daily_assignments', f.ids.assignmentDelete)) &&
-			!!(await row('daily_assignments', f.ids.assignmentPersonnel)) &&
-			!!(await row('assignment_types', f.ids.typeArchived)) &&
-			!!(await row('daily_assignments', f.ids.assignmentArchived)),
-		'Confirmed ordinary type deletion removes only linked assignments and retains unrelated and archived history'
-	);
-	const archivedRange = await request(
-		'GET',
-		`${orgPath(f)}/api/calendar-range?rangeStart=${f.dates.middle}&rangeEnd=${f.dates.middle}`
-	);
-	const archivedBootstrap = await request('GET', `${orgPath(f)}/calendar/__data.json`);
-	check(
-		archivedRange.status === 200 &&
-			archivedRange.body.includes(f.ids.assignmentArchived) &&
-			archivedBootstrap.status === 200 &&
-			archivedBootstrap.body.includes(f.ids.typeArchived) &&
-			archivedBootstrap.body.includes('Verification Archived Duty') &&
-			!archivedBootstrap.body.includes(f.ids.typeForeign),
-		'Authenticated Calendar range and bootstrap retain the archived type label and its referenced assignment without foreign data',
-		{ rangeStatus: archivedRange.status, bootstrapStatus: archivedBootstrap.status }
-	);
-	const header = await request('PUT', `${orgPath(f)}/api/assignment-types`, {
-		id: f.ids.typePersonnel,
-		showInDateHeader: false
-	});
-	check(
-		header.status === 200 && (await row('assignment_types', f.ids.typePersonnel))?.show_in_date_header === false,
-		'Header choice persists through assignment type API',
-		{ status: header.status }
-	);
-	await rowAction('Edit assignment type', 'Verification Group Duty');
-	await clickButton('Cancel');
-	const notification = await rows('notifications');
-	check(
-		notification.some((item) => item.type === 'config_type_deleted' && item.title === 'Assignment Type Deleted'),
-		'Assignment type deletion notifies administrators'
-	);
+	const retiringType = await row('assignment_types', f.ids.typeDelete);
+	const retiringAssignment = await row('daily_assignments', f.ids.assignmentDelete);
+	if (!before || !retiringType || !retiringAssignment)
+		throw new Blocked('FIXTURE', 'Calendar assignment lifecycle requires its seeded types and linked assignment.');
+	try {
+		await login('calendarConfigure', 'calendar/settings', ['Calendar Settings']);
+		await section('Assignment Types');
+		await clickButton('Add new');
+		await fill('Full name', personName);
+		await fill('Short code', 'VPN');
+		await clickButton('Add Assignment Type');
+		const createdPerson = await waitRow('assignment_types', (item) => item.name === personName);
+		check(
+			!!createdPerson && createdPerson.assign_to === 'personnel',
+			'Settings creates a Person-targeted assignment type',
+			{ id: createdPerson?.id }
+		);
+		await clickButton('Add new');
+		await fill('Full name', groupName);
+		await fill('Short code', 'VGN');
+		await setInput('#add-assign-to', 'group');
+		await clickButton('Add Assignment Type');
+		const createdGroup = await waitRow('assignment_types', (item) => item.name === groupName);
+		check(!!createdGroup && createdGroup.assign_to === 'group', 'Settings creates a Group-targeted assignment type', {
+			id: createdGroup?.id
+		});
+		await rowAction('Edit assignment type', 'Verification Staff Duty');
+		await fill('Full name', 'Verification Staff Duty Edited');
+		await fill('Short code', 'VSE');
+		await setInput('#edit-assign-color', '#15803d');
+		await clickButton('Save Changes');
+		const edited = await waitRow(
+			'assignment_types',
+			(item) => item.id === f.ids.typePersonnel && item.name === 'Verification Staff Duty Edited'
+		);
+		check(
+			!!edited &&
+				edited.id === before?.id &&
+				edited.short_name === 'VSE' &&
+				edited.color === '#15803d' &&
+				edited.sort_order === 11 &&
+				edited.exempt_personnel_ids?.includes(f.ids.personB) &&
+				(await row('daily_assignments', f.ids.assignmentPersonnel))?.assignment_type_id === f.ids.typePersonnel,
+			'Edit retains assignment type identity, order, exemptions and saved assignment reference',
+			{ edited }
+		);
+		await h.reload();
+		await section('Assignment Types');
+		const reloaded = await drive.snapshot();
+		check(
+			reloaded.includes('Verification Staff Duty Edited') && !reloaded.includes('Verification Archived Duty'),
+			'Reloaded settings shows edited active type and excludes archived type from editable choices'
+		);
+		const priorNotificationIds = new Set((await rows('notifications')).map((item) => item.id));
+		await rowAction('Delete assignment type', 'Verification Retiring Duty');
+		check(
+			(await drive.snapshot()).includes('All assignments using this type will also be removed'),
+			'Deletion warns about affected assignments'
+		);
+		await clickButton('Delete');
+		for (let attempt = 0; attempt < 30 && (await row('assignment_types', f.ids.typeDelete)); attempt++)
+			await sleep(100);
+		check(
+			!(await row('assignment_types', f.ids.typeDelete)) &&
+				!(await row('daily_assignments', f.ids.assignmentDelete)) &&
+				!!(await row('daily_assignments', f.ids.assignmentPersonnel)) &&
+				!!(await row('assignment_types', f.ids.typeArchived)) &&
+				!!(await row('daily_assignments', f.ids.assignmentArchived)),
+			'Confirmed ordinary type deletion removes only linked assignments and retains unrelated and archived history'
+		);
+		const archivedRange = await request(
+			'GET',
+			`${orgPath(f)}/api/calendar-range?rangeStart=${f.dates.middle}&rangeEnd=${f.dates.middle}`
+		);
+		const archivedBootstrap = await request('GET', `${orgPath(f)}/calendar/__data.json`);
+		check(
+			archivedRange.status === 200 &&
+				archivedRange.body.includes(f.ids.assignmentArchived) &&
+				archivedBootstrap.status === 200 &&
+				archivedBootstrap.body.includes(f.ids.typeArchived) &&
+				archivedBootstrap.body.includes('Verification Archived Duty') &&
+				!archivedBootstrap.body.includes(f.ids.typeForeign),
+			'Authenticated Calendar range and bootstrap retain the archived type label and its referenced assignment without foreign data',
+			{ rangeStatus: archivedRange.status, bootstrapStatus: archivedBootstrap.status }
+		);
+		const header = await request('PUT', `${orgPath(f)}/api/assignment-types`, {
+			id: f.ids.typePersonnel,
+			showInDateHeader: false
+		});
+		check(
+			header.status === 200 && (await row('assignment_types', f.ids.typePersonnel))?.show_in_date_header === false,
+			'Header choice persists through assignment type API',
+			{ status: header.status }
+		);
+		await rowAction('Edit assignment type', 'Verification Group Duty');
+		await clickButton('Cancel');
+		const notification = await rows('notifications');
+		check(
+			notification.some(
+				(item) =>
+					!priorNotificationIds.has(item.id) &&
+					item.type === 'config_type_deleted' &&
+					item.title === 'Assignment Type Deleted'
+			),
+			'Assignment type deletion notifies administrators'
+		);
+	} finally {
+		checked(await ctx.service.from('assignment_types').upsert(before));
+		checked(await ctx.service.from('assignment_types').upsert(retiringType));
+		checked(await ctx.service.from('daily_assignments').upsert(retiringAssignment));
+		checked(
+			await ctx.service.from('assignment_types').delete().eq('organization_id', f.ids.orgA).eq('name', personName)
+		);
+		checked(
+			await ctx.service.from('assignment_types').delete().eq('organization_id', f.ids.orgA).eq('name', groupName)
+		);
+	}
 }
 
 async function checkAvailabilityLifecycle(ctx) {
@@ -661,126 +684,136 @@ async function checkAvailabilityLifecycle(ctx) {
 async function checkSpecialDayLifecycle(ctx) {
 	const { fixture: f, drive, h, service } = ctx;
 	const { check, login, request, row, rows, open, section, rowAction, clickButton, fill, waitRow } = h;
-	await login('calendarConfigure', 'calendar/settings', ['Calendar Settings']);
-	await section('Closures');
 	const addedName = name('Verification Added Closure');
-	await clickButton('Add new');
-	await fill('Name', addedName);
-	await clickButton('Add Closure');
-	const createdRow = await waitRow('special_days', (day) => day.name === addedName);
-	check(
-		!!createdRow && createdRow.date === f.dates.ui && createdRow.type === 'org-closure',
-		'Settings closure creation persists the selected default local date and name',
-		{ date: createdRow?.date, id: createdRow?.id }
-	);
-	await h.reload();
-	await section('Closures');
-	check((await drive.snapshot()).includes(addedName), 'Created closure is visible in settings after reload');
-	await rowAction('Edit closure', addedName);
-	const deniedName = name('Denied Closure Edit');
-	await fill('Name', deniedName);
-	const membership = checked(
-		await service
-			.from('organization_memberships')
-			.select('id,capability_overrides')
-			.eq('organization_id', f.ids.orgA)
-			.eq('user_id', f.actors.calendarConfigure.id)
-			.single()
-	);
+	const editedName = name('Verification Edited Closure');
+	const seededHoliday = await row('special_days', f.ids.holidayCustom);
+	if (!seededHoliday)
+		throw new Blocked('FIXTURE', 'Calendar special-day lifecycle requires its seeded custom holiday.');
 	try {
-		checked(
-			await service
-				.from('organization_memberships')
-				.update({ capability_overrides: { ...membership.capability_overrides, calendar: 'view' } })
-				.eq('id', membership.id)
-		);
-		await clickButton('Save Changes');
-		let failed = '';
-		for (let attempt = 0; attempt < 50; attempt++) {
-			failed = await drive.snapshot();
-			if (failed.includes('Failed to save closure')) break;
-			await sleep(100);
-		}
+		await login('calendarConfigure', 'calendar/settings', ['Calendar Settings']);
+		await section('Closures');
+		await clickButton('Add new');
+		await fill('Name', addedName);
+		await clickButton('Add Closure');
+		const createdRow = await waitRow('special_days', (day) => day.name === addedName);
 		check(
-			failed.includes('Edit Closure') &&
-				failed.includes(deniedName) &&
-				failed.includes('Failed to save closure') &&
-				(await row('special_days', createdRow?.id))?.name === addedName,
-			'Failed settings edit retains the dialog and actionable error without changing the saved closure'
+			!!createdRow && createdRow.date === f.dates.ui && createdRow.type === 'org-closure',
+			'Settings closure creation persists the selected default local date and name',
+			{ date: createdRow?.date, id: createdRow?.id }
 		);
-	} finally {
-		checked(
+		await h.reload();
+		await section('Closures');
+		check((await drive.snapshot()).includes(addedName), 'Created closure is visible in settings after reload');
+		await rowAction('Edit closure', addedName);
+		const deniedName = name('Denied Closure Edit');
+		await fill('Name', deniedName);
+		const membership = checked(
 			await service
 				.from('organization_memberships')
-				.update({ capability_overrides: membership.capability_overrides })
-				.eq('id', membership.id)
+				.select('id,capability_overrides')
+				.eq('organization_id', f.ids.orgA)
+				.eq('user_id', f.actors.calendarConfigure.id)
+				.single()
+		);
+		try {
+			checked(
+				await service
+					.from('organization_memberships')
+					.update({ capability_overrides: { ...membership.capability_overrides, calendar: 'view' } })
+					.eq('id', membership.id)
+			);
+			await clickButton('Save Changes');
+			let failed = '';
+			for (let attempt = 0; attempt < 50; attempt++) {
+				failed = await drive.snapshot();
+				if (failed.includes('Failed to save closure')) break;
+				await sleep(100);
+			}
+			check(
+				failed.includes('Edit Closure') &&
+					failed.includes(deniedName) &&
+					failed.includes('Failed to save closure') &&
+					(await row('special_days', createdRow?.id))?.name === addedName,
+				'Failed settings edit retains the dialog and actionable error without changing the saved closure'
+			);
+		} finally {
+			checked(
+				await service
+					.from('organization_memberships')
+					.update({ capability_overrides: membership.capability_overrides })
+					.eq('id', membership.id)
+			);
+		}
+		await h.reload();
+		await section('Closures');
+		await rowAction('Edit closure', addedName);
+		await fill('Name', editedName);
+		await clickButton('Save Changes');
+		const edited = await waitRow('special_days', (day) => day.id === createdRow?.id && day.name === editedName);
+		check(
+			!!edited && edited.date === f.dates.ui && edited.type === 'org-closure',
+			'Settings edit retains closure identity, date and type',
+			{ edited }
+		);
+		await rowAction('Delete closure', editedName);
+		check((await drive.snapshot()).includes(editedName), 'Closure deletion confirmation identifies the target');
+		await clickButton('Remove');
+		for (let attempt = 0; attempt < 30 && (await row('special_days', createdRow?.id)); attempt++) await sleep(100);
+		check(
+			!(await row('special_days', createdRow?.id)) && !!(await row('special_days', f.ids.closureA)),
+			'Confirmed closure deletion removes only its target'
+		);
+		await clickButton('Reset Federal Holidays');
+		check(
+			(await drive.snapshot()).includes('Custom closures will be preserved'),
+			'Reset confirmation describes closure preservation'
+		);
+		await clickButton('Reset');
+		const resetYear = new Date().getFullYear();
+		const expectedHolidays = expectedFederalHolidays(resetYear);
+		for (let attempt = 0; attempt < 30 && (await row('special_days', f.ids.holidayCustom)); attempt++) await sleep(100);
+		const days = await rows('special_days');
+		const foreignDays = await rows('special_days', 'orgB');
+		check(
+			expectedHolidays.every(([date, label]) =>
+				days.some((day) => day.date === date && day.name === label && day.type === 'federal-holiday')
+			) &&
+				!days.some((day) => day.id === f.ids.holidayCustom) &&
+				days.some((day) => day.id === f.ids.closureA) &&
+				foreignDays.some((day) => day.id === f.ids.closureB),
+			'Independently specified current-year federal holidays replace custom rows while fixed 2026 and foreign closures persist',
+			{
+				resetYear,
+				expectedHolidays,
+				observed: days
+					.filter((day) => day.type === 'federal-holiday' && expectedHolidays.some(([date]) => date === day.date))
+					.map((day) => [day.date, day.name])
+			}
+		);
+		await h.reload();
+		await section('Closures');
+		check(
+			(await drive.snapshot()).includes('Verification Unit Closure') &&
+				!(await drive.snapshot()).includes('Verification Custom Holiday'),
+			'Settings reflects reset and retained closure after reload'
+		);
+		const calendar = await open(`${orgPath(f)}/calendar`, ['Calendar']);
+		check(
+			calendar.includes('Verification Unit Closure') && !calendar.includes('Foreign Private Closure'),
+			'Calendar shows local closure without foreign closure'
+		);
+		const rejected = await request('POST', `${orgPath(f, 'orgB')}/api/special-days`, {
+			name: name('Denied foreign closure'),
+			date: '2026-09-23',
+			type: 'org-closure'
+		});
+		check(denied(rejected.status), 'Foreign closure mutation is rejected', { status: rejected.status });
+	} finally {
+		checked(await service.from('special_days').upsert(seededHoliday));
+		checked(
+			await service.from('special_days').delete().eq('organization_id', f.ids.orgA).in('name', [addedName, editedName])
 		);
 	}
-	await h.reload();
-	await section('Closures');
-	await rowAction('Edit closure', addedName);
-	const editedName = name('Verification Edited Closure');
-	await fill('Name', editedName);
-	await clickButton('Save Changes');
-	const edited = await waitRow('special_days', (day) => day.id === createdRow?.id && day.name === editedName);
-	check(
-		!!edited && edited.date === f.dates.ui && edited.type === 'org-closure',
-		'Settings edit retains closure identity, date and type',
-		{ edited }
-	);
-	await rowAction('Delete closure', editedName);
-	check((await drive.snapshot()).includes(editedName), 'Closure deletion confirmation identifies the target');
-	await clickButton('Remove');
-	for (let attempt = 0; attempt < 30 && (await row('special_days', createdRow?.id)); attempt++) await sleep(100);
-	check(
-		!(await row('special_days', createdRow?.id)) && !!(await row('special_days', f.ids.closureA)),
-		'Confirmed closure deletion removes only its target'
-	);
-	await clickButton('Reset Federal Holidays');
-	check(
-		(await drive.snapshot()).includes('Custom closures will be preserved'),
-		'Reset confirmation describes closure preservation'
-	);
-	await clickButton('Reset');
-	const resetYear = new Date().getFullYear();
-	const expectedHolidays = expectedFederalHolidays(resetYear);
-	for (let attempt = 0; attempt < 30 && (await row('special_days', f.ids.holidayCustom)); attempt++) await sleep(100);
-	const days = await rows('special_days');
-	const foreignDays = await rows('special_days', 'orgB');
-	check(
-		expectedHolidays.every(([date, label]) =>
-			days.some((day) => day.date === date && day.name === label && day.type === 'federal-holiday')
-		) &&
-			!days.some((day) => day.id === f.ids.holidayCustom) &&
-			days.some((day) => day.id === f.ids.closureA) &&
-			foreignDays.some((day) => day.id === f.ids.closureB),
-		'Independently specified current-year federal holidays replace custom rows while fixed 2026 and foreign closures persist',
-		{
-			resetYear,
-			expectedHolidays,
-			observed: days
-				.filter((day) => day.type === 'federal-holiday' && expectedHolidays.some(([date]) => date === day.date))
-				.map((day) => [day.date, day.name])
-		}
-	);
-	await h.reload();
-	await section('Closures');
-	check(
-		(await drive.snapshot()).includes('Verification Unit Closure') &&
-			!(await drive.snapshot()).includes('Verification Custom Holiday'),
-		'Settings reflects reset and retained closure after reload'
-	);
-	const calendar = await open(`${orgPath(f)}/calendar`, ['Calendar']);
-	check(
-		calendar.includes('Verification Unit Closure') && !calendar.includes('Foreign Private Closure'),
-		'Calendar shows local closure without foreign closure'
-	);
-	const rejected = await request('POST', `${orgPath(f, 'orgB')}/api/special-days`, {
-		name: name('Denied foreign closure'),
-		date: '2026-09-23',
-		type: 'org-closure'
-	});
-	check(denied(rejected.status), 'Foreign closure mutation is rejected', { status: rejected.status });
 }
 
 async function checkBulkPartialChunk(ctx) {

@@ -9,6 +9,7 @@ import {
 } from './personnelReadinessLanes';
 
 const AS_OF = '2026-05-14';
+const listStatusTypes = async () => [{ id: 'tdy', name: 'TDY', color: '#000', textColor: '#fff' }];
 
 function seedPerson(ctx: ReturnType<typeof createTestContext>, overrides: Record<string, unknown> = {}) {
 	ctx.store.seed('personnel', [
@@ -53,7 +54,9 @@ describe('personnel readiness lanes', () => {
 			}
 		]);
 
-		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, listEntries)).resolves.toMatchObject({
+		await expect(
+			loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, listEntries, listStatusTypes)
+		).resolves.toMatchObject({
 			label: 'Availability',
 			value: 'TDY',
 			detail: 'TDY through May 15, 2026. Range support',
@@ -65,7 +68,9 @@ describe('personnel readiness lanes', () => {
 		const ctx = createTestContext();
 		seedPerson(ctx);
 		const listEntries = vi.fn().mockResolvedValue([]);
-		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, listEntries)).resolves.toMatchObject({
+		await expect(
+			loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, listEntries, listStatusTypes)
+		).resolves.toMatchObject({
 			value: 'Present',
 			tone: 'good'
 		});
@@ -93,7 +98,9 @@ describe('personnel readiness lanes', () => {
 		});
 		seedPerson(ctx);
 		const reads = vi.spyOn(ctx.store, 'findMany');
-		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, vi.fn())).rejects.toMatchObject({ status: 403 });
+		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, vi.fn(), listStatusTypes)).rejects.toMatchObject(
+			{ status: 403 }
+		);
 		expect(reads).not.toHaveBeenCalled();
 	});
 
@@ -103,7 +110,9 @@ describe('personnel readiness lanes', () => {
 		});
 		seedPerson(ctx);
 		const reads = vi.spyOn(ctx.store, 'findMany');
-		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, vi.fn())).rejects.toMatchObject({ status: 403 });
+		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, vi.fn(), listStatusTypes)).rejects.toMatchObject(
+			{ status: 403 }
+		);
 		expect(reads).not.toHaveBeenCalled();
 	});
 
@@ -111,7 +120,9 @@ describe('personnel readiness lanes', () => {
 		const ctx = createTestContext();
 		seedPerson(ctx, { organization_id: 'foreign-org' });
 		const reads = vi.spyOn(ctx.store, 'findMany');
-		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, vi.fn())).rejects.toMatchObject({ status: 404 });
+		await expect(loadAvailabilityReadinessLane(ctx, 'person-1', AS_OF, vi.fn(), listStatusTypes)).rejects.toMatchObject(
+			{ status: 404 }
+		);
 		expect(reads).not.toHaveBeenCalled();
 	});
 

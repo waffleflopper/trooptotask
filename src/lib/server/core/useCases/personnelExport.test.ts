@@ -4,6 +4,8 @@ import { createTestContext } from '$lib/server/adapters/inMemory';
 import { exportPersonnelWorkbook } from './personnelExport';
 import type { AvailabilityEntry } from '$lib/types';
 
+const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
+
 type TestContext = ReturnType<typeof createTestContext>;
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
@@ -200,7 +202,7 @@ describe('Personnel export use case', () => {
 		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
 
 		await expect(
-			exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory)
+			exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory, listStatusTypeLabels)
 		).rejects.toMatchObject({
 			status: 403
 		});
@@ -213,7 +215,7 @@ describe('Personnel export use case', () => {
 		const findOneSpy = vi.spyOn(ctx.rawStore, 'findOne');
 
 		await expect(
-			exportPersonnelWorkbook(ctx, { personnelId: 'person-1' }, listAvailabilityHistory)
+			exportPersonnelWorkbook(ctx, { personnelId: 'person-1' }, listAvailabilityHistory, listStatusTypeLabels)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Invalid personnel ID'
@@ -226,7 +228,12 @@ describe('Personnel export use case', () => {
 		const ctx = createTestContext();
 		seedPersonnelExportDataset(ctx);
 
-		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory);
+		const result = await exportPersonnelWorkbook(
+			ctx,
+			{ personnelId: PERSONNEL_ID },
+			listAvailabilityHistory,
+			listStatusTypeLabels
+		);
 		const workbook = await parseWorkbook(result._buffer);
 		const dateStr = new Date().toISOString().split('T')[0];
 
@@ -313,7 +320,12 @@ describe('Personnel export use case', () => {
 		});
 		seedPersonnelExportDataset(ctx);
 
-		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory);
+		const result = await exportPersonnelWorkbook(
+			ctx,
+			{ personnelId: PERSONNEL_ID },
+			listAvailabilityHistory,
+			listStatusTypeLabels
+		);
 		const workbook = await parseWorkbook(result._buffer);
 
 		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info'))).toContainEqual({
@@ -326,7 +338,12 @@ describe('Personnel export use case', () => {
 		const ctx = createTestContext();
 		seedPersonnelExportDataset(ctx);
 		await ctx.rawStore.deleteManyByIds('personnel_extended_info', ctx.auth.orgId, ['extended-1']);
-		const result = await exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory);
+		const result = await exportPersonnelWorkbook(
+			ctx,
+			{ personnelId: PERSONNEL_ID },
+			listAvailabilityHistory,
+			listStatusTypeLabels
+		);
 		const workbook = await parseWorkbook(result._buffer);
 		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info')).some((row) => row.Field === 'Leader Notes')).toBe(
 			false

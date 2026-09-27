@@ -71,11 +71,14 @@ describe('streamPersonnelWorkspaceBootstrap', () => {
 	});
 
 	it('streams a lane-keyed Personnel workspace result with explicit Personnel hydration targets', async () => {
-		const routeData = await streamPersonnelWorkspaceBootstrap({
-			locals: {} as App.Locals,
-			cookies: {} as Cookies,
-			orgId: 'route-segment'
-		});
+		const routeData = await streamPersonnelWorkspaceBootstrap(
+			{
+				locals: {} as App.Locals,
+				cookies: {} as Cookies,
+				orgId: 'route-segment'
+			},
+			async () => personnelData.statusTypes
+		);
 
 		const workspace = await routeData.personnel.data;
 

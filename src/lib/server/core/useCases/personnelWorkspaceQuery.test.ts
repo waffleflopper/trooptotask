@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createQueryWithRawStorePortsContext, createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { fetchPersonnelBootstrap } from './personnelWorkspaceQuery';
+
+const listStatusTypes = async () => [
+	{ id: 'st1', name: 'Leave', color: '#000000', textColor: '#ffffff' },
+	{ id: 'st2', name: 'TDY', color: '#111111', textColor: '#eeeeee' }
+];
 
 const ORG = 'test-org';
 
@@ -99,7 +104,7 @@ describe('fetchPersonnelBootstrap', () => {
 			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: -2 }
 		]);
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 
 		expect(result.groups.map((group) => group.name)).toEqual(['Earlier', 'Alpha', 'Bravo']);
 		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
@@ -108,8 +113,9 @@ describe('fetchPersonnelBootstrap', () => {
 	it('returns scoped personnel plus a minimal lookup projection for an unscoped member', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
 		seedPersonnel(ctx.store);
+		const listStatusTypesForBootstrap = vi.fn(listStatusTypes);
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypesForBootstrap);
 
 		expect(result.personnel).toHaveLength(2);
 		expect(result.personnel.map((p) => p.lastName)).toEqual(['Jones', 'Smith']);
@@ -120,6 +126,7 @@ describe('fetchPersonnelBootstrap', () => {
 		expect(result).not.toHaveProperty('allPersonnel');
 		expect(result.groups.map((g) => g.name)).toEqual(['Alpha', 'Bravo']);
 		expect(result.statusTypes.map((s) => s.name)).toEqual(['Leave', 'TDY']);
+		expect(listStatusTypesForBootstrap).toHaveBeenCalledExactlyOnceWith(ctx.store, ctx.auth.orgId);
 		expect(result.rankCatalog).toEqual([
 			expect.objectContaining({ code: 'SGT', label: 'Sergeant', state: 'active' }),
 			expect.objectContaining({ code: 'PO3', label: 'Petty Officer Third Class', state: 'active' })
@@ -147,7 +154,7 @@ describe('fetchPersonnelBootstrap', () => {
 			}
 		]);
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 
 		expect(result.personnel).toHaveLength(2);
 		expect(result.personnel.every((p) => p.id !== 'p-archived')).toBe(true);
@@ -215,7 +222,7 @@ describe('fetchPersonnelBootstrap', () => {
 			}
 		]);
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 
 		// Scoped store filters to g1 only
 		expect(result.personnel).toHaveLength(1);
@@ -283,7 +290,7 @@ describe('fetchPersonnelBootstrap', () => {
 			}
 		]);
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 
 		expect(result.personnel.map((person) => person.id)).toEqual(['p3', 'p1']);
 		expect(result.personnelLookup.map((person) => person.id)).toEqual(['p3', 'p1']);
@@ -295,7 +302,7 @@ describe('fetchPersonnelBootstrap — loss warning window', () => {
 		const ctx = createQueryWithRawStorePortsContext();
 		ctx.store.seed('organizations', [{ id: 'test-org', loss_warning_window_days: 90 }]);
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 
 		expect(result.lossWarningWindowDays).toBe(90);
 	});
@@ -303,7 +310,7 @@ describe('fetchPersonnelBootstrap — loss warning window', () => {
 	it('defaults the loss warning window to 180 when the organizations row is missing the value', async () => {
 		const ctx = createQueryWithRawStorePortsContext();
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 
 		expect(result.lossWarningWindowDays).toBe(180);
 	});
@@ -326,7 +333,7 @@ describe('fetchPersonnelBootstrap — loss warning window', () => {
 			}
 		]);
 
-		const result = await fetchPersonnelBootstrap(ctx);
+		const result = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 
 		expect(result.awardTrackingAcknowledgedPersonnelIds).toEqual(['p1']);
 	});

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { StatusTypeEntity } from './statusType';
+import { StatusTypeEntity } from './statusTypeEntity.server';
 import type { StatusType } from '$lib/types';
 
 describe('StatusTypeEntity', () => {

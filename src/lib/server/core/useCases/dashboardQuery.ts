@@ -14,12 +14,11 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
-import { listAvailabilityEntries } from '$features/calendar/index.server';
+import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { formatDate } from '$lib/utils/dates';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
@@ -90,7 +89,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		activeOnboardings,
 		personnel,
 		groups,
-		statusTypeRows,
+		statusTypes,
 		trainingTypeRows,
 		orgSettingsRow,
 		awardTrackingAcknowledgedPersonnelIds
@@ -106,10 +105,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		loadActiveOnboardings(ctx, orgId),
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		listGroupCatalog(ctx),
-		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-			select: StatusTypeEntity.select,
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listStatusTypes(ctx.store, orgId),
 		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
 			orderBy: [{ column: 'sort_order', ascending: true }]
 		}),
@@ -129,7 +125,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		activeOnboardings,
 		personnel,
 		groups,
-		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		statusTypes,
 		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),
 		lossWarningWindowDays,
 		awardTrackingAcknowledgedPersonnelIds

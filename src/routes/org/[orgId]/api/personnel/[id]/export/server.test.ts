@@ -62,6 +62,7 @@ describe('GET /api/personnel/[id]/export', () => {
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(Buffer.from(result._buffer) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]);
 		const history = workbook.getWorksheet('Availability History');
+		expect(history?.getRow(2).getCell(1).value).toBe('TDY');
 		expect(history?.getRow(2).getCell(2).value).toBe('2026-01-01');
 		expect(history?.getRow(3).getCell(2).value).toBe('2025-01-01');
 	});

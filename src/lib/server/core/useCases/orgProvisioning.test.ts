@@ -2,8 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	provisionOrganization,
 	type OrgProvisioningAssignmentTypeSeed,
-	type OrgProvisioningPort,
-	type OrgProvisioningStatusTypeSeed
+	type OrgProvisioningPort
 } from './orgProvisioning';
 
 function createOrgProvisioningPort(
@@ -15,7 +14,7 @@ function createOrgProvisioningPort(
 	createRequests: string[];
 	ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }>;
 	groupSeeds: string[];
-	statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }>;
+	statusTypeSeeds: string[];
 	assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }>;
 	federalHolidaySeeds: string[];
 	rankCatalogSeeds: string[];
@@ -23,7 +22,7 @@ function createOrgProvisioningPort(
 	const createRequests: string[] = [];
 	const ownerEmailUpdates: Array<{ organizationId: string; userId: string; email: string | undefined }> = [];
 	const groupSeeds: string[] = [];
-	const statusTypeSeeds: Array<{ organizationId: string; statusTypes: OrgProvisioningStatusTypeSeed[] }> = [];
+	const statusTypeSeeds: string[] = [];
 	const assignmentTypeSeeds: Array<{ organizationId: string; assignmentTypes: OrgProvisioningAssignmentTypeSeed[] }> =
 		[];
 	const federalHolidaySeeds: string[] = [];
@@ -49,8 +48,8 @@ function createOrgProvisioningPort(
 			groupSeeds.push(organizationId);
 			return null;
 		},
-		async seedDefaultStatusTypes(organizationId, statusTypes) {
-			statusTypeSeeds.push({ organizationId, statusTypes });
+		async seedDefaultStatusTypes(organizationId) {
+			statusTypeSeeds.push(organizationId);
 			return null;
 		},
 		async seedDefaultAssignmentTypes(organizationId, assignmentTypes) {
@@ -92,55 +91,7 @@ describe('provisionOrganization', () => {
 			}
 		]);
 		expect(port.groupSeeds).toEqual(['org-1']);
-		expect(port.statusTypeSeeds).toEqual([
-			{
-				organizationId: 'org-1',
-				statusTypes: [
-					{
-						name: 'Leave',
-						color: '#48bb78',
-						textColor: '#ffffff',
-						sortOrder: 0
-					},
-					{
-						name: 'School',
-						color: '#4299e1',
-						textColor: '#ffffff',
-						sortOrder: 1
-					},
-					{
-						name: 'Training / TDY',
-						color: '#9f7aea',
-						textColor: '#ffffff',
-						sortOrder: 2
-					},
-					{
-						name: 'Appointment',
-						color: '#ed8936',
-						textColor: '#ffffff',
-						sortOrder: 3
-					},
-					{
-						name: 'Sick',
-						color: '#e53e3e',
-						textColor: '#ffffff',
-						sortOrder: 4
-					},
-					{
-						name: 'Other Duty / Detail',
-						color: '#a0522d',
-						textColor: '#ffffff',
-						sortOrder: 5
-					},
-					{
-						name: 'CQ/SD',
-						color: '#dc2626',
-						textColor: '#ffffff',
-						sortOrder: 6
-					}
-				]
-			}
-		]);
+		expect(port.statusTypeSeeds).toEqual(['org-1']);
 		expect(port.assignmentTypeSeeds).toEqual([
 			{
 				organizationId: 'org-1',

@@ -29,7 +29,11 @@ export async function exportPersonnelWorkbook(
 	listAvailabilityHistory: (
 		ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
 		personnelId: string
-	) => Promise<AvailabilityEntry[]>
+	) => Promise<AvailabilityEntry[]>,
+	listStatusTypeLabels: (
+		store: UseCaseContext['rawStore'],
+		orgId: string
+	) => Promise<Array<{ id: string; name: string }>>
 ): Promise<PersonnelExportOutput> {
 	const orgId = ctx.auth.orgId;
 	const id = input.personnelId;
@@ -59,7 +63,7 @@ export async function exportPersonnelWorkbook(
 		),
 		listAvailabilityHistory(ctx, id),
 		ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId, {}, { select: 'id, name' }),
-		ctx.rawStore.findMany<Record<string, unknown>>('status_types', orgId, {}, { select: 'id, name' }),
+		listStatusTypeLabels(ctx.rawStore, orgId),
 		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore })
 	]);
 

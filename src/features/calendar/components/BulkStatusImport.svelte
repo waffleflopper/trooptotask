@@ -249,7 +249,6 @@
 			};
 			if (inserted.length > 0) {
 				toastStore.success(`Imported ${inserted.length} status ${inserted.length === 1 ? 'entry' : 'entries'}`);
-				notifyCompleteOnce();
 			} else {
 				toastStore.error('No status entries were imported. Review the results and try again.');
 			}

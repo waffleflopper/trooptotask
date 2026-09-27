@@ -1,4 +1,4 @@
-import { availabilityStore } from '$features/calendar/stores/availability.svelte';
+import { availabilityStore } from '$features/calendar';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';

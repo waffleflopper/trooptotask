@@ -14,7 +14,7 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
-import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
+import { listAvailabilityEntries } from '$features/calendar/index.server';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
@@ -73,15 +73,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 	const serverNow = new Date();
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
-	const availabilityEntries = ctx.store
-		.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-			select: AvailabilityEntryEntity.select,
-			rangeFilters: [
-				{ column: 'end_date', op: 'gte', value: yesterday },
-				{ column: 'start_date', op: 'lte', value: twoWeeksOut }
-			]
-		})
-		.then((rows) => AvailabilityEntryEntity.fromDbArray(rows));
+	const availabilityEntries = listAvailabilityEntries(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut });
 	const todayAssignments = ctx.store
 		.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
 			rangeFilters: [
@@ -151,34 +143,34 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
-	const [availabilityRows, assignmentTypeRows, dailyAssignmentRows, pinnedGroups, ratingSchemeRows, activeOnboardings] =
-		await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('availability_entries', orgId, undefined, {
-				select: AvailabilityEntryEntity.select,
-				rangeFilters: [
-					{ column: 'end_date', op: 'gte', value: yesterday },
-					{ column: 'start_date', op: 'lte', value: twoWeeksOut }
-				]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-				rangeFilters: [
-					{ column: 'date', op: 'gte', value: yesterday },
-					{ column: 'date', op: 'lte', value: twoWeeksOut }
-				]
-			}),
-			listPinnedGroupNames(ctx),
-			ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
-				select: 'id, rated_person_id, eval_type, rating_period_end, status',
-				orderBy: [{ column: 'rating_period_end', ascending: true }]
-			}),
-			loadActiveOnboardings(ctx, orgId)
-		]);
+	const [
+		availabilityEntries,
+		assignmentTypeRows,
+		dailyAssignmentRows,
+		pinnedGroups,
+		ratingSchemeRows,
+		activeOnboardings
+	] = await Promise.all([
+		listAvailabilityEntries(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }),
+		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
+			orderBy: [{ column: 'sort_order', ascending: true }]
+		}),
+		ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
+			rangeFilters: [
+				{ column: 'date', op: 'gte', value: yesterday },
+				{ column: 'date', op: 'lte', value: twoWeeksOut }
+			]
+		}),
+		listPinnedGroupNames(ctx),
+		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+			select: 'id, rated_person_id, eval_type, rating_period_end, status',
+			orderBy: [{ column: 'rating_period_end', ascending: true }]
+		}),
+		loadActiveOnboardings(ctx, orgId)
+	]);
 
 	return {
-		availabilityEntries: AvailabilityEntryEntity.fromDbArray(availabilityRows),
+		availabilityEntries,
 		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
 		todayAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
 		pinnedGroups,

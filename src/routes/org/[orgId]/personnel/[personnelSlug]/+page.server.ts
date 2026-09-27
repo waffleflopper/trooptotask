@@ -13,6 +13,7 @@ import {
 	loadTrainingReadinessLane
 } from '$lib/server/core/useCases/personnelReadinessLanes';
 import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
+import { listAvailabilityEntries } from '$features/calendar/index.server';
 import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
 import { listPersonnelDocuments } from '$lib/server/core/useCases/personnelDocuments';
 import { listPersonnelFollowUps } from '$lib/server/core/useCases/personnelFollowUps';
@@ -22,7 +23,7 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 	const readinessAsOf = currentPersonnelReadinessDate();
 	return {
 		readinessLanes: {
-			availability: loadAvailabilityReadinessLane(ctx, personnelId, readinessAsOf),
+			availability: loadAvailabilityReadinessLane(ctx, personnelId, readinessAsOf, listAvailabilityEntries),
 			training: loadTrainingReadinessLane(ctx, personnelId, readinessAsOf),
 			criticalTasks: loadCriticalTasksReadinessLane(ctx, personnelId, readinessAsOf),
 			ratingScheme: loadRatingSchemeReadinessLane(ctx, personnelId, readinessAsOf),

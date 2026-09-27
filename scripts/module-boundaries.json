@@ -76,8 +76,6 @@
 				"src/lib/server/adapters/supabaseAssignmentTypeRetention.ts",
 				"src/lib/server/calendarLayoutServer.test.ts",
 				"src/lib/server/core/useCases/assignmentTypeCrud.test.ts",
-				"src/lib/server/core/useCases/availabilityBatch.test.ts",
-				"src/lib/server/core/useCases/availabilityBatch.ts",
 				"src/lib/server/core/useCases/calendarPolicy.ts",
 				"src/lib/server/core/useCases/calendarQuery.test.ts",
 				"src/lib/server/core/useCases/calendarQuery.ts",
@@ -96,8 +94,6 @@
 				"src/lib/server/core/useCases/statusTypeCrud.test.ts",
 				"src/lib/server/entities/assignmentType.test.ts",
 				"src/lib/server/entities/assignmentType.ts",
-				"src/lib/server/entities/availabilityEntry.test.ts",
-				"src/lib/server/entities/availabilityEntry.ts",
 				"src/lib/server/entities/dailyAssignment.test.ts",
 				"src/lib/server/entities/dailyAssignment.ts",
 				"src/lib/server/entities/specialDay.test.ts",
@@ -724,7 +720,7 @@
 			"src/lib/access/index.server.ts"
 		],
 		"organization": ["src/features/organization/index.server.ts"],
-		"calendar": ["src/features/calendar/index.ts"],
+		"calendar": ["src/features/calendar/index.ts", "src/features/calendar/index.server.ts"],
 		"critical-tasks": [],
 		"dashboard": ["src/features/dashboard/index.ts"],
 		"onboarding": [

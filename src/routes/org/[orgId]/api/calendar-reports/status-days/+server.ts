@@ -2,13 +2,12 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { AvailabilityEntryEntity } from '$lib/server/entities/availabilityEntry';
+import { listAvailabilityEntries } from '$features/calendar/index.server';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
 import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
 import {
 	filterRowsByCalendarAssigneeScope,
-	personnelInFilter,
 	resolveCalendarAssigneeScope
 } from '$lib/server/core/useCases/calendarScope';
 
@@ -32,12 +31,10 @@ export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unk
 		const scope = await resolveCalendarAssigneeScope(ctx);
 
 		const [entries, assignments, assignmentTypes] = await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('availability_entries', ctx.auth.orgId, undefined, {
-				...personnelInFilter(scope, 'personnel_id'),
-				rangeFilters: [
-					{ column: 'end_date', op: 'gte', value: startDate },
-					{ column: 'start_date', op: 'lte', value: endDate }
-				]
+			listAvailabilityEntries(ctx, {
+				rangeStart: startDate,
+				rangeEnd: endDate,
+				personnelIds: scope?.personnelIds
 			}),
 			ctx.store.findMany<Record<string, unknown>>('daily_assignments', ctx.auth.orgId, undefined, {
 				rangeFilters: [
@@ -51,7 +48,7 @@ export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unk
 		ctx.audit.log({ action: 'calendar_report.viewed', resourceType: 'calendar_report' });
 
 		return {
-			entries: AvailabilityEntryEntity.fromDbArray(entries),
+			entries,
 			assignments: DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(assignments, scope)),
 			assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypes)
 		};

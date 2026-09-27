@@ -98,7 +98,7 @@
 		},
 		{
 			"claim": "calendar-availability-consumers",
-			"behavior": "For a fixed synthetic interval and explicit expected rows, Calendar month/long-range views, affected Dashboard projections and Calendar status-day report/download consumers display or export the same authorized saved availability, catalog labels and special-day facts. Moving between ranges or reloading does not drop historical facts, invent Duty Roster lineage or expose other scopes.",
+			"behavior": "For a fixed synthetic interval and explicit expected rows, Calendar month/long-range views and affected Dashboard projections display authorized saved availability, catalog labels and special-day facts; Calendar status-day report/download consumers include the corresponding availability and status labels. Moving between ranges or reloading does not drop historical facts, invent Duty Roster lineage or expose other scopes.",
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 all reverse read/report/export consumers of the migrated D04 contracts",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [

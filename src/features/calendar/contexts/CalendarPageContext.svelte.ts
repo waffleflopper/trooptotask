@@ -16,6 +16,7 @@ import {
 	type UserOrgPreferencesPatch
 } from '$lib/preferences/userPreferences';
 import { toastStore } from '$lib/stores/toast.svelte';
+import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
 import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -319,12 +320,20 @@ export class CalendarPageContext {
 		this.selectedDate = new Date();
 	}
 
-	async handleAddAvailability(entry: Omit<AvailabilityEntry, 'id'>): Promise<void> {
-		await availabilityStore.add(entry);
+	async handleAddAvailability(entry: Omit<AvailabilityEntry, 'id'>): Promise<AvailabilityEntry | null> {
+		return availabilityStore.add(entry);
 	}
 
-	async handleRemoveAvailability(id: string): Promise<void> {
-		await availabilityStore.remove(id);
+	async handleRemoveAvailability(id: string): Promise<boolean> {
+		return availabilityStore.removeBool(id);
+	}
+
+	async reconcileAvailability(date: string): Promise<AvailabilityEntry[] | null> {
+		const orgId = this.#data.orgId;
+		const range = await loadCalendarRange(orgId, { rangeStart: date, rangeEnd: date });
+		if (this.#data.orgId !== orgId) return null;
+		mergeCalendarRangeIntoStores(orgId, range);
+		return range.availabilityEntries;
 	}
 
 	closeAvailabilityModal(): void {

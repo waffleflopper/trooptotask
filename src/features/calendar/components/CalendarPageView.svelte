@@ -228,6 +228,7 @@
 			existingEntries={availabilityStore.items}
 			onAdd={(entry) => ctx.handleAddAvailability(entry)}
 			onRemove={(id) => ctx.handleRemoveAvailability(id)}
+			onReconcile={(date) => ctx.reconcileAvailability(date)}
 			onClose={() => ctx.closeAvailabilityModal()}
 		/>
 	{:catch}

@@ -1,7 +1,8 @@
 {
 	"git": {
 		"deploymentEnabled": {
-			"t3code/agent-verification-toolkit": false
+			"t3code/agent-verification-toolkit": false,
+			"stabilization/08-d04-calendar-pilot": false
 		}
 	},
 	"installCommand": "npx npm@11.12.1 ci",

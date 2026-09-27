@@ -20,6 +20,7 @@ import {
 	Blocked,
 	sleep,
 	processIdentity,
+	activePilots,
 	stopOwnedProcess,
 	terminateOwnedGroup,
 	profileProcess,
@@ -54,7 +55,7 @@ tools                 Native DevTools tool names, descriptions, and JSON argumen
 tool NAME '{...}'     Call a native DevTools tool (pageId and snapshot UIDs from its output)
 prove CLAIM           ${claimNames.join(' | ')}; PASS / FAIL / INCONCLUSIVE receipt
 check-receipt FILE    Refuse old/negative/incomplete evidence; does not replace CI or release gates
-self-test             Healthy/broken/restored proof plus stale/foreign/unavailable controls; own worker only
+self-test             Exclusive healthy/broken/restored pilot plus stale/foreign/unavailable controls
 mcp                   Stdio MCP proxy for the running owned worker; register this project-local command
 cleanup               Stop exact owned processes/provider; retain sanitized proof receipts
 
@@ -127,6 +128,17 @@ async function launch() {
 			'Worker already owns state. Use doctor or cleanup; use worker 2 for independent verification.'
 		);
 	}
+	let otherPilotActive;
+	try {
+		otherPilotActive = (await activePilots()).some((pilot) => pilot.worker !== worker);
+	} catch (error) {
+		await fs.rmdir(session);
+		throw error;
+	}
+	if (otherPilotActive) {
+		await fs.rmdir(session);
+		throw new Blocked('PILOT_BUSY', 'The other worker is running an exclusive self-test. Retry after it finishes.');
+	}
 	await writeJSON(path.join(session, 'session.json'), {
 		repository,
 		worker,
@@ -144,11 +156,18 @@ async function launch() {
 	});
 	child.unref();
 	await log.close();
-	await writeJSON(path.join(session, 'launcher.json'), { identity: await processIdentity(child.pid) });
+	const identity = await processIdentity(child.pid);
+	await writeJSON(path.join(session, 'launcher.json'), { identity });
 	for (let attempt = 0; attempt < 1200; attempt++) {
 		const state = await readJSON(path.join(session, 'session.json'));
 		if (state.phase === 'running') return await request({ command: 'doctor' });
 		if (state.failure) throw new Blocked(state.failure.code, state.failure.message);
+		const current = identity && (await processIdentity(identity.pid));
+		if (!current || current.start !== identity.start || current.command !== identity.command)
+			throw new Blocked(
+				'LAUNCH_EXITED',
+				'Supervisor exited before recording a result. Inspect private supervisor.log, then cleanup.'
+			);
 		await sleep(500);
 	}
 	throw new Blocked(

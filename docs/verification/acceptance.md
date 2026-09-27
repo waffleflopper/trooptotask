@@ -6,7 +6,7 @@ The installed entry points are [t2t-engineer](../../.agents/skills/t2t-engineer/
 
 ## Candidate and environment
 
-The executable candidate is `38fca7dcf91de8268f0c1728df0a0cbee028ac8d603cdce77e9b6553e4ebabd9`, based on the revision above plus this PR's executable changes. The toolkit hashes tracked and nonignored untracked file contents; Markdown records and dotenv files are excluded. Each drive also checks the private copied source and actual production build. Markdown evidence updates do not silently approve executable changes. Receipts are sealed with a private checkout key; imported or edited receipts cannot become local approval.
+The current executable candidate is `f1ca644eaa3b3f92bef5c34766da727fb3f1b2e4775a6ed517e2a00f67fbaa3b`, based on the revision above plus this PR's executable changes. The last complete pilot below ran on prior candidate `7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf`, before the interruption-recovery repair; it does not approve the current candidate. The toolkit hashes tracked and nonignored untracked file contents; Markdown records and dotenv files are excluded. Each drive also checks the private copied source and actual production build. Markdown evidence updates do not silently approve executable changes. Receipts are sealed with a private checkout key; imported or edited receipts cannot become local approval.
 
 The pilot runs `node scripts/verification/cli.mjs self-test`, which performs the maintained launch → doctor → real browser drive → observation → proof → cleanup sequence. It uses Node `24.21.0`, npm `11.19.0`, Supabase CLI `2.101.0`, Docker `29.7.2`, Chrome DevTools MCP `1.10.1`, and automatically provisioned Chrome for Testing `154.0.8037.57`. The separate installed-browser smoke used Chromium `152.0.7977.82`. CI selects the repository's pinned npm `11.12.1`.
 
@@ -14,7 +14,7 @@ Each worker composes `scripts/ci/database.py` to start a fresh, seed-disabled lo
 
 ## Behavioral acceptance
 
-The final pilot passed all **38 steps** on the candidate above. Every healthy and deliberately broken app compiled and launched in production mode. All five launched providers, apps, and browsers were cleaned up. The same claims ran before, during, and after each fault; no expected outcome was learned from the broken implementation.
+The previous full pilot passed all **38 steps** on its recorded candidate. Every healthy and deliberately broken app compiled and launched in production mode. All five launched providers, apps, and browsers were cleaned up. Each affected claim ran before, during, and after its corresponding fault; no expected outcome was learned from the broken implementation.
 
 | Contract/control                               | Observed result                                                                                 |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -28,58 +28,59 @@ The final pilot passed all **38 steps** on the candidate above. Every healthy an
 | Changed private app copy                       | `INCONCLUSIVE / STALE_ARTIFACT`; restored doctor passes                                         |
 | Mutated candidate receipt                      | `BLOCKED / INCOMPLETE_EVIDENCE`                                                                 |
 | Missing or invalid mutation argument           | `BLOCKED / ARGUMENTS` before resource creation                                                  |
+| Exclusive pilot with another worker            | `BLOCKED / PILOT_BUSY` for launch; `BLOCKED / WORKER_BUSY` for an occupied pilot checkout       |
 
 These machine-readable extracts retain the consequential expected and observed results, candidate, session, origin, and time. They are a durable review record; `check-receipt` consumes the original locally sealed receipts, not these extracted summaries.
 
 ```json
 {
-	"candidate": "38fca7dcf91de8268f0c1728df0a0cbee028ac8d603cdce77e9b6553e4ebabd9",
+	"candidate": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
 	"browser": "Google Chrome for Testing 154.0.8037.57",
-	"pilot": "pilot-1790474190805.json",
+	"pilot": "pilot-1790475920561.json",
 	"status": "PASS",
 	"steps": 38,
 	"claims": [
 		{
 			"step": 6,
-			"recordedAt": "2026-09-27T01:51:40.065Z",
+			"recordedAt": "2026-09-27T02:20:29.807Z",
 			"claim": "group-persistence",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "38fca7dcf91de8268f0c1728df0a0cbee028ac8d603cdce77e9b6553e4ebabd9",
-			"session": "1e3d1db3-955c-476b-8c26-b97e597c87b5",
-			"origin": "http://127.0.0.1:37283",
+			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
+			"session": "0e5c590b-1e67-4010-ab01-b2d5d1fb2779",
+			"origin": "http://127.0.0.1:40439",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
 					"observedRows": [
 						{
-							"id": "7bf96e7f-fa38-4a08-96c8-6d36fc4dec96",
-							"name": "Saved 80217aee-d560-4be3-a8b5-945cc92776a9",
-							"organization_id": "c9461349-5f6d-426f-a826-4ba650186804"
+							"id": "fab8e8c4-d82e-4caa-b2a8-a75ded909a66",
+							"name": "Saved 33abbd4d-6250-464f-81f8-a3e3d9995d89",
+							"organization_id": "7b43669b-b40f-4cac-addd-757235da5a81"
 						}
 					],
 					"observed": true
 				},
 				{
 					"expected": "Saved Group survives full reload",
-					"savedId": "7bf96e7f-fa38-4a08-96c8-6d36fc4dec96",
+					"savedId": "fab8e8c4-d82e-4caa-b2a8-a75ded909a66",
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 7,
-			"recordedAt": "2026-09-27T01:51:43.009Z",
+			"recordedAt": "2026-09-27T02:20:32.784Z",
 			"claim": "group-authorization",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "38fca7dcf91de8268f0c1728df0a0cbee028ac8d603cdce77e9b6553e4ebabd9",
-			"session": "1e3d1db3-955c-476b-8c26-b97e597c87b5",
-			"origin": "http://127.0.0.1:37283",
+			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
+			"session": "0e5c590b-1e67-4010-ab01-b2d5d1fb2779",
+			"origin": "http://127.0.0.1:40439",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "c9461349-5f6d-426f-a826-4ba650186804",
+					"organization": "7b43669b-b40f-4cac-addd-757235da5a81",
 					"response": {
 						"status": 403
 					},
@@ -88,7 +89,7 @@ These machine-readable extracts retain the consequential expected and observed r
 				},
 				{
 					"expected": "Access denied (403/404) and no saved effect",
-					"organization": "48936377-5dbc-4296-b531-6b0b498714aa",
+					"organization": "10e2e3ce-5f68-41c0-b630-abde700c9f73",
 					"response": {
 						"status": 404
 					},
@@ -99,35 +100,35 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 8,
-			"recordedAt": "2026-09-27T01:51:45.783Z",
+			"recordedAt": "2026-09-27T02:20:35.468Z",
 			"claim": "personnel-scope",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "38fca7dcf91de8268f0c1728df0a0cbee028ac8d603cdce77e9b6553e4ebabd9",
-			"session": "1e3d1db3-955c-476b-8c26-b97e597c87b5",
-			"origin": "http://127.0.0.1:37283",
+			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
+			"session": "0e5c590b-1e67-4010-ab01-b2d5d1fb2779",
+			"origin": "http://127.0.0.1:40439",
 			"observations": [
 				{
 					"expected": "Personnel UI contains Able and excludes other Group, unassigned, and foreign Personnel",
 					"observed": true
 				},
 				{
-					"expectedIds": ["8dea5179-34fd-43d1-9f51-ae052ba6b326"],
+					"expectedIds": ["e5d71f31-bc48-44e9-ae89-caa61805e9dd"],
 					"status": 200,
-					"observedIds": ["8dea5179-34fd-43d1-9f51-ae052ba6b326"],
+					"observedIds": ["e5d71f31-bc48-44e9-ae89-caa61805e9dd"],
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 21,
-			"recordedAt": "2026-09-27T01:52:56.629Z",
+			"recordedAt": "2026-09-27T02:21:45.665Z",
 			"claim": "group-persistence",
 			"status": "FAIL",
 			"mutation": "persistence",
-			"artifact": "d3ff1b76b68935b72fa3c87d16a6bfec4a8df3c431a75e9059954b9ca19cd129",
-			"session": "3f26d71b-5acc-445b-9070-f0426f92b8ac",
-			"origin": "http://127.0.0.1:34939",
+			"artifact": "cbce26d4b5bd4114cc06358b1a1945531e9d4c35defb08ef6f02dfbee7163847",
+			"session": "6816eb1f-1498-4477-bc6b-d24b66207dc7",
+			"origin": "http://127.0.0.1:44821",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
@@ -138,52 +139,52 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 26,
-			"recordedAt": "2026-09-27T01:54:02.410Z",
+			"recordedAt": "2026-09-27T02:22:50.442Z",
 			"claim": "group-persistence",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "38fca7dcf91de8268f0c1728df0a0cbee028ac8d603cdce77e9b6553e4ebabd9",
-			"session": "1596a9dd-8ab3-4c9f-9d68-46858b541410",
-			"origin": "http://127.0.0.1:34123",
+			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
+			"session": "93319ead-fc9d-4f32-9923-4e8565033e4c",
+			"origin": "http://127.0.0.1:44637",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
 					"observedRows": [
 						{
-							"id": "3d721955-a471-4e9d-87ed-8a7d416b97b6",
-							"name": "Saved f4635762-12fd-41de-911f-165b32095bc0",
-							"organization_id": "b9a4478c-849c-4381-a69b-142e537fb785"
+							"id": "dcbe3531-ce18-4ac6-8fdd-756cf7d315d5",
+							"name": "Saved 0af16673-f57e-4b29-8a10-55c7ba295e21",
+							"organization_id": "fdcf466b-4108-4999-8c6e-c6a9061c4080"
 						}
 					],
 					"observed": true
 				},
 				{
 					"expected": "Saved Group survives full reload",
-					"savedId": "3d721955-a471-4e9d-87ed-8a7d416b97b6",
+					"savedId": "dcbe3531-ce18-4ac6-8fdd-756cf7d315d5",
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 31,
-			"recordedAt": "2026-09-27T01:55:08.545Z",
+			"recordedAt": "2026-09-27T02:23:56.219Z",
 			"claim": "group-authorization",
 			"status": "FAIL",
 			"mutation": "authorization",
-			"artifact": "d44ad2a26f25a094f1940c2931009db5cdd7d3c966a3330661ad0c3ff67f38b7",
-			"session": "71b88e37-1a6e-495c-a232-044b1596ea23",
-			"origin": "http://127.0.0.1:35945",
+			"artifact": "ba1eac2eb944fb5a3ac23cd36dead1d0ade80cd746f66bcccc79d4b2d1fccd3b",
+			"session": "38a0a78c-bca5-4bbd-a7b6-521c584b1416",
+			"origin": "http://127.0.0.1:43355",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "0d78fbee-5c8b-4279-8f9f-2799c9f1e85e",
+					"organization": "06d2b675-bff2-48e5-9558-ec179bf8bb9c",
 					"response": {
 						"status": 200
 					},
 					"savedRows": [
 						{
-							"id": "be8df24b-1cfe-4cb8-999e-01176db4dc90",
-							"organization_id": "0d78fbee-5c8b-4279-8f9f-2799c9f1e85e"
+							"id": "aebf4523-36a5-4528-9867-d859817a4941",
+							"organization_id": "06d2b675-bff2-48e5-9558-ec179bf8bb9c"
 						}
 					],
 					"observed": false
@@ -192,17 +193,17 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 35,
-			"recordedAt": "2026-09-27T01:56:12.088Z",
+			"recordedAt": "2026-09-27T02:25:01.920Z",
 			"claim": "group-authorization",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "38fca7dcf91de8268f0c1728df0a0cbee028ac8d603cdce77e9b6553e4ebabd9",
-			"session": "586449d2-b181-480f-809b-18a481ec82df",
-			"origin": "http://127.0.0.1:41615",
+			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
+			"session": "7aab6a70-0dfd-4b06-a101-a5bf1a2ef5df",
+			"origin": "http://127.0.0.1:34181",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "6f348b8c-e941-48d5-8454-d929f9cf6ead",
+					"organization": "88e03201-cf90-4550-9ed6-c08c89d1c157",
 					"response": {
 						"status": 403
 					},
@@ -211,7 +212,7 @@ These machine-readable extracts retain the consequential expected and observed r
 				},
 				{
 					"expected": "Access denied (403/404) and no saved effect",
-					"organization": "2ebda2dc-8b95-42d5-b7a1-1135c58f45bc",
+					"organization": "f83782bd-a456-4705-9e66-e1387bae3744",
 					"response": {
 						"status": 404
 					},
@@ -226,25 +227,25 @@ These machine-readable extracts retain the consequential expected and observed r
 
 ## Additional capability and refusal evidence
 
-- A second worker ran concurrently with the first using its own app port, profile, Supabase project, accounts, and mutable data. Native MCP stdio registration listed 30 tools and drove `list_pages` successfully. The browser stayed alive between commands.
+- A second worker ran concurrently with the first using its own app port, profile, Supabase project, accounts, and mutable data. After the exclusive-pilot repair, an active pilot blocked another worker's launch (`PILOT_BUSY`), an occupied worker blocked the pilot (`WORKER_BUSY`), and a verified dead pilot owner was recovered without deleting a live marker. Native MCP stdio registration listed 30 tools and drove `list_pages` successfully. The browser stayed alive between commands.
 - Native accessibility/DOM snapshot, console inspection, request inspection, screenshot, and performance trace capture worked. The trace smoke reported LCP 326 ms and CLS 0; this is capability evidence, not a reproducible performance claim. The reviewed [synthetic Personnel screenshot](evidence/personnel-healthy.png) shows the retained application at the same base app revision; it predates the final toolkit hardening.
 - Hiding installed Chromium from PATH exercised automatic Chrome for Testing download and installation. Missing `unzip` first returned `BLOCKED`; successful provisioning used temporary staging and an atomic cache install. No personal browser profile was accessed.
 - Killing only an identified owned supervisor caused doctor and drive to refuse; cleanup removed its exact remaining resources. Cleanup during startup cancelled only the owned detached process group and provider. Empty unused worker allocations can be recovered; nonempty unmarked directories are refused.
 - Provider-marker substitution was rejected before provider access. Restoring the owned marker allowed exact cleanup. The initial long project-ID truncation discovered during the pilot was repaired with IDs below Supabase's limit, and the two affected toolkit-created projects were positively identified and removed.
 
-Local raw receipts remain under `.verification/evidence/` after cleanup. The final healthy persistence receipt still passed `check-receipt` after its worker was removed. Private session files and keys are outside the checkout and are not published. The durable results above preserve synthetic observations without credentials, tokens, or raw network bodies.
+Local raw receipts remain under `.verification/evidence/` after cleanup. The previous healthy persistence receipt still passed `check-receipt` after its worker was removed. Private session files and keys are outside the checkout and are not published. The durable results above preserve synthetic observations without credentials, tokens, or raw network bodies.
 
 ## Repository checks and review
 
 Local formatting, focused ESLint, Markdown links, whitespace checks, Svelte/type checking (zero errors and warnings), eight existing CI-runner safety tests, and two subprocess completion/error tests passed. Skill metadata validation passed for both project skills. The full repository/application and disposable database checks ran successfully in preliminary Depot runs.
 
-Exact-candidate Depot validation passed in [run `sqvh7h59s7`](https://depot.dev/orgs/rvsvvkd4rp/workflows/8x1st130dw), base `f03a11236c89e37fe1b020488389177c755c45f5`, cache patch `patch/f03a11236c89/1fd744d0fa8e543e`. Its executable diff SHA-256 is `6baaf07c50bd17592f79598f3f9c3cfcdbc1424b827474005a54f99d8b7fdb2a`, reproducible with `git diff --binary f03a11236c89e37fe1b020488389177c755c45f5 -- . ':(exclude)*.md' | sha256sum`. Subsequent changes only record this result in Markdown; the executable digest is unchanged. Merge remains a separate review decision.
+The pre-review candidate passed [Depot run `sqvh7h59s7`](https://depot.dev/orgs/rvsvvkd4rp/workflows/8x1st130dw) on base `f03a11236c89e37fe1b020488389177c755c45f5`. The current executable candidate above has diff SHA-256 `f9eceb14a4975ea89bc036d7ce6f0922863e761c104690d8b97a4a6760f30836`, reproducible with `git diff --binary f03a11236c89e37fe1b020488389177c755c45f5 -- . ':(exclude)*.md' | sha256sum`. Its current-head hosted results are tracked on [PR #1385](https://github.com/waffleflopper/trooptotask/pull/1385); the prior run does not approve these executable repairs. Merge remains a separate review decision.
 
-- Repository/application: format, lint, governance, Svelte/types, **572 Vitest files / 5,118 tests**, and production build passed. Eight Python safety tests and documentation checks passed. Svelte/type diagnostics: zero errors and warnings. Governance preserves the existing 1,292 owned Phase 08 findings without new regression exceptions.
-- Disposable database: fresh migration replay, **40 SQL contract/regression runs / 944 assertions**, provider probes, and **nine populated-upgrade runs / 100 assertions** passed. Both exact projects (`t2t-ci-db-aeti36rq` and `t2t-ci-db-8jvf480n`) were stopped and removed by the existing runner.
+- Pre-review repository/application: format, lint, governance, Svelte/types, **572 Vitest files / 5,118 tests**, and production build passed. Eight Python safety tests and documentation checks passed. Svelte/type diagnostics: zero errors and warnings. Governance preserves the existing 1,292 owned Phase 08 findings without new regression exceptions.
+- Pre-review disposable database: fresh migration replay, **40 SQL contract/regression runs / 944 assertions**, provider probes, and **nine populated-upgrade runs / 100 assertions** passed. Both exact projects (`t2t-ci-db-aeti36rq` and `t2t-ci-db-8jvf480n`) were stopped and removed by the existing runner.
 - Material warnings: CI download caching was unavailable but installation completed; the production build retains the existing optional `@opentelemetry/api`, chunk-size, and mixed-import warnings. No warning was converted into a skipped required check.
 
-The primary independent review used `gpt-6-sol` with `xhigh` effort and focused on ownership, cleanup, evidence integrity, and falsifiable claims. Findings about edited receipts, malformed launch arguments, interrupted startup cleanup, fast child exits, concurrent issuer-key creation, and mixed-candidate pilots were fixed and re-reviewed with no remaining blocker in those paths. No broad style cleanup was added.
+The primary independent implementation review used `gpt-6-sol` with `xhigh` effort and focused on ownership, cleanup, evidence integrity, and falsifiable claims. Findings about edited receipts, malformed launch arguments, interrupted startup cleanup, fast child exits, concurrent issuer-key creation, and mixed-candidate pilots were fixed and re-reviewed with no remaining blocker in those paths. No broad style cleanup was added. A later PR review found four valid issues: the pilot coverage wording, early supervisor exit reporting, unreadable `/proc` entries, and exclusive access during the pilot source-change control. Those were repaired; the prior candidate passed the same 38-step pilot and healthy receipt check. A follow-up review then found that an interrupted pilot could leave an orphaned lock. The current source uses a process-owned marker and removes only a verified stale marker. Focused formatting/lint/tests, active-pilot launch refusal, stale-owner recovery, and occupied-worker pilot refusal passed locally. The complete pilot and hosted checks for this last source change remain pending.
 
 The dependency audit introduced no new advisory names compared with the base lockfile: both report the same 17 advisories (2 low, 8 moderate, 6 high, 1 critical). Those existing dependency findings are outside this tooling slice. The three new development dependencies are exact-pinned; no Playwright dependency or tracked browser-spec suite was added.
 

@@ -76,7 +76,13 @@ export async function terminateOwnedGroup(identity) {
 export async function profileProcess(profile) {
 	for (const name of await fs.readdir('/proc')) {
 		if (!/^\d+$/.test(name)) continue;
-		const identity = await processIdentity(Number(name));
+		let identity;
+		try {
+			identity = await processIdentity(Number(name));
+		} catch {
+			// Other users' /proc entries may be unreadable; keep looking for our browser.
+			continue;
+		}
 		if (identity?.command.split('\0').includes(`--user-data-dir=${profile}`)) return identity;
 	}
 	return null;
@@ -97,6 +103,72 @@ export function sessionPath(worker = '1') {
 	if (!['1', '2'].includes(worker))
 		throw new Blocked('WORKER', 'Choose worker 1 or 2; each owns an exclusive session.');
 	return path.join(sessions, `worker-${worker}`);
+}
+export async function reservePilot(worker) {
+	sessionPath(worker);
+	await fs.mkdir(sessions, { recursive: true, mode: 0o700 });
+	const identity = await processIdentity(process.pid);
+	if (!identity) throw new Blocked('PILOT_OWNERSHIP', 'Cannot identify this self-test process.');
+	const file = path.join(sessions, `pilot-${worker}-${randomUUID()}`);
+	const target = JSON.stringify({ repository, worker, ...identity });
+	await fs.symlink(target, file);
+	return { file, target, worker };
+}
+export async function activePilots() {
+	let entries;
+	try {
+		entries = await fs.readdir(sessions, { withFileTypes: true });
+	} catch (error) {
+		if (error.code === 'ENOENT') return [];
+		throw error;
+	}
+	const active = [];
+	for (const entry of entries) {
+		if (!entry.name.startsWith('pilot-')) continue;
+		const match = /^pilot-([12])-[0-9a-f-]{36}$/.exec(entry.name);
+		if (!match || !entry.isSymbolicLink())
+			throw new Blocked('PILOT_OWNERSHIP', 'Unexpected pilot lock; inspect private state before continuing.');
+		const file = path.join(sessions, entry.name);
+		let target;
+		try {
+			target = await fs.readlink(file);
+		} catch (error) {
+			if (error.code === 'ENOENT') continue;
+			throw error;
+		}
+		let owner;
+		try {
+			owner = JSON.parse(target);
+		} catch {
+			throw new Blocked('PILOT_OWNERSHIP', 'Invalid pilot owner marker; refusing to change it.');
+		}
+		if (
+			owner.repository !== repository ||
+			owner.worker !== match[1] ||
+			!Number.isInteger(owner.pid) ||
+			typeof owner.start !== 'string' ||
+			typeof owner.command !== 'string'
+		)
+			throw new Blocked('PILOT_OWNERSHIP', 'Foreign pilot owner marker; refusing to change it.');
+		const current = await processIdentity(owner.pid);
+		if (current?.start === owner.start && current.command === owner.command) {
+			active.push({ file, worker: owner.worker });
+			continue;
+		}
+		try {
+			if ((await fs.readlink(file)) !== target)
+				throw new Blocked('PILOT_OWNERSHIP', 'Pilot owner changed while checking stale state.');
+			await fs.unlink(file);
+		} catch (error) {
+			if (error.code !== 'ENOENT') throw error;
+		}
+	}
+	return active;
+}
+export async function releasePilot(pilot) {
+	if ((await fs.readlink(pilot.file)) !== pilot.target)
+		throw new Blocked('PILOT_OWNERSHIP', 'Pilot owner changed; refusing to remove its lock.');
+	await fs.unlink(pilot.file);
 }
 export async function files() {
 	const { stdout } = await execute('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {

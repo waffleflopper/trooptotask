@@ -3,20 +3,42 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { repository, root, sessionPath, execute, readJSON, writeJSON, candidate, Blocked } from './core.mjs';
+import {
+	repository,
+	root,
+	sessionPath,
+	reservePilot,
+	activePilots,
+	releasePilot,
+	execute,
+	readJSON,
+	writeJSON,
+	candidate,
+	Blocked
+} from './core.mjs';
 
 export async function selfTest(worker) {
+	const pilot = await reservePilot(worker);
+	try {
+		if ((await activePilots()).some((active) => active.file !== pilot.file))
+			throw new Blocked('PILOT_BUSY', 'The other worker is running an exclusive self-test.');
+		for (const current of ['1', '2']) {
+			try {
+				await fs.access(sessionPath(current));
+				throw new Blocked('WORKER_BUSY', 'Self-test needs both workers unused; cleanup owned sessions first.');
+			} catch (error) {
+				if (error.code !== 'ENOENT') throw error;
+			}
+		}
+		return await runExclusivePilot(worker);
+	} finally {
+		await releasePilot(pilot);
+	}
+}
+
+async function runExclusivePilot(worker) {
 	const session = sessionPath(worker);
 	const candidateUnderTest = await candidate();
-	try {
-		await fs.access(session);
-		throw new Blocked(
-			'WORKER_BUSY',
-			'Self-test needs an unused worker; cleanup your owned session or choose worker 2.'
-		);
-	} catch (error) {
-		if (error.code !== 'ENOENT') throw error;
-	}
 	const results = [];
 	let ownsSession = false;
 	async function run(args, expected = 'PASS') {

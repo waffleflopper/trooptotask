@@ -1,4 +1,9 @@
 {
+	"git": {
+		"deploymentEnabled": {
+			"t3code/agent-verification-toolkit": false
+		}
+	},
 	"installCommand": "npx npm@11.12.1 ci",
 	"buildCommand": "npm run build",
 	"rewrites": [

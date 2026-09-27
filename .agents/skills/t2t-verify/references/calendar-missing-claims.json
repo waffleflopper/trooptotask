@@ -1,0 +1,17 @@
+{
+	"schema": 1,
+	"issue": "Missing-coverage example: one availability behavior from waffleflopper/trooptotask#1352; not activation or full issue coverage",
+	"requirements": [
+		{
+			"claim": "calendar-availability-persistence",
+			"behavior": "An authorized Calendar operator saves ordinary availability for a same-Organization Person with the chosen status and dates; exact saved fields survive reload.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 — preserve saved Calendar facts and Organization/Group access; availability read/write positive/negative checks",
+			"contract": "R6 in docs/stabilization/BASELINE.md; Calendar capability and Organization/Group scope in docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md",
+			"coverage": [
+				"Partial: src/lib/server/core/useCases/availabilityBatch.test.ts — in-memory save and denied capability/scope",
+				"Partial: supabase/tests/calendar_lane_unassigned_scope.sql — database scope and availability persistence",
+				"Missing: no reusable Calendar browser claim or Calendar-capable synthetic actor in scripts/verification/"
+			]
+		}
+	]
+}

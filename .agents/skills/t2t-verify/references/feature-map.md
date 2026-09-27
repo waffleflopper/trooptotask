@@ -1,0 +1,33 @@
+# Initial retained-flow map
+
+This map records source-backed route and harness entry points, not a completed browser run. Confirm them with a fresh snapshot on the candidate under test. [R1, R5, and R7](../../../../docs/stabilization/BASELINE.md#retained-contracts) and the [approved authorization contract](../../../../docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) define expected access; [computer-use evidence](../../../../docs/architecture/DEFINITION_OF_DONE.md#computer-use-flow-evidence) defines the proof record. The current driver and claims live in [claims.mjs](../../../../scripts/verification/claims.mjs), with synthetic users and records in [fixtures.mjs](../../../../scripts/verification/fixtures.mjs).
+
+## Login to the owned synthetic app
+
+- **User path:** `login manager|viewer|scoped|foreign` opens `/auth/login?next=/org/<orgId>/personnel` in a new isolated browser context, fills `Email Address` and `Password`, and selects `Sign In`. The fixture creates four synthetic accounts in two Organizations.
+- **Observe:** A fresh Personnel snapshot after sign-in shows a fixture row such as `Able, Synthetic`; doctor still identifies the owned app and provider. The helper reports the `pageId` for further inspection. The login form and server action are under [auth/login](../../../../src/routes/auth/login/).
+- **Gotcha:** The four roles get separate browser contexts, so a result in one tab does not prove another role's session. An empty or error page after submit needs auth/provider diagnosis, not a guessed selector or repeated blind login.
+- **Limit:** A successful helper call is not proof of MFA, recovery, invitation, suspension, or all R5 admission rules. Those flows need their own task-specific evidence.
+
+## Group creation, persistence, and denied writes
+
+- **User path:** On `/org/<orgId>/personnel`, the `manager` fixture has a Personnel `configure` override. Open `Manage Groups`, enter a name in `Organization groups`, and select `Add`. The `group-persistence` claim performs this through the UI, checks exactly one row in Organization A, reloads, and looks for the saved name again.
+- **Approved rule and source:** [Policy action](../../../../src/lib/access/policyEvaluator.ts) requires Personnel `configure` for `manageGroups`. The [Group endpoint](../../../../src/routes/org/[orgId]/api/groups/+server.ts) and [write operation](../../../../src/features/personnel/groupOperations.server.ts) enforce the action server-side and write through the Organization-scoped store; the UI affordance alone is advisory.
+- **Denied path:** `group-authorization` signs in as a `viewer` and attempts Group POSTs in both Organizations. The same-Organization write must return `403`; the foreign-Organization write may return `403` or `404` under the existing [Organization admission](../../../../src/lib/server/adapters/supabaseOrganizationAdmission.ts) and [membership admission](../../../../src/lib/server/adapters/membershipAdmission.test.ts) behavior. Neither request may save a row. This checks server enforcement alongside the UI path, as required by R1; the foreign `404` is concealment, not a successful write.
+- **Gotcha:** An Add click or optimistic UI update is not persistence. Check the saved row and full reload. If an empty form, save error, or unchanged row appears, preserve that state before classifying product failure versus harness/selector drift.
+- **Limit:** These two claims do not cover every Group edit/delete, member preset, or RLS policy. A selector change or blocked fixture is `INCONCLUSIVE` until investigated; a confirmed behavior mismatch is `FAIL`.
+
+## Scoped Personnel read
+
+- **User path:** `personnel-scope` signs in as `scoped`, whose access is limited to Group Alpha in Organization A. The fixture has Able in Alpha, Baker in Bravo, an unassigned person, and Foreign in Organization B.
+- **Observe:** The `/personnel` snapshot includes `Able, Synthetic` and excludes `Baker, Synthetic`, `Unassigned, Synthetic`, and `Foreign, Synthetic`. The same signed-in browser fetches the rendered Personnel page's `/__data.json` and checks that only Able's known fixture ID appears. This is the page-data path, not a Personnel API GET.
+- **Approved rule and source:** The [shared scope matcher](../../../../src/lib/access/scopeSetAccess.ts) admits only granted Groups for Group-scoped members; the [Personnel roster filter](../../../../src/features/personnel/rosterReadModel.ts) applies that scope. The [approved contract](../../../../docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) keeps Group scope separate from role and capability. The [local row-scope repair](../../../../supabase/migrations/20260926000700_personnel_unassigned_scope.sql) excludes unassigned Personnel from Group-scoped reads.
+- **Gotcha:** A truly empty scoped roster is possible for an empty Group grant; it cannot pass this fixture's Able expectation. If the page shows an error or the data request fails, record both before deciding whether the page, scope policy, provider, or harness is at fault. A name-only snapshot is weaker than the fixture-ID check.
+- **Limit:** This proves one R1 Group-scope page read. It does not prove Personnel writes, artifacts/private files, archive/restore, or every R7 record. Add those paths only when an owning task requires them.
+
+## Organization-wide Personnel read
+
+- **User path:** `prove personnel-organization-scope` uses the existing Organization-scoped `viewer`, normal login, and `/org/<orgId>/personnel`.
+- **Contract and coverage:** [Organization scope](../../../../docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md) includes unassigned Personnel. The [roster tests](../../../../src/features/personnel/rosterReadModel.test.ts) and [SQL scope checks](../../../../supabase/tests/personnel_unassigned_row_scope.sql) supply independent lower-level coverage. [The example required set](personnel-claims.json) maps this behavior to D03 acceptance without reopening that issue.
+- **Observe:** The UI shows Able, Baker, and Unassigned; the page-data response includes their exact three fixture IDs and excludes Foreign. These expectations come from the fixture's explicit ownership and approved scope contract.
+- **Gotcha and limit:** A Group-scoped success cannot prove Organization-wide completeness. The `viewer` has read access, not Group configuration or Calendar access. Existing Group denied-write checks remain separate; this claim does not prove Personnel writes, empty Organizations, or Calendar behavior.

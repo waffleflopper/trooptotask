@@ -1,7 +1,11 @@
 import type { DataStore } from '../ports';
 import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from '$features/personnel/contracts';
 import { isPersonnelOrganizationExportTable } from '$features/personnel/contracts';
-import { listSpecialDayExportRows, listStatusTypeExportRows } from '$features/calendar/index.server';
+import {
+	listAssignmentTypeExportRows,
+	listSpecialDayExportRows,
+	listStatusTypeExportRows
+} from '$features/calendar/index.server';
 import {
 	assertOrganizationDataExportManifestIsSafe,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,
@@ -49,6 +53,9 @@ export async function loadOrganizationExportPayload(
 					}
 					if (section.key === 'statusTypes') {
 						return [section.key, await listStatusTypeExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'assignmentTypes') {
+						return [section.key, await listAssignmentTypeExportRows(store, orgId)] as const;
 					}
 					const rows = await store.findMany<Record<string, unknown>>(
 						section.table,

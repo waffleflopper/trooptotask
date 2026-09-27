@@ -4,7 +4,7 @@ import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
-import { createSupabaseAssignmentTypeRetention } from '$lib/server/adapters/supabaseAssignmentTypeRetention';
+import { createSupabaseAssignmentTypeRetention } from '$features/calendar/index.server';
 import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
 import { getAdminClient } from '$lib/server/supabase';
 import {

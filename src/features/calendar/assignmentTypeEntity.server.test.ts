@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AssignmentTypeEntity } from './assignmentType';
+import { AssignmentTypeEntity } from './assignmentTypeEntity.server';
 import type { AssignmentType } from '$lib/types';
 
 describe('AssignmentTypeEntity', () => {

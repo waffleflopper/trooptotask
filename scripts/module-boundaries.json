@@ -73,9 +73,7 @@
 			"files": [
 				"src/lib/components/GroupHeader.svelte",
 				"src/lib/components/GroupHeader.test.ts",
-				"src/lib/server/adapters/supabaseAssignmentTypeRetention.ts",
 				"src/lib/server/calendarLayoutServer.test.ts",
-				"src/lib/server/core/useCases/assignmentTypeCrud.test.ts",
 				"src/lib/server/core/useCases/calendarPolicy.ts",
 				"src/lib/server/core/useCases/calendarQuery.test.ts",
 				"src/lib/server/core/useCases/calendarQuery.ts",
@@ -89,8 +87,6 @@
 				"src/lib/server/core/useCases/dailyAssignmentsBatch.test.ts",
 				"src/lib/server/core/useCases/dailyAssignmentsBatch.ts",
 				"src/lib/server/core/useCases/dailyAssignmentsPreservation.test.ts",
-				"src/lib/server/entities/assignmentType.test.ts",
-				"src/lib/server/entities/assignmentType.ts",
 				"src/lib/server/entities/dailyAssignment.test.ts",
 				"src/lib/server/entities/dailyAssignment.ts",
 				"src/lib/server/utils/calendarTiming.test.ts",

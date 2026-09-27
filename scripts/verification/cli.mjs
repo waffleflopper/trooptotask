@@ -27,6 +27,7 @@ import {
 	checkReceipt
 } from './core.mjs';
 import { claimNames } from './claims.mjs';
+import { checkClaims } from './claim-set.mjs';
 
 const argv = process.argv.slice(2);
 const option = argv.indexOf('--worker');
@@ -55,6 +56,7 @@ tools                 Native DevTools tool names, descriptions, and JSON argumen
 tool NAME '{...}'     Call a native DevTools tool (pageId and snapshot UIDs from its output)
 prove CLAIM           ${claimNames.join(' | ')}; PASS / FAIL / INCONCLUSIVE receipt
 check-receipt FILE    Refuse old/negative/incomplete evidence; does not replace CI or release gates
+check-claims PLAN [RECEIPT...]   Check the issue's exact required claims; missing coverage blocks refactoring
 self-test             Exclusive healthy/broken/restored pilot plus stale/foreign/unavailable controls
 mcp                   Stdio MCP proxy for the running owned worker; register this project-local command
 cleanup               Stop exact owned processes/provider; retain sanitized proof receipts
@@ -290,6 +292,9 @@ try {
 				break;
 			case 'check-receipt':
 				result = await checkReceipt(args[0]);
+				break;
+			case 'check-claims':
+				result = await checkClaims(args[0], args.slice(1));
 				break;
 			case 'self-test': {
 				const { selfTest } = await import('./self-test.mjs');

@@ -1,0 +1,18 @@
+{
+	"schema": 1,
+	"issue": "Coverage example: Organization roster subset of waffleflopper/trooptotask#1351; not issue completion",
+	"requirements": [
+		{
+			"claim": "personnel-organization-scope",
+			"behavior": "An Organization-scoped Personnel viewer sees Alpha, Bravo, and unassigned Personnel in Organization A, and no Personnel in Organization B.",
+			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1351 — full/scoped roster semantics; explicit scoped projections with authorized/denied tests",
+			"contract": "docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md — Organization scope includes unassigned Personnel; R1 in docs/stabilization/BASELINE.md",
+			"coverage": [
+				"src/features/personnel/rosterReadModel.test.ts — Organization view includes both Groups and unassigned Personnel",
+				"supabase/tests/personnel_unassigned_row_scope.sql — Organization scope and foreign-Organization exclusion",
+				"scripts/verification/fixtures.mjs — viewer, personA, personB, personUnassigned, personForeign",
+				"scripts/verification/claims.mjs — personnel-organization-scope live UI and exact page-data IDs"
+			]
+		}
+	]
+}

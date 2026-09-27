@@ -2,19 +2,73 @@
 
 This tooling slice starts from D03's merged [PR #1384](https://github.com/waffleflopper/trooptotask/pull/1384), main revision `f03a11236c89e37fe1b020488389177c755c45f5`. [Workflow #1275](https://github.com/waffleflopper/trooptotask/issues/1275) and the stabilization queue remain unchanged. No application source, schema, production provider, existing local database, or authentication behavior was changed.
 
-The installed entry points are [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md), [t2t-verify](../../.agents/skills/t2t-verify/SKILL.md), and `npm run verify:app -- --help`. The initial [Feature Map](../../.agents/skills/t2t-verify/references/feature-map.md) covers normal synthetic login, Group creation and persistence, denied Group writes, and Group-scoped Personnel reads. The [upstream record](upstreams.md) contains exact versions, licenses, readable article sources, MCP registration, and setup instructions.
+The installed entry points are [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md), [t2t-verify](../../.agents/skills/t2t-verify/SKILL.md), and `npm run verify:app -- --help`. The initial [Feature Map](../../.agents/skills/t2t-verify/references/feature-map.md) covers normal synthetic login, Group creation and persistence, denied Group writes, and both Group-scoped and Organization-wide Personnel reads. The [upstream record](upstreams.md) contains exact versions, licenses, readable article sources, MCP registration, and setup instructions.
 
 ## Candidate and environment
 
-The current executable candidate is `f1ca644eaa3b3f92bef5c34766da727fb3f1b2e4775a6ed517e2a00f67fbaa3b`, based on the revision above plus this PR's executable changes. The last complete pilot below ran on prior candidate `7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf`, before the interruption-recovery repair; it does not approve the current candidate. The toolkit hashes tracked and nonignored untracked file contents; Markdown records and dotenv files are excluded. Each drive also checks the private copied source and actual production build. Markdown evidence updates do not silently approve executable changes. Receipts are sealed with a private checkout key; imported or edited receipts cannot become local approval.
+The current executable candidate is `f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394`, based on the revision above plus this PR's executable changes. The complete pilot and coverage-first baseline below ran on this same candidate. The toolkit hashes tracked and nonignored untracked file contents; Markdown records and dotenv files are excluded. Each drive also checks the private copied source and actual production build. Markdown evidence updates do not silently approve executable changes. Receipts are sealed with a private checkout key; imported or edited receipts cannot become local approval.
 
 The pilot runs `node scripts/verification/cli.mjs self-test`, which performs the maintained launch → doctor → real browser drive → observation → proof → cleanup sequence. It uses Node `24.21.0`, npm `11.19.0`, Supabase CLI `2.101.0`, Docker `29.7.2`, Chrome DevTools MCP `1.10.1`, and automatically provisioned Chrome for Testing `154.0.8037.57`. The separate installed-browser smoke used Chromium `152.0.7977.82`. CI selects the repository's pinned npm `11.12.1`.
 
 Each worker composes `scripts/ci/database.py` to start a fresh, seed-disabled local Supabase project with a unique project ID and checked ports in `58000–64999`. It creates two synthetic Organizations, three Groups, four Personnel, and four confirmed users with explicit permissions. Sign-in uses the real form. Production build/preview use only the disposable provider URL and generated local keys, generated setup secrets, the allocated loopback app origin, `NODE_ENV=production`, and empty `PUBLIC_APP_ORIGIN`, `PUBLIC_SITE_URL`, and `APP_PUBLIC_ORIGIN_ALLOWLIST`. Contributor dotenv files and inherited provider secrets are excluded.
 
+## Coverage-first verification
+
+The [coverage-first workflow](../../.agents/skills/t2t-verify/references/coverage-first.md) requires issue acceptance and approved contracts to be mapped to exact claims and existing coverage before refactoring. `check-claims PLAN RECEIPT...` checks every declared requirement using the existing receipt verifier. The mapping itself still needs independent review; the command cannot infer whether a prose contract was interpreted correctly.
+
+The Personnel teaching subset initially returned `MISSING_COVERAGE` for `personnel-organization-scope` before that check existed (candidate `b0c426c2a8ee94688495939ccac190d57fd8038a2eb95dc4adec466fc68ef9c8`). The extension reused the existing viewer, synthetic records, normal login, browser driver and receipt issuer. Application and fixture code stayed unchanged. Its baseline passed before any application refactor; the existing Group-scope check also passed on the same candidate.
+
+| Required set / input                                            | Actual result                                                 |
+| --------------------------------------------------------------- | ------------------------------------------------------------- |
+| Personnel Organization scope + its own fresh receipt            | `PASS`, exit 0; exact three Organization-A IDs, no foreign ID |
+| Same Personnel set without a receipt                            | `BLOCKED / MISSING_RECEIPT`, exit 2                           |
+| Calendar availability + fresh passing Group persistence receipt | `BLOCKED / MISSING_COVERAGE` and `UNRELATED_CLAIM`, exit 2    |
+
+Calendar's existing unit and SQL checks are recorded as partial coverage. No Calendar actor, browser claim, or application refactor was added, and no Calendar verification is claimed. Neither teaching subset declares its entire referenced issue complete.
+
+Two focused gate tests exercise the real issuer/verifier in a temporary checkout with a separate receipt key: complete and partial sets, unavailable implementation, missing inventory, empty sets, unrelated/duplicate inputs, failed/inconclusive/blocked evidence, actual changed-source staleness, edited evidence, missing files, and CLI exit 2. Their synthetic protocol receipts cannot approve this checkout's application. Focused independent review found no blocking issue.
+
+The baseline extract below is review evidence, not a substitute for its sealed local receipt (`1790477222908-f0d1f474-cefc-4a69-b5db-dee38ab9e7e3.json`). The machine-readable set outcomes remain in `.verification/evidence/coverage-complete.json`, `coverage-missing-receipt.json`, and `coverage-calendar-blocked.json` after cleanup.
+
+```json
+{
+	"candidate": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
+	"recordedAt": "2026-09-27T02:47:02.908Z",
+	"origin": "http://127.0.0.1:43097",
+	"claim": "personnel-organization-scope",
+	"status": "PASS",
+	"scope": {
+		"role": "viewer",
+		"organizationId": "ff0ef2bc-9000-4d82-b945-d8a5a25ad19b",
+		"groupIds": null
+	},
+	"observations": [
+		{
+			"expectedVisible": ["Able, Synthetic", "Baker, Synthetic", "Unassigned, Synthetic"],
+			"expectedHidden": ["Foreign, Synthetic"],
+			"observed": true
+		},
+		{
+			"expectedIds": [
+				"3bc65da9-e3bc-48a8-ba32-c8dd8dc9b854",
+				"7f2fcb46-f415-4b53-8df9-aca984d180fa",
+				"c8056f18-6e8f-4fca-82ae-613aa2f7c216"
+			],
+			"status": 200,
+			"observedIds": [
+				"3bc65da9-e3bc-48a8-ba32-c8dd8dc9b854",
+				"7f2fcb46-f415-4b53-8df9-aca984d180fa",
+				"c8056f18-6e8f-4fca-82ae-613aa2f7c216"
+			],
+			"observed": true
+		}
+	]
+}
+```
+
 ## Behavioral acceptance
 
-The previous full pilot passed all **38 steps** on its recorded candidate. Every healthy and deliberately broken app compiled and launched in production mode. All five launched providers, apps, and browsers were cleaned up. Each affected claim ran before, during, and after its corresponding fault; no expected outcome was learned from the broken implementation.
+The current full pilot passed all **38 steps** on the candidate above. Every healthy and deliberately broken app compiled and launched in production mode. All five launched providers, apps, and browsers were cleaned up. Each affected claim ran before, during, and after its corresponding fault; no expected outcome was learned from the broken implementation.
 
 | Contract/control                               | Observed result                                                                                 |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -34,53 +88,53 @@ These machine-readable extracts retain the consequential expected and observed r
 
 ```json
 {
-	"candidate": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
+	"candidate": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
 	"browser": "Google Chrome for Testing 154.0.8037.57",
-	"pilot": "pilot-1790475920561.json",
+	"pilot": "pilot-1790477612738.json",
 	"status": "PASS",
 	"steps": 38,
 	"claims": [
 		{
 			"step": 6,
-			"recordedAt": "2026-09-27T02:20:29.807Z",
+			"recordedAt": "2026-09-27T02:48:42.921Z",
 			"claim": "group-persistence",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
-			"session": "0e5c590b-1e67-4010-ab01-b2d5d1fb2779",
-			"origin": "http://127.0.0.1:40439",
+			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
+			"session": "58509644-8dfe-4adc-9871-7d44dae94aca",
+			"origin": "http://127.0.0.1:38861",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
 					"observedRows": [
 						{
-							"id": "fab8e8c4-d82e-4caa-b2a8-a75ded909a66",
-							"name": "Saved 33abbd4d-6250-464f-81f8-a3e3d9995d89",
-							"organization_id": "7b43669b-b40f-4cac-addd-757235da5a81"
+							"id": "279dbcdd-5837-4cea-bf5a-e5b67aeaba64",
+							"name": "Saved f0e5ae2d-9231-47dc-9f0e-9cb99cc4cc24",
+							"organization_id": "a18ec6d2-f07a-4334-9d1a-ae45d0877c78"
 						}
 					],
 					"observed": true
 				},
 				{
 					"expected": "Saved Group survives full reload",
-					"savedId": "fab8e8c4-d82e-4caa-b2a8-a75ded909a66",
+					"savedId": "279dbcdd-5837-4cea-bf5a-e5b67aeaba64",
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 7,
-			"recordedAt": "2026-09-27T02:20:32.784Z",
+			"recordedAt": "2026-09-27T02:48:45.880Z",
 			"claim": "group-authorization",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
-			"session": "0e5c590b-1e67-4010-ab01-b2d5d1fb2779",
-			"origin": "http://127.0.0.1:40439",
+			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
+			"session": "58509644-8dfe-4adc-9871-7d44dae94aca",
+			"origin": "http://127.0.0.1:38861",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "7b43669b-b40f-4cac-addd-757235da5a81",
+					"organization": "a18ec6d2-f07a-4334-9d1a-ae45d0877c78",
 					"response": {
 						"status": 403
 					},
@@ -89,7 +143,7 @@ These machine-readable extracts retain the consequential expected and observed r
 				},
 				{
 					"expected": "Access denied (403/404) and no saved effect",
-					"organization": "10e2e3ce-5f68-41c0-b630-abde700c9f73",
+					"organization": "1dde7ddf-bcdb-4abc-b373-f911a1b15a06",
 					"response": {
 						"status": 404
 					},
@@ -100,35 +154,36 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 8,
-			"recordedAt": "2026-09-27T02:20:35.468Z",
+			"recordedAt": "2026-09-27T02:48:48.598Z",
 			"claim": "personnel-scope",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
-			"session": "0e5c590b-1e67-4010-ab01-b2d5d1fb2779",
-			"origin": "http://127.0.0.1:40439",
+			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
+			"session": "58509644-8dfe-4adc-9871-7d44dae94aca",
+			"origin": "http://127.0.0.1:38861",
 			"observations": [
 				{
-					"expected": "Personnel UI contains Able and excludes other Group, unassigned, and foreign Personnel",
+					"expectedVisible": ["Able, Synthetic"],
+					"expectedHidden": ["Baker, Synthetic", "Unassigned, Synthetic", "Foreign, Synthetic"],
 					"observed": true
 				},
 				{
-					"expectedIds": ["e5d71f31-bc48-44e9-ae89-caa61805e9dd"],
+					"expectedIds": ["34c88ae7-9997-4fc6-a4c7-d4e94878dc88"],
 					"status": 200,
-					"observedIds": ["e5d71f31-bc48-44e9-ae89-caa61805e9dd"],
+					"observedIds": ["34c88ae7-9997-4fc6-a4c7-d4e94878dc88"],
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 21,
-			"recordedAt": "2026-09-27T02:21:45.665Z",
+			"recordedAt": "2026-09-27T02:49:58.962Z",
 			"claim": "group-persistence",
 			"status": "FAIL",
 			"mutation": "persistence",
-			"artifact": "cbce26d4b5bd4114cc06358b1a1945531e9d4c35defb08ef6f02dfbee7163847",
-			"session": "6816eb1f-1498-4477-bc6b-d24b66207dc7",
-			"origin": "http://127.0.0.1:44821",
+			"artifact": "4ea3f0c083599b23b3b3b83c026111e052afa716e7d468bb326af90b8638bddd",
+			"session": "6e233b4d-5d19-45d9-9746-cd67228bd427",
+			"origin": "http://127.0.0.1:36667",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
@@ -139,52 +194,52 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 26,
-			"recordedAt": "2026-09-27T02:22:50.442Z",
+			"recordedAt": "2026-09-27T02:51:04.392Z",
 			"claim": "group-persistence",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
-			"session": "93319ead-fc9d-4f32-9923-4e8565033e4c",
-			"origin": "http://127.0.0.1:44637",
+			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
+			"session": "8545121b-b59a-47e1-933b-124966022bce",
+			"origin": "http://127.0.0.1:36991",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
 					"observedRows": [
 						{
-							"id": "dcbe3531-ce18-4ac6-8fdd-756cf7d315d5",
-							"name": "Saved 0af16673-f57e-4b29-8a10-55c7ba295e21",
-							"organization_id": "fdcf466b-4108-4999-8c6e-c6a9061c4080"
+							"id": "51c4c715-3f31-4c00-b1ef-abc9e9134bd6",
+							"name": "Saved c237b60d-cba1-4acd-b215-fc69fb10847e",
+							"organization_id": "62276950-35d7-4fa7-a05a-2388d5a553cf"
 						}
 					],
 					"observed": true
 				},
 				{
 					"expected": "Saved Group survives full reload",
-					"savedId": "dcbe3531-ce18-4ac6-8fdd-756cf7d315d5",
+					"savedId": "51c4c715-3f31-4c00-b1ef-abc9e9134bd6",
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 31,
-			"recordedAt": "2026-09-27T02:23:56.219Z",
+			"recordedAt": "2026-09-27T02:52:10.584Z",
 			"claim": "group-authorization",
 			"status": "FAIL",
 			"mutation": "authorization",
-			"artifact": "ba1eac2eb944fb5a3ac23cd36dead1d0ade80cd746f66bcccc79d4b2d1fccd3b",
-			"session": "38a0a78c-bca5-4bbd-a7b6-521c584b1416",
-			"origin": "http://127.0.0.1:43355",
+			"artifact": "252782a3778c09263576debee314b32d0ac9d8197d6b06bc0928f9278dbebb57",
+			"session": "dc2deb57-9b5d-49b0-b21d-b7677e55332e",
+			"origin": "http://127.0.0.1:38825",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "06d2b675-bff2-48e5-9558-ec179bf8bb9c",
+					"organization": "223519f8-f20c-4da5-a09d-12009e30fb63",
 					"response": {
 						"status": 200
 					},
 					"savedRows": [
 						{
-							"id": "aebf4523-36a5-4528-9867-d859817a4941",
-							"organization_id": "06d2b675-bff2-48e5-9558-ec179bf8bb9c"
+							"id": "5af4949e-3a55-49de-a90b-0d471c1dede7",
+							"organization_id": "223519f8-f20c-4da5-a09d-12009e30fb63"
 						}
 					],
 					"observed": false
@@ -193,17 +248,17 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 35,
-			"recordedAt": "2026-09-27T02:25:01.920Z",
+			"recordedAt": "2026-09-27T02:53:14.069Z",
 			"claim": "group-authorization",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "7412c1451ac25d0b1e9a44db965080664d3dd6d8cef57c2f61bcfe9424ff20bf",
-			"session": "7aab6a70-0dfd-4b06-a101-a5bf1a2ef5df",
-			"origin": "http://127.0.0.1:34181",
+			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
+			"session": "06374eca-e885-43f9-a4c2-1284f8be3263",
+			"origin": "http://127.0.0.1:44797",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "88e03201-cf90-4550-9ed6-c08c89d1c157",
+					"organization": "39edc787-de86-4bef-b81b-fbe1d61e4cbd",
 					"response": {
 						"status": 403
 					},
@@ -212,7 +267,7 @@ These machine-readable extracts retain the consequential expected and observed r
 				},
 				{
 					"expected": "Access denied (403/404) and no saved effect",
-					"organization": "f83782bd-a456-4705-9e66-e1387bae3744",
+					"organization": "3a96e718-4840-4563-8f0d-8f3306444984",
 					"response": {
 						"status": 404
 					},
@@ -239,13 +294,13 @@ Local raw receipts remain under `.verification/evidence/` after cleanup. The pre
 
 Local formatting, focused ESLint, Markdown links, whitespace checks, Svelte/type checking (zero errors and warnings), eight existing CI-runner safety tests, and two subprocess completion/error tests passed. Skill metadata validation passed for both project skills. The full repository/application and disposable database checks ran successfully in preliminary Depot runs.
 
-The pre-review candidate passed [Depot run `sqvh7h59s7`](https://depot.dev/orgs/rvsvvkd4rp/workflows/8x1st130dw) on base `f03a11236c89e37fe1b020488389177c755c45f5`. The current executable candidate above has diff SHA-256 `f9eceb14a4975ea89bc036d7ce6f0922863e761c104690d8b97a4a6760f30836`, reproducible with `git diff --binary f03a11236c89e37fe1b020488389177c755c45f5 -- . ':(exclude)*.md' | sha256sum`. Its current-head hosted results are tracked on [PR #1385](https://github.com/waffleflopper/trooptotask/pull/1385); the prior run does not approve these executable repairs. Merge remains a separate review decision.
+The pre-review candidate passed [Depot run `sqvh7h59s7`](https://depot.dev/orgs/rvsvvkd4rp/workflows/8x1st130dw) on base `f03a11236c89e37fe1b020488389177c755c45f5`. The current executable candidate above has diff SHA-256 `4f17f8821ad54fb5c7eabe881bc1cf488b8aeafc22b2cf798058a2bca163ec95`, reproducible with `git diff --binary f03a11236c89e37fe1b020488389177c755c45f5 -- . ':(exclude)*.md' | sha256sum`. Its current-head hosted results are tracked on [PR #1385](https://github.com/waffleflopper/trooptotask/pull/1385); the prior run does not approve these executable repairs. Merge remains a separate review decision.
 
 - Pre-review repository/application: format, lint, governance, Svelte/types, **572 Vitest files / 5,118 tests**, and production build passed. Eight Python safety tests and documentation checks passed. Svelte/type diagnostics: zero errors and warnings. Governance preserves the existing 1,292 owned Phase 08 findings without new regression exceptions.
 - Pre-review disposable database: fresh migration replay, **40 SQL contract/regression runs / 944 assertions**, provider probes, and **nine populated-upgrade runs / 100 assertions** passed. Both exact projects (`t2t-ci-db-aeti36rq` and `t2t-ci-db-8jvf480n`) were stopped and removed by the existing runner.
 - Material warnings: CI download caching was unavailable but installation completed; the production build retains the existing optional `@opentelemetry/api`, chunk-size, and mixed-import warnings. No warning was converted into a skipped required check.
 
-The primary independent implementation review used `gpt-6-sol` with `xhigh` effort and focused on ownership, cleanup, evidence integrity, and falsifiable claims. Findings about edited receipts, malformed launch arguments, interrupted startup cleanup, fast child exits, concurrent issuer-key creation, and mixed-candidate pilots were fixed and re-reviewed with no remaining blocker in those paths. No broad style cleanup was added. A later PR review found four valid issues: the pilot coverage wording, early supervisor exit reporting, unreadable `/proc` entries, and exclusive access during the pilot source-change control. Those were repaired; the prior candidate passed the same 38-step pilot and healthy receipt check. A follow-up review then found that an interrupted pilot could leave an orphaned lock. The current source uses a process-owned marker and removes only a verified stale marker. Focused formatting/lint/tests, active-pilot launch refusal, stale-owner recovery, and occupied-worker pilot refusal passed locally. The complete pilot and hosted checks for this last source change remain pending.
+The primary independent implementation review used `gpt-6-sol` with `xhigh` effort and focused on ownership, cleanup, evidence integrity, and falsifiable claims. Findings about edited receipts, malformed launch arguments, interrupted startup cleanup, fast child exits, concurrent issuer-key creation, and mixed-candidate pilots were fixed and re-reviewed with no remaining blocker in those paths. No broad style cleanup was added. A later PR review found four valid issues: the pilot coverage wording, early supervisor exit reporting, unreadable `/proc` entries, and exclusive access during the pilot source-change control. Those were repaired; the prior candidate passed the same 38-step pilot and healthy receipt check. A follow-up review then found that an interrupted pilot could leave an orphaned lock. The current source uses a process-owned marker and removes only a verified stale marker. Focused formatting/lint/tests, active-pilot launch refusal, stale-owner recovery, and occupied-worker pilot refusal passed locally. The current coverage-first candidate passed the complete 38-step pilot, the new Organization-wide Personnel baseline, and required-set refusals. Exact-commit hosted checks are recorded on the existing PR; earlier runs do not approve a changed executable candidate.
 
 The dependency audit introduced no new advisory names compared with the base lockfile: both report the same 17 advisories (2 low, 8 moderate, 6 high, 1 critical). Those existing dependency findings are outside this tooling slice. The three new development dependencies are exact-pinned; no Playwright dependency or tracked browser-spec suite was added.
 

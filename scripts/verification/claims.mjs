@@ -2,7 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { checked, provider } from './fixtures.mjs';
 import { Blocked, sleep } from './core.mjs';
 
-export const claimNames = ['group-persistence', 'group-authorization', 'personnel-scope'];
+export const claimNames = [
+	'group-persistence',
+	'group-authorization',
+	'personnel-scope',
+	'personnel-organization-scope'
+];
 class ClaimFailure extends Error {}
 export const textContent = (result) =>
 	result.content
@@ -71,7 +76,7 @@ export async function prove(claim, session, state, fixture, call) {
 	const drive = driver(call, state, fixture);
 	const service = await provider(session);
 	const observations = [];
-	const role = claim === 'group-persistence' ? 'manager' : claim === 'group-authorization' ? 'viewer' : 'scoped';
+	const role = claim === 'group-persistence' ? 'manager' : claim === 'personnel-scope' ? 'scoped' : 'viewer';
 	const scope = { role, organizationId: fixture.ids.orgA, groupIds: role === 'scoped' ? [fixture.ids.groupA] : null };
 	const expect = (condition, detail) => {
 		observations.push({ ...detail, observed: condition });
@@ -129,24 +134,38 @@ export async function prove(claim, session, state, fixture, call) {
 					savedRows: rows
 				});
 			}
-		} else {
-			await drive.login('scoped');
+		} else if (claim === 'personnel-scope' || claim === 'personnel-organization-scope') {
+			await drive.login(role);
 			const source = await drive.snapshot();
-			expect(
-				source.includes('Able, Synthetic') &&
-					!['Baker, Synthetic', 'Unassigned, Synthetic', 'Foreign, Synthetic'].some((name) => source.includes(name)),
-				{ expected: 'Personnel UI contains Able and excludes other Group, unassigned, and foreign Personnel' }
-			);
+			const organizationWide = claim === 'personnel-organization-scope';
+			const visible = organizationWide
+				? ['Able, Synthetic', 'Baker, Synthetic', 'Unassigned, Synthetic']
+				: ['Able, Synthetic'];
+			const hidden = organizationWide
+				? ['Foreign, Synthetic']
+				: ['Baker, Synthetic', 'Unassigned, Synthetic', 'Foreign, Synthetic'];
+			expect(visible.every((name) => source.includes(name)) && hidden.every((name) => !source.includes(name)), {
+				expectedVisible: visible,
+				expectedHidden: hidden
+			});
 			const knownIds = ['personA', 'personB', 'personUnassigned', 'personForeign'].map((key) => fixture.ids[key]);
+			const expectedIds = organizationWide
+				? [fixture.ids.personA, fixture.ids.personB, fixture.ids.personUnassigned]
+				: [fixture.ids.personA];
 			const actual = await drive.evaluate(
 				`async () => { const r = await fetch(location.pathname + '/__data.json'); const body = await r.text(); return {status:r.status,ids:${JSON.stringify(knownIds)}.filter(id => body.includes(id))}; }`
 			);
-			expect(actual.status === 200 && actual.ids.length === 1 && actual.ids[0] === fixture.ids.personA, {
-				expectedIds: [fixture.ids.personA],
-				status: actual.status,
-				observedIds: actual.ids
-			});
-		}
+			expect(
+				actual.status === 200 &&
+					actual.ids.length === expectedIds.length &&
+					expectedIds.every((id) => actual.ids.includes(id)),
+				{
+					expectedIds,
+					status: actual.status,
+					observedIds: actual.ids
+				}
+			);
+		} else throw new Blocked('CLAIM', `No implementation for ${claim}; add and baseline its check before refactoring.`);
 		return { status: 'PASS', claim, scope, observations };
 	} catch (error) {
 		return {

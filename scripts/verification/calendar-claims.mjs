@@ -545,31 +545,84 @@ async function checkAvailabilityLifecycle(ctx) {
 	await personCell('Able, Synthetic', day);
 	check((await drive.snapshot()).includes(addMarker), 'Saved availability survives full Calendar reload');
 	await clickButton('Edit status');
+	const deniedEditMarker = name('Denied availability edit');
+	await fill('Note', deniedEditMarker);
+	try {
+		checked(
+			await service
+				.from('organization_memberships')
+				.update({ capability_overrides: { ...membership.capability_overrides, calendar: 'view' } })
+				.eq('id', membership.id)
+		);
+		await clickButton('Update Status');
+		let failedEdit = '';
+		let prematureEditSuccess = false;
+		for (let attempt = 0; attempt < 50; attempt++) {
+			failedEdit = await drive.snapshot();
+			prematureEditSuccess ||= failedEdit.includes('updated —');
+			if (failedEdit.includes('Could not save status') || prematureEditSuccess) break;
+			await sleep(100);
+		}
+		const retainedRows = (await rows('availability_entries')).filter(
+			(entry) => entry.id === created?.id || entry.note === deniedEditMarker
+		);
+		check(
+			retainedRows.length === 1 &&
+				retainedRows[0].id === created?.id &&
+				retainedRows[0].note === addMarker &&
+				retainedRows[0].personnel_id === f.ids.personA &&
+				retainedRows[0].status_type_id === f.ids.statusLeave &&
+				retainedRows[0].start_date === f.dates.ui &&
+				retainedRows[0].end_date === f.dates.ui &&
+				failedEdit.includes(addMarker) &&
+				failedEdit.includes('Could not save status') &&
+				!prematureEditSuccess,
+			'Failed in-place edit restores the original row and shows an error without success',
+			{ retained: retainedRows[0], matchingRows: retainedRows.length, successVisible: prematureEditSuccess }
+		);
+	} finally {
+		checked(
+			await service
+				.from('organization_memberships')
+				.update({ capability_overrides: membership.capability_overrides })
+				.eq('id', membership.id)
+		);
+	}
+	await h.reload();
+	await personCell('Able, Synthetic', day);
+	await clickButton('Edit status');
 	const editedMarker = name('Edited availability');
 	await fill('Note', editedMarker);
 	await clickButton('Update Status');
-	const replacement = await waitRow('availability_entries', (entry) => entry.note === editedMarker);
+	const edited = await waitRow('availability_entries', (entry) => entry.note === editedMarker);
+	const editedRows = (await rows('availability_entries')).filter(
+		(entry) => entry.id === created?.id || entry.note === editedMarker
+	);
 	check(
-		!!replacement &&
-			replacement.id !== created?.id &&
-			replacement.personnel_id === f.ids.personA &&
-			replacement.status_type_id === f.ids.statusLeave &&
-			replacement.start_date === f.dates.ui &&
-			replacement.end_date === f.dates.ui &&
-			!(await row('availability_entries', created?.id)),
-		'Existing edit flow replaces the row with exactly the chosen saved fields',
-		{ replacement }
+		!!edited &&
+			edited.id === created?.id &&
+			editedRows.length === 1 &&
+			edited.personnel_id === f.ids.personA &&
+			edited.status_type_id === f.ids.statusLeave &&
+			edited.start_date === f.dates.ui &&
+			edited.end_date === f.dates.ui &&
+			edited.note === editedMarker,
+		'Calendar edit updates one saved row in place with the chosen fields',
+		{ edited, matchingRows: editedRows.length }
 	);
 	await h.reload();
 	await personCell('Able, Synthetic', day);
-	check((await drive.snapshot()).includes(editedMarker), 'Replacement survives full Calendar reload');
+	check(
+		(await row('availability_entries', created?.id))?.note === editedMarker &&
+			(await drive.snapshot()).includes(editedMarker),
+		'In-place availability edit survives full Calendar reload'
+	);
 	await clickButton('Remove status');
 	check((await drive.snapshot()).includes('Remove this status entry'), 'Removal asks for explicit confirmation');
 	await clickButton('Remove');
-	for (let attempt = 0; attempt < 30 && (await row('availability_entries', replacement?.id)); attempt++)
-		await sleep(100);
+	for (let attempt = 0; attempt < 30 && (await row('availability_entries', edited?.id)); attempt++) await sleep(100);
 	check(
-		!(await row('availability_entries', replacement?.id)) &&
+		!(await row('availability_entries', edited?.id)) &&
 			(await row('availability_entries', f.ids.availabilityHistorical))?.note === 'Historical retained',
 		'Removal persists while unrelated historical availability remains unchanged'
 	);

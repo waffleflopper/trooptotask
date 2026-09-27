@@ -4,7 +4,7 @@
 	"requirements": [
 		{
 			"claim": "calendar-availability-lifecycle",
-			"behavior": "A Calendar operator adds, replaces through the existing edit flow, and removes ordinary availability for an allowed Person. The screen may update optimistically, but added/updated/removed/saved success messages wait for confirmed persistence. Chosen status, inclusive dates and note agree with saved rows after reload; failures restore accurate state and show an error, and untouched historical rows remain unchanged.",
+			"behavior": "A Calendar operator adds, edits one ordinary availability row in place with its ID retained, and removes it for an allowed Person. The screen may update optimistically, but added/updated/removed/saved success messages wait for confirmed persistence. Chosen status, inclusive dates and note agree with the one saved row after reload; failed adds and updates restore accurate state and show an error without losing the prior row, and untouched historical rows remain unchanged.",
 			"acceptance": "https://github.com/waffleflopper/trooptotask/issues/1352 \u2014 availability read/write and retained saved Calendar facts; Robert\u2019s September 26, 2026 clarification: optimistic visual updates are retained, but success/saved messages must wait for confirmed persistence.",
 			"contract": "docs/stabilization/BASELINE.md R1/R6/R7; docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md; docs/domain/retained-feature-rules.md",
 			"coverage": [

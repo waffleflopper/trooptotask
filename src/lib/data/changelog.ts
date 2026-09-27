@@ -7,6 +7,16 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-09-26-foundation-and-fixes',
+		date: '2026-09-26',
+		title: 'Preparing for Future Improvements',
+		items: [
+			'Much of this update happened behind the scenes. We reorganized parts of the app and strengthened how existing features handle data to prepare for future improvements.',
+			'This work also fixed bugs and closed gaps found while checking existing workflows.',
+			'If something is not working as expected, use Feedback in the upper right to tell me what happened so I can investigate and fix it quickly.'
+		]
+	},
+	{
 		id: '2026-09-22-duty-rosters-return-planned',
 		date: '2026-09-22',
 		title: 'Duty Rosters Will Return',

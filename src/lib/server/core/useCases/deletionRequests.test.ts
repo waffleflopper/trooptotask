@@ -468,6 +468,37 @@ describe('approveDeletionRequest', () => {
 		expect(ctx.audit.events).toEqual([]);
 	});
 
+	it('can retry counseling approval after the request-status write fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { resource_type: 'counseling_record', resource_id: 'cr-1' });
+		ctx.store.seed('counseling_records', [{ id: 'cr-1', organization_id: 'test-org', personnel_id: 'p-1' }]);
+		const update = ctx.store.update;
+		let failOnce = true;
+		ctx.store.update = (async (table, orgId, id, data, select) => {
+			if (table === 'deletion_requests' && failOnce) {
+				failOnce = false;
+				throw new Error('status write failed');
+			}
+			return update(table, orgId, id, data, select);
+		}) as typeof ctx.store.update;
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('status write failed');
+		await expect(ctx.store.findOne('counseling_records', 'test-org', { id: 'cr-1' })).resolves.not.toBeNull();
+		await expect(ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).resolves.toBeUndefined();
+		await expect(ctx.store.findOne('counseling_records', 'test-org', { id: 'cr-1' })).resolves.toBeNull();
+		await expect(ctx.store.findOne('deletion_requests', 'test-org', { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'approved'
+		});
+		expect(ctx.notifications.notifications).toHaveLength(1);
+		expect(ctx.audit.events).toHaveLength(1);
+	});
+
 	it('leaves personnel deletion requests pending when archival fails', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);

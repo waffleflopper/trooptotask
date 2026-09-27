@@ -252,8 +252,8 @@
 	}
 </script>
 
-<AppDialog.Root open {onClose}>
-	<AppDialog.Content>
+<AppDialog.Root open closeBlocked={saving} {onClose}>
+	<AppDialog.Content closeBlocked={saving}>
 		<AppDialog.Header>
 			<AppDialog.Title id="availability-title">Set Personnel Status</AppDialog.Title>
 			<AppDialog.Description>

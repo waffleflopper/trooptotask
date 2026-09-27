@@ -257,6 +257,29 @@ describe('AvailabilityModal — saved status feedback', () => {
 		expect(errorToast).not.toHaveBeenCalled();
 	});
 
+	it('keeps the edit dialog open while removing the old entry', async () => {
+		let resolveRemove!: (removed: boolean) => void;
+		const onRemove = vi.fn(() => new Promise<boolean>((resolve) => (resolveRemove = resolve)));
+		const onAdd = vi.fn().mockResolvedValue({ ...existingEntry, id: 'entry-2' });
+		renderModal(new Date(2026, 3, 7), {
+			statusTypes,
+			existingEntries: [existingEntry],
+			onRemove,
+			onAdd
+		});
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit status' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Update Status' }));
+		await waitFor(() => expect(onRemove).toHaveBeenCalledWith(existingEntry.id));
+		expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Cancel Edit' })).toHaveProperty('disabled', true);
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(screen.getByRole('dialog', { name: 'Set Personnel Status' })).toBeTruthy();
+
+		resolveRemove(true);
+		await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
+	});
+
 	it('shows the persisted deletion when an edit fails after removing its old entry', async () => {
 		const successToast = vi.spyOn(toastStore, 'success').mockImplementation(() => 'toast-id');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');

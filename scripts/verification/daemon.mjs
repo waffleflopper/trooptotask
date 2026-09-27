@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { createServer } from 'node:http';
+import { randomBytes } from 'node:crypto';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
@@ -58,7 +59,14 @@ async function cleanup() {
 		await port?.release();
 		port = undefined;
 		const results = await Promise.allSettled([
-			client?.close(),
+			(async () => {
+				const mcpProcess = state.mcpProcess ?? (transport?.pid && (await processIdentity(transport.pid)));
+				try {
+					await client?.close();
+				} finally {
+					await stopOwnedProcess(mcpProcess);
+				}
+			})(),
 			stopOwnedProcess(state.appProcess),
 			stopOwnedProcess(state.browserProcess)
 		]);
@@ -168,8 +176,8 @@ try {
 		PUBLIC_SUPABASE_URL: provider.API_URL,
 		PUBLIC_SUPABASE_ANON_KEY: provider.ANON_KEY,
 		SUPABASE_SERVICE_ROLE_KEY: provider.SERVICE_ROLE_KEY,
-		ACCOUNT_SETUP_LINK_SECRET: state.token,
-		ACCOUNT_SETUP_SESSION_SECRET: state.token,
+		ACCOUNT_SETUP_LINK_SECRET: randomBytes(32).toString('hex'),
+		ACCOUNT_SETUP_SESSION_SECRET: randomBytes(32).toString('hex'),
 		APP_PUBLIC_ORIGIN: state.origin,
 		PUBLIC_APP_ORIGIN: '',
 		PUBLIC_SITE_URL: '',

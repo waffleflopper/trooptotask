@@ -2,9 +2,30 @@ import { afterEach, expect, it } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { completed, runLogged, cleanEnvironment } from './core.mjs';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { completed, runLogged, cleanEnvironment, processIdentity, stopOwnedProcess } from './core.mjs';
 
 const directories: string[] = [];
+it('confirms exit even when an owned child ignores graceful termination', async () => {
+	const child = spawn(process.execPath, [
+		'-e',
+		"process.on('SIGTERM', () => {}); setInterval(() => {}, 1000); process.stdout.write('ready');"
+	]);
+	try {
+		await once(child.stdout, 'data');
+		const identity = await processIdentity(child.pid);
+		expect(identity).not.toBeNull();
+		const exited = once(child, 'exit');
+		await stopOwnedProcess(identity);
+		const remaining = await processIdentity(child.pid);
+		expect(!remaining || remaining.state === 'Z').toBe(true);
+		await exited;
+		expect(child.signalCode).toBe('SIGKILL');
+	} finally {
+		if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+	}
+}, 10000);
 afterEach(async () => {
 	await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });

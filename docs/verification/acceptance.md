@@ -6,7 +6,7 @@ The installed entry points are [t2t-engineer](../../.agents/skills/t2t-engineer/
 
 ## Candidate and environment
 
-The current executable candidate is `f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394`, based on the revision above plus this PR's executable changes. The complete pilot and coverage-first baseline below ran on this same candidate. The toolkit hashes tracked and nonignored untracked file contents; Markdown records and dotenv files are excluded. Each drive also checks the private copied source and actual production build. Markdown evidence updates do not silently approve executable changes. Receipts are sealed with a private checkout key; imported or edited receipts cannot become local approval.
+The current executable candidate is `dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97`, based on the revision above plus this PR's executable changes. The complete pilot and coverage-first baseline below ran on this same candidate. The toolkit hashes tracked and nonignored untracked file contents; Markdown records and dotenv files are excluded. Each drive also checks the private copied source and actual production build. Markdown evidence updates do not silently approve executable changes. Receipts are sealed with a private checkout key; imported or edited receipts cannot become local approval.
 
 The pilot runs `node scripts/verification/cli.mjs self-test`, which performs the maintained launch → doctor → real browser drive → observation → proof → cleanup sequence. It uses Node `24.21.0`, npm `11.19.0`, Supabase CLI `2.101.0`, Docker `29.7.2`, Chrome DevTools MCP `1.10.1`, and automatically provisioned Chrome for Testing `154.0.8037.57`. The separate installed-browser smoke used Chromium `152.0.7977.82`. CI selects the repository's pinned npm `11.12.1`.
 
@@ -28,18 +28,18 @@ Calendar's existing unit and SQL checks are recorded as partial coverage. No Cal
 
 Two focused gate tests exercise the real issuer/verifier in a temporary checkout with a separate receipt key: complete and partial sets, unavailable implementation, missing inventory, empty sets, unrelated/duplicate inputs, failed/inconclusive/blocked evidence, actual changed-source staleness, edited evidence, missing files, and CLI exit 2. Their synthetic protocol receipts cannot approve this checkout's application. Focused independent review found no blocking issue.
 
-The baseline extract below is review evidence, not a substitute for its sealed local receipt (`1790477222908-f0d1f474-cefc-4a69-b5db-dee38ab9e7e3.json`). The machine-readable set outcomes remain in `.verification/evidence/coverage-complete.json`, `coverage-missing-receipt.json`, and `coverage-calendar-blocked.json` after cleanup.
+The baseline extract below is review evidence, not a substitute for its sealed local receipt (`1790480470549-b84cb0d1-11bc-4320-8f39-468208fcf4c5.json`). The machine-readable set outcomes remain in `.verification/evidence/finish-coverage-complete.json`, `finish-missing-receipt.json`, and `finish-calendar-blocked.json` after cleanup.
 
 ```json
 {
-	"candidate": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
-	"recordedAt": "2026-09-27T02:47:02.908Z",
-	"origin": "http://127.0.0.1:43097",
+	"candidate": "dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97",
+	"recordedAt": "2026-09-27T03:41:10.549Z",
+	"origin": "http://127.0.0.1:41899",
 	"claim": "personnel-organization-scope",
 	"status": "PASS",
 	"scope": {
 		"role": "viewer",
-		"organizationId": "ff0ef2bc-9000-4d82-b945-d8a5a25ad19b",
+		"organizationId": "4bcff269-a3f7-45b8-81a9-4f2b726f286e",
 		"groupIds": null
 	},
 	"observations": [
@@ -50,15 +50,15 @@ The baseline extract below is review evidence, not a substitute for its sealed l
 		},
 		{
 			"expectedIds": [
-				"3bc65da9-e3bc-48a8-ba32-c8dd8dc9b854",
-				"7f2fcb46-f415-4b53-8df9-aca984d180fa",
-				"c8056f18-6e8f-4fca-82ae-613aa2f7c216"
+				"9d27d18b-03f7-4e46-9bc1-a9edea0fafff",
+				"7f744277-6224-47f9-8c8b-0c56c619761c",
+				"533ee2f7-9e9a-4d93-8532-0bd3acc3eb64"
 			],
 			"status": 200,
 			"observedIds": [
-				"3bc65da9-e3bc-48a8-ba32-c8dd8dc9b854",
-				"7f2fcb46-f415-4b53-8df9-aca984d180fa",
-				"c8056f18-6e8f-4fca-82ae-613aa2f7c216"
+				"9d27d18b-03f7-4e46-9bc1-a9edea0fafff",
+				"7f744277-6224-47f9-8c8b-0c56c619761c",
+				"533ee2f7-9e9a-4d93-8532-0bd3acc3eb64"
 			],
 			"observed": true
 		}
@@ -88,53 +88,53 @@ These machine-readable extracts retain the consequential expected and observed r
 
 ```json
 {
-	"candidate": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
+	"candidate": "dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97",
 	"browser": "Google Chrome for Testing 154.0.8037.57",
-	"pilot": "pilot-1790477612738.json",
+	"pilot": "pilot-1790480416534.json",
 	"status": "PASS",
 	"steps": 38,
 	"claims": [
 		{
 			"step": 6,
-			"recordedAt": "2026-09-27T02:48:42.921Z",
+			"recordedAt": "2026-09-27T03:35:25.489Z",
 			"claim": "group-persistence",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
-			"session": "58509644-8dfe-4adc-9871-7d44dae94aca",
-			"origin": "http://127.0.0.1:38861",
+			"artifact": "dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97",
+			"session": "866c2a4a-83d5-4e2e-a087-a392d554e06f",
+			"origin": "http://127.0.0.1:45539",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
 					"observedRows": [
 						{
-							"id": "279dbcdd-5837-4cea-bf5a-e5b67aeaba64",
-							"name": "Saved f0e5ae2d-9231-47dc-9f0e-9cb99cc4cc24",
-							"organization_id": "a18ec6d2-f07a-4334-9d1a-ae45d0877c78"
+							"id": "6c31091a-e8c7-4671-a34b-b102e710cfa4",
+							"name": "Saved 0a970fce-bc73-4d9c-a075-d13f815c027d",
+							"organization_id": "937ba9b7-167f-4618-949d-62b93694367d"
 						}
 					],
 					"observed": true
 				},
 				{
 					"expected": "Saved Group survives full reload",
-					"savedId": "279dbcdd-5837-4cea-bf5a-e5b67aeaba64",
+					"savedId": "6c31091a-e8c7-4671-a34b-b102e710cfa4",
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 7,
-			"recordedAt": "2026-09-27T02:48:45.880Z",
+			"recordedAt": "2026-09-27T03:35:28.470Z",
 			"claim": "group-authorization",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
-			"session": "58509644-8dfe-4adc-9871-7d44dae94aca",
-			"origin": "http://127.0.0.1:38861",
+			"artifact": "dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97",
+			"session": "866c2a4a-83d5-4e2e-a087-a392d554e06f",
+			"origin": "http://127.0.0.1:45539",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "a18ec6d2-f07a-4334-9d1a-ae45d0877c78",
+					"organization": "937ba9b7-167f-4618-949d-62b93694367d",
 					"response": {
 						"status": 403
 					},
@@ -143,7 +143,7 @@ These machine-readable extracts retain the consequential expected and observed r
 				},
 				{
 					"expected": "Access denied (403/404) and no saved effect",
-					"organization": "1dde7ddf-bcdb-4abc-b373-f911a1b15a06",
+					"organization": "52a8beb3-1c1a-4853-826c-bfc88cd39af3",
 					"response": {
 						"status": 404
 					},
@@ -154,13 +154,13 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 8,
-			"recordedAt": "2026-09-27T02:48:48.598Z",
+			"recordedAt": "2026-09-27T03:35:31.222Z",
 			"claim": "personnel-scope",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
-			"session": "58509644-8dfe-4adc-9871-7d44dae94aca",
-			"origin": "http://127.0.0.1:38861",
+			"artifact": "dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97",
+			"session": "866c2a4a-83d5-4e2e-a087-a392d554e06f",
+			"origin": "http://127.0.0.1:45539",
 			"observations": [
 				{
 					"expectedVisible": ["Able, Synthetic"],
@@ -168,22 +168,22 @@ These machine-readable extracts retain the consequential expected and observed r
 					"observed": true
 				},
 				{
-					"expectedIds": ["34c88ae7-9997-4fc6-a4c7-d4e94878dc88"],
+					"expectedIds": ["3b9fe2a4-efe1-42ee-9094-78d31a1c24fe"],
 					"status": 200,
-					"observedIds": ["34c88ae7-9997-4fc6-a4c7-d4e94878dc88"],
+					"observedIds": ["3b9fe2a4-efe1-42ee-9094-78d31a1c24fe"],
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 21,
-			"recordedAt": "2026-09-27T02:49:58.962Z",
+			"recordedAt": "2026-09-27T03:36:41.717Z",
 			"claim": "group-persistence",
 			"status": "FAIL",
 			"mutation": "persistence",
-			"artifact": "4ea3f0c083599b23b3b3b83c026111e052afa716e7d468bb326af90b8638bddd",
-			"session": "6e233b4d-5d19-45d9-9746-cd67228bd427",
-			"origin": "http://127.0.0.1:36667",
+			"artifact": "33134d7e8bd23926b2e5c38df43a3bfbb12856f3a5edf39e0d791a623f2ad806",
+			"session": "ffa07dd0-1b0f-47b7-b5cc-4fd5aee76965",
+			"origin": "http://127.0.0.1:32889",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
@@ -194,52 +194,52 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 26,
-			"recordedAt": "2026-09-27T02:51:04.392Z",
+			"recordedAt": "2026-09-27T03:37:46.982Z",
 			"claim": "group-persistence",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
-			"session": "8545121b-b59a-47e1-933b-124966022bce",
-			"origin": "http://127.0.0.1:36991",
+			"artifact": "dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97",
+			"session": "e2c5eb06-436b-44ad-8059-e85658947a67",
+			"origin": "http://127.0.0.1:41849",
 			"observations": [
 				{
 					"expected": "Exactly one Group saved with the submitted name in Organization A",
 					"observedRows": [
 						{
-							"id": "51c4c715-3f31-4c00-b1ef-abc9e9134bd6",
-							"name": "Saved c237b60d-cba1-4acd-b215-fc69fb10847e",
-							"organization_id": "62276950-35d7-4fa7-a05a-2388d5a553cf"
+							"id": "37f6694a-ce5e-41cd-89d9-21828ed2e3b1",
+							"name": "Saved d0aac7e5-a7c6-4c0c-816d-ac04e287dc2f",
+							"organization_id": "88b18499-b407-41d9-b4ad-21e7e5b07ae6"
 						}
 					],
 					"observed": true
 				},
 				{
 					"expected": "Saved Group survives full reload",
-					"savedId": "51c4c715-3f31-4c00-b1ef-abc9e9134bd6",
+					"savedId": "37f6694a-ce5e-41cd-89d9-21828ed2e3b1",
 					"observed": true
 				}
 			]
 		},
 		{
 			"step": 31,
-			"recordedAt": "2026-09-27T02:52:10.584Z",
+			"recordedAt": "2026-09-27T03:38:53.788Z",
 			"claim": "group-authorization",
 			"status": "FAIL",
 			"mutation": "authorization",
-			"artifact": "252782a3778c09263576debee314b32d0ac9d8197d6b06bc0928f9278dbebb57",
-			"session": "dc2deb57-9b5d-49b0-b21d-b7677e55332e",
-			"origin": "http://127.0.0.1:38825",
+			"artifact": "0e883173e3ff96d904202b152be2ded6c597a2d5b70413ed24e4f746864f6421",
+			"session": "dc48d193-64db-40a7-9f07-c625fb66ef12",
+			"origin": "http://127.0.0.1:36835",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "223519f8-f20c-4da5-a09d-12009e30fb63",
+					"organization": "1e39973f-e57a-44d5-afec-44c3a68987ed",
 					"response": {
 						"status": 200
 					},
 					"savedRows": [
 						{
-							"id": "5af4949e-3a55-49de-a90b-0d471c1dede7",
-							"organization_id": "223519f8-f20c-4da5-a09d-12009e30fb63"
+							"id": "22f222fb-7a69-4b44-9957-fed55156f377",
+							"organization_id": "1e39973f-e57a-44d5-afec-44c3a68987ed"
 						}
 					],
 					"observed": false
@@ -248,17 +248,17 @@ These machine-readable extracts retain the consequential expected and observed r
 		},
 		{
 			"step": 35,
-			"recordedAt": "2026-09-27T02:53:14.069Z",
+			"recordedAt": "2026-09-27T03:39:57.772Z",
 			"claim": "group-authorization",
 			"status": "PASS",
 			"mutation": null,
-			"artifact": "f7f4147c807dd4e5aa0878bf2d6673de95dda30e30c19d713ffa8ff414c45394",
-			"session": "06374eca-e885-43f9-a4c2-1284f8be3263",
-			"origin": "http://127.0.0.1:44797",
+			"artifact": "dd692bd5263a16490d81ee090aa92f6a9a56ae57fd9b785897ba92052133ac97",
+			"session": "02789b61-8a78-456f-9533-4c4568324d05",
+			"origin": "http://127.0.0.1:43595",
 			"observations": [
 				{
 					"expected": "403 and no saved effect",
-					"organization": "39edc787-de86-4bef-b81b-fbe1d61e4cbd",
+					"organization": "8d4e0520-8466-4a46-b61f-efcf2277bcdc",
 					"response": {
 						"status": 403
 					},
@@ -267,7 +267,7 @@ These machine-readable extracts retain the consequential expected and observed r
 				},
 				{
 					"expected": "Access denied (403/404) and no saved effect",
-					"organization": "3a96e718-4840-4563-8f0d-8f3306444984",
+					"organization": "11e8b431-eac9-48e2-a0b5-175ab1236fba",
 					"response": {
 						"status": 404
 					},
@@ -292,15 +292,15 @@ Local raw receipts remain under `.verification/evidence/` after cleanup. The pre
 
 ## Repository checks and review
 
-Local formatting, focused ESLint, Markdown links, whitespace checks, Svelte/type checking (zero errors and warnings), eight existing CI-runner safety tests, and two subprocess completion/error tests passed. Skill metadata validation passed for both project skills. The full repository/application and disposable database checks ran successfully in preliminary Depot runs.
+Local formatting, focused ESLint, Markdown links, whitespace checks, Svelte/type checking (zero errors and warnings), eight existing CI-runner safety tests, and the subprocess completion/error and forced-exit tests passed. Skill metadata validation passed for both project skills. The full repository/application and disposable database checks ran successfully in preliminary Depot runs.
 
-The pre-review candidate passed [Depot run `sqvh7h59s7`](https://depot.dev/orgs/rvsvvkd4rp/workflows/8x1st130dw) on base `f03a11236c89e37fe1b020488389177c755c45f5`. The current executable candidate above has diff SHA-256 `4f17f8821ad54fb5c7eabe881bc1cf488b8aeafc22b2cf798058a2bca163ec95`, reproducible with `git diff --binary f03a11236c89e37fe1b020488389177c755c45f5 -- . ':(exclude)*.md' | sha256sum`. Its current-head hosted results are tracked on [PR #1385](https://github.com/waffleflopper/trooptotask/pull/1385); the prior run does not approve these executable repairs. Merge remains a separate review decision.
+The executable candidate is reproduced with `npm run --silent verify:app -- info` (the `candidate` field). This content hash is the same identifier sealed into the receipts; it does not depend on Git's diff algorithm or patch-prefix configuration. Exact-commit hosted checks are tracked on [PR #1385](https://github.com/waffleflopper/trooptotask/pull/1385). The preceding commit `47cb3e7403db2328e918235ddf3360cbe03a8fa9` passed [Depot validation](https://depot.dev/orgs/rvsvvkd4rp/workflows/45hhzzpsjt). Hosted validation for the final cleanup repair is pending at push; the previous run does not approve that changed executable candidate. Merge remains a separate review decision.
 
-- Pre-review repository/application: format, lint, governance, Svelte/types, **572 Vitest files / 5,118 tests**, and production build passed. Eight Python safety tests and documentation checks passed. Svelte/type diagnostics: zero errors and warnings. Governance preserves the existing 1,292 owned Phase 08 findings without new regression exceptions.
-- Pre-review disposable database: fresh migration replay, **40 SQL contract/regression runs / 944 assertions**, provider probes, and **nine populated-upgrade runs / 100 assertions** passed. Both exact projects (`t2t-ci-db-aeti36rq` and `t2t-ci-db-8jvf480n`) were stopped and removed by the existing runner.
-- Material warnings: CI download caching was unavailable but installation completed; the production build retains the existing optional `@opentelemetry/api`, chunk-size, and mixed-import warnings. No warning was converted into a skipped required check.
+- Full repository/application validation includes formatting, lint, governance, Svelte/types, Vitest, Python runner safety tests, documentation checks, and the production build.
+- Disposable database validation includes fresh migration replay, SQL contracts, provider probes, and populated upgrades, followed by exact owned-project cleanup.
+- The existing optional `@opentelemetry/api`, chunk-size, and mixed-import build warnings remain. No warning was converted into a skipped required check.
 
-The primary independent implementation review used `gpt-6-sol` with `xhigh` effort and focused on ownership, cleanup, evidence integrity, and falsifiable claims. Findings about edited receipts, malformed launch arguments, interrupted startup cleanup, fast child exits, concurrent issuer-key creation, and mixed-candidate pilots were fixed and re-reviewed with no remaining blocker in those paths. No broad style cleanup was added. A later PR review found four valid issues: the pilot coverage wording, early supervisor exit reporting, unreadable `/proc` entries, and exclusive access during the pilot source-change control. Those were repaired; the prior candidate passed the same 38-step pilot and healthy receipt check. A follow-up review then found that an interrupted pilot could leave an orphaned lock. The current source uses a process-owned marker and removes only a verified stale marker. Focused formatting/lint/tests, active-pilot launch refusal, stale-owner recovery, and occupied-worker pilot refusal passed locally. The current coverage-first candidate passed the complete 38-step pilot, the new Organization-wide Personnel baseline, and required-set refusals. Exact-commit hosted checks are recorded on the existing PR; earlier runs do not approve a changed executable candidate.
+The primary independent implementation review used `gpt-6-sol` with `xhigh` effort and focused on ownership, cleanup, evidence integrity, and falsifiable claims. Review repairs cover edited receipts, malformed launch arguments, interrupted startup cleanup, fast child exits, concurrent issuer-key creation, unreadable foreign `/proc` entries, and mixed-candidate pilots. The pilot requires exclusive workers and recovers only a verified dead owner's lock. The final cleanup repair confirms owned MCP/process exit before marking a session cleaned, including forced termination; a stubborn child test exercises the real SIGKILL path. App setup secrets are generated separately from the supervisor control token. No broad style cleanup was added.
 
 The dependency audit introduced no new advisory names compared with the base lockfile: both report the same 17 advisories (2 low, 8 moderate, 6 high, 1 critical). Those existing dependency findings are outside this tooling slice. The three new development dependencies are exact-pinned; no Playwright dependency or tracked browser-spec suite was added.
 

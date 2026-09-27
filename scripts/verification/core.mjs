@@ -23,6 +23,7 @@ export async function processIdentity(pid) {
 		const stat = await fs.readFile(`/proc/${pid}/stat`, 'utf8');
 		return {
 			pid,
+			state: stat.slice(stat.lastIndexOf(')') + 2).split(' ')[0],
 			group: Number(stat.slice(stat.lastIndexOf(')') + 2).split(' ')[2]),
 			start: stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19],
 			command: await fs.readFile(`/proc/${pid}/cmdline`, 'utf8')
@@ -35,7 +36,7 @@ export async function processIdentity(pid) {
 export async function stopOwnedProcess(identity) {
 	if (!identity) return;
 	const current = await processIdentity(identity.pid);
-	if (!current) return;
+	if (!current || current.state === 'Z') return;
 	if (current.start !== identity.start || current.command !== identity.command)
 		throw new Blocked('PROCESS_REPLACED', 'PID belongs to another process; refusing to signal it.');
 	try {
@@ -45,7 +46,8 @@ export async function stopOwnedProcess(identity) {
 		throw error;
 	}
 	for (let i = 0; i < 30; i++) {
-		if (!(await processIdentity(identity.pid))) return;
+		const remaining = await processIdentity(identity.pid);
+		if (!remaining || remaining.state === 'Z' || remaining.start !== identity.start) return;
 		await sleep(100);
 	}
 	const remaining = await processIdentity(identity.pid);
@@ -56,6 +58,12 @@ export async function stopOwnedProcess(identity) {
 			if (error.code !== 'ESRCH') throw error;
 		}
 	}
+	for (let i = 0; i < 30; i++) {
+		const remaining = await processIdentity(identity.pid);
+		if (!remaining || remaining.state === 'Z' || remaining.start !== identity.start) return;
+		await sleep(100);
+	}
+	throw new Blocked('PROCESS_STILL_RUNNING', 'Owned process did not exit; retain state and retry cleanup.');
 }
 export async function terminateOwnedGroup(identity) {
 	const current = identity && (await processIdentity(identity.pid));

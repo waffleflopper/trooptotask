@@ -152,6 +152,11 @@
 				showClosureMutationError('Failed to reset federal holidays');
 				return;
 			}
+			if (result === 'refresh-failed') {
+				showResetConfirm = false;
+				showClosureMutationError('Holiday reset saved, but Calendar could not refresh. Reload to see the latest days.');
+				return;
+			}
 			showResetConfirm = false;
 		} catch (error) {
 			showClosureMutationError('Failed to reset federal holidays', error);

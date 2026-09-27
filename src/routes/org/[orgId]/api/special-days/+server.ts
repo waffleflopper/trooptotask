@@ -4,10 +4,17 @@ import {
 	createSpecialDay,
 	updateSpecialDay,
 	deleteSpecialDay,
-	resetFederalHolidays
+	resetFederalHolidays,
+	listSpecialDays
 } from '$features/calendar/index.server';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
+
+export const _getConfig = {
+	policyAction: POLICY_ACTION_CATALOG.calendar.configureSpecialDays,
+	policyResource: { kind: 'organization' },
+	fn: (ctx) => listSpecialDays(ctx.store, ctx.auth.orgId)
+} satisfies RouteConfig<void, unknown>;
 
 export const _postConfig = {
 	mutation: true,
@@ -43,5 +50,6 @@ export const _deleteConfig = {
 
 export const PUT = handle(_putConfig);
 export const DELETE = handle(_deleteConfig);
+export const GET = handle(_getConfig);
 
 export const POST = handle<Record<string, unknown>, unknown>(_postConfig);

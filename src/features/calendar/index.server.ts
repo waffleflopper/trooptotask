@@ -12,5 +12,5 @@ export {
 	deleteSpecialDay,
 	resetFederalHolidays
 } from './specialDayOperations.server';
-export { listSpecialDaysInRange, listSpecialDayExportRows } from './specialDayRead.server';
+export { listSpecialDaysInRange, listSpecialDayExportRows, listSpecialDays } from './specialDayRead.server';
 export { seedFederalHolidays } from './specialDaySeed.server';

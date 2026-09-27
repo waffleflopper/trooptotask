@@ -29,3 +29,8 @@ export async function listSpecialDaysInRange(
 export function listSpecialDayExportRows(store: SpecialDayStore, orgId: string): Promise<Record<string, unknown>[]> {
 	return store.findMany<Record<string, unknown>>('special_days', orgId);
 }
+
+/** Complete saved set for Calendar settings after overlapping local mutations. */
+export async function listSpecialDays(store: SpecialDayStore, orgId: string): Promise<SpecialDay[]> {
+	return SpecialDayEntity.fromDbArray(await listSpecialDayExportRows(store, orgId));
+}

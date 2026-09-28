@@ -26,7 +26,7 @@ Run `npm run --silent verify:app -- doctor` whenever the page, provider, or buil
 
 ## Drive
 
-`login` signs in through the normal form and returns the page ID and Organization ID. `manager` can manage Personnel and Groups; `viewer` can read them; `scoped` sees Alpha only. Calendar actors include `calendarView`, `calendarOperate`, `calendarConfigure`, `calendarLane`, `calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, and `calendarSwitch`. The public `login` command lands on Personnel; for actors without a Personnel landing page or for a direct Calendar starting route, use the skill's `actor` helper below. It submits the same visible sign-in form with private synthetic credentials and prints no password. Use the returned page ID, not tab order.
+`login` signs in through the normal form and returns the page ID and Organization ID. `manager` can manage Personnel and Groups; `viewer` can read them; `scoped` sees Alpha only. Calendar actors include `calendarView`, `calendarOperate`, `calendarConfigure`, `calendarLane`, `calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, and `calendarSwitch`. Sign-in Roster actors are `rosterManager`, `rosterViewer`, `rosterScoped`, and `rosterForeign`. The public `login` command lands on Personnel; for a direct Training or Calendar starting route, use the skill's `actor` helper below. It submits the same visible sign-in form with private synthetic credentials and prints no password. Use the returned page ID, not tab order.
 
 ```bash
 npm run --silent verify:app -- login manager
@@ -60,12 +60,16 @@ Restore any armed `network` or `export` control and temporary Calendar grants, t
 V='node .agents/skills/verify-trooptotask/helpers/control.mjs --worker 1'
 $V fixture                              # public synthetic IDs/dates; no credentials
 $V actor calendarLane calendar          # normal form; returns pageId and Organization ID
+$V actor rosterManager training          # Training entry point with roster operate access
 $V rows availability_entries orgA note 'Unique synthetic note'
+$V rows sign_in_rosters orgA title 'Unique synthetic title'
+$V roster-files orgA ROSTER_ID           # private Storage names, sizes and SHA-256
 $V calendar-grant calendarOperate view   # simulate an open page losing operate access
 $V calendar-grant calendarOperate restore
 $V seed duplicate-able                  # or overlap, bulk-501; returns a tag
 $V clean-seeds                          # only rows created by this helper
 $V network arm-fail 2 calendar-range    # one scoped synthetic 503; use the actual page ID
+$V network arm-fail 2 sign-in-rosters    # roster list, or sign-in-rosters/ROSTER_ID/upload
 $V network arm-fail 2 availability/batch 2 # second matching batch request fails
 $V network arm-hold 2 availability      # hold a real response after persistence
 $V network state 2                      # matched requests, statuses, IDs, held state
@@ -74,10 +78,11 @@ $V network restore 2                    # also releases a stuck response
 $V export arm 2                         # capture the next workbook Blob
 $V export save 2 .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
 $V export restore 2
+$V signed-download orgA ROSTER_ID .verification/evidence/verify-trooptotask/RUN/signed.pdf
 $V workbook .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
 ```
 
-`rows TABLE orgA|orgB [id|name|note|personnel_id|user_id|type VALUE]` reads only allowlisted synthetic tables in the owned provider; compare known fixture IDs and explicit submitted values. `calendar-grant` changes only the named synthetic member's Organization A Calendar capability and records its original value for restoration. `seed` creates only the named temporary fixture, and `clean-seeds` deletes only its recorded IDs and dependent availability; run it before worker cleanup. A network control matches only an Organization A Calendar endpoint, records request sizes/statuses, and lasts until `restore`; arm one at a time on the actual page. `export save` writes only under this skill's durable evidence directory. The helper does not provide a journey or verdict; drive visible controls with native DevTools and record the observation yourself.
+`rows TABLE orgA|orgB [id|name|title|note|personnel_id|user_id|type VALUE]` reads only allowlisted synthetic tables in the owned provider; compare known fixture IDs and explicit submitted values. `roster-files` checks only the named synthetic roster's private Storage path. `signed-download` saves the PDF page opened by a visible scan button without printing its token-bearing URL; use native `upload_file` on the visible `Signed Scan` input. `calendar-grant` changes only the named synthetic member's Organization A Calendar capability and records its original value for restoration. `seed` creates only the named temporary fixture, and `clean-seeds` deletes only its recorded IDs and dependent availability; run it before worker cleanup. A network control matches only a named Organization A Calendar or Sign-in Roster endpoint, records request statuses, and lasts until `restore`; arm one at a time on the actual page. `export save` writes only under this skill's durable evidence directory and accepts `.xlsx` or `.pdf`. The helper does not provide a journey or verdict; drive visible controls with native DevTools and record the observation yourself.
 
 Run state-changing helper commands serially on an owned worker. `seed` records its generated IDs before insertion so `clean-seeds` can recover from an interrupted insert; it also safely deletes IDs that were never inserted. Restore temporary grants and network hooks before cleanup.
 

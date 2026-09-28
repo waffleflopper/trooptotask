@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
+import { jsPDF } from 'jspdf';
 import { readJSON, writeJSON, Blocked, environment } from './core.mjs';
 import path from 'node:path';
 
@@ -34,6 +35,10 @@ export async function seed(session) {
 			'personB',
 			'personUnassigned',
 			'personForeign',
+			'rosterAlpha',
+			'rosterMixed',
+			'rosterUnassigned',
+			'rosterForeign',
 			'statusLeave',
 			'statusTraining',
 			'statusDelete',
@@ -74,10 +79,37 @@ export async function seed(session) {
 		calendarSwitch: { organization: 'orgA', calendar: 'configure', scope: 'organization' },
 		calendarForeign: { organization: 'orgB', calendar: 'configure', scope: 'organization' }
 	};
-	for (const role of ['manager', 'viewer', 'scoped', 'foreign', ...Object.keys(calendarActors)]) {
+	const trainingActors = {
+		rosterManager: { organization: 'orgA', training: 'operate', personnel: 'configure', scope: 'organization' },
+		rosterViewer: { organization: 'orgA', training: 'view', scope: 'organization' },
+		rosterScoped: {
+			organization: 'orgA',
+			training: 'operate',
+			personnel: 'none',
+			scope: 'groups',
+			groups: [ids.groupA]
+		},
+		rosterForeign: { organization: 'orgB', training: 'operate', scope: 'organization' }
+	};
+	for (const role of [
+		'manager',
+		'viewer',
+		'scoped',
+		'foreign',
+		...Object.keys(calendarActors),
+		...Object.keys(trainingActors)
+	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
 		const { user } = checked(await service.auth.admin.createUser({ email, password, email_confirm: true }));
-		actors[role] = { email, password, id: user.id };
+		actors[role] = {
+			email,
+			password,
+			id: user.id,
+			organization:
+				calendarActors[role]?.organization ??
+				trainingActors[role]?.organization ??
+				(role === 'foreign' ? 'orgB' : 'orgA')
+		};
 	}
 	checked(
 		await service.from('organizations').insert([
@@ -94,22 +126,23 @@ export async function seed(session) {
 	);
 	for (const [role, actor] of Object.entries(actors)) {
 		const calendar = calendarActors[role];
+		const training = trainingActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
-				organization_id: calendar ? ids[calendar.organization] : role === 'foreign' ? ids.orgB : ids.orgA,
+				organization_id: ids[actor.organization],
 				user_id: actor.id,
 				role: calendar?.role ?? 'member',
 				member_preset: 'viewer',
 				capability_overrides: {
-					personnel: calendar ? (calendar.personnel ?? 'view') : role === 'manager' ? 'configure' : 'view',
+					personnel: calendar?.personnel ?? training?.personnel ?? (role === 'manager' ? 'configure' : 'view'),
 					calendar: calendar?.calendar ?? 'none',
-					training: 'none',
+					training: training?.training ?? 'none',
 					criticalTasks: 'none',
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				access_scope_kind: calendar?.scope ?? (role === 'scoped' ? 'groups' : 'organization'),
-				access_scope_group_ids: calendar?.groups ?? (role === 'scoped' ? [ids.groupA] : [])
+				access_scope_kind: calendar?.scope ?? training?.scope ?? (role === 'scoped' ? 'groups' : 'organization'),
+				access_scope_group_ids: calendar?.groups ?? training?.groups ?? (role === 'scoped' ? [ids.groupA] : [])
 			})
 		);
 	}
@@ -149,6 +182,96 @@ export async function seed(session) {
 				slug: `verify-${name.toLowerCase()}`
 			}))
 		)
+	);
+	const alphaScanPath = `${ids.orgA}/sign-in-rosters/${ids.rosterAlpha}/verification-signed.pdf`;
+	checked(
+		await service.from('sign_in_rosters').insert([
+			{
+				id: ids.rosterAlpha,
+				organization_id: ids.orgA,
+				title: 'Verification Alpha Snapshot',
+				roster_date: '2026-09-14',
+				personnel_snapshot: [
+					{ id: ids.personA, rank: 'PFC', lastName: 'Able', firstName: 'Prior', group: 'Alpha', groupId: ids.groupA }
+				],
+				personnel_ids: [ids.personA],
+				scope_group_ids: [ids.groupA],
+				filter_config: { groups: ['Alpha'], ranks: ['PFC'] },
+				signed_file_path: alphaScanPath,
+				created_by: actors.rosterManager.id
+			},
+			{
+				id: ids.rosterMixed,
+				organization_id: ids.orgA,
+				title: 'Verification Mixed Snapshot',
+				roster_date: '2026-09-15',
+				personnel_snapshot: [
+					{
+						id: ids.personA,
+						rank: 'SPC',
+						lastName: 'Able',
+						firstName: 'Synthetic',
+						group: 'Alpha',
+						groupId: ids.groupA
+					},
+					{
+						id: ids.personB,
+						rank: 'SPC',
+						lastName: 'Baker',
+						firstName: 'Synthetic',
+						group: 'Bravo',
+						groupId: ids.groupB
+					}
+				],
+				personnel_ids: [ids.personA, ids.personB],
+				scope_group_ids: [ids.groupA, ids.groupB],
+				created_by: actors.rosterManager.id
+			},
+			{
+				id: ids.rosterUnassigned,
+				organization_id: ids.orgA,
+				title: 'Verification Unassigned Snapshot',
+				roster_date: '2026-09-15',
+				personnel_snapshot: [
+					{
+						id: ids.personUnassigned,
+						rank: 'SPC',
+						lastName: 'Unassigned',
+						firstName: 'Synthetic',
+						group: '',
+						groupId: null
+					}
+				],
+				personnel_ids: [ids.personUnassigned],
+				scope_group_ids: [],
+				created_by: actors.rosterManager.id
+			},
+			{
+				id: ids.rosterForeign,
+				organization_id: ids.orgB,
+				title: 'Foreign Private Snapshot',
+				roster_date: '2026-09-16',
+				personnel_snapshot: [
+					{
+						id: ids.personForeign,
+						rank: 'SPC',
+						lastName: 'Foreign',
+						firstName: 'Synthetic',
+						group: 'Foreign',
+						groupId: ids.groupForeign
+					}
+				],
+				personnel_ids: [ids.personForeign],
+				scope_group_ids: [ids.groupForeign],
+				created_by: actors.rosterForeign.id
+			}
+		])
+	);
+	const signedScan = new jsPDF();
+	signedScan.text('Synthetic signed scan for Verification Alpha Snapshot', 20, 20);
+	const pdf = Buffer.from(signedScan.output('arraybuffer'));
+	checked(
+		await service.storage.from('counseling-files').upload(alphaScanPath, pdf, { contentType: 'application/pdf' })
 	);
 	const dates = {
 		historical: '2026-03-11',
@@ -391,7 +514,7 @@ export async function seed(session) {
 			}
 		])
 	);
-	const fixture = { ids, actors, dates, calendarActors };
+	const fixture = { ids, actors, dates, calendarActors, trainingActors };
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;
 }

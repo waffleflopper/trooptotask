@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createTestContext } from '$lib/server/adapters/inMemory';
-import { fetchCalendarReportData } from './calendarReportQuery';
+import { fetchCalendarReportData } from './calendarReportQuery.server';
 
 const ORG = 'test-org';
 

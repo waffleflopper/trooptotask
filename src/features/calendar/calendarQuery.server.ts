@@ -5,27 +5,21 @@
  * special days, assignment types, daily assignments, and pinned groups for the given
  * ISO-string date window. Scoped collections are filtered from the caller's Scope Set.
  */
-import type { QueryPorts } from '$lib/server/core/ports';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AvailabilityEntry, SpecialDay, AssignmentType, StatusType } from '$features/calendar/contracts';
-import type { Group } from '$features/personnel/contracts';
-import type { CalendarRangeData } from '$features/calendar/calendar.types';
-export type { CalendarRangeData } from '$features/calendar/calendar.types';
-import {
-	listAssignmentTypes,
-	listAvailabilityEntries,
-	listSpecialDaysInRange,
-	listStatusTypes
-} from '$features/calendar/index.server';
-import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import type { DailyAssignment } from '$lib/types';
+import type { AvailabilityEntry, SpecialDay, AssignmentType } from '$features/calendar/contracts';
+import type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
+export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
+import { listAssignmentTypes } from './assignmentTypeRead.server';
+import { listAvailabilityEntries } from './availabilityRead.server';
+import { listSpecialDaysInRange } from './specialDayRead.server';
+import { listStatusTypes } from './statusTypeRead.server';
+import { listDailyAssignments } from './dailyAssignmentRead.server';
 import { listGroupCatalog, listPinnedGroupNames } from '$features/personnel/index.server';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
-import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
-import {
-	filterRowsByCalendarAssigneeScope,
-	requirePersonnelCalendarRoster,
-	resolveCalendarAssigneeScope
-} from './calendarScope';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
+import { requirePersonnelCalendarRoster, resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
+
+type CalendarQueryPorts = Parameters<typeof resolveCalendarAssigneeScope>[0];
 
 export interface CalendarDateRange {
 	rangeStart: string;
@@ -46,49 +40,27 @@ export interface CalendarData {
 	pinnedGroups: string[];
 }
 
-export interface CalendarBootstrap {
-	rangeStart: string;
-	rangeEnd: string;
-	availabilityEntries: AvailabilityEntry[] | Promise<AvailabilityEntry[]>;
-	specialDays: SpecialDay[] | Promise<SpecialDay[]>;
-	assignmentTypes: AssignmentType[];
-	dailyAssignments: DailyAssignment[] | Promise<DailyAssignment[]>;
-	pinnedGroups: string[];
-	personnel: Personnel[];
-	groups: Group[];
-	statusTypes: StatusType[];
-	activeOnboardingPersonnelIds: string[];
-	/** Org-configured loss warning window in days (default: 180). */
-	lossWarningWindowDays: number;
-}
-
-export async function getActiveOnboardingPersonnelIds(ctx: QueryPorts): Promise<string[]> {
+export async function getActiveOnboardingPersonnelIds(ctx: CalendarQueryPorts): Promise<string[]> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 	if (!ctx.onboardingCalendarMarkers) throw new Error('Onboarding Calendar marker lookup is unavailable');
 	return ctx.onboardingCalendarMarkers.listActivePersonnelIds(ctx.auth.orgId);
 }
 
-export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarData> {
+export async function fetchCalendarData(ctx: CalendarQueryPorts, input: CalendarQueryInput): Promise<CalendarData> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const orgId = ctx.auth.orgId;
 	const { rangeStart, rangeEnd } = input;
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
-	const [availabilityEntries, specialDays, assignmentTypes, dailyAssignmentRows, pinnedGroups] = await Promise.all([
+	const [availabilityEntries, specialDays, assignmentTypes, dailyAssignments, pinnedGroups] = await Promise.all([
 		// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
 		listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
 		// Special days: single-column date range
 		listSpecialDaysInRange(ctx.store, orgId, input),
 		// Assignment types: no date filtering
 		listAssignmentTypes(ctx.store, orgId),
-		// Daily assignments: single-column date range
-		ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: rangeStart },
-				{ column: 'date', op: 'lte', value: rangeEnd }
-			]
-		}),
+		listDailyAssignments(ctx, input, calendarScope),
 		listPinnedGroupNames(ctx)
 	]);
 
@@ -96,14 +68,15 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 		availabilityEntries,
 		specialDays,
 		assignmentTypes,
-		dailyAssignments: DailyAssignmentEntity.fromDbArray(
-			filterRowsByCalendarAssigneeScope(dailyAssignmentRows, calendarScope)
-		),
+		dailyAssignments,
 		pinnedGroups
 	};
 }
 
-export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQueryInput): Promise<CalendarRangeData> {
+export async function fetchCalendarRangeData(
+	ctx: CalendarQueryPorts,
+	input: CalendarQueryInput
+): Promise<CalendarRangeData> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 
 	const orgId = ctx.auth.orgId;
@@ -111,15 +84,10 @@ export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQue
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
 	return withCalendarTiming(orgId, 'date-ranged-query', async () => {
-		const [availabilityEntries, specialDays, dailyAssignmentRows] = await Promise.all([
+		const [availabilityEntries, specialDays, dailyAssignments] = await Promise.all([
 			listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
 			listSpecialDaysInRange(ctx.store, orgId, input),
-			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-				rangeFilters: [
-					{ column: 'date', op: 'gte', value: rangeStart },
-					{ column: 'date', op: 'lte', value: rangeEnd }
-				]
-			})
+			listDailyAssignments(ctx, input, calendarScope)
 		]);
 
 		return {
@@ -127,15 +95,13 @@ export async function fetchCalendarRangeData(ctx: QueryPorts, input: CalendarQue
 			rangeEnd,
 			availabilityEntries,
 			specialDays,
-			dailyAssignments: DailyAssignmentEntity.fromDbArray(
-				filterRowsByCalendarAssigneeScope(dailyAssignmentRows, calendarScope)
-			)
+			dailyAssignments
 		};
 	});
 }
 
 export async function fetchCalendarBootstrap(
-	ctx: QueryPorts,
+	ctx: CalendarQueryPorts,
 	input: CalendarBootstrapQueryInput
 ): Promise<Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'>> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
@@ -150,14 +116,7 @@ export async function fetchCalendarBootstrap(
 		personnelIds: calendarScope?.personnelIds
 	});
 	const specialDays = listSpecialDaysInRange(ctx.store, orgId, specialDaysRange);
-	const dailyAssignments = ctx.store
-		.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: rangeStart },
-				{ column: 'date', op: 'lte', value: rangeEnd }
-			]
-		})
-		.then((rows) => DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(rows, calendarScope)));
+	const dailyAssignments = listDailyAssignments(ctx, input, calendarScope);
 
 	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, orgSettingsRow] = await Promise.all([
 		listAssignmentTypes(ctx.store, orgId),

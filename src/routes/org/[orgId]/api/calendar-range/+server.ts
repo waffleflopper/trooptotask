@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fetchCalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import { fetchCalendarRangeData } from '$features/calendar/index.server';
 import { formatDate, parseDate } from '$lib/utils/dates';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;

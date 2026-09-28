@@ -15,8 +15,12 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
-import { listAssignmentTypes, listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
-import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import {
+	listAssignmentTypes,
+	listAvailabilityEntries,
+	listDailyAssignments,
+	listStatusTypes
+} from '$features/calendar/index.server';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
@@ -73,14 +77,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 	const availabilityEntries = listAvailabilityEntries(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut });
-	const todayAssignments = ctx.store
-		.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-			rangeFilters: [
-				{ column: 'date', op: 'gte', value: yesterday },
-				{ column: 'date', op: 'lte', value: twoWeeksOut }
-			]
-		})
-		.then((rows) => DailyAssignmentEntity.fromDbArray(rows));
+	const todayAssignments = listDailyAssignments(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }, null);
 
 	const [
 		assignmentTypes,
@@ -137,16 +134,11 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
-	const [availabilityEntries, assignmentTypes, dailyAssignmentRows, pinnedGroups, ratingSchemeRows, activeOnboardings] =
+	const [availabilityEntries, assignmentTypes, todayAssignments, pinnedGroups, ratingSchemeRows, activeOnboardings] =
 		await Promise.all([
 			listAvailabilityEntries(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }),
 			listAssignmentTypes(ctx.store, orgId),
-			ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
-				rangeFilters: [
-					{ column: 'date', op: 'gte', value: yesterday },
-					{ column: 'date', op: 'lte', value: twoWeeksOut }
-				]
-			}),
+			listDailyAssignments(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }, null),
 			listPinnedGroupNames(ctx),
 			ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
 				select: 'id, rated_person_id, eval_type, rating_period_end, status',
@@ -158,7 +150,7 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 	return {
 		availabilityEntries,
 		assignmentTypes,
-		todayAssignments: DailyAssignmentEntity.fromDbArray(dailyAssignmentRows),
+		todayAssignments,
 		pinnedGroups,
 		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
 		activeOnboardings

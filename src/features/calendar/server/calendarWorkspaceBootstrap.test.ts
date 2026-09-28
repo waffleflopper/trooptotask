@@ -4,7 +4,7 @@ import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorD
 import type { DailyAssignment, Personnel } from '$lib/types';
 import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { CalendarBootstrap } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarBootstrap } from '$features/calendar/calendar.types';
 
 const { loadWithContextMock, fetchCalendarBootstrapMock, getActiveOnboardingPersonnelIdsMock } = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
@@ -22,9 +22,9 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
-vi.mock('$lib/server/core/useCases/calendarQuery', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/calendarQuery')>(
-		'$lib/server/core/useCases/calendarQuery'
+vi.mock('$features/calendar/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/calendar/index.server')>(
+		'$features/calendar/index.server'
 	);
 	return {
 		...actual,

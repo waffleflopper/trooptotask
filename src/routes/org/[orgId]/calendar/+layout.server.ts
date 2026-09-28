@@ -5,7 +5,7 @@ import {
 	type CalendarWorkspaceRequestContext,
 	type CalendarWorkspaceRouteData
 } from '$features/calendar/server/calendarWorkspaceBootstrap';
-import type { CalendarDateRange } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarDateRange } from '$features/calendar/index.server';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 
 export interface CalendarLayoutLoadDeps {

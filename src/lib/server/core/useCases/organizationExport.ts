@@ -4,6 +4,7 @@ import { isPersonnelOrganizationExportTable } from '$features/personnel/contract
 import {
 	listAssignmentTypeExportRows,
 	listAvailabilityExportRows,
+	listDailyAssignmentExportRows,
 	listSpecialDayExportRows,
 	listStatusTypeExportRows
 } from '$features/calendar/index.server';
@@ -60,6 +61,9 @@ export async function loadOrganizationExportPayload(
 					}
 					if (section.key === 'availabilityEntries') {
 						return [section.key, await listAvailabilityExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'dailyAssignments') {
+						return [section.key, await listDailyAssignmentExportRows(store, orgId)] as const;
 					}
 					const rows = await store.findMany<Record<string, unknown>>(
 						section.table,

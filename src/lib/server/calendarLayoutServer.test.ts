@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createInMemoryDataStore, createTestContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
-import { fetchCalendarData } from '$lib/server/core/useCases/calendarQuery';
-import { getActiveOnboardingPersonnelIds } from '$lib/server/core/useCases/calendarQuery';
+import { fetchCalendarData } from '$features/calendar/index.server';
+import { getActiveOnboardingPersonnelIds } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const ORG = 'test-org';

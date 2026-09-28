@@ -4,19 +4,14 @@ import type { OwnershipTransferCandidate } from './ownershipTransferSettings';
 interface MembershipRow {
 	id: string;
 	user_id: string | null;
-	email: string;
+	email: string | null;
 	role: MembershipRole;
 }
 
 interface OwnershipTransferSettingsContext {
 	auth: { orgId: string; role: MembershipRole };
 	store: {
-		findMany<T>(
-			table: string,
-			orgId: string,
-			filters: undefined,
-			options: { select: string }
-		): Promise<T[]>;
+		findMany<T>(table: string, orgId: string, filters: undefined, options: { select: string }): Promise<T[]>;
 	};
 }
 
@@ -29,12 +24,15 @@ export async function loadOwnershipTransferCandidates(
 		select: 'id, user_id, email, role'
 	});
 
-	return members
-		.filter((member) => member.role !== 'owner' && member.user_id)
-		.map((member) => ({
-			id: member.id,
-			userId: member.user_id!,
-			email: member.email,
-			membershipRole: member.role
-		}));
+	return members.flatMap((member) => {
+		if (member.role === 'owner' || !member.user_id || !member.email?.trim()) return [];
+		return [
+			{
+				id: member.id,
+				userId: member.user_id,
+				email: member.email,
+				membershipRole: member.role
+			}
+		];
+	});
 }

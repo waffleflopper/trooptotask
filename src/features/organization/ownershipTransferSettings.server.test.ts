@@ -6,6 +6,7 @@ describe('ownership transfer settings', () => {
 		const findMany = vi.fn(async () => [
 			{ id: 'owner-membership', user_id: 'owner-user', email: 'owner@example.test', role: 'owner' },
 			{ id: 'admin-membership', user_id: 'admin-user', email: 'admin@example.test', role: 'admin' },
+			{ id: 'missing-email', user_id: 'existing-user', email: null, role: 'member' },
 			{ id: 'pending-membership', user_id: null, email: 'pending@example.test', role: 'member' }
 		]);
 

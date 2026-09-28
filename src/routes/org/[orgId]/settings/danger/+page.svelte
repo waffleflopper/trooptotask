@@ -3,6 +3,7 @@
 	import type { PageProps } from './$types';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
+	import { createOwnershipTransferWorkspace } from '$features/organization';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
@@ -15,6 +16,9 @@
 	let deleteLoading = $state(false);
 	let transferLoading = $state(false);
 	const dangerZoneState = createSettingsDangerZoneState(() => data.dangerSettings);
+	const transferState = createOwnershipTransferWorkspace(
+		() => data.dangerSettings.sections.dangerZone.transferOwnershipCandidates
+	);
 	const organizationSection = $derived(data.dangerSettings.sections.organization);
 	const dangerZoneSection = $derived(dangerZoneState.section);
 	const currentMember = $derived(data.dangerSettings.currentMember);
@@ -25,7 +29,7 @@
 			try {
 				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
 				await update();
-				if (result.type === 'success') dangerZoneState.closeTransferConfirmation();
+				if (result.type === 'success') transferState.closeTransferConfirmation();
 			} finally {
 				transferLoading = false;
 			}
@@ -42,8 +46,8 @@
 		orgName={organizationSection.name}
 		{form}
 		section={dangerZoneSection}
-		bind:transferTargetId={dangerZoneState.transferTargetId}
-		onTransferConfirm={() => dangerZoneState.openTransferConfirmation()}
+		bind:transferTargetId={transferState.transferTargetId}
+		onTransferConfirm={() => transferState.openTransferConfirmation()}
 		onDeleteConfirm={() => dangerZoneState.openDeleteConfirmation()}
 	/>
 {:else}
@@ -116,17 +120,17 @@
 	</AppDialog.Root>
 {/if}
 
-{#if dangerZoneState.showTransferConfirm && dangerZoneState.transferTargetId}
+{#if transferState.showTransferConfirm && transferState.transferTargetId}
 	<AppDialog.Root
-		bind:open={dangerZoneState.showTransferConfirm}
-		closeBlocked={transferLoading || dangerZoneState.transferCloseBlocked}
-		onClose={() => dangerZoneState.closeTransferConfirmation()}
+		bind:open={transferState.showTransferConfirm}
+		closeBlocked={transferLoading || transferState.transferCloseBlocked}
+		onClose={() => transferState.closeTransferConfirmation()}
 	>
-		<AppDialog.Content closeBlocked={transferLoading || dangerZoneState.transferCloseBlocked}>
+		<AppDialog.Content closeBlocked={transferLoading || transferState.transferCloseBlocked}>
 			<AppDialog.Header>
 				<AppDialog.Title>Transfer Ownership</AppDialog.Title>
 				<AppDialog.Description>
-					Transfer owner authority to {dangerZoneState.selectedTransferCandidate?.email ?? 'the selected member'}.
+					Transfer owner authority to {transferState.selectedTransferCandidate?.email ?? 'the selected member'}.
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
@@ -138,14 +142,14 @@
 					class="grid gap-2"
 					use:enhance={transferEnhance}
 				>
-					<input type="hidden" name="newOwnerId" value={dangerZoneState.transferTargetId} />
+					<input type="hidden" name="newOwnerId" value={transferState.transferTargetId} />
 					<Label for="confirmTransferOwner">Type the member email to confirm</Label>
 					<Input
 						id="confirmTransferOwner"
 						name="confirmTransferEmail"
 						type="text"
-						bind:value={dangerZoneState.transferConfirmText}
-						placeholder={dangerZoneState.selectedTransferCandidate?.email ?? 'member@example.com'}
+						bind:value={transferState.transferConfirmText}
+						placeholder={transferState.selectedTransferCandidate?.email ?? 'member@example.com'}
 						autocomplete="off"
 					/>
 				</form>
@@ -155,13 +159,13 @@
 					type="button"
 					variant="outline"
 					disabled={transferLoading}
-					onclick={() => dangerZoneState.closeTransferConfirmation()}>Cancel</Button
+					onclick={() => transferState.closeTransferConfirmation()}>Cancel</Button
 				>
 				<Button
 					type="submit"
 					form="transfer-ownership-form"
 					variant="destructive"
-					disabled={transferLoading || !dangerZoneState.transferConfirmMatches}
+					disabled={transferLoading || !transferState.transferConfirmMatches}
 				>
 					{transferLoading ? 'Transferring...' : 'Transfer Ownership'}
 				</Button>

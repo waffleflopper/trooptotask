@@ -1,7 +1,12 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { buildLayoutContext, buildRouteContext, loadWithContextCore, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
+import {
+	buildLayoutContext,
+	buildRouteContext,
+	loadWithContextCore,
+	rethrowOrWrap
+} from '$lib/server/adapters/httpAdapter';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import { fetchCriticalTasksDashboardSummary } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';

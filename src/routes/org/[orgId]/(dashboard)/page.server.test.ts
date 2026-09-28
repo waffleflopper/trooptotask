@@ -430,9 +430,11 @@ describe('dashboard page server load', () => {
 		);
 	});
 
-	it('preserves a denied leave action as an HTTP permission error', async () => {
+	it('preserves an owner leave error as an HTTP bad request', async () => {
 		leaveOrganizationMock.mockRejectedValue(
-			Object.assign(new Error('You cannot leave an organization you own'), { status: 403 })
+			Object.assign(new Error('Organization owners must transfer ownership before leaving the organization'), {
+				status: 400
+			})
 		);
 
 		await expect(
@@ -451,8 +453,8 @@ describe('dashboard page server load', () => {
 				getClientAddress: () => '127.0.0.1'
 			} as never)
 		).rejects.toMatchObject({
-			status: 403,
-			body: { message: 'You cannot leave an organization you own' }
+			status: 400,
+			body: { message: 'Organization owners must transfer ownership before leaving the organization' }
 		});
 	});
 });

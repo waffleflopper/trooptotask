@@ -207,7 +207,10 @@ describe('danger settings page server', () => {
 		const result = await actions.transferOwnership(
 			actionEvent(
 				'transferOwnership',
-				new URLSearchParams({ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'next-owner@example.com' })
+				new URLSearchParams({
+					newOwnerId: '11111111-1111-4111-8111-111111111111',
+					confirmTransferEmail: 'next-owner@example.com'
+				})
 			)
 		);
 

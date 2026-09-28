@@ -31,6 +31,9 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 ### Access and people
 
 - [Sign in and sign out](sign-in.md): public gate, member session, account menu, sign-out and form failure.
+- [Create an Organization](organization-creation.md): confirmed-account gate, owner creation, initial configuration and retry boundaries.
+- [Invite and accept Organization members](organization-invitations.md): existing/new account paths, separate setup and invitation states, acceptance, denial and resend.
+- [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.
 - [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.

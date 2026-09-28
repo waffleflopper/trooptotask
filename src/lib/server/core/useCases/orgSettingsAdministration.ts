@@ -1,10 +1,9 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
-import { sanitizeString, validateUUID } from '$lib/server/validation';
+import { sanitizeString } from '$lib/server/validation';
 import {
 	ORGANIZATION_DELETE_ACTION,
-	ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
 	type SensitiveAction,
 	type SensitiveActionAuthorizer,
 	type SensitiveActionDecision
@@ -17,11 +16,6 @@ export interface OrganizationSettingsAdministrationPort {
 	renameOrganization(orgId: string, name: string): Promise<string | null>;
 	updateOrganizationUrlSlug(orgId: string, urlSlug: string | null): Promise<string | null>;
 	findOrganizationByUrlSlug(urlSlug: string): Promise<{ id: string } | null>;
-	findOwnershipTransferTarget(
-		orgId: string,
-		userId: string
-	): Promise<{ userId: string | null; email: string | null; role: string | null } | null>;
-	transferOwnership(orgId: string, newOwnerId: string): Promise<string | null>;
 	lookupOrganization(orgId: string): Promise<{ name: string | null; errorMessage: string | null }>;
 	deleteOrganization(orgId: string): Promise<string | null>;
 }
@@ -37,11 +31,6 @@ interface OrganizationSettingsAdministrationPorts {
 type OrganizationSensitiveActionPorts = OrganizationSettingsAdministrationPorts & {
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 };
-
-interface TransferOrganizationOwnershipInput {
-	newOwnerId: string;
-	confirmTransferEmail: string;
-}
 
 interface DeleteOrganizationInput {
 	confirmName: string;
@@ -125,57 +114,6 @@ export async function clearOrganizationUrlSlug(
 	});
 
 	return { slugSuccess: true, orgUrlSlug: null };
-}
-
-export async function transferOrganizationOwnership(
-	ports: OrganizationSensitiveActionPorts,
-	input: TransferOrganizationOwnershipInput
-): Promise<{ transferSuccess: true }> {
-	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.transferOwnership);
-
-	if (!validateUUID(input.newOwnerId)) {
-		fail(400, 'Invalid user ID');
-	}
-
-	const targetMember = await ports.administration.findOwnershipTransferTarget(ports.auth.orgId, input.newOwnerId);
-	if (!targetMember || targetMember.role === 'owner' || !targetMember.userId || !targetMember.email) {
-		fail(400, 'Select an eligible member to receive ownership');
-	}
-
-	const confirmTransferEmail = sanitizeString(input.confirmTransferEmail, 320).toLowerCase();
-	const targetEmail = sanitizeString(targetMember.email, 320).toLowerCase();
-	if (confirmTransferEmail !== targetEmail) {
-		fail(400, 'Member email does not match');
-	}
-
-	const sensitiveAction = await authorizeOrganizationSensitiveAction(ports, {
-		action: ORGANIZATION_TRANSFER_OWNERSHIP_ACTION,
-		deniedAuditAction: 'org.ownership_transfer_authorization_denied',
-		details: { newOwnerId: input.newOwnerId }
-	});
-
-	const errorMessage = await ports.administration.transferOwnership(ports.auth.orgId, input.newOwnerId);
-	if (errorMessage) {
-		fail(500, errorMessage);
-	}
-
-	ports.audit.log({
-		action: 'org.ownership_transferred',
-		resourceType: 'organization',
-		details: { newOwnerId: input.newOwnerId, sensitiveAction },
-		severity: 'critical'
-	});
-
-	const organization = await ports.administration.lookupOrganization(ports.auth.orgId);
-
-	await ports.notifications.notifyUser(ports.auth.orgId, input.newOwnerId, {
-		type: 'ownership_transferred',
-		title: 'Ownership Transferred',
-		message: `You are now the owner of "${organization.name ?? 'the organization'}".`,
-		link: `/org/${ports.auth.orgId}/settings`
-	});
-
-	return { transferSuccess: true };
 }
 
 export async function deleteOrganization(

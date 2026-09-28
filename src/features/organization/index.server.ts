@@ -23,3 +23,5 @@ export { createSupabaseOrganizationInvitationDeliveryPort } from './invitationDe
 export { createSupabaseOrganizationInvitationRateLimiter } from './invitationRateLimit.server';
 export { createSupabaseOrganizationInvitationSetupStateLookupPort } from './invitationSetupStateProvider.server';
 export { loadMembersSettings } from './membersSettings.server';
+export { transferOrganizationOwnership } from './ownershipTransfer.server';
+export { createSupabaseOrganizationOwnershipTransferPort } from './ownershipTransferProvider.server';

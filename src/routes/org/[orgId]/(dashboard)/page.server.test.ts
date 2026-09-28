@@ -429,4 +429,32 @@ describe('dashboard page server load', () => {
 			}
 		);
 	});
+
+	it('preserves an owner leave error as an HTTP bad request', async () => {
+		leaveOrganizationMock.mockRejectedValue(
+			Object.assign(new Error('Organization owners must transfer ownership before leaving the organization'), {
+				status: 400
+			})
+		);
+
+		await expect(
+			actions.leaveOrganization({
+				request: new Request(`http://localhost/org/${ORG_ID}?/leaveOrganization`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						membershipId: '11111111-1111-4111-8111-111111111111',
+						confirmLeaveOrganization: 'YES'
+					})
+				}),
+				locals: { user: { id: 'user-1', email: 'user@example.com' }, supabase: {} },
+				params: { orgId: ORG_ID },
+				cookies: {},
+				getClientAddress: () => '127.0.0.1'
+			} as never)
+		).rejects.toMatchObject({
+			status: 400,
+			body: { message: 'Organization owners must transfer ownership before leaving the organization' }
+		});
+	});
 });

@@ -2,10 +2,11 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
+import { deleteOrganization as deleteOrganizationUseCase } from '$lib/server/core/useCases/orgSettingsAdministration';
 import {
-	deleteOrganization as deleteOrganizationUseCase,
+	createSupabaseOrganizationOwnershipTransferPort,
 	transferOrganizationOwnership
-} from '$lib/server/core/useCases/orgSettingsAdministration';
+} from '$features/organization/index.server';
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadDangerSettings } from './dangerSettings.server';
 import { loadSettingsPage } from '../settingsLoad.server';
@@ -41,7 +42,7 @@ export const actions: Actions = {
 					audit: ctx.audit,
 					notifications: ctx.notifications,
 
-					administration: createSupabaseOrgSettingsAdministrationPort(locals),
+					administration: createSupabaseOrganizationOwnershipTransferPort(locals),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{

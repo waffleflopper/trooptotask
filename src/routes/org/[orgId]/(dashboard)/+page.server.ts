@@ -1,7 +1,12 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { buildLayoutContext, buildRouteContext, loadWithContextCore } from '$lib/server/adapters/httpAdapter';
+import {
+	buildLayoutContext,
+	buildRouteContext,
+	loadWithContextCore,
+	rethrowOrWrap
+} from '$lib/server/adapters/httpAdapter';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
 import { fetchCriticalTasksDashboardSummary } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
@@ -123,21 +128,25 @@ export const actions: Actions = {
 		if (!user) throw redirect(303, '/auth/login');
 
 		const formData = await event.request.formData();
-		const ctx = await buildRouteContext(event);
-		await leaveOrganization(
-			{
-				auth: ctx.auth,
-				audit: ctx.audit,
-				notifications: ctx.notifications,
+		try {
+			const ctx = await buildRouteContext(event);
+			await leaveOrganization(
+				{
+					auth: ctx.auth,
+					audit: ctx.audit,
+					notifications: ctx.notifications,
 
-				settings: createSupabaseOrgSettingsMemberManagementPort(event.locals)
-			},
-			{
-				membershipId: (formData.get('membershipId') as string) ?? '',
-				confirmation: (formData.get('confirmLeaveOrganization') as string) ?? '',
-				actorEmail: user.email
-			}
-		);
+					settings: createSupabaseOrgSettingsMemberManagementPort(event.locals)
+				},
+				{
+					membershipId: (formData.get('membershipId') as string) ?? '',
+					confirmation: (formData.get('confirmLeaveOrganization') as string) ?? '',
+					actorEmail: user.email
+				}
+			);
+		} catch (error) {
+			rethrowOrWrap(error);
+		}
 
 		throw redirect(303, '/dashboard?show=all');
 	}

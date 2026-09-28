@@ -4,7 +4,6 @@ import type {
 	SettingsArchivedPersonnelRow,
 	SettingsArchivesSectionData,
 	SettingsDangerSectionData,
-	SettingsOwnershipTransferCandidate,
 	SettingsPoliciesSectionData
 } from './settingsSectionTypes';
 
@@ -209,9 +208,6 @@ export class SettingsDataExportState {
 export class SettingsDangerZoneState {
 	readonly #getSettings: () => DangerSettingsData;
 
-	showTransferConfirm = $state(false);
-	transferTargetId = $state<string | null>(null);
-	transferConfirmText = $state('');
 	showDeleteConfirm = $state(false);
 	deleteConfirmText = $state('');
 
@@ -223,23 +219,6 @@ export class SettingsDangerZoneState {
 		return this.#getSettings().sections.dangerZone;
 	}
 
-	get transferOwnershipCandidates(): SettingsOwnershipTransferCandidate[] {
-		return this.section.transferOwnershipCandidates;
-	}
-
-	get selectedTransferCandidate(): SettingsOwnershipTransferCandidate | null {
-		return this.transferOwnershipCandidates.find((candidate) => candidate.userId === this.transferTargetId) ?? null;
-	}
-
-	get transferConfirmMatches(): boolean {
-		const email = this.selectedTransferCandidate?.email;
-		return Boolean(email && this.transferConfirmText.trim().toLowerCase() === email.toLowerCase());
-	}
-
-	get transferCloseBlocked(): boolean {
-		return this.transferConfirmText.trim() !== '';
-	}
-
 	get deleteConfirmMatches(): boolean {
 		return (
 			this.deleteConfirmText.trim().replace(/\s+/g, ' ') === this.section.deleteConfirmation.normalizedOrganizationName
@@ -248,16 +227,6 @@ export class SettingsDangerZoneState {
 
 	get deleteOrganizationCloseBlocked(): boolean {
 		return this.deleteConfirmText.trim() !== '';
-	}
-
-	openTransferConfirmation(candidateId?: string | null): void {
-		if (candidateId !== undefined) this.transferTargetId = candidateId;
-		this.showTransferConfirm = true;
-	}
-
-	closeTransferConfirmation(): void {
-		this.showTransferConfirm = false;
-		this.transferConfirmText = '';
 	}
 
 	openDeleteConfirmation(): void {

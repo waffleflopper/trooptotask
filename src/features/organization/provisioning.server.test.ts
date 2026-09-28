@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { provisionOrganization, type OrgProvisioningPort } from './orgProvisioning';
+import { provisionOrganization, type OrgProvisioningPort } from './provisioning.server';
 
 function createOrgProvisioningPort(
 	options: {

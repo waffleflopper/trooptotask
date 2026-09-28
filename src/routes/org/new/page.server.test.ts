@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { OrgProvisioningPort } from '$lib/server/core/useCases/orgProvisioning';
+import type { OrgProvisioningPort } from '$features/organization/index.server';
 
 const { createPort } = vi.hoisted(() => ({ createPort: vi.fn() }));
-vi.mock('$lib/server/adapters/supabaseOrgProvisioning', () => ({
-	createSupabaseOrgProvisioningPort: createPort
+vi.mock('$lib/server/organizationProvisioningDelivery', () => ({
+	createOrganizationProvisioningDelivery: createPort
 }));
 
 import { actions, load } from './+page.server';

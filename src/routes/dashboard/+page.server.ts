@@ -2,12 +2,12 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { createSupabaseAuditAdapter } from '$lib/server/adapters/supabaseAudit';
 import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
-import { createSupabaseDashboardOrgAccessPort } from '$lib/server/adapters/supabaseDashboardOrgAccess';
 import {
 	acceptDashboardInvitation,
+	createSupabaseDashboardOrgAccessPort,
 	declineDashboardInvitation,
 	loadDashboardOrgAccess
-} from '$lib/server/core/useCases/dashboardOrgAccess';
+} from '$features/organization/index.server';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	const user = locals.user;

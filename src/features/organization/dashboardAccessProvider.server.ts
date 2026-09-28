@@ -5,7 +5,7 @@ import type {
 	DashboardOrgAccessPort,
 	DashboardOrganizationSummary,
 	DashboardPendingInvitationSummary
-} from '$lib/server/core/useCases/dashboardOrgAccess';
+} from './dashboardAccess.server';
 import { getPreferredOrganizationUrlSegment } from '$lib/server/core/useCases/organizationUrlSlug';
 
 interface OrganizationMembershipRow {

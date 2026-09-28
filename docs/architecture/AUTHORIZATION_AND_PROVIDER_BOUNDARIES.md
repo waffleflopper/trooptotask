@@ -248,7 +248,6 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - `src/routes/org/[orgId]/settings/+page.server.ts`
 - `src/routes/org/[orgId]/personnel/+layout.server.ts`
 - `src/lib/server/permissionContext.ts`
-- `src/lib/server/core/useCases/organizationInvitationMembership.ts`
 - `supabase/migrations/*` RLS helpers and policies
 
 ### Provider-boundary hotspots

@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllSupabaseRows } from './supabasePagination';
-import { normalizeInvitationEmail } from '$lib/server/core/useCases/invitationEmail';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 
 export class InvitationAcceptanceError extends Error {
 	constructor(
@@ -18,7 +17,7 @@ export async function autoAcceptOrgInvites(
 	let accepted = 0;
 	let unavailable = 0;
 	try {
-		const normalizedEmail = normalizeInvitationEmail(email);
+		const normalizedEmail = email.trim().toLowerCase();
 		if (!normalizedEmail) throw new InvitationAcceptanceError(0);
 		// Validate each page before pagination can turn a missing payload into an empty list.
 		const { data: invitations, error } = await selectAllSupabaseRows<{ id: string }>(async (from, to) => {

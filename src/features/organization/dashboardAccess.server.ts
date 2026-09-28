@@ -1,6 +1,14 @@
-import type { AuditPort, NotificationPort } from '$lib/server/core/ports';
-import { fail } from '$lib/server/core/errors';
-import { normalizeInvitationEmail } from './invitationEmail';
+export interface DashboardInvitationAuditPort {
+	log(event: { action: string; resourceType: string; resourceId?: string; details?: Record<string, unknown> }): void;
+}
+
+interface DashboardInvitationNotificationPort {
+	notifyAdmins(
+		organizationId: string,
+		excludeUserId: string | null,
+		notification: { type: string; title: string; message: string; link?: string | null }
+	): Promise<void>;
+}
 
 export interface DashboardOrganizationSummary {
 	id: string;
@@ -79,7 +87,7 @@ interface DashboardOrgAccessInput {
 
 interface AcceptDashboardInvitationPorts {
 	dashboard: DashboardOrgAccessPort;
-	notifications: NotificationPort;
+	notifications: DashboardInvitationNotificationPort;
 	audit?: DashboardInvitationAuditFactory;
 }
 
@@ -91,7 +99,7 @@ interface AcceptDashboardInvitationInput {
 
 interface DeclineDashboardInvitationPorts {
 	dashboard: DashboardOrgAccessPort;
-	notifications: NotificationPort;
+	notifications: DashboardInvitationNotificationPort;
 	audit?: DashboardInvitationAuditFactory;
 }
 
@@ -101,7 +109,7 @@ interface DeclineDashboardInvitationInput {
 	email?: string | null;
 }
 
-type DashboardInvitationAuditFactory = (organizationId: string) => AuditPort;
+type DashboardInvitationAuditFactory = (organizationId: string) => DashboardInvitationAuditPort;
 
 export async function loadDashboardOrgAccess(
 	port: DashboardOrgAccessPort,
@@ -255,7 +263,13 @@ export async function declineDashboardInvitation(
 }
 
 function normalizeEmail(email?: string | null): string {
-	return normalizeInvitationEmail(email);
+	return email?.trim().toLowerCase() ?? '';
+}
+
+function fail(status: number, message: string): never {
+	const error = new Error(message);
+	Object.assign(error, { status });
+	throw error;
 }
 
 async function notifyAdminsOfAcceptedInvitation(

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- mock Supabase clients need any casts */
 import { describe, expect, it, vi } from 'vitest';
-import { autoAcceptOrgInvites } from './auto-accept-org-invites';
+import { autoAcceptOrgInvites } from './autoAcceptInvitations.server';
 
 function createMockSupabase(invitations: Array<{ id: string }> = [], rpcStatuses: Record<string, string | null> = {}) {
 	const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];

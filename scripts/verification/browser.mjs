@@ -53,10 +53,7 @@ export function driver(call, state, fixture) {
 	async function login(role, options = {}) {
 		const actor = fixture.actors[role];
 		if (!actor) throw new Blocked('FIXTURE', `Unknown synthetic actor ${role}.`);
-		const orgId =
-			fixture.calendarActors?.[role]?.organization === 'orgB' || role === 'foreign'
-				? fixture.ids.orgB
-				: fixture.ids.orgA;
+		const orgId = fixture.ids[actor.organization ?? (role === 'foreign' ? 'orgB' : 'orgA')];
 		const destination = options.path ?? 'personnel';
 		const target = `/org/${orgId}/${destination}`;
 		const cacheKey = `${state.origin}:${role}`;

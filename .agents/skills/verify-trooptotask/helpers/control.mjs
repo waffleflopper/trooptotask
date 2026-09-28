@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
@@ -25,9 +25,10 @@ const tableColumns = {
 	special_days: 'organization_id',
 	notifications: 'organization_id',
 	audit_logs: 'org_id',
-	organization_memberships: 'organization_id'
+	organization_memberships: 'organization_id',
+	sign_in_rosters: 'organization_id'
 };
-const filters = new Set(['id', 'name', 'note', 'personnel_id', 'user_id', 'type']);
+const filters = new Set(['id', 'name', 'title', 'note', 'personnel_id', 'user_id', 'type']);
 
 async function owned() {
 	const state = await readJSON(path.join(session, 'session.json'));
@@ -117,10 +118,12 @@ async function main() {
 		const [role, destination = 'calendar'] = args;
 		if (
 			!fixture.actors[role] ||
-			!['personnel', 'calendar', 'calendar/settings', 'calendar/bulk', 'calendar/reports'].includes(destination)
+			!['personnel', 'training', 'calendar', 'calendar/settings', 'calendar/bulk', 'calendar/reports'].includes(
+				destination
+			)
 		)
 			throw new Error('Unknown synthetic actor or destination.');
-		const targetOrg = fixture.calendarActors?.[role]?.organization === 'orgB' || role === 'foreign' ? 'orgB' : 'orgA';
+		const targetOrg = fixture.actors[role].organization ?? (role === 'foreign' ? 'orgB' : 'orgA');
 		const url = `${doctor.origin}/auth/login?next=/org/${org(targetOrg)}/${destination}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: `map-${role}-${randomUUID()}` }));
 		const pageId = Number(
@@ -152,7 +155,7 @@ async function main() {
 		await tool(state, 'click', { pageId, uid: button });
 		await tool(state, 'wait_for', {
 			pageId,
-			text: ['Calendar', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'],
+			text: ['Calendar', 'Training', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'],
 			timeout: 20000
 		});
 		const landed = await evaluate(state, pageId, '() => location.pathname');
@@ -167,6 +170,73 @@ async function main() {
 		if (field) query = query.eq(field, value);
 		const rows = checked(await query);
 		note({ table, organization: orgKey, count: rows.length, rows });
+		return;
+	}
+	if (command === 'roster-files') {
+		const [orgKey, rosterId] = args;
+		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
+			throw new Error('Use a synthetic roster UUID.');
+		const prefix = `${org(orgKey)}/sign-in-rosters/${rosterId}`;
+		const bucket = (await provider()).storage.from('counseling-files');
+		const entries = checked(await bucket.list(prefix));
+		const files = [];
+		for (const entry of entries) {
+			const blob = checked(await bucket.download(`${prefix}/${entry.name}`));
+			const bytes = Buffer.from(await blob.arrayBuffer());
+			files.push({ name: entry.name, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
+		}
+		note({ organization: orgKey, rosterId, files });
+		return;
+	}
+	if (command === 'signed-download') {
+		const [orgKey, rosterId, filename] = args;
+		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
+			throw new Error('Use a synthetic roster UUID.');
+		const target = path.resolve(filename ?? '');
+		if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.pdf'))
+			throw new Error('Signed download path must be a .pdf under the skill evidence directory.');
+		const client = await provider();
+		const rows = checked(
+			await client
+				.from('sign_in_rosters')
+				.select('signed_file_path')
+				.eq('organization_id', org(orgKey))
+				.eq('id', rosterId)
+		);
+		if (rows.length !== 1 || !rows[0].signed_file_path?.startsWith(`${org(orgKey)}/sign-in-rosters/${rosterId}/`))
+			throw new Error('This synthetic roster has no current signed scan.');
+		const marker = `/storage/v1/object/sign/counseling-files/${rows[0].signed_file_path}`;
+		const pages = text(await tool(state, 'list_pages', {}));
+		const matches = pages.split('\n').filter((line) => {
+			const address = line.match(/https?:\/\/\S+/)?.[0];
+			if (!address) return false;
+			const url = new URL(address);
+			return url.origin === new URL(client.supabaseUrl).origin && decodeURIComponent(url.pathname) === marker;
+		});
+		const pageId = Number(matches.at(-1)?.match(/^(\d+):/)?.[1]);
+		if (!Number.isInteger(pageId)) throw new Error('Click the named scan download in the owned browser first.');
+		const result = await evaluate(
+			state,
+			pageId,
+			`async () => {
+				if (decodeURIComponent(location.pathname) !== ${JSON.stringify(marker)}) throw new Error('Opened scan changed.');
+				const response = await fetch(location.href);
+				const bytes = new Uint8Array(await response.arrayBuffer());
+				let binary = '';
+				for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+				return { status: response.status, type: response.headers.get('content-type'), base64: btoa(binary) };
+			}`
+		);
+		const bytes = Buffer.from(result.base64, 'base64');
+		if (
+			result.status !== 200 ||
+			!result.type?.includes('application/pdf') ||
+			bytes.subarray(0, 4).toString() !== '%PDF'
+		)
+			throw new Error('The signed browser download did not return a PDF.');
+		await fs.mkdir(path.dirname(target), { recursive: true });
+		await fs.writeFile(target, bytes);
+		note({ saved: target, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
 		return;
 	}
 	if (command === 'calendar-grant') {
@@ -281,7 +351,10 @@ async function main() {
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
 		if (action === 'arm-fail' || action === 'arm-hold') {
-			if (!['calendar-range', 'availability', 'availability/batch'].includes(family))
+			if (
+				!['calendar-range', 'availability', 'availability/batch', 'sign-in-rosters'].includes(family) &&
+				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family)
+			)
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
@@ -337,8 +410,8 @@ async function main() {
 		}
 		if (action !== 'save' || !filename) throw new Error('Use export arm, save PAGE FILE, or restore.');
 		const target = path.resolve(filename);
-		if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.xlsx'))
-			throw new Error('Export path must be an .xlsx under the skill evidence directory.');
+		if (!target.startsWith(evidenceRoot + path.sep) || !/\.(xlsx|pdf)$/.test(target))
+			throw new Error('Export path must be an .xlsx or .pdf under the skill evidence directory.');
 		const result = await evaluate(
 			state,
 			pageId,
@@ -371,7 +444,9 @@ async function main() {
 		note({ headers, rows });
 		return;
 	}
-	throw new Error('Use fixture, actor, rows, calendar-grant, seed, clean-seeds, network, export, or workbook.');
+	throw new Error(
+		'Use fixture, actor, rows, roster-files, signed-download, calendar-grant, seed, clean-seeds, network, export, or workbook.'
+	);
 }
 
 main().catch((error) => {

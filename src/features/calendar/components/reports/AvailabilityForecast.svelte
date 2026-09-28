@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Personnel, StatusType } from '$lib/types';
+	import type { Personnel } from '$lib/types';
+	import type { StatusType } from '$features/calendar/contracts';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import PlusIcon from '@lucide/svelte/icons/plus';

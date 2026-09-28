@@ -1,6 +1,8 @@
-import { availabilityStore } from '$features/calendar';
-import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
-import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
+import {
+	calendarStatusHydration,
+	calendarAvailabilityHydration,
+	calendarAssignmentsHydration
+} from '$features/calendar';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
@@ -11,7 +13,8 @@ import {
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { TrainingType } from '$features/training/training.types';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
+import type { DailyAssignment, Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import type {
 	DashboardAssignmentsWorkspaceHydrationTarget,
 	DashboardWorkspaceHydration,
@@ -54,9 +57,9 @@ export interface DashboardWorkspaceHydrator {
 const defaultDashboardHydrationStores: DashboardHydrationStores = {
 	personnelStore: personnelRosterHydration,
 	groupsStore: groupCatalogHydration,
-	statusTypesStore,
-	availabilityEntriesStore: availabilityStore,
-	calendarAssignmentsStore: dailyAssignmentsStore,
+	statusTypesStore: calendarStatusHydration,
+	availabilityEntriesStore: calendarAvailabilityHydration,
+	calendarAssignmentsStore: calendarAssignmentsHydration,
 	trainingTypesStore,
 	pinnedGroupsStore: pinnedGroupsHydration
 };

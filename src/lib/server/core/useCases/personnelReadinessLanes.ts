@@ -1,7 +1,8 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
-import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
@@ -73,7 +74,7 @@ function formatDueLabel(name: string, expirationDate: string | null, today: Date
 	return `${name} ${days}d left`;
 }
 
-function dateRangeDetail(entry: AvailabilityEntry): string {
+function dateRangeDetail(entry: PersonnelAvailabilityPeriod): string {
 	if (entry.startDate === entry.endDate) return formatDisplayDate(entry.startDate);
 	return entry.endDate ? `through ${formatDisplayDate(entry.endDate)}` : `since ${formatDisplayDate(entry.startDate)}`;
 }
@@ -85,8 +86,8 @@ export async function loadAvailabilityReadinessLane(
 	listEntries: (
 		ctx: UseCaseContext,
 		input: { rangeStart: string; rangeEnd: string; personnelId: string; orderByEndDate: true }
-	) => Promise<AvailabilityEntry[]>,
-	listStatusTypes: (store: UseCaseContext['store'], orgId: string) => Promise<StatusType[]>
+	) => Promise<PersonnelAvailabilityPeriod[]>,
+	listStatusTypes: (store: UseCaseContext['store'], orgId: string) => Promise<PersonnelCalendarStatusSnapshot[]>
 ): Promise<PersonnelReadinessLane> {
 	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
 	const today = formatDate(asOfDate(asOf));
@@ -110,7 +111,7 @@ export async function loadAvailabilityReadinessLane(
 		};
 	}
 
-	const status: StatusType | undefined = statusById.get(current.statusTypeId);
+	const status: PersonnelCalendarStatusSnapshot | undefined = statusById.get(current.statusTypeId);
 	const statusName = status?.name ?? 'Unavailable';
 	const note = current.note ? ` ${current.note}` : '';
 	return {

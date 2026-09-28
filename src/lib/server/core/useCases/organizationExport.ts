@@ -3,6 +3,7 @@ import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from '$fea
 import { isPersonnelOrganizationExportTable } from '$features/personnel/contracts';
 import {
 	listAssignmentTypeExportRows,
+	listAvailabilityExportRows,
 	listSpecialDayExportRows,
 	listStatusTypeExportRows
 } from '$features/calendar/index.server';
@@ -56,6 +57,9 @@ export async function loadOrganizationExportPayload(
 					}
 					if (section.key === 'assignmentTypes') {
 						return [section.key, await listAssignmentTypeExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'availabilityEntries') {
+						return [section.key, await listAvailabilityExportRows(store, orgId)] as const;
 					}
 					const rows = await store.findMany<Record<string, unknown>>(
 						section.table,

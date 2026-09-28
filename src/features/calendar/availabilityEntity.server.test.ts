@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { AvailabilityEntryEntity } from './availabilityEntity.server';
-import type { AvailabilityEntry } from '$lib/types';
+import type { AvailabilityEntry } from '$features/calendar/contracts';
 
 describe('AvailabilityEntryEntity', () => {
 	it('fromDb produces correct AvailabilityEntry shape', () => {

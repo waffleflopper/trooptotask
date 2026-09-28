@@ -7,7 +7,8 @@ import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { AssignmentType, Personnel } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { AssignmentType } from '$features/calendar/contracts';
 import { createTestOrgContext, type CreateOrgContextInput } from '$lib/test-support/orgContextBuilder';
 
 function makeOrg(overrides: Partial<CreateOrgContextInput> = {}) {

@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { AvailabilityEntry } from '$lib/types';
+import type { AvailabilityEntry } from '$features/calendar/contracts';
 
 export const AvailabilityEntryEntity = defineEntity<AvailabilityEntry>({
 	table: 'availability_entries',

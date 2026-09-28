@@ -3,9 +3,7 @@ import { changelog } from '$lib/data/changelog';
 import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
-import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { availabilityStore } from '$features/calendar';
-import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import { calendarStatusSource, calendarAvailabilitySource, calendarAssignmentsSource } from '$features/calendar';
 import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
@@ -15,7 +13,8 @@ import { formatDate, parseDate } from '$lib/utils/dates';
 import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, StatusType } from '$lib/types';
+import type { DailyAssignment, Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
 import type {
 	StarterConfigurationPackApplyResult,
@@ -862,9 +861,9 @@ export class DashboardScreenModel {
 function createDefaultDashboardStoreSources(): DashboardStoreSources {
 	return {
 		personnel: rosterStore,
-		statusTypes: statusTypesStore,
-		availability: availabilityStore,
-		dailyAssignments: dailyAssignmentsStore,
+		statusTypes: calendarStatusSource,
+		availability: calendarAvailabilitySource,
+		dailyAssignments: calendarAssignmentsSource,
 		groups: groupsStore,
 		pinnedGroups: pinnedGroupsStore
 	};

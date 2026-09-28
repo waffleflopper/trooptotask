@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SpecialDay } from '$lib/types';
+import type { SpecialDay } from '$features/calendar/contracts';
 import { getDefaultFederalHolidays } from './utils/federalHolidays';
 
 /** Seed Calendar holidays with the admitted Organization provisioning request client. */

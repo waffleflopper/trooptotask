@@ -11,7 +11,8 @@ import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
+import type { DailyAssignment, Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type {
 	CalendarAssignmentsWorkspaceHydrationTarget,
 	CalendarWorkspaceHydration,

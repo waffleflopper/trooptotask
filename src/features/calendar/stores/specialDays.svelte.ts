@@ -12,7 +12,7 @@
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
 import { formatDate } from '$lib/utils/dates';
-import type { SpecialDay } from '$lib/types';
+import type { SpecialDay } from '$features/calendar/contracts';
 
 interface SpecialDayExtensions extends Record<string, unknown> {
 	load: Store<SpecialDay>['load'];

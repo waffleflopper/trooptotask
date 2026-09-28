@@ -9,7 +9,8 @@ import {
 } from '$lib/server/core/streamedWorkspace';
 import { fetchPersonnelBootstrap, type PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 
 export const PERSONNEL_WORKSPACE_LANE_KEY = 'personnel' as const;
 
@@ -29,7 +30,7 @@ export interface PersonnelWorkspaceHydration {
 	orgId: string;
 	personnel: PersonnelWorkspaceHydrationTarget<Personnel>;
 	groups: PersonnelWorkspaceHydrationTarget<Group>;
-	statusTypes: PersonnelWorkspaceHydrationTarget<StatusType>;
+	statusTypes: PersonnelWorkspaceHydrationTarget<PersonnelCalendarStatusSnapshot>;
 	pinnedGroups: PersonnelWorkspaceHydrationTarget<string>;
 }
 

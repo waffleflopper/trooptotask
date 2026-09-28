@@ -3,7 +3,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import AvailabilityModal from './AvailabilityModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 
 afterEach(() => {
 	cleanup();

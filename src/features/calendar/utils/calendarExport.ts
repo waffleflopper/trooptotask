@@ -1,4 +1,5 @@
-import type { Personnel, AvailabilityEntry, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
+import type { Personnel, DailyAssignment } from '$lib/types';
+import type { AvailabilityEntry, StatusType, SpecialDay, AssignmentType } from '$features/calendar/contracts';
 import { createWorkbook, downloadWorkbook, type Workbook, type Worksheet } from '$lib/export/workbook';
 import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths, parseDate } from '$lib/utils/dates';
 import type ExcelJS from 'exceljs';

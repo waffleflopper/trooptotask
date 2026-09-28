@@ -8,7 +8,7 @@
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import type { StatusType } from '$lib/types';
+	import type { StatusType } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 

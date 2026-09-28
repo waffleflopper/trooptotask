@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { exportPersonnelWorkbook } from './personnelExport';
-import type { AvailabilityEntry } from '$lib/types';
+import type { PersonnelAvailabilityPeriod } from '$features/personnel/contracts';
 
 const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
 
@@ -11,18 +11,14 @@ type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
 const PERSONNEL_ID = '11111111-1111-4111-8111-111111111111';
 
-async function listAvailabilityHistory(): Promise<AvailabilityEntry[]> {
+async function listAvailabilityHistory(): Promise<PersonnelAvailabilityPeriod[]> {
 	return [
 		{
-			id: 'availability-1',
-			personnelId: PERSONNEL_ID,
 			statusTypeId: 'status-type-1',
 			startDate: '2026-05-15',
 			endDate: '2026-05-17'
 		},
 		{
-			id: 'availability-older',
-			personnelId: PERSONNEL_ID,
 			statusTypeId: 'status-type-1',
 			startDate: '2025-12-01',
 			endDate: '2025-12-03'

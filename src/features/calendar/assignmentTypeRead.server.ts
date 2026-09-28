@@ -1,5 +1,5 @@
 import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
-import type { AssignmentType } from '$lib/types';
+import type { AssignmentType } from '$features/calendar/contracts';
 import { AssignmentTypeEntity } from './assignmentTypeEntity.server';
 
 /** The caller supplies its own Calendar, Dashboard, export, or report authority. */

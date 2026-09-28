@@ -1,5 +1,6 @@
 <script lang="ts">
-	import type { Personnel, StatusType, AvailabilityEntry } from '$lib/types';
+	import type { Personnel } from '$lib/types';
+	import type { StatusType, AvailabilityEntry } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';

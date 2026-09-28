@@ -1,4 +1,5 @@
-import type { AssignmentType, AvailabilityEntry, DailyAssignment } from '$lib/types';
+import type { DailyAssignment } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry } from '$features/calendar/contracts';
 
 export interface CalendarReportData {
 	entries: AvailabilityEntry[];

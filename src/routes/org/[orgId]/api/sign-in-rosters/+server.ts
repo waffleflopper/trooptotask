@@ -4,7 +4,8 @@ import { handle } from '$lib/server/adapters/httpAdapter';
 import type { RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import type { FindOptions } from '$lib/server/core/ports';
-import { prepareSignInRosterSnapshot } from '$lib/server/core/useCases/signInRosters';
+import { prepareSignInRosterSnapshot } from '$features/sign-in-rosters/index.server';
+import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function toClient(r: Record<string, unknown>) {
@@ -73,7 +74,17 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		if (!input.title || !(input.title as string).trim()) fail(400, 'Title is required');
-		const snapshot = await prepareSignInRosterSnapshot(ctx, input);
+		const snapshot = await prepareSignInRosterSnapshot(
+			{
+				orgId: ctx.auth.orgId,
+				scopeSet: ctx.auth.scopeSet,
+				personnelLookup: ctx.signInRosterPersonnelLookup,
+				findGroupNamesByIds: (groupIds) => findGroupNamesByIds({ auth: ctx.auth, store: ctx.rawStore }, groupIds),
+				loadRankCatalog: () =>
+					loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.rawStore }, { authorization: 'training-records' })
+			},
+			input
+		);
 
 		const row = await ctx.store.insert<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId, {
 			title: (input.title as string).trim(),

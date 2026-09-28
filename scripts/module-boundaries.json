@@ -496,7 +496,7 @@
 		},
 		"sign-in-rosters": {
 			"roots": ["src/features/sign-in-rosters/"],
-			"files": ["src/lib/server/core/useCases/signInRosters.ts"],
+			"files": [],
 			"packet": "08-M11"
 		},
 		"training": {
@@ -727,7 +727,7 @@
 			"src/features/personnel/index.server.ts"
 		],
 		"rating-scheme": ["src/features/rating-scheme/index.ts"],
-		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts"],
+		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts", "src/features/sign-in-rosters/index.server.ts"],
 		"training": [
 			"src/features/training/contracts.ts",
 			"src/features/training/index.ts",

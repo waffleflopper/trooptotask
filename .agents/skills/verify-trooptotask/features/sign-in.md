@@ -16,6 +16,8 @@ Choose `Sign In` from the public header or footer, or follow an authenticated-pa
 
 ## Driving it with verify:app
 
+Preconditions: doctor passes on the owned worker; use its origin and synthetic roles only. Keep public and signed-in pages in separate contexts.
+
 1. Open the owned origin from `doctor` in a fresh browser context with `tool new_page`; use a fresh snapshot to choose the public `Sign In` link. The form has `Email Address`, `Password`, `Show password`, and `Sign In`; the primary button has `data-testid="login-submit"`.
 2. Run `npm run --silent verify:app -- login manager`. This fills and submits the visible form with the private synthetic account. Record its returned page ID and organization ID, then take a snapshot. Expect an `/org/<orgId>/personnel` page, `Verification Organization A`, and a `Personnel` navigation link.
 3. In that page's latest snapshot, choose the `Account menu` button and call `tool click` with its UID. Expect a menu with `Account` and `Sign Out` items.

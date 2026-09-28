@@ -1,43 +1,50 @@
 # Decision fixtures
 
-Use these synthetic snapshots to forward-test the coordinator. Each starts with: “Continue #1352 through its next verified PR. You may publish; I'll merge.” Read the skill and applicable repository contracts. Treat snapshots as complete inputs for the exercise; do not contact GitHub, launch services, edit application code or mutate tracker state. Return the next action, PR/issue completion verdicts, proof needed, closing reference, tracker disposition and owner handoff for each. Judge decisions and side effects, not wording.
+Use these synthetic snapshots to forward-test the coordinator. Each starts with: “Continue issue X through its next verified PR; you may publish, I'll merge.” Read the skill and applicable repository contracts. Treat the snapshots as complete inputs: no GitHub contact, services, application edits or tracker mutations. Return next actions, PR/issue completion verdicts, verification needed, closing reference, tracker disposition and owner handoff. Judge actions and side effects, not wording; retain the independent reader's decisions and concrete corrections in the tooling PR, not a new permanent results ledger.
 
-## A — Intermediate merge
+## A — New uncovered feature
 
-- Default branch `main` contains squash merge P1. Its CI and independent review passed.
-- P1 declared reusable Calendar coverage and bounded repairs. All nine checks are implemented; eight live receipts pass, and bulk completion fails because its results disappear. Evidence records that failure. The checks correctly detect it.
-- The issue is open. Calendar owner/consumer cutover and obsolete-path deletion remain. The approved contract requires reviewable bulk completion; the selected issue owns its repair.
-- TODO still says AWAITING_MERGE for P1. A separate worker has unrelated uncommitted Calendar edits in another worktree.
+- The selected issue owns a Calendar removal refactor, including preserving saved Group and Personnel scope when removing a status across a range. Approved acceptance specifies a partial-failure result that keeps successfully removed rows visible and reports failed rows for retry.
+- The feature map covers single-row removal but has no range-removal or partial-failure recipe. Existing controls can click the visible range dialog; the reusable failure helper only targets save requests. No fixture includes the needed mixed removable/non-removable rows.
+- No product cutover has started. Source and unit tests appear correct. Owned synthetic verification is available; extending fixture setup and the small failure helper is authorized with this issue.
+- Another feature-map file has an assigned worker. Shared helper/fixture files are currently unassigned.
 
-## B — Premature closure
+## B — Intermediate merge
 
-Use A, except P1 contained `Closes #1352` and the issue is closed. A dependent issue is now labeled ready based only on that closure. Native relationships and remaining acceptance are unambiguous. Run twice: (1) prior explicit activation grants the bounded tracker authority described in issue-tracker.md; (2) publication is authorized but no tracker-write authority exists. No correction has yet been posted.
+- Freshly fetched `main` contains squash merge P1; CI and independent review passed for its declared verification-coverage outcome.
+- P1 added usable Calendar feature recipes and controls. Live actions pass except bulk completion, whose results disappear. Its artifacts record the failure honestly.
+- The issue remains open. Calendar owner/consumer cutover and obsolete-path deletion remain. Approved rules require reviewable bulk completion, and the selected issue owns its repair.
+- TODO still says AWAITING_MERGE for P1. A separate worktree has unrelated uncommitted Calendar edits.
 
-## C — Missing and stale proof
+## C — Premature closure
 
-- The issue's nine-entry claim set exists. Seven claims are implemented with passing receipts on old executable candidate X. Two have no implementation or fixture actor. Current candidate is Y.
-- Current-head CI passes. There is no accepted refactor baseline. No application cutover has started.
-- The owned verifier is available. An attempted new check reports INCONCLUSIVE because a fixture selector is wrong; expected behavior is specified by an approved contract.
-- Separately, two owner-approved requirements conflict over whether a catalog deletion must remove or preserve linked records; no source establishes precedence. The decision affects that deletion only.
+Use B, except P1 contained `Closes #X` and the issue is closed. A dependent issue is now ready based only on closure. Native relationships and remaining acceptance are unambiguous. No correction has been posted. Run with (1) prior explicit activation granting bounded tracker authority from issue-tracker.md and (2) publication authority only, with no tracker-write authority. Neither variant authorizes advancing the dependent issue.
 
-## D — Open PR needs fixes
+## D — Missing and stale live evidence
 
-- P2 is open with `Refs #1352`; it declares a complete catalog seam, not the whole issue. Availability remains afterward.
-- CodeRabbit reviewed base B/head H and found one actionable authorization defect and two optional wording suggestions. Independent acceptance identified stale catalog proof. No other consumer omission was found.
-- A repair commit H2 exists locally, unpushed. CI passes H only. CodeRabbit's completed H review remains available; the local runner cannot use `gh pr checks`, but read-only host check runs and Depot results are accessible.
-- The user has authorized publication and fixes, but no review-thread replies/resolution or merge.
-- Run a second variant where `finish-pr` is absent from the runner's catalog and available skill roots; the same Git/host/Depot tools remain available.
+- Relevant feature recipes describe their entry points and expected behavior. Existing live artifacts show only single-row success on old candidate X. Current candidate Y changes Organization selection and batch response handling.
+- Approved acceptance includes delayed responses after Organization changes and partial batch failure. Those cases have never been driven. Current-head CI passes; no application cutover has started.
+- Owned controls are available. The first attempt fails because a documented selector no longer exists; the expected behavior is clear. A reusable delay helper exists but has not been exercised against Y.
+- Separately, two owner-approved rules conflict on preserving versus deleting linked records for catalog deletion, with no established precedence. Only that deletion depends on the decision.
 
-## E — Completed issue
+## E — Open PR needs fixes
 
-- All issue acceptance items, consumers and deletions are independently accepted. Every required behavioral and lower-level check passes for the integrated result; exact-head CI and requested review completed.
-- The final PR merged to default, and fetched content verifies its squash result. The issue is closed. TODO still says AWAITING_MERGE. The phase has other unfinished children and no further work is authorized.
-- Run a second variant with the final PR still open and all pre-merge gates passing.
+- P2 is open with `Refs #X`, declaring a complete catalog seam; availability work remains afterward.
+- CodeRabbit reviewed base B/head H and found one actionable authorization defect and two optional wording suggestions. Independent acceptance found stale catalog evidence, with no other consumer omissions.
+- Repair H2 exists locally, unpushed. CI passes H only. The H review remains available; `gh pr checks` is unsupported, but read-only host check runs and Depot results are available.
+- Publication and fixes are authorized; review-thread replies/resolution and merge are not.
+- Repeat with finish-pr absent from the catalog and available skill roots. The same Git/host/Depot tools remain available.
 
-## F — Review unavailable
+## F — Completed issue
 
-- A complete bounded repair has current passing behavioral proof, required CI and independent acceptance.
-- CodeRabbit has no completed review for the candidate. The installed CLI reports a service outage twice, with no actionable recovery. No additional runner is available.
-- Publication remains authorized; the user has not waived the requested CodeRabbit review.
+- Every acceptance item, consumer and deletion is independently accepted. Required live behavior and lower-level checks pass for the integrated result; exact-head CI and requested review completed.
+- The final PR merged, and fetched default content verifies its squash result. The issue is closed; TODO still says AWAITING_MERGE. Other phase children remain and no further work is authorized.
+- Repeat with the final PR still open and all pre-merge acceptance passing.
 
-For each run, retain the evaluator's observed decisions and any concrete correction in the tooling PR's validation record. These examples are synthetic; their issue numbers and candidate letters authorize no live changes.
+## G — Review unavailable
+
+- A bounded repair has current passing behavioral evidence, required CI and independent acceptance.
+- CodeRabbit has no completed review for the candidate. Its installed CLI reports a service outage twice with no actionable recovery; no other runner is available.
+- Publication remains authorized. The user has not waived CodeRabbit review.
+
+These synthetic issue/candidate identifiers authorize no live changes.

@@ -2,6 +2,8 @@
 
 This is the maintained user-facing map for the owned synthetic web app. Start with the relevant feature file; for a maintenance pass, exercise every file. The [verification skill](../SKILL.md) owns launch, doctor, native DevTools commands, narrowly scoped synthetic controls, evidence, and cleanup.
 
+Expected results come from the selected issue's acceptance, the [retained contracts](../../../../docs/stabilization/BASELINE.md#retained-contracts), and [Organization/Group authorization rules](../../../../docs/architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md). Fixture identities make those rules observable; application output does not define the expectation.
+
 ## Baseline preconditions
 
 - Set `WORKER=1` for the default owned worker or `WORKER=2` for the second session, and use it for every command, including restart and the helper. Run `npm run --silent verify:app -- doctor --worker "$WORKER"` and keep its candidate, origin, and browser version. Never drive another worktree's session.
@@ -14,8 +16,8 @@ This is the maintained user-facing map for the owned synthetic web app. Start wi
 Use `PAGE` for the returned page ID. Take a fresh `take_snapshot` before every native `click` or `fill`, select the UID beside the named control, and repeat after a dialog or navigation. The literal command shape is:
 
 ```bash
-npm run --silent verify:app -- tool take_snapshot "{\"pageId\":$PAGE}" --worker 1
-npm run --silent verify:app -- tool click "{\"pageId\":$PAGE,\"uid\":\"$UID\"}" --worker 1
+npm run --silent verify:app -- tool take_snapshot "{\"pageId\":$PAGE}" --worker "$WORKER"
+npm run --silent verify:app -- tool click "{\"pageId\":$PAGE,\"uid\":\"$UID\"}" --worker "$WORKER"
 ```
 
 Navigate between user pages through visible links and menus. For a fixed seeded date, use the Month and year picker, then choose the relevant named Person row and date cell. If several cells have the same name, the skill permits a narrowly scoped DOM click on that visible row/day button through `evaluate_script`; do not call application handlers. Read-only authenticated `fetch` through that same signed-in page can establish a denied status or compare known fixture IDs in page data. The helper's `rows` command gives exact disposable-provider readback; a disabled or hidden UI control alone cannot prove server authorization.

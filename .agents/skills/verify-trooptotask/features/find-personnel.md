@@ -17,6 +17,8 @@ Sign in, choose `Personnel` in the organization navigation, and use `Search by n
 
 ## Driving it with verify:app
 
+Preconditions: doctor passes; `$V fixture` supplies the known Person IDs and current dates; the manager, viewer and scoped actors retain their baseline grants.
+
 1. Run `npm run --silent verify:app -- login manager`; keep the returned page ID as `PAGE`. `take_snapshot` shows the searchbox, `Group` and `A-Z` buttons, and seeded `SPC Able, Synthetic`, `SPC Baker, Synthetic`, and `SPC Unassigned, Synthetic` rows.
 2. From a fresh snapshot, use `tool fill` on the searchbox UID with `Able`. Snapshot again: `Open SPC Able, Synthetic` remains and Baker is absent. Focus the searchbox, press `Control+A` then `Backspace` with `tool press_key`, and confirm all seeded rows return. A native `fill` with an empty string can clear the displayed input without dispatching the search update.
 3. Click the `A-Z` button UID and snapshot the alphabetical presentation. Click `Group` and confirm the `Alpha`, `Bravo`, and `Unassigned` headings return.

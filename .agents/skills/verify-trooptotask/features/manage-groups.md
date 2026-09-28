@@ -17,6 +17,8 @@ Sign in as a member with Personnel configuration access, choose `Personnel`, the
 
 ## Driving it with verify:app
 
+Preconditions: doctor passes; `$V fixture` identifies Organizations A/B and seeded Alpha/Bravo. Use a unique new Group name and preserve those original Groups.
+
 1. Run `npm run --silent verify:app -- login manager`; record its page ID as `PAGE`. Save a before snapshot. Choose the UID for `Manage Groups` and call `tool click`; expect the `Manage Groups` dialog with `Alpha`, `Bravo`, `Organization groups`, and a disabled `Add` button.
 2. Set `NAME="Map Proof $(date +%s)"`. From the dialog's fresh snapshot, use `tool fill` on its `Organization groups` textbox with `NAME`; `Add` becomes enabled. Click its fresh UID. The dialog now lists `NAME` with `Edit NAME` and `Remove NAME` buttons.
 3. Save an after snapshot and screenshot. Click `Done`, then `tool navigate_page` with `{"pageId":PAGE,"type":"reload"}` using the real numeric page ID. Reopen `Manage Groups` from the new snapshot. `NAME` must still be listed; save this second read and the ID from `$V rows groups orgA name "$NAME"`.

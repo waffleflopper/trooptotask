@@ -1,12 +1,11 @@
 ---
 name: verify-trooptotask
-description: 'Drive the TroopToTask web UI in an owned synthetic browser and Supabase session. Use for the experimental user-journey feature map, screenshots, and observable persistence checks.'
-disable-model-invocation: true
+description: 'Drive the TroopToTask web UI in an owned synthetic browser and Supabase session. Use for the maintained user-journey feature map, screenshots, and observable persistence checks.'
 ---
 
 # Verify TroopToTask
 
-Drive the production build through its visible SvelteKit web UI. The repository's `verify:app` command owns a disposable local Supabase project, synthetic accounts, an app copy, and a private Chromium profile. Run every command from the repository root. Read the matching [feature map](features/README.md) entry before driving a journey.
+Drive the production build through its visible SvelteKit web UI. The repository's `verify:app` command owns a disposable local Supabase project, synthetic accounts, an app copy, and a private Chromium profile. Run every command from the repository root. Read the matching [feature map](features/README.md) entry before driving a journey. For ordinary issue work, extend and drive affected features and dependencies before the cutover and again afterward. Use [maintain-verification-skill](../maintain-verification-skill/SKILL.md) for an explicitly requested full-map source/live upkeep pass. Requirements come from issue acceptance and approved retained contracts; distinguish a product regression from map or control drift.
 
 ## Launch
 
@@ -23,7 +22,7 @@ Worker `1` is the default. Add `--worker 2` to **every** command for a second in
 
 ## Doctor
 
-Run `npm run --silent verify:app -- doctor` whenever the page, provider, or build looks wrong. It checks ownership, the running app, the provider, and whether the executable candidate still matches the checkout. After a source change, run `npm run --silent verify:app -- restart` and use new evidence. A blocked doctor is a stop for that worker until its reported cause is resolved.
+Run `npm run --silent verify:app -- doctor` whenever the page, provider, or build looks wrong. It checks ownership, the running app, the provider, and whether the candidate still matches the checkout, including this SKILL.md and the feature-map Markdown. After changing source or those driving instructions, run `npm run --silent verify:app -- restart` and use new evidence. Other prose remains outside the candidate digest. A blocked doctor is a stop for that worker until its reported cause is resolved.
 
 ## Drive
 

@@ -4,7 +4,7 @@
 
 Detect consequential behavior and boundary regressions at the lowest stable seam that can prove them. Apply this policy when adding, rewriting, pruning or reviewing tests, including stabilization safety-net work.
 
-Adapted from [v2's testing strategy](https://github.com/TroopToTask/trooptotask-v2/blob/b04e557d5f1d39585ab570f7b3c9c21a1f5c1a02/docs/architecture/TESTING.md). V1's [verification contract](DEFINITION_OF_DONE.md#verification-contract) owns commands, computer-use evidence and isolated database checks; its [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) prohibit creating or running a repository E2E suite.
+Adapted from [v2's testing strategy](https://github.com/TroopToTask/trooptotask-v2/blob/b04e557d5f1d39585ab570f7b3c9c21a1f5c1a02/docs/architecture/TESTING.md). V1's [verification contract](DEFINITION_OF_DONE.md#verification-contract) owns commands, computer-use evidence and isolated database checks; its [stabilization decisions](ARCHITECTURE.md#stabilization-decisions) retire the former browser-spec framework and application bypasses; real user journeys remain end-to-end verification.
 
 ## Behavioral bar
 
@@ -40,7 +40,7 @@ Never weaken assertions, add skips, hide scan paths, add waivers or relax checks
 | Application and route | Real policy/use-case orchestration with in-memory ports: allowed/denied requests, observable mutations, retained identities, failure behavior, replay and idempotency as applicable. Fake persistence does not prove database enforcement. |
 | Adapter and database  | Provider mapping and query semantics; constraints, functions, migration reproducibility, positive/negative RLS and Organization/Group isolation in the authorized disposable local stack.                                                  |
 | Component             | Consequential interaction, accessibility semantics, keyboard operation and states only the rendered component can establish.                                                                                                               |
-| Computer-use evidence | Affected retained journeys and visual review through the maintained [control toolkit](../../.agents/skills/t2t-verify/SKILL.md). No tracked E2E/browser spec suite or application bypass.                                                  |
+| Computer-use evidence | Affected retained journeys and visual review through the maintained [control toolkit](../../.agents/skills/verify-trooptotask/SKILL.md). Drive the real UI from feature recipes; keep meaningful lower-level tests separate.               |
 
 Use roles, accessible names and labels to locate and operate controls. Keep focus and disabled-state assertions when that state is the interaction contract, such as first-invalid focus, restoring focus after a dialog closes or Save reflecting a semantic edit. Keep normalization permutations in domain tests and one representative component proof of the resulting control behavior.
 

@@ -20,14 +20,10 @@ import {
 	Blocked,
 	sleep,
 	processIdentity,
-	activePilots,
 	stopOwnedProcess,
 	terminateOwnedGroup,
-	profileProcess,
-	checkReceipt
+	profileProcess
 } from './core.mjs';
-import { claimNames } from './claims.mjs';
-import { checkClaims } from './claim-set.mjs';
 
 const argv = process.argv.slice(2);
 const option = argv.indexOf('--worker');
@@ -54,12 +50,8 @@ restart               Cleanup this worker, then launch the current candidate
 login manager|viewer|scoped|foreign   Normal UI login with private synthetic credentials
 tools                 Native DevTools tool names, descriptions, and JSON argument schemas
 tool NAME '{...}'     Call a native DevTools tool (pageId and snapshot UIDs from its output)
-prove CLAIM           ${claimNames.join(' | ')}; PASS / FAIL / INCONCLUSIVE receipt
-check-receipt FILE    Refuse old/negative/incomplete evidence; does not replace CI or release gates
-check-claims PLAN [RECEIPT...]   Check the issue's exact required claims; missing coverage blocks refactoring
-self-test             Exclusive healthy/broken/restored pilot plus stale/foreign/unavailable controls
 mcp                   Stdio MCP proxy for the running owned worker; register this project-local command
-cleanup               Stop exact owned processes/provider; retain sanitized proof receipts
+cleanup               Stop exact owned processes/provider; retain captured evidence
 
 Examples:
   npm run verify:app -- tool list_pages '{}'
@@ -73,9 +65,7 @@ console, screenshots, and performance traces. Use tools for schemas, not one-off
 The browser only allows the owned app/provider origins. No attach-to-URL/profile option exists.
 JSON stdout (except help); exit 0 success, 1 behavioral FAIL, 2 BLOCKED/INCONCLUSIVE.
 Private state: ${sessions}
-Receipts: ${path.join(root, 'evidence')} (survive cleanup; publish reviewed sanitized receipts)
-Negative-control launch: launch --mutation persistence|authorization (disposable copy only).
-These receipts are labeled and cannot approve healthy code. No source or database is reset.
+Evidence: ${path.join(root, 'evidence')} (survives cleanup; review artifacts for secrets before sharing)
 `;
 
 async function request(input) {
@@ -120,7 +110,6 @@ async function launch() {
 			'PLATFORM',
 			'Owned supervisor currently requires Linux /proc and local Docker. Run on the Linux workstation; no browser or provider was started.'
 		);
-	const mutation = args[1] ?? null;
 	await fs.mkdir(sessions, { recursive: true, mode: 0o700 });
 	try {
 		await fs.mkdir(session, { mode: 0o700 });
@@ -130,24 +119,12 @@ async function launch() {
 			'Worker already owns state. Use doctor or cleanup; use worker 2 for independent verification.'
 		);
 	}
-	let otherPilotActive;
-	try {
-		otherPilotActive = (await activePilots()).some((pilot) => pilot.worker !== worker);
-	} catch (error) {
-		await fs.rmdir(session);
-		throw error;
-	}
-	if (otherPilotActive) {
-		await fs.rmdir(session);
-		throw new Blocked('PILOT_BUSY', 'The other worker is running an exclusive self-test. Retry after it finishes.');
-	}
 	await writeJSON(path.join(session, 'session.json'), {
 		repository,
 		worker,
 		id: randomUUID(),
 		token: randomUUID(),
-		phase: 'starting',
-		mutation
+		phase: 'starting'
 	});
 	const log = await fs.open(path.join(session, 'supervisor.log'), 'a', 0o600);
 	const child = spawn(process.execPath, [path.join(repository, 'scripts/verification/daemon.mjs'), session], {
@@ -237,12 +214,8 @@ async function cleanup() {
 }
 
 try {
-	if (
-		['launch', 'restart'].includes(command) &&
-		args.length &&
-		(args.length !== 2 || args[0] !== '--mutation' || !['persistence', 'authorization'].includes(args[1]))
-	)
-		throw new Blocked('ARGUMENTS', 'launch/restart accept only --mutation persistence|authorization, or no arguments.');
+	if (['launch', 'restart'].includes(command) && args.length)
+		throw new Blocked('ARGUMENTS', 'launch/restart accept no arguments except --worker 1|2.');
 	let result;
 	if (['help', '--help', '-h'].includes(command)) {
 		console.log(help);
@@ -258,8 +231,7 @@ try {
 					candidate: await candidate(),
 					worker,
 					browser: await browser(),
-					session,
-					claims: claimNames
+					session
 				};
 				break;
 			case 'launch':
@@ -284,23 +256,9 @@ try {
 			case 'login':
 				result = await request({ command, role: args[0] });
 				break;
-			case 'prove':
-				result = await request({ command, claim: args[0] });
-				break;
 			case 'tool':
 				result = await request({ command, name: args[0], args: JSON.parse(args[1] ?? '{}') });
 				break;
-			case 'check-receipt':
-				result = await checkReceipt(args[0]);
-				break;
-			case 'check-claims':
-				result = await checkClaims(args[0], args.slice(1));
-				break;
-			case 'self-test': {
-				const { selfTest } = await import('./self-test.mjs');
-				result = await selfTest(worker);
-				break;
-			}
 			case 'mcp': {
 				const server = new Server(
 					{ name: 'trooptotask-owned-devtools', version: '1.0.0' },

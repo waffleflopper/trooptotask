@@ -8,7 +8,8 @@
 			"stabilization/08-d04-special-days": false,
 			"t3code/stabilize-issue-1352": false,
 			"t3code/continue-1352-stabilization": false,
-			"t3code/finish-1352-calendar-ownership": false
+			"t3code/finish-1352-calendar-ownership": false,
+			"t3code/feature-map-verification-transition": false
 		}
 	},
 	"installCommand": "npx npm@11.12.1 ci",
@@ -16,7 +17,12 @@
 	"rewrites": [
 		{
 			"source": "/:path*",
-			"has": [{ "type": "host", "value": "admin.trooptotask.org" }],
+			"has": [
+				{
+					"type": "host",
+					"value": "admin.trooptotask.org"
+				}
+			],
 			"destination": "/admin/:path*"
 		}
 	],

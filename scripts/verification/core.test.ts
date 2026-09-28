@@ -1,12 +1,73 @@
 import { afterEach, expect, it } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { completed, runLogged, cleanEnvironment, processIdentity, stopOwnedProcess } from './core.mjs';
+import {
+	assertCurrentCandidate,
+	candidate,
+	completed,
+	runLogged,
+	cleanEnvironment,
+	processIdentity,
+	stopOwnedProcess
+} from './core.mjs';
 
 const directories: string[] = [];
+it('makes edited verification instructions stale while unrelated prose stays outside the candidate', async () => {
+	const directory = await mkdtemp(path.join(tmpdir(), 't2t-map-freshness-'));
+	directories.push(directory);
+	const instructions = [
+		'.agents/skills/verify-trooptotask/SKILL.md',
+		'.agents/skills/verify-trooptotask/features/README.md',
+		'.agents/skills/verify-trooptotask/features/organization-switching.md'
+	];
+	for (const file of [...instructions, 'AGENTS.md']) {
+		await mkdir(path.dirname(path.join(directory, file)), { recursive: true });
+		await writeFile(path.join(directory, file), 'Original instructions\n');
+	}
+	const original = await candidate(directory);
+	const launched = { candidate: original, artifact: 'owned-build' };
+	await writeFile(path.join(directory, 'AGENTS.md'), 'Unrelated prose update\n');
+	expect(await candidate(directory)).toBe(original);
+	for (const file of instructions) {
+		await writeFile(path.join(directory, file), 'Changed verification instructions\n');
+		const changed = await candidate(directory);
+		expect(() => assertCurrentCandidate(launched, changed, 'owned-build')).toThrowError(
+			expect.objectContaining({ code: 'STALE_CANDIDATE' })
+		);
+		await writeFile(path.join(directory, file), 'Original instructions\n');
+	}
+});
+
+it('refuses changed source or copied artifacts before a browser command can use them', () => {
+	const launched = { candidate: 'launched-source', artifact: 'launched-copy' };
+	expect(() => assertCurrentCandidate(launched, 'launched-source', 'launched-copy')).not.toThrow();
+	for (const [source, copy] of [
+		['edited-source', 'launched-copy'],
+		['launched-source', 'edited-copy']
+	])
+		expect(() => assertCurrentCandidate(launched, source, copy)).toThrowError(
+			expect.objectContaining({ code: 'STALE_CANDIDATE' })
+		);
+});
+
+it('refuses to signal a PID whose owner no longer matches', async () => {
+	const child = spawn(process.execPath, ['-e', "setInterval(() => {}, 1000); process.stdout.write('ready');"]);
+	try {
+		await once(child.stdout, 'data');
+		const identity = await processIdentity(child.pid);
+		await expect(stopOwnedProcess({ ...identity, start: 'different-start-time' })).rejects.toMatchObject({
+			code: 'PROCESS_REPLACED'
+		});
+		expect((await processIdentity(child.pid))?.start).toBe(identity.start);
+	} finally {
+		child.kill('SIGKILL');
+		await once(child, 'exit');
+	}
+});
+
 it('confirms exit even when an owned child ignores graceful termination', async () => {
 	const child = spawn(process.execPath, [
 		'-e',

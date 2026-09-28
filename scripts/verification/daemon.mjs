@@ -8,6 +8,7 @@ import {
 	repository,
 	root,
 	candidate,
+	assertCurrentCandidate,
 	snapshot,
 	readJSON,
 	writeJSON,
@@ -18,7 +19,6 @@ import {
 	runLogged,
 	completed,
 	execute,
-	receipt,
 	Blocked,
 	processIdentity,
 	profileProcess,
@@ -27,7 +27,7 @@ import {
 	sleep
 } from './core.mjs';
 import { seed } from './fixtures.mjs';
-import { prove, driver } from './claims.mjs';
+import { driver, assertOwnedNavigation } from './browser.mjs';
 
 const session = process.argv[2];
 const state = await readJSON(path.join(session, 'session.json'));
@@ -88,35 +88,16 @@ async function cleanup() {
 async function fresh() {
 	if (state.phase !== 'running' || !app || app.exitCode !== null || app.signalCode)
 		throw new Blocked('APP_UNAVAILABLE', 'Owned production app is unavailable. Cleanup and launch again.');
-	if ((await candidate()) !== state.candidate || (await candidate(path.join(session, 'app'))) !== state.artifact)
-		throw new Blocked(
-			'STALE_CANDIDATE',
-			'Source or owned artifact changed. Restart and generate fresh proof; old evidence cannot approve this code.'
-		);
+	assertCurrentCandidate(state, await candidate(), await candidate(path.join(session, 'app')));
 	if (
 		(await directoryDigest(path.join(session, 'app'), ignoredBuildPaths)) !== state.sourceDigest ||
 		(await directoryDigest(path.join(session, 'app/.svelte-kit/output'))) !== state.buildDigest
 	)
-		throw new Blocked(
-			'STALE_ARTIFACT',
-			'Owned source or served production build changed. Relaunch before driving or proving it.'
-		);
+		throw new Blocked('STALE_ARTIFACT', 'Owned source or served production build changed. Relaunch before driving it.');
 	await environment('status', session);
 }
 async function call(name, args = {}, timeout = 45000) {
-	if (['navigate_page', 'new_page'].includes(name) && args.url !== undefined) {
-		let url;
-		try {
-			url = new URL(args.url);
-		} catch {
-			/* Invalid URLs are refused by the same origin boundary. */
-		}
-		if (!url || url.username || url.password || !ownedOrigins.includes(url.origin))
-			throw new Blocked(
-				'URL_NOT_OWNED',
-				'Navigation requires an absolute URL on the owned app or provider origin, without credentials. Use doctor for the app origin.'
-			);
-	}
+	assertOwnedNavigation(name, args, ownedOrigins);
 	const result = await client.callTool({ name, arguments: args }, undefined, { timeout });
 	if (result.isError)
 		throw new Blocked(
@@ -129,42 +110,6 @@ async function call(name, args = {}, timeout = 45000) {
 		);
 	return result;
 }
-async function mutate(directory, mutation) {
-	if (!mutation) return;
-	if (mutation === 'persistence') {
-		const file = path.join(directory, 'src/features/personnel/groupOperations.server.ts');
-		let source = await fs.readFile(file, 'utf8');
-		const before = 'GroupEntity.toDbInsert(data, ctx.auth.orgId),';
-		if (source.split(before).length !== 2)
-			throw new Blocked(
-				'MUTATION_DRIFT',
-				'Persistence negative control no longer matches its owned source. Update the control.'
-			);
-		source = source.replace(
-			before,
-			'{ ...GroupEntity.toDbInsert(data, ctx.auth.orgId), name: "Deliberately broken persistence" },'
-		);
-		await fs.writeFile(file, source);
-	} else if (mutation === 'authorization') {
-		const file = path.join(directory, 'src/routes/org/[orgId]/api/groups/+server.ts');
-		let source = await fs.readFile(file, 'utf8');
-		const before = 'export const POST = handle(_postConfig);';
-		if (!source.includes(before))
-			throw new Blocked('MUTATION_DRIFT', 'Authorization negative control no longer matches its owned source.');
-		source =
-			`import { createClient } from '@supabase/supabase-js';\nimport { env as privateEnv } from '$env/dynamic/private';\nimport { env as publicEnv } from '$env/dynamic/public';\n` +
-			source.replace(
-				before,
-				`export const POST = async ({ request, params }: import('./$types').RequestEvent) => {
-		const db = createClient(publicEnv.PUBLIC_SUPABASE_URL, privateEnv.SUPABASE_SERVICE_ROLE_KEY);
-		const input = await request.json();
-		const result = await db.from('groups').insert({organization_id:params.orgId,name:input.name}).select().single();
-		return Response.json(result.data, {status:result.error ? 500 : 200});
-	};`
-			);
-		await fs.writeFile(file, source);
-	} else throw new Blocked('MUTATION', 'Only persistence or authorization negative controls are supported.');
-}
 
 try {
 	state.browser = await browser(true);
@@ -175,7 +120,6 @@ try {
 	await snapshot(copy);
 	if ((await candidate(copy)) !== state.candidate || (await candidate()) !== state.candidate)
 		throw new Blocked('COPY_RACE', 'Candidate changed while copying; cleanup and launch again.');
-	await mutate(copy, state.mutation);
 	state.artifact = await candidate(copy);
 	state.sourceDigest = await directoryDigest(copy, ignoredBuildPaths);
 	port = await reservePort();
@@ -322,7 +266,7 @@ try {
 										candidate: state.candidate,
 										origin: state.origin,
 										browser: state.browser,
-										mutation: state.mutation,
+										revision: state.revision,
 										session: state.id
 									};
 									break;
@@ -335,12 +279,6 @@ try {
 								case 'login':
 									result = await drive.login(input.role);
 									break;
-								case 'prove': {
-									const proof = await prove(input.claim, session, state, fixture, call);
-									await fresh();
-									result = await receipt(state, proof);
-									break;
-								}
 								default:
 									throw new Blocked('COMMAND', 'Unknown command. Run --help.');
 							}

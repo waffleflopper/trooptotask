@@ -1,4 +1,4 @@
-import type { CalendarBootstrap, CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarBootstrap, CalendarRangeData } from '$features/calendar/calendar.types';
 import { untrack } from 'svelte';
 import {
 	createVisibleCalendarRange,

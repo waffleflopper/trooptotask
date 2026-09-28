@@ -2,13 +2,9 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
-import { listAssignmentTypes, listAvailabilityEntries } from '$features/calendar/index.server';
-import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { listAssignmentTypes, listAvailabilityEntries, listDailyAssignments } from '$features/calendar/index.server';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
-import {
-	filterRowsByCalendarAssigneeScope,
-	resolveCalendarAssigneeScope
-} from '$lib/server/core/useCases/calendarScope';
+import { resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
 
 export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.calendar.viewReports,
@@ -35,12 +31,7 @@ export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unk
 				rangeEnd: endDate,
 				personnelIds: scope?.personnelIds
 			}),
-			ctx.store.findMany<Record<string, unknown>>('daily_assignments', ctx.auth.orgId, undefined, {
-				rangeFilters: [
-					{ column: 'date', op: 'gte', value: startDate },
-					{ column: 'date', op: 'lte', value: endDate }
-				]
-			}),
+			listDailyAssignments(ctx, { rangeStart: startDate, rangeEnd: endDate }, scope),
 			listAssignmentTypes(ctx.store, ctx.auth.orgId)
 		]);
 
@@ -48,7 +39,7 @@ export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unk
 
 		return {
 			entries,
-			assignments: DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(assignments, scope)),
+			assignments,
 			assignmentTypes
 		};
 	}

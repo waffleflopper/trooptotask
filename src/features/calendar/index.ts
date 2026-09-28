@@ -3,6 +3,7 @@
 // Types
 export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType } from './contracts';
 export type { DailyAssignment } from '$lib/types';
+export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 
 // Web reads and workspace hydration for other features
 export {

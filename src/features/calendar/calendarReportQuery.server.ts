@@ -1,11 +1,16 @@
-import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
 import type { StatusType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
-import { listStatusTypes } from '$features/calendar/index.server';
+import { listStatusTypes } from './statusTypeRead.server';
 import { listGroupCatalog } from '$features/personnel/index.server';
-import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
-import { requirePersonnelCalendarRoster, resolveCalendarGroupScope } from './calendarScope';
+import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
+import { requirePersonnelCalendarRoster, resolveCalendarGroupScope } from '$lib/server/core/useCases/calendarScope';
+
+type CalendarReportPorts = Parameters<typeof requireCalendarPolicy>[0] &
+	Parameters<typeof requirePersonnelCalendarRoster>[0] & {
+		store: Parameters<typeof listStatusTypes>[0];
+		rawStore: Parameters<typeof listGroupCatalog>[0]['store'];
+	};
 
 export interface CalendarReportData {
 	allPersonnel: Personnel[];
@@ -13,7 +18,7 @@ export interface CalendarReportData {
 	groups: Group[];
 }
 
-export async function fetchCalendarReportData(ctx: QueryWithRawStorePorts): Promise<CalendarReportData> {
+export async function fetchCalendarReportData(ctx: CalendarReportPorts): Promise<CalendarReportData> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewReports);
 
 	const orgId = ctx.auth.orgId;

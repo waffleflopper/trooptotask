@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarRangeData } from '$features/calendar/calendar.types';
 
 const { availabilityStoreMock, specialDaysStoreMock, dailyAssignmentsStoreMock, fetchMock } = vi.hoisted(() => {
 	const availabilityStoreMock = {

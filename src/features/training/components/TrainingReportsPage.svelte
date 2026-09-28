@@ -377,6 +377,11 @@
 		return getTrainingReportRowsForType(rows, typeId, status);
 	}
 
+	const groupFilterOptions = $derived([
+		{ value: '', label: 'All Groups' },
+		...screen.allGroups.map((group) => ({ value: group.id, label: group.name }))
+	]);
+
 	const toolbarActions = $derived<WorkspaceToolbarAction[]>([
 		{
 			id: 'clear-filters',
@@ -489,20 +494,18 @@
 			</div>
 		</header>
 
-		<!-- Toolbar: group filter pills + personnel/report filters + actions -->
+		<!-- Toolbar: group filter + personnel/report filters + actions -->
 		<ReportWorkspace.Toolbar ariaLabel="Training report controls">
 			<WorkspaceToolbar.Group label="Group filter" activeCount={filterGroupId ? 1 : 0}>
-				{#each screen.allGroups as group (group.id)}
-					<Button
-						variant={filterGroupId === group.id ? 'secondary' : 'outline'}
-						size="sm"
-						class={filterGroupId === group.id ? 'bg-accent text-accent-foreground' : ''}
-						aria-pressed={filterGroupId === group.id}
-						onclick={() => setGroupFilter(group.id)}
-					>
-						{group.name}
-					</Button>
-				{/each}
+				<WorkspaceToolbar.Select
+					ariaLabel="Filter by group"
+					options={groupFilterOptions}
+					value={filterGroupId}
+					onValueChange={(value) => {
+						filterGroupId = value;
+						void reloadFirstReportPage();
+					}}
+				/>
 			</WorkspaceToolbar.Group>
 			<WorkspaceToolbar.Group
 				label="Personnel filters"

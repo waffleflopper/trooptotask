@@ -359,7 +359,10 @@ describe('TrainingReportsPage', () => {
 			}
 		});
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Alpha' }));
+		await fireEvent.pointerDown(screen.getByRole('button', { name: 'Filter by group' }));
+		const alphaOption = screen.getByRole('option', { name: 'Alpha' });
+		await fireEvent.pointerDown(alphaOption);
+		await fireEvent.pointerUp(alphaOption);
 
 		await waitFor(() => {
 			const groupUrl = ((fetchMock.mock.calls.at(0) as unknown as [string]) ?? [''])[0];

@@ -41,6 +41,9 @@ const filters = new Set([
 	'name',
 	'title',
 	'note',
+	'date',
+	'assignee_id',
+	'assignment_type_id',
 	'personnel_id',
 	'user_id',
 	'type',
@@ -535,12 +538,16 @@ async function main() {
 			throw new Error('Workbook must be under the skill evidence directory.');
 		const book = new ExcelJS.Workbook();
 		await book.xlsx.readFile(target);
-		const sheet = book.getWorksheet('Status Days');
-		if (!sheet) throw new Error('Workbook has no Status Days sheet.');
+		const sheetName = args[1] ?? 'Status Days';
+		const sheet = book.getWorksheet(sheetName);
+		if (!sheet)
+			throw new Error(
+				`Workbook has no ${sheetName} sheet; found ${book.worksheets.map((entry) => entry.name).join(', ')}.`
+			);
 		const headers = sheet.getRow(1).values.slice(1).map(String);
 		const rows = [];
 		for (let i = 2; i <= sheet.rowCount; i++) rows.push(sheet.getRow(i).values.slice(1));
-		note({ headers, rows });
+		note({ sheet: sheetName, headers, rows });
 		return;
 	}
 	throw new Error(

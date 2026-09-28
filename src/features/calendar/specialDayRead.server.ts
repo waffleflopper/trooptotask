@@ -1,5 +1,5 @@
 import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
-import type { SpecialDay } from '$lib/types';
+import type { SpecialDay } from '$features/calendar/contracts';
 import { SpecialDayEntity } from './specialDayEntity.server';
 
 export interface SpecialDayRange {

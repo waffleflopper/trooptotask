@@ -709,7 +709,11 @@
 			"src/lib/access/index.server.ts"
 		],
 		"organization": ["src/features/organization/index.server.ts"],
-		"calendar": ["src/features/calendar/index.ts", "src/features/calendar/index.server.ts"],
+		"calendar": [
+			"src/features/calendar/contracts.ts",
+			"src/features/calendar/index.ts",
+			"src/features/calendar/index.server.ts"
+		],
 		"critical-tasks": [],
 		"dashboard": ["src/features/dashboard/index.ts"],
 		"onboarding": [

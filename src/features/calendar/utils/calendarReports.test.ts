@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { computeAvailabilityForecast, computeGroupReadiness } from './calendarReports';
 
 function person(overrides: Partial<Personnel>): Personnel {

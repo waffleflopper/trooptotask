@@ -10,7 +10,7 @@
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDate } from '$lib/utils/dates';
-	import type { SpecialDay } from '$lib/types';
+	import type { SpecialDay } from '$features/calendar/contracts';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Trash2 from '@lucide/svelte/icons/trash-2';
 

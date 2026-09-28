@@ -6,7 +6,8 @@
  * ISO-string date window. Scoped collections are filtered from the caller's Scope Set.
  */
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment, Personnel, StatusType } from '$lib/types';
+import type { DailyAssignment, Personnel } from '$lib/types';
+import type { AvailabilityEntry, SpecialDay, AssignmentType, StatusType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
 export type { CalendarRangeData } from '$features/calendar/calendar.types';

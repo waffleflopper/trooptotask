@@ -7,7 +7,7 @@
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
-import type { StatusType } from '$lib/types';
+import type { StatusType } from '$features/calendar/contracts';
 
 interface StatusTypeExtensions extends Record<string, unknown> {
 	remove: (id: string) => Promise<boolean>;

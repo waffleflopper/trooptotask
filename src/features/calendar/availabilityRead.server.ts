@@ -1,4 +1,4 @@
-import type { AvailabilityEntry } from '$lib/types';
+import type { AvailabilityEntry } from '$features/calendar/contracts';
 import type { resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
 import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
 import { AvailabilityEntryEntity } from './availabilityEntity.server';
@@ -49,4 +49,12 @@ export async function listPersonnelAvailabilityHistory(
 		}
 	);
 	return AvailabilityEntryEntity.fromDbArray(rows);
+}
+
+/** Full saved rows for an already-authorized Organization export. */
+export function listAvailabilityExportRows(
+	store: CalendarWritePorts['store'],
+	orgId: string
+): Promise<Record<string, unknown>[]> {
+	return store.findMany<Record<string, unknown>>(AvailabilityEntryEntity.table, orgId);
 }

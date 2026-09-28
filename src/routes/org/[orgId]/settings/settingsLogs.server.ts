@@ -1,5 +1,6 @@
 import type { DataStore, QueryPorts } from '$lib/server/core/ports';
 import { fetchAuditLogs, type AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
+import { listStatusTypeNamesByIds } from '$features/calendar/index.server';
 
 export interface LogsSettingsData {
 	sections: {
@@ -16,10 +17,7 @@ export interface BuildLogsSettingsDataInput {
 }
 
 export async function loadLogsSettings(ctx: QueryPorts, adminStore: DataStore): Promise<LogsSettingsData> {
-	const auditLogPage = await fetchAuditLogs(ctx, adminStore, {
-		page: 1,
-		limit: 100
-	});
+	const auditLogPage = await fetchAuditLogs(ctx, adminStore, { page: 1, limit: 100 }, listStatusTypeNamesByIds);
 
 	return buildLogsSettingsData({ auditLogPage });
 }

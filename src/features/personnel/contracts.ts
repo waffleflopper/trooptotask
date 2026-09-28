@@ -9,6 +9,22 @@ export interface Group {
 	sortOrder: number;
 }
 
+/** Calendar status facts admitted to Personnel workspace snapshots at delivery. */
+export interface PersonnelCalendarStatusSnapshot {
+	id: string;
+	name: string;
+	color: string;
+	textColor: string;
+}
+
+/** Calendar availability fields used by Personnel readiness and history export. */
+export interface PersonnelAvailabilityPeriod {
+	statusTypeId: string;
+	startDate: string;
+	endDate: string;
+	note?: string | null;
+}
+
 /** Read-only rank meaning and ordering shared with other feature lanes. */
 export { BUILT_IN_RANK_CATALOG, compareRankCodes, resolveBuiltInRank } from './rankCatalog';
 export type { RankCatalogEntry, RankCategory, RankPayGrade, RankService, RankState } from './rankCatalog';

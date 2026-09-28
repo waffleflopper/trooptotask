@@ -6,7 +6,7 @@
 import { z } from 'zod';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { StatusType } from '$lib/types';
+import type { StatusType } from '$features/calendar/contracts';
 
 export const StatusTypeEntity = defineEntity<StatusType>({
 	table: 'status_types',

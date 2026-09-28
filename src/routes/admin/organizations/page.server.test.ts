@@ -1,6 +1,7 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
+import { countCalendarCatalogsByOrganization } from '$features/calendar/index.server';
 
 const {
 	organizationLedgerMock,
@@ -127,7 +128,8 @@ describe('admin organizations route load', () => {
 			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
 		);
 		expect(createActivationHealthMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
+			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } }),
+			countCalendarCatalogsByOrganization
 		);
 		expect(organizationLedgerMock.listOrganizations).toHaveBeenCalledWith({
 			page: '3',

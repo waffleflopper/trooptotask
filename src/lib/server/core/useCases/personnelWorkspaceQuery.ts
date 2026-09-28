@@ -1,5 +1,6 @@
 import type { DataStore, QueryWithRawStorePorts } from '$lib/server/core/ports';
-import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
+import type { Personnel, PersonnelLookup } from '$lib/types';
+import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
@@ -12,7 +13,7 @@ export interface PersonnelBootstrap {
 	personnel: Personnel[];
 	personnelLookup: PersonnelLookup[];
 	groups: Group[];
-	statusTypes: StatusType[];
+	statusTypes: PersonnelCalendarStatusSnapshot[];
 	rankCatalog: OrganizationRankCatalogEntry[];
 	pinnedGroups: string[];
 	/** Org-configured loss warning window in days (default: 180). */
@@ -32,7 +33,7 @@ function toPersonnelLookup(rows: Personnel[]): PersonnelLookup[] {
 
 export async function fetchPersonnelBootstrap(
 	ctx: QueryWithRawStorePorts,
-	listStatusTypes: (store: DataStore, orgId: string) => Promise<StatusType[]>
+	listStatusTypes: (store: DataStore, orgId: string) => Promise<PersonnelCalendarStatusSnapshot[]>
 ): Promise<PersonnelBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;

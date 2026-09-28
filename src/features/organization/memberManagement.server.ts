@@ -6,8 +6,12 @@ import {
 	type MemberAccessStorageCommand
 } from '$lib/access/memberAccessCommands';
 import { type CapabilityOverrideMap, type StoredMemberPreset } from '$lib/access/memberAccessShape';
-import { fail } from '$lib/server/core/errors';
-import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
+import {
+	denyPolicyDecision,
+	evaluateAuthoritativePolicyDecision,
+	policyDenialAuditDetails,
+	requireGovernancePolicy
+} from '$lib/access/index.server';
 import {
 	createAccountSetupLinkIssuance,
 	redactProviderError,
@@ -29,12 +33,29 @@ import {
 	organizationInvitationRateLimitMessage,
 	type OrganizationInvitationRateLimitAction,
 	type OrganizationInvitationRateLimiter
-} from '$lib/server/organizationInvitationRateLimit';
+} from './invitationRateLimit.server';
 import { validateEmail, validateUUID } from '$lib/server/validation';
-import { requireGovernancePolicy } from './governancePolicy';
-import { normalizeInvitationEmail } from './invitationEmail';
-import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
-import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
+
+type GovernancePorts = Parameters<typeof requireGovernancePolicy>[0];
+type AuthContext = GovernancePorts['auth'];
+type AuditPort = GovernancePorts['audit'];
+
+interface NotificationPort {
+	notifyUser(
+		orgId: string,
+		userId: string,
+		notification: { type: string; title: string; message: string; link?: string | null }
+	): Promise<void>;
+	notifyAdmins(
+		orgId: string,
+		excludeUserId: string | null,
+		notification: { type: string; title: string; message: string; link?: string | null }
+	): Promise<void>;
+}
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -1052,7 +1073,7 @@ async function requireIdentityPolicy(
 }
 
 function normalizeEmail(email: string): string {
-	return normalizeInvitationEmail(email);
+	return email.trim().toLowerCase();
 }
 
 function buildMemberAccessStorageCommand(command: {

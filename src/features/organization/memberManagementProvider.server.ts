@@ -2,10 +2,14 @@ import type {
 	OrganizationInvitationRevokeResult,
 	OrganizationMembershipUpdateInput,
 	OrganizationSettingsMemberManagementPort
-} from '$lib/server/core/useCases/orgSettingsMemberManagement';
+} from './memberManagement.server';
 import { ACCESS_REQUEST_SETUP_RENEWAL_DAYS, addUtcDays } from '$features/identity/contracts';
 import { getAdminClient } from '$lib/server/supabase';
-import { findUserEmailIdentityByEmail, normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
+import {
+	findInvitationRecipientAccount,
+	findUserEmailIdentityByEmail,
+	normalizeUserEmailIdentity
+} from '$features/identity/index.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface OrganizationInvitationLookupRow {
@@ -45,11 +49,6 @@ interface RevokeOrganizationInvitationRpcRow {
 	revoked_email: string | null;
 }
 
-interface AuthUserConfirmationRow {
-	confirmed_at?: string | null;
-	email_confirmed_at?: string | null;
-}
-
 function isUniqueConstraintError(error: unknown, constraintName: string): boolean {
 	if (!error || typeof error !== 'object') {
 		return false;
@@ -62,26 +61,6 @@ function isUniqueConstraintError(error: unknown, constraintName: string): boolea
 	].join(' ');
 
 	return candidate.code === '23505' && message.includes(constraintName);
-}
-
-async function findUserAccountByEmail(
-	adminClient: SupabaseClient,
-	email: string
-): Promise<{ id: string; email: string; emailConfirmed?: boolean } | null> {
-	const identity = await findUserEmailIdentityByEmail(adminClient, email);
-	if (!identity) return null;
-
-	const { data, error } = await adminClient.auth.admin.getUserById(identity.userId);
-	if (error) {
-		throw error;
-	}
-
-	const user = data?.user as AuthUserConfirmationRow | null;
-	return {
-		id: identity.userId,
-		email: identity.normalizedEmail,
-		emailConfirmed: hasTimestamp(user?.email_confirmed_at) || hasTimestamp(user?.confirmed_at)
-	};
 }
 
 export function createSupabaseOrgSettingsMemberManagementPort(
@@ -176,7 +155,7 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 		},
 
 		async findUserAccountByEmail(email) {
-			return findUserAccountByEmail(getAdminClientFn(), email);
+			return findInvitationRecipientAccount(getAdminClientFn(), email);
 		},
 
 		async createOrLinkApprovedAccessRequestForInvitation(input) {
@@ -398,10 +377,6 @@ function requiresLinkedAccessRequestSetup(
 			isCompletedAccessRequestSetupForInvitation(invitationEmail, userId, request)
 		)
 	);
-}
-
-function hasTimestamp(value: string | null | undefined): boolean {
-	return typeof value === 'string' && value.trim().length > 0;
 }
 
 async function findInvitationAccessRequestLinksForSetup(

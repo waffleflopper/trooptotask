@@ -205,7 +205,6 @@
 				"src/lib/server/accessRequestInvitationBlocking.ts",
 				"src/lib/server/accessRequestInvitationOrigin.test.ts",
 				"src/lib/server/accessRequestInvitationOrigin.ts",
-				"src/lib/server/authEmailTransport.test.ts",
 				"src/lib/server/core/useCases/userPreferences.test.ts",
 				"src/lib/server/core/useCases/userPreferences.ts",
 				"src/lib/server/publicAppOrigin.test.ts",
@@ -260,24 +259,13 @@
 			"roots": ["src/features/organization/"],
 			"files": [
 				"src/lib/server/adapters/supabaseOrgSettingsAdministration.ts",
-				"src/lib/server/adapters/supabaseOrgSettingsMemberManagement.test.ts",
-				"src/lib/server/adapters/supabaseOrgSettingsMemberManagement.ts",
 				"src/lib/server/adapters/supabaseOrganizationAdmission.ts",
-				"src/lib/server/adapters/supabaseOrganizationInvitationSetupStateLookup.test.ts",
-				"src/lib/server/adapters/supabaseOrganizationInvitationSetupStateLookup.ts",
-				"src/lib/server/core/useCases/invitationEmail.ts",
 				"src/lib/server/core/useCases/orgSettingsAdministration.test.ts",
 				"src/lib/server/core/useCases/orgSettingsAdministration.ts",
-				"src/lib/server/core/useCases/orgSettingsMemberManagement.test.ts",
-				"src/lib/server/core/useCases/orgSettingsMemberManagement.ts",
 				"src/lib/server/core/useCases/organizationInvitationMembership.test.ts",
 				"src/lib/server/core/useCases/organizationInvitationMembership.ts",
 				"src/lib/server/core/useCases/organizationUrlSlug.test.ts",
-				"src/lib/server/core/useCases/organizationUrlSlug.ts",
-				"src/lib/server/organizationInvitationDelivery.test.ts",
-				"src/lib/server/organizationInvitationDelivery.ts",
-				"src/lib/server/organizationInvitationRateLimit.test.ts",
-				"src/lib/server/organizationInvitationRateLimit.ts"
+				"src/lib/server/core/useCases/organizationUrlSlug.ts"
 			],
 			"packet": "08-M02"
 		},
@@ -699,7 +687,11 @@
 			"src/lib/server/permissionContext.ts",
 			"src/lib/access/index.server.ts"
 		],
-		"organization": ["src/features/organization/index.server.ts"],
+		"organization": [
+			"src/features/organization/contracts.ts",
+			"src/features/organization/index.ts",
+			"src/features/organization/index.server.ts"
+		],
 		"calendar": [
 			"src/features/calendar/contracts.ts",
 			"src/features/calendar/index.ts",

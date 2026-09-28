@@ -65,17 +65,14 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
-vi.mock('$lib/server/adapters/supabaseOrgSettingsMemberManagement', () => ({
-	createSupabaseOrgSettingsMemberManagementPort: createSupabaseOrgSettingsMemberManagementPortMock
-}));
-
-vi.mock('$lib/server/core/useCases/orgSettingsMemberManagement', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/orgSettingsMemberManagement')>(
-		'$lib/server/core/useCases/orgSettingsMemberManagement'
+vi.mock('$features/organization/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/organization/index.server')>(
+		'$features/organization/index.server'
 	);
 
 	return {
 		...actual,
+		createSupabaseOrgSettingsMemberManagementPort: createSupabaseOrgSettingsMemberManagementPortMock,
 		leaveOrganization: leaveOrganizationMock
 	};
 });

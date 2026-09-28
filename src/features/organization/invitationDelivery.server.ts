@@ -1,7 +1,6 @@
 import { env } from '$env/dynamic/private';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL } from '$features/identity/index.server';
-import { makePublicAppUrl } from './publicAppOrigin';
+import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, makePublicAppUrl } from '$features/identity/index.server';
 
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
 export const ORGANIZATION_INVITATION_EMAIL_MAX_ATTEMPTS = 3;

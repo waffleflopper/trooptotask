@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkOrganizationInvitationRateLimit } from './organizationInvitationRateLimit';
 import { checkPlatformAccessRequestSetupRateLimit } from './platformAccessRequestRateLimit';
 import { createSupabaseDurableRateLimitStore, type DurableRateLimitStore } from './durableRateLimit';
 
 const now = new Date('2026-09-17T12:00:00Z');
-const identity = { email: ' Synthetic@Example.test ', ip: '192.0.2.1', now };
 type Policy = {
 	name: string;
 	check: (store: DurableRateLimitStore) => Promise<{ limited: boolean; retryAfterMs?: number }>;
@@ -12,34 +10,6 @@ type Policy = {
 	budgets: [number, number][];
 };
 const policies: Policy[] = [
-	...(['create', 'resend'] as const).map(
-		(action): Policy => ({
-			name: `Organization invitation ${action}`,
-			check: (store) =>
-				checkOrganizationInvitationRateLimit({
-					action,
-					actorUserId: 'synthetic-user',
-					organizationId: 'synthetic-org',
-					recipientEmail: identity.email,
-					invitationId: 'synthetic-invitation',
-					now,
-					store
-				}),
-			budgets:
-				action === 'create'
-					? [
-							[900, 30],
-							[900, 100],
-							[900, 3]
-						]
-					: [
-							[900, 30],
-							[900, 100],
-							[900, 3],
-							[900, 3]
-						]
-		})
-	),
 	...(['approval', 'resend'] as const).map(
 		(action): Policy => ({
 			name: `platform setup ${action}`,

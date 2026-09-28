@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
 	createSupabaseOrganizationInvitationDeliveryPort,
 	sendOrganizationInvitationEmail
-} from '$lib/server/organizationInvitationDelivery';
+} from './invitationDelivery.server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
@@ -11,7 +11,7 @@ import {
 	createFakeOrganizationInvitationDeliveryPort as createInvitationDeliveryPort,
 	createFakeOrganizationInvitationRateLimiter as createInvitationRateLimiter,
 	memberAccessFixture as memberAccess
-} from '$lib/test-support/authWorkflowFixtures';
+} from './authWorkflowFixtures.test-support';
 import type {
 	AccountSetupLinkRecord,
 	AuthEmailOutboxRecord,
@@ -29,7 +29,7 @@ import {
 	type OrganizationInvitationCreateInput,
 	type OrganizationMembershipUpdateInput,
 	type OrganizationSettingsMemberManagementPort
-} from './orgSettingsMemberManagement';
+} from './memberManagement.server';
 
 beforeEach(() => {
 	vi.stubEnv('APP_PUBLIC_ORIGIN', 'https://trooptotask.test');

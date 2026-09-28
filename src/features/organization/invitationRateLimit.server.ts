@@ -6,7 +6,7 @@ import {
 	normalizeRateLimitEmail,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from './durableRateLimit';
+} from '$lib/access/index.server';
 
 export const ORGANIZATION_INVITATION_CREATE_RATE_LIMIT_MESSAGE =
 	'Too many organization invitation attempts. Please wait before inviting this recipient again.';

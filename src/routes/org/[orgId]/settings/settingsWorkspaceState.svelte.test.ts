@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { createSettingsMemberAccessWorkspace } from './settingsMemberAccessWorkspace.svelte';
+import { createSettingsMemberAccessWorkspace } from '$features/organization';
+import type { SettingsMembersSectionData } from '$features/organization/contracts';
 import type {
 	DangerSettingsData,
 	SettingsArchivesSectionData,
-	SettingsMembersSectionData,
 	SettingsPoliciesSectionData
 } from './settingsSectionTypes';
 import {

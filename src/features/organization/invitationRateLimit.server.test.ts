@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createSupabaseDurableRateLimitStore } from '$lib/access/index.server';
 import {
 	checkOrganizationInvitationRateLimit,
 	createSupabaseOrganizationInvitationRateLimitStore,
 	organizationInvitationRateLimitAuditDetails,
 	organizationInvitationRateLimitMessage,
 	type OrganizationInvitationRateLimitStore
-} from './organizationInvitationRateLimit';
+} from './invitationRateLimit.server';
 
 function makeStore(): OrganizationInvitationRateLimitStore & { keys: string[] } {
 	const buckets = new Map<string, { count: number; resetAt: number }>();
@@ -336,5 +337,56 @@ describe('organization invitation rate limits', () => {
 				store: makeStore()
 			})
 		).rejects.toThrow('invitationId is required for organization invitation rate limiting');
+	});
+});
+
+describe('organization invitation durable limiter', () => {
+	it.each([
+		{
+			action: 'create' as const,
+			budgets: [
+				[900, 30],
+				[900, 100],
+				[900, 3]
+			]
+		},
+		{
+			action: 'resend' as const,
+			budgets: [
+				[900, 30],
+				[900, 100],
+				[900, 3],
+				[900, 3]
+			]
+		}
+	])('$action preserves its provider budget sequence and fails closed', async ({ action, budgets }) => {
+		const rpc = vi.fn().mockResolvedValue({ data: [{ limited: false, retry_after_ms: 900_000 }], error: null });
+		const store = createSupabaseDurableRateLimitStore({ rpc } as never);
+		const check = () =>
+			checkOrganizationInvitationRateLimit({
+				action,
+				actorUserId: 'synthetic-user',
+				organizationId: 'synthetic-org',
+				recipientEmail: ' Synthetic@Example.test ',
+				invitationId: 'synthetic-invitation',
+				now: new Date('2026-09-17T12:00:00Z'),
+				store
+			});
+
+		await expect(check()).resolves.toMatchObject({ limited: false });
+		expect(rpc.mock.calls.map(([, input]) => [input.p_window_seconds, input.p_max_requests])).toEqual(budgets);
+		for (const [, input] of rpc.mock.calls) {
+			expect(input.p_checked_at).toBe('2026-09-17T12:00:00.000Z');
+			expect(input.p_bucket_key).toMatch(/:[a-f0-9]{64}$/);
+			expect(input.p_bucket_key).not.toMatch(/synthetic/i);
+		}
+
+		rpc.mockResolvedValue({ data: [{ limited: true, retry_after_ms: 1500 }], error: null });
+		await expect(check()).resolves.toMatchObject({ limited: true, retryAfterMs: 1500 });
+		rpc.mockResolvedValue({ data: [{}], error: null });
+		await expect(check()).rejects.toThrow();
+		const failure = new Error('synthetic RPC failure');
+		rpc.mockResolvedValue({ data: [{ limited: false, retry_after_ms: 0 }], error: failure });
+		await expect(check()).rejects.toBe(failure);
 	});
 });

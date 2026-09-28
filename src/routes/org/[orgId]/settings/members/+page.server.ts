@@ -2,25 +2,35 @@ import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseOrgSettingsMemberManagementPort } from '$lib/server/adapters/supabaseOrgSettingsMemberManagement';
 import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
-import { createSupabaseOrganizationInvitationDeliveryPort } from '$lib/server/organizationInvitationDelivery';
-import { createSupabaseOrganizationInvitationRateLimiter } from '$lib/server/organizationInvitationRateLimit';
+import { listGroupCatalog } from '$features/personnel/index.server';
 import {
+	createSupabaseOrgSettingsMemberManagementPort,
+	createSupabaseOrganizationInvitationDeliveryPort,
+	createSupabaseOrganizationInvitationRateLimiter,
+	loadMembersSettings,
 	inviteOrganizationMember,
 	removeOrganizationMember,
 	resendOrganizationInvitation,
 	revokeOrganizationInvitation,
 	updateOrganizationMemberAccess
-} from '$lib/server/core/useCases/orgSettingsMemberManagement';
+} from '$features/organization/index.server';
 import { toActionFailure } from '../settingsActionFailure.server';
-import { loadMembersSettings } from './membersSettings.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 
 export const load: PageServerLoad = (event) =>
 	loadSettingsPage(event, async (ctx, { common }) => ({
-		membersSettings: await loadMembersSettings(ctx, { isAdmin: common.isAdmin })
+		membersSettings: await loadMembersSettings(ctx, {
+			isAdmin: common.isAdmin,
+			groups: listGroupCatalog(ctx),
+			approvalRequests: ctx.store.findMany<{ status: 'pending' | 'approved' | 'denied'; created_at: string }>(
+				'deletion_requests',
+				ctx.auth.orgId,
+				undefined,
+				{ orderBy: [{ column: 'created_at', ascending: false }] }
+			)
+		})
 	}));
 
 export const actions: Actions = {

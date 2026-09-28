@@ -41,7 +41,7 @@ import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/perso
 import { createSupabasePersonnelArtifactWritePort } from '$features/personnel/index.server';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelGovernanceDeletionPort } from '$features/personnel/index.server';
-import { createSupabaseOrganizationInvitationSetupStateLookupPort } from './supabaseOrganizationInvitationSetupStateLookup';
+import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
 import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelCriticalTasksRosterPort } from '$features/personnel/index.server';

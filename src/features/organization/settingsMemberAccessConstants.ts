@@ -2,11 +2,11 @@ import {
 	DURABLE_FEATURE_LANES,
 	type CapabilityLevel,
 	type DurableFeatureLane,
+	type MembershipRole,
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
-import type { EditableMembershipRole } from '$lib/access/memberAccessCommands';
 
-export type { EditableMembershipRole };
+export type EditableMembershipRole = Exclude<MembershipRole, 'owner'>;
 export type EditablePreset = StoredMemberPreset;
 export type AccessLaneConfig = { id: DurableFeatureLane; label: string };
 export type AccessOption = { value: EditablePreset; label: string; helper: string };

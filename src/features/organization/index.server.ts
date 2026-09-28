@@ -10,3 +10,16 @@ export {
 } from './dashboardAccess.server';
 export { createSupabaseDashboardOrgAccessPort } from './dashboardAccessProvider.server';
 export { autoAcceptOrgInvites, InvitationAcceptanceError } from './autoAcceptInvitations.server';
+export {
+	inviteOrganizationMember,
+	resendOrganizationInvitation,
+	revokeOrganizationInvitation,
+	removeOrganizationMember,
+	updateOrganizationMemberAccess,
+	leaveOrganization
+} from './memberManagement.server';
+export { createSupabaseOrgSettingsMemberManagementPort } from './memberManagementProvider.server';
+export { createSupabaseOrganizationInvitationDeliveryPort } from './invitationDelivery.server';
+export { createSupabaseOrganizationInvitationRateLimiter } from './invitationRateLimit.server';
+export { createSupabaseOrganizationInvitationSetupStateLookupPort } from './invitationSetupStateProvider.server';
+export { loadMembersSettings } from './membersSettings.server';

@@ -20,10 +20,12 @@
 		createSettingsMemberAccessWorkspace,
 		type EditableMembershipRole,
 		type EditablePreset
-	} from '../settingsMemberAccessWorkspace.svelte';
-	import type { MembersSettingsSection } from './membersSettings.server';
-	import type { SettingsMemberAccessRow } from '../settingsMemberAccessModel';
-	import type { SettingsInvitationFunnelStatus } from '../settingsSectionTypes';
+	} from '$features/organization';
+	import type {
+		SettingsMemberAccessRow,
+		SettingsMemberRow,
+		SettingsInvitationFunnelStatus
+	} from '$features/organization/contracts';
 	import { pluralize } from '../settingsWorkspaceFormatters';
 
 	let { data, form }: PageProps = $props();
@@ -234,7 +236,7 @@
 			{#each filteredMembers as member (member.id)}
 				{@const accessShape = memberAccess.getMemberAccessShape(member)}
 				{@const accessBadge = memberAccess.getMemberAccessBadge(member, accessShape)}
-				{@const overrides = (member as MembersSettingsSection['rows'][number]).overriddenCapabilityLabels}
+				{@const overrides = (member as SettingsMemberRow).overriddenCapabilityLabels}
 				<div class="grid gap-3 p-4 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start">
 					<div
 						class="flex size-10 items-center justify-center rounded-md border bg-muted text-sm font-medium"

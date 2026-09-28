@@ -6,31 +6,30 @@ import {
 	type StoredMemberPreset
 } from '$lib/access/memberAccessShape';
 import { ACCOUNT_SETUP_RECOVERY_LINK_LABEL, type AccessRequestSetupState } from '$features/identity/index.server';
-import { listGroupCatalog } from '$features/personnel/index.server';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { OrganizationInvitationSetupStateLookupPort } from './contracts';
 import {
 	buildSettingsInvitationAccessRow,
 	buildSettingsMemberAccessRow,
 	type SettingsAccessSourceRow
-} from '../settingsMemberAccessReadModel.server';
+} from './settingsMemberAccessReadModel.server';
 import type {
 	SettingsInvitationFunnelStatus,
 	SettingsInvitationHistoryRow,
 	SettingsInvitationRow,
 	SettingsMemberRow,
 	SettingsPendingInvitationRow
-} from '../settingsSectionTypes';
+} from './memberSettingsTypes';
 import {
 	ACCESS_LANE_LABELS,
 	SETTINGS_ACCESS_LANES,
 	SETTINGS_ACCESS_OPTIONS,
 	SETTINGS_CAPABILITY_OPTIONS
-} from '../settingsMemberAccessConstants';
-import { pluralize } from '../settingsWorkspaceFormatters';
-import type { DeletionRequestRow } from '../settingsRows.server';
+} from './settingsMemberAccessConstants';
 
 export interface LoadMembersSettingsInput {
 	isAdmin: boolean;
+	groups: Promise<Array<{ id: string; name: string }>>;
+	approvalRequests: Promise<ApprovalRequestSummarySource[]>;
 }
 
 export interface MembersSettingsData {
@@ -69,7 +68,7 @@ export interface BuildMembersSettingsDataInput {
 	/** Platform Account Setup state per invitation id. Absent entries mean no Access Request exists. */
 	invitationSetupStates?: Map<string, AccessRequestSetupState>;
 	pendingApprovalSummary?: PendingApprovalSummary;
-	approvalRequests?: DeletionRequestRow[];
+	approvalRequests?: ApprovalRequestSummarySource[];
 	groups: Array<{ id: string; name: string }>;
 	now?: Date;
 }
@@ -78,6 +77,12 @@ export interface PendingApprovalSummary {
 	count: number;
 	oldestCreatedAt: string | null;
 }
+
+type ApprovalRequestSummarySource = {
+	id?: string;
+	status: 'pending' | 'approved' | 'denied';
+	created_at: string;
+};
 
 export interface SettingsInvitationDeliverySourceRow {
 	id: string;
@@ -89,7 +94,22 @@ export interface SettingsInvitationDeliverySourceRow {
 	sent_at: string | null;
 }
 
-type MembersSettingsLoadContext = Pick<UseCaseContext, 'auth' | 'store' | 'organizationInvitationSetupStateLookup'>;
+interface MembersSettingsLoadContext {
+	auth: { orgId: string; role: MembershipRole; canManageMembers: boolean };
+	store: {
+		findMany<T>(
+			table: string,
+			orgId: string,
+			filters: undefined,
+			options: {
+				select?: string;
+				orderBy?: Array<{ column: string; ascending: boolean }>;
+				inFilters?: Record<string, string[]>;
+			}
+		): Promise<T[]>;
+	};
+	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
+}
 
 export async function loadMembersSettings(
 	ctx: MembersSettingsLoadContext,
@@ -114,10 +134,8 @@ export async function loadMembersSettings(
 				orderBy: [{ column: 'created_at', ascending: false }]
 			}
 		),
-		listGroupCatalog(ctx),
-		ctx.store.findMany<DeletionRequestRow>('deletion_requests', ctx.auth.orgId, undefined, {
-			orderBy: [{ column: 'created_at', ascending: false }]
-		})
+		input.groups,
+		input.approvalRequests
 	]);
 
 	return buildMembersSettingsData({
@@ -227,9 +245,7 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 	};
 }
 
-export function buildPendingApprovalSummary(
-	approvalRequests: Array<Pick<DeletionRequestRow, 'status' | 'created_at'>>
-): PendingApprovalSummary {
+export function buildPendingApprovalSummary(approvalRequests: ApprovalRequestSummarySource[]): PendingApprovalSummary {
 	const pendingCreatedDates = approvalRequests
 		.filter((request) => request.status === 'pending')
 		.map((request) => request.created_at)
@@ -500,4 +516,8 @@ function formatScopeSet(
 
 function formatCapability(level: CapabilityLevel): string {
 	return level[0].toUpperCase() + level.slice(1);
+}
+
+function pluralize(label: string, count: number): string {
+	return count === 1 ? label : `${label}s`;
 }

@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { createSupabaseOrgSettingsMemberManagementPort } from './supabaseOrgSettingsMemberManagement';
+import { createSupabaseOrgSettingsMemberManagementPort } from './memberManagementProvider.server';
 
 type Call = { method: string; args: unknown[] };
 

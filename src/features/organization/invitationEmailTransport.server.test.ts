@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sendOrganizationInvitationEmail } from './organizationInvitationDelivery';
+import { sendOrganizationInvitationEmail } from './invitationDelivery.server';
 
 vi.mock('$env/dynamic/private', () => ({ env: process.env }));
 

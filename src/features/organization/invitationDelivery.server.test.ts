@@ -5,12 +5,12 @@ import {
 	retryOrganizationInvitationOutboxDelivery,
 	sendOrganizationInvitationEmail,
 	sendOrganizationInvitationOutboxDelivery
-} from './organizationInvitationDelivery';
+} from './invitationDelivery.server';
 import {
 	AUTH_WORKFLOW_NOW,
 	createOrganizationInvitationEmailOutboxStore,
 	organizationInvitationFixture
-} from '$lib/test-support/authWorkflowFixtures';
+} from './authWorkflowFixtures.test-support';
 
 async function renderSetupInvitationEmail(): Promise<{ text: string; html: string }> {
 	vi.stubEnv('RESEND_API_KEY', 'resend-key');

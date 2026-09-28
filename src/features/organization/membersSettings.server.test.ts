@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccessRequestSetupState } from '$features/identity/index.server';
-import type { AuthContext, UseCaseContext } from '$lib/server/core/ports';
-import { createTestContext } from '$lib/server/adapters/inMemory';
-import type { SettingsAccessSourceRow } from '../settingsMemberAccessReadModel.server';
+import type { SettingsAccessSourceRow } from './settingsMemberAccessReadModel.server';
 import {
 	buildMembersSettingsSection,
 	loadMembersSettings,
@@ -280,7 +278,7 @@ describe('members settings invitation funnel status', () => {
 });
 
 function makeLoadContext(
-	lookup: UseCaseContext['organizationInvitationSetupStateLookup']
+	lookup: Parameters<typeof loadMembersSettings>[0]['organizationInvitationSetupStateLookup']
 ): Parameters<typeof loadMembersSettings>[0] {
 	const rowsByTable: Record<string, unknown[]> = {
 		organization_memberships: [memberRow()],
@@ -291,10 +289,10 @@ function makeLoadContext(
 	};
 
 	return {
-		auth: { orgId: 'org-1', role: 'owner', canManageMembers: true } as AuthContext,
+		auth: { orgId: 'org-1', role: 'owner', canManageMembers: true },
 		store: {
 			findMany: vi.fn(async (table: string) => rowsByTable[table] ?? [])
-		} as unknown as UseCaseContext['store'],
+		} as unknown as Parameters<typeof loadMembersSettings>[0]['store'],
 		organizationInvitationSetupStateLookup: lookup
 	};
 }
@@ -316,7 +314,11 @@ describe('members settings setup-state lookup degradation', () => {
 			findSetupStateByInvitationId: vi.fn().mockRejectedValue(new Error('service role unavailable'))
 		});
 
-		const data = await loadMembersSettings(context, { isAdmin: true });
+		const data = await loadMembersSettings(context, {
+			isAdmin: true,
+			groups: Promise.resolve([]),
+			approvalRequests: Promise.resolve([])
+		});
 
 		expect(data.sections.members.invitations).toHaveLength(1);
 		expect(LOCKED_FUNNEL_LABELS).toContain(data.sections.members.invitations[0].funnelStatusLabel);
@@ -337,7 +339,11 @@ describe('members settings setup-state lookup degradation', () => {
 						: []
 		);
 
-		const data = await loadMembersSettings(context, { isAdmin: true });
+		const data = await loadMembersSettings(context, {
+			isAdmin: true,
+			groups: Promise.resolve([]),
+			approvalRequests: Promise.resolve([])
+		});
 
 		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe('Invitation email failed');
 	});
@@ -347,29 +353,17 @@ describe('members settings setup-state lookup degradation', () => {
 			findSetupStateByInvitationId: vi.fn().mockResolvedValue(new Map([['invite-1', 'delivery_failed']]))
 		});
 
-		const data = await loadMembersSettings(context, { isAdmin: true });
+		const data = await loadMembersSettings(context, {
+			isAdmin: true,
+			groups: Promise.resolve([]),
+			approvalRequests: Promise.resolve([])
+		});
 
 		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe("Setup email didn't reach them");
 	});
 });
 
 describe('members settings section shaping', () => {
-	it('offers every same-Organization Group in saved order', async () => {
-		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
-		ctx.store.seed('groups', [
-			{ id: 'g2', organization_id: 'org-1', name: 'Bravo', sort_order: 2 },
-			{ id: 'g1', organization_id: 'org-1', name: 'Alpha', sort_order: 1 },
-			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign', sort_order: 0 }
-		]);
-
-		const data = await loadMembersSettings(ctx, { isAdmin: true });
-
-		expect(data.sections.members.groups).toEqual([
-			{ id: 'g1', name: 'Alpha' },
-			{ id: 'g2', name: 'Bravo' }
-		]);
-	});
-
 	it('splits actionable invitations from closed history', () => {
 		const section = buildSection({
 			invitations: [

@@ -238,6 +238,39 @@ async function main() {
 		note({ table, organization: orgKey, count: rows.length, rows });
 		return;
 	}
+	if (command === 'created-org') {
+		const [name] = args;
+		if (!name || name.length > 100) throw new Error('Use the exact synthetic Organization name.');
+		const service = await provider();
+		const organizations = checked(
+			await service
+				.from('organizations')
+				.select('id,name,created_by,url_slug')
+				.eq('created_by', fixture.actors.orgCreator.id)
+				.eq('name', name)
+		);
+		if (organizations.length !== 1) {
+			note({ name, count: organizations.length, organizations });
+			return;
+		}
+		const organization = organizations[0];
+		const tables = {
+			organization_memberships: 'id,user_id,role,email,member_preset,access_scope_kind,access_scope_group_ids',
+			groups: 'id,name,sort_order',
+			status_types: 'id,name,sort_order',
+			assignment_types: 'id,name,short_name,assign_to,sort_order',
+			special_days: 'id,date,name,type',
+			organization_rank_catalog: 'id,code,service,state,source,sort_order'
+		};
+		const results = await Promise.all(
+			Object.entries(tables).map(async ([table, columns]) => {
+				const rows = checked(await service.from(table).select(columns).eq('organization_id', organization.id));
+				return [table, { count: rows.length, rows }];
+			})
+		);
+		note({ organization, ...Object.fromEntries(results) });
+		return;
+	}
 	if (command === 'roster-files') {
 		const [orgKey, rosterId] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))

@@ -1,4 +1,4 @@
-import { createSupabaseOrgProvisioningPort } from '$features/organization/index.server';
+import { createSupabaseOrganizationCreationPort, type OrgProvisioningPort } from '$features/organization/index.server';
 import { seedDefaultGroups, seedDefaultRankCatalog } from '$features/personnel/index.server';
 import {
 	seedDefaultAssignmentTypes,
@@ -7,13 +7,13 @@ import {
 } from '$features/calendar/index.server';
 
 /** Compose Organization creation with Personnel's Group and rank defaults at the request boundary. */
-export function createOrganizationProvisioningDelivery(locals: Pick<App.Locals, 'supabase'>) {
-	return createSupabaseOrgProvisioningPort(
-		locals,
-		(orgId) => seedDefaultGroups(locals.supabase, orgId),
-		(orgId) => seedDefaultRankCatalog(locals.supabase, orgId),
-		(orgId) => seedFederalHolidays(locals.supabase, orgId),
-		(orgId) => seedDefaultStatusTypes(locals.supabase, orgId),
-		(orgId) => seedDefaultAssignmentTypes(locals.supabase, orgId)
-	);
+export function createOrganizationProvisioningDelivery(locals: Pick<App.Locals, 'supabase'>): OrgProvisioningPort {
+	return {
+		...createSupabaseOrganizationCreationPort(locals),
+		seedDefaultGroups: (orgId) => seedDefaultGroups(locals.supabase, orgId),
+		seedDefaultStatusTypes: (orgId) => seedDefaultStatusTypes(locals.supabase, orgId),
+		seedDefaultAssignmentTypes: (orgId) => seedDefaultAssignmentTypes(locals.supabase, orgId),
+		seedFederalHolidays: (orgId) => seedFederalHolidays(locals.supabase, orgId),
+		seedDefaultRankCatalog: (orgId) => seedDefaultRankCatalog(locals.supabase, orgId)
+	};
 }

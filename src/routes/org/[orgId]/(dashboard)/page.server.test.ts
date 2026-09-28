@@ -429,4 +429,30 @@ describe('dashboard page server load', () => {
 			}
 		);
 	});
+
+	it('preserves a denied leave action as an HTTP permission error', async () => {
+		leaveOrganizationMock.mockRejectedValue(
+			Object.assign(new Error('You cannot leave an organization you own'), { status: 403 })
+		);
+
+		await expect(
+			actions.leaveOrganization({
+				request: new Request(`http://localhost/org/${ORG_ID}?/leaveOrganization`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+					body: new URLSearchParams({
+						membershipId: '11111111-1111-4111-8111-111111111111',
+						confirmLeaveOrganization: 'YES'
+					})
+				}),
+				locals: { user: { id: 'user-1', email: 'user@example.com' }, supabase: {} },
+				params: { orgId: ORG_ID },
+				cookies: {},
+				getClientAddress: () => '127.0.0.1'
+			} as never)
+		).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'You cannot leave an organization you own' }
+		});
+	});
 });

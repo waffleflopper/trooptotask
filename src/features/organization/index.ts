@@ -3,3 +3,4 @@ export {
 	type EditableMembershipRole,
 	type EditablePreset
 } from './settingsMemberAccessWorkspace.svelte';
+export type { OwnershipTransferCandidate } from './ownershipTransferSettings';

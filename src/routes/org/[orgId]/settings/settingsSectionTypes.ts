@@ -3,7 +3,7 @@ import type { RankCategory, RankPayGrade, RankService, RankState } from '$featur
 import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
 import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
 import type { DeletionRequestRow } from './settingsRows.server';
-import type { SettingsMemberRow } from '$features/organization/contracts';
+import type { OwnershipTransferCandidate } from '$features/organization';
 
 export type WorkspaceConstraint<Unit extends string> = {
 	min: number;
@@ -47,7 +47,7 @@ export type SettingsApprovalsSectionData = {
 	activity: SettingsActivityData;
 };
 
-export type SettingsOwnershipTransferCandidate = Pick<SettingsMemberRow, 'id' | 'userId' | 'email' | 'membershipRole'>;
+export type SettingsOwnershipTransferCandidate = OwnershipTransferCandidate;
 
 export type SettingsPoliciesSectionData = {
 	archiveRetention: {

@@ -4,12 +4,14 @@ import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteDat
 const {
 	buildRouteContextMock,
 	createSupabaseOrgSettingsAdministrationPortMock,
+	createSupabaseOrganizationOwnershipTransferPortMock,
 	deleteOrganizationUseCaseMock,
 	loadWithContextMock,
 	transferOrganizationOwnershipMock
 } = vi.hoisted(() => ({
 	buildRouteContextMock: vi.fn(),
 	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
+	createSupabaseOrganizationOwnershipTransferPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
 	transferOrganizationOwnershipMock: vi.fn()
@@ -38,7 +40,17 @@ vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
 
 	return {
 		...actual,
-		deleteOrganization: deleteOrganizationUseCaseMock,
+		deleteOrganization: deleteOrganizationUseCaseMock
+	};
+});
+
+vi.mock('$features/organization/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/organization/index.server')>(
+		'$features/organization/index.server'
+	);
+	return {
+		...actual,
+		createSupabaseOrganizationOwnershipTransferPort: createSupabaseOrganizationOwnershipTransferPortMock,
 		transferOrganizationOwnership: transferOrganizationOwnershipMock
 	};
 });
@@ -76,6 +88,7 @@ describe('danger settings page server', () => {
 		vi.clearAllMocks();
 		buildRouteContextMock.mockResolvedValue(authContext);
 		createSupabaseOrgSettingsAdministrationPortMock.mockReturnValue({ kind: 'admin-port' });
+		createSupabaseOrganizationOwnershipTransferPortMock.mockReturnValue({ kind: 'transfer-port' });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
 	});
@@ -188,6 +201,28 @@ describe('danger settings page server', () => {
 			status: 400,
 			data: { transferError: 'Invalid user ID' }
 		});
+	});
+
+	it('uses Organization ownership transfer and its request-bound provider', async () => {
+		const result = await actions.transferOwnership(
+			actionEvent(
+				'transferOwnership',
+				new URLSearchParams({ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'next-owner@example.com' })
+			)
+		);
+
+		expect(result).toEqual({ transferSuccess: true });
+		expect(createSupabaseOrganizationOwnershipTransferPortMock).toHaveBeenCalledOnce();
+		expect(transferOrganizationOwnershipMock).toHaveBeenCalledWith(
+			{
+				auth: authContext.auth,
+				audit: authContext.audit,
+				notifications: authContext.notifications,
+				administration: { kind: 'transfer-port' },
+				sensitiveActionAuthorizer: authContext.sensitiveActionAuthorizer
+			},
+			{ newOwnerId: '11111111-1111-4111-8111-111111111111', confirmTransferEmail: 'next-owner@example.com' }
+		);
 	});
 
 	it('preserves sensitive-action step-up details in ownership-transfer failures', async () => {

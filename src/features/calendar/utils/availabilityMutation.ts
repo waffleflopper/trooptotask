@@ -13,7 +13,7 @@
  * provider dispatch, and presentation; this module owns the rules. The interface is the
  * test surface.
  */
-import type { AvailabilityEntry } from '$lib/types';
+import type { AvailabilityEntry } from '$features/calendar/contracts';
 
 /** The shape the availability batch endpoint and store accept for a bulk add. */
 export interface AvailabilityRecord {

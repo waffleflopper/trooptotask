@@ -1,5 +1,6 @@
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { StatusType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
 import { listStatusTypes } from '$features/calendar/index.server';
 import { listGroupCatalog } from '$features/personnel/index.server';

@@ -43,43 +43,8 @@ export interface OrganizationInvitation {
 }
 
 // ============================================================
-// Calendar Display Types (shared across features)
+// Daily assignments remain here until their D06 ownership cutover.
 // ============================================================
-
-export interface StatusType {
-	id: string;
-	name: string;
-	color: string;
-	textColor: string;
-}
-
-export interface AvailabilityEntry {
-	id: string;
-	personnelId: string;
-	statusTypeId: string;
-	startDate: string;
-	endDate: string;
-	note?: string | null;
-}
-
-export interface SpecialDay {
-	id: string;
-	date: string;
-	name: string;
-	type: 'federal-holiday' | 'org-closure';
-}
-
-export interface AssignmentType {
-	id: string;
-	name: string;
-	shortName: string;
-	assignTo: 'personnel' | 'group';
-	color: string;
-	textColor?: string;
-	exemptPersonnelIds: string[];
-	showInDateHeader: boolean;
-	archivedAt?: string | null;
-}
 
 export interface DailyAssignment {
 	id: string;
@@ -87,45 +52,6 @@ export interface DailyAssignment {
 	assignmentTypeId: string;
 	assigneeId: string;
 }
-
-export const DEFAULT_STATUS_TYPES: StatusType[] = [
-	{
-		id: 'leave',
-		name: 'Leave',
-		color: '#48bb78',
-		textColor: '#ffffff'
-	},
-	{
-		id: 'school',
-		name: 'School',
-		color: '#4299e1',
-		textColor: '#ffffff'
-	},
-	{
-		id: 'training-tdy',
-		name: 'Training / TDY',
-		color: '#9f7aea',
-		textColor: '#ffffff'
-	},
-	{
-		id: 'appointment',
-		name: 'Appointment',
-		color: '#ed8936',
-		textColor: '#ffffff'
-	},
-	{
-		id: 'sick',
-		name: 'Sick',
-		color: '#e53e3e',
-		textColor: '#ffffff'
-	},
-	{
-		id: 'other-duty',
-		name: 'Other Duty / Detail',
-		color: '#a0522d',
-		textColor: '#ffffff'
-	}
-];
 
 // ============================================================
 // Ranks

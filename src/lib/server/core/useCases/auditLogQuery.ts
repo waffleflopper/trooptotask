@@ -9,6 +9,13 @@
  */
 import type { QueryPorts, DataStore } from '$lib/server/core/ports';
 
+/** Supplied by delivery after the audit viewer has its own authority. */
+export type AuditStatusTypeNameResolver = (
+	store: DataStore,
+	orgId: string,
+	ids: string[]
+) => Promise<Map<string, string>>;
+
 const EXCLUDED_ACTIONS = [
 	'auth.login_success',
 	'auth.login_failure',
@@ -141,7 +148,8 @@ async function resolveActorEmails(
 async function hydrateAuditLogRows(
 	adminStore: DataStore,
 	orgId: string,
-	rows: Record<string, unknown>[]
+	rows: Record<string, unknown>[],
+	resolveStatusTypeNames: AuditStatusTypeNameResolver
 ): Promise<AuditLogEntry[]> {
 	const personnelIds = collectIds(rows, 'personnel_id');
 	const trainingTypeIds = collectIds(rows, 'training_type_id');
@@ -153,7 +161,7 @@ async function hydrateAuditLogRows(
 	const [personnelNames, trainingTypeNames, statusTypeNames, actorEmails] = await Promise.all([
 		resolveNames(adminStore, 'personnel', personnelIds, orgId),
 		resolveNames(adminStore, 'training_types', trainingTypeIds, orgId),
-		resolveNames(adminStore, 'status_types', statusTypeIds, orgId),
+		resolveStatusTypeNames(adminStore, orgId, statusTypeIds),
 		resolveActorEmails(adminStore, actorUserIds, orgId)
 	]);
 
@@ -180,7 +188,8 @@ async function hydrateAuditLogRows(
 export async function fetchAuditLogPreview(
 	ctx: QueryPorts,
 	adminStore: DataStore,
-	input: AuditLogPreviewInput = {}
+	input: AuditLogPreviewInput,
+	resolveStatusTypeNames: AuditStatusTypeNameResolver
 ): Promise<AuditLogQueryResult> {
 	const orgId = ctx.auth.orgId;
 	const limit = input.limit ?? 9;
@@ -210,7 +219,7 @@ export async function fetchAuditLogPreview(
 	]);
 
 	return {
-		logs: await hydrateAuditLogRows(adminStore, orgId, rows),
+		logs: await hydrateAuditLogRows(adminStore, orgId, rows, resolveStatusTypeNames),
 		totalCount: total.count ?? 0,
 		last30DaysCount: last30Days.count ?? 0,
 		page: 1,
@@ -223,7 +232,8 @@ export async function fetchAuditLogPreview(
 export async function fetchAuditLogs(
 	ctx: QueryPorts,
 	adminStore: DataStore,
-	input: AuditLogQueryInput
+	input: AuditLogQueryInput,
+	resolveStatusTypeNames: AuditStatusTypeNameResolver
 ): Promise<AuditLogQueryResult> {
 	const orgId = ctx.auth.orgId;
 	const { page, action = '', limit = 50 } = input;
@@ -253,7 +263,7 @@ export async function fetchAuditLogs(
 		adminStore.listDistinctAuditActions(orgId, EXCLUDED_ACTIONS)
 	]);
 
-	const logs = await hydrateAuditLogRows(adminStore, orgId, pagedResult.data);
+	const logs = await hydrateAuditLogRows(adminStore, orgId, pagedResult.data, resolveStatusTypeNames);
 
 	return {
 		logs,

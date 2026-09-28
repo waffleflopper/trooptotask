@@ -3,7 +3,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
-import type { Personnel, StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$lib/types';
+import type { Personnel, DailyAssignment } from '$lib/types';
+import type { StatusType, SpecialDay, AssignmentType } from '$features/calendar/contracts';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 
 const resizeObserve = vi.fn();

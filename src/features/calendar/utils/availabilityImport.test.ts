@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { StatusType } from '$features/calendar/contracts';
 import {
 	buildAvailabilityImportPlan,
 	buildRosterNameIndex,

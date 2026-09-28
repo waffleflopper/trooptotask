@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Group } from '$features/personnel/contracts';
-	import type { Personnel, AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$lib/types';
+	import type { Personnel, DailyAssignment } from '$lib/types';
+	import type { AvailabilityEntry, StatusType, AssignmentType } from '$features/calendar/contracts';
 	import { formatDate } from '$lib/utils/dates';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { SvelteMap } from 'svelte/reactivity';

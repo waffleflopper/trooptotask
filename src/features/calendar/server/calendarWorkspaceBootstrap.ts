@@ -20,7 +20,8 @@ import {
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, Personnel, SpecialDay, StatusType } from '$lib/types';
+import type { DailyAssignment, Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
 
 export const CALENDAR_WORKSPACE_LANE_KEY = 'calendar' as const;

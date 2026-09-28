@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel, PersonnelLookup, StatusType } from '$lib/types';
+import type { Personnel, PersonnelLookup } from '$lib/types';
+import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 
 const { fetchPersonnelBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted(() => ({
 	fetchPersonnelBootstrapMock: vi.fn(),
@@ -42,7 +43,7 @@ describe('streamPersonnelWorkspaceBootstrap', () => {
 		personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 		personnelLookup: [{ id: 'p1', rank: 'SGT', firstName: 'John', lastName: 'Smith' } as PersonnelLookup],
 		groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
-		statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as StatusType],
+		statusTypes: [{ id: 'st1', name: 'Leave', color: '#ff0', textColor: '#000' } as PersonnelCalendarStatusSnapshot],
 		rankCatalog: [
 			{
 				organizationId: '11111111-1111-1111-1111-111111111111',

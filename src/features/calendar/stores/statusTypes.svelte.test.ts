@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { statusTypesStore } from './statusTypes.svelte';
-import type { StatusType } from '$lib/types';
+import type { StatusType } from '$features/calendar/contracts';
 
 const mockTypes: StatusType[] = [
 	{ id: '1', name: 'Leave', color: '#22c55e', textColor: '#ffffff' },

@@ -1,4 +1,4 @@
-import type { AvailabilityEntry, StatusType } from '$lib/types';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { formatDate, parseDate } from '$lib/utils/dates';
 
 interface AvailabilityStatusIndexInput {

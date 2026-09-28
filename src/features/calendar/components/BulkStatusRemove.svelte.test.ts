@@ -2,7 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { formatDate } from '$lib/utils/dates';
-import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import BulkStatusRemove from './BulkStatusRemove.svelte';
 
 vi.mock('$lib/components/ui/date-picker', async () => ({

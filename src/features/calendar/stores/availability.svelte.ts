@@ -14,7 +14,7 @@
  */
 import { defineStore } from '$lib/stores/core';
 import type { Store, BatchApiAdapter } from '$lib/stores/core';
-import type { AvailabilityEntry } from '$lib/types';
+import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { isDateInRange, formatDate } from '$lib/utils/dates';
 import { rangesOverlap } from '$features/calendar/utils/availabilityMutation';
 

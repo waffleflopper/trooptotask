@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
-import { listStatusTypeExportRows, listStatusTypeLabels, listStatusTypes } from './statusTypeRead.server';
+import {
+	listStatusTypeExportRows,
+	listStatusTypeLabels,
+	listStatusTypeNamesByIds,
+	listStatusTypes
+} from './statusTypeRead.server';
 
 describe('Calendar status-type reads', () => {
 	it('returns only this Organization’s statuses in configured order', async () => {
@@ -22,5 +27,7 @@ describe('Calendar status-type reads', () => {
 			{ id: 'first', name: 'Leave' }
 		]);
 		expect((await listStatusTypeExportRows(store, 'alpha')).map((row) => row.id)).toEqual(['second', 'first']);
+		expect(await listStatusTypeNamesByIds(store, 'alpha', ['first', 'foreign'])).toEqual(new Map([['first', 'Leave']]));
+		expect(await listStatusTypeNamesByIds(store, 'alpha', [])).toEqual(new Map());
 	});
 });

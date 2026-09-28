@@ -17,7 +17,14 @@ function storeWithFetch(fetch: typeof globalThis.fetch) {
 		createClient('http://localhost:9', 'synthetic-service-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: { fetch }
-		})
+		}),
+		async (organizationIds, countRows) => {
+			const [statusTypes, assignmentTypes] = await Promise.all([
+				countRows('status_types', organizationIds),
+				countRows('assignment_types', organizationIds)
+			]);
+			return { statusTypes, assignmentTypes };
+		}
 	);
 }
 

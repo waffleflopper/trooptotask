@@ -1,13 +1,10 @@
-import { groupCatalogHydration } from './stores/groups.svelte';
 import type { Group } from '$features/personnel/contracts';
-import { pinnedGroupsHydration } from './stores/pinnedGroups.svelte';
-import { personnelRosterHydration } from './stores/personnel.svelte';
-import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { Personnel, StatusType } from '$lib/types';
+import type { Personnel } from '$lib/types';
+import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type {
 	PersonnelWorkspaceHydration,
 	PersonnelWorkspaceHydrationTarget
@@ -28,21 +25,14 @@ export interface PersonnelPinnedGroupsHydrationLoadable {
 export interface PersonnelHydrationStores {
 	personnelStore: PersonnelHydrationLoadable<Personnel>;
 	groupsStore: PersonnelHydrationLoadable<Group>;
-	statusTypesStore: PersonnelHydrationLoadable<StatusType>;
+	statusTypesStore: PersonnelHydrationLoadable<PersonnelCalendarStatusSnapshot>;
 	pinnedGroupsStore: PersonnelPinnedGroupsHydrationLoadable;
 }
 
 export interface PersonnelWorkspaceHydrator {
-	hydrate(hydration?: PersonnelWorkspaceHydration, stores?: PersonnelHydrationStores): Promise<void>;
+	hydrate(hydration: PersonnelWorkspaceHydration | undefined, stores: PersonnelHydrationStores): Promise<void>;
 	reset(): void;
 }
-
-const defaultPersonnelHydrationStores: PersonnelHydrationStores = {
-	personnelStore: personnelRosterHydration,
-	groupsStore: groupCatalogHydration,
-	statusTypesStore,
-	pinnedGroupsStore: pinnedGroupsHydration
-};
 
 function createTargetDescriptor<T>(
 	target: PersonnelWorkspaceHydrationTarget<T>,
@@ -87,10 +77,7 @@ export function createPersonnelWorkspaceHydrator(): PersonnelWorkspaceHydrator {
 			hydrationTargets.reset();
 		},
 
-		async hydrate(
-			hydration?: PersonnelWorkspaceHydration,
-			stores: PersonnelHydrationStores = defaultPersonnelHydrationStores
-		): Promise<void> {
+		async hydrate(hydration: PersonnelWorkspaceHydration | undefined, stores: PersonnelHydrationStores): Promise<void> {
 			if (!hydration) return;
 			const { orgId } = hydration;
 			const descriptors = [

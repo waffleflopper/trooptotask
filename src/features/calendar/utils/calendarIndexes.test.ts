@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AvailabilityEntry, StatusType } from '$lib/types';
+import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
 import { buildAvailabilityStatusIndex } from './calendarIndexes';
 
 const statusTypes: StatusType[] = [

@@ -1,4 +1,5 @@
-import type { AvailabilityEntry, DailyAssignment, Personnel, SpecialDay } from '$lib/types';
+import type { DailyAssignment, Personnel } from '$lib/types';
+import type { AvailabilityEntry, SpecialDay } from '$features/calendar/contracts';
 
 /** Response shape for the browser's Calendar range request. */
 export interface CalendarRangeData {

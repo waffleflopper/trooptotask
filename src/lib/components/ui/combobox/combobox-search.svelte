@@ -5,7 +5,7 @@
 
 	type Props = Omit<ComponentProps<typeof Command.Input>, 'value'>;
 
-	let { placeholder = 'Search...', oninput, ...restProps }: Props = $props();
+	let { placeholder = 'Search...', oninput, onkeydown, ...restProps }: Props = $props();
 	const context = getComboboxContext();
 </script>
 
@@ -17,6 +17,17 @@
 		oninput?.(event);
 		if (event.defaultPrevented) return;
 		context.setSearch(event.currentTarget.value);
+	}}
+	onkeydown={(event) => {
+		onkeydown?.(event);
+		if (event.defaultPrevented || event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
+		const options = context.content?.querySelectorAll<HTMLElement>(
+			'[data-slot="combobox-item"]:not([aria-disabled="true"]):not([hidden])'
+		);
+		if (options?.length !== 1) return;
+		event.preventDefault();
+		event.stopPropagation();
+		options[0].click();
 	}}
 	{...restProps}
 />

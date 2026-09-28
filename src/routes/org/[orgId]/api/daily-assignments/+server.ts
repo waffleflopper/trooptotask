@@ -1,6 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { clearDailyAssignment, setDailyAssignment } from '$lib/server/core/useCases/dailyAssignments';
+import { clearDailyAssignmentSlot, setDailyAssignmentSlot } from '$features/calendar/index.server';
 
 export const _postConfig = {
 	mutation: true,
@@ -8,10 +8,13 @@ export const _postConfig = {
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
 		if (input.assigneeId) {
-			return setDailyAssignment(ctx, input);
+			return setDailyAssignmentSlot(ctx, input);
 		}
 
-		await clearDailyAssignment(ctx, { date: input.date as string, assignmentTypeId: input.assignmentTypeId as string });
+		await clearDailyAssignmentSlot(ctx, {
+			date: input.date as string,
+			assignmentTypeId: input.assignmentTypeId as string
+		});
 		return { success: true, removed: true };
 	}
 } satisfies RouteConfig<Record<string, unknown>, unknown>;
@@ -21,7 +24,10 @@ export const _deleteConfig = {
 	policyAction: POLICY_ACTION_CATALOG.calendar.manageAssignments,
 	policyResource: { kind: 'unscoped' },
 	fn: async (ctx, input) => {
-		await clearDailyAssignment(ctx, { date: input.date as string, assignmentTypeId: input.assignmentTypeId as string });
+		await clearDailyAssignmentSlot(ctx, {
+			date: input.date as string,
+			assignmentTypeId: input.assignmentTypeId as string
+		});
 		return { success: true };
 	}
 } satisfies RouteConfig<Record<string, unknown>, unknown>;

@@ -85,13 +85,14 @@ $V export save 2 .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
 $V export restore 2
 $V signed-download orgA ROSTER_ID .verification/evidence/verify-trooptotask/RUN/signed.pdf
 $V workbook .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
+$V workbook .verification/evidence/verify-trooptotask/RUN/assignment-load.xlsx 'Assignment Coverage'
 ```
 
 `rows TABLE orgA|orgB [id|name|title|note|personnel_id|user_id|type VALUE]` reads only allowlisted synthetic tables in the owned provider; compare known fixture IDs and explicit submitted values. `roster-files` checks only the named synthetic roster's private Storage path. `signed-download` saves the PDF page opened by a visible scan button without printing its token-bearing URL; use native `upload_file` on the visible `Signed Scan` input. `calendar-grant` changes only the named synthetic member's Organization A Calendar capability and records its original value for restoration. `seed` creates only the named temporary fixture, and `clean-seeds` deletes only its recorded IDs and dependent availability; run it before worker cleanup. A network control matches only a named Organization A Calendar or Sign-in Roster endpoint, records request statuses, and lasts until `restore`; arm one at a time on the actual page. `export save` writes only under this skill's durable evidence directory and accepts `.xlsx` or `.pdf`. The helper does not provide a journey or verdict; drive visible controls with native DevTools and record the observation yourself.
 
 `fixture` exposes synthetic invitation emails without passwords or tokens. `actor` also accepts `settings/members`, `settings/danger`, `dashboard`, and `org/new`; its `access` field reports a visible permission denial on a settings page. `rows` also permits `email`, `status`, and `invitation_id` filters for the allowlisted invitation and outbox tables. Query stored email values in lowercase.
 
-`created-org NAME` reads only an Organization with that exact name created by this worker's `orgCreator`, then reports its owner membership and default Group, Calendar and rank rows. Use a unique name, read count zero before submitting, and read the same name after the visible creation action. It cannot inspect an arbitrary Organization ID.
+`created-org NAME` reads only an Organization with that exact name created by this worker's `orgCreator`, then reports its owner membership and default Group, Calendar and rank rows. Use a unique name, read count zero before submitting, and read the same name after the visible creation action. It cannot inspect an arbitrary Organization ID. `workbook FILE` reads the `Status Days` sheet by default; pass the sheet name for other Calendar exports.
 
 Run state-changing helper commands serially on an owned worker. `seed` records its generated IDs before insertion so `clean-seeds` can recover from an interrupted insert; it also safely deletes IDs that were never inserted. Restore temporary grants and network hooks before cleanup.
 

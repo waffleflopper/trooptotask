@@ -121,8 +121,11 @@ export async function files() {
 export async function candidate(base = repository) {
 	const hash = createHash('sha256');
 	for (const file of await files()) {
-		// Documentation edits do not change the running application candidate.
-		if (file.endsWith('.md') || path.basename(file).startsWith('.env')) continue;
+		// Bind authoritative driving instructions to the same freshness check as the app.
+		const verificationMap =
+			file === '.agents/skills/verify-trooptotask/SKILL.md' ||
+			(file.startsWith('.agents/skills/verify-trooptotask/features/') && file.endsWith('.md'));
+		if ((file.endsWith('.md') && !verificationMap) || path.basename(file).startsWith('.env')) continue;
 		try {
 			const stat = await fs.lstat(path.join(base, file));
 			if (!stat.isFile()) throw new Blocked('SOURCE_TYPE', `Unsupported source entry ${file}; use regular files.`);

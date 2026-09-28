@@ -1,11 +1,12 @@
 import { afterEach, expect, it } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import {
 	assertCurrentCandidate,
+	candidate,
 	completed,
 	runLogged,
 	cleanEnvironment,
@@ -14,6 +15,32 @@ import {
 } from './core.mjs';
 
 const directories: string[] = [];
+it('makes edited verification instructions stale while unrelated prose stays outside the candidate', async () => {
+	const directory = await mkdtemp(path.join(tmpdir(), 't2t-map-freshness-'));
+	directories.push(directory);
+	const instructions = [
+		'.agents/skills/verify-trooptotask/SKILL.md',
+		'.agents/skills/verify-trooptotask/features/README.md',
+		'.agents/skills/verify-trooptotask/features/organization-switching.md'
+	];
+	for (const file of [...instructions, 'AGENTS.md']) {
+		await mkdir(path.dirname(path.join(directory, file)), { recursive: true });
+		await writeFile(path.join(directory, file), 'Original instructions\n');
+	}
+	const original = await candidate(directory);
+	const launched = { candidate: original, artifact: 'owned-build' };
+	await writeFile(path.join(directory, 'AGENTS.md'), 'Unrelated prose update\n');
+	expect(await candidate(directory)).toBe(original);
+	for (const file of instructions) {
+		await writeFile(path.join(directory, file), 'Changed verification instructions\n');
+		const changed = await candidate(directory);
+		expect(() => assertCurrentCandidate(launched, changed, 'owned-build')).toThrowError(
+			expect.objectContaining({ code: 'STALE_CANDIDATE' })
+		);
+		await writeFile(path.join(directory, file), 'Original instructions\n');
+	}
+});
+
 it('refuses changed source or copied artifacts before a browser command can use them', () => {
 	const launched = { candidate: 'launched-source', artifact: 'launched-copy' };
 	expect(() => assertCurrentCandidate(launched, 'launched-source', 'launched-copy')).not.toThrow();

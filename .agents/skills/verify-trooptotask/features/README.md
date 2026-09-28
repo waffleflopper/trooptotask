@@ -45,8 +45,9 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 - [Calendar access](calendar-access.md): Organization and Group reads, denied single/batch writes, foreign status/Person protection and server readback.
 - [Bulk status changes](bulk-status.md): selection, import review, valid and invalid rows, whole-entry removal, and partial chunk feedback.
 - [Calendar catalogs](calendar-catalogs.md): status and assignment type settings, linked/archived records, deletion effects and configuration denials.
+- [Manual assignments](calendar-assignments.md): Person and Group slots, planner save/reload/clear, quick fill, range retry and denied writes.
 - [Special days](special-days.md): closures, federal reset, failed edit and Organization boundary.
-- [Reports and history](reports-history.md): status-day report, downloaded workbook contents, Calendar history and Dashboard projection.
+- [Reports and history](reports-history.md): five Calendar report modes and downloaded workbooks, retained Calendar history and Dashboard projection.
 - [Organization switching](organization-switching.md): A/B data isolation, delayed range/mutation responses and permission narrowing.
 
 ## Distinct lower-level checks

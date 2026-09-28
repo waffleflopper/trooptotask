@@ -248,9 +248,9 @@ async function main() {
 				slug: `map-chunk-${tag}-${String(index).padStart(3, '0')}`
 			}));
 		}
-		checked(await client.from(table).insert(records));
 		ownedState.seeded.push({ kind, table, ids: records.map((record) => record.id), tag });
 		await save(ownedState);
+		checked(await client.from(table).insert(records));
 		note({ kind, tag, count: records.length, firstId: records[0].id });
 		return;
 	}

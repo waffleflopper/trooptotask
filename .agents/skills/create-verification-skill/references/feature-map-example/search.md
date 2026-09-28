@@ -1,6 +1,6 @@
 # Search notes
 
-Search lets a user find notes by title or body text, inspect a matching note, and distinguish no matches from an unavailable search.
+Search lets a user find notes by title or body text, inspect a matching note, and see a complete no-match result.
 
 ## Sub-features
 

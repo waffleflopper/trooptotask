@@ -24,6 +24,7 @@ Preconditions:
 - `control-notes doctor` reports the expected URL and disposable data directory.
 
 - **Open editor.** Choose `New note`. Run `control-notes browser click --role button --name "New note"`. A form named `Note editor` appears with focus in the `Title` textbox.
+- **Keyboard entry.** Close the blank editor with `control-notes browser click --role button --name "Cancel"`, focus the page outside any editable field, and press `n` with `control-notes browser press --key "n"`. A blank `Note editor` appears with focus in `Title`; no `n` is inserted in another field.
 - **Enter content.** Type the title and body. Run `control-notes browser fill --role textbox --name "Title" --value "Release checklist"` and `control-notes browser fill --role textbox --name "Body" --value "Tag and publish"`. The `Save note` button becomes enabled.
 - **Save note.** Choose `Save note`. Run `control-notes browser click --role button --name "Save note"`. A status named `Note saved` appears and the heading reads `Release checklist`.
 - **Confirm persistence.** Return to the note list and reopen the note. Run `control-notes browser click --role link --name "All notes"` and `control-notes browser click --role link --name "Release checklist"`. The editor shows both saved values.

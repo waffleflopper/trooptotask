@@ -4,9 +4,9 @@ This is the maintained user-facing map for the owned synthetic web app. Start wi
 
 ## Baseline preconditions
 
-- Run `npm run --silent verify:app -- doctor --worker 1` and keep its candidate, origin, and browser version. Use worker `2` only when every command, including the helper, names worker `2`. Never drive another worktree's session.
+- Set `WORKER=1` for the default owned worker or `WORKER=2` for the second session, and use it for every command, including restart and the helper. Run `npm run --silent verify:app -- doctor --worker "$WORKER"` and keep its candidate, origin, and browser version. Never drive another worktree's session.
 - `fixture` reports Organization/Group/Person/status IDs and fixed dates. Organization A has Alpha/Able, Bravo/Baker, an unassigned Person, and a historical March status. Organization B has Foreign and private Calendar data. Today's seeded Baker training and the modal's default date use the local date returned by `fixture`.
-- Use `npm run --silent verify:app -- login manager|viewer|scoped --worker 1` for Personnel. Use `V='node .agents/skills/verify-trooptotask/helpers/control.mjs --worker 1'` then `$V actor ROLE calendar` (or `calendar/settings`, `calendar/bulk`, `calendar/reports`) for Calendar actors. Each actor gets an isolated browser context; record its returned page ID and Organization ID.
+- Use `npm run --silent verify:app -- login manager|viewer|scoped --worker "$WORKER"` for Personnel. Set `V="node .agents/skills/verify-trooptotask/helpers/control.mjs --worker $WORKER"`, then run `$V actor ROLE calendar` (or `calendar/settings`, `calendar/bulk`, `calendar/reports`) for Calendar actors. Each actor gets an isolated browser context; record its returned page ID and Organization ID.
 - Catalog deletions and federal-holiday reset change original seeded rows. Drive those after journeys that need the rows, or restart only this owned worker before the next dependent journey. After restart, run `doctor` and `$V fixture` again and use fresh page/fixture IDs; `clean-seeds` only removes helper-created temporary rows.
 
 ## Driving conventions

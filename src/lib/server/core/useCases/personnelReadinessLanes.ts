@@ -5,7 +5,6 @@ import type { AvailabilityEntry, Personnel, StatusType } from '$lib/types';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
@@ -86,22 +85,21 @@ export async function loadAvailabilityReadinessLane(
 	listEntries: (
 		ctx: UseCaseContext,
 		input: { rangeStart: string; rangeEnd: string; personnelId: string; orderByEndDate: true }
-	) => Promise<AvailabilityEntry[]>
+	) => Promise<AvailabilityEntry[]>,
+	listStatusTypes: (store: UseCaseContext['store'], orgId: string) => Promise<StatusType[]>
 ): Promise<PersonnelReadinessLane> {
 	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
 	const today = formatDate(asOfDate(asOf));
-	const [entries, statusRows] = await Promise.all([
+	const [entries, statusTypes] = await Promise.all([
 		listEntries(ctx, {
 			rangeStart: today,
 			rangeEnd: today,
 			personnelId,
 			orderByEndDate: true
 		}),
-		ctx.store.findMany<Record<string, unknown>>('status_types', ctx.auth.orgId, undefined, {
-			select: StatusTypeEntity.select
-		})
+		listStatusTypes(ctx.store, ctx.auth.orgId)
 	]);
-	const statusById = new Map(StatusTypeEntity.fromDbArray(statusRows).map((status) => [status.id, status]));
+	const statusById = new Map(statusTypes.map((status) => [status.id, status]));
 	const current = entries[0];
 	if (!current) {
 		return {

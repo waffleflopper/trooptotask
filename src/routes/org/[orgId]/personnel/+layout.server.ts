@@ -7,13 +7,15 @@ import {
 	streamPersonnelWorkspaceBootstrap,
 	type PersonnelWorkspaceRouteData
 } from '$features/personnel/server/personnelWorkspaceBootstrap';
+import { listStatusTypes } from '$features/calendar/index.server';
 
 export interface PersonnelLayoutLoadDeps {
 	streamPersonnelWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<PersonnelWorkspaceRouteData>;
 }
 
 export function _createPersonnelLayoutLoad(deps: PersonnelLayoutLoadDeps = {}): LayoutServerLoad {
-	const streamPersonnelWorkspace = deps.streamPersonnelWorkspace ?? streamPersonnelWorkspaceBootstrap;
+	const streamPersonnelWorkspace =
+		deps.streamPersonnelWorkspace ?? ((context) => streamPersonnelWorkspaceBootstrap(context, listStatusTypes));
 
 	return async (event) =>
 		streamReadyFeatureLaneWorkspace(event, {

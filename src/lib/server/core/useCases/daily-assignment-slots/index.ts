@@ -1,6 +1,7 @@
 import { fail } from '$lib/server/core/errors';
 import type { CalendarWritePorts } from '../calendarPolicy';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
+import { listAssignmentTypeTargets } from '$features/calendar/index.server';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalendarPolicy } from '../calendarPolicy';
 
 const entity = DailyAssignmentEntity;
@@ -345,10 +346,7 @@ async function getAssignmentTargets(
 		return targets;
 	}
 
-	const rows = await ctx.store.findMany<Record<string, unknown>>('assignment_types', ctx.auth.orgId, undefined, {
-		inFilters: { id: uniqueIds },
-		select: 'id, assign_to'
-	});
+	const rows = await listAssignmentTypeTargets(ctx.store, ctx.auth.orgId, uniqueIds);
 
 	for (const row of rows) {
 		if (typeof row.id !== 'string') continue;

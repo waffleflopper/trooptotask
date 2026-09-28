@@ -58,14 +58,15 @@ function createPersonnelWorkspaceHydration(orgId: string, data: PersonnelWorkspa
 }
 
 export async function streamPersonnelWorkspaceBootstrap(
-	context: PersonnelWorkspaceRequestContext
+	context: PersonnelWorkspaceRequestContext,
+	listStatusTypes: Parameters<typeof fetchPersonnelBootstrap>[1]
 ): Promise<PersonnelWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
 		policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
 		policyResource: { kind: 'unscoped' },
 		defer: true,
 		fn: async (ctx) => {
-			const data = await fetchPersonnelBootstrap(ctx);
+			const data = await fetchPersonnelBootstrap(ctx, listStatusTypes);
 			return {
 				laneKey: PERSONNEL_WORKSPACE_LANE_KEY,
 				data,

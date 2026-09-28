@@ -10,10 +10,13 @@ import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment, Pe
 import type { Group } from '$features/personnel/contracts';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
 export type { CalendarRangeData } from '$features/calendar/calendar.types';
-import { listAvailabilityEntries, listSpecialDaysInRange } from '$features/calendar/index.server';
-import { AssignmentTypeEntity } from '$lib/server/entities/assignmentType';
+import {
+	listAssignmentTypes,
+	listAvailabilityEntries,
+	listSpecialDaysInRange,
+	listStatusTypes
+} from '$features/calendar/index.server';
 import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
-import { StatusTypeEntity } from '$lib/server/entities/statusType';
 import { listGroupCatalog, listPinnedGroupNames } from '$features/personnel/index.server';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from './calendarPolicy';
@@ -71,15 +74,13 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 	const { rangeStart, rangeEnd } = input;
 	const calendarScope = await resolveCalendarAssigneeScope(ctx);
 
-	const [availabilityEntries, specialDays, assignmentTypeRows, dailyAssignmentRows, pinnedGroups] = await Promise.all([
+	const [availabilityEntries, specialDays, assignmentTypes, dailyAssignmentRows, pinnedGroups] = await Promise.all([
 		// Availability uses two-column overlap: end_date >= rangeStart AND start_date <= rangeEnd
 		listAvailabilityEntries(ctx, { rangeStart, rangeEnd, personnelIds: calendarScope?.personnelIds }),
 		// Special days: single-column date range
 		listSpecialDaysInRange(ctx.store, orgId, input),
 		// Assignment types: no date filtering
-		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listAssignmentTypes(ctx.store, orgId),
 		// Daily assignments: single-column date range
 		ctx.store.findMany<Record<string, unknown>>('daily_assignments', orgId, undefined, {
 			rangeFilters: [
@@ -93,7 +94,7 @@ export async function fetchCalendarData(ctx: QueryPorts, input: CalendarQueryInp
 	return {
 		availabilityEntries,
 		specialDays,
-		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
+		assignmentTypes,
 		dailyAssignments: DailyAssignmentEntity.fromDbArray(
 			filterRowsByCalendarAssigneeScope(dailyAssignmentRows, calendarScope)
 		),
@@ -157,17 +158,12 @@ export async function fetchCalendarBootstrap(
 		})
 		.then((rows) => DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(rows, calendarScope)));
 
-	const [assignmentTypeRows, pinnedGroups, personnel, groups, statusTypeRows, orgSettingsRow] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, orgSettingsRow] = await Promise.all([
+		listAssignmentTypes(ctx.store, orgId),
 		listPinnedGroupNames(ctx),
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 		listGroupCatalog(ctx, { groupIds: calendarScope?.groupIds }),
-		ctx.store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-			select: StatusTypeEntity.select,
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listStatusTypes(ctx.store, orgId),
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null)
@@ -180,12 +176,12 @@ export async function fetchCalendarBootstrap(
 		rangeEnd,
 		availabilityEntries,
 		specialDays,
-		assignmentTypes: AssignmentTypeEntity.fromDbArray(assignmentTypeRows),
+		assignmentTypes,
 		dailyAssignments,
 		pinnedGroups,
 		personnel,
 		groups,
-		statusTypes: StatusTypeEntity.fromDbArray(statusTypeRows),
+		statusTypes,
 		lossWarningWindowDays
 	};
 }

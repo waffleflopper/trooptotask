@@ -771,8 +771,18 @@ async function checkSpecialDayLifecycle(ctx) {
 		await clickButton('Reset');
 		const resetYear = new Date().getFullYear();
 		const expectedHolidays = expectedFederalHolidays(resetYear);
-		for (let attempt = 0; attempt < 30 && (await row('special_days', f.ids.holidayCustom)); attempt++) await sleep(100);
-		const days = await rows('special_days');
+		let days = [];
+		for (let attempt = 0; attempt < 50; attempt++) {
+			days = await rows('special_days');
+			if (
+				!days.some((day) => day.id === f.ids.holidayCustom) &&
+				expectedHolidays.every(([date, label]) =>
+					days.some((day) => day.date === date && day.name === label && day.type === 'federal-holiday')
+				)
+			)
+				break;
+			await sleep(100);
+		}
 		const foreignDays = await rows('special_days', 'orgB');
 		check(
 			expectedHolidays.every(([date, label]) =>

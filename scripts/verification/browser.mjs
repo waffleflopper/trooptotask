@@ -63,11 +63,20 @@ export function driver(call, state, fixture) {
 		const existing = actorPages.get(cacheKey);
 		if (existing) {
 			pageId = existing.pageId;
-			if (existing.path !== target) {
-				await navigate(target, options.readyText ?? ['Able, Synthetic', 'Foreign, Synthetic']);
-				existing.path = target;
+			const pages = textContent(await call('list_pages'));
+			if (pages.split('\n').some((line) => line.startsWith(`${pageId}:`))) {
+				// A cached page may have signed out or expired since our last command.
+				// Request the protected destination again so normal server admission runs.
+				await navigate(target);
+				if ((await evaluate('() => location.pathname')) === target) {
+					await tool('wait_for', {
+						text: options.readyText ?? ['Able, Synthetic', 'Foreign, Synthetic'],
+						timeout: 20000
+					});
+					return { pageId, role, origin: state.origin, orgId };
+				}
 			}
-			return { pageId, role, origin: state.origin, orgId };
+			actorPages.delete(cacheKey);
 		}
 		// A new isolated browser context uses normal password sign-in, never injected cookies.
 		const result = textContent(

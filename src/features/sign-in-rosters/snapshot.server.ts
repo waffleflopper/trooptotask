@@ -14,7 +14,7 @@ function fail(status: number, message: string): never {
 
 type PersonnelRow = SignInRosterPersonnelLookupRecord;
 
-interface SignInRosterSnapshotContext {
+export interface SignInRosterSnapshotContext {
 	orgId: string;
 	scopeSet: ScopeSet;
 	personnelLookup?: SignInRosterPersonnelLookupPort;

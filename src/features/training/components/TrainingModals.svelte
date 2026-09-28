@@ -14,7 +14,7 @@
 	type TrainingRecordModalModule = typeof import('$features/training/components/TrainingRecordModal.svelte');
 	type PersonTrainingEditorModule = typeof import('$features/training/components/PersonTrainingEditor.svelte');
 	type BulkTrainingImporterModule = typeof import('$features/training/components/BulkTrainingImporter.svelte');
-	type SignInRosterModalModule = typeof import('$features/sign-in-rosters/components/SignInRosterModal.svelte');
+	type SignInRosterModalModule = typeof import('$features/sign-in-rosters');
 
 	let trainingRecordModalModule: Promise<TrainingRecordModalModule> | undefined;
 	let personTrainingEditorModule: Promise<PersonTrainingEditorModule> | undefined;
@@ -37,7 +37,7 @@
 	}
 
 	function loadSignInRosterModal() {
-		signInRosterModalModule ??= import('$features/sign-in-rosters/components/SignInRosterModal.svelte');
+		signInRosterModalModule ??= import('$features/sign-in-rosters');
 		return signInRosterModalModule;
 	}
 </script>
@@ -65,7 +65,7 @@
 {/if}
 
 {#if modals.isOpen('sign-in-rosters')}
-	{#await loadSignInRosterModal() then { default: SignInRosterModal }}
+	{#await loadSignInRosterModal() then { SignInRosterModal }}
 		<SignInRosterModal
 			orgId={ctx.orgId}
 			personnel={ctx.personnel}

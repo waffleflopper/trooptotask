@@ -1,12 +1,11 @@
 ---
 name: verify-trooptotask
-description: 'Drive the TroopToTask web UI in an owned synthetic browser and Supabase session. Use for the experimental user-journey feature map, screenshots, and observable persistence checks.'
-disable-model-invocation: true
+description: 'Drive the TroopToTask web UI in an owned synthetic browser and Supabase session. Use for the maintained user-journey feature map, screenshots, and observable persistence checks.'
 ---
 
 # Verify TroopToTask
 
-Drive the production build through its visible SvelteKit web UI. The repository's `verify:app` command owns a disposable local Supabase project, synthetic accounts, an app copy, and a private Chromium profile. Run every command from the repository root. Read the matching [feature map](features/README.md) entry before driving a journey.
+Drive the production build through its visible SvelteKit web UI. The repository's `verify:app` command owns a disposable local Supabase project, synthetic accounts, an app copy, and a private Chromium profile. Run every command from the repository root. Read the matching [feature map](features/README.md) entry before driving a journey. For ordinary issue work, extend and drive affected features and dependencies before the cutover and again afterward. Use [maintain-verification-skill](../maintain-verification-skill/SKILL.md) for an explicitly requested full-map source/live upkeep pass. Requirements come from issue acceptance and approved retained contracts; distinguish a product regression from map or control drift.
 
 ## Launch
 

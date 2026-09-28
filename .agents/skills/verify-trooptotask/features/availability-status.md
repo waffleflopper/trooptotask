@@ -18,6 +18,8 @@ Sign in with Calendar operation access, choose `Calendar`, and select a day cell
 
 ## Driving it with verify:app
 
+Preconditions: doctor passes; `$V fixture` supplies the Person/status IDs and local current date. Use a unique note for added rows and restore any temporarily narrowed grant.
+
 1. Run `$V actor calendarOperate calendar` and record `PAGE`. For seeded leave, use the month/year picker to reach September 2026 and choose Able's September 14–16 cell. The dialog identifies the person/day and shows `Verification Leave`, its range and `Alpha seeded leave`. For mutation use Able's unoccupied cell on today's `ui` date from `$V fixture`; capture the visible Person/day before editing.
 2. Click `Edit status`. The dialog changes to `Edit Status` with `Status Type *`, `Start Date *`, `End Date *`, `Note`, `Cancel Edit`, and `Update Status`. Click `Cancel Edit` to confirm the original status returns unchanged.
 3. In the unoccupied Able/day modal select `Verification Leave`, keep the one-day date range, and fill a unique note. Before `Add Status`, use `$V calendar-grant calendarOperate view`; submit from the still-open form. Capture the error and absence of an `added —` success, and `$V rows availability_entries orgA note "$NOTE"` showing zero rows. Restore with `$V calendar-grant calendarOperate restore`, reload, and reopen the day before another action.

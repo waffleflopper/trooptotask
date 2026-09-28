@@ -26,9 +26,28 @@ const tableColumns = {
 	notifications: 'organization_id',
 	audit_logs: 'org_id',
 	organization_memberships: 'organization_id',
+	organization_invitations: 'organization_id',
+	organization_invitation_email_outbox: 'organization_id',
 	sign_in_rosters: 'organization_id'
 };
-const filters = new Set(['id', 'name', 'title', 'note', 'personnel_id', 'user_id', 'type']);
+const tableSelect = {
+	organization_invitations:
+		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
+	organization_invitation_email_outbox:
+		'id,organization_id,invitation_id,recipient,purpose,status,attempt_count,updated_at,sent_at'
+};
+const filters = new Set([
+	'id',
+	'name',
+	'title',
+	'note',
+	'personnel_id',
+	'user_id',
+	'type',
+	'email',
+	'status',
+	'invitation_id'
+]);
 
 async function owned() {
 	const state = await readJSON(path.join(session, 'session.json'));
@@ -60,7 +79,8 @@ async function run(state, input) {
 	if (!response.ok || response.headers.get('X-T2T-Session') !== state.id)
 		throw new Error('Owned supervisor did not authenticate.');
 	const result = await response.json();
-	if (result.status === 'BLOCKED' || result.isError) throw new Error(result.message ?? `${input.command} failed`);
+	if (['BLOCKED', 'INCONCLUSIVE', 'FAIL'].includes(result.status) || result.isError)
+		throw new Error(result.message ?? text(result) ?? `${input.command} failed`);
 	return result;
 }
 
@@ -111,20 +131,50 @@ async function main() {
 		return fixture.ids[key];
 	};
 	if (command === 'fixture') {
-		note({ ids: fixture.ids, dates: fixture.dates, roles: Object.keys(fixture.actors) });
+		note({
+			ids: fixture.ids,
+			dates: fixture.dates,
+			invitationEmails: fixture.invitationEmails,
+			roles: Object.keys(fixture.actors)
+		});
 		return;
 	}
 	if (command === 'actor') {
 		const [role, destination = 'calendar'] = args;
+		const orgDestinations = [
+			'personnel',
+			'training',
+			'calendar',
+			'calendar/settings',
+			'calendar/bulk',
+			'calendar/reports',
+			'settings/members',
+			'settings/danger'
+		];
 		if (
 			!fixture.actors[role] ||
-			!['personnel', 'training', 'calendar', 'calendar/settings', 'calendar/bulk', 'calendar/reports'].includes(
-				destination
-			)
+			![...orgDestinations, 'dashboard', 'org/new'].includes(destination) ||
+			(fixture.actors[role].organization === null && orgDestinations.includes(destination))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
-		const targetOrg = fixture.actors[role].organization ?? (role === 'foreign' ? 'orgB' : 'orgA');
-		const url = `${doctor.origin}/auth/login?next=/org/${org(targetOrg)}/${destination}`;
+		const targetOrg = fixture.actors[role].organization ?? null;
+		const destinationPath =
+			destination === 'dashboard'
+				? '/dashboard?show=all'
+				: destination === 'org/new'
+					? '/org/new'
+					: `/org/${org(targetOrg)}/${destination}`;
+		const readyText =
+			destination === 'settings/members'
+				? ['Access Management', "You don't have permission to view this page"]
+				: destination === 'settings/danger'
+					? ['Destructive Actions', "You don't have permission to view this page"]
+					: destination === 'dashboard'
+						? ['Pending Invitations', 'Organizations']
+						: destination === 'org/new'
+							? ['Create your first Organization', 'Confirm your email first']
+							: ['Calendar', 'Training', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'];
+		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: `map-${role}-${randomUUID()}` }));
 		const pageId = Number(
 			created
@@ -153,21 +203,37 @@ async function main() {
 			?.match(/uid=([^\s]+)/)?.[1];
 		if (!button) throw new Error('Sign In button was not found.');
 		await tool(state, 'click', { pageId, uid: button });
-		await tool(state, 'wait_for', {
+		const arrival = await tool(state, 'wait_for', {
 			pageId,
-			text: ['Calendar', 'Training', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'],
+			text: readyText,
 			timeout: 20000
 		});
+		if (text(arrival).includes('Timed out')) throw new Error('Destination did not become ready.');
 		const landed = await evaluate(state, pageId, '() => location.pathname');
-		note({ role, pageId, orgId: org(targetOrg), path: landed, origin: doctor.origin });
+		const page = text(await tool(state, 'take_snapshot', { pageId }));
+		note({
+			role,
+			pageId,
+			orgId: targetOrg ? org(targetOrg) : null,
+			path: landed,
+			access: page.includes("You don't have permission to view this page") ? 'denied' : 'allowed',
+			origin: doctor.origin
+		});
 		return;
 	}
 	if (command === 'rows') {
 		const [table, orgKey, field, value] = args;
 		if (!tableColumns[table]) throw new Error('Table is outside the synthetic readback allowlist.');
 		if (field && (!filters.has(field) || value === undefined)) throw new Error('Use an allowed field and value.');
-		let query = (await provider()).from(table).select('*').eq(tableColumns[table], org(orgKey));
-		if (field) query = query.eq(field, value);
+		let query = (await provider())
+			.from(table)
+			.select(tableSelect[table] ?? '*')
+			.eq(tableColumns[table], org(orgKey));
+		if (field)
+			query = query.eq(
+				table === 'organization_invitation_email_outbox' && field === 'email' ? 'recipient' : field,
+				value
+			);
 		const rows = checked(await query);
 		note({ table, organization: orgKey, count: rows.length, rows });
 		return;

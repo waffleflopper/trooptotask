@@ -28,6 +28,9 @@ export async function seed(session) {
 		[
 			'orgA',
 			'orgB',
+			'orgOwnerMembership',
+			'orgAdminMembership',
+			'orgMemberMembership',
 			'groupA',
 			'groupB',
 			'groupForeign',
@@ -91,13 +94,26 @@ export async function seed(session) {
 		},
 		rosterForeign: { organization: 'orgB', training: 'operate', scope: 'organization' }
 	};
+	const organizationActors = {
+		orgOwner: { organization: 'orgA', role: 'owner', scope: 'organization' },
+		orgAdmin: { organization: 'orgA', role: 'admin', scope: 'organization' },
+		orgMember: { organization: 'orgA', role: 'member', scope: 'groups', groups: [ids.groupA] },
+		orgInvitee: { organization: null },
+		orgCreator: { organization: null }
+	};
+	const organizationMembershipIds = {
+		orgOwner: ids.orgOwnerMembership,
+		orgAdmin: ids.orgAdminMembership,
+		orgMember: ids.orgMemberMembership
+	};
 	for (const role of [
 		'manager',
 		'viewer',
 		'scoped',
 		'foreign',
 		...Object.keys(calendarActors),
-		...Object.keys(trainingActors)
+		...Object.keys(trainingActors),
+		...Object.keys(organizationActors)
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
 		const { user } = checked(await service.auth.admin.createUser({ email, password, email_confirm: true }));
@@ -105,15 +121,20 @@ export async function seed(session) {
 			email,
 			password,
 			id: user.id,
-			organization:
-				calendarActors[role]?.organization ??
-				trainingActors[role]?.organization ??
-				(role === 'foreign' ? 'orgB' : 'orgA')
+			organization: Object.hasOwn(organizationActors, role)
+				? organizationActors[role].organization
+				: (calendarActors[role]?.organization ??
+					trainingActors[role]?.organization ??
+					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
 	}
+	const invitationEmails = {
+		existingAccount: actors.orgInvitee.email,
+		newAccount: `org-new-invitee-${randomUUID()}@example.test`
+	};
 	checked(
 		await service.from('organizations').insert([
-			{ id: ids.orgA, name: 'Verification Organization A', created_by: actors.manager.id },
+			{ id: ids.orgA, name: 'Verification Organization A', created_by: actors.orgOwner.id },
 			{ id: ids.orgB, name: 'Verification Organization B', created_by: actors.foreign.id }
 		])
 	);
@@ -125,13 +146,17 @@ export async function seed(session) {
 		])
 	);
 	for (const [role, actor] of Object.entries(actors)) {
+		if (actor.organization === null) continue;
 		const calendar = calendarActors[role];
 		const training = trainingActors[role];
+		const organization = organizationActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
+				...(organizationMembershipIds[role] ? { id: organizationMembershipIds[role] } : {}),
 				organization_id: ids[actor.organization],
 				user_id: actor.id,
-				role: calendar?.role ?? 'member',
+				...(organization ? { email: actor.email } : {}),
+				role: organization?.role ?? calendar?.role ?? 'member',
 				member_preset: 'viewer',
 				capability_overrides: {
 					personnel: calendar?.personnel ?? training?.personnel ?? (role === 'manager' ? 'configure' : 'view'),
@@ -141,8 +166,10 @@ export async function seed(session) {
 					onboarding: 'none',
 					ratingScheme: 'none'
 				},
-				access_scope_kind: calendar?.scope ?? training?.scope ?? (role === 'scoped' ? 'groups' : 'organization'),
-				access_scope_group_ids: calendar?.groups ?? training?.groups ?? (role === 'scoped' ? [ids.groupA] : [])
+				access_scope_kind:
+					organization?.scope ?? calendar?.scope ?? training?.scope ?? (role === 'scoped' ? 'groups' : 'organization'),
+				access_scope_group_ids:
+					organization?.groups ?? calendar?.groups ?? training?.groups ?? (role === 'scoped' ? [ids.groupA] : [])
 			})
 		);
 	}
@@ -514,7 +541,7 @@ export async function seed(session) {
 			}
 		])
 	);
-	const fixture = { ids, actors, dates, calendarActors, trainingActors };
+	const fixture = { ids, actors, dates, invitationEmails, calendarActors, trainingActors, organizationActors };
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;
 }

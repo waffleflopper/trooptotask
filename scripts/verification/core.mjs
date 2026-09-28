@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomUUID, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
@@ -112,72 +112,6 @@ export function sessionPath(worker = '1') {
 		throw new Blocked('WORKER', 'Choose worker 1 or 2; each owns an exclusive session.');
 	return path.join(sessions, `worker-${worker}`);
 }
-export async function reservePilot(worker) {
-	sessionPath(worker);
-	await fs.mkdir(sessions, { recursive: true, mode: 0o700 });
-	const identity = await processIdentity(process.pid);
-	if (!identity) throw new Blocked('PILOT_OWNERSHIP', 'Cannot identify this self-test process.');
-	const file = path.join(sessions, `pilot-${worker}-${randomUUID()}`);
-	const target = JSON.stringify({ repository, worker, ...identity });
-	await fs.symlink(target, file);
-	return { file, target, worker };
-}
-export async function activePilots() {
-	let entries;
-	try {
-		entries = await fs.readdir(sessions, { withFileTypes: true });
-	} catch (error) {
-		if (error.code === 'ENOENT') return [];
-		throw error;
-	}
-	const active = [];
-	for (const entry of entries) {
-		if (!entry.name.startsWith('pilot-')) continue;
-		const match = /^pilot-([12])-[0-9a-f-]{36}$/.exec(entry.name);
-		if (!match || !entry.isSymbolicLink())
-			throw new Blocked('PILOT_OWNERSHIP', 'Unexpected pilot lock; inspect private state before continuing.');
-		const file = path.join(sessions, entry.name);
-		let target;
-		try {
-			target = await fs.readlink(file);
-		} catch (error) {
-			if (error.code === 'ENOENT') continue;
-			throw error;
-		}
-		let owner;
-		try {
-			owner = JSON.parse(target);
-		} catch {
-			throw new Blocked('PILOT_OWNERSHIP', 'Invalid pilot owner marker; refusing to change it.');
-		}
-		if (
-			owner.repository !== repository ||
-			owner.worker !== match[1] ||
-			!Number.isInteger(owner.pid) ||
-			typeof owner.start !== 'string' ||
-			typeof owner.command !== 'string'
-		)
-			throw new Blocked('PILOT_OWNERSHIP', 'Foreign pilot owner marker; refusing to change it.');
-		const current = await processIdentity(owner.pid);
-		if (current?.start === owner.start && current.command === owner.command) {
-			active.push({ file, worker: owner.worker });
-			continue;
-		}
-		try {
-			if ((await fs.readlink(file)) !== target)
-				throw new Blocked('PILOT_OWNERSHIP', 'Pilot owner changed while checking stale state.');
-			await fs.unlink(file);
-		} catch (error) {
-			if (error.code !== 'ENOENT') throw error;
-		}
-	}
-	return active;
-}
-export async function releasePilot(pilot) {
-	if ((await fs.readlink(pilot.file)) !== pilot.target)
-		throw new Blocked('PILOT_OWNERSHIP', 'Pilot owner changed; refusing to remove its lock.');
-	await fs.unlink(pilot.file);
-}
 export async function files() {
 	const { stdout } = await execute('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
 		cwd: repository
@@ -187,7 +121,7 @@ export async function files() {
 export async function candidate(base = repository) {
 	const hash = createHash('sha256');
 	for (const file of await files()) {
-		// Prose receipts do not invalidate executable evidence; executable maps do.
+		// Documentation edits do not change the running application candidate.
 		if (file.endsWith('.md') || path.basename(file).startsWith('.env')) continue;
 		try {
 			const stat = await fs.lstat(path.join(base, file));
@@ -202,6 +136,10 @@ export async function candidate(base = repository) {
 		}
 	}
 	return hash.digest('hex');
+}
+export function assertCurrentCandidate(state, currentCandidate, artifactCandidate) {
+	if (currentCandidate !== state.candidate || artifactCandidate !== state.artifact)
+		throw new Blocked('STALE_CANDIDATE', 'Source or owned artifact changed. Restart before driving this candidate.');
 }
 export async function snapshot(destination) {
 	await fs.mkdir(destination, { recursive: true, mode: 0o700 });
@@ -358,80 +296,4 @@ export async function completed(child, label) {
 			'PROCESS_FAILED',
 			`${label} exited ${code}; inspect private logs. Required proof is unavailable.`
 		);
-}
-export async function receipt(state, result) {
-	const file = path.join(root, 'evidence', `${Date.now()}-${randomUUID()}.json`);
-	const value = {
-		schema: 1,
-		recordedAt: new Date().toISOString(),
-		candidate: state.candidate,
-		artifact: state.artifact,
-		revision: state.revision,
-		session: state.id,
-		mutation: state.mutation ?? null,
-		browser: state.browser.version,
-		origin: state.origin,
-		...result
-	};
-	const key = await receiptKey(true);
-	value.seal = createHmac('sha256', key).update(JSON.stringify(value)).digest('hex');
-	await writeJSON(file, value);
-	return { ...value, receipt: file };
-}
-async function receiptKey(create = false) {
-	const file = path.join(sessions, 'receipt-key');
-	if (create) {
-		await fs.mkdir(sessions, { recursive: true, mode: 0o700 });
-		const temporary = path.join(sessions, `receipt-key-${randomUUID()}.tmp`);
-		await fs.writeFile(temporary, randomBytes(32), { flag: 'wx', mode: 0o600 });
-		try {
-			await fs.link(temporary, file);
-		} catch (error) {
-			if (error.code !== 'EEXIST') throw error;
-		} finally {
-			await fs.rm(temporary, { force: true });
-		}
-	}
-	try {
-		return await fs.readFile(file);
-	} catch {
-		throw new Blocked(
-			'RECEIPT_KEY',
-			'This checkout has no receipt issuer key. Re-run proof locally; imported evidence is not local approval.'
-		);
-	}
-}
-export async function checkReceipt(file) {
-	const value = await readJSON(path.resolve(file));
-	const { seal, ...body } = value;
-	const expectedSeal = createHmac('sha256', await receiptKey())
-		.update(JSON.stringify(body))
-		.digest();
-	if (
-		typeof seal !== 'string' ||
-		!/^[a-f0-9]{64}$/.test(seal) ||
-		!timingSafeEqual(Buffer.from(seal, 'hex'), expectedSeal)
-	)
-		throw new Blocked(
-			'EVIDENCE_EDITED',
-			'Receipt was not issued here or was edited. Run prove again; do not repair evidence by hand.'
-		);
-	if (typeof value.claim !== 'string' || !Array.isArray(value.observations) || !value.session || !value.origin)
-		throw new Blocked('EVIDENCE_SHAPE', 'Receipt is missing required claim evidence.');
-	if (value.schema !== 1 || value.candidate !== (await candidate()))
-		throw new Blocked(
-			'STALE_EVIDENCE',
-			'Receipt does not identify the current executable candidate. Relaunch and prove this candidate.'
-		);
-	if (value.mutation || value.artifact !== value.candidate || value.status !== 'PASS')
-		throw new Blocked(
-			'INCOMPLETE_EVIDENCE',
-			'Only a healthy PASS receipt supplies this claim; required checks still follow Definition of Done.'
-		);
-	return {
-		status: 'PASS',
-		claim: value.claim,
-		candidate: value.candidate,
-		scope: 'This claim only; not CI, release, or merge approval.'
-	};
 }

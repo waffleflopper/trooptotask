@@ -4,9 +4,43 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { completed, runLogged, cleanEnvironment, processIdentity, stopOwnedProcess } from './core.mjs';
+import {
+	assertCurrentCandidate,
+	completed,
+	runLogged,
+	cleanEnvironment,
+	processIdentity,
+	stopOwnedProcess
+} from './core.mjs';
 
 const directories: string[] = [];
+it('refuses changed source or copied artifacts before a browser command can use them', () => {
+	const launched = { candidate: 'launched-source', artifact: 'launched-copy' };
+	expect(() => assertCurrentCandidate(launched, 'launched-source', 'launched-copy')).not.toThrow();
+	for (const [source, copy] of [
+		['edited-source', 'launched-copy'],
+		['launched-source', 'edited-copy']
+	])
+		expect(() => assertCurrentCandidate(launched, source, copy)).toThrowError(
+			expect.objectContaining({ code: 'STALE_CANDIDATE' })
+		);
+});
+
+it('refuses to signal a PID whose owner no longer matches', async () => {
+	const child = spawn(process.execPath, ['-e', "setInterval(() => {}, 1000); process.stdout.write('ready');"]);
+	try {
+		await once(child.stdout, 'data');
+		const identity = await processIdentity(child.pid);
+		await expect(stopOwnedProcess({ ...identity, start: 'different-start-time' })).rejects.toMatchObject({
+			code: 'PROCESS_REPLACED'
+		});
+		expect((await processIdentity(child.pid))?.start).toBe(identity.start);
+	} finally {
+		child.kill('SIGKILL');
+		await once(child, 'exit');
+	}
+});
+
 it('confirms exit even when an owned child ignores graceful termination', async () => {
 	const child = spawn(process.execPath, [
 		'-e',

@@ -1,0 +1,35 @@
+// This function runs in the owned browser page. Keep it self-contained so
+// control.mjs can inject it through the native DevTools evaluation tool.
+export function installNetworkControl(target, { mode, ordinal, suffix }) {
+	if (target.__mapNetwork) throw new Error('Restore the existing map network control first');
+	const original = target.fetch;
+	const control = { original, calls: [], release: null, mode, ordinal, suffix };
+	target.__mapNetwork = control;
+	target.fetch = async (...input) => {
+		const [url, init] = input;
+		if (!String(url).includes(control.suffix)) return original(...input);
+		const call = { method: init?.method ?? 'GET', count: 0, ids: [], notes: [], status: null };
+		try {
+			const records = JSON.parse(init?.body ?? '{}').records ?? [];
+			call.count = records.length;
+			call.ids = records.map((row) => row.personnelId);
+			call.notes = [...new Set(records.map((row) => row.note))];
+		} catch {}
+		const requestNumber = control.calls.push(call);
+		if (control.mode === 'fail' && requestNumber === control.ordinal) {
+			call.status = 503;
+			return new Response(JSON.stringify({ message: 'Synthetic request failure' }), {
+				status: 503,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+		const response = await original(...input);
+		call.status = response.status;
+		if (control.mode === 'hold' && requestNumber === control.ordinal)
+			return new Promise((resolve) => {
+				control.release = () => resolve(response);
+			});
+		return response;
+	};
+	return { armed: true, mode, suffix, ordinal };
+}

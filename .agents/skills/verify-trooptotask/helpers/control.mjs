@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
+import { installNetworkControl } from './network-control.mjs';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -289,34 +290,7 @@ async function main() {
 			const result = await evaluate(
 				state,
 				pageId,
-				`() => {
-				if (window.__mapNetwork) throw new Error('Restore the existing map network control first');
-				const original = window.fetch;
-				const control = { original, calls: [], release: null, mode: ${JSON.stringify(mode)}, ordinal: ${ordinal}, suffix: ${JSON.stringify(suffix)} };
-				window.__mapNetwork = control;
-				window.fetch = async (...input) => {
-					const [url, init] = input;
-					if (!String(url).includes(control.suffix)) return original(...input);
-					const call = { method: init?.method ?? 'GET', count: 0, ids: [], notes: [], status: null };
-					try {
-						const records = JSON.parse(init?.body ?? '{}').records ?? [];
-						call.count = records.length;
-						call.ids = records.map(row => row.personnelId);
-						call.notes = [...new Set(records.map(row => row.note))];
-					} catch {}
-					control.calls.push(call);
-					if (control.mode === 'fail' && control.calls.length === control.ordinal) {
-						call.status = 503;
-						return new Response(JSON.stringify({ message: 'Synthetic request failure' }), { status: 503, headers: { 'Content-Type': 'application/json' } });
-					}
-					const response = await original(...input);
-					call.status = response.status;
-					if (control.mode === 'hold' && control.calls.length === control.ordinal)
-						return new Promise(resolve => { control.release = () => resolve(response); });
-					return response;
-				};
-				return { armed: true, mode: control.mode, suffix: control.suffix, ordinal: control.ordinal };
-			}`
+				`() => (${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`
 			);
 			note(result);
 			return;

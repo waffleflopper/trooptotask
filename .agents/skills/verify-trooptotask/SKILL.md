@@ -51,7 +51,7 @@ Create the run directory first and use the actual page ID. Keep working notes in
 
 ## Cleanup
 
-Restore any armed `network` or `export` control and temporary Calendar grants, then run `clean-seeds`. Run `npm run --silent verify:app -- cleanup` for the worker you launched, including failed attempts. It stops only owned processes and the disposable provider. Then confirm the proof files still exist under `.verification/evidence/verify-trooptotask/`. Review artifacts before sharing them.
+Restore any armed `network` or `export` control and temporary Calendar grants, then run `clean-seeds`. That command removes only rows created by the helper: remove your UI-created rows through the visible controls and read back their absence, and restore any edited original fixture fields with the same ID. A seeded deletion or federal reset needs `verify:app restart` on this owned worker before another journey relies on the original rows; run `doctor` and `fixture` again afterward. Run `npm run --silent verify:app -- cleanup` for the worker you launched, including failed attempts. It stops only owned processes and the disposable provider. Then confirm the proof files still exist under `.verification/evidence/verify-trooptotask/`. Review artifacts before sharing them.
 
 ## Helpers
 
@@ -79,3 +79,5 @@ $V workbook .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
 ```
 
 `rows TABLE orgA|orgB [id|name|note|personnel_id|user_id|type VALUE]` reads only allowlisted synthetic tables in the owned provider; compare known fixture IDs and explicit submitted values. `calendar-grant` changes only the named synthetic member's Organization A Calendar capability and records its original value for restoration. `seed` creates only the named temporary fixture, and `clean-seeds` deletes only its recorded IDs and dependent availability; run it before worker cleanup. A network control matches only an Organization A Calendar endpoint, records request sizes/statuses, and lasts until `restore`; arm one at a time on the actual page. `export save` writes only under this skill's durable evidence directory. The helper does not provide a journey or verdict; drive visible controls with native DevTools and record the observation yourself.
+
+For a focused check of the network control's overlapping-response behavior, run `node --test .agents/skills/verify-trooptotask/helpers/network-control.test.mjs`.

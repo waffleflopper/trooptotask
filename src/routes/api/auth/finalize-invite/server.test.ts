@@ -4,8 +4,8 @@ import { passwordSessionToken } from '../../../../tests/fixtures/passwordSession
 import { passwordAttempt } from '$features/identity/index.server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/server/auto-accept-org-invites', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/auto-accept-org-invites')>()),
+vi.mock('$features/organization/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/organization/index.server')>()),
 	autoAcceptOrgInvites: vi.fn().mockResolvedValue({ accepted: 2, unavailable: 0 })
 }));
 
@@ -18,7 +18,7 @@ vi.mock('$features/identity/index.server', async (importOriginal) => {
 });
 
 import { upsertUserProfile } from '$features/identity/index.server';
-import { autoAcceptOrgInvites } from '$lib/server/auto-accept-org-invites';
+import { autoAcceptOrgInvites } from '$features/organization/index.server';
 import { POST } from './+server';
 
 describe('POST /api/auth/finalize-invite', () => {

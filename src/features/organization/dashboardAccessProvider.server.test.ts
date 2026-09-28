@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createSupabaseDashboardOrgAccessPort } from './supabaseDashboardOrgAccess';
+import { createSupabaseDashboardOrgAccessPort } from './dashboardAccessProvider.server';
 
 type Call = { method: string; args: unknown[] };
 
@@ -83,7 +83,7 @@ describe('createSupabaseDashboardOrgAccessPort', () => {
 			}
 		});
 		const port = createSupabaseDashboardOrgAccessPort({ supabase });
-		const { loadDashboardOrgAccess } = await import('$lib/server/core/useCases/dashboardOrgAccess');
+		const { loadDashboardOrgAccess } = await import('./dashboardAccess.server');
 		const result = await loadDashboardOrgAccess(
 			{ ...port, listOrganizationsForUser: async () => [] },
 			{

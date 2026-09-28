@@ -14,21 +14,18 @@ const {
 	declineDashboardInvitationMock: vi.fn()
 }));
 
-vi.mock('$lib/server/adapters/supabaseDashboardOrgAccess', () => ({
-	createSupabaseDashboardOrgAccessPort: createSupabaseDashboardOrgAccessPortMock
-}));
-
 vi.mock('$lib/server/adapters/supabaseNotification', () => ({
 	createSupabaseNotificationAdapter: createSupabaseNotificationAdapterMock
 }));
 
-vi.mock('$lib/server/core/useCases/dashboardOrgAccess', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/dashboardOrgAccess')>(
-		'$lib/server/core/useCases/dashboardOrgAccess'
+vi.mock('$features/organization/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/organization/index.server')>(
+		'$features/organization/index.server'
 	);
 
 	return {
 		...actual,
+		createSupabaseDashboardOrgAccessPort: createSupabaseDashboardOrgAccessPortMock,
 		loadDashboardOrgAccess: loadDashboardOrgAccessMock,
 		acceptDashboardInvitation: acceptDashboardInvitationMock,
 		declineDashboardInvitation: declineDashboardInvitationMock

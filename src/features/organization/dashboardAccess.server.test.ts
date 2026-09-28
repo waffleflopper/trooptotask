@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestNotificationPort } from '$lib/server/adapters/inMemory';
-import type { AuditPort } from '$lib/server/core/ports';
 import {
 	acceptDashboardInvitation,
 	declineDashboardInvitation,
 	loadDashboardOrgAccess,
 	type DashboardInvitationAcceptResult,
+	type DashboardInvitationAuditPort,
 	type DashboardInvitationDeclineResult,
 	type DashboardOrgAccessPort,
 	type DashboardOrganizationSummary,
 	type DashboardPendingInvitationSummary
-} from './dashboardOrgAccess';
+} from './dashboardAccess.server';
 
 function createDashboardOrgAccessPort(
 	options: {
@@ -62,10 +62,10 @@ function createDeferred<T>() {
 }
 
 function createRecordingAuditFactory(): {
-	auditFor: (organizationId: string) => AuditPort;
-	events: Array<{ organizationId: string; event: Parameters<AuditPort['log']>[0] }>;
+	auditFor: (organizationId: string) => DashboardInvitationAuditPort;
+	events: Array<{ organizationId: string; event: Parameters<DashboardInvitationAuditPort['log']>[0] }>;
 } {
-	const events: Array<{ organizationId: string; event: Parameters<AuditPort['log']>[0] }> = [];
+	const events: Array<{ organizationId: string; event: Parameters<DashboardInvitationAuditPort['log']>[0] }> = [];
 
 	return {
 		events,

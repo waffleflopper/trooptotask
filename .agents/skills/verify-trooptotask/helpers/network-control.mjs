@@ -14,7 +14,9 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 			call.count = records.length;
 			call.ids = records.map((row) => row.personnelId);
 			call.notes = [...new Set(records.map((row) => row.note))];
-		} catch {}
+		} catch {
+			// GET requests and non-JSON bodies have no batch record details.
+		}
 		const requestNumber = control.calls.push(call);
 		if (control.mode === 'fail' && requestNumber === control.ordinal) {
 			call.status = 503;

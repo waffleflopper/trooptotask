@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { buildDangerSettings, loadDangerSettings } from './dangerSettings.server';
+import { describe, expect, it } from 'vitest';
+import { buildDangerSettings } from './dangerSettings.server';
 
 const organization = {
 	id: 'org-1',
@@ -9,16 +9,14 @@ const organization = {
 };
 
 describe('danger settings section', () => {
-	it('builds owner-only transfer candidates and delete confirmation facts', () => {
+	it('composes owned transfer candidates with delete confirmation facts', () => {
 		const dangerSettings = buildDangerSettings({
 			currentMemberRole: 'owner',
 			canManageMembers: true,
 			isAdmin: false,
 			organization,
-			members: [
-				{ id: 'owner-membership', user_id: 'owner-user', email: 'owner@example.com', role: 'owner' },
-				{ id: 'admin-membership', user_id: 'admin-user', email: 'admin@example.com', role: 'admin' },
-				{ id: 'pending-membership', user_id: null, email: 'pending@example.com', role: 'member' }
+			transferOwnershipCandidates: [
+				{ id: 'admin-membership', userId: 'admin-user', email: 'admin@example.com', membershipRole: 'admin' }
 			]
 		});
 
@@ -41,25 +39,6 @@ describe('danger settings section', () => {
 				canTransferOwnership: true,
 				canDeleteOrganization: true
 			}
-		});
-	});
-
-	it('does not query transfer candidates when the current member is not owner', async () => {
-		const findMany = vi.fn();
-		const dangerSettings = await loadDangerSettings(
-			{
-				auth: { orgId: 'org-1', role: 'admin', canManageMembers: true },
-				store: { findMany }
-			} as never,
-			{ isAdmin: true, organization }
-		);
-
-		expect(findMany).not.toHaveBeenCalled();
-		expect(dangerSettings.currentMember.isOwner).toBe(false);
-		expect(dangerSettings.sections.dangerZone.transferOwnershipCandidates).toEqual([]);
-		expect(dangerSettings.sections.dangerZone.commands).toEqual({
-			canTransferOwnership: false,
-			canDeleteOrganization: false
 		});
 	});
 });

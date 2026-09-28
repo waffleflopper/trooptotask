@@ -1,5 +1,7 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
+import { loadOwnershipTransferCandidates } from '$features/organization/index.server';
+import type { OwnershipTransferCandidate } from '$features/organization';
 import { normalizeOrganizationName } from '../settingsWorkspaceFormatters';
 import type { DangerSettingsData, SettingsDangerSectionData } from '../settingsSectionTypes';
 
@@ -10,30 +12,18 @@ export interface DangerSettingsOrganizationSource {
 	urlSegment: string;
 }
 
-export type DangerSettingsMemberSourceRow = {
-	id: string;
-	user_id: string | null;
-	email: string;
-	role: MembershipRole;
-};
-
 export async function loadDangerSettings(
 	ctx: Pick<UseCaseContext, 'auth' | 'store'>,
 	input: { isAdmin: boolean; organization: DangerSettingsOrganizationSource }
 ): Promise<DangerSettingsData> {
-	const isOwner = ctx.auth.role === 'owner';
-	const members = isOwner
-		? await ctx.store.findMany<DangerSettingsMemberSourceRow>('organization_memberships', ctx.auth.orgId, undefined, {
-				select: 'id, user_id, email, role'
-			})
-		: [];
+	const transferOwnershipCandidates = await loadOwnershipTransferCandidates(ctx);
 
 	return buildDangerSettings({
 		currentMemberRole: ctx.auth.role,
 		canManageMembers: ctx.auth.canManageMembers,
 		isAdmin: input.isAdmin,
 		organization: input.organization,
-		members
+		transferOwnershipCandidates
 	});
 }
 
@@ -42,7 +32,7 @@ export function buildDangerSettings(input: {
 	canManageMembers: boolean;
 	isAdmin: boolean;
 	organization: DangerSettingsOrganizationSource;
-	members: DangerSettingsMemberSourceRow[];
+	transferOwnershipCandidates: OwnershipTransferCandidate[];
 }): DangerSettingsData {
 	const isOwner = input.currentMemberRole === 'owner';
 	const canManageMembers = input.canManageMembers;
@@ -66,7 +56,7 @@ export function buildDangerSettings(input: {
 			dangerZone: buildDangerSection({
 				isOwner,
 				organizationName: input.organization.name,
-				members: input.members
+				transferOwnershipCandidates: input.transferOwnershipCandidates
 			})
 		}
 	};
@@ -75,18 +65,9 @@ export function buildDangerSettings(input: {
 export function buildDangerSection(input: {
 	isOwner: boolean;
 	organizationName: string | null;
-	members: DangerSettingsMemberSourceRow[];
+	transferOwnershipCandidates: OwnershipTransferCandidate[];
 }): SettingsDangerSectionData {
-	const transferOwnershipCandidates = input.isOwner
-		? input.members
-				.filter((member) => member.role !== 'owner' && member.user_id)
-				.map((member) => ({
-					id: member.id,
-					userId: member.user_id!,
-					email: member.email,
-					membershipRole: member.role
-				}))
-		: [];
+	const transferOwnershipCandidates = input.isOwner ? input.transferOwnershipCandidates : [];
 
 	return {
 		transferOwnershipCandidates,

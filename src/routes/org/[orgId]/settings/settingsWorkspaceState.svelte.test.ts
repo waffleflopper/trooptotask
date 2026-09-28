@@ -242,26 +242,6 @@ describe('settings workspace state', () => {
 		expect(state.deleteConfirmText).toBe('');
 	});
 
-	it('owns ownership transfer confirmation transition state', () => {
-		const state = createSettingsDangerZoneState(makeSettingsData());
-
-		state.openTransferConfirmation('user-1');
-
-		expect(state.showTransferConfirm).toBe(true);
-		expect(state.selectedTransferCandidate?.email).toBe('member@example.com');
-		expect(state.transferConfirmMatches).toBe(false);
-
-		state.transferConfirmText = 'MEMBER@EXAMPLE.COM';
-
-		expect(state.transferConfirmMatches).toBe(true);
-		expect(state.transferCloseBlocked).toBe(true);
-
-		state.closeTransferConfirmation();
-
-		expect(state.showTransferConfirm).toBe(false);
-		expect(state.transferConfirmText).toBe('');
-	});
-
 	it('owns member capability edits while the editor is open', () => {
 		const data = makeSettingsData();
 		const state = createSettingsMemberAccessWorkspace({

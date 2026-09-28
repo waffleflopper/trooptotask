@@ -1,12 +1,19 @@
-import { fail } from '$lib/server/core/errors';
-import type { CalendarWritePorts } from '../calendarPolicy';
-import { DailyAssignmentEntity } from '$lib/server/entities/dailyAssignment';
-import { listAssignmentTypeTargets } from '$features/calendar/index.server';
-import { CALENDAR_POLICY_ACTIONS, requireCalendarPersonnelPolicy, requireCalendarPolicy } from '../calendarPolicy';
+import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
+import { DailyAssignmentEntity } from './dailyAssignmentEntity.server';
+import { listAssignmentTypeTargets } from './assignmentTypeRead.server';
+import {
+	CALENDAR_POLICY_ACTIONS,
+	requireCalendarPersonnelPolicy,
+	requireCalendarPolicy
+} from '$lib/server/core/useCases/calendarPolicy';
 
 const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 type AssignmentTarget = 'personnel' | 'group';
 type AssignmentPolicyRecord = { assignmentTypeId: string; assigneeId: string };

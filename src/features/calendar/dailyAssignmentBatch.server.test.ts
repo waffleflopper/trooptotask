@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { batchDailyAssignments } from './dailyAssignmentsBatch';
+import { replaceDailyAssignmentSlotsBatch } from './dailyAssignmentOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }
 
-describe('batchDailyAssignments', () => {
+describe('replaceDailyAssignmentSlotsBatch', () => {
 	it('rejects empty records array', async () => {
 		const ctx = buildContext();
-		await expect(batchDailyAssignments(ctx, { records: [] })).rejects.toMatchObject({
+		await expect(replaceDailyAssignmentSlotsBatch(ctx, { records: [] })).rejects.toMatchObject({
 			status: 400,
 			message: 'records array is required'
 		});
@@ -22,7 +22,7 @@ describe('batchDailyAssignments', () => {
 			assignmentTypeId: `type-${i}`,
 			assigneeId: `person-${i}`
 		}));
-		await expect(batchDailyAssignments(ctx, { records })).rejects.toMatchObject({
+		await expect(replaceDailyAssignmentSlotsBatch(ctx, { records })).rejects.toMatchObject({
 			status: 400,
 			message: 'Maximum 1000 records per batch'
 		});
@@ -38,8 +38,8 @@ describe('batchDailyAssignments', () => {
 		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
 
 		await expect(
-			batchDailyAssignments(ctx, {
-				records: [record as Parameters<typeof batchDailyAssignments>[1]['records'][number]]
+			replaceDailyAssignmentSlotsBatch(ctx, {
+				records: [record as Parameters<typeof replaceDailyAssignmentSlotsBatch>[1]['records'][number]]
 			})
 		).rejects.toMatchObject({
 			status: 400,
@@ -71,7 +71,7 @@ describe('batchDailyAssignments', () => {
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', group_id: 'group-c' }]);
 
 		await expect(
-			batchDailyAssignments(ctx, {
+			replaceDailyAssignmentSlotsBatch(ctx, {
 				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' }]
 			})
 		).rejects.toMatchObject({
@@ -108,7 +108,7 @@ describe('batchDailyAssignments', () => {
 		]);
 
 		await expect(
-			batchDailyAssignments(ctx, {
+			replaceDailyAssignmentSlotsBatch(ctx, {
 				records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '' }]
 			})
 		).rejects.toMatchObject({
@@ -143,7 +143,7 @@ describe('batchDailyAssignments', () => {
 			}
 		]);
 
-		const result = await batchDailyAssignments(ctx, {
+		const result = await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-a' }]
 		});
 
@@ -183,7 +183,7 @@ describe('batchDailyAssignments', () => {
 		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
 
 		await expect(
-			batchDailyAssignments(ctx, {
+			replaceDailyAssignmentSlotsBatch(ctx, {
 				records: [{ date: '2026-03-22', assignmentTypeId: 'type-group', assigneeId: 'group-b' }]
 			})
 		).rejects.toMatchObject({
@@ -197,7 +197,7 @@ describe('batchDailyAssignments', () => {
 
 	it('logs an audit event', async () => {
 		const ctx = buildContext();
-		await batchDailyAssignments(ctx, {
+		await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [
 				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
 				{ date: '2026-03-22', assignmentTypeId: 'type-b', assigneeId: '' }
@@ -225,7 +225,7 @@ describe('batchDailyAssignments', () => {
 			}
 		]);
 
-		const result = await batchDailyAssignments(ctx, {
+		const result = await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [
 				{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
 				{ date: '2026-03-22', assignmentTypeId: 'type-b', assigneeId: '' } // clear slot
@@ -253,7 +253,7 @@ describe('batchDailyAssignments', () => {
 			}
 		]);
 
-		const result = await batchDailyAssignments(ctx, {
+		const result = await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: '   ' }]
 		});
 
@@ -271,7 +271,7 @@ describe('batchDailyAssignments', () => {
 		ctx.store.insertMany = vi.fn(ctx.store.insertMany.bind(ctx.store)) as typeof ctx.store.insertMany;
 
 		await expect(
-			batchDailyAssignments(ctx, {
+			replaceDailyAssignmentSlotsBatch(ctx, {
 				records: [
 					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
 					{ date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-2' }
@@ -301,7 +301,7 @@ describe('batchDailyAssignments', () => {
 		]) {
 			const ctx = buildContext();
 
-			await expect(batchDailyAssignments(ctx, { records })).rejects.toMatchObject({
+			await expect(replaceDailyAssignmentSlotsBatch(ctx, { records })).rejects.toMatchObject({
 				status: 400,
 				message: 'Duplicate daily assignment slot in batch: 2026-03-22 / type-a'
 			});
@@ -321,7 +321,7 @@ describe('batchDailyAssignments', () => {
 			cooldownHours: 168,
 			sourceLineage: { sourceKind: 'duty-roster-run', sourceId: 'generic-run', sourceRowKey: '2026-03-22' }
 		};
-		const result = await batchDailyAssignments(ctx, { records: [record] });
+		const result = await replaceDailyAssignmentSlotsBatch(ctx, { records: [record] });
 		expect(result.inserted).toEqual([
 			{
 				id: expect.any(String),
@@ -386,7 +386,7 @@ describe('batchDailyAssignments', () => {
 			}
 		]);
 
-		await batchDailyAssignments(ctx, {
+		await replaceDailyAssignmentSlotsBatch(ctx, {
 			records: [
 				{ date: '2026-04-10', assignmentTypeId: 'type-a', assigneeId: 'person-1' },
 				{ date: '2026-04-11', assignmentTypeId: 'type-a', assigneeId: 'person-2' }

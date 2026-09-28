@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { fetchCalendarBootstrap, fetchCalendarData, fetchCalendarRangeData } from '$features/calendar/index.server';
-import { updateDailyAssignment } from './dailyAssignments';
+import { updateDailyAssignmentSlot } from './dailyAssignmentOperations.server';
 
 const range = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };
 
@@ -185,7 +185,7 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 
 	it('edits a generated assignment in place and reloads its saved assignee with an identity-specific audit', async () => {
 		const ctx = fixture();
-		await updateDailyAssignment(ctx, { id: 'linked', assigneeId: 'p-bravo' });
+		await updateDailyAssignmentSlot(ctx, { id: 'linked', assigneeId: 'p-bravo' });
 		const result = await fetchCalendarRangeData(ctx, range);
 		expect(result.dailyAssignments).toEqual([
 			retainedSlots[0],
@@ -215,7 +215,7 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 	it('preserves generated facts and emits no success audit when a saved edit fails', async () => {
 		const ctx = fixture();
 		vi.spyOn(ctx.store, 'update').mockRejectedValueOnce(new Error('synthetic write failure'));
-		await expect(updateDailyAssignment(ctx, { id: 'linked', assigneeId: 'p-bravo' })).rejects.toThrow(
+		await expect(updateDailyAssignmentSlot(ctx, { id: 'linked', assigneeId: 'p-bravo' })).rejects.toThrow(
 			'synthetic write failure'
 		);
 		expect((await fetchCalendarRangeData(ctx, range)).dailyAssignments).toEqual(retainedSlots);

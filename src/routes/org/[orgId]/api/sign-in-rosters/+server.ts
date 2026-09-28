@@ -1,69 +1,34 @@
-import { json } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle } from '$lib/server/adapters/httpAdapter';
-import type { RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/server/core/errors';
-import type { FindOptions } from '$lib/server/core/ports';
-import { prepareSignInRosterSnapshot } from '$features/sign-in-rosters/index.server';
+import { json, type RequestEvent } from '@sveltejs/kit';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import {
+	createSignInRoster,
+	createSignInRosterPersistence,
+	listSignInRosters,
+	type SignInRosterListInput
+} from '$features/sign-in-rosters/index.server';
 import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
-function toClient(r: Record<string, unknown>) {
-	return {
-		id: r.id,
-		title: r.title,
-		rosterDate: r.roster_date,
-		blankDate: r.blank_date,
-		separateByGroup: r.separate_by_group,
-		sortBy: r.sort_by,
-		personnelSnapshot: r.personnel_snapshot,
-		filterConfig: r.filter_config,
-		signedFilePath: r.signed_file_path,
-		createdBy: r.created_by,
-		createdAt: r.created_at
-	};
-}
-
-export const _getConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _getConfig: RouteConfig<SignInRosterListInput, unknown> = {
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
-	parseInput: (event: RequestEvent) => {
-		return {
-			title: event.url.searchParams.get('title') || '',
-			from: event.url.searchParams.get('from'),
-			to: event.url.searchParams.get('to'),
-			limit: Math.min(parseInt(event.url.searchParams.get('limit') || '20'), 100),
-			offset: parseInt(event.url.searchParams.get('offset') || '0')
-		};
-	},
-	fn: async (ctx, input) => {
-		const limit = input.limit as number;
-		const offset = input.offset as number;
-
-		const options: FindOptions = {
-			orderBy: [{ column: 'created_at', ascending: false }],
-			range: { from: offset, to: offset + limit - 1 },
-			count: 'exact'
-		};
-
-		if (input.title) {
-			options.ilikeFilters = { title: `%${input.title}%` };
-		}
-
-		const rangeFilters: FindOptions['rangeFilters'] = [];
-		if (input.from) rangeFilters.push({ column: 'created_at', op: 'gte', value: input.from as string });
-		if (input.to) rangeFilters.push({ column: 'created_at', op: 'lte', value: input.to + 'T23:59:59.999Z' });
-		if (rangeFilters.length) options.rangeFilters = rangeFilters;
-
-		const { data, count } = await ctx.store.findManyWithCount<Record<string, unknown>>(
-			'sign_in_rosters',
-			ctx.auth.orgId,
-			undefined,
-			options
-		);
-
-		return { rosters: data.map(toClient), total: count ?? 0 };
-	}
+	parseInput: (event: RequestEvent) => ({
+		title: event.url.searchParams.get('title') || '',
+		from: event.url.searchParams.get('from'),
+		to: event.url.searchParams.get('to'),
+		limit: Math.min(parseInt(event.url.searchParams.get('limit') || '20'), 100),
+		offset: parseInt(event.url.searchParams.get('offset') || '0')
+	}),
+	fn: (ctx, input) =>
+		listSignInRosters(
+			{
+				orgId: ctx.auth.orgId,
+				persistence: createSignInRosterPersistence(ctx.store, ctx.auth.orgId),
+				storage: ctx.storage,
+				audit: ctx.audit
+			},
+			input
+		)
 };
 
 export const GET = handle(_getConfig);
@@ -72,43 +37,22 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
-	fn: async (ctx, input) => {
-		if (!input.title || !(input.title as string).trim()) fail(400, 'Title is required');
-		const snapshot = await prepareSignInRosterSnapshot(
+	fn: (ctx, input) =>
+		createSignInRoster(
 			{
 				orgId: ctx.auth.orgId,
+				userId: ctx.auth.userId,
 				scopeSet: ctx.auth.scopeSet,
+				persistence: createSignInRosterPersistence(ctx.store, ctx.auth.orgId),
+				storage: ctx.storage,
+				audit: ctx.audit,
 				personnelLookup: ctx.signInRosterPersonnelLookup,
 				findGroupNamesByIds: (groupIds) => findGroupNamesByIds({ auth: ctx.auth, store: ctx.rawStore }, groupIds),
 				loadRankCatalog: () =>
 					loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.rawStore }, { authorization: 'training-records' })
 			},
 			input
-		);
-
-		const row = await ctx.store.insert<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId, {
-			title: (input.title as string).trim(),
-			roster_date: input.rosterDate || null,
-			blank_date: input.blankDate ?? false,
-			separate_by_group: input.separateByGroup ?? false,
-			sort_by: snapshot.sortBy,
-			personnel_snapshot: snapshot.personnelSnapshot,
-			personnel_ids: snapshot.personnelIds,
-			scope_group_ids: snapshot.scopeGroupIds,
-			filter_config: snapshot.filterConfig,
-			signed_file_path: null,
-			created_by: ctx.auth.userId
-		});
-
-		ctx.audit.log({
-			action: 'sign_in_roster.created',
-			resourceType: 'sign_in_roster',
-			resourceId: row.id as string,
-			details: { title: input.title }
-		});
-
-		return toClient(row);
-	},
+		),
 	formatOutput: (result) => json(result)
 };
 

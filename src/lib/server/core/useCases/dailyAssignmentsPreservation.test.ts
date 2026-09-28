@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { fetchCalendarBootstrap, fetchCalendarData, fetchCalendarRangeData } from './calendarQuery';
+import { fetchCalendarBootstrap, fetchCalendarData, fetchCalendarRangeData } from '$features/calendar/index.server';
 import { updateDailyAssignment } from './dailyAssignments';
 
 const range = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };

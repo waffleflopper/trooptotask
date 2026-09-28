@@ -16,7 +16,7 @@ import {
 	getActiveOnboardingPersonnelIds,
 	type CalendarBootstrap,
 	type CalendarDateRange
-} from '$lib/server/core/useCases/calendarQuery';
+} from '$features/calendar/index.server';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';

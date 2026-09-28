@@ -1,7 +1,7 @@
 import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { fetchCalendarReportData } from '$lib/server/core/useCases/calendarReportQuery';
+import { fetchCalendarReportData } from '$features/calendar/index.server';
 
 export const load = async ({ params, locals, cookies, parent, depends }: PageServerLoadEvent) => {
 	depends('app:org-core');

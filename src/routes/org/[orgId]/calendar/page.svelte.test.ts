@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
-import type { CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarRangeData } from '$features/calendar/index';
 import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 

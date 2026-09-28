@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CalendarRangeCoordinator } from './CalendarRangeCoordinator.svelte';
-import type { CalendarRangeData } from '$lib/server/core/useCases/calendarQuery';
+import type { CalendarRangeData } from '$features/calendar/calendar.types';
 
 function makeRangeData(overrides: Partial<CalendarRangeData> = {}): CalendarRangeData {
 	return {

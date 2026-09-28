@@ -1,18 +1,15 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
-import type { QueryPorts } from '$lib/server/core/ports';
 import {
 	fetchCalendarData,
 	fetchCalendarBootstrap,
 	fetchCalendarRangeData,
 	getActiveOnboardingPersonnelIds
-} from '$lib/server/core/useCases/calendarQuery';
+} from '$features/calendar/index.server';
 
 const ORG = 'test-org';
 
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): QueryPorts & {
-	store: ReturnType<typeof createQueryPortsContext>['store'];
-} {
+function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
 	return createQueryPortsContext({ auth: { orgId: ORG, ...overrides?.auth } });
 }
 

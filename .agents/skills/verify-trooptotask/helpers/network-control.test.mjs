@@ -17,7 +17,7 @@ test('a held request is selected by arrival order when responses overlap', async
 	installNetworkControl(page, {
 		mode: 'hold',
 		ordinal: 2,
-		suffix: '/api/calendar-range'
+		suffix: '/org/a/api/calendar-range'
 	});
 	const control = page.__mapNetwork;
 	const first = page.fetch('/org/a/api/calendar-range');
@@ -47,4 +47,18 @@ test('a held request is selected by arrival order when responses overlap', async
 		control.calls.map((call) => call.status),
 		[200, 200]
 	);
+});
+
+test('a single availability control ignores batch and another organization', async () => {
+	const page = { fetch: async () => new Response('real response', { status: 200 }) };
+	installNetworkControl(page, {
+		mode: 'fail',
+		ordinal: 1,
+		suffix: '/org/a/api/availability'
+	});
+	assert.equal((await page.fetch('/org/a/api/availability/batch')).status, 200);
+	assert.equal((await page.fetch('/org/b/api/availability')).status, 200);
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	assert.equal((await page.fetch('/org/a/api/availability?day=2026-09-27')).status, 503);
+	assert.equal(page.__mapNetwork.calls.length, 1);
 });

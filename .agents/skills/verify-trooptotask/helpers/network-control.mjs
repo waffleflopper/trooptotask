@@ -7,7 +7,9 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 	target.__mapNetwork = control;
 	target.fetch = async (...input) => {
 		const [url, init] = input;
-		if (!String(url).includes(control.suffix)) return original(...input);
+		const requestUrl = typeof Request !== 'undefined' && url instanceof Request ? url.url : String(url);
+		const pathname = new URL(requestUrl, target.location?.href ?? 'http://localhost/').pathname;
+		if (pathname !== control.suffix) return original(...input);
 		const call = { method: init?.method ?? 'GET', count: 0, ids: [], notes: [], status: null };
 		try {
 			const records = JSON.parse(init?.body ?? '{}').records ?? [];

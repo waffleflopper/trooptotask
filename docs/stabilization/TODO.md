@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Checkpoint:** Phase **08** · Parent [#1281](https://github.com/waffleflopper/trooptotask/issues/1281) · Milestone **6** · **D04 [#1352](https://github.com/waffleflopper/trooptotask/issues/1352) accepted and merged** through [#1392](https://github.com/waffleflopper/trooptotask/pull/1392), commit `4bd7edfa7ec6f6e1b9144eb869d810b95340e65c`. The experimental map is integrated through [#1393](https://github.com/waffleflopper/trooptotask/pull/1393), commit `60964cfcc7808b4520b85584c5e779d8f14bac0c`. [EVIDENCE](EVIDENCE.md#phase-08-d04--calendar-pilot-coverage-and-bounded-repairs) preserves D04 acceptance and release obligations. The standalone verification transition does not start another deliverable. Reconcile live tracker process wording after its merge before selecting further issue work. Phase 09 remains inactive.
+**Checkpoint:** Phase **08** · Parent [#1281](https://github.com/waffleflopper/trooptotask/issues/1281) · Milestone **6** · **D07 [#1355](https://github.com/waffleflopper/trooptotask/issues/1355) in progress.** D01–D04 are integrated; [EVIDENCE](EVIDENCE.md#phase-08-d04--calendar-pilot-coverage-and-bounded-repairs) preserves D04 acceptance and release obligations. The verification transition is integrated through [#1395](https://github.com/waffleflopper/trooptotask/pull/1395), commit `cd3eddbcbe4e1e4761d5fedd6765fd4f31e138a1`; its [tracker reconciliation](https://github.com/waffleflopper/trooptotask/issues/1281#issuecomment-5863566803) selected #1355 next. The first D07 PR establishes the affected live verification baseline. Sign-in Roster ownership cutover and obsolete-path removal remain; Phase 09 remains inactive.
 
 ## Execution rules
 
@@ -318,4 +318,4 @@ Measurements unavailable now are listed in EVIDENCE. Later isolated synthetic wo
 
 ## Next executable task
 
-D04 is integrated and accepted. Complete the separately authorized verification transition and its independent review, then let Robert merge. The live tracker updates follow that merge; no next issue is selected here. The already merged migration 013 preflight remains an operator release obligation. Remote migration and deployment remain outside this handoff.
+D07 #1355 is the active child. Merge its verified baseline PR, then continue D07 through snapshot/candidate, upload/download and Training modal ownership cutover. Keep #1355 open until all consumers, removals, lower-level and live evidence pass on the integrated result. The already merged migration 013 preflight remains an operator release obligation. Remote migration and deployment remain outside this handoff.

@@ -128,7 +128,7 @@ def status(session):
         raise Blocked("Provider endpoint does not match the owned allocation; refusing to drive it.")
     records = containers(state, workdir, environment)
     running = {item["Name"].removeprefix("/") for item in records if item["State"]["Running"]}
-    required = [f"supabase_{name}_{state['project']}" for name in ("db", "auth", "rest", "kong")]
+    required = [f"supabase_{name}_{state['project']}" for name in ("db", "auth", "rest", "kong", "storage")]
     missing = [name for name in required if name not in running]
     if state["phase"] != "running" or missing:
         raise Blocked("Owned provider is unavailable or incomplete; cleanup this session and launch a new one.")
@@ -175,7 +175,9 @@ def create(session, repository, origin):
         for sock in held:
             sock.close()
         attempted = True
-        execute(["supabase", "start", "--exclude", database.EXCLUDED_SERVICES], workdir, environment)
+        # Sign-in Roster verification exercises real private PDF upload/download.
+        excluded = database.EXCLUDED_SERVICES.replace("storage-api,", "")
+        execute(["supabase", "start", "--exclude", excluded], workdir, environment)
         if not containers(state, workdir, environment):
             raise Blocked("Supabase returned success without containers bearing the exact owned project label.")
         # Same pinned-image workaround as CI; applies only to the new disposable DB.

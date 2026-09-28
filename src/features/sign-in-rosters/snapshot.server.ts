@@ -1,14 +1,26 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { RankCatalogEntry } from '$features/personnel/contracts';
-import { sortSignInRosterRows } from '$features/sign-in-rosters/signInRosterRankOrder';
-import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
-import { fail } from '$lib/server/core/errors';
-import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type {
+	RankCatalogEntry,
+	SignInRosterPersonnelLookupPort,
+	SignInRosterPersonnelLookupRecord
+} from '$features/personnel/contracts';
+import { sortSignInRosterRows } from './signInRosterRankOrder';
 
 const MAX_ROSTER_PERSONNEL = 500;
 
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
+
 type PersonnelRow = SignInRosterPersonnelLookupRecord;
+
+interface SignInRosterSnapshotContext {
+	orgId: string;
+	scopeSet: ScopeSet;
+	personnelLookup?: SignInRosterPersonnelLookupPort;
+	findGroupNamesByIds(groupIds: string[]): Promise<Map<string, string>>;
+	loadRankCatalog(): Promise<RankCatalogEntry[]>;
+}
 
 export interface CanonicalSignInRosterSnapshot {
 	id: string;
@@ -28,7 +40,7 @@ export interface PreparedSignInRosterSnapshot {
 }
 
 export async function prepareSignInRosterSnapshot(
-	ctx: UseCaseContext,
+	ctx: SignInRosterSnapshotContext,
 	input: Record<string, unknown>
 ): Promise<PreparedSignInRosterSnapshot> {
 	const personnelIds = extractRequestedPersonnelIds(input);
@@ -38,17 +50,11 @@ export async function prepareSignInRosterSnapshot(
 		fail(400, 'Personnel selection includes unknown personnel');
 	}
 
-	assertPersonnelRowsWithinScope(ctx.auth.scopeSet, rows);
+	assertPersonnelRowsWithinScope(ctx.scopeSet, rows);
 
 	const groupNames = await loadGroupNames(ctx, rows);
 	const sortBy = input.sortBy === 'rank' ? 'rank' : 'alphabetical';
-	const rankCatalog =
-		sortBy === 'rank'
-			? await loadOrganizationRankCatalog(
-					{ auth: ctx.auth, store: ctx.rawStore },
-					{ authorization: 'training-records' }
-				)
-			: [];
+	const rankCatalog = sortBy === 'rank' ? await ctx.loadRankCatalog() : [];
 	const rowById = rowsById(rows);
 	const personnelSnapshot = sortSnapshot(
 		personnelIds.map((id) => canonicalSnapshotFor(rowById.get(id)!, groupNames)),
@@ -104,14 +110,14 @@ function validatePersonnelIds(values: unknown[], invalidMessage: string): string
 	return ids;
 }
 
-async function loadPersonnelRows(ctx: UseCaseContext, personnelIds: string[]): Promise<PersonnelRow[]> {
-	if (!ctx.signInRosterPersonnelLookup) throw new Error('Sign-in roster Personnel lookup is unavailable');
-	const rows = await ctx.signInRosterPersonnelLookup.findPersonnelForRosterSnapshot(ctx.auth.orgId, personnelIds);
+async function loadPersonnelRows(ctx: SignInRosterSnapshotContext, personnelIds: string[]): Promise<PersonnelRow[]> {
+	if (!ctx.personnelLookup) throw new Error('Sign-in roster Personnel lookup is unavailable');
+	const rows = await ctx.personnelLookup.findPersonnelForRosterSnapshot(ctx.orgId, personnelIds);
 	const order = new Map(personnelIds.map((id, index) => [id, index]));
 	return rows.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
 }
 
-async function loadGroupNames(ctx: UseCaseContext, rows: PersonnelRow[]): Promise<Map<string, string>> {
+async function loadGroupNames(ctx: SignInRosterSnapshotContext, rows: PersonnelRow[]): Promise<Map<string, string>> {
 	const names = new Map<string, string>();
 	for (const row of rows) {
 		const groupName = row.groupName;
@@ -125,7 +131,7 @@ async function loadGroupNames(ctx: UseCaseContext, rows: PersonnelRow[]): Promis
 	);
 	if (missingGroupIds.length === 0) return names;
 
-	for (const [id, name] of await findGroupNamesByIds({ auth: ctx.auth, store: ctx.rawStore }, missingGroupIds)) {
+	for (const [id, name] of await ctx.findGroupNamesByIds(missingGroupIds)) {
 		names.set(id, name);
 	}
 	return names;

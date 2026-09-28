@@ -177,6 +177,31 @@ describe('Combobox single', () => {
 		expect(screen.getByLabelText('Selected person').textContent).toBe('');
 	});
 
+	it('reassigns an occupied single selection with the keyboard', async () => {
+		const onValueChange = vi.fn();
+		render(ComboboxSingleTest, { onValueChange });
+		const trigger = screen.getByRole('button', { name: 'Person' });
+
+		await fireEvent.click(trigger);
+		let search = await screen.findByRole('combobox', { name: 'Person' });
+		await fireEvent.input(search, { target: { value: 'Avery' } });
+		await fireEvent.keyDown(search, { key: 'Home' });
+		await fireEvent.keyDown(search, { key: 'Enter' });
+		await waitFor(() => expect(screen.getByLabelText('Selected person').textContent).toBe('avery'));
+
+		await fireEvent.click(trigger);
+		search = await screen.findByRole('combobox', { name: 'Person' });
+		await fireEvent.input(search, { target: { value: 'Maya' } });
+		await waitFor(() =>
+			expect(within(screen.getByRole('listbox')).queryByRole('option', { name: /Avery Brooks/ })).toBeNull()
+		);
+		await fireEvent.keyDown(search, { key: 'Home' });
+		await fireEvent.keyDown(search, { key: 'Enter' });
+
+		await waitFor(() => expect(screen.getByLabelText('Selected person').textContent).toBe('maya'));
+		expect(onValueChange.mock.calls).toEqual([['avery'], ['maya']]);
+	});
+
 	it('shows an empty state when search has no matches', async () => {
 		render(ComboboxSingleTest);
 

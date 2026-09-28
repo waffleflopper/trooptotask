@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DailyAssignmentEntity } from './dailyAssignment';
+import { DailyAssignmentEntity } from './dailyAssignmentEntity.server';
 import type { DailyAssignment } from '$lib/types';
 
 describe('DailyAssignmentEntity', () => {

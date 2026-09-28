@@ -1,5 +1,4 @@
 export { TrainingTypeEntity } from './trainingType';
-export { DailyAssignmentEntity } from './dailyAssignment';
 export { PersonnelTrainingEntity } from './personnelTraining';
 export { RatingSchemeEntryEntity } from './ratingSchemeEntry';
 export { PersonnelEntity } from './personnel';

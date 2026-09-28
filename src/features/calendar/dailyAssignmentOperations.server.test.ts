@@ -7,7 +7,7 @@ import {
 	replaceDailyAssignmentDay,
 	replaceDailyAssignmentSlotsBatch,
 	setDailyAssignmentSlot
-} from '.';
+} from './dailyAssignmentOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);

@@ -41,6 +41,11 @@ export {
 export { countCalendarCatalogsByOrganization } from './platformCatalogCounts.server';
 export { listDailyAssignments, listDailyAssignmentExportRows } from './dailyAssignmentRead.server';
 export {
+	setDailyAssignmentSlot,
+	clearDailyAssignmentSlot,
+	replaceDailyAssignmentSlotsBatch
+} from './dailyAssignmentOperations.server';
+export {
 	fetchCalendarData,
 	fetchCalendarRangeData,
 	fetchCalendarBootstrap,

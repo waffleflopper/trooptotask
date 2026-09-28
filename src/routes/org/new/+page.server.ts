@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createOrganizationProvisioningDelivery } from '$lib/server/organizationProvisioningDelivery';
-import { provisionOrganization } from '$lib/server/core/useCases/orgProvisioning';
+import { provisionOrganization } from '$features/organization/index.server';
 import { verifyCurrentUserEmailConfirmation } from '$features/identity/index.server';
 import type { CurrentUserEmailConfirmation } from '$features/identity/contracts';
 

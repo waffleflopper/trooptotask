@@ -1,5 +1,8 @@
-import { fail } from '$lib/server/core/errors';
 import { sanitizeString } from '$lib/server/validation';
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 export interface OrgProvisioningCreateResult {
 	orgId: string | null;

@@ -1,0 +1,37 @@
+uid=164_0 RootWebArea "Onboarding History - Troop to Task" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516/onboarding/history"
+  uid=164_1 button "Switch organization" expandable haspopup="menu"
+  uid=164_2 StaticText "Navigation"
+  uid=164_3 link "Home" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516"
+    uid=164_4 StaticText "Home"
+  uid=164_5 link "Personnel" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516/personnel"
+    uid=164_6 StaticText "Personnel"
+  uid=164_7 link "Training" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516/training"
+    uid=164_8 StaticText "Training"
+  uid=164_9 link "Onboard" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516/onboarding"
+    uid=164_10 StaticText "Onboard"
+  uid=164_11 button "Account menu" expandable haspopup="menu"
+  uid=164_12 button "Toggle Sidebar" description="Toggle Sidebar"
+  uid=164_13 main
+    uid=164_14 link "Skip to main content" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516/onboarding/history#main-content"
+      uid=164_15 StaticText "Skip to main content"
+    uid=164_16 button "Toggle Sidebar"
+    uid=164_17 navigation "Current section"
+      uid=164_18 link "Verification Organization A" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516"
+        uid=164_19 StaticText "Verification Organization A"
+      uid=166_0 link "Onboarding" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516/onboarding"
+        uid=166_1 StaticText "Onboarding"
+      uid=166_2 StaticText "History"
+    uid=164_21 button "Send feedback"
+    uid=164_22 button "Notifications" expandable haspopup="menu"
+    uid=164_23 button "Toggle theme"
+    uid=164_24 main
+      uid=166_3 main
+        uid=166_4 navigation "Onboarding sections"
+          uid=166_5 link "Onboarding" url="http://127.0.0.1:46391/org/7dce57e0-7519-42ed-ac6c-b15981e35516/onboarding"
+            uid=166_6 StaticText "Onboarding"
+        uid=166_7 button "SPC Unassigned, Synthetic 1357 TRAINING REFERENCE PROOF · STARTED SEP 29, 2026 · CANCELLED SEP 29, 2026 FINAL PROGRESS 0 0/1 complete Cancelled" expandable
+        uid=166_8 button "SPC Baker, Synthetic 1357 TRAINING REFERENCE PROOF · BRAVO · STARTED SEP 29, 2026 · CANCELLED SEP 29, 2026 FINAL PROGRESS 100 1/1 complete Cancelled" expandable
+        uid=166_9 button "SPC Able, Synthetic 1357 TRAINING REFERENCE PROOF · ALPHA · STARTED SEP 29, 2026 · CANCELLED SEP 29, 2026 FINAL PROGRESS 100 1/1 complete Cancelled" expandable
+  uid=164_34 region "Notifications alt+T" live="polite" relevant="additions text"
+  uid=164_35 generic atomic live="assertive" relevant="additions text"
+    uid=166_10 StaticText "Onboarding History - Troop to Task"

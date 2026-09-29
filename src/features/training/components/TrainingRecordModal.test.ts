@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import TrainingRecordModal from './TrainingRecordModal.svelte';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
+import { toast } from 'svelte-sonner';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -43,6 +44,40 @@ afterEach(() => {
 });
 
 describe('TrainingRecordModal', () => {
+	it('keeps the record draft and confirmation after failed deletion, then closes after retry', async () => {
+		const onRemove = vi.fn().mockRejectedValueOnce(new Error('Removal failed')).mockResolvedValueOnce(undefined);
+		const onClose = vi.fn();
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		render(TrainingRecordModal, {
+			props: {
+				person,
+				trainingType,
+				existingTraining: {
+					id: 'record-1',
+					personnelId: person.id,
+					trainingTypeId: trainingType.id,
+					completionDate: '2026-01-05',
+					expirationDate: '2027-01-05',
+					notes: 'Saved notes',
+					certificateUrl: null
+				},
+				onSave: vi.fn(),
+				onRemove,
+				onClose
+			}
+		});
+		await fireEvent.input(screen.getByLabelText('Notes (optional)'), { target: { value: 'Unsaved draft' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await waitFor(() => expect(errorToast).toHaveBeenCalled());
+		expect(onClose).not.toHaveBeenCalled();
+		expect((screen.getByLabelText('Notes (optional)') as HTMLTextAreaElement).value).toBe('Unsaved draft');
+		expect(screen.getByRole('alertdialog')).toBeTruthy();
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+		expect(onRemove.mock.calls).toEqual([['record-1'], ['record-1']]);
+	});
+
 	it('ignores repeated save clicks while a save is already pending', async () => {
 		let resolveSave!: () => void;
 		const onSave = vi.fn(

@@ -3,7 +3,6 @@ import { createInMemoryDataStore } from './inMemory';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import type { DataStore, GroupScopeRule } from '$lib/server/core/ports';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
 
 const ORG = 'org-1';
 const GROUP_A = 'group-a';
@@ -32,7 +31,7 @@ const scopeRules = new Map<string, GroupScopeRule>([
 ]);
 
 describe('ScopedDataStore', () => {
-	it.each<{ scope: ScopeSet | string[] }>([{ scope: [] }, { scope: { kind: 'groups', groupIds: [] } }])(
+	it.each([{ scope: [] }, { scope: { kind: 'groups' as const, groupIds: [] } }])(
 		'returns no mapped rows or counts for empty Group scope %j without reading the provider',
 		async ({ scope }) => {
 			const inner = createInMemoryDataStore();

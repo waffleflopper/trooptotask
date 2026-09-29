@@ -165,6 +165,7 @@ async function main() {
 		const orgDestinations = [
 			'personnel',
 			'training',
+			'training/reports',
 			'calendar',
 			'calendar/settings',
 			'calendar/bulk',
@@ -174,6 +175,7 @@ async function main() {
 			'critical-tasks/reports',
 			'settings/policies',
 			'settings/members',
+			'settings/exports',
 			'settings/danger'
 		];
 		if (
@@ -218,7 +220,8 @@ async function main() {
 												'Access restricted'
 											];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
-		const created = text(await tool(state, 'new_page', { url, isolatedContext: `map-${role}-${randomUUID()}` }));
+		const browserContext = `map-${role}-${randomUUID()}`;
+		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
 		const pageId = Number(
 			created
 				.split('\n')
@@ -257,6 +260,7 @@ async function main() {
 		note({
 			role,
 			pageId,
+			browserContext,
 			orgId: targetOrg ? org(targetOrg) : null,
 			path: landed,
 			access: page.includes("You don't have permission to view this page") ? 'denied' : 'not-assessed',
@@ -415,7 +419,8 @@ async function main() {
 	}
 	if (command === 'seed') {
 		const kind = args[0];
-		if (!['duplicate-able', 'overlap', 'bulk-501'].includes(kind)) throw new Error('Unknown temporary seed.');
+		if (!['duplicate-able', 'overlap', 'bulk-501', 'training-pages'].includes(kind))
+			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
@@ -434,6 +439,19 @@ async function main() {
 					slug: `map-duplicate-${tag}`
 				}
 			];
+		} else if (kind === 'training-pages') {
+			table = 'personnel';
+			records = Array.from({ length: 26 }, (_, index) => ({
+				id: randomUUID(),
+				organization_id: org('orgA'),
+				group_id: fixture.ids.groupA,
+				first_name: 'Synthetic',
+				last_name: `MapTraining${tag}${String(index).padStart(2, '0')}`,
+				rank: 'PFC',
+				mos: index === 0 ? '68W' : '11B',
+				clinic_role: index === 0 ? 'Medic' : 'NCO',
+				slug: `map-training-${tag}-${String(index).padStart(2, '0')}`
+			}));
 		} else if (kind === 'overlap') {
 			table = 'availability_entries';
 			records = [
@@ -508,19 +526,22 @@ async function main() {
 					'training-reports',
 					'training-reports/detail',
 					'training-reports/export',
+					'export',
+					'export-excel',
 					'personnel-ict-completions',
 					'personnel-ict-completions/batch',
 					'critical-tasks/reports/summary',
 					'critical-tasks/reports/export',
 					'critical-tasks/matrix/export'
 				].includes(family) &&
-				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family)
+				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
+				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family)
 			)
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
 			const suffix = `/org/${org('orgA')}/api/${family}`;
-			const mode = action === 'arm-fail' ? 'fail' : 'hold';
+			const mode = action === 'arm-fail' ? 'fail' : action === 'arm-hold' ? 'hold' : 'observe';
 			const result = await evaluate(
 				state,
 				pageId,
@@ -565,8 +586,21 @@ async function main() {
 					`() => {
 				if (window.__mapExport) throw new Error('Restore the previous export capture first');
 				const original = URL.createObjectURL;
-				window.__mapExport = { original, blob: null };
-				URL.createObjectURL = function(blob) { window.__mapExport.blob = blob; return original.call(URL, blob); };
+				const capture = { original, blob: null, url: null, filename: null, observer: null };
+				window.__mapExport = capture;
+				URL.createObjectURL = function(blob) {
+					capture.blob = blob;
+					capture.url = original.call(URL, blob);
+					capture.filename = null;
+					return capture.url;
+				};
+				capture.observer = new MutationObserver((records) => {
+					for (const record of records) for (const node of record.addedNodes) {
+						if (node instanceof HTMLAnchorElement && node.href === capture.url && node.download)
+							capture.filename = node.download;
+					}
+				});
+				capture.observer.observe(document.body, { childList: true, subtree: true });
 				return { armed: true };
 			}`
 				)
@@ -578,15 +612,25 @@ async function main() {
 				await evaluate(
 					state,
 					pageId,
-					'() => { const c = window.__mapExport; if (!c) return { restored: false }; URL.createObjectURL = c.original; delete window.__mapExport; return { restored: true }; }'
+					'() => { const c = window.__mapExport; if (!c) return { restored: false }; c.observer.disconnect(); URL.createObjectURL = c.original; delete window.__mapExport; return { restored: true }; }'
+				)
+			);
+			return;
+		}
+		if (action === 'state') {
+			note(
+				await evaluate(
+					state,
+					pageId,
+					'() => ({ captured: !!window.__mapExport?.blob, filename: window.__mapExport?.filename ?? null, mimeType: window.__mapExport?.blob?.type ?? null, bytes: window.__mapExport?.blob?.size ?? null })'
 				)
 			);
 			return;
 		}
 		if (action !== 'save' || !filename) throw new Error('Use export arm, save PAGE FILE, or restore.');
 		const target = path.resolve(filename);
-		if (!target.startsWith(evidenceRoot + path.sep) || !/\.(xlsx|pdf)$/.test(target))
-			throw new Error('Export path must be an .xlsx or .pdf under the skill evidence directory.');
+		if (!target.startsWith(evidenceRoot + path.sep) || !/\.(xlsx|pdf|json)$/.test(target))
+			throw new Error('Export path must be an .xlsx, .pdf or .json under the skill evidence directory.');
 		const result = await evaluate(
 			state,
 			pageId,
@@ -596,13 +640,20 @@ async function main() {
 			const bytes = new Uint8Array(await blob.arrayBuffer());
 			let binary = '';
 			for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-			return { captured: true, base64: btoa(binary) };
+			return { captured: true, base64: btoa(binary), filename: window.__mapExport.filename, mimeType: blob.type };
 		}`
 		);
 		if (!result.captured) throw new Error('No workbook Blob was captured.');
 		await fs.mkdir(path.dirname(target), { recursive: true });
-		await fs.writeFile(target, Buffer.from(result.base64, 'base64'));
-		note({ saved: target, bytes: (await fs.stat(target)).size });
+		const bytes = Buffer.from(result.base64, 'base64');
+		await fs.writeFile(target, bytes);
+		note({
+			saved: target,
+			bytes: bytes.length,
+			filename: result.filename,
+			mimeType: result.mimeType,
+			sha256: createHash('sha256').update(bytes).digest('hex')
+		});
 		return;
 	}
 	if (command === 'workbook') {

@@ -37,6 +37,7 @@ import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
+import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
 import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelArtifactWritePort } from '$features/personnel/index.server';
@@ -218,6 +219,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 
 	const notifications = createSupabaseNotificationAdapter();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
+	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
@@ -251,6 +253,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			storage: createSupabaseStorageAdapter(supabase),
 			sensitiveActionAuthorizer,
 			criticalTasksReadModel,
+			criticalTasksSettingsWrite,
 			personnelRatingSchemeRoster,
 			personnelAwardAcknowledgement,
 			personnelArtifactWrites,
@@ -312,6 +315,7 @@ export async function buildLayoutContext(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
+	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
@@ -344,6 +348,7 @@ export async function buildLayoutContext(
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
+		criticalTasksSettingsWrite,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
 		personnelArtifactWrites,
@@ -393,6 +398,7 @@ export async function buildLayoutContextFromMembership(
 	const notifications = createSupabaseNotificationAdapter();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
+	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
@@ -425,6 +431,7 @@ export async function buildLayoutContextFromMembership(
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
+		criticalTasksSettingsWrite,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
 		personnelArtifactWrites,

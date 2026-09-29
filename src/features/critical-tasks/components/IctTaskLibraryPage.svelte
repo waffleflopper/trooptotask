@@ -11,6 +11,8 @@
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
+	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
+	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
@@ -35,6 +37,7 @@
 
 	const org = getOrgContext();
 	const orgId = $derived(data.orgId ?? org.orgId);
+	const settings = $derived(criticalTasksSettingsFromWorkspaceData(data, orgId));
 	const configureLibraryAffordance = $derived(criticalTasksConfigureLibraryAffordance(org));
 	const canViewLibrary = $derived(configureLibraryAffordance.visible);
 	const canManage = $derived(configureLibraryAffordance.allowed);
@@ -46,6 +49,7 @@
 	let creating = $state(false);
 	let editing = $state(false);
 	let saving = $state(false);
+	let formError = $state('');
 	let importingTasks = $state(false);
 	let confirmArchive = $state<IctTask | null>(null);
 	let taskStatusFilter = $state<'active' | 'archived'>('active');
@@ -59,6 +63,7 @@
 	let formMos = $state('');
 	let formExpirationMonths = $state('');
 	let formSortOrder = $state('0');
+	let lastOrgId = $state('');
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
 	const archivedTasks = $derived(getArchivedIctTasksForLibrary(ictTasksStore.items));
@@ -143,6 +148,32 @@
 	});
 
 	$effect(() => {
+		if (!lastOrgId) {
+			lastOrgId = orgId;
+			return;
+		}
+		if (lastOrgId === orgId) return;
+		lastOrgId = orgId;
+		selectedTaskId = null;
+		creating = false;
+		editing = false;
+		saving = false;
+		importingTasks = false;
+		confirmArchive = null;
+		taskStatusFilter = 'active';
+		taskSearch = '';
+		selectedMos = '';
+		formTaskCode = '';
+		formTitle = '';
+		formDescription = '';
+		formCategory = '';
+		formMos = '';
+		formExpirationMonths = '';
+		formSortOrder = '0';
+		formError = '';
+	});
+
+	$effect(() => {
 		if (selectedTaskId && !visibleTasks.some((task) => task.id === selectedTaskId)) {
 			selectedTaskId = null;
 		}
@@ -188,6 +219,7 @@
 	}
 
 	function resetForm(task?: IctTask) {
+		formError = '';
 		formTaskCode = task?.taskCode ?? '';
 		formTitle = task?.title ?? '';
 		formDescription = task?.description ?? '';
@@ -219,6 +251,7 @@
 		creating = false;
 		editing = false;
 		saving = false;
+		formError = '';
 	}
 
 	function startImport() {
@@ -262,6 +295,8 @@
 		event?.preventDefault();
 		if (!canManage || saving || !formTaskCode.trim() || !formTitle.trim()) return;
 
+		const requestOrgId = orgId;
+		formError = '';
 		saving = true;
 		try {
 			const payload = {
@@ -277,14 +312,23 @@
 
 			if (creating) {
 				const created = await ictTasksStore.add(payload as Omit<IctTask, 'id'>);
+				if (orgId !== requestOrgId) return;
 				if (created) selectedTaskId = created.id;
 				creating = false;
 			} else if (selectedTaskId) {
-				await ictTasksStore.update(selectedTaskId, payload);
+				const updated = await ictTasksStore.update(selectedTaskId, payload);
+				if (orgId !== requestOrgId) return;
+				if (!updated) {
+					throw new Error('Could not save task changes');
+				}
 			}
 			editing = false;
+		} catch (error) {
+			if (orgId === requestOrgId) {
+				formError = error instanceof Error ? error.message : 'Could not save task';
+			}
 		} finally {
-			saving = false;
+			if (orgId === requestOrgId) saving = false;
 		}
 	}
 
@@ -563,6 +607,9 @@
 								</Field.Root>
 							</div>
 
+							{#if formError}
+								<p class="text-sm text-destructive" role="alert">{formError}</p>
+							{/if}
 							<div class="flex flex-wrap justify-end gap-2">
 								<Button variant="outline" size="sm" type="button" onclick={cancelEdit}>Cancel</Button>
 								<Button size="sm" type="submit" disabled={!formTaskCode.trim() || !formTitle.trim() || saving}>
@@ -646,6 +693,9 @@
 					{/if}
 				</section>
 			</div>
+		{/if}
+		{#if !loading && canManage && settings}
+			<CriticalTasksDefaults {orgId} {settings} />
 		{/if}
 	</div>
 {/if}

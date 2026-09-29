@@ -50,45 +50,17 @@
 			policiesState.savingWarningWindow = false;
 		}
 	}
-
-	async function handleCriticalTasksSave() {
-		if (
-			!policiesState.hasCriticalTasksChanges ||
-			!policiesState.isCriticalTasksValid ||
-			policiesState.savingCriticalTasks
-		)
-			return;
-		policiesState.savingCriticalTasks = true;
-		try {
-			await saveSettings({
-				criticalTasksDefaultExpirationMonths: policiesState.criticalTasksDefaultExpirationMonths,
-				criticalTasksExpiringSoonWarningDays: policiesState.criticalTasksExpiringSoonWarningDays
-			});
-			policiesState.markCriticalTasksSaved();
-			toastStore.success('Critical Tasks settings saved');
-		} catch {
-			toastStore.error('Failed to save Critical Tasks settings');
-		} finally {
-			policiesState.savingCriticalTasks = false;
-		}
-	}
 </script>
 
 <PoliciesSettingsSection
 	bind:retentionMonths={policiesState.retentionMonths}
 	bind:warningWindowDays={policiesState.warningWindowDays}
-	bind:criticalTasksDefaultExpirationMonths={policiesState.criticalTasksDefaultExpirationMonths}
-	bind:criticalTasksExpiringSoonWarningDays={policiesState.criticalTasksExpiringSoonWarningDays}
 	hasRetentionChanges={policiesState.hasRetentionChanges}
 	isRetentionValid={policiesState.isRetentionValid}
 	hasLossWarningChanges={policiesState.hasLossWarningChanges}
 	isLossWarningValid={policiesState.isLossWarningValid}
-	hasCriticalTasksChanges={policiesState.hasCriticalTasksChanges}
-	isCriticalTasksValid={policiesState.isCriticalTasksValid}
 	savingRetention={policiesState.savingRetention}
 	savingWarningWindow={policiesState.savingWarningWindow}
-	savingCriticalTasks={policiesState.savingCriticalTasks}
 	onSaveRetention={handleRetentionSave}
 	onSaveLossWarning={handleLossWarningSave}
-	onSaveCriticalTasks={handleCriticalTasksSave}
 />

@@ -32,7 +32,9 @@ const tableColumns = {
 	training_types: 'organization_id',
 	training_views: 'organization_id',
 	personnel_trainings: 'organization_id',
-	onboarding_templates: 'organization_id'
+	onboarding_templates: 'organization_id',
+	ict_tasks: 'organization_id',
+	personnel_ict_completions: 'organization_id'
 };
 const tableSelect = {
 	training_types:
@@ -59,7 +61,9 @@ const filters = new Set([
 	'type',
 	'email',
 	'status',
-	'invitation_id'
+	'invitation_id',
+	'task_code',
+	'ict_task_id'
 ]);
 
 async function owned() {
@@ -161,6 +165,9 @@ async function main() {
 			'calendar/settings',
 			'calendar/bulk',
 			'calendar/reports',
+			'critical-tasks',
+			'critical-tasks/library',
+			'settings/policies',
 			'settings/members',
 			'settings/danger'
 		];
@@ -178,15 +185,26 @@ async function main() {
 					? '/org/new'
 					: `/org/${org(targetOrg)}/${destination}`;
 		const readyText =
-			destination === 'settings/members'
-				? ['Access Management', "You don't have permission to view this page"]
-				: destination === 'settings/danger'
-					? ['Destructive Actions', "You don't have permission to view this page"]
-					: destination === 'dashboard'
-						? ['Pending Invitations', 'Organizations']
-						: destination === 'org/new'
-							? ['Create your first Organization', 'Confirm your email first']
-							: ['Calendar', 'Training', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'];
+			destination === 'critical-tasks/library'
+				? [
+						'ICT task library controls',
+						'Access Restricted',
+						'Access restricted',
+						"You don't have permission to view this page"
+					]
+				: destination === 'critical-tasks'
+					? ['Critical Tasks', 'Access restricted']
+					: destination === 'settings/policies'
+						? ['Archive Retention', "You don't have permission to view this page"]
+						: destination === 'settings/members'
+							? ['Access Management', "You don't have permission to view this page"]
+							: destination === 'settings/danger'
+								? ['Destructive Actions', "You don't have permission to view this page"]
+								: destination === 'dashboard'
+									? ['Pending Invitations', 'Organizations']
+									: destination === 'org/new'
+										? ['Create your first Organization', 'Confirm your email first']
+										: ['Calendar', 'Training', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: `map-${role}-${randomUUID()}` }));
 		const pageId = Number(

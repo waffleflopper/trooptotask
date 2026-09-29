@@ -14,6 +14,7 @@ import type { PersonnelOrganizationExportPort } from '$features/personnel/contra
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
+import type { CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -233,6 +234,7 @@ export interface UseCaseContext {
 	storage: StoragePort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	criticalTasksSettingsWrite?: CriticalTasksSettingsWritePort;
 	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;

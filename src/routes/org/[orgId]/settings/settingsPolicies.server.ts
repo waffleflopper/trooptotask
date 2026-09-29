@@ -1,10 +1,7 @@
-import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
 	ARCHIVE_RETENTION_CONSTRAINT,
-	CRITICAL_TASKS_DEFAULT_EXPIRATION_CONSTRAINT,
-	CRITICAL_TASKS_EXPIRING_SOON_WARNING_CONSTRAINT,
 	DEFAULT_ARCHIVE_RETENTION_MONTHS,
 	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 	LOSS_WARNING_CONSTRAINT
@@ -32,7 +29,7 @@ export async function loadPoliciesSettings(
 		'organizations',
 		ctx.auth.orgId,
 		{},
-		'archive_retention_months, loss_warning_window_days, critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
+		'archive_retention_months, loss_warning_window_days'
 	);
 
 	return buildPoliciesSettingsData(ctx, {
@@ -47,10 +44,6 @@ export function buildPoliciesSettingsData(
 ): PoliciesSettingsData {
 	const isOwner = ctx.auth.role === 'owner';
 	const canManageMembers = ctx.auth.canManageMembers;
-	const criticalTasksSettings = normalizeCriticalTasksSettings({
-		defaultExpirationMonths: input.organizationSettings?.critical_tasks_default_expiration_months ?? null,
-		expiringSoonWarningDays: input.organizationSettings?.critical_tasks_expiring_soon_warning_days ?? null
-	});
 
 	return {
 		currentMember: {
@@ -69,14 +62,7 @@ export function buildPoliciesSettingsData(
 					savedDays: input.organizationSettings?.loss_warning_window_days ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 					constraints: LOSS_WARNING_CONSTRAINT
 				},
-				criticalTasks: {
-					savedDefaultExpirationMonths: criticalTasksSettings.defaultExpirationMonths,
-					savedExpiringSoonWarningDays: criticalTasksSettings.expiringSoonWarningDays,
-					defaultExpirationConstraints: CRITICAL_TASKS_DEFAULT_EXPIRATION_CONSTRAINT,
-					expiringSoonWarningConstraints: CRITICAL_TASKS_EXPIRING_SOON_WARNING_CONSTRAINT
-				},
-				canUpdateRetention: canManageMembers,
-				canUpdateCriticalTasksSettings: canManageMembers
+				canUpdateRetention: canManageMembers
 			}
 		}
 	};

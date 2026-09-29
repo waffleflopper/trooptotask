@@ -58,14 +58,7 @@ export type SettingsPoliciesSectionData = {
 		savedDays: number;
 		constraints: WorkspaceConstraint<'days'>;
 	};
-	criticalTasks: {
-		savedDefaultExpirationMonths: number;
-		savedExpiringSoonWarningDays: number;
-		defaultExpirationConstraints: WorkspaceConstraint<'months'>;
-		expiringSoonWarningConstraints: WorkspaceConstraint<'days'>;
-	};
 	canUpdateRetention: boolean;
-	canUpdateCriticalTasksSettings: boolean;
 };
 
 export type SettingsCurrentMemberData = {

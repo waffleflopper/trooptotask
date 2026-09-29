@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import TrainingRecordModal from './TrainingRecordModal.svelte';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
-import { toastStore } from '$lib/stores/toast.svelte';
+import { toast } from 'svelte-sonner';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -47,7 +47,7 @@ describe('TrainingRecordModal', () => {
 	it('keeps the record draft and confirmation after failed deletion, then closes after retry', async () => {
 		const onRemove = vi.fn().mockRejectedValueOnce(new Error('Removal failed')).mockResolvedValueOnce(undefined);
 		const onClose = vi.fn();
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
 		render(TrainingRecordModal, {
 			props: {
 				person,

@@ -4,7 +4,7 @@
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
-	import { toastStore } from '$lib/stores/toast.svelte';
+	import { toast } from 'svelte-sonner';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -239,7 +239,9 @@
 		try {
 			await onRemove(existing.id);
 		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.');
+			toast.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.', {
+				duration: 6000
+			});
 			return;
 		}
 		confirmRemoveTypeId = null;

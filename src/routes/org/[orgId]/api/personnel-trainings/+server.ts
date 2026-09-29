@@ -3,11 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
-import {
-	createTrainingRecord,
-	deleteTrainingRecord,
-	updateTrainingRecord
-} from '$lib/server/core/useCases/trainingRecords';
+import { createTrainingRecord, deleteTrainingRecord, updateTrainingRecord } from '$features/training/index.server';
 
 export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,

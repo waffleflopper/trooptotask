@@ -2,11 +2,11 @@
  * Personnel training entity — maps `personnel_trainings`.
  * Training records use Training-lane SQL RLS for Organization and Group reads.
  * `expirationDate` is computed from `completionDate +
- * training_type.expiration_months` by `calculateExpirationDate` in `trainingRecords.ts`.
+ * training_type.expiration_months` by `calculateExpirationDate` in the owned `utils/trainingStatus` utility.
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { PersonnelTraining } from '$features/training/training.types';
+import type { PersonnelTraining } from '../contracts';
 
 export const PersonnelTrainingEntity = defineEntity<PersonnelTraining>({
 	table: 'personnel_trainings',

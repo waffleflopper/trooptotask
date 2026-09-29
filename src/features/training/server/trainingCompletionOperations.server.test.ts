@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
-	calculateExpirationDate,
 	createTrainingRecord,
 	deleteTrainingRecord,
 	updateTrainingRecord
-} from './trainingRecords';
+} from './trainingCompletionOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
@@ -82,28 +81,6 @@ function seedRecord(ctx: ReturnType<typeof buildContext>) {
 	]);
 }
 
-describe('calculateExpirationDate', () => {
-	it('returns date offset by expiration months from completion date', () => {
-		const result = calculateExpirationDate('2025-03-15', 12);
-		expect(result).toBe('2026-03-15');
-	});
-
-	it('returns null when expiration months is null', () => {
-		expect(calculateExpirationDate('2025-03-15', null)).toBeNull();
-	});
-
-	it('returns null when completion date is null', () => {
-		expect(calculateExpirationDate(null, 12)).toBeNull();
-	});
-
-	it('clamps month-end overflow instead of rolling into the next month', () => {
-		// BUG-FIX (issue #1148): was `date.setMonth(+n)` which overflowed
-		// 2025-01-31 + 1 month → 2025-03-03. Now clamps to the last valid day,
-		// matching the client preview in trainingStatus.ts.
-		expect(calculateExpirationDate('2025-01-31', 1)).toBe('2025-02-28');
-	});
-});
-
 describe('createTrainingRecord', () => {
 	const validInput = {
 		personnelId: 'p-1',
@@ -118,7 +95,7 @@ describe('createTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
 
-		const result = (await createTrainingRecord(ctx, validInput)) as Record<string, unknown>;
+		const result = await createTrainingRecord(ctx, validInput);
 
 		expect(result).toMatchObject({
 			personnelId: 'p-1',
@@ -142,11 +119,11 @@ describe('createTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_date_only: true, expiration_months: null });
 
-		const result = (await createTrainingRecord(ctx, {
+		const result = await createTrainingRecord(ctx, {
 			...validInput,
 			completionDate: null,
 			expirationDate: '2027-06-01'
-		})) as Record<string, unknown>;
+		});
 
 		expect(result).toMatchObject({
 			expirationDate: '2027-06-01'
@@ -158,7 +135,7 @@ describe('createTrainingRecord', () => {
 		seedPersonnel(ctx);
 		seedTrainingType(ctx, { expiration_months: null });
 
-		const result = (await createTrainingRecord(ctx, validInput)) as Record<string, unknown>;
+		const result = await createTrainingRecord(ctx, validInput);
 		expect(result.expirationDate).toBeNull();
 	});
 
@@ -168,10 +145,10 @@ describe('createTrainingRecord', () => {
 		seedTrainingType(ctx);
 
 		await createTrainingRecord(ctx, validInput);
-		const result = (await createTrainingRecord(ctx, {
+		const result = await createTrainingRecord(ctx, {
 			...validInput,
 			completionDate: '2025-06-01'
-		})) as Record<string, unknown>;
+		});
 
 		expect(result).toMatchObject({
 			completionDate: '2025-06-01',
@@ -341,6 +318,39 @@ describe('createTrainingRecord', () => {
 });
 
 describe('updateTrainingRecord', () => {
+	it('edits expiration-only dates and notes while preserving completion identity and null completion date', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { expiration_date_only: true, expiration_months: null });
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'date-only-record',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				training_type_id: 'tt-1',
+				completion_date: null,
+				expiration_date: '2026-10-14',
+				notes: 'original',
+				certificate_url: null
+			}
+		]);
+		const result = await updateTrainingRecord(ctx, {
+			id: 'date-only-record',
+			expirationDate: '2026-10-15',
+			notes: 'updated'
+		});
+		expect(result).toMatchObject({
+			id: 'date-only-record',
+			personnelId: 'p-1',
+			trainingTypeId: 'tt-1',
+			completionDate: null,
+			expirationDate: '2026-10-15',
+			notes: 'updated'
+		});
+		await expect(
+			ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'date-only-record' })
+		).resolves.toMatchObject({ completion_date: null, expiration_date: '2026-10-15', notes: 'updated' });
+	});
 	it('conceals missing and foreign records without writing or auditing an update', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);
@@ -373,11 +383,11 @@ describe('updateTrainingRecord', () => {
 		seedTrainingType(ctx);
 		seedRecord(ctx);
 
-		const result = (await updateTrainingRecord(ctx, {
+		const result = await updateTrainingRecord(ctx, {
 			id: 'tr-1',
 			completionDate: '2025-06-01',
 			notes: 'Updated score'
-		})) as Record<string, unknown>;
+		});
 
 		expect(result).toMatchObject({
 			id: 'tr-1',
@@ -429,6 +439,39 @@ describe('updateTrainingRecord', () => {
 				severity: 'warning'
 			})
 		);
+	});
+});
+
+describe('completion write scope', () => {
+	it('denies create, update and delete for an empty Group scope without changing the stored completion', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'configure',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+		await expect(
+			createTrainingRecord(ctx, { personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-04-01' })
+		).rejects.toMatchObject({ status: 403 });
+		await expect(updateTrainingRecord(ctx, { id: 'tr-1', completionDate: '2026-04-01' })).rejects.toMatchObject({
+			status: 403
+		});
+		await expect(deleteTrainingRecord(ctx, 'tr-1')).rejects.toMatchObject({ status: 403 });
+		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toMatchObject([
+			{ id: 'tr-1', completion_date: '2025-03-15', expiration_date: '2026-03-15', notes: null, certificate_url: null }
+		]);
 	});
 });
 

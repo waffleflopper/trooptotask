@@ -1,10 +1,10 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { importTrainingRecords } from '$lib/server/core/useCases/trainingRecordsBatch';
+import { importTrainingRecords } from '$features/training/index.server';
 
-type ImportTrainingRecordsInput = Parameters<typeof importTrainingRecords>[1];
+import type { TrainingBatchImportInput } from '$features/training/contracts';
 
-export const _postConfig: RouteConfig<ImportTrainingRecordsInput, unknown> = {
+export const _postConfig: RouteConfig<TrainingBatchImportInput, unknown> = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.recordCompletions,
 	policyResource: { kind: 'unscoped' },

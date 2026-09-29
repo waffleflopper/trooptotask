@@ -1,50 +1,20 @@
-/**
- * Bulk training record import — upserts up to MAX_BATCH_SIZE (500) records at once.
- *
- * Used by the CSV bulk-import flow in the training feature. Reuses `calculateExpirationDate`
- * from `trainingRecords.ts` so expiration logic stays in one place.
- *
- * For single-record mutations, see `trainingRecords.ts`.
- */
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { calculateExpirationDate, policyResourcesForTrainingPersonnel } from './trainingRecords';
-import type { WritePorts } from '$lib/server/core/ports';
-import { requireFeaturePolicy } from './featurePolicy';
+import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
+import { policyResourcesForTrainingPersonnel } from './trainingCompletionOperations.server';
+import { calculateExpirationDate } from '../utils/trainingStatus';
+import type { TrainingCompletionWriteContext } from './trainingCompletionPorts.server';
+import type { TrainingBatchImportInput, TrainingBatchImportResult } from '../contracts';
+import { requireFeaturePolicy } from '$lib/access/index.server';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
 const MAX_BATCH_SIZE = 500;
 
-interface BatchTrainingRecord {
-	personnelId: string;
-	trainingTypeId: string;
-	completionDate: string | null;
-	notes?: string;
-	status: 'completed' | 'exempt';
-}
-
-interface ImportTrainingRecordsInput {
-	records: BatchTrainingRecord[];
-}
-
-interface BatchError {
-	index: number;
-	message: string;
-}
-
-interface BatchImportResult {
-	inserted: unknown[];
-	updated: unknown[];
-	exempted: Array<{ index: number; personnelId: string; trainingTypeId: string }>;
-	errors: BatchError[];
-}
-
 export async function importTrainingRecords(
-	ctx: WritePorts,
-	input: ImportTrainingRecordsInput
-): Promise<BatchImportResult> {
+	ctx: TrainingCompletionWriteContext,
+	input: TrainingBatchImportInput
+): Promise<TrainingBatchImportResult> {
 	const { records } = input;
 
 	if (!Array.isArray(records) || records.length === 0) {
@@ -103,7 +73,7 @@ export async function importTrainingRecords(
 	});
 	const existingMap = new Map(existingRecords.map((e) => [`${e.personnel_id}:${e.training_type_id}`, e.id]));
 
-	const batchErrors: BatchError[] = [];
+	const batchErrors: TrainingBatchImportResult['errors'] = [];
 	const completedRows: Record<string, unknown>[] = [];
 	const exemptionUpdates: Map<string, Set<string>> = new Map();
 

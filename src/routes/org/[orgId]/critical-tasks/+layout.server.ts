@@ -6,7 +6,7 @@ import {
 	streamCriticalTasksWorkspaceBootstrap,
 	type CriticalTasksWorkspaceRequestContext,
 	type CriticalTasksWorkspaceRouteData
-} from '$features/critical-tasks/server/criticalTasksWorkspaceBootstrap';
+} from './criticalTasksWorkspace.server';
 
 export interface CriticalTasksLayoutLoadDeps {
 	streamCriticalTasksWorkspace?: (

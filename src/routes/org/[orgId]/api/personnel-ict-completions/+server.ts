@@ -1,6 +1,6 @@
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { PersonnelIctCompletionEntity } from '$features/critical-tasks/index.server';
 import { entityHandlers, handle } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';

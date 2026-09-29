@@ -6,7 +6,7 @@ import {
 	createCriticalTasksWorkspaceHydrator,
 	type CriticalTasksHydrationStores
 } from './criticalTasksWorkspaceHydration.svelte';
-import type { CriticalTasksWorkspaceHydration } from './server/criticalTasksWorkspaceBootstrap';
+import type { CriticalTasksWorkspaceHydration } from './contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;

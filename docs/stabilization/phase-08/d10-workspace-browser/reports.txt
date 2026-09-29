@@ -1,0 +1,247 @@
+VO
+Verification Organization A
+member
+Navigation
+Home
+ICTLs
+ME
+Account
+Signed in
+Skip to main content
+Toggle Sidebar
+Verification Organization A
+Critical Tasks
+Reports
+Feedback
+All Groups
+All Ranks
+MOS
+All Duty Roles
+Export Excel
+FILTERS
+0
+POPULATION
+3
+Readiness summary
+
+Current filtered population
+
+Overall
+14%
+Ready
+1
+Applicable
+7
+30-day delta
++14% over 30 days
+Immediate risk
+
+Top rows from the active filter set.
+
+Tasks
+
+VERIFY-ICT-ALL
+
+0%
+
+Verification All-MOS Critical Task
+
+VERIFY-ICT-FINAL
+
+0%
+
+Final workspace verification task
+
+VERIFY-ICT-ALPHA
+
+50%
+
+Verification Alpha Critical Task
+
+Soldiers
+
+Baker, Synthetic
+
+SPC / 11B
+
+0%
+
+Unassigned, Synthetic
+
+SPC / 68W
+
+0%
+
+Able, Synthetic
+
+SPC / 68W
+
+33%
+Readiness Matrix - MOS x Task Category
+
+CELL = % TRAINED AND CURRENT
+
+MOS rows and task category columns, with each cell showing the percent trained and current.
+
+MOS	Clinical	Uncategorized	Avg
+68W 2 Soldiers
+25%
+
+0%
+
+17%
+
+11B 1 Soldier
+-
+
+0%
+
+0%
+<60%
+60-69%
+70-79%
+80-89%
+90%+
+NOT APPLICABLE
+Readiness Trend - 12 Months
+
+Unit readiness over time with top MOS comparisons by filtered headcount.
+
+% CURRENT
+
+0%
+20%
+40%
+60%
+80%
+100%
+Oct 2025
+Nov 2025
+Dec 2025
+Jan 2026
+Feb 2026
+Mar 2026
+Apr 2026
+May 2026
+Jun 2026
+Jul 2026
+Aug 2026
+Sep 2026
+Unit
+68W
+11B
+
+READINESS FELL BELOW 50%, SO THIS CHART USES THE FULL 0-100% SCALE.
+
+Month	Unit-wide readiness	68W readiness	11B readiness
+Oct 2025	0%	0%	0%
+Nov 2025	0%	0%	0%
+Dec 2025	0%	0%	0%
+Jan 2026	0%	0%	0%
+Feb 2026	0%	0%	0%
+Mar 2026	0%	0%	0%
+Apr 2026	0%	0%	0%
+May 2026	0%	0%	0%
+Jun 2026	0%	0%	0%
+Jul 2026	0%	0%	0%
+Aug 2026	0%	0%	0%
+Sep 2026	14%	17%	0%
+Expiration Cliff - Next 6 Months
+
+Task completion expirations over the next six calendar months, stacked by MOS.
+
+TASKS LAPSING BY MONTH
+
+No expiring completions
+No task completions expire in the next 6 months for the active filters.
+Month	Total expiring
+Sep 2026	0
+Oct 2026	0
+Nov 2026	0
+Dec 2026	0
+Jan 2027	0
+Feb 2027	0
+Tasks Below Unit Threshold
+
+<70% COMPLETE
+
+TASK
+
+COMPLETE
+
+GAP
+
+
+VERIFY-ICT-ALL
+Verification All-MOS Critical Task
+	0%	3
+
+VERIFY-ICT-FINAL
+Final workspace verification task
+	0%	2
+
+VERIFY-ICT-ALPHA
+Verification Alpha Critical Task
+	50%	1
+At-Risk Soldiers - Call List
+
+SORTED WORST FIRST
+
+SOLDIER
+
+MOS
+
+%
+
+EXP <=60D
+
+LAST UPDATE
+
+
+Baker, Synthetic
+SPC / Bravo
+	11B	0%	0	No update
+
+Unassigned, Synthetic
+SPC /
+	68W	0%	0	No update
+
+Able, Synthetic
+SPC / Alpha
+	68W	33%	0	0d
+Distribution - Individual Readiness by MOS
+
+Soldiers grouped by individual readiness percentage for the selected MOS context.
+
+SOLDIERS BY READINESS BAND
+
+Soldiers grouped by individual readiness percentage.
+
+HISTOGRAM MOS
+68W (2 Soldiers)
+11B (1 Soldier)
+0
+1
+0-20%
+20-40%
+40-60%
+60-80%
+80-100%
+68W (2 Soldiers)
+Readiness band	68W Soldiers
+0-20%	1
+20-40%	1
+40-60%	0
+60-80%	0
+80-100%	0
+Distribution readout
+
+Use this with the selected MOS filter before choosing drill-down targets.
+
+Default MOS
+68W
+Series
+2
+Bands
+5
+80-100%

@@ -1,12 +1,11 @@
-import type { PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type { PersonnelIctCompletion } from '$features/critical-tasks/contracts';
 import {
 	reviewMappedIctCompletionImportRows,
 	type IctCompletionImportMappedRow
 } from '$features/critical-tasks/utils/ictCompletionImport';
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
-import { IctTaskEntity } from '$features/critical-tasks/index.server';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { IctTaskEntity, PersonnelIctCompletionEntity } from '$features/critical-tasks/index.server';
 import { requirePolicyDecision } from './policyAuthorization';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 

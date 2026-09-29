@@ -1,11 +1,35 @@
-import type { QueryPorts } from '$lib/server/core/ports';
-import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/contracts';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { Group } from '$features/personnel/contracts';
+import type { CriticalTasksWorkspaceData } from '../contracts';
+import type { IctTask, PersonnelIctCompletion } from '../criticalTasks.types';
+import type { Group, PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import { listGroupCatalog } from '$features/personnel/index.server';
-import { fetchCriticalTasksSettings } from '$features/critical-tasks/server/criticalTasksSettingsRead.server';
-import { IctTaskEntity } from '$features/critical-tasks/index.server';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
+import { IctTaskEntity } from './ictTaskEntity.server';
+import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
+
+interface CriticalTasksWorkspaceQueryContext {
+	auth: PersonnelRosterActor;
+	store: {
+		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
+		findMany<T>(
+			table: string,
+			orgId: string,
+			filters?: Record<string, unknown>,
+			options?: {
+				select?: string;
+				isNull?: Record<string, boolean>;
+				inFilters?: Record<string, string[]>;
+				orderBy?: Array<{ column: string; ascending: boolean }>;
+			}
+		): Promise<T[]>;
+	};
+	personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
+	criticalTasksReadModel: {
+		findLatestCompletions(
+			orgId: string,
+			filters: { personnelIds: string[]; taskIds: string[] }
+		): Promise<Record<string, unknown>[]>;
+	};
+}
 
 export interface CriticalTasksBootstrapOptions {
 	includeArchivedTasks?: boolean;
@@ -27,7 +51,7 @@ function loadCriticalTasksItems<R, T>(
 }
 
 export async function fetchCriticalTasksBootstrap(
-	ctx: QueryPorts,
+	ctx: CriticalTasksWorkspaceQueryContext,
 	options: CriticalTasksBootstrapOptions = {}
 ): Promise<CriticalTasksWorkspaceData> {
 	const orgId = ctx.auth.orgId;

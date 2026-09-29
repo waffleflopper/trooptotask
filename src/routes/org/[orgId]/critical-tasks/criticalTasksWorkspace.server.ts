@@ -12,8 +12,8 @@ import {
 	type CriticalTasksWorkspaceHydration,
 	type CriticalTasksWorkspaceHydrationTarget,
 	type CriticalTasksWorkspaceResult
-} from '../contracts';
-import { fetchCriticalTasksBootstrap } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
+} from '$features/critical-tasks/contracts';
+import { fetchCriticalTasksBootstrap } from '$features/critical-tasks/index.server';
 
 export interface CriticalTasksWorkspaceRequestContext {
 	locals: App.Locals;

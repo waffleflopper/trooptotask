@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { fetchCriticalTasksBootstrap } from './criticalTasksWorkspaceQuery';
+import { fetchCriticalTasksBootstrap } from './criticalTasksWorkspaceQuery.server';
 
 describe('criticalTasksWorkspaceQuery', () => {
 	it('returns settings immediately while leaving workspace lists promise-backed', async () => {

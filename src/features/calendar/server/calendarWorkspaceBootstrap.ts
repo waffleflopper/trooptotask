@@ -1,4 +1,4 @@
-import type { Cookies } from '@sveltejs/kit';
+import { isHttpError, type Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
@@ -20,8 +20,8 @@ import {
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 import { createInitialCalendarBufferedRange } from '$features/calendar/utils/calendarRange';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
 
 export const CALENDAR_WORKSPACE_LANE_KEY = 'calendar' as const;
@@ -69,8 +69,13 @@ export interface CalendarWorkspaceResult {
 	hydration: CalendarWorkspaceHydration;
 }
 
+export interface CalendarWorkspaceRestricted {
+	laneKey: typeof CALENDAR_WORKSPACE_LANE_KEY;
+	access: 'restricted';
+}
+
 export interface CalendarWorkspaceRouteData {
-	[CALENDAR_WORKSPACE_LANE_KEY]: DeferredData<CalendarWorkspaceResult>;
+	[CALENDAR_WORKSPACE_LANE_KEY]: DeferredData<CalendarWorkspaceResult | CalendarWorkspaceRestricted>;
 }
 
 function createCalendarHydrationTarget<T>(
@@ -167,6 +172,13 @@ export async function streamCalendarWorkspaceBootstrap(
 	});
 
 	return {
-		calendar: deferred
+		calendar: {
+			data: deferred.data.catch((cause: unknown) => {
+				if (isHttpError(cause, 403)) {
+					return { laneKey: CALENDAR_WORKSPACE_LANE_KEY, access: 'restricted' } as const;
+				}
+				throw cause;
+			})
+		}
 	};
 }

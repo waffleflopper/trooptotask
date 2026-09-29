@@ -11,8 +11,8 @@ import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay, StatusType } from '$features/calendar/contracts';
 import type {
 	CalendarAssignmentsWorkspaceHydrationTarget,
 	CalendarWorkspaceHydration,
@@ -50,6 +50,7 @@ export interface CalendarHydrationStores {
 
 export interface CalendarWorkspaceHydrator {
 	hydrate(hydration?: CalendarWorkspaceHydration, stores?: CalendarHydrationStores): Promise<void>;
+	restrict(orgId: string, stores?: CalendarHydrationStores): void;
 	reset(): void;
 }
 
@@ -179,6 +180,17 @@ export function createCalendarWorkspaceHydrator(): CalendarWorkspaceHydrator {
 	return {
 		reset() {
 			hydrationTargets.reset();
+		},
+
+		restrict(orgId: string, stores: CalendarHydrationStores = defaultCalendarHydrationStores) {
+			hydrationTargets.reset();
+			stores.personnelStore.load([], orgId);
+			stores.groupsStore.load([], orgId);
+			stores.statusTypesStore.load([], orgId);
+			stores.availabilityEntriesStore.load([], orgId);
+			stores.specialDaysStore.load([], orgId);
+			stores.calendarAssignmentsStore.load([], [], orgId);
+			stores.pinnedGroupsStore.load([], orgId);
 		},
 
 		async hydrate(

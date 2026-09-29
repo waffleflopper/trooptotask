@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { error } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import type { Personnel } from '$lib/types';
@@ -40,6 +41,14 @@ vi.mock('$features/calendar/index.server', async () => {
 });
 
 import { streamCalendarWorkspaceBootstrap } from './calendarWorkspaceBootstrap';
+
+function makeHttpError(status: number, message: string): unknown {
+	try {
+		error(status, message);
+	} catch (cause) {
+		return cause;
+	}
+}
 
 describe('streamCalendarWorkspaceBootstrap', () => {
 	const orgId = '11111111-1111-1111-1111-111111111111';
@@ -88,6 +97,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		});
 
 		const workspace = await routeData.calendar.data;
+		if ('access' in workspace) throw new Error('Expected an authorized Calendar workspace');
 
 		expect(routeData.calendar.data).toBeInstanceOf(Promise);
 		expect(workspace).toEqual({
@@ -126,6 +136,48 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		});
 	});
 
+	it('settles a revoked Calendar grant as restricted instead of streaming a rejected workspace', async () => {
+		let deny!: (reason: unknown) => void;
+		const data = new Promise<never>((_resolve, reject) => {
+			deny = reject;
+		});
+		loadWithContextMock.mockResolvedValueOnce({ data });
+
+		const routeData = await streamCalendarWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: emptyCookies,
+			orgId
+		});
+
+		const result = routeData.calendar.data.then(
+			(value) => ({ value }),
+			(cause) => ({ cause })
+		);
+		deny(makeHttpError(403, 'Calendar access denied'));
+		expect(await result).toEqual({ value: { laneKey: 'calendar', access: 'restricted' } });
+	});
+
+	it('still rejects unexpected Calendar workspace failures', async () => {
+		let fail!: (reason: unknown) => void;
+		const data = new Promise<never>((_resolve, reject) => {
+			fail = reject;
+		});
+		loadWithContextMock.mockResolvedValueOnce({ data });
+
+		const routeData = await streamCalendarWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: emptyCookies,
+			orgId
+		});
+
+		const result = routeData.calendar.data.then(
+			(value) => ({ value }),
+			(cause) => ({ cause })
+		);
+		fail(makeHttpError(500, 'Unavailable'));
+		expect(await result).toMatchObject({ cause: { status: 500 } });
+	});
+
 	it('prefers the client-local anchor date and can widen only settings special days', async () => {
 		const cookies = {
 			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined))
@@ -152,6 +204,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
 		});
 		const workspace = await routeData.calendar.data;
+		if ('access' in workspace) throw new Error('Expected an authorized Calendar workspace');
 
 		expect(workspace.data.rangeStart).toBe('2026-04-01');
 		expect(workspace.data.rangeEnd).toBe('2026-06-30');

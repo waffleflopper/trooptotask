@@ -1,6 +1,9 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { TrainingType } from './training.types';
 
+export type { TrainingType, TrainingView, PersonnelTraining, TrainingStatus } from './training.types';
+export { isTrainingApplicable } from './utils/applicability';
+
 /** Trusted request facts for Training references consumed by Onboarding. */
 export interface TrainingOnboardingActor {
 	readonly userId: string;

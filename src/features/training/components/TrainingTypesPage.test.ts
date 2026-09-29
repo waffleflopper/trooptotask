@@ -71,10 +71,26 @@ describe('TrainingTypesPage', () => {
 	});
 
 	afterEach(() => {
+		vi.restoreAllMocks();
 		cleanup();
 		personnelRosterHydration.load([], 'org-test-reset');
 		trainingRankCatalogStore.load([], 'org-test-reset');
 		trainingTypesStore.load([], 'org-test-reset');
+	});
+
+	it('keeps a failed type creation editable and shows a retryable error', async () => {
+		vi.spyOn(trainingTypesStore, 'add').mockRejectedValueOnce(new Error('Synthetic save failure'));
+		render(TrainingTypesPage, { props: { data: { personnel: [] } } });
+
+		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), {
+			target: { value: 'Range Safety' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+		expect(await screen.findByText('Failed to save training type.')).toBeTruthy();
+		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Range Safety');
+		expect(screen.getByRole('button', { name: 'Create' }).hasAttribute('disabled')).toBe(false);
 	});
 
 	it('uses hydrated personnel when route bootstrap omits applicability source data', async () => {

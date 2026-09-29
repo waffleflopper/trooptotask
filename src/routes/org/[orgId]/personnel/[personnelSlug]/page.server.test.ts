@@ -20,6 +20,44 @@ const operateScope = {
 };
 
 describe('personnel detail page server load', () => {
+	it('denies Training readiness before reading its catalog when Training access is absent', async () => {
+		const ctx = {
+			store: {
+				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
+				findMany: vi.fn(async (_table: string) => [])
+			},
+			get rawStore() {
+				return this.store;
+			},
+			auth: {
+				...operateAuth,
+				capabilityMap: { ...operateAuth.capabilityMap, training: 'none' }
+			},
+			scope: {
+				requireGroupAccess: vi.fn(async () => {})
+			},
+			audit: { log: vi.fn() }
+		};
+		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		const load = _createPersonnelDetailPageLoad({ loadWithContext });
+		const result = await load({
+			params: { orgId: 'org-1', personnelSlug: 'person-1' },
+			locals: {} as App.Locals,
+			cookies: {} as never,
+			depends: vi.fn(),
+			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
+		} as never);
+
+		const readinessLanes = result.personnelDetail.readinessLanes;
+		const [trainingOutcome] = await Promise.allSettled([readinessLanes.training, ...Object.values(readinessLanes)]);
+		expect(trainingOutcome).toMatchObject({ status: 'rejected', reason: { status: 403 } });
+		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
+		const trainingReads = ctx.store.findMany.mock.calls.filter(([table]) =>
+			['training_types', 'personnel_trainings'].includes(table)
+		);
+		expect(trainingReads).toEqual([]);
+	});
+
 	it('loads retained detail streams with Duty storage unavailable for the layout-resolved personnel id', async () => {
 		const ctx = {
 			store: {

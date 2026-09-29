@@ -3,7 +3,7 @@ import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingT
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { rosterStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { trainingTypeSource } from '$features/training';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -276,7 +276,7 @@ export class OnboardingPageContext {
 
 	getTrainingTypeName(step: OnboardingStepProgress): string | null {
 		if (step.stepType !== 'training' || !step.trainingTypeId) return null;
-		const type = trainingTypesStore.items.find((t) => t.id === step.trainingTypeId);
+		const type = trainingTypeSource.items.find((t) => t.id === step.trainingTypeId);
 		if (!type || type.name === step.stepName) return null;
 		return type.name;
 	}
@@ -445,7 +445,7 @@ export class OnboardingPageContext {
 	}
 
 	get trainingTypeNames(): Map<string, string> {
-		return new SvelteMap(trainingTypesStore.items.map((t) => [t.id, t.name]));
+		return new SvelteMap(trainingTypeSource.items.map((t) => [t.id, t.name]));
 	}
 
 	private get rosterView(): RosterReadModelView {

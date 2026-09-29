@@ -3,7 +3,7 @@ import {
 	calendarAvailabilityHydration,
 	calendarAssignmentsHydration
 } from '$features/calendar';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { trainingTypeHydration } from '$features/training';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { pinnedGroupsHydration } from '$features/personnel';
@@ -12,7 +12,7 @@ import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$lib/types';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type {
@@ -60,7 +60,7 @@ const defaultDashboardHydrationStores: DashboardHydrationStores = {
 	statusTypesStore: calendarStatusHydration,
 	availabilityEntriesStore: calendarAvailabilityHydration,
 	calendarAssignmentsStore: calendarAssignmentsHydration,
-	trainingTypesStore,
+	trainingTypesStore: trainingTypeHydration,
 	pinnedGroupsStore: pinnedGroupsHydration
 };
 

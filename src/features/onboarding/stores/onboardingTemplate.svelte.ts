@@ -1,5 +1,5 @@
 import { untrack } from 'svelte';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 import type { OnboardingStepType, OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;

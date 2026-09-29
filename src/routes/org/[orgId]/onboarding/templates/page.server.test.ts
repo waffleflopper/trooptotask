@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const { loadWithContextMock } = vi.hoisted(() => ({

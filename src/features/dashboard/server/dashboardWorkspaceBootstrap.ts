@@ -14,7 +14,7 @@ import { fetchDashboardBootstrap, type DashboardBootstrap } from '$lib/server/co
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 
 export const DASHBOARD_WORKSPACE_KEY = 'dashboard' as const;
 

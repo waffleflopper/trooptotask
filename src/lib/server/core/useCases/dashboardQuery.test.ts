@@ -137,6 +137,38 @@ describe('fetchDashboardData', () => {
 });
 
 describe('fetchDashboardBootstrap', () => {
+	it('provides ordered same-Organization Training definitions for the Dashboard summary', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('training_types', [
+			{
+				id: 'later',
+				organization_id: ORG,
+				name: 'Annual',
+				sort_order: 2,
+				applies_to_mos: ['68W']
+			},
+			{
+				id: 'foreign',
+				organization_id: 'another-org',
+				name: 'Foreign',
+				sort_order: 0
+			},
+			{
+				id: 'first',
+				organization_id: ORG,
+				name: 'Orientation',
+				sort_order: 1,
+				applies_to_mos: []
+			}
+		]);
+
+		const result = await fetchDashboardBootstrap(ctx);
+
+		expect(result.trainingTypes.map((type) => type.id)).toEqual(['first', 'later']);
+		expect(result.trainingTypes[1]).toMatchObject({ name: 'Annual', sortOrder: 2, appliesToMos: ['68W'] });
+	});
+
 	it('keeps the full same-Organization Group catalog beside scoped Personnel facts', async () => {
 		const ctx = buildCtx({ auth: { scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

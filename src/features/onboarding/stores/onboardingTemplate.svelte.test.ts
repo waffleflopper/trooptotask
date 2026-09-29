@@ -7,7 +7,7 @@ import {
 	type OnboardingTemplateWorkspaceResult
 } from './onboardingTemplate.svelte';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 
 const template: OnboardingTemplate = {
 	id: 'template-1',

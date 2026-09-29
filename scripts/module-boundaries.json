@@ -476,12 +476,6 @@
 				"src/lib/server/core/useCases/trainingReportsQuery.ts",
 				"src/lib/server/core/useCases/trainingSummaryQuery.test.ts",
 				"src/lib/server/core/useCases/trainingSummaryQuery.ts",
-				"src/lib/server/core/useCases/trainingTypeCrud.test.ts",
-				"src/lib/server/core/useCases/trainingViewCrud.test.ts",
-				"src/lib/server/entities/trainingType.test.ts",
-				"src/lib/server/entities/trainingType.ts",
-				"src/lib/server/entities/trainingView.test.ts",
-				"src/lib/server/entities/trainingView.ts",
 				"src/lib/server/utils/trainingTiming.ts"
 			],
 			"packet": "08-M07"

@@ -12,7 +12,7 @@ import type { QueryPorts } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
 import type { StatusType, AvailabilityEntry, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
 import {
@@ -23,7 +23,7 @@ import {
 } from '$features/calendar/index.server';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { listTrainingTypes } from '$features/training/index.server';
 import { formatDate } from '$lib/utils/dates';
 import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
@@ -87,7 +87,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		personnel,
 		groups,
 		statusTypes,
-		trainingTypeRows,
+		trainingTypes,
 		orgSettingsRow,
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
@@ -101,9 +101,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		listGroupCatalog(ctx),
 		listStatusTypes(ctx.store, orgId),
-		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listTrainingTypes(ctx.store, orgId),
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null),
@@ -121,7 +119,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		personnel,
 		groups,
 		statusTypes,
-		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),
+		trainingTypes,
 		lossWarningWindowDays,
 		awardTrackingAcknowledgedPersonnelIds
 	};

@@ -5,8 +5,8 @@ import type {
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import type { TrainingType } from '$features/training/training.types';
+import { trainingTypeHydration } from '$features/training';
+import type { TrainingType } from '$features/training/contracts';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { personnelRosterHydration } from '$features/personnel';
@@ -51,7 +51,7 @@ type OnboardingTemplatesResolved = Pick<OnboardingTemplatesWorkspaceHydrationTar
 const defaultOnboardingHydrationStores: OnboardingHydrationStores = {
 	personnelStore: personnelRosterHydration,
 	groupsStore: groupCatalogHydration,
-	trainingTypesStore,
+	trainingTypesStore: trainingTypeHydration,
 	onboardingTemplateStore,
 	onboardingStore
 };

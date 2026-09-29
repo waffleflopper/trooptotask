@@ -4,12 +4,15 @@ import { evaluateAuthoritativePolicyDecision } from '$lib/server/core/useCases/p
 import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
-import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { createOnboardingTemplate } from './onboardingTemplateCrud';
-import { getEntityAuditResource } from '$lib/server/entitySchema';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import {
+	createTrainingType,
+	findTrainingTypeByName,
+	hasTrainingTypes,
+	listExistingTrainingTypeNames
+} from '$features/training/index.server';
 import type { OnboardingTemplate } from '$features/onboarding/onboarding.types';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackArtifactFamilyId,
@@ -99,14 +102,8 @@ const PACK_ARTIFACT_PREVIEW = [
 	}
 ] as const;
 
-const trainingTypeUseCases = createCrudUseCases<WritePorts>({
-	entity: TrainingTypeEntity,
-	auditResource: getEntityAuditResource(TrainingTypeEntity),
-	policyAction: TrainingTypeEntity.policyAction!
-});
-
 interface StarterPackReadinessRows {
-	trainingTypes: Array<Record<string, unknown>>;
+	trainingTypeNames: string[];
 	hasAnyTrainingType: boolean;
 	onboardingTemplate: Record<string, unknown> | null;
 	hasAnyOnboardingTemplate: boolean;
@@ -168,19 +165,14 @@ async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): 
 	const starterTrainingNames = STARTER_TRAINING_TYPES.map((type) => type.name);
 	const starterStepNames = ONBOARDING_STEPS.map((step) => step.name);
 	const [
-		trainingTypes,
-		anyTrainingTypes,
+		trainingTypeNames,
+		hasAnyTrainingType,
 		starterOnboardingTemplates,
 		anyOnboardingTemplates,
 		anyOnboardingTemplateSteps
 	] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>(
-			'training_types',
-			ctx.auth.orgId,
-			{},
-			{ inFilters: { name: starterTrainingNames }, select: 'name' }
-		),
-		ctx.store.findMany<Record<string, unknown>>('training_types', ctx.auth.orgId, {}, { select: 'id', limit: 1 }),
+		listExistingTrainingTypeNames(ctx.store, ctx.auth.orgId, starterTrainingNames),
+		hasTrainingTypes(ctx.store, ctx.auth.orgId),
 		ctx.store.findMany<Record<string, unknown>>(
 			'onboarding_templates',
 			ctx.auth.orgId,
@@ -207,8 +199,8 @@ async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): 
 		: [];
 
 	return {
-		trainingTypes,
-		hasAnyTrainingType: anyTrainingTypes.length > 0,
+		trainingTypeNames,
+		hasAnyTrainingType,
 		onboardingTemplate,
 		hasAnyOnboardingTemplate: anyOnboardingTemplates.length > 0,
 		hasAnyOnboardingTemplateStep: anyOnboardingTemplateSteps.length > 0,
@@ -218,9 +210,7 @@ async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): 
 
 function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPackSupport['readiness'] {
 	const starterTrainingNames = new Set<string>(STARTER_TRAINING_TYPES.map((type) => type.name));
-	const existingStarterTrainingNames = rows.trainingTypes
-		.map((row) => stringField(row, 'name'))
-		.filter((name): name is string => !!name && starterTrainingNames.has(name));
+	const existingStarterTrainingNames = rows.trainingTypeNames.filter((name) => starterTrainingNames.has(name));
 
 	const starterTemplate = rows.onboardingTemplate;
 	const starterStepNames = new Set<string>(ONBOARDING_STEPS.map((step) => step.name));
@@ -278,29 +268,29 @@ async function applyStarterTrainingTypes(
 	const trainingTypes = new Map<string, TrainingType>();
 
 	for (const starterType of STARTER_TRAINING_TYPES) {
-		const existing = await findTrainingTypeByName(ctx, starterType.name);
+		const existing = await findTrainingTypeByName(ctx.store, ctx.auth.orgId, starterType.name);
 		if (existing) {
-			trainingTypes.set(starterType.name, TrainingTypeEntity.fromDb(existing));
+			trainingTypes.set(starterType.name, existing);
 			recordSkipped(result, TRAINING_TYPE_FAMILY, starterType.name);
 			continue;
 		}
 
 		try {
-			const created = (await trainingTypeUseCases.create(ctx, {
+			const created = await createTrainingType(ctx, {
 				name: starterType.name,
 				description: starterType.description,
 				expirationMonths: starterType.expirationMonths,
 				color: starterType.color,
 				sortOrder: starterType.sortOrder
-			})) as TrainingType;
+			});
 			trainingTypes.set(starterType.name, created);
 			recordCreated(result, TRAINING_TYPE_FAMILY, starterType.name);
 		} catch (error) {
 			rethrowAuthorizationFailure(error);
 			if (isUniqueConflict(error)) {
-				const racedExisting = await findTrainingTypeByName(ctx, starterType.name);
+				const racedExisting = await findTrainingTypeByName(ctx.store, ctx.auth.orgId, starterType.name);
 				if (racedExisting) {
-					trainingTypes.set(starterType.name, TrainingTypeEntity.fromDb(racedExisting));
+					trainingTypes.set(starterType.name, racedExisting);
 					recordSkipped(result, TRAINING_TYPE_FAMILY, starterType.name);
 					continue;
 				}
@@ -416,10 +406,6 @@ function deterministicStarterOnboardingStepId(templateId: string, stepName: stri
 	hex[16] = ((Number.parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16);
 	const value = hex.join('');
 	return `${value.slice(0, 8)}-${value.slice(8, 12)}-${value.slice(12, 16)}-${value.slice(16, 20)}-${value.slice(20)}`;
-}
-
-async function findTrainingTypeByName(ctx: Pick<WritePorts, 'store' | 'auth'>, name: string) {
-	return ctx.store.findOne<Record<string, unknown>>('training_types', ctx.auth.orgId, { name });
 }
 
 async function findOnboardingTemplateByName(

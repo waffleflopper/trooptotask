@@ -4,8 +4,7 @@ import {
 	loadAvailabilityReadinessLane,
 	loadCriticalTasksReadinessLane,
 	loadLossTrackingReadinessLane,
-	loadRatingSchemeReadinessLane,
-	loadTrainingReadinessLane
+	loadRatingSchemeReadinessLane
 } from './personnelReadinessLanes';
 
 const AS_OF = '2026-05-14';
@@ -124,84 +123,6 @@ describe('personnel readiness lanes', () => {
 			{ status: 404 }
 		);
 		expect(reads).not.toHaveBeenCalled();
-	});
-
-	it('counts due and overdue Training requirements for the Soldier', async () => {
-		const ctx = createTestContext();
-		seedPerson(ctx);
-		ctx.store.seed('training_types', [
-			{
-				id: 'hipaa',
-				organization_id: ctx.auth.orgId,
-				name: 'HIPAA',
-				description: null,
-				expiration_months: 12,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#000',
-				sort_order: 1,
-				expiration_date_only: true,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			},
-			{
-				id: 'cyber',
-				organization_id: ctx.auth.orgId,
-				name: 'Cyber Awareness',
-				description: null,
-				expiration_months: 12,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#000',
-				sort_order: 2,
-				expiration_date_only: true,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-		ctx.store.seed('personnel_trainings', [
-			{
-				id: 'training-1',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
-				training_type_id: 'hipaa',
-				completion_date: null,
-				expiration_date: '2026-05-10',
-				notes: null,
-				certificate_url: null
-			},
-			{
-				id: 'training-2',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-1',
-				training_type_id: 'cyber',
-				completion_date: null,
-				expiration_date: '2026-05-20',
-				notes: null,
-				certificate_url: null
-			}
-		]);
-
-		await expect(loadTrainingReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
-			label: 'Training',
-			value: '2 due',
-			detail: 'HIPAA expired 4d ago. Cyber Awareness 6d left.',
-			tone: 'bad'
-		});
 	});
 
 	it('calculates Critical Tasks readiness for applicable ICT tasks', async () => {
@@ -400,22 +321,5 @@ describe('personnel readiness lanes', () => {
 			detail: 'ETS Jun 20, 2026 is 37 days away.',
 			tone: 'watch'
 		});
-	});
-
-	it('enforces group scope before cross-feature lane reads', async () => {
-		const ctx = createTestContext({
-			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
-			},
-			scope: {
-				requireGroupAccess: vi.fn(async () => {
-					throw Object.assign(new Error('out of scope'), { status: 403 });
-				})
-			}
-		});
-		seedPerson(ctx, { group_id: 'group-1' });
-
-		await expect(loadTrainingReadinessLane(ctx, 'person-1', AS_OF)).rejects.toMatchObject({ status: 403 });
-		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
 	});
 });

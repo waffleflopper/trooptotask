@@ -2,8 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listGroupCatalog, listPinnedGroupNames } from '$features/personnel/index.server';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { TrainingViewEntity } from '$lib/server/entities/trainingView';
+import { listTrainingTypes, listTrainingViews } from '$features/training/index.server';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	createWorkspaceHydrationTarget,
@@ -17,7 +16,7 @@ import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { withTrainingTiming, type TrainingLoadPhase } from '$lib/server/utils/trainingTiming';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
-import type { PersonnelTraining, TrainingType, TrainingView } from '../training.types';
+import type { PersonnelTraining, TrainingType, TrainingView } from '../contracts';
 
 export const TRAINING_WORKSPACE_LANE_KEY = 'training' as const;
 
@@ -128,21 +127,15 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		orgId: requestedOrgId,
 		label: 'training types',
 		phase: 'training-types',
-		load: () =>
-			ctx.store.findMany<Record<string, unknown>>('training_types', canonicalOrgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-		mapRows: (rows) => TrainingTypeEntity.fromDbArray(rows) as TrainingType[]
+		load: () => listTrainingTypes(ctx.store, canonicalOrgId),
+		mapRows: (types): TrainingType[] => types
 	});
 	const trainingViews = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'training views',
 		phase: 'training-views',
-		load: () =>
-			ctx.store.findMany<Record<string, unknown>>('training_views', canonicalOrgId, undefined, {
-				orderBy: [{ column: 'name', ascending: true }]
-			}),
-		mapRows: (rows) => TrainingViewEntity.fromDbArray(rows) as TrainingView[]
+		load: () => listTrainingViews(ctx.store, canonicalOrgId),
+		mapRows: (views): TrainingView[] => views
 	});
 	const pinnedGroups = loadTrainingItems({
 		orgId: requestedOrgId,

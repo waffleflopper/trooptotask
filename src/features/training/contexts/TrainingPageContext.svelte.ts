@@ -21,35 +21,30 @@ import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
 const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
-type TrainingBatchCompletionRecord = {
-	personnelId: string;
-	trainingTypeId: string;
-	completionDate: string | null;
-	notes?: string;
-	status: 'completed';
-};
+type TrainingBatchCompletionRecord = TrainingBatchRecord & { status: 'completed' };
+export type TrainingRemovalRequest = (
+	orgId: string,
+	resourceType: 'personnel_training' | 'training_type',
+	resourceId: string,
+	description: string,
+	resourceUrl: string
+) => Promise<boolean>;
 type NavigationModule = typeof import('$app/navigation');
-type DeletionRequestsModule = typeof import('$lib/utils/deletionRequests');
 type ToastStoreModule = typeof import('$lib/stores/toast.svelte');
 type UserPreferencesClientModule = typeof import('$lib/preferences/userPreferences.client');
 
 let navigationModule: Promise<NavigationModule> | undefined;
-let deletionRequestsModule: Promise<DeletionRequestsModule> | undefined;
 let toastStoreModule: Promise<ToastStoreModule> | undefined;
 let userPreferencesClientModule: Promise<UserPreferencesClientModule> | undefined;
 
 function loadNavigation() {
 	navigationModule ??= import('$app/navigation');
 	return navigationModule;
-}
-
-function loadDeletionRequests() {
-	deletionRequestsModule ??= import('$lib/utils/deletionRequests');
-	return deletionRequestsModule;
 }
 
 function loadToastStore() {
@@ -84,6 +79,7 @@ export class TrainingPageContext {
 	readonly #data: TrainingPageData;
 	readonly #modals: ModalRegistry;
 	readonly #org: OrgContext;
+	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	#hydratedSelectionFingerprint: string | null = null;
 
 	// ---- mutable UI state ----
@@ -92,10 +88,16 @@ export class TrainingPageContext {
 	viewMode = $state<TrainingMatrixViewMode>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
-	constructor(data: TrainingPageData, modals: ModalRegistry, org: OrgContext) {
+	constructor(
+		data: TrainingPageData,
+		modals: ModalRegistry,
+		org: OrgContext,
+		submitRemovalRequest: TrainingRemovalRequest
+	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
+		this.#submitRemovalRequest = submitRemovalRequest;
 		this.applyUserPreferences(data.userPreferences);
 	}
 
@@ -313,7 +315,7 @@ export class TrainingPageContext {
 			body: JSON.stringify({ records })
 		});
 
-		const data = await res.json().catch(() => ({}));
+		const data: Partial<TrainingBatchImportResult> & { message?: string } = await res.json().catch(() => ({}));
 		if (!res.ok) {
 			throw new Error(data.message ?? `HTTP ${res.status}`);
 		}
@@ -329,8 +331,7 @@ export class TrainingPageContext {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
 			const type = trainingTypesStore.items.find((t) => t.id === training.trainingTypeId);
 			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
-			const { submitDeletionRequest } = await loadDeletionRequests();
-			const submitted = await submitDeletionRequest(
+			const submitted = await this.#submitRemovalRequest(
 				this.orgId,
 				'personnel_training',
 				id,
@@ -353,8 +354,7 @@ export class TrainingPageContext {
 		const type = trainingTypesStore.items.find((t) => t.id === id);
 		const result = await trainingTypesStore.remove(id);
 		if (result === 'approval_required' && type) {
-			const { submitDeletionRequest } = await loadDeletionRequests();
-			await submitDeletionRequest(
+			await this.#submitRemovalRequest(
 				this.orgId,
 				'training_type',
 				id,

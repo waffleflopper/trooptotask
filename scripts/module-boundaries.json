@@ -288,9 +288,7 @@
 				"src/lib/server/entities/personnel.test.ts",
 				"src/lib/server/entities/personnel.ts",
 				"src/lib/server/entities/personnelOnboarding.test.ts",
-				"src/lib/server/entities/personnelOnboarding.ts",
-				"src/lib/server/entities/personnelTraining.test.ts",
-				"src/lib/server/entities/personnelTraining.ts"
+				"src/lib/server/entities/personnelOnboarding.ts"
 			],
 			"packet": "08-M04"
 		},
@@ -460,10 +458,6 @@
 			"files": [
 				"src/lib/components/ui/requirement-status-badge/training-status-badge.svelte",
 				"src/lib/components/ui/requirement-status-badge/training-status-cell.svelte",
-				"src/lib/server/core/useCases/trainingRecords.test.ts",
-				"src/lib/server/core/useCases/trainingRecords.ts",
-				"src/lib/server/core/useCases/trainingRecordsBatch.test.ts",
-				"src/lib/server/core/useCases/trainingRecordsBatch.ts",
 				"src/lib/server/core/useCases/trainingReportsQuery.test.ts",
 				"src/lib/server/core/useCases/trainingReportsQuery.ts",
 				"src/lib/server/core/useCases/trainingSummaryQuery.test.ts",

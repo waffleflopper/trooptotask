@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
+	import type { TrainingBatchRecord } from '../contracts';
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
-	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
+	import {
+		calculateExpirationDate,
+		getTrainingStatus,
+		getTrainingStats
+	} from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
 	import { toast } from 'svelte-sonner';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -25,13 +30,7 @@
 		isDirty: boolean;
 	}
 
-	type TrainingBatchCompletionRecord = {
-		personnelId: string;
-		trainingTypeId: string;
-		completionDate: string | null;
-		notes?: string;
-		status: 'completed';
-	};
+	type TrainingBatchCompletionRecord = TrainingBatchRecord & { status: 'completed' };
 
 	interface Props {
 		person: Personnel;
@@ -84,41 +83,7 @@
 		return getTrainingStatus(training, type, person);
 	}
 
-	const stats = $derived.by(() => {
-		let current = 0,
-			warningYellow = 0,
-			warningOrange = 0,
-			expired = 0,
-			notCompleted = 0;
-
-		for (const type of trainingTypes) {
-			const status = getStatusInfo(type.id);
-			switch (status.label) {
-				case 'Current':
-					current++;
-					break;
-				case 'Under 60d':
-					warningYellow++;
-					break;
-				case 'Under 30d':
-					warningOrange++;
-					break;
-				case 'Expired':
-					expired++;
-					break;
-				case 'Not Done':
-					notCompleted++;
-					break;
-				case 'N/A':
-					break;
-				default:
-					current++;
-					break;
-			}
-		}
-
-		return { current, warningYellow, warningOrange, expired, notCompleted };
-	});
+	const stats = $derived(getTrainingStats([person], trainingTypes, trainings));
 
 	function toggleEdit(typeId: string) {
 		const state = editingStates.get(typeId);
@@ -320,7 +285,11 @@
 			<div class="grid gap-4">
 				<div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
 					{#each [['Current', stats.current, 'success'], ['<60d', stats.warningYellow, 'warning'], ['<30d', stats.warningOrange, 'warning'], ['Expired', stats.expired, 'destructive'], ['Not Done', stats.notCompleted, 'outline']] as item (item[0])}
-						<div class="rounded-lg border border-border bg-card p-3 text-center">
+						<div
+							role="group"
+							aria-label={String(item[0])}
+							class="rounded-lg border border-border bg-card p-3 text-center"
+						>
 							<div class="text-xl font-semibold text-foreground">{item[1]}</div>
 							<Badge variant={item[2] as 'success' | 'warning' | 'destructive' | 'outline'}>{item[0]}</Badge>
 						</div>

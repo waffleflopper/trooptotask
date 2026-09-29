@@ -497,6 +497,7 @@ async function main() {
 					'personnel-trainings',
 					'personnel-trainings/batch',
 					'deletion-requests',
+					'deletion-requests/review',
 					'training-reports',
 					'training-reports/detail',
 					'training-reports/export',

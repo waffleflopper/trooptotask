@@ -1,4 +1,3 @@
-import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
 import { policyResourcesForTrainingPersonnel } from './trainingCompletionOperations.server';
@@ -10,6 +9,10 @@ import { requireFeaturePolicy } from '$lib/access/index.server';
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
 const MAX_BATCH_SIZE = 500;
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 export async function importTrainingRecords(
 	ctx: TrainingCompletionWriteContext,

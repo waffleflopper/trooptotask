@@ -1,4 +1,3 @@
-import { fail } from '$lib/server/core/errors';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
 import type { TrainingCompletionWriteContext } from './trainingCompletionPorts.server';
@@ -8,6 +7,10 @@ import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 interface TrainingTypeRow {
 	expiration_months: number | null;

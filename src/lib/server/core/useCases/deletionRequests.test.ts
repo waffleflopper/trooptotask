@@ -339,6 +339,7 @@ describe('approveDeletionRequest', () => {
 		]);
 
 		await approveDeletionRequest(ctx, 'dr-1');
+		if (!ctx.rawStore) throw new Error('Expected raw provider store from the in-memory test context');
 		const person = await ctx.rawStore.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
 			id: 'person-1'
 		});

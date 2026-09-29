@@ -29,7 +29,7 @@ const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
 type TrainingBatchCompletionRecord = TrainingBatchRecord & { status: 'completed' };
 export type TrainingRemovalRequest = (
 	orgId: string,
-	resourceType: 'personnel_training' | 'training_type',
+	resourceType: 'personnel_training',
 	resourceId: string,
 	description: string,
 	resourceUrl: string
@@ -339,30 +339,6 @@ export class TrainingPageContext {
 				`/org/${this.orgId}/training`
 			);
 			if (!submitted) throw new Error('Could not submit removal request. Try again.');
-		}
-	}
-
-	async handleAddType(data: Omit<TrainingType, 'id'>): Promise<void> {
-		await trainingTypesStore.add(data);
-	}
-
-	async handleUpdateType(id: string, data: Partial<Omit<TrainingType, 'id'>>): Promise<void> {
-		await trainingTypesStore.update(id, data);
-	}
-
-	async handleRemoveType(id: string): Promise<void> {
-		const type = trainingTypesStore.items.find((t) => t.id === id);
-		const result = await trainingTypesStore.remove(id);
-		if (result === 'approval_required' && type) {
-			await this.#submitRemovalRequest(
-				this.orgId,
-				'training_type',
-				id,
-				`Training type: ${type.name}`,
-				`/org/${this.orgId}/training`
-			);
-		} else if (result === 'deleted') {
-			personnelTrainingsStore.removeByTrainingTypeLocal(id);
 		}
 	}
 

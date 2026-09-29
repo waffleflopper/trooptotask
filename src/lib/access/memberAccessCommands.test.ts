@@ -44,16 +44,21 @@ describe('parseMemberAccessEditFormData', () => {
 		});
 	});
 
-	it('falls back to organization scope when all group IDs are invalid UUIDs', () => {
-		const formData = new FormData();
-		formData.set('membershipRole', 'member');
-		formData.set('memberPreset', 'editor');
-		formData.set('scopeSetKind', 'groups');
-		formData.append('scopeSetGroupIds', 'not-a-uuid');
-		formData.append('scopeSetGroupIds', 'also-not-a-uuid');
+	it.each([{ groupIds: [] }, { groupIds: ['not-a-uuid', 'also-not-a-uuid'] }])(
+		'stores an explicit Group selection %j without widening access',
+		({ groupIds }) => {
+			const formData = new FormData();
+			formData.set('membershipRole', 'member');
+			formData.set('memberPreset', 'editor');
+			formData.set('scopeSetKind', 'groups');
+			for (const groupId of groupIds) formData.append('scopeSetGroupIds', groupId);
 
-		expect(parseMemberAccessEditFormData(formData).memberAccess.scopeSet).toEqual({ kind: 'organization' });
-	});
+			expect(memberAccessCommandToStorage(parseMemberAccessEditFormData(formData))).toMatchObject({
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: []
+			});
+		}
+	);
 
 	it('rejects member access edits without a target member preset', () => {
 		const formData = new FormData();
@@ -64,6 +69,22 @@ describe('parseMemberAccessEditFormData', () => {
 });
 
 describe('memberAccessCommandToStorage', () => {
+	it.each([{ groupIds: [] }, { groupIds: ['not-a-uuid'] }])(
+		'keeps empty or invalid-only typed Group selections %j restricted',
+		({ groupIds }) => {
+			expect(
+				memberAccessCommandToStorage({
+					membershipRole: 'member',
+					memberAccess: {
+						memberPreset: 'operator',
+						capabilityOverrides: {},
+						scopeSet: { kind: 'groups', groupIds }
+					}
+				})
+			).toMatchObject({ accessScopeKind: 'groups', accessScopeGroupIds: [] });
+		}
+	);
+
 	it('projects a member access command into replacement storage fields only', () => {
 		expect(
 			memberAccessCommandToStorage({

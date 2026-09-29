@@ -1,0 +1,67 @@
+{
+  "table": "availability_entries",
+  "organization": "orgA",
+  "count": 6,
+  "rows": [
+    {
+      "id": "f9686c49-abcd-4bb4-b7a3-44bd872d3c52",
+      "organization_id": "7d467587-6d19-4920-9fa7-f6120085d199",
+      "personnel_id": "6c5d2f29-dc26-4b2a-a71c-6976542e162b",
+      "status_type_id": "8da8fb4a-8867-426e-b910-7c142a706ad9",
+      "start_date": "2026-03-11",
+      "end_date": "2026-03-11",
+      "created_at": "2026-09-29T22:21:52.721654+00:00",
+      "note": "Historical retained"
+    },
+    {
+      "id": "44f5c334-8c32-4c80-99a8-0b6dea464c9c",
+      "organization_id": "7d467587-6d19-4920-9fa7-f6120085d199",
+      "personnel_id": "6c5d2f29-dc26-4b2a-a71c-6976542e162b",
+      "status_type_id": "8da8fb4a-8867-426e-b910-7c142a706ad9",
+      "start_date": "2026-09-14",
+      "end_date": "2026-09-16",
+      "created_at": "2026-09-29T22:21:52.721654+00:00",
+      "note": "Alpha seeded leave"
+    },
+    {
+      "id": "3b29238d-11a6-4b48-a851-6851a2450a3f",
+      "organization_id": "7d467587-6d19-4920-9fa7-f6120085d199",
+      "personnel_id": "05079728-b245-4c9b-8ff4-47ede93e8b50",
+      "status_type_id": "2c280054-7592-41b9-bd4f-46b3e22bdc00",
+      "start_date": "2026-09-15",
+      "end_date": "2026-09-15",
+      "created_at": "2026-09-29T22:21:52.721654+00:00",
+      "note": "Bravo seeded training"
+    },
+    {
+      "id": "f5998e3a-fbe5-4259-b27e-b685490a44fa",
+      "organization_id": "7d467587-6d19-4920-9fa7-f6120085d199",
+      "personnel_id": "05079728-b245-4c9b-8ff4-47ede93e8b50",
+      "status_type_id": "2c280054-7592-41b9-bd4f-46b3e22bdc00",
+      "start_date": "2026-09-28",
+      "end_date": "2026-09-30",
+      "created_at": "2026-09-29T22:21:52.721654+00:00",
+      "note": "Current training spans selected removal date"
+    },
+    {
+      "id": "0de682ce-a2e6-4a42-bd59-8b9465da5670",
+      "organization_id": "7d467587-6d19-4920-9fa7-f6120085d199",
+      "personnel_id": "92879587-8ea0-4de8-b19e-9f34874dadcd",
+      "status_type_id": "8da8fb4a-8867-426e-b910-7c142a706ad9",
+      "start_date": "2026-09-15",
+      "end_date": "2026-09-15",
+      "created_at": "2026-09-29T22:21:52.721654+00:00",
+      "note": "Unassigned seeded leave"
+    },
+    {
+      "id": "c601400a-9698-4dd8-88c7-497fe9b2b922",
+      "organization_id": "7d467587-6d19-4920-9fa7-f6120085d199",
+      "personnel_id": "05079728-b245-4c9b-8ff4-47ede93e8b50",
+      "status_type_id": "76828d6f-98be-4559-8be1-a64f5d77cad4",
+      "start_date": "2026-10-14",
+      "end_date": "2026-10-14",
+      "created_at": "2026-09-29T22:21:52.721654+00:00",
+      "note": "Deliberate status cleanup"
+    }
+  ]
+}

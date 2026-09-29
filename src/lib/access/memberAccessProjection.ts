@@ -127,5 +127,5 @@ function parseStoredScopeSet(
 	}
 
 	const groupIds = toStringArray(input.access_scope_group_ids);
-	return groupIds.length > 0 ? { kind: 'groups', groupIds: Array.from(new Set(groupIds)) } : { kind: 'organization' };
+	return { kind: 'groups', groupIds: Array.from(new Set(groupIds)) };
 }

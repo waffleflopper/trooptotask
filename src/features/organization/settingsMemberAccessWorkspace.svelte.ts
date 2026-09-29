@@ -152,6 +152,7 @@ export class SettingsMemberAccessWorkspace {
 
 	formatScopeSet(scopeSet: ScopeSet): string {
 		if (scopeSet.kind === 'organization') return 'All groups';
+		if (scopeSet.groupIds.length === 0) return 'No groups';
 		return scopeSet.groupIds.map((groupId) => this.getGroupName(groupId) ?? 'Unknown group').join(', ');
 	}
 

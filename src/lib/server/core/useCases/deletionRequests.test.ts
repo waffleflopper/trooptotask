@@ -339,7 +339,12 @@ describe('approveDeletionRequest', () => {
 		]);
 
 		await approveDeletionRequest(ctx, 'dr-1');
-		const person = await ctx.store.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, { id: 'person-1' });
+		if (!ctx.rawStore) throw new Error('Expected raw provider store from the in-memory test context');
+		const person = await ctx.rawStore.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
+			id: 'person-1'
+		});
+		expect(person?.archived_at).toEqual(expect.any(String));
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).resolves.toBeNull();
 		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).resolves.toMatchObject({
 			archived_at: person?.archived_at
 		});

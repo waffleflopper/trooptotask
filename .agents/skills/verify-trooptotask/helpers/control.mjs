@@ -510,7 +510,7 @@ async function main() {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (action === 'arm-fail' || action === 'arm-hold') {
+		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-observe') {
 			if (
 				![
 					'calendar-range',

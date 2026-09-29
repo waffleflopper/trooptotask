@@ -2,7 +2,7 @@
 
 Baseline: `282fcace16795a13e2306bf71d44465f59d51acc`. Completed phases are summarized below; their accepted evidence and exact historical task scopes remain linked. [BASELINE](BASELINE.md) owns retained contracts and original findings, [EVIDENCE](EVIDENCE.md) owns acceptance and verification, and [RELEASE](RELEASE.md) owns operator obligations.
 
-**Checkpoint:** Phase **08** · Parent [#1281](https://github.com/waffleflopper/trooptotask/issues/1281) · Milestone **6** · **D10 [#1358](https://github.com/waffleflopper/trooptotask/issues/1358) Critical Tasks library and configuration is active**, branch `stabilization/1358-critical-tasks-workspace`, state **AWAITING_PR**. D08 #1417 and D10's intermediate #1413/#1415/#1418 are integrated. Final D10 source and behavioral evidence have independent acceptance; current-head full CI and hosted CodeRabbit review remain pre-merge gates. This continuation is authorized through the final D10 merge when those gates pass. D11 and Phase 09 remain outside this request.
+**Checkpoint:** Phase **08** · Parent [#1281](https://github.com/waffleflopper/trooptotask/issues/1281) · Milestone **6** · **D10 [#1358](https://github.com/waffleflopper/trooptotask/issues/1358) Critical Tasks library and configuration is active**, branch `stabilization/1358-critical-tasks-workspace`, state **AWAITING_MERGE**. D08 #1417 and D10's intermediate #1413/#1415/#1418 are integrated. Final D10 source and behavioral evidence have independent acceptance; PR #1419 passed full CI on `11836a41`, and hosted CodeRabbit review remains a pre-merge gate. This continuation is authorized through the final D10 merge when those gates pass. D11 and Phase 09 remain outside this request.
 
 ## Execution rules
 
@@ -223,7 +223,7 @@ The original M01–M17 packets remain the complete inventory. Split IDs below ar
 | - [x] | D07 [#1355](https://github.com/waffleflopper/trooptotask/issues/1355) | `08-M11`              | Independent Sign-in Roster workflow                       | D03                     |
 | - [x] | D08 [#1356](https://github.com/waffleflopper/trooptotask/issues/1356) | `08-M07-01`           | Training catalog, applicability and views                 | D03                     |
 | - [ ] | D09 [#1357](https://github.com/waffleflopper/trooptotask/issues/1357) | `08-M07-02`           | Training completions, matrix and reports                  | D08                     |
-| - [ ] | D10 [#1358](https://github.com/waffleflopper/trooptotask/issues/1358) | `08-M08-01`           | Critical Tasks library and configuration                  | D03                     |
+| - [x] | D10 [#1358](https://github.com/waffleflopper/trooptotask/issues/1358) | `08-M08-01`           | Critical Tasks library and configuration                  | D03                     |
 | - [ ] | D11 [#1359](https://github.com/waffleflopper/trooptotask/issues/1359) | `08-M08-02`           | Critical Tasks completions and readiness                  | D10                     |
 | - [ ] | D12 [#1360](https://github.com/waffleflopper/trooptotask/issues/1360) | `08-M04-02`           | Personnel records, import, archive and merge              | D03                     |
 | - [ ] | D13 [#1361](https://github.com/waffleflopper/trooptotask/issues/1361) | `08-M04-03`           | Personnel artifact lifecycles beyond leader notes         | D12                     |

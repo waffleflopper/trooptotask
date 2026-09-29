@@ -5,7 +5,6 @@ import type { Personnel } from '$lib/types';
 import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
@@ -109,7 +108,8 @@ export async function loadAvailabilityReadinessLane(
 export async function loadCriticalTasksReadinessLane(
 	ctx: UseCaseContext,
 	personnelId: string,
-	asOf?: string | Date
+	asOf: string | Date | undefined,
+	loadActiveTasks: () => Promise<Parameters<typeof buildCriticalTasksSoldierReadinessSummary>[0]['activeTasks']>
 ): Promise<PersonnelReadinessLane> {
 	const person = await loadPersonnelForLane(
 		ctx,
@@ -117,15 +117,8 @@ export async function loadCriticalTasksReadinessLane(
 		POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 		'personnel_ict_completion'
 	);
-	const [taskRows, completionRows, settingsRow] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('ict_tasks', ctx.auth.orgId, undefined, {
-			select: IctTaskEntity.select,
-			isNull: { archived_at: true },
-			orderBy: [
-				{ column: 'sort_order', ascending: true },
-				{ column: 'task_code', ascending: true }
-			]
-		}),
+	const [tasks, completionRows, settingsRow] = await Promise.all([
+		loadActiveTasks(),
 		ctx.store.findMany<Record<string, unknown>>(
 			'personnel_ict_completions',
 			ctx.auth.orgId,
@@ -139,7 +132,6 @@ export async function loadCriticalTasksReadinessLane(
 			'critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
 		)
 	]);
-	const tasks = IctTaskEntity.fromDbArray(taskRows);
 	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
 	const readiness = buildCriticalTasksSoldierReadinessSummary({
 		person,

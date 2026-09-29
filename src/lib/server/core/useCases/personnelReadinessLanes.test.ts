@@ -10,6 +10,24 @@ import {
 const AS_OF = '2026-05-14';
 const listStatusTypes = async () => [{ id: 'tdy', name: 'TDY', color: '#000', textColor: '#fff' }];
 
+async function loadSeededCriticalTasks(ctx: ReturnType<typeof createTestContext>) {
+	const rows = await ctx.store.findMany<Record<string, unknown>>('ict_tasks', ctx.auth.orgId, undefined, {
+		isNull: { archived_at: true }
+	});
+	return rows.map((row) => ({
+		id: row.id as string,
+		taskCode: row.task_code as string,
+		title: row.title as string,
+		description: row.description as string | null,
+		category: row.category as string | null,
+		mos: row.mos as string[],
+		expirationMonths: row.expiration_months as number | null,
+		sortOrder: row.sort_order as number,
+		archivedAt: row.archived_at as string | null,
+		createdAt: row.created_at as string
+	}));
+}
+
 function seedPerson(ctx: ReturnType<typeof createTestContext>, overrides: Record<string, unknown> = {}) {
 	ctx.store.seed('personnel', [
 		{
@@ -171,7 +189,9 @@ describe('personnel readiness lanes', () => {
 			}
 		]);
 
-		await expect(loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+		await expect(
+			loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF, () => loadSeededCriticalTasks(ctx))
+		).resolves.toMatchObject({
 			label: 'Critical Tasks',
 			value: '50%',
 			detail: '1 of 2 applicable ICT tasks ready. 1 task needs attention.',
@@ -238,7 +258,9 @@ describe('personnel readiness lanes', () => {
 			}
 		]);
 
-		await expect(loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+		await expect(
+			loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF, () => loadSeededCriticalTasks(ctx))
+		).resolves.toMatchObject({
 			detail: '1 of 3 applicable ICT tasks ready. 2 tasks need attention.'
 		});
 	});
@@ -276,7 +298,9 @@ describe('personnel readiness lanes', () => {
 			}
 		]);
 
-		await expect(loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
+		await expect(
+			loadCriticalTasksReadinessLane(ctx, 'person-1', AS_OF, () => loadSeededCriticalTasks(ctx))
+		).resolves.toMatchObject({
 			label: 'Critical Tasks',
 			value: '100%',
 			detail: '1 of 1 applicable ICT tasks ready. 1 task expiring soon. No tasks need attention.',

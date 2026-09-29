@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { importIctTasksBatch } from './ictTasksBatch';
+import { importIctTasksBatch } from './ictTasksBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
@@ -146,5 +146,15 @@ describe('importIctTasksBatch', () => {
 				}
 			})
 		]);
+	});
+	it('rejects a batch above 500 rows before writing task records', async () => {
+		const ctx = buildContext();
+		const records = Array.from({ length: 501 }, (_, index) => ({
+			rowNumber: index + 1,
+			values: { taskCode: `ICT-${index}`, title: `Task ${index}` }
+		}));
+
+		await expect(importIctTasksBatch(ctx, { mode: 'create-only', records })).rejects.toMatchObject({ status: 400 });
+		await expect(ctx.store.findMany('ict_tasks', ctx.auth.orgId)).resolves.toEqual([]);
 	});
 });

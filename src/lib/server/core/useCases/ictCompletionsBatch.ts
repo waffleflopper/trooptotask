@@ -5,7 +5,7 @@ import {
 } from '$features/critical-tasks/utils/ictCompletionImport';
 import { fail } from '$lib/server/core/errors';
 import type { WritePorts } from '$lib/server/core/ports';
-import { IctTaskEntity } from '$lib/server/entities/ictTask';
+import { IctTaskEntity } from '$features/critical-tasks/index.server';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { requirePolicyDecision } from './policyAuthorization';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

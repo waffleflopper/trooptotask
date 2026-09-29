@@ -1,9 +1,7 @@
 <script lang="ts">
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
-	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
-	import IctPersonnelDetailPage from '$features/critical-tasks/components/IctPersonnelDetailPage.svelte';
+	import { ictTasksStore, personnelIctCompletionsStore, IctPersonnelDetailPage } from '$features/critical-tasks';
 
 	let { data } = $props();
 	const org = getOrgContext();

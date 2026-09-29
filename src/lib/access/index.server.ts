@@ -14,3 +14,4 @@ export {
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
 } from '$lib/server/durableRateLimit';
+export { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';

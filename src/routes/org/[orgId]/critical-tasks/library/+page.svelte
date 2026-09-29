@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IctTaskLibraryPage from '$features/critical-tasks/components/IctTaskLibraryPage.svelte';
+	import { IctTaskLibraryPage } from '$features/critical-tasks';
 
 	let { data } = $props();
 </script>

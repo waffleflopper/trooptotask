@@ -10,20 +10,21 @@
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { rosterStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
-	import IctCompletionBulkImport from '$features/critical-tasks/components/IctCompletionBulkImport.svelte';
-	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
-	import IctMatrix from '$features/critical-tasks/components/IctMatrix.svelte';
-	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
-	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import {
+		IctCompletionBulkImport,
+		IctCompletionModal,
+		IctMatrix,
+		ictTasksStore,
+		personnelIctCompletionsStore,
 		criticalTasksConfigureLibraryAffordance,
 		criticalTasksRecordCompletionAffordance,
-		criticalTasksViewReadinessAffordance
-	} from '$features/critical-tasks/utils/criticalTasksPolicy';
-	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
-	import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
-	import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
-	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+		criticalTasksViewReadinessAffordance,
+		criticalTasksSettingsFromWorkspaceData,
+		normalizeCriticalTasksSettings,
+		getActiveIctTasksForLibrary,
+		type IctTask,
+		type PersonnelIctCompletion
+	} from '$features/critical-tasks';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import type { Personnel } from '$lib/types';
 

@@ -94,11 +94,7 @@
 				"src/lib/server/core/useCases/criticalTasksWorkspaceQuery.test.ts",
 				"src/lib/server/core/useCases/criticalTasksWorkspaceQuery.ts",
 				"src/lib/server/core/useCases/ictCompletionsBatch.test.ts",
-				"src/lib/server/core/useCases/ictCompletionsBatch.ts",
-				"src/lib/server/core/useCases/ictTasksBatch.test.ts",
-				"src/lib/server/core/useCases/ictTasksBatch.ts",
-				"src/lib/server/entities/ictTask.test.ts",
-				"src/lib/server/entities/ictTask.ts"
+				"src/lib/server/core/useCases/ictCompletionsBatch.ts"
 			],
 			"packet": "08-M08"
 		},
@@ -676,7 +672,11 @@
 			"src/features/calendar/index.ts",
 			"src/features/calendar/index.server.ts"
 		],
-		"critical-tasks": ["src/features/critical-tasks/contracts.ts", "src/features/critical-tasks/index.server.ts"],
+		"critical-tasks": [
+			"src/features/critical-tasks/contracts.ts",
+			"src/features/critical-tasks/index.ts",
+			"src/features/critical-tasks/index.server.ts"
+		],
 		"dashboard": ["src/features/dashboard/index.ts"],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",

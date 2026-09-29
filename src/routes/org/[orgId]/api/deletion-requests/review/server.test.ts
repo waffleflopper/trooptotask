@@ -4,6 +4,50 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig, _reviewPostConfig } from './+server';
 
 describe('POST /api/deletion-requests/review', () => {
+	it('routes completion approval through Training and removes only its bound target before approval', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.rawStore.seed('deletion_requests', [
+			{
+				id: 'request-1',
+				organization_id: ctx.auth.orgId,
+				resource_type: 'personnel_training',
+				resource_id: 'completion-1',
+				status: 'pending'
+			}
+		]);
+		ctx.rawStore.seed('personnel_trainings', [
+			{ id: 'completion-1', organization_id: ctx.auth.orgId },
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		const trainingDeletion = {
+			deleteApprovedTrainingType: vi.fn(),
+			deleteApprovedTrainingRecord: async (_actor: unknown, _requestId: string, recordId: string) => {
+				await ctx.rawStore.deleteWhere('personnel_trainings', ctx.auth.orgId, { id: recordId });
+			}
+		};
+		await expect(
+			handleUseCaseRequest(_reviewPostConfig(trainingDeletion), ctx, { id: 'request-1', action: 'approve' })
+		).resolves.toEqual({ success: true });
+		await expect(ctx.rawStore.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).resolves.toMatchObject(
+			{ status: 'approved' }
+		);
+	});
 	it('approves same-Organization counseling deletion for an admin with no Personnel lane', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -73,10 +117,14 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_reviewPostConfig({ deleteApprovedTrainingType }), ctx, {
-				id: 'request-1',
-				action: 'approve'
-			})
+			handleUseCaseRequest(
+				_reviewPostConfig({ deleteApprovedTrainingType, deleteApprovedTrainingRecord: vi.fn() }),
+				ctx,
+				{
+					id: 'request-1',
+					action: 'approve'
+				}
+			)
 		).resolves.toEqual({ success: true });
 		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'request-1', 'type-1');
 		expect(await ctx.rawStore.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
@@ -109,10 +157,14 @@ describe('POST /api/deletion-requests/review', () => {
 		const deleteApprovedTrainingType = vi.fn(async () => {});
 
 		await expect(
-			handleUseCaseRequest(_reviewPostConfig({ deleteApprovedTrainingType }), ctx, {
-				id: 'request-1',
-				action: 'approve'
-			})
+			handleUseCaseRequest(
+				_reviewPostConfig({ deleteApprovedTrainingType, deleteApprovedTrainingRecord: vi.fn() }),
+				ctx,
+				{
+					id: 'request-1',
+					action: 'approve'
+				}
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(deleteApprovedTrainingType).not.toHaveBeenCalled();
 		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['policy.denied']);

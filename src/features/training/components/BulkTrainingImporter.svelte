@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
 	import type { Personnel } from '$lib/types';
 	import type { TrainingType } from '$features/training/training.types';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -18,13 +19,7 @@
 	} from '$lib/utils/columnMapping';
 	import { parseCSVText, parseFile, parseTrainingStatus } from '$lib/utils/csvParser';
 
-	interface ResolvedRecord {
-		personnelId: string;
-		trainingTypeId: string;
-		completionDate: string | null;
-		notes: string;
-		status: 'completed' | 'exempt';
-	}
+	type ResolvedRecord = TrainingBatchRecord & { notes: string };
 
 	interface RowValidation {
 		valid: boolean;
@@ -300,7 +295,7 @@
 				body: JSON.stringify({ records })
 			});
 
-			const data = await res.json().catch(() => ({}));
+			const data: Partial<TrainingBatchImportResult> & { message?: string } = await res.json().catch(() => ({}));
 
 			if (!res.ok) {
 				throw new Error(data.message ?? `HTTP ${res.status}`);

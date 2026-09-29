@@ -1,8 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listGroupCatalog, listPinnedGroupNames } from '$features/personnel/index.server';
-import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { listTrainingTypes, listTrainingViews } from '$features/training/index.server';
+import { listTrainingTypes, listTrainingViews, listTrainingCompletions } from '$features/training/index.server';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	createWorkspaceHydrationTarget,
@@ -148,8 +147,8 @@ function fetchTrainingWorkspaceData(ctx: UseCaseContext, requestedOrgId: string)
 		orgId: requestedOrgId,
 		label: 'personnel trainings',
 		phase: 'personnel-trainings',
-		load: () => ctx.store.findMany<Record<string, unknown>>('personnel_trainings', canonicalOrgId),
-		mapRows: (rows) => PersonnelTrainingEntity.fromDbArray(rows) as PersonnelTraining[]
+		load: () => listTrainingCompletions(ctx),
+		mapRows: (trainings) => trainings
 	});
 	const rankCatalog = withTrainingTiming(requestedOrgId, 'rank-catalog', () => loadTrainingRankCatalog(ctx));
 

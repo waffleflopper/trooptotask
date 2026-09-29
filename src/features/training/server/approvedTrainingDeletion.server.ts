@@ -1,0 +1,89 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { CapabilityMap } from '$lib/access/memberAccessShape';
+import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { TrainingTypeEntity } from './trainingTypeEntity.server';
+import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
+
+export interface ApprovedTrainingDeletionActor {
+	readonly userId: string;
+	readonly orgId: string;
+	readonly role: 'owner' | 'admin' | 'member';
+	readonly canManageMembers: boolean;
+	readonly capabilityMap: CapabilityMap;
+}
+
+export interface ApprovedTrainingDeletionPort {
+	deleteApprovedTrainingType(actor: ApprovedTrainingDeletionActor, requestId: string, typeId: string): Promise<void>;
+	deleteApprovedTrainingRecord(
+		actor: ApprovedTrainingDeletionActor,
+		requestId: string,
+		recordId: string
+	): Promise<void>;
+}
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
+
+/** Delete only the Training resource named by a pending, authorized Organization review. */
+export function createSupabaseApprovedTrainingDeletionPort(
+	getAdminClient: () => SupabaseClient
+): ApprovedTrainingDeletionPort {
+	async function clientForPendingDeletion(
+		actor: ApprovedTrainingDeletionActor,
+		requestId: string,
+		resourceId: string,
+		resourceType: 'training_type' | 'personnel_training'
+	): Promise<SupabaseClient> {
+		const decision = evaluatePolicyDecision({
+			decisionKind: 'server-authoritative',
+			actor: { membershipRole: actor.role, canManageMembers: actor.canManageMembers, userId: actor.userId },
+			action: POLICY_ACTION_CATALOG.organization.reviewDeletionRequests,
+			capabilityMap: actor.capabilityMap,
+			scopeSet: { kind: 'organization' },
+			resource: { kind: 'organization' }
+		});
+		if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
+
+		const admin = getAdminClient();
+		const { data: request, error: requestError } = await admin
+			.from('deletion_requests')
+			.select('id')
+			.eq('organization_id', actor.orgId)
+			.eq('id', requestId)
+			.eq('status', 'pending')
+			.eq('resource_type', resourceType)
+			.eq('resource_id', resourceId)
+			.maybeSingle();
+		if (requestError) throw new Error(requestError.message);
+		if (!request) fail(404, 'Pending deletion request not found');
+		return admin;
+	}
+
+	return {
+		async deleteApprovedTrainingType(actor, requestId, typeId) {
+			const admin = await clientForPendingDeletion(actor, requestId, typeId, 'training_type');
+			const { data: deleted, error: deleteError } = await admin
+				.from(TrainingTypeEntity.table)
+				.delete()
+				.eq('organization_id', actor.orgId)
+				.eq('id', typeId)
+				.select('id')
+				.maybeSingle();
+			if (deleteError) throw new Error(deleteError.message);
+			if (!deleted) fail(404, 'Training type not found');
+		},
+		async deleteApprovedTrainingRecord(actor, requestId, recordId) {
+			const admin = await clientForPendingDeletion(actor, requestId, recordId, 'personnel_training');
+			const { error: deleteError } = await admin
+				.from(PersonnelTrainingEntity.table)
+				.delete()
+				.eq('organization_id', actor.orgId)
+				.eq('id', recordId)
+				.select('id')
+				.maybeSingle();
+			if (deleteError) throw new Error(deleteError.message);
+			// The target can already be gone after a failed request-status write; retry must still succeed.
+		}
+	};
+}

@@ -100,6 +100,38 @@ afterEach(() => {
 });
 
 describe('PersonTrainingEditor', () => {
+	it('counts saved currency states instead of display labels and excludes exemptions and inapplicable rows', () => {
+		const types: TrainingType[] = [
+			neverExpiresType,
+			{ ...expirationDateOnlyType, id: 'orange' },
+			{ ...expirationDateOnlyType, id: 'yellow' },
+			{ ...expirationDateOnlyType, id: 'expired' },
+			expiringType,
+			{ ...expiringType, id: 'exempt', canBeExempted: true, exemptPersonnelIds: [person.id] },
+			{ ...expiringType, id: 'optional', isOptional: true }
+		];
+		const records: PersonnelTraining[] = [
+			{ type: neverExpiresType.id, expires: null },
+			{ type: 'orange', expires: '2026-04-20' },
+			{ type: 'yellow', expires: '2026-05-21' },
+			{ type: 'expired', expires: '2026-04-05' }
+		].map(({ type, expires }) => ({
+			id: `record-${type}`,
+			personnelId: person.id,
+			trainingTypeId: type,
+			completionDate: null,
+			expirationDate: expires,
+			notes: null,
+			certificateUrl: null
+		}));
+		render(PersonTrainingEditor, {
+			props: { person, trainingTypes: types, trainings: records, onSave: vi.fn(), onRemove: vi.fn(), onClose: vi.fn() }
+		});
+		for (const label of ['Current', '<60d', '<30d', 'Expired', 'Not Done']) {
+			expect(within(screen.getByRole('group', { name: label })).getByText('1')).toBeTruthy();
+		}
+	});
+
 	it('retains the deletion confirmation and saved record after failure and permits retry', async () => {
 		vi.useRealTimers();
 		const onRemove = vi.fn().mockRejectedValueOnce(new Error('Removal failed')).mockResolvedValueOnce(undefined);

@@ -1,0 +1,49 @@
+{
+  "revision": "7d2bcd991c7a0faa6b4c44ad998f479193e43392",
+  "candidate": "27ac1cf8d22cfeb7caff04c9cca3bb9766861f2a002af1f3a0664ee534bba9d3",
+  "source": "Actual native click and documented export save outputs in this session; reconstructed as a durable metadata record after owned cleanup, not a new drive.",
+  "entries": [
+    {
+      "role": "trainingConfigure",
+      "pageId": 2,
+      "visibleAction": "Export from Training Readiness",
+      "observedSaveResult": {
+        "scratchFile": ".verification/evidence/verify-trooptotask/1357-completion-owner-final/training-report.xlsx",
+        "bytes": 7000
+      },
+      "artifact": "docs/stabilization/phase-08/d09-completion-browser/final-training-report.xlsx",
+      "sha256": "248823bfd8d57888c28e342205490864c160acd5a69729f90598d4da98d7d1b3",
+      "capture": "The documented export control intercepted the actual workbook Blob after the visible click, saved it successfully, then was restored. Bytes above are the actual tool outputs retained from this conversation, independently checked against the preserved file.",
+      "downloadFilename": "Not captured; the saved artifact name is user-selected by the helper.",
+      "requestStatus": "Not separately retained for these export requests."
+    },
+    {
+      "role": "manager",
+      "pageId": 5,
+      "visibleAction": "Export records from Able Personnel Details",
+      "observedSaveResult": {
+        "scratchFile": ".verification/evidence/verify-trooptotask/1357-completion-owner-final/personnel-no-training-baseline.xlsx",
+        "bytes": 9275
+      },
+      "artifact": "docs/stabilization/phase-08/d09-completion-browser/final-personnel-no-training-baseline.xlsx",
+      "sha256": "8004e32d93ad066f477ddea80bc31d87406edb1979ce22234cf273ee9dee041b",
+      "capture": "The documented export control intercepted the actual workbook Blob after the visible click, saved it successfully, then was restored. Bytes above are the actual tool outputs retained from this conversation, independently checked against the preserved file.",
+      "downloadFilename": "Not captured; the saved artifact name is user-selected by the helper.",
+      "requestStatus": "Not separately retained for these export requests."
+    },
+    {
+      "role": "rosterManager",
+      "pageId": 6,
+      "visibleAction": "Export records from Able Personnel Details",
+      "observedSaveResult": {
+        "scratchFile": ".verification/evidence/verify-trooptotask/1357-completion-owner-final/personnel-training-baseline.xlsx",
+        "bytes": 9388
+      },
+      "artifact": "docs/stabilization/phase-08/d09-completion-browser/final-personnel-training-baseline.xlsx",
+      "sha256": "787d20d4defe4e1c63ed1bb239b8500dc72bf6e9a6812d3448e80781ade814cb",
+      "capture": "The documented export control intercepted the actual workbook Blob after the visible click, saved it successfully, then was restored. Bytes above are the actual tool outputs retained from this conversation, independently checked against the preserved file.",
+      "downloadFilename": "Not captured; the saved artifact name is user-selected by the helper.",
+      "requestStatus": "Not separately retained for these export requests."
+    }
+  ]
+}

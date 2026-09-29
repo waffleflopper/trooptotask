@@ -17,7 +17,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from './governancePolicy';
 import { requireIdentityOwnedPolicy } from './identityPolicy';
 import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
-import type { ApprovedTrainingTypeDeletionPort } from '$features/training/index.server';
+import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
@@ -105,12 +105,15 @@ export async function createDeletionRequest(
 const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
 	counseling_record: 'counseling_records',
-	personnel_training: 'personnel_trainings',
 	rating_scheme_entry: 'rating_scheme_entries'
 };
 
 function isSupportedResourceType(resourceType: string): boolean {
-	return resourceType === 'training_type' || Boolean(RESOURCE_TYPE_TABLE_MAP[resourceType]);
+	return (
+		resourceType === 'training_type' ||
+		resourceType === 'personnel_training' ||
+		Boolean(RESOURCE_TYPE_TABLE_MAP[resourceType])
+	);
 }
 
 async function fetchPendingRequest(ctx: WritePorts, requestId: string): Promise<Record<string, unknown>> {
@@ -142,7 +145,7 @@ function notifyRequester(
 export async function approveDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	requestId: string,
-	trainingTypeDeletion?: ApprovedTrainingTypeDeletionPort
+	trainingDeletion?: ApprovedTrainingDeletionPort
 ): Promise<void> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
@@ -173,8 +176,11 @@ export async function approveDeletionRequest(
 			});
 			await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
 		} else if (resourceType === 'training_type') {
-			if (!trainingTypeDeletion) throw new Error('Training approved deletion port is required');
-			await trainingTypeDeletion.deleteApprovedTrainingType(ctx.auth, requestId, resourceId);
+			if (!trainingDeletion) throw new Error('Training approved deletion port is required');
+			await trainingDeletion.deleteApprovedTrainingType(ctx.auth, requestId, resourceId);
+		} else if (resourceType === 'personnel_training') {
+			if (!trainingDeletion) throw new Error('Training approved deletion port is required');
+			await trainingDeletion.deleteApprovedTrainingRecord(ctx.auth, requestId, resourceId);
 		} else {
 			if (!tableName) throw new Error('Deletion table is required');
 			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);

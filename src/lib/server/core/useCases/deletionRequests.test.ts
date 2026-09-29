@@ -7,6 +7,7 @@ import {
 	cancelDeletionRequest,
 	listDeletionRequests
 } from './deletionRequests';
+import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	return createWriteWithNotificationsPortsContext(overrides);
@@ -266,7 +267,95 @@ function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Re
 	]);
 }
 
+function trainingDeletionFor(
+	ctx: ReturnType<typeof buildContext>,
+	overrides: Partial<ApprovedTrainingDeletionPort> = {}
+): ApprovedTrainingDeletionPort {
+	return {
+		deleteApprovedTrainingType: async (_actor, _requestId, id) => {
+			await ctx.store.delete('training_types', ctx.auth.orgId, id);
+		},
+		deleteApprovedTrainingRecord: async (_actor, _requestId, id) => {
+			await ctx.store.delete('personnel_trainings', ctx.auth.orgId, id);
+		},
+		...overrides
+	};
+}
+
 describe('approveDeletionRequest', () => {
+	it('retries completion approval when its status write fails after the completion was deleted', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
+		ctx.store.seed('personnel_trainings', [
+			{ id: 'completion-1', organization_id: ctx.auth.orgId },
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		// Production DELETE is idempotent; the shared in-memory delete rejects missing IDs.
+		vi.spyOn(ctx.store, 'delete').mockImplementation((table, orgId, id) => ctx.store.deleteWhere(table, orgId, { id }));
+		const update = ctx.store.update;
+		let failOnce = true;
+		vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'deletion_requests' && id === 'dr-1' && data.status === 'approved' && failOnce) {
+				failOnce = false;
+				throw new Error('status write failed');
+			}
+			return update(table, orgId, id, data, select);
+		});
+
+		await expect(approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx))).rejects.toThrow('status write failed');
+		await expect(ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'completion-1' })).resolves.toBeNull();
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+
+		await expect(approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx))).resolves.toBeUndefined();
+		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'approved'
+		});
+		expect(ctx.notifications.notifications).toHaveLength(1);
+		expect(ctx.audit.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
+	});
+
+	it('keeps completion approval pending without success effects when Training deletion fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
+		ctx.store.seed('personnel_trainings', [{ id: 'completion-1', organization_id: ctx.auth.orgId }]);
+		const trainingDeletion = trainingDeletionFor(ctx, {
+			deleteApprovedTrainingRecord: async () => {
+				throw new Error('completion delete unavailable');
+			}
+		});
+		await expect(approveDeletionRequest(ctx, 'dr-1', trainingDeletion)).rejects.toThrow(
+			'completion delete unavailable'
+		);
+		await expect(
+			ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'completion-1' })
+		).resolves.not.toBeNull();
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.audit.events).toEqual([]);
+		expect(ctx.notifications.notifications).toEqual([]);
+	});
+
 	it('approves a Training type deletion for an Organization reviewer without Training configure', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -288,7 +377,7 @@ describe('approveDeletionRequest', () => {
 			await ctx.store.delete('training_types', ctx.auth.orgId, typeId);
 		});
 
-		await approveDeletionRequest(ctx, 'dr-1', { deleteApprovedTrainingType });
+		await approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx, { deleteApprovedTrainingType }));
 
 		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'dr-1', 'type-1');
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
@@ -306,9 +395,9 @@ describe('approveDeletionRequest', () => {
 			throw new Error('Training type delete blocked by foreign reference');
 		});
 
-		await expect(approveDeletionRequest(ctx, 'dr-1', { deleteApprovedTrainingType })).rejects.toThrow(
-			'Training type delete blocked by foreign reference'
-		);
+		await expect(
+			approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx, { deleteApprovedTrainingType }))
+		).rejects.toThrow('Training type delete blocked by foreign reference');
 		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
 			status: 'pending'
 		});

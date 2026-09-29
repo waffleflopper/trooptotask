@@ -2,7 +2,7 @@
 import type { QueryPorts } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { TrainingStatus, TrainingType } from '$features/training/contracts';
-import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
+import { listTrainingCompletions } from '$features/training/index.server';
 import { listTrainingTypes } from '$features/training/index.server';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
@@ -140,14 +140,12 @@ async function buildTrainingReportRows(
 	const sort = normalizeSort(input.sort);
 	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
 
-	const [personnel, trainingTypes, trainingRows, rankCatalog] = await Promise.all([
+	const [personnel, trainingTypes, trainings, rankCatalog] = await Promise.all([
 		ctx.personnelTrainingRoster.listActiveForReports(ctx.auth),
 		listTrainingTypes(ctx.store, orgId),
-		ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId),
+		listTrainingCompletions(ctx),
 		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'training-records' })
 	]);
-
-	const trainings = PersonnelTrainingEntity.fromDbArray(trainingRows);
 
 	const filteredPersonnel = filterPersonnel(personnel, filters);
 	const selectedTypes = filters.trainingTypeIds?.length

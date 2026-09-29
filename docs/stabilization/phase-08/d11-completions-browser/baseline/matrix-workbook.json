@@ -1,0 +1,41 @@
+{
+  "sheet": "Critical Task Matrix",
+  "headers": [
+    "Name",
+    "Rank",
+    "MOS",
+    "Duty Role",
+    "Group",
+    "VERIFY-ICT-ALPHA Verification Alpha Critical Task",
+    "VERIFY-ICT-ALL Verification All-MOS Critical Task"
+  ],
+  "rows": [
+    [
+      "Able, Synthetic",
+      "SPC",
+      "68W",
+      "Medic",
+      "Alpha",
+      "Current (2026-09-14)",
+      "Expiring Soon (2025-10-14)"
+    ],
+    [
+      "Baker, Synthetic",
+      "SPC",
+      "11B",
+      "NCO",
+      "Bravo",
+      null,
+      "Current (2026-09-29)"
+    ],
+    [
+      "Unassigned, Synthetic",
+      "SPC",
+      "68W",
+      "NCO",
+      null,
+      "Not Recorded",
+      "Not Recorded"
+    ]
+  ]
+}

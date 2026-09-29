@@ -1,0 +1,20 @@
+{
+  "table": "personnel_ict_completions",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "cfb4dc1e-683c-46ae-998b-4ba127d0d15a",
+      "organization_id": "62ab2ae5-fafb-4e3e-b989-846779bdc88c",
+      "personnel_id": "6c517e68-0ed1-494c-8483-2bcfe3f1ad0b",
+      "ict_task_id": "56bdc0d8-4eaf-4109-9a96-83118d8da705",
+      "completed_at": "2026-09-14",
+      "validation_method": "Demonstration",
+      "validated_by": null,
+      "notes": null,
+      "logged_by": "e9c61cc7-85c6-4db6-a963-958485a27861",
+      "created_at": "2026-09-29T21:04:03.133633+00:00",
+      "updated_at": "2026-09-29T21:04:03.133633+00:00"
+    }
+  ]
+}

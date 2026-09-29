@@ -26,11 +26,12 @@ interface TrackedStage {
 
 const tracked = new Set<TrackedStage>();
 let frame = 0;
+let reducedMotion: MediaQueryList | undefined;
 
 function render() {
 	frame = 0;
 	const viewportHeight = window.innerHeight;
-	const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const reduceMotion = reducedMotion?.matches ?? false;
 	// Read every position before writing any variable so the browser lays out once per frame.
 	const readings = [...tracked].map((stage) => {
 		const { top, height } = stage.node.getBoundingClientRect();
@@ -51,15 +52,17 @@ function schedule() {
 
 /**
  * Attachment that writes a stage's progress to its `--p` custom property (and
- * to `onprogress`) on scroll and resize. Every tracked stage shares one scroll
- * listener and one animation frame. When the reader prefers reduced motion,
- * progress jumps between `rests` instead of sliding, so the scene cuts from one
- * still frame to the next.
+ * to `onprogress`) on scroll, resize and reduced-motion changes. Every tracked
+ * stage shares one set of listeners and one animation frame. When the reader
+ * prefers reduced motion, progress jumps between `rests` instead of sliding, so
+ * the scene cuts from one still frame to the next.
  */
 export function trackStage(onprogress?: (progress: number) => void, rests: readonly number[] = []) {
 	return (node: HTMLElement) => {
 		const stage: TrackedStage = { node, onprogress, rests, progress: -1 };
 		if (tracked.size === 0) {
+			reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+			reducedMotion.addEventListener('change', schedule);
 			window.addEventListener('scroll', schedule, { passive: true });
 			window.addEventListener('resize', schedule);
 		}
@@ -71,6 +74,8 @@ export function trackStage(onprogress?: (progress: number) => void, rests: reado
 			if (tracked.size > 0) return;
 			window.removeEventListener('scroll', schedule);
 			window.removeEventListener('resize', schedule);
+			reducedMotion?.removeEventListener('change', schedule);
+			reducedMotion = undefined;
 			cancelAnimationFrame(frame);
 			frame = 0;
 		};

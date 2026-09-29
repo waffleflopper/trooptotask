@@ -77,4 +77,26 @@ describe('/api/daily-assignments', () => {
 			})
 		]);
 	});
+
+	it('rejects a blank set assignee without clearing the saved slot', async () => {
+		const ctx = createTestContext();
+		const existing = {
+			id: 'saved-slot',
+			organization_id: ctx.auth.orgId,
+			date: '2026-05-01',
+			assignment_type_id: 'type-cq',
+			assignee_id: 'person-1'
+		};
+		ctx.store.seed('daily_assignments', [existing]);
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, {
+				date: '2026-05-01',
+				assignmentTypeId: 'type-cq',
+				assigneeId: '   '
+			})
+		).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('daily_assignments', ctx.auth.orgId)).toEqual([existing]);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
 });

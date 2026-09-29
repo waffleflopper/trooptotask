@@ -57,6 +57,7 @@ export async function setDailyAssignmentSlot(
 ): Promise<unknown> {
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const record = toDailyAssignmentSlotRecord(validated);
+	if (!record.assigneeId.trim()) fail(400, 'Assignee ID is required to set an assignment');
 
 	await requireCalendarAssignmentPolicy(ctx, [record]);
 	await requireExistingAssignmentAccess(ctx, {

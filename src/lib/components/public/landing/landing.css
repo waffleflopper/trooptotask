@@ -68,6 +68,11 @@
 	font-family: 'Source Serif 4', serif;
 }
 
+/* Scrolling settles on each scene's resting frames (the stops in ScrollStage). Proximity, so the page never traps a reader. */
+html:has(.landing) {
+	scroll-snap-type: y proximity;
+}
+
 .landing :where(h1, h2, h3, h4, p, figure, blockquote, dl, dd) {
 	margin: 0;
 }

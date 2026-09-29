@@ -701,12 +701,13 @@ Lower-level shell primitives used internally by `PublicShell`. Reach for these d
 
 A pinned, scroll-driven scene for public storytelling pages. It renders a tall runway with a sticky, viewport-height frame and writes scroll progress to the CSS custom property `--p` (0 at pin start, 1 at pin end), which every descendant inherits. `public/stageProgress.ts` owns the progress math and one shared scroll listener and animation frame for all stages on a page.
 
-Props: `length: string` (runway height as a CSS length such as `"700vh"`), `onprogress?: (progress: number) => void`, `class?: string`, `children: Snippet`
+Props: `length: string` (runway height as a CSS length such as `"700vh"`), `onprogress?: (progress: number) => void`, `stops?: number[]`, `class?: string`, `children: Snippet`
 
 Guidance:
 
 - Drive motion from CSS using `--p` and animate only `transform` and `opacity`. Use `onprogress` only when a scene needs reactive state, and assign state only when a value actually changes.
 - Inside the frame, `cqw` and `cqh` measure the pinned frame, not the window.
+- `stops` lists the progress values where the scene is at rest (a fully readable frame). Each becomes a scroll-snap point, so a scroll gesture settles on it instead of coasting to a mid-transition state. Snapping is switched on by the page (the landing page sets `scroll-snap-type: y proximity` on `html`); a scene with no `stops` never snaps. Chrome does not honor `scroll-snap-stop` for touch and trackpad flings, so a hard swipe can still pass a stop, though it comes to rest on one.
 - Sticky pinning needs every ancestor up to the viewport to leave `overflow` visible or `clip`. `PublicShell` uses `overflow-x: clip` for that reason; do not change it to `hidden`.
 - The landing page (`src/routes/+page.svelte`) composes its scenes from `src/lib/components/public/landing/`. `landing/landing.css` holds that page's theme-fixed night and day tokens and type roles, scoped under `.landing`. They intentionally do not follow the light/dark theme.
 

@@ -26,7 +26,7 @@
 	}
 </script>
 
-<ScrollStage length="280vh">
+<ScrollStage length="280vh" stops={[0, 0.95]}>
 	<div class="hours">
 		<div class="l-wrap hours__layout">
 			<div class="hours__intro">

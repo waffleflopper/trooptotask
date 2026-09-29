@@ -38,14 +38,14 @@
 		}
 
 		if (!isPromiseLike(streamedCalendar)) {
-			calendarBootstrap = streamedCalendar as CalendarWorkspaceResult;
+			calendarBootstrap = 'access' in streamedCalendar ? null : streamedCalendar;
 			return;
 		}
 
 		void observeDeferred(streamedCalendar, {
 			fallbackMessage: 'Failed to load calendar workspace',
 			onResolve: (calendar) => {
-				calendarBootstrap = calendar;
+				calendarBootstrap = 'access' in calendar ? null : calendar;
 			},
 			onReject: (error) => {
 				loadError = error;

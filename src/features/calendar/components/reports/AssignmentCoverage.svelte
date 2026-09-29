@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { DailyAssignment, Personnel } from '$lib/types';
-	import type { AssignmentType } from '$features/calendar/contracts';
+	import type { Personnel } from '$lib/types';
+	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';
 	import type { ColumnDef } from '$lib/components/ui/data-table/index.js';

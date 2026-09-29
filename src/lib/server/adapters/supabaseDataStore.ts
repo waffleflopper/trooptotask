@@ -43,14 +43,6 @@ function throwMutationError(table: string, error: { code?: string; message: stri
 		// catalog's existence private and return a useful client error.
 		fail(404, 'Status type is unavailable for this Organization');
 	}
-	if (
-		table === 'daily_assignments' &&
-		error.code === '23505' &&
-		error.message.includes('unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key"')
-	) {
-		// The conflicting slot may be hidden by RLS; expose neither its row nor provider details.
-		fail(409, 'This assignment slot is unavailable. Refresh the Calendar and try again.');
-	}
 	throw new Error(error.message);
 }
 

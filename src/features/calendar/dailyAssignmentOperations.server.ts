@@ -40,23 +40,7 @@ export async function replaceDailyAssignmentDay(
 
 	await requireCalendarAssignmentPolicy(ctx, records);
 	await requireExistingAssignmentAccess(ctx, { date: input.date });
-
-	const replacedRows = await findDailyAssignmentRows(ctx, { date: input.date });
-	await ctx.store.deleteWhere(entity.table, ctx.auth.orgId, { date: input.date });
-
-	const rows = records.map((record) => toDailyAssignmentDbInsert(record, ctx.auth.orgId));
-	let inserted: Record<string, unknown>[];
-	try {
-		inserted = await ctx.store.insertMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, rows);
-	} catch (error) {
-		await tryRestoreDailyAssignmentRows(
-			ctx,
-			replacedRows,
-			error,
-			'Failed to restore Daily Assignment rows after day replacement insert failure'
-		);
-		throw error;
-	}
+	const inserted = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [input.date], records);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.replaced`,
@@ -64,28 +48,7 @@ export async function replaceDailyAssignmentDay(
 		details: { date: input.date, count: records.length }
 	});
 
-	return inserted.map((row) => entity.fromDb(row));
-}
-
-export async function createDailyAssignmentSlot(
-	ctx: CalendarWritePorts,
-	input: Record<string, unknown>
-): Promise<unknown> {
-	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
-	const record = toDailyAssignmentSlotRecord(validated);
-
-	await requireCalendarAssignmentPolicy(ctx, [record]);
-
-	const dbData = toDailyAssignmentDbInsert(record, ctx.auth.orgId);
-	const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData);
-
-	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.created`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: row.id as string | undefined
-	});
-
-	return entity.fromDb(row);
+	return inserted;
 }
 
 export async function setDailyAssignmentSlot(
@@ -94,83 +57,26 @@ export async function setDailyAssignmentSlot(
 ): Promise<unknown> {
 	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
 	const record = toDailyAssignmentSlotRecord(validated);
+	if (!record.assigneeId.trim()) fail(400, 'Assignee ID is required to set an assignment');
 
 	await requireCalendarAssignmentPolicy(ctx, [record]);
-	const replacedRows = await findDailyAssignmentRows(ctx, {
+	await requireExistingAssignmentAccess(ctx, {
 		date: record.date,
 		assignment_type_id: record.assignmentTypeId
 	});
-	await clearDailyAssignmentSlot(ctx, { date: record.date, assignmentTypeId: record.assignmentTypeId });
-
-	try {
-		return await createDailyAssignmentSlot(ctx, validated);
-	} catch (error) {
-		await tryRestoreDailyAssignmentRows(
-			ctx,
-			replacedRows,
-			error,
-			'Failed to restore Daily Assignment rows after slot replacement insert failure'
-		);
-		throw error;
-	}
-}
-
-export async function updateDailyAssignmentSlot(
-	ctx: CalendarWritePorts,
-	input: Record<string, unknown>
-): Promise<unknown> {
-	const validated = entity.updateSchema.parse(input) as Record<string, unknown>;
-	const { id } = validated as { id: string };
-	const assigneeId = validated.assigneeId as string | undefined;
-
-	await requireExistingAssignmentAccessById(ctx, id);
-
-	if (assigneeId) {
-		const existingRow = await ctx.store.findOne<Record<string, unknown>>(
-			entity.table,
-			ctx.auth.orgId,
-			{ id },
-			'date, assignment_type_id'
-		);
-		const date = typeof validated.date === 'string' ? validated.date : String(existingRow?.date ?? '');
-		const assignmentTypeId =
-			typeof validated.assignmentTypeId === 'string'
-				? validated.assignmentTypeId
-				: String(existingRow?.assignment_type_id ?? '');
-		const record = { date, assignmentTypeId, assigneeId };
-		await requireCalendarAssignmentPolicy(ctx, [record]);
-		if (!date) {
-			fail(404, 'Daily assignment not found');
-		}
-	}
-
-	const dbData = entity.toDbUpdate(validated);
-	const row = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, id, dbData);
-
+	const [inserted] = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [], [record]);
+	if (!inserted) fail(500, 'Daily assignment replacement returned no row');
 	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.updated`,
+		action: `${AUDIT_RESOURCE}.cleared`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: id
+		details: { date: record.date, assignmentTypeId: record.assignmentTypeId }
 	});
-
-	return entity.fromDb(row);
-}
-
-export async function deleteDailyAssignmentSlot(ctx: CalendarWritePorts, id: string): Promise<void> {
-	const existingRow = await requireExistingAssignmentAccessById(ctx, id);
-	const assignmentTypeId = existingRow?.assignment_type_id;
-	const assigneeId = existingRow?.assignee_id;
-	if (typeof assignmentTypeId !== 'string' || typeof assigneeId !== 'string') {
-		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments);
-	}
-
-	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
-
 	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.deleted`,
+		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: id
+		resourceId: inserted.id
 	});
+	return inserted;
 }
 
 export async function clearDailyAssignmentSlot(
@@ -182,10 +88,17 @@ export async function clearDailyAssignmentSlot(
 		assignment_type_id: input.assignmentTypeId
 	});
 
-	await ctx.store.deleteWhere(entity.table, ctx.auth.orgId, {
-		date: input.date,
-		assignment_type_id: input.assignmentTypeId
-	});
+	await ctx.calendarAssignmentReplacement.replace(
+		ctx.auth.orgId,
+		[],
+		[
+			{
+				date: input.date,
+				assignmentTypeId: input.assignmentTypeId,
+				assigneeId: ''
+			}
+		]
+	);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.cleared`,
@@ -232,26 +145,7 @@ export async function replaceDailyAssignmentSlotsBatch(
 	if (clears.some((record) => !affectedSlotKeys.has(toSlotKey(record.date, record.assignmentTypeId)))) {
 		await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAssignments);
 	}
-	const replacedRows = await findDailyAssignmentRowsMatchingAny(ctx, affectedSlotFilters);
-	await ctx.store.deleteWhereAny(entity.table, ctx.auth.orgId, affectedSlotFilters);
-
-	let inserted: unknown[] = [];
-	if (upserts.length > 0) {
-		const rows = upserts.map((record) => toDailyAssignmentDbInsert(record, ctx.auth.orgId));
-		let insertedRows: Record<string, unknown>[];
-		try {
-			insertedRows = await ctx.store.insertMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, rows);
-		} catch (error) {
-			await tryRestoreDailyAssignmentRows(
-				ctx,
-				replacedRows,
-				error,
-				'Failed to restore Daily Assignment rows after batch replacement insert failure'
-			);
-			throw error;
-		}
-		inserted = insertedRows.map((row) => entity.fromDb(row));
-	}
+	const inserted = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [], records);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.batch_replaced`,
@@ -268,78 +162,6 @@ function toDailyAssignmentSlotRecord(record: Record<string, unknown>): DailyAssi
 		assignmentTypeId: record.assignmentTypeId as string,
 		assigneeId: record.assigneeId as string
 	};
-}
-
-function toDailyAssignmentDbInsert(record: DailyAssignmentSlotRecord, orgId: string): Record<string, unknown> {
-	return entity.toDbInsert(
-		{
-			date: record.date,
-			assignmentTypeId: record.assignmentTypeId,
-			assigneeId: record.assigneeId
-		},
-		orgId
-	);
-}
-
-async function findDailyAssignmentRows(
-	ctx: CalendarWritePorts,
-	filters: Record<string, unknown>
-): Promise<Record<string, unknown>[]> {
-	return ctx.store.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters);
-}
-
-async function findDailyAssignmentRowsMatchingAny(
-	ctx: CalendarWritePorts,
-	slotFilters: AssignmentSlotFilter[]
-): Promise<Record<string, unknown>[]> {
-	if (slotFilters.length === 0) return [];
-
-	const affectedSlotKeys = new Set(slotFilters.map((filter) => toSlotKey(filter.date, filter.assignment_type_id)));
-	const rows = await ctx.store.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, undefined, {
-		inFilters: {
-			date: [...new Set(slotFilters.map((filter) => filter.date))],
-			assignment_type_id: [...new Set(slotFilters.map((filter) => filter.assignment_type_id))]
-		}
-	});
-	return rows.filter(
-		(row) =>
-			typeof row.date === 'string' &&
-			typeof row.assignment_type_id === 'string' &&
-			affectedSlotKeys.has(toSlotKey(row.date, row.assignment_type_id))
-	);
-}
-
-async function tryRestoreDailyAssignmentRows(
-	ctx: CalendarWritePorts,
-	rows: Record<string, unknown>[],
-	primaryError: unknown,
-	message: string
-): Promise<void> {
-	if (rows.length === 0) return;
-
-	try {
-		await ctx.store.insertMany(entity.table, ctx.auth.orgId, rows.map(toDailyAssignmentDbRestore));
-	} catch (restoreError) {
-		throw calendarReplacementRollbackFailureError(message, primaryError, restoreError);
-	}
-}
-
-function toDailyAssignmentDbRestore(row: Record<string, unknown>): Record<string, unknown> {
-	const restored = { ...row };
-	delete restored.organization_id;
-	return restored;
-}
-
-function calendarReplacementRollbackFailureError(message: string, primaryError: unknown, restoreError: unknown): Error {
-	const error = new Error(
-		`${message}. Primary failure: ${errorMessage(primaryError)}. Restore failure: ${errorMessage(restoreError)}.`
-	);
-	return Object.assign(error, { primaryError, restoreError });
-}
-
-function errorMessage(error: unknown): string {
-	const message = error instanceof Error ? error.message : String(error);
-	return message.replace(/[.]+$/, '');
 }
 
 async function getAssignmentTargets(
@@ -372,26 +194,6 @@ async function requireExistingAssignmentAccess(
 		select: 'assignee_id, assignment_type_id'
 	});
 	await requireCalendarAssignmentRowsPolicy(ctx, existingRows);
-}
-
-async function requireExistingAssignmentAccessById(
-	ctx: CalendarWritePorts,
-	id: string
-): Promise<Record<string, unknown> | null> {
-	const lookupStore = ctx.rawStore ?? ctx.store;
-	const existingRow = await lookupStore.findOne<Record<string, unknown>>(
-		entity.table,
-		ctx.auth.orgId,
-		{ id },
-		'assignee_id, assignment_type_id'
-	);
-	if (!existingRow) {
-		return null;
-	}
-
-	await requireCalendarAssignmentRowsPolicy(ctx, [existingRow]);
-
-	return existingRow;
 }
 
 async function requireExistingAssignmentSlotPolicy(

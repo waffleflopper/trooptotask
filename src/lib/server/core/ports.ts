@@ -1,4 +1,5 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
@@ -175,6 +176,7 @@ export interface WritePorts {
 	rawStore?: DataStore;
 	auth: AuthContext;
 	audit: AuditPort;
+	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
@@ -225,6 +227,7 @@ export interface UseCaseContext {
 	auth: AuthContext;
 	scope: ScopeEnforcementPort;
 	audit: AuditPort;
+	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
 
 	notifications: NotificationPort;
 	storage: StoragePort;

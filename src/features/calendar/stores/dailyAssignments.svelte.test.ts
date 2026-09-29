@@ -351,23 +351,21 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.assignments).toEqual([]);
 		});
 
-		it('shows the server conflict message when a manual assignment is blocked by duty coverage', async () => {
+		it('restores an occupied slot and shows a generic conflict after a rejected replacement', async () => {
+			const existing = { id: 'hidden-slot', date: '2026-03-20', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			dailyAssignmentsStore.load([], [existing], 'org-1');
 			vi.stubGlobal(
 				'fetch',
-				mockFetch(
-					{
-						message: 'SGT Nolan is already assigned to duty coverage from 2026-03-20T06:00:00 to 2026-03-20T18:00:00.'
-					},
-					409
-				)
+				mockFetch({ message: 'This assignment slot is unavailable. Refresh the Calendar and try again.' }, 409)
 			);
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 			const result = await dailyAssignmentsStore.setAssignment('2026-03-20', 'type-1', 'p1');
 
 			expect(result).toBe(false);
+			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
 			expect(errorToast).toHaveBeenCalledWith(
-				'SGT Nolan is already assigned to duty coverage from 2026-03-20T06:00:00 to 2026-03-20T18:00:00.'
+				'This assignment slot is unavailable. Refresh the Calendar and try again.'
 			);
 		});
 	});
@@ -555,8 +553,13 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
 		});
 
-		it('shows the server conflict message when a batch assignment is blocked by duty cooldown', async () => {
-			vi.stubGlobal('fetch', mockFetch({ message: 'SGT Nolan is still in cooldown until 2026-03-21T20:00:00.' }, 409));
+		it('restores a batch slot and shows a generic conflict after a rejected replacement', async () => {
+			const existing = { id: 'occupied-slot', date: '2026-03-21', assignmentTypeId: 'type-1', assigneeId: 'p-old' };
+			dailyAssignmentsStore.load([], [existing], 'org-1');
+			vi.stubGlobal(
+				'fetch',
+				mockFetch({ message: 'This assignment slot is unavailable. Refresh the Calendar and try again.' }, 409)
+			);
 			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
 			const result = await dailyAssignmentsStore.setAssignmentBatch([
@@ -564,7 +567,10 @@ describe('dailyAssignmentsStore - core primitives composition', () => {
 			]);
 
 			expect(result).toBe(false);
-			expect(errorToast).toHaveBeenCalledWith('SGT Nolan is still in cooldown until 2026-03-21T20:00:00.');
+			expect(dailyAssignmentsStore.assignments).toEqual([existing]);
+			expect(errorToast).toHaveBeenCalledWith(
+				'This assignment slot is unavailable. Refresh the Calendar and try again.'
+			);
 		});
 	});
 });

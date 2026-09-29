@@ -2,8 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	clearDailyAssignmentSlot,
-	createDailyAssignmentSlot,
-	updateDailyAssignmentSlot,
 	replaceDailyAssignmentDay,
 	replaceDailyAssignmentSlotsBatch,
 	setDailyAssignmentSlot
@@ -14,22 +12,11 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 }
 
 describe('Daily Assignment Slot writes', () => {
-	it.each(['create', 'set', 'update', 'day', 'batch'] as const)(
+	it.each(['set', 'day', 'batch'] as const)(
 		'%s saves a manual assignment with retired Duty storage unavailable',
 		async (operation) => {
 			const ctx = buildContext();
 			const record = { date: '2026-03-22', assignmentTypeId: 'type-a', assigneeId: 'person-1' };
-			if (operation === 'update') {
-				ctx.store.seed('daily_assignments', [
-					{
-						id: 'saved-slot',
-						organization_id: 'test-org',
-						date: record.date,
-						assignment_type_id: 'type-a',
-						assignee_id: 'old-person'
-					}
-				]);
-			}
 			const findMany = ctx.store.findMany.bind(ctx.store);
 			const retiredReads: string[] = [];
 			const unavailable = vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
@@ -41,14 +28,8 @@ describe('Daily Assignment Slot writes', () => {
 			});
 			try {
 				switch (operation) {
-					case 'create':
-						await createDailyAssignmentSlot(ctx, record);
-						break;
 					case 'set':
 						await setDailyAssignmentSlot(ctx, record);
-						break;
-					case 'update':
-						await updateDailyAssignmentSlot(ctx, { id: 'saved-slot', assigneeId: 'person-1' });
 						break;
 					case 'day':
 						await replaceDailyAssignmentDay(ctx, { date: record.date, records: [record] });
@@ -84,7 +65,7 @@ describe('Daily Assignment Slot writes', () => {
 	});
 
 	it.each([undefined, 409])(
-		'preserves the existing slot assignment when replacement insert fails after clearing (status %s)',
+		'preserves the existing slot assignment when atomic replacement fails (status %s)',
 		async (status) => {
 			const failure = new Error('Calendar insert failed.');
 			if (status) Object.assign(failure, { status });
@@ -113,7 +94,7 @@ describe('Daily Assignment Slot writes', () => {
 					assignee_id: 'other-day-person'
 				}
 			]);
-			const insertSpy = vi.spyOn(ctx.store, 'insert').mockRejectedValueOnce(failure);
+			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
 
 			try {
 				await expect(
@@ -150,7 +131,7 @@ describe('Daily Assignment Slot writes', () => {
 					])
 				);
 			} finally {
-				insertSpy.mockRestore();
+				replacementSpy.mockRestore();
 			}
 		}
 	);
@@ -200,7 +181,7 @@ describe('Daily Assignment Slot writes', () => {
 	});
 
 	it.each([undefined, 409])(
-		'preserves the existing day assignments when replacement insert fails after clearing (status %s)',
+		'preserves the existing day assignments when atomic replacement fails (status %s)',
 		async (status) => {
 			const failure = new Error('Calendar insert failed.');
 			if (status) Object.assign(failure, { status });
@@ -221,7 +202,7 @@ describe('Daily Assignment Slot writes', () => {
 					assignee_id: 'other-day-person'
 				}
 			]);
-			const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(failure);
+			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
 
 			try {
 				await expect(
@@ -250,13 +231,13 @@ describe('Daily Assignment Slot writes', () => {
 					])
 				);
 			} finally {
-				insertManySpy.mockRestore();
+				replacementSpy.mockRestore();
 			}
 		}
 	);
 
 	it.each([undefined, 409])(
-		'preserves affected batch slots when replacement insert fails after clearing (status %s)',
+		'preserves affected batch slots when atomic replacement fails (status %s)',
 		async (status) => {
 			const failure = new Error('Calendar insert failed.');
 			if (status) Object.assign(failure, { status });
@@ -291,7 +272,7 @@ describe('Daily Assignment Slot writes', () => {
 					assignee_id: 'same-type-person'
 				}
 			]);
-			const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(failure);
+			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
 
 			try {
 				await expect(
@@ -334,7 +315,7 @@ describe('Daily Assignment Slot writes', () => {
 					])
 				);
 			} finally {
-				insertManySpy.mockRestore();
+				replacementSpy.mockRestore();
 			}
 		}
 	);

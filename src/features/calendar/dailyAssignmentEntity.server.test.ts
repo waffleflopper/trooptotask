@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { DailyAssignmentEntity } from './dailyAssignmentEntity.server';
-import type { DailyAssignment } from '$lib/types';
+import type { DailyAssignment } from '$features/calendar/contracts';
 
 describe('DailyAssignmentEntity', () => {
 	it('fromDb produces correct DailyAssignment shape', () => {

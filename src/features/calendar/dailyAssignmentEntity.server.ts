@@ -1,12 +1,12 @@
 /**
  * Daily assignment entity — maps `daily_assignments`.
  * Org-scoped only (`groupScope: 'none'`); assignments span groups.
- * Calendar slot use cases enforce assignee scope and preserve failed-replacement recovery.
+ * Calendar slot use cases enforce assignee scope; replacement commits in one provider transaction.
  * The response exposes Calendar facts and retained metadata only.
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { DailyAssignment } from '$lib/types';
+import type { DailyAssignment } from '$features/calendar/contracts';
 
 export const DailyAssignmentEntity = defineEntity<DailyAssignment>({
 	table: 'daily_assignments',

@@ -43,17 +43,6 @@ export interface OrganizationInvitation {
 }
 
 // ============================================================
-// Daily assignments remain here until their D06 ownership cutover.
-// ============================================================
-
-export interface DailyAssignment {
-	id: string;
-	date: string;
-	assignmentTypeId: string;
-	assigneeId: string;
-}
-
-// ============================================================
 // Ranks
 // ============================================================
 

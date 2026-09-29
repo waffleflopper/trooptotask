@@ -1,9 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$lib/types';
-import type { AvailabilityEntry, StatusType } from '$features/calendar/contracts';
+import type { AvailabilityEntry, StatusType, DailyAssignment, AssignmentType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { DailyAssignment } from '$lib/types';
-import type { AssignmentType } from '$features/calendar/contracts';
 import { createDashboardScreenModel, type DashboardStoragePort } from './dashboardScreenModel.svelte';
 import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
 import type { DashboardPageData } from '../dashboard.types';

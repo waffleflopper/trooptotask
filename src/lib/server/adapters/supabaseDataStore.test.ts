@@ -2,13 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseDataStore } from './supabaseDataStore';
 
-const slotConflict = {
-	code: '23505',
-	message: 'duplicate key value violates unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key"',
-	details: 'Key (organization_id, assignment_type_id, date)=(hidden-org, hidden-type, 2026-03-22) already exists.',
-	hint: ''
-};
-
 const foreignCalendarStatus = {
 	code: '23503',
 	message:
@@ -17,7 +10,7 @@ const foreignCalendarStatus = {
 	hint: ''
 };
 
-function storeWithProviderError(error: typeof slotConflict) {
+function storeWithProviderError(error: typeof foreignCalendarStatus) {
 	const client = createClient('http://127.0.0.1:1', 'synthetic-anon-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
@@ -64,51 +57,6 @@ describe('Supabase DataStore conflict handling', () => {
 		],
 		['another provider code', 'availability_entries', { ...foreignCalendarStatus, code: '42501' }]
 	])('does not reinterpret %s as a Calendar status reference', async (_label, table, error) => {
-		const result = write(storeWithProviderError(error), 'insert', table);
-		await expect(result).rejects.toThrow(error.message);
-		await expect(result).rejects.not.toHaveProperty('status');
-	});
-
-	it.each(writes)(
-		'%s returns a safe 409 for a Calendar slot collision without exposing provider details',
-		async (method) => {
-			await expect(write(storeWithProviderError(slotConflict), method, 'daily_assignments')).rejects.toMatchObject({
-				status: 409,
-				message: 'This assignment slot is unavailable. Refresh the Calendar and try again.'
-			});
-		}
-	);
-
-	it.each([
-		['another table', 'personnel', slotConflict],
-		[
-			'another unique constraint',
-			'daily_assignments',
-			{
-				...slotConflict,
-				message: 'duplicate key value violates unique constraint "daily_assignments_pkey"'
-			}
-		],
-		[
-			'a similarly named constraint',
-			'daily_assignments',
-			{
-				...slotConflict,
-				message:
-					'duplicate key value violates unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key_other"'
-			}
-		],
-		['another provider error code', 'daily_assignments', { ...slotConflict, code: '42501' }],
-		[
-			'an unrelated provider failure',
-			'daily_assignments',
-			{
-				...slotConflict,
-				code: 'PGRST000',
-				message: 'Database connection unavailable'
-			}
-		]
-	])('preserves existing errors for %s', async (_label, table, error) => {
 		const result = write(storeWithProviderError(error), 'insert', table);
 		await expect(result).rejects.toThrow(error.message);
 		await expect(result).rejects.not.toHaveProperty('status');

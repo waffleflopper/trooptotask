@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { fetchCalendarBootstrap, fetchCalendarData, fetchCalendarRangeData } from '$features/calendar/index.server';
-import { updateDailyAssignmentSlot } from './dailyAssignmentOperations.server';
+import { setDailyAssignmentSlot } from './dailyAssignmentOperations.server';
 
 const range = { rangeStart: '2026-03-01', rangeEnd: '2026-03-31' };
 
@@ -183,41 +183,62 @@ describe('persisted Calendar preservation (R1/R6)', () => {
 		]);
 	});
 
-	it('edits a generated assignment in place and reloads its saved assignee with an identity-specific audit', async () => {
+	it('reassigns a saved generated slot and reloads it without changing neighboring or foreign facts', async () => {
 		const ctx = fixture();
-		await updateDailyAssignmentSlot(ctx, { id: 'linked', assigneeId: 'p-bravo' });
-		const result = await fetchCalendarRangeData(ctx, range);
-		expect(result.dailyAssignments).toEqual([
-			retainedSlots[0],
-			retainedSlots[1],
-			{
-				id: 'linked',
-				organization_id: 'test-org',
-				date: '2026-03-15',
-				assignmentTypeId: 'person-type',
-				assigneeId: 'p-bravo'
-			},
-			retainedSlots[3]
-		]);
-		expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(
-			savedSlots.slice(0, 7).map((row) => (row.id === 'linked' ? { ...row, assignee_id: 'p-bravo' } : row))
+		await setDailyAssignmentSlot(ctx, {
+			date: '2026-03-15',
+			assignmentTypeId: 'person-type',
+			assigneeId: 'p-bravo'
+		});
+		const saved = await ctx.rawStore.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
+		expect(saved).toHaveLength(7);
+		expect(saved.filter((row) => row.date !== '2026-03-15')).toEqual(
+			savedSlots.slice(0, 7).filter((row) => row.date !== '2026-03-15')
 		);
-		expect(ctx.auditPort.events).toEqual([
+		const edited = saved.find((row) => row.date === '2026-03-15');
+		expect(edited).toMatchObject({
+			organization_id: 'test-org',
+			date: '2026-03-15',
+			assignment_type_id: 'person-type',
+			assignee_id: 'p-bravo',
+			id: expect.any(String)
+		});
+		const result = await fetchCalendarRangeData(ctx, range);
+		expect(result.dailyAssignments).toHaveLength(4);
+		expect(result.dailyAssignments).toEqual(
+			expect.arrayContaining([
+				retainedSlots[0],
+				retainedSlots[1],
+				retainedSlots[3],
+				{
+					id: edited?.id,
+					organization_id: 'test-org',
+					date: '2026-03-15',
+					assignmentTypeId: 'person-type',
+					assigneeId: 'p-bravo'
+				}
+			])
+		);
+		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
-				action: 'daily_assignment.updated',
+				action: 'daily_assignment.created',
 				resourceType: 'daily_assignment',
-				resourceId: 'linked'
+				resourceId: edited?.id
 			})
-		]);
+		);
 		expect(await ctx.rawStore.findMany('daily_assignments', 'other-org')).toEqual([savedSlots[7]]);
 	});
 
 	it('preserves generated facts and emits no success audit when a saved edit fails', async () => {
 		const ctx = fixture();
-		vi.spyOn(ctx.store, 'update').mockRejectedValueOnce(new Error('synthetic write failure'));
-		await expect(updateDailyAssignmentSlot(ctx, { id: 'linked', assigneeId: 'p-bravo' })).rejects.toThrow(
-			'synthetic write failure'
-		);
+		vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(new Error('synthetic write failure'));
+		await expect(
+			setDailyAssignmentSlot(ctx, {
+				date: '2026-03-15',
+				assignmentTypeId: 'person-type',
+				assigneeId: 'p-bravo'
+			})
+		).rejects.toThrow('synthetic write failure');
 		expect((await fetchCalendarRangeData(ctx, range)).dailyAssignments).toEqual(retainedSlots);
 		expect(await ctx.rawStore.findMany('daily_assignments', 'test-org')).toEqual(savedSlots.slice(0, 7));
 		expect(ctx.auditPort.events).toEqual([]);

@@ -14,6 +14,8 @@ D03 has moved Critical Tasks workspace, report/export, history, batch import and
 
 D10's first PR aligns task library RLS and the two Critical Tasks defaults with the dedicated configure lane. The second puts the settings lookup and browser-consumed workspace types under Critical Tasks and removes the query/bootstrap type cycle. This third slice moves the task entity and batch import into Critical Tasks, routes their callers through its server seam, and gives Critical Tasks routes a public web seam. Personnel detail composes a narrow owned task read after its existing authorization. The workspace query and completion mapper still reside in central server code; D10 owns the former cutover, while D11 owns the broader completion/readiness/report operations. These intermediate slices do not close D10.
 
+D10's Critical Tasks library/configuration cutover owns workspace query/types, settings reads, task and completion entities, task batch import, Personnel readiness lookup and public seams. HTTP streaming composition stays in delivery. D11 retains completion operations, broader readiness/report projections and read-model provider placement; D24/D25/D28 retain export, retention and infrastructure work.
+
 ## D-05 Legacy Clinic Vocabulary
 
 `clinicRole` / `clinic_role` remain retained Personnel fields. Their canonical user-facing term is **Duty Role**; some surfaces still use clinic-era or ambiguous `Role` labels. Preserve existing data, runtime/API shapes and tolerated legacy import labels while using canonical copy in new work. [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md) owns this compatibility rule.

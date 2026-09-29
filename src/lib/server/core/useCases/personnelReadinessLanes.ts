@@ -5,10 +5,8 @@ import type { Personnel } from '$lib/types';
 import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { PersonnelIctCompletionEntity } from '$features/critical-tasks/index.server';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
-import { buildCriticalTasksSoldierReadinessSummary } from '$features/critical-tasks/utils/ictReadinessSnapshot';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
 interface PersonnelPolicyRow extends Record<string, unknown> {
@@ -17,8 +15,6 @@ interface PersonnelPolicyRow extends Record<string, unknown> {
 }
 
 interface OrgSettingsRow {
-	critical_tasks_default_expiration_months?: number | null;
-	critical_tasks_expiring_soon_warning_days?: number | null;
 	loss_warning_window_days?: number | null;
 }
 
@@ -51,10 +47,6 @@ function asOfDate(value?: string | Date): Date {
 
 function daysBetween(from: Date, to: Date): number {
 	return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
-}
-
-function plural(count: number, singular: string, pluralLabel = `${singular}s`): string {
-	return `${count} ${count === 1 ? singular : pluralLabel}`;
 }
 
 function dateRangeDetail(entry: PersonnelAvailabilityPeriod): string {
@@ -102,75 +94,6 @@ export async function loadAvailabilityReadinessLane(
 		value: statusName,
 		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
 		tone: 'watch'
-	};
-}
-
-export async function loadCriticalTasksReadinessLane(
-	ctx: UseCaseContext,
-	personnelId: string,
-	asOf: string | Date | undefined,
-	loadActiveTasks: () => Promise<Parameters<typeof buildCriticalTasksSoldierReadinessSummary>[0]['activeTasks']>
-): Promise<PersonnelReadinessLane> {
-	const person = await loadPersonnelForLane(
-		ctx,
-		personnelId,
-		POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
-		'personnel_ict_completion'
-	);
-	const [tasks, completionRows, settingsRow] = await Promise.all([
-		loadActiveTasks(),
-		ctx.store.findMany<Record<string, unknown>>(
-			'personnel_ict_completions',
-			ctx.auth.orgId,
-			{ personnel_id: personnelId },
-			{ select: PersonnelIctCompletionEntity.select }
-		),
-		ctx.store.findOne<OrgSettingsRow>(
-			'organizations',
-			ctx.auth.orgId,
-			{ id: ctx.auth.orgId },
-			'critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
-		)
-	]);
-	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
-	const readiness = buildCriticalTasksSoldierReadinessSummary({
-		person,
-		activeTasks: tasks,
-		completions,
-		settings: {
-			defaultExpirationMonths: settingsRow?.critical_tasks_default_expiration_months ?? null,
-			expiringSoonWarningDays: settingsRow?.critical_tasks_expiring_soon_warning_days ?? null
-		},
-		asOf
-	});
-
-	if (readiness.applicableCount === 0) {
-		return {
-			label: 'Critical Tasks',
-			value: 'No tasks',
-			detail: 'No applicable ICT tasks for this Soldier.',
-			tone: 'neutral'
-		};
-	}
-
-	const expiringSoonDetail =
-		readiness.expiringSoonCount > 0 ? ` ${plural(readiness.expiringSoonCount, 'task')} expiring soon.` : '';
-	const attentionDetail =
-		readiness.attentionCount > 0
-			? ` ${plural(readiness.attentionCount, 'task')} ${readiness.attentionCount === 1 ? 'needs' : 'need'} attention.`
-			: ' No tasks need attention.';
-	const tone =
-		readiness.readinessPercent < 70
-			? 'bad'
-			: readiness.readinessPercent < 90 || readiness.expiringSoonCount > 0
-				? 'watch'
-				: 'good';
-
-	return {
-		label: 'Critical Tasks',
-		value: `${readiness.readinessPercent}%`,
-		detail: `${readiness.readyCount} of ${readiness.applicableCount} applicable ICT tasks ready.${expiringSoonDetail}${attentionDetail}`,
-		tone
 	};
 }
 

@@ -3,9 +3,8 @@ export type { TrainingType, PersonnelTraining, TrainingStatus, TrainingView } fr
 export { TRAINING_STATUS_COLORS } from './training.types';
 
 // Stores
-export { trainingTypesStore } from './stores/trainingTypes.svelte';
 export { personnelTrainingsStore } from './stores/personnelTrainings.svelte';
-export { trainingViewsStore } from './stores/trainingViews.svelte';
+export { trainingTypeSource, trainingTypeHydration } from './webSources.svelte';
 
 // Utils
 export { isTrainingApplicable } from './utils/applicability';

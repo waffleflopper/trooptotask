@@ -8,7 +8,7 @@
 import { z } from 'zod';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '../training.types';
 
 export const TrainingTypeEntity = defineEntity<TrainingType>({
 	table: 'training_types',

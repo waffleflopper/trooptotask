@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { TrainingTypeEntity } from './server/trainingTypeEntity.server';
 import type { TrainingOnboardingActor, TrainingOnboardingReferencesPort } from './contracts';
 
 const PAGE_SIZE = 500;

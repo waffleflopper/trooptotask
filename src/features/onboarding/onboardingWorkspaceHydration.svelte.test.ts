@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,

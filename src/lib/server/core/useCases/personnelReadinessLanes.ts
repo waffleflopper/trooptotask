@@ -3,16 +3,12 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 import type { Personnel } from '$lib/types';
 import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
-import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
-import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
-import { isTrainingApplicable } from '$features/training/utils/applicability';
 import { buildCriticalTasksSoldierReadinessSummary } from '$features/critical-tasks/utils/ictReadinessSnapshot';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
@@ -29,7 +25,7 @@ interface OrgSettingsRow {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-async function loadPersonnelForLane(
+export async function loadPersonnelForLane(
 	ctx: UseCaseContext,
 	personnelId: string,
 	action: FeatureLanePolicyAction,
@@ -60,18 +56,6 @@ function daysBetween(from: Date, to: Date): number {
 
 function plural(count: number, singular: string, pluralLabel = `${singular}s`): string {
 	return `${count} ${count === 1 ? singular : pluralLabel}`;
-}
-
-function sentenceList(items: string[], fallback: string): string {
-	return items.length > 0 ? `${items.join('. ')}.` : fallback;
-}
-
-function formatDueLabel(name: string, expirationDate: string | null, today: Date): string {
-	if (!expirationDate) return `${name} not completed`;
-	const days = daysBetween(today, parseDate(expirationDate));
-	if (days < 0) return `${name} expired ${Math.abs(days)}d ago`;
-	if (days === 0) return `${name} due today`;
-	return `${name} ${days}d left`;
 }
 
 function dateRangeDetail(entry: PersonnelAvailabilityPeriod): string {
@@ -119,81 +103,6 @@ export async function loadAvailabilityReadinessLane(
 		value: statusName,
 		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
 		tone: 'watch'
-	};
-}
-
-export async function loadTrainingReadinessLane(
-	ctx: UseCaseContext,
-	personnelId: string,
-	asOf?: string | Date
-): Promise<PersonnelReadinessLane> {
-	const person = await loadPersonnelForLane(
-		ctx,
-		personnelId,
-		POLICY_ACTION_CATALOG.training.viewRecords,
-		'training_record'
-	);
-	const today = asOfDate(asOf);
-	const [typeRows, trainingRows] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('training_types', ctx.auth.orgId, undefined, {
-			select: TrainingTypeEntity.select,
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
-		ctx.store.findMany<Record<string, unknown>>(
-			'personnel_trainings',
-			ctx.auth.orgId,
-			{ personnel_id: personnelId },
-			{
-				select: PersonnelTrainingEntity.select
-			}
-		)
-	]);
-	const types = TrainingTypeEntity.fromDbArray(typeRows);
-	const trainings = PersonnelTrainingEntity.fromDbArray(trainingRows);
-	const trainingByType = new Map(trainings.map((training) => [training.trainingTypeId, training]));
-	const issues = types
-		.filter((type) => isRequiredTrainingForPerson(type, person))
-		.map((type) => trainingIssueForType(type, trainingByType.get(type.id), today))
-		.filter((issue): issue is { name: string; expired: boolean; label: string } => Boolean(issue));
-
-	if (issues.length === 0) {
-		return {
-			label: 'Training',
-			value: 'Current',
-			detail: 'No due or overdue Training requirements.',
-			tone: 'good'
-		};
-	}
-
-	return {
-		label: 'Training',
-		value: `${issues.length} due`,
-		detail: sentenceList(
-			issues.slice(0, 2).map((issue) => issue.label),
-			'Training requirements need attention.'
-		),
-		tone: issues.some((issue) => issue.expired) ? 'bad' : 'watch'
-	};
-}
-
-function isRequiredTrainingForPerson(type: TrainingType, person: Personnel): boolean {
-	if (type.canBeExempted && type.exemptPersonnelIds.includes(person.id)) return false;
-	return isTrainingApplicable(type, person);
-}
-
-function trainingIssueForType(type: TrainingType, training: PersonnelTraining | undefined, today: Date) {
-	if (!training) {
-		return { name: type.name, expired: true, label: `${type.name} not completed` };
-	}
-	if (!training.expirationDate) return null;
-
-	const days = daysBetween(today, parseDate(training.expirationDate));
-	if (days > type.warningDaysYellow) return null;
-
-	return {
-		name: type.name,
-		expired: days < 0,
-		label: formatDueLabel(type.name, training.expirationDate, today)
 	};
 }
 

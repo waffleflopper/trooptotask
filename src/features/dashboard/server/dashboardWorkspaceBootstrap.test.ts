@@ -5,7 +5,7 @@ import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuer
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingType } from '$features/training/contracts';
 
 const { fetchDashboardBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted(() => ({
 	fetchDashboardBootstrapMock: vi.fn(),

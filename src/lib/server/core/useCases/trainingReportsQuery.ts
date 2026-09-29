@@ -1,9 +1,9 @@
 /** Training report page, detail, and workbook projection. */
 import type { QueryPorts } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { TrainingStatus, TrainingType } from '$features/training/training.types';
+import type { TrainingStatus, TrainingType } from '$features/training/contracts';
 import { PersonnelTrainingEntity } from '$lib/server/entities/personnelTraining';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { listTrainingTypes } from '$features/training/index.server';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
@@ -140,16 +140,13 @@ async function buildTrainingReportRows(
 	const sort = normalizeSort(input.sort);
 	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
 
-	const [personnel, typeRows, trainingRows, rankCatalog] = await Promise.all([
+	const [personnel, trainingTypes, trainingRows, rankCatalog] = await Promise.all([
 		ctx.personnelTrainingRoster.listActiveForReports(ctx.auth),
-		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listTrainingTypes(ctx.store, orgId),
 		ctx.store.findMany<Record<string, unknown>>('personnel_trainings', orgId),
 		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'training-records' })
 	]);
 
-	const trainingTypes = TrainingTypeEntity.fromDbArray(typeRows);
 	const trainings = PersonnelTrainingEntity.fromDbArray(trainingRows);
 
 	const filteredPersonnel = filterPersonnel(personnel, filters);

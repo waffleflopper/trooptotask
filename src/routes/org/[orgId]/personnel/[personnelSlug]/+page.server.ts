@@ -9,9 +9,10 @@ import {
 	loadAvailabilityReadinessLane,
 	loadCriticalTasksReadinessLane,
 	loadLossTrackingReadinessLane,
-	loadRatingSchemeReadinessLane,
-	loadTrainingReadinessLane
+	loadPersonnelForLane,
+	loadRatingSchemeReadinessLane
 } from '$lib/server/core/useCases/personnelReadinessLanes';
+import { loadTrainingReadinessLane } from '$features/training/index.server';
 import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
 import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
@@ -30,7 +31,14 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 				listAvailabilityEntries,
 				listStatusTypes
 			),
-			training: loadTrainingReadinessLane(ctx, personnelId, readinessAsOf),
+			training: loadTrainingReadinessLane({
+				store: ctx.store,
+				orgId: ctx.auth.orgId,
+				personnelId,
+				asOf: readinessAsOf,
+				loadAuthorizedPerson: () =>
+					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.training.viewRecords, 'training_record')
+			}),
 			criticalTasks: loadCriticalTasksReadinessLane(ctx, personnelId, readinessAsOf),
 			ratingScheme: loadRatingSchemeReadinessLane(ctx, personnelId, readinessAsOf),
 			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)

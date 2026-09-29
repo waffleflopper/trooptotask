@@ -39,6 +39,9 @@ import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalT
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
+type CalendarAssignmentReplacementPort = UseCaseContext['calendarAssignmentReplacement'];
+type AssignmentSlotChange = Parameters<CalendarAssignmentReplacementPort['replace']>[2][number];
+type SavedAssignment = Awaited<ReturnType<CalendarAssignmentReplacementPort['replace']>>[number];
 type SensitiveActionAuthorizer = UseCaseContext['sensitiveActionAuthorizer'];
 type SensitiveActionAuthorizeInput = Parameters<SensitiveActionAuthorizer['authorize']>[0];
 type SensitiveActionDecision = Awaited<ReturnType<SensitiveActionAuthorizer['authorize']>>;
@@ -131,7 +134,14 @@ function getOrgColumn(table: string): string {
 	}
 }
 
-export function createInMemoryDataStore(): DataStore & { seed(table: string, rows: Row[]): void } {
+export function createInMemoryDataStore(): DataStore & {
+	seed(table: string, rows: Row[]): void;
+	replaceDailyAssignmentSlots(
+		orgId: string,
+		replaceDays: string[],
+		slots: AssignmentSlotChange[]
+	): Promise<SavedAssignment[]>;
+} {
 	const tables: TableStore = new Map();
 
 	function getRows(table: string): Row[] {
@@ -272,6 +282,34 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		seed(table: string, rows: Row[]): void {
 			const existing = getRows(table);
 			existing.push(...rows);
+		},
+
+		async replaceDailyAssignmentSlots(orgId, replaceDays, slots) {
+			const rows = getRows('daily_assignments');
+			const days = new Set(replaceDays);
+			const slotKeys = new Set(slots.map((slot) => `${slot.date}::${slot.assignmentTypeId}`));
+			const retained = rows.filter(
+				(row) =>
+					row.organization_id !== orgId ||
+					(!days.has(String(row.date)) && !slotKeys.has(`${row.date}::${row.assignment_type_id}`))
+			);
+			const inserted = slots
+				.filter((slot) => slot.assigneeId)
+				.map((slot) => ({
+					id: crypto.randomUUID(),
+					organization_id: orgId,
+					date: slot.date,
+					assignment_type_id: slot.assignmentTypeId,
+					assignee_id: slot.assigneeId
+				}));
+			rows.splice(0, rows.length, ...retained, ...inserted);
+			return inserted.map((row) => ({
+				id: row.id,
+				date: row.date,
+				assignmentTypeId: row.assignment_type_id,
+				assigneeId: row.assignee_id,
+				organization_id: row.organization_id
+			}));
 		},
 
 		async findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null> {
@@ -511,6 +549,12 @@ function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; 
 		store: scopedStore,
 		rawStore
 	};
+}
+
+function createInMemoryCalendarAssignmentReplacementPort(
+	rawStore: InMemoryDataStore
+): CalendarAssignmentReplacementPort {
+	return { replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore) };
 }
 
 async function inMemoryPersonnelRows(
@@ -943,6 +987,7 @@ export function createTestContext(overrides?: {
 		auth,
 		scope,
 		audit: auditPort,
+		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		auditPort,
 
 		notifications: notificationPort,
@@ -1046,6 +1091,7 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
+		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1084,6 +1130,7 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
+		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,

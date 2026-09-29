@@ -1,8 +1,7 @@
 // Calendar feature barrel export
 
 // Types
-export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType } from './contracts';
-export type { DailyAssignment } from '$lib/types';
+export type { StatusType, AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from './contracts';
 export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 
 // Web reads and workspace hydration for other features

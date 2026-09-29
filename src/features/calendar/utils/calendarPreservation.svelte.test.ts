@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { DailyAssignment } from '$lib/types';
-import type { AssignmentType } from '$features/calendar/contracts';
+import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarRangeData } from '$features/calendar/calendar.types';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';

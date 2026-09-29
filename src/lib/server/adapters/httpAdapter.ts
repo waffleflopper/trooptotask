@@ -28,6 +28,7 @@ import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 import { createSupabaseDataStore } from './supabaseDataStore';
+import { createSupabaseCalendarAssignmentReplacementPort } from '$features/calendar/index.server';
 import { createIdentityAuthorization } from '$features/identity/index.server';
 import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
@@ -243,6 +244,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			auth,
 			scope,
 			audit,
+			calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 			notifications,
 
@@ -335,6 +337,7 @@ export async function buildLayoutContext(
 		auth,
 		scope,
 		audit,
+		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 		notifications,
 
@@ -415,6 +418,7 @@ export async function buildLayoutContextFromMembership(
 		auth,
 		scope,
 		audit,
+		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 		notifications,
 

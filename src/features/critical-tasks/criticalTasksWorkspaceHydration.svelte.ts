@@ -9,10 +9,7 @@ import {
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$lib/types';
-import type {
-	CriticalTasksWorkspaceHydration,
-	CriticalTasksWorkspaceHydrationTarget
-} from './server/criticalTasksWorkspaceBootstrap';
+import type { CriticalTasksWorkspaceHydration, CriticalTasksWorkspaceHydrationTarget } from './contracts';
 
 export {
 	criticalTasksWorkspaceStatus,

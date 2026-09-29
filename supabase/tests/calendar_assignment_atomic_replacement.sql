@@ -99,6 +99,14 @@ SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
   'b1100000-0000-4000-8000-000000000101','{}'::date[],
   '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000401"}]'::jsonb
 ) $$, '22023', 'Invalid Calendar assignment slot', 'missing assignee field is rejected');
+SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-02-30","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":""}]'::jsonb
+) $$, '22023', 'Invalid Calendar assignment slot', 'malformed calendar date returns generic input error');
+SELECT throws_ok($$ SELECT * FROM public.replace_daily_assignment_slots(
+  'b1100000-0000-4000-8000-000000000101','{}'::date[],
+  '[{"date":"2030-03-01","assignment_type_id":"not-a-uuid","assignee_id":""}]'::jsonb
+) $$, '22023', 'Invalid Calendar assignment slot', 'malformed type ID returns generic input error');
 SELECT is((SELECT count(*)::integer FROM public.replace_daily_assignment_slots(
   'b1100000-0000-4000-8000-000000000101','{}'::date[],
   '[{"date":"2030-03-01","assignment_type_id":"b1100000-0000-4000-8000-000000000401","assignee_id":"b1100000-0000-4000-8000-000000000302"}]'::jsonb

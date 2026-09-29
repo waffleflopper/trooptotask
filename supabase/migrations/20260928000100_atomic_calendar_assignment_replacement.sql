@@ -84,8 +84,13 @@ BEGIN
       RAISE EXCEPTION 'Invalid Calendar assignment slot' USING ERRCODE = '22023';
     END IF;
 
-    slot_date := (slot->>'date')::date;
-    slot_type := (slot->>'assignment_type_id')::uuid;
+    BEGIN
+      slot_date := (slot->>'date')::date;
+      slot_type := (slot->>'assignment_type_id')::uuid;
+    EXCEPTION
+      WHEN invalid_datetime_format OR datetime_field_overflow OR invalid_text_representation THEN
+        RAISE EXCEPTION 'Invalid Calendar assignment slot' USING ERRCODE = '22023';
+    END;
     slot_assignee := btrim(slot->>'assignee_id');
     IF to_char(slot_date, 'YYYY-MM-DD') <> slot->>'date' THEN
       RAISE EXCEPTION 'Invalid Calendar assignment date' USING ERRCODE = '22023';

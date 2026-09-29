@@ -4,12 +4,12 @@ import { fail } from '$lib/server/core/errors';
 import { approveDeletionRequest, denyDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
 import { getAdminClient } from '$lib/server/supabase';
 import {
-	createSupabaseApprovedTrainingTypeDeletionPort,
-	type ApprovedTrainingTypeDeletionPort
+	createSupabaseApprovedTrainingDeletionPort,
+	type ApprovedTrainingDeletionPort
 } from '$features/training/index.server';
 
 export function _reviewPostConfig(
-	trainingTypeDeletion: ApprovedTrainingTypeDeletionPort
+	trainingDeletion: ApprovedTrainingDeletionPort
 ): RouteConfig<Record<string, unknown>, unknown> {
 	return {
 		// Keep the use-case governance check as defense in depth because approve/deny
@@ -25,7 +25,7 @@ export function _reviewPostConfig(
 			}
 
 			if (action === 'approve') {
-				await approveDeletionRequest(ctx, id as string, trainingTypeDeletion);
+				await approveDeletionRequest(ctx, id as string, trainingDeletion);
 			} else {
 				await denyDeletionRequest(ctx, id as string, denialReason as string | undefined);
 			}
@@ -35,6 +35,6 @@ export function _reviewPostConfig(
 	};
 }
 
-export const _postConfig = _reviewPostConfig(createSupabaseApprovedTrainingTypeDeletionPort(getAdminClient));
+export const _postConfig = _reviewPostConfig(createSupabaseApprovedTrainingDeletionPort(getAdminClient));
 
 export const POST = handle(_postConfig);

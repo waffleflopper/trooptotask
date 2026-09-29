@@ -193,7 +193,8 @@ describe('TrainingPageView', () => {
 		const ctx = new TrainingPageContext(
 			{ orgId: 'org-1', orgName: 'Test Org' },
 			modals,
-			createTestOrgContext({ orgId: 'org-1' })
+			createTestOrgContext({ orgId: 'org-1' }),
+			vi.fn().mockResolvedValue(true)
 		);
 		render(TrainingPageView, { props: { ctx, modals } });
 		render(TrainingModals, { props: { ctx, modals } });
@@ -245,7 +246,12 @@ describe('TrainingPageView', () => {
 			capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
 			scopeSet: { kind: 'groups', groupIds: ['group-1'] }
 		});
-		const ctx = new TrainingPageContext({ orgId: 'org-1', orgName: 'Test Org' }, new ModalRegistry(), org);
+		const ctx = new TrainingPageContext(
+			{ orgId: 'org-1', orgName: 'Test Org' },
+			new ModalRegistry(),
+			org,
+			vi.fn().mockResolvedValue(true)
+		);
 		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
 
 		expect(screen.getByRole('button', { name: 'Import' })).toBeTruthy();

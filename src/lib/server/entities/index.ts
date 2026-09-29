@@ -1,4 +1,3 @@
-export { PersonnelTrainingEntity } from './personnelTraining';
 export { RatingSchemeEntryEntity } from './ratingSchemeEntry';
 export { PersonnelEntity } from './personnel';
 export { OnboardingTemplateEntity } from './onboardingTemplate';

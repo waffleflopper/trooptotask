@@ -1,8 +1,27 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { TrainingType } from './training.types';
+import type { PersonnelTraining, TrainingType } from './training.types';
 
 export type { TrainingType, TrainingView, PersonnelTraining, TrainingStatus } from './training.types';
 export { isTrainingApplicable } from './utils/applicability';
+
+export interface TrainingBatchRecord {
+	personnelId: string;
+	trainingTypeId: string;
+	completionDate: string | null;
+	notes?: string;
+	status: 'completed' | 'exempt';
+}
+
+export interface TrainingBatchImportInput {
+	records: TrainingBatchRecord[];
+}
+
+export interface TrainingBatchImportResult {
+	inserted: PersonnelTraining[];
+	updated: PersonnelTraining[];
+	exempted: Array<{ index: number; personnelId: string; trainingTypeId: string }>;
+	errors: Array<{ index: number; message: string }>;
+}
 
 /** Trusted request facts for Training references consumed by Onboarding. */
 export interface TrainingOnboardingActor {

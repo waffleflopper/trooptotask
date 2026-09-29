@@ -19,5 +19,12 @@ export {
 	hasTrainingTypes
 } from './server/trainingCatalogRead.server';
 export { loadTrainingReadinessLane } from './server/personnelTrainingReadiness.server';
-export { createSupabaseApprovedTrainingTypeDeletionPort } from './server/approvedTrainingTypeDeletion.server';
-export type { ApprovedTrainingTypeDeletionPort } from './server/approvedTrainingTypeDeletion.server';
+export {
+	createTrainingRecord,
+	updateTrainingRecord,
+	deleteTrainingRecord
+} from './server/trainingCompletionOperations.server';
+export { importTrainingRecords } from './server/trainingCompletionBatch.server';
+export { listTrainingCompletions } from './server/trainingCompletionRead.server';
+export { createSupabaseApprovedTrainingDeletionPort } from './server/approvedTrainingDeletion.server';
+export type { ApprovedTrainingDeletionPort } from './server/approvedTrainingDeletion.server';

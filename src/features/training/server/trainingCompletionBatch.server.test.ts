@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { importTrainingRecords } from './trainingRecordsBatch';
+import { importTrainingRecords } from './trainingCompletionBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
@@ -384,7 +384,7 @@ describe('importTrainingRecords', () => {
 		expect(exemptType?.exempt_personnel_ids).toContain('p-3');
 	});
 
-	it('enforces group scope on all personnel IDs in the batch', async () => {
+	it('preauthorizes every batch target before updating an allowed row', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -402,10 +402,23 @@ describe('importTrainingRecords', () => {
 		});
 		seedPersonnel(ctx);
 		seedTrainingType(ctx);
+		const existing = {
+			id: 'saved-completion',
+			organization_id: 'test-org',
+			personnel_id: 'p-1',
+			training_type_id: 'tt-1',
+			completion_date: '2024-06-01',
+			expiration_date: '2025-06-01',
+			notes: 'Retained'
+		};
+		ctx.store.seed('personnel_trainings', [existing]);
 
 		await expect(
 			importTrainingRecords(ctx, {
-				records: [{ personnelId: 'p-2', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' }]
+				records: [
+					{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
+					{ personnelId: 'p-2', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' }
+				]
 			})
 		).rejects.toMatchObject({ status: 403 });
 
@@ -421,9 +434,8 @@ describe('importTrainingRecords', () => {
 			})
 		);
 
-		// Nothing inserted
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
-		expect(stored).toHaveLength(0);
+		expect(stored).toEqual([existing]);
 	});
 
 	it('allows batch record writes across the caller multi-Group scope set', async () => {
@@ -518,9 +530,16 @@ describe('importTrainingRecords', () => {
 
 		await expect(
 			importTrainingRecords(ctx, {
-				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }]
+				records: [
+					{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2025-06-01', status: 'completed' },
+					{ personnelId: 'p-2', trainingTypeId: 'tt-1', completionDate: null, status: 'exempt' }
+				]
 			})
 		).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([]);
+		expect(await ctx.store.findOne('training_types', 'test-org', { id: 'tt-1' })).toMatchObject({
+			exempt_personnel_ids: []
+		});
 		expect(ctx.audit.events).toContainEqual(
 			expect.objectContaining({
 				action: 'policy.denied',

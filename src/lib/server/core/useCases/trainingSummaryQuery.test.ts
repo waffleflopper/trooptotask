@@ -1,12 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import {
-	fetchTrainingSummary,
-	fetchTrainingSummaryByGroup,
-	fetchTrainingSummaryByType,
-	fetchOnboardingTrainingCompletions,
-	fetchDashboardTrainingSummary
-} from './trainingSummaryQuery';
+import { fetchDashboardTrainingSummary } from './trainingSummaryQuery';
 
 const ORG = 'test-org';
 
@@ -37,7 +31,7 @@ function makeTrainingType(id: string, name = 'CPR') {
 	};
 }
 
-describe('fetchTrainingSummary', () => {
+describe('Dashboard Training summary', () => {
 	it('denies summary reads without Training view capability', async () => {
 		const ctx = createQueryPortsContext({
 			auth: {
@@ -55,7 +49,8 @@ describe('fetchTrainingSummary', () => {
 		});
 
 		await expect(
-			fetchTrainingSummary(ctx, {
+			fetchDashboardTrainingSummary(ctx, {
+				onboardingPersonnelIds: [],
 				personnel: [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }] as never[],
 				trainingTypes: [makeTrainingType('tt1')] as never[]
 			})
@@ -87,7 +82,8 @@ describe('fetchTrainingSummary', () => {
 		const personnel = [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }];
 		const trainingTypes = [makeTrainingType('tt1')];
 
-		const result = await fetchTrainingSummary(ctx, {
+		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
+			onboardingPersonnelIds: [],
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[]
 		});
@@ -117,7 +113,8 @@ describe('fetchTrainingSummary', () => {
 		const personnel = [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }];
 		const trainingTypes = [makeTrainingType('tt1')];
 
-		const result = await fetchTrainingSummary(ctx, {
+		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
+			onboardingPersonnelIds: [],
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[]
 		});
@@ -162,7 +159,8 @@ describe('fetchTrainingSummary', () => {
 		];
 		const trainingTypes = [makeTrainingType('tt1')];
 
-		const result = await fetchTrainingSummary(ctx, {
+		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
+			onboardingPersonnelIds: [],
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[],
 			options: { issueLimit: 1 }
@@ -174,7 +172,8 @@ describe('fetchTrainingSummary', () => {
 	it('returns empty stats when no trainings exist', async () => {
 		const ctx = buildCtx();
 
-		const result = await fetchTrainingSummary(ctx, {
+		const { trainingSummary: result } = await fetchDashboardTrainingSummary(ctx, {
+			onboardingPersonnelIds: [],
 			personnel: [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }] as never[],
 			trainingTypes: [makeTrainingType('tt1')] as never[]
 		});
@@ -182,153 +181,6 @@ describe('fetchTrainingSummary', () => {
 		// empty applies-to = everyone, so missing training is not-completed
 		expect(result.stats.notCompleted).toBe(1);
 		expect(result.stats.current).toBe(0);
-	});
-});
-
-describe('fetchTrainingSummaryByGroup', () => {
-	it('returns summaries keyed by groupId', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				training_type_id: 'tt1',
-				completion_date: '2025-06-01',
-				expiration_date: '2027-06-01',
-				notes: null,
-				certificate_url: null
-			}
-		]);
-
-		const personnel = [
-			{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' },
-			{ id: 'p2', rank: 'CPL', lastName: 'Jones', firstName: 'Jane', groupId: 'g2' }
-		];
-		const trainingTypes = [makeTrainingType('tt1')];
-
-		const result = await fetchTrainingSummaryByGroup(ctx, {
-			personnel: personnel as never[],
-			trainingTypes: trainingTypes as never[]
-		});
-
-		expect(result).toBeInstanceOf(Map);
-		expect(result.has('g1')).toBe(true);
-		expect(result.has('g2')).toBe(true);
-		expect(result.get('g1')!.stats.current).toBe(1);
-	});
-});
-
-describe('fetchTrainingSummaryByType', () => {
-	it('returns stats keyed by training type id', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				training_type_id: 'tt1',
-				completion_date: '2025-06-01',
-				expiration_date: '2027-06-01',
-				notes: null,
-				certificate_url: null
-			}
-		]);
-
-		const personnel = [{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John', groupId: 'g1' }];
-		const trainingTypes = [makeTrainingType('tt1'), makeTrainingType('tt2', 'First Aid')];
-
-		const result = await fetchTrainingSummaryByType(ctx, {
-			personnel: personnel as never[],
-			trainingTypes: trainingTypes as never[]
-		});
-
-		expect(result).toBeInstanceOf(Map);
-		expect(result.has('tt1')).toBe(true);
-		expect(result.has('tt2')).toBe(true);
-		expect(result.get('tt1')!.current).toBe(1);
-	});
-});
-
-describe('fetchOnboardingTrainingCompletions', () => {
-	it('returns set of personnelId-trainingTypeId completion keys', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				training_type_id: 'tt1',
-				completion_date: '2025-06-01',
-				expiration_date: '2027-06-01',
-				notes: null,
-				certificate_url: null
-			},
-			{
-				id: 'pt2',
-				organization_id: ORG,
-				personnel_id: 'p2',
-				training_type_id: 'tt1',
-				completion_date: '2025-06-01',
-				expiration_date: '2027-06-01',
-				notes: null,
-				certificate_url: null
-			}
-		]);
-
-		const result = await fetchOnboardingTrainingCompletions(ctx, { personnelIds: ['p1', 'p2'] });
-
-		expect(result).toBeInstanceOf(Set);
-		expect(result.has('p1-tt1')).toBe(true);
-		expect(result.has('p2-tt1')).toBe(true);
-	});
-
-	it('returns empty set for empty personnelIds', async () => {
-		const ctx = buildCtx();
-
-		const result = await fetchOnboardingTrainingCompletions(ctx, { personnelIds: [] });
-
-		expect(result).toBeInstanceOf(Set);
-		expect(result.size).toBe(0);
-	});
-
-	it('filters to only requested personnelIds', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				training_type_id: 'tt1',
-				completion_date: '2025-06-01',
-				expiration_date: '2027-06-01',
-				notes: null,
-				certificate_url: null
-			},
-			{
-				id: 'pt2',
-				organization_id: ORG,
-				personnel_id: 'p3',
-				training_type_id: 'tt1',
-				completion_date: '2025-06-01',
-				expiration_date: '2027-06-01',
-				notes: null,
-				certificate_url: null
-			}
-		]);
-
-		const result = await fetchOnboardingTrainingCompletions(ctx, { personnelIds: ['p1'] });
-
-		expect(result.has('p1-tt1')).toBe(true);
-		expect(result.has('p3-tt1')).toBe(false);
 	});
 });
 
@@ -370,13 +222,12 @@ describe('fetchDashboardTrainingSummary', () => {
 		const result = await fetchDashboardTrainingSummary(ctx, {
 			personnel: personnel as never[],
 			trainingTypes: trainingTypes as never[],
-			onboardingPersonnelIds: ['p2']
+			onboardingPersonnelIds: ['p1', 'p2', 'missing']
 		});
 
 		expect(result.trainingSummary.stats.expired).toBe(1);
 		expect(result.trainingSummary.issues).toHaveLength(1);
-		expect(result.onboardingTrainingCompletions).toEqual(new Set(['p2-tt1']));
+		expect(result.onboardingTrainingCompletions).toEqual(new Set(['p1-tt1', 'p2-tt1']));
 		expect(findManySpy).toHaveBeenCalledTimes(1);
-		expect(findManySpy).toHaveBeenCalledWith('personnel_trainings', ctx.auth.orgId);
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PersonnelTrainingEntity } from './personnelTraining';
+import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
 import type { PersonnelTraining } from '$features/training/training.types';
 
 describe('PersonnelTrainingEntity', () => {
@@ -150,13 +150,5 @@ describe('PersonnelTrainingEntity', () => {
 			trainingTypeId: 'tt-1'
 		});
 		expect(withoutFields.success).toBe(true);
-	});
-
-	it('has correct table name', () => {
-		expect(PersonnelTrainingEntity.table).toBe('personnel_trainings');
-	});
-
-	it('has groupScope none', () => {
-		expect(PersonnelTrainingEntity.groupScope).toBe('none');
 	});
 });

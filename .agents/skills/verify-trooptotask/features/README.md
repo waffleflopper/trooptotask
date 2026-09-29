@@ -43,6 +43,7 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 ### Critical Tasks
 
 - [Manage the Critical Tasks library](critical-tasks-library.md): task definitions, MOS filters, import, archive/restore, settings defaults, dedicated permissions and Organization isolation.
+- [Record Critical Tasks and inspect readiness](critical-tasks-completions-readiness.md): completion/edit/import, dated status, retained history, reports/workbooks, retry, dedicated-lane scope and Organization switching.
 
 ### Calendar
 

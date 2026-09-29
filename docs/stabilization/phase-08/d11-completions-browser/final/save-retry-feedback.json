@@ -1,0 +1,13 @@
+{
+  "armed": true,
+  "entries": [
+    {
+      "type": "error",
+      "text": "Synthetic request failure"
+    },
+    {
+      "type": "success",
+      "text": "ICT completion saved"
+    }
+  ]
+}

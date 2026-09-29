@@ -1,0 +1,33 @@
+{
+  "table": "personnel_ict_completions",
+  "organization": "orgA",
+  "count": 2,
+  "rows": [
+    {
+      "id": "7c6eaedf-abe3-4d26-ba76-157c5d82eead",
+      "organization_id": "4ee0d6f3-6aac-4730-ad38-e6f22ea9ced2",
+      "personnel_id": "1489473d-4699-4ed7-867a-e637f4db3274",
+      "ict_task_id": "f6e4b025-2699-4351-a8b9-9109f5c85b76",
+      "completed_at": "2026-09-14",
+      "validation_method": "Demonstration",
+      "validated_by": null,
+      "notes": null,
+      "logged_by": "4d5c6c09-fcad-4578-b562-de9e50841c92",
+      "created_at": "2026-09-29T20:29:51.880189+00:00",
+      "updated_at": "2026-09-29T20:29:51.880189+00:00"
+    },
+    {
+      "id": "77decfec-2f64-4b39-8503-aa39c28b654c",
+      "organization_id": "4ee0d6f3-6aac-4730-ad38-e6f22ea9ced2",
+      "personnel_id": "1489473d-4699-4ed7-867a-e637f4db3274",
+      "ict_task_id": "f6e4b025-2699-4351-a8b9-9109f5c85b76",
+      "completed_at": "2024-09-29",
+      "validation_method": "Demonstration",
+      "validated_by": "SGT Synthetic Validator",
+      "notes": "D11 older Alpha history",
+      "logged_by": "9f443909-4627-470a-87d9-dc2c37818e14",
+      "created_at": "2026-09-29T20:39:55.194964+00:00",
+      "updated_at": "2026-09-29T20:40:06.572892+00:00"
+    }
+  ]
+}

@@ -133,7 +133,10 @@ export async function seed(session) {
 	};
 	const criticalTasksActors = {
 		ictConfigurator: { organization: 'orgA', criticalTasks: 'configure', scope: 'organization' },
+		ictOperator: { organization: 'orgA', criticalTasks: 'operate', scope: 'organization' },
 		ictViewer: { organization: 'orgA', criticalTasks: 'view', scope: 'organization' },
+		ictEmpty: { organization: 'orgA', criticalTasks: 'operate', scope: 'groups', groups: [] },
+		ictSwitch: { organization: 'orgA', criticalTasks: 'operate', scope: 'organization' },
 		ictScoped: {
 			organization: 'orgA',
 			criticalTasks: 'configure',
@@ -245,6 +248,24 @@ export async function seed(session) {
 				calendar: 'view',
 				training: 'none',
 				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.ictSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'none',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'view',
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},
@@ -426,6 +447,16 @@ export async function seed(session) {
 	dates.ui = localDate(now);
 	dates.uiBefore = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
 	dates.uiAfter = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+	// D11 records these examples through the UI, preserving the library baseline.
+	// Clamp the anniversary before deriving a 12-month completion for leap years.
+	const ictWarningExpiration = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 15);
+	if (ictWarningExpiration.getMonth() === 1 && ictWarningExpiration.getDate() === 29) ictWarningExpiration.setDate(28);
+	dates.ictWarningExpires = localDate(ictWarningExpiration);
+	dates.ictWarningCompleted = localDate(
+		new Date(ictWarningExpiration.getFullYear() - 1, ictWarningExpiration.getMonth(), ictWarningExpiration.getDate())
+	);
+	dates.ictExpiredCompleted = localDate(new Date(now.getFullYear() - 2, now.getMonth(), now.getDate()));
+	dates.ictExpiredExpires = localDate(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
 	const trainingCompleted = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
 	dates.trainingCompleted = localDate(trainingCompleted);
 	dates.trainingExpires = localDate(

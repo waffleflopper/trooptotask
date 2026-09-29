@@ -15,6 +15,7 @@ import {
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 import { loadRanksSettings } from '../settingsRanks.server';
+import { listTrainingRankApplicabilityReferences } from '$features/training/index.server';
 
 const PG_INTEGER_MIN = -2_147_483_648;
 const PG_INTEGER_MAX = 2_147_483_647;
@@ -144,7 +145,8 @@ export const actions: Actions = {
 					...ctx,
 					rankCatalogAdministration: createSupabaseRankCatalogAdministrationPort()
 				},
-				{ code }
+				{ code },
+				() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId)
 			);
 			return { success: true, code };
 		} catch (error) {

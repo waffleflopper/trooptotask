@@ -1,0 +1,53 @@
+uid=19_0 RootWebArea "Training Views - Troop to Task" url="http://127.0.0.1:41303/org/87429816-8c32-440d-bf83-4b658f5b1500/training/views"
+  uid=19_1 button "Switch organization" expandable haspopup="menu"
+  uid=19_2 StaticText "Navigation"
+  uid=19_3 link "Home" url="http://127.0.0.1:41303/org/87429816-8c32-440d-bf83-4b658f5b1500"
+    uid=19_4 StaticText "Home"
+  uid=19_5 link "Training" url="http://127.0.0.1:41303/org/87429816-8c32-440d-bf83-4b658f5b1500/training"
+    uid=19_6 StaticText "Training"
+  uid=19_7 button "Account menu" expandable haspopup="menu"
+  uid=19_8 button "Toggle Sidebar" description="Toggle Sidebar"
+  uid=19_9 main
+    uid=19_10 link "Skip to main content" url="http://127.0.0.1:41303/org/87429816-8c32-440d-bf83-4b658f5b1500/training/views#main-content"
+      uid=19_11 StaticText "Skip to main content"
+    uid=19_12 button "Toggle Sidebar"
+    uid=19_13 navigation "Current section"
+      uid=19_14 link "Verification Organization A" url="http://127.0.0.1:41303/org/87429816-8c32-440d-bf83-4b658f5b1500"
+        uid=19_15 StaticText "Verification Organization A"
+      uid=22_0 StaticText "Training"
+    uid=19_19 button "Send feedback"
+    uid=19_20 button "Notifications" expandable haspopup="menu"
+    uid=19_21 button "Toggle theme"
+    uid=19_22 main
+      uid=24_0 region "Training views workspace"
+        uid=24_1 link "Back to Matrix" url="http://127.0.0.1:41303/org/87429816-8c32-440d-bf83-4b658f5b1500/training"
+          uid=24_2 StaticText "Back to Matrix"
+        uid=24_3 button "New View" description="Finish the current edit first" disableable disabled
+        uid=24_4 button "Verification Focus View 2 of 3 columns" disableable disabled
+        uid=25_0 heading "New Training View" level="3"
+        uid=25_1 StaticText "BASICS"
+        uid=25_2 StaticText "View Name"
+        uid=25_3 textbox "View Name" value="D08 Final Retry View"
+        uid=31_0 alert atomic live="assertive" relevant="additions text"
+          uid=31_1 StaticText "Failed to save view."
+        uid=25_4 StaticText "TRAINING TYPES"
+        uid=25_5 StaticText "Choose the columns this saved view should show in the training matrix."
+        uid=25_6 StaticText "2 selected"
+        uid=25_7 checkbox "Verification Required Training" checked
+        uid=25_8 StaticText "Verification Required Training"
+        uid=25_9 checkbox "Verification Targeted Training" checked
+        uid=25_10 StaticText "Verification Targeted Training"
+        uid=25_11 checkbox "Verification Optional Training"
+        uid=25_12 StaticText "Verification Optional Training"
+        uid=27_0 StaticText "COLUMN ORDER"
+        uid=28_0 StaticText "Verification Targeted Training"
+        uid=28_1 button "Move Verification Targeted Training up" disableable disabled
+        uid=28_2 button "Move Verification Targeted Training down"
+        uid=27_1 StaticText "Verification Required Training"
+        uid=27_2 button "Move Verification Required Training up"
+        uid=27_3 button "Move Verification Required Training down" disableable disabled
+        uid=25_13 button "Cancel"
+        uid=25_14 button "Save" focusable focused
+  uid=19_60 region "Notifications alt+T" live="polite" relevant="additions text"
+  uid=19_61 generic atomic live="assertive" relevant="additions text"
+    uid=22_41 StaticText "Training Views - Troop to Task"

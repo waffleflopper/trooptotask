@@ -14,6 +14,7 @@ import type {
 	OrganizationRankCatalogEntry,
 	OrganizationRankCatalogReferenceSummary
 } from '$features/personnel/contracts';
+import { listTrainingRankApplicabilityReferences } from '$features/training/index.server';
 import type {
 	SettingsRankCatalogRow,
 	SettingsRankOption,
@@ -112,6 +113,7 @@ export async function loadRanksSettings(ctx: UseCaseContext): Promise<RanksSetti
 		{
 			codes: catalog.map((entry) => entry.code)
 		},
+		() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId),
 		{ authorization: 'organization-governance' }
 	);
 

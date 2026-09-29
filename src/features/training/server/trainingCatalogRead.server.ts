@@ -27,6 +27,20 @@ export async function listTrainingTypeLabels(
 	return rows.map(({ id, name }) => ({ id, name }));
 }
 
+/** Rank catalog deletion needs only Training's active applicability references. */
+export async function listTrainingRankApplicabilityReferences(
+	store: TrainingCatalogReadStore,
+	orgId: string
+): Promise<Array<{ appliesToRanks: unknown; excludedRanks: unknown }>> {
+	const rows = await store.findMany<{ applies_to_ranks?: unknown; excluded_ranks?: unknown }>(
+		'training_types',
+		orgId,
+		undefined,
+		{ select: 'applies_to_ranks, excluded_ranks' }
+	);
+	return rows.map((row) => ({ appliesToRanks: row.applies_to_ranks, excludedRanks: row.excluded_ranks }));
+}
+
 /** The existing getting-started numeric count, using its authorized request store. */
 export async function countTrainingTypes(store: TrainingCatalogReadStore, orgId: string): Promise<number> {
 	const result = await store.findManyWithCount<{ id: string }>('training_types', orgId, undefined, {

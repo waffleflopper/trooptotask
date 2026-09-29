@@ -271,9 +271,11 @@ Apply this migration before deploying the application change. Without it, an ord
 
 The forward migration `20260929000200_training_catalog_configuration_scope.sql` makes direct writes to Organization-wide Training types and saved views require both Training `configure` and Organization scope. It also gives the three Training type references an Organization-qualified delete action: same-Organization completions cascade and Onboarding references clear, while a historical foreign-Organization reference rejects the whole type deletion. The new composite foreign keys are `NOT VALID`, so the migration retains existing mismatches for review and prevents new ones. It changes no saved rows. Two narrow Onboarding reference indexes support the delete checks; their builds and the Training type key addition hold table writes until the migration transaction commits.
 
-Before a separately authorized hosted application, confirm the ledger follows the Critical Tasks `20260929000100` migration, an effective backup/recovery point, the actual deployment triggers and any external direct catalog writers. In an authorized privileged read-only session, privately identify historical cross-Organization references; ordinary RLS can hide the foreign row:
+Before a separately authorized hosted application, confirm the ledger follows the Critical Tasks `20260929000100` migration, an effective backup/recovery point, the actual deployment triggers and any external direct catalog writers. In an authorized privileged read-only session, privately identify historical cross-Organization references. `row_security = off` makes a partially visible query fail rather than report a misleading empty result:
 
 ```sql
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL row_security = off;
 WITH refs AS (
   SELECT 'personnel_trainings' AS source, id AS reference_id,
     organization_id AS reference_org_id, training_type_id
@@ -290,6 +292,9 @@ SELECT r.source, r.reference_id, r.reference_org_id,
 FROM refs r JOIN public.training_types t ON t.id = r.training_type_id
 WHERE r.reference_org_id <> t.organization_id
 ORDER BY r.source, r.reference_id;
+COMMIT;
 ```
 
 Any returned row needs individual review; do not automatically delete or reassign a completion or Onboarding reference. Pause Training type deletion from this preflight through migration and deployment, and drain old application instances before resuming: the old app predeletes completions in a separate request, while the new app relies on the migrated scoped constraints. Apply the migration before deploying the new app, then verify normal type deletion and denied Group/operator writes. Plan an off-peak window and lock timeout for the key, index and foreign-key changes. Validate the composite constraints only after resolving historical mismatches; validation scans the child tables and takes locks. Repository proof uses disposable local databases; no hosted database or deployment was inspected or changed.
+
+Organization deletion-request reviewers retain approved Training type deletion even without a Training configuration grant. That provider effect rechecks the pending request and exact Organization/type binding. As with other non-counseling deletion requests, the delete occurs before the request-status update; if the later status write fails, staff must reconcile a pending request whose type is already gone. This workflow has no new atomic approval command in D08.

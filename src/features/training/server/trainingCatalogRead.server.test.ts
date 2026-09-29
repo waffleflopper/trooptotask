@@ -4,6 +4,7 @@ import {
 	findTrainingTypeByName,
 	hasTrainingTypes,
 	listExistingTrainingTypeNames,
+	listTrainingRankApplicabilityReferences,
 	listTrainingTypeLabels,
 	listTrainingTypes,
 	listTrainingViews
@@ -48,5 +49,29 @@ describe('Training catalog reads', () => {
 		]);
 		expect(await hasTrainingTypes(ctx.store, ctx.auth.orgId)).toBe(true);
 		expect(await hasTrainingTypes(ctx.store, 'empty-org')).toBe(false);
+	});
+
+	it('returns only same-Organization rank applicability references for Personnel rank governance', async () => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('training_types', [
+			{
+				id: 'training-1',
+				organization_id: ctx.auth.orgId,
+				name: 'Annual Check',
+				applies_to_ranks: ['DET-SGT'],
+				excluded_ranks: ['SGT']
+			},
+			{
+				id: 'foreign',
+				organization_id: 'other-org',
+				name: 'Foreign',
+				applies_to_ranks: ['GEN'],
+				excluded_ranks: []
+			}
+		]);
+
+		expect(await listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId)).toEqual([
+			{ appliesToRanks: ['DET-SGT'], excludedRanks: ['SGT'] }
+		]);
 	});
 });

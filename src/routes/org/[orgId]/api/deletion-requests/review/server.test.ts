@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _postConfig, _reviewPostConfig } from './+server';
 
 describe('POST /api/deletion-requests/review', () => {
 	it('approves same-Organization counseling deletion for an admin with no Personnel lane', async () => {
@@ -40,6 +40,84 @@ describe('POST /api/deletion-requests/review', () => {
 		expect(await ctx.rawStore.findOne('counseling_records', 'other-org', { id: 'record-1' })).not.toBeNull();
 		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).toMatchObject({
 			status: 'approved'
+		});
+	});
+
+	it('routes an approved Training type deletion through Training without requiring Training configure', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.rawStore.seed('deletion_requests', [
+			{
+				id: 'request-1',
+				organization_id: ctx.auth.orgId,
+				resource_type: 'training_type',
+				resource_id: 'type-1',
+				status: 'pending'
+			}
+		]);
+		ctx.rawStore.seed('training_types', [{ id: 'type-1', organization_id: ctx.auth.orgId, name: 'CPR' }]);
+		const deleteApprovedTrainingType = vi.fn(async (_actor, _requestId, typeId: string) => {
+			await ctx.rawStore.delete('training_types', ctx.auth.orgId, typeId);
+		});
+
+		await expect(
+			handleUseCaseRequest(_reviewPostConfig({ deleteApprovedTrainingType }), ctx, {
+				id: 'request-1',
+				action: 'approve'
+			})
+		).resolves.toEqual({ success: true });
+		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'request-1', 'type-1');
+		expect(await ctx.rawStore.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
+	});
+
+	it('denies a member before invoking the Training deletion effect', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'configure',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.rawStore.seed('deletion_requests', [
+			{
+				id: 'request-1',
+				organization_id: ctx.auth.orgId,
+				resource_type: 'training_type',
+				resource_id: 'type-1',
+				status: 'pending'
+			}
+		]);
+		const deleteApprovedTrainingType = vi.fn(async () => {});
+
+		await expect(
+			handleUseCaseRequest(_reviewPostConfig({ deleteApprovedTrainingType }), ctx, {
+				id: 'request-1',
+				action: 'approve'
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(deleteApprovedTrainingType).not.toHaveBeenCalled();
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['policy.denied']);
+		expect(await ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request-1' })).toMatchObject({
+			status: 'pending'
 		});
 	});
 });

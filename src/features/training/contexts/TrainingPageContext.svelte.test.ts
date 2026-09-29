@@ -179,6 +179,21 @@ describe('TrainingPageContext', () => {
 			const ctx = new TrainingPageContext(makeData(), modals, org);
 			expect(ctx.canManageConfig).toBe(true);
 		});
+
+		it('keeps Group-scoped configurators in the matrix without Organization-wide controls', () => {
+			const org = createTestOrgContext({
+				userRole: 'member',
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
+				scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+			});
+			const ctx = new TrainingPageContext(makeData(), modals, org);
+
+			expect(ctx.canViewTraining).toBe(true);
+			expect(ctx.canManageConfig).toBe(false);
+			expect(ctx.canBulkImport).toBe(true);
+			expect(ctx.trainingOverflowItems.map((item) => item.label)).toContain('Bulk Import');
+			expect(ctx.trainingOverflowItems.map((item) => item.label)).not.toContain('Manage Types');
+		});
 	});
 
 	describe('training policy affordances', () => {

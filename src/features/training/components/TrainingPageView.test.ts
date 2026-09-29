@@ -13,7 +13,7 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 import TrainingModals from './TrainingModals.svelte';
-import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
+import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 vi.mock('$app/navigation', () => ({
@@ -74,6 +74,7 @@ interface TrainingPageViewTestCtx {
 	selectedViewId: string | null;
 	setSelectedViewId: ReturnType<typeof vi.fn>;
 	canManageConfig: boolean;
+	canBulkImport: boolean;
 
 	canViewTraining: boolean;
 	canRecordTraining: boolean;
@@ -95,6 +96,7 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		selectedViewId: null,
 		setSelectedViewId: vi.fn(),
 		canManageConfig: true,
+		canBulkImport: true,
 		canViewTraining: true,
 		canRecordTraining: true,
 		trainingOverflowItems: [],
@@ -234,5 +236,20 @@ describe('TrainingPageView', () => {
 
 		const manageViews = screen.getByRole('link', { name: /Manage Views/i });
 		expect(manageViews.getAttribute('href')).toBe('/org/org-1/training/views');
+	});
+
+	it('offers Group-scoped configurators bulk import but no catalog management', () => {
+		const org = createTestOrgContext({
+			orgId: 'org-1',
+			userRole: 'member',
+			capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
+			scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+		});
+		const ctx = new TrainingPageContext({ orgId: 'org-1', orgName: 'Test Org' }, new ModalRegistry(), org);
+		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+
+		expect(screen.getByRole('button', { name: 'Import' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Manage Views' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
 	});
 });

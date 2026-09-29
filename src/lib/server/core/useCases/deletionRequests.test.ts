@@ -267,6 +267,57 @@ function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Re
 }
 
 describe('approveDeletionRequest', () => {
+	it('retries completion approval when its status write fails after the completion was deleted', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
+		ctx.store.seed('personnel_trainings', [
+			{ id: 'completion-1', organization_id: ctx.auth.orgId },
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		// Production DELETE is idempotent; the shared in-memory delete rejects missing IDs.
+		vi.spyOn(ctx.store, 'delete').mockImplementation((table, orgId, id) => ctx.store.deleteWhere(table, orgId, { id }));
+		const update = ctx.store.update;
+		let failOnce = true;
+		vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'deletion_requests' && id === 'dr-1' && data.status === 'approved' && failOnce) {
+				failOnce = false;
+				throw new Error('status write failed');
+			}
+			return update(table, orgId, id, data, select);
+		});
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('status write failed');
+		await expect(ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'completion-1' })).resolves.toBeNull();
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+
+		await expect(approveDeletionRequest(ctx, 'dr-1')).resolves.toBeUndefined();
+		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'approved'
+		});
+		expect(ctx.notifications.notifications).toHaveLength(1);
+		expect(ctx.audit.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
+	});
+
 	it('approves a Training type deletion for an Organization reviewer without Training configure', async () => {
 		const ctx = buildContext({
 			auth: {

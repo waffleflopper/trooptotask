@@ -4,7 +4,7 @@
 		markCriticalTasksWorkspacePending,
 		markCriticalTasksWorkspaceRejected,
 		markCriticalTasksWorkspaceResolved
-	} from '$features/critical-tasks/criticalTasksWorkspaceHydration.svelte';
+	} from '$features/critical-tasks';
 	import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/contracts';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';

@@ -29,7 +29,7 @@ import {
 	type IctReportSummary
 } from '$features/critical-tasks/utils/ictReports';
 import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
-import { IctTaskEntity } from '$lib/server/entities/ictTask';
+import { IctTaskEntity } from '$features/critical-tasks/index.server';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 import { fetchCriticalTasksSettings } from '$features/critical-tasks/server/criticalTasksSettingsRead.server';
 import { writeWorkbookBuffer } from '$lib/export/workbook';

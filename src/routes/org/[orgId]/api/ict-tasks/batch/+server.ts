@@ -1,5 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { importIctTasksBatch } from '$lib/server/core/useCases/ictTasksBatch';
+import { importIctTasksBatch } from '$features/critical-tasks/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { z } from 'zod';
 

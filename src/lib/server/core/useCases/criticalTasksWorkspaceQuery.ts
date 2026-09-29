@@ -4,7 +4,7 @@ import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/c
 import type { Group } from '$features/personnel/contracts';
 import { listGroupCatalog } from '$features/personnel/index.server';
 import { fetchCriticalTasksSettings } from '$features/critical-tasks/server/criticalTasksSettingsRead.server';
-import { IctTaskEntity } from '$lib/server/entities/ictTask';
+import { IctTaskEntity } from '$features/critical-tasks/index.server';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 
 export interface CriticalTasksBootstrapOptions {

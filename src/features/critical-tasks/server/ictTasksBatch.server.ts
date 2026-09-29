@@ -4,13 +4,25 @@ import {
 	type IctTaskImportMappedRow,
 	type IctTaskImportMode
 } from '$features/critical-tasks/utils/ictTaskImport';
-import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
-import { IctTaskEntity } from '$lib/server/entities/ictTask';
-import { requirePolicyDecision } from './policyAuthorization';
+import { error } from '@sveltejs/kit';
+import { IctTaskEntity } from './ictTaskEntity.server';
+import { requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const MAX_BATCH_SIZE = 500;
+
+type TaskBatchPolicyContext = Parameters<typeof requirePolicyDecision>[0];
+
+interface IctTaskBatchContext {
+	auth: TaskBatchPolicyContext['auth'] & { orgId: string };
+	audit: TaskBatchPolicyContext['audit'];
+	store: {
+		findMany<T>(table: string, orgId: string, filters?: Record<string, unknown>): Promise<T[]>;
+		insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
+		insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
+		update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
+	};
+}
 
 export interface IctTaskBatchImportInput {
 	mode: IctTaskImportMode;
@@ -48,17 +60,17 @@ function stripOrganizationId(row: Record<string, unknown>): Record<string, unkno
 }
 
 export async function importIctTasksBatch(
-	ctx: WritePorts,
+	ctx: IctTaskBatchContext,
 	input: IctTaskBatchImportInput
 ): Promise<IctTaskBatchImportResult> {
 	await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.configureLibrary, { kind: 'organization' });
 
 	if (!Array.isArray(input.records) || input.records.length === 0) {
-		fail(400, 'records array is required');
+		throw error(400, 'records array is required');
 	}
 
 	if (input.records.length > MAX_BATCH_SIZE) {
-		fail(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
+		throw error(400, `Maximum ${MAX_BATCH_SIZE} records per batch`);
 	}
 
 	const existingTaskRows = await ctx.store.findMany<Record<string, unknown>>(IctTaskEntity.table, ctx.auth.orgId);

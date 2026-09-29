@@ -45,6 +45,11 @@ export async function seed(session) {
 			'trainingView',
 			'trainingForeignView',
 			'trainingCurrent',
+			'ictTaskAlpha',
+			'ictTaskGeneral',
+			'ictTaskArchived',
+			'ictTaskForeign',
+			'ictCompletionAlpha',
 			'rosterAlpha',
 			'rosterMixed',
 			'rosterUnassigned',
@@ -119,6 +124,17 @@ export async function seed(session) {
 		},
 		rosterForeign: { organization: 'orgB', training: 'operate', scope: 'organization' }
 	};
+	const criticalTasksActors = {
+		ictConfigurator: { organization: 'orgA', criticalTasks: 'configure', scope: 'organization' },
+		ictViewer: { organization: 'orgA', criticalTasks: 'view', scope: 'organization' },
+		ictScoped: {
+			organization: 'orgA',
+			criticalTasks: 'configure',
+			scope: 'groups',
+			groups: [ids.groupA]
+		},
+		ictForeign: { organization: 'orgB', criticalTasks: 'configure', scope: 'organization' }
+	};
 	const organizationActors = {
 		orgOwner: { organization: 'orgA', role: 'owner', scope: 'organization' },
 		orgAdmin: { organization: 'orgA', role: 'admin', scope: 'organization' },
@@ -138,6 +154,7 @@ export async function seed(session) {
 		'foreign',
 		...Object.keys(calendarActors),
 		...Object.keys(trainingActors),
+		...Object.keys(criticalTasksActors),
 		...Object.keys(organizationActors)
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
@@ -150,6 +167,7 @@ export async function seed(session) {
 				? organizationActors[role].organization
 				: (calendarActors[role]?.organization ??
 					trainingActors[role]?.organization ??
+					criticalTasksActors[role]?.organization ??
 					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
 	}
@@ -174,6 +192,7 @@ export async function seed(session) {
 		if (actor.organization === null) continue;
 		const calendar = calendarActors[role];
 		const training = trainingActors[role];
+		const criticalTasks = criticalTasksActors[role];
 		const organization = organizationActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
@@ -184,17 +203,27 @@ export async function seed(session) {
 				role: organization?.role ?? calendar?.role ?? 'member',
 				member_preset: 'viewer',
 				capability_overrides: {
-					personnel: calendar?.personnel ?? training?.personnel ?? (role === 'manager' ? 'configure' : 'view'),
+					personnel: criticalTasks
+						? 'none'
+						: (calendar?.personnel ?? training?.personnel ?? (role === 'manager' ? 'configure' : 'view')),
 					calendar: calendar?.calendar ?? 'none',
 					training: training?.training ?? 'none',
-					criticalTasks: 'none',
+					criticalTasks: criticalTasks?.criticalTasks ?? 'none',
 					onboarding: training?.onboarding ?? 'none',
 					ratingScheme: 'none'
 				},
 				access_scope_kind:
-					organization?.scope ?? calendar?.scope ?? training?.scope ?? (role === 'scoped' ? 'groups' : 'organization'),
+					organization?.scope ??
+					calendar?.scope ??
+					training?.scope ??
+					criticalTasks?.scope ??
+					(role === 'scoped' ? 'groups' : 'organization'),
 				access_scope_group_ids:
-					organization?.groups ?? calendar?.groups ?? training?.groups ?? (role === 'scoped' ? [ids.groupA] : [])
+					organization?.groups ??
+					calendar?.groups ??
+					training?.groups ??
+					criticalTasks?.groups ??
+					(role === 'scoped' ? [ids.groupA] : [])
 			})
 		);
 	}
@@ -235,6 +264,56 @@ export async function seed(session) {
 				slug: `verify-${name.toLowerCase()}`
 			}))
 		)
+	);
+	checked(
+		await service.from('ict_tasks').insert([
+			{
+				id: ids.ictTaskAlpha,
+				organization_id: ids.orgA,
+				task_code: 'VERIFY-ICT-ALPHA',
+				title: 'Verification Alpha Critical Task',
+				category: 'Clinical',
+				mos: ['68W'],
+				expiration_months: 12,
+				sort_order: 11
+			},
+			{
+				id: ids.ictTaskGeneral,
+				organization_id: ids.orgA,
+				task_code: 'VERIFY-ICT-ALL',
+				title: 'Verification All-MOS Critical Task',
+				mos: [],
+				sort_order: 12
+			},
+			{
+				id: ids.ictTaskArchived,
+				organization_id: ids.orgA,
+				task_code: 'VERIFY-ICT-ARCHIVED',
+				title: 'Verification Archived Critical Task',
+				mos: ['68W'],
+				sort_order: 13,
+				archived_at: '2026-01-01T00:00:00Z'
+			},
+			{
+				id: ids.ictTaskForeign,
+				organization_id: ids.orgB,
+				task_code: 'VERIFY-ICT-FOREIGN',
+				title: 'Foreign Private Critical Task',
+				mos: ['68W'],
+				sort_order: 11
+			}
+		])
+	);
+	checked(
+		await service.from('personnel_ict_completions').insert({
+			id: ids.ictCompletionAlpha,
+			organization_id: ids.orgA,
+			personnel_id: ids.personA,
+			ict_task_id: ids.ictTaskAlpha,
+			completed_at: '2026-09-14',
+			validation_method: 'Demonstration',
+			logged_by: actors.ictConfigurator.id
+		})
 	);
 	const alphaScanPath = `${ids.orgA}/sign-in-rosters/${ids.rosterAlpha}/verification-signed.pdf`;
 	checked(
@@ -654,7 +733,16 @@ export async function seed(session) {
 			}
 		])
 	);
-	const fixture = { ids, actors, dates, invitationEmails, calendarActors, trainingActors, organizationActors };
+	const fixture = {
+		ids,
+		actors,
+		dates,
+		invitationEmails,
+		calendarActors,
+		trainingActors,
+		criticalTasksActors,
+		organizationActors
+	};
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;
 }

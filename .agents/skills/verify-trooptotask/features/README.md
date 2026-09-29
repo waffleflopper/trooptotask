@@ -39,6 +39,10 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.
 - [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.
 
+### Critical Tasks
+
+- [Manage the Critical Tasks library](critical-tasks-library.md): task definitions, MOS filters, import, archive/restore, settings defaults, dedicated permissions and Organization isolation.
+
 ### Calendar
 
 - [Calendar navigation](calendar-navigation.md): month, long range, group/search filter, seeded and historical dates, keyboard picker and range retry.

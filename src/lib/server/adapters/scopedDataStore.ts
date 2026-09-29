@@ -4,7 +4,7 @@
  * Wraps a DataStore so that reads are filtered to rows belonging to a specific group's
  * personnel. The column mapping (table → group/personnel column) lives in `scopeRules.ts`.
  *
- * When no scoped Group IDs are provided (admin/owner context), the inner store is returned as-is
+ * For Organization-wide access (admin/owner context), the inner store is returned as-is
  * with zero overhead — route code never needs to branch on role.
  *
  * Writes are not intercepted. Enforce write authorization at the use-case level.
@@ -14,7 +14,8 @@ import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/se
 
 /**
  * Decorator that wraps any DataStore and auto-filters reads by group scope.
- * Returns the inner store unchanged when there are no scoped Group IDs.
+ * Returns the inner store unchanged for Organization-wide access. An explicit empty
+ * Group scope returns no mapped rows without reading the provider.
  */
 export function createScopedDataStore(
 	inner: DataStore,
@@ -22,7 +23,7 @@ export function createScopedDataStore(
 	scopeRules: Map<string, GroupScopeRule>
 ): DataStore {
 	const groupScopeIds = normalizeScopedGroupIds(scope);
-	if (!groupScopeIds) return inner;
+	if (groupScopeIds === null) return inner;
 	const groupIds = groupScopeIds;
 
 	let cachedPersonnelIds: string[] | null = null;
@@ -99,6 +100,7 @@ export function createScopedDataStore(
 			filters: Record<string, unknown>,
 			select?: string
 		): Promise<T | null> {
+			if (groupIds.length === 0 && scopeRules.has(table)) return null;
 			const scoped = addScopeFilters(table, orgId, filters);
 
 			if (scoped.needsPersonnelFilter) {
@@ -132,6 +134,7 @@ export function createScopedDataStore(
 			filters?: Record<string, unknown>,
 			options?: FindOptions
 		): Promise<T[]> {
+			if (groupIds.length === 0 && scopeRules.has(table)) return [];
 			const scoped = addScopeFilters(table, orgId, filters, options);
 
 			if (scoped.needsPersonnelFilter) {
@@ -149,6 +152,7 @@ export function createScopedDataStore(
 			filters?: Record<string, unknown>,
 			options?: FindOptions
 		): Promise<FindResult<T>> {
+			if (groupIds.length === 0 && scopeRules.has(table)) return { data: [], count: 0 };
 			const scoped = addScopeFilters(table, orgId, filters, options);
 
 			if (scoped.needsPersonnelFilter) {
@@ -181,13 +185,13 @@ function normalizeScopedGroupIds(scope: ScopeSet | string[] | string | null): st
 	if (!scope) return null;
 	if (Array.isArray(scope)) {
 		const groupIds = Array.from(new Set(scope.filter(Boolean)));
-		return groupIds.length > 0 ? groupIds : null;
+		return groupIds;
 	}
 	if (typeof scope === 'string') return scope ? [scope] : null;
 	if (scope.kind !== 'groups') return null;
 
 	const groupIds = Array.from(new Set(scope.groupIds.filter(Boolean)));
-	return groupIds.length > 0 ? groupIds : null;
+	return groupIds;
 }
 
 function mergeInFilter(options: FindOptions | undefined, column: string, values: unknown[]): FindOptions {

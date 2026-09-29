@@ -134,7 +134,7 @@ function parseScopeSet(formData: FormData): ScopeSet {
 			formData.getAll('scopeSetGroupIds').filter((value): value is string => typeof value === 'string' && isUuid(value))
 		)
 	);
-	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
+	return { kind: 'groups', groupIds };
 }
 
 function normalizeScopeSet(scopeSet: ScopeSet): ScopeSet {
@@ -143,7 +143,7 @@ function normalizeScopeSet(scopeSet: ScopeSet): ScopeSet {
 	}
 
 	const groupIds = Array.from(new Set(scopeSet.groupIds.filter(isUuid)));
-	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
+	return { kind: 'groups', groupIds };
 }
 
 function isUuid(value: string): boolean {

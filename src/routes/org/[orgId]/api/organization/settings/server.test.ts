@@ -31,7 +31,7 @@ describe('/api/organization/settings', () => {
 		});
 	});
 
-	it('persists archive retention, loss warning, and Critical Tasks settings on the organization row', async () => {
+	it('persists Organization policy and storage settings without touching Critical Tasks defaults', async () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('organizations', [
 			{
@@ -48,8 +48,6 @@ describe('/api/organization/settings', () => {
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			archiveRetentionMonths: 48,
 			lossWarningWindowDays: 90,
-			criticalTasksDefaultExpirationMonths: 18,
-			criticalTasksExpiringSoonWarningDays: 45,
 			personnelDocumentStorageCapMb: 256
 		});
 		const saved = await ctx.rawStore.findOne<Record<string, unknown>>('organizations', ctx.auth.orgId, {
@@ -60,8 +58,8 @@ describe('/api/organization/settings', () => {
 		expect(saved).toMatchObject({
 			archive_retention_months: 48,
 			loss_warning_window_days: 90,
-			critical_tasks_default_expiration_months: 18,
-			critical_tasks_expiring_soon_warning_days: 45,
+			critical_tasks_default_expiration_months: null,
+			critical_tasks_expiring_soon_warning_days: null,
 			personnel_document_storage_cap_bytes: 268435456
 		});
 		expect(ctx.auditPort.events).toEqual([
@@ -72,8 +70,6 @@ describe('/api/organization/settings', () => {
 				details: {
 					archive_retention_months: 48,
 					loss_warning_window_days: 90,
-					critical_tasks_default_expiration_months: 18,
-					critical_tasks_expiring_soon_warning_days: 45,
 					personnel_document_storage_cap_bytes: 268435456
 				}
 			})
@@ -123,6 +119,15 @@ describe('/api/organization/settings', () => {
 
 		await expect(handleUseCaseRequest(_postConfig, ctx, { lossWarningWindowDays: 0 })).rejects.toThrow(
 			'Warning window must be between 1 and 365 days'
+		);
+		expect(updateById).not.toHaveBeenCalled();
+	});
+
+	it('rejects stale Critical Tasks settings requests without changing Organization policies', async () => {
+		const ctx = createTestContext();
+		const updateById = vi.spyOn(ctx.rawStore, 'updateById');
+		await expect(handleUseCaseRequest(_postConfig, ctx, { criticalTasksDefaultExpirationMonths: 18 })).rejects.toThrow(
+			'Critical Tasks defaults are managed in the task library'
 		);
 		expect(updateById).not.toHaveBeenCalled();
 	});

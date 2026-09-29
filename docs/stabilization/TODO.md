@@ -245,6 +245,8 @@ The original M01–M17 packets remain the complete inventory. Split IDs below ar
 | - [ ] | D29 [#1377](https://github.com/waffleflopper/trooptotask/issues/1377) | `08-M16`              | Neutral shared utilities and internal cycles              | D26, D28                |
 | - [ ] | D30 [#1378](https://github.com/waffleflopper/trooptotask/issues/1378) | `08-VERIFY`           | Integrated module convergence and evidence                | D01–D29 merged          |
 
+D10's first PR repairs Organization-scoped Critical Tasks `configure` writes, gives the task library its two defaults, and adds the affected feature recipe and isolated SQL proof. Keep D10 open: the global task entity/batch paths, workspace query/bootstrap type cycle, remaining private-import consumers, and integrated acceptance still need their owning cutover. [Evidence](EVIDENCE.md#phase-08-d10--critical-tasks-library-configuration-first-pr).
+
 | Packet | Inventory outcomes / remaining ownership (current credit in the reconciliation)                                                                                                                                                          |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 08-M01 | D01/D02 accepted: acquisition/setup, session/MFA and account security ownership; retain integrated contracts and evidence.                                                                                                               |

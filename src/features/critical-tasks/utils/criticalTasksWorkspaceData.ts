@@ -1,5 +1,5 @@
 import type { CriticalTasksSettings } from '$features/critical-tasks/criticalTasks.types';
-import { criticalTasksWorkspaceStatus } from '$features/critical-tasks/criticalTasksWorkspaceHydration.svelte';
+import { criticalTasksWorkspaceStatus } from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 
 interface CriticalTasksWorkspaceData {
 	settings?: CriticalTasksSettings | null;

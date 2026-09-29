@@ -676,7 +676,11 @@
 			"src/features/calendar/index.ts",
 			"src/features/calendar/index.server.ts"
 		],
-		"critical-tasks": ["src/features/critical-tasks/contracts.ts", "src/features/critical-tasks/index.server.ts"],
+		"critical-tasks": [
+			"src/features/critical-tasks/contracts.ts",
+			"src/features/critical-tasks/index.ts",
+			"src/features/critical-tasks/index.server.ts"
+		],
 		"dashboard": ["src/features/dashboard/index.ts"],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",

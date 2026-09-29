@@ -341,6 +341,32 @@ describe('createTrainingRecord', () => {
 });
 
 describe('updateTrainingRecord', () => {
+	it('conceals missing and foreign records without writing or auditing an update', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'foreign-record',
+				organization_id: 'other-org',
+				personnel_id: 'foreign-person',
+				training_type_id: 'foreign-type',
+				completion_date: '2026-01-05',
+				expiration_date: '2027-01-05',
+				notes: 'Foreign notes',
+				certificate_url: null
+			}
+		]);
+		const before = await ctx.store.findMany('personnel_trainings', 'other-org');
+		for (const id of ['missing-record', 'foreign-record']) {
+			await expect(updateTrainingRecord(ctx, { id, notes: 'Forbidden change' })).rejects.toMatchObject({ status: 404 });
+		}
+		expect(await ctx.store.findMany('personnel_trainings', 'other-org')).toEqual(before);
+		expect((await ctx.store.findMany<Record<string, unknown>>('personnel_trainings', 'test-org'))[0].notes).toBeNull();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it('updates an existing record through Training operate policy and audits', async () => {
 		const ctx = buildContext();
 		seedPersonnel(ctx);

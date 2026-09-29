@@ -169,6 +169,7 @@ export async function updateTrainingRecord(ctx: WritePorts, input: Record<string
 		training_type_id: string;
 		personnel_id: string;
 	}>('personnel_trainings', ctx.auth.orgId, { id });
+	if (!existing) fail(404, 'Training record not found');
 
 	let isExpirationDateOnly = false;
 	let expirationMonths: number | null = null;

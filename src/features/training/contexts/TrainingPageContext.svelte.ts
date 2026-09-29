@@ -324,12 +324,20 @@ export class TrainingPageContext {
 	async handleRemoveTraining(id: string): Promise<void> {
 		const training = personnelTrainingsStore.getById(id);
 		const result = await personnelTrainingsStore.remove(id);
+		if (result === 'error') throw new Error('Could not remove training record. Try again.');
 		if (result === 'approval_required' && training) {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
 			const type = trainingTypesStore.items.find((t) => t.id === training.trainingTypeId);
 			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
 			const { submitDeletionRequest } = await loadDeletionRequests();
-			await submitDeletionRequest(this.orgId, 'personnel_training', id, desc, `/org/${this.orgId}/training`);
+			const submitted = await submitDeletionRequest(
+				this.orgId,
+				'personnel_training',
+				id,
+				desc,
+				`/org/${this.orgId}/training`
+			);
+			if (!submitted) throw new Error('Could not submit removal request. Try again.');
 		}
 	}
 

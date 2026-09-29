@@ -1,88 +1,47 @@
 /** Training report page, detail, and workbook projection. */
 import type { QueryPorts } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { TrainingStatus, TrainingType } from '$features/training/contracts';
-import { listTrainingCompletions } from '$features/training/index.server';
-import { listTrainingTypes } from '$features/training/index.server';
+import type {
+	TrainingType,
+	TrainingReportInput,
+	TrainingReportData,
+	TrainingReportDetail,
+	TrainingReportSort,
+	TrainingReportPagination,
+	TrainingReportTrainingType,
+	TrainingReportWorkbookExport
+} from '../contracts';
+import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
+import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
+import { listTrainingCompletions } from './trainingCompletionRead.server';
+import { listTrainingTypes } from './trainingCatalogRead.server';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
-import type { Group } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
 import { comparePersonnelByCatalogRankThenName } from '$features/personnel/contracts';
 import {
 	buildPivotTableFromMatrix,
-	buildTrainingReportWorkbook,
 	buildTrainingReportMatrix,
 	computeReadinessDashboardFromMatrix,
 	filterPersonnel,
 	type PivotRow,
-	type ReadinessDashboard,
-	type ReportFilters
-} from '$features/training/utils/reportCalculations';
+	type ReadinessDashboard
+} from '../utils/reportCalculations';
+import { buildTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
-import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';
-import { requireFeaturePolicy } from './featurePolicy';
+import { TRAINING_STATUS_SORT_ORDER } from '../utils/trainingStatus';
+import { requireFeaturePolicy } from '$lib/access/index.server';
 
-export interface TrainingReportSort {
-	column: 'name' | 'rank' | 'group' | string;
-	direction: 'asc' | 'desc';
-}
-
-export interface TrainingReportPagination {
-	page: number;
-	pageSize: number;
-}
-
-export interface TrainingReportInput {
-	filters?: ReportFilters;
-	sort?: TrainingReportSort;
-	pagination?: TrainingReportPagination;
-}
-
-export interface TrainingReportCell {
-	trainingTypeId: string;
-	status: TrainingStatus;
-	label: string;
-	date: string | null;
-}
-
-export interface TrainingReportRow {
-	person: Personnel;
-	cells: TrainingReportCell[];
-}
-
-export interface TrainingReportTrainingType {
-	id: string;
-	name: string;
-	color: string;
-}
-
-export interface TrainingReportDetail {
-	rows: TrainingReportRow[];
-	totalRows: number;
-	page: number;
-	pageSize: number;
-	totalPages: number;
-	sort: TrainingReportSort;
-}
-
-export interface TrainingReportData {
-	dashboard: ReadinessDashboard;
-	detail: TrainingReportDetail;
-	trainingTypes: TrainingReportTrainingType[];
-	filterOptions: {
-		groups: Group[];
-		mos: string[];
-		roles: string[];
-		ranks: string[];
-	};
-}
+type TrainingReportReadContext = Pick<QueryPorts, 'auth' | 'store'> & {
+	readonly audit?: TrainingCompletionReadContext['audit'];
+	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'listActiveForReports'>;
+};
 
 const DEFAULT_REPORT_PAGE_SIZE = 25;
 const MAX_REPORT_PAGE_SIZE = 100;
 
-async function requireTrainingRecordView(ctx: QueryPorts): Promise<void> {
+async function requireTrainingRecordView(ctx: TrainingReportReadContext): Promise<void> {
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
 }
 
@@ -131,7 +90,7 @@ interface BuiltTrainingReportRows {
 }
 
 async function buildTrainingReportRows(
-	ctx: QueryPorts,
+	ctx: TrainingReportReadContext,
 	input: TrainingReportInput = {}
 ): Promise<BuiltTrainingReportRows> {
 	await requireTrainingRecordView(ctx);
@@ -191,7 +150,10 @@ async function buildTrainingReportRows(
 	};
 }
 
-async function buildTrainingReport(ctx: QueryPorts, input: TrainingReportInput = {}): Promise<BuiltTrainingReport> {
+async function buildTrainingReport(
+	ctx: TrainingReportReadContext,
+	input: TrainingReportInput = {}
+): Promise<BuiltTrainingReport> {
 	const [{ personnel, pivotRows, trainingTypes, reportMatrix, rankCatalog, sort }, groups] = await Promise.all([
 		buildTrainingReportRows(ctx, input),
 		listGroupCatalog(ctx)
@@ -250,7 +212,7 @@ function buildTrainingReportDetail(
 }
 
 export async function fetchTrainingReportPage(
-	ctx: QueryPorts,
+	ctx: TrainingReportReadContext,
 	input: TrainingReportInput = {}
 ): Promise<TrainingReportData> {
 	const { dashboard, pivotRows, trainingTypes, reportTrainingTypes, filterOptions, sort } = await buildTrainingReport(
@@ -267,20 +229,15 @@ export async function fetchTrainingReportPage(
 }
 
 export async function fetchTrainingReportDetailPage(
-	ctx: QueryPorts,
+	ctx: TrainingReportReadContext,
 	input: TrainingReportInput = {}
 ): Promise<TrainingReportDetail> {
 	const { pivotRows, trainingTypes, sort } = await buildTrainingReportRows(ctx, input);
 	return buildTrainingReportDetail(pivotRows, trainingTypes, sort, input.pagination);
 }
 
-export interface TrainingReportWorkbookExport {
-	buffer: ArrayBuffer;
-	filename: string;
-}
-
 export async function generateTrainingReportWorkbookExport(
-	ctx: QueryPorts,
+	ctx: TrainingReportReadContext,
 	input: TrainingReportInput = {}
 ): Promise<TrainingReportWorkbookExport> {
 	const { pivotRows, trainingTypes } = await buildTrainingReport(ctx, input);

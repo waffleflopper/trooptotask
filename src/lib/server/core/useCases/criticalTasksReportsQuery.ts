@@ -31,7 +31,7 @@ import {
 import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
-import { fetchCriticalTasksSettings } from '$lib/server/core/useCases/criticalTasksWorkspaceQuery';
+import { fetchCriticalTasksSettings } from '$features/critical-tasks/server/criticalTasksSettingsRead.server';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
 
 export interface CriticalTasksReportInput {

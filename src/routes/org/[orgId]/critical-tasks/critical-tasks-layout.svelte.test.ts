@@ -7,7 +7,7 @@ import {
 	criticalTasksWorkspaceStatus,
 	resetCriticalTasksWorkspaceStatus
 } from '$features/critical-tasks/criticalTasksWorkspaceHydration.svelte';
-import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/server/criticalTasksWorkspaceBootstrap';
+import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;

@@ -1,24 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { fetchCriticalTasksBootstrap, fetchCriticalTasksSettings } from './criticalTasksWorkspaceQuery';
+import { fetchCriticalTasksBootstrap } from './criticalTasksWorkspaceQuery';
 
 describe('criticalTasksWorkspaceQuery', () => {
-	it('loads Critical Tasks settings through the app-owned store port', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('organizations', [
-			{
-				id: 'test-org',
-				critical_tasks_default_expiration_months: 18,
-				critical_tasks_expiring_soon_warning_days: 45
-			}
-		]);
-
-		await expect(fetchCriticalTasksSettings(ctx)).resolves.toEqual({
-			defaultExpirationMonths: 18,
-			expiringSoonWarningDays: 45
-		});
-	});
-
 	it('returns settings immediately while leaving workspace lists promise-backed', async () => {
 		const ctx = createTestContext({
 			auth: {

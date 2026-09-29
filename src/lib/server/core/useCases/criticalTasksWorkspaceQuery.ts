@@ -1,40 +1,14 @@
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/server/criticalTasksWorkspaceBootstrap';
-import type {
-	CriticalTasksSettings,
-	IctTask,
-	PersonnelIctCompletion
-} from '$features/critical-tasks/criticalTasks.types';
+import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/contracts';
+import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
 import { listGroupCatalog } from '$features/personnel/index.server';
-import { normalizeCriticalTasksSettings } from '$features/critical-tasks/utils/ictStatus';
+import { fetchCriticalTasksSettings } from '$features/critical-tasks/server/criticalTasksSettingsRead.server';
 import { IctTaskEntity } from '$lib/server/entities/ictTask';
 import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
 
-interface OrgCriticalTasksSettingsRow {
-	critical_tasks_default_expiration_months?: number | null;
-	critical_tasks_expiring_soon_warning_days?: number | null;
-}
-
 export interface CriticalTasksBootstrapOptions {
 	includeArchivedTasks?: boolean;
-}
-
-export async function fetchCriticalTasksSettings(
-	ctx: Pick<QueryPorts, 'auth' | 'store'>
-): Promise<CriticalTasksSettings> {
-	const orgId = ctx.auth.orgId;
-	const settingsRow = await ctx.store.findOne<OrgCriticalTasksSettingsRow>(
-		'organizations',
-		orgId,
-		{ id: orgId },
-		'critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days'
-	);
-
-	return normalizeCriticalTasksSettings({
-		defaultExpirationMonths: settingsRow?.critical_tasks_default_expiration_months ?? null,
-		expiringSoonWarningDays: settingsRow?.critical_tasks_expiring_soon_warning_days ?? null
-	});
 }
 
 function loadCriticalTasksItems<R, T>(

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import type { CriticalTasksWorkspaceData } from './criticalTasksWorkspaceBootstrap';
+import type { CriticalTasksWorkspaceData } from '../contracts';
 
 const {
 	findLatestCompletionsMock,

@@ -11,6 +11,8 @@ export {
 export {
 	listTrainingTypes,
 	listTrainingViews,
+	listTrainingTypeLabels,
+	countTrainingTypes,
 	findTrainingTypeByName,
 	listExistingTrainingTypeNames,
 	hasTrainingTypes

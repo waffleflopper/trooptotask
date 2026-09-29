@@ -19,7 +19,7 @@
 	const org = getOrgContext();
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const configureAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'unscoped' })
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'organization' })
 	);
 	const canMutate = $derived(configureAffordance.allowed);
 

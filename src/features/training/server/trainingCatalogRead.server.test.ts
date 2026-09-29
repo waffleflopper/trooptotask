@@ -4,6 +4,7 @@ import {
 	findTrainingTypeByName,
 	hasTrainingTypes,
 	listExistingTrainingTypeNames,
+	listTrainingTypeLabels,
 	listTrainingTypes,
 	listTrainingViews
 } from './trainingCatalogRead.server';
@@ -35,6 +36,10 @@ describe('Training catalog reads', () => {
 		expect(types[1]).toMatchObject({ appliesToRoles: [], excludedRanks: [], isOptional: false });
 		expect(await listTrainingViews(ctx.store, ctx.auth.orgId)).toMatchObject([
 			{ id: 'view', columnIds: ['targeted', 'required'] }
+		]);
+		expect(await listTrainingTypeLabels(ctx.store, ctx.auth.orgId)).toEqual([
+			{ id: 'required', name: 'Required' },
+			{ id: 'targeted', name: 'Targeted' }
 		]);
 		expect((await findTrainingTypeByName(ctx.store, ctx.auth.orgId, 'Targeted'))?.id).toBe('targeted');
 		expect(await findTrainingTypeByName(ctx.store, ctx.auth.orgId, 'Foreign')).toBeNull();

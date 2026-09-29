@@ -19,7 +19,7 @@ describe('GET /api/personnel/[id]/export', () => {
 		);
 	});
 
-	it('includes saved availability history for an authorized Personnel exporter without Calendar access', async () => {
+	it('includes availability and Training labels for a Personnel exporter without those lane grants', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -37,6 +37,19 @@ describe('GET /api/personnel/[id]/export', () => {
 		});
 		ctx.rawStore.seed('personnel', [
 			{ id: PERSONNEL_ID, organization_id: ctx.auth.orgId, group_id: null, first_name: 'Jamie', last_name: 'Smith' }
+		]);
+		ctx.rawStore.seed('training_types', [
+			{ id: 'training-1', organization_id: ctx.auth.orgId, name: 'Weapons Qual' },
+			{ id: 'foreign-training', organization_id: 'foreign-org', name: 'Foreign Training' }
+		]);
+		ctx.rawStore.seed('personnel_trainings', [
+			{
+				id: 'completion-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: PERSONNEL_ID,
+				training_type_id: 'training-1',
+				completion_date: '2026-04-01'
+			}
 		]);
 		ctx.rawStore.seed('status_types', [{ id: 'status-1', organization_id: ctx.auth.orgId, name: 'TDY' }]);
 		ctx.rawStore.seed('availability_entries', [
@@ -62,6 +75,8 @@ describe('GET /api/personnel/[id]/export', () => {
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(Buffer.from(result._buffer) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]);
 		const history = workbook.getWorksheet('Availability History');
+		const training = workbook.getWorksheet('Training Records');
+		expect(training?.getRow(2).getCell(1).value).toBe('Weapons Qual');
 		expect(history?.getRow(2).getCell(1).value).toBe('TDY');
 		expect(history?.getRow(2).getCell(2).value).toBe('2026-01-01');
 		expect(history?.getRow(3).getCell(2).value).toBe('2025-01-01');

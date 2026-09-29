@@ -112,6 +112,13 @@ export async function seed(session) {
 			scope: 'groups',
 			groups: [ids.groupA]
 		},
+		trainingScopedConfig: {
+			organization: 'orgA',
+			training: 'configure',
+			personnel: 'none',
+			scope: 'groups',
+			groups: [ids.groupA]
+		},
 		trainingForeign: { organization: 'orgB', training: 'configure', personnel: 'none', scope: 'organization' },
 		rosterManager: { organization: 'orgA', training: 'operate', personnel: 'configure', scope: 'organization' },
 		rosterViewer: { organization: 'orgA', training: 'view', scope: 'organization' },

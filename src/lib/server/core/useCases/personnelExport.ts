@@ -33,6 +33,10 @@ export async function exportPersonnelWorkbook(
 	listStatusTypeLabels: (
 		store: UseCaseContext['rawStore'],
 		orgId: string
+	) => Promise<Array<{ id: string; name: string }>>,
+	listTrainingTypeLabels: (
+		store: UseCaseContext['rawStore'],
+		orgId: string
 	) => Promise<Array<{ id: string; name: string }>>
 ): Promise<PersonnelExportOutput> {
 	const orgId = ctx.auth.orgId;
@@ -62,7 +66,7 @@ export async function exportPersonnelWorkbook(
 			}
 		),
 		listAvailabilityHistory(ctx, id),
-		ctx.rawStore.findMany<Record<string, unknown>>('training_types', orgId, {}, { select: 'id, name' }),
+		listTrainingTypeLabels(ctx.rawStore, orgId),
 		listStatusTypeLabels(ctx.rawStore, orgId),
 		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore })
 	]);
@@ -74,7 +78,7 @@ export async function exportPersonnelWorkbook(
 	const ext = extResults[0] ?? null;
 
 	const trainingTypeMap = new Map<string, string>();
-	for (const t of trainingTypes) trainingTypeMap.set(t.id as string, t.name as string);
+	for (const t of trainingTypes) trainingTypeMap.set(t.id, t.name);
 	const statusTypeMap = new Map<string, string>();
 	for (const s of statusTypes) statusTypeMap.set(s.id as string, s.name as string);
 	const groupMap = new Map<string, string>();

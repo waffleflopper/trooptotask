@@ -431,6 +431,33 @@ export async function seed(session) {
 	dates.trainingExpires = localDate(
 		new Date(trainingCompleted.getFullYear() + 1, trainingCompleted.getMonth(), trainingCompleted.getDate())
 	);
+	// Completion/report journeys add these records through the UI; keep D08's
+	// original missing-completion examples unchanged at launch.
+	dates.trainingExpiredCompleted = localDate(new Date(now.getFullYear() - 2, now.getMonth(), now.getDate()));
+	dates.trainingExpiredExpires = localDate(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
+	const trainingWarningExpires = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 15);
+	// A 12-month completion cannot expire on Feb 29 after a non-leap year.
+	if (trainingWarningExpires.getMonth() === 1 && trainingWarningExpires.getDate() === 29)
+		trainingWarningExpires.setDate(28);
+	dates.trainingWarningDays = String(
+		Math.round(
+			(Date.UTC(
+				trainingWarningExpires.getFullYear(),
+				trainingWarningExpires.getMonth(),
+				trainingWarningExpires.getDate()
+			) -
+				Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())) /
+				86400000
+		)
+	);
+	dates.trainingWarningExpires = localDate(trainingWarningExpires);
+	dates.trainingWarningCompleted = localDate(
+		new Date(
+			trainingWarningExpires.getFullYear() - 1,
+			trainingWarningExpires.getMonth(),
+			trainingWarningExpires.getDate()
+		)
+	);
 	const trainingTypeDefaults = {
 		description: null,
 		expiration_months: null,

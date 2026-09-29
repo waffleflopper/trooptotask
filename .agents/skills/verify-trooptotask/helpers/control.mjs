@@ -40,7 +40,8 @@ const tableSelect = {
 	training_types:
 		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional',
 	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
-	personnel_trainings: 'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date',
+	personnel_trainings:
+		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url',
 	onboarding_templates: 'id,organization_id,name,description',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
@@ -488,7 +489,12 @@ async function main() {
 					'availability/batch',
 					'sign-in-rosters',
 					'training-types',
-					'training-views'
+					'training-views',
+					'personnel-trainings',
+					'personnel-trainings/batch',
+					'training-reports',
+					'training-reports/detail',
+					'training-reports/export'
 				].includes(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family)
 			)

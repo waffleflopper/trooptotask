@@ -26,6 +26,8 @@ For stabilization work, follow the [stabilization workflow](docs/agents/stabiliz
 
 ## Task-specific guidance
 
+For stabilization app verification, use the repository's `npm run verify:app` environment, native browser controls and documented verify-trooptotask helpers. Use an integrated browser only when Robert explicitly requests it. The communication app or harness does not change this default; tool availability or a failed call does not authorize switching browsers.
+
 Open the relevant sections when the task needs them; links are a reading map, not a mandatory reading sequence.
 
 The shared pstack plugin supplies general engineering methods. When using Poteto Mode in this repository, apply [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md) alongside its chosen playbook. For stabilization continuation, t2t-stabilize remains the coordinator. Follow the [skill integration rules](docs/agents/operating-rules.md#shared-skills-and-project-workflows); project contracts and local verification/PR skills govern TroopToTask work.

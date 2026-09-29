@@ -1,0 +1,72 @@
+{
+  "table": "personnel_ict_completions",
+  "organization": "orgA",
+  "count": 5,
+  "rows": [
+    {
+      "id": "7c6eaedf-abe3-4d26-ba76-157c5d82eead",
+      "organization_id": "4ee0d6f3-6aac-4730-ad38-e6f22ea9ced2",
+      "personnel_id": "1489473d-4699-4ed7-867a-e637f4db3274",
+      "ict_task_id": "f6e4b025-2699-4351-a8b9-9109f5c85b76",
+      "completed_at": "2026-09-14",
+      "validation_method": "Demonstration",
+      "validated_by": null,
+      "notes": null,
+      "logged_by": "4d5c6c09-fcad-4578-b562-de9e50841c92",
+      "created_at": "2026-09-29T20:29:51.880189+00:00",
+      "updated_at": "2026-09-29T20:29:51.880189+00:00"
+    },
+    {
+      "id": "93b59292-6d0c-42d7-af35-f0612adfb8bd",
+      "organization_id": "4ee0d6f3-6aac-4730-ad38-e6f22ea9ced2",
+      "personnel_id": "1489473d-4699-4ed7-867a-e637f4db3274",
+      "ict_task_id": "c528feb4-0de5-4fa3-a41e-a9d22225a458",
+      "completed_at": "2025-10-14",
+      "validation_method": "Demonstration",
+      "validated_by": "SGT Synthetic Validator",
+      "notes": "D11 warning held",
+      "logged_by": "9f443909-4627-470a-87d9-dc2c37818e14",
+      "created_at": "2026-09-29T20:33:54.036332+00:00",
+      "updated_at": "2026-09-29T20:35:53.042974+00:00"
+    },
+    {
+      "id": "db3ec189-ffd6-4f3f-9b75-10811816074f",
+      "organization_id": "4ee0d6f3-6aac-4730-ad38-e6f22ea9ced2",
+      "personnel_id": "72d6883b-331c-4583-97d6-d3c1f82172af",
+      "ict_task_id": "c528feb4-0de5-4fa3-a41e-a9d22225a458",
+      "completed_at": "2026-09-29",
+      "validation_method": "Demonstration",
+      "validated_by": "SGT Synthetic Validator",
+      "notes": "D11 Baker current",
+      "logged_by": "9f443909-4627-470a-87d9-dc2c37818e14",
+      "created_at": "2026-09-29T20:36:15.388198+00:00",
+      "updated_at": "2026-09-29T20:36:15.388198+00:00"
+    },
+    {
+      "id": "f6785c45-c7d0-4523-922c-05ca92c4a324",
+      "organization_id": "4ee0d6f3-6aac-4730-ad38-e6f22ea9ced2",
+      "personnel_id": "02248f5e-e31c-48a5-8646-f7c05e9221d0",
+      "ict_task_id": "c528feb4-0de5-4fa3-a41e-a9d22225a458",
+      "completed_at": "2024-09-29",
+      "validation_method": "Demonstration",
+      "validated_by": "SGT Synthetic Validator",
+      "notes": "D11 upsert expired",
+      "logged_by": "9f443909-4627-470a-87d9-dc2c37818e14",
+      "created_at": "2026-09-29T20:39:55.194964+00:00",
+      "updated_at": "2026-09-29T20:40:06.568403+00:00"
+    },
+    {
+      "id": "77decfec-2f64-4b39-8503-aa39c28b654c",
+      "organization_id": "4ee0d6f3-6aac-4730-ad38-e6f22ea9ced2",
+      "personnel_id": "1489473d-4699-4ed7-867a-e637f4db3274",
+      "ict_task_id": "f6e4b025-2699-4351-a8b9-9109f5c85b76",
+      "completed_at": "2024-09-29",
+      "validation_method": "Demonstration",
+      "validated_by": "SGT Synthetic Validator",
+      "notes": "D11 older Alpha history",
+      "logged_by": "9f443909-4627-470a-87d9-dc2c37818e14",
+      "created_at": "2026-09-29T20:39:55.194964+00:00",
+      "updated_at": "2026-09-29T20:40:06.572892+00:00"
+    }
+  ]
+}

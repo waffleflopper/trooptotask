@@ -167,6 +167,7 @@ async function main() {
 			'calendar/reports',
 			'critical-tasks',
 			'critical-tasks/library',
+			'critical-tasks/reports',
 			'settings/policies',
 			'settings/members',
 			'settings/danger'
@@ -247,7 +248,7 @@ async function main() {
 			pageId,
 			orgId: targetOrg ? org(targetOrg) : null,
 			path: landed,
-			access: page.includes("You don't have permission to view this page") ? 'denied' : 'allowed',
+			access: page.includes("You don't have permission to view this page") ? 'denied' : 'not-assessed',
 			origin: doctor.origin
 		});
 		return;
@@ -488,7 +489,12 @@ async function main() {
 					'availability/batch',
 					'sign-in-rosters',
 					'training-types',
-					'training-views'
+					'training-views',
+					'personnel-ict-completions',
+					'personnel-ict-completions/batch',
+					'critical-tasks/reports/summary',
+					'critical-tasks/reports/export',
+					'critical-tasks/matrix/export'
 				].includes(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family)
 			)
@@ -512,6 +518,38 @@ async function main() {
 				: action === 'release'
 					? '() => { const c = window.__mapNetwork; if (!c?.release) return { released: false }; c.release(); c.release = null; return { released: true }; }'
 					: '() => { const c = window.__mapNetwork; if (!c) return { restored: false }; c.release?.(); window.fetch = c.original; delete window.__mapNetwork; return { restored: true }; }';
+		note(await evaluate(state, pageId, source));
+		return;
+	}
+	if (command === 'feedback') {
+		const [action, page] = args;
+		const pageId = Number(page);
+		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
+		if (!['arm', 'state', 'restore'].includes(action)) throw new Error('Unknown feedback action.');
+		const source =
+			action === 'arm'
+				? `() => {
+				if (window.__mapFeedback) throw new Error('Restore the previous feedback observer first');
+				const entries = [];
+				const seen = new Set();
+				const observer = new MutationObserver(() => {
+					for (const toast of document.querySelectorAll('[data-sonner-toast]')) {
+						const text = toast.innerText.trim();
+						const type = toast.getAttribute('data-type');
+						if (!text || !['success', 'error'].includes(type)) continue;
+						const key = type + ':' + text;
+						if (seen.has(key)) continue;
+						seen.add(key);
+						if (entries.length < 20) entries.push({ type, text });
+					}
+				});
+				observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-type'] });
+				window.__mapFeedback = { observer, entries };
+				return { armed: true };
+			}`
+				: action === 'state'
+					? '() => ({ armed: !!window.__mapFeedback, entries: window.__mapFeedback?.entries ?? [] })'
+					: '() => { const c = window.__mapFeedback; if (!c) return { restored: false }; c.observer.disconnect(); delete window.__mapFeedback; return { restored: true }; }';
 		note(await evaluate(state, pageId, source));
 		return;
 	}

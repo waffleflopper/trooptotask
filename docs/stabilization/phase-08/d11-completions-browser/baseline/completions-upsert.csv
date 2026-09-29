@@ -1,0 +1,4 @@
+First Name,Last Name,Task Code,Completion Date,Validation Method,Validator,Notes
+Synthetic,Unassigned,VERIFY-ICT-ALL,2024-09-29,Demonstration,SGT Synthetic Validator,D11 upsert expired
+Synthetic,Able,VERIFY-ICT-ALPHA,2024-09-29,Demonstration,SGT Synthetic Validator,D11 older Alpha history
+Synthetic,Baker,UNKNOWN-ICT,2026-09-29,Demonstration,SGT Synthetic Validator,D11 invalid import

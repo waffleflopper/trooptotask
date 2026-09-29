@@ -1,4 +1,6 @@
 /** Calendar facts shared with its web and server consumers. */
+import type { DailyAssignment } from '$lib/types';
+
 export interface StatusType {
 	id: string;
 	name: string;
@@ -32,4 +34,17 @@ export interface AssignmentType {
 	exemptPersonnelIds: string[];
 	showInDateHeader: boolean;
 	archivedAt?: string | null;
+}
+
+export interface AssignmentSlotChange {
+	date: string;
+	assignmentTypeId: string;
+	assigneeId: string;
+}
+
+export type SavedAssignment = DailyAssignment & { organization_id?: string; created_at?: string };
+
+/** One committed replacement of selected slots or complete days. */
+export interface CalendarAssignmentReplacementPort {
+	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
 }

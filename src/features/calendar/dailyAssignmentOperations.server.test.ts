@@ -84,7 +84,7 @@ describe('Daily Assignment Slot writes', () => {
 	});
 
 	it.each([undefined, 409])(
-		'preserves the existing slot assignment when replacement insert fails after clearing (status %s)',
+		'preserves the existing slot assignment when atomic replacement fails (status %s)',
 		async (status) => {
 			const failure = new Error('Calendar insert failed.');
 			if (status) Object.assign(failure, { status });
@@ -113,7 +113,7 @@ describe('Daily Assignment Slot writes', () => {
 					assignee_id: 'other-day-person'
 				}
 			]);
-			const insertSpy = vi.spyOn(ctx.store, 'insert').mockRejectedValueOnce(failure);
+			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
 
 			try {
 				await expect(
@@ -150,7 +150,7 @@ describe('Daily Assignment Slot writes', () => {
 					])
 				);
 			} finally {
-				insertSpy.mockRestore();
+				replacementSpy.mockRestore();
 			}
 		}
 	);
@@ -200,7 +200,7 @@ describe('Daily Assignment Slot writes', () => {
 	});
 
 	it.each([undefined, 409])(
-		'preserves the existing day assignments when replacement insert fails after clearing (status %s)',
+		'preserves the existing day assignments when atomic replacement fails (status %s)',
 		async (status) => {
 			const failure = new Error('Calendar insert failed.');
 			if (status) Object.assign(failure, { status });
@@ -221,7 +221,7 @@ describe('Daily Assignment Slot writes', () => {
 					assignee_id: 'other-day-person'
 				}
 			]);
-			const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(failure);
+			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
 
 			try {
 				await expect(
@@ -250,13 +250,13 @@ describe('Daily Assignment Slot writes', () => {
 					])
 				);
 			} finally {
-				insertManySpy.mockRestore();
+				replacementSpy.mockRestore();
 			}
 		}
 	);
 
 	it.each([undefined, 409])(
-		'preserves affected batch slots when replacement insert fails after clearing (status %s)',
+		'preserves affected batch slots when atomic replacement fails (status %s)',
 		async (status) => {
 			const failure = new Error('Calendar insert failed.');
 			if (status) Object.assign(failure, { status });
@@ -291,7 +291,7 @@ describe('Daily Assignment Slot writes', () => {
 					assignee_id: 'same-type-person'
 				}
 			]);
-			const insertManySpy = vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(failure);
+			const replacementSpy = vi.spyOn(ctx.calendarAssignmentReplacement, 'replace').mockRejectedValueOnce(failure);
 
 			try {
 				await expect(
@@ -334,7 +334,7 @@ describe('Daily Assignment Slot writes', () => {
 					])
 				);
 			} finally {
-				insertManySpy.mockRestore();
+				replacementSpy.mockRestore();
 			}
 		}
 	);

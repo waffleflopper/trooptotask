@@ -40,6 +40,7 @@ export {
 } from './assignmentTypeRetention.server';
 export { countCalendarCatalogsByOrganization } from './platformCatalogCounts.server';
 export { listDailyAssignments, listDailyAssignmentExportRows } from './dailyAssignmentRead.server';
+export { createSupabaseCalendarAssignmentReplacementPort } from './dailyAssignmentPersistence.server';
 export {
 	setDailyAssignmentSlot,
 	clearDailyAssignmentSlot,

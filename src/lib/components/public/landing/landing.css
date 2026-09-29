@@ -1,0 +1,165 @@
+/*
+ * Landing journey kit: the tokens and type roles every landing scene shares.
+ *
+ * The page is a story, not a themed screen. "Night" (yesterday) and "day"
+ * (today) are fixed states, so nothing here follows the user's light/dark
+ * setting. Night uses the permanent chrome tokens; day pins the light-theme
+ * paper and ink values from DESIGN.md.
+ */
+
+.landing {
+	/* Night: yesterday. */
+	--l-night: var(--chrome);
+	--l-night-raised: var(--chrome-surface);
+	--l-night-line: var(--chrome-border);
+	--l-night-text: var(--chrome-text);
+	--l-night-muted: var(--chrome-text-muted);
+
+	/* Day: today. */
+	--l-day: oklch(98.5% 0.001 106.423);
+	--l-day-sunk: oklch(97% 0.001 106.424);
+	--l-day-line: oklch(92.3% 0.003 48.717);
+	--l-ink: oklch(14.7% 0.004 49.25);
+	--l-ink-muted: oklch(44.4% 0.011 73.639);
+
+	/* Ops Amber is the one signal: the phase line, the call to action, the word that matters. */
+	--l-amber: oklch(66.6% 0.179 58.318);
+	/* Amber that still reads as text on day paper (bright amber is about 3:1 there). */
+	--l-amber-ink: oklch(48% 0.13 55);
+
+	/* Availability statuses. Fills are dark enough to carry ivory labels at AA. */
+	--l-status-leave: oklch(50% 0.13 150);
+	--l-status-school: oklch(50% 0.14 250);
+	--l-status-tdy: oklch(48% 0.15 300);
+	--l-status-appt: oklch(52% 0.09 195);
+	--l-status-field: oklch(44% 0.07 60);
+
+	/* Currency statuses: tinted fill, colored text, as in the product's training matrix. */
+	--l-current-fill: oklch(93% 0.06 150);
+	--l-current-ink: oklch(38% 0.11 150);
+	--l-expiring-fill: oklch(94% 0.05 60);
+	--l-expiring-ink: oklch(43% 0.12 55);
+	--l-expired-fill: oklch(92% 0.06 25);
+	--l-expired-ink: oklch(43% 0.17 27);
+
+	/* The tools of yesterday. Deliberately not TroopToTask's palette. */
+	--l-office-sheet: oklch(97% 0.004 130);
+	--l-office-sheet-line: oklch(84% 0.008 130);
+	--l-office-sheet-head: oklch(88% 0.03 150);
+	--l-office-sheet-accent: oklch(48% 0.1 155);
+	--l-office-sticky: oklch(89% 0.13 95);
+	--l-office-sticky-alt: oklch(87% 0.09 55);
+	--l-office-mail: oklch(58% 0.12 250);
+	--l-office-board: oklch(96% 0.006 240);
+	--l-office-marker-blue: oklch(45% 0.15 260);
+	--l-office-marker-red: oklch(52% 0.2 27);
+	--l-office-marker-green: oklch(47% 0.13 150);
+	--l-office-font: Calibri, Carlito, 'Segoe UI', system-ui, Arial, sans-serif;
+	--l-office-hand: 'Bradley Hand', 'Segoe Print', 'Marker Felt', cursive;
+
+	--l-focus: 2px solid var(--l-amber);
+
+	/* Page gutters: the shared nav and footer use a 1200px container with a 2rem edge (1rem on phones); the story lines up with them. */
+	--l-wrap-max: 1200px;
+	--l-gutter: 2rem;
+
+	background: var(--l-day);
+	color: var(--l-ink);
+	font-family: 'Source Serif 4', serif;
+}
+
+.landing :where(h1, h2, h3, h4, p, figure, blockquote, dl, dd) {
+	margin: 0;
+}
+
+.landing :where(a, button, summary):focus-visible {
+	outline: var(--l-focus);
+	outline-offset: 3px;
+}
+
+.landing .l-wrap {
+	width: 100%;
+	max-width: var(--l-wrap-max);
+	margin-inline: auto;
+	padding-inline: var(--l-gutter);
+}
+
+@media (max-width: 640px) {
+	.landing {
+		--l-gutter: 1rem;
+	}
+}
+
+/* Type roles. Barlow Condensed is structure, Source Serif 4 is content, IBM Plex Mono is data. */
+.landing .l-eyebrow {
+	font-family: 'IBM Plex Mono', monospace;
+	font-size: 0.6875rem;
+	font-weight: 500;
+	line-height: 1.2;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+}
+
+.landing .l-display {
+	font-family: 'Barlow Condensed', sans-serif;
+	font-size: clamp(3.25rem, 10.5vw, 9.5rem);
+	font-weight: 800;
+	line-height: 0.9;
+	letter-spacing: 0.005em;
+	text-transform: uppercase;
+	text-wrap: balance;
+}
+
+.landing .l-headline {
+	font-family: 'Barlow Condensed', sans-serif;
+	font-size: clamp(2.5rem, 6.4vw, 5.75rem);
+	font-weight: 700;
+	line-height: 0.94;
+	letter-spacing: 0.01em;
+	text-transform: uppercase;
+	text-wrap: balance;
+}
+
+.landing .l-title {
+	font-family: 'Barlow Condensed', sans-serif;
+	font-size: clamp(1.5rem, 2.6vw, 2.25rem);
+	font-weight: 700;
+	line-height: 1.05;
+	letter-spacing: 0.01em;
+	text-transform: uppercase;
+}
+
+.landing .l-body {
+	max-width: 44ch;
+	font-size: clamp(1.0625rem, 0.9rem + 0.55vw, 1.3125rem);
+	line-height: 1.55;
+	text-wrap: pretty;
+}
+
+/* Tabular figures for clocks, counts and dates. */
+.landing .l-figures {
+	font-variant-numeric: tabular-nums;
+}
+
+/* The one call-to-action style. */
+.landing .l-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 0.8rem 1.75rem;
+	border-radius: var(--radius-lg, 6px);
+	background: var(--l-amber);
+	color: var(--l-ink);
+	font-family: 'Barlow Condensed', sans-serif;
+	font-size: 1.0625rem;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-decoration: none;
+	text-transform: uppercase;
+	transition: background-color var(--transition-fast);
+}
+
+.landing a.l-button:hover {
+	background: color-mix(in oklch, var(--l-amber) 84%, var(--l-night-text));
+	color: var(--l-ink);
+}

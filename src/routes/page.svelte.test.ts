@@ -1,47 +1,23 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 
-afterEach(() => {
-	cleanup();
-	vi.unstubAllGlobals();
-});
+afterEach(cleanup);
 
-describe('landing FAQ', () => {
-	it('exposes one answer at a time through its trigger and keeps access available without an observer', async () => {
-		vi.stubGlobal('IntersectionObserver', undefined);
+describe('landing page', () => {
+	it('opens with one heading and sends a visitor to reviewed access', () => {
 		const { container } = render(Page, { props: { data: { session: null, user: null } } });
 		const main = within(container.querySelector('main')!);
-		const first = main.getByRole('button', { name: /Are the calendar statuses fixed/i });
-		const second = main.getByRole('button', { name: /Can I scope access/i });
-		const firstAnswer = document.getElementById(first.getAttribute('aria-controls')!);
-		const secondAnswer = document.getElementById(second.getAttribute('aria-controls')!);
 
-		expect(first).toHaveAttribute('aria-expanded', 'false');
-		expect(firstAnswer).toHaveAttribute('hidden');
-		expect(secondAnswer).toHaveAttribute('hidden');
-		expect(main.getByRole('heading', { name: /Know your formation/i })).toBeVisible();
-		expect(main.getAllByRole('link', { name: 'Request Access' })).toHaveLength(2);
-
-		await fireEvent.click(first);
-		expect(first).toHaveAttribute('aria-expanded', 'true');
-		expect(firstAnswer).not.toHaveAttribute('hidden');
-
-		await fireEvent.click(second);
-		expect(first).toHaveAttribute('aria-expanded', 'false');
-		expect(firstAnswer).toHaveAttribute('hidden');
-		expect(second).toHaveAttribute('aria-expanded', 'true');
-		expect(secondAnswer).not.toHaveAttribute('hidden');
-
-		await fireEvent.click(second);
-		expect(second).toHaveAttribute('aria-expanded', 'false');
-		expect(secondAnswer).toHaveAttribute('hidden');
+		expect(main.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+		expect(main.getByRole('link', { name: 'Request access' })).toHaveAttribute('href', '/auth/request-access');
+		expect(main.queryByRole('link', { name: /dashboard/i })).not.toBeInTheDocument();
+		expect(container.querySelector('#faq')).not.toBeNull();
 	});
 
-	it('keeps the admitted-user dashboard destinations', () => {
-		vi.stubGlobal('IntersectionObserver', undefined);
+	it('sends an admitted user to the dashboard', () => {
 		const { container } = render(Page, {
 			props: {
 				data: {
@@ -57,8 +33,9 @@ describe('landing FAQ', () => {
 			}
 		});
 		const main = within(container.querySelector('main')!);
-		expect(main.getAllByRole('link', { name: /dashboard/i })).toHaveLength(2);
-		expect(main.queryByRole('link', { name: 'Request Access' })).not.toBeInTheDocument();
+
+		expect(main.getByRole('link', { name: /dashboard/i })).toHaveAttribute('href', '/dashboard?show=all');
+		expect(main.queryByRole('link', { name: 'Request access' })).not.toBeInTheDocument();
 		expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('href', '/dashboard?show=all');
 	});
 });

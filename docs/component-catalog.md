@@ -697,6 +697,19 @@ Shared email callout for public legal and security pages. `email` is required; `
 
 Lower-level shell primitives used internally by `PublicShell`. Reach for these directly only if you have a compelling reason to diverge from the standard public page wrapper.
 
+### `public/ScrollStage.svelte`
+
+A pinned, scroll-driven scene for public storytelling pages. It renders a tall runway with a sticky, viewport-height frame and writes scroll progress to the CSS custom property `--p` (0 at pin start, 1 at pin end), which every descendant inherits. `public/stageProgress.ts` owns the progress math and one shared scroll listener and animation frame for all stages on a page.
+
+Props: `length: string` (runway height as a CSS length such as `"700vh"`), `onprogress?: (progress: number) => void`, `class?: string`, `children: Snippet`
+
+Guidance:
+
+- Drive motion from CSS using `--p` and animate only `transform` and `opacity`. Use `onprogress` only when a scene needs reactive state, and assign state only when a value actually changes.
+- Inside the frame, `cqw` and `cqh` measure the pinned frame, not the window.
+- Sticky pinning needs every ancestor up to the viewport to leave `overflow` visible or `clip`. `PublicShell` uses `overflow-x: clip` for that reason; do not change it to `hidden`.
+- The landing page (`src/routes/+page.svelte`) composes its scenes from `src/lib/components/public/landing/`. `landing/landing.css` holds that page's theme-fixed night and day tokens and type roles, scoped under `.landing`. They intentionally do not follow the light/dark theme.
+
 ---
 
 ## Shared Route Toolbar

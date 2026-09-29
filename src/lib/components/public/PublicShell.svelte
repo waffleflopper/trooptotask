@@ -83,7 +83,8 @@
 		font-size: 1rem;
 		font-weight: 300;
 		line-height: 1.65;
-		overflow-x: hidden;
+		/* `clip`, not `hidden`: hidden makes this a scroll container and breaks position: sticky inside. */
+		overflow-x: clip;
 	}
 
 	:global([data-theme='dark']) .public-shell {

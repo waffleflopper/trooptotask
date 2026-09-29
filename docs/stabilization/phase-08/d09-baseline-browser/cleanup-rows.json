@@ -1,0 +1,17 @@
+{
+  "table": "personnel_trainings",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "a7ce88bd-da08-4081-a505-edd6c4b1b416",
+      "organization_id": "6607ddaa-f1e5-4792-ae18-07ea94064afb",
+      "personnel_id": "8c315b23-d5f7-484c-8561-228841c0e3c3",
+      "training_type_id": "a4861522-fc98-474b-93aa-8f908af4e6b8",
+      "completion_date": "2026-09-22",
+      "expiration_date": "2027-09-22",
+      "notes": null,
+      "certificate_url": null
+    }
+  ]
+}

@@ -1,0 +1,280 @@
+{
+  "revision": "79bbd77a8b6581d9dcf90765963fc3592981fe0a",
+  "candidate": "d41bfb62df547a42f88711414e5fcdfa5847b140dcefd834a89b85d027cd5a7d",
+  "session": "08e3dc36-b049-4b48-ae90-12d069fad8eb",
+  "origin": "http://127.0.0.1:46467",
+  "date": "2026-09-29",
+  "completion": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 2,
+    "rows": [
+      {
+        "id": "97daf6c7-b6ea-4a22-a9da-ab34a6feeb70",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "297f2716-66b0-4864-b77e-b4a89355f496",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      },
+      {
+        "id": "df699aab-7d90-476b-beb1-eb453fd6b197",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "61841d5e-eb46-4325-92b0-52d4cee5d7bb",
+        "training_type_id": "f7f6731b-78f1-4106-a01d-2a6f370a3090",
+        "completion_date": null,
+        "expiration_date": null,
+        "notes": "1357 approval control baseline",
+        "certificate_url": "https://example.test/1357-approval-control"
+      }
+    ]
+  },
+  "pending": {
+    "table": "deletion_requests",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "1dbdc836-eafa-479b-9ee7-66b37d13d652",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "resource_type": "personnel_training",
+        "resource_id": "df699aab-7d90-476b-beb1-eb453fd6b197",
+        "status": "pending"
+      }
+    ]
+  },
+  "reviewFailure": {
+    "armed": true,
+    "calls": [
+      {
+        "method": "POST",
+        "count": 0,
+        "ids": [],
+        "notes": [],
+        "status": 503
+      }
+    ],
+    "held": false
+  },
+  "reviewFailureCompletions": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 2,
+    "rows": [
+      {
+        "id": "97daf6c7-b6ea-4a22-a9da-ab34a6feeb70",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "297f2716-66b0-4864-b77e-b4a89355f496",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      },
+      {
+        "id": "df699aab-7d90-476b-beb1-eb453fd6b197",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "61841d5e-eb46-4325-92b0-52d4cee5d7bb",
+        "training_type_id": "f7f6731b-78f1-4106-a01d-2a6f370a3090",
+        "completion_date": null,
+        "expiration_date": null,
+        "notes": "1357 approval control baseline",
+        "certificate_url": "https://example.test/1357-approval-control"
+      }
+    ]
+  },
+  "reviewFailureRequests": {
+    "table": "deletion_requests",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "1dbdc836-eafa-479b-9ee7-66b37d13d652",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "resource_type": "personnel_training",
+        "resource_id": "df699aab-7d90-476b-beb1-eb453fd6b197",
+        "status": "pending"
+      }
+    ]
+  },
+  "approved": {
+    "table": "deletion_requests",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "1dbdc836-eafa-479b-9ee7-66b37d13d652",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "resource_type": "personnel_training",
+        "resource_id": "df699aab-7d90-476b-beb1-eb453fd6b197",
+        "status": "approved"
+      }
+    ]
+  },
+  "afterApproval": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "97daf6c7-b6ea-4a22-a9da-ab34a6feeb70",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "297f2716-66b0-4864-b77e-b4a89355f496",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      }
+    ]
+  },
+  "dateOnly": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 2,
+    "rows": [
+      {
+        "id": "97daf6c7-b6ea-4a22-a9da-ab34a6feeb70",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "297f2716-66b0-4864-b77e-b4a89355f496",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      },
+      {
+        "id": "53d9f0b9-42a2-4dca-b5ac-b846b07fc253",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "17df9990-6614-4a79-a237-b36c753dff81",
+        "completion_date": null,
+        "expiration_date": "2026-10-14",
+        "notes": "1357 date-only baseline",
+        "certificate_url": "https://example.test/1357-date-only"
+      }
+    ]
+  },
+  "edited": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 2,
+    "rows": [
+      {
+        "id": "97daf6c7-b6ea-4a22-a9da-ab34a6feeb70",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "297f2716-66b0-4864-b77e-b4a89355f496",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      },
+      {
+        "id": "53d9f0b9-42a2-4dca-b5ac-b846b07fc253",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "17df9990-6614-4a79-a237-b36c753dff81",
+        "completion_date": null,
+        "expiration_date": "2026-10-15",
+        "notes": "1357 date-only baseline edited",
+        "certificate_url": "https://example.test/1357-date-only"
+      }
+    ]
+  },
+  "expired": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 2,
+    "rows": [
+      {
+        "id": "97daf6c7-b6ea-4a22-a9da-ab34a6feeb70",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "297f2716-66b0-4864-b77e-b4a89355f496",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      },
+      {
+        "id": "53d9f0b9-42a2-4dca-b5ac-b846b07fc253",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "17df9990-6614-4a79-a237-b36c753dff81",
+        "completion_date": null,
+        "expiration_date": "2026-09-28",
+        "notes": "1357 date-only baseline edited",
+        "certificate_url": "https://example.test/1357-date-only"
+      }
+    ]
+  },
+  "exemptionFailure": {
+    "armed": true,
+    "calls": [
+      {
+        "method": "POST",
+        "count": 1,
+        "ids": [
+          "61841d5e-eb46-4325-92b0-52d4cee5d7bb"
+        ],
+        "notes": [
+          null
+        ],
+        "status": 503
+      }
+    ],
+    "held": false
+  },
+  "exemptionPersisted": {
+    "table": "training_types",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "17df9990-6614-4a79-a237-b36c753dff81",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "name": "1357 Expiration Only",
+        "description": null,
+        "expiration_months": null,
+        "warning_days_yellow": 60,
+        "warning_days_orange": 30,
+        "applies_to_roles": [],
+        "applies_to_mos": [],
+        "applies_to_ranks": [],
+        "excluded_roles": [],
+        "excluded_mos": [],
+        "excluded_ranks": [],
+        "color": "#6b7280",
+        "sort_order": 3,
+        "expiration_date_only": true,
+        "can_be_exempted": true,
+        "exempt_personnel_ids": [
+          "61841d5e-eb46-4325-92b0-52d4cee5d7bb"
+        ],
+        "is_optional": false
+      }
+    ]
+  },
+  "cleanedRows": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "97daf6c7-b6ea-4a22-a9da-ab34a6feeb70",
+        "organization_id": "788a623d-e836-4260-85ff-8ff1ee2e978b",
+        "personnel_id": "a87d141e-5b31-4909-a9db-1214163de9dc",
+        "training_type_id": "297f2716-66b0-4864-b77e-b4a89355f496",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      }
+    ]
+  },
+  "failedBaseline": "Person editor: dated orange warning and expired date-only completion countedCurrent; Baker exemption countedCurrent. Shared Training status enums correctly classify records. Root repairs counters before accepting cutover.",
+  "scope": "Source-owned completion effect/UI/import baseline, not wholeD18 orchestration acceptance. Post-delete request-status failure only lower-level34/34 on unchanged implementation."
+}

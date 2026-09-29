@@ -1,0 +1,85 @@
+{
+  "revision": "c5769218108801b9298822df551bc9df8922687d",
+  "candidate": "20965182c8e4cd06b80ff3df6193fb9a5b53d188996c1d700a8fdc6aa1512e35",
+  "session": "a8f48308-4a4e-41dc-9a68-539ead956964",
+  "origin": "http://127.0.0.1:38629",
+  "before": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 2,
+    "rows": [
+      {
+        "id": "d7f1011a-c83e-4847-8411-bbe366d7c468",
+        "organization_id": "2d49adae-bcda-47d9-9a16-f15506645bad",
+        "personnel_id": "fb71bb96-5473-4908-9338-62544ffad821",
+        "training_type_id": "47d4f942-c802-454a-8c20-638e3c4e0b7a",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      },
+      {
+        "id": "4b9ea8d5-0628-4b95-95c6-a148ed363b9d",
+        "organization_id": "2d49adae-bcda-47d9-9a16-f15506645bad",
+        "personnel_id": "54f31492-f5f3-4872-8677-8d91f66b3268",
+        "training_type_id": "b8202cfc-bfd9-4d75-a34f-ffb51ac508b0",
+        "completion_date": null,
+        "expiration_date": null,
+        "notes": "1357 completion approval owner baseline",
+        "certificate_url": "https://example.test/1357-owned-approval"
+      }
+    ]
+  },
+  "pending": {
+    "table": "deletion_requests",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "93e65e20-a8dc-48dc-a832-7555f2764919",
+        "organization_id": "2d49adae-bcda-47d9-9a16-f15506645bad",
+        "resource_type": "personnel_training",
+        "resource_id": "4b9ea8d5-0628-4b95-95c6-a148ed363b9d",
+        "status": "pending"
+      }
+    ]
+  },
+  "controlAttempt": {
+    "armed": true,
+    "calls": [],
+    "held": false
+  },
+  "after": {
+    "table": "personnel_trainings",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "d7f1011a-c83e-4847-8411-bbe366d7c468",
+        "organization_id": "2d49adae-bcda-47d9-9a16-f15506645bad",
+        "personnel_id": "fb71bb96-5473-4908-9338-62544ffad821",
+        "training_type_id": "47d4f942-c802-454a-8c20-638e3c4e0b7a",
+        "completion_date": "2026-09-22",
+        "expiration_date": "2027-09-22",
+        "notes": null,
+        "certificate_url": null
+      }
+    ]
+  },
+  "approved": {
+    "table": "deletion_requests",
+    "organization": "orgA",
+    "count": 1,
+    "rows": [
+      {
+        "id": "93e65e20-a8dc-48dc-a832-7555f2764919",
+        "organization_id": "2d49adae-bcda-47d9-9a16-f15506645bad",
+        "resource_type": "personnel_training",
+        "resource_id": "4b9ea8d5-0628-4b95-95c6-a148ed363b9d",
+        "status": "approved"
+      }
+    ]
+  },
+  "observed": "Administrator visible Approve POST /api/deletion-requests/review returned200. Completion removed, pending request approved; both views reloaded. Intended pre-request failure control matched zero calls because deletion-requests matches exact endpoint, not /review; no live failure/retry claim. Completion effect/status partial failure requires lower-level proof.",
+  "cleanup": "clean-seeds, doctor and cleanup PASS; original completion retained, only disposable approved request disposed."
+}

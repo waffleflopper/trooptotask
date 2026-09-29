@@ -13,8 +13,8 @@ import {
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { TrainingType } from '$features/training/training.types';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type {
 	DashboardAssignmentsWorkspaceHydrationTarget,
 	DashboardWorkspaceHydration,

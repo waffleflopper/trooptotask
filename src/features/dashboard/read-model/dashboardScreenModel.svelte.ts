@@ -13,8 +13,8 @@ import { formatDate, parseDate } from '$lib/utils/dates';
 import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$lib/types';
+import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
 import type {
 	StarterConfigurationPackApplyResult,

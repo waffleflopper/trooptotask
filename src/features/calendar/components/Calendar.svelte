@@ -1,7 +1,13 @@
 <script lang="ts">
 	import type { Group } from '$features/personnel/contracts';
-	import type { Personnel, DailyAssignment } from '$lib/types';
-	import type { AvailabilityEntry, StatusType, SpecialDay, AssignmentType } from '$features/calendar/contracts';
+	import type { Personnel } from '$lib/types';
+	import type {
+		AvailabilityEntry,
+		StatusType,
+		SpecialDay,
+		AssignmentType,
+		DailyAssignment
+	} from '$features/calendar/contracts';
 	import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';

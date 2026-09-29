@@ -1,7 +1,13 @@
 import type { Group } from '$features/personnel/contracts';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$lib/types';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	SpecialDay,
+	StatusType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 import { formatDate, getDayName, isToday, isWeekend } from '$lib/utils/dates';
 
 export type CalendarDateKey = string;

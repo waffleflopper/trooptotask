@@ -6,7 +6,7 @@
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { DailyAssignment } from '$lib/types';
+import type { DailyAssignment } from '$features/calendar/contracts';
 
 export const DailyAssignmentEntity = defineEntity<DailyAssignment>({
 	table: 'daily_assignments',

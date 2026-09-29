@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$lib/types';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	SpecialDay,
+	StatusType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 import { createCalendarWorkspaceHydrator, type CalendarHydrationStores } from './calendarWorkspaceHydration.svelte';
 import type { CalendarWorkspaceHydration } from './server/calendarWorkspaceBootstrap';
 

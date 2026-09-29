@@ -1,5 +1,4 @@
-import type { DailyAssignment } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, StatusType } from './contracts';
+import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from './contracts';
 import { availabilityStore } from './stores/availability.svelte';
 import { dailyAssignmentsStore } from './stores/dailyAssignments.svelte';
 import { statusTypesStore } from './stores/statusTypes.svelte';

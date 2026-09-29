@@ -1,4 +1,4 @@
-import type { DailyAssignment } from '$lib/types';
+import type { DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
 import { filterRowsByCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
 import type { resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';

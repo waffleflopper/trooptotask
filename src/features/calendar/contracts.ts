@@ -1,5 +1,4 @@
 /** Calendar facts shared with its web and server consumers. */
-import type { DailyAssignment } from '$lib/types';
 
 export interface StatusType {
 	id: string;
@@ -34,6 +33,13 @@ export interface AssignmentType {
 	exemptPersonnelIds: string[];
 	showInDateHeader: boolean;
 	archivedAt?: string | null;
+}
+
+export interface DailyAssignment {
+	id: string;
+	date: string;
+	assignmentTypeId: string;
+	assigneeId: string;
 }
 
 export interface AssignmentSlotChange {

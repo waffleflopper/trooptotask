@@ -7,14 +7,16 @@
 		length: string;
 		/** Called with progress from 0 to 1 whenever it changes; CSS reads the same value as `--p`. */
 		onprogress?: (progress: number) => void;
+		/** Progress values (0 to 1) where the scene is at rest. With reduced motion, the scene shows only these frames. */
+		rests?: number[];
 		class?: string;
 		children: Snippet;
 	}
 
-	let { length, onprogress, class: className = '', children }: Props = $props();
+	let { length, onprogress, rests, class: className = '', children }: Props = $props();
 </script>
 
-<section class={['stage', className]} style:--stage-length={length} {@attach trackStage(onprogress)}>
+<section class={['stage', className]} style:--stage-length={length} {@attach trackStage(onprogress, rests)}>
 	<div class="stage__pin">
 		{@render children()}
 	</div>

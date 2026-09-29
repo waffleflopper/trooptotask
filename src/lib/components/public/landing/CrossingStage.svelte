@@ -28,6 +28,9 @@
 	 *   0.92 to 1.00  the board holds at Monday 0630; the page flips its nav to day at 0.9
 	 */
 
+	// Where the scene is at rest: the hero, the middle of each question beat, the thesis, the finished board.
+	const rests = [0, 0.155, 0.265, 0.375, 0.485, 0.6, 0.96];
+
 	// Svelte skips same-value writes, so these re-render at thresholds (a displayed minute, a phase), never per frame.
 	let minute = $state(nightClockMinute(0));
 	let phase = $state<'night' | 'crossing' | 'day'>('night');
@@ -43,7 +46,7 @@
 </script>
 
 <div class="crossing">
-	<ScrollStage length="var(--crossing-length)" onprogress={track}>
+	<ScrollStage length="var(--crossing-length)" onprogress={track} {rests}>
 		<div class="frame">
 			<div class="night">
 				<div class="pile" hidden={phase === 'day'}>

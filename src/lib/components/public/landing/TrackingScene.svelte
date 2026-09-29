@@ -36,7 +36,7 @@
 			</div>
 		</div>
 
-		<ScrollStage length="240vh">
+		<ScrollStage length="240vh" rests={[0, 0.92]}>
 			<div class="tracking__stage">
 				<div class="matrix" role="img" aria-label={matrixLabel}>
 					<div class="matrix__grid" aria-hidden="true">

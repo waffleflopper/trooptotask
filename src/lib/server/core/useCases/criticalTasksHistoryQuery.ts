@@ -1,6 +1,5 @@
-import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/criticalTasks.types';
-import { IctTaskEntity } from '$features/critical-tasks/index.server';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/contracts';
+import { IctTaskEntity, PersonnelIctCompletionEntity } from '$features/critical-tasks/index.server';
 import type { QueryPorts } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
 

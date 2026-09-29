@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import { ICT_VALIDATION_METHODS, type PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import { ICT_VALIDATION_METHODS, type PersonnelIctCompletion } from '../criticalTasks.types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export const PersonnelIctCompletionEntity = defineEntity<PersonnelIctCompletion>({

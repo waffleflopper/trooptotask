@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import type { CriticalTasksWorkspaceData } from '../contracts';
+import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/contracts';
 
 const {
 	findLatestCompletionsMock,
@@ -51,7 +51,7 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
-import { streamCriticalTasksWorkspaceBootstrap } from './criticalTasksWorkspaceBootstrap';
+import { streamCriticalTasksWorkspaceBootstrap } from './criticalTasksWorkspace.server';
 
 describe('streamCriticalTasksWorkspaceBootstrap', () => {
 	beforeEach(() => {

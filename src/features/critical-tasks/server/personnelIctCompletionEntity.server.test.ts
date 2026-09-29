@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletion';
-import type { PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
+import type { PersonnelIctCompletion } from '../criticalTasks.types';
 import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

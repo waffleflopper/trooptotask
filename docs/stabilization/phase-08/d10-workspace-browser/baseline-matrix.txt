@@ -1,0 +1,71 @@
+VO
+Verification Organization A
+member
+Navigation
+Home
+ICTLs
+ME
+Account
+Signed in
+Skip to main content
+Toggle Sidebar
+Verification Organization A
+Critical Tasks
+Feedback
+A-Z
+Group
+Group: All
+Show gaps only
+Export Excel
+Import Completions
+Task Library
+Reports
+Record Completion
+Current
+Expiring Soon
+Expired
+Missing
+Not Required
+SOLDIER
+VERIFY-ICT-ALPHA
+Verification Alpha Critical Task
+
+VERIFY-ICT-ALL
+Verification All-MOS Critical Task
+
+ALPHA 1 personnel (50% Readiness)
+
+SPC
+Able, Synthetic
+68W
+RDY
+50%
+
+Expires 2027-09-14
+
+No completion
+
+BRAVO 1 personnel (0% Readiness)
+
+SPC
+Baker, Synthetic
+11B
+RDY
+0%
+
+Not required
+
+No completion
+
+UNASSIGNED 1 personnel (0% Readiness)
+
+SPC
+Unassigned, Synthetic
+68W
+RDY
+0%
+
+No completion
+
+No completion
+Critical Tasks - Troop to Task

@@ -1,9 +1,5 @@
 import type { QueryPorts } from '$lib/server/core/ports';
-import type {
-	CriticalTasksSettings,
-	IctTask,
-	PersonnelIctCompletion
-} from '$features/critical-tasks/criticalTasks.types';
+import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from '$features/critical-tasks/contracts';
 import type { Group } from '$features/personnel/contracts';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
@@ -29,9 +25,11 @@ import {
 	type IctReportSummary
 } from '$features/critical-tasks/utils/ictReports';
 import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
-import { IctTaskEntity } from '$features/critical-tasks/index.server';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
-import { fetchCriticalTasksSettings } from '$features/critical-tasks/server/criticalTasksSettingsRead.server';
+import {
+	IctTaskEntity,
+	PersonnelIctCompletionEntity,
+	fetchCriticalTasksSettings
+} from '$features/critical-tasks/index.server';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
 
 export interface CriticalTasksReportInput {

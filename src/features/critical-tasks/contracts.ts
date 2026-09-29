@@ -43,3 +43,10 @@ export interface CriticalTasksWorkspaceResult {
 	data: CriticalTasksWorkspaceData;
 	hydration: CriticalTasksWorkspaceHydration;
 }
+
+export type {
+	CriticalTasksSettings,
+	IctTask,
+	PersonnelIctCompletion,
+	CriticalTasksPersonnelHistoryData
+} from './criticalTasks.types';

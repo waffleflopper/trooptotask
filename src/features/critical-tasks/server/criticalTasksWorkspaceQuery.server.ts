@@ -1,11 +1,11 @@
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/contracts';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type { CriticalTasksWorkspaceData } from '../contracts';
+import type { IctTask, PersonnelIctCompletion } from '../criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
 import { listGroupCatalog } from '$features/personnel/index.server';
-import { fetchCriticalTasksSettings } from '$features/critical-tasks/server/criticalTasksSettingsRead.server';
-import { IctTaskEntity } from '$features/critical-tasks/index.server';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
+import { IctTaskEntity } from './ictTaskEntity.server';
+import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 
 export interface CriticalTasksBootstrapOptions {
 	includeArchivedTasks?: boolean;
@@ -27,7 +27,7 @@ function loadCriticalTasksItems<R, T>(
 }
 
 export async function fetchCriticalTasksBootstrap(
-	ctx: QueryPorts,
+	ctx: Pick<QueryPorts, 'auth' | 'store' | 'personnelCriticalTasksRoster' | 'criticalTasksReadModel'>,
 	options: CriticalTasksBootstrapOptions = {}
 ): Promise<CriticalTasksWorkspaceData> {
 	const orgId = ctx.auth.orgId;

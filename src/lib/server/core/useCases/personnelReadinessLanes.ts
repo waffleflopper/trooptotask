@@ -5,7 +5,7 @@ import type { Personnel } from '$lib/types';
 import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
-import { PersonnelIctCompletionEntity } from '$lib/server/entities/personnelIctCompletion';
+import { PersonnelIctCompletionEntity } from '$features/critical-tasks/index.server';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
 import { buildCriticalTasksSoldierReadinessSummary } from '$features/critical-tasks/utils/ictReadinessSnapshot';

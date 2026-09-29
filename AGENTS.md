@@ -28,9 +28,12 @@ For stabilization work, follow the [stabilization workflow](docs/agents/stabiliz
 
 Open the relevant sections when the task needs them; links are a reading map, not a mandatory reading sequence.
 
-- Engineering investigation, fixed-issue work, design uncertainty, review or bounded parallel work: [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md).
+The shared pstack plugin supplies general engineering methods. When using Poteto Mode in this repository, apply [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md) alongside its chosen playbook. For stabilization continuation, t2t-stabilize remains the coordinator. Follow the [skill integration rules](docs/agents/operating-rules.md#shared-skills-and-project-workflows); project contracts and local verification/PR skills govern TroopToTask work.
+
+- Engineering investigation, feature work, bug fixes, refactoring, design or review: [t2t-engineer](.agents/skills/t2t-engineer/SKILL.md).
 - Continuing a stabilization issue through its next verified PR, including coverage and review follow-through: [t2t-stabilize](.agents/skills/t2t-stabilize/SKILL.md).
 - Driving the real app, browser debugging or maintaining flow knowledge: [verify-trooptotask](.agents/skills/verify-trooptotask/SKILL.md). Use `npm run verify:app -- --help`; update affected feature recipes alongside behavior changes.
+- PR feedback, current-candidate CI and authorized handoff: the repository's [finish-pr](.agents/skills/finish-pr/SKILL.md).
 
 - Adding, rewriting, pruning or reviewing tests: [Testing strategy](docs/architecture/TESTING.md).
 - Svelte/SvelteKit implementation or framework questions: [Svelte guidance](docs/agents/svelte.md).

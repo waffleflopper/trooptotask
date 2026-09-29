@@ -86,14 +86,7 @@ function makeSettingsData(): SettingsStateTestData {
 					savedDays: 180,
 					constraints: { min: 1, max: 365, unit: 'days' }
 				},
-				criticalTasks: {
-					savedDefaultExpirationMonths: 12,
-					savedExpiringSoonWarningDays: 60,
-					defaultExpirationConstraints: { min: 1, max: 120, unit: 'months' },
-					expiringSoonWarningConstraints: { min: 1, max: 365, unit: 'days' }
-				},
-				canUpdateRetention: true,
-				canUpdateCriticalTasksSettings: true
+				canUpdateRetention: true
 			},
 			organization: {
 				id: 'org-1',

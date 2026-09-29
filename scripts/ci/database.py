@@ -41,11 +41,13 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20260926001100_personnel_sensitive_artifact_reads.sql",
     "20260926001200_atomic_counseling_deletion_approval.sql",
     "20260926001300_calendar_catalog_scope.sql",
+    "20260929000100_critical_tasks_library_configure_scope.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
     "training_record_populated_before.sql",
     "critical_tasks_populated_before.sql",
+    "critical_tasks_library_configure_before.sql",
     "calendar_unassigned_populated_before.sql",
     "personnel_unassigned_populated_before.sql",
     "personnel_counseling_file_populated_before.sql",
@@ -57,6 +59,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
     "training_record_populated_after.sql",
     "critical_tasks_populated_after.sql",
+    "critical_tasks_library_configure_after.sql",
     "critical_tasks_task_reference_after.sql",
     "calendar_unassigned_populated_after.sql",
     "personnel_unassigned_populated_after.sql",

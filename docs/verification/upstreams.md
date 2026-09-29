@@ -1,17 +1,20 @@
 # Verification toolkit upstreams
 
-These pinned sources informed TroopToTask's small, project-owned skills and browser wrapper. Their ideas were adapted to the [retained contracts](../stabilization/BASELINE.md#retained-contracts) and [Definition of Done](../architecture/DEFINITION_OF_DONE.md#verification-contract). The [create-verification-skill](../../.agents/skills/create-verification-skill/SKILL.md) skill, its example feature map, and the [maintain-verification-skill](../../.agents/skills/maintain-verification-skill/SKILL.md) skill are copied from pstack at the pinned revision, with MIT licenses. Local changes use `.agents/skills/` paths and the repository's Markdown formatting, bound source readers to available workers, require publication authority, and correct example action/evidence steps. The pinned upstream licenses remain beside both skills. The other upstream skill prose and Cursor orchestration machinery were not copied.
+This inventory separates the sources copied into TroopToTask's project-owned verification toolkit from the shared plugin used at agent runtime. Both follow the [retained contracts](../stabilization/BASELINE.md#retained-contracts) and [Definition of Done](../architecture/DEFINITION_OF_DONE.md#verification-contract). The [create-verification-skill](../../.agents/skills/create-verification-skill/SKILL.md) skill, its example feature map, and the [maintain-verification-skill](../../.agents/skills/maintain-verification-skill/SKILL.md) skill are copied from the original pstack revision below, with MIT licenses. Local changes use `.agents/skills/` paths and the repository's Markdown formatting, bound source readers to available workers, require publication authority, and correct example action/evidence steps. The pinned upstream licenses remain beside both skills. Other shared skill prose remains in the separately installed Codex plugin; Cursor orchestration machinery was not copied into this repository.
 
-| Source                          | Adopted revision                                                 | License                        |
-| ------------------------------- | ---------------------------------------------------------------- | ------------------------------ |
-| [pstack][pstack]                | `ecc249f1e306`, `0.15.5`                                         | [MIT][pstack-license]          |
-| [Cursor Team Kit][team-kit]     | `ecc249f1e306`, `1.2.0`                                          | [MIT][team-kit-license]        |
-| [Chrome DevTools MCP][devtools] | npm `1.10.1`, gitHead `e52c6b59b476c5e04d8dd9fd4bd017ba3b3d65df` | [Apache-2.0][devtools-license] |
-| [MCP TypeScript SDK][sdk]       | npm `1.30.1`, gitHead `289ac2c3af7e1536160e80414296b175171a1a87` | MIT                            |
-| [Puppeteer browsers][browsers]  | npm `3.2.3`, gitHead `15684eb7f1adf98c1c0c4a5d23a154b7995e947e`  | Apache-2.0                     |
+| Source                                           | Adopted revision                                                 | License                        |
+| ------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------ |
+| [pstack][pstack]                                 | `ecc249f1e306`, `0.15.5`                                         | [MIT][pstack-license]          |
+| [pstack for Codex (Robert's fork)][pstack-codex] | `2bea6dca0da10e81d6579ec7e45d9ab1ece948c8`, `0.2.0`              | [MIT][pstack-codex-license]    |
+| [Cursor Team Kit][team-kit]                      | `ecc249f1e306`, `1.2.0`                                          | [MIT][team-kit-license]        |
+| [Chrome DevTools MCP][devtools]                  | npm `1.10.1`, gitHead `e52c6b59b476c5e04d8dd9fd4bd017ba3b3d65df` | [Apache-2.0][devtools-license] |
+| [MCP TypeScript SDK][sdk]                        | npm `1.30.1`, gitHead `289ac2c3af7e1536160e80414296b175171a1a87` | MIT                            |
+| [Puppeteer browsers][browsers]                   | npm `3.2.3`, gitHead `15684eb7f1adf98c1c0c4a5d23a154b7995e947e`  | Apache-2.0                     |
 
 [pstack]: https://github.com/cursor/plugins/tree/ecc249f1e306fc64ddf83c7bed16cacf7c2239db/pstack
 [pstack-license]: https://github.com/cursor/plugins/blob/ecc249f1e306fc64ddf83c7bed16cacf7c2239db/pstack/LICENSE
+[pstack-codex]: https://github.com/waffleflopper/pstack-for-codex/tree/2bea6dca0da10e81d6579ec7e45d9ab1ece948c8
+[pstack-codex-license]: https://github.com/waffleflopper/pstack-for-codex/blob/2bea6dca0da10e81d6579ec7e45d9ab1ece948c8/LICENSE
 [team-kit]: https://github.com/cursor/plugins/tree/ecc249f1e306fc64ddf83c7bed16cacf7c2239db/cursor-team-kit
 [team-kit-license]: https://github.com/cursor/plugins/blob/ecc249f1e306fc64ddf83c7bed16cacf7c2239db/cursor-team-kit/LICENSE
 [devtools]: https://github.com/ChromeDevTools/chrome-devtools-mcp/tree/e52c6b59b476c5e04d8dd9fd4bd017ba3b3d65df
@@ -39,7 +42,15 @@ tool_timeout_sec = 180
 
 The upstream [Codex configuration example](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/e52c6b59b476c5e04d8dd9fd4bd017ba3b3d65df/docs/client-configurations.md) registers the upstream server, not this project wrapper; a running T3 session may need to reload tools before the project entry appears. `codex mcp list` recognizes the project entry. On 2026-09-26, a delegated Sol 6 xhigh session read the upstreams and authored these instructions, establishing runner availability rather than browser proof. An Astra primary with an Astra reviewer gets independent executions, not model diversity. Local Chrome/Docker/Supabase startup and feature verification require actual commands and observed results on the identified candidate.
 
-Also inspected at the pinned pstack revision: `how`, `why`, `teach`, `blast-radius`, `architect`, `prototype`, `refactoring`, multi-phase planning, figure-it-out, and orchestration guidance. Their useful parts became the investigation, uncertain-design, fixed-outcome, verification, and review modes in [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md), rather than separate overlapping prompt libraries.
+The original pinned pstack revision also informed the investigation, uncertain-design, implementation, verification and review guidance in [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md). The current integration keeps TroopToTask contracts there and references selected methods from the shared Codex plugin, including `how`, `why`, `architect`, `blast-radius`, `interrogate` and relevant principle leaves. Poteto Mode supplies general playbooks when explicitly invoked; [t2t-stabilize](../../.agents/skills/t2t-stabilize/SKILL.md) remains the stabilization coordinator.
+
+## Shared Codex plugin
+
+The agent-runtime dependency is `pstack-for-codex@pstack-for-codex-local`, installed globally from `https://github.com/waffleflopper/pstack-for-codex.git`. The revision above is the inspected integration baseline, not an application dependency or an automatically enforced version pin. The package contains 48 explicit-only skills and 23 Poteto playbooks; resolve registered skill names through the installed catalog and supporting resources relative to their owning skill. Do not assume a user-home cache path or copy the plugin into `.agents/skills/`.
+
+Compatibility requires the method names and resources referenced by t2t-engineer, including the registered alias `principle-migrate-callers-delete-legacy-apis`, to remain available. On plugin updates, check those references and review changed method defaults against the [project integration rules](../agents/operating-rules.md#shared-skills-and-project-workflows). Installation and metadata validation establish package availability, not successful session discovery or live execution. If a required method is unavailable, report the limit and continue only work whose requirements can still be met.
+
+The repository's verification, generator, maintenance and [finish-pr](../../.agents/skills/finish-pr/SKILL.md) skills remain authoritative through their explicit local paths, including when global names overlap. The package's Bun-based watcher/orchestrator and trusted session hooks are optional capabilities, not prerequisites for this project's local verification or PR workflow. Do not infer hook persistence from installation or substitute generic Babysit/Shipping defaults for local PR ownership.
 
 ## Runner and setup
 

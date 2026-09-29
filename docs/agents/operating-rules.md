@@ -12,6 +12,20 @@ Skills support the requested workflow; they do not add scope or external-action 
 
 Use [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md) for engineering modes and bounded worker briefs, and [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md) for live app proof and Feature Map maintenance. Keep one primary review path proportional to risk: equivalence and ownership for mechanical changes, deeper review for authorization, persistence or changed behavior. Unrelated style suggestions do not become acceptance gates. Stop review when consequential findings are resolved; do not target zero suggestions or retry unavailable services indefinitely.
 
+## Shared skills and project workflows
+
+Use the shared `pstack-for-codex` plugin from [Robert's fork](https://github.com/waffleflopper/pstack-for-codex) for reusable methods. Resolve its skills through the installed catalog and read their resources relative to the owning skill; do not hardcode a user-home cache path or duplicate the package into this repository. Read only the relevant leaf skills or playbook. If a method is unavailable, report that limit and continue work whose requirements can still be met with available tools.
+
+Keep one workflow coordinator. An invoked Poteto Mode selects the general playbook and applies [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md) for TroopToTask requirements. [t2t-stabilize](../../.agents/skills/t2t-stabilize/SKILL.md) owns stabilization continuation and calls selected pstack methods through t2t-engineer without starting another Poteto workflow. Read-only questions stay read-only. Neither entry point changes the current stabilization priority or supplies external-action authority.
+
+Apply these project choices where shared defaults differ:
+
+- Keep short tasks local. Use bounded delegation for useful independent work and design alternatives for consequential uncertainty; crossing a function boundary alone does not require an arena or delegated implementation. Existing tools and evidence may suffice without adding a script for every nontrivial change.
+- Derive expected behavior from approved contracts. Follow [Testing strategy](../architecture/TESTING.md), including its protection of meaningful authorization and accessibility assertions and its exclusions for structural/visual snapshots. Preserve required provider and permission boundaries even when they have only one implementation; redesign advice does not authorize surrounding rebuilds.
+- Use the repository's [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md), feature map and helpers for app proof. The local [create-verification-skill](../../.agents/skills/create-verification-skill/SKILL.md) and [maintain-verification-skill](../../.agents/skills/maintain-verification-skill/SKILL.md) own explicitly requested verification-tooling work. Resolve these local paths rather than same-named global skills.
+- Use the local [finish-pr](../../.agents/skills/finish-pr/SKILL.md) for PR feedback and CI. It and t2t-stabilize's owner-merge boundary take precedence over Poteto's Babysit, Shipping and Opening a PR defaults. Do not introduce Graphite, stack topology changes, automatic publication, or merges through a generic playbook. Preserve unrelated work when arranging branches and commits.
+- Keep evidence in the existing task record under the [recording contract](../architecture/DEFINITION_OF_DONE.md#recording-evidence); a generic decision-trail skill does not require a second ledger. Project checks and declared acceptance remain required; optional review suggestions do not become additional gates.
+
 ## Communication
 
 Robert has technical experience but is not overly technical. Lead with the outcome, use plain language and explain unfamiliar technical terms briefly. Keep progress updates focused on findings, decisions and blockers. Report what changed, verification results and remaining limitations without a work-log transcript.

@@ -33,7 +33,7 @@ Use B, except P1 contained `Closes #X` and the issue is closed. A dependent issu
 - CodeRabbit reviewed base B/head H and found one actionable authorization defect and two optional wording suggestions. Independent acceptance found stale catalog evidence, with no other consumer omissions.
 - Repair H2 exists locally, unpushed. CI passes H only. The H review remains available; `gh pr checks` is unsupported, but read-only host check runs and Depot results are available.
 - Publication and fixes are authorized; review-thread replies/resolution and merge are not.
-- Repeat with finish-pr absent from the catalog and available skill roots. The same Git/host/Depot tools remain available.
+- Repeat with the local finish-pr file unavailable, even though a global PR skill is installed. The same Git/host/Depot tools remain available.
 
 ## F — Completed issue
 

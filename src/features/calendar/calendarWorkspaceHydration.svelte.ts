@@ -12,7 +12,13 @@ import {
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, DailyAssignment, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	DailyAssignment,
+	SpecialDay,
+	StatusType
+} from '$features/calendar/contracts';
 import type {
 	CalendarAssignmentsWorkspaceHydrationTarget,
 	CalendarWorkspaceHydration,

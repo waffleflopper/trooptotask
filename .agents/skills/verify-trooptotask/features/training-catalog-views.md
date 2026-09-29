@@ -1,0 +1,41 @@
+# Training catalog and views
+
+An Organization Training configurator defines requirements and saved matrix layouts. A member with Training view access sees only their authorized roster and Organization catalog; only an Organization-wide configurator can change definitions.
+
+## Sub-features
+
+- `catalog`: create, edit, order and delete Training types while preserving their IDs and retained completion references on ordinary edits.
+- `applicability`: Everyone, Optional and targeted role/MOS/rank rules determine whether a Person is required to complete a type; exclusions win over targeting.
+- `saved-views`: create, edit, order and delete a named set of Training columns, then use it in the matrix.
+- `access`: Training view/operate and Group-scoped actors can read their allowed matrix but cannot configure; a foreign Organization's catalog is private.
+
+## How to get to it (user POV)
+
+Choose `Training` in the Organization navigation. In the Training actions toolbar, open `Manage Types` or `Manage Views`. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link to `training/types` or `training/views` must enforce the same access rules as visible navigation.
+
+## Driving it with verify:app
+
+Preconditions: `doctor` passes for this checkout and `$V fixture` supplies `trainingRequired`, `trainingTargeted`, `trainingOptional`, `trainingView`, the matching foreign IDs, Able/Baker/Unassigned IDs and dated Able completion. Use `$V actor trainingConfigure training`, save its returned page ID and Organization ID, and take fresh snapshots before each click/fill. The seeded Required type applies to everyone: Able has a current completion, while Baker and Unassigned have no record. Targeted applies to MOS `68W` but excludes role `NCO`: Able is required and incomplete; Baker and Unassigned are not required. Optional does not require a missing record. The saved Focus View orders Targeted before Required and omits Optional. These distinct rows make an accidental all-person or all-column result visible.
+
+1. **Read the unchanged catalog and matrix:** From Training, open Manage Types. Select each seeded type and capture its expiration, applicability and Optional details. Return to the matrix, choose the Focus View, and confirm the visible Targeted/Required column names and order and the Able/Baker/Unassigned status differences above. Switch between `A-Z` and `Group`, then Alpha and all Groups using the compact Group selector; the saved view stays selected and the expected visible roster changes. Reload and select Focus View again; compare the same saved IDs and column order using `$V rows training_types orgA id <ID>` and `$V rows training_views orgA id <trainingView>`.
+2. **Create, edit and cancel:** Open Manage Types as `trainingConfigure`, create a uniquely named type with a fixed expiration, targeted `68W` MOS, and an NCO exclusion. Capture the chosen controls and Save result; reload and read back the new row and its arrays. Edit the seeded Required type's description, save and reload; `$V rows training_types orgA id <trainingRequired>` and `$V rows personnel_trainings orgA id <trainingCurrent>` must retain the type, completion and reference IDs. Restore the original description and read back the same IDs. Cancel a separate edit and confirm no row change. Create a uniquely named view with two distinguishable type columns, use the visible up/down controls to reorder them, save, reload, and confirm `$V rows training_views orgA name <marker>` has that order. Edit that view, save and read back its stable ID; Cancel a separate view edit. Delete only the newly created view and type through their visible confirmations, then verify both rows are absent. Keep seeded types and views for later journeys.
+3. **Access and isolation:** As `trainingView`, `trainingOperate` and `trainingScoped`, open the matrix and direct Types/Views routes; record visible read access, configuration affordances and the Alpha-only roster for the scoped actor. As `viewer`, verify the Training-none denial. For each denied actor, send authenticated `POST` requests to both A catalog JSON endpoints with valid unique names through its signed-in page; require `403` or `404` and empty `$V rows` readback for those names. As `trainingConfigure`, attempt the same valid requests against B; require denial and no B rows. As `trainingForeign`, confirm B's private type/view are visible in B but A's types/views are absent. Record HTTP status and stored-row absence separately from the UI affordance. A `400` is an invalid payload, not proof of denial.
+4. **Failed save and retry:** On a fresh `trainingConfigure` Types page, arm `$V network arm-fail $PAGE training-types` immediately before saving a newly named type. Capture the matched `503` in `$V network state $PAGE`, visible error feedback, retained form state, and zero stored rows for that name. Restore the hook, retry through the visible form, reload and read back exactly one saved row. Delete it through the visible confirmation and read back absence. Repeat the same sequence for a new view with `training-views`. Missing visible feedback, a closed form, or lost entered values is a product failure; retain the observation rather than calling it a passing retry.
+5. **Retained lookups:** As `rosterViewer`, inspect the Organization Dashboard Training projection and record what it actually shows; its current percentage does not include missing completions. As `trainingOnboarding`, open `Onboarding` → `Templates` and inspect the Training Type selector in a temporary template step for the seeded Required/Targeted names. Remove the temporary template through the visible controls and read back its absence. This is lookup proof, not a D09 completion or D14 template-cutover claim. If a selector is unavailable, preserve the attempted route and concrete prerequisite; do not substitute a source read for a live observation.
+
+Use `tool evaluate_script` on the signed-in page for endpoint probes. Substitute the actual public fixture IDs and a unique marker; this is a direct authenticated HTTP check, separate from UI driving:
+
+```bash
+npm run --silent verify:app -- tool evaluate_script "{\"pageId\":$PAGE,\"function\":\"async () => { const response = await fetch('/org/ORG_ID/api/training-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'MARKER' }) }); return { status: response.status, body: await response.text() }; }\"}" --worker "$WORKER"
+```
+
+For views use `api/training-views` and `{name:'MARKER',columnIds:[]}`. Read the same marker in the selected Organization through `$V rows training_types orgA|orgB name MARKER` or `$V rows training_views orgA|orgB name MARKER`. For a persisted UI change save before/action/after snapshots and a screenshot, then reload for a second visible read. Keep the row readback and status in the run note with candidate digest, role, Organization, expected/observed outcome and artifact paths.
+
+## Gotchas
+
+- Training `configure` requires Organization scope; Group-scoped Training access cannot change the global catalog. A hidden button alone does not establish the server denial.
+- The Group selector was changed to a compact control in #1394. Use its accessible name and visible options; do not assume Group pills.
+- This select component's portal options may be absent from a DevTools accessibility snapshot even when rendered. Read its open listbox options without changing the page, then use the focused trigger's arrow keys and Enter; confirm the visible selected value or resulting matrix/step. An empty snapshot listbox alone does not prove an empty catalog.
+- A seeded Training type deletion can remove associated completions. Delete only rows created during this journey; restart this owned worker if a seeded row changes before another scenario needs it.
+- `clean-seeds` removes helper-created temporary rows, not types or views created through the UI. Delete UI-created rows visibly and read back their absence before cleanup.
+- The pure applicability examples and route/component checks in the issue's lower-level tests, plus isolated SQL authorization, complement the UI proof. Direct API and provider reads are not substitutes for browser interaction.

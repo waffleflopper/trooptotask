@@ -3,6 +3,7 @@ import { createInMemoryDataStore } from './inMemory';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import type { DataStore, GroupScopeRule } from '$lib/server/core/ports';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 
 const ORG = 'org-1';
 const GROUP_A = 'group-a';
@@ -31,6 +32,38 @@ const scopeRules = new Map<string, GroupScopeRule>([
 ]);
 
 describe('ScopedDataStore', () => {
+	it.each<{ scope: ScopeSet | string[] }>([{ scope: [] }, { scope: { kind: 'groups', groupIds: [] } }])(
+		'returns no mapped rows or counts for empty Group scope %j without reading the provider',
+		async ({ scope }) => {
+			const inner = createInMemoryDataStore();
+			seedTestData(inner);
+			inner.seed('sign_in_rosters', [
+				{ id: 'alpha', organization_id: ORG, scope_group_ids: [GROUP_A] },
+				{ id: 'org-only', organization_id: ORG, scope_group_ids: [] }
+			]);
+			inner.seed('settings', [{ id: 'setting-1', organization_id: ORG, key: 'theme' }]);
+			const reads = [vi.spyOn(inner, 'findOne'), vi.spyOn(inner, 'findMany'), vi.spyOn(inner, 'findManyWithCount')];
+			const rules = new Map(scopeRules);
+			rules.set('sign_in_rosters', { type: 'group-array', groupColumn: 'scope_group_ids', requireNonEmpty: true });
+			const scoped = createScopedDataStore(inner, scope, rules);
+
+			for (const [table, id] of [
+				['personnel', 'p-1'],
+				['training_records', 'tr-1'],
+				['sign_in_rosters', 'org-only']
+			]) {
+				await expect(scoped.findOne(table, ORG, { id })).resolves.toBeNull();
+				await expect(scoped.findMany(table, ORG)).resolves.toEqual([]);
+				await expect(scoped.findManyWithCount(table, ORG)).resolves.toEqual({ data: [], count: 0 });
+			}
+			for (const read of reads) expect(read).not.toHaveBeenCalled();
+
+			await expect(scoped.findOne('settings', ORG, { id: 'setting-1' })).resolves.toMatchObject({ id: 'setting-1' });
+			await expect(scoped.findMany('settings', ORG)).resolves.toHaveLength(1);
+			await expect(scoped.findManyWithCount('settings', ORG)).resolves.toMatchObject({ count: 1 });
+		}
+	);
+
 	describe('when access is organization-wide', () => {
 		it('returns the inner store unchanged', () => {
 			const inner = createInMemoryDataStore();

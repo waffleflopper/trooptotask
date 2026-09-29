@@ -5,6 +5,7 @@ import { exportPersonnelWorkbook } from './personnelExport';
 import type { PersonnelAvailabilityPeriod } from '$features/personnel/contracts';
 
 const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
+const listTrainingTypeLabels = async () => [{ id: 'training-type-1', name: 'Weapons Qual' }];
 
 type TestContext = ReturnType<typeof createTestContext>;
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
@@ -114,13 +115,6 @@ function seedPersonnelExportDataset(ctx: TestContext): void {
 			archived_at: null
 		}
 	]);
-	ctx.rawStore.seed('training_types', [
-		{
-			id: 'training-type-1',
-			organization_id: ctx.auth.orgId,
-			name: 'Weapons Qual'
-		}
-	]);
 	ctx.rawStore.seed('personnel_trainings', [
 		{
 			id: 'training-1',
@@ -198,7 +192,13 @@ describe('Personnel export use case', () => {
 		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
 
 		await expect(
-			exportPersonnelWorkbook(ctx, { personnelId: PERSONNEL_ID }, listAvailabilityHistory, listStatusTypeLabels)
+			exportPersonnelWorkbook(
+				ctx,
+				{ personnelId: PERSONNEL_ID },
+				listAvailabilityHistory,
+				listStatusTypeLabels,
+				listTrainingTypeLabels
+			)
 		).rejects.toMatchObject({
 			status: 403
 		});
@@ -211,7 +211,13 @@ describe('Personnel export use case', () => {
 		const findOneSpy = vi.spyOn(ctx.rawStore, 'findOne');
 
 		await expect(
-			exportPersonnelWorkbook(ctx, { personnelId: 'person-1' }, listAvailabilityHistory, listStatusTypeLabels)
+			exportPersonnelWorkbook(
+				ctx,
+				{ personnelId: 'person-1' },
+				listAvailabilityHistory,
+				listStatusTypeLabels,
+				listTrainingTypeLabels
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Invalid personnel ID'
@@ -228,7 +234,8 @@ describe('Personnel export use case', () => {
 			ctx,
 			{ personnelId: PERSONNEL_ID },
 			listAvailabilityHistory,
-			listStatusTypeLabels
+			listStatusTypeLabels,
+			listTrainingTypeLabels
 		);
 		const workbook = await parseWorkbook(result._buffer);
 		const dateStr = new Date().toISOString().split('T')[0];
@@ -298,7 +305,7 @@ describe('Personnel export use case', () => {
 			}
 		]);
 	});
-	it('keeps Data Sheet and counseling rows in a Group-scoped configure export', async () => {
+	it('keeps Training labels and counseling rows in a Group-scoped Personnel export without Training access', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -320,7 +327,8 @@ describe('Personnel export use case', () => {
 			ctx,
 			{ personnelId: PERSONNEL_ID },
 			listAvailabilityHistory,
-			listStatusTypeLabels
+			listStatusTypeLabels,
+			listTrainingTypeLabels
 		);
 		const workbook = await parseWorkbook(result._buffer);
 
@@ -329,6 +337,12 @@ describe('Personnel export use case', () => {
 			Value: 'Taylor Smith'
 		});
 		expect(worksheetRows(worksheetByName(workbook, 'Counseling Records'))).toHaveLength(2);
+		expect(worksheetRows(worksheetByName(workbook, 'Training Records'))).toContainEqual({
+			'Training Type': 'Weapons Qual',
+			'Completed Date': '2026-04-01',
+			'Expiration Date': '2027-04-01',
+			Notes: 'Expert'
+		});
 	});
 	it('omits the legacy Leader Notes row when the person has no extended-info record', async () => {
 		const ctx = createTestContext();
@@ -338,7 +352,8 @@ describe('Personnel export use case', () => {
 			ctx,
 			{ personnelId: PERSONNEL_ID },
 			listAvailabilityHistory,
-			listStatusTypeLabels
+			listStatusTypeLabels,
+			listTrainingTypeLabels
 		);
 		const workbook = await parseWorkbook(result._buffer);
 		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info')).some((row) => row.Field === 'Leader Notes')).toBe(

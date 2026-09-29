@@ -55,23 +55,23 @@
 	const toolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
 		const actions: WorkspaceToolbarAction[] = [];
 
+		if (ctx.canBulkImport) {
+			actions.push({
+				id: 'bulk-import',
+				label: 'Import',
+				onclick: () => modals.open('bulk-import'),
+				icon: 'upload',
+				priority: 'normal'
+			});
+		}
 		if (ctx.canManageConfig) {
-			actions.push(
-				{
-					id: 'bulk-import',
-					label: 'Import',
-					onclick: () => modals.open('bulk-import'),
-					icon: 'upload',
-					priority: 'normal'
-				},
-				{
-					id: 'manage-views',
-					label: 'Manage Views',
-					href: `/org/${orgUrlSegment}/training/views`,
-					icon: 'settings',
-					priority: 'normal'
-				}
-			);
+			actions.push({
+				id: 'manage-views',
+				label: 'Manage Views',
+				href: `/org/${orgUrlSegment}/training/views`,
+				icon: 'settings',
+				priority: 'normal'
+			});
 		}
 
 		actions.push(

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createWritePortsContext, createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import {
 	createTrainingType,
@@ -23,7 +23,7 @@ const NO_CONFIGURE = {
 };
 
 describe('Training catalog operations', () => {
-	it('creates a type with the saved defaults, clears its description, then deletes its completions and notifies admins', async () => {
+	it('creates a type with the saved defaults, clears its description, then deletes and notifies admins', async () => {
 		const ctx = createWriteWithNotificationsPortsContext();
 		const created = await createTrainingType(ctx, { name: 'First Aid', description: 'Initial description' });
 		expect(created).toMatchObject({
@@ -40,15 +40,8 @@ describe('Training catalog operations', () => {
 		});
 		expect(saved?.description).toBeNull();
 
-		ctx.store.seed('personnel_trainings', [
-			{ id: 'record-1', organization_id: ctx.auth.orgId, training_type_id: created.id },
-			{ id: 'record-2', organization_id: ctx.auth.orgId, training_type_id: 'other-type' }
-		]);
 		await deleteTrainingType(ctx, created.id);
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: created.id })).toBeNull();
-		expect(await ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).toMatchObject([
-			{ id: 'record-2', training_type_id: 'other-type' }
-		]);
 		expect(ctx.notifications.notifications).toMatchObject([
 			{ notification: { type: 'config_type_deleted', title: 'Training Type Deleted' } }
 		]);
@@ -57,6 +50,21 @@ describe('Training catalog operations', () => {
 			'training_type.updated',
 			'training_type.deleted'
 		]);
+	});
+
+	it('keeps completions and skips deletion side effects when the type delete is rejected', async () => {
+		const ctx = createWriteWithNotificationsPortsContext();
+		const created = await createTrainingType(ctx, { name: 'Protected type' });
+		ctx.store.seed('personnel_trainings', [
+			{ id: 'record-1', organization_id: ctx.auth.orgId, training_type_id: created.id }
+		]);
+		vi.spyOn(ctx.store, 'delete').mockRejectedValueOnce(new Error('referenced by another Organization'));
+
+		await expect(deleteTrainingType(ctx, created.id)).rejects.toThrow('referenced by another Organization');
+		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: created.id })).not.toBeNull();
+		expect(await ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'record-1' })).not.toBeNull();
+		expect(ctx.audit.events.map((event) => event.action)).toEqual(['training_type.created']);
+		expect(ctx.notifications.notifications).toEqual([]);
 	});
 
 	it('denies both catalog writes without configuration capability', async () => {

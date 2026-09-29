@@ -24,6 +24,7 @@ import type { TrainingType, PersonnelTraining } from '$features/training/trainin
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
+const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
 type TrainingBatchCompletionRecord = {
 	personnelId: string;
 	trainingTypeId: string;
@@ -103,6 +104,13 @@ export class TrainingPageContext {
 		return this.trainingConfigureAffordance.visible;
 	}
 
+	get canBulkImport(): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.training.configureRequirements,
+			TRAINING_POLICY_RESOURCE
+		).visible;
+	}
+
 	get canViewTraining(): boolean {
 		return this.trainingViewAffordance.allowed;
 	}
@@ -125,7 +133,7 @@ export class TrainingPageContext {
 	get trainingConfigureAffordance(): ClientAffordance {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.training.configureRequirements,
-			TRAINING_POLICY_RESOURCE
+			TRAINING_CONFIGURATION_RESOURCE
 		);
 	}
 
@@ -226,12 +234,14 @@ export class TrainingPageContext {
 				void loadNavigation().then(({ goto }) => goto(resolve(`/org/${this.orgUrlSegment}/training/reports`)));
 			}
 		});
-		if (this.canManageConfig) {
+		if (this.canBulkImport) {
 			items.push({
 				label: 'Bulk Import',
 				onclick: () => this.#modals.open('bulk-import'),
 				divider: true
 			});
+		}
+		if (this.canManageConfig) {
 			items.push({
 				label: 'Manage Types',
 				onclick: () => {

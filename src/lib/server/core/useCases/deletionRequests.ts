@@ -17,6 +17,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from './governancePolicy';
 import { requireIdentityOwnedPolicy } from './identityPolicy';
 import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
+import type { ApprovedTrainingTypeDeletionPort } from '$features/training/index.server';
 
 const TABLE = 'deletion_requests';
 const AUDIT_RESOURCE = 'deletion_request';
@@ -41,7 +42,7 @@ export async function createDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	input: CreateDeletionRequestInput
 ): Promise<Record<string, unknown>> {
-	if (!RESOURCE_TYPE_TABLE_MAP[input.resourceType]) {
+	if (!isSupportedResourceType(input.resourceType)) {
 		fail(400, `Unsupported resource type: ${input.resourceType}`);
 	}
 
@@ -105,9 +106,12 @@ const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
 	counseling_record: 'counseling_records',
 	personnel_training: 'personnel_trainings',
-	training_type: 'training_types',
 	rating_scheme_entry: 'rating_scheme_entries'
 };
+
+function isSupportedResourceType(resourceType: string): boolean {
+	return resourceType === 'training_type' || Boolean(RESOURCE_TYPE_TABLE_MAP[resourceType]);
+}
 
 async function fetchPendingRequest(ctx: WritePorts, requestId: string): Promise<Record<string, unknown>> {
 	const request = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
@@ -135,7 +139,11 @@ function notifyRequester(
 	fireAndForgetNotification(() => ctx.notifications.notifyUser(ctx.auth.orgId, requesterId, notification));
 }
 
-export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, requestId: string): Promise<void> {
+export async function approveDeletionRequest(
+	ctx: WriteWithNotificationsPorts,
+	requestId: string,
+	trainingTypeDeletion?: ApprovedTrainingTypeDeletionPort
+): Promise<void> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
 	const request = await fetchPendingRequest(ctx, requestId);
@@ -144,7 +152,7 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 	const resourceId = request.resource_id as string;
 	const tableName = RESOURCE_TYPE_TABLE_MAP[resourceType];
 
-	if (!tableName) {
+	if (!isSupportedResourceType(resourceType)) {
 		fail(400, `Unsupported resource type: ${resourceType}`);
 	}
 
@@ -158,12 +166,17 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 		);
 	} else {
 		if (resourceType === 'personnel') {
+			if (!tableName) throw new Error('Personnel archive table is required');
 			const archivedAt = new Date().toISOString();
 			await ctx.store.update(tableName, ctx.auth.orgId, resourceId, {
 				archived_at: archivedAt
 			});
 			await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
+		} else if (resourceType === 'training_type') {
+			if (!trainingTypeDeletion) throw new Error('Training approved deletion port is required');
+			await trainingTypeDeletion.deleteApprovedTrainingType(ctx.auth, requestId, resourceId);
 		} else {
+			if (!tableName) throw new Error('Deletion table is required');
 			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
 		}
 

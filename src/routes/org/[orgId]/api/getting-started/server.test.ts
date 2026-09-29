@@ -82,7 +82,9 @@ describe('GET /api/getting-started', () => {
 				can_be_exempted: false,
 				exempt_personnel_ids: [],
 				is_optional: false
-			}
+			},
+			{ id: 'training-2', organization_id: ctx.auth.orgId, name: 'Bloodborne Pathogens' },
+			{ id: 'foreign-training', organization_id: 'foreign-org', name: 'Foreign Training' }
 		]);
 		ctx.store.seed('onboarding_template_steps', [
 			{ id: 'step-1', organization_id: ctx.auth.orgId, title: 'Step 1' },
@@ -108,7 +110,7 @@ describe('GET /api/getting-started', () => {
 		const result = await handleUseCaseRequest(_getConfig, ctx, undefined);
 
 		expect(result).toEqual({
-			trainingTypeCount: 1,
+			trainingTypeCount: 2,
 			onboardingTemplateStepCount: 2,
 			ratingSchemeEntryCount: 1,
 			orgMemberCount: 2,

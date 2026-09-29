@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import {
 	createDeletionRequest,
@@ -267,6 +267,55 @@ function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Re
 }
 
 describe('approveDeletionRequest', () => {
+	it('approves a Training type deletion for an Organization reviewer without Training configure', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx, { resource_type: 'training_type', resource_id: 'type-1' });
+		ctx.store.seed('training_types', [{ id: 'type-1', organization_id: ctx.auth.orgId, name: 'CPR' }]);
+		const deleteApprovedTrainingType = vi.fn(async (_actor, _requestId, typeId: string) => {
+			await ctx.store.delete('training_types', ctx.auth.orgId, typeId);
+		});
+
+		await approveDeletionRequest(ctx, 'dr-1', { deleteApprovedTrainingType });
+
+		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'dr-1', 'type-1');
+		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
+		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+			status: 'approved'
+		});
+		expect(ctx.audit.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
+		expect(ctx.notifications.notifications).toHaveLength(1);
+	});
+
+	it('leaves a Training type request pending without success side effects when the owned effect fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { resource_type: 'training_type', resource_id: 'type-1' });
+		const deleteApprovedTrainingType = vi.fn(async () => {
+			throw new Error('Training type delete blocked by foreign reference');
+		});
+
+		await expect(approveDeletionRequest(ctx, 'dr-1', { deleteApprovedTrainingType })).rejects.toThrow(
+			'Training type delete blocked by foreign reference'
+		);
+		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.audit.events).toEqual([]);
+		expect(ctx.notifications.notifications).toEqual([]);
+	});
+
 	it('lets an Organization admin approve a Personnel archive without a Personnel capability', async () => {
 		const ctx = buildContext({
 			auth: {

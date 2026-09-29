@@ -34,7 +34,7 @@
 
 	const org = getOrgContext();
 	const configureAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'unscoped' })
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'organization' })
 	);
 	const canMutate = $derived(configureAffordance.allowed);
 	const workspaceData = $derived(data.training?.data);

@@ -38,6 +38,13 @@ export async function seed(session) {
 			'personB',
 			'personUnassigned',
 			'personForeign',
+			'trainingRequired',
+			'trainingTargeted',
+			'trainingOptional',
+			'trainingForeignType',
+			'trainingView',
+			'trainingForeignView',
+			'trainingCurrent',
 			'rosterAlpha',
 			'rosterMixed',
 			'rosterUnassigned',
@@ -83,6 +90,24 @@ export async function seed(session) {
 		calendarForeign: { organization: 'orgB', calendar: 'configure', scope: 'organization' }
 	};
 	const trainingActors = {
+		trainingConfigure: { organization: 'orgA', training: 'configure', personnel: 'none', scope: 'organization' },
+		trainingView: { organization: 'orgA', training: 'view', personnel: 'none', scope: 'organization' },
+		trainingOperate: { organization: 'orgA', training: 'operate', personnel: 'none', scope: 'organization' },
+		trainingOnboarding: {
+			organization: 'orgA',
+			training: 'view',
+			onboarding: 'configure',
+			personnel: 'view',
+			scope: 'organization'
+		},
+		trainingScoped: {
+			organization: 'orgA',
+			training: 'view',
+			personnel: 'none',
+			scope: 'groups',
+			groups: [ids.groupA]
+		},
+		trainingForeign: { organization: 'orgB', training: 'configure', personnel: 'none', scope: 'organization' },
 		rosterManager: { organization: 'orgA', training: 'operate', personnel: 'configure', scope: 'organization' },
 		rosterViewer: { organization: 'orgA', training: 'view', scope: 'organization' },
 		rosterScoped: {
@@ -163,7 +188,7 @@ export async function seed(session) {
 					calendar: calendar?.calendar ?? 'none',
 					training: training?.training ?? 'none',
 					criticalTasks: 'none',
-					onboarding: 'none',
+					onboarding: training?.onboarding ?? 'none',
 					ratingScheme: 'none'
 				},
 				access_scope_kind:
@@ -194,18 +219,19 @@ export async function seed(session) {
 	checked(
 		await service.from('personnel').insert(
 			[
-				['personA', ids.orgA, ids.groupA, 'Able'],
-				['personB', ids.orgA, ids.groupB, 'Baker'],
-				['personUnassigned', ids.orgA, null, 'Unassigned'],
-				['personForeign', ids.orgB, ids.groupForeign, 'Foreign']
-			].map(([key, org, group, name]) => ({
+				['personA', ids.orgA, ids.groupA, 'Able', '68W', 'Medic'],
+				['personB', ids.orgA, ids.groupB, 'Baker', '11B', 'NCO'],
+				['personUnassigned', ids.orgA, null, 'Unassigned', '68W', 'NCO'],
+				['personForeign', ids.orgB, ids.groupForeign, 'Foreign', '11B', 'Medic']
+			].map(([key, org, group, name, mos, clinicRole]) => ({
 				id: ids[key],
 				organization_id: org,
 				group_id: group,
 				first_name: 'Synthetic',
 				last_name: name,
 				rank: 'SPC',
-				clinic_role: '',
+				mos,
+				clinic_role: clinicRole,
 				slug: `verify-${name.toLowerCase()}`
 			}))
 		)
@@ -314,6 +340,93 @@ export async function seed(session) {
 	dates.ui = localDate(now);
 	dates.uiBefore = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
 	dates.uiAfter = localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+	const trainingCompleted = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+	dates.trainingCompleted = localDate(trainingCompleted);
+	dates.trainingExpires = localDate(
+		new Date(trainingCompleted.getFullYear() + 1, trainingCompleted.getMonth(), trainingCompleted.getDate())
+	);
+	const trainingTypeDefaults = {
+		description: null,
+		expiration_months: null,
+		warning_days_yellow: 60,
+		warning_days_orange: 30,
+		applies_to_roles: [],
+		applies_to_mos: [],
+		applies_to_ranks: [],
+		excluded_roles: [],
+		excluded_mos: [],
+		excluded_ranks: [],
+		color: '#6b7280',
+		expiration_date_only: false,
+		can_be_exempted: false,
+		exempt_personnel_ids: [],
+		is_optional: false
+	};
+	checked(
+		await service.from('training_types').insert([
+			{
+				...trainingTypeDefaults,
+				id: ids.trainingRequired,
+				organization_id: ids.orgA,
+				name: 'Verification Required Training',
+				expiration_months: 12,
+				sort_order: 10
+			},
+			{
+				...trainingTypeDefaults,
+				id: ids.trainingTargeted,
+				organization_id: ids.orgA,
+				name: 'Verification Targeted Training',
+				expiration_months: 12,
+				applies_to_mos: ['68W'],
+				excluded_roles: ['NCO'],
+				sort_order: 20
+			},
+			{
+				...trainingTypeDefaults,
+				id: ids.trainingOptional,
+				organization_id: ids.orgA,
+				name: 'Verification Optional Training',
+				is_optional: true,
+				sort_order: 30
+			},
+			{
+				...trainingTypeDefaults,
+				id: ids.trainingForeignType,
+				organization_id: ids.orgB,
+				name: 'Foreign Private Training',
+				sort_order: 10
+			}
+		])
+	);
+	checked(
+		await service.from('training_views').insert([
+			{
+				id: ids.trainingView,
+				organization_id: ids.orgA,
+				name: 'Verification Focus View',
+				column_ids: [ids.trainingTargeted, ids.trainingRequired],
+				created_by: actors.trainingConfigure.id
+			},
+			{
+				id: ids.trainingForeignView,
+				organization_id: ids.orgB,
+				name: 'Foreign Private View',
+				column_ids: [ids.trainingForeignType],
+				created_by: actors.trainingForeign.id
+			}
+		])
+	);
+	checked(
+		await service.from('personnel_trainings').insert({
+			id: ids.trainingCurrent,
+			organization_id: ids.orgA,
+			personnel_id: ids.personA,
+			training_type_id: ids.trainingRequired,
+			completion_date: dates.trainingCompleted,
+			expiration_date: dates.trainingExpires
+		})
+	);
 	checked(
 		await service.from('status_types').insert([
 			{

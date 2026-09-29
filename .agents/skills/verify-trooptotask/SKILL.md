@@ -26,7 +26,7 @@ Run `npm run --silent verify:app -- doctor` whenever the page, provider, or buil
 
 ## Drive
 
-`login` signs in through the normal form and returns the page ID and Organization ID. `manager` can manage Personnel and Groups; `viewer` can read them; `scoped` sees Alpha only. Calendar actors include `calendarView`, `calendarOperate`, `calendarConfigure`, `calendarLane`, `calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, and `calendarSwitch`. Sign-in Roster actors are `rosterManager`, `rosterViewer`, `rosterScoped`, and `rosterForeign`. The public `login` command lands on Personnel; for a direct Training or Calendar starting route, use the skill's `actor` helper below. It submits the same visible sign-in form with private synthetic credentials and prints no password. Use the returned page ID, not tab order.
+`login` signs in through the normal form and returns the page ID and Organization ID. `manager` can manage Personnel and Groups; `viewer` can read them; `scoped` sees Alpha only. Calendar actors include `calendarView`, `calendarOperate`, `calendarConfigure`, `calendarLane`, `calendarScoped`, `calendarEmpty`, `calendarScopedConfig`, and `calendarSwitch`. Training actors include `trainingConfigure`, `trainingView`, `trainingOperate`, `trainingScoped`, `trainingForeign`, and `trainingOnboarding`; Sign-in Roster actors are `rosterManager`, `rosterViewer`, `rosterScoped`, and `rosterForeign`. The public `login` command lands on Personnel; for a direct Training or Calendar starting route, use the skill's `actor` helper below. It submits the same visible sign-in form with private synthetic credentials and prints no password. Use the returned page ID, not tab order.
 
 ```bash
 npm run --silent verify:app -- login manager
@@ -75,6 +75,7 @@ $V seed duplicate-able                  # or overlap, bulk-501; returns a tag
 $V clean-seeds                          # only rows created by this helper
 $V network arm-fail 2 calendar-range    # one scoped synthetic 503; use the actual page ID
 $V network arm-fail 2 sign-in-rosters    # roster list, or sign-in-rosters/ROSTER_ID/upload
+$V network arm-fail 2 training-types     # fail one Training catalog request; training-views also supported
 $V network arm-fail 2 availability/batch 2 # second matching batch request fails
 $V network arm-hold 2 availability      # hold a real response after persistence
 $V network state 2                      # matched requests, statuses, IDs, held state

@@ -16,13 +16,22 @@ export interface TrainingCatalogReadStore {
 			limit?: number;
 		}
 	): Promise<T[]>;
+	findManyWithCount<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: {
+			select?: string;
+			range?: { from: number; to: number };
+			count?: 'exact' | 'planned' | 'estimated';
+		}
+	): Promise<{ data: T[]; count: number | null }>;
 }
 
 interface TrainingCatalogWriteStore extends TrainingCatalogReadStore {
 	insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
 	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
 	delete(table: string, orgId: string, id: string): Promise<void>;
-	deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void>;
 }
 
 export interface TrainingCatalogWriteContext {

@@ -41,4 +41,26 @@ describe('Training catalog JSON routes', () => {
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toEqual([]);
 		expect(await ctx.store.findMany('training_views', ctx.auth.orgId)).toEqual([]);
 	});
+
+	it('denies Group-scoped Training configuration of the Organization catalog', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'configure',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+			}
+		});
+		await expect(handleUseCaseRequest(typePost, ctx, { name: 'Denied type' })).rejects.toMatchObject({ status: 403 });
+		await expect(handleUseCaseRequest(viewPost, ctx, { name: 'Denied view' })).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toEqual([]);
+		expect(await ctx.store.findMany('training_views', ctx.auth.orgId)).toEqual([]);
+	});
 });

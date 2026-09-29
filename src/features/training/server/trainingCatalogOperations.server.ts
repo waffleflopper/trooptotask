@@ -55,7 +55,6 @@ export async function updateTrainingType(
 
 export async function deleteTrainingType(ctx: TrainingCatalogDeleteContext, id: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
-	await ctx.store.deleteWhere('personnel_trainings', ctx.auth.orgId, { training_type_id: id });
 	await ctx.store.delete(TrainingTypeEntity.table, ctx.auth.orgId, id);
 	ctx.audit.log({ action: 'training_type.deleted', resourceType: 'training_type', resourceId: id });
 	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {

@@ -116,7 +116,7 @@ describe('rank settings read model', () => {
 		});
 	});
 
-	it('loads rank settings for Organization admins without Personnel lane access', async () => {
+	it('loads Training rank references for Organization admins without Personnel or Training lane access', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'admin',
@@ -139,12 +139,28 @@ describe('rank settings read model', () => {
 				sort_order: 500
 			}
 		]);
+		ctx.rawStore.seed('training_types', [
+			{
+				id: 'training-1',
+				organization_id: ctx.auth.orgId,
+				name: 'Annual Check',
+				applies_to_ranks: ['DET-SGT'],
+				excluded_ranks: []
+			}
+		]);
 
 		const settings = await loadRanksSettings(ctx);
 
 		expect(settings.sections.ranks.commands.canManageCatalog).toBe(true);
 		expect(settings.sections.ranks.entries.active).toEqual(
-			expect.arrayContaining([expect.objectContaining({ code: 'DET-SGT' })])
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: 'DET-SGT',
+					referenceSummary: expect.objectContaining({
+						activeReferences: { personnel: 0, trainingApplicability: 1, total: 1 }
+					})
+				})
+			])
 		);
 	});
 

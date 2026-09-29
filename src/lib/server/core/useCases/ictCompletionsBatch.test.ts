@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { importIctCompletionsBatch } from './ictCompletionsBatch';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -7,6 +9,140 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 }
 
 describe('importIctCompletionsBatch', () => {
+	it.each(['people', 'tasks'])(
+		'imports 500 distinct %s through a URL-limited provider without duplicating same-date history',
+		async (dimension) => {
+			const ctx = buildContext();
+			const id = (kind: number, index: number) =>
+				`${String(kind).padStart(8, '0')}-0000-4000-8000-${String(index).padStart(12, '0')}`;
+			const people = Array.from({ length: dimension === 'people' ? 500 : 1 }, (_, index) => ({
+				id: id(1, index),
+				organization_id: 'test-org',
+				rank: 'SPC',
+				first_name: 'Synthetic',
+				last_name: `Person${index}`,
+				mos: '68W',
+				clinic_role: 'Medic',
+				group_id: 'group-alpha',
+				archived_at: null
+			}));
+			const tasks = Array.from({ length: dimension === 'tasks' ? 500 : 1 }, (_, index) => ({
+				id: id(2, index),
+				organization_id: 'test-org',
+				task_code: `TASK${index}`,
+				title: `Task ${index}`,
+				description: null,
+				mos: [],
+				expiration_months: 12,
+				sort_order: index,
+				archived_at: null,
+				created_at: '2026-04-01T00:00:00Z'
+			}));
+			const records = Array.from({ length: 500 }, (_, index) => ({
+				rowNumber: index + 2,
+				values: {
+					firstName: 'Synthetic',
+					lastName: people[dimension === 'people' ? index : 0].last_name,
+					taskCode: tasks[dimension === 'tasks' ? index : 0].task_code,
+					completedAt: '2026-04-02',
+					notes: `Checked row ${index}`
+				}
+			}));
+			const existing = Array.from({ length: 250 }, (_, index) => ({
+				id: id(3, index),
+				organization_id: 'test-org',
+				personnel_id: people[dimension === 'people' ? index * 2 : 0].id,
+				ict_task_id: tasks[dimension === 'tasks' ? index * 2 : 0].id,
+				completed_at: '2026-04-02',
+				validation_method: 'Lecture',
+				validated_by: null,
+				notes: 'Prior note',
+				logged_by: null,
+				created_at: '2026-04-02T00:00:00Z'
+			}));
+			ctx.store.seed('personnel', people);
+			ctx.store.seed('ict_tasks', tasks);
+			ctx.store.seed('personnel_ict_completions', existing);
+			const client = createClient('http://provider.invalid', 'synthetic-key', {
+				auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+				global: {
+					fetch: async (input) => {
+						const url = new URL(String(input));
+						// A finite request-line budget is independent of the lookup's chunk size.
+						// Native owned-provider verification separately proves the real deployment.
+						if (url.href.length > 8192)
+							return new Response(JSON.stringify({ message: 'URI too long' }), { status: 414 });
+						const ids = (column: string) => url.searchParams.get(column)?.slice(4, -1).split(',') ?? [];
+						return new Response(
+							JSON.stringify(
+								existing.filter(
+									(row) =>
+										ids('personnel_id').includes(row.personnel_id) && ids('ict_task_id').includes(row.ict_task_id)
+								)
+							),
+							{ headers: { 'Content-Type': 'application/json' } }
+						);
+					}
+				}
+			});
+			const provider = createSupabaseDataStore(client);
+			const findMany = ctx.store.findMany.bind(ctx.store);
+			vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+				args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
+			);
+			const result = await importIctCompletionsBatch(ctx, { records });
+			expect(result.errors).toEqual([]);
+			expect(result.inserted).toHaveLength(250);
+			expect(result.updated).toHaveLength(250);
+			expect(result.updated.map((row) => row.id).sort()).toEqual(existing.map((row) => row.id).sort());
+			const stored = await findMany<{ id: string; notes: string }>('personnel_ict_completions', 'test-org');
+			expect(stored).toHaveLength(500);
+			expect(stored.map((row) => row.notes).sort()).toEqual(records.map((row) => row.values.notes).sort());
+		}
+	);
+
+	it('does not write or report success when required task history is unavailable', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-a',
+				organization_id: 'test-org',
+				first_name: 'Synthetic',
+				last_name: 'Able',
+				rank: 'SPC',
+				group_id: 'group-alpha',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed(
+			'ict_tasks',
+			Array.from({ length: 100 }, (_, index) => ({
+				id: `task-${index}`,
+				organization_id: 'test-org',
+				task_code: `TASK${index}`,
+				title: 'Task',
+				mos: [],
+				archived_at: null
+			}))
+		);
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) => {
+			if (args[0] === 'personnel_ict_completions' && args[3]?.inFilters?.ict_task_id?.includes('task-99'))
+				return Promise.reject(new Error('History lookup failed'));
+			return findMany(...args);
+		});
+		await expect(
+			importIctCompletionsBatch(ctx, {
+				records: Array.from({ length: 100 }, (_, index) => ({
+					rowNumber: index + 2,
+					values: { firstName: 'Synthetic', lastName: 'Able', taskCode: `TASK${index}`, completedAt: '2026-04-02' }
+				}))
+			})
+		).rejects.toThrow('History lookup failed');
+		expect(await findMany('personnel_ict_completions', 'test-org')).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it('creates new completion history rows and updates exact same-date matches in one batch', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [

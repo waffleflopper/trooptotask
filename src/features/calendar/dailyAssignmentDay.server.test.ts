@@ -2,11 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	clearDailyAssignmentSlot,
-	createDailyAssignmentSlot,
-	deleteDailyAssignmentSlot,
 	replaceDailyAssignmentDay,
-	setDailyAssignmentSlot,
-	updateDailyAssignmentSlot
+	setDailyAssignmentSlot
 } from './dailyAssignmentOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -226,17 +223,17 @@ describe('replaceDailyAssignmentDay', () => {
 	});
 });
 
-describe('createDailyAssignmentSlot', () => {
+describe('setDailyAssignmentSlot', () => {
 	const validInput = {
 		date: '2025-04-01',
 		assignmentTypeId: 'at-1',
 		assigneeId: 'p-1'
 	};
 
-	it('validates, inserts, audits, and returns transformed result', async () => {
+	it('saves and audits a slot', async () => {
 		const ctx = buildContext();
 
-		const result = (await createDailyAssignmentSlot(ctx, validInput)) as Record<string, unknown>;
+		const result = (await setDailyAssignmentSlot(ctx, validInput)) as Record<string, unknown>;
 
 		expect(result).toMatchObject({
 			date: '2025-04-01',
@@ -247,11 +244,9 @@ describe('createDailyAssignmentSlot', () => {
 		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
 		expect(stored).toHaveLength(1);
 
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'daily_assignment.created',
-			resourceType: 'daily_assignment'
-		});
+		expect(ctx.audit.events).toContainEqual(
+			expect.objectContaining({ action: 'daily_assignment.created', resourceType: 'daily_assignment' })
+		);
 	});
 
 	it('enforces policy scope on assigneeId', async () => {
@@ -272,7 +267,7 @@ describe('createDailyAssignmentSlot', () => {
 		});
 		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: 'test-org', group_id: 'group-c' }]);
 
-		await expect(createDailyAssignmentSlot(ctx, validInput)).rejects.toMatchObject({
+		await expect(setDailyAssignmentSlot(ctx, validInput)).rejects.toMatchObject({
 			status: 403,
 			message: 'You do not have access to that Calendar scope'
 		});
@@ -298,7 +293,7 @@ describe('createDailyAssignmentSlot', () => {
 			}
 		]);
 
-		const result = (await createDailyAssignmentSlot(ctx, {
+		const result = (await setDailyAssignmentSlot(ctx, {
 			date: '2025-04-01',
 			assignmentTypeId: 'at-group',
 			assigneeId: 'group-a'
@@ -338,7 +333,7 @@ describe('createDailyAssignmentSlot', () => {
 		]);
 
 		await expect(
-			createDailyAssignmentSlot(ctx, {
+			setDailyAssignmentSlot(ctx, {
 				date: '2025-04-01',
 				assignmentTypeId: 'at-group',
 				assigneeId: 'group-c'
@@ -350,61 +345,8 @@ describe('createDailyAssignmentSlot', () => {
 	});
 });
 
-describe('setDailyAssignmentSlot', () => {
-	it('allows assigning a group through Calendar group-scope policy', async () => {
-		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-a'] } } });
-
-		ctx.store.seed('assignment_types', [
-			{
-				id: 'at-group',
-				organization_id: 'test-org',
-				name: 'Front Desk',
-				short_name: 'FD',
-				assign_to: 'group',
-				color: '#123456',
-				sort_order: 0,
-				exempt_personnel_ids: [],
-				show_in_date_header: false
-			}
-		]);
-
-		const result = (await setDailyAssignmentSlot(ctx, {
-			date: '2025-04-01',
-			assignmentTypeId: 'at-group',
-			assigneeId: 'group-a'
-		})) as Record<string, unknown>;
-
-		expect(result).toMatchObject({ assigneeId: 'group-a', assignmentTypeId: 'at-group' });
-	});
-});
-
-describe('deleteDailyAssignmentSlot', () => {
-	function seedAssignment(ctx: ReturnType<typeof buildContext>) {
-		ctx.store.seed('daily_assignments', [
-			{ id: 'da-1', organization_id: 'test-org', date: '2025-04-01', assignment_type_id: 'at-1', assignee_id: 'p-1' }
-		]);
-	}
-
-	it('deletes record and audits', async () => {
-		const ctx = buildContext();
-		seedAssignment(ctx);
-
-		await deleteDailyAssignmentSlot(ctx, 'da-1');
-
-		const stored = await ctx.store.findMany('daily_assignments', 'test-org');
-		expect(stored).toHaveLength(0);
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'daily_assignment.deleted',
-			resourceType: 'daily_assignment',
-			resourceId: 'da-1'
-		});
-	});
-});
-
-describe('updateDailyAssignmentSlot', () => {
-	it('denies updating an existing assignment outside the shared multi-Group policy scope', async () => {
+describe('setDailyAssignmentSlot with an occupied slot', () => {
+	it('denies replacing an existing assignment outside the shared multi-Group policy scope', async () => {
 		const ctx = buildContext({
 			auth: {
 				role: 'member',
@@ -420,7 +362,10 @@ describe('updateDailyAssignmentSlot', () => {
 				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
 			}
 		});
-		ctx.store.seed('personnel', [{ id: 'p-outside-group', organization_id: 'test-org', group_id: 'group-c' }]);
+		ctx.store.seed('personnel', [
+			{ id: 'p-outside-group', organization_id: 'test-org', group_id: 'group-c' },
+			{ id: 'p-in-group', organization_id: 'test-org', group_id: 'group-a' }
+		]);
 		ctx.store.seed('daily_assignments', [
 			{
 				id: 'da-1',
@@ -431,13 +376,17 @@ describe('updateDailyAssignmentSlot', () => {
 			}
 		]);
 
-		await expect(updateDailyAssignmentSlot(ctx, { id: 'da-1', date: '2025-04-02' })).rejects.toMatchObject({
+		await expect(
+			setDailyAssignmentSlot(ctx, { date: '2025-04-01', assignmentTypeId: 'at-1', assigneeId: 'p-in-group' })
+		).rejects.toMatchObject({
 			status: 403,
 			message: 'You do not have access to that Calendar scope'
 		});
 
 		const stored = await ctx.store.findMany<Record<string, unknown>>('daily_assignments', 'test-org');
-		expect(stored[0]).toMatchObject({ id: 'da-1', date: '2025-04-01' });
+		expect(stored).toEqual([
+			expect.objectContaining({ id: 'da-1', date: '2025-04-01', assignee_id: 'p-outside-group' })
+		]);
 	});
 });
 
@@ -498,7 +447,7 @@ describe('permission guards', () => {
 			}
 		});
 		await expect(
-			createDailyAssignmentSlot(ctx, { date: '2025-04-01', assignmentTypeId: 'at-1', assigneeId: 'p-1' })
+			setDailyAssignmentSlot(ctx, { date: '2025-04-01', assignmentTypeId: 'at-1', assigneeId: 'p-1' })
 		).rejects.toMatchObject({
 			status: 403,
 			message: 'This action requires Calendar operation access'

@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonTrainingEditor from './PersonTrainingEditor.svelte';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -99,6 +100,43 @@ afterEach(() => {
 });
 
 describe('PersonTrainingEditor', () => {
+	it('retains the deletion confirmation and saved record after failure and permits retry', async () => {
+		vi.useRealTimers();
+		const onRemove = vi.fn().mockRejectedValueOnce(new Error('Removal failed')).mockResolvedValueOnce(undefined);
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: person.id,
+			trainingTypeId: neverExpiresType.id,
+			completionDate: null,
+			expirationDate: null,
+			notes: 'Saved notes',
+			certificateUrl: null
+		};
+		render(PersonTrainingEditor, {
+			props: {
+				person,
+				trainingTypes: [neverExpiresType],
+				trainings: [record],
+				onSave: vi.fn(),
+				onRemove,
+				onClose: vi.fn()
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove Orientation record' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await waitFor(() => expect(errorToast).toHaveBeenCalled());
+		expect(screen.getByRole('alertdialog')).toBeTruthy();
+		expect(screen.getByText('Saved notes')).toBeTruthy();
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		// A resolved callback can mean an approval request; retained props remain authoritative.
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		expect((screen.getByLabelText('Mark as Complete') as HTMLButtonElement).getAttribute('aria-checked')).toBe('true');
+		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('Saved notes');
+		expect(onRemove.mock.calls).toEqual([['record-1'], ['record-1']]);
+	});
+
 	it('calls onSaveBatch once when marking all applicable trainings completed today', async () => {
 		const onSave = vi.fn().mockResolvedValue(undefined);
 		const onSaveBatch = vi.fn().mockResolvedValue(undefined);

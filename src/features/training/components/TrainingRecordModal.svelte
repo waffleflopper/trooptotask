@@ -125,10 +125,10 @@
 		if (existingTraining) {
 			try {
 				await onRemove(existingTraining.id);
+				onClose();
 			} catch (err) {
-				console.error('Training record removal failed:', err);
+				toastStore.error(err instanceof Error ? err.message : 'Could not remove training record. Try again.');
 			}
-			onClose();
 		}
 	}
 </script>

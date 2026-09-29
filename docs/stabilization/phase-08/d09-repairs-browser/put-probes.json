@@ -1,0 +1,86 @@
+[
+  {
+    "label": "put-missing",
+    "role": "trainingConfigure",
+    "pageId": 2,
+    "organizationId": "7dce57e0-7519-42ed-ac6c-b15981e35516",
+    "method": "PUT",
+    "path": "/org/7dce57e0-7519-42ed-ac6c-b15981e35516/api/personnel-trainings",
+    "payload": {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "notes": "1357 denied update must not persist"
+    },
+    "response": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Script ran on page and returned:\n```json\n{\"status\":404,\"body\":{\"message\":\"Training record not found\"}}\n```"
+        }
+      ]
+    },
+    "readback": "Combined pre-series/post-series A/B rows in rows-and-requests.json; individual response statuses are recorded separately."
+  },
+  {
+    "label": "put-outside-group",
+    "role": "rosterScoped",
+    "pageId": 5,
+    "organizationId": "7dce57e0-7519-42ed-ac6c-b15981e35516",
+    "method": "PUT",
+    "path": "/org/7dce57e0-7519-42ed-ac6c-b15981e35516/api/personnel-trainings",
+    "payload": {
+      "id": "9a5c6068-4680-4a87-982d-dca25bb1daaa",
+      "notes": "1357 denied update must not persist"
+    },
+    "response": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Script ran on page and returned:\n```json\n{\"status\":403,\"body\":{\"message\":\"You do not have access to records outside your assigned scope\"}}\n```"
+        }
+      ]
+    },
+    "readback": "Combined pre-series/post-series A/B rows in rows-and-requests.json; individual response statuses are recorded separately."
+  },
+  {
+    "label": "put-foreign",
+    "role": "trainingForeign",
+    "pageId": 6,
+    "organizationId": "6ab29e72-4110-4efe-806d-ac96751926e8",
+    "method": "PUT",
+    "path": "/org/6ab29e72-4110-4efe-806d-ac96751926e8/api/personnel-trainings",
+    "payload": {
+      "id": "870d5ce8-2362-4ab4-a99b-9d13ef4fdb77",
+      "notes": "1357 denied update must not persist"
+    },
+    "response": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Script ran on page and returned:\n```json\n{\"status\":404,\"body\":{\"message\":\"Training record not found\"}}\n```"
+        }
+      ]
+    },
+    "readback": "Combined pre-series/post-series A/B rows in rows-and-requests.json; individual response statuses are recorded separately."
+  },
+  {
+    "label": "put-view-only",
+    "role": "trainingView",
+    "pageId": 7,
+    "organizationId": "7dce57e0-7519-42ed-ac6c-b15981e35516",
+    "method": "PUT",
+    "path": "/org/7dce57e0-7519-42ed-ac6c-b15981e35516/api/personnel-trainings",
+    "payload": {
+      "id": "870d5ce8-2362-4ab4-a99b-9d13ef4fdb77",
+      "notes": "1357 denied update must not persist"
+    },
+    "response": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Script ran on page and returned:\n```json\n{\"status\":403,\"body\":{\"message\":\"You don't have permission. This requires Training can manage permissions. Talk to your organization owner or admin.\"}}\n```"
+        }
+      ]
+    },
+    "readback": "Combined pre-series/post-series A/B rows in rows-and-requests.json; individual response statuses are recorded separately."
+  }
+]

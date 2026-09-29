@@ -71,7 +71,7 @@ export function createSupabaseTrainingOnboardingReferencesPort(
 							let query = client
 								.from('personnel_trainings')
 								.select(
-									'personnel_id, training_type_id, personnel!inner(organization_id, group_id), training_types!inner(organization_id)'
+									'personnel_id, training_type_id, personnel!inner(organization_id, group_id), training_types!personnel_trainings_org_training_type_fkey!inner(organization_id)'
 								)
 								.eq('organization_id', actor.orgId)
 								.eq('personnel.organization_id', actor.orgId)

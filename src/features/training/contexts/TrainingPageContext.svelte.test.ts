@@ -363,6 +363,58 @@ describe('TrainingPageContext', () => {
 		).rejects.toThrow('insert blocked by policy');
 	});
 
+	it('rejects a failed removal without losing the stored record and succeeds on retry', async () => {
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: mockPerson.id,
+			trainingTypeId: mockType.id,
+			completionDate: '2026-01-05',
+			expirationDate: '2027-01-05',
+			notes: 'Retain me',
+			certificateUrl: null
+		};
+		personnelTrainingsStore.load([record], 'org-1');
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(new Response(null, { status: 503 }))
+				.mockResolvedValueOnce(new Response(null, { status: 200 }))
+		);
+		const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
+		expect(personnelTrainingsStore.items).toEqual([record]);
+		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
+		expect(personnelTrainingsStore.items).toEqual([]);
+	});
+
+	it('retains the completion when its approval request fails and accepts an already-pending retry', async () => {
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: mockPerson.id,
+			trainingTypeId: mockType.id,
+			completionDate: null,
+			expirationDate: null,
+			notes: 'Awaiting approval',
+			certificateUrl: null
+		};
+		personnelTrainingsStore.load([record], 'org-1');
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
+				.mockResolvedValueOnce(Response.json({ message: 'Unavailable' }, { status: 503 }))
+				.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
+				.mockResolvedValueOnce(new Response(null, { status: 409 }))
+		);
+		const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
+		expect(personnelTrainingsStore.items).toEqual([record]);
+		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
+		expect(personnelTrainingsStore.items).toEqual([record]);
+	});
+
 	describe('handleSaveTrainingBatch', () => {
 		const batchRecords = [
 			{

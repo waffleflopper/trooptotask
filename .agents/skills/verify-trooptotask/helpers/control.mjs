@@ -33,6 +33,7 @@ const tableColumns = {
 	training_views: 'organization_id',
 	personnel_trainings: 'organization_id',
 	onboarding_templates: 'organization_id',
+	deletion_requests: 'organization_id',
 	ict_tasks: 'organization_id',
 	personnel_ict_completions: 'organization_id'
 };
@@ -43,6 +44,7 @@ const tableSelect = {
 	personnel_trainings:
 		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url',
 	onboarding_templates: 'id,organization_id,name,description',
+	deletion_requests: 'id,organization_id,resource_type,resource_id,status',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -492,6 +494,7 @@ async function main() {
 					'training-views',
 					'personnel-trainings',
 					'personnel-trainings/batch',
+					'deletion-requests',
 					'training-reports',
 					'training-reports/detail',
 					'training-reports/export'

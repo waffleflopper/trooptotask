@@ -4,6 +4,7 @@
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -228,25 +229,20 @@
 	async function doRemoveTraining() {
 		const typeId = confirmRemoveTypeId;
 		if (!typeId) return;
-		confirmRemoveTypeId = null;
 
 		const existing = trainingMap.get(typeId);
-		if (!existing) return;
+		if (!existing) {
+			confirmRemoveTypeId = null;
+			return;
+		}
 
-		const type = trainingTypes.find((t) => t.id === typeId);
-		const neverExpires = type?.expirationMonths === null && !type?.expirationDateOnly;
-
-		await onRemove(existing.id);
-
-		editingStates.set(typeId, {
-			isComplete: false,
-			completionDate: neverExpires || type?.expirationDateOnly ? '' : formatDate(new Date()),
-			directExpirationDate: '',
-			notes: '',
-			certificateUrl: '',
-			isEditing: false,
-			isDirty: false
-		});
+		try {
+			await onRemove(existing.id);
+		} catch (error) {
+			toastStore.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.');
+			return;
+		}
+		confirmRemoveTypeId = null;
 	}
 
 	async function markAllCompletedToday() {

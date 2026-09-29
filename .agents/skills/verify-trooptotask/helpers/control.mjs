@@ -28,9 +28,18 @@ const tableColumns = {
 	organization_memberships: 'organization_id',
 	organization_invitations: 'organization_id',
 	organization_invitation_email_outbox: 'organization_id',
-	sign_in_rosters: 'organization_id'
+	sign_in_rosters: 'organization_id',
+	training_types: 'organization_id',
+	training_views: 'organization_id',
+	personnel_trainings: 'organization_id',
+	onboarding_templates: 'organization_id'
 };
 const tableSelect = {
+	training_types:
+		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional',
+	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
+	personnel_trainings: 'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date',
+	onboarding_templates: 'id,organization_id,name,description',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -44,6 +53,7 @@ const filters = new Set([
 	'date',
 	'assignee_id',
 	'assignment_type_id',
+	'training_type_id',
 	'personnel_id',
 	'user_id',
 	'type',
@@ -454,7 +464,14 @@ async function main() {
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
 		if (action === 'arm-fail' || action === 'arm-hold') {
 			if (
-				!['calendar-range', 'availability', 'availability/batch', 'sign-in-rosters'].includes(family) &&
+				![
+					'calendar-range',
+					'availability',
+					'availability/batch',
+					'sign-in-rosters',
+					'training-types',
+					'training-views'
+				].includes(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family)
 			)
 				throw new Error('Unsupported request family.');

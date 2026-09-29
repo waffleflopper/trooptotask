@@ -154,6 +154,17 @@ describe('isTrainingApplicable', () => {
 		expect(isTrainingApplicable(type, person)).toBe(false);
 	});
 
+	it('requires the targeted medic while excluding an NCO with the same MOS', () => {
+		const type = makeType({ appliesToMos: ['68W'], excludedRoles: ['NCO'] });
+		const medic = makePerson({ id: 'able', clinicRole: 'Medic', mos: '68W' });
+		const nco = makePerson({ id: 'unassigned', clinicRole: 'NCO', mos: '68W' });
+		const otherMos = makePerson({ id: 'baker', clinicRole: 'NCO', mos: '11B' });
+
+		expect(isTrainingApplicable(type, medic)).toBe(true);
+		expect(isTrainingApplicable(type, nco)).toBe(false);
+		expect(isTrainingApplicable(type, otherMos)).toBe(false);
+	});
+
 	it('does not exclude when person does not match exclusion', () => {
 		const type = makeType({ excludedRoles: ['Officer'] });
 		const person = makePerson({ clinicRole: 'NCO' });

@@ -209,7 +209,14 @@ async function main() {
 									? ['Pending Invitations', 'Organizations']
 									: destination === 'org/new'
 										? ['Create your first Organization', 'Confirm your email first']
-										: ['Calendar', 'Training', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'];
+										: [
+												'Calendar',
+												'Training',
+												'Able, Synthetic',
+												'Foreign, Synthetic',
+												'No personnel on the active roster',
+												'Access restricted'
+											];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: `map-${role}-${randomUUID()}` }));
 		const pageId = Number(

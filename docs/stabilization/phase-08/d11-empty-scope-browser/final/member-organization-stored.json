@@ -1,0 +1,26 @@
+{
+  "table": "organization_memberships",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "b73a0d5b-58ed-4835-881b-f97851519640",
+      "organization_id": "7d467587-6d19-4920-9fa7-f6120085d199",
+      "user_id": "16aaf83d-986b-49ea-80fe-184ca5820936",
+      "role": "member",
+      "invited_by": null,
+      "created_at": "2026-09-29T22:21:52.579623+00:00",
+      "email": "orgMember-81489abf-6b83-4aeb-b54c-c2a9394c8b26@example.test",
+      "member_preset": "viewer",
+      "capability_overrides": {
+        "calendar": "none",
+        "training": "none",
+        "onboarding": "none",
+        "ratingScheme": "none",
+        "criticalTasks": "none"
+      },
+      "access_scope_kind": "organization",
+      "access_scope_group_ids": []
+    }
+  ]
+}

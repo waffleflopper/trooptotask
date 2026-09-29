@@ -181,7 +181,7 @@ function normalizeScopeSet(scopeSet?: ScopeSet | null): ScopeSet {
 	}
 
 	const groupIds = Array.from(new Set(scopeSet.groupIds.filter(Boolean)));
-	return groupIds.length > 0 ? { kind: 'groups', groupIds } : { kind: 'organization' };
+	return { kind: 'groups', groupIds };
 }
 
 function normalizeStoredMemberPreset(preset: string): StoredMemberPreset {

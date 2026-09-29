@@ -14,6 +14,8 @@ D03 has moved Critical Tasks workspace, report/export, history, batch import and
 
 D10's Critical Tasks library/configuration cutover aligns task-library SQL and defaults with the dedicated configure lane and owns workspace query/types, settings reads, task and completion entities, task batch import, Personnel readiness lookup and public seams. HTTP streaming composition stays in delivery. The query/bootstrap type cycle and replaced central query/entity paths are removed. D11 retains completion operations, broader readiness/report projections and read-model provider placement; D24/D25/D28 retain export, retention and infrastructure work. Integrated acceptance is recorded in [EVIDENCE](../stabilization/EVIDENCE.md#phase-08-d10--integrated-library-and-configuration-acceptance).
 
+D11's bounded M15 prerequisite preserves explicit empty Group scope through member edits/storage and Identity projection; mapped shared scoped reads return no rows without provider access. This repairs the Personnel disclosure and application/provider disagreement without broadening SQL grants or changing the Access owner. Full D27 ownership remains separate, and D11 completion/report cutovers are still required.
+
 ## D-05 Legacy Clinic Vocabulary
 
 `clinicRole` / `clinic_role` remain retained Personnel fields. Their canonical user-facing term is **Duty Role**; some surfaces still use clinic-era or ambiguous `Role` labels. Preserve existing data, runtime/API shapes and tolerated legacy import labels while using canonical copy in new work. [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md) owns this compatibility rule.

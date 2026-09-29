@@ -1,9 +1,9 @@
--- A successful occupied-slot replacement survives a competing write whose
--- insert fails after it obtains the same Organization/day lock.
+-- A successful occupied-slot replacement survives a failed contender. Two
+-- distinct slots on an initially empty day also share the advisory lock.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS dblink WITH SCHEMA extensions;
-SELECT plan(6);
+SELECT plan(11);
 
 SELECT dblink_connect('atomic_fixture', 'hostaddr=' || host(inet_server_addr()) ||
   ' port=' || current_setting('port') || ' user=postgres password=postgres dbname=' || current_database());
@@ -50,7 +50,9 @@ SELECT dblink_exec('atomic_fixture', $fixture$
      'b1110000-0000-4000-8000-000000000201','SGT','New','Person','68W','atomic-race-new');
   INSERT INTO public.assignment_types(id,organization_id,name,short_name,assign_to) VALUES
     ('b1110000-0000-4000-8000-000000000401',
-     'b1110000-0000-4000-8000-000000000101','Staff','STF','personnel');
+     'b1110000-0000-4000-8000-000000000101','Staff','STF','personnel'),
+    ('b1110000-0000-4000-8000-000000000402',
+     'b1110000-0000-4000-8000-000000000101','Reserve','RSV','personnel');
   INSERT INTO public.daily_assignments(
     id,organization_id,assignment_type_id,date,assignee_id
   ) VALUES
@@ -84,6 +86,23 @@ BEGIN
     IF EXISTS (
       SELECT 1 FROM pg_stat_activity
       WHERE application_name='t3_atomic_contender' AND wait_event_type='Lock'
+    ) THEN RETURN true; END IF;
+    IF clock_timestamp() >= deadline THEN RETURN false; END IF;
+    PERFORM pg_sleep(0.01);
+  END LOOP;
+END $$;
+
+CREATE FUNCTION pg_temp.atomic_contender_waits_for_advisory() RETURNS boolean
+LANGUAGE plpgsql AS $$
+DECLARE deadline timestamptz := clock_timestamp() + interval '5 seconds';
+BEGIN
+  LOOP
+    PERFORM pg_stat_clear_snapshot();
+    IF EXISTS (
+      SELECT 1 FROM pg_locks AS lock
+      JOIN pg_stat_activity AS activity ON activity.pid = lock.pid
+      WHERE activity.application_name='t3_atomic_contender'
+        AND lock.locktype='advisory' AND NOT lock.granted
     ) THEN RETURN true; END IF;
     IF clock_timestamp() >= deadline THEN RETURN false; END IF;
     PERFORM pg_sleep(0.01);
@@ -137,6 +156,52 @@ SELECT isnt((SELECT id FROM dblink('atomic_fixture',$query$
 $query$) AS result(id uuid)),
   'b1110000-0000-4000-8000-000000000501'::uuid,
   'the surviving row is the committed winner, not the original row');
+
+-- With no prior rows and different type IDs, a row lock or unique conflict
+-- cannot explain the wait: the RPC's Organization/day advisory lock does.
+SELECT is((SELECT saved FROM dblink('atomic_fixture',$query$
+  SELECT count(*)::integer FROM public.daily_assignments
+  WHERE organization_id='b1110000-0000-4000-8000-000000000101'
+    AND date='2030-04-02'
+$query$) AS result(saved integer)),0,'the second race starts on an empty day');
+SELECT dblink_exec('atomic_winner','BEGIN');
+SELECT dblink_exec('atomic_winner','SET LOCAL ROLE authenticated');
+SELECT dblink_exec('atomic_winner',
+  $$SET LOCAL request.jwt.claim.sub='b1110000-0000-4000-8000-000000000001'$$);
+SELECT dblink_exec('atomic_contender','BEGIN');
+SELECT dblink_exec('atomic_contender','SET LOCAL ROLE authenticated');
+SELECT dblink_exec('atomic_contender',
+  $$SET LOCAL request.jwt.claim.sub='b1110000-0000-4000-8000-000000000001'$$);
+SELECT is((SELECT saved FROM dblink('atomic_winner',$call$
+  SELECT count(*)::integer FROM public.replace_daily_assignment_slots(
+    'b1110000-0000-4000-8000-000000000101','{}'::date[],
+    '[{"date":"2030-04-02","assignment_type_id":"b1110000-0000-4000-8000-000000000401","assignee_id":"b1110000-0000-4000-8000-000000000302"}]'::jsonb
+  )
+$call$) AS result(saved integer)),1,'first empty-day writer saves Staff');
+SELECT dblink_send_query('atomic_contender',$call$
+  SELECT count(*)::integer FROM public.replace_daily_assignment_slots(
+    'b1110000-0000-4000-8000-000000000101','{}'::date[],
+    '[{"date":"2030-04-02","assignment_type_id":"b1110000-0000-4000-8000-000000000402","assignee_id":"b1110000-0000-4000-8000-000000000302"}]'::jsonb
+  )
+$call$);
+SELECT ok(pg_temp.atomic_contender_waits_for_advisory(),
+  'different empty-day slot waits on the Organization/day advisory lock');
+SELECT dblink_exec('atomic_winner','COMMIT');
+SELECT is((SELECT saved FROM dblink_get_result('atomic_contender') AS result(saved integer)),1,
+  'second empty-day writer saves Reserve after winner commits');
+SELECT * FROM dblink_get_result('atomic_contender') AS result(saved integer);
+SELECT dblink_exec('atomic_contender','COMMIT');
+SELECT results_eq($$
+  SELECT assignment_type_id, assignee_id FROM dblink('atomic_fixture',$query$
+    SELECT assignment_type_id, assignee_id FROM public.daily_assignments
+    WHERE organization_id='b1110000-0000-4000-8000-000000000101'
+      AND date='2030-04-02'
+    ORDER BY assignment_type_id
+  $query$) AS result(assignment_type_id uuid, assignee_id text)
+$$,$$ VALUES
+  ('b1110000-0000-4000-8000-000000000401'::uuid,'b1110000-0000-4000-8000-000000000302'::text),
+  ('b1110000-0000-4000-8000-000000000402'::uuid,'b1110000-0000-4000-8000-000000000302'::text)
+$$,'both independently saved empty-day slots persist');
 
 SELECT dblink_exec('atomic_fixture', $cleanup$
   DROP TRIGGER t3_fail_atomic_assignment_insert ON public.daily_assignments;

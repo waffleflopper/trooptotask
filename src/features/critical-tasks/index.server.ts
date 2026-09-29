@@ -1,1 +1,1 @@
-export { createSupabaseCriticalTasksSettingsWritePort } from './server/criticalTasksSettingsWrite';
+export { createSupabaseCriticalTasksSettingsWritePort } from './server/criticalTasksSettingsWrite.server';

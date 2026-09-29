@@ -5,7 +5,6 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { CriticalTasksSettings } from '../criticalTasks.types';
 
 	let { orgId, settings }: { orgId: string; settings: CriticalTasksSettings } = $props();
@@ -14,6 +13,7 @@
 	let savedExpirationMonths = $state(12);
 	let savedWarningDays = $state(60);
 	let saving = $state(false);
+	let saveError = $state('');
 	let lastSettingsKey = $state('');
 	let lastOrgId = $state('');
 	const changed = $derived(
@@ -36,6 +36,7 @@
 		savedExpirationMonths = settings.defaultExpirationMonths;
 		savedWarningDays = settings.expiringSoonWarningDays;
 		saving = false;
+		saveError = '';
 		lastOrgId = orgId;
 		lastSettingsKey = key;
 	});
@@ -44,6 +45,7 @@
 		if (!changed || !valid || saving) return;
 		const requestOrgId = orgId;
 		const submitted = { defaultExpirationMonths, expiringSoonWarningDays };
+		saveError = '';
 		saving = true;
 		try {
 			const response = await fetch(`/org/${requestOrgId}/api/critical-tasks/settings`, {
@@ -56,9 +58,8 @@
 			savedExpirationMonths = submitted.defaultExpirationMonths;
 			savedWarningDays = submitted.expiringSoonWarningDays;
 			await invalidate('app:critical-tasks-data');
-			toastStore.success('Critical Tasks defaults saved');
 		} catch {
-			if (orgId === requestOrgId) toastStore.error('Failed to save Critical Tasks defaults');
+			if (orgId === requestOrgId) saveError = 'Failed to save Critical Tasks defaults';
 		} finally {
 			if (orgId === requestOrgId) saving = false;
 		}
@@ -118,5 +119,8 @@
 	</div>
 	{#if !valid}
 		<p class="text-sm text-destructive">Expiration must be 1–120 months; warning window must be 1–365 days.</p>
+	{/if}
+	{#if saveError}
+		<p class="text-sm text-destructive" role="alert">{saveError}</p>
 	{/if}
 </section>

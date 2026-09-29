@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
+import { installFeedbackControl } from './feedback-control.mjs';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -534,25 +535,7 @@ async function main() {
 		if (!['arm', 'state', 'restore'].includes(action)) throw new Error('Unknown feedback action.');
 		const source =
 			action === 'arm'
-				? `() => {
-				if (window.__mapFeedback) throw new Error('Restore the previous feedback observer first');
-				const entries = [];
-				const seen = new Set();
-				const observer = new MutationObserver(() => {
-					for (const toast of document.querySelectorAll('[data-sonner-toast]')) {
-						const text = toast.innerText.trim();
-						const type = toast.getAttribute('data-type');
-						if (!text || !['success', 'error'].includes(type)) continue;
-						const key = type + ':' + text;
-						if (seen.has(key)) continue;
-						seen.add(key);
-						if (entries.length < 20) entries.push({ type, text });
-					}
-				});
-				observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['data-type'] });
-				window.__mapFeedback = { observer, entries };
-				return { armed: true };
-			}`
+				? `() => (${installFeedbackControl.toString()})(window)`
 				: action === 'state'
 					? '() => ({ armed: !!window.__mapFeedback, entries: window.__mapFeedback?.entries ?? [] })'
 					: '() => { const c = window.__mapFeedback; if (!c) return { restored: false }; c.observer.disconnect(); delete window.__mapFeedback; return { restored: true }; }';

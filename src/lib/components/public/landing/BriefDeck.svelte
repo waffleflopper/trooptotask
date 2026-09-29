@@ -77,7 +77,7 @@
 			</div>
 		</div>
 
-		<ScrollStage length="320vh" onprogress={track} stops={[0, 0.345, 0.595, 0.9]}>
+		<ScrollStage length="320vh" onprogress={track}>
 			<div class="deck__stage">
 				<figure class="deck__figure">
 					<div class="deck__frame">

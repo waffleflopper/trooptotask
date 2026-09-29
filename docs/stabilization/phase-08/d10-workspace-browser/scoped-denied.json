@@ -1,0 +1,23 @@
+[
+  {
+    "body": {
+      "message": "You do not have access to records outside your assigned scope"
+    },
+    "path": "ict-tasks",
+    "status": 403
+  },
+  {
+    "body": {
+      "message": "This action is outside your assigned Group scope"
+    },
+    "path": "critical-tasks/settings",
+    "status": 403
+  },
+  {
+    "body": {
+      "message": "You do not have access to records outside your assigned scope"
+    },
+    "path": "personnel-ict-completions",
+    "status": 403
+  }
+]

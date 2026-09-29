@@ -1,0 +1,178 @@
+VO
+Verification Organization A
+owner
+Navigation
+Home
+Calendar
+Personnel
+Evals
+Training
+ICTLs
+Onboard
+Organization Settings
+ME
+Account
+Signed in
+Skip to main content
+Toggle Sidebar
+Verification Organization A
+Personnel
+Feedback
+SA
+
+PERSONNEL VIEW
+
+SPC Able, Synthetic
+
+Alpha / 68W / Medic
+
+Roster
+Upload PDF
+Add note
+Dashboard
+Follow-ups
+Counselings
+Documents
+Notes
+Archived
+SPC Able, Synthetic
+
+Personnel record
+
+Export records
+
+AVAILABILITY
+
+Present
+
+No active Calendar status for today.
+
+TRAINING
+
+1 due
+
+Verification Targeted Training not completed.
+
+CRITICAL TASKS
+
+33%
+
+1 of 3 applicable ICT tasks ready. 2 tasks need attention.
+
+RATING SCHEME
+
+Not assigned
+
+No active Rating Scheme entry for this Soldier.
+
+LOSS TRACKING
+
+Missing ETS
+
+No ETS date is set on the personnel record.
+
+Leader follow-ups
+0 open
+Show all
+Due date
+Add
+
+No follow-ups have been added for this Soldier yet.
+
+Recent counseling and uploads
+Show all
+Sep 29, 2026
+Upload PDF
+
+No counseling records have been added for this Soldier yet.
+
+Recent documents
+Show all
+Upload
+
+No documents have been uploaded for this Soldier yet.
+
+Service details
+Edit basic info
+
+Rank
+
+SPC
+
+Name
+
+Able, Synthetic
+
+MOS
+
+68W
+
+Duty role
+
+Medic
+
+Group
+
+Alpha
+
+ETS
+
+Not set
+
+PCS / DEROS
+
+Not set
+
+Extended info
+More info
+
+Blood type
+
+Not set
+
+BASD
+
+Not set
+
+Date of rank
+
+Not set
+
+Personal phone
+
+Not set
+
+Personal email
+
+Not set
+
+Address
+
+Not set
+
+Emergency contact
+
+Not set
+
+Emergency phone
+
+Not set
+
+Spouse
+
+Not set
+
+Vehicle
+
+Not set
+
+Leader notes
+Show all
+
+Observation journal
+
+Add note
+
+No leader notes have been added for this Soldier yet.
+
+SPC Able, Synthetic - Personnel

@@ -1,0 +1,23 @@
+[
+  {
+    "body": {
+      "message": "You don't have permission. This requires Critical Tasks can manage permissions. Talk to your organization owner or admin."
+    },
+    "path": "ict-tasks",
+    "status": 403
+  },
+  {
+    "body": {
+      "message": "You don't have permission. This requires Critical Tasks can manage permissions. Talk to your organization owner or admin."
+    },
+    "path": "personnel-ict-completions",
+    "status": 403
+  },
+  {
+    "body": {
+      "message": "You don't have permission. This requires Critical Tasks can manage permissions. Talk to your organization owner or admin."
+    },
+    "path": "critical-tasks/settings",
+    "status": 403
+  }
+]

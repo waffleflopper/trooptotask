@@ -1,0 +1,7 @@
+{
+  "source": "read-only T3 DOM inspection after library reload",
+  "values": {
+    "expiration": "12",
+    "warning": "60"
+  }
+}

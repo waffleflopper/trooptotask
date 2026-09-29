@@ -1,0 +1,72 @@
+VO
+Verification Organization A
+member
+Navigation
+Home
+ICTLs
+ME
+Account
+Signed in
+Skip to main content
+Toggle Sidebar
+Verification Organization A
+Critical Tasks
+SPC Able, Synthetic
+Feedback
+All Statuses
+All Categories
+Print Record
+Input Task
+MOS 68W
+·MEDIC
+·ALPHA
+INDIVIDUAL READINESS
+33%
+1 current
+0 soon
+0 expired
+2 none
+EXPIRING ≤60D
+0
+No tasks inside warning window
+EXPIRED / OVERDUE
+0
+No overdue task records
+LAST VALIDATION
+14 SEP 2026
+by Validator not recorded · 15 days ago
+Applicable Critical Tasks
+
+Current ICTL record for this soldier in one place.
+
+3 TASKS ASSIGNED
+TASK	STATUS	COMPLETED	EXPIRES	METHOD	VALIDATOR	NOTES	ACTION
+
+VERIFY-ICT-ALL
+Verification All-MOS Critical Task
+	Not Recorded	Not recorded	Not recorded	—	—
+No notes
+	Log Completion
+
+VERIFY-ICT-FINAL
+Final workspace verification task
+	Not Recorded	Not recorded	Not recorded	—	—
+No notes
+	Log Completion
+
+VERIFY-ICT-ALPHA
+Verification Alpha Critical Task
+	Current	14 SEP 2026	14 SEP 2027
+in 350d
+	Demonstration	—
+No notes
+	Edit
+Historical Completions
+
+Archived task records retained for audit context. Read-only.
+
+AUDIT ARCHIVE · 0 RECORDS
+TASK	COMPLETED	EXPIRED	METHOD	VALIDATOR	NOTES
+No archived task completions recorded.
+ALL DATES IN LOCAL TIME · EDITS AUDITED
+RECORD REFLECTS LATEST WORKSPACE SYNC

@@ -18,6 +18,8 @@ For activation or each next-task invocation, read [workflow #1275](https://githu
 
 Preserve verification guards, scan paths and budgets: no allowlists, skipped tests, weakened assertions or hidden failures. Use the maintained DevTools control toolkit for scoped live proof; do not restore the retired repository browser-spec suite or a runtime bypass. [Bounded tracker writes](issue-tracker.md) are authorized by explicit phase activation; Git publication/merge, production/remote actions, live data and deployment remain separately protected. Safe fetch/local branching is allowed; never force-reset, force-push, silently stash or discard work. Root data protections and the canonical isolated database contract remain unchanged.
 
+For live stabilization proof, use the repository's `npm run verify:app` environment, native browser controls and documented verify-trooptotask helpers. Use an integrated browser only when Robert explicitly requests it. This default follows [AGENTS.md](../../AGENTS.md) across communication apps and harnesses; browser availability or failure is not permission to switch.
+
 ## Bounded parallel work
 
 Use at most two dependency-ready workers with fixed outcomes, exclusive files, separate worktrees and separate owned `--worker 1|2` services. Different feature files can have different owners. The coordinator owns shared controls/fixtures, module manifests, contracts, TODO/EVIDENCE and central request wiring; integrate shared changes before dependent workers consume them. Freeze shared executable inputs during proof and check actual runner and mutable-service capacity. Integrate one PR at a time and reverify affected behavior after base changes. A worker cannot independently expand scope, publish, merge or activate a phase.

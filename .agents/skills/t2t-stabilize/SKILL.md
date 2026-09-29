@@ -17,6 +17,8 @@ A closed issue, checked task, green CI badge or recorded PR number cannot establ
 
 ## Establish the affected baseline
 
+Use the repository-owned `verify:app` environment, native browser controls and documented verify-trooptotask helpers for stabilization proof, regardless of the communication app or harness. Use an integrated browser only at Robert's explicit request, as required by [AGENTS.md](../../../AGENTS.md). Browser availability or failure does not change that default.
+
 Read the authoritative [feature-map index](../verify-trooptotask/features/README.md) and relevant feature files before the affected cutover. Derive expected behavior from approved product rules and issue acceptance, then inspect current recipes and any existing lower-level checks for the behavior they actually cover. Extend or correct missing recipes, fixture roles and small reusable controls as necessary. This is worker work within the selected issue, not a separate assignment for Robert or a requirement to encode every behavior as a browser test.
 
 Use verify-trooptotask to drive the affected features and dependencies on the unchanged application. Combine compatible setup and scenarios while covering relevant entry points, denied access, failure, persistence and scope changes. Source inspection is not live verification; direct authenticated API or SQL checks are separate security/provider proof, not UI interaction. Keep baseline and final observations distinct, with the tested code version, environment, role, actions, expected/observed results and durable sanitized artifacts. Reuse applicable completed evidence only when it still covers the unchanged behavior and candidate; explain its applicability.

@@ -85,6 +85,7 @@
 			"roots": ["src/features/critical-tasks/"],
 			"files": [
 				"src/lib/components/ui/requirement-status-badge/critical-task-status-badge.svelte",
+				"src/lib/server/adapters/criticalTasksReadModel.test.ts",
 				"src/lib/server/adapters/criticalTasksReadModel.ts",
 				"src/lib/server/adapters/inMemoryCriticalTasksReadModel.ts",
 				"src/lib/server/core/useCases/criticalTasksHistoryQuery.test.ts",

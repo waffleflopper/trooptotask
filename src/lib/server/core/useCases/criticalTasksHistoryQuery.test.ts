@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery';
 
@@ -124,5 +126,96 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 		await expect(fetchCriticalTasksPersonnelHistory(ctx, 'p-outside')).rejects.toMatchObject({
 			status: 404
 		});
+	});
+});
+
+describe('paged Personnel Critical Tasks history', () => {
+	it('retains distinct same-date captures when the provider reorders ties between pages', async () => {
+		const ctx = createTestContext({ auth: { orgId: '70000000-0000-4000-8000-000000000001' } });
+		const personId = '40000000-0000-4000-8000-000000000001';
+		const completionId = (index: number) => `50000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
+		const taskId = (index: number) => `60000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
+		ctx.store.seed('personnel', [
+			{
+				id: personId,
+				organization_id: ctx.auth.orgId,
+				first_name: 'Synthetic',
+				last_name: 'History',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed(
+			'ict_tasks',
+			Array.from({ length: 1003 }, (_, index) => ({
+				id: taskId(index),
+				organization_id: ctx.auth.orgId,
+				task_code: `RETAINED-${index}`,
+				title: `Retained task ${index}`,
+				mos: [],
+				archived_at: '2026-03-16T12:00:00Z'
+			}))
+		);
+		const capture = (index: number, completedAt: string, notes: string) => ({
+			id: completionId(index),
+			organization_id: ctx.auth.orgId,
+			personnel_id: personId,
+			ict_task_id: taskId(index),
+			completed_at: completedAt,
+			created_at: `${completedAt}T12:00:00Z`,
+			validation_method: 'Demonstration',
+			validated_by: null,
+			notes,
+			logged_by: null
+		});
+		const captures: Record<string, string | null>[] = [
+			...Array.from({ length: 1000 }, (_, index) => capture(index, '2026-03-15', 'Repeated practice')),
+			capture(1000, '2026-03-15', 'First distinct capture'),
+			capture(1001, '2026-03-15', 'Second distinct capture'),
+			capture(1002, '2026-01-01', 'Older validation')
+		];
+		const client = createClient('https://provider.invalid', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					const offset = Number(url.searchParams.get('offset') ?? 0);
+					// SQL may return equal sort keys in a different order for each request.
+					// Apply the requested order after changing only that incidental input order.
+					const rows = offset === 0 ? [...captures] : [...captures].reverse();
+					const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
+					rows.sort((left, right) => {
+						for (const term of order) {
+							const [column, direction] = term.split('.');
+							const comparison = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+							if (comparison) return direction === 'desc' ? -comparison : comparison;
+						}
+						return 0;
+					});
+					return Response.json(rows.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000)));
+				}
+			}
+		});
+		const provider = createSupabaseDataStore(client);
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
+		);
+
+		const result = await fetchCriticalTasksPersonnelHistory(ctx, personId);
+		expect(new Set(result.rows.map(({ completion }) => completion.id)).size).toBe(1003);
+		expect(
+			result.rows
+				.filter(({ completion }) => completion.notes !== 'Repeated practice')
+				.map(({ completion, taskArchivedAt }) => [
+					completion.id,
+					completion.completedAt,
+					completion.notes,
+					taskArchivedAt
+				])
+		).toEqual([
+			['50000000-0000-4000-8000-000000001000', '2026-03-15', 'First distinct capture', '2026-03-16T12:00:00Z'],
+			['50000000-0000-4000-8000-000000001001', '2026-03-15', 'Second distinct capture', '2026-03-16T12:00:00Z'],
+			['50000000-0000-4000-8000-000000001002', '2026-01-01', 'Older validation', '2026-03-16T12:00:00Z']
+		]);
 	});
 });

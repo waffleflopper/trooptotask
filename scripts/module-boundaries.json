@@ -661,6 +661,7 @@
 		"web-ui": [
 			"src/lib/components/BannerStack.svelte",
 			"src/lib/components/BrandMark.svelte",
+			"src/lib/stores/toast.svelte.ts",
 			"src/lib/utils/browserStorage.ts",
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts"

@@ -28,7 +28,11 @@ function event() {
 		parent: vi.fn(async () => ({
 			onboarding: {
 				data: Promise.resolve({
-					data: { onboardingTemplates: templates, onboardingTemplateSteps: steps, trainingTypes: [] }
+					data: {
+						onboardingTemplates: templates,
+						onboardingTemplateSteps: steps,
+						trainingTypes: [{ id: 'training-a', name: 'CPR' }]
+					}
 				})
 			}
 		}))
@@ -78,7 +82,7 @@ describe('Onboarding templates page admission', () => {
 			await expect(load(request as never)).resolves.toMatchObject({
 				templates: [{ id: 'template-a', name: 'A configuration' }],
 				templateSteps: [{ id: 'step-a', templateId: 'template-a' }],
-				trainingTypes: []
+				trainingTypes: [{ id: 'training-a', name: 'CPR' }]
 			});
 		}
 	);

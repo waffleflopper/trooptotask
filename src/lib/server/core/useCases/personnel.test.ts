@@ -4,6 +4,11 @@ import { createPersonnelUseCases } from './personnel';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	const ctx = createWritePortsContext(overrides);
+	ctx.store.seed('groups', [
+		{ id: 'group-a', organization_id: ctx.auth.orgId, name: 'Alpha' },
+		{ id: 'group-b', organization_id: ctx.auth.orgId, name: 'Bravo' },
+		{ id: 'foreign-group', organization_id: 'foreign-org', name: 'Foreign' }
+	]);
 	seedRankCatalog(ctx, [
 		{ code: 'SPC', label: 'Specialist', pay_grade: 'E-4' },
 		{ code: 'PFC', label: 'Private First Class', pay_grade: 'E-3' },
@@ -21,6 +26,88 @@ const validInput = {
 	clinicRole: 'Team Leader',
 	groupId: null
 };
+
+describe('Personnel Group organization integrity', () => {
+	it.each(['foreign-group', 'missing-group'])('rejects create referencing %s without side effects', async (groupId) => {
+		const ctx = buildContext();
+		await expect(createPersonnelUseCases().create(ctx, { ...validInput, groupId })).rejects.toMatchObject({
+			status: 404
+		});
+		expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toEqual([]);
+		expect(await ctx.store.findMany('personnel', 'foreign-org')).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it.each(['foreign-group', 'missing-group'])(
+		'rejects an explicit update to %s before changing any fields',
+		async (groupId) => {
+			const ctx = buildContext();
+			const original = {
+				id: 'person-1',
+				organization_id: ctx.auth.orgId,
+				rank: 'SGT',
+				last_name: 'Smith',
+				first_name: 'John',
+				group_id: 'group-a',
+				slug: 'smith-john',
+				ets: '2027-05-01',
+				deros: '2027-06-01',
+				clinic_role: 'Team Leader'
+			};
+			ctx.store.seed('personnel', [original]);
+			await expect(
+				createPersonnelUseCases().update(ctx, {
+					id: original.id,
+					groupId,
+					lastName: 'Changed',
+					clinicRole: 'Changed',
+					ets: null
+				})
+			).rejects.toMatchObject({ status: 404 });
+			expect(await ctx.store.findMany('personnel', ctx.auth.orgId)).toEqual([original]);
+			expect(ctx.audit.events).toEqual([]);
+		}
+	);
+
+	it('reassigns between same-Organization Groups and unassigns while retaining the Person identity and dates', async () => {
+		const ctx = buildContext();
+		const operations = createPersonnelUseCases();
+		const created = (await operations.create(ctx, { ...validInput, groupId: 'group-a', ets: '2027-05-01' })) as {
+			id: string;
+		};
+		await operations.update(ctx, { id: created.id, groupId: 'group-b' });
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: created.id })).toMatchObject({
+			id: created.id,
+			group_id: 'group-b',
+			slug: 'smith-john',
+			ets: '2027-05-01'
+		});
+		await operations.update(ctx, { id: created.id, groupId: null });
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: created.id })).toMatchObject({
+			id: created.id,
+			group_id: null,
+			slug: 'smith-john',
+			ets: '2027-05-01'
+		});
+	});
+
+	it('leaves a historical foreign reference unchanged when an update omits Group, but rejects explicitly resubmitting it', async () => {
+		const ctx = buildContext();
+		ctx.store.seed('personnel', [
+			{ id: 'legacy-person', organization_id: ctx.auth.orgId, group_id: 'foreign-group', rank: 'SGT' }
+		]);
+		const operations = createPersonnelUseCases();
+		await operations.update(ctx, { id: 'legacy-person', clinicRole: 'Reviewed role' });
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'legacy-person' })).toMatchObject({
+			id: 'legacy-person',
+			group_id: 'foreign-group',
+			clinic_role: 'Reviewed role'
+		});
+		await expect(operations.update(ctx, { id: 'legacy-person', groupId: 'foreign-group' })).rejects.toMatchObject({
+			status: 404
+		});
+	});
+});
 
 function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Record<string, unknown>>) {
 	ctx.store.seed(

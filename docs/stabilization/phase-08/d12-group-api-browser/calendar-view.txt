@@ -1,0 +1,201 @@
+uid=48_0 RootWebArea "Verification Organization A - Troop to Task" url="http://127.0.0.1:45565/org/39c510c0-7b66-4993-9800-9e4af0c1352b/calendar"
+  uid=50_0 button "Switch organization" expandable haspopup="menu"
+  uid=50_1 StaticText "Navigation"
+  uid=50_2 link "Home" url="http://127.0.0.1:45565/org/39c510c0-7b66-4993-9800-9e4af0c1352b"
+    uid=50_3 StaticText "Home"
+  uid=50_4 link "Calendar" url="http://127.0.0.1:45565/org/39c510c0-7b66-4993-9800-9e4af0c1352b/calendar"
+    uid=50_5 StaticText "Calendar"
+  uid=50_6 link "Personnel" url="http://127.0.0.1:45565/org/39c510c0-7b66-4993-9800-9e4af0c1352b/personnel"
+    uid=50_7 StaticText "Personnel"
+  uid=50_8 button "Account menu" expandable haspopup="menu"
+  uid=50_9 button "Toggle Sidebar" description="Toggle Sidebar"
+  uid=50_10 main
+    uid=50_11 link "Skip to main content" url="http://127.0.0.1:45565/org/39c510c0-7b66-4993-9800-9e4af0c1352b/calendar#main-content"
+      uid=50_12 StaticText "Skip to main content"
+    uid=50_13 button "Toggle Sidebar"
+    uid=50_14 navigation "Current section"
+      uid=50_15 link "Verification Organization A" url="http://127.0.0.1:45565/org/39c510c0-7b66-4993-9800-9e4af0c1352b"
+        uid=50_16 StaticText "Verification Organization A"
+      uid=50_17 StaticText "Calendar"
+    uid=50_18 button "Send feedback"
+    uid=50_19 button "Notifications" expandable haspopup="menu"
+    uid=50_20 button "Toggle theme"
+    uid=50_21 main
+      uid=50_22 main
+        uid=50_23 button "Calendar group filter" expandable haspopup="listbox"
+        uid=50_24 searchbox "Search by name, rank, MOS, role, or group"
+        uid=50_25 link "Reports" url="http://127.0.0.1:45565/org/39c510c0-7b66-4993-9800-9e4af0c1352b/calendar/reports"
+          uid=50_26 StaticText "Reports"
+        uid=50_27 button "More Calendar actions" expandable haspopup="menu"
+        uid=50_28 button "Prev"
+        uid=50_29 button "September 2026" expandable haspopup="dialog"
+        uid=50_30 button "Next"
+        uid=50_31 button "3-Month" description="Switch to 3-month view"
+        uid=50_32 button "Today"
+        uid=50_33 StaticText "PERSONNEL"
+        uid=50_34 button "TUE 1" description="Click to set daily assignments"
+        uid=50_35 button "WED 2" description="Click to set daily assignments"
+        uid=50_36 button "THU 3" description="Click to set daily assignments"
+        uid=50_37 button "FRI 4" description="Click to set daily assignments"
+        uid=50_38 button "SAT 5" description="Click to set daily assignments"
+        uid=50_39 button "SUN 6" description="Click to set daily assignments"
+        uid=50_40 button "MON 7" description="Click to set daily assignments"
+        uid=50_41 button "TUE 8" description="Click to set daily assignments"
+        uid=50_42 button "WED 9" description="Click to set daily assignments"
+        uid=50_43 button "THU 10" description="Click to set daily assignments"
+        uid=50_44 button "FRI 11" description="Click to set daily assignments"
+        uid=50_45 button "SAT 12" description="Click to set daily assignments"
+        uid=50_46 button "SUN 13" description="Click to set daily assignments"
+        uid=50_47 button "MON 14" description="Click to set daily assignments"
+        uid=50_48 button "TUE 15 SPC ABLE" description="Verification Unit Closure"
+        uid=50_49 button "WED 16" description="Click to set daily assignments"
+        uid=50_50 button "THU 17" description="Click to set daily assignments"
+        uid=50_51 button "FRI 18" description="Verification Custom Holiday"
+        uid=50_52 button "SAT 19" description="Click to set daily assignments"
+        uid=50_53 button "SUN 20" description="Click to set daily assignments"
+        uid=50_54 button "MON 21" description="Click to set daily assignments"
+        uid=50_55 button "TUE 22" description="Click to set daily assignments"
+        uid=50_56 button "WED 23" description="Click to set daily assignments"
+        uid=50_57 button "THU 24" description="Click to set daily assignments"
+        uid=50_58 button "FRI 25" description="Click to set daily assignments"
+        uid=50_59 button "SAT 26" description="Click to set daily assignments"
+        uid=50_60 button "SUN 27" description="Click to set daily assignments"
+        uid=50_61 button "MON 28" description="Click to set daily assignments"
+        uid=50_62 button "TUE 29" description="Click to set daily assignments"
+        uid=50_63 button "WED 30" description="Click to set daily assignments"
+        uid=50_64 button "▼ ALPHA"
+        uid=50_65 button "PIN" description="Pin group to top"
+        uid=50_66 button "SPC Able, Synthetic"
+        uid=50_67 button
+        uid=50_68 button
+        uid=50_69 button
+        uid=50_70 button
+        uid=50_71 button
+        uid=50_72 button
+        uid=50_73 button
+        uid=50_74 button
+        uid=50_75 button
+        uid=50_76 button
+        uid=50_77 button
+        uid=50_78 button
+        uid=50_79 button
+        uid=50_80 button "VERIFICATION LEAVE" description="Verification Leave - Alpha seeded leave"
+        uid=50_81 button "VERIFICATION LEAVE VSD VAD" description="Verification Unit Closure Verification Staff Duty Verification Archived Duty Verification Leave - Alpha seeded leave"
+        uid=50_82 button "VERIFICATION LEAVE" description="Verification Leave - Alpha seeded leave"
+        uid=50_83 button
+        uid=50_84 button "Verification Custom Holiday"
+        uid=50_85 button
+        uid=50_86 button
+        uid=50_87 button
+        uid=50_88 button
+        uid=50_89 button
+        uid=50_90 button
+        uid=50_91 button
+        uid=50_92 button
+        uid=50_93 button
+        uid=50_94 button
+        uid=50_95 button
+        uid=50_96 button
+        uid=50_97 button "▼ BRAVO"
+        uid=50_98 button "PIN" description="Pin group to top"
+        uid=50_99 button "SPC Baker, Synthetic"
+        uid=50_100 button
+        uid=50_101 button
+        uid=50_102 button
+        uid=50_103 button
+        uid=50_104 button
+        uid=50_105 button
+        uid=50_106 button
+        uid=50_107 button
+        uid=50_108 button
+        uid=50_109 button
+        uid=50_110 button
+        uid=50_111 button
+        uid=50_112 button
+        uid=50_113 button
+        uid=50_114 button "VERIFICATION TRAINING VRD" description="Verification Unit Closure Verification Retiring Duty Verification Training - Bravo seeded training"
+        uid=50_115 button
+        uid=50_116 button
+        uid=50_117 button "Verification Custom Holiday"
+        uid=50_118 button
+        uid=50_119 button
+        uid=50_120 button
+        uid=50_121 button
+        uid=50_122 button
+        uid=50_123 button
+        uid=50_124 button
+        uid=50_125 button
+        uid=50_126 button
+        uid=50_127 button "VERIFICATION TRAINING" description="Verification Training - Current training spans selected removal date"
+        uid=50_128 button "VERIFICATION TRAINING" description="Verification Training - Current training spans selected removal date"
+        uid=50_129 button "VERIFICATION TRAINING" description="Verification Training - Current training spans selected removal date"
+        uid=50_130 button "▼ UNASSIGNED"
+        uid=50_131 button "PIN" description="Pin group to top"
+        uid=50_132 button "SPC MapGuard, Synthetic"
+        uid=50_133 button
+        uid=50_134 button
+        uid=50_135 button
+        uid=50_136 button
+        uid=50_137 button
+        uid=50_138 button
+        uid=50_139 button
+        uid=50_140 button
+        uid=50_141 button
+        uid=50_142 button
+        uid=50_143 button
+        uid=50_144 button
+        uid=50_145 button
+        uid=50_146 button
+        uid=50_147 button "Verification Unit Closure"
+        uid=50_148 button
+        uid=50_149 button
+        uid=50_150 button "Verification Custom Holiday"
+        uid=50_151 button
+        uid=50_152 button
+        uid=50_153 button
+        uid=50_154 button
+        uid=50_155 button
+        uid=50_156 button
+        uid=50_157 button
+        uid=50_158 button
+        uid=50_159 button
+        uid=50_160 button
+        uid=50_161 button
+        uid=50_162 button
+        uid=50_163 button "SPC Unassigned, Synthetic"
+        uid=50_164 button
+        uid=50_165 button
+        uid=50_166 button
+        uid=50_167 button
+        uid=50_168 button
+        uid=50_169 button
+        uid=50_170 button
+        uid=50_171 button
+        uid=50_172 button
+        uid=50_173 button
+        uid=50_174 button
+        uid=50_175 button
+        uid=50_176 button
+        uid=50_177 button
+        uid=50_178 button "VERIFICATION LEAVE" description="Verification Unit Closure Verification Leave - Unassigned seeded leave"
+        uid=50_179 button
+        uid=50_180 button
+        uid=50_181 button "Verification Custom Holiday"
+        uid=50_182 button
+        uid=50_183 button
+        uid=50_184 button
+        uid=50_185 button
+        uid=50_186 button
+        uid=50_187 button
+        uid=50_188 button
+        uid=50_189 button
+        uid=50_190 button
+        uid=50_191 button
+        uid=50_192 button
+        uid=50_193 button
+        uid=50_194 StaticText "Verification Leave"
+        uid=50_195 StaticText "Verification Training"
+        uid=50_196 StaticText "Verification Retiring Status"
+  uid=48_48 region "Notifications alt+T" live="polite" relevant="additions text"
+  uid=48_49 generic atomic live="assertive" relevant="additions text"
+    uid=50_197 StaticText "Verification Organization A - Troop to Task"

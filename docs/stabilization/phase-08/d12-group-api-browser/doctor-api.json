@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "candidate": "f7bd1de05a122d15ca4b137747c56d0bf5a6637b3c21dd5b64d02caf35712550",
+  "origin": "http://127.0.0.1:45565",
+  "browser": {
+    "executable": "/usr/bin/chromium",
+    "version": "Chromium 152.0.7977.82 Arch Linux",
+    "provisioned": false
+  },
+  "revision": "9a46b3a8176146817430142761497eb1f41c9d5a",
+  "session": "980c0c41-c831-49f8-b822-81db291bce5c"
+}

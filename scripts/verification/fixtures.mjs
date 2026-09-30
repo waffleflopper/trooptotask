@@ -177,6 +177,13 @@ export async function seed(session) {
 		onboardingView: { organization: 'orgA', onboarding: 'view', scope: 'organization' },
 		onboardingScoped: { organization: 'orgA', onboarding: 'configure', scope: 'groups', groups: [ids.groupA] },
 		onboardingEmpty: { organization: 'orgA', onboarding: 'configure', scope: 'groups', groups: [] },
+		onboardingPersonnelScoped: {
+			organization: 'orgA',
+			onboarding: 'configure',
+			personnel: 'configure',
+			scope: 'groups',
+			groups: [ids.groupA]
+		},
 		onboardingForeign: { organization: 'orgB', onboarding: 'configure', scope: 'organization' },
 		onboardingSwitch: { organization: 'orgA', onboarding: 'configure', scope: 'organization' }
 	};
@@ -307,12 +314,13 @@ export async function seed(session) {
 				member_preset: 'viewer',
 				capability_overrides: {
 					personnel:
-						criticalTasks || onboarding || notification
+						onboarding?.personnel ??
+						(criticalTasks || onboarding || notification
 							? 'none'
 							: (personnel?.personnel ??
 								calendar?.personnel ??
 								training?.personnel ??
-								(role === 'manager' ? 'configure' : 'view')),
+								(role === 'manager' ? 'configure' : 'view'))),
 					calendar: calendar?.calendar ?? 'none',
 					training: training?.training ?? 'none',
 					criticalTasks: criticalTasks?.criticalTasks ?? 'none',

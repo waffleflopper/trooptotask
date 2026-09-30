@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groupCatalogHydration, groupsStore } from '$features/personnel';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import type { Personnel } from '../personnel.types';
-import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
+import { toastStore } from '$lib/stores/toast.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
 
@@ -14,6 +16,7 @@ afterEach(async () => {
 	cleanup();
 	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 });
 
 describe('Group mutation denial through Personnel modal consumers', () => {
@@ -84,4 +87,84 @@ describe('Group mutation denial through Personnel modal consumers', () => {
 			});
 		}
 	);
+});
+
+describe('scoped Personnel creation', () => {
+	it('requires an explicit permitted Group and retains the draft through a failed save', async () => {
+		groupCatalogHydration.load(
+			[
+				{ id: 'alpha', name: 'Alpha', sortOrder: 0 },
+				{ id: 'bravo', name: 'Bravo', sortOrder: 1 }
+			],
+			'org-a'
+		);
+		personnelStore.load([], 'org-a');
+		const modals = new ModalRegistry();
+		const ctx = new PersonnelPageContext(
+			{
+				orgId: 'org-a',
+				orgName: 'A',
+				pinnedGroups: [],
+				rankCatalog: [
+					{
+						code: 'SPC',
+						label: 'Specialist',
+						service: 'army',
+						category: 'enlisted',
+						payGrade: 'E-4',
+						state: 'active',
+						sortOrder: 0
+					}
+				]
+			},
+			modals,
+			createTestOrgContext({
+				orgId: 'org-a',
+				userRole: 'member',
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, personnel: 'configure' },
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			})
+		);
+		let fail = true;
+		const requests: unknown[] = [];
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async (_url, init) => {
+				const draft = JSON.parse(init.body);
+				requests.push(draft);
+				return fail
+					? Response.json({ message: 'Unavailable' }, { status: 503 })
+					: Response.json({ ...draft, id: 'saved-alpha' });
+			})
+		);
+		vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
+		modals.open('personnel-modal', { person: null });
+		render(PersonnelModals, { props: { ctx, modals } });
+		await fireEvent.input(screen.getByLabelText('Last Name'), { target: { value: 'Scoped' } });
+		await fireEvent.input(screen.getByLabelText('First Name'), { target: { value: 'Synthetic' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		expect(requests).toEqual([]);
+		expect(screen.getByRole('button', { name: 'Group' }).getAttribute('aria-invalid')).toBe('true');
+		await fireEvent.click(screen.getByRole('button', { name: 'Group' }));
+		expect(screen.queryByRole('option', { name: 'Bravo' })).toBeNull();
+		expect(screen.queryByRole('option', { name: 'No Group Assigned' })).toBeNull();
+		await fireEvent.click(await screen.findByRole('option', { name: 'Alpha' }));
+		expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		await waitFor(() => expect(toastStore.error).toHaveBeenCalled());
+		expect(personnelStore.items).toEqual([]);
+		expect(modals.isOpen('personnel-modal')).toBe(true);
+		expect((screen.getByLabelText('Last Name') as HTMLInputElement).value).toBe('Scoped');
+		expect(screen.getByRole('button', { name: 'Group' }).textContent).toContain('Alpha');
+		fail = false;
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		await waitFor(() => expect(modals.isOpen('personnel-modal')).toBe(false));
+		expect(requests).toEqual([
+			expect.objectContaining({ groupId: 'alpha' }),
+			expect.objectContaining({ groupId: 'alpha' })
+		]);
+		expect(personnelStore.items).toEqual([
+			expect.objectContaining({ id: 'saved-alpha', groupId: 'alpha', lastName: 'Scoped' })
+		]);
+	});
 });

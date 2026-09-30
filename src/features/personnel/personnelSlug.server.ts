@@ -1,4 +1,11 @@
-import type { DataStore } from '$lib/server/core/ports';
+export interface PersonnelSlugReadStore {
+	findMany<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: { select?: string; ilikeFilters?: Record<string, string> }
+	): Promise<T[]>;
+}
 
 interface PersonnelSlugInput {
 	lastName: string;
@@ -6,9 +13,10 @@ interface PersonnelSlugInput {
 }
 
 interface UniquePersonnelSlugInput extends PersonnelSlugInput {
-	store: DataStore;
+	store: PersonnelSlugReadStore;
 	orgId: string;
 	excludePersonnelId?: string;
+	rejectedSlugs?: ReadonlySet<string>;
 }
 
 function toSlugPart(value: string): string {
@@ -48,6 +56,9 @@ export async function buildUniquePersonnelSlug(input: UniquePersonnelSlugInput):
 			.map((row) => row.slug)
 			.filter((slug): slug is string => typeof slug === 'string' && slug.length > 0)
 	);
+	// A unique-constraint rejection reserves a candidate even when request-user
+	// reads cannot see the Person that owns it in another Group.
+	for (const slug of input.rejectedSlugs ?? []) used.add(slug);
 
 	return buildAvailablePersonnelSlug(base, used);
 }

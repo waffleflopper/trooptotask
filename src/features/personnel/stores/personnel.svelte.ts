@@ -85,3 +85,8 @@ export const personnelRosterHydration = {
 		personnelStore.startLoading();
 	}
 };
+
+/** Create through the Personnel adapter while retaining the shared roster backing. */
+export async function createPersonnel(data: Omit<Personnel, 'id'>): Promise<Personnel | null> {
+	return personnelStore.add(data);
+}

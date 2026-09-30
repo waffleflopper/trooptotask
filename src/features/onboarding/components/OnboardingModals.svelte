@@ -31,7 +31,8 @@
 		personnel={ctx.personnel}
 		canAddPerson={ctx.canAddPerson}
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
-		groups={ctx.groups}
+		groups={ctx.personnelCreationGroups}
+		allowUnassigned={ctx.allowUnassignedPersonnel}
 		{rankCatalog}
 		{rankCatalogUnavailable}
 		templates={ctx.templates}

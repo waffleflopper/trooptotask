@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { PersonnelEntity } from './personnelEntity.server';
 import type { PersonnelRosterActor, PersonnelTrainingRosterPort } from './contracts';
 import { queryScopedPersonnelRows } from './scopedRosterQuery.server';
 

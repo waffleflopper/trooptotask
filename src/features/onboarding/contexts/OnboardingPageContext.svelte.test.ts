@@ -40,6 +40,7 @@ import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-suppor
 afterEach(() => {
 	personnelRosterHydration.load([], 'org-test-reset');
 	startOnboardingMock.mockReset();
+	vi.unstubAllGlobals();
 });
 
 // ── Fixtures ──────────────────────────────────────────────────
@@ -91,6 +92,33 @@ function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 	});
 }
 
+describe('Onboarding Personnel creation result', () => {
+	it('rejects an unconfirmed old-Organization create without adding it to the new roster', async () => {
+		personnelRosterHydration.load([], 'org-a');
+		let finishRequest!: (response: Response) => void;
+		const response = new Promise<Response>((resolve) => {
+			finishRequest = resolve;
+		});
+		vi.stubGlobal('fetch', () => response);
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, createTestOrgContext({ orgId: 'org-a' }));
+		const data = {
+			rank: 'SPC',
+			lastName: 'Synthetic',
+			firstName: 'OldOrg',
+			mos: '',
+			clinicRole: '',
+			groupId: null,
+			groupName: ''
+		};
+		const pending = ctx.handleAddPerson(data);
+		personnelRosterHydration.load([], 'org-b');
+		finishRequest(Response.json({ ...data, id: 'created-in-a' }, { status: 201 }));
+		await expect(pending).rejects.toThrow();
+		expect(personnelRosterHydration.orgId).toBe('org-b');
+		expect(personnelRosterHydration.items).toEqual([]);
+	});
+});
+
 describe('OnboardingPageContext policy affordances', () => {
 	it('allows an Onboarding-only operator to start workflows without offering Personnel creation', () => {
 		const onboardingOnly = new OnboardingPageContext(
@@ -110,6 +138,18 @@ describe('OnboardingPageContext policy affordances', () => {
 			})
 		);
 		expect(personnelAdmin.canAddPerson).toBe(true);
+	});
+
+	it('offers the shared creation form to an Alpha Personnel configurator', () => {
+		const ctx = new OnboardingPageContext(
+			{ open: vi.fn() } as never,
+			createTestOrgContext({
+				userRole: 'member',
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure', personnel: 'configure' },
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			})
+		);
+		expect(ctx.canAddPerson).toBe(true);
 	});
 
 	it('uses advisory Onboarding policy decisions instead of legacy permission flags', () => {

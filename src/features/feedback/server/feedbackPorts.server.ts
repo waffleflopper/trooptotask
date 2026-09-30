@@ -3,6 +3,7 @@ import type {
 	FeedbackItem,
 	FeedbackSubmissionInput,
 	FeedbackSubmitResult,
+	FeedbackStatus,
 	FeedbackUpdateInput,
 	FeedbackUpdateResult
 } from '../contracts';
@@ -71,3 +72,22 @@ export interface FeedbackSubmissionDependencies {
 export interface FeedbackSubmission {
 	submit(input: FeedbackSubmissionInput): Promise<FeedbackSubmitResult>;
 }
+
+/** Exact saved values retained by Organization JSON and workbook exports. */
+export type FeedbackExportRow = {
+	id: string;
+	user_id: string;
+	user_email: string;
+	organization_id: string | null;
+	organization_name: string | null;
+	category: FeedbackCategory;
+	message: string;
+	page_url: string | null;
+	status: FeedbackStatus;
+	admin_notes: string | null;
+	created_at: string;
+	updated_at: string;
+	github_issue_number: number | null;
+	github_issue_url: string | null;
+	page_section: string | null;
+};

@@ -8,6 +8,7 @@ export {
 } from './server/feedbackProvider.server';
 export { createGitHubFeedbackMirror } from './server/githubFeedbackMirror.server';
 export type {
+	FeedbackExportRow,
 	FeedbackMirror,
 	FeedbackMirrorInput,
 	FeedbackMirrorResult,

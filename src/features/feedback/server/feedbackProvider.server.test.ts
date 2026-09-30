@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import type { FeedbackExportRow } from '../contracts';
+import type { FeedbackExportRow } from './feedbackPorts.server';
 import {
 	countPendingFeedback,
 	createSupabaseFeedbackReviewStore,

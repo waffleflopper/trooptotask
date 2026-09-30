@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { FeedbackExportRow, FeedbackItem, FeedbackUpdateInput } from '../contracts';
-import type { FeedbackReviewStore, FeedbackSubmissionStore } from './feedbackPorts.server';
+import type { FeedbackItem, FeedbackUpdateInput } from '../contracts';
+import type { FeedbackExportRow, FeedbackReviewStore, FeedbackSubmissionStore } from './feedbackPorts.server';
 
 type FeedbackReviewRow = Pick<
 	FeedbackExportRow,

@@ -11,8 +11,8 @@ const { feedbackMock, createFeedbackMock } = vi.hoisted(() => {
 	};
 });
 
-vi.mock('$lib/server/adapters/supabasePlatformFeedback', () => ({
-	createSupabasePlatformFeedbackForSubmission: createFeedbackMock
+vi.mock('$lib/server/adapters/httpAdapter', () => ({
+	createRequestFeedbackSubmission: createFeedbackMock
 }));
 
 import { POST } from './+server';
@@ -33,15 +33,18 @@ function makeRequest(body: Record<string, unknown> = {}) {
 
 function makeEvent({
 	body,
-	user = { id: USER_ID, email: 'member@example.com' }
+	user = { id: USER_ID, email: 'member@example.com' },
+	actor = user ? { userId: USER_ID } : null
 }: {
 	body?: Record<string, unknown>;
 	user?: { id: string; email?: string } | null;
+	actor?: { userId: string } | null;
 } = {}) {
 	return {
 		request: makeRequest(body),
 		locals: {
-			user
+			user,
+			actor
 		}
 	} as unknown as Parameters<typeof POST>[0];
 }
@@ -62,7 +65,13 @@ describe('POST /api/feedback', () => {
 		expect(createFeedbackMock).not.toHaveBeenCalled();
 	});
 
-	it('delegates authenticated submissions and preserves the public response shape', async () => {
+	it('rejects a provider user without an admitted actor before service construction', async () => {
+		await expect(POST(makeEvent({ actor: null }))).rejects.toMatchObject({ status: 401 });
+		expect(createFeedbackMock).not.toHaveBeenCalled();
+		expect(feedbackMock.submit).not.toHaveBeenCalled();
+	});
+
+	it('binds a forged body to the admitted account and preserves the public response shape', async () => {
 		feedbackMock.submit.mockResolvedValueOnce({
 			status: 'submitted',
 			githubIssue: 'https://github.com/waffleflopper/trooptotask/issues/42'
@@ -75,7 +84,9 @@ describe('POST /api/feedback', () => {
 					message: 'The dashboard is flickering.',
 					pageUrl: `/org/${ORG_ID}/dashboard`,
 					organizationId: ORG_ID,
-					organizationName: 'Spoofed Organization'
+					organizationName: 'Spoofed Organization',
+					userId: 'forged-account',
+					userEmail: 'forged@example.test'
 				}
 			})
 		);

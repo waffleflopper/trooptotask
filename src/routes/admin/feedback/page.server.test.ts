@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
 
-const { feedbackMock, createFeedbackMock } = vi.hoisted(() => {
+const { feedbackMock, createStoreMock } = vi.hoisted(() => {
 	const feedback = {
-		list: vi.fn(),
-		update: vi.fn()
+		listFeedback: vi.fn(),
+		updateFeedback: vi.fn()
 	};
 
 	return {
 		feedbackMock: feedback,
-		createFeedbackMock: vi.fn(() => feedback)
+		createStoreMock: vi.fn(() => feedback)
 	};
 });
 
@@ -20,8 +20,9 @@ vi.mock('$lib/server/adapters/adminAdapter', () => ({
 		config.fn(event.__ctx, event)
 }));
 
-vi.mock('$lib/server/adapters/supabasePlatformFeedback', () => ({
-	createSupabasePlatformFeedback: createFeedbackMock
+vi.mock('$features/feedback/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/feedback/index.server')>()),
+	createSupabaseFeedbackReviewStore: createStoreMock
 }));
 
 import { actions, load } from './+page.server';
@@ -40,7 +41,7 @@ function makeContext() {
 		adminUser: { id: 'admin-1', role: 'support' },
 		adminClient: {
 			from: vi.fn(() => {
-				throw new Error('route must use PlatformFeedback');
+				throw new Error('route must use Feedback owner');
 			})
 		},
 		sessionClient: {},
@@ -52,12 +53,12 @@ function makeContext() {
 describe('admin feedback route shell', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		feedbackMock.list.mockResolvedValue([]);
-		feedbackMock.update.mockResolvedValue({ status: 'updated', id: FEEDBACK_ID });
+		feedbackMock.listFeedback.mockResolvedValue([]);
+		feedbackMock.updateFeedback.mockResolvedValue({ id: FEEDBACK_ID });
 	});
 
-	it('load groups PlatformFeedback items into the existing page shape', async () => {
-		feedbackMock.list.mockResolvedValueOnce([
+	it('groups feedback by saved status in the existing page shape', async () => {
+		feedbackMock.listFeedback.mockResolvedValueOnce([
 			{
 				id: FEEDBACK_ID,
 				userEmail: 'tester@example.com',
@@ -127,11 +128,30 @@ describe('admin feedback route shell', () => {
 			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'ignored' })
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 		expect(invalidStatus).toEqual({ status: 400, data: { error: 'Invalid status' } });
-		expect(feedbackMock.update).not.toHaveBeenCalled();
+		expect(feedbackMock.updateFeedback).not.toHaveBeenCalled();
+	});
+
+	it('saves the chosen review status and clears notes through the owned operation', async () => {
+		const saved = { status: 'reviewed', adminNotes: 'Needs investigation' };
+		feedbackMock.updateFeedback.mockImplementationOnce(
+			async (input: { id: string; status?: string; adminNotes?: string | null }) => {
+				if (input.status !== undefined) saved.status = input.status;
+				if (input.adminNotes !== undefined) saved.adminNotes = input.adminNotes ?? '';
+				return { id: input.id };
+			}
+		);
+
+		const result = await actions.update({
+			__ctx: makeContext(),
+			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'resolved', adminNotes: '' })
+		} as unknown as Parameters<(typeof actions)['update']>[0]);
+
+		expect(result).toEqual({ success: true });
+		expect(saved).toEqual({ status: 'resolved', adminNotes: '' });
 	});
 
 	it('maps missing feedback and store failures to user-facing failure shapes', async () => {
-		feedbackMock.update.mockResolvedValueOnce({ status: 'not_found' });
+		feedbackMock.updateFeedback.mockResolvedValueOnce(null);
 		const missing = await actions.update({
 			__ctx: makeContext(),
 			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'reviewed' })
@@ -139,7 +159,7 @@ describe('admin feedback route shell', () => {
 		expect(missing).toEqual({ status: 404, data: { error: 'Feedback not found' } });
 
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		feedbackMock.update.mockRejectedValueOnce(new Error('update failed'));
+		feedbackMock.updateFeedback.mockRejectedValueOnce(new Error('update failed'));
 		const failure = await actions.update({
 			__ctx: makeContext(),
 			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'reviewed' })

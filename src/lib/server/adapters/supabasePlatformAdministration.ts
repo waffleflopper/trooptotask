@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { countPendingFeedback } from '$features/feedback/index.server';
 import type { AdminContext } from './adminAdapter';
 import {
 	createPlatformAdministration,
@@ -76,13 +77,8 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 			return response.count ?? null;
 		},
 
-		async countPendingFeedback() {
-			const response = await supabase
-				.from('beta_feedback')
-				.select('*', { count: 'exact', head: true })
-				.eq('status', 'new');
-			assertSupabaseSuccess('table beta_feedback new count', response);
-			return response.count ?? null;
+		countPendingFeedback() {
+			return countPendingFeedback(supabase);
 		},
 
 		async listRecentActivity(limit: number): Promise<PlatformAdministrationRecentActivity[]> {

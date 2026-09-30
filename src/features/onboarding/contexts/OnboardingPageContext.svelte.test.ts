@@ -112,6 +112,18 @@ describe('OnboardingPageContext policy affordances', () => {
 		expect(personnelAdmin.canAddPerson).toBe(true);
 	});
 
+	it('offers the shared creation form to an Alpha Personnel configurator', () => {
+		const ctx = new OnboardingPageContext(
+			{ open: vi.fn() } as never,
+			createTestOrgContext({
+				userRole: 'member',
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure', personnel: 'configure' },
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			})
+		);
+		expect(ctx.canAddPerson).toBe(true);
+	});
+
 	it('uses advisory Onboarding policy decisions instead of legacy permission flags', () => {
 		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
 

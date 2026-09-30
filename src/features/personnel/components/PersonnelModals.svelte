@@ -54,7 +54,10 @@
 {#if modals.isOpen('personnel-modal')}
 	<PersonnelModal
 		personnel={editingPerson}
-		groups={groupManagementStore.items}
+		groups={editingPerson
+			? groupManagementStore.items
+			: groupManagementStore.items.filter((group) => ctx.canCreatePersonnelInGroup(group.id))}
+		allowUnassigned={!!editingPerson || ctx.allowUnassignedPersonnel}
 		rankCatalog={ctx.data.rankCatalog ?? []}
 		onSubmit={handleSubmit}
 		onRemove={handleArchive}

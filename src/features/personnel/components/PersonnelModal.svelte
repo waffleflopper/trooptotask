@@ -16,13 +16,22 @@
 	interface Props {
 		personnel?: Personnel | null;
 		groups: Group[];
+		allowUnassigned?: boolean;
 		rankCatalog?: RankCatalogEntry[];
 		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
 		onRemove?: (id: string) => void | Promise<void>;
 		onClose: () => void;
 	}
 
-	let { personnel = null, groups, rankCatalog = [], onSubmit, onRemove, onClose }: Props = $props();
+	let {
+		personnel = null,
+		groups,
+		allowUnassigned = true,
+		rankCatalog = [],
+		onSubmit,
+		onRemove,
+		onClose
+	}: Props = $props();
 
 	const COMMON_NEW_PERSONNEL_RANK = 'SPC';
 
@@ -62,7 +71,9 @@
 	const rankMissing = $derived(rank.trim() === '');
 	const firstNameMissing = $derived(firstName.trim() === '');
 	const lastNameMissing = $derived(lastName.trim() === '');
-	const isValid = $derived(!rankMissing && !firstNameMissing && !lastNameMissing);
+	const groupMissing = $derived(!isEditing && !allowUnassigned && !groups.some((group) => group.id === groupId));
+	const isValid = $derived(!rankMissing && !firstNameMissing && !lastNameMissing && !groupMissing);
+	const groupError = $derived(submitAttempted && groupMissing ? 'Select a permitted Group.' : undefined);
 	const rankError = $derived(submitAttempted && rankMissing ? 'Select a rank.' : undefined);
 	const firstNameError = $derived(submitAttempted && firstNameMissing ? 'Enter a first name.' : undefined);
 	const lastNameError = $derived(submitAttempted && lastNameMissing ? 'Enter a last name.' : undefined);
@@ -71,7 +82,7 @@
 	let isSaving = $state(false);
 
 	const groupOptions = $derived([
-		{ value: '', label: 'No Group Assigned' },
+		...(isEditing || allowUnassigned ? [{ value: '', label: 'No Group Assigned' }] : []),
 		...groups.map((g) => ({ value: g.id, label: g.name }))
 	]);
 
@@ -201,13 +212,21 @@
 				<div class="grid gap-2">
 					<Label for="group">Group</Label>
 					<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
-						<Combobox.Trigger id="group" clearable placeholder="No Group Assigned" aria-label="Group" />
+						<Combobox.Trigger
+							id="group"
+							clearable={isEditing || allowUnassigned}
+							placeholder={isEditing || allowUnassigned ? 'No Group Assigned' : 'Select Group...'}
+							aria-label="Group"
+							aria-invalid={!!groupError}
+							aria-describedby={groupError ? 'group-error' : undefined}
+						/>
 						<Combobox.Content>
-							<Combobox.Search placeholder="No Group Assigned" />
+							<Combobox.Search placeholder="Search Groups..." />
 							<Combobox.Empty>No groups found.</Combobox.Empty>
 							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
+					{#if groupError}<p id="group-error">{groupError}</p>{/if}
 				</div>
 			</form>
 		</AppDialog.Body>

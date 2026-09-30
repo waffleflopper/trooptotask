@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import type { ComponentProps } from 'svelte';
 import TopHeader from './TopHeader.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
+import { tick } from 'svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 const { pageStore } = vi.hoisted(() => {
 	let current = {
@@ -58,6 +60,7 @@ const baseCapabilityMap: CapabilityMap = {
 afterEach(() => {
 	cleanup();
 	vi.clearAllMocks();
+	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
 	pageStore.setPath('/org/org-1/personnel');
@@ -105,6 +108,162 @@ function renderHeader(overrides: Partial<ComponentProps<typeof TopHeader>> = {})
 		}
 	});
 }
+
+function notificationResponse(body: unknown, ok = true): Response {
+	return { ok, json: async () => body } as Response;
+}
+
+function notification(id: string, title: string, link: string | null = null) {
+	return { id, title, message: null, link, read: false, created_at: '2026-09-30T10:00:00Z' };
+}
+
+describe('notification recovery', () => {
+	it('waits for successful list recovery before bulk read so a retry cannot restore unread rows', async () => {
+		let release!: (response: Response) => void;
+		const delayed = new Promise<Response>((resolve) => {
+			release = resolve;
+		});
+		let writes = 0;
+		let reads = 0;
+		vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			if (String(input).includes('notification-count'))
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			if (options?.method === 'PUT') {
+				writes++;
+				return notificationResponse({ success: true });
+			}
+			return ++reads === 1 ? notificationResponse(null, false) : delayed;
+		});
+		renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+		expect((screen.getByRole('button', { name: 'Mark all read' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
+		expect(writes).toBe(0);
+		await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
+		const bulk = await screen.findByRole('button', { name: 'Mark all read' });
+		expect((bulk as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(bulk);
+		expect(writes).toBe(0);
+		release(notificationResponse([notification('own-note', 'Own notification')]));
+		await screen.findByRole('menuitem', { name: /Own notification/ });
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
+		await screen.findByRole('button', { name: 'Notifications' });
+		await fireEvent.click(screen.getByRole('menuitem', { name: /Own notification/ }));
+		expect(writes).toBe(1);
+	});
+
+	it('reports a failed list without a request loop and reloads when the bell is reopened', async () => {
+		vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+		let requests = 0;
+		vi.mocked(fetch).mockImplementation(async (input) => {
+			if (String(input).includes('notification-count'))
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			return notificationResponse([notification('own-note', 'Own notification')], ++requests > 1);
+		});
+		renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+		expect(requests).toBe(1);
+		await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
+		await screen.findByRole('menuitem', { name: /Own notification/ });
+		expect(requests).toBe(2);
+	});
+
+	it('keeps a failed linked read unread without navigating and allows a successful retry', async () => {
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+		let attempts = 0;
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			if (String(input).includes('notification-count')) {
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			}
+			if (options?.method === 'PUT') return notificationResponse({}, ++attempts > 1);
+			return notificationResponse([notification('own-note', 'Own notification', '/org/org-1/settings')]);
+		});
+		renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
+		await waitFor(() => expect(error).toHaveBeenCalled());
+		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
+		expect(goto).not.toHaveBeenCalled();
+		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
+		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
+		expect(attempts).toBe(2);
+		expect(goto).toHaveBeenCalledWith('/org/org-1/settings');
+	});
+
+	it('retains the count after a failed bulk read and permits retry', async () => {
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+		let attempts = 0;
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			if (String(input).includes('notification-count')) {
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			}
+			if (options?.method === 'PUT') return notificationResponse({}, ++attempts > 1);
+			return notificationResponse([notification('own-note', 'Own notification')]);
+		});
+		renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Mark all read' }));
+		await waitFor(() => expect(error).toHaveBeenCalled());
+		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy());
+		expect(attempts).toBe(2);
+	});
+
+	it('discards a delayed A list after switching to B', async () => {
+		let release!: (response: Response) => void;
+		const delayed = new Promise<Response>((resolve) => {
+			release = resolve;
+		});
+		vi.mocked(fetch).mockImplementation(async (input) => {
+			const url = String(input);
+			if (url.includes('notification-count')) return notificationResponse({ ok: true, unreadNotificationCount: 1 });
+			if (url === '/org/org-1/api/notifications') return delayed;
+			return notificationResponse([notification('b-note', 'B private notification')]);
+		});
+		const view = renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '1 unread notifications' }));
+		await view.rerender({ orgId: 'org-2', orgName: 'Second Org', membershipId: 'membership-2' });
+		await fireEvent.click(await screen.findByRole('button', { name: '1 unread notifications' }));
+		await screen.findByRole('menuitem', { name: /B private notification/ });
+		release(notificationResponse([notification('a-note', 'A private notification')]));
+		await delayed;
+		await tick();
+		await tick();
+		expect(screen.queryByRole('menuitem', { name: /A private notification/ })).toBeNull();
+		expect(screen.getByRole('menuitem', { name: /B private notification/ })).toBeTruthy();
+	});
+
+	it('does not apply an old A read or navigate to its link after switching to B', async () => {
+		let release!: (response: Response) => void;
+		const delayed = new Promise<Response>((resolve) => {
+			release = resolve;
+		});
+		vi.mocked(fetch).mockImplementation(async (input, options) => {
+			const url = String(input);
+			if (url.includes('notification-count')) return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			if (options?.method === 'PUT') return delayed;
+			return notificationResponse([notification('a-note', 'A private notification', '/org/org-1/settings')]);
+		});
+		const view = renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /A private notification/ }));
+		await view.rerender({ orgId: 'org-2', orgName: 'Second Org', membershipId: 'membership-2' });
+		await screen.findByRole('button', { name: '2 unread notifications' });
+		release(notificationResponse({ success: true }));
+		await delayed;
+		await tick();
+		await tick();
+		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
+		expect(goto).not.toHaveBeenCalled();
+	});
+});
 
 describe('TopHeader', () => {
 	it('renders a feedback utility button when a feedback handler is provided', async () => {

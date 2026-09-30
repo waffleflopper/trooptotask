@@ -36,7 +36,7 @@
 			fallbackMessage: 'Failed to hydrate Critical Tasks workspace',
 			onPending: () => {
 				workspacePending = true;
-				personnelIctCompletionsStore.startLoading();
+				personnelIctCompletionsStore.invalidateImports();
 				markCriticalTasksWorkspacePending(orgId);
 			},
 			onResolved: (criticalTasks) => {

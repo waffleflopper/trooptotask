@@ -22,6 +22,7 @@ interface IctCompletionImportBatchResult {
 interface PersonnelIctCompletionsExtensions extends Record<string, unknown> {
 	load: (items: PersonnelIctCompletion[], orgId: string) => void;
 	startLoading: () => void;
+	invalidateImports: () => void;
 	add: (data: PersonnelIctCompletionWrite) => Promise<PersonnelIctCompletion | null>;
 	update: (id: string, data: Partial<PersonnelIctCompletionWrite>) => Promise<boolean>;
 	getByPersonnelAndTask: (personnelId: string, ictTaskId: string) => PersonnelIctCompletion[];
@@ -54,6 +55,10 @@ function enhance(
 ): PersonnelIctCompletionsExtensions {
 	let workspaceVersion = 0;
 	return {
+		invalidateImports() {
+			workspaceVersion++;
+		},
+
 		startLoading() {
 			workspaceVersion++;
 			base.startLoading();

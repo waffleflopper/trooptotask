@@ -8,7 +8,11 @@ import {
 	resetCriticalTasksWorkspaceStatus
 } from '$features/critical-tasks/criticalTasksWorkspaceHydration.svelte';
 import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/contracts';
-import { criticalTasksWorkspaceHydrator, personnelIctCompletionsStore } from '$features/critical-tasks';
+import {
+	criticalTasksWorkspaceHydrator,
+	personnelIctCompletionsStore,
+	type PersonnelIctCompletion
+} from '$features/critical-tasks';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;
@@ -98,6 +102,52 @@ describe('critical tasks layout client hydration', () => {
 			expect(criticalTasksWorkspaceStatus.pending).toBe(true);
 		}
 	);
+
+	it('restores the unchanged workspace after invalidating a pending import', async () => {
+		const workspace = createWorkspace();
+		const savedCompletion: PersonnelIctCompletion = {
+			id: 'saved-completion',
+			personnelId: 'saved-person',
+			ictTaskId: 'saved-task',
+			completedAt: '2026-09-29',
+			validationMethod: 'Demonstration',
+			validatedBy: null,
+			notes: 'Saved before import',
+			loggedBy: null,
+			createdAt: '2026-09-29T12:00:00Z'
+		};
+		workspace.data.personnelIctCompletions = [savedCompletion];
+		workspace.hydration.personnelIctCompletions = {
+			mode: 'replace',
+			snapshotKey: 'completions:saved',
+			items: [savedCompletion]
+		};
+		const children = createRawSnippet(() => ({ render: () => '<section>Critical Tasks child</section>' }));
+		const { rerender } = render(Layout, {
+			props: { children, data: { orgId: 'org-1', criticalTasks: { data: workspace } } }
+		});
+		await waitFor(() => expect(screen.getByText('Critical Tasks child')).toBeTruthy());
+		const response = deferred<Response>();
+		const fetchMock = vi.fn(() => response.promise);
+		vi.stubGlobal('fetch', fetchMock);
+		const pendingImport = personnelIctCompletionsStore.importBatch({
+			records: Array.from({ length: 501 }, (_, index) => ({
+				rowNumber: index + 2,
+				values: { firstName: 'Synthetic', lastName: 'Able', taskCode: 'TASK', completedAt: '2026-09-29' }
+			}))
+		});
+		const replacement = deferred<CriticalTasksWorkspaceResult>();
+		await rerender({ children, data: { orgId: 'org-1', criticalTasks: { data: replacement.promise } } });
+		expect(criticalTasksWorkspaceStatus.pending).toBe(true);
+		replacement.resolve(workspace);
+		await waitFor(() => expect(screen.getByText('Critical Tasks child')).toBeTruthy());
+		expect(criticalTasksWorkspaceStatus.pending).toBe(false);
+		expect(personnelIctCompletionsStore.loading).toBe(false);
+		response.resolve({ ok: true, json: async () => ({ inserted: [], updated: [], errors: [] }) } as Response);
+		await expect(pendingImport).rejects.toThrow('Critical Tasks workspace changed during import');
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(personnelIctCompletionsStore.items).toEqual([savedCompletion]);
+	});
 
 	it('gates children until the top-level Critical Tasks workspace promise resolves', async () => {
 		const workspace = createWorkspace();

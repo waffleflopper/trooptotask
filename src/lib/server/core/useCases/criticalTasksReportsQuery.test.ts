@@ -1005,10 +1005,12 @@ describe('paged Critical Tasks report history', () => {
 	] as const)(
 		'retains older readiness dates in the %s when provider pages change incidental row order',
 		async (_name, fetchReport) => {
-			const ctx = createTestContext();
+			const ctx = createTestContext({ auth: { orgId: '70000000-0000-4000-8000-000000000001' } });
+			const personId = '40000000-0000-4000-8000-000000000001';
+			const taskId = '60000000-0000-4000-8000-000000000001';
 			ctx.store.seed('personnel', [
 				{
-					id: 'person-history',
+					id: personId,
 					organization_id: ctx.auth.orgId,
 					first_name: 'Synthetic',
 					last_name: 'History',
@@ -1018,7 +1020,7 @@ describe('paged Critical Tasks report history', () => {
 			]);
 			ctx.store.seed('ict_tasks', [
 				{
-					id: 'history-task',
+					id: taskId,
 					organization_id: ctx.auth.orgId,
 					task_code: 'HISTORY',
 					title: 'Historical readiness',
@@ -1034,11 +1036,11 @@ describe('paged Critical Tasks report history', () => {
 					critical_tasks_expiring_soon_warning_days: 7
 				}
 			]);
-			const capture = (id: string, completedAt: string) => ({
-				id,
+			const capture = (index: number, completedAt: string) => ({
+				id: `50000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
 				organization_id: ctx.auth.orgId,
-				personnel_id: 'person-history',
-				ict_task_id: 'history-task',
+				personnel_id: personId,
+				ict_task_id: taskId,
 				completed_at: completedAt,
 				created_at: `${completedAt}T12:00:00Z`,
 				validation_method: 'Demonstration',
@@ -1047,10 +1049,12 @@ describe('paged Critical Tasks report history', () => {
 				logged_by: null
 			});
 			const captures: Record<string, string | null>[] = [
+				capture(0, '2026-03-15'),
+				// Distinct older dates obey the Person/task/date uniqueness constraint.
 				...Array.from({ length: 1000 }, (_, index) =>
-					capture(`capture-${String(index).padStart(4, '0')}`, '2026-03-15')
+					capture(index + 1, new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10))
 				),
-				capture('capture-1000', '2026-01-01')
+				capture(1001, '2026-01-01')
 			];
 			const client = createClient('https://provider.invalid', 'synthetic-key', {
 				auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

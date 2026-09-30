@@ -131,45 +131,47 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 
 describe('paged Personnel Critical Tasks history', () => {
 	it('retains distinct same-date captures when the provider reorders ties between pages', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ auth: { orgId: '70000000-0000-4000-8000-000000000001' } });
+		const personId = '40000000-0000-4000-8000-000000000001';
+		const completionId = (index: number) => `50000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
+		const taskId = (index: number) => `60000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
 		ctx.store.seed('personnel', [
 			{
-				id: 'person-history',
+				id: personId,
 				organization_id: ctx.auth.orgId,
 				first_name: 'Synthetic',
 				last_name: 'History',
 				archived_at: null
 			}
 		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'retained-task',
+		ctx.store.seed(
+			'ict_tasks',
+			Array.from({ length: 1003 }, (_, index) => ({
+				id: taskId(index),
 				organization_id: ctx.auth.orgId,
-				task_code: 'RETAINED',
-				title: 'Retained task',
+				task_code: `RETAINED-${index}`,
+				title: `Retained task ${index}`,
 				mos: [],
 				archived_at: '2026-03-16T12:00:00Z'
-			}
-		]);
-		const capture = (id: string, completedAt: string, notes: string) => ({
-			id,
+			}))
+		);
+		const capture = (index: number, completedAt: string, notes: string) => ({
+			id: completionId(index),
 			organization_id: ctx.auth.orgId,
-			personnel_id: 'person-history',
-			ict_task_id: 'retained-task',
+			personnel_id: personId,
+			ict_task_id: taskId(index),
 			completed_at: completedAt,
-			created_at: '2026-03-15T12:00:00Z',
+			created_at: `${completedAt}T12:00:00Z`,
 			validation_method: 'Demonstration',
 			validated_by: null,
 			notes,
 			logged_by: null
 		});
 		const captures: Record<string, string | null>[] = [
-			...Array.from({ length: 1000 }, (_, index) =>
-				capture(`capture-${String(index).padStart(4, '0')}`, '2026-03-15', 'Repeated practice')
-			),
-			capture('capture-1000', '2026-03-15', 'First distinct capture'),
-			capture('capture-1001', '2026-03-15', 'Second distinct capture'),
-			capture('older-capture', '2026-01-01', 'Older validation')
+			...Array.from({ length: 1000 }, (_, index) => capture(index, '2026-03-15', 'Repeated practice')),
+			capture(1000, '2026-03-15', 'First distinct capture'),
+			capture(1001, '2026-03-15', 'Second distinct capture'),
+			capture(1002, '2026-01-01', 'Older validation')
 		];
 		const client = createClient('https://provider.invalid', 'synthetic-key', {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -199,7 +201,7 @@ describe('paged Personnel Critical Tasks history', () => {
 			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
 		);
 
-		const result = await fetchCriticalTasksPersonnelHistory(ctx, 'person-history');
+		const result = await fetchCriticalTasksPersonnelHistory(ctx, personId);
 		expect(new Set(result.rows.map(({ completion }) => completion.id)).size).toBe(1003);
 		expect(
 			result.rows
@@ -211,9 +213,9 @@ describe('paged Personnel Critical Tasks history', () => {
 					taskArchivedAt
 				])
 		).toEqual([
-			['capture-1000', '2026-03-15', 'First distinct capture', '2026-03-16T12:00:00Z'],
-			['capture-1001', '2026-03-15', 'Second distinct capture', '2026-03-16T12:00:00Z'],
-			['older-capture', '2026-01-01', 'Older validation', '2026-03-16T12:00:00Z']
+			['50000000-0000-4000-8000-000000001000', '2026-03-15', 'First distinct capture', '2026-03-16T12:00:00Z'],
+			['50000000-0000-4000-8000-000000001001', '2026-03-15', 'Second distinct capture', '2026-03-16T12:00:00Z'],
+			['50000000-0000-4000-8000-000000001002', '2026-01-01', 'Older validation', '2026-03-16T12:00:00Z']
 		]);
 	});
 });

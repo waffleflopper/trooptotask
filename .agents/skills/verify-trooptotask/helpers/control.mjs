@@ -35,6 +35,9 @@ const tableColumns = {
 	training_views: 'organization_id',
 	personnel_trainings: 'organization_id',
 	onboarding_templates: 'organization_id',
+	onboarding_template_steps: 'organization_id',
+	personnel_onboardings: 'organization_id',
+	onboarding_step_progress: 'organization_id',
 	deletion_requests: 'organization_id',
 	ict_tasks: 'organization_id',
 	personnel_ict_completions: 'organization_id'
@@ -46,6 +49,11 @@ const tableSelect = {
 	personnel_trainings:
 		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url',
 	onboarding_templates: 'id,organization_id,name,description',
+	onboarding_template_steps:
+		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order',
+	personnel_onboardings: 'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status',
+	onboarding_step_progress:
+		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active',
 	deletion_requests: 'id,organization_id,resource_type,resource_id,status',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
@@ -68,7 +76,10 @@ const filters = new Set([
 	'status',
 	'invitation_id',
 	'task_code',
-	'ict_task_id'
+	'ict_task_id',
+	'template_id',
+	'onboarding_id',
+	'template_step_id'
 ]);
 
 async function owned() {
@@ -174,6 +185,9 @@ async function main() {
 			'critical-tasks',
 			'critical-tasks/library',
 			'critical-tasks/reports',
+			'onboarding',
+			'onboarding/templates',
+			'onboarding/history',
 			'settings/policies',
 			'settings/members',
 			'settings/exports',
@@ -192,8 +206,16 @@ async function main() {
 				: destination === 'org/new'
 					? '/org/new'
 					: `/org/${org(targetOrg)}/${destination}`;
-		const readyText =
-			destination === 'critical-tasks/library'
+		const readyText = destination.startsWith('onboarding')
+			? [
+					'STEPS',
+					'No templates yet.',
+					'Onboarding Pipeline',
+					'Onboarding History',
+					'Access restricted',
+					"You don't have permission to view this page"
+				]
+			: destination === 'critical-tasks/library'
 				? [
 						'ICT task library controls',
 						'Access Restricted',
@@ -525,6 +547,9 @@ async function main() {
 					'sign-in-rosters',
 					'training-types',
 					'training-views',
+					'onboarding-templates',
+					'onboarding-template-steps',
+					'onboarding-template-steps/reorder',
 					'personnel-trainings',
 					'personnel-trainings/batch',
 					'deletion-requests',
@@ -540,6 +565,7 @@ async function main() {
 					'critical-tasks/reports/export',
 					'critical-tasks/matrix/export'
 				].includes(family) &&
+				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family)
 			)

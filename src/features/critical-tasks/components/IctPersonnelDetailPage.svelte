@@ -26,6 +26,7 @@
 		PersonnelIctCompletion
 	} from '$features/critical-tasks/criticalTasks.types';
 	import { parseDate } from '$lib/utils/dates';
+	import { compareIctCompletionRecency } from '../utils/ictReadinessSnapshot';
 
 	interface Props {
 		data: {
@@ -85,19 +86,13 @@
 		showTaskInputModal = false;
 	});
 
-	function compareCompletionRecency(a: PersonnelIctCompletion, b: PersonnelIctCompletion): number {
-		const completedAtDiff = a.completedAt.localeCompare(b.completedAt);
-		if (completedAtDiff !== 0) return completedAtDiff;
-		return a.createdAt.localeCompare(b.createdAt);
-	}
-
 	function latestCompletionForTask(taskId: string): PersonnelIctCompletion | undefined {
 		const completions = history.personnel.archivedAt
 			? history.rows.map((row) => row.completion)
 			: personnelIctCompletionsStore.items;
 		return completions
 			.filter((completion) => completion.personnelId === history.personnel.id && completion.ictTaskId === taskId)
-			.sort(compareCompletionRecency)
+			.sort(compareIctCompletionRecency)
 			.at(-1);
 	}
 
@@ -247,7 +242,7 @@
 					break;
 			}
 
-			if (row.completion && (!lastCompletion || compareCompletionRecency(row.completion, lastCompletion) > 0)) {
+			if (row.completion && (!lastCompletion || compareIctCompletionRecency(row.completion, lastCompletion) > 0)) {
 				lastCompletion = row.completion;
 			}
 		}

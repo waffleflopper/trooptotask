@@ -2,9 +2,9 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
-import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import { ictTasksStore } from '$features/critical-tasks';
+import { personnelIctCompletionsStore } from '$features/critical-tasks';
+import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/contracts';
 
 const { mockOrgContext } = vi.hoisted(() => ({
 	mockOrgContext: {

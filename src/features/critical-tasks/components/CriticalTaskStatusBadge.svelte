@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { RequirementStatus } from './requirement-status-badge.svelte';
+	import type { RequirementStatus } from '$lib/components/ui/requirement-status-badge';
 
 	export type CriticalTaskRequirementStatus = 'current' | 'expiring-soon' | 'expired' | 'not-recorded' | 'not-required';
 
@@ -14,7 +14,7 @@
 
 <script lang="ts">
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
-	import RequirementStatusBadge from './requirement-status-badge.svelte';
+	import { RequirementStatusBadge } from '$lib/components/ui/requirement-status-badge';
 	import type { WithElementRef } from '$lib/utils.js';
 
 	let {

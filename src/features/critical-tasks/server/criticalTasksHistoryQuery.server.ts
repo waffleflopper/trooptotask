@@ -1,17 +1,17 @@
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/contracts';
-import { IctTaskEntity, PersonnelIctCompletionEntity } from '$features/critical-tasks/index.server';
-import type { QueryPorts } from '$lib/server/core/ports';
-import { fail } from '$lib/server/core/errors';
+import { IctTaskEntity } from './ictTaskEntity.server';
+import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
+import type { CriticalTasksHistoryContext } from './criticalTasksReadPorts.server';
 
 export async function fetchCriticalTasksPersonnelHistory(
-	ctx: QueryPorts,
+	ctx: CriticalTasksHistoryContext,
 	personnelId: string
 ): Promise<CriticalTasksPersonnelHistoryData> {
 	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
 	const personnel = await ctx.personnelCriticalTasksRoster.findForHistory(ctx.auth, personnelId);
 
 	if (!personnel) {
-		fail(404, 'Personnel record not found');
+		throw Object.assign(new Error('Personnel record not found'), { status: 404 });
 	}
 
 	const completionRows = await ctx.store.findMany<Record<string, unknown>>(
@@ -28,16 +28,25 @@ export async function fetchCriticalTasksPersonnelHistory(
 	);
 	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
 	const taskIds = [...new Set(completions.map((completion) => completion.ictTaskId))];
-	const taskRows =
-		taskIds.length === 0
-			? []
-			: await ctx.store.findMany<Record<string, unknown>>('ict_tasks', ctx.auth.orgId, undefined, {
-					inFilters: { id: taskIds },
+	const taskRows: Record<string, unknown>[] = [];
+	// Referenced history may span a large catalog, including archived definitions.
+	// Bound metadata filters without changing the completion history order.
+	for (let index = 0; index < taskIds.length; index += 200) {
+		const windows: Array<Promise<Record<string, unknown>[]>> = [];
+		for (let offset = index; offset < Math.min(index + 200, taskIds.length); offset += 50) {
+			windows.push(
+				ctx.store.findMany<Record<string, unknown>>('ict_tasks', ctx.auth.orgId, undefined, {
+					inFilters: { id: taskIds.slice(offset, offset + 50) },
 					orderBy: [
 						{ column: 'sort_order', ascending: true },
 						{ column: 'task_code', ascending: true }
 					]
-				});
+				})
+			);
+		}
+		taskRows.push(...(await Promise.all(windows)).flat());
+	}
+
 	const tasksById = new Map(IctTaskEntity.fromDbArray(taskRows).map((task) => [task.id, task]));
 
 	return {

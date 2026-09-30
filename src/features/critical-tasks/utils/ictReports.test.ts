@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
 import type { Personnel } from '$lib/types';
-import {
-	buildIctReportDashboard,
-	buildIctReportDashboardSummary,
-	buildIctReportSummary,
-	filterIctReportPersonnel
-} from './ictReports';
+import { buildIctReportDashboard, buildIctReportDashboardSummary, filterIctReportPersonnel } from './ictReports';
 
 const medic: Personnel = {
 	id: 'person-medic',
@@ -1042,90 +1037,6 @@ describe('ictReports', () => {
 				daysSinceLastIctUpdate: 50,
 				lastIctUpdateAt: '2026-02-10T00:00:00Z'
 			}
-		]);
-	});
-
-	it('computes readiness from applicable tasks only, counting current and expiring-soon tasks as ready', () => {
-		const summary = buildIctReportSummary({
-			personnel: [medic, infantry],
-			tasks: [medicTask, commonTask],
-			completions: [
-				completion({ personnelId: medic.id, ictTaskId: medicTask.id, completedAt: '2026-01-15' }),
-				completion({ id: 'completion-2', personnelId: medic.id, ictTaskId: commonTask.id, completedAt: '2025-12-20' }),
-				completion({
-					id: 'completion-3',
-					personnelId: infantry.id,
-					ictTaskId: commonTask.id,
-					completedAt: '2024-01-01'
-				})
-			],
-			settings: {
-				defaultExpirationMonths: 12,
-				expiringSoonWarningDays: 60
-			},
-			asOf: '2026-01-31'
-		});
-
-		// Applicable cells:
-		// medic: medicTask current, commonTask expiring-soon => 2 ready
-		// infantry: commonTask expired => 0 ready
-		// Total applicable = 3, ready = 2 => 67%
-		expect(summary.overallReadinessPercent).toBe(67);
-	});
-
-	it('builds readiness by MOS and picks deterministic best and worst MOS groups', () => {
-		const summary = buildIctReportSummary({
-			personnel: [medic, infantry],
-			tasks: [medicTask, commonTask],
-			completions: [
-				completion({ personnelId: medic.id, ictTaskId: medicTask.id, completedAt: '2026-01-15' }),
-				completion({ id: 'completion-2', personnelId: medic.id, ictTaskId: commonTask.id, completedAt: '2025-12-20' }),
-				completion({
-					id: 'completion-3',
-					personnelId: infantry.id,
-					ictTaskId: commonTask.id,
-					completedAt: '2024-01-01'
-				})
-			],
-			settings: {
-				defaultExpirationMonths: 12,
-				expiringSoonWarningDays: 60
-			},
-			asOf: '2026-01-31'
-		});
-
-		expect(summary.readinessByMos).toEqual([
-			{ mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 },
-			{ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 }
-		]);
-		expect(summary.bestPerformingMos).toEqual({ mos: '68W', readinessPercent: 100, applicableCount: 2, readyCount: 2 });
-		expect(summary.worstPerformingMos).toEqual({ mos: '11B', readinessPercent: 0, applicableCount: 1, readyCount: 0 });
-	});
-
-	it('builds a monthly completion trend from applicable completion history', () => {
-		const summary = buildIctReportSummary({
-			personnel: [medic, infantry],
-			tasks: [medicTask, commonTask],
-			completions: [
-				completion({ personnelId: medic.id, ictTaskId: medicTask.id, completedAt: '2025-11-15' }),
-				completion({ id: 'completion-2', personnelId: medic.id, ictTaskId: commonTask.id, completedAt: '2026-01-12' }),
-				completion({
-					id: 'completion-3',
-					personnelId: infantry.id,
-					ictTaskId: commonTask.id,
-					completedAt: '2026-01-20'
-				})
-			],
-			settings: {
-				defaultExpirationMonths: 12,
-				expiringSoonWarningDays: 60
-			},
-			asOf: '2026-01-31'
-		});
-
-		expect(summary.completionTrend).toEqual([
-			{ month: '2025-11', completions: 1 },
-			{ month: '2026-01', completions: 2 }
 		]);
 	});
 });

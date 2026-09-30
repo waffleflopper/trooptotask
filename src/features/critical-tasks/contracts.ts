@@ -1,6 +1,31 @@
+import type { IctReportDashboard, IctReportFilters, IctReportScope } from './utils/ictReports';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from './criticalTasks.types';
+
+export type PersonnelIctCompletionWrite = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
+
+export interface IctCompletionImportMappedRow {
+	rowNumber: number;
+	values: Record<string, string>;
+}
+
+export interface IctCompletionBatchImportInput {
+	records: IctCompletionImportMappedRow[];
+}
+
+export interface IctCompletionBatchImportError {
+	rowNumber: number;
+	personnelName: string;
+	taskCode: string;
+	message: string;
+}
+
+export interface IctCompletionBatchImportResult {
+	inserted: PersonnelIctCompletion[];
+	updated: PersonnelIctCompletion[];
+	errors: IctCompletionBatchImportError[];
+}
 
 export interface CriticalTasksSettingsWritePort {
 	saveDefaults(
@@ -50,3 +75,42 @@ export type {
 	PersonnelIctCompletion,
 	CriticalTasksPersonnelHistoryData
 } from './criticalTasks.types';
+
+export interface CriticalTasksReadModelFilters {
+	personnelIds?: string[];
+	taskIds?: string[];
+}
+
+export interface CriticalTasksReadModelPort {
+	findLatestCompletions(orgId: string, filters?: CriticalTasksReadModelFilters): Promise<PersonnelIctCompletion[]>;
+}
+
+export interface CriticalTasksReportInput {
+	filters?: IctReportFilters;
+	asOf?: string | Date;
+}
+
+export interface CriticalTasksReportsPageModel {
+	initialDashboard: IctReportDashboard;
+	reportScope: IctReportScope;
+}
+
+export interface CriticalTasksMatrixExportInput {
+	selectedGroupId?: string;
+	selectedGroupFilter?: string;
+	gapsOnly?: boolean;
+	search?: string;
+	asOf?: string | Date;
+}
+
+export interface CriticalTasksWorkbookExport {
+	buffer: ArrayBuffer;
+	filename: string;
+}
+
+export type {
+	IctReportDashboard,
+	IctReportDashboardSummary,
+	IctReportFilters,
+	IctReportScope
+} from './utils/ictReports';

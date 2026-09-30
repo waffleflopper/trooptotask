@@ -3,10 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Layout from './+layout.svelte';
-import {
-	criticalTasksWorkspaceStatus,
-	resetCriticalTasksWorkspaceStatus
-} from '$features/critical-tasks/criticalTasksWorkspaceHydration.svelte';
+import { criticalTasksWorkspaceStatus, resetCriticalTasksWorkspaceStatus } from '$features/critical-tasks';
 import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/contracts';
 import {
 	criticalTasksWorkspaceHydrator,

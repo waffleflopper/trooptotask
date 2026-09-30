@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
+import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel.server';
 
 describe('Critical Tasks latest completion provider', () => {
 	it.each([1000, 1003])('retains all %i latest records across the provider page limit', async (count) => {

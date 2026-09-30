@@ -135,7 +135,9 @@ interface RankCatalogPorts {
 	audit: RankAudit;
 }
 
-type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'> & {
+type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth'> & {
+	store: Pick<RankCatalogStore, 'findMany'>;
+	rawStore?: Pick<RankCatalogStore, 'findMany'>;
 	audit?: RankAudit;
 };
 
@@ -842,6 +844,6 @@ function sortCatalog(entries: OrganizationRankCatalogEntry[]): OrganizationRankC
 	return entries.toSorted((a, b) => compareRankCodes(a.code, b.code, { catalog: entries }));
 }
 
-function storeForRankCatalog(ports: Pick<RankCatalogPorts, 'rawStore' | 'store'>): RankCatalogStore {
+function storeForRankCatalog<Store>(ports: { store: Store; rawStore?: Store }): Store {
 	return ports.rawStore ?? ports.store;
 }

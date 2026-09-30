@@ -1,3 +1,4 @@
+import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel.server';
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
@@ -8,9 +9,8 @@ import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils
 import {
 	fetchCriticalTasksDashboardSummary,
 	fetchCriticalTasksReportDashboard,
-	fetchCriticalTasksReportsPageModel,
-	fetchCriticalTasksReportSummary
-} from './criticalTasksReportsQuery';
+	fetchCriticalTasksReportsPageModel
+} from './criticalTasksReportsQuery.server';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
@@ -18,9 +18,10 @@ function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
 	return buffer as WorkbookLoadBuffer;
 }
 
-describe('fetchCriticalTasksReportSummary', () => {
+describe('Critical Tasks report queries', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
 		const ctx = createTestContext({
+			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
 			auth: {
 				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 				role: 'member',
@@ -263,88 +264,8 @@ describe('fetchCriticalTasksReportSummary', () => {
 		expect(summary).not.toHaveProperty('readinessMatrix');
 	});
 
-	it('counts only MOS-applicable completion events in the report trend', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('organizations', [
-			{
-				id: ctx.auth.orgId,
-				critical_tasks_default_expiration_months: 12,
-				critical_tasks_expiring_soon_warning_days: 60
-			}
-		]);
-		ctx.store.seed('personnel', [
-			{
-				id: 'p-rifle',
-				organization_id: ctx.auth.orgId,
-				rank: 'SGT',
-				last_name: 'Rifle',
-				first_name: 'Ryan',
-				mos: '11B',
-				clinic_role: 'Squad Leader',
-				group_id: null,
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-common',
-				organization_id: ctx.auth.orgId,
-				task_code: '071-000-0101',
-				title: 'Conduct PCC/PCI',
-				description: null,
-				mos: [],
-				expiration_months: 12,
-				sort_order: 0,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			},
-			{
-				id: 'task-medic',
-				organization_id: ctx.auth.orgId,
-				task_code: '081-68W-0101',
-				title: 'Perform Needle Chest Decompression',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 1,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('personnel_ict_completions', [
-			{
-				id: 'completion-common',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-rifle',
-				ict_task_id: 'task-common',
-				completed_at: '2026-04-10',
-				validation_method: 'Practical Exercise',
-				validated_by: 'SFC Stone',
-				notes: null,
-				logged_by: 'user-1',
-				created_at: '2026-04-10T12:00:00Z'
-			},
-			{
-				id: 'completion-non-applicable',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-rifle',
-				ict_task_id: 'task-medic',
-				completed_at: '2026-04-12',
-				validation_method: 'Demonstration',
-				validated_by: 'SFC Stone',
-				notes: null,
-				logged_by: 'user-1',
-				created_at: '2026-04-12T12:00:00Z'
-			}
-		]);
-
-		const summary = await fetchCriticalTasksReportSummary(ctx, {});
-
-		expect(summary.completionTrend).toEqual([{ month: '2026-04', completions: 1 }]);
-	});
-
 	it('uses the organization expiring-soon window when calculating report dashboard risk', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -408,7 +329,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 	});
 
 	it('builds the reports page model from one server-shaped report scope', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -490,7 +411,7 @@ describe('fetchCriticalTasksReportSummary', () => {
 	});
 
 	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report scope filters', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -525,7 +446,10 @@ describe('fetchCriticalTasksReportSummary', () => {
 	});
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
-		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
+		const ctx = createTestContext({
+			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
+		});
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -798,6 +722,7 @@ function createWideHistoryContext(
 	options: { failLastHistory?: boolean; forbidHistory?: boolean } = {}
 ) {
 	const ctx = createTestContext({
+		criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
 		auth: {
 			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
 			role: 'member',

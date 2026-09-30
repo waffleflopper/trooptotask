@@ -1,3 +1,4 @@
+import type { IctCompletionImportMappedRow } from '../contracts';
 import type {
 	IctTask,
 	IctValidationMethod,
@@ -9,11 +10,6 @@ import { applyMapping, autoMapColumns, detectHeaderRow, type ColumnDef } from '$
 import { parseDateString } from '$lib/utils/csvParser';
 
 export type IctCompletionImportPayload = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
-
-export interface IctCompletionImportMappedRow {
-	rowNumber: number;
-	values: Record<string, string>;
-}
 
 export interface IctCompletionImportMatch {
 	personnelId: string;

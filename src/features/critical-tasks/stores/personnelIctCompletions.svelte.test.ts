@@ -259,4 +259,40 @@ describe('personnelIctCompletionsStore', () => {
 		expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).records).toHaveLength(500);
 		expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).records).toHaveLength(1);
 	});
+
+	it.each([
+		['response', 'switch'],
+		['response', 'return'],
+		['response', 'replace'],
+		['body', 'switch'],
+		['body', 'return'],
+		['body', 'replace']
+	] as const)('discards an old import during %s delivery after workspace %s', async (stage, change) => {
+		const response = createDeferredFetch();
+		let releaseBody!: (value: unknown) => void;
+		const body = new Promise<unknown>((resolve) => {
+			releaseBody = resolve;
+		});
+		const json = vi.fn(() => body);
+		const fetchMock = vi
+			.fn()
+			.mockReturnValue(stage === 'response' ? response.promise : Promise.resolve({ ok: true, status: 200, json }));
+		vi.stubGlobal('fetch', fetchMock);
+		const pending = personnelIctCompletionsStore.importBatch({
+			records: Array.from({ length: 501 }, (_, index) => ({
+				rowNumber: index + 2,
+				values: { firstName: 'Jane', lastName: 'Smith', taskCode: 'TASK', completedAt: '2098-01-01' }
+			}))
+		});
+		if (stage === 'body') await vi.waitFor(() => expect(json).toHaveBeenCalledOnce());
+		const current = { ...existingCompletion, id: 'current-workspace', notes: 'New workspace data' };
+		personnelIctCompletionsStore.load([current], change === 'replace' ? 'org-1' : 'org-2');
+		if (change === 'return') personnelIctCompletionsStore.load([current], 'org-1');
+		const oldResult = { inserted: [existingCompletion], updated: [], errors: [] };
+		response.resolve({ ok: true, status: 200, json: async () => oldResult });
+		releaseBody(oldResult);
+		await expect(pending).rejects.toThrow('Critical Tasks workspace changed during import');
+		expect(personnelIctCompletionsStore.items).toEqual([current]);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
 });

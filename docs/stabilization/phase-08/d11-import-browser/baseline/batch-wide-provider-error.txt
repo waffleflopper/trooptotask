@@ -1,0 +1,4 @@
+Owned private app log, sanitized exception excerpt:
+[http-adapter] Unhandled route error: name=Error message=URI too long
+ at fetchPage (.../supabaseDataStore.js:87:22)
+ at async Object.findMany (.../supabaseDataStore.js:94:18)

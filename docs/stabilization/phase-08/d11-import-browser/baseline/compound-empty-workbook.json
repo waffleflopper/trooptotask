@@ -1,0 +1,35 @@
+{
+  "sheet": "Critical Tasks Report",
+  "headers": [
+    "Section",
+    "Metric",
+    "Value",
+    "Subtitle"
+  ],
+  "rows": [
+    [
+      "Summary",
+      "Overall Readiness",
+      "0%",
+      "0 pts vs 30d"
+    ],
+    [
+      "Summary",
+      "Soldiers Below 70%",
+      0,
+      "0 applicable Soldiers"
+    ],
+    [
+      "Summary",
+      "Tasks Expiring <=60d",
+      0,
+      "0 Soldiers affected"
+    ],
+    [
+      "Summary",
+      "Tasks Below Threshold",
+      0,
+      "Below 70% unit completion"
+    ]
+  ]
+}

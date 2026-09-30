@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import type { Group } from '$features/personnel/contracts';
 	import { toastStore } from '$lib/stores/toast.svelte';

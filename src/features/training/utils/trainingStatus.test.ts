@@ -8,7 +8,7 @@ import {
 	getTrainingStatus
 } from './trainingStatus';
 import { formatDate } from '$lib/utils/dates';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
 /** A YYYY-MM-DD string `days` calendar days from local midnight today. */

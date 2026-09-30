@@ -1,4 +1,4 @@
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
 import { listStatusTypes } from './statusTypeRead.server';

@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import BulkStatusImport from './BulkStatusImport.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
 
 afterEach(() => {

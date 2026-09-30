@@ -10,7 +10,7 @@
 	import { parseFile } from '$lib/utils/csvParser';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import {
 		ICT_COMPLETION_IMPORT_COLUMNS,
 		reviewMappedIctCompletionImportRows

@@ -4,7 +4,7 @@ import type {
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
 import { isIctTaskApplicableToMos } from './ictTaskLibrary';
 import {

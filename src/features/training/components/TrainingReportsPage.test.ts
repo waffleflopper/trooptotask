@@ -7,7 +7,7 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import type { TrainingReportData } from '$features/training/contracts';
 

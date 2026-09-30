@@ -1,4 +1,4 @@
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { buildCriticalTasksSoldierReadinessSummary } from '../utils/ictReadinessSnapshot';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import { listActiveIctTasksForReadiness } from './ictTaskRead.server';

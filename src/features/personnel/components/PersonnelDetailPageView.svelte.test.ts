@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 
 const { gotoMock, invalidateAllMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),

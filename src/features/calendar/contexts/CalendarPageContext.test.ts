@@ -10,7 +10,7 @@ import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import {
 	createTestOrgContext,
 	FULL_TEST_CAPABILITY_MAP,

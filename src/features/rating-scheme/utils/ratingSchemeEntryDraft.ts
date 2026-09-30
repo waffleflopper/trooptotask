@@ -1,4 +1,4 @@
-import type { PersonnelLookup } from '$lib/types';
+import type { PersonnelLookup } from '$features/personnel/contracts';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import type { RatingSchemeEntry, ReportType, ReportTypeOption, WorkflowStatus } from '../rating-scheme.types';
 import {

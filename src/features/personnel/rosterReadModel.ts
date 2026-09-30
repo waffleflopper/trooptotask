@@ -1,6 +1,6 @@
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { comparePersonnelByRankThenName } from './personnelRank';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from './personnel.types';
 
 export interface PersonnelGroup {
 	group: string;

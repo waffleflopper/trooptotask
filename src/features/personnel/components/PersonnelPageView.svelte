@@ -17,7 +17,7 @@
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '../personnel.types';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {

@@ -6,7 +6,7 @@ import { personnelRosterHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 
 const org = {

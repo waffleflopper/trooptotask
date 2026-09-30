@@ -13,7 +13,7 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { rankCodesForOptions } from '$features/personnel/contracts';
 	import { createRosterReadModel } from '$features/personnel/contracts';

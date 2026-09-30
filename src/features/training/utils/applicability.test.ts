@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { isTrainingApplicable } from './applicability';
 import type { TrainingType } from '$features/training/training.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {

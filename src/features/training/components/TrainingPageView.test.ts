@@ -8,7 +8,7 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import { personnelRosterHydration } from '$features/personnel';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';

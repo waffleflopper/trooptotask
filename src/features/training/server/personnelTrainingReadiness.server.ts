@@ -1,4 +1,4 @@
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { isTrainingApplicable, type TrainingType } from '../contracts';
 import { listTrainingTypes } from './trainingCatalogRead.server';

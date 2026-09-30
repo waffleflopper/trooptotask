@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { PERSONNEL_RANK_ORDER, comparePersonnelByRankThenName } from './personnelRank';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from './personnel.types';
 
 function person(overrides: Partial<Personnel>): Personnel {
 	return {

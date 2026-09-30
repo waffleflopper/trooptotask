@@ -6,7 +6,7 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { TrainingType } from '$features/training/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 const { fetchOnboardingBootstrapMock, mockCtx } = vi.hoisted(() => {
 	const fetchOnboardingBootstrapMock = vi.fn();

@@ -13,7 +13,7 @@ import type {
 	OnboardingStepProgress,
 	OnboardingTemplate
 } from '$features/onboarding/onboarding.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 

@@ -9,7 +9,7 @@
  * includes data (onboarding, rating scheme) the calendar page doesn't need.
  */
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType, AvailabilityEntry, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';

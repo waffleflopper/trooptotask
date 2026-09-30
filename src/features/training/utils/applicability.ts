@@ -1,5 +1,5 @@
 import type { TrainingType } from '$features/training/training.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 export function isTrainingApplicable(type: TrainingType, person: Personnel): boolean {
 	if (type.isOptional) return false;

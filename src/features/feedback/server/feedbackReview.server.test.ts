@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createInMemoryFeedbackStore } from './inMemoryFeedback.test-support';
+import { createInMemoryFeedbackStore } from './inMemoryFeedback.server';
 import { createFeedbackReview } from './feedbackReview.server';
 
 const FIRST_ID = '11111111-1111-1111-1111-111111111111';

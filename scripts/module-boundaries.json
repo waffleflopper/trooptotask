@@ -662,7 +662,8 @@
 		"notifications": [
 			"src/features/notifications/contracts.ts",
 			"src/features/notifications/index.ts",
-			"src/features/notifications/index.server.ts"
+			"src/features/notifications/index.server.ts",
+			"src/features/notifications/contracts.server.ts"
 		],
 		"feedback": [
 			"src/features/feedback/contracts.ts",

@@ -57,9 +57,18 @@ describe('Training catalog JSON routes', () => {
 				}
 			}
 		});
+		const saved = {
+			id: '11111111-1111-4111-8111-111111111111',
+			organization_id: ctx.auth.orgId,
+			name: 'Retained type'
+		};
+		ctx.store.seed('training_types', [saved]);
+		await expect(handleUseCaseRequest(typeDelete, ctx, { id: saved.id })).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: saved.id })).toEqual(saved);
+		expect(ctx.notificationPort.notifications).toEqual([]);
 		await expect(handleUseCaseRequest(typePost, ctx, { name: 'Denied' })).rejects.toMatchObject({ status: 403 });
 		await expect(handleUseCaseRequest(viewPost, ctx, { name: 'Denied' })).rejects.toMatchObject({ status: 403 });
-		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toEqual([]);
+		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toEqual([saved]);
 		expect(await ctx.store.findMany('training_views', ctx.auth.orgId)).toEqual([]);
 	});
 

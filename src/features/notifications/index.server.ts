@@ -10,7 +10,8 @@ export {
 	getUnreadNotificationCount,
 	listNotificationExportRows
 } from './notificationOperations.server';
-export type { NotificationSelfPorts, NotificationStore } from './notificationOperations.server';
+export type { NotificationSelfPorts } from './notificationOperations.server';
+export type { NotificationStore } from './contracts.server';
 
 export {
 	createSupabaseAccountAnnouncementDismissals,

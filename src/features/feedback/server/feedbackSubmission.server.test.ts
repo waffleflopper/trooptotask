@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FeedbackMirror } from './feedbackPorts.server';
 import { createFeedbackSubmission } from './feedbackSubmission.server';
-import { createInMemoryFeedbackStore } from './inMemoryFeedback.test-support';
+import { createInMemoryFeedbackStore } from './inMemoryFeedback.server';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const ORG_ID = '22222222-2222-4222-8222-222222222222';

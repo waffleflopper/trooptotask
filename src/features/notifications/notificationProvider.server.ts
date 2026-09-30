@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { Notification } from './contracts';
-import type { NotificationStore } from './notificationOperations.server';
+import type { NotificationStore } from './contracts.server';
 
 /** The supplied request-user client retains notification RLS, including concealed peer rows. */
 export function createSupabaseNotificationStore(supabase: SupabaseClient): NotificationStore {

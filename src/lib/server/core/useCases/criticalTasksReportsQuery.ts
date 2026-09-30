@@ -30,7 +30,7 @@ import {
 	PersonnelIctCompletionEntity,
 	fetchCriticalTasksSettings
 } from '$features/critical-tasks/index.server';
-import { writeWorkbookBuffer } from '$lib/export/workbook';
+import { writeWorkbookBuffer } from '$lib/utils/workbook';
 
 export interface CriticalTasksReportInput {
 	filters?: IctReportFilters;

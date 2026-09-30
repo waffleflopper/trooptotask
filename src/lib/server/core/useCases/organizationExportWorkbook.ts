@@ -4,7 +4,7 @@ import {
 	type Workbook,
 	type WorkbookColumn,
 	type WorkbookRow
-} from '$lib/export/workbook';
+} from '$lib/utils/workbook';
 import {
 	ORGANIZATION_DATA_EXPORT_READABLE_SHEETS,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,

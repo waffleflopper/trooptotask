@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$features/training';
+	import { trainingTypesStore } from '$features/training';
 	import { groupsStore } from '$features/personnel';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { rosterStore } from '$features/personnel';
-	import TrainingReportsPage from '$features/training/components/TrainingReportsPage.svelte';
+	import { TrainingReportsPage } from '$features/training';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
+	import type { TrainingWorkspaceResult } from '$features/training/contracts';
 	import { isPromiseLike, materializeWorkspaceData, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
@@ -43,7 +43,7 @@
 </svelte:head>
 
 {#if hasServerReport}
-	<TrainingReportsPage data={pageData} />
+	<TrainingReportsPage {org} data={pageData} />
 {:else if streamedTraining && isPromiseLike(streamedTraining)}
 	{#await streamedTraining}
 		<section
@@ -67,7 +67,7 @@
 				<p>Loading training reports...</p>
 			</section>
 		{:else}
-			<TrainingReportsPage data={pageDataFor(resolvedTraining)} />
+			<TrainingReportsPage {org} data={pageDataFor(resolvedTraining)} />
 		{/if}
 	{:catch error}
 		{throwRenderError(error, 'Failed to load training reports workspace')}
@@ -83,5 +83,5 @@
 		<p>Loading training reports...</p>
 	</section>
 {:else}
-	<TrainingReportsPage data={pageData} />
+	<TrainingReportsPage {org} data={pageData} />
 {/if}

@@ -1,13 +1,13 @@
 <script lang="ts">
+	import type { TrainingPageAccess } from '../contracts';
 	import { tick } from 'svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
-	import { TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import TrainingStatusCell from './TrainingStatusCell.svelte';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { rosterStore } from '$features/personnel';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -16,7 +16,7 @@
 	import type { Personnel } from '$lib/types';
 	import { groupsStore } from '$features/personnel';
 	import type { Group } from '$features/personnel/contracts';
-	import type { TrainingReportData, TrainingReportDetail } from '$lib/server/core/useCases/trainingReportsQuery';
+	import type { TrainingReportData, TrainingReportDetail } from '$features/training/contracts';
 	import {
 		buildTrainingReportDetailUrl,
 		buildTrainingReportExportUrl,
@@ -29,9 +29,10 @@
 		type TrainingReportPivotRow,
 		type TrainingReportSortState
 	} from '$features/training/read-model/trainingReportScreenModel';
-	import { exportTrainingReportWorkbook } from '$features/training/utils/reportCalculations';
+	import { exportTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
 
 	interface Props {
+		org: Pick<TrainingPageAccess, 'orgId' | 'scopeSet'>;
 		data: {
 			training?: {
 				data?: {
@@ -46,9 +47,8 @@
 		};
 	}
 
-	let { data }: Props = $props();
+	let { data, org }: Props = $props();
 
-	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
 	const serverReport = $derived((data.trainingReport as TrainingReportData | undefined) ?? null);
 	const serverReportKey = $derived(reportIdentity(serverReport));

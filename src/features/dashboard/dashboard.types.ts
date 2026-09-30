@@ -1,13 +1,7 @@
 import type { DashboardWorkspaceResult } from './server/dashboardWorkspaceBootstrap';
-import type { TrainingStats } from '$features/training/utils/trainingStatus';
+import type { TrainingSummary } from '$features/training/contracts';
+export type { TrainingIssue } from '$features/training/contracts';
 import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
-
-export interface TrainingIssue {
-	personName: string;
-	typeName: string;
-	status: string;
-	label: string;
-}
 
 export interface DashboardIctlMosReadiness {
 	mos: string;
@@ -66,7 +60,7 @@ export interface DashboardPageData {
 	orgName: string;
 	userId: string | null;
 	dashboard: DashboardWorkspaceResult;
-	trainingSummary: { stats: TrainingStats; issues: TrainingIssue[] } | null;
+	trainingSummary: TrainingSummary | null;
 	ictlSummary: DashboardIctlSummary | null;
 	onboardingTrainingCompletions: string[];
 	trainingTypeCount?: number;

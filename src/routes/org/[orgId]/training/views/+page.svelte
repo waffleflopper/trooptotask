@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
-	import TrainingViewsPage from '$features/training/components/TrainingViewsPage.svelte';
+	import { trainingTypesStore } from '$features/training';
+	import { trainingViewsStore } from '$features/training';
+	import { TrainingViewsPage } from '$features/training';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
+	import type { TrainingWorkspaceResult } from '$features/training/contracts';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
@@ -76,6 +76,6 @@
 	</section>
 {:else}
 	<div class="h-full min-h-0 overflow-hidden">
-		<TrainingViewsPage />
+		<TrainingViewsPage {org} />
 	</div>
 {/if}

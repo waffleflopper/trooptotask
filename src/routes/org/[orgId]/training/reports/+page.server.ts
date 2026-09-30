@@ -1,11 +1,8 @@
+import type { TrainingReportData, TrainingReportInput } from '$features/training/contracts';
 import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import {
-	fetchTrainingReportPage,
-	type TrainingReportData,
-	type TrainingReportInput
-} from '$lib/server/core/useCases/trainingReportsQuery';
+import { fetchTrainingReportPage } from '$features/training/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';
 
 const INITIAL_REPORT_INPUT: TrainingReportInput = {

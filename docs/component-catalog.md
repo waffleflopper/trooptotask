@@ -374,28 +374,17 @@ Shared components own:
 
 ## `ui/requirement-status-badge`
 
-`ui/requirement-status-badge` owns shared requirement status visuals for Training and Critical Tasks. Badges are for legends, summaries, and compact status chips. Training matrix and report cells should use `TrainingStatusCell` so the status color belongs to the cell background and the visible text can stay focused on the associated date or compact value.
+`ui/requirement-status-badge` owns neutral requirement status visuals. Training owns its badge and status-cell wrappers; Critical Tasks owns its status badge and translates its completion statuses to this shared visual contract. Feature-specific presentation stays with its owner.
 
 ```svelte
 <script lang="ts">
-	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import { RequirementStatusBadge } from '$lib/components/ui/requirement-status-badge';
 </script>
 
-<TrainingStatusBadge status="current" label="Current" />
-<TrainingStatusCell status="warning-yellow" label="2026-05-10" srLabel="Expiring Soon" />
+<RequirementStatusBadge status="current" label="Current" />
 ```
 
-Public components:
-
-- `TrainingStatusBadge`: badge/chip for Training status legends and summaries.
-- `TrainingStatusCell`: compact status-colored Training cell. Props: `status`, `label`, `srLabel?`, plus normal `span` attributes.
-- `CriticalTaskStatusBadge`: badge/chip for Critical Tasks status legends and summaries.
-
-Rules:
-
-- Routes may pass status keys, visible labels, and screen-reader labels.
-- Routes must not restyle Training status colors, cell typography, radius, density, or ring treatment locally.
-- Use `TrainingStatusCell` inside `ui/operational-matrix` and Training report tables when the cell background carries the status.
+Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` and `RequirementStatus`. Routes pass status keys, visible labels and screen-reader labels through the relevant owner component. Keep shared status colors and typography in the neutral base; Training matrix/report cells retain Training's status-cell presentation.
 
 ---
 

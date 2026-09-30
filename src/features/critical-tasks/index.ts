@@ -17,6 +17,8 @@ export { normalizeCriticalTasksSettings } from './utils/ictStatus';
 export { getActiveIctTasksForLibrary } from './utils/ictTaskLibrary';
 export {
 	criticalTasksWorkspaceHydrator,
+	criticalTasksWorkspaceStatus,
+	resetCriticalTasksWorkspaceStatus,
 	markCriticalTasksWorkspacePending,
 	markCriticalTasksWorkspaceRejected,
 	markCriticalTasksWorkspaceResolved

@@ -1,10 +1,9 @@
-import type { CriticalTasksWorkspaceData } from '../contracts';
-import type { IctTask, PersonnelIctCompletion } from '../criticalTasks.types';
+import type { CriticalTasksReadModelPort, CriticalTasksWorkspaceData } from '../contracts';
+import type { IctTask } from '../criticalTasks.types';
 import type { Group, PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import { listGroupCatalog } from '$features/personnel/index.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
 import { IctTaskEntity } from './ictTaskEntity.server';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 
 interface CriticalTasksWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
@@ -23,12 +22,7 @@ interface CriticalTasksWorkspaceQueryContext {
 		): Promise<T[]>;
 	};
 	personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
-	criticalTasksReadModel: {
-		findLatestCompletions(
-			orgId: string,
-			filters: { personnelIds: string[]; taskIds: string[] }
-		): Promise<Record<string, unknown>[]>;
-	};
+	criticalTasksReadModel: CriticalTasksReadModelPort;
 }
 
 export interface CriticalTasksBootstrapOptions {
@@ -84,7 +78,6 @@ export async function fetchCriticalTasksBootstrap(
 				taskIds: loadedTasks.map((task) => task.id)
 			})
 		)
-		.then((rows) => PersonnelIctCompletionEntity.fromDbArray(rows) as PersonnelIctCompletion[])
 		.catch((error) => {
 			console.error('[critical-tasks-workspace] Failed to load personnel ICT completions', {
 				orgId,

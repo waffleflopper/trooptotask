@@ -1,0 +1,19 @@
+{
+  "armed": true,
+  "calls": [
+    {
+      "method": "POST",
+      "count": 3,
+      "ids": [
+        null,
+        null,
+        null
+      ],
+      "notes": [
+        null
+      ],
+      "status": 503
+    }
+  ],
+  "held": false
+}

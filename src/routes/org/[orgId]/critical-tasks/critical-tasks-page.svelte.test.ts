@@ -2,11 +2,11 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
-import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
+import { ictTasksStore } from '$features/critical-tasks';
+import { personnelIctCompletionsStore } from '$features/critical-tasks';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupCatalogHydration } from '$features/personnel';
-import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
+import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 

@@ -1,0 +1,170 @@
+uid=9_0 RootWebArea "Verification Organization A - Troop to Task" url="http://127.0.0.1:39743/org/63008a75-f713-41bf-86d5-4abb80f4342c/calendar"
+  uid=11_0 button "Switch organization" expandable haspopup="menu"
+  uid=11_1 StaticText "Navigation"
+  uid=11_2 link "Home" url="http://127.0.0.1:39743/org/63008a75-f713-41bf-86d5-4abb80f4342c"
+    uid=11_3 StaticText "Home"
+  uid=11_4 link "Calendar" url="http://127.0.0.1:39743/org/63008a75-f713-41bf-86d5-4abb80f4342c/calendar"
+    uid=11_5 StaticText "Calendar"
+  uid=11_6 button "Account menu" expandable haspopup="menu"
+  uid=11_7 button "Toggle Sidebar" description="Toggle Sidebar"
+  uid=11_8 main
+    uid=11_9 link "Skip to main content" url="http://127.0.0.1:39743/org/63008a75-f713-41bf-86d5-4abb80f4342c/calendar#main-content"
+      uid=11_10 StaticText "Skip to main content"
+    uid=11_11 button "Toggle Sidebar"
+    uid=11_12 navigation "Current section"
+      uid=11_13 link "Verification Organization A" url="http://127.0.0.1:39743/org/63008a75-f713-41bf-86d5-4abb80f4342c"
+        uid=11_14 StaticText "Verification Organization A"
+      uid=11_15 StaticText "Calendar"
+    uid=11_16 button "Send feedback"
+    uid=11_17 button "Notifications" expandable haspopup="menu"
+    uid=11_18 button "Toggle theme"
+    uid=11_19 main
+      uid=11_20 main
+        uid=11_21 button "Calendar group filter" expandable haspopup="listbox"
+        uid=11_22 searchbox "Search by name, rank, MOS, role, or group"
+        uid=11_23 button "Bulk Status" expandable haspopup="menu"
+        uid=11_24 button "Planning" expandable haspopup="menu"
+        uid=11_25 link "Reports" url="http://127.0.0.1:39743/org/63008a75-f713-41bf-86d5-4abb80f4342c/calendar/reports"
+          uid=11_26 StaticText "Reports"
+        uid=11_27 button "More Calendar actions" expandable haspopup="menu"
+        uid=11_28 button "Prev"
+        uid=11_29 button "September 2026" expandable haspopup="dialog"
+        uid=11_30 button "Next"
+        uid=11_31 button "3-Month" description="Switch to 3-month view"
+        uid=11_32 button "Today"
+        uid=11_33 StaticText "PERSONNEL"
+        uid=11_34 button "TUE 1" description="Click to set daily assignments"
+        uid=11_35 button "WED 2" description="Click to set daily assignments"
+        uid=11_36 button "THU 3" description="Click to set daily assignments"
+        uid=11_37 button "FRI 4" description="Click to set daily assignments"
+        uid=11_38 button "SAT 5" description="Click to set daily assignments"
+        uid=11_39 button "SUN 6" description="Click to set daily assignments"
+        uid=11_40 button "MON 7" description="Click to set daily assignments"
+        uid=11_41 button "TUE 8" description="Click to set daily assignments"
+        uid=11_42 button "WED 9" description="Click to set daily assignments"
+        uid=11_43 button "THU 10" description="Click to set daily assignments"
+        uid=11_44 button "FRI 11" description="Click to set daily assignments"
+        uid=11_45 button "SAT 12" description="Click to set daily assignments"
+        uid=11_46 button "SUN 13" description="Click to set daily assignments"
+        uid=11_47 button "MON 14" description="Click to set daily assignments"
+        uid=11_48 button "TUE 15 SPC ABLE" description="Verification Unit Closure"
+        uid=11_49 button "WED 16" description="Click to set daily assignments"
+        uid=11_50 button "THU 17" description="Click to set daily assignments"
+        uid=11_51 button "FRI 18" description="Verification Custom Holiday"
+        uid=11_52 button "SAT 19" description="Click to set daily assignments"
+        uid=11_53 button "SUN 20" description="Click to set daily assignments"
+        uid=11_54 button "MON 21" description="Click to set daily assignments"
+        uid=11_55 button "TUE 22" description="Click to set daily assignments"
+        uid=11_56 button "WED 23" description="Click to set daily assignments"
+        uid=11_57 button "THU 24" description="Click to set daily assignments"
+        uid=11_58 button "FRI 25" description="Click to set daily assignments"
+        uid=11_59 button "SAT 26" description="Click to set daily assignments"
+        uid=11_60 button "SUN 27" description="Click to set daily assignments"
+        uid=11_61 button "MON 28" description="Click to set daily assignments"
+        uid=11_62 button "TUE 29" description="Click to set daily assignments"
+        uid=11_63 button "WED 30" description="Click to set daily assignments"
+        uid=11_64 button "▼ ALPHA"
+        uid=11_65 button "PIN" description="Pin group to top"
+        uid=11_66 button "SPC Able, Synthetic"
+        uid=11_67 button
+        uid=11_68 button
+        uid=11_69 button
+        uid=11_70 button
+        uid=11_71 button
+        uid=11_72 button
+        uid=11_73 button
+        uid=11_74 button
+        uid=11_75 button
+        uid=11_76 button
+        uid=11_77 button
+        uid=11_78 button
+        uid=11_79 button
+        uid=11_80 button "VERIFICATION LEAVE" description="Verification Leave - Alpha seeded leave"
+        uid=11_81 button "VERIFICATION LEAVE VSD VAD" description="Verification Unit Closure Verification Staff Duty Verification Archived Duty Verification Leave - Alpha seeded leave"
+        uid=11_82 button "VERIFICATION LEAVE" description="Verification Leave - Alpha seeded leave"
+        uid=11_83 button
+        uid=11_84 button "Verification Custom Holiday"
+        uid=11_85 button
+        uid=11_86 button
+        uid=11_87 button
+        uid=11_88 button
+        uid=11_89 button
+        uid=11_90 button
+        uid=11_91 button
+        uid=11_92 button
+        uid=11_93 button
+        uid=11_94 button
+        uid=11_95 button
+        uid=11_96 button
+        uid=11_97 button "▼ BRAVO"
+        uid=11_98 button "PIN" description="Pin group to top"
+        uid=11_99 button "SPC Baker, Synthetic"
+        uid=11_100 button
+        uid=11_101 button
+        uid=11_102 button
+        uid=11_103 button
+        uid=11_104 button
+        uid=11_105 button
+        uid=11_106 button
+        uid=11_107 button
+        uid=11_108 button
+        uid=11_109 button
+        uid=11_110 button
+        uid=11_111 button
+        uid=11_112 button
+        uid=11_113 button
+        uid=11_114 button "VERIFICATION TRAINING VRD" description="Verification Unit Closure Verification Retiring Duty Verification Training - Bravo seeded training"
+        uid=11_115 button
+        uid=11_116 button
+        uid=11_117 button "Verification Custom Holiday"
+        uid=11_118 button
+        uid=11_119 button
+        uid=11_120 button
+        uid=11_121 button
+        uid=11_122 button
+        uid=11_123 button
+        uid=11_124 button
+        uid=11_125 button
+        uid=11_126 button
+        uid=11_127 button "VERIFICATION TRAINING" description="Verification Training - Current training spans selected removal date"
+        uid=11_128 button "VERIFICATION TRAINING" description="Verification Training - Current training spans selected removal date"
+        uid=11_129 button "VERIFICATION TRAINING" description="Verification Training - Current training spans selected removal date"
+        uid=11_130 button "▼ UNASSIGNED"
+        uid=11_131 button "PIN" description="Pin group to top"
+        uid=11_132 button "SPC Unassigned, Synthetic"
+        uid=11_133 button
+        uid=11_134 button
+        uid=11_135 button
+        uid=11_136 button
+        uid=11_137 button
+        uid=11_138 button
+        uid=11_139 button
+        uid=11_140 button
+        uid=11_141 button
+        uid=11_142 button
+        uid=11_143 button
+        uid=11_144 button
+        uid=11_145 button
+        uid=11_146 button
+        uid=11_147 button "VERIFICATION LEAVE" description="Verification Unit Closure Verification Leave - Unassigned seeded leave"
+        uid=11_148 button
+        uid=11_149 button
+        uid=11_150 button "Verification Custom Holiday"
+        uid=11_151 button
+        uid=11_152 button
+        uid=11_153 button
+        uid=11_154 button
+        uid=11_155 button
+        uid=11_156 button
+        uid=11_157 button
+        uid=11_158 button
+        uid=11_159 button
+        uid=11_160 button
+        uid=11_161 button
+        uid=11_162 button
+        uid=11_163 StaticText "Verification Leave"
+        uid=11_164 StaticText "Verification Training"
+        uid=11_165 StaticText "Verification Retiring Status"
+  uid=9_48 region "Notifications alt+T" live="polite" relevant="additions text"
+  uid=9_49 generic atomic live="assertive" relevant="additions text"
+    uid=11_166 StaticText "Verification Organization A - Troop to Task"

@@ -20,6 +20,7 @@ const evidenceRoot = path.join(repository, '.verification/evidence/verify-troopt
 const tableColumns = {
 	groups: 'organization_id',
 	personnel: 'organization_id',
+	organization_rank_catalog: 'organization_id',
 	leader_notes: 'organization_id',
 	personnel_follow_ups: 'organization_id',
 	counseling_records: 'organization_id',
@@ -47,6 +48,7 @@ const tableColumns = {
 	personnel_ict_completions: 'organization_id'
 };
 const tableSelect = {
+	organization_rank_catalog: 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order',
 	training_types:
 		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional',
 	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
@@ -173,6 +175,7 @@ async function main() {
 	if (command === 'fixture') {
 		note({
 			ids: fixture.ids,
+			rankCatalog: fixture.rankCatalog,
 			dates: fixture.dates,
 			invitationEmails: fixture.invitationEmails,
 			notificationUsers: Object.fromEntries(

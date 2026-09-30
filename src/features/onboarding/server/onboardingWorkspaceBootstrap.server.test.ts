@@ -69,6 +69,8 @@ describe('fetchOnboardingWorkspace', () => {
 			] as PersonnelOnboarding[],
 			personnel: [{ id: 'p1', firstName: 'John', lastName: 'Smith' } as Personnel],
 			groups: [{ id: 'g1', name: 'Alpha', sortOrder: 0 } as Group],
+			rankCatalogUnavailable: false,
+			rankCatalog: [],
 			trainingTypes: [{ id: 'tt1', name: 'CPR' } as TrainingType]
 		};
 		fetchOnboardingBootstrapMock.mockResolvedValue(onboardingData);
@@ -130,7 +132,9 @@ describe('fetchOnboardingWorkspace', () => {
 			] as PersonnelOnboarding[],
 			personnel: [] as Personnel[],
 			groups: [] as Group[],
-			trainingTypes: [] as TrainingType[]
+			trainingTypes: [] as TrainingType[],
+			rankCatalogUnavailable: false,
+			rankCatalog: []
 		};
 		const historyData = {
 			...activeData,

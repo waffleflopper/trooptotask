@@ -20,6 +20,130 @@ function makeOnboardingRow(overrides: Record<string, unknown> = {}): Record<stri
 }
 
 describe('fetchOnboardingBootstrap', () => {
+	it('supplies the Organization rank catalog for Personnel creation without foreign entries', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+		ctx.store.seed('organization_rank_catalog', [
+			{
+				organization_id: ORG,
+				code: 'VRA',
+				label: 'Verification active',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sort_order: 0
+			},
+			{
+				organization_id: ORG,
+				code: 'VRR',
+				label: 'Verification retired',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'retired',
+				source: 'custom',
+				sort_order: 1
+			},
+			{
+				organization_id: 'foreign-org',
+				code: 'VRF',
+				label: 'Foreign only',
+				service: 'custom',
+				category: 'custom',
+				pay_grade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sort_order: 0
+			}
+		]);
+
+		const result = await fetchOnboardingBootstrap(ctx);
+		expect(result.rankCatalog).toEqual([
+			{
+				organizationId: ORG,
+				code: 'VRA',
+				label: 'Verification active',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'ungraded',
+				state: 'active',
+				source: 'custom',
+				sortOrder: 0
+			},
+			{
+				organizationId: ORG,
+				code: 'VRR',
+				label: 'Verification retired',
+				service: 'custom',
+				category: 'custom',
+				payGrade: 'ungraded',
+				state: 'retired',
+				source: 'custom',
+				sortOrder: 1
+			}
+		]);
+	});
+
+	it.each([
+		{ capability: 'none' as const, scope: { kind: 'organization' as const } },
+		{ capability: 'configure' as const, scope: { kind: 'groups' as const, groupIds: [] as string[] } }
+	])(
+		'keeps Onboarding available without rank access when Personnel creation is denied (%j)',
+		async ({ capability, scope }) => {
+			const ctx = createWritePortsContext({
+				auth: {
+					orgId: ORG,
+					role: 'member',
+					isPrivileged: false,
+					scopeSet: scope,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: capability,
+						training: 'none',
+						criticalTasks: 'none',
+						onboarding: 'view',
+						ratingScheme: 'none'
+					}
+				}
+			});
+			const catalogStore = ctx.rawStore ?? ctx.store;
+			const findMany = catalogStore.findMany.bind(catalogStore);
+			catalogStore.findMany = async (...args) => {
+				if (args[0] === 'organization_rank_catalog') throw new Error('Personnel catalog unavailable');
+				return findMany(...args);
+			};
+
+			await expect(fetchOnboardingBootstrap(ctx)).resolves.toMatchObject({
+				rankCatalog: [],
+				rankCatalogUnavailable: false,
+				onboardings: []
+			});
+		}
+	);
+
+	it('keeps existing-member Onboarding available when the optional Personnel catalog fails', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+		ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG, rank: 'SPC', archived_at: null }]);
+		ctx.store.seed('personnel_onboardings', [makeOnboardingRow()]);
+		const catalogStore = ctx.rawStore ?? ctx.store;
+		const findMany = catalogStore.findMany.bind(catalogStore);
+		catalogStore.findMany = async (...args) => {
+			if (args[0] === 'organization_rank_catalog') throw new Error('Personnel catalog unavailable');
+			return findMany(...args);
+		};
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const result = await fetchOnboardingBootstrap(ctx);
+			expect(result.rankCatalog).toEqual([]);
+			expect(result.rankCatalogUnavailable).toBe(true);
+			expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
+			expect(result.onboardings.map((onboarding) => onboarding.id)).toEqual(['ob1']);
+		} finally {
+			log.mockRestore();
+		}
+	});
+
 	it('returns onboarding data plus explicit reference collections for the org', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
 		ctx.store.seed('onboarding_templates', [

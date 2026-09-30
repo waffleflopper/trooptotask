@@ -34,6 +34,9 @@ export async function seed(session) {
 			'groupA',
 			'groupB',
 			'groupForeign',
+			'rankActiveA',
+			'rankRetiredA',
+			'rankActiveB',
 			'personA',
 			'personB',
 			'personUnassigned',
@@ -90,6 +93,11 @@ export async function seed(session) {
 			'holidayCustom'
 		].map((key) => [key, randomUUID()])
 	);
+	const rankCatalog = {
+		activeA: { id: ids.rankActiveA, organization: 'orgA', code: 'VFY-ACTIVE-A', state: 'active' },
+		retiredA: { id: ids.rankRetiredA, organization: 'orgA', code: 'VFY-RETIRED-A', state: 'retired' },
+		activeB: { id: ids.rankActiveB, organization: 'orgB', code: 'VFY-ONLY-B', state: 'active' }
+	};
 	const password = `Synthetic-${randomUUID()}!9`;
 	const actors = {};
 	const personnelActors = {
@@ -239,13 +247,14 @@ export async function seed(session) {
 	// Personnel create/import needs an active catalog; direct Organization fixtures
 	// do not run the application's provisioning workflow.
 	checked(
-		await service.from('organization_rank_catalog').insert(
-			[ids.orgA, ids.orgB].flatMap((organizationId) =>
+		await service.from('organization_rank_catalog').insert([
+			...[ids.orgA, ids.orgB].flatMap((organizationId) =>
 				[
 					['PFC', 'Private First Class', 'E-3', 3],
 					['SPC', 'Specialist', 'E-4', 4],
 					['SGT', 'Sergeant', 'E-5', 5]
 				].map(([code, label, payGrade, order]) => ({
+					id: randomUUID(),
 					organization_id: organizationId,
 					code,
 					label,
@@ -256,8 +265,20 @@ export async function seed(session) {
 					source: 'built-in',
 					sort_order: order
 				}))
-			)
-		)
+			),
+			...Object.values(rankCatalog).map((rank, index) => ({
+				id: rank.id,
+				organization_id: ids[rank.organization],
+				code: rank.code,
+				label: rank.code,
+				pay_grade: 'ungraded',
+				service: 'custom',
+				category: 'custom',
+				state: rank.state,
+				source: 'custom',
+				sort_order: 100 + index
+			}))
+		])
 	);
 	for (const [role, actor] of Object.entries(actors)) {
 		if (actor.organization === null) continue;
@@ -1048,6 +1069,7 @@ export async function seed(session) {
 	);
 	const fixture = {
 		ids,
+		rankCatalog,
 		actors,
 		dates,
 		invitationEmails,

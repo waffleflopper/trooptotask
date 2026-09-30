@@ -163,17 +163,35 @@ async function loadReportCompletions(
 		return [];
 	}
 
-	const completionRows = await ctx.store.findMany<Record<string, unknown>>(
-		'personnel_ict_completions',
-		ctx.auth.orgId,
-		undefined,
-		{
-			inFilters: {
-				personnel_id: personnelIds,
-				ict_task_id: taskIds
+	const people = [...new Set(personnelIds)];
+	const tasks = [...new Set(taskIds)];
+	const completionRows: Record<string, unknown>[] = [];
+	let pending: Array<Promise<Record<string, unknown>[]>> = [];
+	// Bound both UUID filters and concurrent history reads. Each lookup retains
+	// the store's pagination; reports need every historical date, not only latest.
+	for (let personIndex = 0; personIndex < people.length; personIndex += 50) {
+		for (let taskIndex = 0; taskIndex < tasks.length; taskIndex += 50) {
+			pending.push(
+				ctx.store.findMany<Record<string, unknown>>('personnel_ict_completions', ctx.auth.orgId, undefined, {
+					inFilters: {
+						personnel_id: people.slice(personIndex, personIndex + 50),
+						ict_task_id: tasks.slice(taskIndex, taskIndex + 50)
+					},
+					// Reports need every date; make offset pages stable even for tied captures.
+					orderBy: [{ column: 'id', ascending: true }]
+				})
+			);
+			if (pending.length === 4) {
+				for (const rows of await Promise.all(pending)) {
+					for (const row of rows) completionRows.push(row);
+				}
+				pending = [];
 			}
 		}
-	);
+	}
+	for (const rows of await Promise.all(pending)) {
+		for (const row of rows) completionRows.push(row);
+	}
 
 	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
 }

@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
@@ -789,4 +791,362 @@ describe('buildCriticalTasksReportWorkbook', () => {
 		expect(sheet.getColumn(2).values).not.toContain('Soldiers Below 70%');
 		expect(sheet.getColumn(4).values).not.toContain('assigned');
 	});
+});
+
+function createWideHistoryContext(
+	dimension: 'people' | 'tasks',
+	options: { failLastHistory?: boolean; forbidHistory?: boolean } = {}
+) {
+	const ctx = createTestContext({
+		auth: {
+			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: {
+				personnel: 'none',
+				criticalTasks: 'view',
+				training: 'none',
+				calendar: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			}
+		}
+	});
+	const id = (kind: number, index: number) =>
+		`${String(kind).padStart(8, '0')}-0000-4000-8000-${String(index).padStart(12, '0')}`;
+	const people = Array.from({ length: dimension === 'people' ? 501 : 1 }, (_, index) => ({
+		id: id(1, index),
+		organization_id: ctx.auth.orgId,
+		first_name: 'Synthetic',
+		last_name: `Person${index}`,
+		mos: '68W',
+		group_id: 'alpha',
+		archived_at: null
+	}));
+	const tasks = Array.from({ length: dimension === 'tasks' ? 501 : 1 }, (_, index) => ({
+		id: id(2, index),
+		organization_id: ctx.auth.orgId,
+		task_code: `TASK${index}`,
+		title: `Task${index}`,
+		mos: [],
+		expiration_months: 1,
+		sort_order: index,
+		archived_at: null
+	}));
+	const history = people.flatMap((person) =>
+		tasks.flatMap((task) =>
+			['2026-01-01', '2026-03-15'].map((date) => ({
+				id: `${person.id}:${task.id}:${date}`,
+				organization_id: ctx.auth.orgId,
+				personnel_id: person.id,
+				ict_task_id: task.id,
+				completed_at: date,
+				created_at: `${date}T12:00:00Z`,
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: null
+			}))
+		)
+	);
+	const excludedPerson = id(1, 999);
+	ctx.store.seed('personnel', [...people, { ...people[0], id: excludedPerson, group_id: 'bravo' }]);
+	ctx.store.seed('ict_tasks', tasks);
+	ctx.store.seed('organizations', [
+		{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 1, critical_tasks_expiring_soon_warning_days: 7 }
+	]);
+	ctx.store.seed('groups', [{ id: 'alpha', organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }]);
+	const client = createClient('https://provider.invalid', 'synthetic-key', {
+		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+		global: {
+			fetch: async (input) => {
+				const url = new URL(String(input));
+				if (url.href.length > 8192) return Response.json({ message: 'URI too long' }, { status: 414 });
+				const ids = (column: string) => url.searchParams.get(column)?.slice(4, -1).split(',') ?? [];
+				expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+				expect(ids('personnel_id')).not.toContain(excludedPerson);
+				if (options.failLastHistory && ids('personnel_id').includes(people.at(-1)!.id))
+					return Response.json({ message: 'Required history unavailable' }, { status: 403 });
+				const selected = history.filter(
+					(row) => ids('personnel_id').includes(row.personnel_id) && ids('ict_task_id').includes(row.ict_task_id)
+				);
+				const offset = Number(url.searchParams.get('offset') ?? 0);
+				return Response.json(selected.slice(offset, offset + 1000));
+			}
+		}
+	});
+	const provider = createSupabaseDataStore(client);
+	const findMany = ctx.store.findMany.bind(ctx.store);
+	vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+		args[0] === 'personnel_ict_completions'
+			? options.forbidHistory
+				? Promise.reject(new Error('Excluded history must not be read'))
+				: provider.findMany(...args)
+			: findMany(...args)
+	);
+	return ctx;
+}
+
+describe('bounded Critical Tasks report history', () => {
+	it.each(['people', 'tasks'] as const)(
+		'retains older readiness dates for 501 %s through a URL-limited provider',
+		async (dimension) => {
+			const ctx = createWideHistoryContext(dimension);
+			const dashboard = await fetchCriticalTasksReportDashboard(ctx, { asOf: '2026-03-20' });
+			expect(dashboard.kpis.overallReadiness).toMatchObject({ percent: 100, readyCount: 501, applicableCount: 501 });
+			expect(
+				dashboard.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+			).toEqual([
+				['2026-01', 100],
+				['2026-02', 0],
+				['2026-03', 100]
+			]);
+			const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
+			expect(summary.kpis.overallReadiness).toMatchObject({ percent: 100, readyCount: 501, applicableCount: 501 });
+			expect(
+				summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+			).toEqual([
+				['2026-01', 100],
+				['2026-02', 0],
+				['2026-03', 100]
+			]);
+		}
+	);
+
+	it('returns an empty authorized report for an excluded group without reading history', async () => {
+		const ctx = createWideHistoryContext('people', { forbidHistory: true });
+		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
+			filters: { groupId: 'bravo' },
+			asOf: '2026-03-20'
+		});
+		expect(dashboard.kpis.overallReadiness).toMatchObject({ percent: 0, readyCount: 0, applicableCount: 0 });
+		expect(dashboard.atRiskSoldiers.rows).toEqual([]);
+	});
+
+	it('rejects an unavailable history window instead of returning a partial report', async () => {
+		const ctx = createWideHistoryContext('people', { failLastHistory: true });
+		await expect(fetchCriticalTasksReportDashboard(ctx, { asOf: '2026-03-20' })).rejects.toThrow(
+			'Required history unavailable'
+		);
+		await expect(fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' })).rejects.toThrow(
+			'Required history unavailable'
+		);
+	});
+});
+
+describe('deep Critical Tasks dated history', () => {
+	it.each([
+		['remaining history windows', 1, 150, 150],
+		['four history windows', 151, 1, 151]
+	] as const)('retains dated readiness across %s', async (_name, personCount, taskCount, expectedReadyCount) => {
+		const id = (kind: number, index: number) =>
+			`${String(kind).padStart(8, '0')}-0000-4000-8000-${String(index).padStart(12, '0')}`;
+		const ctx = createTestContext({ auth: { orgId: id(9, 0) } });
+		const people = Array.from({ length: personCount }, (_, index) => ({
+			id: id(1, index),
+			organization_id: ctx.auth.orgId,
+			first_name: 'Synthetic',
+			last_name: `Deep${index}`,
+			mos: '68W',
+			group_id: null,
+			archived_at: null
+		}));
+		const tasks = Array.from({ length: taskCount }, (_, index) => ({
+			id: id(2, index),
+			organization_id: ctx.auth.orgId,
+			task_code: `DEEP${index}`,
+			title: `Deep history ${index}`,
+			mos: [],
+			expiration_months: 1,
+			archived_at: null
+		}));
+		ctx.store.seed('personnel', people);
+		ctx.store.seed('ict_tasks', tasks);
+		ctx.store.seed('organizations', [
+			{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 1, critical_tasks_expiring_soon_warning_days: 7 }
+		]);
+		const dates = [
+			...Array.from({ length: 999 }, (_, index) => new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10)),
+			'2026-01-01',
+			'2026-03-15'
+		];
+		// Each pair has 1001 distinct dates. The 150-task case leaves three
+		// history windows; the 151-Person case fills four with 151151 rows.
+		const history: Record<string, string | null>[] = people.flatMap((person, personIndex) =>
+			tasks.flatMap((task, taskIndex) =>
+				dates.map((date, dateIndex) => ({
+					id: id(3, (personIndex * taskCount + taskIndex) * dates.length + dateIndex),
+					organization_id: ctx.auth.orgId,
+					personnel_id: person.id,
+					ict_task_id: task.id,
+					completed_at: date,
+					created_at: `${date}T12:00:00Z`,
+					validation_method: 'Demonstration',
+					validated_by: null,
+					notes: null,
+					logged_by: null
+				}))
+			)
+		);
+		// Cache the immutable fixture selection per provider query, so paging
+		// doesn't repeatedly scan/sort 150k stored captures inside this fake.
+		const selections = new Map<string, typeof history>();
+		const client = createClient('https://provider.invalid', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					const key = ['organization_id', 'personnel_id', 'ict_task_id', 'order']
+						.map((column) => url.searchParams.get(column))
+						.join('|');
+					let selected = selections.get(key);
+					if (!selected) {
+						const ids = (column: string) => new Set(url.searchParams.get(column)?.slice(4, -1).split(',') ?? []);
+						const personnelIds = ids('personnel_id');
+						const taskIds = ids('ict_task_id');
+						const organizationId = url.searchParams.get('organization_id')?.slice(3);
+						selected = history.filter(
+							(row) =>
+								row.organization_id === organizationId &&
+								personnelIds.has(row.personnel_id!) &&
+								taskIds.has(row.ict_task_id!)
+						);
+						const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
+						selected.sort((left, right) => {
+							for (const term of order) {
+								const [column, direction] = term.split('.');
+								const comparison = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+								if (comparison) return direction === 'desc' ? -comparison : comparison;
+							}
+							return 0;
+						});
+						selections.set(key, selected);
+					}
+					const offset = Number(url.searchParams.get('offset') ?? 0);
+					return Response.json(selected.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000)));
+				}
+			}
+		});
+		const provider = createSupabaseDataStore(client);
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
+		);
+		const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
+		expect(summary.kpis.overallReadiness).toMatchObject({
+			readyCount: expectedReadyCount,
+			applicableCount: expectedReadyCount,
+			percent: 100
+		});
+		// All pairs are ready in January, expired in February, and restored
+		// by their March capture; the old 2020–2022 dates cannot supply readiness.
+		expect(
+			summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+		).toEqual([
+			['2026-01', 100],
+			['2026-02', 0],
+			['2026-03', 100]
+		]);
+	});
+});
+
+describe('paged Critical Tasks report history', () => {
+	it.each([
+		['report', fetchCriticalTasksReportDashboard],
+		['Dashboard summary', fetchCriticalTasksDashboardSummary]
+	] as const)(
+		'retains older readiness dates in the %s when provider pages change incidental row order',
+		async (_name, fetchReport) => {
+			const ctx = createTestContext({ auth: { orgId: '70000000-0000-4000-8000-000000000001' } });
+			const personId = '40000000-0000-4000-8000-000000000001';
+			const taskId = '60000000-0000-4000-8000-000000000001';
+			ctx.store.seed('personnel', [
+				{
+					id: personId,
+					organization_id: ctx.auth.orgId,
+					first_name: 'Synthetic',
+					last_name: 'History',
+					mos: '68W',
+					archived_at: null
+				}
+			]);
+			ctx.store.seed('ict_tasks', [
+				{
+					id: taskId,
+					organization_id: ctx.auth.orgId,
+					task_code: 'HISTORY',
+					title: 'Historical readiness',
+					mos: [],
+					expiration_months: 1,
+					archived_at: null
+				}
+			]);
+			ctx.store.seed('organizations', [
+				{
+					id: ctx.auth.orgId,
+					critical_tasks_default_expiration_months: 1,
+					critical_tasks_expiring_soon_warning_days: 7
+				}
+			]);
+			const capture = (index: number, completedAt: string) => ({
+				id: `50000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+				organization_id: ctx.auth.orgId,
+				personnel_id: personId,
+				ict_task_id: taskId,
+				completed_at: completedAt,
+				created_at: `${completedAt}T12:00:00Z`,
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: null
+			});
+			const captures: Record<string, string | null>[] = [
+				capture(0, '2026-03-15'),
+				// Distinct older dates obey the Person/task/date uniqueness constraint.
+				...Array.from({ length: 1000 }, (_, index) =>
+					capture(index + 1, new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10))
+				),
+				capture(1001, '2026-01-01')
+			];
+			const client = createClient('https://provider.invalid', 'synthetic-key', {
+				auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+				global: {
+					fetch: async (input) => {
+						const url = new URL(String(input));
+						const offset = Number(url.searchParams.get('offset') ?? 0);
+						// Each page may choose another legal order for rows tied on every
+						// requested key; an omitted January capture changes the report trend.
+						const rows = offset === 0 ? [...captures] : [...captures].reverse();
+						const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
+						rows.sort((left, right) => {
+							for (const term of order) {
+								const [column, direction] = term.split('.');
+								const comparison = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+								if (comparison) return direction === 'desc' ? -comparison : comparison;
+							}
+							return 0;
+						});
+						return Response.json(rows.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000)));
+					}
+				}
+			});
+			const provider = createSupabaseDataStore(client);
+			const findMany = ctx.store.findMany.bind(ctx.store);
+			vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+				args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
+			);
+
+			const report = await fetchReport(ctx, { asOf: '2026-03-20' });
+			expect(report.kpis.overallReadiness).toMatchObject({ readyCount: 1, applicableCount: 1, percent: 100 });
+			// A January 1 capture is ready in January, expired in February; the
+			// March 15 capture restores readiness in March for this one-month task.
+			expect(
+				report.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+			).toEqual([
+				['2026-01', 100],
+				['2026-02', 0],
+				['2026-03', 100]
+			]);
+		}
+	);
 });

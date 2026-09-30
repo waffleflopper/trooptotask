@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { trainingWorkspaceHydrator } from '$features/training/trainingWorkspaceHydration.svelte';
-	import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
+	import { trainingWorkspaceHydrator } from '$features/training';
+	import type { TrainingWorkspaceResult } from '$features/training/contracts';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 

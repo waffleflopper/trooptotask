@@ -3,6 +3,8 @@ import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { exportPersonnelWorkbook } from './personnelExport';
 import type { PersonnelAvailabilityPeriod } from '$features/personnel/contracts';
+const listPersonnelTrainingExportRows: Parameters<typeof exportPersonnelWorkbook>[5] = (store, orgId, personnelId) =>
+	store.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: personnelId });
 
 const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
 const listTrainingTypeLabels = async () => [{ id: 'training-type-1', name: 'Weapons Qual' }];
@@ -190,6 +192,7 @@ describe('Personnel export use case', () => {
 			}
 		]);
 		const findManySpy = vi.spyOn(ctx.rawStore, 'findMany');
+		const trainingRead = vi.fn(listPersonnelTrainingExportRows);
 
 		await expect(
 			exportPersonnelWorkbook(
@@ -197,13 +200,15 @@ describe('Personnel export use case', () => {
 				{ personnelId: PERSONNEL_ID },
 				listAvailabilityHistory,
 				listStatusTypeLabels,
-				listTrainingTypeLabels
+				listTrainingTypeLabels,
+				trainingRead
 			)
 		).rejects.toMatchObject({
 			status: 403
 		});
 
 		expect(findManySpy).not.toHaveBeenCalled();
+		expect(trainingRead).not.toHaveBeenCalled();
 	});
 
 	it('rejects malformed personnel ids before querying storage', async () => {
@@ -216,7 +221,8 @@ describe('Personnel export use case', () => {
 				{ personnelId: 'person-1' },
 				listAvailabilityHistory,
 				listStatusTypeLabels,
-				listTrainingTypeLabels
+				listTrainingTypeLabels,
+				listPersonnelTrainingExportRows
 			)
 		).rejects.toMatchObject({
 			status: 400,
@@ -235,7 +241,8 @@ describe('Personnel export use case', () => {
 			{ personnelId: PERSONNEL_ID },
 			listAvailabilityHistory,
 			listStatusTypeLabels,
-			listTrainingTypeLabels
+			listTrainingTypeLabels,
+			listPersonnelTrainingExportRows
 		);
 		const workbook = await parseWorkbook(result._buffer);
 		const dateStr = new Date().toISOString().split('T')[0];
@@ -305,7 +312,7 @@ describe('Personnel export use case', () => {
 			}
 		]);
 	});
-	it('keeps Training labels and counseling rows in a Group-scoped Personnel export without Training access', async () => {
+	it('keeps the Training sheet empty when the request store denies Training rows, while exporting Personnel records', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -322,13 +329,17 @@ describe('Personnel export use case', () => {
 			}
 		});
 		seedPersonnelExportDataset(ctx);
+		const requestRead = ctx.rawStore.findMany.bind(ctx.rawStore);
+		// The in-memory store has no RLS. Model the verified request-client result explicitly.
+		ctx.rawStore.findMany = async (...args) => (args[0] === 'personnel_trainings' ? [] : requestRead(...args));
 
 		const result = await exportPersonnelWorkbook(
 			ctx,
 			{ personnelId: PERSONNEL_ID },
 			listAvailabilityHistory,
 			listStatusTypeLabels,
-			listTrainingTypeLabels
+			listTrainingTypeLabels,
+			listPersonnelTrainingExportRows
 		);
 		const workbook = await parseWorkbook(result._buffer);
 
@@ -337,12 +348,14 @@ describe('Personnel export use case', () => {
 			Value: 'Taylor Smith'
 		});
 		expect(worksheetRows(worksheetByName(workbook, 'Counseling Records'))).toHaveLength(2);
-		expect(worksheetRows(worksheetByName(workbook, 'Training Records'))).toContainEqual({
-			'Training Type': 'Weapons Qual',
-			'Completed Date': '2026-04-01',
-			'Expiration Date': '2027-04-01',
-			Notes: 'Expert'
-		});
+		const training = worksheetByName(workbook, 'Training Records');
+		expect((training.getRow(1).values as unknown[]).slice(1)).toEqual([
+			'Training Type',
+			'Completed Date',
+			'Expiration Date',
+			'Notes'
+		]);
+		expect(worksheetRows(training)).toEqual([]);
 	});
 	it('omits the legacy Leader Notes row when the person has no extended-info record', async () => {
 		const ctx = createTestContext();
@@ -353,11 +366,31 @@ describe('Personnel export use case', () => {
 			{ personnelId: PERSONNEL_ID },
 			listAvailabilityHistory,
 			listStatusTypeLabels,
-			listTrainingTypeLabels
+			listTrainingTypeLabels,
+			listPersonnelTrainingExportRows
 		);
 		const workbook = await parseWorkbook(result._buffer);
 		expect(worksheetRows(worksheetByName(workbook, 'Personnel Info')).some((row) => row.Field === 'Leader Notes')).toBe(
 			false
 		);
+	});
+	it('fails the workbook when the owned Training read fails, without auditing a successful export', async () => {
+		const ctx = createTestContext();
+		seedPersonnelExportDataset(ctx);
+		const failure = new Error('Training export read unavailable');
+
+		await expect(
+			exportPersonnelWorkbook(
+				ctx,
+				{ personnelId: PERSONNEL_ID },
+				listAvailabilityHistory,
+				listStatusTypeLabels,
+				listTrainingTypeLabels,
+				async () => {
+					throw failure;
+				}
+			)
+		).rejects.toThrow(failure);
+		expect(ctx.auditPort.events.filter((event) => event.action === 'personnel.exported')).toEqual([]);
 	});
 });

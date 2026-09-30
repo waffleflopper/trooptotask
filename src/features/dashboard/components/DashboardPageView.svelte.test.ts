@@ -54,6 +54,7 @@ function makeCtx(overrides: Record<string, unknown> = {}): DashboardScreenModel 
 			warningYellow: 0,
 			current: 0
 		},
+		expiredTrainingPersonnelCount: 0,
 		trainingCurrencyPct: 100,
 		ratingStats: {
 			overdue: 0,
@@ -189,5 +190,25 @@ describe('DashboardPageView', () => {
 		expect(screen.queryByRole('link', { name: 'Open Import or add the roster' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Dismiss' })).toBeNull();
 		expect(screen.queryByRole('button', { name: /Apply Pack/i })).toBeNull();
+	});
+});
+
+describe('Dashboard Training attention', () => {
+	it('shows the distinct expired-person total and expired-only groups while retaining record warnings', () => {
+		const ctx = makeCtx({
+			trainingStats: { expired: 2, warningOrange: 1, warningYellow: 0, current: 1 },
+			expiredTrainingPersonnelCount: 1,
+			trainingGroupDelinquencies: [
+				{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 0, pct: 100 },
+				{ groupId: 'bravo', groupName: 'Bravo', count: 1, expiredPersonnelCount: 1, pct: 100 }
+			]
+		});
+		render(DashboardPageView, { props: { ctx } });
+
+		expect(screen.getByText('1 personnel with expired training')).toBeTruthy();
+		expect(screen.getByText('Bravo (1)')).toBeTruthy();
+		expect(screen.queryByText(/Alpha \(1\)/)).toBeNull();
+		expect(screen.getByText('2 expired')).toBeTruthy();
+		expect(screen.getByText('1 training items expiring soon')).toBeTruthy();
 	});
 });

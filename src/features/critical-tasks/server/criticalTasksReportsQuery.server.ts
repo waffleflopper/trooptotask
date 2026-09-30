@@ -25,7 +25,7 @@ import type {
 	CriticalTasksMatrixExportInput,
 	CriticalTasksWorkbookExport
 } from '../contracts';
-import { writeWorkbookBuffer } from '$lib/export/workbook';
+import { writeWorkbookBuffer } from '$lib/utils/workbook';
 
 interface CriticalTasksReportSource {
 	personnel: Personnel[];

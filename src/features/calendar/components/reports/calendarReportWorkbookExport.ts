@@ -1,5 +1,5 @@
 import type { AssignmentType, StatusType } from '$features/calendar/contracts';
-import { addTableSheet, createWorkbook, downloadWorkbook, type WorkbookRow } from '$lib/export/workbook';
+import { addTableSheet, createWorkbook, downloadWorkbook, type WorkbookRow } from '$lib/utils/workbook';
 import type {
 	AssignmentCoverageResult,
 	AvailabilityForecastResult,

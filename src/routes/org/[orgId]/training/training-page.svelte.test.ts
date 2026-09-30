@@ -2,9 +2,9 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
-import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
+import { trainingTypesStore } from '$features/training';
+import { trainingViewsStore } from '$features/training';
+import { personnelTrainingsStore } from '$features/training';
 import { groupCatalogHydration } from '$features/personnel';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';

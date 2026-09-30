@@ -77,7 +77,7 @@ vi.mock('$features/organization/index.server', async () => {
 	};
 });
 
-vi.mock('$lib/server/core/useCases/trainingSummaryQuery', () => ({
+vi.mock('$features/training/index.server', () => ({
 	fetchDashboardTrainingSummary: fetchDashboardTrainingSummaryMock
 }));
 

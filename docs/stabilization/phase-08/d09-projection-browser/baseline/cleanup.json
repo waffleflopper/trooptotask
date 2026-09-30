@@ -1,0 +1,6 @@
+{
+  "status": "PASS",
+  "phase": "cleaned",
+  "evidence": "docs/stabilization/phase-08/d09-projection-browser/baseline",
+  "referenceNote": "Evidence reference normalized after cleanup to the published repository folder; status PASS and phase cleaned are unchanged actual verify:app results."
+}

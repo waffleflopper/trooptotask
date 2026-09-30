@@ -1,0 +1,12 @@
+{
+  "revision": "6a5ea6c42e88126bd052c09a2db00570631dc2a7",
+  "role": "ictOperator",
+  "observation": {
+    "content": [
+      {
+        "type": "text",
+        "text": "Script ran on page and returned:\n```json\n[{\"path\":\"/org/52e7fa56-b84e-4a6e-b310-9b15e16821f7/api/critical-tasks/reports/summary\",\"status\":200,\"keys\":[\"kpis\",\"tasksBelowThreshold\",\"atRiskSoldiers\",\"readinessTrend\",\"expirationCliff\",\"readinessMatrix\",\"readinessDistribution\"],\"kpis\":{\"overallReadiness\":{\"percent\":0,\"deltaPercent\":0,\"readyCount\":1,\"applicableCount\":506},\"soldiersBelow70\":{\"count\":504,\"totalApplicable\":504,\"thresholdPercent\":70},\"tasksExpiringSoon\":{\"count\":0,\"affectedSoldiers\":0,\"windowDays\":60},\"tasksBelowThreshold\":{\"count\":2,\"thresholdPercent\":70}}},{\"path\":\"/org/52e7fa56-b84e-4a6e-b310-9b15e16821f7/api/critical-tasks/reports/export\",\"status\":200,\"bytes\":16733}]\n```"
+      }
+    ]
+  }
+}

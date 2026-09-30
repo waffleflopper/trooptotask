@@ -6,10 +6,22 @@ import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
 import { buildOrganizationDataExportWorkbook } from './organizationExportWorkbook';
 import {
+	listTrainingTypeExportRows,
+	listTrainingCompletionExportRows,
+	listTrainingViewExportRows
+} from '$features/training/index.server';
+
+import {
 	loadOrganizationExportPayload,
 	ORGANIZATION_EXPORT_QUERY_BATCH_SIZE,
 	ORGANIZATION_EXPORT_SECTIONS
 } from './organizationExport';
+
+const trainingExport = {
+	listTrainingTypeExportRows,
+	listTrainingCompletionExportRows,
+	listTrainingViewExportRows
+};
 
 describe('organization export inventory', () => {
 	it('keeps section keys unique and separate from export metadata keys', () => {
@@ -35,9 +47,14 @@ describe('organization export inventory', () => {
 			}
 		} as Pick<DataStore, 'findMany'> as DataStore;
 
-		const payload = await loadOrganizationExportPayload(store, createTestAuthContext({ orgId: 'org-1' }), {
-			listRows: (actor, table) => store.findMany(table, actor.orgId)
-		});
+		const payload = await loadOrganizationExportPayload(
+			store,
+			createTestAuthContext({ orgId: 'org-1' }),
+			{
+				listRows: (actor, table) => store.findMany(table, actor.orgId)
+			},
+			trainingExport
+		);
 
 		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
 		expect(maxActiveReads).toBeLessThanOrEqual(ORGANIZATION_EXPORT_QUERY_BATCH_SIZE);
@@ -111,12 +128,48 @@ describe('retained Organization export projection', () => {
 			archived_at: '2026-06-01T00:00:00Z'
 		};
 
+		const trainingType = {
+			id: 'training-1',
+			organization_id: 'org-1',
+			name: 'Required',
+			expiration_months: null,
+			is_optional: false,
+			exempt_personnel_ids: ['person-1'],
+			created_at: '2026-05-01T00:00:00.123456Z'
+		};
+		const trainingCompletion = {
+			id: 'completion-1',
+			organization_id: 'org-1',
+			personnel_id: 'person-1',
+			training_type_id: 'training-1',
+			completion_date: null,
+			expiration_date: '2026-10-14',
+			notes: 'Saved notes',
+			certificate_url: null,
+			created_at: '2026-05-01T00:00:00.123456Z',
+			updated_at: '2026-09-29T01:02:03.654321Z'
+		};
+		const trainingView = {
+			id: 'view-1',
+			organization_id: 'org-1',
+			name: 'Saved view',
+			visible_type_ids: ['training-1'],
+			column_order: ['training-1'],
+			created_at: '2026-05-01T00:00:00.123456Z'
+		};
+
 		const commercialTables = new Set([
 			'organization_billing_snapshots',
 			'organization_checkout_attempts',
 			'organization_plan_feature_overrides'
 		]);
 		const providerRows: Record<string, Record<string, unknown>[]> = {
+			training_types: [trainingType, { ...trainingType, id: 'foreign-type', organization_id: 'foreign-org' }],
+			personnel_trainings: [
+				trainingCompletion,
+				{ ...trainingCompletion, id: 'foreign-completion', organization_id: 'foreign-org' }
+			],
+			training_views: [trainingView, { ...trainingView, id: 'foreign-view', organization_id: 'foreign-org' }],
 			leader_notes: [activeNote, archivedNote, { ...activeNote, id: 'foreign-note', organization_id: 'foreign-org' }],
 			personnel_extended_info: [
 				{
@@ -210,10 +263,24 @@ describe('retained Organization export projection', () => {
 		const result = await loadOrganizationExportPayload(
 			store,
 			createTestAuthContext({ orgId: 'org-1' }),
-			createSupabasePersonnelOrganizationExportPort(() => adminClient)
+			createSupabasePersonnelOrganizationExportPort(() => adminClient),
+			trainingExport
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');
+		expect(json.trainingTypes).toEqual([trainingType]);
+		expect(json.personnelTrainings).toEqual([trainingCompletion]);
+		expect(json.trainingViews).toEqual([trainingView]);
+		expect(json.sections.trainingTypes).toEqual([trainingType]);
+		expect(json.sections.personnelTrainings).toEqual([trainingCompletion]);
+		expect(json.sections.trainingViews).toEqual([trainingView]);
+		expect(json.sectionInventory).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: 'trainingTypes', table: 'training_types', rowCount: 1 }),
+				expect.objectContaining({ key: 'personnelTrainings', table: 'personnel_trainings', rowCount: 1 }),
+				expect.objectContaining({ key: 'trainingViews', table: 'training_views', rowCount: 1 })
+			])
+		);
 		expect(json.leaderNotes).toEqual([activeNote, archivedNote]);
 		expect(json.sections.leaderNotes).toEqual([activeNote, archivedNote]);
 		expect(json.sectionInventory).toContainEqual(
@@ -237,6 +304,24 @@ describe('retained Organization export projection', () => {
 			expect(json.sectionInventory.map((section: { key: string }) => section.key)).not.toContain(key);
 		}
 		const { workbook } = await buildOrganizationDataExportWorkbook({ payload: result });
+		for (const [name, rawRow] of [
+			['Raw - Training Types', trainingType],
+			['Raw - Personnel Trainings', trainingCompletion],
+			['Raw - Training Views', trainingView]
+		] as const) {
+			const sheet = workbook.getWorksheet(name)!;
+			expect(sheet.columns.map((column) => column.key)).toEqual(Object.keys(rawRow));
+			expect(sheet.getRow(2).getCell('id').value).toBe(rawRow.id);
+			expect(sheet.getRow(2).getCell('created_at').value).toBe('2026-05-01T00:00:00.123456Z');
+			expect(sheet.rowCount).toBe(2);
+		}
+		const completionSheet = workbook.getWorksheet('Raw - Personnel Trainings')!;
+		expect(String(completionSheet.getRow(2).getCell('completion_date').value ?? '')).toBe('');
+		expect(String(completionSheet.getRow(2).getCell('certificate_url').value ?? '')).toBe('');
+		expect(completionSheet.getRow(2).getCell('updated_at').value).toBe('2026-09-29T01:02:03.654321Z');
+		expect(workbook.getWorksheet('Raw - Training Views')!.getRow(2).getCell('visible_type_ids').value).toBe(
+			'["training-1"]'
+		);
 		const noteSheet = workbook.getWorksheet('Leader Notes')!;
 		expect(noteSheet.getRow(2).getCell('author').value).toBe('original-author');
 		expect(noteSheet.getRow(2).getCell('text').value).toBe('Sensitive active note');

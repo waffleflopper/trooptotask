@@ -18,6 +18,15 @@ import {
 export type OrganizationExportSection = OrganizationDataExportSection;
 export type OrganizationExportSections = OrganizationDataExportSections;
 
+interface OrganizationTrainingExportReads {
+	listTrainingTypeExportRows(store: Pick<DataStore, 'findMany'>, orgId: string): Promise<Record<string, unknown>[]>;
+	listTrainingCompletionExportRows(
+		store: Pick<DataStore, 'findMany'>,
+		orgId: string
+	): Promise<Record<string, unknown>[]>;
+	listTrainingViewExportRows(store: Pick<DataStore, 'findMany'>, orgId: string): Promise<Record<string, unknown>[]>;
+}
+
 export type OrganizationExportPayload = {
 	exportedAt: string;
 	organizationId: string;
@@ -37,7 +46,8 @@ export const ORGANIZATION_EXPORT_SECTIONS = ORGANIZATION_DATA_EXPORT_SECTIONS;
 export async function loadOrganizationExportPayload(
 	store: DataStore,
 	actor: PersonnelRosterActor,
-	personnelExport: PersonnelOrganizationExportPort
+	personnelExport: PersonnelOrganizationExportPort,
+	trainingExport: OrganizationTrainingExportReads
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const orgId = actor.orgId;
@@ -49,6 +59,15 @@ export async function loadOrganizationExportPayload(
 				batch.map(async (section) => {
 					if (section.areaKey === 'personnel' && isPersonnelOrganizationExportTable(section.table)) {
 						return [section.key, await personnelExport.listRows(actor, section.table)] as const;
+					}
+					if (section.key === 'trainingTypes') {
+						return [section.key, await trainingExport.listTrainingTypeExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'personnelTrainings') {
+						return [section.key, await trainingExport.listTrainingCompletionExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'trainingViews') {
+						return [section.key, await trainingExport.listTrainingViewExportRows(store, orgId)] as const;
 					}
 					if (section.key === 'specialDays') {
 						return [section.key, await listSpecialDayExportRows(store, orgId)] as const;

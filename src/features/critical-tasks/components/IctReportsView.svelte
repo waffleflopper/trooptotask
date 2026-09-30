@@ -7,7 +7,7 @@
 	import * as Separator from '$lib/components/ui/separator';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
+	import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
 	import type { IctReportDashboard, IctReportScope } from '$features/critical-tasks/utils/ictReports';
 	import IctAtRiskSoldiersTable from './IctAtRiskSoldiersTable.svelte';
 	import IctExpirationCliffChart from './IctExpirationCliffChart.svelte';

@@ -41,11 +41,35 @@ describe('POST /api/export', () => {
 			{ id: 'own-person', organization_id: ctx.auth.orgId, first_name: 'Local', last_name: 'Person', rank: 'SGT' },
 			{ id: 'foreign-person', organization_id: 'other-org', first_name: 'Private', last_name: 'Foreign', rank: 'SGT' }
 		]);
+		const trainingType = { id: 'own-type', organization_id: ctx.auth.orgId, name: 'Required', expiration_months: null };
+		const training = {
+			id: 'own-training',
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'own-person',
+			training_type_id: 'own-type',
+			completion_date: null,
+			expiration_date: '2026-10-14',
+			notes: null,
+			certificate_url: null,
+			updated_at: '2026-09-29T01:02:03.654321Z'
+		};
+		const view = { id: 'own-view', organization_id: ctx.auth.orgId, name: 'Saved', visible_type_ids: ['own-type'] };
+		for (const [table, row] of [
+			['training_types', trainingType],
+			['personnel_trainings', training],
+			['training_views', view]
+		] as const) {
+			ctx.rawStore.seed(table, [row, { ...row, id: `foreign-${table}`, organization_id: 'other-org' }]);
+		}
 		const result = await handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' });
 		const response = _postConfig.formatOutput?.(result);
 		expect(response?.status).toBe(200);
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
-		expect((await response!.json()).personnel.map((person: { id: string }) => person.id)).toEqual(['own-person']);
+		const payload = await response!.json();
+		expect(payload.personnel.map((person: { id: string }) => person.id)).toEqual(['own-person']);
+		expect(payload.trainingTypes).toEqual([trainingType]);
+		expect(payload.personnelTrainings).toEqual([training]);
+		expect(payload.trainingViews).toEqual([view]);
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(rows).toHaveLength(12);
 		expect(rows.find((row) => row.requested_by === ctx.auth.userId)).toMatchObject({ status: 'completed' });

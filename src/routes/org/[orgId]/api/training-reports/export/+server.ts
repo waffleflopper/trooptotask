@@ -1,10 +1,8 @@
+import type { TrainingReportWorkbookExport } from '$features/training/contracts';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import {
-	generateTrainingReportWorkbookExport,
-	type TrainingReportWorkbookExport
-} from '$lib/server/core/useCases/trainingReportsQuery';
-import { workbookBufferResponse } from '$lib/export/workbook';
+import { generateTrainingReportWorkbookExport } from '$features/training/index.server';
+import { workbookBufferResponse } from '$lib/utils/workbook';
 import {
 	PRIVATE_REPORT_HEADERS,
 	parseTrainingReportInput,

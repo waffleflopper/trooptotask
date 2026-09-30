@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+const getDefaultUserOrgPreferences = () => ({
+	training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' as const }
+});
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
@@ -42,10 +44,6 @@ async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
 	invalidate: invalidateMock
-}));
-
-vi.mock('$lib/preferences/userPreferences.client', () => ({
-	queueUserPreferencesPatch: queueUserPreferencesPatchMock
 }));
 
 // ---------------------------------------------------------------------------
@@ -156,7 +154,7 @@ function makeData(overrides: Record<string, unknown> = {}) {
 const submitRemovalRequest = vi.fn().mockResolvedValue(true);
 type ContextArgs = ConstructorParameters<typeof TrainingPageContext>;
 function makeContext(data: ContextArgs[0], modals: ContextArgs[1], org: ContextArgs[2]) {
-	return new TrainingPageContext(data, modals, org, submitRemovalRequest);
+	return new TrainingPageContext(data, modals, org, submitRemovalRequest, queueUserPreferencesPatchMock);
 }
 
 describe('TrainingPageContext', () => {

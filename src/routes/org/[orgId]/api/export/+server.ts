@@ -10,6 +10,7 @@ import {
 	type OrganizationDataExportExecutionResult
 } from '$lib/server/core/useCases/organizationDataExportExecution';
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
+import { listNotificationExportRows } from '$features/notifications/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	listTrainingTypeExportRows,
@@ -47,7 +48,11 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 						listTrainingCompletionExportRows,
 						listTrainingViewExportRows
 					},
-					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
+					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+					{
+						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
+						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
+					}
 				);
 				const jsonStr = JSON.stringify(exportData, null, 2);
 				const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];

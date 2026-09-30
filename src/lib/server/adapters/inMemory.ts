@@ -532,14 +532,24 @@ interface RecordedNotification {
 	notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2];
 }
 
-export function createTestNotificationPort(): UseCaseContext['notifications'] & { notifications: RecordedNotification[] } {
+export function createTestNotificationPort(): UseCaseContext['notifications'] & {
+	notifications: RecordedNotification[];
+} {
 	const notifications: RecordedNotification[] = [];
 	return {
 		notifications,
-		async notifyUser(orgId: string, userId: string, notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]): Promise<void> {
+		async notifyUser(
+			orgId: string,
+			userId: string,
+			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
+		): Promise<void> {
 			notifications.push({ target: 'user', orgId, userId, notification });
 		},
-		async notifyAdmins(orgId: string, excludeUserId: string | null, notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]): Promise<void> {
+		async notifyAdmins(
+			orgId: string,
+			excludeUserId: string | null,
+			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
+		): Promise<void> {
 			notifications.push({ target: 'admins', orgId, excludeUserId, notification });
 		}
 	};
@@ -972,12 +982,20 @@ function createInMemoryOnboardingCalendarMarkersPort(
 function createInMemoryNotificationStore(store: DataStore): UseCaseContext['notificationSelf']['store'] {
 	return {
 		findNotification: (orgId, id) => store.findOne('notifications', orgId, { id }, 'id, user_id'),
-		listOwn: (orgId, userId) => store.findMany('notifications', orgId, { user_id: userId }, { orderBy: [{ column: 'created_at', ascending: false }], limit: 20 }),
+		listOwn: (orgId, userId) =>
+			store.findMany(
+				'notifications',
+				orgId,
+				{ user_id: userId },
+				{ orderBy: [{ column: 'created_at', ascending: false }], limit: 20 }
+			),
 		async listOwnUnreadIds(orgId, userId) {
 			const rows = await store.findMany<{ id: string }>('notifications', orgId, { user_id: userId, read: false });
 			return rows.map(({ id }) => id);
 		},
-		async markRead(orgId, id) { await store.update('notifications', orgId, id, { read: true }); },
+		async markRead(orgId, id) {
+			await store.update('notifications', orgId, id, { read: true });
+		},
 		deleteNotification: (orgId, id) => store.delete('notifications', orgId, id),
 		deleteOwn: (orgId, userId) => store.deleteWhere('notifications', orgId, { user_id: userId }),
 		async countOwnUnread(orgId, userId) {
@@ -1022,6 +1040,7 @@ export function createTestContext(
 
 		notifications: notificationPort,
 		notificationSelf: { auth, audit: auditPort, store: createInMemoryNotificationStore(rawStore) },
+		feedbackExport: { listRows: (orgId) => rawStore.findMany('beta_feedback', orgId, { user_id: auth.userId }) },
 		notificationPort,
 		storage: storagePort,
 		storagePort,

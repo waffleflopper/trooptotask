@@ -1,5 +1,6 @@
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { NotificationSelfPorts } from '$features/notifications/index.server';
+import type { FeedbackExportRow } from '$features/feedback/index.server';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
@@ -195,6 +196,7 @@ export interface QueryWithRawStorePorts extends QueryPorts {
 /** Combined context for all use cases */
 export interface UseCaseContext {
 	notificationSelf: NotificationSelfPorts;
+	feedbackExport: { listRows(orgId: string): Promise<FeedbackExportRow[]> };
 	store: DataStore;
 	auth: AuthContext;
 	scope: ScopeEnforcementPort;

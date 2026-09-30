@@ -61,6 +61,44 @@ describe('POST /api/export', () => {
 		] as const) {
 			ctx.rawStore.seed(table, [row, { ...row, id: `foreign-${table}`, organization_id: 'other-org' }]);
 		}
+		const notification = {
+			id: 'own-notification',
+			user_id: ctx.auth.userId,
+			organization_id: ctx.auth.orgId,
+			type: 'member_added',
+			title: 'Member added',
+			message: 'Saved notification',
+			link: '/org/clinic/settings',
+			read: true,
+			created_at: '2026-09-29T01:02:03.654321Z'
+		};
+		const feedback = {
+			id: 'own-feedback',
+			user_id: ctx.auth.userId,
+			user_email: 'exporter@example.test',
+			organization_id: ctx.auth.orgId,
+			organization_name: 'Saved name',
+			category: 'bug',
+			message: 'Saved feedback',
+			page_url: null,
+			status: 'reviewed',
+			admin_notes: 'Saved review notes',
+			created_at: '2026-05-01T00:00:00.123456Z',
+			updated_at: '2026-09-29T01:02:03.654321Z',
+			github_issue_number: 42,
+			github_issue_url: 'https://github.com/example/project/issues/42',
+			page_section: 'personnel'
+		};
+		for (const [table, row] of [
+			['notifications', notification],
+			['beta_feedback', feedback]
+		] as const) {
+			ctx.rawStore.seed(table, [
+				row,
+				{ ...row, id: `peer-${table}`, user_id: 'peer' },
+				{ ...row, id: `foreign-${table}`, organization_id: 'other-org' }
+			]);
+		}
 		const result = await handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' });
 		const response = _postConfig.formatOutput?.(result);
 		expect(response?.status).toBe(200);
@@ -70,6 +108,15 @@ describe('POST /api/export', () => {
 		expect(payload.trainingTypes).toEqual([trainingType]);
 		expect(payload.personnelTrainings).toEqual([training]);
 		expect(payload.trainingViews).toEqual([view]);
+		expect(payload.notifications).toEqual([notification]);
+		expect(payload.betaFeedback).toEqual([feedback]);
+		expect(payload.sectionInventory).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: 'notifications', rowCount: 1 }),
+				expect.objectContaining({ key: 'betaFeedback', rowCount: 1 })
+			])
+		);
+
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(rows).toHaveLength(12);
 		expect(rows.find((row) => row.requested_by === ctx.auth.userId)).toMatchObject({ status: 'completed' });

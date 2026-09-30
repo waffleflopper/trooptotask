@@ -34,9 +34,20 @@ import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcemen
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import { createSupabaseNotificationDelivery, createSupabaseNotificationStore } from '$features/notifications/index.server';
-import { createSupabaseOrganizationAdministratorRecipients, createSupabaseFeedbackOrganizationContextPort } from '$features/organization/index.server';
-import { createFeedbackSubmission, createSupabaseFeedbackSubmissionStore, createGitHubFeedbackMirror } from '$features/feedback/index.server';
+import {
+	createSupabaseNotificationDelivery,
+	createSupabaseNotificationStore
+} from '$features/notifications/index.server';
+import {
+	createSupabaseOrganizationAdministratorRecipients,
+	createSupabaseFeedbackOrganizationContextPort
+} from '$features/organization/index.server';
+import {
+	createFeedbackSubmission,
+	createSupabaseFeedbackSubmissionStore,
+	createGitHubFeedbackMirror,
+	listFeedbackExportRows
+} from '$features/feedback/index.server';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
@@ -270,6 +281,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 
 			notifications,
 			notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
+			feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
 
 			storage: createSupabaseStorageAdapter(supabase),
 			sensitiveActionAuthorizer,
@@ -366,6 +378,7 @@ export async function buildLayoutContext(
 
 		notifications,
 		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
+		feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
 
 		storage,
 		sensitiveActionAuthorizer,
@@ -450,6 +463,7 @@ export async function buildLayoutContextFromMembership(
 
 		notifications,
 		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
+		feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
 
 		storage,
 		sensitiveActionAuthorizer,

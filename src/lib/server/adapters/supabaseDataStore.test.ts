@@ -16,7 +16,7 @@ const duplicateTaskCode = {
 	message: 'duplicate key value violates unique constraint "ict_tasks_organization_id_task_code_key"'
 };
 
-function storeWithProviderError(error: typeof foreignCalendarStatus) {
+function storeWithProviderError(error: Omit<typeof foreignCalendarStatus, 'details'> & { details: string | null }) {
 	const client = createClient('http://127.0.0.1:1', 'synthetic-anon-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
@@ -45,6 +45,18 @@ function write(store: ReturnType<typeof createSupabaseDataStore>, method: (typeo
 }
 
 describe('Supabase DataStore conflict handling', () => {
+	it('retains the named Personnel conflict code when transport DETAIL is null', async () => {
+		const providerError = {
+			code: '23505',
+			message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+			details: null,
+			hint: ''
+		};
+		const caught = await storeWithProviderError(providerError)
+			.insertMany('personnel', 'test-org', [{ slug: 'smith-jamie', group_id: 'group-alpha' }])
+			.catch((error: unknown) => error);
+		expect(caught).toMatchObject({ code: '23505', message: providerError.message, details: null });
+	});
 	it('retains a Personnel slug conflict candidate internally', async () => {
 		const providerError = {
 			code: '23505',

@@ -33,7 +33,8 @@ function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Re
 function atomicImportProvider(
 	ctx: ReturnType<typeof buildContext>,
 	originals: Array<Record<string, unknown>>,
-	writeError?: unknown
+	writeError?: unknown,
+	options: { details?: null | ''; uncertainSlug?: string } = {}
 ) {
 	const persisted = structuredClone(originals);
 	const attemptedBatches: string[][] = [];
@@ -56,19 +57,178 @@ function atomicImportProvider(
 			if (used.has(row.slug)) {
 				throw Object.assign(new Error('duplicate key value violates unique constraint "personnel_org_slug_key"'), {
 					code: '23505',
-					details: `Key (organization_id, slug)=(${orgId}, ${row.slug}) already exists.`
+					details:
+						'details' in options
+							? options.details
+							: `Key (organization_id, slug)=(${orgId}, ${row.slug}) already exists.`
 				});
 			}
 			used.add(row.slug);
 		}
 		const inserted = rows.map((row) => ({ ...row, id: crypto.randomUUID(), organization_id: orgId }));
 		persisted.push(...structuredClone(inserted));
+		if (rows.length === 1 && rows[0].slug === options.uncertainSlug) {
+			throw new Error('Connection lost after write: private provider diagnostics');
+		}
 		return structuredClone(inserted) as T[];
 	};
 	return { persisted, attemptedBatches };
 }
 
+function redactedImportContext(options: { details?: null | ''; uncertainSlug?: string } = { details: null }) {
+	const ctx = buildContext({
+		auth: {
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: {
+				calendar: 'none',
+				personnel: 'operate',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+		}
+	});
+	ctx.store.seed('groups', [{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha' }]);
+	const hidden = {
+		id: 'hidden-bravo',
+		organization_id: ctx.auth.orgId,
+		group_id: 'group-bravo',
+		rank: 'SGT',
+		last_name: 'Smith',
+		first_name: 'Jamie',
+		slug: 'smith-jamie',
+		ets: '2028-07-01',
+		archived_at: null
+	};
+	return { ctx, hidden, ...atomicImportProvider(ctx, [hidden], undefined, options) };
+}
+
 describe('importPersonnelBatch', () => {
+	it.each([0, 1])('recovers a redacted hidden URL conflict at input position %i', async (position) => {
+		const provider = redactedImportContext();
+		const records = [{ rank: 'SGT', lastName: 'Rivera', firstName: 'Monica', groupName: 'Alpha' }];
+		records.splice(position, 0, { rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' });
+
+		const result = await importPersonnelBatch(provider.ctx, { records });
+
+		expect(result.errors).toEqual([]);
+		expect(result.inserted.map((person) => person.slug)).toEqual(
+			position === 0 ? ['smith-jamie-2', 'rivera-monica'] : ['rivera-monica', 'smith-jamie-2']
+		);
+		expect(provider.persisted.find((row) => row.id === provider.hidden.id)).toEqual(provider.hidden);
+		expect(provider.persisted.filter((row) => row.group_id === 'group-alpha')).toHaveLength(2);
+		expect(new Set(result.inserted.map((person) => person.id)).size).toBe(2);
+		expect(provider.ctx.audit.events).toContainEqual({
+			action: 'personnel.bulk_created',
+			resourceType: 'personnel',
+			details: { count: 2 }
+		});
+	});
+
+	it.each([undefined, ''] as const)('recovers a singleton named conflict with DETAIL %s', async (details) => {
+		const provider = redactedImportContext({ details });
+		const result = await importPersonnelBatch(provider.ctx, {
+			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' }]
+		});
+		expect(result).toMatchObject({ inserted: [{ slug: 'smith-jamie-2' }], errors: [] });
+		expect(provider.persisted.find((row) => row.id === provider.hidden.id)).toEqual(provider.hidden);
+	});
+
+	it('keeps acknowledged unrelated rows and original input indices when an isolated URL exhausts its candidates', async () => {
+		const provider = redactedImportContext();
+		const extraHidden = ['smith-jamie-2', 'smith-jamie-3'].map((slug, index) => ({
+			...provider.hidden,
+			id: `hidden-extra-${index}`,
+			slug
+		}));
+		provider.persisted.push(...structuredClone(extraHidden));
+		const originals = structuredClone(provider.persisted);
+		const result = await importPersonnelBatch(provider.ctx, {
+			records: [
+				{ rank: '', lastName: 'Invalid', firstName: 'Row', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Rivera', firstName: 'Monica', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' }
+			]
+		});
+		expect(result.inserted).toMatchObject([{ slug: 'rivera-monica' }]);
+		expect(result.errors.map((error) => error.index)).toEqual([0, 2]);
+		expect(provider.persisted.filter((row) => row.group_id === 'group-bravo')).toEqual(originals);
+		expect(provider.persisted.filter((row) => row.group_id === 'group-alpha')).toMatchObject([
+			{ slug: 'rivera-monica' }
+		]);
+		// Attribution/sub-batch probes are separate; once isolated, only three candidates may be attempted.
+		expect(
+			provider.attemptedBatches.filter((batch) => batch.length === 1 && batch[0].startsWith('smith-jamie'))
+		).toEqual([['smith-jamie'], ['smith-jamie-2'], ['smith-jamie-3']]);
+		expect(JSON.stringify(result.errors)).not.toContain('personnel_org_slug_key');
+		expect(provider.ctx.audit.events).toContainEqual({
+			action: 'personnel.bulk_created',
+			resourceType: 'personnel',
+			details: { count: 1 }
+		});
+	});
+
+	it('reserves duplicate-name planned URLs before advancing an isolated conflict', async () => {
+		const provider = redactedImportContext();
+		const result = await importPersonnelBatch(provider.ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Rivera', firstName: 'Monica', groupName: 'Alpha' }
+			]
+		});
+		expect(result.errors).toEqual([]);
+		expect(result.inserted.map((person) => person.slug)).toEqual(['smith-jamie-3', 'smith-jamie-2', 'rivera-monica']);
+		expect(new Set(result.inserted.map((person) => person.id)).size).toBe(3);
+		expect(provider.persisted.find((row) => row.id === provider.hidden.id)).toEqual(provider.hidden);
+	});
+
+	it('retains acknowledgements and continues independent subsets after an unconfirmed write without retrying it', async () => {
+		const provider = redactedImportContext({ details: null, uncertainSlug: 'unconfirmed-person' });
+		const result = await importPersonnelBatch(provider.ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Rivera', firstName: 'Monica', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Unconfirmed', firstName: 'Person', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' }
+			]
+		});
+		expect(result.inserted.map((person) => person.slug)).toEqual(['rivera-monica', 'smith-jamie-2']);
+		expect(result.errors).toEqual([{ index: 1, message: expect.stringMatching(/confirm/i) }]);
+		expect(JSON.stringify(result.errors)).not.toContain('private provider');
+		expect(
+			provider.attemptedBatches.filter((batch) => batch.length === 1 && batch[0] === 'unconfirmed-person')
+		).toHaveLength(1);
+		// The failed response can follow persistence; it must not be labeled a confirmed no-effect failure.
+		expect(provider.persisted.filter((row) => row.slug === 'unconfirmed-person')).toHaveLength(1);
+		expect(provider.persisted.find((row) => row.id === provider.hidden.id)).toEqual(provider.hidden);
+		expect(provider.ctx.audit.events).toContainEqual({
+			action: 'personnel.bulk_created',
+			resourceType: 'personnel',
+			details: { count: 2 }
+		});
+	});
+
+	it('imports 500 rows with one redacted hidden collision within 24 provider writes', async () => {
+		const provider = redactedImportContext();
+		const records = Array.from({ length: 500 }, (_, index) => ({
+			rank: 'SGT',
+			lastName: `Last${index}`,
+			firstName: 'Synthetic',
+			groupName: 'Alpha'
+		}));
+		records[249] = { rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' };
+		const result = await importPersonnelBatch(provider.ctx, { records });
+		expect(result.errors).toEqual([]);
+		expect(result.inserted).toHaveLength(500);
+		expect(provider.persisted.filter((row) => row.group_id === 'group-alpha')).toHaveLength(500);
+		expect(result.inserted[249]).toMatchObject({ slug: 'smith-jamie-2' });
+		expect(provider.persisted.find((row) => row.id === provider.hidden.id)).toEqual(provider.hidden);
+		// Declared recovery budget: avoid a 500-row singleton request waterfall for one hidden collision.
+		expect(provider.attemptedBatches.length).toBeLessThanOrEqual(24);
+	});
 	it('advances a hidden Group URL collision while preserving unrelated bulk names and rows', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -161,12 +321,33 @@ describe('importPersonnelBatch', () => {
 
 	it.each([
 		['an arbitrary provider failure', new Error('Provider connection lost')],
-		[
-			'a slug conflict without a confirmed candidate',
-			Object.assign(new Error('duplicate key value violates unique constraint "personnel_org_slug_key"'), {
-				code: '23505'
-			})
-		]
+		...[
+			[
+				'missing named constraint',
+				{ code: '23505', message: 'duplicate key value violates unique constraint "another_slug_key"' }
+			],
+			['missing provider code', { message: 'duplicate key value violates unique constraint "personnel_org_slug_key"' }],
+			[
+				'wrong provider code',
+				{ code: '42501', message: 'duplicate key value violates unique constraint "personnel_org_slug_key"' }
+			],
+			[
+				'malformed details',
+				{
+					code: '23505',
+					message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+					details: 'Unknown slug already exists'
+				}
+			],
+			[
+				'foreign Organization details',
+				{
+					code: '23505',
+					message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+					details: 'Key (organization_id, slug)=(foreign-org, smith-jamie) already exists.'
+				}
+			]
+		].map(([reason, error]) => [reason, error] as const)
 	])('does not retry %s or report successful creation', async (_reason, error) => {
 		const ctx = buildContext();
 		const provider = atomicImportProvider(ctx, [], error);

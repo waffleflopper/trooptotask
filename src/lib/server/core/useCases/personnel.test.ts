@@ -54,7 +54,7 @@ describe('Personnel Group organization integrity', () => {
 				deros: '2027-06-01',
 				clinic_role: 'Team Leader'
 			};
-			ctx.store.seed('personnel', [original]);
+			ctx.store.seed('personnel', [{ ...original }]);
 			await expect(
 				createPersonnelUseCases().update(ctx, {
 					id: original.id,

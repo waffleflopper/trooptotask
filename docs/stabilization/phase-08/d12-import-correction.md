@@ -1,6 +1,6 @@
 # D12 accessible import correction
 
-Intermediate #1360 / `08-M04-02r` repair from integrated main `c5fa054d2dfd78e4ebf485bf12444d73050d331b`. Frozen application and recipe candidate: `965dcf8ce516d5e572db6b49c2bae0557eb99506`. Publication evidence/prose does not alter those executable inputs. No migration, Personnel operation ownership or whole-issue closure is claimed.
+Intermediate #1360 / `08-M04-02r` repair from integrated main `c5fa054d2dfd78e4ebf485bf12444d73050d331b`. Frozen application and recipe candidate: `965dcf8ce516d5e572db6b49c2bae0557eb99506`. Publication evidence/prose does not alter those executable inputs. Main subsequently advanced through separately owned D20 #1440; merged integration `88f830c776ef8f8484edcac0979be7dc9c76bd54` preserves that work and has the bounded fresh proof below. No migration, Personnel operation ownership or whole-issue closure is claimed.
 
 ## Outcome and scope
 
@@ -17,6 +17,7 @@ Complete sanitized raw artifacts survive worker cleanup in these standard gzip/t
 - [Baseline: 62 files](d12-import-correction-proof/baseline.tar.gz).
 - [Pre-drive attempt: 8 files](d12-import-correction-proof/pre-drive.tar.gz).
 - [Final: 111 files](d12-import-correction-proof/final.tar.gz).
+- [Merged-main integration: 27 files](d12-import-correction-proof/integration.tar.gz).
 - [Checks and local review: 7 files](d12-import-correction-proof/checks.tar.gz).
 - Uncompressed representative screenshots: [before](d12-import-correction-proof/personnel-before.png), [after](d12-import-correction-proof/personnel-after.png), [reloaded](d12-import-correction-proof/personnel-reloaded.png).
 
@@ -52,6 +53,12 @@ Training's mixed pasted CSV reproduced five AX-disabled editors on the invalid u
 Calendar previews contained one valid Able row, missing Person and reversed-date rows. ICT task previews contained one valid task and one missing Title; ICT completion previews contained one valid All-MOS completion and one unknown task code. Before and after repair, clearing then select-all chose only the valid row; invalid checkboxes stayed disabled with their reasons present. All exact provider rows were unchanged. Final Calendar used Back; both ICT previews used Cancel. Baseline Calendar stayed at preview until owned cleanup. Baseline ICT completion's first file used unsupported `Practical` and correctly produced two invalid rows; its retained artifact was followed by an ordinary Back/reupload using supported `Demonstration`, which produced the intended mixed preview. An initial upload control call used singular `filePath`, failed schema validation before any action, and was corrected to `filePaths`.
 
 Screenshots were inspected for retained statuses and error visibility after inherited whole-row dimming disappeared. Training's existing narrow columns and long inline reason remain constrained; complete fields/reasons are preserved in the accessibility snapshot. This PR is not a modal/layout redesign or full assistive-technology/device certification.
+
+## Merged-main applicability
+
+Main `7eb1cf67` adds separately owned Notifications/header recovery, announcement dismissal and communications-only fixture links. All five import consumers, their preview/selection/submission paths, Personnel provider contracts and affected recipes are byte-identical to the frozen final candidate. Preserve D20 code, receipts and separate checkpoint; no D20 acceptance is claimed by this continuation.
+
+Fresh production-mode worker2 at `88f830c7`, digest `c3fb9e0d862177c14c80f074d2b890108243976b24772de05e0b9a5cac365c86`, origin `http://127.0.0.1:41787`, session `37d89264-8569-478d-8758-d9d11a4b51bd`, manager page2/A `a216c64a-d29a-42aa-ac15-50c6ba34941b`: native Personnel navigation/upload exposes enabled invalid-row editors and a disabled checkbox. Pointer click, Control+A, typing SPC and Tab preserve the invalid ETS/block; the same actions correcting ETS to `2027-02-28` enable/check the row. All three ready/warning rows remain selected. The inspected screenshot retains the header and preview without a runtime failure. Back leaves exact original A3/B1 provider rows unchanged. This integration smoke creates nothing and does not repeat the earlier failure/save journey. Launch, both doctors with unchanged digest, clean-seeds and completed cleanup pass. The 27-file integration archive preserves the actual actions/readbacks. The earlier five-consumer/failure/persistence proof remains applicable to the unchanged paths; independent acceptance explicitly assessed this coverage.
 
 ## Checks, review and continuation
 

@@ -113,4 +113,3 @@ uid=21_0 RootWebArea "Personnel - Troop to Task" url="http://127.0.0.1:39577/org
     uid=23_2 StaticText "Archive SPC MapLifecyclec1a3ea2c? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
     uid=23_3 button "Cancel"
     uid=23_4 button "Archive"
-

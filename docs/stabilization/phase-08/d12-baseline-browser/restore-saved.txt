@@ -80,4 +80,3 @@ uid=26_0 RootWebArea "Settings - Verification Organization A - Troop to Task" ur
         uid=32_2 StaticText "Personnel restored to active status"
   uid=26_49 generic atomic live="assertive" relevant="additions text"
     uid=28_82 StaticText "Settings - Verification Organization A - Troop to Task"
-

@@ -86,4 +86,3 @@ uid=37_0 RootWebArea "Onboarding - Troop to Task" url="http://127.0.0.1:39577/or
       uid=54_2 combobox "Rank" autocomplete="list" expandable expanded focusable focused haspopup="listbox"
       uid=54_3 StaticText "No ranks found."
       uid=54_4 listbox "Suggestions..." orientation="vertical"
-

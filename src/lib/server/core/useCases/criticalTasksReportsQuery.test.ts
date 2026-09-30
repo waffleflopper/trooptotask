@@ -933,3 +933,62 @@ describe('bounded Critical Tasks report history', () => {
 		);
 	});
 });
+
+describe('deep Critical Tasks dated history', () => {
+	it.each([1, 151])('retains first and last historical dates for %i authorized People', async (personCount) => {
+		const ctx = createTestContext();
+		const people = Array.from({ length: personCount }, (_, i) => ({
+			id: `deep-person-${i}`,
+			organization_id: ctx.auth.orgId,
+			first_name: 'Synthetic',
+			last_name: `Deep${i}`,
+			mos: '68W',
+			group_id: null,
+			archived_at: null
+		}));
+		ctx.store.seed('personnel', people);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'deep-task',
+				organization_id: ctx.auth.orgId,
+				task_code: 'DEEP',
+				title: 'Deep history',
+				mos: [],
+				expiration_months: 1,
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('organizations', [
+			{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 1, critical_tasks_expiring_soon_warning_days: 7 }
+		]);
+		const history = Array.from({ length: 150000 }, (_, i) => ({
+			id: `deep-completion-${i}`,
+			organization_id: ctx.auth.orgId,
+			personnel_id: people[0].id,
+			ict_task_id: 'deep-task',
+			completed_at: i === 149999 ? '2026-03-15' : '2026-01-01',
+			created_at: '2026-03-15T12:00:00Z',
+			validation_method: 'Demonstration',
+			validated_by: null,
+			notes: null,
+			logged_by: null
+		}));
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+			args[0] === 'personnel_ict_completions'
+				? Promise.resolve(args[3]?.inFilters?.personnel_id?.includes(people[0].id) ? history : [])
+				: findMany(...args)
+		);
+		const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
+		expect(summary.kpis.overallReadiness).toMatchObject({
+			readyCount: 1,
+			applicableCount: personCount,
+			percent: Math.round(100 / personCount)
+		});
+		expect(summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadyCount])).toEqual([
+			['2026-01', 1],
+			['2026-02', 0],
+			['2026-03', 1]
+		]);
+	});
+});

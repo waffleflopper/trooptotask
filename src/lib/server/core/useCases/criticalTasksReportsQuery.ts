@@ -180,12 +180,16 @@ async function loadReportCompletions(
 				})
 			);
 			if (pending.length === 4) {
-				completionRows.push(...(await Promise.all(pending)).flat());
+				for (const rows of await Promise.all(pending)) {
+					for (const row of rows) completionRows.push(row);
+				}
 				pending = [];
 			}
 		}
 	}
-	completionRows.push(...(await Promise.all(pending)).flat());
+	for (const rows of await Promise.all(pending)) {
+		for (const row of rows) completionRows.push(row);
+	}
 
 	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
 }

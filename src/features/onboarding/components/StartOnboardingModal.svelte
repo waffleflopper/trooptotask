@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Personnel } from '$lib/types';
-	import type { Group } from '$features/personnel/contracts';
+	import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -18,6 +18,7 @@
 		canAddPerson: boolean;
 		existingOnboardingPersonnelIds: string[];
 		groups: Group[];
+		rankCatalog: RankCatalogEntry[];
 		templates: OnboardingTemplate[];
 		hasTemplateSteps?: boolean;
 		onSubmit: (personnelId: string, startedAt: string, templateId: string | null) => void | Promise<void>;
@@ -30,6 +31,7 @@
 		canAddPerson,
 		existingOnboardingPersonnelIds,
 		groups,
+		rankCatalog,
 		templates,
 		hasTemplateSteps = true,
 		onSubmit,
@@ -159,6 +161,7 @@
 	<PersonnelModal
 		personnel={null}
 		{groups}
+		{rankCatalog}
 		onSubmit={handleAddPersonSubmit}
 		onClose={() => (showAddPersonModal = false)}
 	/>

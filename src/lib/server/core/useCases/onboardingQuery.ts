@@ -1,9 +1,11 @@
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { fetchOnboardingTemplatesData } from '$features/onboarding/server/onboardingTemplateRead.server';
 import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onboarding/contracts';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import { requireOnboardingViewPolicy, type OnboardingTrainingPorts } from './onboardingPolicy';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { evaluateFeaturePolicy } from './featurePolicy';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -77,17 +79,21 @@ export async function fetchOnboardingBootstrap(
 			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
 			: null;
 
-	const [templateData, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel] = await Promise.all([
-		fetchOnboardingTemplatesData(ctx),
-		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
-			select: PersonnelOnboardingEntity.select,
-			...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
-		}),
-		ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
-		listGroupCatalog(ctx),
-		ctx.trainingOnboardingReferences.listTypes(ctx.auth),
-		scopedAllPersonnel
-	]);
+	const [templateData, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel, rankCatalog] =
+		await Promise.all([
+			fetchOnboardingTemplatesData(ctx),
+			ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
+				select: PersonnelOnboardingEntity.select,
+				...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
+			}),
+			ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
+			listGroupCatalog(ctx),
+			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
+			scopedAllPersonnel,
+			evaluateFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.createRecords, { kind: 'organization' }).then(
+				(decision) => (decision.allowed ? loadOrganizationRankCatalog(ctx) : [])
+			)
+		]);
 
 	const templates = templateData.templates;
 	const templateSteps = templateData.templateSteps;
@@ -130,6 +136,7 @@ export async function fetchOnboardingBootstrap(
 		onboardings,
 		personnel,
 		groups,
-		trainingTypes
+		trainingTypes,
+		rankCatalog
 	};
 }

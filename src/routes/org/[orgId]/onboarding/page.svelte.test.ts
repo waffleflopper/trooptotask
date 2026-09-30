@@ -115,7 +115,8 @@ function makeBootstrap(): OnboardingWorkspaceResult {
 			onboardings: [],
 			personnel: [],
 			groups: [],
-			trainingTypes: []
+			trainingTypes: [],
+			rankCatalog: []
 		},
 		hydration: {
 			orgId: 'org-1',

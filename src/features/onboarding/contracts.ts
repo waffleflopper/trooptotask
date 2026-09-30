@@ -1,4 +1,4 @@
-import type { Group } from '$features/personnel/contracts';
+import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$lib/types';
 import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from './onboarding.types';
@@ -26,6 +26,7 @@ export interface OnboardingBootstrap {
 	personnel: Personnel[];
 	groups: Group[];
 	trainingTypes: TrainingType[];
+	rankCatalog: OrganizationRankCatalogEntry[];
 }
 export type OnboardingWorkspaceData = OnboardingBootstrap;
 export type OnboardingWorkspaceHydrationMode = 'replace' | 'preserve-client';

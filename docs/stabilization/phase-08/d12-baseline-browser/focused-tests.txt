@@ -1,0 +1,12 @@
+
+> trooptotask@0.1.0 test
+> vitest run src/lib/server/core/useCases/personnel.test.ts src/lib/server/core/useCases/personnelBatch.test.ts src/lib/server/core/useCases/personnelMergeBatch.test.ts src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts src/lib/server/core/useCases/personnelSlug.test.ts src/lib/server/entities/personnel.test.ts src/features/personnel/components/PersonnelModal.test.ts src/features/personnel/components/PersonnelModals.test.ts src/features/personnel/components/PersonnelImportPage.test.ts src/features/personnel/components/PersonnelDetailPageView.svelte.test.ts src/features/personnel/components/PersonnelPageView.svelte.test.ts src/features/personnel/stores/personnel.svelte.test.ts src/routes/org/[orgId]/api/personnel/server.test.ts src/routes/org/[orgId]/api/personnel/batch/server.test.ts src/routes/org/[orgId]/api/personnel/merge/server.test.ts src/routes/org/[orgId]/api/personnel/archive-batch/server.test.ts src/routes/org/[orgId]/api/personnel/permanent/server.test.ts
+
+
+ RUN  v4.1.8 /home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-53d16a2f
+
+
+ Test Files  17 passed (17)
+      Tests  187 passed (187)
+   Start at  20:05:01
+   Duration  5.93s (transform 26.57s, setup 0ms, import 33.92s, tests 3.75s, environment 1.15s)

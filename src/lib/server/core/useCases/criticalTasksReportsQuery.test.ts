@@ -935,7 +935,10 @@ describe('bounded Critical Tasks report history', () => {
 });
 
 describe('deep Critical Tasks dated history', () => {
-	it.each([1, 151])('retains first and last historical dates for %i authorized People', async (personCount) => {
+	it.each([
+		[1, 100],
+		[151, 1]
+	])('retains first and last historical dates for %i authorized People', async (personCount, expectedPercent) => {
 		const ctx = createTestContext();
 		const people = Array.from({ length: personCount }, (_, i) => ({
 			id: `deep-person-${i}`,
@@ -983,12 +986,14 @@ describe('deep Critical Tasks dated history', () => {
 		expect(summary.kpis.overallReadiness).toMatchObject({
 			readyCount: 1,
 			applicableCount: personCount,
-			percent: Math.round(100 / personCount)
+			percent: expectedPercent
 		});
-		expect(summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadyCount])).toEqual([
-			['2026-01', 1],
+		expect(
+			summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+		).toEqual([
+			['2026-01', expectedPercent],
 			['2026-02', 0],
-			['2026-03', 1]
+			['2026-03', expectedPercent]
 		]);
 	});
 });

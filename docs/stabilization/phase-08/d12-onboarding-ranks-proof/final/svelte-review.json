@@ -1,0 +1,45 @@
+[
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "src/features/onboarding/components/OnboardingModals.svelte",
+      "review": {
+        "issues": [],
+        "suggestions": [],
+        "require_another_tool_call_after_fixing": false
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "src/features/onboarding/components/StartOnboardingModal.svelte",
+      "review": {
+        "issues": [],
+        "suggestions": [],
+        "require_another_tool_call_after_fixing": false
+      }
+    }
+  },
+  {
+    "status": "fulfilled",
+    "value": {
+      "path": "src/routes/org/[orgId]/onboarding/+page.svelte",
+      "review": {
+        "issues": [],
+        "suggestions": [
+          "The stateful variable \"onboardingBootstrap\" is assigned inside an $effect which is generally consider a malpractice. Consider using $derived if possible.",
+          "The stateful variable \"loadError\" is assigned inside an $effect which is generally consider a malpractice. Consider using $derived if possible.",
+          "The stateful variable \"onboardingBootstrap\" is assigned inside an $effect which is generally consider a malpractice. Consider using $derived if possible.",
+          "You are calling the function `isPromiseLike` inside an $effect. Please check if the function is reassigning a stateful variable because that's considered malpractice and check if it could use  `$derived` instead. Ignore this suggestion if you are sure this function is not assigning any stateful variable or if you can't check if it does.",
+          "You are calling the function `observeDeferred` inside an $effect. Please check if the function is reassigning a stateful variable because that's considered malpractice and check if it could use  `$derived` instead. Ignore this suggestion if you are sure this function is not assigning any stateful variable or if you can't check if it does.",
+          "The stateful variable \"onboardingBootstrap\" is assigned inside an $effect which is generally consider a malpractice. Consider using $derived if possible.",
+          "The stateful variable \"loadError\" is assigned inside an $effect which is generally consider a malpractice. Consider using $derived if possible.",
+          "You are calling a function inside an $effect. Please check if the function is reassigning a stateful variable because that's considered malpractice and check if it could use  `$derived` instead. Ignore this suggestion if you are sure this function is not assigning any stateful variable or if you can't check if it does.",
+          "The stateful variable \"OnboardingModals\" is assigned inside an $effect which is generally consider a malpractice. Consider using $derived if possible."
+        ],
+        "require_another_tool_call_after_fixing": true
+      }
+    }
+  }
+]

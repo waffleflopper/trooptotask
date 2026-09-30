@@ -1,0 +1,8 @@
+
+ RUN  v4.1.8 /home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-53d16a2f
+
+
+ Test Files  6 passed (6)
+      Tests  38 passed (38)
+   Start at  08:38:19
+   Duration  10.87s (transform 24.17s, setup 0ms, import 29.39s, tests 1.27s, environment 688ms)

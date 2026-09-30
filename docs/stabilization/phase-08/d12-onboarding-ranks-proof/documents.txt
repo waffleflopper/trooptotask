@@ -1,0 +1,3 @@
+Checking formatting...
+All matched files use Prettier code style!
+Documentation checks passed (5 changed Markdown files formatted; 131 documents checked for links).

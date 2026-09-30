@@ -1,19 +1,23 @@
 # D11 wide-read prerequisite acceptance
 
-**Accepted source:** `6a5ea6c42e88126bd052c09a2db00570631dc2a7` against merged
-import-repair main `b2dbae09fc059e1c94a936349ad9cf8adeb63f1f`. Acceptance covers
-the complete read-repair delta: five application/helper/test inputs, the recipe,
-EVIDENCE/TODO updates and **45 durable artifacts**: **21 failed baseline** files
-under [baseline](d11-cutover-browser/baseline/) and **24 repaired replay** files
-under [read-repair](d11-cutover-browser/read-repair/). The accompanying uncommitted
-proof and work-record updates were reviewed with the frozen source. No actionable
-finding remains in this bounded intermediate repair.
+**Current accepted source:** `bbf64a6fd1b5d3472ee3febba4f16f93593e2b84` against
+integrated Training main `284ddcd3c113117d9eab8b526c841a4fb21ae065`. This supersedes the merge candidate in the
+initial acceptance of `6a5ea6c42e88126bd052c09a2db00570631dc2a7` against
+`b2dbae09fc059e1c94a936349ad9cf8adeb63f1f`; its unchanged evidence remains applicable.
+Acceptance covers the complete read-repair source/test/helper/recipe delta,
+EVIDENCE/TODO updates and **68 durable artifacts**: **21 failed baseline** files
+under [baseline](d11-cutover-browser/baseline/), **24 initial repaired replay** files
+under [read-repair](d11-cutover-browser/read-repair/), **13 integration** files
+under [read-integration](d11-cutover-browser/read-integration/) and **10 review-fix**
+files under [read-review-fix](d11-cutover-browser/read-review-fix/). The accompanying
+uncommitted proof and work-record updates were reviewed with frozen executable
+inputs. No actionable finding remains in this bounded intermediate repair.
 
 This independent agent reviewed source, tests, direct/reverse callers and actual
 artifacts, including downloaded workbook parsing, full provider-row comparisons
 and screenshots. It did not execute live flows or application tests and does not
 claim model diversity. The implementing agent supplied the native worker-2 proof.
-Its [launch](d11-cutover-browser/read-repair/launch.json) and
+The initial [launch](d11-cutover-browser/read-repair/launch.json) and
 [final doctor](d11-cutover-browser/read-repair/final-doctor.json) bind the source to
 digest `f9c2c9ce1cd9ff2b8a8851dc4f65f8e3db13849a71cebed0a4bb0a136a11355f`,
 origin `http://127.0.0.1:37539` and session
@@ -63,6 +67,52 @@ RPC tests cover 1,000/1,003 records, filters on every page, empty inputs and a
 later-page failure without partial data. The implementing agent reports zero
 type errors/warnings. Exact published-head full CI and completed hosted review
 remain merge gates; this receipt does not certify future results or timing.
+
+The Training integration at `b0819d818aad502f6f6e30f794d506792fb006fb`
+preserves both work records and both helper families. Against merged Training,
+the helper delta is the accepted pager alone. The workbook utility moved from
+`$lib/export/workbook` to `$lib/utils/workbook` with identical implementation;
+Critical Tasks consumers use the new location. No Training feature acceptance
+is inferred from this review. The integration
+[launch](d11-cutover-browser/read-integration/launch.json) and
+[doctor](d11-cutover-browser/read-integration/final-doctor.json) bind digest
+`d5fb167430862fda6c3442897aa2c8cca3d8ff2024dbd5b1afe74fdb76263886`, origin
+`http://127.0.0.1:41669` and session `d6728063-462a-46e9-8e29-457965a85fd9`.
+All 13 copied files match their raw originals. Workbook hashes match the
+comparison receipt; independent parsing confirms 504 People, 501 seeded All-MOS
+Current cells and report rows at100%, 502/506ready (99%) and three below70.
+The raw provider read has 1,003 unique IDs/pairs, matching the visible
+1,002-created import plus the original record. Reports/API and Dashboard loading
+agree; no visible Critical Tasks Dashboard KPI is claimed.
+
+Hosted review identified that bounded filters still permit unlimited returned
+history. The two accumulation sites used array argument spread; supplied
+regression logs reproduce both `RangeError` failures with 150,000 records. Source
+`b68cc7ef` appends individual rows at both sites without a flattened copy, retaining
+four-window concurrency, order, full history and required-read failure behavior.
+The final fixture correction in `bbf64a6f` asserts the returned public monthly
+percent instead of an unreturned count. Two public Dashboard-summary cases
+exercise the remainder and full-window accumulation paths with one and151 People.
+Expected January/March percentages are independently100% and1%, respectively,
+with February0%. These are lower-level capacity and historical tests, not native
+150,000-row or database-uniqueness proof. Final supplied logs show **two files /
+18 tests passing** and zero type errors/warnings. Local CodeRabbit reviewed the
+two source/test files at `b68cc7ef` with no findings; the subsequent fixture-only
+correction was independently reviewed here.
+
+The affected native [restart](d11-cutover-browser/read-review-fix/restart.json)
+and [doctor](d11-cutover-browser/read-review-fix/final-doctor.json) bind current
+source to digest `402e6b18a52e247fccf55b63f00f1fcab02f9fdbb6958907e2520a4cc287f76d`,
+origin `http://127.0.0.1:38633` and session
+`51bd1f07-aa5f-4c64-a421-7f92721423b3`. The first launch remains explicitly
+inconclusive because its fixture changed during build; no drive is accepted for
+that attempt. All ten final copies match their raw originals. The restarted
+504-Person report screenshot, summary200 and actual downloaded workbook agree
+on1/506ready (0% rounded), and Dashboard finishes without error/busy state. This
+replay exercises changed report accumulation; it does not repeat the earlier
+1,003-row latest/import proof, whose adapter/helper inputs remain unchanged.
+Doctor and owned cleanup pass. Reviewed new artifacts expose no credentials.
+Current-head full CI and completed hosted review remain pending merge gates.
 
 **Issue limit:** This accepts the wide-read baseline repair only, using
 `Refs #1359`. Completion operations, history/readiness/report/provider ownership,

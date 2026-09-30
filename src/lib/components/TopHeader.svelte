@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Notification } from '$features/notifications/contracts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -52,8 +53,6 @@
 		onWhatsNew?: () => void;
 		children?: Snippet;
 	}
-
-	import type { Notification } from '$features/notifications/contracts';
 
 	let {
 		orgId,
@@ -284,6 +283,7 @@
 			} catch {
 				if (isCurrentNotificationRequest(scope, generation))
 					toastStore.error('Could not mark notification read. Reopen the bell to retry.');
+				return;
 			} finally {
 				if (isCurrentNotificationRequest(scope, generation)) notificationsWriting = false;
 			}

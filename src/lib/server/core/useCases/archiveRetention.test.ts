@@ -4,7 +4,7 @@ import { createInMemoryDataStore, createTestStoragePort } from '$lib/server/adap
 import { cleanupArchivedRecords, DEFAULT_ARCHIVE_RETENTION_MONTHS } from './archiveRetention';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
-import { notifyAdminsViaStore } from './retentionSupport';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 
 const NOW = new Date('2026-05-30T12:00:00.000Z');
 
@@ -29,14 +29,12 @@ function buildPorts() {
 			);
 		}
 	};
-	store.seed('organization_memberships', [
-		{ id: 'membership-1', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' },
-		{ id: 'membership-2', organization_id: 'org-2', user_id: 'admin-2', role: 'admin' }
-	]);
+
 	return {
 		store,
 		storage,
 		assignmentTypes,
+		notifications: { notifyAdmins: vi.fn<NotificationDeliveryPort['notifyAdmins']>().mockResolvedValue(undefined) },
 		leaderNotes: createLeaderNoteDataSource({
 			findArchivedBefore: async (orgId, cutoff) => {
 				const notes = await store.findMany<{ id: string; archived_at: string | null }>('leader_notes', orgId);
@@ -58,7 +56,13 @@ function seedRetentionRows(ports: ReturnType<typeof buildPorts>) {
 	const recent = isoMonthsAgo(3);
 
 	ports.store.seed('personnel', [
-		{ id: 'person-expired', organization_id: 'org-1', archived_at: expired },
+		{
+			id: 'person-expired',
+			organization_id: 'org-1',
+			first_name: 'Synthetic',
+			last_name: 'Smith',
+			archived_at: expired
+		},
 		{ id: 'person-recent', organization_id: 'org-1', archived_at: recent },
 		{ id: 'person-active', organization_id: 'org-1', archived_at: null }
 	]);
@@ -190,7 +194,7 @@ describe('cleanupArchivedRecords', () => {
 		);
 		await expect(idsFor(ports, 'personnel')).resolves.toEqual(['person']);
 		await expect(idsFor(ports, 'leader_notes')).resolves.toEqual(['note']);
-		await expect(ports.store.findMany('notifications', 'org-1')).resolves.toEqual([]);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
 	});
 
 	it('removes expired personnel document storage files before deleting document rows', async () => {
@@ -455,15 +459,14 @@ describe('cleanupArchivedRecords', () => {
 
 		await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
 
-		const notifications = await ports.store.findMany<Record<string, unknown>>('notifications', 'org-1');
-		expect(notifications).toHaveLength(1);
-		expect(notifications[0]).toMatchObject({
-			user_id: 'owner-1',
-			type: 'archive_auto_deleted',
-			title: 'Archived Records Auto-Deleted'
-		});
-		expect(notifications[0].message).toContain('Personnel documents: 1');
-		expect(notifications[0].message).not.toContain('Smith');
+		expect(ports.notifications.notifyAdmins).toHaveBeenCalledExactlyOnceWith(
+			'org-1',
+			null,
+			expect.objectContaining({ type: 'archive_auto_deleted' })
+		);
+		const payload = ports.notifications.notifyAdmins.mock.calls[0][2];
+		expect(payload.message).toContain('Personnel documents: 1');
+		expect(payload.message).not.toContain('Smith');
 	});
 
 	it('does not mark an organization affected or notify admins when deletes remove no rows', async () => {
@@ -477,35 +480,31 @@ describe('cleanupArchivedRecords', () => {
 
 		expect(result.deletedCount).toBe(0);
 		expect(result.orgsAffected).toBe(0);
-		await expect(ports.store.findMany('notifications', 'org-1')).resolves.toHaveLength(0);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
 	});
-});
 
-describe('retention support', () => {
-	it('notifies organization admins and excludes the supplied user', async () => {
-		const store = createInMemoryDataStore();
-		store.seed('organization_memberships', [
-			{ id: 'membership-1', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' },
-			{ id: 'membership-2', organization_id: 'org-1', user_id: 'admin-1', role: 'admin' },
-			{ id: 'membership-3', organization_id: 'org-1', user_id: 'member-1', role: 'member' }
+	it('fails on required notification delivery after deletion and leaves the next Organization untouched', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel', [
+			{ id: 'org-1-expired', organization_id: 'org-1', archived_at: isoMonthsAgo(13) },
+			{ id: 'org-2-expired', organization_id: 'org-2', archived_at: isoMonthsAgo(13) }
 		]);
+		ports.notifications.notifyAdmins.mockRejectedValue(new Error('administrator lookup unavailable'));
 
-		await notifyAdminsViaStore(store, 'org-1', 'admin-1', {
-			type: 'retention_test',
-			title: 'Retention Test',
-			message: 'Retention fanout test',
-			link: '/org/org-1/settings'
-		});
+		await expect(
+			cleanupArchivedRecords(
+				ports,
+				[
+					{ id: 'org-1', retentionMonths: 12 },
+					{ id: 'org-2', retentionMonths: 12 }
+				],
+				{ now: NOW }
+			)
+		).rejects.toThrow('administrator lookup unavailable');
 
-		const notifications = await store.findMany<Record<string, unknown>>('notifications', 'org-1');
-		expect(notifications).toEqual([
-			expect.objectContaining({
-				user_id: 'owner-1',
-				type: 'retention_test',
-				title: 'Retention Test',
-				message: 'Retention fanout test',
-				link: '/org/org-1/settings'
-			})
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual([]);
+		await expect(ports.store.findMany('personnel', 'org-2')).resolves.toEqual([
+			expect.objectContaining({ id: 'org-2-expired' })
 		]);
 	});
 });

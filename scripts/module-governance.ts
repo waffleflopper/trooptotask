@@ -5,17 +5,17 @@ import path from 'node:path';
 import { checkModuleBoundaries, matchingOwners, type Manifest, type Violation } from './module-boundaries.ts';
 import { scanRepository } from './module-imports.ts';
 
-function git(...args: string[]): string {
-	const result = spawnSync('git', args, { encoding: 'utf8' });
+function git(repoRoot: string, ...args: string[]): string {
+	const result = spawnSync('git', args, { cwd: repoRoot, encoding: 'utf8' });
 	if (result.status !== 0) throw new Error(`git ${args[0]} failed: ${result.stderr.trim()}`);
 	return result.stdout.trim();
 }
 
-function comparisonCommit(): string {
-	const head = git('rev-parse', 'HEAD');
-	const main = git('rev-parse', 'refs/remotes/origin/main');
-	if (head === main) return git('rev-parse', 'HEAD^');
-	const base = git('merge-base', 'HEAD', main);
+function comparisonCommit(repoRoot: string): string {
+	const head = git(repoRoot, 'rev-parse', 'HEAD');
+	const main = git(repoRoot, 'rev-parse', 'refs/remotes/origin/main');
+	if (head === main) return git(repoRoot, 'rev-parse', 'HEAD^');
+	const base = git(repoRoot, 'merge-base', 'HEAD', main);
 	if (base !== main)
 		throw new Error(`Branch is behind origin/main (${main}); integrate current default content before checking`);
 	return main;
@@ -90,10 +90,10 @@ function newViolations(
 	});
 }
 
-function scanCommittedSource(commit: string) {
+function scanCommittedSource(repoRoot: string, commit: string) {
 	const directory = mkdtempSync(path.join(os.tmpdir(), 't3-module-governance-'));
 	try {
-		const archive = spawnSync('git', ['archive', commit, 'src'], { maxBuffer: 128 * 1024 * 1024 });
+		const archive = spawnSync('git', ['archive', commit, 'src'], { cwd: repoRoot, maxBuffer: 128 * 1024 * 1024 });
 		if (archive.status !== 0) throw new Error(`Cannot read comparison source at ${commit}`);
 		const extract = spawnSync('tar', ['-xf', '-', '-C', directory], { input: archive.stdout });
 		if (extract.status !== 0) throw new Error(`Cannot extract comparison source at ${commit}`);
@@ -103,17 +103,19 @@ function scanCommittedSource(commit: string) {
 	}
 }
 
-function runModuleGovernance() {
-	const manifest = JSON.parse(readFileSync('scripts/module-boundaries.json', 'utf8')) as Manifest;
-	const comparison = comparisonCommit();
-	const beforeGraph = scanCommittedSource(comparison);
-	const currentGraph = scanRepository(process.cwd());
-	const before = checkModuleBoundaries(beforeGraph, manifest);
+function runModuleGovernance(repoRoot = process.cwd()) {
+	const manifest = JSON.parse(readFileSync(path.join(repoRoot, 'scripts/module-boundaries.json'), 'utf8')) as Manifest;
+	const comparison = comparisonCommit(repoRoot);
+	// Pair each source tree with its own ownership map; moves must not erase historical owners.
+	const beforeManifest = JSON.parse(git(repoRoot, 'show', `${comparison}:scripts/module-boundaries.json`)) as Manifest;
+	const beforeGraph = scanCommittedSource(repoRoot, comparison);
+	const currentGraph = scanRepository(repoRoot);
+	const before = checkModuleBoundaries(beforeGraph, beforeManifest);
 	const current = checkModuleBoundaries(currentGraph, manifest);
 	const introduced = newViolations(
 		current,
 		before,
-		ownerDependencyEdges(beforeGraph, manifest),
+		ownerDependencyEdges(beforeGraph, beforeManifest),
 		ownerDependencyEdges(currentGraph, manifest)
 	);
 	const completedScope = current.filter((issue) => issue.packet.startsWith('07-'));

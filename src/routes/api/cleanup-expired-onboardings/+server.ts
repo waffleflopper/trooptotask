@@ -3,6 +3,8 @@ import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { env } from '$env/dynamic/private';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createSupabaseNotificationDelivery } from '$features/notifications/index.server';
+import { createSupabaseOrganizationAdministratorRecipients } from '$features/organization/index.server';
 import {
 	cleanupExpiredOnboardings,
 	type OnboardingRetentionCleanupResult,
@@ -50,6 +52,11 @@ async function runOnboardingRetentionCleanupEndpoint(input: OnboardingRetentionE
 export const GET: RequestHandler = async ({ request }) => {
 	const admin = getAdminClient();
 	const store = createSupabaseDataStore(admin);
+	const notifications = createSupabaseNotificationDelivery({
+		getAdminClient: () => admin,
+		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(() => admin),
+		failureMode: 'required'
+	});
 
 	return runOnboardingRetentionCleanupEndpoint({
 		request,
@@ -58,6 +65,6 @@ export const GET: RequestHandler = async ({ request }) => {
 			CRON_SECRET: env.CRON_SECRET
 		},
 		loadOrgRows: async () => admin.from('organizations').select('id, archive_retention_months'),
-		runCleanup: (configs) => cleanupExpiredOnboardings(store, configs)
+		runCleanup: (configs) => cleanupExpiredOnboardings({ store, notifications }, configs)
 	});
 };

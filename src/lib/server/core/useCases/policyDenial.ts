@@ -1,5 +1,5 @@
 import type { PolicyDecision, PolicyResource } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { AuditPort } from '$lib/server/core/ports';
 
 export type PolicyDenialStatus = 401 | 403;

@@ -1,4 +1,5 @@
 import type { DataStore } from '../ports';
+import type { FeedbackExportRow } from '$features/feedback/index.server';
 import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from '$features/personnel/contracts';
 import { isPersonnelOrganizationExportTable } from '$features/personnel/contracts';
 import {
@@ -38,6 +39,11 @@ interface OrganizationOnboardingExportReads {
 	): Promise<Record<string, unknown>[]>;
 }
 
+interface OrganizationCommunicationsExportReads {
+	listNotificationExportRows(): Promise<Record<string, unknown>[]>;
+	listFeedbackExportRows(): Promise<FeedbackExportRow[]>;
+}
+
 export type OrganizationExportPayload = {
 	exportedAt: string;
 	organizationId: string;
@@ -59,7 +65,8 @@ export async function loadOrganizationExportPayload(
 	actor: PersonnelRosterActor,
 	personnelExport: PersonnelOrganizationExportPort,
 	trainingExport: OrganizationTrainingExportReads,
-	onboardingExport: OrganizationOnboardingExportReads
+	onboardingExport: OrganizationOnboardingExportReads,
+	communicationsExport: OrganizationCommunicationsExportReads
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const orgId = actor.orgId;
@@ -69,6 +76,12 @@ export async function loadOrganizationExportPayload(
 		entries.push(
 			...(await Promise.all(
 				batch.map(async (section) => {
+					if (section.key === 'notifications') {
+						return [section.key, await communicationsExport.listNotificationExportRows()] as const;
+					}
+					if (section.key === 'betaFeedback') {
+						return [section.key, await communicationsExport.listFeedbackExportRows()] as const;
+					}
 					if (section.areaKey === 'personnel' && isPersonnelOrganizationExportTable(section.table)) {
 						return [section.key, await personnelExport.listRows(actor, section.table)] as const;
 					}

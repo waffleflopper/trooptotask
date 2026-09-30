@@ -1,5 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {

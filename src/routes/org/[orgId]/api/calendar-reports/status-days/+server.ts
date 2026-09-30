@@ -1,7 +1,7 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { listAssignmentTypes, listAvailabilityEntries, listDailyAssignments } from '$features/calendar/index.server';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
 import { resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';

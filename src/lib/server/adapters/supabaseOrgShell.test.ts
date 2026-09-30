@@ -206,3 +206,78 @@ describe('createSupabaseOrgAccessPort', () => {
 		expect(result.scopeSet).toEqual({ kind: 'organization' });
 	});
 });
+
+it('composes platform content and account-wide preferences in parallel across Organizations and recovers its failure fallback', async () => {
+	const { createClient } = await import('@supabase/supabase-js');
+	const { createSupabaseAppShellFirstPaintChromePort } = await import('./supabaseOrgShell');
+	let release!: () => void;
+	const pending = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	let contentStarted!: () => void, dismissalStarted!: () => void;
+	const startedContent = new Promise<void>((resolve) => {
+		contentStarted = resolve;
+	});
+	const startedDismissals = new Promise<void>((resolve) => {
+		dismissalStarted = resolve;
+	});
+	let failed = false;
+	const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const request = new Request(input, init);
+				const url = new URL(request.url);
+				if (url.pathname.endsWith('/platform_announcements')) {
+					contentStarted();
+					await pending;
+					return Response.json([
+						{ id: 'visible', title: 'Current', message: 'Content', type: 'info' },
+						{ id: 'dismissed', title: 'Dismissed', message: 'Content', type: 'info' }
+					]);
+				}
+				if (url.pathname.endsWith('/announcement_dismissals')) {
+					dismissalStarted();
+					await pending;
+					if (failed) return Response.json({ message: 'Unavailable' }, { status: 403 });
+					const rows = [
+						{ user_id: 'account-a', announcement_id: 'dismissed' },
+						{ user_id: 'peer', announcement_id: 'visible' }
+					];
+					return Response.json(
+						rows
+							.filter((row) => `eq.${row.user_id}` === url.searchParams.get('user_id'))
+							.map(({ announcement_id }) => ({ announcement_id }))
+					);
+				}
+				if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
+				throw new Error('Unexpected shell provider read');
+			}
+		}
+	});
+	const first = createSupabaseAppShellFirstPaintChromePort({
+		orgId: 'org-a',
+		userId: 'account-a',
+		userSupabase: client,
+		supabase: client
+	}).getFirstPaintChrome();
+	await Promise.all([startedContent, startedDismissals]);
+	release();
+	expect((await first).announcements).toEqual([{ id: 'visible', title: 'Current', message: 'Content', type: 'info' }]);
+	const second = createSupabaseAppShellFirstPaintChromePort({
+		orgId: 'org-b',
+		userId: 'account-a',
+		userSupabase: client,
+		supabase: client
+	});
+	expect((await second.getFirstPaintChrome()).announcements.map(({ id }) => id)).toEqual(['visible']);
+	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+	try {
+		failed = true;
+		expect((await second.getFirstPaintChrome()).announcements).toEqual([]);
+		failed = false;
+		expect((await second.getFirstPaintChrome()).announcements.map(({ id }) => id)).toEqual(['visible']);
+	} finally {
+		log.mockRestore();
+	}
+});

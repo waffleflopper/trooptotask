@@ -9,7 +9,7 @@ import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
  * state before proceeding. For step-level progress, see `onboardingStepProgress.ts`.
  * For retention logic (auto-archive when complete), see `onboardingRetention.ts`.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { OnboardingTrainingPorts, OnboardingWorkflowPorts } from './onboardingPolicy';
 import { subjectDetails } from '$lib/server/auditDetails';
 import { formatToday } from '$lib/utils/dates';

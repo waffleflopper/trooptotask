@@ -8,7 +8,7 @@ import ExcelJS from 'exceljs';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
-import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.ts';
+import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -210,59 +210,65 @@ async function main() {
 		];
 		if (
 			!fixture.actors[role] ||
-			![...orgDestinations, 'dashboard', 'org/new'].includes(destination) ||
-			(fixture.actors[role].organization === null && orgDestinations.includes(destination))
+			![...orgDestinations, 'dashboard', 'org/new', 'admin/feedback'].includes(destination) ||
+			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
+			(destination === 'admin/feedback' && !['platformReviewer', 'platformSupport'].includes(role))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
 		const destinationPath =
-			destination === 'dashboard'
-				? '/dashboard?show=all'
-				: destination === 'org/new'
-					? '/org/new'
-					: destination === 'home'
-						? `/org/${org(targetOrg)}`
-						: `/org/${org(targetOrg)}/${destination}`;
-		const readyText = destination.startsWith('onboarding')
-			? [
-					'STEPS',
-					'No templates yet.',
-					'Onboarding Pipeline',
-					'Onboarding History',
-					'Access restricted',
-					"You don't have permission to view this page"
-				]
-			: destination === 'home'
-				? ['Verification Organization A', 'Verification Organization B']
-				: destination === 'critical-tasks/library'
+			destination === 'admin/feedback'
+				? '/admin/feedback'
+				: destination === 'dashboard'
+					? '/dashboard?show=all'
+					: destination === 'org/new'
+						? '/org/new'
+						: destination === 'home'
+							? `/org/${org(targetOrg)}`
+							: `/org/${org(targetOrg)}/${destination}`;
+		const readyText =
+			destination === 'admin/feedback'
+				? ['Beta Feedback', 'Access denied', 'Forbidden']
+				: destination.startsWith('onboarding')
 					? [
-							'ICT task library controls',
-							'Access Restricted',
+							'STEPS',
+							'No templates yet.',
+							'Onboarding Pipeline',
+							'Onboarding History',
 							'Access restricted',
 							"You don't have permission to view this page"
 						]
-					: destination === 'critical-tasks'
-						? ['Critical Tasks', 'Access restricted']
-						: destination === 'settings/archives'
-							? ['Archived Records', "You don't have permission to view this page"]
-							: destination === 'settings/policies'
-								? ['Archive Retention', "You don't have permission to view this page"]
-								: destination === 'settings/members'
-									? ['Access Management', "You don't have permission to view this page"]
-									: destination === 'settings/danger'
-										? ['Destructive Actions', "You don't have permission to view this page"]
-										: destination === 'dashboard'
-											? ['Pending Invitations', 'Organizations']
-											: destination === 'org/new'
-												? ['Create your first Organization', 'Confirm your email first']
-												: [
-														'Calendar',
-														'Training',
-														'Able, Synthetic',
-														'Foreign, Synthetic',
-														'No personnel on the active roster',
-														'Access restricted'
-													];
+					: destination === 'home'
+						? ['Verification Organization A', 'Verification Organization B']
+						: destination === 'critical-tasks/library'
+							? [
+									'ICT task library controls',
+									'Access Restricted',
+									'Access restricted',
+									"You don't have permission to view this page"
+								]
+							: destination === 'critical-tasks'
+								? ['Critical Tasks', 'Access restricted']
+								: destination === 'settings/archives'
+									? ['Archived Records', "You don't have permission to view this page"]
+									: destination === 'settings/policies'
+										? ['Archive Retention', "You don't have permission to view this page"]
+										: destination === 'settings/members'
+											? ['Access Management', "You don't have permission to view this page"]
+											: destination === 'settings/danger'
+												? ['Destructive Actions', "You don't have permission to view this page"]
+												: destination === 'dashboard'
+													? ['Pending Invitations', 'Organizations']
+													: destination === 'org/new'
+														? ['Create your first Organization', 'Confirm your email first']
+														: [
+																'Calendar',
+																'Training',
+																'Able, Synthetic',
+																'Foreign, Synthetic',
+																'No personnel on the active roster',
+																'Access restricted'
+															];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -335,7 +341,7 @@ async function main() {
 				client
 					.from('beta_feedback')
 					.select(
-						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status'
+						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status,admin_notes'
 					)
 					.eq('user_id', userId)
 					.order('id')

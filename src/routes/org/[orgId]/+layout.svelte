@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
-	import AnnouncementBanner from '$lib/components/AnnouncementBanner.svelte';
+	import { AnnouncementBanner } from '$features/notifications/index';
 	import BannerStack from '$lib/components/BannerStack.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -101,7 +101,7 @@
 {:else if readyShell}
 	<BannerStack>
 		{#if readyShell.announcements.length}
-			<AnnouncementBanner announcements={readyShell.announcements} />
+			<AnnouncementBanner accountId={readyShell.user.id} announcements={readyShell.announcements} />
 		{/if}
 	</BannerStack>
 
@@ -121,7 +121,7 @@
 	</TopHeader>
 
 	{#if showFeedback}
-		{#await import('$lib/components/FeedbackModal.svelte') then { default: FeedbackModal }}
+		{#await import('$features/feedback/index') then { FeedbackModal }}
 			<FeedbackModal
 				onClose={() => (showFeedback = false)}
 				orgId={readyShell.org.id}

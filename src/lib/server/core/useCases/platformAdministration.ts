@@ -1,4 +1,4 @@
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
 
 export interface PlatformAdministrationUserStats {

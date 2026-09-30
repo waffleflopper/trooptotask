@@ -1,21 +1,34 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import type { Announcement } from '../contracts';
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { toastStore } from '$lib/stores/toast.svelte';
 
-	interface Announcement {
-		id: string;
-		title: string;
-		message: string;
-		type: 'info' | 'warning' | 'maintenance';
-	}
-
-	let { announcements, onCountChange }: { announcements: Announcement[]; onCountChange?: (count: number) => void } =
-		$props();
+	let {
+		announcements,
+		accountId,
+		onCountChange
+	}: { accountId: string; announcements: Announcement[]; onCountChange?: (count: number) => void } = $props();
 
 	let visibleAnnouncements = $derived([...announcements]);
 	let dismissing = $state<string[]>([]);
+	let lifetime = 0;
+	let currentAccount: string | undefined;
+	$effect(() => {
+		if (currentAccount !== accountId) {
+			currentAccount = accountId;
+			++lifetime;
+			dismissing = [];
+		}
+	});
+	onDestroy(() => {
+		++lifetime;
+	});
+	function isCurrent(account: string, generation: number) {
+		return account === accountId && generation === lifetime;
+	}
 
 	$effect(() => {
 		onCountChange?.(visibleAnnouncements.length);
@@ -23,6 +36,8 @@
 
 	async function dismiss(id: string) {
 		if (dismissing.includes(id)) return;
+		const account = accountId;
+		const generation = lifetime;
 		dismissing = [...dismissing, id];
 		try {
 			const response = await fetch('/api/announcements/dismiss', {
@@ -31,11 +46,12 @@
 				body: JSON.stringify({ announcementId: id })
 			});
 			if (!response.ok) throw new Error('Could not dismiss announcement');
+			if (!isCurrent(account, generation)) return;
 			visibleAnnouncements = visibleAnnouncements.filter((announcement) => announcement.id !== id);
 		} catch {
-			toastStore.error('Could not dismiss announcement. Try again.');
+			if (isCurrent(account, generation)) toastStore.error('Could not dismiss announcement. Try again.');
 		} finally {
-			dismissing = dismissing.filter((pendingId) => pendingId !== id);
+			if (isCurrent(account, generation)) dismissing = dismissing.filter((pendingId) => pendingId !== id);
 		}
 	}
 

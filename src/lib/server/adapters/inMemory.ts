@@ -21,8 +21,6 @@ import type {
 	AuthContext,
 	AuditPort,
 	ScopeEnforcementPort,
-	NotificationPort,
-	NotificationPayload,
 	StoragePort,
 	UseCaseContext,
 	WritePorts,
@@ -531,17 +529,27 @@ interface RecordedNotification {
 	orgId: string;
 	userId?: string;
 	excludeUserId?: string | null;
-	notification: NotificationPayload;
+	notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2];
 }
 
-export function createTestNotificationPort(): NotificationPort & { notifications: RecordedNotification[] } {
+export function createTestNotificationPort(): UseCaseContext['notifications'] & {
+	notifications: RecordedNotification[];
+} {
 	const notifications: RecordedNotification[] = [];
 	return {
 		notifications,
-		async notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
+		async notifyUser(
+			orgId: string,
+			userId: string,
+			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
+		): Promise<void> {
 			notifications.push({ target: 'user', orgId, userId, notification });
 		},
-		async notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void> {
+		async notifyAdmins(
+			orgId: string,
+			excludeUserId: string | null,
+			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
+		): Promise<void> {
 			notifications.push({ target: 'admins', orgId, excludeUserId, notification });
 		}
 	};
@@ -971,6 +979,22 @@ function createInMemoryOnboardingCalendarMarkersPort(
 	};
 }
 
+function unavailableNotificationStore(): UseCaseContext['notificationSelf']['store'] {
+	const unavailable = async (): Promise<never> => {
+		throw new Error('Bind the owned Notifications provider in this test context');
+	};
+	return {
+		findNotification: unavailable,
+		listOwn: unavailable,
+		listOwnUnreadIds: unavailable,
+		markRead: unavailable,
+		deleteNotification: unavailable,
+		deleteOwn: unavailable,
+		countOwnUnread: unavailable,
+		listOwnExportRows: unavailable
+	};
+}
+
 /** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
 export function createTestContext(
 	overrides?: TestContextOptions & {
@@ -1005,6 +1029,12 @@ export function createTestContext(
 		auditPort,
 
 		notifications: notificationPort,
+		notificationSelf: { auth, audit: auditPort, store: unavailableNotificationStore() },
+		feedbackExport: {
+			async listRows() {
+				throw new Error('Bind the owned Feedback export provider in this test context');
+			}
+		},
 		notificationPort,
 		storage: storagePort,
 		storagePort,

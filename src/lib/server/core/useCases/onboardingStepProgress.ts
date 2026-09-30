@@ -5,7 +5,7 @@
  *
  * For lifecycle transitions (start, cancel, complete the whole record), see `onboardingLifecycle.ts`.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { OnboardingWorkflowPorts } from './onboardingPolicy';
 import { requireOnboardingManagePolicyForStep } from './onboardingPolicy';
 

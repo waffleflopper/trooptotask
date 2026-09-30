@@ -141,7 +141,6 @@
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
-				"src/lib/server/core/errors.ts",
 				"src/lib/server/core/featureLaneWorkspaceLoad.ts",
 				"src/lib/server/core/ports.ts",
 				"src/lib/server/core/streamedWorkspace.test.ts",
@@ -159,13 +158,15 @@
 				"src/tests/check-governance.test.ts",
 				"src/tests/no-google-fonts.test.ts",
 				"src/tests/security-posture.test.ts",
-				"src/app.d.ts"
+				"src/app.d.ts",
+				"src/lib/server/adapters/notificationDelivery.test.ts",
+				"src/lib/server/communicationsPagination.server.test.ts"
 			],
 			"packet": "08-M15"
 		},
 		"feedback": {
-			"roots": [],
-			"files": ["src/lib/components/FeedbackModal.svelte"],
+			"roots": ["src/features/feedback/"],
+			"files": [],
 			"packet": "08-M13"
 		},
 		"identity": {
@@ -186,17 +187,8 @@
 			"packet": "08-M01"
 		},
 		"notifications": {
-			"roots": [],
-			"files": [
-				"src/lib/components/AnnouncementBanner.svelte",
-				"src/lib/components/AnnouncementBanner.test.ts",
-				"src/lib/server/adapters/supabaseAnnouncementDismissals.ts",
-				"src/lib/server/adapters/supabaseNotification.ts",
-				"src/lib/server/core/useCases/notifications.test.ts",
-				"src/lib/server/core/useCases/notifications.ts",
-				"src/lib/server/notifications.test.ts",
-				"src/lib/server/notifications.ts"
-			],
+			"roots": ["src/features/notifications/"],
+			"files": [],
 			"packet": "08-M13"
 		},
 		"onboarding": {
@@ -274,14 +266,13 @@
 			"packet": "08-M04"
 		},
 		"platform-admin": {
-			"roots": ["src/lib/components/admin/"],
+			"roots": ["src/features/platform-admin/", "src/lib/components/admin/"],
 			"files": [
 				"src/lib/server/adapters/adminAdapter.http.test.ts",
 				"src/lib/server/adapters/adminAdapter.test.ts",
 				"src/lib/server/adapters/adminAdapter.ts",
 				"src/lib/server/adapters/inMemoryPlatformAnnouncements.ts",
 				"src/lib/server/adapters/inMemoryPlatformAudit.ts",
-				"src/lib/server/adapters/inMemoryPlatformFeedback.ts",
 				"src/lib/server/adapters/inMemoryPlatformMembershipAdministration.ts",
 				"src/lib/server/adapters/inMemoryPlatformMetrics.ts",
 				"src/lib/server/adapters/inMemoryPlatformUserDirectory.ts",
@@ -294,8 +285,6 @@
 				"src/lib/server/adapters/supabasePlatformAnnouncements.ts",
 				"src/lib/server/adapters/supabasePlatformAudit.test.ts",
 				"src/lib/server/adapters/supabasePlatformAudit.ts",
-				"src/lib/server/adapters/supabasePlatformFeedback.test.ts",
-				"src/lib/server/adapters/supabasePlatformFeedback.ts",
 				"src/lib/server/adapters/supabasePlatformMembershipAdministration.test.ts",
 				"src/lib/server/adapters/supabasePlatformMembershipAdministration.ts",
 				"src/lib/server/adapters/supabasePlatformMetrics.test.ts",
@@ -320,8 +309,6 @@
 				"src/lib/server/core/useCases/platformAnnouncements.ts",
 				"src/lib/server/core/useCases/platformAudit.test.ts",
 				"src/lib/server/core/useCases/platformAudit.ts",
-				"src/lib/server/core/useCases/platformFeedback.test.ts",
-				"src/lib/server/core/useCases/platformFeedback.ts",
 				"src/lib/server/core/useCases/platformMembershipAdministration.test.ts",
 				"src/lib/server/core/useCases/platformMembershipAdministration.ts",
 				"src/lib/server/core/useCases/platformMetrics.test.ts",
@@ -359,9 +346,9 @@
 				"src/lib/server/env.ts",
 				"src/lib/server/supabase.ts",
 				"src/lib/server/supabasePagination.test.ts",
-				"src/lib/server/supabasePagination.ts",
 				"src/lib/server/validation.test.ts",
-				"src/lib/server/validation.ts"
+				"src/lib/server/validation.ts",
+				"src/lib/server/supabasePagination.server.ts"
 			],
 			"packet": "08-M15"
 		},
@@ -428,7 +415,8 @@
 				"src/lib/utils/streamedWorkspaceHydrator.test.ts",
 				"src/lib/utils/streamedWorkspaceHydrator.ts",
 				"src/lib/utils/workbook.test.ts",
-				"src/lib/utils/workbook.ts"
+				"src/lib/utils/workbook.ts",
+				"src/lib/errors.ts"
 			],
 			"packet": "08-M16"
 		},
@@ -618,8 +606,8 @@
 		"provider": ["src/lib/server/", "src/lib/storage/"]
 	},
 	"publicFiles": {
-		"shared": ["src/lib/utils.ts", "src/lib/types.ts"],
-		"provider": [],
+		"shared": ["src/lib/utils.ts", "src/lib/types.ts", "src/lib/errors.ts"],
+		"provider": ["src/lib/server/supabasePagination.server.ts"],
 		"access": [
 			"src/lib/server/permissions.ts",
 			"src/lib/server/permissionContext.ts",
@@ -671,7 +659,19 @@
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",
 			"src/features/identity/contracts.ts"
-		]
+		],
+		"notifications": [
+			"src/features/notifications/contracts.ts",
+			"src/features/notifications/index.ts",
+			"src/features/notifications/index.server.ts",
+			"src/features/notifications/contracts.server.ts"
+		],
+		"feedback": [
+			"src/features/feedback/contracts.ts",
+			"src/features/feedback/index.ts",
+			"src/features/feedback/index.server.ts"
+		],
+		"platform-admin": ["src/features/platform-admin/index.server.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

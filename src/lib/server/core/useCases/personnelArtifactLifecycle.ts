@@ -6,7 +6,7 @@ import type {
 } from '$features/personnel/personnel-detail.types';
 import type { PersonnelArtifactTable, PersonnelArtifactWriter } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 

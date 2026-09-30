@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelExtendedInfo } from '$features/personnel/personnel-detail.types';

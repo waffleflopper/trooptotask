@@ -1,18 +1,24 @@
+import type { FeedbackItem, FeedbackUpdateInput } from '../contracts';
 import type {
-	PlatformFeedbackItem,
-	PlatformFeedbackOrganizationContextStore,
-	PlatformFeedbackResolvedOrganizationContext,
-	PlatformFeedbackSubmissionRecord,
-	PlatformFeedbackSubmissionStore,
-	PlatformFeedbackStore,
-	PlatformFeedbackUpdateInput,
-	PlatformFeedbackStoreUpdateResult
-} from '$lib/server/core/useCases/platformFeedback';
+	FeedbackOrganizationContext,
+	FeedbackSubmissionRecord,
+	FeedbackSubmissionStore,
+	FeedbackReviewStore
+} from './feedbackPorts.server';
 
-interface InMemoryPlatformFeedbackOptions {
-	items?: PlatformFeedbackItem[];
+interface FeedbackOrganizationLookup {
+	resolveOrganizationContext(input: {
+		userId: string;
+		organizationId: string;
+	}): Promise<FeedbackOrganizationContext | null>;
+}
+
+type FeedbackStoreUpdateResult = { id: string };
+
+interface InMemoryFeedbackOptions {
+	items?: FeedbackItem[];
 	organizationContexts?: Array<
-		PlatformFeedbackResolvedOrganizationContext & {
+		FeedbackOrganizationContext & {
 			userId: string;
 		}
 	>;
@@ -22,23 +28,21 @@ interface InMemoryPlatformFeedbackOptions {
 	insertError?: Error;
 }
 
-export interface InMemoryPlatformFeedbackStore
-	extends PlatformFeedbackStore, PlatformFeedbackOrganizationContextStore, PlatformFeedbackSubmissionStore {
-	readonly submittedFeedback: PlatformFeedbackSubmissionRecord[];
+export interface InMemoryFeedbackStore
+	extends FeedbackReviewStore, FeedbackOrganizationLookup, FeedbackSubmissionStore {
+	readonly submittedFeedback: FeedbackSubmissionRecord[];
 }
 
-function cloneFeedback(item: PlatformFeedbackItem): PlatformFeedbackItem {
+function cloneFeedback(item: FeedbackItem): FeedbackItem {
 	return { ...item };
 }
 
-export function createInMemoryPlatformFeedbackStore(
-	options: InMemoryPlatformFeedbackOptions = {}
-): InMemoryPlatformFeedbackStore {
-	const items = new Map<string, PlatformFeedbackItem>();
+export function createInMemoryFeedbackStore(options: InMemoryFeedbackOptions = {}): InMemoryFeedbackStore {
+	const items = new Map<string, FeedbackItem>();
 	for (const item of options.items ?? []) {
 		items.set(item.id, cloneFeedback(item));
 	}
-	const submittedFeedback: PlatformFeedbackSubmissionRecord[] = [];
+	const submittedFeedback: FeedbackSubmissionRecord[] = [];
 
 	return {
 		submittedFeedback,
@@ -50,11 +54,11 @@ export function createInMemoryPlatformFeedbackStore(
 				.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 		},
 
-		async updateFeedback(input: PlatformFeedbackUpdateInput): Promise<PlatformFeedbackStoreUpdateResult | null> {
+		async updateFeedback(input: FeedbackUpdateInput): Promise<FeedbackStoreUpdateResult | null> {
 			if (options.updateError) throw options.updateError;
 			const existing = items.get(input.id);
 			if (!existing) return null;
-			const updated: PlatformFeedbackItem = {
+			const updated: FeedbackItem = {
 				...existing,
 				status: input.status !== undefined ? input.status : existing.status,
 				adminNotes: input.adminNotes !== undefined ? input.adminNotes : existing.adminNotes
@@ -63,7 +67,7 @@ export function createInMemoryPlatformFeedbackStore(
 			return { id: input.id };
 		},
 
-		async resolveSubmissionOrganizationContext(input) {
+		async resolveOrganizationContext(input) {
 			if (options.resolveOrganizationError) throw options.resolveOrganizationError;
 			const context = options.organizationContexts?.find(
 				(candidate) => candidate.userId === input.userId && candidate.organizationId === input.organizationId

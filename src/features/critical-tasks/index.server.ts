@@ -6,3 +6,9 @@ export { fetchCriticalTasksBootstrap } from './server/criticalTasksWorkspaceQuer
 export { fetchCriticalTasksSettings } from './server/criticalTasksSettingsRead.server';
 export { PersonnelIctCompletionEntity } from './server/personnelIctCompletionEntity.server';
 export { loadCriticalTasksReadinessLane } from './server/personnelCriticalTasksReadiness.server';
+export { importIctCompletionsBatch } from './server/ictCompletionsBatch.server';
+export {
+	createPersonnelIctCompletion,
+	updatePersonnelIctCompletion,
+	preparePersonnelIctCompletionDeletion
+} from './server/personnelIctCompletionOperations.server';

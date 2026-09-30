@@ -2,6 +2,30 @@ import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from './criticalTasks.types';
 
+export type PersonnelIctCompletionWrite = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
+
+export interface IctCompletionImportMappedRow {
+	rowNumber: number;
+	values: Record<string, string>;
+}
+
+export interface IctCompletionBatchImportInput {
+	records: IctCompletionImportMappedRow[];
+}
+
+export interface IctCompletionBatchImportError {
+	rowNumber: number;
+	personnelName: string;
+	taskCode: string;
+	message: string;
+}
+
+export interface IctCompletionBatchImportResult {
+	inserted: PersonnelIctCompletion[];
+	updated: PersonnelIctCompletion[];
+	errors: IctCompletionBatchImportError[];
+}
+
 export interface CriticalTasksSettingsWritePort {
 	saveDefaults(
 		orgId: string,

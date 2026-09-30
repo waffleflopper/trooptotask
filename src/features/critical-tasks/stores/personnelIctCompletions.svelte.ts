@@ -1,23 +1,14 @@
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
-import type { PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { IctCompletionImportMappedRow } from '$features/critical-tasks/utils/ictCompletionImport';
+import type {
+	PersonnelIctCompletion,
+	PersonnelIctCompletionWrite,
+	IctCompletionBatchImportInput,
+	IctCompletionBatchImportError,
+	IctCompletionBatchImportResult
+} from '../contracts';
 
-type PersonnelIctCompletionWrite = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
 const MAX_BATCH_SIZE = 500;
-
-interface IctCompletionImportBatchError {
-	rowNumber: number;
-	personnelName: string;
-	taskCode: string;
-	message: string;
-}
-
-interface IctCompletionImportBatchResult {
-	inserted: PersonnelIctCompletion[];
-	updated: PersonnelIctCompletion[];
-	errors: IctCompletionImportBatchError[];
-}
 
 interface PersonnelIctCompletionsExtensions extends Record<string, unknown> {
 	load: (items: PersonnelIctCompletion[], orgId: string) => void;
@@ -28,7 +19,7 @@ interface PersonnelIctCompletionsExtensions extends Record<string, unknown> {
 	getByPersonnelAndTask: (personnelId: string, ictTaskId: string) => PersonnelIctCompletion[];
 	removeByPersonnelLocal: (personnelId: string) => void;
 	removeByIctTaskLocal: (ictTaskId: string) => void;
-	importBatch: (input: { records: IctCompletionImportMappedRow[] }) => Promise<IctCompletionImportBatchResult>;
+	importBatch: (input: IctCompletionBatchImportInput) => Promise<IctCompletionBatchImportResult>;
 }
 
 async function readResponseErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -101,7 +92,7 @@ function enhance(
 			}
 			const inserted: PersonnelIctCompletion[] = [];
 			const updated: PersonnelIctCompletion[] = [];
-			const errors: IctCompletionImportBatchError[] = [];
+			const errors: IctCompletionBatchImportError[] = [];
 
 			for (let index = 0; index < input.records.length; index += MAX_BATCH_SIZE) {
 				requireCurrentWorkspace();
@@ -119,7 +110,7 @@ function enhance(
 					throw new Error(await readResponseErrorMessage(response, 'Failed to import critical task completions'));
 				}
 
-				const data = (await response.json()) as IctCompletionImportBatchResult;
+				const data = (await response.json()) as IctCompletionBatchImportResult;
 				requireCurrentWorkspace();
 				const chunkInserted = data.inserted ?? [];
 				const chunkUpdated = data.updated ?? [];

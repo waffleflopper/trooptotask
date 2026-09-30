@@ -1,35 +1,24 @@
-import type { PersonnelIctCompletion } from '$features/critical-tasks/contracts';
-import {
-	reviewMappedIctCompletionImportRows,
-	type IctCompletionImportMappedRow
-} from '$features/critical-tasks/utils/ictCompletionImport';
-import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
-import { IctTaskEntity, PersonnelIctCompletionEntity } from '$features/critical-tasks/index.server';
-import { requirePolicyDecision } from './policyAuthorization';
+import type {
+	PersonnelIctCompletion,
+	IctCompletionBatchImportInput,
+	IctCompletionBatchImportError,
+	IctCompletionBatchImportResult
+} from '../contracts';
+import { reviewMappedIctCompletionImportRows } from '../utils/ictCompletionImport';
+import { IctTaskEntity } from './ictTaskEntity.server';
+import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
+import type { IctCompletionBatchContext } from './personnelIctCompletionPorts.server';
+import { policyResourceForGroup, requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+
+function fail(status: number, message: string): never {
+	throw Object.assign(new Error(message), { status });
+}
 
 const MAX_BATCH_SIZE = 500;
 // Both UUID filters contribute to the provider URL. Bound pairs together so
 // a supported batch stays below its request-line limit in either dimension.
 const LOOKUP_PAIR_BATCH_SIZE = 50;
-
-export interface IctCompletionBatchImportInput {
-	records: IctCompletionImportMappedRow[];
-}
-
-export interface IctCompletionBatchImportError {
-	rowNumber: number;
-	personnelName: string;
-	taskCode: string;
-	message: string;
-}
-
-export interface IctCompletionBatchImportResult {
-	inserted: PersonnelIctCompletion[];
-	updated: PersonnelIctCompletion[];
-	errors: IctCompletionBatchImportError[];
-}
 
 function errorMessage(error: unknown): string {
 	if (error instanceof Error && error.message) return error.message;
@@ -63,12 +52,8 @@ function toBatchErrors(
 	);
 }
 
-function toPersonnelPolicyResource(person?: { groupId?: string | null }) {
-	return person?.groupId ? { kind: 'group' as const, groupId: person.groupId } : { kind: 'organization' as const };
-}
-
 export async function importIctCompletionsBatch(
-	ctx: WritePorts,
+	ctx: IctCompletionBatchContext,
 	input: IctCompletionBatchImportInput
 ): Promise<IctCompletionBatchImportResult> {
 	await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, { kind: 'unscoped' });
@@ -100,7 +85,7 @@ export async function importIctCompletionsBatch(
 	if (matchedPersonnelIds.length > 0) {
 		const personnelById = new Map(personnel.map((person) => [person.id, person]));
 		for (const personnelId of matchedPersonnelIds) {
-			const resource = toPersonnelPolicyResource(personnelById.get(personnelId));
+			const resource = policyResourceForGroup(personnelById.get(personnelId)?.groupId);
 			await requirePolicyDecision(ctx, POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, resource);
 		}
 	}

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
-import { importIctCompletionsBatch } from './ictCompletionsBatch';
+import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);

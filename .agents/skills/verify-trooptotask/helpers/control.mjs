@@ -175,6 +175,9 @@ async function main() {
 			ids: fixture.ids,
 			dates: fixture.dates,
 			invitationEmails: fixture.invitationEmails,
+			notificationUsers: Object.fromEntries(
+				Object.keys(fixture.notificationActors).map((role) => [role, fixture.actors[role].id])
+			),
 			roles: Object.keys(fixture.actors)
 		});
 		return;
@@ -183,6 +186,7 @@ async function main() {
 		const [role, destination = 'calendar'] = args;
 		const orgDestinations = [
 			'personnel',
+			'home',
 			'training',
 			'training/reports',
 			'calendar',
@@ -213,7 +217,9 @@ async function main() {
 				? '/dashboard?show=all'
 				: destination === 'org/new'
 					? '/org/new'
-					: `/org/${org(targetOrg)}/${destination}`;
+					: destination === 'home'
+						? `/org/${org(targetOrg)}`
+						: `/org/${org(targetOrg)}/${destination}`;
 		const readyText = destination.startsWith('onboarding')
 			? [
 					'STEPS',
@@ -223,35 +229,37 @@ async function main() {
 					'Access restricted',
 					"You don't have permission to view this page"
 				]
-			: destination === 'critical-tasks/library'
-				? [
-						'ICT task library controls',
-						'Access Restricted',
-						'Access restricted',
-						"You don't have permission to view this page"
-					]
-				: destination === 'critical-tasks'
-					? ['Critical Tasks', 'Access restricted']
-					: destination === 'settings/archives'
-						? ['Archived Records', "You don't have permission to view this page"]
-						: destination === 'settings/policies'
-							? ['Archive Retention', "You don't have permission to view this page"]
-							: destination === 'settings/members'
-								? ['Access Management', "You don't have permission to view this page"]
-								: destination === 'settings/danger'
-									? ['Destructive Actions', "You don't have permission to view this page"]
-									: destination === 'dashboard'
-										? ['Pending Invitations', 'Organizations']
-										: destination === 'org/new'
-											? ['Create your first Organization', 'Confirm your email first']
-											: [
-													'Calendar',
-													'Training',
-													'Able, Synthetic',
-													'Foreign, Synthetic',
-													'No personnel on the active roster',
-													'Access restricted'
-												];
+			: destination === 'home'
+				? ['Verification Organization A', 'Verification Organization B']
+				: destination === 'critical-tasks/library'
+					? [
+							'ICT task library controls',
+							'Access Restricted',
+							'Access restricted',
+							"You don't have permission to view this page"
+						]
+					: destination === 'critical-tasks'
+						? ['Critical Tasks', 'Access restricted']
+						: destination === 'settings/archives'
+							? ['Archived Records', "You don't have permission to view this page"]
+							: destination === 'settings/policies'
+								? ['Archive Retention', "You don't have permission to view this page"]
+								: destination === 'settings/members'
+									? ['Access Management', "You don't have permission to view this page"]
+									: destination === 'settings/danger'
+										? ['Destructive Actions', "You don't have permission to view this page"]
+										: destination === 'dashboard'
+											? ['Pending Invitations', 'Organizations']
+											: destination === 'org/new'
+												? ['Create your first Organization', 'Confirm your email first']
+												: [
+														'Calendar',
+														'Training',
+														'Able, Synthetic',
+														'Foreign, Synthetic',
+														'No personnel on the active roster',
+														'Access restricted'
+													];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -299,6 +307,39 @@ async function main() {
 			access: page.includes("You don't have permission to view this page") ? 'denied' : 'not-assessed',
 			origin: doctor.origin
 		});
+		return;
+	}
+	if (command === 'communications') {
+		const role = args[0];
+		if (!fixture.actors[role]) throw new Error('Use a known synthetic actor.');
+		const client = await provider();
+		const userId = fixture.actors[role].id;
+		const ownedState = await saved();
+		const announcementIds = ownedState.seeded
+			.filter((item) => item.kind === 'communications' && item.table === 'platform_announcements')
+			.flatMap((item) => item.ids);
+		const dismissals = announcementIds.length
+			? checked(
+					await client
+						.from('announcement_dismissals')
+						.select('announcement_id,user_id,dismissed_at')
+						.eq('user_id', userId)
+						.in('announcement_id', announcementIds)
+				)
+			: [];
+		const feedback = checked(
+			await selectAllSupabaseRows((from, to) =>
+				client
+					.from('beta_feedback')
+					.select(
+						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status'
+					)
+					.eq('user_id', userId)
+					.order('id')
+					.range(from, to)
+			)
+		);
+		note({ role, userId, dismissals, feedback });
 		return;
 	}
 	if (command === 'rows') {
@@ -457,11 +498,64 @@ async function main() {
 	}
 	if (command === 'seed') {
 		const kind = args[0];
-		if (!['duplicate-able', 'overlap', 'bulk-501', 'training-pages', 'personnel-lifecycle'].includes(kind))
+		if (
+			!['duplicate-able', 'overlap', 'bulk-501', 'training-pages', 'personnel-lifecycle', 'communications'].includes(
+				kind
+			)
+		)
 			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'communications') {
+			const notificationIds = {};
+			for (const [orgKey, role, count] of [
+				['orgA', 'notificationMember', 24],
+				['orgA', 'notificationOther', 1],
+				['orgB', 'notificationForeign', 1],
+				['orgA', 'notificationSwitch', 1],
+				['orgB', 'notificationSwitch', 1]
+			]) {
+				const records = Array.from({ length: count }, (_, index) => ({
+					id: randomUUID(),
+					organization_id: org(orgKey),
+					user_id: fixture.actors[role].id,
+					type: 'verification',
+					title: `${orgKey} ${role} ${String(index + 1).padStart(2, '0')} ${tag}`,
+					message: `Synthetic recipient isolation ${tag}`,
+					link: null,
+					read: false,
+					created_at: new Date(Date.now() - (count - index) * 60000).toISOString()
+				}));
+				ownedState.seeded.push({
+					kind,
+					table: 'notifications',
+					organization: orgKey,
+					ids: records.map((row) => row.id),
+					tag
+				});
+				await save(ownedState);
+				checked(await client.from('notifications').insert(records));
+				notificationIds[`${orgKey}-${role}`] = records.map((row) => row.id);
+			}
+			const announcements = [
+				{ state: 'active', is_active: true, expires_at: null },
+				{ state: 'inactive', is_active: false, expires_at: null },
+				{ state: 'expired', is_active: true, expires_at: '2000-01-01T00:00:00Z' }
+			].map(({ state, ...row }) => ({
+				...row,
+				id: randomUUID(),
+				title: `Verification ${state} announcement ${tag}`,
+				message: `Synthetic global announcement ${tag}`,
+				type: 'info',
+				created_by: fixture.actors.orgOwner.id
+			}));
+			ownedState.seeded.push({ kind, table: 'platform_announcements', ids: announcements.map((row) => row.id), tag });
+			await save(ownedState);
+			checked(await client.from('platform_announcements').insert(announcements));
+			note({ kind, tag, notificationIds, announcements: announcements.map(({ id, title }) => ({ id, title })) });
+			return;
+		}
 		if (kind === 'personnel-lifecycle') {
 			const keys = [
 				'person',
@@ -666,7 +760,10 @@ async function main() {
 							.eq('organization_id', org('orgA'))
 							.in('personnel_id', ids)
 					);
-				checked(await client.from(item.table).delete().eq('organization_id', org('orgA')).in('id', ids));
+				let query = client.from(item.table).delete().in('id', ids);
+				if (item.kind !== 'communications' || item.table !== 'platform_announcements')
+					query = query.eq('organization_id', org(item.organization ?? 'orgA'));
+				checked(await query);
 			}
 		}
 		ownedState.seeded = [];
@@ -681,6 +778,9 @@ async function main() {
 		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-observe') {
 			if (
 				![
+					'notifications',
+					'feedback',
+					'announcements/dismiss',
 					'personnel',
 					'personnel/batch',
 					'personnel/merge',
@@ -716,7 +816,9 @@ async function main() {
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
-			const suffix = `/org/${org('orgA')}/api/${family}`;
+			const suffix = ['feedback', 'announcements/dismiss'].includes(family)
+				? `/api/${family}`
+				: `/org/${org('orgA')}/api/${family}`;
 			const mode = action === 'arm-fail' ? 'fail' : action === 'arm-hold' ? 'hold' : 'observe';
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.

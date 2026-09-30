@@ -8,6 +8,7 @@ import ExcelJS from 'exceljs';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
+import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.ts';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -268,16 +269,21 @@ async function main() {
 		const [table, orgKey, field, value] = args;
 		if (!tableColumns[table]) throw new Error('Table is outside the synthetic readback allowlist.');
 		if (field && (!filters.has(field) || value === undefined)) throw new Error('Use an allowed field and value.');
-		let query = (await provider())
-			.from(table)
-			.select(tableSelect[table] ?? '*')
-			.eq(tableColumns[table], org(orgKey));
-		if (field)
-			query = query.eq(
-				table === 'organization_invitation_email_outbox' && field === 'email' ? 'recipient' : field,
-				value
-			);
-		const rows = checked(await query);
+		const client = await provider();
+		const rows = checked(
+			await selectAllSupabaseRows(async (from, to) => {
+				let query = client
+					.from(table)
+					.select(tableSelect[table] ?? '*')
+					.eq(tableColumns[table], org(orgKey));
+				if (field)
+					query = query.eq(
+						table === 'organization_invitation_email_outbox' && field === 'email' ? 'recipient' : field,
+						value
+					);
+				return query.order('id').range(from, to);
+			})
+		);
 		note({ table, organization: orgKey, count: rows.length, rows });
 		return;
 	}

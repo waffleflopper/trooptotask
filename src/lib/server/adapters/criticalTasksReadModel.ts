@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
 import type {
 	CriticalTasksCompletionTrendPoint,
 	CriticalTasksReadModelFilters,
@@ -21,14 +22,20 @@ export function createSupabaseCriticalTasksReadModelAdapter(supabase: SupabaseCl
 				return [];
 			}
 
-			const { data, error } = await supabase.rpc('latest_active_personnel_ict_completions', {
-				p_organization_id: orgId,
-				p_personnel_ids: normalizeIds(filters.personnelIds),
-				p_ict_task_ids: normalizeIds(filters.taskIds)
-			});
+			const { data, error } = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) =>
+				supabase
+					.rpc('latest_active_personnel_ict_completions', {
+						p_organization_id: orgId,
+						p_personnel_ids: normalizeIds(filters.personnelIds),
+						p_ict_task_ids: normalizeIds(filters.taskIds)
+					})
+					.order('personnel_id')
+					.order('ict_task_id')
+					.range(from, to)
+			);
 
 			if (error) {
-				throw new Error(error.message);
+				throw new Error((error as { message: string }).message);
 			}
 
 			return (data ?? []) as Record<string, unknown>[];

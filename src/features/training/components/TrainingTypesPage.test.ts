@@ -9,25 +9,23 @@ import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
-		orgId: 'org-1',
-		orgName: 'Test Unit',
-		userId: 'user-1',
-		role: 'owner',
-		isOwner: true,
-		isAdmin: false,
-		isPrivileged: true,
-		affordanceForFeatureAction: () => ({
-			allowed: true,
-			visible: true,
-			disabled: false,
-			reason: 'allowed:capability',
-			explanation: '',
-			decision: {}
-		})
+const org = {
+	orgId: 'org-1',
+	orgName: 'Test Unit',
+	userId: 'user-1',
+	role: 'owner',
+	isOwner: true,
+	isAdmin: false,
+	isPrivileged: true,
+	affordanceForFeatureAction: () => ({
+		allowed: true,
+		visible: true,
+		disabled: false,
+		reason: 'allowed:capability',
+		explanation: '',
+		decision: {}
 	})
-}));
+} as unknown as import('../contracts').TrainingPageAccess;
 
 const personnel: Personnel[] = [
 	{
@@ -80,7 +78,7 @@ describe('TrainingTypesPage', () => {
 
 	it('keeps a failed type creation editable and shows a retryable error', async () => {
 		vi.spyOn(trainingTypesStore, 'add').mockRejectedValueOnce(new Error('Synthetic save failure'));
-		render(TrainingTypesPage, { props: { data: { personnel: [] } } });
+		render(TrainingTypesPage, { props: { org, data: { personnel: [] } } });
 
 		await fireEvent.click(screen.getByRole('button', { name: '+ New Type' }));
 		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), {
@@ -96,6 +94,7 @@ describe('TrainingTypesPage', () => {
 	it('uses hydrated personnel when route bootstrap omits applicability source data', async () => {
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -127,6 +126,7 @@ describe('TrainingTypesPage', () => {
 		);
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -165,6 +165,7 @@ describe('TrainingTypesPage', () => {
 		);
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -206,6 +207,7 @@ describe('TrainingTypesPage', () => {
 		);
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -232,6 +234,7 @@ describe('TrainingTypesPage', () => {
 
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -259,6 +262,7 @@ describe('TrainingTypesPage', () => {
 
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -280,6 +284,7 @@ describe('TrainingTypesPage', () => {
 	it('moves type management actions into the floating page toolbar', () => {
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -302,6 +307,7 @@ describe('TrainingTypesPage', () => {
 	it('opens the create and edit forms from the page actions', async () => {
 		render(TrainingTypesPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {

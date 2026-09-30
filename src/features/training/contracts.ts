@@ -182,3 +182,31 @@ export interface TrainingWorkspaceResult {
 	data: TrainingWorkspaceData;
 	hydration: TrainingWorkspaceHydration;
 }
+
+import type { FeatureLanePolicyAction, PolicyResource, PolicyDecision } from '$lib/access/policyEvaluator';
+export interface TrainingAffordance {
+	readonly allowed: boolean;
+	readonly visible: boolean;
+	readonly disabled: boolean;
+	readonly reason: PolicyDecision['reasonCode'];
+	readonly explanation: string;
+	readonly decision: PolicyDecision;
+}
+export interface TrainingPageAccess {
+	readonly orgId: string;
+	readonly orgUrlSegment?: string;
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => TrainingAffordance;
+}
+export type TrainingMatrixViewMode = 'alphabetical' | 'by-group';
+export interface TrainingPagePreferences {
+	selectedGroupId: string | null;
+	selectedViewId: string | null;
+	matrixViewMode: TrainingMatrixViewMode;
+}
+export interface TrainingPreferencesPatch {
+	training?: Partial<TrainingPagePreferences>;
+}

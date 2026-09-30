@@ -2,7 +2,7 @@ import type { TrainingReportWorkbookExport } from '$features/training/contracts'
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { generateTrainingReportWorkbookExport } from '$features/training/index.server';
-import { workbookBufferResponse } from '$lib/export/workbook';
+import { workbookBufferResponse } from '$lib/utils/workbook';
 import {
 	PRIVATE_REPORT_HEADERS,
 	parseTrainingReportInput,

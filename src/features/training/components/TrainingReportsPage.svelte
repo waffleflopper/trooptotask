@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { TrainingPageAccess } from '../contracts';
 	import { tick } from 'svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
@@ -6,8 +7,7 @@
 	import TrainingStatusCell from './TrainingStatusCell.svelte';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import { rosterStore } from '$features/personnel';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
@@ -32,6 +32,7 @@
 	import { exportTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
 
 	interface Props {
+		org: Pick<TrainingPageAccess, 'orgId' | 'scopeSet'>;
 		data: {
 			training?: {
 				data?: {
@@ -46,9 +47,8 @@
 		};
 	}
 
-	let { data }: Props = $props();
+	let { data, org }: Props = $props();
 
-	const org = getOrgContext();
 	const workspaceData = $derived(data.training?.data);
 	const serverReport = $derived((data.trainingReport as TrainingReportData | undefined) ?? null);
 	const serverReportKey = $derived(reportIdentity(serverReport));

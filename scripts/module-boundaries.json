@@ -109,7 +109,7 @@
 			"packet": "08-M06"
 		},
 		"data-export": {
-			"roots": ["src/lib/export/"],
+			"roots": [],
 			"files": [
 				"src/lib/server/core/useCases/dataExportLifecycle.test.ts",
 				"src/lib/server/core/useCases/dataExportLifecycle.ts",
@@ -120,8 +120,7 @@
 				"src/lib/server/core/useCases/organizationExport.test.ts",
 				"src/lib/server/core/useCases/organizationExport.ts",
 				"src/lib/server/core/useCases/organizationExportWorkbook.test.ts",
-				"src/lib/server/core/useCases/organizationExportWorkbook.ts",
-				"src/lib/utils/excelWorkbook.ts"
+				"src/lib/server/core/useCases/organizationExportWorkbook.ts"
 			],
 			"packet": "08-M14"
 		},
@@ -438,13 +437,16 @@
 				"src/lib/utils/csvParser.ts",
 				"src/lib/utils/dates.test.ts",
 				"src/lib/utils/dates.ts",
+				"src/lib/utils/excelWorkbook.ts",
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.test.ts",
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.ts",
 				"src/lib/utils/mergeById.ts",
 				"src/lib/utils/streamedRouteData.test.ts",
 				"src/lib/utils/streamedRouteData.ts",
 				"src/lib/utils/streamedWorkspaceHydrator.test.ts",
-				"src/lib/utils/streamedWorkspaceHydrator.ts"
+				"src/lib/utils/streamedWorkspaceHydrator.ts",
+				"src/lib/utils/workbook.test.ts",
+				"src/lib/utils/workbook.ts"
 			],
 			"packet": "08-M16"
 		},

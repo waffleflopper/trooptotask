@@ -1,14 +1,15 @@
 import { listGroupCatalog, listPinnedGroupNames, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { PersonnelTrainingRosterPort, RankCatalogEntry, Group } from '$features/personnel/contracts';
-import type { QueryPorts } from '$lib/server/core/ports';
 import type { Personnel } from '$lib/types';
 import type { TrainingType, TrainingView, TrainingWorkspaceData } from '../contracts';
 import { listTrainingTypes, listTrainingViews } from './trainingCatalogRead.server';
 import { listTrainingCompletions } from './trainingCompletionRead.server';
+import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { withTrainingTiming, type TrainingLoadPhase } from './trainingTiming.server';
 
-type TrainingWorkspaceQueryContext = Pick<QueryPorts, 'auth' | 'store'> & {
+type TrainingWorkspaceQueryContext = Omit<TrainingCompletionReadContext, 'store'> & {
+	readonly store: TrainingCatalogReadStore & Parameters<typeof loadOrganizationRankCatalog>[0]['store'];
 	readonly audit?: TrainingCompletionReadContext['audit'];
 	readonly personnelTrainingRoster: Pick<PersonnelTrainingRosterPort, 'listActiveForWorkspace'>;
 };

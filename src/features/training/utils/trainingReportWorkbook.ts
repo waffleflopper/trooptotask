@@ -1,6 +1,6 @@
 import type { TrainingType } from '../contracts';
 import type { PivotRow } from './reportCalculations';
-import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/export/workbook';
+import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
 
 function trainingReportWorkbookColumns(types: TrainingType[]) {
 	return [

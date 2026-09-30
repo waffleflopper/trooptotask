@@ -7,7 +7,7 @@ import {
 } from '$lib/server/core/useCases/organizationDataExportExecution';
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
 import { buildOrganizationDataExportWorkbook } from '$lib/server/core/useCases/organizationExportWorkbook';
-import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/export/workbook';
+import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/utils/workbook';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	listTrainingTypeExportRows,

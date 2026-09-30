@@ -3,7 +3,8 @@ import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { exportPersonnelWorkbook } from './personnelExport';
 import type { PersonnelAvailabilityPeriod } from '$features/personnel/contracts';
-import { listPersonnelTrainingExportRows } from '$features/training/index.server';
+const listPersonnelTrainingExportRows: Parameters<typeof exportPersonnelWorkbook>[5] = (store, orgId, personnelId) =>
+	store.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: personnelId });
 
 const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
 const listTrainingTypeLabels = async () => [{ id: 'training-type-1', name: 'Weapons Qual' }];

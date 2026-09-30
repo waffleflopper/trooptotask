@@ -6,7 +6,7 @@ import {
 	type Workbook,
 	type WorkbookColumn,
 	type WorkbookRow
-} from '$lib/export/workbook';
+} from '$lib/utils/workbook';
 import { fail } from '$lib/server/core/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { PersonnelAvailabilityPeriod } from '$features/personnel/contracts';

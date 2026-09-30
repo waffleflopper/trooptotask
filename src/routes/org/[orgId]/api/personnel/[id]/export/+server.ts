@@ -1,7 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { workbookBufferResponse } from '$lib/export/workbook';
+import { workbookBufferResponse } from '$lib/utils/workbook';
 import { exportPersonnelWorkbook, type PersonnelExportOutput } from '$lib/server/core/useCases/personnelExport';
 import { listPersonnelAvailabilityHistory, listStatusTypeLabels } from '$features/calendar/index.server';
 import { listPersonnelTrainingExportRows, listTrainingTypeLabels } from '$features/training/index.server';

@@ -43,7 +43,7 @@
 </svelte:head>
 
 {#if hasServerReport}
-	<TrainingReportsPage data={pageData} />
+	<TrainingReportsPage {org} data={pageData} />
 {:else if streamedTraining && isPromiseLike(streamedTraining)}
 	{#await streamedTraining}
 		<section
@@ -67,7 +67,7 @@
 				<p>Loading training reports...</p>
 			</section>
 		{:else}
-			<TrainingReportsPage data={pageDataFor(resolvedTraining)} />
+			<TrainingReportsPage {org} data={pageDataFor(resolvedTraining)} />
 		{/if}
 	{:catch error}
 		{throwRenderError(error, 'Failed to load training reports workspace')}
@@ -83,5 +83,5 @@
 		<p>Loading training reports...</p>
 	</section>
 {:else}
-	<TrainingReportsPage data={pageData} />
+	<TrainingReportsPage {org} data={pageData} />
 {/if}

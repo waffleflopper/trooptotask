@@ -1,5 +1,4 @@
 /** Training report page, detail, and workbook projection. */
-import type { QueryPorts } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type {
 	TrainingType,
@@ -12,6 +11,7 @@ import type {
 	TrainingReportWorkbookExport
 } from '../contracts';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
+import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { listTrainingCompletions } from './trainingCompletionRead.server';
 import { listTrainingTypes } from './trainingCatalogRead.server';
@@ -29,11 +29,12 @@ import {
 	type ReadinessDashboard
 } from '../utils/reportCalculations';
 import { buildTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
-import { writeWorkbookBuffer } from '$lib/export/workbook';
+import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import { TRAINING_STATUS_SORT_ORDER } from '../utils/trainingStatus';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 
-type TrainingReportReadContext = Pick<QueryPorts, 'auth' | 'store'> & {
+type TrainingReportReadContext = Omit<TrainingCompletionReadContext, 'store'> & {
+	readonly store: TrainingCatalogReadStore & Parameters<typeof loadOrganizationRankCatalog>[0]['store'];
 	readonly audit?: TrainingCompletionReadContext['audit'];
 	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'listActiveForReports'>;
 };

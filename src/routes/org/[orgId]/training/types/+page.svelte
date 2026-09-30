@@ -52,7 +52,7 @@
 			</section>
 		{:else}
 			<div class="h-full min-h-0 overflow-hidden">
-				<TrainingTypesPage data={pageDataFor(resolvedTraining)} />
+				<TrainingTypesPage {org} data={pageDataFor(resolvedTraining)} />
 			</div>
 		{/if}
 	{:catch error}
@@ -70,6 +70,6 @@
 	</section>
 {:else}
 	<div class="h-full min-h-0 overflow-hidden">
-		<TrainingTypesPage data={pageData} />
+		<TrainingTypesPage {org} data={pageData} />
 	</div>
 {/if}

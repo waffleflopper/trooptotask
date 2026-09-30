@@ -8,6 +8,10 @@
 	import { TrainingModals } from '$features/training';
 
 	let { data } = $props();
+	const savePreferences: ConstructorParameters<typeof TrainingPageContext>[4] = async (orgId, patch) => {
+		const { queueUserPreferencesPatch } = await import('$features/identity');
+		return queueUserPreferencesPatch(orgId, patch);
+	};
 
 	const submitDeletionRequest: ConstructorParameters<typeof TrainingPageContext>[3] = async (
 		orgId,
@@ -48,7 +52,7 @@
 			orgName: shell.org.name,
 			userPreferences: shell.preferences
 		};
-		return new TrainingPageContext(pageData, modals, org, submitDeletionRequest);
+		return new TrainingPageContext(pageData, modals, org, submitDeletionRequest, savePreferences);
 	});
 </script>
 

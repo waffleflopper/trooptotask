@@ -4,7 +4,7 @@ import {
 	type CriticalTasksWorkbookExport
 } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { workbookBufferResponse } from '$lib/export/workbook';
+import { workbookBufferResponse } from '$lib/utils/workbook';
 import {
 	PRIVATE_REPORT_HEADERS,
 	criticalTasksMatrixExportInput,

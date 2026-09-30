@@ -9,7 +9,7 @@ import {
 	downloadBlob,
 	workbookResponse,
 	writeWorkbookBuffer
-} from './index';
+} from './workbook';
 import { resolveExcelWorkbookConstructor } from '$lib/utils/excelWorkbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];

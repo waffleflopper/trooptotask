@@ -119,6 +119,26 @@ describe('OnboardingPageContext policy affordances', () => {
 		expect(ctx.canManageConfig).toBe(false);
 	});
 
+	it('requires Organization scope for the configuration navigation without borrowing other lanes', () => {
+		for (const scopeSet of [
+			{ kind: 'organization' } as const,
+			{ kind: 'groups', groupIds: ['g-1'] } as const,
+			{ kind: 'groups', groupIds: [] } as const
+		]) {
+			const context = new OnboardingPageContext(
+				{ open: vi.fn() } as never,
+				createTestOrgContext({
+					orgId: 'org-1',
+					userRole: 'member',
+					capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure' },
+					scopeSet
+				})
+			);
+			expect(context.canManageConfig).toBe(scopeSet.kind === 'organization');
+			expect(context.canViewOnboarding).toBe(true);
+		}
+	});
+
 	it('checks per-personnel scope for onboarding record actions', () => {
 		personnelRosterHydration.load(
 			[

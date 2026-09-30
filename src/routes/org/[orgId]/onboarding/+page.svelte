@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { OnboardingPageContext } from '$features/onboarding/contexts/OnboardingPageContext.svelte';
-	import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
+	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import OnboardingKanbanView from '$features/onboarding/components/OnboardingKanbanView.svelte';

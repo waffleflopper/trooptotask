@@ -19,7 +19,7 @@ import type {
 	OnboardingTemplatesWorkspaceHydrationTarget,
 	OnboardingWorkspaceHydration,
 	OnboardingWorkspaceHydrationTarget
-} from './server/onboardingWorkspaceBootstrap';
+} from './contracts';
 
 export interface OnboardingHydrationLoadable<T> {
 	readonly orgId: string;

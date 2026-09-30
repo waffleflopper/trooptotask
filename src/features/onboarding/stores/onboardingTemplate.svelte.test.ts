@@ -6,7 +6,7 @@ import {
 	type OnboardingTemplateWorkspaceAdapter,
 	type OnboardingTemplateWorkspaceResult
 } from './onboardingTemplate.svelte';
-import type { OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
+import type { OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 import type { TrainingType } from '$features/training/contracts';
 
 const template: OnboardingTemplate = {
@@ -185,6 +185,23 @@ describe('OnboardingTemplateWorkspace', () => {
 		]);
 	});
 
+	it.each([
+		[
+			JSON.stringify({ message: 'Configuration is outside your assigned scope' }),
+			'Configuration is outside your assigned scope'
+		],
+		['Configuration is unavailable', 'Configuration is unavailable']
+	])('returns a readable error from a denied HTTP response', async (body, expected) => {
+		const adapter = createOnboardingTemplateWorkspaceHttpAdapter(
+			'org-1',
+			async () => new Response(body, { status: 403 })
+		);
+		expect(await adapter.createTemplate({ name: 'Arrival', description: null })).toEqual({
+			ok: false,
+			error: { code: 'policy_denied', message: expected }
+		});
+	});
+
 	it('reports invalid JSON separately from network failures', async () => {
 		const adapter = createOnboardingTemplateWorkspaceHttpAdapter(
 			'org-1',
@@ -230,6 +247,58 @@ describe('OnboardingTemplateWorkspace', () => {
 		await workspace.saveTemplate();
 
 		expect(onboardingTemplateStore.templates.map((item) => item.id)).toEqual(['template-created', 'template-1']);
+	});
+
+	it('discards a pending configuration response after changing Organizations', async () => {
+		let resolve!: (result: OnboardingTemplateWorkspaceResult<OnboardingTemplate>) => void;
+		const response = new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>>((done) => {
+			resolve = done;
+		});
+		const workspace = makeWorkspace({ createTemplate: () => response });
+		workspace.startCreateTemplate();
+		workspace.templateDraft.name = 'Old Organization draft';
+		const pending = workspace.saveTemplate();
+		const bTemplate = { ...template, id: 'template-b', orgId: 'org-2', name: 'B checklist' };
+		workspace.replaceOrganization({ orgId: 'org-2', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceData({ templates: [bTemplate], templateSteps: [], trainingTypes: [] });
+		onboardingTemplateStore.load([bTemplate], [], 'org-2');
+		resolve({ ok: true, value: { ...template, id: 'late-a', name: 'Late A save' } });
+		await pending;
+		expect(workspace.model.templates).toEqual([bTemplate]);
+		expect(onboardingTemplateStore.templates).toEqual([bTemplate]);
+		expect(workspace.templateDraft.name).toBe('');
+		expect(workspace.model.error).toBeNull();
+	});
+
+	it('ignores an old failure and keeps a newer save pending after A to B to A', async () => {
+		let finishOld!: (result: OnboardingTemplateWorkspaceResult<OnboardingTemplate>) => void;
+		let finishNew!: (result: OnboardingTemplateWorkspaceResult<OnboardingTemplate>) => void;
+		const oldResponse = new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>>((done) => {
+			finishOld = done;
+		});
+		const newResponse = new Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>>((done) => {
+			finishNew = done;
+		});
+		const createTemplate = vi.fn().mockReturnValueOnce(oldResponse).mockReturnValueOnce(newResponse);
+		const workspace = makeWorkspace({ createTemplate });
+		workspace.startCreateTemplate();
+		workspace.templateDraft.name = 'Old draft';
+		const oldSave = workspace.saveTemplate();
+		workspace.replaceOrganization({ orgId: 'org-2', routeSegment: 'org-2', canConfigure: true });
+		workspace.replaceOrganization({ orgId: 'org-1', routeSegment: 'org-1', canConfigure: true });
+		workspace.replaceData({ templates: [template], templateSteps: steps, trainingTypes });
+		workspace.startCreateTemplate();
+		workspace.templateDraft.name = 'New draft';
+		const newSave = workspace.saveTemplate();
+		finishOld({ ok: false, error: { code: 'server', message: 'Old failure' } });
+		await oldSave;
+		expect(workspace.model.error).toBeNull();
+		expect(workspace.model.savingTemplate).toBe(true);
+		expect(workspace.templateDraft.name).toBe('New draft');
+		finishNew({ ok: true, value: { ...template, id: 'new-save', name: 'New draft' } });
+		await newSave;
+		expect(workspace.model.savingTemplate).toBe(false);
+		expect(workspace.model.templates.map((item) => item.id)).toEqual(['new-save', template.id]);
 	});
 
 	it('clears edit state after deleting the edited template', async () => {

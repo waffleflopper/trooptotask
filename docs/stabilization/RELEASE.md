@@ -301,6 +301,8 @@ Organization deletion-request reviewers retain approved Training type deletion e
 
 ## Phase 08 D12 Personnel Group integrity
 
+**Operator update, September 30:** Robert reported successful manual application and requested continuation. #1436 subsequently merged as `9529af826bc8a32dac6660b456de96009aa9758c` after exact-head green CI and completed approved review. This owner report satisfies the manual merge boundary; the agent has not queried hosted schema/data or independently verified serving parity. The ordered instructions below remain the release and compatible-rollback provenance.
+
 API preparation [#1434](https://github.com/waffleflopper/trooptotask/pull/1434) merged as `88184a572e53dfd9f1b5c7f091db75d18288ccb2`. GitHub Production deployment `6753699366` reports success for that SHA at September 30, 07:12 UTC. This metadata reports a Production deployment of the preparation revision; the operator still confirms the serving revision and drained instances without relying on hosted app/data/schema inspection by this agent. It explicitly selects the old Group foreign key and remains usable after the next migration introduces a second relationship. An earlier unhinted application would produce an ambiguous PostgREST embed, so rollback must use this preparation or a later compatible revision.
 
 **Robert's manual sequence:**

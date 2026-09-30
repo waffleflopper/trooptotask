@@ -1,0 +1,36 @@
+
+ RUN  v4.1.8 /home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-53d16a2f
+
+ ❯ src/lib/server/core/useCases/deletionRequests.test.ts (37 tests | 1 failed | 36 skipped) 10ms
+     × keeps approval pending without success notification or audit when its note effect fails 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/server/core/useCases/deletionRequests.test.ts > approveDeletionRequest > keeps approval pending without success notification or audit when its note effect fails
+AssertionError: expected { id: 'person-1', …(2) } to deeply equal { id: 'person-1', …(2) }
+
+- Expected
++ Received
+
+  {
+-   "archived_at": "2026-09-30T14:56:08.899Z",
++   "archived_at": "2026-10-01T14:00:00.000Z",
+    "id": "person-1",
+    "organization_id": "test-org",
+  }
+
+ ❯ src/lib/server/core/useCases/deletionRequests.test.ts:769:89
+    767|    vi.setSystemTime(new Date('2026-10-01T14:00:00.000Z'));
+    768|    await approveDeletionRequest(ctx, 'dr-1');
+    769|    expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { i…
+       |                                                                                         ^
+    770|    expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id…
+    771|     archived_at: original!.archived_at
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 36 skipped (37)
+   Start at  06:56:08
+   Duration  305ms (transform 152ms, setup 0ms, import 226ms, tests 10ms, environment 0ms)

@@ -642,6 +642,74 @@ describe('approveDeletionRequest', () => {
 		expect(ctx.audit.events).toHaveLength(1);
 	});
 
+	it('retains the archive event when approval is retried after the status write fails', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx);
+		ctx.store.seed('personnel', [
+			{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null, archived_at: null }
+		]);
+		ctx.store.seed('leader_notes', [
+			{ id: 'note-1', organization_id: ctx.auth.orgId, personnel_id: 'person-1', archived_at: null },
+			{
+				id: 'note-independent',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				archived_at: '2026-08-01T12:00:00.000Z'
+			}
+		]);
+		const update = ctx.store.update;
+		let failStatus = true;
+		ctx.store.update = (async (table, orgId, id, data, select) => {
+			if (table === 'deletion_requests' && failStatus) {
+				failStatus = false;
+				throw new Error('approval status unavailable');
+			}
+			return update(table, orgId, id, data, select);
+		}) as typeof ctx.store.update;
+		const archivedAt = '2026-09-30T14:00:00.000Z';
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			vi.setSystemTime(new Date(archivedAt));
+			await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('approval status unavailable');
+			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+				status: 'pending'
+			});
+			expect(ctx.notifications.notifications).toEqual([]);
+			expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
+			vi.setSystemTime(new Date('2026-09-30T14:05:00.000Z'));
+			await approveDeletionRequest(ctx, 'dr-1');
+			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).toMatchObject({
+				archived_at: archivedAt
+			});
+			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+				archived_at: archivedAt
+			});
+			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+				status: 'approved'
+			});
+			expect(ctx.notifications.notifications).toHaveLength(1);
+			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-independent' })).toMatchObject({
+				archived_at: '2026-08-01T12:00:00.000Z'
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('leaves personnel deletion requests pending when archival fails', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);
@@ -688,6 +756,41 @@ describe('approveDeletionRequest', () => {
 		});
 		expect(ctx.notifications.notifications).toEqual([]);
 		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
+		const original = structuredClone(
+			await ctx.rawStore!.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
+				id: 'person-1'
+			})
+		);
+		ctx.store.update = update;
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			vi.setSystemTime(new Date('2026-10-01T14:00:00.000Z'));
+			await approveDeletionRequest(ctx, 'dr-1');
+			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).toEqual(original);
+			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+				archived_at: original!.archived_at
+			});
+			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+				status: 'approved'
+			});
+			expect(ctx.notifications.notifications).toHaveLength(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('leaves a Personnel request pending when its target belongs to another Organization', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		const foreign = { id: 'person-1', organization_id: 'foreign-org', archived_at: null };
+		ctx.store.seed('personnel', [structuredClone(foreign)]);
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.rawStore!.findOne('personnel', 'foreign-org', { id: 'person-1' })).toEqual(foreign);
+		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('leaves non-personnel deletion requests pending when hard delete fails', async () => {

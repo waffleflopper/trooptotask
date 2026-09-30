@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createTestContext, createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createPersonnelUseCases } from './personnel';
 
@@ -678,6 +678,87 @@ describe('Personnel — archive', () => {
 		expect(notes[0].archived_at).toEqual(expect.any(String));
 	});
 
+	it.each([false, true])(
+		'preserves the archive event on replay and restores its artifacts (interrupted: %s)',
+		async (interrupted) => {
+			const ctx = buildContext();
+			const operations = createPersonnelUseCases();
+			seedPersonnel(ctx);
+			seedPersonnelArtifacts(ctx);
+			const original = structuredClone(
+				await ctx.store.findOne<Record<string, unknown>>('personnel', ctx.auth.orgId, { id: 'p-1' })
+			);
+			const olderArchive = '2026-08-01T12:00:00.000Z';
+			await ctx.store.insert('leader_notes', ctx.auth.orgId, {
+				id: 'note-independent',
+				personnel_id: 'p-1',
+				archived_at: olderArchive
+			});
+			const writes = ctx.personnelArtifactWrites!;
+			const forPeople = writes.forPeople.bind(writes);
+			let failNote = interrupted;
+			writes.forPeople = async (...args) => {
+				const writer = await forPeople(...args);
+				return {
+					...writer,
+					async update(table, row, patch) {
+						if (table === 'leader_notes' && failNote) {
+							failNote = false;
+							throw new Error('note archive interrupted');
+						}
+						await writer.update(table, row, patch);
+					}
+				};
+			};
+			const firstArchive = '2026-09-30T14:00:00.000Z';
+			vi.useFakeTimers({ toFake: ['Date'] });
+			try {
+				vi.setSystemTime(new Date(firstArchive));
+				if (interrupted) await expect(operations.archive(ctx, 'p-1')).rejects.toThrow('note archive interrupted');
+				else await operations.archive(ctx, 'p-1');
+				expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual({
+					...original,
+					archived_at: firstArchive
+				});
+				vi.setSystemTime(new Date('2026-09-30T14:05:00.000Z'));
+				await operations.archive(ctx, 'p-1');
+				expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual({
+					...original,
+					archived_at: firstArchive
+				});
+				for (const [table, id] of [
+					['personnel_follow_ups', 'follow-up-open'],
+					['counseling_records', 'counseling-active'],
+					['personnel_documents', 'document-active'],
+					['leader_notes', 'note-active']
+				]) {
+					expect(await ctx.store.findOne(table, ctx.auth.orgId, { id })).toMatchObject({ archived_at: firstArchive });
+				}
+				await operations.restore(ctx, 'p-1');
+				expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual(original);
+				for (const [table, id] of [
+					['personnel_follow_ups', 'follow-up-open'],
+					['counseling_records', 'counseling-active'],
+					['personnel_documents', 'document-active'],
+					['leader_notes', 'note-active']
+				]) {
+					expect(await ctx.store.findOne(table, ctx.auth.orgId, { id })).toMatchObject({ archived_at: null });
+				}
+				expect(await ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-open' })).toMatchObject(
+					{ status: 'open' }
+				);
+				expect(
+					await ctx.store.findOne('personnel_follow_ups', ctx.auth.orgId, { id: 'follow-up-completed' })
+				).toMatchObject({ status: 'completed', archived_at: null });
+				expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-independent' })).toMatchObject({
+					archived_at: olderArchive
+				});
+			} finally {
+				vi.useRealTimers();
+			}
+		}
+	);
+
 	it('returns requiresApproval for non-privileged, non-full-editor users', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -730,17 +811,24 @@ describe('Personnel — archive', () => {
 		expect(stored.archived_at).toBeTruthy();
 	});
 
-	it('enforces group scope on archive', async () => {
-		const ctx = buildContext({
-			auth: {
-				scopeSet: { kind: 'groups', groupIds: ['group-a'] }
-			}
-		});
-		const { archive } = createPersonnelUseCases();
-		seedPersonnel(ctx);
+	it.each([null, '2026-08-01T12:00:00.000Z'])(
+		'denies out-of-scope archive and replay without effects (%s)',
+		async (archivedAt) => {
+			const ctx = buildContext({
+				auth: {
+					scopeSet: { kind: 'groups', groupIds: ['group-a'] }
+				}
+			});
+			const { archive } = createPersonnelUseCases();
+			seedPersonnel(ctx);
+			await ctx.rawStore!.update('personnel', ctx.auth.orgId, 'p-1', { group_id: 'group-b', archived_at: archivedAt });
+			const original = structuredClone(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' }));
 
-		await expect(archive(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
-	});
+			await expect(archive(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
+			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual(original);
+			expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.archived' }));
+		}
+	);
 });
 
 describe('Personnel — restore', () => {
@@ -1191,6 +1279,34 @@ describe('Personnel — archive batch', () => {
 		expect(counselings.every((row) => row.archived_at)).toBe(true);
 		expect(documents.every((row) => row.archived_at)).toBe(true);
 		expect(notes.every((row) => row.archived_at)).toBe(true);
+	});
+
+	it('retains an already-archived event while archiving the active candidate in a mixed batch', async () => {
+		const ctx = createTestContext();
+		seedPersonnel(ctx);
+		seedPersonnelArtifacts(ctx);
+		const archivedAt = '2026-08-01T12:00:00.000Z';
+		await ctx.store.update('personnel', ctx.auth.orgId, 'p-2', { archived_at: archivedAt });
+		const original = structuredClone(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-2' }));
+		const result = await createPersonnelUseCases().archiveBatch(ctx, {
+			ids: ['p-1', 'p-2', 'missing'],
+			userEmail: 'requester@example.com'
+		});
+		expect(result).toEqual({
+			archivedIds: ['p-1'],
+			approvalRequestedIds: [],
+			errors: [
+				{ id: 'p-2', message: 'Personnel is already archived' },
+				{ id: 'missing', message: 'Personnel not found' }
+			]
+		});
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-2' })).toEqual(original);
+		expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-p2' })).toMatchObject({
+			archived_at: null
+		});
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toMatchObject({
+			archived_at: expect.any(String)
+		});
 	});
 
 	it('creates archival requests in the same call when direct archive requires approval', async () => {

@@ -1,0 +1,2133 @@
+{
+	"before": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": null
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "open",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": null
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"failed": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": null
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "open",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": null
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"archived": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": "2026-09-30T14:27:45.081+00:00",
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:27:45.126661+00:00",
+					"completed_at": null,
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:27:45.137993+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:27:45.142814+00:00",
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"replayed": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": "2026-09-30T14:27:45.081+00:00",
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:27:45.126661+00:00",
+					"completed_at": null,
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:27:45.137993+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:27:45.142814+00:00",
+					"archived_at": "2026-09-30T14:27:45.081+00:00"
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"restored": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": null
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "open",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:29:45.648457+00:00",
+					"completed_at": null,
+					"archived_at": null
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:29:45.652628+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:29:45.656532+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"approvalfailed": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": null
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "open",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:29:45.648457+00:00",
+					"completed_at": null,
+					"archived_at": null
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:29:45.652628+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:29:45.656532+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"approved": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": "2026-09-30T14:35:49.678+00:00",
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:35:49.71423+00:00",
+					"completed_at": null,
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:35:49.719675+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:35:49.724051+00:00",
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"denied": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": "2026-09-30T14:35:49.678+00:00",
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:35:49.71423+00:00",
+					"completed_at": null,
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:35:49.719675+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:35:49.724051+00:00",
+					"archived_at": "2026-09-30T14:35:49.678+00:00"
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"approvalrestored": {
+		"personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"leader_notes": {
+			"table": "leader_notes",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "881a4c13-60c1-424a-89b0-2f1e4c241182",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Active note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": null
+				},
+				{
+					"id": "8f4ebe82-e66e-4f8e-a69b-3b86584e7510",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"author": "Synthetic",
+					"text": "Older note dcc83032",
+					"created_at": "2026-09-30T14:22:25.122676+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				}
+			]
+		},
+		"personnel_follow_ups": {
+			"table": "personnel_follow_ups",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "096d154f-8bf9-4937-808e-4d4b15572fe7",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "archived",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": null,
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "19927225-098a-4453-abd9-ddfba9ecb12e",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Open follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "open",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:38:16.116601+00:00",
+					"completed_at": null,
+					"archived_at": null
+				},
+				{
+					"id": "e009c34a-a924-494d-ac7d-40ac35478be5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Completed follow-up dcc83032",
+					"notes": null,
+					"due_date": null,
+					"status": "completed",
+					"created_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.138252+00:00",
+					"updated_at": "2026-09-30T14:22:25.138252+00:00",
+					"completed_at": "2026-09-14T12:00:00+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"counseling_records": {
+			"table": "counseling_records",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "73c6c3b3-f8bd-4771-bd37-6a6218c3d23f",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Archived counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:22:25.131309+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Archived counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "f1b9ccdb-56f1-4655-b8f9-b9de1c77f414",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"date_conducted": "2026-09-14",
+					"subject": "Active counseling dcc83032",
+					"key_points": null,
+					"plan_of_action": null,
+					"follow_up_date": null,
+					"status": "draft",
+					"counselor_signed": false,
+					"counselor_signed_at": null,
+					"soldier_signed": false,
+					"soldier_signed_at": null,
+					"created_at": "2026-09-30T14:22:25.131309+00:00",
+					"updated_at": "2026-09-30T14:38:16.121158+00:00",
+					"notes": null,
+					"file_path": null,
+					"title": "Active counseling dcc83032",
+					"summary": null,
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_documents": {
+			"table": "personnel_documents",
+			"organization": "orgA",
+			"count": 2,
+			"rows": [
+				{
+					"id": "29a7c930-1006-46b0-a6cd-c77d363e2019",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Archived document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Archived.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:22:25.134575+00:00",
+					"archived_at": "2026-08-01T12:00:00+00:00"
+				},
+				{
+					"id": "2a9392b1-6409-42ac-94c8-c657c4a38810",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"title": "Active document dcc83032",
+					"file_path": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f/c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5/synthetic-Active.pdf",
+					"file_size_bytes": 1,
+					"content_type": "application/pdf",
+					"uploaded_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.134575+00:00",
+					"updated_at": "2026-09-30T14:38:16.125115+00:00",
+					"archived_at": null
+				}
+			]
+		},
+		"personnel_trainings": {
+			"table": "personnel_trainings",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "be3b5a9d-3b19-4792-a087-e9725e30b7c2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"training_type_id": "e9b4a9da-54a4-4fc2-9775-3702a766a6f9",
+					"completion_date": "2026-09-14",
+					"expiration_date": null,
+					"notes": null,
+					"certificate_url": null
+				}
+			]
+		},
+		"personnel_ict_completions": {
+			"table": "personnel_ict_completions",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "62c630d8-e09f-4824-81b0-d18bf9a0c67c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"personnel_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"ict_task_id": "431d6bcb-4e8c-4660-a1ae-5302bc5b6d7c",
+					"completed_at": "2026-09-14",
+					"validation_method": "Demonstration",
+					"validated_by": null,
+					"notes": null,
+					"logged_by": "9f3ece82-3ca8-42fa-b5a1-1a98a4026696",
+					"created_at": "2026-09-30T14:22:25.144414+00:00",
+					"updated_at": "2026-09-30T14:22:25.144414+00:00"
+				}
+			]
+		}
+	},
+	"approvalRequests": {
+		"approval-pending": {
+			"table": "deletion_requests",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "ee1972e7-9fe1-4750-aa90-78dc774b9d5c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"resource_type": "personnel",
+					"resource_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"status": "pending"
+				}
+			]
+		},
+		"approval-pending-personnel": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "MapLifecycledcc83032",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:22:25.117192+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "map-lifecycle-dcc83032-person"
+				}
+			]
+		},
+		"approval-failed-request": {
+			"table": "deletion_requests",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "ee1972e7-9fe1-4750-aa90-78dc774b9d5c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"resource_type": "personnel",
+					"resource_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"status": "pending"
+				}
+			]
+		},
+		"approved-request": {
+			"table": "deletion_requests",
+			"organization": "orgA",
+			"count": 1,
+			"rows": [
+				{
+					"id": "ee1972e7-9fe1-4750-aa90-78dc774b9d5c",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"resource_type": "personnel",
+					"resource_id": "c7ffce31-b7bf-462c-b22d-3abf2a6a7ae5",
+					"status": "approved"
+				}
+			]
+		}
+	},
+	"finalPersonnel": {
+		"a": {
+			"table": "personnel",
+			"organization": "orgA",
+			"count": 3,
+			"rows": [
+				{
+					"id": "69e2bda8-eacd-493e-bba6-4f950bc21e95",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "Baker",
+					"first_name": "Synthetic",
+					"clinic_role": "NCO",
+					"group_id": "819230ad-9352-4c59-9555-400bfed2bee1",
+					"created_at": "2026-09-30T14:20:50.379594+00:00",
+					"mos": "11B",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "verify-baker"
+				},
+				{
+					"id": "923fc94f-5792-448b-a7c6-88fb5351cfe2",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "Unassigned",
+					"first_name": "Synthetic",
+					"clinic_role": "NCO",
+					"group_id": null,
+					"created_at": "2026-09-30T14:20:50.379594+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "verify-unassigned"
+				},
+				{
+					"id": "d53e4276-286f-403c-be71-8d0420915af1",
+					"organization_id": "3ff55bb5-f1b7-496c-a05e-b92899f4e06f",
+					"rank": "SPC",
+					"last_name": "Able",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "52836ee8-1b1d-4607-bae0-a5567dbad7a0",
+					"created_at": "2026-09-30T14:20:50.379594+00:00",
+					"mos": "68W",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "verify-able"
+				}
+			]
+		},
+		"b": {
+			"table": "personnel",
+			"organization": "orgB",
+			"count": 1,
+			"rows": [
+				{
+					"id": "989cbf90-acbd-41f1-97a1-26b64a87956c",
+					"organization_id": "9eaed828-254f-47f1-a1e2-0e32b9504974",
+					"rank": "SPC",
+					"last_name": "Foreign",
+					"first_name": "Synthetic",
+					"clinic_role": "Medic",
+					"group_id": "69f79e2f-b812-45be-bab4-ee01a62130c4",
+					"created_at": "2026-09-30T14:20:50.379594+00:00",
+					"mos": "11B",
+					"archived_at": null,
+					"ets": null,
+					"deros": null,
+					"slug": "verify-foreign"
+				}
+			]
+		}
+	}
+}

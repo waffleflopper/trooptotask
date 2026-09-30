@@ -320,9 +320,11 @@ export class OnboardingPageContext {
 		this.modals.close(MODAL_IDS.startOnboarding);
 	}
 
-	async handleAddPerson(data: Omit<Personnel, 'id'>): Promise<string | null> {
+	async handleAddPerson(data: Omit<Personnel, 'id'>): Promise<string> {
 		const newPerson = await createPersonnel(data);
-		return newPerson?.id ?? null;
+		if (!newPerson)
+			throw new Error('Personnel creation could not be confirmed. Reload the roster before trying again.');
+		return newPerson.id;
 	}
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {

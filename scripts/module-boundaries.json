@@ -83,18 +83,7 @@
 		},
 		"critical-tasks": {
 			"roots": ["src/features/critical-tasks/"],
-			"files": [
-				"src/lib/components/ui/requirement-status-badge/critical-task-status-badge.svelte",
-				"src/lib/server/adapters/criticalTasksReadModel.test.ts",
-				"src/lib/server/adapters/criticalTasksReadModel.ts",
-				"src/lib/server/adapters/inMemoryCriticalTasksReadModel.ts",
-				"src/lib/server/core/useCases/criticalTasksHistoryQuery.test.ts",
-				"src/lib/server/core/useCases/criticalTasksHistoryQuery.ts",
-				"src/lib/server/core/useCases/criticalTasksReportsQuery.test.ts",
-				"src/lib/server/core/useCases/criticalTasksReportsQuery.ts",
-				"src/lib/server/core/useCases/ictCompletionsBatch.test.ts",
-				"src/lib/server/core/useCases/ictCompletionsBatch.ts"
-			],
+			"files": [],
 			"packet": "08-M08"
 		},
 		"dashboard": {
@@ -490,8 +479,7 @@
 	"rootExclusions": {
 		"src/lib/components/ui/": [
 			"src/lib/components/ui/calendar-status-badge/",
-			"src/lib/components/ui/onboarding-packet-list/",
-			"src/lib/components/ui/requirement-status-badge/critical-task-status-badge.svelte"
+			"src/lib/components/ui/onboarding-packet-list/"
 		],
 		"src/routes/": [
 			"src/routes/+page.server.ts",
@@ -712,10 +700,6 @@
 		"src/lib/storage/sensitiveFiles.ts": {
 			"packet": "08-M11/08-M15",
 			"reason": "shared storage transport includes feature-specific scan path rules"
-		},
-		"src/lib/components/ui/requirement-status-badge/index.ts": {
-			"packet": "08-M08/08-M16",
-			"reason": "shared barrel combines neutral base with Critical Tasks presentation"
 		}
 	}
 }

@@ -14,7 +14,7 @@ import type { PersonnelOrganizationExportPort } from '$features/personnel/contra
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
-import type { CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
+import type { CriticalTasksReadModelPort, CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -44,24 +44,6 @@ export interface FindOptions {
 export interface FindResult<T> {
 	data: T[];
 	count: number | null;
-}
-
-export interface CriticalTasksReadModelFilters {
-	personnelIds?: string[];
-	taskIds?: string[];
-}
-
-export interface CriticalTasksCompletionTrendPoint {
-	month: string;
-	completions: number;
-}
-
-export interface CriticalTasksReadModelPort {
-	findLatestCompletions(orgId: string, filters?: CriticalTasksReadModelFilters): Promise<Record<string, unknown>[]>;
-	findCompletionTrend(
-		orgId: string,
-		filters?: CriticalTasksReadModelFilters
-	): Promise<CriticalTasksCompletionTrendPoint[]>;
 }
 
 /**

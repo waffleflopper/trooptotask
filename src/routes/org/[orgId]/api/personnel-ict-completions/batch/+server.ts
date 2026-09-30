@@ -1,10 +1,7 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import {
-	importIctCompletionsBatch,
-	type IctCompletionBatchImportInput,
-	type IctCompletionBatchImportResult
-} from '$lib/server/core/useCases/ictCompletionsBatch';
+import { importIctCompletionsBatch } from '$features/critical-tasks/index.server';
+import type { IctCompletionBatchImportInput, IctCompletionBatchImportResult } from '$features/critical-tasks/contracts';
 
 export const _postConfig: RouteConfig<IctCompletionBatchImportInput, IctCompletionBatchImportResult> = {
 	mutation: true,

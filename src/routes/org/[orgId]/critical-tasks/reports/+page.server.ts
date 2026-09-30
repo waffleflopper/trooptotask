@@ -1,8 +1,8 @@
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { fetchCriticalTasksReportsPageModel } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import { fetchCriticalTasksReportsPageModel } from '$features/critical-tasks/index.server';
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { CriticalTasksReportsPageModel } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import type { CriticalTasksReportsPageModel } from '$features/critical-tasks/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 export interface CriticalTasksReportsPageLoadDeps {

@@ -45,6 +45,16 @@ export async function seed(session) {
 			'trainingView',
 			'trainingForeignView',
 			'trainingCurrent',
+			'onboardingTemplate',
+			'onboardingForeignTemplate',
+			'onboardingCheckbox',
+			'onboardingPaperwork',
+			'onboardingTraining',
+			'onboardingForeignStep',
+			'onboardingPacket',
+			'onboardingCheckboxProgress',
+			'onboardingPaperworkProgress',
+			'onboardingTrainingProgress',
 			'ictTaskAlpha',
 			'ictTaskGeneral',
 			'ictTaskArchived',
@@ -147,6 +157,15 @@ export async function seed(session) {
 		},
 		ictForeign: { organization: 'orgB', criticalTasks: 'configure', scope: 'organization' }
 	};
+	const onboardingActors = {
+		onboardingConfigure: { organization: 'orgA', onboarding: 'configure', scope: 'organization' },
+		onboardingOperate: { organization: 'orgA', onboarding: 'operate', scope: 'organization' },
+		onboardingView: { organization: 'orgA', onboarding: 'view', scope: 'organization' },
+		onboardingScoped: { organization: 'orgA', onboarding: 'configure', scope: 'groups', groups: [ids.groupA] },
+		onboardingEmpty: { organization: 'orgA', onboarding: 'configure', scope: 'groups', groups: [] },
+		onboardingForeign: { organization: 'orgB', onboarding: 'configure', scope: 'organization' },
+		onboardingSwitch: { organization: 'orgA', onboarding: 'configure', scope: 'organization' }
+	};
 	const organizationActors = {
 		orgOwner: { organization: 'orgA', role: 'owner', scope: 'organization' },
 		orgAdmin: { organization: 'orgA', role: 'admin', scope: 'organization' },
@@ -167,6 +186,7 @@ export async function seed(session) {
 		...Object.keys(calendarActors),
 		...Object.keys(trainingActors),
 		...Object.keys(criticalTasksActors),
+		...Object.keys(onboardingActors),
 		...Object.keys(organizationActors)
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
@@ -180,6 +200,7 @@ export async function seed(session) {
 				: (calendarActors[role]?.organization ??
 					trainingActors[role]?.organization ??
 					criticalTasksActors[role]?.organization ??
+					onboardingActors[role]?.organization ??
 					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
 	}
@@ -205,6 +226,7 @@ export async function seed(session) {
 		const calendar = calendarActors[role];
 		const training = trainingActors[role];
 		const criticalTasks = criticalTasksActors[role];
+		const onboarding = onboardingActors[role];
 		const organization = organizationActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
@@ -215,13 +237,14 @@ export async function seed(session) {
 				role: organization?.role ?? calendar?.role ?? 'member',
 				member_preset: 'viewer',
 				capability_overrides: {
-					personnel: criticalTasks
-						? 'none'
-						: (calendar?.personnel ?? training?.personnel ?? (role === 'manager' ? 'configure' : 'view')),
+					personnel:
+						criticalTasks || onboarding
+							? 'none'
+							: (calendar?.personnel ?? training?.personnel ?? (role === 'manager' ? 'configure' : 'view')),
 					calendar: calendar?.calendar ?? 'none',
 					training: training?.training ?? 'none',
 					criticalTasks: criticalTasks?.criticalTasks ?? 'none',
-					onboarding: training?.onboarding ?? 'none',
+					onboarding: onboarding?.onboarding ?? training?.onboarding ?? 'none',
 					ratingScheme: 'none'
 				},
 				access_scope_kind:
@@ -229,12 +252,14 @@ export async function seed(session) {
 					calendar?.scope ??
 					training?.scope ??
 					criticalTasks?.scope ??
+					onboarding?.scope ??
 					(role === 'scoped' ? 'groups' : 'organization'),
 				access_scope_group_ids:
 					organization?.groups ??
 					calendar?.groups ??
 					training?.groups ??
 					criticalTasks?.groups ??
+					onboarding?.groups ??
 					(role === 'scoped' ? [ids.groupA] : [])
 			})
 		);
@@ -287,6 +312,24 @@ export async function seed(session) {
 				training: 'view',
 				criticalTasks: 'none',
 				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.onboardingSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'none',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'view',
 				ratingScheme: 'none'
 			},
 			access_scope_kind: 'organization',
@@ -564,6 +607,110 @@ export async function seed(session) {
 		])
 	);
 	checked(
+		await service.from('onboarding_templates').insert([
+			{
+				id: ids.onboardingTemplate,
+				organization_id: ids.orgA,
+				name: 'Verification Onboarding A',
+				description: 'Synthetic A template description'
+			},
+			{
+				id: ids.onboardingForeignTemplate,
+				organization_id: ids.orgB,
+				name: 'Foreign Private Onboarding',
+				description: 'Synthetic B template description'
+			}
+		])
+	);
+	const onboardingSteps = [
+		{
+			id: ids.onboardingCheckbox,
+			organization_id: ids.orgA,
+			template_id: ids.onboardingTemplate,
+			name: 'Verification Orientation',
+			description: 'Synthetic checkbox instructions',
+			step_type: 'checkbox',
+			training_type_id: null,
+			stages: null,
+			sort_order: 0
+		},
+		{
+			id: ids.onboardingPaperwork,
+			organization_id: ids.orgA,
+			template_id: ids.onboardingTemplate,
+			name: 'Verification Paperwork',
+			description: 'Synthetic paperwork instructions',
+			step_type: 'paperwork',
+			training_type_id: null,
+			stages: ['Submitted', 'Reviewed', 'Filed'],
+			sort_order: 1
+		},
+		{
+			id: ids.onboardingTraining,
+			organization_id: ids.orgA,
+			template_id: ids.onboardingTemplate,
+			name: 'Verification Training Step',
+			description: 'Synthetic training instructions',
+			step_type: 'training',
+			training_type_id: ids.trainingRequired,
+			stages: null,
+			sort_order: 2
+		},
+		{
+			id: ids.onboardingForeignStep,
+			organization_id: ids.orgB,
+			template_id: ids.onboardingForeignTemplate,
+			name: 'Foreign Private Step',
+			description: null,
+			step_type: 'training',
+			training_type_id: ids.trainingForeignType,
+			stages: null,
+			sort_order: 0
+		}
+	];
+	checked(await service.from('onboarding_template_steps').insert(onboardingSteps));
+	// Completed history provides a linked snapshot without changing active Calendar markers.
+	checked(
+		await service.from('personnel_onboardings').insert({
+			id: ids.onboardingPacket,
+			organization_id: ids.orgA,
+			personnel_id: ids.personA,
+			template_id: ids.onboardingTemplate,
+			started_at: '2026-03-01',
+			completed_at: '2026-03-18',
+			status: 'completed'
+		})
+	);
+	checked(
+		await service.from('onboarding_step_progress').insert(
+			onboardingSteps
+				.filter((step) => step.organization_id === ids.orgA)
+				.map((step, index) => ({
+					id: [ids.onboardingCheckboxProgress, ids.onboardingPaperworkProgress, ids.onboardingTrainingProgress][index],
+					organization_id: ids.orgA,
+					onboarding_id: ids.onboardingPacket,
+					template_step_id: step.id,
+					step_name: step.name,
+					step_type: step.step_type,
+					training_type_id: step.training_type_id,
+					stages: step.stages,
+					sort_order: step.sort_order,
+					completed: true,
+					current_stage: step.step_type === 'paperwork' ? 'Filed' : null,
+					notes:
+						step.step_type === 'paperwork'
+							? [
+									{
+										text: 'Synthetic retained filing note',
+										timestamp: '2026-03-18T12:00:00.000Z',
+										userId: actors.onboardingConfigure.id
+									}
+								]
+							: []
+				}))
+		)
+	);
+	checked(
 		await service.from('training_views').insert([
 			{
 				id: ids.trainingView,
@@ -826,6 +973,7 @@ export async function seed(session) {
 		calendarActors,
 		trainingActors,
 		criticalTasksActors,
+		onboardingActors,
 		organizationActors
 	};
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);

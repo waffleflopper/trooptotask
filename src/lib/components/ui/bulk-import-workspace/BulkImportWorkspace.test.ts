@@ -47,6 +47,16 @@ describe('BulkImportWorkspace', () => {
 		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select import row 1' }));
 		expect(screen.getByText('1 of 2 selected')).toBeInTheDocument();
 		expect(screen.getByText('1 selectable rows chosen from 2 preview rows')).toBeInTheDocument();
+		const invalidSelection = screen.getByRole('checkbox', { name: /Select import row 2/ });
+		expect(invalidSelection).toBeDisabled();
+		expect(invalidSelection).not.toBeChecked();
+		await fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+		expect(screen.getByText('0 of 2 selected')).toBeInTheDocument();
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select all import rows' }));
+		expect(screen.getByText('1 of 2 selected')).toBeInTheDocument();
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeChecked();
+		expect(invalidSelection).toBeDisabled();
+		expect(invalidSelection).not.toBeChecked();
 
 		expect(screen.getByRole('status', { name: /loading/i })).toBeInTheDocument();
 		expect(screen.getByText('Import completed with issues')).toBeInTheDocument();

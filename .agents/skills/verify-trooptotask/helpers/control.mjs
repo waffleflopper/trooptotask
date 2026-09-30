@@ -523,7 +523,7 @@ async function main() {
 					type: 'verification',
 					title: `${orgKey} ${role} ${String(index + 1).padStart(2, '0')} ${tag}`,
 					message: `Synthetic recipient isolation ${tag}`,
-					link: null,
+					link: role === 'notificationSwitch' ? `/org/${org(orgKey)}` : null,
 					read: false,
 					created_at: new Date(Date.now() - (count - index) * 60000).toISOString()
 				}));

@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import BadgeCheck from '@lucide/svelte/icons/badge-check';
 	import Bell from '@lucide/svelte/icons/bell';
@@ -19,6 +19,7 @@
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import { formatDate, formatRelativeDate } from '$lib/utils/dates';
 	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import OrgNavIcon from './OrgNavIcon.svelte';
 	import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
@@ -85,11 +86,16 @@
 	let notifications = $state<Notification[]>([]);
 	let notificationsLoaded = $state(false);
 	let notificationsLoading = $state(false);
+	let notificationsWriting = $state(false);
+	let notificationsLoadFailed = $state(false);
+	let notificationGeneration = 0;
+	let notificationCountRequest = 0;
+	let notificationCountLoading = false;
 	let showLeaveOrganizationDialog = $state(false);
 	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $state(0);
 	let lastOrgUrlSegment = $state<string | null>(null);
-	let lastNotificationCountSegment = $state<string | null>(null);
+	const notificationScope = $derived(`${orgId}/${orgUrlSegment}/${membershipId ?? ''}`);
 	const pathname = $derived($page.url.pathname);
 	const dashboardPath = $derived(`/org/${orgUrlSegment}`);
 	const isDashboardRoot = $derived(pathname === dashboardPath);
@@ -178,64 +184,119 @@
 		}
 	}
 
-	async function loadUnreadNotificationCount(segment = orgUrlSegment) {
+	function isCurrentNotificationRequest(scope: string, generation: number) {
+		return scope === notificationScope && generation === notificationGeneration;
+	}
+
+	async function loadUnreadNotificationCount(segment: string, scope: string, generation: number) {
+		const request = ++notificationCountRequest;
+		notificationCountLoading = true;
 		try {
 			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=notification-count`);
 			if (!response.ok) return;
 
 			const result = await response.json();
-			if (segment === orgUrlSegment && result.ok && typeof result.unreadNotificationCount === 'number') {
+			if (
+				isCurrentNotificationRequest(scope, generation) &&
+				request === notificationCountRequest &&
+				result.ok &&
+				typeof result.unreadNotificationCount === 'number'
+			) {
 				localUnreadCount = result.unreadNotificationCount;
 			}
 		} catch {
-			if (segment === orgUrlSegment) {
+			if (isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest) {
 				localUnreadCount = 0;
 			}
+		} finally {
+			if (request === notificationCountRequest) notificationCountLoading = false;
 		}
 	}
 
 	async function loadNotifications() {
 		if (notificationsLoaded || notificationsLoading) return;
-
+		const scope = notificationScope;
+		const generation = notificationGeneration;
+		const segment = orgUrlSegment;
 		notificationsLoading = true;
+		notificationsLoadFailed = false;
 		try {
-			const response = await fetch(`/org/${orgUrlSegment}/api/notifications`);
-			if (response.ok) {
-				notifications = await response.json();
+			const response = await fetch(`/org/${segment}/api/notifications`);
+			if (!response.ok) throw new Error('Could not load notifications');
+			const result = await response.json();
+			if (isCurrentNotificationRequest(scope, generation)) {
+				notifications = result;
 				notificationsLoaded = true;
 			}
+		} catch {
+			if (isCurrentNotificationRequest(scope, generation)) {
+				notificationsLoadFailed = true;
+				toastStore.error('Could not load notifications. Reopen the bell to retry.');
+			}
 		} finally {
-			notificationsLoading = false;
+			if (isCurrentNotificationRequest(scope, generation)) notificationsLoading = false;
 		}
 	}
 
 	async function markAllNotificationsRead() {
-		const response = await fetch(`/org/${orgUrlSegment}/api/notifications`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ markAllRead: true })
-		});
-
-		if (response.ok) {
-			notifications = notifications.map((notification) => ({ ...notification, read: true }));
-			localUnreadCount = 0;
+		if (notificationsWriting || notificationsLoading) return;
+		const scope = notificationScope;
+		const generation = notificationGeneration;
+		const segment = orgUrlSegment;
+		notificationsWriting = true;
+		try {
+			const response = await fetch(`/org/${segment}/api/notifications`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ markAllRead: true })
+			});
+			if (!response.ok) throw new Error('Could not mark notifications read');
+			if (isCurrentNotificationRequest(scope, generation)) {
+				++notificationCountRequest;
+				notificationCountLoading = false;
+				notifications = notifications.map((notification) => ({ ...notification, read: true }));
+				localUnreadCount = 0;
+			}
+		} catch {
+			if (isCurrentNotificationRequest(scope, generation))
+				toastStore.error('Could not mark notifications read. Try again.');
+		} finally {
+			if (isCurrentNotificationRequest(scope, generation)) notificationsWriting = false;
 		}
 	}
 
 	async function openNotification(notification: Notification) {
+		if (notificationsWriting) return;
+		const scope = notificationScope;
+		const generation = notificationGeneration;
+		const segment = orgUrlSegment;
 		notificationsOpen = false;
 
 		if (!notification.read) {
-			notification.read = true;
-			localUnreadCount = Math.max(0, localUnreadCount - 1);
-			await fetch(`/org/${orgUrlSegment}/api/notifications`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ id: notification.id })
-			});
+			notificationsWriting = true;
+			try {
+				const response = await fetch(`/org/${segment}/api/notifications`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ id: notification.id })
+				});
+				if (!response.ok) throw new Error('Could not mark notification read');
+				if (isCurrentNotificationRequest(scope, generation)) {
+					const countWasLoading = notificationCountLoading;
+					++notificationCountRequest;
+					notification.read = true;
+					localUnreadCount = Math.max(0, localUnreadCount - 1);
+					if (countWasLoading) void loadUnreadNotificationCount(segment, scope, generation);
+				}
+			} catch {
+				if (isCurrentNotificationRequest(scope, generation))
+					toastStore.error('Could not mark notification read. Reopen the bell to retry.');
+			} finally {
+				if (isCurrentNotificationRequest(scope, generation)) notificationsWriting = false;
+			}
 		}
 
-		if (notification.link) {
+		if (isCurrentNotificationRequest(scope, generation) && notification.link) {
 			void goto(resolve(notification.link as `/org/${string}`));
 		}
 	}
@@ -249,18 +310,22 @@
 		orgSwitcherLoaded = false;
 		orgSwitcherLoading = false;
 		orgSwitcherLoadAttempted = false;
-		notifications = [];
-		notificationsLoaded = false;
-		notificationsLoading = false;
-		localUnreadCount = 0;
 	});
 
 	$effect(() => {
-		const segment = orgUrlSegment;
-		if (lastNotificationCountSegment === segment) return;
-
-		lastNotificationCountSegment = segment;
-		void loadUnreadNotificationCount(segment);
+		const scope = notificationScope;
+		const generation = ++notificationGeneration;
+		notifications = [];
+		notificationsLoaded = false;
+		notificationsLoading = false;
+		notificationsWriting = false;
+		notificationsLoadFailed = false;
+		notificationsOpen = false;
+		localUnreadCount = 0;
+		void loadUnreadNotificationCount(orgUrlSegment, scope, generation);
+		return () => {
+			++notificationGeneration;
+		};
 	});
 
 	$effect(() => {
@@ -271,7 +336,9 @@
 
 	$effect(() => {
 		if (notificationsOpen) {
-			void loadNotifications();
+			untrack(() => {
+				void loadNotifications();
+			});
 		}
 	});
 </script>
@@ -545,18 +612,25 @@
 								<span class="flex items-center justify-between gap-3">
 									<span>Notifications</span>
 									{#if localUnreadCount > 0}
-										<Button variant="ghost" size="xs" onclick={markAllNotificationsRead}>Mark all read</Button>
+										<Button
+											variant="ghost"
+											size="xs"
+											onclick={markAllNotificationsRead}
+											disabled={notificationsWriting || notificationsLoading}>Mark all read</Button
+										>
 									{/if}
 								</span>
 							</DropdownMenu.Label>
 							<DropdownMenu.Separator />
 							{#if notificationsLoading}
 								<DropdownMenu.Item disabled>Loading notifications...</DropdownMenu.Item>
+							{:else if notificationsLoadFailed}
+								<DropdownMenu.Item disabled>Could not load notifications. Reopen to retry.</DropdownMenu.Item>
 							{:else if notifications.length === 0}
 								<DropdownMenu.Item disabled>No notifications</DropdownMenu.Item>
 							{:else}
 								{#each notifications as notification (notification.id)}
-									<DropdownMenu.Item onclick={() => openNotification(notification)}>
+									<DropdownMenu.Item onclick={() => openNotification(notification)} disabled={notificationsWriting}>
 										<span class="grid min-w-0 gap-1">
 											<span class="truncate font-medium">{notification.title}</span>
 											{#if notification.message}

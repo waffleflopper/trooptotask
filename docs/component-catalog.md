@@ -13,7 +13,7 @@ Read the [UI foundation](#ui-foundation), then the section for the component bei
 - Page and shell composition: [page shell](#uipage-shell), [workspace toolbar](#uiworkspace-toolbar), [public shell](#public-marketing-shell), [workflow panel](#uiworkflow-panel).
 - Input and selection: [form controls](#shared-form-controls), [command](#uicommand), [combobox](#uicombobox), [multi-select](#uimulti-select), [date picker](#uidate-picker), [file upload](#file-upload-pattern).
 - Reports and records: [report workspace](#uireport-workspace), [charts](#uireport-chart), [data table](#uidata-table), [operational matrix](#uioperational-matrix), [bulk import](#uibulk-import-workspace).
-- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirmdialogsvelte), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#uireadiness-band).
+- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirmdialogsvelte), [transient feedback](#transient-feedback), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#uireadiness-band).
 - Shared appearance: [CSS tokens and design system](#css-design-system-appcss).
 
 ## UI Foundation
@@ -51,6 +51,10 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 ## `ui/command`
 
 Command input and result items must share one `Command.Root`. For server-filtered search, set `shouldFilter={false}` and supply the root `label` for the input name. `Command.Viewport` exposes the Bits viewport without a second state owner; compose it through `Command.List`'s `child` snippet with the supplied props when list and viewport share one element, so `aria-controls` targets the listbox and `aria-activedescendant` identifies its selected option. `Command.Input` preserves an explicit `aria-expanded` value for conditional popups; always-open menus retain the primitive default.
+
+## Transient feedback
+
+The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter.
 
 ## Password MFA continuation
 

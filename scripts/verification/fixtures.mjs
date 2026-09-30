@@ -179,6 +179,12 @@ export async function seed(session) {
 		orgInvitee: { organization: null },
 		orgCreator: { organization: null }
 	};
+	const notificationActors = {
+		notificationMember: { organization: 'orgA' },
+		notificationOther: { organization: 'orgA' },
+		notificationForeign: { organization: 'orgB' },
+		notificationSwitch: { organization: 'orgA' }
+	};
 	const organizationMembershipIds = {
 		orgOwner: ids.orgOwnerMembership,
 		orgAdmin: ids.orgAdminMembership,
@@ -194,7 +200,8 @@ export async function seed(session) {
 		...Object.keys(trainingActors),
 		...Object.keys(criticalTasksActors),
 		...Object.keys(onboardingActors),
-		...Object.keys(organizationActors)
+		...Object.keys(organizationActors),
+		...Object.keys(notificationActors)
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
 		const { user } = checked(await service.auth.admin.createUser({ email, password, email_confirm: true }));
@@ -208,6 +215,7 @@ export async function seed(session) {
 					trainingActors[role]?.organization ??
 					criticalTasksActors[role]?.organization ??
 					onboardingActors[role]?.organization ??
+					notificationActors[role]?.organization ??
 					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
 	}
@@ -259,6 +267,7 @@ export async function seed(session) {
 		const criticalTasks = criticalTasksActors[role];
 		const onboarding = onboardingActors[role];
 		const organization = organizationActors[role];
+		const notification = notificationActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
 				...(organizationMembershipIds[role] ? { id: organizationMembershipIds[role] } : {}),
@@ -269,7 +278,7 @@ export async function seed(session) {
 				member_preset: 'viewer',
 				capability_overrides: {
 					personnel:
-						criticalTasks || onboarding
+						criticalTasks || onboarding || notification
 							? 'none'
 							: (personnel?.personnel ??
 								calendar?.personnel ??
@@ -300,6 +309,24 @@ export async function seed(session) {
 			})
 		);
 	}
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.notificationSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'none',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
 	checked(
 		await service.from('organization_memberships').insert({
 			organization_id: ids.orgB,
@@ -1028,7 +1055,8 @@ export async function seed(session) {
 		trainingActors,
 		criticalTasksActors,
 		onboardingActors,
-		organizationActors
+		organizationActors,
+		notificationActors
 	};
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;

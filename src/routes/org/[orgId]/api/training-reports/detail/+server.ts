@@ -1,10 +1,8 @@
+import type { TrainingReportDetail } from '$features/training/contracts';
 import { json } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import {
-	fetchTrainingReportDetailPage,
-	type TrainingReportDetail
-} from '$lib/server/core/useCases/trainingReportsQuery';
+import { fetchTrainingReportDetailPage } from '$features/training/index.server';
 import {
 	PRIVATE_REPORT_HEADERS,
 	parseTrainingReportInput,

@@ -194,7 +194,8 @@ describe('TrainingPageView', () => {
 			{ orgId: 'org-1', orgName: 'Test Org' },
 			modals,
 			createTestOrgContext({ orgId: 'org-1' }),
-			vi.fn().mockResolvedValue(true)
+			vi.fn().mockResolvedValue(true),
+			vi.fn().mockResolvedValue(undefined)
 		);
 		render(TrainingPageView, { props: { ctx, modals } });
 		render(TrainingModals, { props: { ctx, modals } });
@@ -250,7 +251,8 @@ describe('TrainingPageView', () => {
 			{ orgId: 'org-1', orgName: 'Test Org' },
 			new ModalRegistry(),
 			org,
-			vi.fn().mockResolvedValue(true)
+			vi.fn().mockResolvedValue(true),
+			vi.fn().mockResolvedValue(undefined)
 		);
 		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
 

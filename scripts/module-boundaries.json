@@ -109,7 +109,7 @@
 			"packet": "08-M06"
 		},
 		"data-export": {
-			"roots": ["src/lib/export/"],
+			"roots": [],
 			"files": [
 				"src/lib/server/core/useCases/dataExportLifecycle.test.ts",
 				"src/lib/server/core/useCases/dataExportLifecycle.ts",
@@ -120,8 +120,7 @@
 				"src/lib/server/core/useCases/organizationExport.test.ts",
 				"src/lib/server/core/useCases/organizationExport.ts",
 				"src/lib/server/core/useCases/organizationExportWorkbook.test.ts",
-				"src/lib/server/core/useCases/organizationExportWorkbook.ts",
-				"src/lib/utils/excelWorkbook.ts"
+				"src/lib/server/core/useCases/organizationExportWorkbook.ts"
 			],
 			"packet": "08-M14"
 		},
@@ -438,13 +437,16 @@
 				"src/lib/utils/csvParser.ts",
 				"src/lib/utils/dates.test.ts",
 				"src/lib/utils/dates.ts",
+				"src/lib/utils/excelWorkbook.ts",
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.test.ts",
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.ts",
 				"src/lib/utils/mergeById.ts",
 				"src/lib/utils/streamedRouteData.test.ts",
 				"src/lib/utils/streamedRouteData.ts",
 				"src/lib/utils/streamedWorkspaceHydrator.test.ts",
-				"src/lib/utils/streamedWorkspaceHydrator.ts"
+				"src/lib/utils/streamedWorkspaceHydrator.ts",
+				"src/lib/utils/workbook.test.ts",
+				"src/lib/utils/workbook.ts"
 			],
 			"packet": "08-M16"
 		},
@@ -455,15 +457,7 @@
 		},
 		"training": {
 			"roots": ["src/features/training/"],
-			"files": [
-				"src/lib/components/ui/requirement-status-badge/training-status-badge.svelte",
-				"src/lib/components/ui/requirement-status-badge/training-status-cell.svelte",
-				"src/lib/server/core/useCases/trainingReportsQuery.test.ts",
-				"src/lib/server/core/useCases/trainingReportsQuery.ts",
-				"src/lib/server/core/useCases/trainingSummaryQuery.test.ts",
-				"src/lib/server/core/useCases/trainingSummaryQuery.ts",
-				"src/lib/server/utils/trainingTiming.ts"
-			],
+			"files": [],
 			"packet": "08-M07"
 		},
 		"web-ui": {
@@ -496,9 +490,7 @@
 		"src/lib/components/ui/": [
 			"src/lib/components/ui/calendar-status-badge/",
 			"src/lib/components/ui/onboarding-packet-list/",
-			"src/lib/components/ui/requirement-status-badge/critical-task-status-badge.svelte",
-			"src/lib/components/ui/requirement-status-badge/training-status-badge.svelte",
-			"src/lib/components/ui/requirement-status-badge/training-status-cell.svelte"
+			"src/lib/components/ui/requirement-status-badge/critical-task-status-badge.svelte"
 		],
 		"src/routes/": [
 			"src/routes/+page.server.ts",
@@ -721,8 +713,8 @@
 			"reason": "shared storage transport includes feature-specific scan path rules"
 		},
 		"src/lib/components/ui/requirement-status-badge/index.ts": {
-			"packet": "08-M07/08-M08/08-M16",
-			"reason": "shared barrel combines neutral base with Training and Critical Tasks presentations"
+			"packet": "08-M08/08-M16",
+			"reason": "shared barrel combines neutral base with Critical Tasks presentation"
 		}
 	}
 }

@@ -1,0 +1,313 @@
+{
+  "method": "ExcelJS parse of actual native UI downloads; Training sheets only retained",
+  "xlsx": {
+    "bytes": 62324,
+    "sha256": "e452e314e1c9a74e63ce52bc1911c567bd54b9eb5b2d332db2d1407fc3fc0c31",
+    "sheets": [
+      {
+        "name": "Training Types",
+        "rows": [
+          [
+            "Id",
+            "Organization Id",
+            "Name",
+            "Description",
+            "Expiration Months",
+            "Warning Days Yellow",
+            "Warning Days Orange",
+            "Applies To Roles",
+            "Color",
+            "Sort Order",
+            "Created At",
+            "Expiration Date Only",
+            "Can Be Exempted",
+            "Exempt Personnel Ids",
+            "Applies To Mos",
+            "Applies To Ranks",
+            "Excluded Roles",
+            "Excluded Mos",
+            "Excluded Ranks",
+            "Is Optional"
+          ],
+          [
+            "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "Verification Targeted Training",
+            null,
+            12,
+            60,
+            30,
+            "[]",
+            "#6b7280",
+            20,
+            "2026-09-30T00:16:08.817394+00:00",
+            false,
+            false,
+            "[]",
+            "[\"68W\"]",
+            "[]",
+            "[\"NCO\"]",
+            "[]",
+            "[]",
+            false
+          ],
+          [
+            "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "Verification Required Training",
+            null,
+            12,
+            60,
+            30,
+            "[]",
+            "#6b7280",
+            10,
+            "2026-09-30T00:16:08.817394+00:00",
+            false,
+            false,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            false
+          ],
+          [
+            "a150be88-4591-4950-a0cb-7008224e0b35",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "Verification Optional Training",
+            null,
+            null,
+            60,
+            30,
+            "[]",
+            "#6b7280",
+            30,
+            "2026-09-30T00:16:08.817394+00:00",
+            false,
+            false,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            true
+          ]
+        ]
+      },
+      {
+        "name": "Training Records",
+        "rows": [
+          [
+            "Person",
+            "Training Type",
+            "Completion Date",
+            "Expiration Date",
+            "Notes",
+            "Certificate Url"
+          ],
+          [
+            "SPC Able, Synthetic",
+            "Verification Required Training",
+            "2026-09-22",
+            "2027-09-22"
+          ],
+          [
+            "SPC Baker, Synthetic",
+            "Verification Required Training",
+            "2024-09-29",
+            "2025-09-29",
+            "D09 expired import"
+          ],
+          [
+            "SPC Able, Synthetic",
+            "Verification Targeted Training",
+            "2025-10-14",
+            "2026-10-14",
+            "D09 warning import"
+          ]
+        ]
+      },
+      {
+        "name": "Raw - Training Types",
+        "rows": [
+          [
+            "Id",
+            "Organization Id",
+            "Name",
+            "Description",
+            "Expiration Months",
+            "Warning Days Yellow",
+            "Warning Days Orange",
+            "Applies To Roles",
+            "Color",
+            "Sort Order",
+            "Created At",
+            "Expiration Date Only",
+            "Can Be Exempted",
+            "Exempt Personnel Ids",
+            "Applies To Mos",
+            "Applies To Ranks",
+            "Excluded Roles",
+            "Excluded Mos",
+            "Excluded Ranks",
+            "Is Optional"
+          ],
+          [
+            "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "Verification Targeted Training",
+            null,
+            12,
+            60,
+            30,
+            "[]",
+            "#6b7280",
+            20,
+            "2026-09-30T00:16:08.817394+00:00",
+            false,
+            false,
+            "[]",
+            "[\"68W\"]",
+            "[]",
+            "[\"NCO\"]",
+            "[]",
+            "[]",
+            false
+          ],
+          [
+            "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "Verification Required Training",
+            null,
+            12,
+            60,
+            30,
+            "[]",
+            "#6b7280",
+            10,
+            "2026-09-30T00:16:08.817394+00:00",
+            false,
+            false,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            false
+          ],
+          [
+            "a150be88-4591-4950-a0cb-7008224e0b35",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "Verification Optional Training",
+            null,
+            null,
+            60,
+            30,
+            "[]",
+            "#6b7280",
+            30,
+            "2026-09-30T00:16:08.817394+00:00",
+            false,
+            false,
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            "[]",
+            true
+          ]
+        ]
+      },
+      {
+        "name": "Raw - Personnel Trainings",
+        "rows": [
+          [
+            "Id",
+            "Organization Id",
+            "Personnel Id",
+            "Training Type Id",
+            "Completion Date",
+            "Expiration Date",
+            "Notes",
+            "Certificate Url",
+            "Created At",
+            "Updated At"
+          ],
+          [
+            "b2e99009-1f33-4dc7-a368-d97b59b35258",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "2026-09-22",
+            "2027-09-22",
+            null,
+            null,
+            "2026-09-30T00:16:08.82411+00:00",
+            "2026-09-30T00:16:08.82411+00:00"
+          ],
+          [
+            "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "2024-09-29",
+            "2025-09-29",
+            "D09 expired import",
+            null,
+            "2026-09-30T00:18:50.835726+00:00",
+            "2026-09-30T00:18:50.834+00:00"
+          ],
+          [
+            "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+            "2025-10-14",
+            "2026-10-14",
+            "D09 warning import",
+            null,
+            "2026-09-30T00:18:50.835726+00:00",
+            "2026-09-30T00:18:50.834+00:00"
+          ]
+        ]
+      },
+      {
+        "name": "Raw - Training Views",
+        "rows": [
+          [
+            "Id",
+            "Organization Id",
+            "Name",
+            "Column Ids",
+            "Created By",
+            "Created At",
+            "Updated At"
+          ],
+          [
+            "5182e313-1880-4101-bf1d-a7a6aa5f1e27",
+            "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "Verification Focus View",
+            "[\"1c96a01e-76c1-44db-b9e5-9415a2f22be0\",\"3a32aab3-26ff-4c83-b33b-ec0b03382e35\"]",
+            "4e6e7791-4474-437b-85b8-6d83603d6e46",
+            "2026-09-30T00:16:08.821323+00:00",
+            "2026-09-30T00:16:08.821323+00:00"
+          ]
+        ]
+      }
+    ]
+  },
+  "json": {
+    "bytes": 100228,
+    "sha256": "d6e911cd57abf8766fd28a5f5f98d97122c2af54ab6619237c5425a0710fb274",
+    "retainedSections": [
+      "trainingTypes",
+      "personnelTrainings",
+      "trainingViews"
+    ]
+  }
+}

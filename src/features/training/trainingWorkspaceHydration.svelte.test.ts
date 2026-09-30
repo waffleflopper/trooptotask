@@ -4,7 +4,7 @@ import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
 import { createTrainingWorkspaceHydrator } from './trainingWorkspaceHydration.svelte';
-import type { TrainingWorkspaceHydration } from './server/trainingWorkspaceBootstrap';
+import type { TrainingWorkspaceHydration } from './contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;

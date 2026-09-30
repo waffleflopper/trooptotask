@@ -1,24 +1,22 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import TrainingViewsPage from './TrainingViewsPage.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import type { TrainingType, TrainingView } from '$features/training/training.types';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
-		orgId: 'org-1',
-		affordanceForFeatureAction: () => ({
-			allowed: true,
-			visible: true,
-			disabled: false,
-			reason: 'allowed:capability',
-			explanation: '',
-			decision: {}
-		})
+const org = {
+	orgId: 'org-1',
+	affordanceForFeatureAction: () => ({
+		allowed: true,
+		visible: true,
+		disabled: false,
+		reason: 'allowed:capability',
+		explanation: '',
+		decision: {}
 	})
-}));
+} as unknown as import('../contracts').TrainingPageAccess;
 
 const trainingTypes: TrainingType[] = [
 	{
@@ -87,7 +85,7 @@ describe('TrainingViewsPage', () => {
 	});
 
 	it('renders saved training views in the type workspace', () => {
-		render(TrainingViewsPage);
+		render(TrainingViewsPage, { props: { org } });
 
 		expect(screen.getByRole('toolbar', { name: 'Training view controls' })).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Back to Matrix' }).getAttribute('href')).toBe('/org/org-1/training');

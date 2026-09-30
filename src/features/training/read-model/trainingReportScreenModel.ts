@@ -1,7 +1,7 @@
 import type { ColumnDef } from '$lib/components/ui/data-table';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
-import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
+import type { TrainingReportData } from '$features/training/contracts';
 import type { PersonnelTraining, TrainingStatus, TrainingType } from '$features/training/training.types';
 import { formatTrainingCellText } from '$features/training/utils/cellDisplayText';
 import { TRAINING_STATUS_SORT_ORDER } from '$features/training/utils/trainingStatus';

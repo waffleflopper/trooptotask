@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TrainingReportInput } from '$lib/server/core/useCases/trainingReportsQuery';
+import type { TrainingReportInput } from '$features/training/contracts';
 
 export const PRIVATE_REPORT_HEADERS = {
 	'Cache-Control': 'private, no-store',

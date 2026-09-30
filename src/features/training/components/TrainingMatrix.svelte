@@ -13,7 +13,8 @@
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import { Input } from '$lib/components/ui/input';
-	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import TrainingStatusBadge from './TrainingStatusBadge.svelte';
+	import TrainingStatusCell from './TrainingStatusCell.svelte';
 
 	interface Props {
 		personnel: Personnel[];

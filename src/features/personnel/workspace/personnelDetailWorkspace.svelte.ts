@@ -12,7 +12,7 @@ import type {
 	PersonnelReadinessLaneTone
 } from '$features/personnel/personnel-detail.types';
 import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
-import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
+import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import { SvelteDate } from 'svelte/reactivity';

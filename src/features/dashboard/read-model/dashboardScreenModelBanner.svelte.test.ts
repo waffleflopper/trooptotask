@@ -5,6 +5,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$features/personnel';
+import type { TrainingIssue } from '$features/training/contracts';
 import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
 import type { DashboardPageData } from '../dashboard.types';
 
@@ -49,7 +50,7 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
 }));
-vi.mock('$features/training/stores/trainingTypes.svelte', () => ({
+vi.mock('$features/training', () => ({
 	trainingTypesStore: { items: [] }
 }));
 vi.mock('$features/rating-scheme/utils/ratingScheme', () => ({
@@ -239,7 +240,9 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				notRequired: 0,
 				total: 8
 			};
-			const dataWithStats = makeData({ trainingSummary: { stats, issues: [] } });
+			const dataWithStats = makeData({
+				trainingSummary: { stats, issues: [], expiredPersonnelCount: 1, groupDelinquencies: [] }
+			});
 			const c = createDashboardScreenModel(dataWithStats);
 			expect(c.trainingStats).toEqual(stats);
 		});
@@ -251,19 +254,57 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 
 		it('returns issues from trainingSummary', () => {
-			const issues = [{ personName: 'SGT Smith', typeName: 'CPR', status: 'expired', label: 'Expired' }];
-			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: emptyTrainingStats, issues } }));
+			const issues: TrainingIssue[] = [
+				{
+					personnelId: 'smith',
+					daysUntilExpiration: -1,
+					personName: 'SGT Smith',
+					typeName: 'CPR',
+					status: 'expired',
+					label: 'Expired'
+				}
+			];
+			const c = createDashboardScreenModel(
+				makeData({
+					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
+				})
+			);
 			expect(c.topTrainingIssues).toHaveLength(1);
 			expect(c.topTrainingIssues[0].personName).toBe('SGT Smith');
 		});
 
 		it('returns multiple issues ordered as provided', () => {
-			const issues = [
-				{ personName: 'SGT Smith', typeName: 'CPR', status: 'expired', label: 'Expired' },
-				{ personName: 'PFC Jones', typeName: 'BLS', status: 'warning-orange', label: 'Expiring' },
-				{ personName: 'SPC Clark', typeName: 'SHARP', status: 'expired', label: 'Expired' }
+			const issues: TrainingIssue[] = [
+				{
+					personnelId: 'smith',
+					daysUntilExpiration: -1,
+					personName: 'SGT Smith',
+					typeName: 'CPR',
+					status: 'expired',
+					label: 'Expired'
+				},
+				{
+					personnelId: 'jones',
+					daysUntilExpiration: 15,
+					personName: 'PFC Jones',
+					typeName: 'BLS',
+					status: 'warning-orange',
+					label: 'Expiring'
+				},
+				{
+					personnelId: 'clark',
+					daysUntilExpiration: -1,
+					personName: 'SPC Clark',
+					typeName: 'SHARP',
+					status: 'expired',
+					label: 'Expired'
+				}
 			];
-			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: emptyTrainingStats, issues } }));
+			const c = createDashboardScreenModel(
+				makeData({
+					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
+				})
+			);
 			expect(c.topTrainingIssues).toHaveLength(3);
 			expect(c.topTrainingIssues[1].typeName).toBe('BLS');
 		});

@@ -51,6 +51,10 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 
 - [Onboarding templates and configuration](onboarding-templates.md): template/step lifecycle, ordering, duplication, independent lookups, linked history, scope and failure/retry.
 
+### Evals
+
+- [Rating Scheme and Evals](evals-rating-scheme.md): editing, evaluator relationships, due projections, filtered workbooks, dedicated permissions, scope and recovery.
+
 ### Critical Tasks
 
 - [Manage the Critical Tasks library](critical-tasks-library.md): task definitions, MOS filters, import, archive/restore, settings defaults, dedicated permissions and Organization isolation.

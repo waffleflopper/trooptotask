@@ -45,7 +45,8 @@ const tableColumns = {
 	onboarding_step_progress: 'organization_id',
 	deletion_requests: 'organization_id',
 	ict_tasks: 'organization_id',
-	personnel_ict_completions: 'organization_id'
+	personnel_ict_completions: 'organization_id',
+	rating_scheme_entries: 'organization_id'
 };
 const tableSelect = {
 	organization_rank_catalog: 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order',
@@ -61,6 +62,8 @@ const tableSelect = {
 	onboarding_step_progress:
 		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active',
 	deletion_requests: 'id,organization_id,resource_type,resource_id,status',
+	rating_scheme_entries:
+		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -88,7 +91,8 @@ const filters = new Set([
 	'ict_task_id',
 	'template_id',
 	'onboarding_id',
-	'template_step_id'
+	'template_step_id',
+	'rated_person_id'
 ]);
 
 async function owned() {
@@ -188,6 +192,7 @@ async function main() {
 	if (command === 'actor') {
 		const [role, destination = 'calendar'] = args;
 		const orgDestinations = [
+			'evals',
 			'personnel',
 			'home',
 			'training',
@@ -263,11 +268,13 @@ async function main() {
 														? ['Create your first Organization', 'Confirm your email first']
 														: [
 																'Calendar',
+																'Evaluation controls',
 																'Training',
 																'Able, Synthetic',
 																'Foreign, Synthetic',
 																'No personnel on the active roster',
-																'Access restricted'
+																'Access restricted',
+																'Access Restricted'
 															];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
@@ -508,14 +515,100 @@ async function main() {
 	if (command === 'seed') {
 		const kind = args[0];
 		if (
-			!['duplicate-able', 'overlap', 'bulk-501', 'training-pages', 'personnel-lifecycle', 'communications'].includes(
-				kind
-			)
+			![
+				'duplicate-able',
+				'overlap',
+				'bulk-501',
+				'training-pages',
+				'personnel-lifecycle',
+				'communications',
+				'rating-scheme'
+			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'rating-scheme') {
+			const ids = Object.fromEntries(
+				[
+					'officer',
+					'warrant',
+					'nco',
+					'archived',
+					'overdue',
+					'due30',
+					'due60',
+					'current',
+					'completed',
+					'changed',
+					'bravo',
+					'unassigned',
+					'archivedEntry',
+					'foreign'
+				].map((key) => [key, randomUUID()])
+			);
+			const date = (offset) => {
+				const value = new Date(fixture.dates.ui + 'T12:00:00');
+				value.setDate(value.getDate() + offset);
+				return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+			};
+			const people = [
+				['officer', '1LT'],
+				['warrant', 'CW2'],
+				['nco', 'SSG'],
+				['archived', 'SGT']
+			].map(([key, rank]) => ({
+				id: ids[key],
+				organization_id: org('orgA'),
+				group_id: fixture.ids.groupA,
+				first_name: 'Synthetic',
+				last_name: `Eval${key}${tag}`,
+				rank,
+				slug: `map-eval-${key}-${tag}`,
+				archived_at: key === 'archived' ? date(-100) + 'T00:00:00Z' : null
+			}));
+			const examples = [
+				['overdue', 'orgA', fixture.ids.personA, 'NCOER', -5, 'active'],
+				['due30', 'orgA', ids.nco, 'NCOER', 20, 'active'],
+				['due60', 'orgA', ids.officer, 'OER', 45, 'active'],
+				['current', 'orgA', ids.warrant, 'WOER', 90, 'active'],
+				['completed', 'orgA', ids.nco, 'NCOER', -90, 'completed'],
+				['changed', 'orgA', ids.officer, 'OER', 10, 'change-of-rater'],
+				['bravo', 'orgA', fixture.ids.personB, 'NCOER', 25, 'active'],
+				['unassigned', 'orgA', fixture.ids.personUnassigned, 'NCOER', 15, 'active'],
+				['archivedEntry', 'orgA', ids.archived, 'NCOER', -2, 'active'],
+				['foreign', 'orgB', fixture.ids.personForeign, 'NCOER', 18, 'active']
+			];
+			const entries = examples.map(([key, orgKey, personId, evalType, offset, status]) => ({
+				id: ids[key],
+				organization_id: org(orgKey),
+				rated_person_id: personId,
+				eval_type: evalType,
+				rater_person_id: key === 'due60' ? fixture.ids.personA : null,
+				rater_name: key === 'due60' ? null : `External Rater ${key}`,
+				senior_rater_name: 'External Senior Rater',
+				intermediate_rater_name: key === 'current' ? 'External Intermediate Rater' : null,
+				reviewer_name: key === 'current' ? 'External Reviewer' : null,
+				rating_period_start: date(-365),
+				rating_period_end: date(offset),
+				status,
+				report_type: key === 'changed' ? 'CR' : 'AN',
+				workflow_status: key === 'due30' ? 'with-rater' : null,
+				notes: `Synthetic Evals ${key} ${tag}`
+			}));
+			const batches = [
+				['personnel', 'orgA', people],
+				['rating_scheme_entries', 'orgA', entries.filter((row) => row.organization_id === org('orgA'))],
+				['rating_scheme_entries', 'orgB', entries.filter((row) => row.organization_id === org('orgB'))]
+			];
+			for (const [table, organization, records] of batches)
+				ownedState.seeded.push({ kind, table, organization, ids: records.map((row) => row.id), tag });
+			await save(ownedState);
+			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
+			note({ kind, tag, ids, today: fixture.dates.ui, people, examples: entries });
+			return;
+		}
 		if (kind === 'communications') {
 			const notificationIds = {};
 			for (const [orgKey, role, count] of [
@@ -793,6 +886,7 @@ async function main() {
 			if (
 				![
 					'notifications',
+					'rating-scheme',
 					'feedback',
 					'announcements/dismiss',
 					'personnel',

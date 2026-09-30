@@ -7,7 +7,7 @@
  * For bulk import, see `personnelBatch.ts`. The workspace roster is loaded
  * through `personnelWorkspaceQuery.ts`.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import type { WriteWithNotificationsPorts, WritePorts } from '$lib/server/core/ports';

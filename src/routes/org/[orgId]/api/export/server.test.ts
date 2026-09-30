@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseNotificationStore } from '$features/notifications/index.server';
+import { listFeedbackExportRows } from '$features/feedback/index.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
@@ -8,12 +11,75 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
+function createExportTestContext(overrides?: Parameters<typeof createTestContext>[0]) {
+	const ctx = createTestContext(overrides);
+	const communicationsRows: Record<'notifications' | 'beta_feedback', Record<string, unknown>[]> = {
+		notifications: [],
+		beta_feedback: []
+	};
+	const client = createClient('http://127.0.0.1:9', 'synthetic-request-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const url = new URL(String(input));
+				const table = url.pathname.split('/').at(-1)!;
+				if (!['notifications', 'beta_feedback'].includes(table) || (init?.method ?? 'GET') !== 'GET') {
+					throw new Error('Unexpected communications transport request');
+				}
+				const rows = communicationsRows[table as keyof typeof communicationsRows].filter(
+					(row) =>
+						row.user_id === ctx.auth.userId &&
+						(!url.searchParams.has('organization_id') ||
+							url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+						(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
+				);
+				const offset = Number(url.searchParams.get('offset') ?? 0);
+				const limit = Number(url.searchParams.get('limit') ?? 1000);
+				const selection = url.searchParams.get('select');
+				return Response.json(
+					rows
+						.slice(offset, offset + Math.min(limit, 1000))
+						.map((row) =>
+							!selection || selection === '*'
+								? row
+								: Object.fromEntries(selection.split(',').map((column) => [column, row[column]]))
+						)
+				);
+			}
+		}
+	});
+	ctx.notificationSelf.store = createSupabaseNotificationStore(client);
+	ctx.feedbackExport = { listRows: (orgId) => listFeedbackExportRows(client, orgId) };
+	return Object.assign(ctx, { communicationsRows });
+}
+
 describe('POST /api/export', () => {
+	it.each(['Notifications', 'Feedback'] as const)(
+		'fails the export when its owned %s provider has not been bound',
+		async (missingProvider) => {
+			const ctx = createExportTestContext();
+			const unbound = createTestContext();
+			if (missingProvider === 'Notifications') ctx.notificationSelf.store = unbound.notificationSelf.store;
+			else ctx.feedbackExport = unbound.feedbackExport;
+
+			await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' })).rejects.toThrow(
+				missingProvider
+			);
+
+			await expect(ctx.rawStore.findMany('data_exports', ctx.auth.orgId)).resolves.toEqual([
+				expect.objectContaining({ status: 'failed' })
+			]);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+		}
+	);
+
 	it.each([
 		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const } },
 		{ label: 'Group-scoped member', scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] } }
 	])('rejects $label without exporting or creating lifecycle records', async ({ scopeSet }) => {
-		const ctx = createTestContext({ auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet } });
+		const ctx = createExportTestContext({
+			auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet }
+		});
 		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'member@example.com' })).rejects.toMatchObject({
 			status: 403
 		});
@@ -27,7 +93,7 @@ describe('POST /api/export', () => {
 	});
 
 	it('downloads above former quotas and excludes another Organization', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed(
 			'data_exports',
 			Array.from({ length: 11 }, (_, i) => ({
@@ -61,6 +127,44 @@ describe('POST /api/export', () => {
 		] as const) {
 			ctx.rawStore.seed(table, [row, { ...row, id: `foreign-${table}`, organization_id: 'other-org' }]);
 		}
+		const notification = {
+			id: 'own-notification',
+			user_id: ctx.auth.userId,
+			organization_id: ctx.auth.orgId,
+			type: 'member_added',
+			title: 'Member added',
+			message: 'Saved notification',
+			link: '/org/clinic/settings',
+			read: true,
+			created_at: '2026-09-29T01:02:03.654321Z'
+		};
+		const feedback = {
+			id: 'own-feedback',
+			user_id: ctx.auth.userId,
+			user_email: 'exporter@example.test',
+			organization_id: ctx.auth.orgId,
+			organization_name: 'Saved name',
+			category: 'bug',
+			message: 'Saved feedback',
+			page_url: null,
+			status: 'reviewed',
+			admin_notes: 'Saved review notes',
+			created_at: '2026-05-01T00:00:00.123456Z',
+			updated_at: '2026-09-29T01:02:03.654321Z',
+			github_issue_number: 42,
+			github_issue_url: 'https://github.com/example/project/issues/42',
+			page_section: 'personnel'
+		};
+		for (const [table, row] of [
+			['notifications', notification],
+			['beta_feedback', feedback]
+		] as const) {
+			ctx.communicationsRows[table] = [
+				row,
+				{ ...row, id: `peer-${table}`, user_id: 'peer' },
+				{ ...row, id: `foreign-${table}`, organization_id: 'other-org' }
+			];
+		}
 		const result = await handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' });
 		const response = _postConfig.formatOutput?.(result);
 		expect(response?.status).toBe(200);
@@ -70,6 +174,15 @@ describe('POST /api/export', () => {
 		expect(payload.trainingTypes).toEqual([trainingType]);
 		expect(payload.personnelTrainings).toEqual([training]);
 		expect(payload.trainingViews).toEqual([view]);
+		expect(payload.notifications).toEqual([notification]);
+		expect(payload.betaFeedback).toEqual([feedback]);
+		expect(payload.sectionInventory).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: 'notifications', rowCount: 1 }),
+				expect.objectContaining({ key: 'betaFeedback', rowCount: 1 })
+			])
+		);
+
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(rows).toHaveLength(12);
 		expect(rows.find((row) => row.requested_by === ctx.auth.userId)).toMatchObject({ status: 'completed' });
@@ -82,7 +195,7 @@ describe('POST /api/export', () => {
 	});
 
 	it('allows delegated member managers to export organization data', async () => {
-		const ctx = createTestContext({
+		const ctx = createExportTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -117,7 +230,7 @@ describe('POST /api/export', () => {
 	});
 
 	it('includes ETS and DEROS in the organization personnel export payload', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',
@@ -164,7 +277,7 @@ describe('POST /api/export', () => {
 	});
 
 	it('includes personnel detail artifact tables in the organization export payload', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',
@@ -222,7 +335,7 @@ describe('POST /api/export', () => {
 	});
 
 	it('exports archived personnel, saved Calendar assignments, and independent Sign-in Rosters', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-archived',
@@ -282,7 +395,7 @@ describe('POST /api/export', () => {
 	});
 
 	it('still returns the export payload when the export status write fails', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',

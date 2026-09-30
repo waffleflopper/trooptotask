@@ -41,11 +41,5 @@ export interface TrainingCatalogWriteContext {
 }
 
 export interface TrainingCatalogDeleteContext extends TrainingCatalogWriteContext {
-	readonly notifications: {
-		notifyAdmins(
-			orgId: string,
-			excludeUserId: string | null,
-			notification: { type: string; title: string; message: string }
-		): Promise<void>;
-	};
+	readonly notifyTrainingTypeDeleted: () => Promise<void>;
 }

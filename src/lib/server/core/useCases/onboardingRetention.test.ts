@@ -1,15 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { cleanupExpiredOnboardings } from './onboardingRetention';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 
-function buildStore() {
-	const store = createInMemoryDataStore();
-	// Seed admins for notifications
-	store.seed('organization_memberships', [
-		{ user_id: 'admin-1', organization_id: 'org-1', role: 'owner' },
-		{ user_id: 'admin-2', organization_id: 'org-2', role: 'admin' }
-	]);
-	return store;
+function buildPorts() {
+	return {
+		store: createInMemoryDataStore(),
+		notifications: { notifyAdmins: vi.fn<NotificationDeliveryPort['notifyAdmins']>().mockResolvedValue(undefined) }
+	};
 }
 
 function monthsAgo(months: number): string {
@@ -48,7 +46,8 @@ function makeStepProgress(onboardingId: string, orgId = 'org-1') {
 
 describe('cleanupExpiredOnboardings', () => {
 	it('deletes completed onboardings past retention period', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-expired',
@@ -73,7 +72,7 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result.deletedCount).toBe(1);
 		const remaining = await store.findMany('personnel_onboardings', 'org-1');
@@ -81,7 +80,8 @@ describe('cleanupExpiredOnboardings', () => {
 	});
 
 	it('deletes cancelled onboardings past retention period', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-cancelled',
@@ -95,13 +95,14 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result.deletedCount).toBe(1);
 	});
 
 	it('does not delete onboardings within retention period', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-recent',
@@ -115,7 +116,7 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result.deletedCount).toBe(0);
 		const remaining = await store.findMany('personnel_onboardings', 'org-1');
@@ -123,7 +124,8 @@ describe('cleanupExpiredOnboardings', () => {
 	});
 
 	it('does not delete in_progress onboardings', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-active',
@@ -137,13 +139,14 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result.deletedCount).toBe(0);
 	});
 
 	it('cascades deletion to step progress rows', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-expired',
@@ -177,14 +180,15 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		await cleanupExpiredOnboardings(store, [org1Config]);
+		await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		const steps = await store.findMany('onboarding_step_progress', 'org-1');
 		expect(steps).toHaveLength(0);
 	});
 
 	it('removes expired onboardings and their step progress', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-expired-completed',
@@ -284,23 +288,23 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result).toEqual({ deletedCount: 2, orgsAffected: 1 });
 		const remainingOnboardings = await store.findMany<{ id: string }>('personnel_onboardings', 'org-1');
 		expect(remainingOnboardings.map((row) => row.id).sort()).toEqual(['ob-active', 'ob-recent']);
 		const remainingSteps = await store.findMany<{ onboarding_id: string }>('onboarding_step_progress', 'org-1');
 		expect(remainingSteps.map((row) => row.onboarding_id).sort()).toEqual(['ob-active', 'ob-recent']);
-		const notifications = await store.findMany<Record<string, unknown>>('notifications', 'org-1');
-		expect(notifications).toHaveLength(1);
-		expect(notifications[0]).toMatchObject({
-			user_id: 'admin-1',
-			message: '2 onboarding records auto-deleted after retention period'
-		});
+		expect(ports.notifications.notifyAdmins).toHaveBeenCalledWith(
+			'org-1',
+			null,
+			expect.objectContaining({ message: '2 onboarding records auto-deleted after retention period' })
+		);
 	});
 
 	it('cleans up large expired onboarding backlogs', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		const expiredOnboardings = Array.from({ length: 205 }, (_, index) =>
 			makeCompletedOnboarding(`ob-expired-${index}`, monthsAgo(13))
 		);
@@ -309,7 +313,7 @@ describe('cleanupExpiredOnboardings', () => {
 			'onboarding_step_progress',
 			expiredOnboardings.map((row) => makeStepProgress(row.id))
 		);
-		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result).toEqual({ deletedCount: 205, orgsAffected: 1 });
 		const remainingOnboardings = await store.findMany('personnel_onboardings', 'org-1');
@@ -322,38 +326,41 @@ describe('cleanupExpiredOnboardings', () => {
 		vi.useFakeTimers();
 		try {
 			vi.setSystemTime(new Date('2026-03-31T12:00:00.000Z'));
-			const store = buildStore();
+			const ports = buildPorts();
+			const { store } = ports;
 			store.seed('personnel_onboardings', [
 				makeCompletedOnboarding('ob-before-feb-cutoff', '2026-02-28T11:59:59.999Z'),
 				makeCompletedOnboarding('ob-at-feb-cutoff', '2026-02-28T12:00:00.000Z')
 			]);
 
-			const oneMonthResult = await cleanupExpiredOnboardings(store, [{ id: 'org-1', retentionMonths: 1 }]);
+			const oneMonthResult = await cleanupExpiredOnboardings(ports, [{ id: 'org-1', retentionMonths: 1 }]);
 
 			expect(oneMonthResult).toEqual({ deletedCount: 1, orgsAffected: 1 });
 			let remaining = await store.findMany<{ id: string }>('personnel_onboardings', 'org-1');
 			expect(remaining.map((row) => row.id).sort()).toEqual(['ob-at-feb-cutoff']);
 
-			const secondStore = buildStore();
+			const secondPorts = buildPorts();
+			const { store: secondStore } = secondPorts;
 			secondStore.seed('personnel_onboardings', [
 				makeCompletedOnboarding('ob-before-jan-cutoff', '2026-01-31T11:59:59.999Z'),
 				makeCompletedOnboarding('ob-at-jan-cutoff', '2026-01-31T12:00:00.000Z')
 			]);
 
-			const twoMonthResult = await cleanupExpiredOnboardings(secondStore, [{ id: 'org-1', retentionMonths: 2 }]);
+			const twoMonthResult = await cleanupExpiredOnboardings(secondPorts, [{ id: 'org-1', retentionMonths: 2 }]);
 
 			expect(twoMonthResult).toEqual({ deletedCount: 1, orgsAffected: 1 });
 			remaining = await secondStore.findMany<{ id: string }>('personnel_onboardings', 'org-1');
 			expect(remaining.map((row) => row.id)).toEqual(['ob-at-jan-cutoff']);
 
 			vi.setSystemTime(new Date('2024-03-31T12:00:00.000Z'));
-			const leapStore = buildStore();
+			const leapPorts = buildPorts();
+			const { store: leapStore } = leapPorts;
 			leapStore.seed('personnel_onboardings', [
 				makeCompletedOnboarding('ob-before-leap-cutoff', '2024-02-29T11:59:59.999Z'),
 				makeCompletedOnboarding('ob-at-leap-cutoff', '2024-02-29T12:00:00.000Z')
 			]);
 
-			const leapResult = await cleanupExpiredOnboardings(leapStore, [{ id: 'org-1', retentionMonths: 1 }]);
+			const leapResult = await cleanupExpiredOnboardings(leapPorts, [{ id: 'org-1', retentionMonths: 1 }]);
 
 			expect(leapResult).toEqual({ deletedCount: 1, orgsAffected: 1 });
 			remaining = await leapStore.findMany<{ id: string }>('personnel_onboardings', 'org-1');
@@ -364,7 +371,8 @@ describe('cleanupExpiredOnboardings', () => {
 	});
 
 	it('respects per-org retention settings', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		// org-1 has 12-month retention, org-2 has 6-month retention
 		store.seed('personnel_onboardings', [
 			{
@@ -389,7 +397,7 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config, org2Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config, org2Config]);
 
 		// org-2 (6-month retention) should delete, org-1 (12-month) should not
 		expect(result.deletedCount).toBe(1);
@@ -403,13 +411,14 @@ describe('cleanupExpiredOnboardings', () => {
 		vi.useFakeTimers();
 		try {
 			vi.setSystemTime(new Date('2026-05-30T12:00:00.000Z'));
-			const store = buildStore();
+			const ports = buildPorts();
+			const { store } = ports;
 			store.seed('personnel_onboardings', [
 				makeCompletedOnboarding('ob-expired-default', '2023-05-29T12:00:00.000Z'),
 				makeCompletedOnboarding('ob-recent-default', '2023-06-01T12:00:00.000Z')
 			]);
 
-			const result = await cleanupExpiredOnboardings(store, [{ id: 'org-1', retentionMonths: null }]);
+			const result = await cleanupExpiredOnboardings(ports, [{ id: 'org-1', retentionMonths: null }]);
 
 			expect(result).toEqual({ deletedCount: 1, orgsAffected: 1 });
 			const remaining = await store.findMany<{ id: string }>('personnel_onboardings', 'org-1');
@@ -420,7 +429,8 @@ describe('cleanupExpiredOnboardings', () => {
 	});
 
 	it('notifies admins when records are cleaned up', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-expired',
@@ -434,19 +444,18 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		await cleanupExpiredOnboardings(store, [org1Config]);
+		await cleanupExpiredOnboardings(ports, [org1Config]);
 
-		const notifications = await store.findMany<Record<string, unknown>>('notifications', 'org-1');
-		expect(notifications).toHaveLength(1);
-		expect(notifications[0]).toMatchObject({
-			user_id: 'admin-1',
-			type: 'onboarding_auto_deleted',
-			title: 'Onboarding Records Auto-Deleted'
-		});
+		expect(ports.notifications.notifyAdmins).toHaveBeenCalledExactlyOnceWith(
+			'org-1',
+			null,
+			expect.objectContaining({ type: 'onboarding_auto_deleted' })
+		);
 	});
 
 	it('returns summary with deletedCount and orgsAffected', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
+		const { store } = ports;
 		store.seed('personnel_onboardings', [
 			{
 				id: 'ob-1',
@@ -470,27 +479,49 @@ describe('cleanupExpiredOnboardings', () => {
 			}
 		]);
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config, org2Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config, org2Config]);
 
 		expect(result.deletedCount).toBe(2);
 		expect(result.orgsAffected).toBe(2);
 	});
 
 	it('returns zero counts when nothing to clean up', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
 
-		const result = await cleanupExpiredOnboardings(store, [org1Config]);
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
 
 		expect(result.deletedCount).toBe(0);
 		expect(result.orgsAffected).toBe(0);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
 	});
 
 	it('returns zero counts when no org configs provided', async () => {
-		const store = buildStore();
+		const ports = buildPorts();
 
-		const result = await cleanupExpiredOnboardings(store, []);
+		const result = await cleanupExpiredOnboardings(ports, []);
 
 		expect(result.deletedCount).toBe(0);
 		expect(result.orgsAffected).toBe(0);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
+	it('fails when required notification delivery fails after cleanup, without claiming a rollback or processing the next Organization', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel_onboardings', [
+			makeCompletedOnboarding('org-1-expired', monthsAgo(13)),
+			makeCompletedOnboarding('org-2-expired', monthsAgo(13), 'org-2')
+		]);
+		ports.store.seed('onboarding_step_progress', [makeStepProgress('org-1-expired')]);
+		ports.notifications.notifyAdmins.mockRejectedValue(new Error('notification insert unavailable'));
+
+		await expect(cleanupExpiredOnboardings(ports, [org1Config, org2Config])).rejects.toThrow(
+			'notification insert unavailable'
+		);
+
+		await expect(ports.store.findMany('personnel_onboardings', 'org-1')).resolves.toEqual([]);
+		await expect(ports.store.findMany('onboarding_step_progress', 'org-1')).resolves.toEqual([]);
+		await expect(ports.store.findMany('personnel_onboardings', 'org-2')).resolves.toEqual([
+			expect.objectContaining({ id: 'org-2-expired' })
+		]);
 	});
 });

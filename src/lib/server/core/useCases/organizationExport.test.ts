@@ -6,8 +6,11 @@ import { describe, expect, it } from 'vitest';
 import type { DataStore } from '../ports';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
-import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createTestAuthContext, createTestContext } from '$lib/server/adapters/inMemory';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
+import { createSupabaseNotificationStore, listNotificationExportRows } from '$features/notifications/index.server';
+import type { Notification } from '$features/notifications/contracts';
+import { listFeedbackExportRows, type FeedbackExportRow } from '$features/feedback/index.server';
 import { buildOrganizationDataExportWorkbook } from './organizationExportWorkbook';
 import {
 	listTrainingTypeExportRows,
@@ -58,7 +61,11 @@ describe('organization export inventory', () => {
 				listRows: (actor, table) => store.findMany(table, actor.orgId)
 			},
 			trainingExport,
-			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
+			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+			{
+				listNotificationExportRows: () => store.findMany('notifications', 'org-1'),
+				listFeedbackExportRows: () => store.findMany<FeedbackExportRow>('beta_feedback', 'org-1')
+			}
 		);
 
 		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
@@ -67,6 +74,170 @@ describe('organization export inventory', () => {
 		expect(payload.sectionInventory[0]).toHaveProperty('areaKey');
 		expect(typeof payload.sectionInventory[0]?.areaKey).toBe('string');
 	});
+});
+
+function communicationsProvider(platformAdministrator = false) {
+	const notification: Notification = {
+		id: 'notification-0',
+		user_id: 'exporter',
+		organization_id: 'org-1',
+		type: 'member_added',
+		title: 'Member added',
+		message: 'Saved notification',
+		link: null,
+		read: false,
+		created_at: '2026-09-29T01:02:03.654321Z'
+	};
+	const feedback: FeedbackExportRow = {
+		id: 'feedback-0',
+		user_id: 'exporter',
+		user_email: 'exporter@example.test',
+		organization_id: 'org-1',
+		organization_name: 'Saved Organization name',
+		category: 'bug',
+		message: 'Saved feedback',
+		page_url: null,
+		status: 'new',
+		admin_notes: null,
+		created_at: '2026-05-01T00:00:00.123456Z',
+		updated_at: '2026-09-29T01:02:03.654321Z',
+		github_issue_number: null,
+		github_issue_url: null,
+		page_section: null
+	};
+	const notifications = Array.from({ length: 1001 }, (_, index) => ({ ...notification, id: `notification-${index}` }));
+	const feedbackRows = Array.from({ length: 1001 }, (_, index) => ({ ...feedback, id: `feedback-${index}` }));
+	notifications[1000] = { ...notifications[1000], read: true, link: '/org/clinic/settings' };
+	feedbackRows[1000] = {
+		...feedbackRows[1000],
+		status: 'resolved',
+		admin_notes: 'Saved review notes',
+		page_url: '/org/clinic/personnel',
+		github_issue_number: 42,
+		github_issue_url: 'https://github.com/example/project/issues/42',
+		page_section: 'personnel'
+	};
+	const rows: Record<string, Record<string, unknown>[]> = {
+		notifications: [
+			...notifications,
+			{ ...notification, id: 'peer-notification', user_id: 'peer' },
+			{ ...notification, id: 'foreign-notification', organization_id: 'org-2' }
+		],
+		beta_feedback: [
+			...feedbackRows,
+			{ ...feedback, id: 'peer-feedback', user_id: 'peer' },
+			{ ...feedback, id: 'foreign-feedback', organization_id: 'org-2' }
+		]
+	};
+	const state = { failTable: null as string | null };
+	const client = createClient('http://127.0.0.1:9', 'synthetic-request-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input) => {
+				const url = new URL(String(input));
+				const table = url.pathname.split('/').at(-1)!;
+				if (!(table in rows)) throw new Error('Unexpected communications provider table');
+				const offset = Number(url.searchParams.get('offset') ?? 0);
+				if (state.failTable === table && offset >= 1000) {
+					return Response.json({ code: '42501', message: 'retained rows unavailable' }, { status: 403 });
+				}
+				const visible = rows[table].filter(
+					(row) =>
+						(row.user_id === 'exporter' || (table === 'beta_feedback' && platformAdministrator)) &&
+						(!url.searchParams.has('organization_id') ||
+							url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+						(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
+				);
+				const limit = Number(url.searchParams.get('limit') ?? 1000);
+				const selection = url.searchParams.get('select');
+				return Response.json(
+					visible
+						.slice(offset, offset + Math.min(limit, 1000))
+						.map((row) =>
+							!selection || selection === '*'
+								? row
+								: Object.fromEntries(selection.split(',').map((column) => [column, row[column]]))
+						)
+				);
+			}
+		}
+	});
+	const ctx = createTestContext({ auth: { userId: 'exporter', orgId: 'org-1' } });
+	ctx.notificationSelf.store = createSupabaseNotificationStore(client);
+	const findMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+	ctx.rawStore.findMany = (table, ...args) => {
+		if (table === 'notifications' || table === 'beta_feedback')
+			throw new Error('Generic communications reads are unavailable');
+		return findMany(table, ...args);
+	};
+	const load = () =>
+		loadOrganizationExportPayload(
+			ctx.rawStore,
+			ctx.auth,
+			ctx.personnelOrganizationExport!,
+			trainingExport,
+			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+			{
+				listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
+				listFeedbackExportRows: () => listFeedbackExportRows(client, ctx.auth.orgId)
+			}
+		);
+	return { state, load, notifications, feedbackRows };
+}
+
+describe('owned communications in Organization exports', () => {
+	it('retains every visible saved field and page in JSON and workbook sections while concealing peer/foreign rows', async () => {
+		const provider = communicationsProvider();
+		const payload = await provider.load();
+		const json = JSON.parse(JSON.stringify(payload));
+		expect(json.notifications).toEqual(provider.notifications);
+		expect(json.betaFeedback).toEqual(provider.feedbackRows);
+		expect(json.sections.notifications).toEqual(provider.notifications);
+		expect(json.sections.betaFeedback).toEqual(provider.feedbackRows);
+		expect(json.sectionInventory).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: 'notifications', table: 'notifications', rowCount: 1001 }),
+				expect.objectContaining({ key: 'betaFeedback', table: 'beta_feedback', rowCount: 1001 })
+			])
+		);
+
+		const { workbook } = await buildOrganizationDataExportWorkbook({ payload });
+		for (const [name, rows] of [
+			['Raw - Notifications', provider.notifications],
+			['Raw - Beta Feedback', provider.feedbackRows]
+		] as const) {
+			const sheet = workbook.getWorksheet(name)!;
+			expect(sheet.columns.map(({ key }) => key).sort()).toEqual(Object.keys(rows[0]).sort());
+			for (const index of [0, 1000]) {
+				for (const [key, value] of Object.entries(rows[index])) {
+					expect(sheet.getRow(index + 2).getCell(key).value ?? '').toBe(value ?? '');
+				}
+			}
+			expect(sheet.rowCount).toBe(1002);
+		}
+	});
+
+	it('retains peer Feedback made visible by request Platform-admin RLS while Notifications remain identity-owned', async () => {
+		const provider = communicationsProvider(true);
+		const payload = await provider.load();
+
+		expect(payload.notifications).toEqual(provider.notifications);
+		expect(payload.betaFeedback).toEqual([
+			...provider.feedbackRows,
+			{ ...provider.feedbackRows[0], id: 'peer-feedback', user_id: 'peer' }
+		]);
+	});
+
+	it.each(['notifications', 'beta_feedback'])(
+		'rejects a late %s provider error instead of exporting a partial section',
+		async (table) => {
+			const provider = communicationsProvider();
+			provider.state.failTable = table;
+			await expect(provider.load()).rejects.toThrow(
+				table === 'notifications' ? 'retained rows unavailable' : 'Failed to export feedback'
+			);
+		}
+	);
 });
 
 // These provider rows specify retained export data independently of the manifest.
@@ -292,12 +463,22 @@ describe('retained Organization export projection', () => {
 			global: { fetch: (input) => fetchRows(input, false) }
 		});
 		const store = createSupabaseDataStore(client);
+		const actor = createTestAuthContext({ orgId: 'org-1' });
 		const result = await loadOrganizationExportPayload(
 			store,
-			createTestAuthContext({ orgId: 'org-1' }),
+			actor,
 			createSupabasePersonnelOrganizationExportPort(() => adminClient),
 			trainingExport,
-			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
+			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+			{
+				listNotificationExportRows: () =>
+					listNotificationExportRows({
+						auth: actor,
+						audit: { log() {} },
+						store: createSupabaseNotificationStore(client)
+					}),
+				listFeedbackExportRows: () => listFeedbackExportRows(client, actor.orgId)
+			}
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');

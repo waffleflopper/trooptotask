@@ -8,7 +8,7 @@ import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
  *
  * This is triggered from the template-edit flow, not from normal lifecycle events.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { OnboardingWorkflowPorts } from './onboardingPolicy';
 import { requireOnboardingConfigurePolicy, requireOnboardingManagePolicyForOnboarding } from './onboardingPolicy';
 

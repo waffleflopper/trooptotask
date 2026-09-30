@@ -1,6 +1,10 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { checkModuleBoundaries, type Manifest } from './module-boundaries';
-import { newViolations, ownerDependencyEdges } from './module-governance';
+import { newViolations, ownerDependencyEdges, runModuleGovernance } from './module-governance';
 import { buildImportGraph } from './module-imports';
 
 const manifest: Manifest = {
@@ -126,4 +130,73 @@ describe('module governance regression gate', () => {
 		expect(newViolations(before, before)).toEqual([]);
 		expect(newViolations(findings("import { publicValue } from '$features/beta';"), before)).toEqual([]);
 	});
+});
+
+it('uses historical ownership for a real file relocation while rejecting new private dependencies and source cycles', () => {
+	const directory = mkdtempSync(path.join(os.tmpdir(), 't2t-module-move-'));
+	const write = (file: string, content: string) => {
+		mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
+		writeFileSync(path.join(directory, file), content);
+	};
+	const git = (...args: string[]) => execFileSync('git', args, { cwd: directory, stdio: 'pipe' });
+	try {
+		const beforeManifest: Manifest = {
+			owners: {
+				alpha: { roots: ['src/features/alpha/'], files: ['src/lib/alpha.server.ts'], packet: '08-M04' },
+				beta: { roots: ['src/features/beta/'], files: [], packet: '08-M05' }
+			},
+			rootExclusions: {},
+			dependencies: { alpha: ['beta'], beta: [] },
+			publicRoots: {},
+			publicFiles: {
+				alpha: ['src/features/alpha/contracts.ts', 'src/features/alpha/index.server.ts'],
+				beta: ['src/features/beta/index.server.ts']
+			},
+			mixedFiles: {}
+		};
+		write('scripts/module-boundaries.json', JSON.stringify(beforeManifest));
+		write('src/features/alpha/contracts.ts', 'export const value = true;');
+		write('src/features/alpha/index.server.ts', "export { value } from '$lib/alpha.server';");
+		write('src/lib/alpha.server.ts', "import '$features/beta/index.server'; export const value = true;");
+		write('src/features/beta/index.server.ts', 'export const beta = true;');
+		write('src/features/beta/back.server.ts', "import '$features/alpha/contracts';");
+		write('src/features/beta/private.server.ts', 'export const secret = true;');
+		git('init', '--quiet');
+		git('add', '.');
+		git(
+			'-c',
+			'user.name=Synthetic verifier',
+			'-c',
+			'user.email=verification@example.test',
+			'commit',
+			'--quiet',
+			'-m',
+			'Existing owner cycle'
+		);
+		git('update-ref', 'refs/remotes/origin/main', 'HEAD');
+		git(
+			'-c',
+			'user.name=Synthetic verifier',
+			'-c',
+			'user.email=verification@example.test',
+			'commit',
+			'--quiet',
+			'--allow-empty',
+			'-m',
+			'Candidate'
+		);
+		const current = structuredClone(beforeManifest);
+		current.owners.alpha.files = [];
+		write('scripts/module-boundaries.json', JSON.stringify(current));
+		rmSync(path.join(directory, 'src/lib/alpha.server.ts'));
+		write('src/features/alpha/index.server.ts', "import '$features/beta/index.server'; export const value = true;");
+		expect(runModuleGovernance(directory)).toEqual([]);
+		write('src/features/alpha/index.server.ts', "import '$features/beta/private.server'; export const value = true;");
+		expect(runModuleGovernance(directory).map(({ kind }) => kind)).toContain('private');
+		write('src/features/alpha/index.server.ts', "import '$features/beta/index.server'; export const value = true;");
+		write('src/features/beta/index.server.ts', "import '$features/alpha/index.server'; export const beta = true;");
+		expect(runModuleGovernance(directory).map(({ kind }) => kind)).toContain('source-cycle');
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
 });

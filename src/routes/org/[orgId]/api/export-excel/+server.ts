@@ -10,6 +10,7 @@ import {
 	type OrganizationDataExportExecutionResult
 } from '$lib/server/core/useCases/organizationDataExportExecution';
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
+import { listNotificationExportRows } from '$features/notifications/index.server';
 import { buildOrganizationDataExportWorkbook } from '$lib/server/core/useCases/organizationExportWorkbook';
 import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/utils/workbook';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -34,6 +35,7 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		email: event.locals.user?.email
 	}),
 	fn: async (ctx, input) => {
+		const orgId = ctx.auth.orgId;
 		return executeOrganizationDataExport(ctx, {
 			requestedByEmail: input.email,
 			auditAction: 'export.excel_created',
@@ -48,7 +50,11 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 						listTrainingCompletionExportRows,
 						listTrainingViewExportRows
 					},
-					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
+					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+					{
+						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
+						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
+					}
 				);
 				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);

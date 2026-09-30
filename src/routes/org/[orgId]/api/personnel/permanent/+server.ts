@@ -1,6 +1,6 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
 
 const useCases = createPersonnelUseCases();

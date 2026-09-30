@@ -6,7 +6,7 @@
  *
  * For single-record personnel mutations, see `personnel.ts`.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { sanitizeString } from '$lib/server/validation';

@@ -8,7 +8,7 @@
  * Direct use is only needed for tests that need to exercise the use cases in isolation.
  * See `CrudConfig` for the policy-first interface.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { DataStore, WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { z } from 'zod';

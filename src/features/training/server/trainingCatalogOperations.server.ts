@@ -57,11 +57,7 @@ export async function deleteTrainingType(ctx: TrainingCatalogDeleteContext, id: 
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
 	await ctx.store.delete(TrainingTypeEntity.table, ctx.auth.orgId, id);
 	ctx.audit.log({ action: 'training_type.deleted', resourceType: 'training_type', resourceId: id });
-	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
-		type: 'config_type_deleted',
-		title: 'Training Type Deleted',
-		message: 'A training type was deleted.'
-	});
+	await ctx.notifyTrainingTypeDeleted();
 }
 
 export async function createTrainingView(

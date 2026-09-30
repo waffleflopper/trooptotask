@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
 	AvailabilityEntry,

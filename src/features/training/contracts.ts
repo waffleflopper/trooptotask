@@ -1,6 +1,6 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { PersonnelTraining, TrainingType, TrainingView, TrainingStatus } from './training.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry, Group } from '$features/personnel/contracts';
 import type { TrainingStats } from './utils/trainingStatus';
 import type { ReadinessDashboard, ReportFilters } from './utils/reportCalculations';

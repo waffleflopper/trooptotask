@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { TrainingBatchRecord } from '../contracts';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import {
 		calculateExpirationDate,

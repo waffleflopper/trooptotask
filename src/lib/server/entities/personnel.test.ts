@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PersonnelEntity } from './personnel';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/personnel.types';
 
 describe('PersonnelEntity', () => {
 	it('fromDb produces correct Personnel shape with groups join', () => {

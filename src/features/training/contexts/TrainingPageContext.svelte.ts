@@ -19,7 +19,7 @@ import type {
 } from '../contracts';
 import { toast } from 'svelte-sonner';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';

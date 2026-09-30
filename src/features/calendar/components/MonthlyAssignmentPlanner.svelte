@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Group } from '$features/personnel/contracts';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 	import { formatDate, getMonthDates, getMonthName, isWeekend, addMonths } from '$lib/utils/dates';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';

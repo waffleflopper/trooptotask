@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType, TrainingView } from './training.types';
 import { createTrainingWorkspaceHydrator } from './trainingWorkspaceHydration.svelte';
 import type { TrainingWorkspaceHydration } from './contracts';

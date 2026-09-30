@@ -9,7 +9,7 @@ import {
 } from '$lib/server/core/streamedWorkspace';
 import { fetchPersonnelBootstrap, type PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 
 export const PERSONNEL_WORKSPACE_LANE_KEY = 'personnel' as const;

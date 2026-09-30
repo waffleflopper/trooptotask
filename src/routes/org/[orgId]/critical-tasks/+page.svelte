@@ -26,7 +26,7 @@
 		type PersonnelIctCompletion
 	} from '$features/critical-tasks';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 
 	let { data } = $props();
 

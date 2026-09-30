@@ -1,5 +1,5 @@
 /** Dashboard Training currency and Onboarding completion keys share one owned completion read. */
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type {
 	TrainingType,
 	PersonnelTraining,

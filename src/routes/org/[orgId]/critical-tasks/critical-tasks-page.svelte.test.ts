@@ -8,7 +8,7 @@ import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 	mockOrgContext: {

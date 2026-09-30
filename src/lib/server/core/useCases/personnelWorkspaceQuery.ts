@@ -1,5 +1,5 @@
 import type { DataStore, QueryWithRawStorePorts } from '$lib/server/core/ports';
-import type { Personnel, PersonnelLookup } from '$lib/types';
+import type { Personnel, PersonnelLookup } from '$features/personnel/personnel.types';
 import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

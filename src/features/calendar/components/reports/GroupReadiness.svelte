@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace/index.js';

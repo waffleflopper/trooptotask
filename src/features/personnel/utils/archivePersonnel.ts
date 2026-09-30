@@ -1,7 +1,7 @@
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { submitDeletionRequest, type DeleteResult } from '$lib/utils/deletionRequests';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 
 export type PersonnelArchiveResult = 'archived' | 'approval_requested' | 'error';
 

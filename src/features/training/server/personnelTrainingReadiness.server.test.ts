@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { loadTrainingReadinessLane } from './personnelTrainingReadiness.server';
 
 type ReadinessStore = Parameters<typeof loadTrainingReadinessLane>[0]['store'];

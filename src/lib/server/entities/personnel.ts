@@ -8,7 +8,7 @@
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/personnel.types';
 
 export const PersonnelEntity = defineEntity<Personnel>({
 	table: 'personnel',

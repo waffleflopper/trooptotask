@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { TrainingWorkspaceData } from '$features/training/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
 

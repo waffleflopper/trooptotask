@@ -11,6 +11,7 @@ export function createSupabaseOrganizationAdministratorRecipients(getAdminClient
 				.select('user_id')
 				.eq('organization_id', orgId)
 				.in('role', ['owner', 'admin'])
+				.order('user_id', { ascending: true })
 				.range(from, to);
 			return { data, error };
 		});

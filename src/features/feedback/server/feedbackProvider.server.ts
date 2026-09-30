@@ -39,6 +39,7 @@ export function createSupabaseFeedbackReviewStore(client: SupabaseClient): Feedb
 					.from('beta_feedback')
 					.select('*')
 					.order('created_at', { ascending: false })
+					.order('id', { ascending: true })
 					.range(from, to);
 				return { data: response.data as FeedbackReviewRow[] | null, error: response.error };
 			});
@@ -102,6 +103,7 @@ export async function listFeedbackExportRows(
 			.from('beta_feedback')
 			.select('*')
 			.eq('organization_id', organizationId)
+			.order('id', { ascending: true })
 			.range(from, to);
 		return { data: response.data as FeedbackExportRow[] | null, error: response.error };
 	});

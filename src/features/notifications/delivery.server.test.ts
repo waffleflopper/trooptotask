@@ -68,6 +68,7 @@ describe('notification delivery', () => {
 		'keeps %s returned lookup-error behavior without inserting partial recipients',
 		async (failureMode) => {
 			const provider = notificationTestProvider();
+			const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
 			const delivery = createSupabaseNotificationDelivery({
 				getAdminClient: () => provider.client,
 				resolveAdministratorRecipients: async () => ({ userIds: ['partial'], errorMessage: 'lookup unavailable' }),
@@ -77,6 +78,9 @@ describe('notification delivery', () => {
 			if (failureMode === 'required') await expect(result).rejects.toThrow('lookup unavailable');
 			else await expect(result).resolves.toBeUndefined();
 			expect(provider.state.attempts).toEqual([]);
+			if (failureMode === 'best-effort') {
+				expect(logged).toHaveBeenCalledWith(expect.any(String), 'lookup unavailable');
+			}
 		}
 	);
 

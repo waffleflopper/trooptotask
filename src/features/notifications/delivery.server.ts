@@ -45,6 +45,7 @@ export function createSupabaseNotificationDelivery(options: NotificationDelivery
 			const recipients = await options.resolveAdministratorRecipients(orgId);
 			if (recipients.errorMessage !== null) {
 				if (options.failureMode === 'required') throw new Error(recipients.errorMessage);
+				console.error(`Failed to create admin notifications for org ${orgId}:`, recipients.errorMessage);
 				return;
 			}
 			await insert(

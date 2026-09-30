@@ -43,13 +43,17 @@ function provider(rows: FeedbackExportRow[] = []) {
 		const filters: Array<(row: FeedbackExportRow) => boolean> = [];
 		let columns = '*';
 		let head = false;
-		let descendingCreatedAt = false;
+		const ordering: Array<{ column: keyof FeedbackExportRow; ascending: boolean }> = [];
 		let patch: Partial<FeedbackExportRow> | undefined;
 		function matching() {
 			const selected = state.rows.filter((row) => filters.every((filter) => filter(row)));
-			return descendingCreatedAt
-				? selected.toSorted((left, right) => right.created_at.localeCompare(left.created_at))
-				: selected;
+			return selected.toSorted((left, right) => {
+				for (const { column, ascending } of ordering) {
+					const compared = String(left[column]).localeCompare(String(right[column]));
+					if (compared) return ascending ? compared : -compared;
+				}
+				return 0;
+			});
 		}
 		function project(row: FeedbackExportRow) {
 			return columns === '*'
@@ -68,8 +72,8 @@ function provider(rows: FeedbackExportRow[] = []) {
 				filters.push((row) => row[column] === value);
 				return builder;
 			},
-			order(column: string, options: { ascending: boolean }) {
-				descendingCreatedAt = column === 'created_at' && !options.ascending;
+			order(column: keyof FeedbackExportRow, options: { ascending: boolean }) {
+				ordering.push({ column, ascending: options.ascending });
 				return builder;
 			},
 			update(value: Partial<FeedbackExportRow>) {

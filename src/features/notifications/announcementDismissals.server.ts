@@ -20,6 +20,7 @@ export function createSupabaseAccountAnnouncementDismissals(
 					.from('announcement_dismissals')
 					.select('announcement_id')
 					.eq('user_id', userId)
+					.order('announcement_id', { ascending: true })
 					.range(from, to);
 				return { data, error };
 			});

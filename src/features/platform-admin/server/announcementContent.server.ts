@@ -11,6 +11,7 @@ export async function listActiveAnnouncementContent(client: SupabaseClient): Pro
 			.select('id, title, message, type')
 			.eq('is_active', true)
 			.or(`expires_at.is.null,expires_at.gt.${now}`)
+			.order('id', { ascending: true })
 			.range(from, to);
 		return { data, error };
 	});

@@ -36,6 +36,7 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 					.eq('organization_id', orgId)
 					.eq('user_id', userId)
 					.eq('read', false)
+					.order('id', { ascending: true })
 					.range(from, to);
 				return { data, error };
 			});
@@ -81,6 +82,7 @@ export function createSupabaseNotificationStore(supabase: SupabaseClient): Notif
 					.select('*')
 					.eq('organization_id', orgId)
 					.eq('user_id', userId)
+					.order('id', { ascending: true })
 					.range(from, to);
 				return { data, error };
 			});

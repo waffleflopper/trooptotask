@@ -1,10 +1,7 @@
 import { json, error } from '@sveltejs/kit';
-import { rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
+import { createRequestAccountAnnouncementDismissals, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 import type { RequestHandler } from './$types';
-import {
-	createSupabaseAccountAnnouncementDismissals,
-	dismissAccountAnnouncement
-} from '$features/notifications/index.server';
+import { dismissAccountAnnouncement } from '$features/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, request }) => {
 	const actor = locals.actor;
@@ -12,7 +9,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	const { announcementId } = await request.json();
 	try {
 		await dismissAccountAnnouncement(
-			{ userId: actor.userId, dismissals: createSupabaseAccountAnnouncementDismissals(locals.supabase, actor.userId) },
+			{ userId: actor.userId, dismissals: createRequestAccountAnnouncementDismissals(locals, actor.userId) },
 			announcementId
 		);
 	} catch (cause) {

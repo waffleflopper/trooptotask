@@ -1,3 +1,4 @@
+import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 /**
  * HTTP adapter — the bridge between SvelteKit routes and use cases.
  *
@@ -500,6 +501,10 @@ async function resolveOrganizationIdForRequest(
 	}
 
 	return identity.id;
+}
+
+export function createRequestAccountAnnouncementDismissals(locals: Pick<App.Locals, 'supabase'>, userId: string) {
+	return createSupabaseAccountAnnouncementDismissals(locals.supabase, userId);
 }
 
 export function rethrowOrWrap(err: unknown): never {

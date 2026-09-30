@@ -80,16 +80,6 @@ export async function deleteOwnNotification(ports: NotificationSelfPorts, id: st
 	ports.audit.log({ action: 'notification.deleted', resourceType: AUDIT_RESOURCE, resourceId: id });
 }
 
-export async function getUnreadNotificationCount(ports: NotificationSelfPorts): Promise<number> {
-	await requireIdentityOwnedPolicy(
-		ports,
-		POLICY_ACTION_CATALOG.identity.readOwnNotifications,
-		ports.auth.userId,
-		AUDIT_RESOURCE
-	);
-	return ports.store.countOwnUnread(ports.auth.orgId, ports.auth.userId);
-}
-
 export async function listNotificationExportRows(ports: NotificationSelfPorts): Promise<Record<string, unknown>[]> {
 	await requireIdentityOwnedPolicy(
 		ports,

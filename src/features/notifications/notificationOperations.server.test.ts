@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	deleteAllOwnNotifications,
 	deleteOwnNotification,
-	getUnreadNotificationCount,
 	listNotificationExportRows,
 	listOwnNotifications,
 	markAllOwnNotificationsRead,
@@ -43,10 +42,10 @@ describe('notification self operations', () => {
 		]);
 		const ports = selfPorts(provider);
 		expect(await listOwnNotifications(ports)).toHaveLength(20);
-		expect(await getUnreadNotificationCount(ports)).toBe(24);
+		expect(await ports.store.countOwnUnread(ports.auth.orgId, ports.auth.userId)).toBe(24);
 		expect(await listNotificationExportRows(ports)).toEqual(own);
 		await markOwnNotificationRead(ports, 'own-0');
-		expect(await getUnreadNotificationCount(ports)).toBe(23);
+		expect(await ports.store.countOwnUnread(ports.auth.orgId, ports.auth.userId)).toBe(23);
 		await markAllOwnNotificationsRead(ports);
 		expect(
 			provider.state.rows

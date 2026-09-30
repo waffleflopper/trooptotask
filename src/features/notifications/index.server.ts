@@ -7,7 +7,6 @@ export {
 	markOwnNotificationRead,
 	deleteAllOwnNotifications,
 	deleteOwnNotification,
-	getUnreadNotificationCount,
 	listNotificationExportRows
 } from './notificationOperations.server';
 export type { NotificationSelfPorts } from './notificationOperations.server';

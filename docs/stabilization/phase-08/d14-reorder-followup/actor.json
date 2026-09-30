@@ -1,0 +1,9 @@
+{
+  "role": "onboardingSwitch",
+  "pageId": 2,
+  "browserContext": "map-onboardingSwitch-88184b3e-a2da-4909-9387-cea5cd1d06f9",
+  "orgId": "d9794397-b8f9-4187-9e84-329f15bf6fc0",
+  "path": "/org/d9794397-b8f9-4187-9e84-329f15bf6fc0/onboarding",
+  "access": "not-assessed",
+  "origin": "http://127.0.0.1:37035"
+}

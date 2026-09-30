@@ -1,0 +1,21 @@
+{
+  "B_steps_unchanged": true,
+  "artifacts": {
+    "B-steps-after.json": "b9df76fe633c0060b3c81e668e801c87282469ed98412787164641d24898a7b3",
+    "B-steps-before.json": "b9df76fe633c0060b3c81e668e801c87282469ed98412787164641d24898a7b3",
+    "B-workspace.json": "5cf3a4c62d7e17c2a5786f07e4448355b2ea05667f57f959a6751b65422fafd7",
+    "actor.json": "0ed5decb6a47326501be0022f8cc6973abe9ae42fb4455425a0476f36c5fe1b7",
+    "clean-helper.json": "3ab5ce8cfb9d6a150f0a906e89d63fe772e0581ac7e894a0a56feac8ad78fc48",
+    "cleanup.json": "6b08035694d0f394b2fe5e01991d7669deadaa5c1572dd3eb04312df651d9347",
+    "doctor.json": "e2ff54c0f670f4ec85494fe3dd23b4e874c2cb4869b3adcb91f103ea8eb5d419",
+    "final-doctor.json": "e2ff54c0f670f4ec85494fe3dd23b4e874c2cb4869b3adcb91f103ea8eb5d419",
+    "fixture.json": "83e65ea5aafb1d2c3058955348860069a846605080b7f1dc77d1ea42e980fbd6",
+    "launch.json": "e2ff54c0f670f4ec85494fe3dd23b4e874c2cb4869b3adcb91f103ea8eb5d419",
+    "switch-B-before.json": "8ca56c7a81b453aab95dd44b5ecc44243da19b70f895ade16ee6d4fff4a98e66",
+    "switch-B.json": "3870eab91a5ae38c3fee58224912e0ed064581d8dc1f8c549a97e9c5ebe10297",
+    "switch-menu-before.json": "3fdae4edee09b9007c1d2b3b8b9cb232edd4b8ed1fbc50454a5a6385f08b9c2e",
+    "switch-menu.json": "ef5047e46f8ed9fde5d17a0b3c52f8cfa5a819ace5942fb1ce1282a884f6f70e",
+    "switch-options.json": "8ca56c7a81b453aab95dd44b5ecc44243da19b70f895ade16ee6d4fff4a98e66",
+    "valid-B-reorder.json": "66a568739847b179e06f8dce4ab0cd388f66f244dc0a8cf1f0a7971f44463c60"
+  }
+}

@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
@@ -788,5 +790,146 @@ describe('buildCriticalTasksReportWorkbook', () => {
 		expect(sheet.getRow(5).values).toEqual([undefined, 'Summary', 'Soldiers Below 65%', 2, '3 applicable Soldiers']);
 		expect(sheet.getColumn(2).values).not.toContain('Soldiers Below 70%');
 		expect(sheet.getColumn(4).values).not.toContain('assigned');
+	});
+});
+
+function createWideHistoryContext(
+	dimension: 'people' | 'tasks',
+	options: { failLastHistory?: boolean; forbidHistory?: boolean } = {}
+) {
+	const ctx = createTestContext({
+		auth: {
+			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			role: 'member',
+			isPrivileged: false,
+			capabilityMap: {
+				personnel: 'none',
+				criticalTasks: 'view',
+				training: 'none',
+				calendar: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			}
+		}
+	});
+	const id = (kind: number, index: number) =>
+		`${String(kind).padStart(8, '0')}-0000-4000-8000-${String(index).padStart(12, '0')}`;
+	const people = Array.from({ length: dimension === 'people' ? 501 : 1 }, (_, index) => ({
+		id: id(1, index),
+		organization_id: ctx.auth.orgId,
+		first_name: 'Synthetic',
+		last_name: `Person${index}`,
+		mos: '68W',
+		group_id: 'alpha',
+		archived_at: null
+	}));
+	const tasks = Array.from({ length: dimension === 'tasks' ? 501 : 1 }, (_, index) => ({
+		id: id(2, index),
+		organization_id: ctx.auth.orgId,
+		task_code: `TASK${index}`,
+		title: `Task${index}`,
+		mos: [],
+		expiration_months: 1,
+		sort_order: index,
+		archived_at: null
+	}));
+	const history = people.flatMap((person) =>
+		tasks.flatMap((task) =>
+			['2026-01-01', '2026-03-15'].map((date) => ({
+				id: `${person.id}:${task.id}:${date}`,
+				organization_id: ctx.auth.orgId,
+				personnel_id: person.id,
+				ict_task_id: task.id,
+				completed_at: date,
+				created_at: `${date}T12:00:00Z`,
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: null
+			}))
+		)
+	);
+	const excludedPerson = id(1, 999);
+	ctx.store.seed('personnel', [...people, { ...people[0], id: excludedPerson, group_id: 'bravo' }]);
+	ctx.store.seed('ict_tasks', tasks);
+	ctx.store.seed('organizations', [
+		{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 1, critical_tasks_expiring_soon_warning_days: 7 }
+	]);
+	ctx.store.seed('groups', [{ id: 'alpha', organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }]);
+	const client = createClient('https://provider.invalid', 'synthetic-key', {
+		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+		global: {
+			fetch: async (input) => {
+				const url = new URL(String(input));
+				if (url.href.length > 8192) return Response.json({ message: 'URI too long' }, { status: 414 });
+				const ids = (column: string) => url.searchParams.get(column)?.slice(4, -1).split(',') ?? [];
+				expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+				expect(ids('personnel_id')).not.toContain(excludedPerson);
+				if (options.failLastHistory && ids('personnel_id').includes(people.at(-1)!.id))
+					return Response.json({ message: 'Required history unavailable' }, { status: 403 });
+				const selected = history.filter(
+					(row) => ids('personnel_id').includes(row.personnel_id) && ids('ict_task_id').includes(row.ict_task_id)
+				);
+				const offset = Number(url.searchParams.get('offset') ?? 0);
+				return Response.json(selected.slice(offset, offset + 1000));
+			}
+		}
+	});
+	const provider = createSupabaseDataStore(client);
+	const findMany = ctx.store.findMany.bind(ctx.store);
+	vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+		args[0] === 'personnel_ict_completions'
+			? options.forbidHistory
+				? Promise.reject(new Error('Excluded history must not be read'))
+				: provider.findMany(...args)
+			: findMany(...args)
+	);
+	return ctx;
+}
+
+describe('bounded Critical Tasks report history', () => {
+	it.each(['people', 'tasks'] as const)(
+		'retains older readiness dates for 501 %s through a URL-limited provider',
+		async (dimension) => {
+			const ctx = createWideHistoryContext(dimension);
+			const dashboard = await fetchCriticalTasksReportDashboard(ctx, { asOf: '2026-03-20' });
+			expect(dashboard.kpis.overallReadiness).toMatchObject({ percent: 100, readyCount: 501, applicableCount: 501 });
+			expect(
+				dashboard.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+			).toEqual([
+				['2026-01', 100],
+				['2026-02', 0],
+				['2026-03', 100]
+			]);
+			const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
+			expect(summary.kpis.overallReadiness).toMatchObject({ percent: 100, readyCount: 501, applicableCount: 501 });
+			expect(
+				summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+			).toEqual([
+				['2026-01', 100],
+				['2026-02', 0],
+				['2026-03', 100]
+			]);
+		}
+	);
+
+	it('returns an empty authorized report for an excluded group without reading history', async () => {
+		const ctx = createWideHistoryContext('people', { forbidHistory: true });
+		const dashboard = await fetchCriticalTasksReportDashboard(ctx, {
+			filters: { groupId: 'bravo' },
+			asOf: '2026-03-20'
+		});
+		expect(dashboard.kpis.overallReadiness).toMatchObject({ percent: 0, readyCount: 0, applicableCount: 0 });
+		expect(dashboard.atRiskSoldiers.rows).toEqual([]);
+	});
+
+	it('rejects an unavailable history window instead of returning a partial report', async () => {
+		const ctx = createWideHistoryContext('people', { failLastHistory: true });
+		await expect(fetchCriticalTasksReportDashboard(ctx, { asOf: '2026-03-20' })).rejects.toThrow(
+			'Required history unavailable'
+		);
+		await expect(fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' })).rejects.toThrow(
+			'Required history unavailable'
+		);
 	});
 });

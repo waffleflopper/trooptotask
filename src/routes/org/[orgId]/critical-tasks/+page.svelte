@@ -189,7 +189,7 @@
 				throw new Error('Failed to export critical task matrix');
 			}
 			const blob = await response.blob();
-			const { downloadBlob, filenameFromContentDisposition } = await import('$lib/export/workbook');
+			const { downloadBlob, filenameFromContentDisposition } = await import('$lib/utils/workbook');
 			downloadBlob(
 				blob,
 				filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'critical-task-matrix.xlsx')

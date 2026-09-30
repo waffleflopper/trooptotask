@@ -9,14 +9,15 @@ import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupsStore } from '$features/personnel';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
-import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type {
+	TrainingPageAccess,
+	TrainingAffordance,
 	TrainingMatrixViewMode,
-	UserOrgPreferences,
-	UserOrgPreferencesPatch
-} from '$lib/preferences/userPreferences';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+	TrainingPagePreferences,
+	TrainingPreferencesPatch
+} from '../contracts';
+import { toast } from 'svelte-sonner';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$lib/types';
 import type { Group } from '$features/personnel/contracts';
@@ -35,26 +36,10 @@ export type TrainingRemovalRequest = (
 	resourceUrl: string
 ) => Promise<boolean>;
 type NavigationModule = typeof import('$app/navigation');
-type ToastStoreModule = typeof import('$lib/stores/toast.svelte');
-type UserPreferencesClientModule = typeof import('$lib/preferences/userPreferences.client');
-
 let navigationModule: Promise<NavigationModule> | undefined;
-let toastStoreModule: Promise<ToastStoreModule> | undefined;
-let userPreferencesClientModule: Promise<UserPreferencesClientModule> | undefined;
-
 function loadNavigation() {
 	navigationModule ??= import('$app/navigation');
 	return navigationModule;
-}
-
-function loadToastStore() {
-	toastStoreModule ??= import('$lib/stores/toast.svelte');
-	return toastStoreModule;
-}
-
-function loadUserPreferencesClient() {
-	userPreferencesClientModule ??= import('$lib/preferences/userPreferences.client');
-	return userPreferencesClientModule;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,7 +48,7 @@ function loadUserPreferencesClient() {
 export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
-	userPreferences?: UserOrgPreferences;
+	userPreferences?: { training?: TrainingPagePreferences };
 	training?: {
 		data?: {
 			rankCatalog?: RankCatalogEntry[];
@@ -78,8 +63,9 @@ export class TrainingPageContext {
 	// ---- injected deps ----
 	readonly #data: TrainingPageData;
 	readonly #modals: ModalRegistry;
-	readonly #org: OrgContext;
+	readonly #org: TrainingPageAccess;
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
+	readonly #savePreferences: (orgId: string, patch: TrainingPreferencesPatch) => Promise<unknown>;
 	#hydratedSelectionFingerprint: string | null = null;
 
 	// ---- mutable UI state ----
@@ -91,13 +77,15 @@ export class TrainingPageContext {
 	constructor(
 		data: TrainingPageData,
 		modals: ModalRegistry,
-		org: OrgContext,
-		submitRemovalRequest: TrainingRemovalRequest
+		org: TrainingPageAccess,
+		submitRemovalRequest: TrainingRemovalRequest,
+		savePreferences: (orgId: string, patch: TrainingPreferencesPatch) => Promise<unknown>
 	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
 		this.#submitRemovalRequest = submitRemovalRequest;
+		this.#savePreferences = savePreferences;
 		this.applyUserPreferences(data.userPreferences);
 	}
 
@@ -121,18 +109,18 @@ export class TrainingPageContext {
 		return this.trainingRecordAffordance.allowed;
 	}
 
-	get trainingViewAffordance(): ClientAffordance {
+	get trainingViewAffordance(): TrainingAffordance {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewMatrix, TRAINING_POLICY_RESOURCE);
 	}
 
-	get trainingRecordAffordance(): ClientAffordance {
+	get trainingRecordAffordance(): TrainingAffordance {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.training.recordCompletions,
 			TRAINING_POLICY_RESOURCE
 		);
 	}
 
-	get trainingConfigureAffordance(): ClientAffordance {
+	get trainingConfigureAffordance(): TrainingAffordance {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.training.configureRequirements,
 			TRAINING_CONFIGURATION_RESOURCE
@@ -356,7 +344,7 @@ export class TrainingPageContext {
 		this.#modals.close('bulk-import');
 	}
 
-	private applyUserPreferences(preferences?: UserOrgPreferences): void {
+	private applyUserPreferences(preferences?: { training?: TrainingPagePreferences }): void {
 		const trainingPrefs = preferences?.training;
 		const selectedGroupId = trainingPrefs?.selectedGroupId ?? null;
 		const selectedViewId = trainingPrefs?.selectedViewId ?? null;
@@ -383,7 +371,7 @@ export class TrainingPageContext {
 		const rosterLoaded = rosterStore.orgId === this.orgId && !rosterStore.loading;
 		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
-		const patch: NonNullable<UserOrgPreferencesPatch['training']> = {};
+		const patch: NonNullable<TrainingPreferencesPatch['training']> = {};
 
 		if (groupsLoaded && rosterLoaded && this.selectedGroupId && !this.isValidGroupId(this.selectedGroupId)) {
 			this.selectedGroupId = '';
@@ -431,13 +419,13 @@ export class TrainingPageContext {
 		return [this.orgId, this.selectedGroupId, this.selectedViewId, groupIds, groupFilterValues, viewIds].join('|');
 	}
 
-	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {
+	private async persistPreferences(preferences: TrainingPreferencesPatch): Promise<void> {
 		try {
-			const { queueUserPreferencesPatch } = await loadUserPreferencesClient();
-			await queueUserPreferencesPatch(this.orgId, preferences);
+			await this.#savePreferences(this.orgId, preferences);
 		} catch (error) {
-			const { toastStore } = await loadToastStore();
-			toastStore.error(error instanceof Error ? error.message : 'Failed to save your training preferences');
+			toast.error(error instanceof Error ? error.message : 'Failed to save your training preferences', {
+				duration: 6000
+			});
 		}
 	}
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
+import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';

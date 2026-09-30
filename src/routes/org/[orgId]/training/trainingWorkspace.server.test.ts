@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
-import type { TrainingWorkspaceData } from './trainingWorkspaceBootstrap';
+import type { TrainingWorkspaceData } from '$features/training/contracts';
 import type { Personnel } from '$lib/types';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
@@ -46,7 +46,7 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
-import { streamTrainingWorkspaceBootstrap } from './trainingWorkspaceBootstrap';
+import { streamTrainingWorkspaceBootstrap } from './trainingWorkspace.server';
 
 describe('streamTrainingWorkspaceBootstrap', () => {
 	beforeEach(() => {

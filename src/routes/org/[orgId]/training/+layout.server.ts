@@ -3,10 +3,7 @@ import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/core/featureLaneWorkspaceLoad';
-import {
-	streamTrainingWorkspaceBootstrap,
-	type TrainingWorkspaceRouteData
-} from '$features/training/server/trainingWorkspaceBootstrap';
+import { streamTrainingWorkspaceBootstrap, type TrainingWorkspaceRouteData } from './trainingWorkspace.server';
 
 export interface TrainingLayoutLoadDeps {
 	streamTrainingWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<TrainingWorkspaceRouteData>;

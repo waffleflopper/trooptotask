@@ -15,7 +15,8 @@ import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/rea
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$lib/types';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import type { DashboardPageData, TrainingIssue } from '$features/dashboard/dashboard.types';
+import type { DashboardPageData } from '$features/dashboard/dashboard.types';
+import type { TrainingIssue } from '$features/training/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
@@ -716,7 +717,7 @@ export class DashboardScreenModel {
 
 		const withIssues = new SvelteSet<string>();
 		for (const issue of this.topTrainingIssues) {
-			if (issue.personName) withIssues.add(issue.personName);
+			withIssues.add(issue.personnelId);
 		}
 
 		const totalRecordIssues = stats.expired + stats.warningOrange + stats.warningYellow;
@@ -762,23 +763,35 @@ export class DashboardScreenModel {
 		return metricId === 'training-currency' ? '%' : '';
 	}
 
-	get trainingGroupDelinquencies(): { groupName: string; count: number; pct: number }[] {
-		const stats = this.trainingStats;
-		if (!stats) return [];
+	get expiredTrainingPersonnelCount(): number {
+		return this.data.trainingSummary?.expiredPersonnelCount ?? 0;
+	}
 
-		return this.groupBreakdown
-			.map((g) => {
-				const total = g.total;
-				const overallTotal = this.totalPersonnel;
-				const estimated =
-					overallTotal > 0 ? Math.round(((stats.expired + stats.warningOrange) * total) / overallTotal) : 0;
+	get trainingGroupDelinquencies(): {
+		groupId: string | null;
+		groupName: string;
+		count: number;
+		expiredPersonnelCount: number;
+		pct: number;
+	}[] {
+		const groups = new SvelteMap(this.sources.groups.items.map((group) => [group.id, group]));
+		const groupTotals = new SvelteMap<string | null, number>();
+		for (const person of this.rosterPersonnel) {
+			const groupId = person.groupId ?? null;
+			groupTotals.set(groupId, (groupTotals.get(groupId) ?? 0) + 1);
+		}
+		return (this.data.trainingSummary?.groupDelinquencies ?? [])
+			.map((group) => {
+				const total = groupTotals.get(group.groupId) ?? 0;
 				return {
-					groupName: g.name,
-					count: estimated,
-					pct: total > 0 ? Math.round((estimated / total) * 100) : 0
+					groupId: group.groupId,
+					groupName: group.groupId === null ? 'Unassigned' : (groups.get(group.groupId)?.name ?? 'Unknown group'),
+					count: group.delinquentPersonnelCount,
+					expiredPersonnelCount: group.expiredPersonnelCount,
+					pct: total > 0 ? Math.round((group.delinquentPersonnelCount / total) * 100) : 0
 				};
 			})
-			.filter((g) => g.count > 0)
+			.filter((group) => group.count > 0)
 			.sort((a, b) => b.count - a.count);
 	}
 

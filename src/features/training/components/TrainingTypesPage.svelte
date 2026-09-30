@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
@@ -11,8 +12,8 @@
 	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import type { Personnel } from '$lib/types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { rankCodesForOptions } from '$features/personnel/contracts';
 	import { createRosterReadModel } from '$features/personnel/contracts';
@@ -30,9 +31,18 @@
 	import type { ApplicabilityFields } from './ApplicabilityEditor.svelte';
 	import type { TrainingType } from '$features/training/training.types';
 
-	let { data } = $props();
+	let {
+		data,
+		org
+	}: {
+		data: {
+			[key: string]: unknown;
+			training?: { data?: Partial<import('../contracts').TrainingWorkspaceData> };
+			personnel?: Personnel[];
+		};
+		org: TrainingPageAccess;
+	} = $props();
 
-	const org = getOrgContext();
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'organization' })
 	);

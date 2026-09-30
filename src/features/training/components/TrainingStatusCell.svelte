@@ -1,7 +1,7 @@
 <script lang="ts" module>
-	import type { TrainingRequirementStatus } from './training-status-badge.svelte';
+	import type { TrainingStatus } from '../contracts';
 
-	export const trainingStatusCellClasses: Record<TrainingRequirementStatus, string> = {
+	export const trainingStatusCellClasses: Record<TrainingStatus, string> = {
 		current: 'bg-success-muted text-success-foreground ring-success/20',
 		'warning-yellow': 'bg-warning-muted text-warning-foreground ring-warning/20',
 		'warning-orange': 'bg-orange-500/10 text-orange-700 ring-orange-500/20 dark:text-orange-300',
@@ -23,7 +23,7 @@
 		class: className,
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLSpanElement>> & {
-		status: TrainingRequirementStatus;
+		status: TrainingStatus;
 		label: string;
 		srLabel?: string;
 	} = $props();

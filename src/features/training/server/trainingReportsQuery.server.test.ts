@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import {
 	createInMemoryDataStore,
@@ -9,11 +9,17 @@ import {
 	fetchTrainingReportDetailPage,
 	fetchTrainingReportPage,
 	generateTrainingReportWorkbookExport
-} from './trainingReportsQuery';
+} from './trainingReportsQuery.server';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
 const ORG = 'test-org';
+
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-09-29T12:00:00Z'));
+});
+afterEach(() => vi.useRealTimers());
 
 function buildCtx() {
 	return createQueryPortsContext();
@@ -452,6 +458,9 @@ describe('Training report projections', () => {
 		expect(result.detail.totalRows).toBe(1);
 		expect(result.detail.rows[0].person.id).toBe('p-alpha');
 		expect(result.filterOptions.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
+		const outsideScope = await fetchTrainingReportPage(ctx, { filters: { groupId: 'group-2' } });
+		expect(outsideScope.detail.rows).toEqual([]);
+		expect(outsideScope.dashboard.readinessPercent).toBe(0);
 	});
 
 	it('generates an authorized full workbook export without applying detail pagination', async () => {
@@ -588,3 +597,110 @@ function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unkn
 		...overrides
 	};
 }
+
+describe('dated report filtering and workbook contract', () => {
+	it('filters displayed rows by status while preserving the complete required-cell dashboard and workbook dates', async () => {
+		const ctx = buildCtx();
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		store.seed('groups', [
+			{ id: 'alpha', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+			{ id: 'bravo', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+		]);
+		store.seed('personnel', [
+			personnelRow({
+				id: 'able',
+				last_name: 'Able',
+				first_name: 'Amy',
+				mos: '68W',
+				group_id: 'alpha',
+				groups: { name: 'Alpha' }
+			}),
+			personnelRow({
+				id: 'baker',
+				last_name: 'Baker',
+				first_name: 'Ben',
+				mos: '11B',
+				group_id: 'bravo',
+				groups: { name: 'Bravo' }
+			}),
+			personnelRow({ id: 'charlie', last_name: 'Charlie', first_name: 'Cam', mos: '42A' })
+		]);
+		const required = {
+			id: 'required',
+			organization_id: ORG,
+			name: 'Required',
+			description: null,
+			expiration_months: 12,
+			warning_days_yellow: 60,
+			warning_days_orange: 30,
+			applies_to_roles: [],
+			applies_to_mos: [],
+			applies_to_ranks: [],
+			excluded_roles: [],
+			excluded_mos: [],
+			excluded_ranks: [],
+			color: '#22c55e',
+			sort_order: 0,
+			expiration_date_only: false,
+			can_be_exempted: false,
+			exempt_personnel_ids: [],
+			is_optional: false
+		};
+		store.seed('training_types', [
+			required,
+			{ ...required, id: 'targeted', name: 'Targeted', sort_order: 1, applies_to_mos: ['68W'] },
+			{ ...required, id: 'optional', name: 'Optional', sort_order: 2, is_optional: true }
+		]);
+		store.seed(
+			'personnel_trainings',
+			[
+				['able-required', 'able', 'required', '2026-09-22', '2027-09-22'],
+				['baker-required', 'baker', 'required', '2024-09-29', '2025-09-29'],
+				['able-targeted', 'able', 'targeted', '2025-10-14', '2026-10-14'],
+				['able-optional', 'able', 'optional', '2024-09-29', '2025-09-29']
+			].map(([id, personnelId, typeId, completed, expiry]) => ({
+				id,
+				organization_id: ORG,
+				personnel_id: personnelId,
+				training_type_id: typeId,
+				completion_date: completed,
+				expiration_date: expiry,
+				notes: 'retained',
+				certificate_url: null
+			}))
+		);
+		const scan = vi.spyOn(store, 'findMany');
+		const input = {
+			filters: { status: 'warning-orange' as const },
+			sort: { column: 'name', direction: 'asc' as const },
+			pagination: { page: 1, pageSize: 1 }
+		};
+		const report = await fetchTrainingReportPage(ctx, input);
+
+		expect(report.dashboard.readinessPercent).toBe(25);
+		expect(report.dashboard.statusCounts).toEqual({
+			current: 1,
+			warningYellow: 0,
+			warningOrange: 1,
+			expired: 1,
+			notCompleted: 1
+		});
+		expect(report.detail.rows.map((row) => row.person.id)).toEqual(['able']);
+		expect(report.detail.rows[0].cells).toEqual([
+			{ trainingTypeId: 'required', status: 'current', label: 'Current', date: '2027-09-22' },
+			{ trainingTypeId: 'targeted', status: 'warning-orange', label: '15d left', date: '2026-10-14' },
+			{ trainingTypeId: 'optional', status: 'expired', label: 'Expired 365d ago', date: '2025-09-29' }
+		]);
+		expect(scan.mock.calls.filter(([table]) => table === 'personnel_trainings')).toHaveLength(1);
+
+		const exported = await generateTrainingReportWorkbookExport(ctx, input);
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(exported.buffer as WorkbookLoadBuffer);
+		const sheet = workbook.getWorksheet('Training Report')!;
+		expect(sheet.getCell('A2').value).toBe('Able, Amy');
+		expect(sheet.getCell('F2').value).toBe('Current (2027-09-22)');
+		expect(sheet.getCell('G2').value).toBe('15d left (2026-10-14)');
+		expect(sheet.getCell('H2').value).toBe('Expired 365d ago (2025-09-29)');
+		expect(sheet.getCell('A3').value).toBeNull();
+	});
+});

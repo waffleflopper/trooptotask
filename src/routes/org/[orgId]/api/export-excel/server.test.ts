@@ -4,7 +4,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
-import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
+import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 

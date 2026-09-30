@@ -7,7 +7,7 @@ import {
 	loadWithContextCore,
 	rethrowOrWrap
 } from '$lib/server/adapters/httpAdapter';
-import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
+import { fetchDashboardTrainingSummary } from '$features/training/index.server';
 import { fetchCriticalTasksDashboardSummary } from '$lib/server/core/useCases/criticalTasksReportsQuery';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';

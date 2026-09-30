@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { fetchDashboardTrainingSummary } from './trainingSummaryQuery';
+import { fetchDashboardTrainingSummary } from './trainingSummaryQuery.server';
+import type { Personnel } from '$lib/types';
 
 const ORG = 'test-org';
 
@@ -229,5 +230,86 @@ describe('fetchDashboardTrainingSummary', () => {
 		expect(result.trainingSummary.issues).toHaveLength(1);
 		expect(result.onboardingTrainingCompletions).toEqual(new Set(['p1-tt1', 'p2-tt1']));
 		expect(findManySpy).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('literal Dashboard Training person attribution', () => {
+	it('counts distinct expired and delinquent people by group before issue display limits', async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date('2026-09-29T12:00:00Z'));
+		try {
+			const ctx = buildCtx();
+			const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+			const personnel: Personnel[] = [
+				['able', 'alpha'],
+				['baker', 'bravo'],
+				['unassigned', null],
+				['current', 'other']
+			].map(([id, groupId]) => ({
+				id: id!,
+				groupId,
+				groupName: 'Same group name',
+				rank: 'SGT',
+				lastName: 'Same',
+				firstName: 'Name',
+				mos: '68W',
+				clinicRole: 'Medic'
+			}));
+			const trainingTypes = [makeTrainingType('required'), makeTrainingType('second')];
+			store.seed(
+				'personnel_trainings',
+				[
+					['able', 'required', '2026-10-14'],
+					['able', 'second', '2026-10-15'],
+					['baker', 'required', '2025-01-01'],
+					['baker', 'second', '2025-01-01'],
+					['unassigned', 'required', '2025-01-01'],
+					['current', 'required', '2027-09-29']
+				].map(([personnelId, typeId, expiry], index) => ({
+					id: `completion-${index}`,
+					organization_id: ORG,
+					personnel_id: personnelId,
+					training_type_id: typeId,
+					completion_date: '2024-01-01',
+					expiration_date: expiry,
+					notes: null,
+					certificate_url: null
+				}))
+			);
+
+			const input = { personnel, trainingTypes, onboardingPersonnelIds: [] };
+			const { trainingSummary: summary } = await fetchDashboardTrainingSummary(ctx, {
+				...input,
+				options: { issueLimit: 1, issueStatuses: ['warning-orange'] }
+			});
+			expect(summary.stats.expired).toBe(3);
+			expect(summary.stats.warningOrange).toBe(2);
+			expect(summary.expiredPersonnelCount).toBe(2);
+			expect(new Map(summary.groupDelinquencies.map((group) => [group.groupId, group]))).toEqual(
+				new Map([
+					['alpha', { groupId: 'alpha', expiredPersonnelCount: 0, delinquentPersonnelCount: 1 }],
+					['bravo', { groupId: 'bravo', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }],
+					[null, { groupId: null, expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }]
+				])
+			);
+			expect(summary.issues).toHaveLength(1);
+			expect(summary.issues[0].personnelId).toBe('able');
+
+			const { trainingSummary: unlimited } = await fetchDashboardTrainingSummary(ctx, input);
+			expect(new Set(unlimited.issues.map((issue) => issue.personnelId))).toEqual(
+				new Set(['able', 'baker', 'unassigned'])
+			);
+			const { trainingSummary: scoped } = await fetchDashboardTrainingSummary(ctx, {
+				...input,
+				options: { groupId: 'bravo', issueLimit: 0 }
+			});
+			expect(scoped.expiredPersonnelCount).toBe(1);
+			expect(scoped.groupDelinquencies).toEqual([
+				{ groupId: 'bravo', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }
+			]);
+			expect(scoped.issues).toEqual([]);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });

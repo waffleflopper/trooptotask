@@ -98,6 +98,8 @@ export async function seed(session) {
 		trainingConfigure: { organization: 'orgA', training: 'configure', personnel: 'none', scope: 'organization' },
 		trainingView: { organization: 'orgA', training: 'view', personnel: 'none', scope: 'organization' },
 		trainingOperate: { organization: 'orgA', training: 'operate', personnel: 'none', scope: 'organization' },
+		trainingEmpty: { organization: 'orgA', training: 'operate', personnel: 'none', scope: 'groups', groups: [] },
+		trainingSwitch: { organization: 'orgA', training: 'operate', personnel: 'none', scope: 'organization' },
 		trainingOnboarding: {
 			organization: 'orgA',
 			training: 'view',
@@ -266,6 +268,24 @@ export async function seed(session) {
 				calendar: 'none',
 				training: 'none',
 				criticalTasks: 'view',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.trainingSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'none',
+				calendar: 'none',
+				training: 'view',
+				criticalTasks: 'none',
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},

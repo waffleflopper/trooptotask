@@ -14,7 +14,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { TrainingStatusBadge } from '$lib/components/ui/requirement-status-badge';
+	import TrainingStatusBadge from './TrainingStatusBadge.svelte';
 
 	interface Props {
 		person: Personnel;

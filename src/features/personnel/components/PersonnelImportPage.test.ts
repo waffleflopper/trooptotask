@@ -539,6 +539,50 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Return to Personnel' })).toBeInTheDocument();
 	});
 
+	it('corrects and retries only failed rows without reselecting unchecked or acknowledged creations', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						inserted: [{ id: 'saved-person' }],
+						errors: [{ index: 1, message: 'Group is outside scope' }]
+					}),
+					{ status: 200 }
+				)
+			)
+			.mockResolvedValueOnce(new Response(JSON.stringify({ inserted: [{ id: 'corrected-person' }], errors: [] })));
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Group'],
+			['SGT', 'Unchecked', 'Alex', 'Alpha Team'],
+			['SGT', 'Saved', 'John', 'Alpha Team'],
+			['CPL', 'NeedsCorrection', 'Pat', 'Outside Group']
+		]);
+		renderPage();
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 3 Rows/i }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select import row 1' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		await screen.findByText((content) => content.includes('Row 4:') && content.includes('Group is outside scope'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review failed rows' }));
+		await fireEvent.change(screen.getByRole('textbox', { name: 'Row 4 Group' }), { target: { value: 'Alpha Team' } });
+		await fireEvent.blur(screen.getByRole('textbox', { name: 'Row 4 Group' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		await screen.findByRole('button', { name: 'Return to Personnel' });
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+			records: [
+				{ rank: 'SGT', lastName: 'Saved', firstName: 'John', groupName: 'Alpha Team' },
+				{ rank: 'CPL', lastName: 'NeedsCorrection', firstName: 'Pat', groupName: 'Outside Group' }
+			]
+		});
+		expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+			records: [{ rank: 'CPL', lastName: 'NeedsCorrection', firstName: 'Pat', groupName: 'Alpha Team' }]
+		});
+	});
+
 	it('invalidates refreshed personnel data when uploading another file after partial results', async () => {
 		vi.stubGlobal(
 			'fetch',

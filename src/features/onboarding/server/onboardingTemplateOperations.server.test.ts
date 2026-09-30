@@ -23,6 +23,48 @@ const operateOnlyCapabilityMap: CapabilityMap = {
 	ratingScheme: 'none'
 };
 
+describe('Onboarding configuration JSON shape admission', () => {
+	it.each([null, [], 'not an object', 42])(
+		'rejects non-object template and step commands with400 and no effects: %j',
+		async (body) => {
+			const ctx = configurationContext();
+			for (const operation of [
+				createOnboardingTemplate,
+				updateOnboardingTemplate,
+				createOnboardingTemplateStep,
+				updateOnboardingTemplateStep
+			]) {
+				await expect(operation(ctx, body as never)).rejects.toMatchObject({ status: 400 });
+			}
+			expect(ctx.audit.events).toEqual([]);
+		}
+	);
+});
+
+describe('Onboarding declared JSON fields', () => {
+	it.each([
+		['description', 42],
+		['stages', ['Filed', 42]],
+		['trainingTypeId', 42]
+	])('rejects an invalid %s rather than silently clearing or dropping values', async (field, value) => {
+		const ctx = configurationContext();
+		const before = await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId);
+		const body = { id: 'step-1', templateId: 'tmpl-1', name: 'Valid step', stepType: 'paperwork', [field]: value };
+		await expect(createOnboardingTemplateStep(ctx, body)).rejects.toMatchObject({ status: 400 });
+		await expect(updateOnboardingTemplateStep(ctx, body)).rejects.toMatchObject({ status: 400 });
+		if (field === 'description') {
+			await expect(createOnboardingTemplate(ctx, { name: 'Valid', description: value })).rejects.toMatchObject({
+				status: 400
+			});
+			await expect(updateOnboardingTemplate(ctx, { id: TMPL_ID, description: value })).rejects.toMatchObject({
+				status: 400
+			});
+		}
+		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toEqual(before);
+		expect(ctx.audit.events).toEqual([]);
+	});
+});
+
 describe('Onboarding Template CRUD', () => {
 	it('creates a normalized template and audits', async () => {
 		const ctx = configurationContext();

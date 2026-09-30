@@ -1,3 +1,4 @@
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
 const { invalidateMock } = vi.hoisted(() => ({
@@ -121,10 +122,10 @@ describe('OnboardingPageContext policy affordances', () => {
 
 	it('requires Organization scope for the configuration navigation without borrowing other lanes', () => {
 		for (const scopeSet of [
-			{ kind: 'organization' } as const,
-			{ kind: 'groups', groupIds: ['g-1'] } as const,
-			{ kind: 'groups', groupIds: [] } as const
-		]) {
+			{ kind: 'organization' },
+			{ kind: 'groups', groupIds: ['g-1'] },
+			{ kind: 'groups', groupIds: [] }
+		] satisfies ScopeSet[]) {
 			const context = new OnboardingPageContext(
 				{ open: vi.fn() } as never,
 				createTestOrgContext({

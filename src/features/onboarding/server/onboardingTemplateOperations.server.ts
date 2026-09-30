@@ -31,7 +31,7 @@ export async function createOnboardingTemplate(
 	ctx: OnboardingTemplateWriteContext,
 	input: TemplateCreateInput
 ): Promise<OnboardingTemplate> {
-	const parsed = parseInput(OnboardingTemplateEntity.createSchema, normalizeTemplateInput(input));
+	const parsed = normalizeTemplateInput(parseInput(OnboardingTemplateEntity.createSchema, input));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template');
 	const row = await ctx.store.insert<Record<string, unknown>>(
 		OnboardingTemplateEntity.table,
@@ -51,7 +51,7 @@ export async function updateOnboardingTemplate(
 	ctx: OnboardingTemplateWriteContext,
 	input: TemplateUpdateInput
 ): Promise<OnboardingTemplate> {
-	const parsed = parseInput(OnboardingTemplateEntity.updateSchema, normalizeTemplateInput(input));
+	const parsed = normalizeTemplateInput(parseInput(OnboardingTemplateEntity.updateSchema, input));
 	const id = parsed.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', id);
 	await requireTemplate(ctx, id);
@@ -78,7 +78,7 @@ export async function createOnboardingTemplateStep(
 	ctx: OnboardingTemplateWriteContext,
 	input: StepCreateInput
 ): Promise<OnboardingTemplateStep> {
-	const parsed = parseInput(OnboardingTemplateStepEntity.createSchema, normalizeStepInput(input));
+	const parsed = normalizeStepInput(parseInput(OnboardingTemplateStepEntity.createSchema, input));
 	return insertTemplateStep(ctx, parsed);
 }
 
@@ -87,7 +87,7 @@ export async function createStarterOnboardingTemplateStep(
 	ctx: OnboardingTemplateWriteContext,
 	input: StepCreateInput
 ): Promise<OnboardingTemplateStep> {
-	const parsed = parseInput(OnboardingTemplateStepEntity.createSchema, normalizeStepInput(input));
+	const parsed = normalizeStepInput(parseInput(OnboardingTemplateStepEntity.createSchema, input));
 	return insertTemplateStep(
 		ctx,
 		parsed,
@@ -122,7 +122,7 @@ export async function updateOnboardingTemplateStep(
 	ctx: OnboardingTemplateWriteContext,
 	input: StepUpdateInput
 ): Promise<OnboardingTemplateStep> {
-	let parsed = parseInput(OnboardingTemplateStepEntity.updateSchema, normalizeStepInput(input));
+	let parsed = normalizeStepInput(parseInput(OnboardingTemplateStepEntity.updateSchema, input));
 	const id = parsed.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step', id);
 	const current = await ctx.store.findOne<Record<string, unknown>>(OnboardingTemplateStepEntity.table, ctx.auth.orgId, {

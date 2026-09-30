@@ -3,14 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
-import type { ScopeSet } from '$lib/access/scopeSetAccess';
-import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/onboarding.types';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/contracts';
 
 let canConfigure = true;
 let scopeSet: ScopeSet = { kind: 'organization' };
 
 vi.mock('$lib/stores/orgContext.svelte', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/stores/orgContext.svelte')>()),
+	...(await importOriginal<Record<string, unknown>>()),
 	getOrgContext: () =>
 		createTestOrgContext({
 			orgId: 'org-1',
@@ -130,11 +130,11 @@ describe('onboarding templates page', () => {
 		await fireEvent.input(screen.getByRole('textbox', { name: 'Description' }), {
 			target: { value: 'Retain my draft' }
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Create', exact: true }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Create$/ }));
 		await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Configuration save unavailable'));
 		expect((screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement).value).toBe('Retry checklist');
 		expect((screen.getByRole('textbox', { name: 'Description' }) as HTMLTextAreaElement).value).toBe('Retain my draft');
-		await fireEvent.click(screen.getByRole('button', { name: 'Create', exact: true }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Create$/ }));
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Edit Retry checklist' })).toBeTruthy());
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
@@ -152,15 +152,19 @@ describe('onboarding templates page', () => {
 		renderTemplatesPage();
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Template' }));
 		const dialog = await screen.findByRole('alertdialog');
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete', exact: true }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
 		await waitFor(() =>
 			expect(within(dialog).getByRole('alert').textContent).toContain('Configuration delete unavailable')
 		);
 		expect(screen.getByRole('button', { name: 'Edit Standard Arrival' })).toBeTruthy();
 		await waitFor(() =>
-			expect(within(dialog).getByRole('button', { name: 'Delete', exact: true }).hasAttribute('disabled')).toBe(false)
+			expect(
+				within(dialog)
+					.getByRole('button', { name: /^Delete$/ })
+					.hasAttribute('disabled')
+			).toBe(false)
 		);
-		await fireEvent.click(within(dialog).getByRole('button', { name: 'Delete', exact: true }));
+		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 		expect(screen.queryByRole('button', { name: 'Edit Standard Arrival' })).toBeNull();
 		expect(screen.queryByRole('alert')).toBeNull();

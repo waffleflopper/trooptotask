@@ -1,0 +1,52 @@
+{
+  "table": "personnel",
+  "organization": "orgA",
+  "count": 3,
+  "rows": [
+    {
+      "id": "062ba23a-5b90-4a21-9add-7a83713bfb6d",
+      "organization_id": "63008a75-f713-41bf-86d5-4abb80f4342c",
+      "rank": "SPC",
+      "last_name": "Unassigned",
+      "first_name": "Synthetic",
+      "clinic_role": "NCO",
+      "group_id": null,
+      "created_at": "2026-09-30T06:10:57.90654+00:00",
+      "mos": "68W",
+      "archived_at": null,
+      "ets": null,
+      "deros": null,
+      "slug": "verify-unassigned"
+    },
+    {
+      "id": "336caa9a-ef3a-4fd9-a253-6cdee2590c4e",
+      "organization_id": "63008a75-f713-41bf-86d5-4abb80f4342c",
+      "rank": "SPC",
+      "last_name": "Able",
+      "first_name": "Synthetic",
+      "clinic_role": "Medic",
+      "group_id": "b22b0065-aa38-49a0-86b1-429047ac15cc",
+      "created_at": "2026-09-30T06:10:57.90654+00:00",
+      "mos": "68W",
+      "archived_at": null,
+      "ets": null,
+      "deros": null,
+      "slug": "verify-able"
+    },
+    {
+      "id": "6c230df5-2725-4097-a52b-8b07c7141380",
+      "organization_id": "63008a75-f713-41bf-86d5-4abb80f4342c",
+      "rank": "SPC",
+      "last_name": "Baker",
+      "first_name": "Synthetic",
+      "clinic_role": "NCO",
+      "group_id": "c7e5fffc-7ba5-415d-9c92-b68b2d6e1d91",
+      "created_at": "2026-09-30T06:10:57.90654+00:00",
+      "mos": "11B",
+      "archived_at": null,
+      "ets": null,
+      "deros": null,
+      "slug": "verify-baker"
+    }
+  ]
+}

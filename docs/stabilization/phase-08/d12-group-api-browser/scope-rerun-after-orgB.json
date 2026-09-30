@@ -1,0 +1,22 @@
+{
+  "table": "personnel",
+  "organization": "orgB",
+  "count": 1,
+  "rows": [
+    {
+      "id": "8e746636-9002-491b-a7ab-76452518c6ee",
+      "organization_id": "203ad8cd-4f9d-448e-ba8c-8a448956e163",
+      "rank": "SPC",
+      "last_name": "Foreign",
+      "first_name": "Synthetic",
+      "clinic_role": "Medic",
+      "group_id": "aae46378-97ce-453f-a875-6e85eccff29e",
+      "created_at": "2026-09-30T06:10:57.90654+00:00",
+      "mos": "11B",
+      "archived_at": null,
+      "ets": null,
+      "deros": null,
+      "slug": "verify-foreign"
+    }
+  ]
+}

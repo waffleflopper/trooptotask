@@ -37,7 +37,12 @@ export async function exportPersonnelWorkbook(
 	listTrainingTypeLabels: (
 		store: UseCaseContext['rawStore'],
 		orgId: string
-	) => Promise<Array<{ id: string; name: string }>>
+	) => Promise<Array<{ id: string; name: string }>>,
+	listPersonnelTrainingExportRows: (
+		store: Pick<UseCaseContext['rawStore'], 'findMany'>,
+		orgId: string,
+		personnelId: string
+	) => Promise<Record<string, unknown>[]>
 ): Promise<PersonnelExportOutput> {
 	const orgId = ctx.auth.orgId;
 	const id = input.personnelId;
@@ -56,7 +61,7 @@ export async function exportPersonnelWorkbook(
 	);
 
 	const [trainings, counseling, availability, trainingTypes, statusTypes, groups] = await Promise.all([
-		ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: id }),
+		listPersonnelTrainingExportRows(ctx.rawStore, orgId, id),
 		ctx.rawStore.findMany<Record<string, unknown>>(
 			'counseling_records',
 			orgId,

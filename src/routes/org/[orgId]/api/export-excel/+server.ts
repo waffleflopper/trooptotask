@@ -9,6 +9,11 @@ import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organiz
 import { buildOrganizationDataExportWorkbook } from '$lib/server/core/useCases/organizationExportWorkbook';
 import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/export/workbook';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import {
+	listTrainingTypeExportRows,
+	listTrainingCompletionExportRows,
+	listTrainingViewExportRows
+} from '$features/training/index.server';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -30,7 +35,16 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 			auditAction: 'export.excel_created',
 			buildArtifact: async () => {
 				if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
-				const exportData = await loadOrganizationExportPayload(ctx.rawStore, ctx.auth, ctx.personnelOrganizationExport);
+				const exportData = await loadOrganizationExportPayload(
+					ctx.rawStore,
+					ctx.auth,
+					ctx.personnelOrganizationExport,
+					{
+						listTrainingTypeExportRows,
+						listTrainingCompletionExportRows,
+						listTrainingViewExportRows
+					}
+				);
 				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);
 

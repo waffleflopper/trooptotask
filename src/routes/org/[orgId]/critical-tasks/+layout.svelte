@@ -3,7 +3,8 @@
 		criticalTasksWorkspaceHydrator,
 		markCriticalTasksWorkspacePending,
 		markCriticalTasksWorkspaceRejected,
-		markCriticalTasksWorkspaceResolved
+		markCriticalTasksWorkspaceResolved,
+		personnelIctCompletionsStore
 	} from '$features/critical-tasks';
 	import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/contracts';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
@@ -35,6 +36,7 @@
 			fallbackMessage: 'Failed to hydrate Critical Tasks workspace',
 			onPending: () => {
 				workspacePending = true;
+				personnelIctCompletionsStore.invalidateImports();
 				markCriticalTasksWorkspacePending(orgId);
 			},
 			onResolved: (criticalTasks) => {

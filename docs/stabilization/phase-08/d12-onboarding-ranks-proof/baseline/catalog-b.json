@@ -1,0 +1,55 @@
+{
+  "table": "organization_rank_catalog",
+  "organization": "orgB",
+  "count": 4,
+  "rows": [
+    {
+      "id": "6e97b127-881a-4c61-9894-13ac29ef2ccf",
+      "organization_id": "3c107571-b5f2-4515-ae7c-baa9557b8377",
+      "code": "SGT",
+      "label": "Sergeant",
+      "service": "army",
+      "category": "enlisted",
+      "pay_grade": "E-5",
+      "state": "active",
+      "source": "built-in",
+      "sort_order": 5
+    },
+    {
+      "id": "72512649-c349-4a70-88bb-5b3dc95f603b",
+      "organization_id": "3c107571-b5f2-4515-ae7c-baa9557b8377",
+      "code": "VFY-ONLY-B",
+      "label": "VFY-ONLY-B",
+      "service": "custom",
+      "category": "custom",
+      "pay_grade": "ungraded",
+      "state": "active",
+      "source": "custom",
+      "sort_order": 102
+    },
+    {
+      "id": "d7d97e1a-59f8-4e46-9513-3ed627cf7e2b",
+      "organization_id": "3c107571-b5f2-4515-ae7c-baa9557b8377",
+      "code": "PFC",
+      "label": "Private First Class",
+      "service": "army",
+      "category": "enlisted",
+      "pay_grade": "E-3",
+      "state": "active",
+      "source": "built-in",
+      "sort_order": 3
+    },
+    {
+      "id": "fd179f58-a4f7-4adc-9adc-4bff3266ae06",
+      "organization_id": "3c107571-b5f2-4515-ae7c-baa9557b8377",
+      "code": "SPC",
+      "label": "Specialist",
+      "service": "army",
+      "category": "enlisted",
+      "pay_grade": "E-4",
+      "state": "active",
+      "source": "built-in",
+      "sort_order": 4
+    }
+  ]
+}

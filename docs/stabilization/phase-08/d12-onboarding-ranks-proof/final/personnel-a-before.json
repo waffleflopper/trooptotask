@@ -1,0 +1,52 @@
+{
+  "table": "personnel",
+  "organization": "orgA",
+  "count": 3,
+  "rows": [
+    {
+      "id": "3a2e38b8-fc5a-43db-82ea-c2076b20c00b",
+      "organization_id": "8f26b802-a10e-443f-a18b-84b2881ed97c",
+      "rank": "SPC",
+      "last_name": "Baker",
+      "first_name": "Synthetic",
+      "clinic_role": "NCO",
+      "group_id": "de2bbfee-1267-4719-8352-e904cb13131a",
+      "created_at": "2026-09-30T16:40:04.204104+00:00",
+      "mos": "11B",
+      "archived_at": null,
+      "ets": null,
+      "deros": null,
+      "slug": "verify-baker"
+    },
+    {
+      "id": "4ed1db73-b6f1-4753-93cc-b7af1722e66a",
+      "organization_id": "8f26b802-a10e-443f-a18b-84b2881ed97c",
+      "rank": "SPC",
+      "last_name": "Unassigned",
+      "first_name": "Synthetic",
+      "clinic_role": "NCO",
+      "group_id": null,
+      "created_at": "2026-09-30T16:40:04.204104+00:00",
+      "mos": "68W",
+      "archived_at": null,
+      "ets": null,
+      "deros": null,
+      "slug": "verify-unassigned"
+    },
+    {
+      "id": "ce435a5f-ee70-410a-8a8d-3e0486939d80",
+      "organization_id": "8f26b802-a10e-443f-a18b-84b2881ed97c",
+      "rank": "SPC",
+      "last_name": "Able",
+      "first_name": "Synthetic",
+      "clinic_role": "Medic",
+      "group_id": "10f0a9ce-1d93-490f-9dd2-7307032cd2b9",
+      "created_at": "2026-09-30T16:40:04.204104+00:00",
+      "mos": "68W",
+      "archived_at": null,
+      "ets": null,
+      "deros": null,
+      "slug": "verify-able"
+    }
+  ]
+}

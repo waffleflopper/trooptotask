@@ -31,6 +31,94 @@ function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Re
 }
 
 describe('importPersonnelBatch', () => {
+	it('advances a hidden Group URL collision while preserving unrelated bulk names and rows', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+			}
+		});
+		ctx.store.seed('groups', [{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha' }]);
+		const hidden = {
+			id: 'hidden-bravo',
+			organization_id: ctx.auth.orgId,
+			group_id: 'group-bravo',
+			rank: 'SGT',
+			last_name: 'Smith',
+			first_name: 'Jamie',
+			slug: 'smith-jamie',
+			ets: '2028-07-01',
+			archived_at: null
+		};
+		const persisted: Array<Record<string, unknown>> = [structuredClone(hidden)];
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		ctx.store.findMany = async <T>(...args: Parameters<typeof ctx.store.findMany>): Promise<T[]> => {
+			const [table, orgId] = args;
+			if (table !== 'personnel') return findMany<T>(...args);
+			return structuredClone(
+				persisted.filter((row) => row.organization_id === orgId && row.group_id === 'group-alpha')
+			) as T[];
+		};
+		// Validate the entire write before persisting any row, as an atomic bulk
+		// insert does. The caller's ordinary read never reveals the Bravo row.
+		ctx.store.insertMany = async <T>(table: string, orgId: string, rows: Record<string, unknown>[]): Promise<T[]> => {
+			if (table !== 'personnel') throw new Error('Unexpected provider table');
+			const used = new Set(persisted.filter((row) => row.organization_id === orgId).map((row) => row.slug));
+			for (const row of rows) {
+				if (used.has(row.slug)) {
+					throw Object.assign(new Error('duplicate key value violates unique constraint "personnel_org_slug_key"'), {
+						code: '23505',
+						details: `Key (organization_id, slug)=(${orgId}, ${row.slug}) already exists.`
+					});
+				}
+				used.add(row.slug);
+			}
+			const inserted = rows.map((row) => ({ ...row, id: crypto.randomUUID(), organization_id: orgId }));
+			persisted.push(...structuredClone(inserted));
+			return structuredClone(inserted) as T[];
+		};
+
+		const outcome = await importPersonnelBatch(ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Rivera', firstName: 'Monica', groupName: 'Alpha' }
+			]
+		}).then(
+			(value) => ({ value, error: null }),
+			(error: unknown) => ({ value: null, error })
+		);
+
+		expect(persisted.find((row) => row.id === hidden.id)).toEqual(hidden);
+		expect.soft(outcome.error).toBeNull();
+		expect.soft(outcome.value).toMatchObject({
+			inserted: [
+				{ slug: 'smith-jamie-2', groupId: 'group-alpha' },
+				{ slug: 'rivera-monica', groupId: 'group-alpha' }
+			],
+			errors: []
+		});
+		expect
+			.soft(persisted.filter((row) => row.group_id === 'group-alpha'))
+			.toEqual([
+				expect.objectContaining({ id: expect.any(String), slug: 'smith-jamie-2', last_name: 'Smith' }),
+				expect.objectContaining({ id: expect.any(String), slug: 'rivera-monica', last_name: 'Rivera' })
+			]);
+		expect.soft(ctx.audit.events).toContainEqual({
+			action: 'personnel.bulk_created',
+			resourceType: 'personnel',
+			details: { count: 2 }
+		});
+	});
+
 	it('rejects empty records array', async () => {
 		const ctx = buildContext();
 		await expect(importPersonnelBatch(ctx, { records: [] })).rejects.toMatchObject({

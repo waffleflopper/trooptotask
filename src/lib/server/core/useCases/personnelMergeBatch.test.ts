@@ -29,7 +29,151 @@ function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Re
 	);
 }
 
+function freshPersonnelProvider(
+	ctx: ReturnType<typeof buildContext>,
+	originals: Array<Record<string, unknown>>,
+	failBeforeUpdate?: (id: string) => boolean
+) {
+	const persisted = structuredClone(originals);
+	const findMany = ctx.store.findMany.bind(ctx.store);
+	const update = ctx.store.update.bind(ctx.store);
+	ctx.store.findMany = async <T>(...args: Parameters<typeof ctx.store.findMany>): Promise<T[]> => {
+		const [table, orgId, , options] = args;
+		if (table !== 'personnel') return findMany<T>(...args);
+		return structuredClone(
+			persisted.filter(
+				(row) => row.organization_id === orgId && (!options?.isNull?.archived_at || row.archived_at === null)
+			)
+		) as T[];
+	};
+	ctx.store.update = async <T>(...args: Parameters<typeof ctx.store.update>): Promise<T> => {
+		const [table, orgId, id, patch] = args;
+		if (table !== 'personnel') return update<T>(...args);
+		if (failBeforeUpdate?.(id)) throw new Error('Provider unavailable: private-personnel-detail');
+		const index = persisted.findIndex((row) => row.organization_id === orgId && row.id === id);
+		if (index === -1) throw new Error('Personnel row missing');
+		persisted[index] = { ...persisted[index], ...patch };
+		return structuredClone(persisted[index]) as T;
+	};
+	return persisted;
+}
+
+function savedPerson(id: string, lastName: string, ets: string | null = null) {
+	return {
+		id,
+		organization_id: 'test-org',
+		rank: 'SGT',
+		last_name: lastName,
+		first_name: 'Jamie',
+		mos: '68W',
+		clinic_role: 'Medic',
+		group_id: null,
+		slug: `${lastName.toLowerCase()}-jamie`,
+		ets,
+		deros: '2028-06-01',
+		archived_at: null
+	};
+}
+
 describe('mergePersonnelBatch', () => {
+	it('returns acknowledged updates and an indexed unconfirmed row, then recovers without rewriting the first Person', async () => {
+		const ctx = buildContext();
+		const originals = [savedPerson('person-one', 'Smith'), savedPerson('person-two', 'Rivera')];
+		let failSecond = true;
+		const persisted = freshPersonnelProvider(ctx, originals, (id) => id === 'person-two' && failSecond);
+		const records = [
+			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' },
+			{ rank: 'SGT', lastName: 'Rivera', firstName: 'Jamie', ets: '2027-07-01' }
+		];
+
+		const outcome = await mergePersonnelBatch(ctx, { records }).then(
+			(value) => ({ value, error: null }),
+			(error: unknown) => ({ value: null, error })
+		);
+
+		expect(persisted).toEqual([{ ...originals[0], ets: '2027-05-01' }, originals[1]]);
+		expect.soft(outcome.error).toBeNull();
+		expect.soft(outcome.value).toMatchObject({
+			updated: [{ id: 'person-one', ets: '2027-05-01' }],
+			errors: [{ index: 1, message: expect.any(String) }],
+			skipped: [],
+			ambiguous: []
+		});
+		const message = outcome.value?.errors[0]?.message ?? '';
+		expect.soft(message).toMatch(/unconfirmed|not confirmed|could not confirm/i);
+		expect.soft(message).not.toContain('private-personnel-detail');
+		expect.soft(ctx.auditPort.events).toContainEqual({
+			action: 'personnel.bulk_merged',
+			resourceType: 'personnel',
+			details: { matched: 2, updated: 1, skipped: 0, ambiguous: 0, errors: 1 }
+		});
+
+		failSecond = false;
+		const recovered = await mergePersonnelBatch(ctx, { records });
+		expect(recovered.updated).toMatchObject([{ id: 'person-two', ets: '2027-07-01' }]);
+		expect(recovered.skipped).toEqual([{ index: 0, message: expect.any(String) }]);
+		expect(recovered.errors).toEqual([]);
+		expect(persisted).toEqual([
+			{ ...originals[0], ets: '2027-05-01' },
+			{ ...originals[1], ets: '2027-07-01' }
+		]);
+	});
+
+	it('skips a separate-request replay while preserving every saved field and identity', async () => {
+		const ctx = buildContext();
+		const original = savedPerson('person-one', 'Smith');
+		const persisted = freshPersonnelProvider(ctx, [original]);
+		const input = { records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }] };
+		const first = await mergePersonnelBatch(ctx, input);
+		expect(first.updated).toMatchObject([{ id: original.id, ets: '2027-05-01' }]);
+		const saved = structuredClone(persisted);
+
+		const replay = await mergePersonnelBatch(ctx, input);
+		expect(replay.updated).toEqual([]);
+		expect(replay.skipped).toEqual([{ index: 0, message: expect.any(String) }]);
+		expect(replay.errors).toEqual([]);
+		expect(persisted).toEqual(saved);
+		expect(persisted).toEqual([{ ...original, ets: '2027-05-01' }]);
+	});
+
+	it('skips equal repeated rows using the latest acknowledged dates rather than the original read snapshot', async () => {
+		const ctx = buildContext();
+		const original = savedPerson('person-one', 'Smith');
+		const persisted = freshPersonnelProvider(ctx, [original]);
+		const record = { rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' };
+
+		const result = await mergePersonnelBatch(ctx, { records: [record, { ...record, deros: '' }] });
+
+		expect.soft(result.updated).toHaveLength(1);
+		expect.soft(result.skipped).toEqual([{ index: 1, message: expect.any(String) }]);
+		expect(result.errors).toEqual([]);
+		expect(persisted).toEqual([{ ...original, ets: '2027-05-01' }]);
+	});
+
+	// This is the newly explicit sequential file-order rule, not a claim that
+	// contradictory repeated rows had an approved historical winner policy.
+	it('applies a later conflicting date against acknowledged state in file order', async () => {
+		const ctx = buildContext();
+		const original = savedPerson('person-one', 'Smith', '2027-01-01');
+		const persisted = freshPersonnelProvider(ctx, [original]);
+		const person = { rank: 'SGT', lastName: 'Smith', firstName: 'Jamie' };
+
+		const result = await mergePersonnelBatch(ctx, {
+			records: [
+				{ ...person, ets: '2027-05-01' },
+				{ ...person, ets: '2027-01-01', deros: '' }
+			]
+		});
+
+		expect.soft(persisted).toEqual([original]);
+		expect.soft(result.updated).toMatchObject([
+			{ id: original.id, ets: '2027-05-01', deros: '2028-06-01' },
+			{ id: original.id, ets: '2027-01-01', deros: '2028-06-01' }
+		]);
+		expect.soft(result.skipped).toEqual([]);
+		expect(result.errors).toEqual([]);
+	});
+
 	it('updates ETS and DEROS on an existing uniquely matched personnel row without creating a duplicate', async () => {
 		const ctx = buildContext();
 		ctx.store.seed('personnel', [

@@ -1,6 +1,6 @@
 # D12 Personnel CSV creation and date backfill
 
-Intermediate scope for [#1360](https://github.com/waffleflopper/trooptotask/issues/1360), from accepted main `480e1e5142beb3b3a3667b6f956cef78a99a70d6`. This is the owned implementation candidate; final native acceptance and publication gates remain pending.
+Intermediate scope for [#1360](https://github.com/waffleflopper/trooptotask/issues/1360), from accepted main `480e1e5142beb3b3a3667b6f956cef78a99a70d6`. The owned implementation and affected native journeys pass; complete publication-head CI, bot review and final independent acceptance remain pending.
 
 ## Scope and retained behavior
 
@@ -36,11 +36,23 @@ The next run tested `a7602c7ab29d40600a367036bf8b980a3b4a05b5`, digest `57ce2864
 
 Native scoped operate Import is available without Add Person; scoped configure has both. Empty and viewer lack Import; separate ordinary authenticated requests respectively return indexed no-effect errors (HTTP 200) and HTTP 403, with no created row. Healthy manager CSV saves two People. Backfill's stale-Group warning is now truthful; a unique match preserves its Alpha Group and blank DEROS. Deliberately unchecked source row 2 remains unchanged; source row 3 saves and unmatched row 4 fails. Review → correct row 4 → keyboard Tab blur retains **one of three** selected rows. The actual retry sends **one** record and saves one, leaving the acknowledged and unchecked People exactly unchanged. Reload preserves IDs/slug/rank/Group/MOS/Duty Role/dates; same-value replay saves zero/skips two.
 
-**Unresolved live failure:** Native scoped two-row creation with a hidden Bravo name still returns generic HTTP 500 and saves neither the colliding nor unrelated Alpha row. The sanitized owned app log confirms the named `personnel_org_slug_key` rejection. Its log sanitizer omits raw code/details, so missing or unusable candidate DETAIL is an inference from the strict extractor, not observed raw metadata. The test fake always supplies detailed candidate text; supported missing/redacted details need a separate reproduction and repair. This run is not final acceptance, despite passing lower-level checks and source review. Earlier successful backfill/selection observations retain their own candidate and scope.
+**Rejected frozen-candidate observation (superseded by fresh proof below):** Native scoped two-row creation with a hidden Bravo name still returns generic HTTP 500 and saves neither the colliding nor unrelated Alpha row. The sanitized owned app log confirms the named `personnel_org_slug_key` rejection. Its log sanitizer omits raw code/details, so missing or unusable candidate DETAIL is an inference from the strict extractor, not observed raw metadata. The test fake always supplies detailed candidate text; supported missing/redacted details need a separate reproduction and repair. This run is not final acceptance, despite passing lower-level checks and source review. Earlier successful backfill/selection observations retain their own candidate and scope.
 
 Readback initially used a nonexistent Personnel `name` column, corrected to allowlisted `last_name`. A cleanup lookup used the dialog title as a button label, failed before a click and was corrected with the fresh dialog-scoped Archive control. A private-log lookup initially included the public session UUID in the worker path, then corrected the owned path. All attempt outputs/notes remain; no input changed during driving.
 
 Only after final doctor/cleanup, Robert's merged [#1446](https://github.com/waffleflopper/trooptotask/pull/1446), `3fdcedb848c5586289e2dc6f3c3ff5c35c73ebc8`, was merged as `f58d9891`. Definition of Done and updated verification/stabilization/finish skills were reread. Those six instruction-only changes and later evidence packaging are not a new live run or a changed application observation. Original tested revisions/digests and payload bytes remain intact; the baseline archive was repackaged only to add its inventory, with every earlier payload hash preserved. No historical merged proof is deleted.
+
+## Repaired creation proof
+
+[147-payload native archive](d12-batch-proof/candidate-8c40.tar.gz), [mixed results](d12-batch-proof/candidate-8c40-mixed-results.png) and [failed-only correction](d12-batch-proof/candidate-8c40-failed-only-correction.png) test `8c40c406766fa208ea2b993f9a52657b3115d50e`, digest `aa9b2f03bd9c457a357a145b9a0e9304013742f6fa9625264838f92bc30aed83`, worker2/origin `http://127.0.0.1:38929`, session `dc003118-f666-47f5-b9e2-bd5ad2b5235a`, with the same runtime/browser versions. Production launch and both unchanged-input doctors pass. Healthy manager CSV creates two People. Native scoped operate CSV submits three rows (HTTP200): hidden-name Alpha and unrelated Alpha save, while unauthorized Bravo reports original CSV row4 and has no stored row. HiddenBravo remains exactly unchanged; HiddenAlpha has a distinct ID and `-2` URL, while unrelated retains its canonical URL. Bravo remains hidden after scoped reload.
+
+Review → correct only Row4 Group → keyboard Tab blur retains **one of three** selected. The actual retry sends **one** record, creates only the corrected Alpha Person and leaves both acknowledged records unchanged. Reload confirms exact IDs, rank, names, Group, MOS, role and dates; sixteen field equalities and explicit scope/URL expectations pass. The original missing-DETAIL diagnosis remains inferred from sanitized logging, while the actual previously failing native creation now passes. Creation is not an idempotent upsert, and uncertain saves are never deliberately retried.
+
+Manager visibly archives all five UI-created People; duplicate names are located with their Alpha/Bravo row context. Owner visibly confirms permanent removal of each full ranked name. Archives reload has zero; original A3/B1 restore exactly, clean-seeds/unchanged-digest final doctor and owned cleanup pass. No helper seed or active service remains. Failed pre-action upload-schema and dynamic-preview-label attempts are retained and corrected in the run notes; neither is an application failure or skipped path.
+
+The earlier a760 backfill, failed-only selection, persistence/replay and configure/empty/viewer observations remain applicable: their application, context, provider production, fixture and control bytes are unchanged. This run separately exercises the added creation-recovery recipe. The complete integrated focused selection now passes **12 files / 226 tests**, sequential types zero errors/warnings, format checking/lint/governance pass (713 findings/no regression; two existing Calendar reactivity warnings). An initial narrower command matched only six files/113 tests; its log remains and earns no omitted-suite credit. The production build is supplied by this frozen native launch; complete exact-publication-head CI remains required.
+
+Only after doctor/cleanup were these per-run archives added. `git diff 8c40c406 -- src scripts .agents` has no changes; subsequent packaging/receipt-only heads are not a fresh live run. Independent source review of the integrated repair passes Standards/scoped Spec; expanded final-artifact acceptance remains pending. No independent live execution is claimed.
 
 ## Packaging and review scope
 
@@ -48,11 +60,21 @@ The follow-up redacted-metadata baseline (`77f8ca72`, integrated as `8cf36dc1`) 
 
 Every archive includes `SHA256SUMS` for all payload relative names and sanitized expanded bytes, excluding the inventory itself. Secret-pattern scans, fresh ignored extraction, exact file-set equality and every expanded hash pass. No capture redaction was needed; the provider log is an explicitly limited name/message/stack excerpt rather than raw error metadata. Representative screenshots were inspected. Archive hashes protect the inventories:
 
-| Archive                                 | Payload files | SHA-256                                                            |
-| --------------------------------------- | ------------: | ------------------------------------------------------------------ |
-| `d12-batch-proof/baseline.tar.gz`       |           126 | `7411be1d45e2d1d705731b2baf75e36b07dcb03925fd903e64fd64ba2bfd4180` |
-| `d12-batch-proof/candidate-a760.tar.gz` |           163 | `75203f7fd786b01e7b138abdce5f8104750a9d88ac12e776c9981cc6f7d22354` |
-| `d12-batch-proof/undriven-a368.tar.gz`  |             2 | `d29a9bf59721503f577c763e3e425c78ed6c29dda5940c074ce373ecc91bfb9a` |
+| Archive                                                                      | Payload files | SHA-256                                                            |
+| ---------------------------------------------------------------------------- | ------------: | ------------------------------------------------------------------ |
+| [ baseline.tar.gz ](d12-batch-proof/baseline.tar.gz)                         |           126 | `7411be1d45e2d1d705731b2baf75e36b07dcb03925fd903e64fd64ba2bfd4180` |
+| [ candidate-a760.tar.gz ](d12-batch-proof/candidate-a760.tar.gz)             |           163 | `75203f7fd786b01e7b138abdce5f8104750a9d88ac12e776c9981cc6f7d22354` |
+| [ undriven-a368.tar.gz ](d12-batch-proof/undriven-a368.tar.gz)               |             2 | `d29a9bf59721503f577c763e3e425c78ed6c29dda5940c074ce373ecc91bfb9a` |
+| [ policy-baseline.tar.gz ](d12-batch-proof/policy-baseline.tar.gz)           |             2 | `a4969d63e9defaf709cba6798dc7b4e53efe832e7d083572937fa5ebee99167b` |
+| [ selection-baseline.tar.gz ](d12-batch-proof/selection-baseline.tar.gz)     |             2 | `d9705169b8a5cf52413c85412c521826bdbe4a355ff8486d7ee81bcf609229a2` |
+| [ server-baseline.tar.gz ](d12-batch-proof/server-baseline.tar.gz)           |             6 | `bbdb0b5a2fb28cad8d28fb2fd97015da0a838d5fa6ec4c81bceb39623fc55829` |
+| [ server-repair.tar.gz ](d12-batch-proof/server-repair.tar.gz)               |             5 | `168a80fa2bd74f326dd78fcb30127ed177503fc46dc148f8e0ae4a92320d4471` |
+| [ caller-repair-a368.tar.gz ](d12-batch-proof/caller-repair-a368.tar.gz)     |             7 | `4a14a4e5903460b93f60a46abe1bbf095c570eace680daaf19148c54ef3f6564` |
+| [ boundary-repair-a760.tar.gz ](d12-batch-proof/boundary-repair-a760.tar.gz) |             5 | `c8b56c757307eb675efb4d0ad862e958702c39066f5d5b6b711e635fd6daac7c` |
+| [ redacted-baseline.tar.gz ](d12-batch-proof/redacted-baseline.tar.gz)       |             3 | `a970ee273f48030c5cfb9cbf03d936c162787eb9470657df0d47f4ec475e03c3` |
+| [ redacted-repair.tar.gz ](d12-batch-proof/redacted-repair.tar.gz)           |            11 | `f1c50875c328cf208272325933ab531e42fdb257f1562d4e3692f8b566186dcf` |
+| [ integrated-8c40.tar.gz ](d12-batch-proof/integrated-8c40.tar.gz)           |             7 | `0955ccf2567f0e0d5a514f40b8966a68587704fa78d934522721416ec7197602` |
+| [ candidate-8c40.tar.gz ](d12-batch-proof/candidate-8c40.tar.gz)             |           147 | `6229292a43464f26fb7765e01d0f5c2574ff88aacfe46bb6baa6627315ab7cd0` |
 
 From the repository root, substitute each archive path, compare the printed archive hash above and extract into a fresh ignored directory:
 
@@ -71,6 +93,6 @@ Before the next review, count the complete actual diff against `3fdcedb8`, inclu
 
 ## Acceptance and remainder
 
-The hidden-collision repair, its fresh native proof, final affected checks, complete Definition of Done checks, proportional bot review and independent full-diff/source-artifact acceptance remain pending. No independent live execution, production parity or remote provider setting is claimed. No migration is planned; a new migration would stop for Robert's manual operation. Existing Vercel Git deployment settings remain external.
+The hidden-collision repair, fresh native proof and final affected checks pass. Complete publication-head Definition of Done checks, proportional bot review and independent full-diff/source-artifact acceptance remain pending. No independent live execution, production parity or remote provider setting is claimed. No migration is planned; a new migration would stop for Robert's manual operation. Existing Vercel Git deployment settings remain external.
 
 Lifecycle/archive/restore/approved deletion, remaining detail/header/readiness/bootstrap consumers/removals, affected Organization/shared-tab response ordering, exports and final integrated whole-issue acceptance remain with #1360. D15 PersonnelOnboarding ownership and other issues/phases remain separate.

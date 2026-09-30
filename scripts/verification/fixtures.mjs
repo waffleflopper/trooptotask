@@ -246,6 +246,7 @@ export async function seed(session) {
 					['SPC', 'Specialist', 'E-4', 4],
 					['SGT', 'Sergeant', 'E-5', 5]
 				].map(([code, label, payGrade, order]) => ({
+					id: randomUUID(),
 					organization_id: organizationId,
 					code,
 					label,

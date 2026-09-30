@@ -11,3 +11,9 @@ export {
 	listNotificationExportRows
 } from './notificationOperations.server';
 export type { NotificationSelfPorts, NotificationStore } from './notificationOperations.server';
+
+export {
+	createSupabaseAccountAnnouncementDismissals,
+	dismissAccountAnnouncement
+} from './announcementDismissals.server';
+export type { AccountAnnouncementDismissals } from './announcementDismissals.server';

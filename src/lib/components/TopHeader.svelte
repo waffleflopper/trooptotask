@@ -53,14 +53,7 @@
 		children?: Snippet;
 	}
 
-	interface Notification {
-		id: string;
-		title: string;
-		message: string | null;
-		link: string | null;
-		read: boolean;
-		created_at: string;
-	}
+	import type { Notification } from '$features/notifications/contracts';
 
 	let {
 		orgId,

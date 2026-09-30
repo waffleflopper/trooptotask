@@ -1,3 +1,9 @@
+import type { Announcement } from '$features/notifications/contracts';
+import {
+	createSupabaseNotificationStore,
+	createSupabaseAccountAnnouncementDismissals
+} from '$features/notifications/index.server';
+import { listActiveAnnouncementContent } from '$features/platform-admin/index.server';
 /**
  * Supabase-backed implementations of App Shell ports for the org shell split
  * (RFC #415). These are the production adapters; in-memory equivalents for tests live in
@@ -20,7 +26,6 @@ import type {
 	OrgAccessPort,
 	MembershipInfo,
 	OrgState,
-	Announcement,
 	OrganizationSwitcherOrg
 } from '../core/orgShell';
 import {
@@ -208,7 +213,7 @@ export function createSupabaseAppShellFirstPaintChromePort(config: {
 	userId: string;
 	/** User-scoped Supabase client for dismissals and preferences. */
 	userSupabase: SupabaseClient;
-	/** Service-role or anon client for platform announcements. */
+	/** Admitted request-user client for platform announcement content. */
 	supabase: SupabaseClient;
 }): AppShellFirstPaintChromePort {
 	return {
@@ -238,19 +243,8 @@ export function createSupabaseAppShellDeferredChromePort(config: {
 	userSupabase: SupabaseClient;
 }): AppShellDeferredChromePort {
 	return {
-		async getUnreadNotificationCount(): Promise<number> {
-			const { count, error: notificationError } = await config.userSupabase
-				.from('notifications')
-				.select('id', { count: 'exact', head: true })
-				.eq('user_id', config.userId)
-				.eq('organization_id', config.orgId)
-				.eq('read', false);
-
-			if (notificationError) {
-				throw new Error(`Failed to load unread notification count: ${notificationError.message}`);
-			}
-
-			return count ?? 0;
+		getUnreadNotificationCount(): Promise<number> {
+			return createSupabaseNotificationStore(config.userSupabase).countOwnUnread(config.orgId, config.userId);
 		},
 
 		getOrganizationSwitcherOrgs(): Promise<OrganizationSwitcherOrg[]> {
@@ -268,54 +262,12 @@ async function loadActiveAnnouncements(config: {
 	supabase: SupabaseClient;
 }): Promise<Announcement[]> {
 	try {
-		const [announcementsRes, dismissalsRes] = await Promise.all([
-			selectAllSupabaseRows<Record<string, unknown>>(
-				(from, to) =>
-					config.supabase
-						.from('platform_announcements')
-						.select('id, title, message, type')
-						.eq('is_active', true)
-						.or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-						.range(from, to) as unknown as Promise<{
-						data: Record<string, unknown>[] | null;
-						error: unknown;
-					}>
-			),
-			selectAllSupabaseRows<Record<string, unknown>>(
-				(from, to) =>
-					config.userSupabase
-						.from('announcement_dismissals')
-						.select('announcement_id')
-						.eq('user_id', config.userId)
-						.range(from, to) as unknown as Promise<{
-						data: Record<string, unknown>[] | null;
-						error: unknown;
-					}>
-			)
+		const [announcements, dismissedIds] = await Promise.all([
+			listActiveAnnouncementContent(config.supabase),
+			createSupabaseAccountAnnouncementDismissals(config.userSupabase, config.userId).listDismissedIds()
 		]);
-
-		if (announcementsRes.error) {
-			throw new Error(
-				`Failed to load platform announcements: ${(announcementsRes.error as { message?: string }).message ?? 'Unknown error'}`
-			);
-		}
-
-		if (dismissalsRes.error) {
-			throw new Error(
-				`Failed to load announcement dismissals: ${(dismissalsRes.error as { message?: string }).message ?? 'Unknown error'}`
-			);
-		}
-
-		const dismissedIds = new Set((dismissalsRes.data ?? []).map((dismissal) => dismissal.announcement_id));
-
-		return (announcementsRes.data ?? [])
-			.filter((announcement) => !dismissedIds.has(announcement.id))
-			.map((announcement) => ({
-				id: announcement.id as string,
-				title: announcement.title as string,
-				message: announcement.message as string,
-				type: announcement.type as 'info' | 'warning' | 'maintenance'
-			}));
+		const dismissed = new Set(dismissedIds);
+		return announcements.filter(({ id }) => !dismissed.has(id));
 	} catch (cause) {
 		console.error('[app-shell] Failed to load first-paint announcements:', cause);
 		return [];

@@ -1,3 +1,5 @@
+import { fail } from '$lib/errors';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	memberAccessCommandToStorage,
@@ -39,23 +41,6 @@ import { validateEmail, validateUUID } from '$lib/server/validation';
 type GovernancePorts = Parameters<typeof requireGovernancePolicy>[0];
 type AuthContext = GovernancePorts['auth'];
 type AuditPort = GovernancePorts['audit'];
-
-interface NotificationPort {
-	notifyUser(
-		orgId: string,
-		userId: string,
-		notification: { type: string; title: string; message: string; link?: string | null }
-	): Promise<void>;
-	notifyAdmins(
-		orgId: string,
-		excludeUserId: string | null,
-		notification: { type: string; title: string; message: string; link?: string | null }
-	): Promise<void>;
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -165,7 +150,7 @@ export interface OrganizationInvitationDeliveryPort {
 interface OrganizationSettingsMemberManagementPorts {
 	auth: AuthContext;
 	audit: AuditPort;
-	notifications: NotificationPort;
+	notifications: NotificationDeliveryPort;
 
 	settings: OrganizationSettingsMemberManagementPort;
 	invitationDelivery?: OrganizationInvitationDeliveryPort;

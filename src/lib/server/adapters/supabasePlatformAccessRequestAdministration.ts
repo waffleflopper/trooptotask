@@ -8,7 +8,8 @@ import {
 	type AccessRequestInvitationOriginRow
 } from '$lib/server/accessRequestInvitationOrigin';
 import { rejectAccessRequestAndBlockLinkedInvitations } from '$lib/server/accessRequestInvitationBlocking';
-import { notifyAdmins } from '$lib/server/notifications';
+import { createSupabaseNotificationDelivery } from '$features/notifications/index.server';
+import { createSupabaseOrganizationAdministratorRecipients } from '$features/organization/index.server';
 import { checkPlatformAccessRequestSetupRateLimit } from '$lib/server/platformAccessRequestRateLimit';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
@@ -164,6 +165,10 @@ export function createSupabasePlatformAccessRequestAdministrationStore(
 export function createSupabasePlatformAccessRequestAdministration(
 	ctx: AdminContext
 ): PlatformAccessRequestAdministration {
+	const notifications = createSupabaseNotificationDelivery({
+		getAdminClient: () => ctx.adminClient,
+		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(() => ctx.adminClient)
+	});
 	return createPlatformAccessRequestAdministration({
 		store: createSupabasePlatformAccessRequestAdministrationStore(ctx.adminClient),
 		...createSupabaseAccountSetupLinkIssuancePorts(ctx.adminClient),
@@ -176,7 +181,7 @@ export function createSupabasePlatformAccessRequestAdministration(
 		audit: (event) => ctx.audit(event),
 		notifyGovernors: {
 			notifyInvitationBlocked: (input) =>
-				notifyAdmins(input.organizationId, input.adminUserId, {
+				notifications.notifyAdmins(input.organizationId, input.adminUserId, {
 					type: 'member_invite_blocked',
 					title: 'Invitation Blocked',
 					message: `"${input.email}" can no longer use the organization invitation because platform access was rejected.`,

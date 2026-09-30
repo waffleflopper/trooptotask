@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig as typePost, _putConfig as typePut, _deleteConfig as typeDelete } from './+server';
@@ -16,6 +16,27 @@ describe('Training catalog JSON routes', () => {
 		expect(renamed).toMatchObject({ id: view.id, name: 'Focus Two', columnIds: [type.id] });
 		expect(await handleUseCaseRequest(viewDelete, ctx, { id: view.id })).toEqual({ success: true });
 		expect(await handleUseCaseRequest(typeDelete, ctx, { id: type.id })).toEqual({ success: true });
+		expect(ctx.notificationPort.notifications).toEqual([
+			{
+				target: 'admins',
+				orgId: ctx.auth.orgId,
+				excludeUserId: ctx.auth.userId,
+				notification: {
+					type: 'config_type_deleted',
+					title: 'Training Type Deleted',
+					message: 'A training type was deleted.'
+				}
+			}
+		]);
+	});
+
+	it('retains completed deletion and audit when unexpected notification delivery fails', async () => {
+		const ctx = createTestContext();
+		const type = await handleUseCaseRequest(typePost, ctx, { name: 'CPR' });
+		vi.spyOn(ctx.notifications, 'notifyAdmins').mockRejectedValueOnce(new Error('delivery unavailable'));
+		await expect(handleUseCaseRequest(typeDelete, ctx, { id: type.id })).rejects.toThrow('delivery unavailable');
+		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: type.id })).toBeNull();
+		expect(ctx.auditPort.events.some(({ action }) => action === 'training_type.deleted')).toBe(true);
 	});
 
 	it('rejects malformed IDs and denies a Training operator configuration writes', async () => {

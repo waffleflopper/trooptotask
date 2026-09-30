@@ -23,3 +23,11 @@ export interface NotificationDeliveryPort {
 	notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void>;
 	notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void>;
 }
+
+/** Global content shown by Notifications after account dismissal filtering. */
+export interface Announcement {
+	id: string;
+	title: string;
+	message: string;
+	type: 'info' | 'warning' | 'maintenance';
+}

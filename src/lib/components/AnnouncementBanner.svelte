@@ -2,6 +2,7 @@
 	import XIcon from '@lucide/svelte/icons/x';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Announcement {
 		id: string;
@@ -14,18 +15,28 @@
 		$props();
 
 	let visibleAnnouncements = $derived([...announcements]);
+	let dismissing = $state<string[]>([]);
 
 	$effect(() => {
 		onCountChange?.(visibleAnnouncements.length);
 	});
 
 	async function dismiss(id: string) {
-		visibleAnnouncements = visibleAnnouncements.filter((a) => a.id !== id);
-		await fetch('/api/announcements/dismiss', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ announcementId: id })
-		});
+		if (dismissing.includes(id)) return;
+		dismissing = [...dismissing, id];
+		try {
+			const response = await fetch('/api/announcements/dismiss', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ announcementId: id })
+			});
+			if (!response.ok) throw new Error('Could not dismiss announcement');
+			visibleAnnouncements = visibleAnnouncements.filter((announcement) => announcement.id !== id);
+		} catch {
+			toastStore.error('Could not dismiss announcement. Try again.');
+		} finally {
+			dismissing = dismissing.filter((pendingId) => pendingId !== id);
+		}
 	}
 
 	function variantFor(type: Announcement['type']) {
@@ -55,6 +66,7 @@
 					size="xs"
 					class="shrink-0"
 					onclick={() => dismiss(announcement.id)}
+					disabled={dismissing.includes(announcement.id)}
 					aria-label="Dismiss announcement"
 				>
 					<XIcon aria-hidden="true" class="size-3" />

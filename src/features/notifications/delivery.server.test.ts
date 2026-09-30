@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createSupabaseNotificationDelivery } from './delivery.server';
-import { notificationTestProvider } from './notificationTestProvider';
+import { notificationTestProvider } from './notificationTestProvider.server';
 
 afterEach(() => vi.restoreAllMocks());
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createSupabaseNotificationStore } from './notificationProvider.server';
-import { notificationTestProvider, savedNotification } from './notificationTestProvider';
+import { notificationTestProvider, savedNotification } from './notificationTestProvider.server';
 
 describe('notification request provider', () => {
 	it('lists the newest twenty own Organization rows while count and export include the outside-page rows', async () => {

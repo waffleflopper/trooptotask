@@ -9,8 +9,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
-import { fail } from '../core/errors';
-import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination';
+import { fail } from '$lib/errors';
+import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination.server';
 
 type DistinctAuditLogActionsRpcClient = {
 	rpc(

@@ -30,7 +30,7 @@ import {
 } from '../core/useCases/loadAppShell';
 import { getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
 	getPreferredOrganizationUrlSegment,
 	resolveOrganizationRouteIdentity

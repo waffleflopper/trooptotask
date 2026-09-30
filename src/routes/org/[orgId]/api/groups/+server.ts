@@ -1,6 +1,6 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
 import { createGroup, deleteGroup, updateGroup } from '$features/personnel/index.server';
 

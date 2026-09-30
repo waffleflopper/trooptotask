@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 
 /** Current administrator membership facts; notification delivery supplies actor exclusion. */
 export function createSupabaseOrganizationAdministratorRecipients(getAdminClient: () => SupabaseClient) {

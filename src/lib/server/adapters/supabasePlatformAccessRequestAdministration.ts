@@ -11,7 +11,7 @@ import { rejectAccessRequestAndBlockLinkedInvitations } from '$lib/server/access
 import { notifyAdmins } from '$lib/server/notifications';
 import { checkPlatformAccessRequestSetupRateLimit } from '$lib/server/platformAccessRequestRateLimit';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
 	createPlatformAccessRequestAdministration,
 	type AccessRequestAuthEmailOutbox,

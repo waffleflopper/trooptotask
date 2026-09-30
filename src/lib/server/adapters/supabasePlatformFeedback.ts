@@ -15,7 +15,7 @@ import {
 	type PlatformFeedbackStoreUpdateResult,
 	type PlatformFeedbackUpdateInput
 } from '$lib/server/core/useCases/platformFeedback';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { env } from '$env/dynamic/private';
 

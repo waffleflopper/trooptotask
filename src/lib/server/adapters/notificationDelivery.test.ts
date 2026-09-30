@@ -4,7 +4,9 @@ const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
 
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 
-import { notifyAdmins, notifyUser } from './notifications';
+import { createRequestNotificationDelivery } from './httpAdapter';
+const { notifyAdmins, notifyUser } = createRequestNotificationDelivery();
+
 
 interface Membership {
 	organization_id: string;

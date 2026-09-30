@@ -1,7 +1,9 @@
 {
 	"owners": {
 		"access": {
-			"roots": ["src/lib/access/"],
+			"roots": [
+				"src/lib/access/"
+			],
 			"files": [
 				"src/lib/server/adapters/scopeRules.ts",
 				"src/lib/server/core/useCases/featurePolicy.ts",
@@ -54,7 +56,9 @@
 			"packet": "08-M03"
 		},
 		"audit": {
-			"roots": ["src/lib/audit/"],
+			"roots": [
+				"src/lib/audit/"
+			],
 			"files": [
 				"src/lib/server/adapters/supabaseAudit.test.ts",
 				"src/lib/server/adapters/supabaseAudit.ts",
@@ -69,7 +73,10 @@
 			"packet": "08-M13"
 		},
 		"calendar": {
-			"roots": ["src/features/calendar/", "src/lib/components/ui/calendar-status-badge/"],
+			"roots": [
+				"src/features/calendar/",
+				"src/lib/components/ui/calendar-status-badge/"
+			],
 			"files": [
 				"src/lib/components/GroupHeader.svelte",
 				"src/lib/components/GroupHeader.test.ts",
@@ -82,12 +89,16 @@
 			"packet": "08-M05"
 		},
 		"critical-tasks": {
-			"roots": ["src/features/critical-tasks/"],
+			"roots": [
+				"src/features/critical-tasks/"
+			],
 			"files": [],
 			"packet": "08-M08"
 		},
 		"dashboard": {
-			"roots": ["src/features/dashboard/"],
+			"roots": [
+				"src/features/dashboard/"
+			],
 			"files": [
 				"src/lib/server/core/useCases/dashboardQuery.test.ts",
 				"src/lib/server/core/useCases/dashboardQuery.ts",
@@ -124,7 +135,9 @@
 			"packet": "08-M02"
 		},
 		"delivery": {
-			"roots": ["src/routes/"],
+			"roots": [
+				"src/routes/"
+			],
 			"files": [
 				"scripts/check-governance.mjs",
 				"src/hooks.organizationAdmission.test.ts",
@@ -141,7 +154,6 @@
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
-				"src/lib/server/core/errors.ts",
 				"src/lib/server/core/featureLaneWorkspaceLoad.ts",
 				"src/lib/server/core/ports.ts",
 				"src/lib/server/core/streamedWorkspace.test.ts",
@@ -165,11 +177,18 @@
 		},
 		"feedback": {
 			"roots": [],
-			"files": ["src/lib/components/FeedbackModal.svelte"],
+			"files": [
+				"src/lib/components/FeedbackModal.svelte"
+			],
 			"packet": "08-M13"
 		},
 		"identity": {
-			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/", "src/lib/preferences/"],
+			"roots": [
+				"src/features/identity/",
+				"src/lib/auth/",
+				"src/lib/components/auth/",
+				"src/lib/preferences/"
+			],
 			"files": [
 				"src/lib/server/accessRequestInvitationBlocking.test.ts",
 				"src/lib/server/accessRequestInvitationBlocking.ts",
@@ -200,7 +219,10 @@
 			"packet": "08-M13"
 		},
 		"onboarding": {
-			"roots": ["src/features/onboarding/", "src/lib/components/ui/onboarding-packet-list/"],
+			"roots": [
+				"src/features/onboarding/",
+				"src/lib/components/ui/onboarding-packet-list/"
+			],
 			"files": [
 				"src/lib/server/core/useCases/onboardingLifecycle.test.ts",
 				"src/lib/server/core/useCases/onboardingLifecycle.ts",
@@ -218,7 +240,9 @@
 			"packet": "08-M09"
 		},
 		"organization": {
-			"roots": ["src/features/organization/"],
+			"roots": [
+				"src/features/organization/"
+			],
 			"files": [
 				"src/lib/server/adapters/supabaseOrgSettingsAdministration.ts",
 				"src/lib/server/adapters/supabaseOrganizationAdmission.ts",
@@ -230,7 +254,9 @@
 			"packet": "08-M02"
 		},
 		"personnel": {
-			"roots": ["src/features/personnel/"],
+			"roots": [
+				"src/features/personnel/"
+			],
 			"files": [
 				"src/lib/domain/readinessSignals.test.ts",
 				"src/lib/domain/readinessSignals.ts",
@@ -274,7 +300,9 @@
 			"packet": "08-M04"
 		},
 		"platform-admin": {
-			"roots": ["src/lib/components/admin/"],
+			"roots": [
+				"src/lib/components/admin/"
+			],
 			"files": [
 				"src/lib/server/adapters/adminAdapter.http.test.ts",
 				"src/lib/server/adapters/adminAdapter.test.ts",
@@ -344,7 +372,9 @@
 			"packet": "08-M12"
 		},
 		"provider": {
-			"roots": ["src/lib/storage/"],
+			"roots": [
+				"src/lib/storage/"
+			],
 			"files": [
 				"src/lib/server/adapters/inMemory.ts",
 				"src/lib/server/adapters/privateResources.test.ts",
@@ -359,9 +389,9 @@
 				"src/lib/server/env.ts",
 				"src/lib/server/supabase.ts",
 				"src/lib/server/supabasePagination.test.ts",
-				"src/lib/server/supabasePagination.ts",
 				"src/lib/server/validation.test.ts",
-				"src/lib/server/validation.ts"
+				"src/lib/server/validation.ts",
+				"src/lib/server/supabasePagination.server.ts"
 			],
 			"packet": "08-M15"
 		},
@@ -382,7 +412,9 @@
 			"packet": "08-M17"
 		},
 		"rating-scheme": {
-			"roots": ["src/features/rating-scheme/"],
+			"roots": [
+				"src/features/rating-scheme/"
+			],
 			"files": [
 				"src/lib/server/core/useCases/ratingSchemeEntryCrud.test.ts",
 				"src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
@@ -404,7 +436,10 @@
 			"packet": "08-M14"
 		},
 		"shared": {
-			"roots": ["src/lib/stores/core/", "src/lib/test-support/"],
+			"roots": [
+				"src/lib/stores/core/",
+				"src/lib/test-support/"
+			],
 			"files": [
 				"src/d3-scale.d.ts",
 				"src/lib/domain/currencyStatus.test.ts",
@@ -428,17 +463,22 @@
 				"src/lib/utils/streamedWorkspaceHydrator.test.ts",
 				"src/lib/utils/streamedWorkspaceHydrator.ts",
 				"src/lib/utils/workbook.test.ts",
-				"src/lib/utils/workbook.ts"
+				"src/lib/utils/workbook.ts",
+				"src/lib/errors.ts"
 			],
 			"packet": "08-M16"
 		},
 		"sign-in-rosters": {
-			"roots": ["src/features/sign-in-rosters/"],
+			"roots": [
+				"src/features/sign-in-rosters/"
+			],
 			"files": [],
 			"packet": "08-M11"
 		},
 		"training": {
-			"roots": ["src/features/training/"],
+			"roots": [
+				"src/features/training/"
+			],
 			"files": [],
 			"packet": "08-M07"
 		},
@@ -485,7 +525,10 @@
 		]
 	},
 	"dependencies": {
-		"access": ["shared", "provider"],
+		"access": [
+			"shared",
+			"provider"
+		],
 		"app-shell": [
 			"identity",
 			"organization",
@@ -498,9 +541,27 @@
 			"shared",
 			"web-ui"
 		],
-		"audit": ["access", "provider", "shared"],
-		"calendar": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
-		"critical-tasks": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"audit": [
+			"access",
+			"provider",
+			"shared"
+		],
+		"calendar": [
+			"personnel",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"critical-tasks": [
+			"personnel",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
 		"dashboard": [
 			"organization",
 			"personnel",
@@ -571,12 +632,54 @@
 			"training",
 			"web-ui"
 		],
-		"feedback": ["organization", "provider", "shared", "web-ui"],
-		"identity": ["access", "audit", "provider", "shared", "web-ui"],
-		"notifications": ["identity", "access", "audit", "provider", "shared", "web-ui"],
-		"onboarding": ["personnel", "training", "notifications", "access", "audit", "provider", "shared", "web-ui"],
-		"organization": ["identity", "notifications", "access", "audit", "provider", "shared", "web-ui"],
-		"personnel": ["organization", "access", "audit", "provider", "shared", "web-ui"],
+		"feedback": [
+			"organization",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"identity": [
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"notifications": [
+			"identity",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"onboarding": [
+			"personnel",
+			"training",
+			"notifications",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"organization": [
+			"identity",
+			"notifications",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"personnel": [
+			"organization",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
 		"platform-admin": [
 			"identity",
 			"organization",
@@ -589,9 +692,22 @@
 			"shared",
 			"web-ui"
 		],
-		"provider": ["shared"],
-		"public-web": ["identity", "web-ui", "shared"],
-		"rating-scheme": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"provider": [
+			"shared"
+		],
+		"public-web": [
+			"identity",
+			"web-ui",
+			"shared"
+		],
+		"rating-scheme": [
+			"personnel",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
 		"scheduled-maintenance": [
 			"identity",
 			"organization",
@@ -607,19 +723,56 @@
 			"web-ui"
 		],
 		"shared": [],
-		"sign-in-rosters": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
-		"training": ["personnel", "sign-in-rosters", "access", "audit", "provider", "shared", "web-ui"],
-		"web-ui": ["shared"]
+		"sign-in-rosters": [
+			"personnel",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"training": [
+			"personnel",
+			"sign-in-rosters",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
+		"web-ui": [
+			"shared"
+		]
 	},
 	"publicRoots": {
-		"shared": ["src/lib/utils/", "src/lib/domain/", "src/lib/stores/core/", "src/lib/test-support/"],
-		"web-ui": ["src/lib/components/ui/", "src/lib/components/charts/", "src/lib/hooks/"],
-		"access": ["src/lib/access/"],
-		"provider": ["src/lib/server/", "src/lib/storage/"]
+		"shared": [
+			"src/lib/utils/",
+			"src/lib/domain/",
+			"src/lib/stores/core/",
+			"src/lib/test-support/"
+		],
+		"web-ui": [
+			"src/lib/components/ui/",
+			"src/lib/components/charts/",
+			"src/lib/hooks/"
+		],
+		"access": [
+			"src/lib/access/"
+		],
+		"provider": [
+			"src/lib/server/",
+			"src/lib/storage/"
+		]
 	},
 	"publicFiles": {
-		"shared": ["src/lib/utils.ts", "src/lib/types.ts"],
-		"provider": [],
+		"shared": [
+			"src/lib/utils.ts",
+			"src/lib/types.ts",
+			"src/lib/errors.ts"
+		],
+		"provider": [
+			"src/lib/server/supabasePagination.server.ts"
+		],
 		"access": [
 			"src/lib/server/permissions.ts",
 			"src/lib/server/permissionContext.ts",
@@ -640,7 +793,9 @@
 			"src/features/critical-tasks/index.ts",
 			"src/features/critical-tasks/index.server.ts"
 		],
-		"dashboard": ["src/features/dashboard/index.ts"],
+		"dashboard": [
+			"src/features/dashboard/index.ts"
+		],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",
 			"src/features/onboarding/index.ts",
@@ -651,8 +806,13 @@
 			"src/features/personnel/index.ts",
 			"src/features/personnel/index.server.ts"
 		],
-		"rating-scheme": ["src/features/rating-scheme/index.ts"],
-		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts", "src/features/sign-in-rosters/index.server.ts"],
+		"rating-scheme": [
+			"src/features/rating-scheme/index.ts"
+		],
+		"sign-in-rosters": [
+			"src/features/sign-in-rosters/index.ts",
+			"src/features/sign-in-rosters/index.server.ts"
+		],
 		"training": [
 			"src/features/training/contracts.ts",
 			"src/features/training/index.ts",
@@ -666,7 +826,10 @@
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts"
 		],
-		"audit": ["src/lib/audit/index.server.ts", "src/lib/server/logSanitize.ts"],
+		"audit": [
+			"src/lib/audit/index.server.ts",
+			"src/lib/server/logSanitize.ts"
+		],
 		"identity": [
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",

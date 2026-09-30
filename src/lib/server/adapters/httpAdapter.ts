@@ -34,7 +34,9 @@ import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcemen
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import { createSupabaseNotificationAdapter } from './supabaseNotification';
+import { createSupabaseNotificationDelivery, createSupabaseNotificationStore } from '$features/notifications/index.server';
+import { createSupabaseOrganizationAdministratorRecipients, createSupabaseFeedbackOrganizationContextPort } from '$features/organization/index.server';
+import { createFeedbackSubmission, createSupabaseFeedbackSubmissionStore, createGitHubFeedbackMirror } from '$features/feedback/index.server';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
@@ -55,7 +57,7 @@ import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/inde
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import {
 	enforceLoadAuthorization,
 	enforceRouteAuthorization,
@@ -66,6 +68,24 @@ import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 import type { LeaderNoteContext, LeaderNoteRow } from '$features/personnel/index.server';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+
+/** Bind delivery to owned Organization recipient facts without giving Notifications membership access. */
+export function createRequestNotificationDelivery() {
+	return createSupabaseNotificationDelivery({
+		getAdminClient,
+		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(getAdminClient)
+	});
+}
+
+/** Construct Feedback collaborators only after the route admits the account. */
+export function createRequestFeedbackSubmission() {
+	const context = createSupabaseFeedbackOrganizationContextPort(getAdminClient);
+	return createFeedbackSubmission({
+		store: createSupabaseFeedbackSubmissionStore(getAdminClient),
+		resolveOrganizationContext: (input) => context.resolveOrganizationContext(input),
+		mirror: createGitHubFeedbackMirror()
+	});
+}
 
 /**
  * Gets authentication context for API routes.
@@ -217,7 +237,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 		orgId
 	});
 
-	const notifications = createSupabaseNotificationAdapter();
+	const notifications = createRequestNotificationDelivery();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
@@ -249,6 +269,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 			notifications,
+			notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
 
 			storage: createSupabaseStorageAdapter(supabase),
 			sensitiveActionAuthorizer,
@@ -312,7 +333,7 @@ export async function buildLayoutContext(
 		orgId: canonicalOrgId
 	});
 
-	const notifications = createSupabaseNotificationAdapter();
+	const notifications = createRequestNotificationDelivery();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
@@ -344,6 +365,7 @@ export async function buildLayoutContext(
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 		notifications,
+		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
 
 		storage,
 		sensitiveActionAuthorizer,
@@ -395,7 +417,7 @@ export async function buildLayoutContextFromMembership(
 		scopeSet: permCtx.scopeSet
 	});
 
-	const notifications = createSupabaseNotificationAdapter();
+	const notifications = createRequestNotificationDelivery();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
 	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
@@ -427,6 +449,7 @@ export async function buildLayoutContextFromMembership(
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 		notifications,
+		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
 
 		storage,
 		sensitiveActionAuthorizer,

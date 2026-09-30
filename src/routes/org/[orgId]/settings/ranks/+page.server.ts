@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseRankCatalogAdministrationPort } from '$features/personnel/index.server';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import {
 	addOrganizationRankServicePack,
 	bulkSetOrganizationRankCatalogState,

@@ -10,7 +10,7 @@ import {
 	type NotificationSelfPorts
 } from './notificationOperations.server';
 import { createSupabaseNotificationStore } from './notificationProvider.server';
-import { notificationTestProvider, savedNotification } from './notificationTestProvider';
+import { notificationTestProvider, savedNotification } from './notificationTestProvider.server';
 
 function selfPorts(provider: ReturnType<typeof notificationTestProvider>): NotificationSelfPorts {
 	return {

@@ -1,3 +1,5 @@
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
+import type { NotificationSelfPorts } from '$features/notifications/index.server';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
@@ -132,20 +134,6 @@ export interface AuditPort {
 	}): void;
 }
 
-/** Notification payload for user/admin notifications */
-export interface NotificationPayload {
-	type: string;
-	title: string;
-	message: string;
-	link?: string | null;
-}
-
-/** Abstracts notification delivery — business logic never imports Supabase notifications */
-export interface NotificationPort {
-	notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void>;
-	notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void>;
-}
-
 /** Abstracts file storage operations — business logic never imports Supabase storage */
 export interface StoragePort {
 	upload(bucket: string, path: string, data: File | Blob | ArrayBuffer, options?: { upsert?: boolean }): Promise<void>;
@@ -174,7 +162,7 @@ export interface WritePorts {
 
 /** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
 export interface WriteWithNotificationsPorts extends WritePorts {
-	notifications: NotificationPort;
+	notifications: NotificationDeliveryPort;
 }
 
 /** User-scoped operations that aren't org-level writes (e.g., pinned groups) */
@@ -206,13 +194,14 @@ export interface QueryWithRawStorePorts extends QueryPorts {
 
 /** Combined context for all use cases */
 export interface UseCaseContext {
+	notificationSelf: NotificationSelfPorts;
 	store: DataStore;
 	auth: AuthContext;
 	scope: ScopeEnforcementPort;
 	audit: AuditPort;
 	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
 
-	notifications: NotificationPort;
+	notifications: NotificationDeliveryPort;
 	storage: StoragePort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;

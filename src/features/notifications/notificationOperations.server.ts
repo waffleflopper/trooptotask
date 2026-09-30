@@ -1,6 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { Notification } from './contracts';
 
 export interface NotificationStore {

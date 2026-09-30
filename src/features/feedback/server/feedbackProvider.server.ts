@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { FeedbackExportRow, FeedbackItem, FeedbackUpdateInput } from '../contracts';
 import type { FeedbackReviewStore, FeedbackSubmissionStore } from './feedbackPorts.server';
 

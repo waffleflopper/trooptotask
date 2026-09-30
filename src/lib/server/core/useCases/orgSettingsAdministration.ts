@@ -1,6 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { AuthContext, AuditPort, NotificationPort } from '$lib/server/core/ports';
-import { fail } from '$lib/server/core/errors';
+import type { AuthContext, AuditPort } from '$lib/server/core/ports';
+import { fail } from '$lib/errors';
 import { sanitizeString } from '$lib/server/validation';
 import {
 	ORGANIZATION_DELETE_ACTION,
@@ -23,7 +23,6 @@ export interface OrganizationSettingsAdministrationPort {
 interface OrganizationSettingsAdministrationPorts {
 	auth: AuthContext;
 	audit: AuditPort;
-	notifications: NotificationPort;
 
 	administration: OrganizationSettingsAdministrationPort;
 }

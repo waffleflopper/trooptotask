@@ -10,7 +10,7 @@
  *
  * Notification sends are fire-and-forget — failures don't block the mutation.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
 import { reviewerDetails, subjectDetails } from '$lib/server/auditDetails';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

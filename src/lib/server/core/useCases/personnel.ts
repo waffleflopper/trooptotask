@@ -87,6 +87,12 @@ function rankCodesMatchCanonical(left: string, right: string | undefined): boole
 	return right !== undefined && left.trim().toUpperCase() === right.trim().toUpperCase();
 }
 
+async function requireGroupInOrganization(ctx: WritePorts, groupId: string | null | undefined): Promise<void> {
+	if (!groupId) return;
+	const group = await ctx.store.findOne<{ id: string }>('groups', ctx.auth.orgId, { id: groupId }, 'id');
+	if (!group) fail(404, 'Group not found.');
+}
+
 export function createPersonnelUseCases(): PersonnelUseCases {
 	return {
 		async create(ctx, data) {
@@ -98,6 +104,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			);
 
 			const validated = entity.createSchema.parse(data);
+			await requireGroupInOrganization(ctx, validated.groupId as string | null | undefined);
 			validated.rank = await normalizeActivePersonnelRank(ctx, (validated as { rank: string }).rank);
 			const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
 			if (validated.groupId !== undefined) dbData.group_id = validated.groupId || null;
@@ -155,6 +162,7 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 					AUDIT_RESOURCE,
 					id
 				);
+				await requireGroupInOrganization(ctx, nextGroupId);
 			}
 
 			const nextRank = (validated as { rank?: string }).rank;

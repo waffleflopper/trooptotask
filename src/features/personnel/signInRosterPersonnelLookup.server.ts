@@ -22,7 +22,7 @@ export function createSupabaseSignInRosterPersonnelLookupPort(
 
 			const { data, error } = await getAdminClient()
 				.from('personnel')
-				.select('id, rank, last_name, first_name, group_id, groups(name)')
+				.select('id, rank, last_name, first_name, group_id, groups:groups!personnel_group_id_fkey(name)')
 				.eq('organization_id', orgId)
 				.in('id', personnelIds);
 

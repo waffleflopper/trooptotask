@@ -227,7 +227,10 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 		},
 
 		async archive(ctx, id) {
-			const currentRecord = await ctx.store.findOne<{ group_id: string | null }>(entity.table, ctx.auth.orgId, { id });
+			const currentRecord = await lifecycleLookupStore(ctx).findOne<{
+				group_id: string | null;
+				archived_at: string | null;
+			}>(entity.table, ctx.auth.orgId, { id });
 
 			await requireFeaturePolicy(
 				ctx,
@@ -253,10 +256,11 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				id
 			);
 
-			const archivedAt = new Date().toISOString();
-			await ctx.store.update(entity.table, ctx.auth.orgId, id, {
-				archived_at: archivedAt
-			});
+			const archivedAt = currentRecord?.archived_at ?? new Date().toISOString();
+			if (!currentRecord?.archived_at) {
+				await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: archivedAt });
+			}
+			// A retry completes only remaining active artifacts under the original event.
 			await archivePersonnelOwnedArtifacts(ctx, [id], archivedAt);
 
 			ctx.audit.log({

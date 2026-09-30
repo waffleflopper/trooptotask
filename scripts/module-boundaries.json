@@ -159,7 +159,8 @@
 				"src/tests/no-google-fonts.test.ts",
 				"src/tests/security-posture.test.ts",
 				"src/app.d.ts",
-				"src/lib/server/adapters/notificationDelivery.test.ts"
+				"src/lib/server/adapters/notificationDelivery.test.ts",
+				"src/lib/server/communicationsPagination.server.test.ts"
 			],
 			"packet": "08-M15"
 		},

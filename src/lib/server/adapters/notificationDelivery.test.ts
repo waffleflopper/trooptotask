@@ -33,6 +33,7 @@ function createProvider(memberships: Membership[] = []) {
 
 	function membershipQuery() {
 		const filters: ((membership: Membership) => boolean)[] = [];
+		let compareMemberships: ((left: Membership, right: Membership) => number) | undefined;
 		const query = {
 			select() {
 				return query;
@@ -45,10 +46,18 @@ function createProvider(memberships: Membership[] = []) {
 				filters.push((membership) => values.includes(membership[column]));
 				return query;
 			},
+			order(column: keyof Membership, options: { ascending: boolean }) {
+				compareMemberships = (left, right) => {
+					const compared = left[column].localeCompare(right[column]);
+					return options.ascending ? compared : -compared;
+				};
+				return query;
+			},
 			async range(from: number, to: number) {
 				return {
 					data: state.memberships
 						.filter((membership) => filters.every((filter) => filter(membership)))
+						.toSorted(compareMemberships)
 						.slice(from, Math.min(to + 1, from + 1000)),
 					error: null
 				};

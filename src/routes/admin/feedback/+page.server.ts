@@ -1,10 +1,10 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
-import { createSupabasePlatformFeedback } from '$lib/server/adapters/supabasePlatformFeedback';
-import type { PlatformFeedbackItem, PlatformFeedbackStatus } from '$lib/server/core/useCases/platformFeedback';
+import { createFeedbackReview, createSupabaseFeedbackReviewStore } from '$features/feedback/index.server';
+import type { FeedbackItem, FeedbackStatus } from '$features/feedback/contracts';
 
-interface FeedbackItem {
+interface PageFeedbackItem {
 	id: string;
 	user_email: string;
 	category: string;
@@ -16,7 +16,7 @@ interface FeedbackItem {
 	admin_notes: string | null;
 }
 
-function toPageFeedbackItem(item: PlatformFeedbackItem): FeedbackItem {
+function toPageFeedbackItem(item: FeedbackItem): PageFeedbackItem {
 	return {
 		id: item.id,
 		user_email: item.userEmail,
@@ -33,7 +33,9 @@ function toPageFeedbackItem(item: PlatformFeedbackItem): FeedbackItem {
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'feedback',
 	fn: async (ctx) => {
-		const all = (await createSupabasePlatformFeedback(ctx).list()).map(toPageFeedbackItem);
+		const all = (await createFeedbackReview(createSupabaseFeedbackReviewStore(ctx.adminClient)).list()).map(
+			toPageFeedbackItem
+		);
 
 		return {
 			newItems: all.filter((f) => f.status === 'new'),
@@ -59,14 +61,16 @@ export const actions: Actions = {
 
 			const updateData: {
 				id: string;
-				status?: PlatformFeedbackStatus;
+				status?: FeedbackStatus;
 				adminNotes?: string;
 			} = { id: feedbackId };
-			if (statusValue) updateData.status = String(statusValue) as PlatformFeedbackStatus;
+			if (statusValue) updateData.status = String(statusValue) as FeedbackStatus;
 			if (adminNotesValue !== null) updateData.adminNotes = String(adminNotesValue) || '';
 
 			try {
-				const result = await createSupabasePlatformFeedback(ctx).update(updateData);
+				const result = await createFeedbackReview(createSupabaseFeedbackReviewStore(ctx.adminClient)).update(
+					updateData
+				);
 				if (result.status === 'not_found') {
 					// The seam intentionally turns a missing feedback row into an explicit admin error.
 					return fail(404, { error: 'Feedback not found' });

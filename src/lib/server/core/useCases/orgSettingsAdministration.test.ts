@@ -71,7 +71,6 @@ describe('Organization sensitive-action suspension admission', () => {
 		const ports = {
 			auth: ctx.auth,
 			audit: ctx.audit,
-			notifications: ctx.notifications,
 			administration,
 			sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
 				authenticatedUserId: 'owner-1',
@@ -141,7 +140,6 @@ describe('Organization session denial effects', () => {
 			const ports = {
 				auth: ctx.auth,
 				audit: ctx.audit,
-				notifications: ctx.notifications,
 				administration,
 				sensitiveActionAuthorizer: createSupabaseSensitiveActionAuthorizer({
 					authenticatedUserId: 'owner-1',
@@ -178,10 +176,7 @@ describe('renameOrganization', () => {
 		const port = createOrganizationSettingsAdministrationPort();
 
 		await expect(
-			renameOrganization(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
-				{ name: 'Alpha Company' }
-			)
+			renameOrganization({ auth: ctx.auth, audit: ctx.audit, administration: port }, { name: 'Alpha Company' })
 		).rejects.toMatchObject({
 			status: 403,
 			message: 'This action requires an organization admin or owner role'
@@ -210,7 +205,7 @@ describe('renameOrganization', () => {
 		const port = createOrganizationSettingsAdministrationPort();
 
 		const result = await renameOrganization(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+			{ auth: ctx.auth, audit: ctx.audit, administration: port },
 			{ name: '  Alpha   Company  ' }
 		);
 
@@ -230,10 +225,7 @@ describe('renameOrganization', () => {
 		const port = createOrganizationSettingsAdministrationPort();
 
 		await expect(
-			renameOrganization(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
-				{ name: '   ' }
-			)
+			renameOrganization({ auth: ctx.auth, audit: ctx.audit, administration: port }, { name: '   ' })
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Organization name is required'
@@ -250,10 +242,7 @@ describe('renameOrganization', () => {
 		});
 
 		await expect(
-			renameOrganization(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
-				{ name: 'Alpha Company' }
-			)
+			renameOrganization({ auth: ctx.auth, audit: ctx.audit, administration: port }, { name: 'Alpha Company' })
 		).rejects.toMatchObject({
 			status: 500,
 			message: 'rename failed'
@@ -273,7 +262,7 @@ describe('updateOrganizationUrlSlug', () => {
 		const port = createOrganizationSettingsAdministrationPort();
 
 		const result = await updateOrganizationUrlSlug(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
+			{ auth: ctx.auth, audit: ctx.audit, administration: port },
 			{ urlSlug: '  1-11-BDE  ' }
 		);
 
@@ -298,10 +287,7 @@ describe('updateOrganizationUrlSlug', () => {
 		const port = createOrganizationSettingsAdministrationPort({ existingSlugOrgId: 'org-2' });
 
 		await expect(
-			updateOrganizationUrlSlug(
-				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, administration: port },
-				{ urlSlug: '1-11-bde' }
-			)
+			updateOrganizationUrlSlug({ auth: ctx.auth, audit: ctx.audit, administration: port }, { urlSlug: '1-11-bde' })
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Organization URL slug is already in use'
@@ -322,7 +308,6 @@ describe('updateOrganizationUrlSlug', () => {
 		const result = await clearOrganizationUrlSlug({
 			auth: ctx.auth,
 			audit: ctx.audit,
-			notifications: ctx.notifications,
 			administration: port
 		});
 
@@ -354,7 +339,6 @@ describe('deleteOrganization', () => {
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					notifications: ctx.notifications,
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
@@ -395,7 +379,6 @@ describe('deleteOrganization', () => {
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
-				notifications: ctx.notifications,
 				administration: port,
 				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 			},
@@ -441,7 +424,6 @@ describe('deleteOrganization', () => {
 			{
 				auth: ctx.auth,
 				audit: ctx.audit,
-				notifications: ctx.notifications,
 				administration: port,
 				sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 			},
@@ -481,7 +463,6 @@ describe('deleteOrganization', () => {
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					notifications: ctx.notifications,
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
@@ -519,7 +500,6 @@ describe('deleteOrganization', () => {
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					notifications: ctx.notifications,
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
@@ -567,7 +547,6 @@ describe('deleteOrganization', () => {
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					notifications: ctx.notifications,
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
@@ -598,7 +577,6 @@ describe('deleteOrganization', () => {
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					notifications: ctx.notifications,
 					administration: port,
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},

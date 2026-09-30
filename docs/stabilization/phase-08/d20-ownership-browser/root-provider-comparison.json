@@ -1,0 +1,31 @@
+{
+  "candidate": "57b6ab93ab4876332be38a8d4c4380927ae3c8cbb32d47a5e13cf6b0f9821e90",
+  "revision": "1a92c4c1ccafc6af4ac0cf267f997f2e582e858e",
+  "origin": "http://127.0.0.1:46317",
+  "seedTag": "8ed59ddb",
+  "providerComparison": "PASS",
+  "verifiedSavedNotifications": {
+    "ownVisible": 20,
+    "ownSaved": 24,
+    "bulkOwnRead": 24,
+    "peerForeignUnchanged": true,
+    "heldARead": true,
+    "heldBRead": false,
+    "ownDeleteAllPreservesOther": true,
+    "sameAccountDeleteAPreservesB": true
+  },
+  "feedback": {
+    "cancelRows": 0,
+    "failedSubmitAddedRows": 0,
+    "successfulRetryRows": 1,
+    "forgedAccountAndOrganizationIgnored": true
+  },
+  "dismissals": {
+    "failedAddedRows": 0,
+    "successfulRetryRows": 1,
+    "pendingCrossOrgRows": 1,
+    "repeatEndpointRows": 1
+  },
+  "anonymousNoChanges": true,
+  "proofType": "Coordinator artifact comparison of saved provider responses; native actions/snapshots and separate API responses are retained independently."
+}

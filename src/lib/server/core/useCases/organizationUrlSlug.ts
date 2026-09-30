@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateUUID } from '$lib/server/validation';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 export const ORGANIZATION_SLUG_MIN_LENGTH = 3;

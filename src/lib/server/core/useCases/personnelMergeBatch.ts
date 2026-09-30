@@ -1,4 +1,4 @@
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { PersonnelEntity } from '$features/personnel/index.server';
 import { sanitizeString } from '$lib/server/validation';

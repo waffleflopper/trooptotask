@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createWritePortsContext, createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import {
 	createTrainingType,
 	updateTrainingType,
@@ -24,7 +24,10 @@ const NO_CONFIGURE = {
 
 describe('Training catalog operations', () => {
 	it('creates a type with the saved defaults, clears its description, then deletes and notifies admins', async () => {
-		const ctx = createWriteWithNotificationsPortsContext();
+		const ctx = {
+			...createWritePortsContext(),
+			notifyTrainingTypeDeleted: vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+		};
 		const created = await createTrainingType(ctx, { name: 'First Aid', description: 'Initial description' });
 		expect(created).toMatchObject({
 			name: 'First Aid',
@@ -42,9 +45,7 @@ describe('Training catalog operations', () => {
 
 		await deleteTrainingType(ctx, created.id);
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: created.id })).toBeNull();
-		expect(ctx.notifications.notifications).toMatchObject([
-			{ notification: { type: 'config_type_deleted', title: 'Training Type Deleted' } }
-		]);
+		expect(ctx.notifyTrainingTypeDeleted).toHaveBeenCalledOnce();
 		expect(ctx.audit.events.map((event) => event.action)).toEqual([
 			'training_type.created',
 			'training_type.updated',
@@ -53,7 +54,10 @@ describe('Training catalog operations', () => {
 	});
 
 	it('keeps completions and skips deletion side effects when the type delete is rejected', async () => {
-		const ctx = createWriteWithNotificationsPortsContext();
+		const ctx = {
+			...createWritePortsContext(),
+			notifyTrainingTypeDeleted: vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+		};
 		const created = await createTrainingType(ctx, { name: 'Protected type' });
 		ctx.store.seed('personnel_trainings', [
 			{ id: 'record-1', organization_id: ctx.auth.orgId, training_type_id: created.id }
@@ -64,7 +68,7 @@ describe('Training catalog operations', () => {
 		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: created.id })).not.toBeNull();
 		expect(await ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'record-1' })).not.toBeNull();
 		expect(ctx.audit.events.map((event) => event.action)).toEqual(['training_type.created']);
-		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.notifyTrainingTypeDeleted).not.toHaveBeenCalled();
 	});
 
 	it('denies both catalog writes without configuration capability', async () => {

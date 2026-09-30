@@ -1,18 +1,19 @@
 import { json, error } from '@sveltejs/kit';
+import { createRequestAccountAnnouncementDismissals, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 import type { RequestHandler } from './$types';
-import { createSupabaseAnnouncementDismissalsFromLocals } from '$lib/server/adapters/supabaseAnnouncementDismissals';
-import { validateUUID } from '$lib/server/validation';
+import { dismissAccountAnnouncement } from '$features/notifications/index.server';
 
 export const POST: RequestHandler = async ({ locals, request }) => {
-	const { user } = locals;
-	if (!user) throw error(401, 'Not authenticated');
-
+	const actor = locals.actor;
+	if (!actor) throw error(401, 'Not authenticated');
 	const { announcementId } = await request.json();
-	if (!announcementId || !validateUUID(announcementId)) {
-		throw error(400, 'Invalid announcement ID');
+	try {
+		await dismissAccountAnnouncement(
+			{ userId: actor.userId, dismissals: createRequestAccountAnnouncementDismissals(locals, actor.userId) },
+			announcementId
+		);
+	} catch (cause) {
+		rethrowOrWrap(cause);
 	}
-
-	await createSupabaseAnnouncementDismissalsFromLocals(locals).dismiss(user.id, announcementId);
-
 	return json({ success: true });
 };

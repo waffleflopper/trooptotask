@@ -192,7 +192,9 @@ export async function seed(session) {
 		orgAdmin: { organization: 'orgA', role: 'admin', scope: 'organization' },
 		orgMember: { organization: 'orgA', role: 'member', scope: 'groups', groups: [ids.groupA] },
 		orgInvitee: { organization: null },
-		orgCreator: { organization: null }
+		orgCreator: { organization: null },
+		platformReviewer: { organization: null },
+		platformSupport: { organization: null }
 	};
 	const notificationActors = {
 		notificationMember: { organization: 'orgA' },
@@ -238,6 +240,12 @@ export async function seed(session) {
 		existingAccount: actors.orgInvitee.email,
 		newAccount: `org-new-invitee-${randomUUID()}@example.test`
 	};
+	checked(
+		await service.from('platform_admins').insert([
+			{ user_id: actors.platformReviewer.id, role: 'super_admin', is_active: true },
+			{ user_id: actors.platformSupport.id, role: 'support', is_active: true }
+		])
+	);
 	checked(
 		await service.from('organizations').insert([
 			{ id: ids.orgA, name: 'Verification Organization A', created_by: actors.orgOwner.id },

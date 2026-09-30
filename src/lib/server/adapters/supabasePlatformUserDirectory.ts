@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { createSupabasePlatformMetrics } from './supabasePlatformMetrics';
 import {
 	createPlatformUserDirectory,

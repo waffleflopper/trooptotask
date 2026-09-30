@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import {
 	deleteArtifact,

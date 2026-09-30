@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { listNotificationExportRows } from '$features/notifications/index.server';
 import type { MembershipRow } from '$lib/server/permissionContext';
 import { cacheRequestMembership, getCachedRequestMembership } from '$lib/server/membershipContextCache';
 
 import { buildRouteContext, buildLayoutContext, buildLayoutContextFromMembership } from './httpAdapter';
+
+const { getAdminClient } = vi.hoisted(() => ({
+	getAdminClient: vi.fn(() => {
+		throw new Error('Privileged client forbidden in request communications export');
+	})
+}));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
 const OTHER_ORG_ID = '22222222-2222-2222-2222-222222222222';
@@ -303,6 +312,61 @@ describe('request-bound sensitive-action authorization', () => {
 				ctx.sensitiveActionAuthorizer.authorize({ action: 'organization.deleteOrganization', actorUserId: USER_ID })
 			).resolves.toMatchObject({ allowed: true, reason: 'allowed.mfaAssurance' });
 			expect(assurance).toHaveBeenCalledWith('verified-token');
+		}
+	);
+});
+
+describe('request-bound communications exports', () => {
+	it.each(['route', 'layout', 'membership'] as const)(
+		'uses the request client and admitted user/Organization in the %s context',
+		async (kind) => {
+			getAdminClient.mockClear();
+			const own = { id: 'own', user_id: USER_ID, organization_id: ORG_ID };
+			const rows = [
+				own,
+				{ ...own, id: 'peer', user_id: OTHER_USER_ID },
+				{ ...own, id: 'foreign', organization_id: OTHER_ORG_ID }
+			];
+			const supabase = createClient('http://127.0.0.1:9', 'synthetic-request-key', {
+				auth: { persistSession: false, autoRefreshToken: false },
+				global: {
+					fetch: async (input) => {
+						const url = new URL(String(input));
+						if (!['notifications', 'beta_feedback'].includes(url.pathname.split('/').at(-1)!)) {
+							throw new Error('Unexpected request client read');
+						}
+						// The provider models current SELECT-own RLS independently of explicit query scope.
+						return Response.json(
+							rows.filter(
+								(row) =>
+									row.user_id === USER_ID &&
+									(!url.searchParams.has('organization_id') ||
+										url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+									(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
+							)
+						);
+					}
+				}
+			});
+			const membership = { role: 'owner' } satisfies MembershipRow;
+			const locals = { actor: { userId: USER_ID }, supabase } as unknown as App.Locals;
+			cacheRequestMembership(locals, USER_ID, ORG_ID, membership);
+			const ctx =
+				kind === 'membership'
+					? await buildLayoutContextFromMembership(locals, {} as never, ORG_ID, membership)
+					: kind === 'layout'
+						? await buildLayoutContext(locals, {} as never, ORG_ID)
+						: await buildRouteContext({
+								locals,
+								cookies: {},
+								params: { orgId: ORG_ID },
+								request: new Request('http://localhost'),
+								getClientAddress: () => '127.0.0.1'
+							} as never);
+
+			await expect(listNotificationExportRows(ctx.notificationSelf)).resolves.toEqual([own]);
+			await expect(ctx.feedbackExport.listRows(ctx.auth.orgId)).resolves.toEqual([own]);
+			expect(getAdminClient).not.toHaveBeenCalled();
 		}
 	);
 });

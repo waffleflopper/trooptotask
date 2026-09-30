@@ -33,7 +33,6 @@ export const actions: Actions = {
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					notifications: ctx.notifications,
 
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
@@ -60,7 +59,6 @@ export const actions: Actions = {
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					notifications: ctx.notifications,
 
 					administration: createSupabaseOrgSettingsAdministrationPort(locals)
 				},
@@ -87,7 +85,6 @@ export const actions: Actions = {
 			await clearOrganizationUrlSlug({
 				auth: ctx.auth,
 				audit: ctx.audit,
-				notifications: ctx.notifications,
 
 				administration: createSupabaseOrgSettingsAdministrationPort(locals)
 			});

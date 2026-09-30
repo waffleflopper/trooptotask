@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Notification } from '$features/notifications/contracts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -51,15 +52,6 @@
 		onFeedback?: () => void;
 		onWhatsNew?: () => void;
 		children?: Snippet;
-	}
-
-	interface Notification {
-		id: string;
-		title: string;
-		message: string | null;
-		link: string | null;
-		read: boolean;
-		created_at: string;
 	}
 
 	let {

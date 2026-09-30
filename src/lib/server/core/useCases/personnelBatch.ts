@@ -6,7 +6,7 @@
  *
  * Single-record creation and editing use Personnel-owned record operations.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';

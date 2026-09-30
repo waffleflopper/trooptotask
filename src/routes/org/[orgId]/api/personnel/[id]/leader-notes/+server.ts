@@ -1,7 +1,7 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, personnelLeaderNoteContext, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import type { PersonnelLeaderNote, PersonnelLeaderNoteInput } from '$features/personnel/contracts';
 

@@ -2,20 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
 	createSupabaseDashboardOrgAccessPortMock,
-	createSupabaseNotificationAdapterMock,
+	createRequestNotificationDeliveryMock,
 	loadDashboardOrgAccessMock,
 	acceptDashboardInvitationMock,
 	declineDashboardInvitationMock
 } = vi.hoisted(() => ({
 	createSupabaseDashboardOrgAccessPortMock: vi.fn(),
-	createSupabaseNotificationAdapterMock: vi.fn(),
+	createRequestNotificationDeliveryMock: vi.fn(),
 	loadDashboardOrgAccessMock: vi.fn(),
 	acceptDashboardInvitationMock: vi.fn(),
 	declineDashboardInvitationMock: vi.fn()
 }));
 
-vi.mock('$lib/server/adapters/supabaseNotification', () => ({
-	createSupabaseNotificationAdapter: createSupabaseNotificationAdapterMock
+vi.mock('$lib/server/adapters/httpAdapter', () => ({
+	createRequestNotificationDelivery: createRequestNotificationDeliveryMock
 }));
 
 vi.mock('$features/organization/index.server', async () => {
@@ -38,7 +38,7 @@ describe('dashboard page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		createSupabaseDashboardOrgAccessPortMock.mockReturnValue({ kind: 'dashboard-port' });
-		createSupabaseNotificationAdapterMock.mockReturnValue({ notifyAdmins: vi.fn(), notifyUser: vi.fn() });
+		createRequestNotificationDeliveryMock.mockReturnValue({ notifyAdmins: vi.fn(), notifyUser: vi.fn() });
 		loadDashboardOrgAccessMock.mockResolvedValue({
 			organizations: [],
 			pendingInvitations: [],
@@ -178,6 +178,6 @@ describe('dashboard page server', () => {
 			status: 404,
 			data: { error: 'Invitation not found' }
 		});
-		expect(createSupabaseNotificationAdapterMock).toHaveBeenCalledOnce();
+		expect(createRequestNotificationDeliveryMock).toHaveBeenCalledOnce();
 	});
 });

@@ -1,0 +1,94 @@
+{
+  "status": "PASS for bounded Support review and Organization exports baseline",
+  "candidate": "b27ded0575bbcba4b4887ec082267b559d6db228bee467e6ff5fe79532b6821e",
+  "revision": "7eb1cf67e0d2468c44631f3f013830053595e85d",
+  "origin": "http://127.0.0.1:45327",
+  "worker": 1,
+  "orgA": "6422bea4-381b-4ebe-98c6-1a61f5cf7e65",
+  "browser": "Chromium 152.0.7977.82 Arch Linux",
+  "recordedNativeToolCalls": 50,
+  "nativeToolCounts": {
+    "take_snapshot": 17,
+    "click": 19,
+    "fill": 2,
+    "fill_form": 2,
+    "navigate_page": 4,
+    "take_screenshot": 4,
+    "evaluate_script": 1,
+    "press_key": 1
+  },
+  "nativeCallsExclude": "50 wrapper-logged calls: one superseded-origin snapshot and 49 corrected origin 45327 calls; actor-helper sign-in actions and helper control/readback calls are additional.",
+  "handoffDoctorTimeUTC": "2026-09-30T19:34:32.669730+00:00",
+  "completedTimeUTC": "2026-09-30T19:59:09.162419+00:00",
+  "observations": [
+    {
+      "proof": "native UI + reload + exact provider readback",
+      "behavior": "platformReviewer saved Reviewed and unique admin notes; platformSupport then saved Resolved and unique notes on exact owner feedback row 3a5b2120-d40e-4d17-90cc-2cc701493c57. Immutable context preserved."
+    },
+    {
+      "proof": "native page + separate authenticated GET + provider readback",
+      "behavior": "notificationMember cannot enter /admin/feedback: visible 403, HTTP 403 with denial body and no exact feedback message, exact feedback unchanged."
+    },
+    {
+      "proof": "native invite/revoke + A/B provider before/after",
+      "behavior": "orgAdmin invitation created pending despite visible email delivery failure; exactly current owner and other admin receive member_invited, actor/ordinary/foreign excluded, old witnesses unchanged. Invitation revoked through UI and no membership changes."
+    },
+    {
+      "proof": "visible download + observed real POST + actual JSON/XLSX artifacts + provider/workbook inspection",
+      "behavior": "Both formats HTTP 200, correct MIME and filename. Each has 2 owner notification rows with all 9 saved fields, 1 owner Resolved feedback row with all 15 fields, matching known context/notes, section counts and metadata; peer/foreign notification witnesses absent."
+    },
+    {
+      "proof": "provider capture between exports",
+      "behavior": "Baseline JSON and Excel generate bulk_data_exported rows for two current admins other than owner actor; owner inbox remains two invite/revoke notifications."
+    }
+  ],
+  "artifactFiles": [
+    "owner.json",
+    "owner.xlsx",
+    "json-download.json",
+    "excel-download.json",
+    "json-network-observed.json",
+    "excel-network-observed.json",
+    "reviewer-reviewed.png",
+    "support-resolved.png",
+    "owner-json-success.png",
+    "owner-excel-success.png",
+    "reviewed-provider.json",
+    "resolved-provider.json",
+    "member-denied-native.json",
+    "member-denied-http.json",
+    "invitation-audience-comparison.json",
+    "invitation-cleanup-check.json",
+    "exports-comparison.json",
+    "workbook-notifications.json",
+    "workbook-feedback.json",
+    "workbook-inventory.json",
+    "cleanup-check.json",
+    "final-after-clean-doctor.json",
+    "worker-cleanup.json",
+    "actions.jsonl"
+  ],
+  "cleanup": {
+    "seededNotificationIdsChecked": 28,
+    "remainingSeededNotificationIds": [],
+    "nativeActiveAnnouncementAbsentAfterReload": true,
+    "cleanSeedsCompleted": true,
+    "invitationRevokedByUi": true,
+    "allSeededNotificationIdsAbsent": true
+  },
+  "workerCleanup": {
+    "status": "PASS",
+    "phase": "cleaned",
+    "evidence": "/tmp/t2t-d20-review-baseline/.verification/evidence"
+  },
+  "candidateUnchanged": true,
+  "limits": [
+    "Communications readback provides 12 feedback fields; user email compared to known signed-in identity, timestamp columns were present and identical in actual JSON/XLSX artifacts.",
+    "This bounded run has one owner feedback row and no peer/foreign feedback witness; request-user SQL/SDK proofs remain separate.",
+    "Export pagination beyond provider pages remains separate SDK/SQL evidence.",
+    "Unavailable isolated mail transport remains an expected delivery limitation; persisted invitation and real in-app notification delivery proved separately.",
+    "Native Member Preset accessibility snapshot omitted option children; no empty visual-options claim is made. The existing Editor default persisted; no source fixes made.",
+    "The earlier complete Communications 129-call #1438 baseline supplies other recipe paths, not this bounded run.",
+    "Old failed recipe artifacts remain separate from the corrected seed/candidate run; summary explicitly refers to seed-corrected.json tag 83bab549."
+  ]
+}

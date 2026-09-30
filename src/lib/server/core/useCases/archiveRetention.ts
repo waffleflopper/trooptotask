@@ -1,9 +1,10 @@
 import type { DataStore, StoragePort } from '$lib/server/core/ports';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { LeaderNoteDataSource } from '$features/personnel/index.server';
 import { cleanupExpiredAssignmentTypes, type AssignmentTypeRetentionPort } from '$features/calendar/index.server';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
-import { notifyAdminsViaStore, retentionCutoff } from './retentionSupport';
+import { retentionCutoff } from './retentionSupport';
 
 export const DEFAULT_ARCHIVE_RETENTION_MONTHS = 36;
 const MIN_ARCHIVE_RETENTION_MONTHS = 1;
@@ -31,6 +32,7 @@ interface ArchiveRetentionPorts {
 	storage: StoragePort;
 	leaderNotes: Pick<LeaderNoteDataSource, 'deleteExpired'>;
 	assignmentTypes: AssignmentTypeRetentionPort;
+	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 
 interface CleanupFamilyIdentity {
@@ -307,7 +309,7 @@ export async function cleanupArchivedRecords(
 
 		if (orgFamilyResults.length > 0) {
 			affectedOrgs.add(org.id);
-			await notifyAdminsViaStore(ports.store, org.id, null, {
+			await ports.notifications.notifyAdmins(org.id, null, {
 				type: 'archive_auto_deleted',
 				title: 'Archived Records Auto-Deleted',
 				message: notificationMessage(orgFamilyResults)

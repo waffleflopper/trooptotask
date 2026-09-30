@@ -1,4 +1,4 @@
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { QueryPorts, UseCaseContext } from '$lib/server/core/ports';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';

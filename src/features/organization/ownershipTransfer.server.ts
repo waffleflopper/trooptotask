@@ -1,3 +1,5 @@
+import { fail } from '$lib/errors';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from '$lib/access/index.server';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
@@ -20,13 +22,7 @@ export interface OrganizationOwnershipTransferPort {
 }
 
 interface OwnershipTransferPorts extends GovernancePorts {
-	notifications: {
-		notifyUser(
-			orgId: string,
-			userId: string,
-			notification: { type: string; title: string; message: string; link?: string | null }
-		): Promise<void>;
-	};
+	notifications: Pick<NotificationDeliveryPort, 'notifyUser'>;
 	administration: OrganizationOwnershipTransferPort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 }
@@ -34,10 +30,6 @@ interface OwnershipTransferPorts extends GovernancePorts {
 interface TransferOrganizationOwnershipInput {
 	newOwnerId: string;
 	confirmTransferEmail: string;
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
 }
 
 export async function transferOrganizationOwnership(

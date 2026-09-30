@@ -1,15 +1,17 @@
 # D11 wide-read prerequisite acceptance
 
-**Current accepted source:** `bbf64a6fd1b5d3472ee3febba4f16f93593e2b84` against
-integrated Training main `284ddcd3c113117d9eab8b526c841a4fb21ae065`. This supersedes the merge candidate in the
+**Current accepted source:** `5def08c0a7864bf5d556ada8d73348021098d1c0` against
+integrated Training main `284ddcd3c113117d9eab8b526c841a4fb21ae065`. This supersedes
+`bbf64a6fd1b5d3472ee3febba4f16f93593e2b84` and the merge candidate in the
 initial acceptance of `6a5ea6c42e88126bd052c09a2db00570631dc2a7` against
 `b2dbae09fc059e1c94a936349ad9cf8adeb63f1f`; its unchanged evidence remains applicable.
 Acceptance covers the complete read-repair source/test/helper/recipe delta,
-EVIDENCE/TODO updates and **68 durable artifacts**: **21 failed baseline** files
+EVIDENCE/TODO updates and **83 durable artifacts**: **21 failed baseline** files
 under [baseline](d11-cutover-browser/baseline/), **24 initial repaired replay** files
 under [read-repair](d11-cutover-browser/read-repair/), **13 integration** files
 under [read-integration](d11-cutover-browser/read-integration/) and **10 review-fix**
-files under [read-review-fix](d11-cutover-browser/read-review-fix/). The accompanying
+files under [read-review-fix](d11-cutover-browser/read-review-fix/) and **15 ordering**
+files under [read-history-order](d11-cutover-browser/read-history-order/). The accompanying
 uncommitted proof and work-record updates were reviewed with frozen executable
 inputs. No actionable finding remains in this bounded intermediate repair.
 
@@ -86,23 +88,22 @@ The raw provider read has 1,003 unique IDs/pairs, matching the visible
 agree; no visible Critical Tasks Dashboard KPI is claimed.
 
 Hosted review identified that bounded filters still permit unlimited returned
-history. The two accumulation sites used array argument spread; supplied
-regression logs reproduce both `RangeError` failures with 150,000 records. Source
+history. The two accumulation sites used array argument spread; initial supplied
+regression logs reproduced both `RangeError` failures with 150,000 synthetic records. Source
 `b68cc7ef` appends individual rows at both sites without a flattened copy, retaining
 four-window concurrency, order, full history and required-read failure behavior.
 The final fixture correction in `bbf64a6f` asserts the returned public monthly
-percent instead of an unreturned count. Two public Dashboard-summary cases
-exercise the remainder and full-window accumulation paths with one and151 People.
-Expected January/March percentages are independently100% and1%, respectively,
-with February0%. These are lower-level capacity and historical tests, not native
-150,000-row or database-uniqueness proof. Final supplied logs show **two files /
-18 tests passing** and zero type errors/warnings. Local CodeRabbit reviewed the
+percent instead of an unreturned count. Those initial fixtures repeated a
+constrained Person/task/date combination; their historical capacity result was
+not database-uniqueness or native proof. The legal fixtures described below now
+supersede them. At that checkpoint, supplied logs showed **two files / 18 tests
+passing** and zero type errors/warnings. Local CodeRabbit reviewed the
 two source/test files at `b68cc7ef` with no findings; the subsequent fixture-only
 correction was independently reviewed here.
 
 The affected native [restart](d11-cutover-browser/read-review-fix/restart.json)
-and [doctor](d11-cutover-browser/read-review-fix/final-doctor.json) bind current
-source to digest `402e6b18a52e247fccf55b63f00f1fcab02f9fdbb6958907e2520a4cc287f76d`,
+and [doctor](d11-cutover-browser/read-review-fix/final-doctor.json) bind the then-accepted
+`bbf64a6f` source to digest `402e6b18a52e247fccf55b63f00f1fcab02f9fdbb6958907e2520a4cc287f76d`,
 origin `http://127.0.0.1:38633` and session
 `51bd1f07-aa5f-4c64-a421-7f92721423b3`. The first launch remains explicitly
 inconclusive because its fixture changed during build; no drive is accepted for
@@ -113,6 +114,58 @@ replay exercises changed report accumulation; it does not repeat the earlier
 1,003-row latest/import proof, whose adapter/helper inputs remain unchanged.
 Doctor and owned cleanup pass. Reviewed new artifacts expose no credentials.
 Current-head full CI and completed hosted review remain pending merge gates.
+
+The `71a4298d` CI candidate failed governance because the new owned read-model
+test lacked a manifest owner. Its passing application suite/build did not make
+that candidate green. `89e1a4e3` declares the existing test under Critical Tasks;
+the checker, dependency rules and exceptions remain unchanged. Supplied local
+governance and all61 ownership regression tests pass.
+
+Runtime `8a002617` gives report-history pages unique-ID ordering and Person-history
+pages descending completion dates followed by ascending unique IDs. Reports still
+retain every dated record. Corrected ordering fixtures at `98f40ff1` use valid
+UUIDs, matching task references and unique Organization/Person/task/date keys.
+Real Supabase client/store tests change incidental provider page order, then apply
+the requested ordering. Removing only ID ordering reproduces three behavioral
+failures: 1,001 distinct history captures instead of1,003, and January0% instead
+of100% in report and Dashboard summary. Restoring ordering passes18/18; the root
+combined read/history/RPC run passes **three files / 23 tests**. These are synthetic
+provider-transport regressions, not native tied-page or SQL execution. History's
+wide task-metadata lookup remains part of the pending owned cutover; the history
+ordering fixture reads task metadata from memory.
+
+Final test-only source `5def08c0` replaces the earlier deep-history fixtures with
+valid UUIDs, matching Person/task references and 1,001 distinct dates per pair.
+One Person with150 tasks yields150,150 rows in three filter windows;151 People
+with one task yield151,151 rows in four. The real Supabase client/store reads
+Organization- and reference-filtered synthetic transport pages. Both sets have
+January1 and March15 captures for every applicable pair: independently specified
+January100% → February0% → March100% follows their one-month expiration, while the
+older2020–2022 dates supply none of that readiness. Replacing only both row-append
+loops with their former array spreads reproduces `RangeError` at each distinct
+accumulation site (**two failed / 13 passed**). Restoring the loops passes15/15,
+with zero type errors/warnings. No native150,000-row or SQL proof is claimed.
+
+The [ordering launch](d11-cutover-browser/read-history-order/launch.json) and
+[final doctor](d11-cutover-browser/read-history-order/doctor-final.json) bind runtime
+`89e1a4e32200499f507c7304bfb91df757276c15` to digest
+`c047de7b3f4bd8053d6c6023d1a7051016defc4633a81302f103c4efe4eb6376`, origin
+`http://127.0.0.1:43881` and session `3e80b0e8-a402-4254-85e0-c59f4203a606`.
+The subsequent ordering/capacity fixture corrections change tests only, so this
+native runtime proof remains applicable to the current accepted source. The15
+new durable files comprise14 selected captures plus a comparison;13 captures
+match raw bytes and the formatted observations JSON retains all parsed values.
+Independent workbook parsing and hash/byte checks confirm initial20% (1/5), then
+population504 and1/506ready, rounded0%, with all501 registered seed report rows
+at0%. Screenshot/UI and recorded summary200 agree. Able's reloaded UI retains
+September14 and Demonstration, and the provider capture retains the original
+completion ID and values; no separate before/after equality is inferred from
+that single provider capture. Actual Dashboard root finishes without error/busy
+state; no visible Critical Tasks KPI is claimed. The attempted `/dashboard`
+suffix404 remains a driver error before corrected navigation. This replay does
+not repeat the unchanged1,003-row latest/import proof. Doctors and owned cleanup
+pass; reviewed new artifacts expose no credentials. Exact published-head full
+CI and completed hosted review remain pending merge gates.
 
 **Issue limit:** This accepts the wide-read baseline repair only, using
 `Refs #1359`. Completion operations, history/readiness/report/provider ownership,

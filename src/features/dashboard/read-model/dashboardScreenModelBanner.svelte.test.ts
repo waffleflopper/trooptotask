@@ -50,7 +50,7 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
 }));
-vi.mock('$features/training/stores/trainingTypes.svelte', () => ({
+vi.mock('$features/training', () => ({
 	trainingTypesStore: { items: [] }
 }));
 vi.mock('$features/rating-scheme/utils/ratingScheme', () => ({

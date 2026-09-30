@@ -3,7 +3,7 @@
 	import * as Empty from '$lib/components/ui/empty';
 	import { Button } from '$lib/components/ui/button';
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
-	import { TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import TrainingStatusCell from './TrainingStatusCell.svelte';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
 	import { downloadBlob, filenameFromContentDisposition } from '$lib/export/workbook';
@@ -16,7 +16,7 @@
 	import type { Personnel } from '$lib/types';
 	import { groupsStore } from '$features/personnel';
 	import type { Group } from '$features/personnel/contracts';
-	import type { TrainingReportData, TrainingReportDetail } from '$lib/server/core/useCases/trainingReportsQuery';
+	import type { TrainingReportData, TrainingReportDetail } from '$features/training/contracts';
 	import {
 		buildTrainingReportDetailUrl,
 		buildTrainingReportExportUrl,
@@ -29,7 +29,7 @@
 		type TrainingReportPivotRow,
 		type TrainingReportSortState
 	} from '$features/training/read-model/trainingReportScreenModel';
-	import { exportTrainingReportWorkbook } from '$features/training/utils/reportCalculations';
+	import { exportTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
 
 	interface Props {
 		data: {

@@ -10,14 +10,9 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import { useDataTableSelection, type ColumnDef } from '$lib/components/ui/data-table';
-	import {
-		TRAINING_COLUMNS,
-		applyMapping,
-		autoMapColumns,
-		detectHeaderRow,
-		getMissingRequired
-	} from '$lib/utils/columnMapping';
-	import { parseCSVText, parseFile, parseTrainingStatus } from '$lib/utils/csvParser';
+	import { applyMapping, autoMapColumns, detectHeaderRow, getMissingRequired } from '$lib/utils/columnMapping';
+	import { TRAINING_COLUMNS, parseTrainingStatus } from '../utils/trainingImport';
+	import { parseCSVText, parseFile } from '$lib/utils/csvParser';
 
 	type ResolvedRecord = TrainingBatchRecord & { notes: string };
 

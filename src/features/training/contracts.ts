@@ -1,7 +1,7 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { PersonnelTraining, TrainingType, TrainingStatus } from './training.types';
+import type { PersonnelTraining, TrainingType, TrainingView, TrainingStatus } from './training.types';
 import type { Personnel } from '$lib/types';
-import type { Group } from '$features/personnel/contracts';
+import type { RankCatalogEntry, Group } from '$features/personnel/contracts';
 import type { TrainingStats } from './utils/trainingStatus';
 import type { ReadinessDashboard, ReportFilters } from './utils/reportCalculations';
 
@@ -147,4 +147,38 @@ export interface TrainingReportData {
 export interface TrainingReportWorkbookExport {
 	buffer: ArrayBuffer;
 	filename: string;
+}
+
+export const TRAINING_WORKSPACE_LANE_KEY = 'training' as const;
+export type TrainingWorkspaceItems<T> = T[] | Promise<T[]>;
+export interface TrainingWorkspaceData {
+	personnelTrainings: TrainingWorkspaceItems<PersonnelTraining>;
+	trainingTypes: TrainingWorkspaceItems<TrainingType>;
+	trainingViews: TrainingWorkspaceItems<TrainingView>;
+	personnel: TrainingWorkspaceItems<Personnel>;
+	groups: TrainingWorkspaceItems<Group>;
+	pinnedGroups: TrainingWorkspaceItems<string>;
+	rankCatalog?: TrainingWorkspaceItems<RankCatalogEntry>;
+}
+export type TrainingWorkspaceHydrationMode = 'replace' | 'preserve-client';
+export interface TrainingWorkspaceHydrationTarget<T> {
+	mode: TrainingWorkspaceHydrationMode;
+	deferred?: boolean;
+	snapshotKey: string;
+	items: TrainingWorkspaceItems<T>;
+}
+export interface TrainingWorkspaceHydration {
+	orgId: string;
+	personnel: TrainingWorkspaceHydrationTarget<Personnel>;
+	groups: TrainingWorkspaceHydrationTarget<Group>;
+	trainingTypes: TrainingWorkspaceHydrationTarget<TrainingType>;
+	trainingViews: TrainingWorkspaceHydrationTarget<TrainingView>;
+	personnelTrainings: TrainingWorkspaceHydrationTarget<PersonnelTraining>;
+	pinnedGroups: TrainingWorkspaceHydrationTarget<string>;
+	rankCatalog?: TrainingWorkspaceHydrationTarget<RankCatalogEntry>;
+}
+export interface TrainingWorkspaceResult {
+	laneKey: typeof TRAINING_WORKSPACE_LANE_KEY;
+	data: TrainingWorkspaceData;
+	hydration: TrainingWorkspaceHydration;
 }

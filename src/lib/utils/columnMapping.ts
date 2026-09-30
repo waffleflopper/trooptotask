@@ -125,39 +125,6 @@ export const PERSONNEL_COLUMNS: ColumnDef[] = [
 	}
 ];
 
-export const TRAINING_COLUMNS: ColumnDef[] = [
-	{
-		key: 'lastName',
-		label: 'Last Name',
-		required: true,
-		aliases: ['last name', 'lastname', 'last', 'surname', 'family name']
-	},
-	{
-		key: 'firstName',
-		label: 'First Name',
-		required: true,
-		aliases: ['first name', 'firstname', 'first', 'given name']
-	},
-	{
-		key: 'trainingType',
-		label: 'Training Type',
-		required: true,
-		aliases: ['training', 'training type', 'type', 'course', 'certification']
-	},
-	{
-		key: 'status',
-		label: 'Date / Status',
-		required: true,
-		aliases: ['date', 'date / status', 'date/status', 'completion date', 'completed', 'date completed', 'status']
-	},
-	{
-		key: 'notes',
-		label: 'Notes',
-		required: false,
-		aliases: ['notes', 'comments', 'remarks']
-	}
-];
-
 export const STATUS_IMPORT_COLUMNS: ColumnDef[] = [
 	{
 		key: 'lastName',

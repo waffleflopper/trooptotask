@@ -2,9 +2,9 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
-import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
+import { trainingTypesStore } from '$features/training';
+import { trainingViewsStore } from '$features/training';
+import type { TrainingWorkspaceResult } from '$features/training/contracts';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({

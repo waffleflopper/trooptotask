@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+	import { personnelTrainingsStore } from '$features/training';
+	import { trainingTypesStore } from '$features/training';
 	import { groupsStore } from '$features/personnel';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { rosterStore } from '$features/personnel';
-	import TrainingReportsPage from '$features/training/components/TrainingReportsPage.svelte';
+	import { TrainingReportsPage } from '$features/training';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
+	import type { TrainingWorkspaceResult } from '$features/training/contracts';
 	import { isPromiseLike, materializeWorkspaceData, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();

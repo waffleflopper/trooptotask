@@ -9,7 +9,7 @@ import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 import type { TrainingType } from '$features/training/training.types';
-import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
+import type { TrainingReportData } from '$features/training/contracts';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({

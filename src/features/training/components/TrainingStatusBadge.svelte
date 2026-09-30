@@ -1,16 +1,8 @@
 <script lang="ts" module>
-	import type { RequirementStatus } from './requirement-status-badge.svelte';
+	import { type RequirementStatus } from '$lib/components/ui/requirement-status-badge';
+	import type { TrainingStatus } from '../contracts';
 
-	export type TrainingRequirementStatus =
-		| 'current'
-		| 'warning-yellow'
-		| 'warning-orange'
-		| 'expired'
-		| 'not-completed'
-		| 'not-required'
-		| 'exempt';
-
-	export const trainingRequirementStatusMap: Record<TrainingRequirementStatus, RequirementStatus> = {
+	export const trainingRequirementStatusMap: Record<TrainingStatus, RequirementStatus> = {
 		current: 'current',
 		'warning-yellow': 'expiring-soon',
 		'warning-orange': 'expiring',
@@ -23,7 +15,7 @@
 
 <script lang="ts">
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
-	import RequirementStatusBadge from './requirement-status-badge.svelte';
+	import { RequirementStatusBadge } from '$lib/components/ui/requirement-status-badge';
 	import type { WithElementRef } from '$lib/utils.js';
 
 	let {
@@ -31,7 +23,7 @@
 		label,
 		...restProps
 	}: WithElementRef<HTMLAnchorAttributes> & {
-		status: TrainingRequirementStatus;
+		status: TrainingStatus;
 		label?: string;
 	} = $props();
 

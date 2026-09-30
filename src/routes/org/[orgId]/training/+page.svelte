@@ -4,8 +4,8 @@
 	import { toast } from 'svelte-sonner';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import TrainingPageView from '$features/training/components/TrainingPageView.svelte';
-	import TrainingModals from '$features/training/components/TrainingModals.svelte';
+	import { TrainingPageView } from '$features/training';
+	import { TrainingModals } from '$features/training';
 
 	let { data } = $props();
 

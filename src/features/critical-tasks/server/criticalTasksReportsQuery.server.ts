@@ -1,54 +1,31 @@
-import type { QueryPorts } from '$lib/server/core/ports';
-import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from '$features/critical-tasks/contracts';
+import type { CriticalTasksReportContext } from './criticalTasksReadPorts.server';
+import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from '../contracts';
 import type { Group } from '$features/personnel/contracts';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$lib/types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
-import {
-	buildCriticalTasksMatrix,
-	matchesCriticalTasksPersonnelSearch
-} from '$features/critical-tasks/utils/criticalTasksMatrix';
-import {
-	buildCriticalTasksMatrixWorkbook,
-	buildCriticalTasksReportWorkbook
-} from '$features/critical-tasks/utils/ictWorkbookExport';
+import { buildCriticalTasksMatrix, matchesCriticalTasksPersonnelSearch } from '../utils/criticalTasksMatrix';
+import { buildCriticalTasksMatrixWorkbook, buildCriticalTasksReportWorkbook } from '../utils/ictWorkbookExport';
 import {
 	buildIctReportDashboard,
 	buildIctReportDashboardSummary,
-	buildIctReportSummary,
 	filterIctReportPersonnel,
 	type IctReportDashboard,
 	type IctReportDashboardSummary,
-	type IctReportFilters,
-	type IctReportScope,
-	type IctReportSummary
-} from '$features/critical-tasks/utils/ictReports';
-import { getActiveIctTasksForLibrary } from '$features/critical-tasks/utils/ictTaskLibrary';
-import {
-	IctTaskEntity,
-	PersonnelIctCompletionEntity,
-	fetchCriticalTasksSettings
-} from '$features/critical-tasks/index.server';
+	type IctReportScope
+} from '../utils/ictReports';
+import { getActiveIctTasksForLibrary } from '../utils/ictTaskLibrary';
+import { IctTaskEntity } from './ictTaskEntity.server';
+import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
+import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
+import type {
+	CriticalTasksReportInput,
+	CriticalTasksReportsPageModel,
+	CriticalTasksMatrixExportInput,
+	CriticalTasksWorkbookExport
+} from '../contracts';
 import { writeWorkbookBuffer } from '$lib/export/workbook';
-
-export interface CriticalTasksReportInput {
-	filters?: IctReportFilters;
-	asOf?: string | Date;
-}
-
-export interface CriticalTasksReportsPageModel {
-	initialDashboard: IctReportDashboard;
-	reportScope: IctReportScope;
-}
-
-export interface CriticalTasksMatrixExportInput {
-	selectedGroupId?: string;
-	selectedGroupFilter?: string;
-	gapsOnly?: boolean;
-	search?: string;
-	asOf?: string | Date;
-}
 
 interface CriticalTasksReportSource {
 	personnel: Personnel[];
@@ -91,7 +68,7 @@ function buildCriticalTasksReportScope(source: CriticalTasksReportSource): IctRe
 }
 
 async function buildDashboardFromSource(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	source: CriticalTasksReportSource,
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboard> {
@@ -111,7 +88,7 @@ async function buildDashboardFromSource(
 	});
 }
 
-async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalTasksReportSource> {
+async function loadCriticalTasksReportSource(ctx: CriticalTasksReportContext): Promise<CriticalTasksReportSource> {
 	const orgId = ctx.auth.orgId;
 	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
 	const [personnel, groups, taskRows, settings, rankCatalog] = await Promise.all([
@@ -138,7 +115,7 @@ async function loadCriticalTasksReportSource(ctx: QueryPorts): Promise<CriticalT
 }
 
 async function loadLatestCompletions(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	personnelIds: string[],
 	taskIds: string[]
 ): Promise<PersonnelIctCompletion[]> {
@@ -151,11 +128,11 @@ async function loadLatestCompletions(
 		taskIds
 	});
 
-	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
+	return completionRows;
 }
 
 async function loadReportCompletions(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	personnelIds: string[],
 	taskIds: string[]
 ): Promise<PersonnelIctCompletion[]> {
@@ -180,18 +157,22 @@ async function loadReportCompletions(
 				})
 			);
 			if (pending.length === 4) {
-				completionRows.push(...(await Promise.all(pending)).flat());
+				for (const rows of await Promise.all(pending)) {
+					for (const row of rows) completionRows.push(row);
+				}
 				pending = [];
 			}
 		}
 	}
-	completionRows.push(...(await Promise.all(pending)).flat());
+	for (const rows of await Promise.all(pending)) {
+		for (const row of rows) completionRows.push(row);
+	}
 
 	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
 }
 
 export async function fetchCriticalTasksReportDashboard(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboard> {
 	const source = await loadCriticalTasksReportSource(ctx);
@@ -199,7 +180,7 @@ export async function fetchCriticalTasksReportDashboard(
 }
 
 export async function fetchCriticalTasksDashboardSummary(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboardSummary> {
 	const source = await loadCriticalTasksReportSource(ctx);
@@ -220,7 +201,7 @@ export async function fetchCriticalTasksDashboardSummary(
 }
 
 export async function fetchCriticalTasksReportsPageModel(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<CriticalTasksReportsPageModel> {
 	const source = await loadCriticalTasksReportSource(ctx);
@@ -231,38 +212,8 @@ export async function fetchCriticalTasksReportsPageModel(
 	};
 }
 
-export async function fetchCriticalTasksReportSummary(
-	ctx: QueryPorts,
-	input: CriticalTasksReportInput = {}
-): Promise<IctReportSummary> {
-	const source = await loadCriticalTasksReportSource(ctx);
-	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
-	const personnelIds = filteredPersonnel.map((person) => person.id);
-	const taskIds = source.tasks.map((task) => task.id);
-	const [completions, completionTrend] = await Promise.all([
-		loadLatestCompletions(ctx, personnelIds, taskIds),
-		ctx.criticalTasksReadModel.findCompletionTrend(ctx.auth.orgId, {
-			personnelIds,
-			taskIds
-		})
-	]);
-	return buildIctReportSummary({
-		personnel: filteredPersonnel,
-		tasks: source.tasks,
-		completions,
-		completionTrend,
-		settings: source.settings,
-		asOf: input.asOf
-	});
-}
-
-export interface CriticalTasksWorkbookExport {
-	buffer: ArrayBuffer;
-	filename: string;
-}
-
 export async function generateCriticalTasksReportWorkbookExport(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<CriticalTasksWorkbookExport> {
 	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
@@ -275,7 +226,7 @@ export async function generateCriticalTasksReportWorkbookExport(
 }
 
 export async function generateCriticalTasksMatrixWorkbookExport(
-	ctx: QueryPorts,
+	ctx: CriticalTasksReportContext,
 	input: CriticalTasksMatrixExportInput = {}
 ): Promise<CriticalTasksWorkbookExport> {
 	const source = await loadCriticalTasksReportSource(ctx);

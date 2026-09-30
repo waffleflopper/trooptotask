@@ -8,9 +8,8 @@ import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils
 import {
 	fetchCriticalTasksDashboardSummary,
 	fetchCriticalTasksReportDashboard,
-	fetchCriticalTasksReportsPageModel,
-	fetchCriticalTasksReportSummary
-} from './criticalTasksReportsQuery';
+	fetchCriticalTasksReportsPageModel
+} from './criticalTasksReportsQuery.server';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
@@ -18,7 +17,7 @@ function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
 	return buffer as WorkbookLoadBuffer;
 }
 
-describe('fetchCriticalTasksReportSummary', () => {
+describe('Critical Tasks report queries', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
 		const ctx = createTestContext({
 			auth: {
@@ -261,86 +260,6 @@ describe('fetchCriticalTasksReportSummary', () => {
 		});
 		expect(summary).not.toHaveProperty('readinessDistribution');
 		expect(summary).not.toHaveProperty('readinessMatrix');
-	});
-
-	it('counts only MOS-applicable completion events in the report trend', async () => {
-		const ctx = createTestContext();
-		ctx.store.seed('organizations', [
-			{
-				id: ctx.auth.orgId,
-				critical_tasks_default_expiration_months: 12,
-				critical_tasks_expiring_soon_warning_days: 60
-			}
-		]);
-		ctx.store.seed('personnel', [
-			{
-				id: 'p-rifle',
-				organization_id: ctx.auth.orgId,
-				rank: 'SGT',
-				last_name: 'Rifle',
-				first_name: 'Ryan',
-				mos: '11B',
-				clinic_role: 'Squad Leader',
-				group_id: null,
-				archived_at: null
-			}
-		]);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'task-common',
-				organization_id: ctx.auth.orgId,
-				task_code: '071-000-0101',
-				title: 'Conduct PCC/PCI',
-				description: null,
-				mos: [],
-				expiration_months: 12,
-				sort_order: 0,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			},
-			{
-				id: 'task-medic',
-				organization_id: ctx.auth.orgId,
-				task_code: '081-68W-0101',
-				title: 'Perform Needle Chest Decompression',
-				description: null,
-				mos: ['68W'],
-				expiration_months: 12,
-				sort_order: 1,
-				archived_at: null,
-				created_at: '2026-04-01T00:00:00Z'
-			}
-		]);
-		ctx.store.seed('personnel_ict_completions', [
-			{
-				id: 'completion-common',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-rifle',
-				ict_task_id: 'task-common',
-				completed_at: '2026-04-10',
-				validation_method: 'Practical Exercise',
-				validated_by: 'SFC Stone',
-				notes: null,
-				logged_by: 'user-1',
-				created_at: '2026-04-10T12:00:00Z'
-			},
-			{
-				id: 'completion-non-applicable',
-				organization_id: ctx.auth.orgId,
-				personnel_id: 'p-rifle',
-				ict_task_id: 'task-medic',
-				completed_at: '2026-04-12',
-				validation_method: 'Demonstration',
-				validated_by: 'SFC Stone',
-				notes: null,
-				logged_by: 'user-1',
-				created_at: '2026-04-12T12:00:00Z'
-			}
-		]);
-
-		const summary = await fetchCriticalTasksReportSummary(ctx, {});
-
-		expect(summary.completionTrend).toEqual([{ month: '2026-04', completions: 1 }]);
 	});
 
 	it('uses the organization expiring-soon window when calculating report dashboard risk', async () => {
@@ -931,5 +850,69 @@ describe('bounded Critical Tasks report history', () => {
 		await expect(fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' })).rejects.toThrow(
 			'Required history unavailable'
 		);
+	});
+});
+
+describe('deep Critical Tasks dated history', () => {
+	it.each([
+		[1, 100],
+		[151, 1]
+	])('retains first and last historical dates for %i authorized People', async (personCount, expectedPercent) => {
+		const ctx = createTestContext();
+		const people = Array.from({ length: personCount }, (_, i) => ({
+			id: `deep-person-${i}`,
+			organization_id: ctx.auth.orgId,
+			first_name: 'Synthetic',
+			last_name: `Deep${i}`,
+			mos: '68W',
+			group_id: null,
+			archived_at: null
+		}));
+		ctx.store.seed('personnel', people);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'deep-task',
+				organization_id: ctx.auth.orgId,
+				task_code: 'DEEP',
+				title: 'Deep history',
+				mos: [],
+				expiration_months: 1,
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('organizations', [
+			{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 1, critical_tasks_expiring_soon_warning_days: 7 }
+		]);
+		const history = Array.from({ length: 150000 }, (_, i) => ({
+			id: `deep-completion-${i}`,
+			organization_id: ctx.auth.orgId,
+			personnel_id: people[0].id,
+			ict_task_id: 'deep-task',
+			completed_at: i === 149999 ? '2026-03-15' : '2026-01-01',
+			created_at: '2026-03-15T12:00:00Z',
+			validation_method: 'Demonstration',
+			validated_by: null,
+			notes: null,
+			logged_by: null
+		}));
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+			args[0] === 'personnel_ict_completions'
+				? Promise.resolve(args[3]?.inFilters?.personnel_id?.includes(people[0].id) ? history : [])
+				: findMany(...args)
+		);
+		const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
+		expect(summary.kpis.overallReadiness).toMatchObject({
+			readyCount: 1,
+			applicableCount: personCount,
+			percent: expectedPercent
+		});
+		expect(
+			summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+		).toEqual([
+			['2026-01', expectedPercent],
+			['2026-02', 0],
+			['2026-03', expectedPercent]
+		]);
 	});
 });

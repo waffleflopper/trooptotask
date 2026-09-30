@@ -36,7 +36,7 @@ import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import { createSupabaseNotificationAdapter } from './supabaseNotification';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
-import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
+import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
 import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/personnel/index.server';

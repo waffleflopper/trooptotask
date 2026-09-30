@@ -1,6 +1,8 @@
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery';
+import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery.server';
 
 describe('fetchCriticalTasksPersonnelHistory', () => {
 	it('returns completion history with archived ICT task metadata intact', async () => {
@@ -124,5 +126,59 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 		await expect(fetchCriticalTasksPersonnelHistory(ctx, 'p-outside')).rejects.toMatchObject({
 			status: 404
 		});
+	});
+});
+
+describe('wide retained task metadata', () => {
+	it('returns all dated rows and archived metadata without an oversized task lookup', async () => {
+		const ctx = createTestContext();
+		const ids = Array.from({ length: 501 }, (_, i) => `30000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
+		const completions = ids.map((id, i) => ({
+			id: `completion-${i}`,
+			personnel_id: 'person-history',
+			ict_task_id: id,
+			completed_at: '2026-03-15',
+			validation_method: 'Demonstration',
+			validated_by: null,
+			notes: `date-${i}`,
+			logged_by: null,
+			created_at: '2026-03-15T12:00:00Z'
+		}));
+		const tasks = ids.map((id, i) => ({
+			id,
+			task_code: `HISTORY-${i}`,
+			title: `Retained task ${i}`,
+			mos: [],
+			archived_at: i === 500 ? '2026-03-16T12:00:00Z' : null,
+			created_at: '2026-01-01T12:00:00Z'
+		}));
+		const person = { id: 'person-history', firstName: 'Synthetic', lastName: 'History', archivedAt: null };
+		ctx.personnelCriticalTasksRoster.findForHistory = async () =>
+			person as Awaited<ReturnType<typeof ctx.personnelCriticalTasksRoster.findForHistory>>;
+		const client = createClient('https://synthetic.example.test', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					if (url.href.length > 8192) return Response.json({ message: 'URI too long' }, { status: 414 });
+					expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+					if (url.pathname.endsWith('/personnel_ict_completions')) {
+						expect(url.searchParams.get('personnel_id')).toBe('eq.person-history');
+						return Response.json(completions);
+					}
+					expect(url.pathname).toBe('/rest/v1/ict_tasks');
+					const requested = url.searchParams.get('id');
+					return Response.json(tasks.filter((task) => requested?.includes(task.id)));
+				}
+			}
+		});
+		const history = await fetchCriticalTasksPersonnelHistory(
+			{ ...ctx, store: createSupabaseDataStore(client) },
+			'person-history'
+		);
+		expect(history.rows.map((row) => [row.completion.id, row.taskCode, row.completion.notes])).toEqual(
+			ids.map((_, i) => [`completion-${i}`, `HISTORY-${i}`, `date-${i}`])
+		);
+		expect(history.rows[500].taskArchivedAt).toBe('2026-03-16T12:00:00Z');
 	});
 });

@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import type {
-	CriticalTasksMatrixExportInput,
-	CriticalTasksReportInput
-} from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import type { CriticalTasksMatrixExportInput, CriticalTasksReportInput } from '$features/critical-tasks/contracts';
 
 export const PRIVATE_REPORT_HEADERS = {
 	'Cache-Control': 'private, no-store',

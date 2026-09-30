@@ -8,11 +8,11 @@ import {
 	rethrowOrWrap
 } from '$lib/server/adapters/httpAdapter';
 import { fetchDashboardTrainingSummary } from '$lib/server/core/useCases/trainingSummaryQuery';
-import { fetchCriticalTasksDashboardSummary } from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import { fetchCriticalTasksDashboardSummary } from '$features/critical-tasks/index.server';
 import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
-import type { IctReportDashboardSummary } from '$features/critical-tasks/utils/ictReports';
+import type { IctReportDashboardSummary } from '$features/critical-tasks/contracts';
 import type { DashboardIctlSummary } from '$features/dashboard/dashboard.types';
 import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 

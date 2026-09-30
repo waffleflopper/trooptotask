@@ -1,3 +1,4 @@
+import type { CriticalTasksReadModelPort } from '$features/critical-tasks/contracts';
 /**
  * In-memory implementations of all port interfaces, used in unit and integration tests.
  *
@@ -14,7 +15,6 @@
  * Group scoping works automatically from `auth.scopeSet`.
  */
 import type {
-	CriticalTasksReadModelPort,
 	DataStore,
 	FindOptions,
 	FindResult,
@@ -34,7 +34,7 @@ import type {
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel';
+import { createInMemoryCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;

@@ -1,6 +1,6 @@
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { fetchCriticalTasksPersonnelHistory } from '$lib/server/core/useCases/criticalTasksHistoryQuery';
+import { fetchCriticalTasksPersonnelHistory } from '$features/critical-tasks/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';

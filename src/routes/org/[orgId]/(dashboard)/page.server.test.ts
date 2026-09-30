@@ -81,7 +81,7 @@ vi.mock('$lib/server/core/useCases/trainingSummaryQuery', () => ({
 	fetchDashboardTrainingSummary: fetchDashboardTrainingSummaryMock
 }));
 
-vi.mock('$lib/server/core/useCases/criticalTasksReportsQuery', () => ({
+vi.mock('$features/critical-tasks/index.server', () => ({
 	fetchCriticalTasksDashboardSummary: fetchCriticalTasksDashboardSummaryMock
 }));
 

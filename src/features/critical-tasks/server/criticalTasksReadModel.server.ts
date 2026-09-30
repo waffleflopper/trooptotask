@@ -1,10 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
-import type {
-	CriticalTasksCompletionTrendPoint,
-	CriticalTasksReadModelFilters,
-	CriticalTasksReadModelPort
-} from '../core/ports';
+import type { CriticalTasksReadModelFilters, CriticalTasksReadModelPort } from '../contracts';
+import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 
 function hasEmptyFilter(values?: string[]): boolean {
 	return Array.isArray(values) && values.length === 0;
@@ -38,34 +35,7 @@ export function createSupabaseCriticalTasksReadModelAdapter(supabase: SupabaseCl
 				throw new Error((error as { message: string }).message);
 			}
 
-			return (data ?? []) as Record<string, unknown>[];
-		},
-
-		async findCompletionTrend(
-			orgId: string,
-			filters: CriticalTasksReadModelFilters = {}
-		): Promise<CriticalTasksCompletionTrendPoint[]> {
-			if (hasEmptyFilter(filters.personnelIds) || hasEmptyFilter(filters.taskIds)) {
-				return [];
-			}
-
-			const { data, error } = await supabase.rpc('active_personnel_ict_completion_trend', {
-				p_organization_id: orgId,
-				p_personnel_ids: normalizeIds(filters.personnelIds),
-				p_ict_task_ids: normalizeIds(filters.taskIds)
-			});
-
-			if (error) {
-				throw new Error(error.message);
-			}
-
-			return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
-				month: String(row.month ?? ''),
-				completions:
-					typeof row.completions === 'number'
-						? row.completions
-						: Number.parseInt(String(row.completions ?? '0'), 10) || 0
-			}));
+			return PersonnelIctCompletionEntity.fromDbArray(data ?? []);
 		}
 	};
 }

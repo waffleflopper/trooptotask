@@ -75,6 +75,18 @@ export function isPersonnelSlugUniqueConstraintError(error: unknown): boolean {
 	);
 }
 
+/** A named constraint can be confirmed even when the provider conceals its key values. */
+export function isRedactedPersonnelSlugConstraintError(error: unknown): boolean {
+	if (typeof error !== 'object' || error === null) return false;
+	const conflict = error as { code?: unknown; message?: unknown; details?: unknown };
+	return (
+		conflict.code === '23505' &&
+		typeof conflict.message === 'string' &&
+		conflict.message.includes('"personnel_org_slug_key"') &&
+		(conflict.details === undefined || conflict.details === null || conflict.details === '')
+	);
+}
+
 /** Retry only the submitted candidate rejected by this Organization's slug index. */
 export function conflictingPersonnelSlug(
 	error: unknown,

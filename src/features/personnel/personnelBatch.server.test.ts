@@ -211,6 +211,41 @@ describe('importPersonnelBatch', () => {
 		});
 	});
 
+	it('does not split or retry an uncertain multi-row subset after earlier acknowledgements', async () => {
+		const provider = redactedImportContext();
+		const insertMany = provider.ctx.store.insertMany.bind(provider.ctx.store);
+		provider.ctx.store.insertMany = async <T>(...args: Parameters<typeof insertMany>): Promise<T[]> => {
+			const saved = await insertMany<T>(...args);
+			if (args[2].some((row) => row.slug === 'unconfirmed-first')) {
+				throw new Error('Connection lost after subset write: private provider diagnostics');
+			}
+			return saved;
+		};
+
+		const result = await importPersonnelBatch(provider.ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Rivera', firstName: 'Monica', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Unconfirmed', firstName: 'First', groupName: 'Alpha' },
+				{ rank: 'SGT', lastName: 'Unconfirmed', firstName: 'Second', groupName: 'Alpha' }
+			]
+		});
+
+		expect(result.inserted.map((person) => person.slug)).toEqual(['rivera-monica', 'smith-jamie-2']);
+		expect(result.errors).toEqual([
+			{ index: 2, message: expect.stringMatching(/confirm/i) },
+			{ index: 3, message: expect.stringMatching(/confirm/i) }
+		]);
+		expect(JSON.stringify(result.errors)).not.toContain('private provider');
+		expect(
+			provider.attemptedBatches.filter(
+				(batch) => batch.length < 4 && batch.some((slug) => slug.startsWith('unconfirmed-'))
+			)
+		).toEqual([['unconfirmed-first', 'unconfirmed-second']]);
+		expect(provider.persisted.filter((row) => row.last_name === 'Unconfirmed')).toHaveLength(2);
+		expect(provider.persisted.find((row) => row.id === provider.hidden.id)).toEqual(provider.hidden);
+	});
+
 	it('imports 500 rows with one redacted hidden collision within 24 provider writes', async () => {
 		const provider = redactedImportContext();
 		const records = Array.from({ length: 500 }, (_, index) => ({
@@ -348,7 +383,7 @@ describe('importPersonnelBatch', () => {
 				}
 			]
 		].map(([reason, error]) => [reason, error] as const)
-	])('does not retry %s or report successful creation', async (_reason, error) => {
+	] as const)('does not retry %s or report successful creation', async (_reason, error) => {
 		const ctx = buildContext();
 		const provider = atomicImportProvider(ctx, [], error);
 

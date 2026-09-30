@@ -3,6 +3,7 @@ import {
 	buildAvailablePersonnelSlug,
 	buildPersonnelSlugBase,
 	isPersonnelSlugUniqueConstraintError,
+	isRedactedPersonnelSlugConstraintError,
 	conflictingPersonnelSlug
 } from './personnelSlug.server';
 
@@ -34,6 +35,32 @@ describe('personnel slug helpers', () => {
 			})
 		).toBe(true);
 		expect(isPersonnelSlugUniqueConstraintError(new Error('unrelated failure'))).toBe(false);
+	});
+
+	it.each([undefined, null, ''])(
+		'recognizes redacted DETAIL %s only for the exact named slug constraint',
+		(details) => {
+			expect(
+				isRedactedPersonnelSlugConstraintError({
+					code: '23505',
+					message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+					details
+				})
+			).toBe(true);
+		}
+	);
+
+	it.each([
+		{ code: '42501', message: 'duplicate key value violates unique constraint "personnel_org_slug_key"' },
+		{ message: 'duplicate key value violates unique constraint "personnel_org_slug_key"' },
+		{ code: '23505', message: 'duplicate key value violates unique constraint "some_slug_key"' },
+		{
+			code: '23505',
+			message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+			details: 'Malformed key details'
+		}
+	])('does not infer a redacted constraint from uncertain metadata %o', (error) => {
+		expect(isRedactedPersonnelSlugConstraintError(error)).toBe(false);
 	});
 
 	it('extracts only a submitted URL rejected by the same Organization slug index', () => {

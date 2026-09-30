@@ -13,7 +13,12 @@ import { requireFeaturePolicy } from '$lib/access/index.server';
 import type { PersonnelBatchContext } from './personnelBatchContext.server';
 import type { PersonnelBatchMessage, PersonnelImportInput, PersonnelImportResult } from './personnelImport.types';
 import { PersonnelEntity } from './personnelEntity.server';
-import { buildAvailablePersonnelSlug, buildPersonnelSlugBase, conflictingPersonnelSlug } from './personnelSlug.server';
+import {
+	buildAvailablePersonnelSlug,
+	buildPersonnelSlugBase,
+	conflictingPersonnelSlug,
+	isRedactedPersonnelSlugConstraintError
+} from './personnelSlug.server';
 import { createActivePersonnelRankResolver } from './rankValidation.server';
 import { listGroupCatalog } from './groupCatalog.server';
 
@@ -28,6 +33,12 @@ interface PersonnelImportContext extends PersonnelBatchContext {
 	store: PersonnelBatchContext['store'] & {
 		insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
 	};
+}
+
+interface ValidImportRow {
+	index: number;
+	slugBase: string;
+	row: Record<string, unknown>;
 }
 
 function isValidIsoDate(value: string): boolean {
@@ -82,7 +93,7 @@ export async function importPersonnelBatch(
 	const groupMap = new Map(groups.map((g) => [g.name.toLowerCase(), g.id]));
 
 	// Validate all records
-	const validRows: Array<{ slugBase: string; row: Record<string, unknown> }> = [];
+	const validRows: ValidImportRow[] = [];
 	const errors: PersonnelBatchMessage[] = [];
 	const existingSlugRows = await ctx.store.findMany<{ slug: string | null }>('personnel', ctx.auth.orgId, undefined, {
 		select: 'slug'
@@ -135,6 +146,7 @@ export async function importPersonnelBatch(
 		);
 
 		validRows.push({
+			index: i,
 			slugBase: buildPersonnelSlugBase({ lastName, firstName }),
 			row: {
 				organization_id: ctx.auth.orgId,
@@ -155,14 +167,92 @@ export async function importPersonnelBatch(
 	}
 
 	let insertedRows: Record<string, unknown>[] = [];
-	const rejectedSlugs = new Set<string>();
-	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
-		const reservedSlugs = new Set([...visibleSlugs, ...rejectedSlugs]);
-		for (const { slugBase, row } of validRows) {
-			row.slug = buildAvailablePersonnelSlug(slugBase, reservedSlugs);
-			reservedSlugs.add(row.slug as string);
+	const reservedSlugs = new Set(visibleSlugs);
+	for (const { slugBase, row } of validRows) {
+		row.slug = buildAvailablePersonnelSlug(slugBase, reservedSlugs);
+		reservedSlugs.add(row.slug as string);
+	}
+
+	function advanceSlug(value: ValidImportRow) {
+		// Keep every other row's planned URL, acknowledged URL and failed candidate reserved.
+		value.row.slug = buildAvailablePersonnelSlug(value.slugBase, reservedSlugs);
+		reservedSlugs.add(value.row.slug as string);
+	}
+
+	function confirmedSubsetConflict(error: unknown, subset: ValidImportRow[]): boolean {
+		return (
+			isRedactedPersonnelSlugConstraintError(error) ||
+			conflictingPersonnelSlug(error, ctx.auth.orgId, new Set(subset.map(({ row }) => row.slug as string))) !== null
+		);
+	}
+
+	function reportUnconfirmed(subset: ValidImportRow[]) {
+		for (const { index } of subset) {
+			errors.push({ index, message: 'Unable to confirm this row was created. Check the roster before retrying.' });
+		}
+	}
+
+	async function insertSubset(subset: ValidImportRow[]): Promise<void> {
+		let saved: Record<string, unknown>[];
+		try {
+			saved = await ctx.store.insertMany<Record<string, unknown>>(
+				entity.table,
+				ctx.auth.orgId,
+				subset.map(({ row }) => row),
+				entity.select
+			);
+		} catch (error) {
+			await recoverFailedSubset(subset, error);
+			return;
+		}
+		insertedRows.push(...saved);
+	}
+
+	async function recoverFailedSubset(subset: ValidImportRow[], error: unknown): Promise<void> {
+		if (!confirmedSubsetConflict(error, subset)) {
+			// An uncertain response may follow persistence; never probe or resubmit this subset.
+			reportUnconfirmed(subset);
+			return;
+		}
+		if (subset.length > 1) {
+			// The failed statement saved nothing. Split only confirmed constraint failures;
+			// unrelated halves still insert in bulk rather than one request per file row.
+			const midpoint = Math.floor(subset.length / 2);
+			await insertSubset(subset.slice(0, midpoint));
+			await insertSubset(subset.slice(midpoint));
+			return;
 		}
 
+		const value = subset[0];
+		// This singleton rejection identifies its own candidate, including with redacted DETAIL.
+		// Count it as candidate attempt one; failed larger attribution probes are separate.
+		for (let attempt = 2; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
+			advanceSlug(value);
+			let saved: Record<string, unknown>[];
+			try {
+				saved = await ctx.store.insertMany<Record<string, unknown>>(
+					entity.table,
+					ctx.auth.orgId,
+					[value.row],
+					entity.select
+				);
+			} catch (retryError) {
+				if (!confirmedSubsetConflict(retryError, subset)) {
+					reportUnconfirmed(subset);
+					return;
+				}
+				continue;
+			}
+			insertedRows.push(...saved);
+			return;
+		}
+		errors.push({
+			index: value.index,
+			message: 'Unable to allocate a unique personnel URL. This row was not created.'
+		});
+	}
+
+	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
 		try {
 			insertedRows = await ctx.store.insertMany<Record<string, unknown>>(
 				entity.table,
@@ -172,21 +262,27 @@ export async function importPersonnelBatch(
 			);
 			break;
 		} catch (error) {
+			if (isRedactedPersonnelSlugConstraintError(error)) {
+				await recoverFailedSubset(validRows, error);
+				break;
+			}
 			const rejected = conflictingPersonnelSlug(
 				error,
 				ctx.auth.orgId,
 				new Set(validRows.map(({ row }) => row.slug as string))
 			);
 			if (attempt === SLUG_RETRY_LIMIT || rejected === null) throw error;
-			rejectedSlugs.add(rejected);
+			advanceSlug(validRows.find(({ row }) => row.slug === rejected)!);
 		}
 	}
 
-	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.bulk_created`,
-		resourceType: AUDIT_RESOURCE,
-		details: { count: insertedRows.length }
-	});
+	if (insertedRows.length > 0) {
+		ctx.audit.log({
+			action: `${AUDIT_RESOURCE}.bulk_created`,
+			resourceType: AUDIT_RESOURCE,
+			details: { count: insertedRows.length }
+		});
+	}
 
 	return {
 		inserted: insertedRows.map((row) => entity.fromDb(row)),

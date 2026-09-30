@@ -217,7 +217,6 @@
     "held-delete-open-before.json": "042554244471b4c0fa48d9f264d310b92be7f92032eee0af4de0e2aa93bc046f",
     "held-delete-open.json": "7798a0f7a4054e40c215eb8a2cbfd85accefed811925baf6a5285287fe9fb3c3",
     "held-deleted.json": "932395ae5d709bb7196a8a90690573120d7e8734e6411ee9f7eea60575fdd895",
-    "isolated-sql.log": "4eb39a82421c0b65d5f98a941621f40d24a2aed16b4aa662cb989ccc146c17f8",
     "launch.json": "46bebe2e7c978d4eca5e278819dfb0c027fe597dcd631f215bd79dfe83412a9c",
     "lookup-initial-options.json": "c3f6ee38f2eb6eb6cbf667ee7ef6fd364ab6b17ca6f4f61ca55043c34b51b3a4",
     "lookup-member-close.json": "567de544e23594647686a9956803e24b6c3db809ebd94acf856ce8df00dd6b71",
@@ -259,7 +258,6 @@
     "paperwork-type-before.json": "e975f2d332b9f1345e092f12fb917e7ce04251c4250826ec298a3a176297bd57",
     "paperwork-type.json": "ebf9a8ae645457bdb510ba4294b04edb9c512acc56663301324261b87cb05971",
     "progress-before.json": "9adedc77f05caa9531b78818b21e868583efd77de8a2ce92d5b604e2ec284e13",
-    "raw-json-shape-reproduction.log": "30c0f668c5c851f7f9650e090820a8c9ac23810f556daf7403f4b3072ffb84cf",
     "reorder-failed-alert.json": "548af18dee4a2dab11a58f94a9afed472e020f3eb08ee1cbb3d1d4db165104b2",
     "reorder-failed-before.json": "2945ec6e9237a5b958c9b87876788473b6f203039bf383e186f01d7e27d67529",
     "reorder-failed-network.json": "400dcd81dfb10697a83693611ed45123a1d29a8388048dbd5f720efe1e4ca2f6",
@@ -358,7 +356,6 @@
     "stages-reordered-before.json": "57e86d5a1c9c0f60cf3b5abaa4baa2951aa288f0d83459adc0d0c4c8620eef8c",
     "stages-reordered.json": "8053a5cee031a2c6d97aa012a1f2fc741835a1ba7391cfb7ea640ca8e60aca88",
     "stages-three.json": "57e86d5a1c9c0f60cf3b5abaa4baa2951aa288f0d83459adc0d0c4c8620eef8c",
-    "stale-workspace-reproduction.log": "98994afd19b68fd35e8ad795a2b71496104f1fd2fedde4566681054494a10779",
     "step-cancel-before.json": "64a56a838b6d9559129a2114a0302d81ce2f00677eb71a0f4cad0f08fbc33da3",
     "step-cancel-name-before.json": "bf270bc35c8f2e8848a4edadf0606ac0cb965a5ff4faff8dcba38b1dca90afb0",
     "step-cancel-name.json": "40a102af6a669f438a93dc6df8e3e0462a25bbc93ef013001869454cca7d3ffa",
@@ -492,6 +489,23 @@
     "type-paperwork-transition-before.json": "f27c76fd3c7257da3cede9ccf9cb38054aff153079ab7e018d8074ade7e87eab",
     "type-paperwork-transition.json": "bed33481a1037e1db6fc9d0081e0be7fd5b7527e289a4110d96bf03a1809ac39",
     "view-history-entry.json": "c24d78362ef974acf9e6d82424b57db2ce8f9eea93b020faa76c443ba14294ad",
-    "view-history.json": "0a9ca12d32c196a377c1b1103b6a5f9315fc5049f60af7a0d97e98dae7cd25d2"
+    "view-history.json": "0a9ca12d32c196a377c1b1103b6a5f9315fc5049f60af7a0d97e98dae7cd25d2",
+    "isolated-sql.log.gz": "722da80abe7467c7b1623d92c31f12f646a9dbac8d52d39b91940bcb6e26a9a6",
+    "raw-json-shape-reproduction.log.gz": "ac093ad84639ebc19b59739169b17408ca2c655d72a6527ac646d80520fba579",
+    "stale-workspace-reproduction.log.gz": "6b153c334509f3a9238ce2ae704041be5e09964fab9f505c76ae3ee1ea330a8b"
+  },
+  "rawLogs": {
+    "isolated-sql.log": {
+      "compressedFile": "isolated-sql.log.gz",
+      "sha256": "4eb39a82421c0b65d5f98a941621f40d24a2aed16b4aa662cb989ccc146c17f8"
+    },
+    "raw-json-shape-reproduction.log": {
+      "compressedFile": "raw-json-shape-reproduction.log.gz",
+      "sha256": "30c0f668c5c851f7f9650e090820a8c9ac23810f556daf7403f4b3072ffb84cf"
+    },
+    "stale-workspace-reproduction.log": {
+      "compressedFile": "stale-workspace-reproduction.log.gz",
+      "sha256": "98994afd19b68fd35e8ad795a2b71496104f1fd2fedde4566681054494a10779"
+    }
   }
 }

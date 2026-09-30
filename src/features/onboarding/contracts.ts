@@ -27,6 +27,7 @@ export interface OnboardingBootstrap {
 	groups: Group[];
 	trainingTypes: TrainingType[];
 	rankCatalog: OrganizationRankCatalogEntry[];
+	rankCatalogUnavailable: boolean;
 }
 export type OnboardingWorkspaceData = OnboardingBootstrap;
 export type OnboardingWorkspaceHydrationMode = 'replace' | 'preserve-client';

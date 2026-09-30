@@ -11,6 +11,22 @@ export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
 }
 
+async function loadPersonnelCreationRanks(
+	ctx: OnboardingTrainingPorts
+): Promise<Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'>> {
+	const decision = await evaluateFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.createRecords, {
+		kind: 'organization'
+	});
+	if (!decision.allowed) return { rankCatalog: [], rankCatalogUnavailable: false };
+
+	try {
+		return { rankCatalog: await loadOrganizationRankCatalog(ctx), rankCatalogUnavailable: false };
+	} catch {
+		console.error('[onboarding-workspace] Personnel rank catalog unavailable', { organizationId: ctx.auth.orgId });
+		return { rankCatalog: [], rankCatalogUnavailable: true };
+	}
+}
+
 function onboardingQueryFiltersForMode(mode: OnboardingBootstrapMode): {
 	filters?: Record<string, unknown>;
 	inFilters?: Record<string, unknown[]>;
@@ -79,7 +95,7 @@ export async function fetchOnboardingBootstrap(
 			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
 			: null;
 
-	const [templateData, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel, rankCatalog] =
+	const [templateData, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel, personnelCreationRanks] =
 		await Promise.all([
 			fetchOnboardingTemplatesData(ctx),
 			ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
@@ -90,9 +106,7 @@ export async function fetchOnboardingBootstrap(
 			listGroupCatalog(ctx),
 			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
 			scopedAllPersonnel,
-			evaluateFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.createRecords, { kind: 'organization' }).then(
-				(decision) => (decision.allowed ? loadOrganizationRankCatalog(ctx) : [])
-			)
+			loadPersonnelCreationRanks(ctx)
 		]);
 
 	const templates = templateData.templates;
@@ -137,6 +151,6 @@ export async function fetchOnboardingBootstrap(
 		personnel,
 		groups,
 		trainingTypes,
-		rankCatalog
+		...personnelCreationRanks
 	};
 }

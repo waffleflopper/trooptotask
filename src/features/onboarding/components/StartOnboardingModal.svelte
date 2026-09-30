@@ -19,6 +19,7 @@
 		existingOnboardingPersonnelIds: string[];
 		groups: Group[];
 		rankCatalog: RankCatalogEntry[];
+		rankCatalogUnavailable: boolean;
 		templates: OnboardingTemplate[];
 		hasTemplateSteps?: boolean;
 		onSubmit: (personnelId: string, startedAt: string, templateId: string | null) => void | Promise<void>;
@@ -32,6 +33,7 @@
 		existingOnboardingPersonnelIds,
 		groups,
 		rankCatalog,
+		rankCatalogUnavailable,
 		templates,
 		hasTemplateSteps = true,
 		onSubmit,
@@ -117,7 +119,13 @@
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Member</p>
 						{#if canAddPerson}
-							<Button size="sm" variant="outline" type="button" onclick={() => (showAddPersonModal = true)}>
+							<Button
+								size="sm"
+								variant="outline"
+								type="button"
+								disabled={rankCatalogUnavailable}
+								onclick={() => (showAddPersonModal = true)}
+							>
 								Add Person
 							</Button>
 						{/if}
@@ -137,6 +145,16 @@
 						</Combobox.Content>
 					</Combobox.Root>
 				</div>
+
+				{#if canAddPerson && rankCatalogUnavailable}
+					<Alert.Root variant="warning">
+						<TriangleAlert />
+						<Alert.Title>Ranks unavailable</Alert.Title>
+						<Alert.Description>
+							Reload this page before adding a Person. You can still start onboarding for an existing member.
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
 
 				{#if !hasTemplateSteps}
 					<Alert.Root variant="warning">

@@ -114,9 +114,35 @@ describe('fetchOnboardingBootstrap', () => {
 				return findMany(...args);
 			};
 
-			await expect(fetchOnboardingBootstrap(ctx)).resolves.toMatchObject({ rankCatalog: [], onboardings: [] });
+			await expect(fetchOnboardingBootstrap(ctx)).resolves.toMatchObject({
+				rankCatalog: [],
+				rankCatalogUnavailable: false,
+				onboardings: []
+			});
 		}
 	);
+
+	it('keeps existing-member Onboarding available when the optional Personnel catalog fails', async () => {
+		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
+		ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG, rank: 'SPC', archived_at: null }]);
+		ctx.store.seed('personnel_onboardings', [makeOnboardingRow()]);
+		const catalogStore = ctx.rawStore ?? ctx.store;
+		const findMany = catalogStore.findMany.bind(catalogStore);
+		catalogStore.findMany = async (...args) => {
+			if (args[0] === 'organization_rank_catalog') throw new Error('Personnel catalog unavailable');
+			return findMany(...args);
+		};
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const result = await fetchOnboardingBootstrap(ctx);
+			expect(result.rankCatalog).toEqual([]);
+			expect(result.rankCatalogUnavailable).toBe(true);
+			expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
+			expect(result.onboardings.map((onboarding) => onboarding.id)).toEqual(['ob1']);
+		} finally {
+			log.mockRestore();
+		}
+	});
 
 	it('returns onboarding data plus explicit reference collections for the org', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });

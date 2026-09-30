@@ -13,9 +13,10 @@
 	interface Props {
 		ctx: OnboardingPageContext;
 		rankCatalog: RankCatalogEntry[];
+		rankCatalogUnavailable: boolean;
 	}
 
-	let { ctx, rankCatalog }: Props = $props();
+	let { ctx, rankCatalog, rankCatalogUnavailable }: Props = $props();
 
 	const switchTemplateLabel = $derived(
 		ctx.templates.find((template) => template.id === ctx.switchTemplateSelected)?.name ?? 'Select a template'
@@ -32,6 +33,7 @@
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
 		groups={ctx.groups}
 		{rankCatalog}
+		{rankCatalogUnavailable}
 		templates={ctx.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
 		onSubmit={(personnelId, startedAt, templateId) => ctx.handleStartOnboarding(personnelId, startedAt, templateId)}

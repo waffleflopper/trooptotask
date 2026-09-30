@@ -40,10 +40,10 @@ const packet: PersonnelOnboarding = {
 	]
 };
 
-function mount(rankCatalog: RankCatalogEntry[] = []) {
+function mount(rankCatalog: RankCatalogEntry[] = [], rankCatalogUnavailable = false) {
 	const ctx = new OnboardingPageContext(new ModalRegistry(), createTestOrgContext({ orgId: 'org-1' }));
 	render(OnboardingPageView, { props: { ctx } });
-	render(OnboardingModals, { props: { ctx, rankCatalog } });
+	render(OnboardingModals, { props: { ctx, rankCatalog, rankCatalogUnavailable } });
 	return ctx;
 }
 
@@ -175,6 +175,30 @@ describe('Onboarding retained interactions', () => {
 			expect.objectContaining({
 				method: 'POST',
 				body: JSON.stringify({ personnelId: 'created-person', templateId: 'template-1', startedAt: '2026-06-15' })
+			})
+		);
+	});
+
+	it('explains a rank outage, disables Add Person and still starts an existing member', async () => {
+		const created: PersonnelOnboarding = { ...packet, id: 'packet-2', personnelId: 'person-2', steps: [] };
+		const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(created), { status: 201 }));
+		vi.stubGlobal('fetch', fetchMock);
+		mount([], true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+		expect((screen.getByRole('button', { name: 'Add Person' }) as HTMLButtonElement).disabled).toBe(true);
+		expect(screen.getByRole('alert').textContent).toMatch(/reload/i);
+		await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'CPL Jones, Alex' }));
+		await fireEvent.click(
+			within(screen.getByRole('dialog', { name: 'Start Onboarding' })).getByRole('button', { name: 'Start Onboarding' })
+		);
+		await waitFor(() => expect(onboardingStore.getById('packet-2')).toEqual(created));
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(fetchMock).toHaveBeenCalledWith(
+			'/org/org-1/api/onboarding',
+			expect.objectContaining({
+				method: 'POST',
+				body: JSON.stringify({ personnelId: 'person-2', templateId: 'template-1', startedAt: '2026-06-15' })
 			})
 		);
 	});

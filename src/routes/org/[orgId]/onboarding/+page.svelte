@@ -112,6 +112,10 @@
 {:else if ctx}
 	<OnboardingKanbanView {ctx} />
 	{#if needsModalSurface && OnboardingModals && onboardingBootstrap}
-		<OnboardingModals {ctx} rankCatalog={onboardingBootstrap.data.rankCatalog} />
+		<OnboardingModals
+			{ctx}
+			rankCatalog={onboardingBootstrap.data.rankCatalog}
+			rankCatalogUnavailable={onboardingBootstrap.data.rankCatalogUnavailable}
+		/>
 	{/if}
 {/if}

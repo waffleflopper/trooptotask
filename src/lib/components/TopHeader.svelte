@@ -239,7 +239,7 @@
 	}
 
 	async function markAllNotificationsRead() {
-		if (notificationsWriting || notificationsLoading) return;
+		if (notificationsWriting || !notificationsLoaded) return;
 		const scope = notificationScope;
 		const generation = notificationGeneration;
 		const segment = orgUrlSegment;
@@ -616,7 +616,7 @@
 											variant="ghost"
 											size="xs"
 											onclick={markAllNotificationsRead}
-											disabled={notificationsWriting || notificationsLoading}>Mark all read</Button
+											disabled={notificationsWriting || !notificationsLoaded}>Mark all read</Button
 										>
 									{/if}
 								</span>

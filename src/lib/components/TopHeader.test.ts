@@ -118,12 +118,14 @@ function notification(id: string, title: string, link: string | null = null) {
 }
 
 describe('notification recovery', () => {
-	it('waits for a pending list before bulk read so an older list cannot restore unread rows', async () => {
+	it('waits for successful list recovery before bulk read so a retry cannot restore unread rows', async () => {
 		let release!: (response: Response) => void;
 		const delayed = new Promise<Response>((resolve) => {
 			release = resolve;
 		});
 		let writes = 0;
+		let reads = 0;
+		vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
 		vi.mocked(fetch).mockImplementation(async (input, options) => {
 			if (String(input).includes('notification-count'))
 				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
@@ -131,10 +133,16 @@ describe('notification recovery', () => {
 				writes++;
 				return notificationResponse({ success: true });
 			}
-			return delayed;
+			return ++reads === 1 ? notificationResponse(null, false) : delayed;
 		});
 		renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await screen.findByRole('menuitem', { name: /Could not load notifications/ });
+		expect((screen.getByRole('button', { name: 'Mark all read' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Mark all read' }));
+		expect(writes).toBe(0);
+		await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
 		const bulk = await screen.findByRole('button', { name: 'Mark all read' });
 		expect((bulk as HTMLButtonElement).disabled).toBe(true);
 		await fireEvent.click(bulk);

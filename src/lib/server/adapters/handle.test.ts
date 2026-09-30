@@ -11,6 +11,7 @@ import {
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, rethrowOrWrap, type RouteConfig } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createPersonnelRecord } from '$features/personnel/index.server';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
 
 type TestContext = {
@@ -459,7 +460,7 @@ describe('Personnel writes without commercial enforcement', () => {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 				policyResource: { kind: 'organization' },
-				fn: personnel.create
+				fn: createPersonnelRecord
 			},
 			ctx,
 			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan', clinicRole: 'Team Leader', groupId: null }

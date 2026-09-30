@@ -23,7 +23,7 @@ const previousCwd = process.cwd();
 process.chdir(root);
 const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 try {
-	const { PersonnelEntity } = await vite.ssrLoadModule('/src/lib/server/entities/personnel.ts');
+	const { PersonnelEntity } = await vite.ssrLoadModule('/src/features/personnel/personnelEntity.server.ts');
 	const { createSupabaseSignInRosterPersonnelLookupPort } = await vite.ssrLoadModule(
 		'/src/features/personnel/signInRosterPersonnelLookup.server.ts'
 	);

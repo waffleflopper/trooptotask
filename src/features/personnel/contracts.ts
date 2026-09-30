@@ -214,3 +214,5 @@ export const personnelLeaderNoteInputSchema = z.object({
 });
 
 export type PersonnelLeaderNoteInput = z.infer<typeof personnelLeaderNoteInputSchema>;
+
+export { personnelCreationResource } from './personnelCreationResource';

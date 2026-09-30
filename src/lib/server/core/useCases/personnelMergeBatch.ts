@@ -1,6 +1,6 @@
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { PersonnelEntity } from '$features/personnel/index.server';
 import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';

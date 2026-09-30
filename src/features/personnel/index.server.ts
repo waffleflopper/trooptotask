@@ -1,3 +1,6 @@
+export { PersonnelEntity } from './personnelEntity.server';
+export { createPersonnelRecord, updatePersonnelRecord } from './personnelRecordOperations.server';
+export { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug.server';
 export {
 	archivePersonnelLeaderNote,
 	createPersonnelLeaderNote,

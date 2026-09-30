@@ -1,6 +1,7 @@
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
-import { personnelStore } from '$features/personnel/stores/personnel.svelte';
+import { createPersonnel } from '$features/personnel';
+import { personnelCreationResource } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import { trainingTypeSource } from '$features/training';
@@ -204,7 +205,26 @@ export class OnboardingPageContext {
 	}
 
 	get canAddPerson(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords).allowed;
+		const resource = personnelCreationResource(this.#org.scopeSet);
+		return (
+			resource !== null &&
+			this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, resource).allowed
+		);
+	}
+
+	get personnelCreationGroups() {
+		return this.groups.filter(
+			(group) =>
+				this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, {
+					kind: 'group',
+					groupId: group.id
+				}).allowed
+		);
+	}
+
+	get allowUnassignedPersonnel(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, { kind: 'organization' })
+			.allowed;
 	}
 
 	// ── Derived ────────────────────────────────────────────────
@@ -300,9 +320,11 @@ export class OnboardingPageContext {
 		this.modals.close(MODAL_IDS.startOnboarding);
 	}
 
-	async handleAddPerson(data: Omit<Personnel, 'id'>): Promise<string | null> {
-		const newPerson = await personnelStore.add(data);
-		return newPerson?.id ?? null;
+	async handleAddPerson(data: Omit<Personnel, 'id'>): Promise<string> {
+		const newPerson = await createPersonnel(data);
+		if (!newPerson)
+			throw new Error('Personnel creation could not be confirmed. Reload the roster before trying again.');
+		return newPerson.id;
 	}
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {

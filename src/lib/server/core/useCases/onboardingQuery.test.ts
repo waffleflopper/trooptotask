@@ -85,8 +85,44 @@ describe('fetchOnboardingBootstrap', () => {
 		]);
 	});
 
+	it('loads creation ranks for an Alpha-scoped Personnel configurator', async () => {
+		const ctx = createWritePortsContext({
+			auth: {
+				orgId: ORG,
+				role: 'member',
+				isPrivileged: false,
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'configure',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.store.seed('organization_rank_catalog', [
+			{
+				organization_id: ORG,
+				code: 'SPC',
+				label: 'Specialist',
+				service: 'army',
+				category: 'enlisted',
+				pay_grade: 'E-4',
+				state: 'active',
+				source: 'default',
+				sort_order: 0
+			}
+		]);
+		const result = await fetchOnboardingBootstrap(ctx);
+		expect(result.rankCatalog.map((entry) => entry.code)).toEqual(['SPC']);
+		expect(result.rankCatalogUnavailable).toBe(false);
+	});
+
 	it.each([
 		{ capability: 'none' as const, scope: { kind: 'organization' as const } },
+		{ capability: 'operate' as const, scope: { kind: 'groups' as const, groupIds: ['alpha'] } },
 		{ capability: 'configure' as const, scope: { kind: 'groups' as const, groupIds: [] as string[] } }
 	])(
 		'keeps Onboarding available without rank access when Personnel creation is denied (%j)',

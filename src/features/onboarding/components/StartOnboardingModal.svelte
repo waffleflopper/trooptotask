@@ -2,7 +2,7 @@
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
-	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
+	import { PersonnelModal } from '$features/personnel';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -18,6 +18,7 @@
 		canAddPerson: boolean;
 		existingOnboardingPersonnelIds: string[];
 		groups: Group[];
+		allowUnassigned?: boolean;
 		rankCatalog: RankCatalogEntry[];
 		rankCatalogUnavailable: boolean;
 		templates: OnboardingTemplate[];
@@ -32,6 +33,7 @@
 		canAddPerson,
 		existingOnboardingPersonnelIds,
 		groups,
+		allowUnassigned = true,
 		rankCatalog,
 		rankCatalogUnavailable,
 		templates,
@@ -180,6 +182,7 @@
 		personnel={null}
 		{groups}
 		{rankCatalog}
+		{allowUnassigned}
 		onSubmit={handleAddPersonSubmit}
 		onClose={() => (showAddPersonModal = false)}
 	/>

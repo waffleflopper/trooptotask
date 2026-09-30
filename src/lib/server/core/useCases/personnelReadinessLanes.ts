@@ -4,7 +4,7 @@ import { fail } from '$lib/errors';
 import type { Personnel } from '$features/personnel/personnel.types';
 import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { PersonnelEntity } from '$features/personnel/index.server';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';

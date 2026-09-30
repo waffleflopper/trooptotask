@@ -1,0 +1,18 @@
+{
+  "table": "onboarding_template_steps",
+  "organization": "orgB",
+  "count": 1,
+  "rows": [
+    {
+      "id": "db98cd66-7561-4841-947d-28b242ae5ac5",
+      "organization_id": "f5593703-3a60-48b1-b1a6-249e2b2d333e",
+      "template_id": "e7283e03-7576-4925-b044-fb1bbeeb0c9e",
+      "name": "Foreign Private Step",
+      "description": null,
+      "step_type": "training",
+      "training_type_id": "017bc6d1-7a4a-4d35-a7c3-b5690a547ba4",
+      "stages": null,
+      "sort_order": 0
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onboardingWorkspaceHydrator } from '$features/onboarding/onboardingWorkspaceHydration.svelte';
-	import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
+	import { onboardingWorkspaceHydrator } from '$features/onboarding';
+	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 

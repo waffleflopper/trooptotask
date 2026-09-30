@@ -1,3 +1,4 @@
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
 const { invalidateMock } = vi.hoisted(() => ({
@@ -117,6 +118,26 @@ describe('OnboardingPageContext policy affordances', () => {
 		expect(ctx.canViewOnboarding).toBe(true);
 		expect(ctx.canManageWorkflows).toBe(true);
 		expect(ctx.canManageConfig).toBe(false);
+	});
+
+	it('requires Organization scope for the configuration navigation without borrowing other lanes', () => {
+		for (const scopeSet of [
+			{ kind: 'organization' },
+			{ kind: 'groups', groupIds: ['g-1'] },
+			{ kind: 'groups', groupIds: [] }
+		] satisfies ScopeSet[]) {
+			const context = new OnboardingPageContext(
+				{ open: vi.fn() } as never,
+				createTestOrgContext({
+					orgId: 'org-1',
+					userRole: 'member',
+					capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure' },
+					scopeSet
+				})
+			);
+			expect(context.canManageConfig).toBe(scopeSet.kind === 'organization');
+			expect(context.canViewOnboarding).toBe(true);
+		}
 	});
 
 	it('checks per-personnel scope for onboarding record actions', () => {

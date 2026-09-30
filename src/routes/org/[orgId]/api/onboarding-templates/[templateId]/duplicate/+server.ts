@@ -2,10 +2,7 @@ import { z } from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import {
-	duplicateOnboardingTemplate,
-	type DuplicateOnboardingTemplateResult
-} from '$lib/server/core/useCases/onboardingTemplateDuplicate';
+import { duplicateOnboardingTemplate, type DuplicateOnboardingTemplateResult } from '$features/onboarding/index.server';
 
 const duplicateTemplateInput = z.object({ templateId: z.string().min(1) });
 

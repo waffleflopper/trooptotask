@@ -1,0 +1,62 @@
+{
+  "table": "onboarding_step_progress",
+  "organization": "orgA",
+  "count": 3,
+  "rows": [
+    {
+      "id": "5e27c42b-44c5-42e9-ad5b-4cbdc762d14d",
+      "organization_id": "44f3845f-8f0a-4b33-97c2-c782216d75e2",
+      "onboarding_id": "1b5086b2-2f35-44fe-aa1e-96e1bf74e11e",
+      "template_step_id": "e6a449ee-f88c-4130-a9b0-32e606cd9d1d",
+      "step_name": "Verification Orientation",
+      "step_type": "checkbox",
+      "training_type_id": null,
+      "stages": null,
+      "sort_order": 0,
+      "completed": true,
+      "current_stage": null,
+      "notes": [],
+      "active": true
+    },
+    {
+      "id": "9d7db876-c68e-4f21-88fc-4d4f0110e350",
+      "organization_id": "44f3845f-8f0a-4b33-97c2-c782216d75e2",
+      "onboarding_id": "1b5086b2-2f35-44fe-aa1e-96e1bf74e11e",
+      "template_step_id": "13e8243f-0c56-48b4-9451-2df17dc6340e",
+      "step_name": "Verification Training Step",
+      "step_type": "training",
+      "training_type_id": "d485e886-35b5-4dee-86cf-589becf9e686",
+      "stages": null,
+      "sort_order": 2,
+      "completed": true,
+      "current_stage": null,
+      "notes": [],
+      "active": true
+    },
+    {
+      "id": "cec63fab-d276-4468-8584-edd71a8c18a6",
+      "organization_id": "44f3845f-8f0a-4b33-97c2-c782216d75e2",
+      "onboarding_id": "1b5086b2-2f35-44fe-aa1e-96e1bf74e11e",
+      "template_step_id": "3c3d69a0-6d27-4c21-a630-b26901b89c31",
+      "step_name": "Verification Paperwork",
+      "step_type": "paperwork",
+      "training_type_id": null,
+      "stages": [
+        "Submitted",
+        "Reviewed",
+        "Filed"
+      ],
+      "sort_order": 1,
+      "completed": true,
+      "current_stage": "Filed",
+      "notes": [
+        {
+          "text": "Synthetic retained filing note",
+          "userId": "f5a34fe1-96d7-4de5-9310-4a84e1cd3bdb",
+          "timestamp": "2026-03-18T12:00:00.000Z"
+        }
+      ],
+      "active": true
+    }
+  ]
+}

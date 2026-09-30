@@ -212,16 +212,7 @@
 				"src/lib/server/core/useCases/onboardingRetention.ts",
 				"src/lib/server/core/useCases/onboardingStepProgress.test.ts",
 				"src/lib/server/core/useCases/onboardingStepProgress.ts",
-				"src/lib/server/core/useCases/onboardingTemplateCrud.test.ts",
-				"src/lib/server/core/useCases/onboardingTemplateCrud.ts",
-				"src/lib/server/core/useCases/onboardingTemplateDuplicate.ts",
-				"src/lib/server/core/useCases/onboardingTemplatesQuery.test.ts",
-				"src/lib/server/core/useCases/onboardingTemplatesQuery.ts",
-				"src/lib/server/entities/onboardingStepProgress.ts",
-				"src/lib/server/entities/onboardingTemplate.test.ts",
-				"src/lib/server/entities/onboardingTemplate.ts",
-				"src/lib/server/entities/onboardingTemplateStep.test.ts",
-				"src/lib/server/entities/onboardingTemplateStep.ts"
+				"src/lib/server/entities/onboardingStepProgress.ts"
 			],
 			"packet": "08-M09"
 		},

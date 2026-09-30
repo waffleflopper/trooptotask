@@ -1,0 +1,13 @@
+{
+  "table": "onboarding_templates",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "044d9793-ccb2-4985-a89b-8767c0cbbb49",
+      "organization_id": "b21748bd-f078-4062-bf83-4fa968843181",
+      "name": "D14 Base Recheck",
+      "description": null
+    }
+  ]
+}

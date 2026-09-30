@@ -1,7 +1,5 @@
 export { RatingSchemeEntryEntity } from './ratingSchemeEntry';
 export { PersonnelEntity } from './personnel';
-export { OnboardingTemplateEntity } from './onboardingTemplate';
-export { OnboardingTemplateStepEntity } from './onboardingTemplateStep';
 export { PersonnelOnboardingEntity } from './personnelOnboarding';
 export { CounselingRecordEntity } from './counselingRecord';
 

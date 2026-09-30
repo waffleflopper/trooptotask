@@ -1,3 +1,7 @@
+import {
+	listOnboardingTemplateExportRows,
+	listOnboardingTemplateStepExportRows
+} from '$features/onboarding/index.server';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
@@ -43,7 +47,8 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 						listTrainingTypeExportRows,
 						listTrainingCompletionExportRows,
 						listTrainingViewExportRows
-					}
+					},
+					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
 				);
 				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);

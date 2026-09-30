@@ -1,3 +1,7 @@
+import {
+	listOnboardingTemplateExportRows,
+	listOnboardingTemplateStepExportRows
+} from '$features/onboarding/index.server';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
@@ -42,7 +46,8 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 						listTrainingTypeExportRows,
 						listTrainingCompletionExportRows,
 						listTrainingViewExportRows
-					}
+					},
+					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
 				);
 				const jsonStr = JSON.stringify(exportData, null, 2);
 				const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];

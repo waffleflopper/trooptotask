@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Script ran on page and returned:\n```json\n[{\"request\":{\"family\":\"onboarding-template-steps\",\"method\":\"POST\",\"body\":{\"templateId\":\"43495846-9653-4c74-86f6-dc1ec8ecd43e\",\"name\":\"D14 foreign Training refused\",\"stepType\":\"training\",\"trainingTypeId\":\"017bc6d1-7a4a-4d35-a7c3-b5690a547ba4\",\"sortOrder\":3}},\"status\":400,\"body\":\"{\\\"message\\\":\\\"Training Type is not available for this organization\\\"}\"},{\"request\":{\"family\":\"onboarding-template-steps\",\"method\":\"POST\",\"body\":{\"templateId\":\"e7283e03-7576-4925-b044-fb1bbeeb0c9e\",\"name\":\"D14 foreign template refused\",\"stepType\":\"checkbox\",\"sortOrder\":1}},\"status\":404,\"body\":\"{\\\"message\\\":\\\"Onboarding template not found\\\"}\"},{\"request\":{\"family\":\"onboarding-templates\",\"method\":\"POST\",\"body\":null},\"status\":400,\"body\":\"{\\\"message\\\":\\\"Invalid input: expected object, received null\\\"}\"},{\"request\":{\"family\":\"onboarding-templates\",\"method\":\"PUT\",\"body\":{\"id\":\"43495846-9653-4c74-86f6-dc1ec8ecd43e\",\"description\":42}},\"status\":400,\"body\":\"{\\\"message\\\":\\\"Invalid input: expected string, received number\\\"}\"},{\"request\":{\"family\":\"onboarding-template-steps\",\"method\":\"POST\",\"body\":null},\"status\":400,\"body\":\"{\\\"message\\\":\\\"Invalid input: expected object, received null\\\"}\"},{\"request\":{\"family\":\"onboarding-template-steps\",\"method\":\"PUT\",\"body\":{\"id\":\"3c3d69a0-6d27-4c21-a630-b26901b89c31\",\"stages\":[\"Filed\",42]}},\"status\":400,\"body\":\"{\\\"message\\\":\\\"Invalid input: expected string, received number\\\"}\"}]\n```"
+    }
+  ]
+}

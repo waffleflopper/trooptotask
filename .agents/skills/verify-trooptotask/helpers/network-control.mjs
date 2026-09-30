@@ -30,6 +30,7 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 			});
 		}
 		const response = await original(...input);
+		if (target.__mapNetwork !== control) return response;
 		call.status = response.status;
 		call.contentDisposition = response.headers?.get('Content-Disposition') ?? null;
 		call.contentType = response.headers?.get('Content-Type') ?? null;

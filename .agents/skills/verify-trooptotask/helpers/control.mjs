@@ -588,6 +588,8 @@ async function main() {
 					? '() => ({ armed: !!window.__mapNetwork, mode: window.__mapNetwork?.mode, suffix: window.__mapNetwork?.suffix, ordinal: window.__mapNetwork?.ordinal, reloaded: true })'
 					: `() => ${install}`
 			);
+			if (!result.armed || result.mode !== mode || result.suffix !== suffix || result.ordinal !== ordinal)
+				throw new Error('Network control was not installed; inspect the owned page before retrying.');
 			note(result);
 			return;
 		}

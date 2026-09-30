@@ -98,3 +98,17 @@ test('restoring a control disables a client-captured fetch wrapper', async () =>
 	assert.equal(await response.text(), 'provider result');
 	assert.equal(control.calls.length, 0);
 });
+
+test('restoring while a provider response is pending leaves no held request', async () => {
+	const provider = deferred();
+	const page = { fetch: () => provider.promise };
+	installNetworkControl(page, { mode: 'hold', ordinal: 1, suffix: '/org/a/api/onboarding-templates' });
+	const request = page.fetch('/org/a/api/onboarding-templates', { method: 'POST' });
+	const control = page.__mapNetwork;
+	page.fetch = control.original;
+	delete page.__mapNetwork;
+	provider.resolve(new Response('saved provider result', { status: 200 }));
+	const response = await request;
+	assert.equal(await response.text(), 'saved provider result');
+	assert.equal(control.release, null);
+});

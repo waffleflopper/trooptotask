@@ -5,7 +5,7 @@ import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onb
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import { requireOnboardingViewPolicy, type OnboardingTrainingPorts } from './onboardingPolicy';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { evaluateFeaturePolicy } from './featurePolicy';
+import { evaluateFeaturePolicy } from '$lib/access/index.server';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;

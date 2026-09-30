@@ -1,40 +1,21 @@
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { PersonnelEntity } from '$features/personnel/index.server';
+import { PersonnelEntity } from './personnelEntity.server';
 import { sanitizeString } from '$lib/server/validation';
-import type { WritePorts } from '$lib/server/core/ports';
-import { requireFeaturePolicy } from './featurePolicy';
-import { createPersonnelCatalogRankResolver } from '$features/personnel/index.server';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { requireFeaturePolicy } from '$lib/access/index.server';
+import { createPersonnelCatalogRankResolver } from './rankValidation.server';
+import { listGroupCatalog } from './groupCatalog.server';
+import type { PersonnelBatchContext } from './personnelBatchContext.server';
+import type { PersonnelBackfillInput, PersonnelBackfillResult, PersonnelBatchMessage } from './personnelImport.types';
 
 const entity = PersonnelEntity;
 const MAX_BATCH_SIZE = 500;
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-interface MergeBatchRecord {
-	rank: string;
-	lastName: string;
-	firstName: string;
-	groupName?: string | null;
-	ets?: string | null;
-	deros?: string | null;
-}
-
-interface MergeBatchInput {
-	records: MergeBatchRecord[];
-}
-
-interface BatchMessage {
-	index: number;
-	message: string;
-}
-
-interface MergeBatchResult {
-	matched: Array<{ index: number; personnelId: string }>;
-	updated: unknown[];
-	skipped: BatchMessage[];
-	ambiguous: BatchMessage[];
-	errors: BatchMessage[];
+interface PersonnelBackfillContext extends PersonnelBatchContext {
+	store: PersonnelBatchContext['store'] & {
+		update<T>(table: string, orgId: string, id: string, patch: Record<string, unknown>, select?: string): Promise<T>;
+	};
 }
 
 function normalize(value: string | null | undefined): string {
@@ -72,7 +53,10 @@ function validateBatchDateFields(ets: string | null | undefined, deros: string |
 	return `${invalidFields.join(' and ')} must be valid YYYY-MM-DD dates`;
 }
 
-export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInput): Promise<MergeBatchResult> {
+export async function mergePersonnelBatch(
+	ctx: PersonnelBackfillContext,
+	input: PersonnelBackfillInput
+): Promise<PersonnelBackfillResult> {
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.mergeRecords, { kind: 'unscoped' }, 'personnel');
 
 	if (!Array.isArray(input.records) || input.records.length === 0) {
@@ -94,9 +78,9 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 	const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
 	const matched: Array<{ index: number; personnelId: string }> = [];
 	const updated: Record<string, unknown>[] = [];
-	const skipped: BatchMessage[] = [];
-	const ambiguous: BatchMessage[] = [];
-	const errors: BatchMessage[] = [];
+	const skipped: PersonnelBatchMessage[] = [];
+	const ambiguous: PersonnelBatchMessage[] = [];
+	const errors: PersonnelBatchMessage[] = [];
 
 	for (let index = 0; index < input.records.length; index++) {
 		const record = input.records[index];
@@ -193,13 +177,23 @@ export async function mergePersonnelBatch(ctx: WritePorts, input: MergeBatchInpu
 			continue;
 		}
 
-		const result = await ctx.store.update<Record<string, unknown>>(
-			entity.table,
-			ctx.auth.orgId,
-			person.id as string,
-			patch
-		);
+		let result: Record<string, unknown>;
+		try {
+			result = await ctx.store.update<Record<string, unknown>>(
+				entity.table,
+				ctx.auth.orgId,
+				person.id as string,
+				patch
+			);
+		} catch {
+			errors.push({ index, message: 'This update could not be confirmed. Review the record before retrying.' });
+			continue;
+		}
 		updated.push(result);
+		// Later rows compare with acknowledged dates in file order. Do not modify
+		// the snapshot after an unconfirmed write or replace matching identity.
+		person.ets = result.ets;
+		person.deros = result.deros;
 	}
 
 	ctx.audit.log({

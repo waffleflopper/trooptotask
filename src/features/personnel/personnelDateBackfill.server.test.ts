@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { mergePersonnelBatch } from './personnelMergeBatch';
+import { mergePersonnelBatch } from './personnelDateBackfill.server';
 
 function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
 	const ctx = createTestContext(overrides);
@@ -100,7 +100,7 @@ describe('mergePersonnelBatch', () => {
 			ambiguous: []
 		});
 		const message = outcome.value?.errors[0]?.message ?? '';
-		expect.soft(message).toMatch(/unconfirmed|not confirmed|could not confirm/i);
+		expect.soft(message).toMatch(/unconfirmed|not (?:be )?confirmed|could not confirm/i);
 		expect.soft(message).not.toContain('private-personnel-detail');
 		expect.soft(ctx.auditPort.events).toContainEqual({
 			action: 'personnel.bulk_merged',
@@ -133,6 +133,49 @@ describe('mergePersonnelBatch', () => {
 		expect(replay.skipped).toEqual([{ index: 0, message: expect.any(String) }]);
 		expect(replay.errors).toEqual([]);
 		expect(persisted).toEqual(saved);
+		expect(persisted).toEqual([{ ...original, ets: '2027-05-01' }]);
+	});
+
+	it('continues an independent row after an unconfirmed update', async () => {
+		const ctx = buildContext();
+		const originals = [savedPerson('person-one', 'Smith'), savedPerson('person-two', 'Rivera')];
+		const persisted = freshPersonnelProvider(ctx, originals, (id) => id === 'person-one');
+
+		const result = await mergePersonnelBatch(ctx, {
+			records: [
+				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' },
+				{ rank: 'SGT', lastName: 'Rivera', firstName: 'Jamie', ets: '2027-07-01' }
+			]
+		});
+
+		expect(result.updated).toMatchObject([{ id: 'person-two', ets: '2027-07-01' }]);
+		expect(result.errors).toEqual([{ index: 0, message: expect.any(String) }]);
+		expect(persisted).toEqual([originals[0], { ...originals[1], ets: '2027-07-01' }]);
+	});
+
+	it('does not claim a lost acknowledgement proves no write and rereads saved dates on retry', async () => {
+		const ctx = buildContext();
+		const original = savedPerson('person-one', 'Smith');
+		const persisted = freshPersonnelProvider(ctx, [original]);
+		const update = ctx.store.update.bind(ctx.store);
+		ctx.store.update = async <T>(...args: Parameters<typeof ctx.store.update>): Promise<T> => {
+			await update<T>(...args);
+			throw new Error('Acknowledgement lost: private-personnel-detail');
+		};
+		const input = { records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' }] };
+
+		const unconfirmed = await mergePersonnelBatch(ctx, input);
+		expect(unconfirmed.updated).toEqual([]);
+		expect(unconfirmed.errors).toEqual([{ index: 0, message: expect.any(String) }]);
+		expect(unconfirmed.errors[0].message).toMatch(/unconfirmed|not (?:be )?confirmed|could not confirm/i);
+		expect(unconfirmed.errors[0].message).not.toContain('private-personnel-detail');
+		expect(persisted).toEqual([{ ...original, ets: '2027-05-01' }]);
+
+		ctx.store.update = update;
+		const replay = await mergePersonnelBatch(ctx, input);
+		expect(replay.updated).toEqual([]);
+		expect(replay.skipped).toEqual([{ index: 0, message: expect.any(String) }]);
+		expect(replay.errors).toEqual([]);
 		expect(persisted).toEqual([{ ...original, ets: '2027-05-01' }]);
 	});
 

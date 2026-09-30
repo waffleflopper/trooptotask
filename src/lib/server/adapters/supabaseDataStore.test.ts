@@ -75,6 +75,22 @@ describe('Supabase DataStore conflict handling', () => {
 		}
 	});
 
+	it('does not attach slug recovery metadata for another Personnel constraint', async () => {
+		const providerError = {
+			code: '23505',
+			message: 'duplicate key value violates unique constraint "personnel_pkey"',
+			details: 'Key (id)=(private-person-id) already exists.',
+			hint: ''
+		};
+		const caught = await storeWithProviderError(providerError)
+			.insertMany('personnel', 'test-org', [{ id: 'private-person-id', slug: 'smith-jamie' }])
+			.catch((error: unknown) => error);
+
+		expect(caught).toBeInstanceOf(Error);
+		expect(caught).not.toHaveProperty('code');
+		expect(caught).not.toHaveProperty('details');
+	});
+
 	it.each(writes)('%s returns a conflict for a duplicate Critical Tasks code', async (method) => {
 		await expect(write(storeWithProviderError(duplicateTaskCode), method, 'ict_tasks')).rejects.toMatchObject({
 			status: 409,

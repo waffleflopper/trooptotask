@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildAvailablePersonnelSlug,
 	buildPersonnelSlugBase,
-	isPersonnelSlugUniqueConstraintError
+	isPersonnelSlugUniqueConstraintError,
+	conflictingPersonnelSlug
 } from './personnelSlug.server';
 
 describe('personnel slug helpers', () => {
@@ -33,5 +34,41 @@ describe('personnel slug helpers', () => {
 			})
 		).toBe(true);
 		expect(isPersonnelSlugUniqueConstraintError(new Error('unrelated failure'))).toBe(false);
+	});
+
+	it('extracts only a submitted URL rejected by the same Organization slug index', () => {
+		expect(
+			conflictingPersonnelSlug(
+				{
+					code: '23505',
+					message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+					details: 'Key (organization_id, slug)=(org-a, smith-jamie) already exists.'
+				},
+				'org-a',
+				new Set(['smith-jamie', 'rivera-monica'])
+			)
+		).toBe('smith-jamie');
+	});
+
+	it.each([
+		['a different provider code', { code: '42501' }],
+		['another unique index', { message: 'duplicate key value violates unique constraint "personnel_pkey"' }],
+		['a foreign Organization', { details: 'Key (organization_id, slug)=(org-b, smith-jamie) already exists.' }],
+		['an unsubmitted URL', { details: 'Key (organization_id, slug)=(org-a, private-person) already exists.' }],
+		['missing key details', { details: undefined }],
+		['malformed key details', { details: 'smith-jamie already exists somewhere' }]
+	])('does not treat %s as a confirmed submitted slug conflict', (_reason, override) => {
+		expect(
+			conflictingPersonnelSlug(
+				{
+					code: '23505',
+					message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+					details: 'Key (organization_id, slug)=(org-a, smith-jamie) already exists.',
+					...override
+				},
+				'org-a',
+				new Set(['smith-jamie'])
+			)
+		).toBeNull();
 	});
 });

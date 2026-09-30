@@ -9,45 +9,25 @@
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
-import type { WritePorts } from '$lib/server/core/ports';
-import { requireFeaturePolicy } from './featurePolicy';
-import {
-	PersonnelEntity,
-	buildAvailablePersonnelSlug,
-	buildPersonnelSlugBase,
-	createActivePersonnelRankResolver,
-	listGroupCatalog
-} from '$features/personnel/index.server';
+import { requireFeaturePolicy } from '$lib/access/index.server';
+import type { PersonnelBatchContext } from './personnelBatchContext.server';
+import type { PersonnelBatchMessage, PersonnelImportInput, PersonnelImportResult } from './personnelImport.types';
+import { PersonnelEntity } from './personnelEntity.server';
+import { buildAvailablePersonnelSlug, buildPersonnelSlugBase, conflictingPersonnelSlug } from './personnelSlug.server';
+import { createActivePersonnelRankResolver } from './rankValidation.server';
+import { listGroupCatalog } from './groupCatalog.server';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
 const MAX_BATCH_SIZE = 500;
+const SLUG_RETRY_LIMIT = 3;
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-interface BatchRecord {
-	rank: string;
-	lastName: string;
-	firstName: string;
-	mos?: string | null;
-	clinicRole?: string | null;
-	groupName?: string | null;
-	ets?: string | null;
-	deros?: string | null;
-}
-
-interface BatchInput {
-	records: BatchRecord[];
-}
-
-interface BatchError {
-	index: number;
-	message: string;
-}
-
-interface BatchResult {
-	inserted: unknown[];
-	errors: BatchError[];
+interface PersonnelImportContext extends PersonnelBatchContext {
+	store: PersonnelBatchContext['store'] & {
+		insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
+	};
 }
 
 function isValidIsoDate(value: string): boolean {
@@ -81,7 +61,10 @@ function validateBatchDateFields(ets: string | null | undefined, deros: string |
 	return `${invalidFields.join(' and ')} must be valid YYYY-MM-DD dates`;
 }
 
-export async function importPersonnelBatch(ctx: WritePorts, input: BatchInput): Promise<BatchResult> {
+export async function importPersonnelBatch(
+	ctx: PersonnelImportContext,
+	input: PersonnelImportInput
+): Promise<PersonnelImportResult> {
 	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.importRecords, { kind: 'unscoped' }, AUDIT_RESOURCE);
 
 	const { records } = input;
@@ -99,13 +82,13 @@ export async function importPersonnelBatch(ctx: WritePorts, input: BatchInput): 
 	const groupMap = new Map(groups.map((g) => [g.name.toLowerCase(), g.id]));
 
 	// Validate all records
-	const validRows: Array<{ index: number; row: Record<string, unknown> }> = [];
-	const errors: BatchError[] = [];
+	const validRows: Array<{ slugBase: string; row: Record<string, unknown> }> = [];
+	const errors: PersonnelBatchMessage[] = [];
 	const existingSlugRows = await ctx.store.findMany<{ slug: string | null }>('personnel', ctx.auth.orgId, undefined, {
 		select: 'slug'
 	});
 	const rankResolver = await createActivePersonnelRankResolver(ctx);
-	const reservedSlugs = new Set(
+	const visibleSlugs = new Set(
 		existingSlugRows
 			.map((row) => row.slug)
 			.filter((slug): slug is string => typeof slug === 'string' && slug.length > 0)
@@ -152,10 +135,9 @@ export async function importPersonnelBatch(ctx: WritePorts, input: BatchInput): 
 		);
 
 		validRows.push({
-			index: i,
+			slugBase: buildPersonnelSlugBase({ lastName, firstName }),
 			row: {
 				organization_id: ctx.auth.orgId,
-				slug: buildAvailablePersonnelSlug(buildPersonnelSlugBase({ lastName, firstName }), reservedSlugs),
 				rank: normalizedRank,
 				last_name: lastName,
 				first_name: firstName,
@@ -166,20 +148,39 @@ export async function importPersonnelBatch(ctx: WritePorts, input: BatchInput): 
 				group_id: groupId
 			}
 		});
-		reservedSlugs.add(validRows[validRows.length - 1].row.slug as string);
 	}
 
 	if (validRows.length === 0) {
 		return { inserted: [], errors };
 	}
 
-	// Bulk insert
-	const insertedRows = await ctx.store.insertMany<Record<string, unknown>>(
-		entity.table,
-		ctx.auth.orgId,
-		validRows.map((v) => v.row),
-		entity.select
-	);
+	let insertedRows: Record<string, unknown>[] = [];
+	const rejectedSlugs = new Set<string>();
+	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
+		const reservedSlugs = new Set([...visibleSlugs, ...rejectedSlugs]);
+		for (const { slugBase, row } of validRows) {
+			row.slug = buildAvailablePersonnelSlug(slugBase, reservedSlugs);
+			reservedSlugs.add(row.slug as string);
+		}
+
+		try {
+			insertedRows = await ctx.store.insertMany<Record<string, unknown>>(
+				entity.table,
+				ctx.auth.orgId,
+				validRows.map((value) => value.row),
+				entity.select
+			);
+			break;
+		} catch (error) {
+			const rejected = conflictingPersonnelSlug(
+				error,
+				ctx.auth.orgId,
+				new Set(validRows.map(({ row }) => row.slug as string))
+			);
+			if (attempt === SLUG_RETRY_LIMIT || rejected === null) throw error;
+			rejectedSlugs.add(rejected);
+		}
+	}
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_created`,
@@ -193,7 +194,7 @@ export async function importPersonnelBatch(ctx: WritePorts, input: BatchInput): 
 	};
 }
 
-function isGroupAllowedByScope(scopeSet: WritePorts['auth']['scopeSet'], groupId: string | null): boolean {
+function isGroupAllowedByScope(scopeSet: PersonnelBatchContext['auth']['scopeSet'], groupId: string | null): boolean {
 	if (scopeSet.kind === 'organization') {
 		return true;
 	}

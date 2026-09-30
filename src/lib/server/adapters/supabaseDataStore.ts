@@ -33,7 +33,12 @@ function getOrgColumn(table: string): string {
 	}
 }
 
-function throwMutationError(table: string, error: { code?: string; message: string }): never {
+function throwMutationError(table: string, error: { code?: string; message: string; details?: string }): never {
+	if (table === 'personnel' && error.code === '23505' && error.message.includes('"personnel_org_slug_key"')) {
+		// Preserve only this named conflict's metadata for ordinary request-store
+		// URL recovery. The HTTP boundary still conceals internal provider errors.
+		throw Object.assign(new Error(error.message), { code: error.code, details: error.details });
+	}
 	if (
 		table === 'availability_entries' &&
 		error.code === '23503' &&

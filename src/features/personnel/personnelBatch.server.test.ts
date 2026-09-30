@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { importPersonnelBatch } from './personnelBatch';
+import { importPersonnelBatch } from './personnelBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	const ctx = createWritePortsContext(overrides);
@@ -28,6 +28,44 @@ function seedRankCatalog(ctx: ReturnType<typeof buildContext>, entries: Array<Re
 			...entry
 		}))
 	);
+}
+
+function atomicImportProvider(
+	ctx: ReturnType<typeof buildContext>,
+	originals: Array<Record<string, unknown>>,
+	writeError?: unknown
+) {
+	const persisted = structuredClone(originals);
+	const attemptedBatches: string[][] = [];
+	const findMany = ctx.store.findMany.bind(ctx.store);
+	ctx.store.findMany = async <T>(...args: Parameters<typeof ctx.store.findMany>): Promise<T[]> => {
+		const [table, orgId] = args;
+		if (table !== 'personnel') return findMany<T>(...args);
+		return structuredClone(
+			persisted.filter((row) => row.organization_id === orgId && row.group_id === 'group-alpha')
+		) as T[];
+	};
+	// Validate the entire write before persisting any row. The ordinary read
+	// never reveals Bravo rows, but uniqueness still applies to the Organization.
+	ctx.store.insertMany = async <T>(table: string, orgId: string, rows: Record<string, unknown>[]): Promise<T[]> => {
+		if (table !== 'personnel') throw new Error('Unexpected provider table');
+		attemptedBatches.push(rows.map((row) => row.slug as string));
+		if (writeError !== undefined) throw writeError;
+		const used = new Set(persisted.filter((row) => row.organization_id === orgId).map((row) => row.slug));
+		for (const row of rows) {
+			if (used.has(row.slug)) {
+				throw Object.assign(new Error('duplicate key value violates unique constraint "personnel_org_slug_key"'), {
+					code: '23505',
+					details: `Key (organization_id, slug)=(${orgId}, ${row.slug}) already exists.`
+				});
+			}
+			used.add(row.slug);
+		}
+		const inserted = rows.map((row) => ({ ...row, id: crypto.randomUUID(), organization_id: orgId }));
+		persisted.push(...structuredClone(inserted));
+		return structuredClone(inserted) as T[];
+	};
+	return { persisted, attemptedBatches };
 }
 
 describe('importPersonnelBatch', () => {
@@ -59,33 +97,7 @@ describe('importPersonnelBatch', () => {
 			ets: '2028-07-01',
 			archived_at: null
 		};
-		const persisted: Array<Record<string, unknown>> = [structuredClone(hidden)];
-		const findMany = ctx.store.findMany.bind(ctx.store);
-		ctx.store.findMany = async <T>(...args: Parameters<typeof ctx.store.findMany>): Promise<T[]> => {
-			const [table, orgId] = args;
-			if (table !== 'personnel') return findMany<T>(...args);
-			return structuredClone(
-				persisted.filter((row) => row.organization_id === orgId && row.group_id === 'group-alpha')
-			) as T[];
-		};
-		// Validate the entire write before persisting any row, as an atomic bulk
-		// insert does. The caller's ordinary read never reveals the Bravo row.
-		ctx.store.insertMany = async <T>(table: string, orgId: string, rows: Record<string, unknown>[]): Promise<T[]> => {
-			if (table !== 'personnel') throw new Error('Unexpected provider table');
-			const used = new Set(persisted.filter((row) => row.organization_id === orgId).map((row) => row.slug));
-			for (const row of rows) {
-				if (used.has(row.slug)) {
-					throw Object.assign(new Error('duplicate key value violates unique constraint "personnel_org_slug_key"'), {
-						code: '23505',
-						details: `Key (organization_id, slug)=(${orgId}, ${row.slug}) already exists.`
-					});
-				}
-				used.add(row.slug);
-			}
-			const inserted = rows.map((row) => ({ ...row, id: crypto.randomUUID(), organization_id: orgId }));
-			persisted.push(...structuredClone(inserted));
-			return structuredClone(inserted) as T[];
-		};
+		const { persisted } = atomicImportProvider(ctx, [hidden]);
 
 		const outcome = await importPersonnelBatch(ctx, {
 			records: [
@@ -119,6 +131,54 @@ describe('importPersonnelBatch', () => {
 		});
 	});
 
+	it('stops after three confirmed occupied candidates without persisting any part of the bulk', async () => {
+		const ctx = buildContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
+		ctx.store.seed('groups', [{ id: 'group-alpha', organization_id: ctx.auth.orgId, name: 'Alpha' }]);
+		const originals = ['smith-jamie', 'smith-jamie-2', 'smith-jamie-3'].map((slug, index) => ({
+			id: `hidden-${index}`,
+			organization_id: ctx.auth.orgId,
+			group_id: 'group-bravo',
+			slug
+		}));
+		const provider = atomicImportProvider(ctx, originals);
+
+		await expect(
+			importPersonnelBatch(ctx, {
+				records: [
+					{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', groupName: 'Alpha' },
+					{ rank: 'SGT', lastName: 'Rivera', firstName: 'Monica', groupName: 'Alpha' }
+				]
+			})
+		).rejects.toMatchObject({ code: '23505' });
+		expect(provider.attemptedBatches).toEqual([
+			['smith-jamie', 'rivera-monica'],
+			['smith-jamie-2', 'rivera-monica'],
+			['smith-jamie-3', 'rivera-monica']
+		]);
+		expect(provider.persisted).toEqual(originals);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it.each([
+		['an arbitrary provider failure', new Error('Provider connection lost')],
+		[
+			'a slug conflict without a confirmed candidate',
+			Object.assign(new Error('duplicate key value violates unique constraint "personnel_org_slug_key"'), {
+				code: '23505'
+			})
+		]
+	])('does not retry %s or report successful creation', async (_reason, error) => {
+		const ctx = buildContext();
+		const provider = atomicImportProvider(ctx, [], error);
+
+		await expect(
+			importPersonnelBatch(ctx, { records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie' }] })
+		).rejects.toBe(error);
+		expect(provider.attemptedBatches).toEqual([['smith-jamie']]);
+		expect(provider.persisted).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it('rejects empty records array', async () => {
 		const ctx = buildContext();
 		await expect(importPersonnelBatch(ctx, { records: [] })).rejects.toMatchObject({
@@ -142,6 +202,12 @@ describe('importPersonnelBatch', () => {
 
 	it('imports all 500 valid rows without a subscription provider', async () => {
 		const ctx = buildContext();
+		const insertMany = ctx.store.insertMany.bind(ctx.store);
+		const batches: number[] = [];
+		ctx.store.insertMany = async <T>(...args: Parameters<typeof ctx.store.insertMany>): Promise<T[]> => {
+			batches.push(args[2].length);
+			return insertMany<T>(...args);
+		};
 		const records = Array.from({ length: 500 }, (_, i) => ({
 			rank: 'SGT',
 			lastName: `Last${i}`,
@@ -150,6 +216,7 @@ describe('importPersonnelBatch', () => {
 		const result = await importPersonnelBatch(ctx, { records });
 		expect(result.errors).toEqual([]);
 		expect(result.inserted).toHaveLength(500);
+		expect(batches).toEqual([500]);
 		await expect(ctx.store.findMany('personnel', ctx.auth.orgId)).resolves.toHaveLength(500);
 		expect(ctx.audit.events).toContainEqual({
 			action: 'personnel.bulk_created',

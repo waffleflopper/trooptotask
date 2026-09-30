@@ -6,6 +6,8 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 	const control = { original, calls: [], release: null, mode, ordinal, suffix };
 	target.__mapNetwork = control;
 	target.fetch = async (...input) => {
+		// A client may have captured this wrapper; restore must disable that reference too.
+		if (target.__mapNetwork !== control) return original(...input);
 		const [url, init] = input;
 		const requestUrl = typeof Request !== 'undefined' && url instanceof Request ? url.url : String(url);
 		const pathname = new URL(requestUrl, target.location?.href ?? 'http://localhost/').pathname;
@@ -28,6 +30,7 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 			});
 		}
 		const response = await original(...input);
+		if (target.__mapNetwork !== control) return response;
 		call.status = response.status;
 		call.contentDisposition = response.headers?.get('Content-Disposition') ?? null;
 		call.contentType = response.headers?.get('Content-Type') ?? null;

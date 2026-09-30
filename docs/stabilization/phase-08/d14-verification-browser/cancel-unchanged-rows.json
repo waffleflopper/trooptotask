@@ -1,0 +1,13 @@
+{
+  "table": "onboarding_templates",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "c47a02dc-a656-4183-99c6-bc5aeba0a15c",
+      "organization_id": "deaa14e6-723b-4c25-ae0c-6aa4b713727d",
+      "name": "D14 Baseline Renamed",
+      "description": null
+    }
+  ]
+}

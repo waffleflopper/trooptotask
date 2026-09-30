@@ -1,0 +1,18 @@
+{
+  "table": "onboarding_template_steps",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "b93aaee9-bf3c-4d9c-b62c-54fbcd94d025",
+      "organization_id": "deaa14e6-723b-4c25-ae0c-6aa4b713727d",
+      "template_id": "fa315350-b227-4b63-9965-8c7bbe12cb7f",
+      "name": "Verification Orientation",
+      "description": "Synthetic checkbox instructions",
+      "step_type": "checkbox",
+      "training_type_id": null,
+      "stages": null,
+      "sort_order": 0
+    }
+  ]
+}

@@ -1,0 +1,3094 @@
+{
+	"announcement-failed-network": {
+		"armed": true,
+		"calls": [
+			{
+				"method": "POST",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 503
+			}
+		],
+		"held": false
+	},
+	"announcement-failed-row": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [],
+		"feedback": [
+			{
+				"id": "2a064626-c197-488b-8a5d-e63f4ce0e0dc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "bug",
+				"message": "D20 bug failure and retry 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			},
+			{
+				"id": "d3c42827-219e-4098-b53e-62e32d49e08c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 general baseline 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			}
+		]
+	},
+	"announcement-retry-row": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [
+			{
+				"announcement_id": "955bd03f-b8d5-4c1b-af65-685c251ca9b3",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"dismissed_at": "2026-09-30T14:46:37.127182+00:00"
+			}
+		],
+		"feedback": [
+			{
+				"id": "2a064626-c197-488b-8a5d-e63f4ce0e0dc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "bug",
+				"message": "D20 bug failure and retry 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			},
+			{
+				"id": "d3c42827-219e-4098-b53e-62e32d49e08c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 general baseline 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			}
+		]
+	},
+	"cleanup-a": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 4,
+		"rows": [
+			{
+				"id": "12ef6e21-fbf4-44a2-97ef-d631908f56ac",
+				"user_id": "6e9429a7-e00e-42f8-9069-18d1f3485a7b",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": true,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			},
+			{
+				"id": "89d05dbf-f029-4af4-9b2d-11d9aae9a584",
+				"user_id": "1593524c-ee83-48b7-8bf6-540e2bc5c7d4",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invite_revoked",
+				"title": "Invitation Revoked",
+				"message": "\"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" can no longer use the revoked organization invitation.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:55:20.719426+00:00"
+			},
+			{
+				"id": "b518d0cc-671e-4972-a71a-ec43888c7317",
+				"user_id": "1593524c-ee83-48b7-8bf6-540e2bc5c7d4",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			},
+			{
+				"id": "f5dca10b-7d5f-4af2-a255-b193dd652d2e",
+				"user_id": "6e9429a7-e00e-42f8-9069-18d1f3485a7b",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invite_revoked",
+				"title": "Invitation Revoked",
+				"message": "\"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" can no longer use the revoked organization invitation.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:55:20.719426+00:00"
+			}
+		]
+	},
+	"cleanup-b": {
+		"table": "notifications",
+		"organization": "orgB",
+		"count": 0,
+		"rows": []
+	},
+	"cleanup-communications": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [],
+		"feedback": [
+			{
+				"id": "120dd494-78ea-4271-ad69-88b69f2c456b",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 spoof context 189dc1a4",
+				"page_url": null,
+				"page_section": null,
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			},
+			{
+				"id": "2a064626-c197-488b-8a5d-e63f4ce0e0dc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "bug",
+				"message": "D20 bug failure and retry 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			},
+			{
+				"id": "d3c42827-219e-4098-b53e-62e32d49e08c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 general baseline 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			}
+		]
+	},
+	"cleanup-worker": {
+		"status": "PASS",
+		"phase": "cleaned",
+		"evidence": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-8f7576af/.verification/evidence"
+	},
+	"communications-after-api": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [
+			{
+				"announcement_id": "955bd03f-b8d5-4c1b-af65-685c251ca9b3",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"dismissed_at": "2026-09-30T14:46:37.127182+00:00"
+			}
+		],
+		"feedback": [
+			{
+				"id": "120dd494-78ea-4271-ad69-88b69f2c456b",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 spoof context 189dc1a4",
+				"page_url": null,
+				"page_section": null,
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			},
+			{
+				"id": "2a064626-c197-488b-8a5d-e63f4ce0e0dc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "bug",
+				"message": "D20 bug failure and retry 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			},
+			{
+				"id": "d3c42827-219e-4098-b53e-62e32d49e08c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 general baseline 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			}
+		]
+	},
+	"doctor-final": {
+		"status": "PASS",
+		"candidate": "c6fd13b72f845873030b9ca9172ec5b6a8376329f12271c7eaeb78190cff03a7",
+		"origin": "http://127.0.0.1:42355",
+		"browser": {
+			"executable": "/usr/bin/chromium",
+			"version": "Chromium 152.0.7977.82 Arch Linux",
+			"provisioned": false
+		},
+		"revision": "9529af826bc8a32dac6660b456de96009aa9758c",
+		"session": "d7d7d900-6f4c-4830-b1c9-0bac8e5a479a"
+	},
+	"failed-read-network": {
+		"armed": true,
+		"calls": [
+			{
+				"method": "PUT",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 503
+			}
+		],
+		"held": false
+	},
+	"failed-read-row": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 1,
+		"rows": [
+			{
+				"id": "3e8f95fe-48e5-444a-bc40-b81c6d482939",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 24 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.369+00:00"
+			}
+		]
+	},
+	"feedback-after-cancel": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [],
+		"feedback": []
+	},
+	"feedback-before": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [],
+		"feedback": []
+	},
+	"feedback-failed-network": {
+		"armed": true,
+		"calls": [
+			{
+				"method": "POST",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 503
+			}
+		],
+		"held": false
+	},
+	"feedback-failed-rows": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [],
+		"feedback": [
+			{
+				"id": "d3c42827-219e-4098-b53e-62e32d49e08c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 general baseline 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			}
+		]
+	},
+	"feedback-failed-toast": {
+		"armed": true,
+		"entries": [
+			{
+				"type": "error",
+				"text": "Synthetic request failure"
+			}
+		]
+	},
+	"feedback-general-row": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [],
+		"feedback": [
+			{
+				"id": "d3c42827-219e-4098-b53e-62e32d49e08c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 general baseline 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			}
+		]
+	},
+	"feedback-general-toast": {
+		"armed": true,
+		"entries": [
+			{
+				"type": "success",
+				"text": "Feedback submitted \u2014 thank you!"
+			}
+		]
+	},
+	"feedback-retry-network": {
+		"armed": true,
+		"calls": [
+			{
+				"method": "POST",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 503
+			},
+			{
+				"method": "POST",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 200,
+				"contentDisposition": null,
+				"contentType": "application/json"
+			}
+		],
+		"held": false
+	},
+	"feedback-retry-rows": {
+		"role": "notificationMember",
+		"userId": "f1344eb3-7914-4898-bf30-501c6528a743",
+		"dismissals": [],
+		"feedback": [
+			{
+				"id": "2a064626-c197-488b-8a5d-e63f4ce0e0dc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "bug",
+				"message": "D20 bug failure and retry 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			},
+			{
+				"id": "d3c42827-219e-4098-b53e-62e32d49e08c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"organization_name": "Verification Organization A",
+				"category": "general",
+				"message": "D20 general baseline 189dc1a4",
+				"page_url": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"page_section": "Dashboard",
+				"github_issue_number": null,
+				"github_issue_url": null,
+				"status": "new"
+			}
+		]
+	},
+	"feedback-retry-toast": {
+		"armed": true,
+		"entries": [
+			{
+				"type": "error",
+				"text": "Synthetic request failure"
+			},
+			{
+				"type": "success",
+				"text": "Feedback submitted \u2014 thank you!"
+			}
+		]
+	},
+	"fixture": {
+		"ids": {
+			"orgA": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+			"orgB": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+			"orgOwnerMembership": "c8b1574d-1ba7-4cba-a3e4-8ebf7a4c574e",
+			"orgAdminMembership": "130de17a-c8c2-4c69-8cf4-1d918eac3a19",
+			"orgMemberMembership": "06afb651-0091-44d7-b93d-a20b1388c575",
+			"groupA": "cc921ed5-6d03-4d23-829a-56eed5b2102b",
+			"groupB": "3062450b-f143-4a6b-aabf-eef6f0f96742",
+			"groupForeign": "ce648588-c9da-4543-a48d-4d6095bad506",
+			"personA": "9214e23b-5961-4515-ac98-a6b793dc2441",
+			"personB": "f818d77b-58d2-4aef-8134-3bcb88e4ec2e",
+			"personUnassigned": "b3be46ff-4592-42c2-b328-9787b0db84bb",
+			"personForeign": "c9175f61-4702-43d6-b424-33aaac11c47a",
+			"trainingRequired": "8955a37a-59ba-41b8-835b-1a02c9ae4254",
+			"trainingTargeted": "ea40710a-9153-4326-8247-4033008d5bbd",
+			"trainingOptional": "aeac99fa-2757-4205-8f05-d47dcc6b8429",
+			"trainingForeignType": "88738e65-fac1-4874-a94b-0b00f3279fb0",
+			"trainingView": "4cb2082d-abe0-4caa-8bb8-7f03713867bf",
+			"trainingForeignView": "7e388778-3c2a-4440-8235-7e77e1ac3fb4",
+			"trainingCurrent": "626df073-1c88-4cec-a406-4a0b92bb9162",
+			"onboardingTemplate": "1078997f-ebdc-443e-b1e1-162090d29f76",
+			"onboardingForeignTemplate": "0a8972a9-f2fb-4138-91d8-49770f1c5362",
+			"onboardingCheckbox": "5d53646d-0587-4de2-9ab3-dcb04eb6b44a",
+			"onboardingPaperwork": "3ea8c379-3a97-47f6-9281-77914a819e2d",
+			"onboardingTraining": "8b4c2975-733a-4b7c-8c54-fe809017be18",
+			"onboardingForeignStep": "422e06d3-2690-4374-8df7-7558e4ed49da",
+			"onboardingPacket": "2df7e8ac-bb8e-43df-94fe-cd34e9835c97",
+			"onboardingCheckboxProgress": "d059e013-02d5-4c6d-950f-7f8dca2d5a94",
+			"onboardingPaperworkProgress": "5842dd77-a13e-49f8-8a8a-fabba3b97512",
+			"onboardingTrainingProgress": "4af81591-a46a-4ce9-a1b2-16684d037ae8",
+			"ictTaskAlpha": "6e3087a0-a2e5-4be1-a585-4718078ebd27",
+			"ictTaskGeneral": "3e3cff63-bb71-484b-9c68-853c9a5fe0cd",
+			"ictTaskArchived": "ee11da51-1639-4852-ab17-f25c9f0e494b",
+			"ictTaskForeign": "f79ff856-a112-474e-9795-7f7770c428ce",
+			"ictCompletionAlpha": "7271be8a-8dae-48f4-8b19-5e287d30328e",
+			"rosterAlpha": "f0f0b039-2c52-4689-bfd2-a4cc3ead6453",
+			"rosterMixed": "20c08b34-328d-481b-90d9-4bce7595c2b3",
+			"rosterUnassigned": "8082e3ed-e0dc-401c-85ae-e8b0b95d9120",
+			"rosterForeign": "6621e3b2-bdb0-48a2-bb5c-f6bed6e554cb",
+			"statusLeave": "f7fd82d3-9e2e-4cdd-8db6-9679267c6bec",
+			"statusTraining": "1769556f-d119-4786-9b34-0fb78fbd2a8b",
+			"statusDelete": "5facdcd2-8622-4747-815e-2facfb7b4b08",
+			"statusForeign": "39f46f61-fbae-4259-bbbf-0387987d812b",
+			"typePersonnel": "64d2c990-b44f-4312-9230-e97fe8c52431",
+			"typeGroup": "73401203-b0c2-4fdb-9d6d-67ce6c7c6216",
+			"typeDelete": "40bb4e57-2004-489a-a603-f9e82d5dac54",
+			"typeArchived": "f303cb90-b6d9-4b25-82fb-53be5e1866ef",
+			"typeForeign": "35664b18-6a3c-4b93-9f78-09ce4608dc46",
+			"availabilityHistorical": "7fff9e97-8567-4972-b1d7-8fb90ac634e9",
+			"availabilityAlpha": "8ad9332b-315d-4d22-b8a8-d78599ddbdb0",
+			"availabilityBravo": "587f08ab-bef9-4fd7-bb12-7c0df5f96612",
+			"availabilityCurrent": "8cc554ee-bd61-4383-a62e-bacb4b294524",
+			"availabilityUnassigned": "2bde7a5e-03b1-4412-8dd3-46f16fbfdde3",
+			"availabilityForeign": "2b22de58-a6a4-4dc4-abeb-f3570e62bf3b",
+			"availabilityDelete": "46f72741-c7ce-449e-b3dd-eaef0779af91",
+			"assignmentPersonnel": "ae4ef7ff-889a-40cd-8c43-923416dee02d",
+			"assignmentGroup": "3264f5ef-c5b5-45be-b71c-5f87c1984ac9",
+			"assignmentDelete": "0fd53b61-b618-456a-84ef-cc812f9ba662",
+			"assignmentArchived": "c8648a6c-e626-44cc-ad73-ec7651a7ad2a",
+			"assignmentForeign": "f3e64387-00d0-4e4c-9340-9cd70feba1e6",
+			"closureA": "6e553f4b-ec3d-4129-9963-cf8fc44af0bd",
+			"closureB": "3d64c0a1-bc5f-4d0d-8653-f6f710039652",
+			"holidayCustom": "4346cf76-7dea-430e-81c7-16d4bdb10fa8"
+		},
+		"dates": {
+			"historical": "2026-03-11",
+			"start": "2026-09-14",
+			"middle": "2026-09-15",
+			"end": "2026-09-16",
+			"later": "2026-10-14",
+			"closure": "2026-09-15",
+			"ui": "2026-09-30",
+			"uiBefore": "2026-09-29",
+			"uiAfter": "2026-10-01",
+			"ictWarningExpires": "2026-10-15",
+			"ictWarningCompleted": "2025-10-15",
+			"ictExpiredCompleted": "2024-09-30",
+			"ictExpiredExpires": "2025-09-30",
+			"trainingCompleted": "2026-09-23",
+			"trainingExpires": "2027-09-23",
+			"trainingExpiredCompleted": "2024-09-30",
+			"trainingExpiredExpires": "2025-09-30",
+			"trainingWarningDays": "15",
+			"trainingWarningExpires": "2026-10-15",
+			"trainingWarningCompleted": "2025-10-15"
+		},
+		"invitationEmails": {
+			"existingAccount": "orgInvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test",
+			"newAccount": "org-new-invitee-5e13f6f9-f348-4fb0-bbc3-3235909b07f0@example.test"
+		},
+		"notificationUsers": {
+			"notificationMember": "f1344eb3-7914-4898-bf30-501c6528a743",
+			"notificationOther": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+			"notificationForeign": "52ea664e-3183-47e5-9c63-be575be13cfb",
+			"notificationSwitch": "eba5df42-0a3a-4436-a3e0-88f0180b13ab"
+		},
+		"roles": [
+			"manager",
+			"viewer",
+			"scoped",
+			"foreign",
+			"personnelOperate",
+			"personnelScoped",
+			"personnelEmpty",
+			"personnelSwitch",
+			"calendarView",
+			"calendarOperate",
+			"calendarConfigure",
+			"calendarLane",
+			"calendarScoped",
+			"calendarEmpty",
+			"calendarScopedConfig",
+			"calendarNotificationAdmin",
+			"calendarSwitch",
+			"calendarForeign",
+			"trainingConfigure",
+			"trainingView",
+			"trainingOperate",
+			"trainingEmpty",
+			"trainingSwitch",
+			"trainingOnboarding",
+			"trainingScoped",
+			"trainingScopedConfig",
+			"trainingForeign",
+			"rosterManager",
+			"rosterViewer",
+			"rosterScoped",
+			"rosterForeign",
+			"ictConfigurator",
+			"ictOperator",
+			"ictViewer",
+			"ictEmpty",
+			"ictSwitch",
+			"ictScoped",
+			"ictForeign",
+			"onboardingConfigure",
+			"onboardingOperate",
+			"onboardingView",
+			"onboardingScoped",
+			"onboardingEmpty",
+			"onboardingForeign",
+			"onboardingSwitch",
+			"orgOwner",
+			"orgAdmin",
+			"orgMember",
+			"orgInvitee",
+			"orgCreator",
+			"notificationMember",
+			"notificationOther",
+			"notificationForeign",
+			"notificationSwitch"
+		]
+	},
+	"inbox-after-all-read": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 26,
+		"rows": [
+			{
+				"id": "05ffcdee-cf40-4f05-bbbe-4c5c5df29231",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 02 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:11:28.369+00:00"
+			},
+			{
+				"id": "19e50eeb-575f-40ec-b9d4-96673ecdb750",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 05 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:14:28.369+00:00"
+			},
+			{
+				"id": "1c661197-7961-49bf-bd86-15249c5be29e",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 23 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:32:28.369+00:00"
+			},
+			{
+				"id": "227ec7d8-652e-4177-a82f-ceedbd52b222",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.392+00:00"
+			},
+			{
+				"id": "33d6c3c1-3576-4eff-b88b-5f4a48142dbc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 10 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:19:28.369+00:00"
+			},
+			{
+				"id": "34ac134d-1825-4851-9cd3-43cffcfb469a",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 17 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:26:28.369+00:00"
+			},
+			{
+				"id": "36472915-b725-4a0b-9a5b-0470882ecccd",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 22 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:31:28.369+00:00"
+			},
+			{
+				"id": "382377b5-7b33-4e1f-accc-113f4f45af5b",
+				"user_id": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationOther 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.386+00:00"
+			},
+			{
+				"id": "3e8f95fe-48e5-444a-bc40-b81c6d482939",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 24 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:33:28.369+00:00"
+			},
+			{
+				"id": "424c1ab1-ed56-489d-a5ac-77761e5f0ef6",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:10:28.369+00:00"
+			},
+			{
+				"id": "4bd513a3-55f1-4fd6-8453-86559dcf8029",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 11 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:20:28.369+00:00"
+			},
+			{
+				"id": "855807c1-82c2-4567-8ca1-e407e27ff2c9",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 19 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:28:28.369+00:00"
+			},
+			{
+				"id": "8b0a10fd-6e3c-43fc-994d-e62b69c3b0ea",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 18 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:27:28.369+00:00"
+			},
+			{
+				"id": "a67578fe-924c-4a78-8551-31507780d39b",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 09 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:18:28.369+00:00"
+			},
+			{
+				"id": "adb94d4a-8565-4f03-b144-d481e663348c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 12 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:21:28.369+00:00"
+			},
+			{
+				"id": "b2efe976-e697-4518-b17c-57296b8cd458",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 06 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:15:28.369+00:00"
+			},
+			{
+				"id": "bb727fb5-8977-48aa-b04a-c212a0a89d81",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 15 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:24:28.369+00:00"
+			},
+			{
+				"id": "bfde1227-d528-4783-92ed-cce9ad216ff0",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 03 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:12:28.369+00:00"
+			},
+			{
+				"id": "c2620733-dd3d-43e4-a589-bc379f211c98",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 13 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:22:28.369+00:00"
+			},
+			{
+				"id": "c3637b78-3416-4a3f-aa0e-adaaf5b518f8",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 08 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:17:28.369+00:00"
+			},
+			{
+				"id": "c3f2d3bf-72a7-46b3-aca9-8eb9f963a559",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 20 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:29:28.369+00:00"
+			},
+			{
+				"id": "d392379e-6502-4a66-82ba-83506bfc7803",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 04 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:13:28.369+00:00"
+			},
+			{
+				"id": "e578e666-87bb-4054-9e3c-75a5820564c4",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 14 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:23:28.369+00:00"
+			},
+			{
+				"id": "f7f435da-2230-4d22-bccf-40a512073f08",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 21 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:30:28.369+00:00"
+			},
+			{
+				"id": "fb7daf75-66a1-40b9-a458-5796a4fcd5c5",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 16 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:25:28.369+00:00"
+			},
+			{
+				"id": "fefd70d2-5044-4114-a1aa-c3f1909aeece",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 07 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:16:28.369+00:00"
+			}
+		]
+	},
+	"inbox-after-api-deletion": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 4,
+		"rows": [
+			{
+				"id": "12ef6e21-fbf4-44a2-97ef-d631908f56ac",
+				"user_id": "6e9429a7-e00e-42f8-9069-18d1f3485a7b",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": true,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			},
+			{
+				"id": "227ec7d8-652e-4177-a82f-ceedbd52b222",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.392+00:00"
+			},
+			{
+				"id": "382377b5-7b33-4e1f-accc-113f4f45af5b",
+				"user_id": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationOther 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.386+00:00"
+			},
+			{
+				"id": "b518d0cc-671e-4972-a71a-ec43888c7317",
+				"user_id": "1593524c-ee83-48b7-8bf6-540e2bc5c7d4",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			}
+		]
+	},
+	"inbox-before": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 26,
+		"rows": [
+			{
+				"id": "05ffcdee-cf40-4f05-bbbe-4c5c5df29231",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 02 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:11:28.369+00:00"
+			},
+			{
+				"id": "19e50eeb-575f-40ec-b9d4-96673ecdb750",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 05 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:14:28.369+00:00"
+			},
+			{
+				"id": "1c661197-7961-49bf-bd86-15249c5be29e",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 23 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:32:28.369+00:00"
+			},
+			{
+				"id": "227ec7d8-652e-4177-a82f-ceedbd52b222",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.392+00:00"
+			},
+			{
+				"id": "33d6c3c1-3576-4eff-b88b-5f4a48142dbc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 10 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:19:28.369+00:00"
+			},
+			{
+				"id": "34ac134d-1825-4851-9cd3-43cffcfb469a",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 17 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:26:28.369+00:00"
+			},
+			{
+				"id": "36472915-b725-4a0b-9a5b-0470882ecccd",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 22 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:31:28.369+00:00"
+			},
+			{
+				"id": "382377b5-7b33-4e1f-accc-113f4f45af5b",
+				"user_id": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationOther 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.386+00:00"
+			},
+			{
+				"id": "3e8f95fe-48e5-444a-bc40-b81c6d482939",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 24 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.369+00:00"
+			},
+			{
+				"id": "424c1ab1-ed56-489d-a5ac-77761e5f0ef6",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:10:28.369+00:00"
+			},
+			{
+				"id": "4bd513a3-55f1-4fd6-8453-86559dcf8029",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 11 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:20:28.369+00:00"
+			},
+			{
+				"id": "855807c1-82c2-4567-8ca1-e407e27ff2c9",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 19 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:28:28.369+00:00"
+			},
+			{
+				"id": "8b0a10fd-6e3c-43fc-994d-e62b69c3b0ea",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 18 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:27:28.369+00:00"
+			},
+			{
+				"id": "a67578fe-924c-4a78-8551-31507780d39b",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 09 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:18:28.369+00:00"
+			},
+			{
+				"id": "adb94d4a-8565-4f03-b144-d481e663348c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 12 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:21:28.369+00:00"
+			},
+			{
+				"id": "b2efe976-e697-4518-b17c-57296b8cd458",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 06 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:15:28.369+00:00"
+			},
+			{
+				"id": "bb727fb5-8977-48aa-b04a-c212a0a89d81",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 15 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:24:28.369+00:00"
+			},
+			{
+				"id": "bfde1227-d528-4783-92ed-cce9ad216ff0",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 03 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:12:28.369+00:00"
+			},
+			{
+				"id": "c2620733-dd3d-43e4-a589-bc379f211c98",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 13 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:22:28.369+00:00"
+			},
+			{
+				"id": "c3637b78-3416-4a3f-aa0e-adaaf5b518f8",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 08 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:17:28.369+00:00"
+			},
+			{
+				"id": "c3f2d3bf-72a7-46b3-aca9-8eb9f963a559",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 20 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:29:28.369+00:00"
+			},
+			{
+				"id": "d392379e-6502-4a66-82ba-83506bfc7803",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 04 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:13:28.369+00:00"
+			},
+			{
+				"id": "e578e666-87bb-4054-9e3c-75a5820564c4",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 14 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:23:28.369+00:00"
+			},
+			{
+				"id": "f7f435da-2230-4d22-bccf-40a512073f08",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 21 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:30:28.369+00:00"
+			},
+			{
+				"id": "fb7daf75-66a1-40b9-a458-5796a4fcd5c5",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 16 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:25:28.369+00:00"
+			},
+			{
+				"id": "fefd70d2-5044-4114-a1aa-c3f1909aeece",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 07 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:16:28.369+00:00"
+			}
+		]
+	},
+	"invitation-final": {
+		"table": "organization_invitations",
+		"organization": "orgA",
+		"count": 1,
+		"rows": [
+			{
+				"id": "b9b0ec1c-9ae8-4bdb-b4fc-ce4d093b408b",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"email": "orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test",
+				"status": "revoked",
+				"role": "member",
+				"member_preset": "editor",
+				"capability_overrides": {},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": [],
+				"created_at": "2026-09-30T14:47:47.951525+00:00",
+				"expires_at": "2026-10-14T14:47:47.951525+00:00",
+				"accepted_at": null,
+				"declined_at": null,
+				"revoked_at": "2026-09-30T14:55:20.695216+00:00",
+				"blocked_at": null
+			}
+		]
+	},
+	"list-failed-network": {
+		"armed": true,
+		"calls": [
+			{
+				"method": "GET",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 503
+			},
+			{
+				"method": "GET",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 200,
+				"contentDisposition": null,
+				"contentType": "application/json"
+			}
+		],
+		"held": false
+	},
+	"memberships": {
+		"table": "organization_memberships",
+		"organization": "orgA",
+		"count": 45,
+		"rows": [
+			{
+				"id": "06afb651-0091-44d7-b93d-a20b1388c575",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "2976f703-2814-436a-9467-b6641733ba50",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.607033+00:00",
+				"email": "orgMember-54087c65-5952-4278-9044-bd354e7a9769@example.test",
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "07c05a4c-3bcd-4d1b-b3fa-253e9dee43b1",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "acdffba0-a433-431e-bf0e-58568a234409",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.569284+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "view",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "07cb1371-5b65-45fc-a1ef-08262a60373a",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "dcbab50e-a188-4171-bb7d-4e4189bb70b8",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.557365+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "operate",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "0b80aa44-c503-46fc-8648-ad600e88653f",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "08d5502f-25b0-473f-8ee3-da0494f80a50",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.509229+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "configure",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "109ab510-3eb4-47e2-80a2-5d08a9e3253f",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "64f6af3f-245b-4eac-a7d2-d150cc364ec7",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.525252+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "configure",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "130de17a-c8c2-4c69-8cf4-1d918eac3a19",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "6e9429a7-e00e-42f8-9069-18d1f3485a7b",
+				"role": "admin",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.604937+00:00",
+				"email": "orgAdmin-22e2b7dc-a73a-4902-a8a4-881c06e094d8@example.test",
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "18c0a11b-ee4a-4cc0-99af-77ec16b59220",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "563aa9ea-cad9-4977-8f27-ac7d7a998648",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.571273+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "operate",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "1abb95c1-9e49-4674-a478-7b6c1f76df76",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "03c4b65c-f2d3-4762-8b0e-182d3559d55d",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.515185+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "290a5cc7-e0b6-4d52-9698-40e34e1299f3",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "71f5b92e-844e-413f-a012-f201105d25d1",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.577239+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "operate"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "2b34db43-1fee-4ffb-a486-990b4696ef3a",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "f1560989-9f5d-444a-aa83-d2f3531f7ae1",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.555433+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "operate",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "352a8c37-3bd6-4f49-b59e-9479453b2f5e",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "fcefbe3f-befd-4cc2-a992-21d183b1107a",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.563411+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "configure",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "3585964b-307d-47b8-b343-d9264d433e87",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.615088+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "370ce33a-1d5e-4bc1-bb1a-d7d0f8f833cb",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "6eafa7b7-4df1-403b-8985-8ccb91ab631c",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.532211+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "operate",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "37546319-7a5a-4cd5-8025-046359aec449",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "a2dca4df-9ca9-42ce-bcf4-877300aad859",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.553501+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "operate",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "3abd925e-d471-49f7-8a6e-716a747377d3",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "410ce2f0-bc17-42ad-997c-7318b3acecc7",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.529992+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "view",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "47ab1640-a863-4c1e-ac19-a361a0f2a98c",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.611113+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "4bdaa1ff-3432-47a7-a240-744383fdde2e",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "1355679b-7056-4cdf-b0bc-477f9267332e",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.583165+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "operate"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "52aa5217-bb66-4061-a2b0-6f7c33baf7c2",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "5356d0af-c897-41ab-8135-b8f356a983ad",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.551603+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "view",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "5b286d7e-efd1-4eba-a331-c03e0744f407",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "efd8a170-dc23-4e8a-8396-9597bf38d567",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.585129+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "configure"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "5d60e8c7-8c44-430c-a18a-bab3798de62d",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "66d53094-c6c8-4b69-828c-ddbef4e5c066",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.575259+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "configure"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "5d81e4ce-dd4b-4919-9a2d-8092947c2c0a",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "6851c9b1-b1c1-4d08-924b-1331d014e666",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.59673+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "configure",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "5fac02a7-666c-47f5-94b8-48597fae0e2f",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "069037fb-bbff-4b8b-a7e6-b0a1f25ec57b",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.512612+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "64685eae-736b-4c2d-9cbb-f25798eaedb1",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "7f35abfe-6f77-49bf-b79d-794c451efcfc",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.594773+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "configure",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "6a8f2484-8c48-4919-b4f2-f23b58be3515",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "a592b1dc-ae84-4f9e-af5b-5ba41da67aff",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.588995+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "configure",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "6b36faa4-aa92-47da-9bff-288d14a9947a",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "a3ec6c08-0d4c-4003-97ea-2e67164e4f7b",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.567339+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "operate",
+					"personnel": "configure",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "7c1f71b5-5b2b-4887-8c28-22cca401cdfa",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "b33f3c28-b75a-4384-84cb-36aba468933b",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.58117+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "operate"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "820837db-26dd-467d-aee5-cd5be2248b1f",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "c462578b-8e77-42c1-a751-21a6b383241b",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.592847+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "view",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "8cb1d484-2f8c-4783-9315-3654132a3d9e",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "d36d58ad-b4ef-48e3-a684-13f6a6bb6cfb",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.539926+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "operate",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "9676cfb7-77db-4d9e-a799-823e3804d111",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.609128+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "a04eb615-d4e0-41ba-981d-88d12e05cfe4",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "78afec8f-4cac-4f22-9d54-ff6974fdd742",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.53808+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "operate",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "a2349216-3650-40d7-98c8-68e699e83637",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "8af02cfd-0092-40cc-9e62-bbdb52bf3b6b",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.536191+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "operate",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "a7560b97-2842-4812-86e2-a6aba92d3c63",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "d3ecb157-3f20-4c45-aedf-ab8cad6e1863",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.600762+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "configure",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "aa34f39f-bb28-47a5-a444-b5bbc069e9f8",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "448e6d89-1620-478e-97a6-ee34c22aa073",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.561428+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "view",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "b36c6819-a577-4c66-a3d7-bdeb6168b269",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "b379fdf0-9b82-4369-86a0-271183801b7b",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.520049+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "operate",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "b4dd42f7-21f8-4f5e-a0dd-be84fd973d0c",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "8fa05009-8810-4940-805b-ff25c93e34a3",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.579216+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "view"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "c8b1574d-1ba7-4cba-a3e4-8ebf7a4c574e",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "8e6db778-45ac-4312-97fd-0e24931f2732",
+				"role": "owner",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.60269+00:00",
+				"email": "orgOwner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test",
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "d98d8938-25b1-4314-a8af-21225b415ce6",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "1593524c-ee83-48b7-8bf6-540e2bc5c7d4",
+				"role": "admin",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.543823+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "dace13c2-f6f8-48b9-b40d-08a02ee1d6bf",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "c931b292-6167-4784-bcaf-5405a852d00f",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.55947+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "view",
+					"personnel": "view",
+					"onboarding": "configure",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "db305faa-e500-4e85-991e-8e43c971c8ea",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "629606ed-3e48-4b17-86a3-82429af91ea6",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.541823+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "configure",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "dd5179af-0677-413a-912a-85f65dd1073c",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "a6a5214c-f7df-4007-9173-cf6c1d43f1a1",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.522555+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "configure",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "groups",
+				"access_scope_group_ids": ["cc921ed5-6d03-4d23-829a-56eed5b2102b"]
+			},
+			{
+				"id": "e8f07a00-f508-4593-8da2-d6ea2353dc63",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "d0196bad-61a7-4af1-9460-8a1afbaf2952",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.590933+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "none",
+					"onboarding": "operate",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "f207406e-828e-44b4-af68-e09d1988439f",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "9e27058e-5cc7-4ee4-960b-2ed8bd0cf798",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.527591+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "none",
+					"personnel": "configure",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "f58ae171-def0-44eb-97a3-37d8da9a30e7",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "dfb986d0-3f9e-4af1-a373-6bdb3d9f9d14",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.53421+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "configure",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "f7a5ddb3-ce03-4b98-be60-ad76449f9ac3",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "a92fa2b1-b19a-4192-9582-faa5005ff4ac",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.549696+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "none",
+					"training": "configure",
+					"personnel": "none",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			},
+			{
+				"id": "f944ea1c-b435-4451-a9ac-f51716ea2485",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"user_id": "3561235a-3412-4f84-8311-04fe3313bb19",
+				"role": "member",
+				"invited_by": null,
+				"created_at": "2026-09-30T14:33:37.545785+00:00",
+				"email": null,
+				"member_preset": "viewer",
+				"capability_overrides": {
+					"calendar": "configure",
+					"training": "none",
+					"personnel": "view",
+					"onboarding": "none",
+					"ratingScheme": "none",
+					"criticalTasks": "none"
+				},
+				"access_scope_kind": "organization",
+				"access_scope_group_ids": []
+			}
+		]
+	},
+	"own-single-delete-row": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 0,
+		"rows": []
+	},
+	"producer-after-a": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 28,
+		"rows": [
+			{
+				"id": "05ffcdee-cf40-4f05-bbbe-4c5c5df29231",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 02 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:11:28.369+00:00"
+			},
+			{
+				"id": "12ef6e21-fbf4-44a2-97ef-d631908f56ac",
+				"user_id": "6e9429a7-e00e-42f8-9069-18d1f3485a7b",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			},
+			{
+				"id": "19e50eeb-575f-40ec-b9d4-96673ecdb750",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 05 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:14:28.369+00:00"
+			},
+			{
+				"id": "1c661197-7961-49bf-bd86-15249c5be29e",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 23 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:32:28.369+00:00"
+			},
+			{
+				"id": "227ec7d8-652e-4177-a82f-ceedbd52b222",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.392+00:00"
+			},
+			{
+				"id": "33d6c3c1-3576-4eff-b88b-5f4a48142dbc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 10 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:19:28.369+00:00"
+			},
+			{
+				"id": "34ac134d-1825-4851-9cd3-43cffcfb469a",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 17 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:26:28.369+00:00"
+			},
+			{
+				"id": "36472915-b725-4a0b-9a5b-0470882ecccd",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 22 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:31:28.369+00:00"
+			},
+			{
+				"id": "382377b5-7b33-4e1f-accc-113f4f45af5b",
+				"user_id": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationOther 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.386+00:00"
+			},
+			{
+				"id": "3e8f95fe-48e5-444a-bc40-b81c6d482939",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 24 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:33:28.369+00:00"
+			},
+			{
+				"id": "424c1ab1-ed56-489d-a5ac-77761e5f0ef6",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:10:28.369+00:00"
+			},
+			{
+				"id": "4bd513a3-55f1-4fd6-8453-86559dcf8029",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 11 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:20:28.369+00:00"
+			},
+			{
+				"id": "855807c1-82c2-4567-8ca1-e407e27ff2c9",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 19 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:28:28.369+00:00"
+			},
+			{
+				"id": "8b0a10fd-6e3c-43fc-994d-e62b69c3b0ea",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 18 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:27:28.369+00:00"
+			},
+			{
+				"id": "a67578fe-924c-4a78-8551-31507780d39b",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 09 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:18:28.369+00:00"
+			},
+			{
+				"id": "adb94d4a-8565-4f03-b144-d481e663348c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 12 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:21:28.369+00:00"
+			},
+			{
+				"id": "b2efe976-e697-4518-b17c-57296b8cd458",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 06 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:15:28.369+00:00"
+			},
+			{
+				"id": "b518d0cc-671e-4972-a71a-ec43888c7317",
+				"user_id": "1593524c-ee83-48b7-8bf6-540e2bc5c7d4",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			},
+			{
+				"id": "bb727fb5-8977-48aa-b04a-c212a0a89d81",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 15 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:24:28.369+00:00"
+			},
+			{
+				"id": "bfde1227-d528-4783-92ed-cce9ad216ff0",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 03 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:12:28.369+00:00"
+			},
+			{
+				"id": "c2620733-dd3d-43e4-a589-bc379f211c98",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 13 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:22:28.369+00:00"
+			},
+			{
+				"id": "c3637b78-3416-4a3f-aa0e-adaaf5b518f8",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 08 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:17:28.369+00:00"
+			},
+			{
+				"id": "c3f2d3bf-72a7-46b3-aca9-8eb9f963a559",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 20 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:29:28.369+00:00"
+			},
+			{
+				"id": "d392379e-6502-4a66-82ba-83506bfc7803",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 04 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:13:28.369+00:00"
+			},
+			{
+				"id": "e578e666-87bb-4054-9e3c-75a5820564c4",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 14 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:23:28.369+00:00"
+			},
+			{
+				"id": "f7f435da-2230-4d22-bccf-40a512073f08",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 21 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:30:28.369+00:00"
+			},
+			{
+				"id": "fb7daf75-66a1-40b9-a458-5796a4fcd5c5",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 16 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:25:28.369+00:00"
+			},
+			{
+				"id": "fefd70d2-5044-4114-a1aa-c3f1909aeece",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 07 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:16:28.369+00:00"
+			}
+		]
+	},
+	"producer-after-b": {
+		"table": "notifications",
+		"organization": "orgB",
+		"count": 2,
+		"rows": [
+			{
+				"id": "88738a08-12ba-4334-803b-ba57f3f78de8",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+				"type": "verification",
+				"title": "orgB notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.395+00:00"
+			},
+			{
+				"id": "96394914-0902-4ff0-a3bd-87bc5333a02d",
+				"user_id": "52ea664e-3183-47e5-9c63-be575be13cfb",
+				"organization_id": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+				"type": "verification",
+				"title": "orgB notificationForeign 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.389+00:00"
+			}
+		]
+	},
+	"producer-before-a": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 26,
+		"rows": [
+			{
+				"id": "05ffcdee-cf40-4f05-bbbe-4c5c5df29231",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 02 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:11:28.369+00:00"
+			},
+			{
+				"id": "19e50eeb-575f-40ec-b9d4-96673ecdb750",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 05 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:14:28.369+00:00"
+			},
+			{
+				"id": "1c661197-7961-49bf-bd86-15249c5be29e",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 23 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:32:28.369+00:00"
+			},
+			{
+				"id": "227ec7d8-652e-4177-a82f-ceedbd52b222",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.392+00:00"
+			},
+			{
+				"id": "33d6c3c1-3576-4eff-b88b-5f4a48142dbc",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 10 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:19:28.369+00:00"
+			},
+			{
+				"id": "34ac134d-1825-4851-9cd3-43cffcfb469a",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 17 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:26:28.369+00:00"
+			},
+			{
+				"id": "36472915-b725-4a0b-9a5b-0470882ecccd",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 22 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:31:28.369+00:00"
+			},
+			{
+				"id": "382377b5-7b33-4e1f-accc-113f4f45af5b",
+				"user_id": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationOther 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.386+00:00"
+			},
+			{
+				"id": "3e8f95fe-48e5-444a-bc40-b81c6d482939",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 24 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:33:28.369+00:00"
+			},
+			{
+				"id": "424c1ab1-ed56-489d-a5ac-77761e5f0ef6",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:10:28.369+00:00"
+			},
+			{
+				"id": "4bd513a3-55f1-4fd6-8453-86559dcf8029",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 11 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:20:28.369+00:00"
+			},
+			{
+				"id": "855807c1-82c2-4567-8ca1-e407e27ff2c9",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 19 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:28:28.369+00:00"
+			},
+			{
+				"id": "8b0a10fd-6e3c-43fc-994d-e62b69c3b0ea",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 18 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:27:28.369+00:00"
+			},
+			{
+				"id": "a67578fe-924c-4a78-8551-31507780d39b",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 09 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:18:28.369+00:00"
+			},
+			{
+				"id": "adb94d4a-8565-4f03-b144-d481e663348c",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 12 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:21:28.369+00:00"
+			},
+			{
+				"id": "b2efe976-e697-4518-b17c-57296b8cd458",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 06 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:15:28.369+00:00"
+			},
+			{
+				"id": "bb727fb5-8977-48aa-b04a-c212a0a89d81",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 15 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:24:28.369+00:00"
+			},
+			{
+				"id": "bfde1227-d528-4783-92ed-cce9ad216ff0",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 03 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:12:28.369+00:00"
+			},
+			{
+				"id": "c2620733-dd3d-43e4-a589-bc379f211c98",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 13 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:22:28.369+00:00"
+			},
+			{
+				"id": "c3637b78-3416-4a3f-aa0e-adaaf5b518f8",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 08 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:17:28.369+00:00"
+			},
+			{
+				"id": "c3f2d3bf-72a7-46b3-aca9-8eb9f963a559",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 20 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:29:28.369+00:00"
+			},
+			{
+				"id": "d392379e-6502-4a66-82ba-83506bfc7803",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 04 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:13:28.369+00:00"
+			},
+			{
+				"id": "e578e666-87bb-4054-9e3c-75a5820564c4",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 14 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:23:28.369+00:00"
+			},
+			{
+				"id": "f7f435da-2230-4d22-bccf-40a512073f08",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 21 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:30:28.369+00:00"
+			},
+			{
+				"id": "fb7daf75-66a1-40b9-a458-5796a4fcd5c5",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 16 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:25:28.369+00:00"
+			},
+			{
+				"id": "fefd70d2-5044-4114-a1aa-c3f1909aeece",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 07 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:16:28.369+00:00"
+			}
+		]
+	},
+	"producer-before-b": {
+		"table": "notifications",
+		"organization": "orgB",
+		"count": 2,
+		"rows": [
+			{
+				"id": "88738a08-12ba-4334-803b-ba57f3f78de8",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+				"type": "verification",
+				"title": "orgB notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.395+00:00"
+			},
+			{
+				"id": "96394914-0902-4ff0-a3bd-87bc5333a02d",
+				"user_id": "52ea664e-3183-47e5-9c63-be575be13cfb",
+				"organization_id": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+				"type": "verification",
+				"title": "orgB notificationForeign 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.389+00:00"
+			}
+		]
+	},
+	"producer-read-row": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 2,
+		"rows": [
+			{
+				"id": "12ef6e21-fbf4-44a2-97ef-d631908f56ac",
+				"user_id": "6e9429a7-e00e-42f8-9069-18d1f3485a7b",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": true,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			},
+			{
+				"id": "b518d0cc-671e-4972-a71a-ec43888c7317",
+				"user_id": "1593524c-ee83-48b7-8bf6-540e2bc5c7d4",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			}
+		]
+	},
+	"read-retry-row": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 1,
+		"rows": [
+			{
+				"id": "3e8f95fe-48e5-444a-bc40-b81c6d482939",
+				"user_id": "f1344eb3-7914-4898-bf30-501c6528a743",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationMember 24 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": true,
+				"created_at": "2026-09-30T14:33:28.369+00:00"
+			}
+		]
+	},
+	"seed": {
+		"kind": "communications",
+		"tag": "189dc1a4",
+		"notificationIds": {
+			"orgA-notificationMember": [
+				"424c1ab1-ed56-489d-a5ac-77761e5f0ef6",
+				"05ffcdee-cf40-4f05-bbbe-4c5c5df29231",
+				"bfde1227-d528-4783-92ed-cce9ad216ff0",
+				"d392379e-6502-4a66-82ba-83506bfc7803",
+				"19e50eeb-575f-40ec-b9d4-96673ecdb750",
+				"b2efe976-e697-4518-b17c-57296b8cd458",
+				"fefd70d2-5044-4114-a1aa-c3f1909aeece",
+				"c3637b78-3416-4a3f-aa0e-adaaf5b518f8",
+				"a67578fe-924c-4a78-8551-31507780d39b",
+				"33d6c3c1-3576-4eff-b88b-5f4a48142dbc",
+				"4bd513a3-55f1-4fd6-8453-86559dcf8029",
+				"adb94d4a-8565-4f03-b144-d481e663348c",
+				"c2620733-dd3d-43e4-a589-bc379f211c98",
+				"e578e666-87bb-4054-9e3c-75a5820564c4",
+				"bb727fb5-8977-48aa-b04a-c212a0a89d81",
+				"fb7daf75-66a1-40b9-a458-5796a4fcd5c5",
+				"34ac134d-1825-4851-9cd3-43cffcfb469a",
+				"8b0a10fd-6e3c-43fc-994d-e62b69c3b0ea",
+				"855807c1-82c2-4567-8ca1-e407e27ff2c9",
+				"c3f2d3bf-72a7-46b3-aca9-8eb9f963a559",
+				"f7f435da-2230-4d22-bccf-40a512073f08",
+				"36472915-b725-4a0b-9a5b-0470882ecccd",
+				"1c661197-7961-49bf-bd86-15249c5be29e",
+				"3e8f95fe-48e5-444a-bc40-b81c6d482939"
+			],
+			"orgA-notificationOther": ["382377b5-7b33-4e1f-accc-113f4f45af5b"],
+			"orgB-notificationForeign": ["96394914-0902-4ff0-a3bd-87bc5333a02d"],
+			"orgA-notificationSwitch": ["227ec7d8-652e-4177-a82f-ceedbd52b222"],
+			"orgB-notificationSwitch": ["88738a08-12ba-4334-803b-ba57f3f78de8"]
+		},
+		"announcements": [
+			{
+				"id": "955bd03f-b8d5-4c1b-af65-685c251ca9b3",
+				"title": "Verification active announcement 189dc1a4"
+			},
+			{
+				"id": "8656583a-cf5e-45f0-b393-b79b633deb11",
+				"title": "Verification inactive announcement 189dc1a4"
+			},
+			{
+				"id": "a7d37428-6c9c-4877-a80f-2033a472ed2a",
+				"title": "Verification expired announcement 189dc1a4"
+			}
+		]
+	},
+	"switch-api-after-a": {
+		"table": "notifications",
+		"organization": "orgA",
+		"count": 4,
+		"rows": [
+			{
+				"id": "12ef6e21-fbf4-44a2-97ef-d631908f56ac",
+				"user_id": "6e9429a7-e00e-42f8-9069-18d1f3485a7b",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": true,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			},
+			{
+				"id": "227ec7d8-652e-4177-a82f-ceedbd52b222",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.392+00:00"
+			},
+			{
+				"id": "382377b5-7b33-4e1f-accc-113f4f45af5b",
+				"user_id": "35c990f5-314a-4c0b-b8e7-995d630f4fcb",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "verification",
+				"title": "orgA notificationOther 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.386+00:00"
+			},
+			{
+				"id": "b518d0cc-671e-4972-a71a-ec43888c7317",
+				"user_id": "1593524c-ee83-48b7-8bf6-540e2bc5c7d4",
+				"organization_id": "4c81273c-7c66-456e-88c3-a342d0e28e2d",
+				"type": "member_invited",
+				"title": "Member Invited",
+				"message": "\"orgowner-a3c7fb36-388c-4fc2-9704-3177fdb477f1@example.test\" invited \"orginvitee-334769b5-8792-4699-a04e-2c3d02f0fb35@example.test\" to the organization.",
+				"link": "/org/4c81273c-7c66-456e-88c3-a342d0e28e2d/settings",
+				"read": false,
+				"created_at": "2026-09-30T14:47:47.968629+00:00"
+			}
+		]
+	},
+	"switch-api-after-b": {
+		"table": "notifications",
+		"organization": "orgB",
+		"count": 1,
+		"rows": [
+			{
+				"id": "96394914-0902-4ff0-a3bd-87bc5333a02d",
+				"user_id": "52ea664e-3183-47e5-9c63-be575be13cfb",
+				"organization_id": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+				"type": "verification",
+				"title": "orgB notificationForeign 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.389+00:00"
+			}
+		]
+	},
+	"switch-b-rows": {
+		"table": "notifications",
+		"organization": "orgB",
+		"count": 2,
+		"rows": [
+			{
+				"id": "88738a08-12ba-4334-803b-ba57f3f78de8",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"organization_id": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+				"type": "verification",
+				"title": "orgB notificationSwitch 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.395+00:00"
+			},
+			{
+				"id": "96394914-0902-4ff0-a3bd-87bc5333a02d",
+				"user_id": "52ea664e-3183-47e5-9c63-be575be13cfb",
+				"organization_id": "79eb8d6a-f559-49c1-b2bf-9fdcae708bc9",
+				"type": "verification",
+				"title": "orgB notificationForeign 01 189dc1a4",
+				"message": "Synthetic recipient isolation 189dc1a4",
+				"link": null,
+				"read": false,
+				"created_at": "2026-09-30T14:33:28.389+00:00"
+			}
+		]
+	},
+	"switch-dismissal-row": {
+		"role": "notificationSwitch",
+		"userId": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+		"dismissals": [
+			{
+				"announcement_id": "955bd03f-b8d5-4c1b-af65-685c251ca9b3",
+				"user_id": "eba5df42-0a3a-4436-a3e0-88f0180b13ab",
+				"dismissed_at": "2026-09-30T14:52:08.244287+00:00"
+			}
+		],
+		"feedback": []
+	},
+	"switch-held-network": {
+		"armed": true,
+		"calls": [
+			{
+				"method": "GET",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 200,
+				"contentDisposition": null,
+				"contentType": "application/json"
+			}
+		],
+		"held": true
+	},
+	"switch-released-network": {
+		"armed": true,
+		"calls": [
+			{
+				"method": "GET",
+				"count": 0,
+				"ids": [],
+				"notes": [],
+				"status": 200,
+				"contentDisposition": null,
+				"contentType": "application/json"
+			}
+		],
+		"held": false
+	}
+}

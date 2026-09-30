@@ -608,6 +608,7 @@ Import validation/result state guidance:
 
 - Validation errors and warnings should be produced by feature utilities. Shared UI only renders the resulting counts/messages.
 - Use `rowStatus` for valid/warning/error/duplicate/disabled/info presentation. Use `disabledReason` for rows that must not be selected; the preview table uses it in the selection label and can render it through the status column.
+- `PreviewTable.disabledRow` disables the row's import checkbox, not its cell editors. Pass the same predicate to `useDataTableSelection` so select-all excludes invalid rows. Editable cells remain available to correct validation errors; use `rowStatus` and `disabledReason` to explain those errors.
 - Use `ResultSummary status="partial"` when some rows were saved and some failed.
 - Use `ResultSummary status="failed"` when no requested rows were saved.
 - Use `ProgressState` for parsing/importing work that blocks closing or submit actions.

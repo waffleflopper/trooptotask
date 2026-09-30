@@ -428,10 +428,10 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
 	});
 
-	it('allows correcting an invalid rank through an editable textbox before importing', async () => {
+	it('keeps invalid fields accessible and imports only after all corrections pass validation', async () => {
 		parseFileMock.mockResolvedValue([
-			['Rank', 'Last Name', 'First Name'],
-			['BAD', 'Smith', 'John']
+			['Rank', 'Last Name', 'First Name', 'Group', 'ETS'],
+			['BAD', 'Smith', 'John', 'Alpha Team', '2027-02-30']
 		]);
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
@@ -445,13 +445,23 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
 		const rank = screen.getByRole('textbox', { name: 'Row 2 Rank' });
+		const ets = screen.getByRole('textbox', { name: 'Row 2 ETS' });
+		expect(rank.closest('[aria-disabled="true"]')).toBeNull();
+		expect(ets.closest('[aria-disabled="true"]')).toBeNull();
+		expect(screen.getByRole('checkbox', { name: /Select import row 1:/ })).toBeDisabled();
 		await fireEvent.change(rank, { target: { value: 'SGT' } });
 		const submit = screen.getByRole('button', { name: 'Import checked rows' });
+		expect(submit).toBeDisabled();
+		expect(screen.getByRole('checkbox', { name: /Select import row 1:/ })).toBeDisabled();
+		expect(ets.closest('[aria-disabled="true"]')).toBeNull();
+		await fireEvent.change(ets, { target: { value: '2027-02-28' } });
 		await waitFor(() => expect(submit).toBeEnabled());
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeEnabled();
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeChecked();
 		await fireEvent.click(submit);
 		await screen.findByRole('button', { name: 'Return to Personnel' });
 		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
+			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John', groupName: 'Alpha Team', ets: '2027-02-28' }]
 		});
 	});
 

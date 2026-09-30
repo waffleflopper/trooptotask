@@ -18,6 +18,11 @@ verify prerequisite merges rather than relying on issue labels or cached refs.
 Preserve unrelated changes. Reconcile new commits before treating prior review or
 test evidence as current.
 
+Before requesting CLI or hosted review, apply the repository's
+[reviewable-diff contract](../../../docs/architecture/DEFINITION_OF_DONE.md#reviewable-diff).
+Count the complete PR diff, including added/deleted evidence, and package raw
+captures under the owning evidence contract before they exceed review limits.
+
 ## Address review and validation
 
 - Inspect all relevant review threads, including pagination, and pending reviews.

@@ -14,6 +14,8 @@ The reproduced Dashboard defect is repaired: expired attention counts distinct P
 
 No independent Training retention job/family remains. Personnel purge retains its completion FK cascade; D08 same-Organization type cascade and the legacy foreign-reference delete guard are unchanged. Broader scheduled retention remains D25. These provider relationships are retained, not moved into a duplicate Training workflow.
 
+The reverse scan also retains unrelated owner work explicitly: D19's `auditLogQuery.ts` reads Organization/ID-bound Training labels, D21's platform activation projection reads Organization counts, and the in-memory test adapter implements the existing public Onboarding-reference port. Those unchanged label/support/fake-provider concerns are not duplicate Training completion/report models. Export manifest table names are metadata; runtime Training export reads use the public injected callbacks. No outside private Training imports remain, including tests.
+
 The module manifest records actual ownership, including Shared workbook mechanics. Governance reports **zero remaining `08-M07` findings**, with 903 unfinished findings elsewhere. Scan paths, rules, budgets and exceptions are unchanged. No schema, migration, permission meaning or remote database operation is included.
 
 ## Baseline and frozen final application

@@ -1,0 +1,49 @@
+
+> trooptotask@0.1.0 test
+> vitest run src/features/onboarding/stores/onboardingTemplate.svelte.test.ts -t pending configuration response
+
+
+ RUN  v4.1.8 /tmp/t2t-1362-cutover
+
+ ❯ src/features/onboarding/stores/onboardingTemplate.svelte.test.ts (12 tests | 1 failed | 11 skipped) 10ms
+     × discards a pending configuration response after changing Organizations 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/features/onboarding/stores/onboardingTemplate.svelte.test.ts > OnboardingTemplateWorkspace > discards a pending configuration response after changing Organizations
+AssertionError: expected [ { id: 'template-b', …(4) }, …(1) ] to deeply equal [ { id: 'template-b', …(4) } ]
+
+- Expected
++ Received
+
+@@ -4,6 +4,13 @@
+      "description": "Default packet",
+      "id": "template-b",
+      "name": "B checklist",
+      "orgId": "org-2",
+    },
++   {
++     "createdAt": "2026-01-01T00:00:00.000Z",
++     "description": "Default packet",
++     "id": "late-a",
++     "name": "Late A save",
++     "orgId": "org-1",
++   },
+  ]
+
+ ❯ src/features/onboarding/stores/onboardingTemplate.svelte.test.ts:265:37
+    263|   resolve({ ok: true, value: { ...template, id: 'late-a', name: 'Late …
+    264|   await pending;
+    265|   expect(workspace.model.templates).toEqual([bTemplate]);
+       |                                     ^
+    266|   expect(onboardingTemplateStore.templates).toEqual([bTemplate]);
+    267|   expect(workspace.templateDraft.name).toBe('');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 skipped (12)
+   Start at  20:50:20
+   Duration  322ms (transform 196ms, setup 0ms, import 240ms, tests 10ms, environment 0ms)
+

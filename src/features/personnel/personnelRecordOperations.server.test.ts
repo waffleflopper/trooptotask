@@ -107,7 +107,10 @@ describe('Personnel URLs when another Group owns the name', () => {
 				deros: '2027-06-01',
 				archived_at: null
 			};
-			ctx.store.seed('personnel', [...hidden, ...(operation === 'update' ? [{ ...original }] : [])]);
+			ctx.store.seed('personnel', [
+				...hidden.map((row) => ({ ...row })),
+				...(operation === 'update' ? [{ ...original }] : [])
+			]);
 			const provider = scopedSlugProvider(ctx);
 			const result =
 				operation === 'create'

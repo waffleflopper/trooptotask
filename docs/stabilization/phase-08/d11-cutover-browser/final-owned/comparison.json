@@ -1,0 +1,80 @@
+{
+  "runtimeRevision": "13cf380e358a0a74e5f2122ab17506aa37a011f7",
+  "integratedRevision": "99146c8cd4b84783765510be512b4c077bc9dfdf",
+  "sourceAfterMainIntegration": "git diff --exit-code 13cf380e -- src scripts .agents: PASS, byte-identical",
+  "candidate": "0404e53b80cf91b2203cfcaf2f1ec3f903502b7b2e1e97d57bed51d27047fc90",
+  "capturedFiles": 93,
+  "byteIdenticalCopies": 90,
+  "parsedValueIdenticalJson": [
+    "wide-allmos-rows.json",
+    "wide-alpha-rows.json",
+    "wide-all-rows.json"
+  ],
+  "omittedRawCapture": "wide-preview.txt (13000-line preview; actual1002-created result retained)",
+  "originalCompletionUnchanged": true,
+  "failedSaveAndBatchExactRowsUnchanged": true,
+  "viewScopedEmptyForeignDenialsExactRowsUnchanged": true,
+  "historyRows": 1007,
+  "alphaHistoryRows": 503,
+  "allMosHistoryRows": 504,
+  "personTaskPairs": 1006,
+  "filteredUnionEqualByEveryValue": true,
+  "visibleWideImport": {
+    "created": 1002,
+    "updated": 0,
+    "failed": 0
+  },
+  "summary": {
+    "percent": 100,
+    "deltaPercent": 100,
+    "readyCount": 504,
+    "applicableCount": 506
+  },
+  "workbooks": {
+    "matrix-small.xlsx": {
+      "bytes": 6989,
+      "sha256": "60be7236d31a46b2d3d650d89553d2691ed1e8bae92a904891364451bf9e2bfa"
+    },
+    "matrix-wide.xlsx": {
+      "bytes": 17201,
+      "sha256": "07f0dc0539a1ce99190a75e13e320b699a76f399875ba726c3625f562c90ce73"
+    },
+    "report-small.xlsx": {
+      "bytes": 7168,
+      "sha256": "839a13be927a6b83a634c752d4b46638461e56f81a032a254c5620875e989c87"
+    },
+    "report-compound.xlsx": {
+      "bytes": 6961,
+      "sha256": "1bf2eca51918df441747e75c32c57923f98757b270f449c82030e0bc8132ed4a"
+    },
+    "report-wide.xlsx": {
+      "bytes": 16695,
+      "sha256": "3852497b2d6ee0b1ef402dfa785cfde6c007e14e9a7057027798d0b2723094ec"
+    }
+  },
+  "registeredSeedsCleaned": true,
+  "historyRowsAfterSeedCleanup": 5,
+  "dashboard": {
+    "title": "Verification Organization A \u2014 Dashboard \u2014 Troop to Task",
+    "errorHeading": [],
+    "busy": 0
+  },
+  "driverCorrections": [
+    "initial Able link label did not match; corrected actual snapshot name",
+    "initial viewer DELETE lacked JSON body:400; corrected valid DELETE403",
+    "interrupted manager login created unsigned page11; actual helper result page12 used"
+  ],
+  "limits": [
+    "Dashboard loader only; no visible Critical Tasks KPI",
+    "no fresh archived-Person or Members permission-refresh ceremony; applicable original baseline and current guard tests reused",
+    "no native150000-row or501-task catalog claim; provider-transport regressions cover those shapes",
+    "direct authenticated denial/provider probes are separate from visible interaction",
+    "no performance timings measured"
+  ],
+  "derivedRecords": [
+    "comparison.json",
+    "input-bindings.json",
+    "actors.json"
+  ],
+  "durableFiles": 96
+}

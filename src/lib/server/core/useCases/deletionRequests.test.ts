@@ -756,9 +756,11 @@ describe('approveDeletionRequest', () => {
 		});
 		expect(ctx.notifications.notifications).toEqual([]);
 		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
-		const original = await ctx.rawStore!.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
-			id: 'person-1'
-		});
+		const original = structuredClone(
+			await ctx.rawStore!.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
+				id: 'person-1'
+			})
+		);
 		ctx.store.update = update;
 		vi.useFakeTimers({ toFake: ['Date'] });
 		try {
@@ -781,7 +783,7 @@ describe('approveDeletionRequest', () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);
 		const foreign = { id: 'person-1', organization_id: 'foreign-org', archived_at: null };
-		ctx.store.seed('personnel', [foreign]);
+		ctx.store.seed('personnel', [structuredClone(foreign)]);
 		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 404 });
 		expect(await ctx.rawStore!.findOne('personnel', 'foreign-org', { id: 'person-1' })).toEqual(foreign);
 		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({

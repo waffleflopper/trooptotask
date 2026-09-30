@@ -685,7 +685,9 @@ describe('Personnel — archive', () => {
 			const operations = createPersonnelUseCases();
 			seedPersonnel(ctx);
 			seedPersonnelArtifacts(ctx);
-			const original = await ctx.store.findOne<Record<string, unknown>>('personnel', ctx.auth.orgId, { id: 'p-1' });
+			const original = structuredClone(
+				await ctx.store.findOne<Record<string, unknown>>('personnel', ctx.auth.orgId, { id: 'p-1' })
+			);
 			const olderArchive = '2026-08-01T12:00:00.000Z';
 			await ctx.store.insert('leader_notes', ctx.auth.orgId, {
 				id: 'note-independent',
@@ -820,7 +822,7 @@ describe('Personnel — archive', () => {
 			const { archive } = createPersonnelUseCases();
 			seedPersonnel(ctx);
 			await ctx.rawStore!.update('personnel', ctx.auth.orgId, 'p-1', { group_id: 'group-b', archived_at: archivedAt });
-			const original = await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' });
+			const original = structuredClone(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' }));
 
 			await expect(archive(ctx, 'p-1')).rejects.toMatchObject({ status: 403 });
 			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).toEqual(original);
@@ -1285,7 +1287,7 @@ describe('Personnel — archive batch', () => {
 		seedPersonnelArtifacts(ctx);
 		const archivedAt = '2026-08-01T12:00:00.000Z';
 		await ctx.store.update('personnel', ctx.auth.orgId, 'p-2', { archived_at: archivedAt });
-		const original = await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-2' });
+		const original = structuredClone(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'p-2' }));
 		const result = await createPersonnelUseCases().archiveBatch(ctx, {
 			ids: ['p-1', 'p-2', 'missing'],
 			userEmail: 'requester@example.com'

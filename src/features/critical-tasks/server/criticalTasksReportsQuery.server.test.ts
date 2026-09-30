@@ -1,3 +1,4 @@
+import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel.server';
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
@@ -20,6 +21,7 @@ function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
 describe('Critical Tasks report queries', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
 		const ctx = createTestContext({
+			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
 			auth: {
 				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 				role: 'member',
@@ -263,7 +265,7 @@ describe('Critical Tasks report queries', () => {
 	});
 
 	it('uses the organization expiring-soon window when calculating report dashboard risk', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -327,7 +329,7 @@ describe('Critical Tasks report queries', () => {
 	});
 
 	it('builds the reports page model from one server-shaped report scope', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -409,7 +411,7 @@ describe('Critical Tasks report queries', () => {
 	});
 
 	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report scope filters', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -444,7 +446,10 @@ describe('Critical Tasks report queries', () => {
 	});
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
-		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
+		const ctx = createTestContext({
+			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
+		});
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -717,6 +722,7 @@ function createWideHistoryContext(
 	options: { failLastHistory?: boolean; forbidHistory?: boolean } = {}
 ) {
 	const ctx = createTestContext({
+		criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
 		auth: {
 			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
 			role: 'member',
@@ -858,7 +864,7 @@ describe('deep Critical Tasks dated history', () => {
 		[1, 100],
 		[151, 1]
 	])('retains first and last historical dates for %i authorized People', async (personCount, expectedPercent) => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
 		const people = Array.from({ length: personCount }, (_, i) => ({
 			id: `deep-person-${i}`,
 			organization_id: ctx.auth.orgId,

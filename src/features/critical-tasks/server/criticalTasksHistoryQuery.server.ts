@@ -2,7 +2,6 @@ import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks
 import { IctTaskEntity } from './ictTaskEntity.server';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import type { CriticalTasksHistoryContext } from './criticalTasksReadPorts.server';
-import { fail } from '$lib/server/core/errors';
 
 export async function fetchCriticalTasksPersonnelHistory(
 	ctx: CriticalTasksHistoryContext,
@@ -12,7 +11,7 @@ export async function fetchCriticalTasksPersonnelHistory(
 	const personnel = await ctx.personnelCriticalTasksRoster.findForHistory(ctx.auth, personnelId);
 
 	if (!personnel) {
-		fail(404, 'Personnel record not found');
+		throw Object.assign(new Error('Personnel record not found'), { status: 404 });
 	}
 
 	const completionRows = await ctx.store.findMany<Record<string, unknown>>(

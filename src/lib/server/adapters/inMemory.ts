@@ -1,4 +1,3 @@
-import type { CriticalTasksReadModelPort } from '$features/critical-tasks/contracts';
 /**
  * In-memory implementations of all port interfaces, used in unit and integration tests.
  *
@@ -12,7 +11,8 @@ import type { CriticalTasksReadModelPort } from '$features/critical-tasks/contra
  * - Port bundle builders (`createWritePortsContext`, `createQueryPortsContext`, etc.)
  *   matching the narrower port subsets accepted by individual use cases.
  *
- * Group scoping works automatically from `auth.scopeSet`.
+ * Group scoping works automatically from `auth.scopeSet`. Critical Tasks latest-read
+ * consumers supply their owned adapter through `criticalTasksReadModelFactory`.
  */
 import type {
 	DataStore,
@@ -34,7 +34,6 @@ import type {
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import { createInMemoryCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -120,6 +119,19 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 };
 
 type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
+
+type TestContextOptions = {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	criticalTasksReadModelFactory?: (rawStore: DataStore) => QueryPorts['criticalTasksReadModel'];
+};
+
+function unavailableCriticalTasksReadModel(): QueryPorts['criticalTasksReadModel'] {
+	return {
+		async findLatestCompletions() {
+			throw new Error('Bind the owned Critical Tasks read model in this test context');
+		}
+	};
+}
 
 function getOrgColumn(table: string): string {
 	switch (table) {
@@ -960,12 +972,13 @@ function createInMemoryOnboardingCalendarMarkersPort(
 }
 
 /** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
-export function createTestContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	scope?: Partial<ScopeEnforcementPort>;
+export function createTestContext(
+	overrides?: TestContextOptions & {
+		scope?: Partial<ScopeEnforcementPort>;
 
-	sensitiveActionDecision?: Partial<SensitiveActionDecision>;
-}): UseCaseContext & {
+		sensitiveActionDecision?: Partial<SensitiveActionDecision>;
+	}
+): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
@@ -980,7 +993,8 @@ export function createTestContext(overrides?: {
 	const notificationPort = createTestNotificationPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		overrides?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		rawStore,
@@ -1069,7 +1083,7 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 // Port bundle context builders — return exactly the ports in each bundle
 // ---------------------------------------------------------------------------
 
-export function createWritePortsContext(options?: { auth?: Parameters<typeof createTestAuthContext>[0] }): WritePorts &
+export function createWritePortsContext(options?: TestContextOptions): WritePorts &
 	Pick<
 		UseCaseContext,
 		| 'personnelTrainingRoster'
@@ -1080,11 +1094,12 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 	> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
-		criticalTasksReadModel: CriticalTasksReadModelPort;
+		criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 	} {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
@@ -1105,9 +1120,7 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 	};
 }
 
-export function createWriteWithNotificationsPortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-}): WriteWithNotificationsPorts &
+export function createWriteWithNotificationsPortsContext(options?: TestContextOptions): WriteWithNotificationsPorts &
 	Pick<
 		UseCaseContext,
 		| 'personnelTrainingRoster'
@@ -1119,11 +1132,12 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
 		notifications: ReturnType<typeof createTestNotificationPort>;
-		criticalTasksReadModel: CriticalTasksReadModelPort;
+		criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 	} {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
@@ -1160,15 +1174,14 @@ export function createUserWritePortsContext(options?: {
 	};
 }
 
-export function createQueryPortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-}): QueryPorts & {
+export function createQueryPortsContext(options?: TestContextOptions): QueryPorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
-	criticalTasksReadModel: CriticalTasksReadModelPort;
+	criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 } {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,
@@ -1184,16 +1197,15 @@ export function createQueryPortsContext(options?: {
 	};
 }
 
-export function createQueryWithRawStorePortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-}): QueryWithRawStorePorts & {
+export function createQueryWithRawStorePortsContext(options?: TestContextOptions): QueryWithRawStorePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
-	criticalTasksReadModel: CriticalTasksReadModelPort;
+	criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 } {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,

@@ -119,7 +119,7 @@ describe('Critical Tasks completion policy boundary', () => {
 		).rejects.toMatchObject({ status: 403 });
 	});
 
-	it('retains separate manual same-date captures and clears nullable details without changing their identities', async () => {
+	it('retains separate dated captures and clears nullable details without changing their identities', async () => {
 		const ctx = createTestContext();
 		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'test-org', group_id: null, archived_at: null }]);
 		ctx.store.seed('ict_tasks', [{ id: 'task-1', organization_id: 'test-org', archived_at: null }]);
@@ -138,7 +138,7 @@ describe('Critical Tasks completion policy boundary', () => {
 		const second = await createPersonnelIctCompletion(operationCtx, {
 			personnelId: 'person-1',
 			ictTaskId: 'task-1',
-			completedAt: '2026-04-01',
+			completedAt: '2026-04-02',
 			validationMethod: 'Demonstration',
 			notes: 'Second capture'
 		});
@@ -179,7 +179,7 @@ describe('Critical Tasks completion policy boundary', () => {
 			}),
 			expect.objectContaining({
 				id: second.id,
-				completed_at: '2026-04-01',
+				completed_at: '2026-04-02',
 				validation_method: 'Demonstration',
 				notes: 'Second capture'
 			})

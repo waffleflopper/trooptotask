@@ -1,3 +1,4 @@
+import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
 /**
  * Onboarding resync use case — reconciles step progress rows when a template is edited.
  *
@@ -24,16 +25,6 @@ interface StepProgressRow {
 	current_stage: string | null;
 	notes: Array<{ text: string; timestamp: string; userId: string }>;
 	active: boolean;
-}
-
-interface TemplateStepRow {
-	id: string;
-	name: string;
-	description: string | null;
-	step_type: string;
-	training_type_id: string | null;
-	stages: string[] | null;
-	sort_order: number;
 }
 
 interface ResyncStepResult {
@@ -80,12 +71,7 @@ async function performDiff(
 	templateId: string
 ): Promise<ResyncStepResult[]> {
 	// Fetch current template steps
-	const templateSteps = await ctx.store.findMany<TemplateStepRow>(
-		'onboarding_template_steps',
-		ctx.auth.orgId,
-		{ template_id: templateId },
-		{ orderBy: [{ column: 'sort_order', ascending: true }] }
-	);
+	const templateSteps = await listOnboardingTemplateSteps(ctx.store, ctx.auth.orgId, templateId);
 
 	// Fetch current instance steps
 	const instanceSteps = await ctx.store.findMany<StepProgressRow>('onboarding_step_progress', ctx.auth.orgId, {
@@ -113,15 +99,15 @@ async function performDiff(
 		if (instanceStep) {
 			const updateData: Record<string, unknown> = {
 				step_name: templateStep.name,
-				step_type: templateStep.step_type,
-				training_type_id: templateStep.training_type_id,
+				step_type: templateStep.stepType,
+				training_type_id: templateStep.trainingTypeId,
 				stages: templateStep.stages,
-				sort_order: templateStep.sort_order
+				sort_order: templateStep.sortOrder
 			};
 
 			// Handle paperwork stage reset
 			if (
-				templateStep.step_type === 'paperwork' &&
+				templateStep.stepType === 'paperwork' &&
 				Array.isArray(templateStep.stages) &&
 				templateStep.stages.length > 0
 			) {
@@ -154,13 +140,13 @@ async function performDiff(
 				onboarding_id: onboardingId,
 				template_step_id: templateStep.id,
 				step_name: templateStep.name,
-				step_type: templateStep.step_type,
-				training_type_id: templateStep.training_type_id,
+				step_type: templateStep.stepType,
+				training_type_id: templateStep.trainingTypeId,
 				stages: templateStep.stages,
-				sort_order: templateStep.sort_order,
+				sort_order: templateStep.sortOrder,
 				completed: false,
 				current_stage:
-					templateStep.step_type === 'paperwork' && Array.isArray(templateStep.stages) && templateStep.stages.length > 0
+					templateStep.stepType === 'paperwork' && Array.isArray(templateStep.stages) && templateStep.stages.length > 0
 						? templateStep.stages[0]
 						: null,
 				notes: [],

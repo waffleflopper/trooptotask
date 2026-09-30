@@ -29,7 +29,7 @@ For each saved change keep before/action/after snapshots and a screenshot, secon
 
 ## Gotchas
 
-- Approved Onboarding configure is Organization-scoped. Current page/reorder source uses unscoped policy; a unit test that allows Group configuration does not override the authorization contract or SQL denial. Establish actual UI/request/stored-row behavior.
+- Approved Onboarding configure is Organization-scoped. Configuration navigation, direct page admission and template/step mutations must all require Organization scope. The unchanged baseline exposed unscoped controls/reorder admission; compare the repaired UI/request/stored-row outcomes against that recorded failure.
 - The workspace retains mutation errors internally; only a rendered message establishes user feedback. A synthetic503 is client delivery proof, not partial-provider transaction proof.
 - Select portal options may be absent from accessibility snapshots. Inspect rendered options read-only and use focused arrows/Enter; verify the selected label and saved reference.
 - Use focused keyboard deletion for bound text clears. A native fill of an empty string alone may clear the DOM without updating the Svelte draft.

@@ -7,7 +7,7 @@ import type {
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
-import type { OnboardingWorkspaceHydration } from './server/onboardingWorkspaceBootstrap';
+import type { OnboardingWorkspaceHydration } from './contracts';
 import {
 	createOnboardingWorkspaceHydrator,
 	type OnboardingHydrationStores

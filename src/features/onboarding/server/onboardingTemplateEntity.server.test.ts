@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { OnboardingTemplateEntity } from './onboardingTemplate';
+import { OnboardingTemplateEntity } from './onboardingTemplateEntity.server';
 import type { OnboardingTemplate } from '$features/onboarding/onboarding.types';
 
 describe('OnboardingTemplateEntity', () => {

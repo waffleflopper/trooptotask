@@ -1,8 +1,10 @@
-import { fail } from '$lib/server/core/errors';
-import type { WritePorts } from '$lib/server/core/ports';
-import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
-import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
-import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/onboarding.types';
+import { error } from '@sveltejs/kit';
+import type { OnboardingTemplateWriteContext } from './onboardingTemplatePorts.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { requireFeaturePolicy } from '$lib/access/index.server';
+import { OnboardingTemplateEntity } from './onboardingTemplateEntity.server';
+import { OnboardingTemplateStepEntity } from './onboardingTemplateStepEntity.server';
+import type { OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 
 export interface DuplicateOnboardingTemplateResult {
 	template: OnboardingTemplate;
@@ -10,15 +12,23 @@ export interface DuplicateOnboardingTemplateResult {
 }
 
 export async function duplicateOnboardingTemplate(
-	ctx: WritePorts,
+	ctx: OnboardingTemplateWriteContext,
 	templateId: string
 ): Promise<DuplicateOnboardingTemplateResult> {
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
+		{ kind: 'organization' },
+		'onboarding_template',
+		templateId
+	);
+
 	const sourceRow = await ctx.store.findOne<Record<string, unknown>>(OnboardingTemplateEntity.table, ctx.auth.orgId, {
 		id: templateId
 	});
 
 	if (!sourceRow) {
-		fail(404, 'Onboarding template not found');
+		throw error(404, 'Onboarding template not found');
 	}
 
 	const source = OnboardingTemplateEntity.fromDb(sourceRow);

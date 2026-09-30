@@ -199,7 +199,7 @@ export class OnboardingPageContext {
 
 	get canManageConfig(): boolean {
 		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.configureWorkflows, {
-			kind: 'unscoped'
+			kind: 'organization'
 		}).visible;
 	}
 

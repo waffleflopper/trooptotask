@@ -1,3 +1,4 @@
+import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
 /**
  * Onboarding lifecycle use cases — start, cancel, and complete an onboarding record.
  *
@@ -62,21 +63,7 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 	}
 
 	// Fetch template steps
-	const templateSteps = await ctx.store.findMany<{
-		id: string;
-		name: string;
-		step_type: string;
-		training_type_id: string | null;
-		stages: string[] | null;
-		sort_order: number;
-	}>(
-		'onboarding_template_steps',
-		ctx.auth.orgId,
-		{ template_id: input.templateId },
-		{
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}
-	);
+	const templateSteps = await listOnboardingTemplateSteps(ctx.store, ctx.auth.orgId, input.templateId);
 
 	// Create onboarding record
 	const startedAt = resolveStartedAt(input.startedAt);
@@ -92,8 +79,8 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 	try {
 		// Check training records for training-type steps (targeted query)
 		const trainingTypeIds = templateSteps
-			.filter((ts) => ts.step_type === 'training' && ts.training_type_id)
-			.map((ts) => ts.training_type_id!);
+			.filter((ts) => ts.stepType === 'training' && ts.trainingTypeId)
+			.map((ts) => ts.trainingTypeId!);
 
 		const completedTrainingTypeIds =
 			trainingTypeIds.length > 0
@@ -106,14 +93,14 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		const stepRows = templateSteps.map((ts) => ({
 			onboarding_id: onboarding.id,
 			step_name: ts.name,
-			step_type: ts.step_type,
-			training_type_id: ts.training_type_id,
+			step_type: ts.stepType,
+			training_type_id: ts.trainingTypeId,
 			stages: ts.stages,
-			sort_order: ts.sort_order,
+			sort_order: ts.sortOrder,
 			completed:
-				ts.step_type === 'training' && ts.training_type_id ? completedTrainingTypeIds.has(ts.training_type_id) : false,
+				ts.stepType === 'training' && ts.trainingTypeId ? completedTrainingTypeIds.has(ts.trainingTypeId) : false,
 			current_stage:
-				ts.step_type === 'paperwork' && Array.isArray(ts.stages) && ts.stages.length > 0 ? ts.stages[0] : null,
+				ts.stepType === 'paperwork' && Array.isArray(ts.stages) && ts.stages.length > 0 ? ts.stages[0] : null,
 			notes: [],
 			template_step_id: ts.id,
 			active: true

@@ -55,7 +55,7 @@ describe('SupabaseSignInRosterPersonnelLookupPort', () => {
 		expect(getAdminClient).toHaveBeenCalledOnce();
 		expect(supabase.from).toHaveBeenCalledWith('personnel');
 		expect(query.select).toHaveBeenCalledWith(
-			'id, rank, last_name, first_name, group_id, groups:groups!personnel_group_id_fkey(name)'
+			'id, rank, last_name, first_name, group_id, groups:groups!personnel_organization_group_fkey(name)'
 		);
 		expect(query.eq).toHaveBeenCalledWith('organization_id', 'org-1');
 		expect(query.in).toHaveBeenCalledWith('id', ['person-1', 'person-2']);

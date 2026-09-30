@@ -298,3 +298,28 @@ COMMIT;
 Any returned row needs individual review; do not automatically delete or reassign a completion or Onboarding reference. Pause Training type deletion from this preflight through migration and deployment, and drain old application instances before resuming: the old app predeletes completions in a separate request, while the new app relies on the migrated scoped constraints. Apply the migration before deploying the new app, then verify normal type deletion and denied Group/operator writes. Plan an off-peak window and lock timeout for the key, index and foreign-key changes. Validate the composite constraints only after resolving historical mismatches; validation scans the child tables and takes locks. Repository proof uses disposable local databases; no hosted database or deployment was inspected or changed.
 
 Organization deletion-request reviewers retain approved Training type deletion even without a Training configuration grant. That provider effect rechecks the pending request and exact Organization/type binding. As with other non-counseling deletion requests, the delete occurs before the request-status update; if the later status write fails, staff must reconcile a pending request whose type is already gone. This workflow has no new atomic approval command in D08.
+
+## Phase 08 D12 Personnel Group integrity
+
+API preparation [#1434](https://github.com/waffleflopper/trooptotask/pull/1434) merged as `88184a572e53dfd9f1b5c7f091db75d18288ccb2`. GitHub Production deployment `6753699366` reports success for that SHA at September 30, 07:12 UTC. This metadata reports a Production deployment of the preparation revision; the operator still confirms the serving revision and drained instances without relying on hosted app/data/schema inspection by this agent. It explicitly selects the old Group foreign key and remains usable after the next migration introduces a second relationship. An earlier unhinted application would produce an ambiguous PostgREST embed, so rollback must use this preparation or a later compatible revision.
+
+**Robert's manual sequence:**
+
+1. Confirm the serving application includes #1434, drain earlier unhinted instances, and privately confirm the migration ledger is ordered through `20260929000200`. Confirm an effective backup/recovery point and arrange an off-peak schema-change window with bounded lock/statement timeouts. The unique Group key and foreign-key changes take table locks until commit. Stop on an unexpected ledger, deployment or catalog state.
+2. With a privileged role that can see both complete tables, run the following read-only count privately. `row_security = off` makes a partial RLS view fail. Preserve any returned count outside Git; a nonzero result needs individual disposition, not automatic deletion or reassignment.
+
+   ```sql
+   BEGIN TRANSACTION READ ONLY;
+   SET LOCAL row_security = off;
+   SELECT count(*) AS mismatched_personnel_group_references
+   FROM public.personnel AS person
+   LEFT JOIN public.groups AS grp ON grp.id = person.group_id
+   WHERE person.group_id IS NOT NULL
+     AND (grp.id IS NULL OR person.organization_id IS DISTINCT FROM grp.organization_id);
+   ROLLBACK;
+   ```
+
+3. Apply only reviewed `supabase/migrations/20260929000300_personnel_group_reference_integrity.sql`, SHA-256 `d95c1a4443a12f55b1e8a1cd0d91f5c4bfd26c9f3cab01145f128e0f43cac842`, manually and record its migration/hash/ledger result privately. Its transaction changes constraints and notifies PostgREST to reload schema; it does not alter existing records. The composite key enforces new references. Same-Organization Group deletion clears only `group_id` for active/archived Personnel. A historical foreign reference instead makes the entire Group deletion fail, preserving both Organizations and history. Do not validate the `NOT VALID` constraints until historical mismatches have a separately reviewed resolution.
+4. Report the successful manual application before this migration PR is merged/deployed. Its application selects the composite relationship and hides historical foreign Group labels without erasing the saved Group reference. Verify normal Personnel reads, allowed Group changes/unassignment, independent-lane reads and Group deletion. Until this application releases, prepared readers retain their earlier foreign-label behavior; actual compatibility is covered by the isolated populated-upgrade probe.
+
+The agent stops with a verified, unmerged migration PR. Repository CI performs no remote migration. A failed migration transaction rolls back; after commit, application rollback uses #1434 or later compatible code while retaining the forward constraints. No reverse migration, historical cleanup, hosted query or remote operation is authorized by this record. Archive replay, Onboarding rank/import repairs and remaining Personnel ownership stay under open #1360.

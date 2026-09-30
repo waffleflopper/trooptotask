@@ -7,7 +7,6 @@ vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 import { createRequestNotificationDelivery } from './httpAdapter';
 const { notifyAdmins, notifyUser } = createRequestNotificationDelivery();
 
-
 interface Membership {
 	organization_id: string;
 	user_id: string;

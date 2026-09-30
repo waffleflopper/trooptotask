@@ -2,7 +2,7 @@
   "communications_rls.sql": "1d485232bc49f18132c675412f53eb6147dd8981baa2c23466646d495df2f551",
   "containers-after.txt": "1a2fd12b06cb204c9522919cf84238111d42d2f01f18cf20dea1aff7955b948a",
   "containers-before.txt": "1a2fd12b06cb204c9522919cf84238111d42d2f01f18cf20dea1aff7955b948a",
-  "isolated-config.toml": "4506b097502877bfdcab81718c7ce4a48c1872aaa99dfde7535245f2be39e8eb",
+  "isolated-config.toml.gz": "4506b097502877bfdcab81718c7ce4a48c1872aaa99dfde7535245f2be39e8eb",
   "isolated-package.json": "2e6361d03999e312c46029f41b78544714c7e526e5e5123bb0c13d0d7aea45b3",
   "receipt.json": "5031cbe558a521a3ecf6fc0f293dec326dad9628559e67bd22c6625a3fab6974",
   "runtime-driver.py": "f75a4b8d1e6fc3fb9fb4b7746e1e6b4901da93d0f45dbb0d32b22f5b5d4dc99e",

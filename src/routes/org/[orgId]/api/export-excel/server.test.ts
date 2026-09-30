@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseNotificationStore } from '$features/notifications/index.server';
+import { listFeedbackExportRows } from '$features/feedback/index.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
@@ -28,12 +31,56 @@ function readyWorkbookBuffer(result: Awaited<ReturnType<(typeof _postConfig)['fn
 	return result.artifact.buffer;
 }
 
+function createExportTestContext(overrides?: Parameters<typeof createTestContext>[0]) {
+	const ctx = createTestContext(overrides);
+	const communicationsRows: Record<'notifications' | 'beta_feedback', Record<string, unknown>[]> = {
+		notifications: [],
+		beta_feedback: []
+	};
+	const client = createClient('http://127.0.0.1:9', 'synthetic-request-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const url = new URL(String(input));
+				const table = url.pathname.split('/').at(-1)!;
+				if (!['notifications', 'beta_feedback'].includes(table) || (init?.method ?? 'GET') !== 'GET') {
+					throw new Error('Unexpected communications transport request');
+				}
+				const rows = communicationsRows[table as keyof typeof communicationsRows].filter(
+					(row) =>
+						row.user_id === ctx.auth.userId &&
+						(!url.searchParams.has('organization_id') ||
+							url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+						(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
+				);
+				const offset = Number(url.searchParams.get('offset') ?? 0);
+				const limit = Number(url.searchParams.get('limit') ?? 1000);
+				const selection = url.searchParams.get('select');
+				return Response.json(
+					rows
+						.slice(offset, offset + Math.min(limit, 1000))
+						.map((row) =>
+							!selection || selection === '*'
+								? row
+								: Object.fromEntries(selection.split(',').map((column) => [column, row[column]]))
+						)
+				);
+			}
+		}
+	});
+	ctx.notificationSelf.store = createSupabaseNotificationStore(client);
+	ctx.feedbackExport = { listRows: (orgId) => listFeedbackExportRows(client, orgId) };
+	return Object.assign(ctx, { communicationsRows });
+}
+
 describe('POST /api/export-excel', () => {
 	it.each([
 		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const } },
 		{ label: 'Group-scoped member', scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] } }
 	])('rejects $label without exporting or creating lifecycle records', async ({ scopeSet }) => {
-		const ctx = createTestContext({ auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet } });
+		const ctx = createExportTestContext({
+			auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet }
+		});
 		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'member@example.com' })).rejects.toMatchObject({
 			status: 403
 		});
@@ -47,7 +94,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('downloads above former quotas and excludes another Organization', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed(
 			'data_exports',
 			Array.from({ length: 11 }, (_, i) => ({
@@ -93,11 +140,11 @@ describe('POST /api/export-excel', () => {
 			['notifications', notification],
 			['beta_feedback', feedback]
 		] as const) {
-			ctx.rawStore.seed(table, [
+			ctx.communicationsRows[table] = [
 				row,
 				{ ...row, id: `peer-${table}`, user_id: 'peer' },
 				{ ...row, id: `foreign-${table}`, organization_id: 'other-org' }
-			]);
+			];
 		}
 		const result = await handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' });
 		const response = _postConfig.formatOutput?.(result);
@@ -136,7 +183,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('allows delegated member managers to export organization workbooks', async () => {
-		const ctx = createTestContext({
+		const ctx = createExportTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -169,7 +216,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('includes ETS and PCS / DEROS columns in the personnel worksheet', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',
@@ -222,7 +269,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('includes personnel detail artifact worksheets', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',
@@ -306,7 +353,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('resolves foreign keys to human-readable labels in the Excel workbook', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('groups', [{ id: 'group-1', organization_id: ctx.auth.orgId, name: 'Alpha' }]);
 		ctx.rawStore.seed('personnel', [
 			{
@@ -387,7 +434,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('exports archived personnel and retained Calendar and Sign-in Roster sheets', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-archived',
@@ -473,7 +520,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('still returns the workbook when the export status write fails', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',

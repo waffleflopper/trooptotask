@@ -979,29 +979,19 @@ function createInMemoryOnboardingCalendarMarkersPort(
 	};
 }
 
-function createInMemoryNotificationStore(store: DataStore): UseCaseContext['notificationSelf']['store'] {
+function unavailableNotificationStore(): UseCaseContext['notificationSelf']['store'] {
+	const unavailable = async (): Promise<never> => {
+		throw new Error('Bind the owned Notifications provider in this test context');
+	};
 	return {
-		findNotification: (orgId, id) => store.findOne('notifications', orgId, { id }, 'id, user_id'),
-		listOwn: (orgId, userId) =>
-			store.findMany(
-				'notifications',
-				orgId,
-				{ user_id: userId },
-				{ orderBy: [{ column: 'created_at', ascending: false }], limit: 20 }
-			),
-		async listOwnUnreadIds(orgId, userId) {
-			const rows = await store.findMany<{ id: string }>('notifications', orgId, { user_id: userId, read: false });
-			return rows.map(({ id }) => id);
-		},
-		async markRead(orgId, id) {
-			await store.update('notifications', orgId, id, { read: true });
-		},
-		deleteNotification: (orgId, id) => store.delete('notifications', orgId, id),
-		deleteOwn: (orgId, userId) => store.deleteWhere('notifications', orgId, { user_id: userId }),
-		async countOwnUnread(orgId, userId) {
-			return (await store.findMany('notifications', orgId, { user_id: userId, read: false })).length;
-		},
-		listOwnExportRows: (orgId, userId) => store.findMany('notifications', orgId, { user_id: userId })
+		findNotification: unavailable,
+		listOwn: unavailable,
+		listOwnUnreadIds: unavailable,
+		markRead: unavailable,
+		deleteNotification: unavailable,
+		deleteOwn: unavailable,
+		countOwnUnread: unavailable,
+		listOwnExportRows: unavailable
 	};
 }
 
@@ -1039,8 +1029,12 @@ export function createTestContext(
 		auditPort,
 
 		notifications: notificationPort,
-		notificationSelf: { auth, audit: auditPort, store: createInMemoryNotificationStore(rawStore) },
-		feedbackExport: { listRows: (orgId) => rawStore.findMany('beta_feedback', orgId, { user_id: auth.userId }) },
+		notificationSelf: { auth, audit: auditPort, store: unavailableNotificationStore() },
+		feedbackExport: {
+			async listRows() {
+				throw new Error('Bind the owned Feedback export provider in this test context');
+			}
+		},
 		notificationPort,
 		storage: storagePort,
 		storagePort,

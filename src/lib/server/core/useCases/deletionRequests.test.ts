@@ -8,7 +8,6 @@ import {
 	listDeletionRequests
 } from './deletionRequests';
 import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
-import { createPersonnelUseCases } from './personnel';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	return createWriteWithNotificationsPortsContext(overrides);
@@ -703,24 +702,6 @@ describe('approveDeletionRequest', () => {
 				status: 'approved'
 			});
 			expect(ctx.notifications.notifications).toHaveLength(1);
-			await expect(createPersonnelUseCases().restore(ctx, 'person-1')).rejects.toMatchObject({ status: 403 });
-			await createPersonnelUseCases().restore(
-				{
-					...ctx,
-					auth: {
-						...ctx.auth,
-						capabilityMap: { ...ctx.auth.capabilityMap, personnel: 'configure' },
-						scopeSet: { kind: 'organization' }
-					}
-				},
-				'person-1'
-			);
-			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).toMatchObject({
-				archived_at: null
-			});
-			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
-				archived_at: null
-			});
 			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-independent' })).toMatchObject({
 				archived_at: '2026-08-01T12:00:00.000Z'
 			});

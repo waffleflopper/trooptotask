@@ -1,0 +1,39 @@
+
+> trooptotask@0.1.0 test
+> vitest run src/lib/server/core/useCases/deletionRequests.test.ts -t retains the archive event
+
+
+ RUN  v4.1.8 /home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-53d16a2f
+
+ ❯ src/lib/server/core/useCases/deletionRequests.test.ts (36 tests | 1 failed | 35 skipped) 10ms
+     × retains the archive event when approval is retried after the status write fails 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/lib/server/core/useCases/deletionRequests.test.ts > approveDeletionRequest > retains the archive event when approval is retried after the status write fails
+AssertionError: expected { id: 'person-1', …(3) } to match object { Object (archived_at) }
+(3 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  {
+-   "archived_at": "2026-09-30T14:00:00.000Z",
++   "archived_at": "2026-09-30T14:05:00.000Z",
+  }
+
+ ❯ src/lib/server/core/useCases/deletionRequests.test.ts:676:89
+    674|    vi.setSystemTime(new Date('2026-09-30T14:05:00.000Z'));
+    675|    await approveDeletionRequest(ctx, 'dr-1');
+    676|    expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { i…
+       |                                                                                         ^
+    677|    expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id…
+    678|    expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId,…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 35 skipped (36)
+   Start at  06:13:52
+   Duration  362ms (transform 204ms, setup 0ms, import 281ms, tests 10ms, environment 0ms)

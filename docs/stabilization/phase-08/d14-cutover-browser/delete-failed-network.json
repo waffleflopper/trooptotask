@@ -1,0 +1,13 @@
+{
+  "armed": true,
+  "calls": [
+    {
+      "method": "DELETE",
+      "count": 0,
+      "ids": [],
+      "notes": [],
+      "status": 503
+    }
+  ],
+  "held": false
+}

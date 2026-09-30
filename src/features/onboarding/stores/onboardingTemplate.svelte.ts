@@ -1,6 +1,6 @@
 import { untrack } from 'svelte';
 import type { TrainingType } from '$features/training/contracts';
-import type { OnboardingStepType, OnboardingTemplate, OnboardingTemplateStep } from '../onboarding.types';
+import type { OnboardingStepType, OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 
 type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -267,13 +267,14 @@ export class OnboardingTemplateWorkspace {
 	#duplicatingTemplateId = $state<string | null>(null);
 	#error = $state<OnboardingTemplateWorkspaceError | null>(null);
 	#adapter!: OnboardingTemplateWorkspaceAdapter;
+	#organizationRevision = 0;
 
 	constructor(
 		organization: OnboardingTemplateWorkspaceOrganization,
 		data: OnboardingTemplateWorkspaceData,
 		adapter?: OnboardingTemplateWorkspaceAdapter
 	) {
-		this.organization = organization;
+		this.organization = { ...organization };
 		this.replaceData(data);
 		if (adapter) {
 			this.#adapter = adapter;
@@ -350,11 +351,11 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	get canSaveTemplate(): boolean {
-		return this.templateDraft.name.trim().length > 0 && !this.#savingTemplate;
+		return this.canMutate && this.templateDraft.name.trim().length > 0 && !this.#savingTemplate;
 	}
 
 	get canSaveStep(): boolean {
-		if (!this.stepDraft.name.trim() || this.#savingStep) return false;
+		if (!this.canMutate || !this.stepDraft.name.trim() || this.#savingStep) return false;
 		if (this.stepDraft.stepType === 'training') return !!this.stepDraft.trainingTypeId;
 		return true;
 	}
@@ -366,7 +367,24 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	replaceOrganization(organization: OnboardingTemplateWorkspaceOrganization): void {
-		this.organization = organization;
+		if (
+			this.organization.orgId !== organization.orgId ||
+			this.organization.canConfigure !== organization.canConfigure
+		) {
+			this.#organizationRevision += 1;
+			this.#templates = [];
+			this.#steps = [];
+			this.#trainingTypes = [];
+			this.#selectedTemplateId = null;
+			this.cancelTemplateEdit();
+			this.cancelAddStep();
+			this.cancelEditStep();
+			this.cancelDelete();
+			this.#mobileDetailOpen = false;
+			this.#savingStep = false;
+			this.#duplicatingTemplateId = null;
+		}
+		this.organization = { ...organization };
 	}
 
 	replaceData(data: OnboardingTemplateWorkspaceData): void {
@@ -379,6 +397,7 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	selectTemplate(id: string): void {
+		this.#error = null;
 		if (this.templateActionDisabled) return;
 		this.#selectedTemplateId = id;
 		this.#mobileDetailOpen = true;
@@ -387,6 +406,7 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	startCreateTemplate(): void {
+		this.#error = null;
 		if (!this.canMutate || this.templateActionDisabled) return;
 		this.cancelAddStep();
 		this.cancelEditStep();
@@ -398,6 +418,7 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	startEditTemplate(id?: string): void {
+		this.#error = null;
 		const selected = id ? this.#templates.find((template) => template.id === id) : this.selectedTemplate;
 		if (!selected || !this.canMutate || this.templateActionDisabled) return;
 		this.cancelAddStep();
@@ -413,6 +434,7 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	cancelTemplateEdit(): void {
+		this.#error = null;
 		const wasCreating = this.#creatingTemplate;
 		this.#creatingTemplate = false;
 		this.#editingTemplate = false;
@@ -423,6 +445,7 @@ export class OnboardingTemplateWorkspace {
 
 	async saveTemplate(): Promise<OnboardingTemplateWorkspaceResult<OnboardingTemplate>> {
 		if (!this.canSaveTemplate) return validationError('Template name is required');
+		const revision = this.#organizationRevision;
 		this.#savingTemplate = true;
 		this.#error = null;
 		try {
@@ -431,6 +454,7 @@ export class OnboardingTemplateWorkspace {
 					name: this.templateDraft.name.trim(),
 					description: normalizedDescription(this.templateDraft.description)
 				});
+				if (revision !== this.#organizationRevision) return organizationChanged();
 				if (!result.ok) return this.rememberError(result);
 				this.#templates = [...this.#templates, result.value];
 				this.#selectedTemplateId = result.value.id;
@@ -448,6 +472,7 @@ export class OnboardingTemplateWorkspace {
 				name: this.templateDraft.name.trim(),
 				description: normalizedDescription(this.templateDraft.description)
 			});
+			if (revision !== this.#organizationRevision) return organizationChanged();
 			if (!result.ok) return this.rememberError(result);
 			this.#templates = this.#templates.map((template) => (template.id === result.value.id ? result.value : template));
 			this.#editingTemplate = false;
@@ -455,19 +480,28 @@ export class OnboardingTemplateWorkspace {
 			this.syncHydratedStore();
 			return result;
 		} finally {
-			this.#savingTemplate = false;
+			if (revision === this.#organizationRevision) this.#savingTemplate = false;
 		}
 	}
 
 	requestDelete(target: OnboardingTemplateDeleteTarget): void {
+		this.#error = null;
+		if (!this.canMutate) return;
 		this.#confirmDelete = target;
 	}
 
 	cancelDelete(): void {
+		this.#error = null;
 		this.#confirmDelete = null;
 	}
 
 	async confirmDelete(): Promise<OnboardingTemplateWorkspaceResult> {
+		this.#error = null;
+		if (!this.canMutate)
+			return this.rememberError({
+				ok: false,
+				error: { code: 'read_only', message: 'Onboarding configuration is read-only' }
+			});
 		const target = this.#confirmDelete;
 		if (!target) return { ok: true, value: undefined };
 		return target.type === 'template' ? this.deleteTemplate(target.id) : this.deleteStep(target.id);
@@ -477,10 +511,12 @@ export class OnboardingTemplateWorkspace {
 		const selected = id ? this.#templates.find((template) => template.id === id) : this.selectedTemplate;
 		if (!selected || !this.canMutate || this.templateActionDisabled)
 			return validationError('Select a template to duplicate');
+		const revision = this.#organizationRevision;
 		this.#duplicatingTemplateId = selected.id;
 		this.#error = null;
 		try {
 			const result = await this.adapter.duplicateTemplate(selected.id);
+			if (revision !== this.#organizationRevision) return organizationChanged();
 			if (!result.ok) return this.rememberError(result);
 			this.#templates = [...this.#templates, result.value.template];
 			this.#steps = [...this.#steps, ...result.value.templateSteps];
@@ -489,11 +525,12 @@ export class OnboardingTemplateWorkspace {
 			this.syncHydratedStore();
 			return result;
 		} finally {
-			this.#duplicatingTemplateId = null;
+			if (revision === this.#organizationRevision) this.#duplicatingTemplateId = null;
 		}
 	}
 
 	startAddStep(): void {
+		this.#error = null;
 		if (!this.selectedTemplate || !this.canMutate || this.#creatingTemplate || this.#editingTemplate) return;
 		this.cancelEditStep();
 		this.stepDraft = emptyStepDraft();
@@ -502,13 +539,15 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	cancelAddStep(): void {
+		this.#error = null;
 		this.#addingStep = false;
 		this.stepDraft = emptyStepDraft();
 		this.newStageName = '';
 	}
 
 	startEditStep(step: OnboardingTemplateStep): void {
-		if (this.#creatingTemplate || this.#editingTemplate) return;
+		this.#error = null;
+		if (!this.canMutate || this.#creatingTemplate || this.#editingTemplate) return;
 		this.cancelAddStep();
 		this.#editingStepId = step.id;
 		this.stepDraft = {
@@ -522,6 +561,7 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	cancelEditStep(): void {
+		this.#error = null;
 		this.#editingStepId = null;
 		this.stepDraft = emptyStepDraft();
 		this.newStageName = '';
@@ -532,6 +572,7 @@ export class OnboardingTemplateWorkspace {
 		const selected = this.selectedTemplate;
 		if (!selected) return validationError('Select a template before saving a step');
 
+		const revision = this.#organizationRevision;
 		this.#savingStep = true;
 		this.#error = null;
 		try {
@@ -543,6 +584,7 @@ export class OnboardingTemplateWorkspace {
 					...input,
 					sortOrder: nextOrder
 				});
+				if (revision !== this.#organizationRevision) return organizationChanged();
 				if (!result.ok) return this.rememberError(result);
 				this.#steps = [...this.#steps, result.value];
 				this.cancelAddStep();
@@ -555,17 +597,24 @@ export class OnboardingTemplateWorkspace {
 				id: this.#editingStepId,
 				...input
 			});
+			if (revision !== this.#organizationRevision) return organizationChanged();
 			if (!result.ok) return this.rememberError(result);
 			this.#steps = this.#steps.map((step) => (step.id === result.value.id ? result.value : step));
 			this.cancelEditStep();
 			this.syncHydratedStore();
 			return result;
 		} finally {
-			this.#savingStep = false;
+			if (revision === this.#organizationRevision) this.#savingStep = false;
 		}
 	}
 
 	async moveStep(step: OnboardingTemplateStep, direction: 'up' | 'down'): Promise<OnboardingTemplateWorkspaceResult> {
+		this.#error = null;
+		if (!this.canMutate)
+			return this.rememberError({
+				ok: false,
+				error: { code: 'read_only', message: 'Onboarding configuration is read-only' }
+			});
 		const selected = this.selectedTemplate;
 		if (!selected) return validationError('Select a template before reordering steps');
 		const ordered = this.selectedTemplateSteps;
@@ -577,7 +626,9 @@ export class OnboardingTemplateWorkspace {
 		const next = [...ordered];
 		[next[index], next[swapIndex]] = [next[swapIndex], next[index]];
 		const orderedStepIds = next.map((item) => item.id);
+		const revision = this.#organizationRevision;
 		const result = await this.adapter.reorderSteps(selected.id, orderedStepIds);
+		if (revision !== this.#organizationRevision) return organizationChanged();
 		if (!result.ok) return this.rememberError(result);
 
 		const reorderedById: Record<string, OnboardingTemplateStep> = Object.create(null);
@@ -619,7 +670,9 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	private async deleteTemplate(templateId: string): Promise<OnboardingTemplateWorkspaceResult> {
+		const revision = this.#organizationRevision;
 		const result = await this.adapter.deleteTemplate(templateId);
+		if (revision !== this.#organizationRevision) return organizationChanged();
 		if (!result.ok) return this.rememberError(result);
 		this.#templates = this.#templates.filter((template) => template.id !== templateId);
 		this.#steps = this.#steps.filter((step) => step.templateId !== templateId);
@@ -634,7 +687,9 @@ export class OnboardingTemplateWorkspace {
 	}
 
 	private async deleteStep(stepId: string): Promise<OnboardingTemplateWorkspaceResult> {
+		const revision = this.#organizationRevision;
 		const result = await this.adapter.deleteStep(stepId);
+		if (revision !== this.#organizationRevision) return organizationChanged();
 		if (!result.ok) return this.rememberError(result);
 		this.#steps = this.#steps.filter((step) => step.id !== stepId);
 		if (this.#editingStepId === stepId) this.cancelEditStep();
@@ -694,6 +749,10 @@ function normalizedDescription(value: string): string | null {
 	return trimmed || null;
 }
 
+function organizationChanged<T>(): OnboardingTemplateWorkspaceResult<T> {
+	return { ok: false, error: { code: 'conflict', message: 'Organization changed while the request was pending' } };
+}
+
 function validationError<T>(message: string): OnboardingTemplateWorkspaceResult<T> {
 	return {
 		ok: false,
@@ -712,11 +771,19 @@ async function requestJson<T>(
 	try {
 		const response = await fetchImpl(url, init);
 		if (!response.ok) {
+			const text = await response.text();
+			let message = text || 'Request failed';
+			try {
+				const body = JSON.parse(text);
+				message = typeof body?.message === 'string' ? body.message : 'Request failed';
+			} catch {
+				// Plain-text error responses remain readable.
+			}
 			return {
 				ok: false,
 				error: {
 					code: errorCodeForStatus(response.status),
-					message: (await response.text()) || 'Request failed'
+					message
 				}
 			};
 		}

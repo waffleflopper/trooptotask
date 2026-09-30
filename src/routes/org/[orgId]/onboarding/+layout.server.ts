@@ -1,3 +1,5 @@
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import type { OnboardingWorkspaceRouteData } from '$features/onboarding/contracts';
 import type { LayoutServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG, policyEvaluator } from '$lib/access/policyEvaluator';
@@ -5,11 +7,20 @@ import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/core/featureLaneWorkspaceLoad';
-import {
-	streamOnboardingWorkspaceBootstrap,
-	type OnboardingWorkspaceBootstrapOptions,
-	type OnboardingWorkspaceRouteData
-} from '$features/onboarding/server/onboardingWorkspaceBootstrap';
+import { fetchOnboardingWorkspace, type OnboardingWorkspaceBootstrapOptions } from '$features/onboarding/index.server';
+
+async function streamOnboardingWorkspaceBootstrap(
+	context: FeatureLaneWorkspaceRequestContext,
+	options: OnboardingWorkspaceBootstrapOptions = {}
+): Promise<OnboardingWorkspaceRouteData> {
+	const onboarding = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
+		policyResource: { kind: 'unscoped' },
+		defer: true,
+		fn: (ctx) => fetchOnboardingWorkspace(ctx, options)
+	});
+	return { onboarding };
+}
 
 export interface OnboardingLayoutLoadDeps {
 	streamOnboardingWorkspace?: (

@@ -27,6 +27,17 @@ interface OrganizationTrainingExportReads {
 	listTrainingViewExportRows(store: Pick<DataStore, 'findMany'>, orgId: string): Promise<Record<string, unknown>[]>;
 }
 
+interface OrganizationOnboardingExportReads {
+	listOnboardingTemplateExportRows(
+		store: Pick<DataStore, 'findMany'>,
+		orgId: string
+	): Promise<Record<string, unknown>[]>;
+	listOnboardingTemplateStepExportRows(
+		store: Pick<DataStore, 'findMany'>,
+		orgId: string
+	): Promise<Record<string, unknown>[]>;
+}
+
 export type OrganizationExportPayload = {
 	exportedAt: string;
 	organizationId: string;
@@ -47,7 +58,8 @@ export async function loadOrganizationExportPayload(
 	store: DataStore,
 	actor: PersonnelRosterActor,
 	personnelExport: PersonnelOrganizationExportPort,
-	trainingExport: OrganizationTrainingExportReads
+	trainingExport: OrganizationTrainingExportReads,
+	onboardingExport: OrganizationOnboardingExportReads
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const orgId = actor.orgId;
@@ -68,6 +80,12 @@ export async function loadOrganizationExportPayload(
 					}
 					if (section.key === 'trainingViews') {
 						return [section.key, await trainingExport.listTrainingViewExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'onboardingTemplates') {
+						return [section.key, await onboardingExport.listOnboardingTemplateExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'onboardingTemplateSteps') {
+						return [section.key, await onboardingExport.listOnboardingTemplateStepExportRows(store, orgId)] as const;
 					}
 					if (section.key === 'specialDays') {
 						return [section.key, await listSpecialDayExportRows(store, orgId)] as const;

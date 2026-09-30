@@ -6,6 +6,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
 import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
 import { countTrainingTypes } from '$features/training/index.server';
+import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';
 
 interface GettingStartedSupportData {
 	trainingTypeCount: number;
@@ -41,7 +42,7 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		starterConfigurationPacks
 	] = await Promise.all([
 		countTrainingTypes(ctx.store, ctx.auth.orgId),
-		countRows(ctx, 'onboarding_template_steps'),
+		countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
 		countRows(ctx, 'rating_scheme_entries'),
 		countRows(ctx, 'organization_memberships'),
 		ctx.auth.userId

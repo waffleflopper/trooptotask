@@ -1,3 +1,7 @@
+import {
+	listOnboardingTemplateExportRows,
+	listOnboardingTemplateStepExportRows
+} from '$features/onboarding/index.server';
 import { describe, expect, it } from 'vitest';
 import type { DataStore } from '../ports';
 import { createClient } from '@supabase/supabase-js';
@@ -53,7 +57,8 @@ describe('organization export inventory', () => {
 			{
 				listRows: (actor, table) => store.findMany(table, actor.orgId)
 			},
-			trainingExport
+			trainingExport,
+			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
 		);
 
 		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
@@ -158,12 +163,39 @@ describe('retained Organization export projection', () => {
 			created_at: '2026-05-01T00:00:00.123456Z'
 		};
 
+		const onboardingTemplate = {
+			id: 'template-1',
+			organization_id: 'org-1',
+			name: 'Saved template',
+			description: null,
+			created_at: '2026-05-01T00:00:00.123456Z'
+		};
+		const onboardingStep = {
+			id: 'step-1',
+			organization_id: 'org-1',
+			template_id: 'template-1',
+			name: 'Paperwork',
+			description: null,
+			step_type: 'paperwork',
+			training_type_id: null,
+			stages: ['Submitted', 'Filed'],
+			sort_order: 3
+		};
+
 		const commercialTables = new Set([
 			'organization_billing_snapshots',
 			'organization_checkout_attempts',
 			'organization_plan_feature_overrides'
 		]);
 		const providerRows: Record<string, Record<string, unknown>[]> = {
+			onboarding_templates: [
+				onboardingTemplate,
+				{ ...onboardingTemplate, id: 'foreign-template', organization_id: 'foreign-org' }
+			],
+			onboarding_template_steps: [
+				onboardingStep,
+				{ ...onboardingStep, id: 'foreign-step', organization_id: 'foreign-org' }
+			],
 			training_types: [trainingType, { ...trainingType, id: 'foreign-type', organization_id: 'foreign-org' }],
 			personnel_trainings: [
 				trainingCompletion,
@@ -264,11 +296,16 @@ describe('retained Organization export projection', () => {
 			store,
 			createTestAuthContext({ orgId: 'org-1' }),
 			createSupabasePersonnelOrganizationExportPort(() => adminClient),
-			trainingExport
+			trainingExport,
+			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows }
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');
 		expect(json.trainingTypes).toEqual([trainingType]);
+		expect(json.onboardingTemplates).toEqual([onboardingTemplate]);
+		expect(json.onboardingTemplateSteps).toEqual([onboardingStep]);
+		expect(json.sections.onboardingTemplates).toEqual([onboardingTemplate]);
+		expect(json.sections.onboardingTemplateSteps).toEqual([onboardingStep]);
 		expect(json.personnelTrainings).toEqual([trainingCompletion]);
 		expect(json.trainingViews).toEqual([trainingView]);
 		expect(json.sections.trainingTypes).toEqual([trainingType]);
@@ -307,14 +344,21 @@ describe('retained Organization export projection', () => {
 		for (const [name, rawRow] of [
 			['Raw - Training Types', trainingType],
 			['Raw - Personnel Trainings', trainingCompletion],
-			['Raw - Training Views', trainingView]
+			['Raw - Training Views', trainingView],
+			['Raw - Onboarding Templates', onboardingTemplate],
+			['Raw - Onboarding Template Steps', onboardingStep]
 		] as const) {
 			const sheet = workbook.getWorksheet(name)!;
 			expect(sheet.columns.map((column) => column.key)).toEqual(Object.keys(rawRow));
 			expect(sheet.getRow(2).getCell('id').value).toBe(rawRow.id);
-			expect(sheet.getRow(2).getCell('created_at').value).toBe('2026-05-01T00:00:00.123456Z');
+			if ('created_at' in rawRow)
+				expect(sheet.getRow(2).getCell('created_at').value).toBe('2026-05-01T00:00:00.123456Z');
 			expect(sheet.rowCount).toBe(2);
 		}
+		const stepSheet = workbook.getWorksheet('Raw - Onboarding Template Steps')!;
+		expect(stepSheet.getRow(2).getCell('stages').value).toBe('["Submitted","Filed"]');
+		expect(stepSheet.getRow(2).getCell('sort_order').value).toBe(3);
+		expect(String(stepSheet.getRow(2).getCell('training_type_id').value ?? '')).toBe('');
 		const completionSheet = workbook.getWorksheet('Raw - Personnel Trainings')!;
 		expect(String(completionSheet.getRow(2).getCell('completion_date').value ?? '')).toBe('');
 		expect(String(completionSheet.getRow(2).getCell('certificate_url').value ?? '')).toBe('');

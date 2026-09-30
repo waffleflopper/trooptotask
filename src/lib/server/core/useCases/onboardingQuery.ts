@@ -1,27 +1,9 @@
-import type {
-	OnboardingTemplate,
-	OnboardingTemplateStep,
-	PersonnelOnboarding
-} from '$features/onboarding/onboarding.types';
-import type { TrainingType } from '$features/training/contracts';
-import type { Group } from '$features/personnel/contracts';
+import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import { listGroupCatalog } from '$features/personnel/index.server';
-import type { Personnel } from '$lib/types';
-import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
-import { OnboardingTemplateStepEntity } from '$lib/server/entities/onboardingTemplateStep';
+import { fetchOnboardingTemplatesData } from '$features/onboarding/server/onboardingTemplateRead.server';
+import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onboarding/contracts';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import { requireOnboardingViewPolicy, type OnboardingTrainingPorts } from './onboardingPolicy';
-
-export interface OnboardingBootstrap {
-	onboardingTemplates: OnboardingTemplate[];
-	onboardingTemplateSteps: OnboardingTemplateStep[];
-	onboardings: PersonnelOnboarding[];
-	personnel: Personnel[];
-	groups: Group[];
-	trainingTypes: TrainingType[];
-}
-
-export type OnboardingBootstrapMode = 'all' | 'active' | 'history';
 
 export interface FetchOnboardingBootstrapOptions {
 	mode?: OnboardingBootstrapMode;
@@ -95,26 +77,20 @@ export async function fetchOnboardingBootstrap(
 			? ctx.personnelOnboardingRoster.listRoster(ctx.auth, 'all')
 			: null;
 
-	const [templateRows, templateStepRows, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel] =
-		await Promise.all([
-			ctx.store.findMany<Record<string, unknown>>('onboarding_templates', orgId, undefined, {
-				orderBy: [{ column: 'name', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('onboarding_template_steps', orgId, undefined, {
-				orderBy: [{ column: 'sort_order', ascending: true }]
-			}),
-			ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
-				select: PersonnelOnboardingEntity.select,
-				...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
-			}),
-			ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
-			listGroupCatalog(ctx),
-			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
-			scopedAllPersonnel
-		]);
+	const [templateData, onboardingRows, personnel, groups, trainingTypeRows, scopePersonnel] = await Promise.all([
+		fetchOnboardingTemplatesData(ctx),
+		ctx.store.findMany<Record<string, unknown>>('personnel_onboardings', orgId, onboardingQuery.filters, {
+			select: PersonnelOnboardingEntity.select,
+			...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
+		}),
+		ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
+		listGroupCatalog(ctx),
+		ctx.trainingOnboardingReferences.listTypes(ctx.auth),
+		scopedAllPersonnel
+	]);
 
-	const templates = OnboardingTemplateEntity.fromDbArray(templateRows);
-	const templateSteps = OnboardingTemplateStepEntity.fromDbArray(templateStepRows);
+	const templates = templateData.templates;
+	const templateSteps = templateData.templateSteps;
 	const allOnboardings = PersonnelOnboardingEntity.fromDbArray(onboardingRows);
 	const trainingTypes = trainingTypeRows;
 

@@ -1,0 +1,13 @@
+{
+  "table": "onboarding_templates",
+  "organization": "orgB",
+  "count": 1,
+  "rows": [
+    {
+      "id": "e7283e03-7576-4925-b044-fb1bbeeb0c9e",
+      "organization_id": "f5593703-3a60-48b1-b1a6-249e2b2d333e",
+      "name": "Foreign Private Onboarding",
+      "description": "Synthetic B template description"
+    }
+  ]
+}

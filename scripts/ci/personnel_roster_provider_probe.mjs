@@ -23,7 +23,6 @@ const ids = {
 	archivedUnassigned: 'f1000000-0000-4000-8000-000000000305',
 	foreign: 'f1000000-0000-4000-8000-000000000306'
 };
-const orgActive = [ids.activeA1, ids.activeA2, ids.activeUnassigned];
 const orgAll = [ids.activeA1, ids.archivedA1, ids.activeA2, ids.activeUnassigned, ids.archivedUnassigned];
 const groupAll = [ids.activeA1, ids.archivedA1];
 const laneNames = ['calendar', 'personnel', 'training', 'criticalTasks', 'onboarding', 'ratingScheme'];
@@ -208,11 +207,20 @@ try {
 	const { createSupabasePersonnelCriticalTasksRosterPort } = await vite.ssrLoadModule(
 		'/src/features/personnel/criticalTasksRoster.server.ts'
 	);
+	const { createSupabaseSignInRosterPersonnelLookupPort } = await vite.ssrLoadModule(
+		'/src/features/personnel/signInRosterPersonnelLookup.server.ts'
+	);
 	const calendar = createSupabasePersonnelCalendarRosterPort(() => service);
 	const onboarding = createSupabasePersonnelOnboardingRosterPort(() => service);
 	const training = createSupabasePersonnelTrainingRosterPort(() => service);
 	const criticalTasks = createSupabasePersonnelCriticalTasksRosterPort(() => service);
 	const idsOf = (people) => people.map((person) => person.id);
+	const labeledIds = (people) => people.map((person) => [person.id, person.groupName]);
+	const activeLabels = [
+		[ids.activeA1, 'Alpha'],
+		[ids.activeA2, 'Bravo'],
+		[ids.activeUnassigned, '']
+	];
 	const groupEntries = (groups) => [...groups];
 
 	assert.deepEqual(idsOf(await calendar.listActive(actors.calendarGroup.actor)), [ids.activeA1]);
@@ -221,7 +229,7 @@ try {
 		groupEntries(await calendar.findGroupIds(actors.calendarGroup.actor, [...orgAll, ids.foreign])),
 		groupAll.map((id) => [id, ids.groupA1])
 	);
-	assert.deepEqual(idsOf(await calendar.listActive(actors.calendarOrg.actor)), orgActive);
+	assert.deepEqual(labeledIds(await calendar.listActive(actors.calendarOrg.actor)), activeLabels);
 	assert.deepEqual(await calendar.listAssigneeIds(actors.calendarOrg.actor), orgAll);
 	assert.deepEqual(
 		groupEntries(
@@ -241,7 +249,7 @@ try {
 		groupEntries(await onboarding.findGroupIds(actors.onboardingGroup.actor, [...orgAll, ids.foreign])),
 		groupAll.map((id) => [id, ids.groupA1])
 	);
-	assert.deepEqual(idsOf(await onboarding.listRoster(actors.onboardingOrg.actor, 'active')), orgActive);
+	assert.deepEqual(labeledIds(await onboarding.listRoster(actors.onboardingOrg.actor, 'active')), activeLabels);
 	assert.deepEqual(idsOf(await onboarding.listRoster(actors.onboardingOrg.actor, 'all')), orgAll);
 	assert.deepEqual(
 		groupEntries(
@@ -279,8 +287,8 @@ try {
 		await training.findGroupIdsForWrites(actors.trainingGroup.actor, [...orgAll, ids.foreign]),
 		new Map(groupAll.map((id) => [id, ids.groupA1]))
 	);
-	assert.deepEqual(idsOf(await training.listActiveForWorkspace(actors.trainingOrg.actor)), orgActive);
-	assert.deepEqual(idsOf(await training.listActiveForReports(actors.trainingOrg.actor)), orgActive);
+	assert.deepEqual(labeledIds(await training.listActiveForWorkspace(actors.trainingOrg.actor)), activeLabels);
+	assert.deepEqual(labeledIds(await training.listActiveForReports(actors.trainingOrg.actor)), activeLabels);
 	assert.deepEqual(
 		await training.findGroupIdsForWrites(actors.trainingOrg.actor, [...orgAll, ids.foreign]),
 		new Map([
@@ -315,7 +323,7 @@ try {
 	assert.equal(archivedGroupWrite?.groupId, ids.groupA1);
 	assert.equal(new Date(archivedGroupWrite.archivedAt).toISOString(), '2030-01-01T00:00:00.000Z');
 	assert.equal(await criticalTasks.findForCompletionWrite(actors.criticalGroup.actor, ids.activeUnassigned), null);
-	assert.deepEqual(idsOf(await criticalTasks.listActiveForReadiness(actors.criticalOrg.actor)), orgActive);
+	assert.deepEqual(labeledIds(await criticalTasks.listActiveForReadiness(actors.criticalOrg.actor)), activeLabels);
 	assert.deepEqual(idsOf(await criticalTasks.listForBatchImport(actors.criticalOrg.actor)), orgAll);
 	assert.equal(
 		(await criticalTasks.findForHistory(actors.criticalOrg.actor, ids.archivedUnassigned))?.id,
@@ -333,6 +341,19 @@ try {
 	assert.equal(await emptyCritical.findForHistory(actors.criticalEmpty.actor, ids.activeA1), null);
 	await assert.rejects(emptyCritical.listActiveForReadiness(actors.denied.actor), (error) => error.status === 403);
 	await assert.rejects(emptyCritical.listForBatchImport(actors.criticalViewer.actor), (error) => error.status === 403);
+
+	const snapshots = createSupabaseSignInRosterPersonnelLookupPort(() => service);
+	const snapshotRows = await snapshots.findPersonnelForRosterSnapshot(ids.orgA, [...orgAll, ids.foreign]);
+	assert.deepEqual(
+		snapshotRows.map(({ id, groupName }) => [id, groupName]).sort(),
+		[
+			[ids.activeA1, 'Alpha'],
+			[ids.archivedA1, 'Alpha'],
+			[ids.activeA2, 'Bravo'],
+			[ids.activeUnassigned, null],
+			[ids.archivedUnassigned, null]
+		].sort()
+	);
 } finally {
 	await vite.close();
 	process.chdir(previousCwd);

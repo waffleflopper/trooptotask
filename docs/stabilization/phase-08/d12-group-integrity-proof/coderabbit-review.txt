@@ -1,0 +1,13 @@
+{"type":"review_context","reviewType":"committed","currentBranch":"stabilization/1360-personnel-group-enforcement","baseBranch":"origin/main","baseCommit":"88184a572e53dfd9f1b5c7f091db75d18288ccb2","workingDirectory":"/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-53d16a2f"}
+{"type":"status","phase":"connecting","status":"connecting_to_review_service"}
+{"type":"status","phase":"setup","status":"setting_up"}
+{"type":"status","phase":"setup","status":"preparing_sandbox"}
+{"type":"status","phase":"analyzing","status":"summarizing"}
+{"type":"heartbeat","status":"reviewing"}
+{"type":"heartbeat","status":"reviewing"}
+{"type":"status","phase":"analyzing","status":"tools_completed"}
+{"type":"status","phase":"analyzing","status":"reviewing"}
+{"type":"heartbeat","status":"reviewing"}
+{"type":"heartbeat","status":"reviewing"}
+{"type":"heartbeat","status":"reviewing"}
+{"type":"complete","status":"review_completed","findings":0,"reviewedFiles":[".agents/skills/verify-trooptotask/features/personnel-records-lifecycle.md","scripts/ci/database.py","scripts/ci/personnel_group_upgrade_provider_probe.mjs","scripts/ci/personnel_roster_provider_probe.mjs","src/features/personnel/signInRosterPersonnelLookup.server.test.ts","src/features/personnel/signInRosterPersonnelLookup.server.ts","src/lib/server/adapters/inMemory.ts","src/lib/server/entities/personnel.ts","supabase/migration-tests/personnel_group_reference_after.sql","supabase/migration-tests/personnel_group_reference_before.sql","supabase/migrations/20260929000300_personnel_group_reference_integrity.sql","supabase/tests/personnel_group_reference_integrity.sql"],"outcome":"completed","message":"Review completed"}

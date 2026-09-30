@@ -12,6 +12,8 @@ The reproduced Dashboard defect is repaired: expired attention counts distinct P
 - Organization JSON/Excel and Personnel export delivery inject named Training-owned raw reads using the same authenticated request store. IDs, timestamps, null values, snake-case raw keys and predicates remain. Organization's batches of at most 12 parallel reads and Personnel's six parallel reads remain. No elevated Training read is introduced for a Personnel-only actor.
 - Completion mapping, single/batch operations and approved deletion already reside in Training after #1425. Onboarding consumes its separate authorized type/completion reference; Personnel uses Training's public readiness component/read. Dashboard uses owned mapped completion, catalog and summary reads. D15/D18/D23/D24/D25 retain their wider workflow ownership; their presence is not an unresolved duplicate Training model.
 
+No independent Training retention job/family remains. Personnel purge retains its completion FK cascade; D08 same-Organization type cascade and the legacy foreign-reference delete guard are unchanged. Broader scheduled retention remains D25. These provider relationships are retained, not moved into a duplicate Training workflow.
+
 The module manifest records actual ownership, including Shared workbook mechanics. Governance reports **zero remaining `08-M07` findings**, with 903 unfinished findings elsewhere. Scan paths, rules, budgets and exceptions are unchanged. No schema, migration, permission meaning or remote database operation is included.
 
 ## Baseline and frozen final application

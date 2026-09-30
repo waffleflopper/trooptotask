@@ -1,5 +1,6 @@
 {
   "status": "PASS",
   "phase": "cleaned",
-  "evidence": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence"
+  "evidence": "docs/stabilization/phase-08/d09-projection-browser/baseline",
+  "referenceNote": "Evidence reference normalized after cleanup to the published repository folder; status PASS and phase cleaned are unchanged actual verify:app results."
 }

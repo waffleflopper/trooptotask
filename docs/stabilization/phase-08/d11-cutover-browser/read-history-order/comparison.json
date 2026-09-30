@@ -1,0 +1,39 @@
+{
+	"source": "89e1a4e32200499f507c7304bfb91df757276c15",
+	"candidate": "c047de7b3f4bd8053d6c6023d1a7051016defc4633a81302f103c4efe4eb6376",
+	"selectedArtifacts": 14,
+	"seed": "3263aed8",
+	"seededReportPeople": 501,
+	"seededReportRowsAllZero": true,
+	"firstSeededRow": [
+		"At-Risk Soldiers",
+		"MapChunk3263aed8000, Synthetic",
+		"0%",
+		"SPC ; Alpha; 0 expiring <=60d; No ICT update"
+	],
+	"lastSeededRow": [
+		"At-Risk Soldiers",
+		"MapChunk3263aed8500, Synthetic",
+		"0%",
+		"SPC ; Alpha; 0 expiring <=60d; No ICT update"
+	],
+	"workbooks": {
+		"report-initial.xlsx": {
+			"sha256": "30f8168d0c7aab61f060684da6ff697160c1c63786e29daa70a5972add76820a",
+			"bytes": 7177,
+			"sheet": "Critical Tasks Report"
+		},
+		"report-wide.xlsx": {
+			"sha256": "3eafd46121da466eff57289a1c8c04efa59488641999a510023505535216ff10",
+			"bytes": 16733,
+			"sheet": "Critical Tasks Report"
+		}
+	},
+	"limits": [
+		"No repeated 1003-row import proof in this replay; unchanged latest adapter/helper proof remains applicable.",
+		"Native report population is504 with1/506ready; pagination under changing tied order is separately proved at real provider transport seam.",
+		"The attempted /dashboard suffix was a driver404; actual Dashboard route is /org/ORG_ID and completed.",
+		"Dashboard proof is loader completion; no visible Critical Tasks KPI is claimed.",
+		"Corrected regression fixtures after this run change test source only, not runtime ordering."
+	]
+}

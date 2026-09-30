@@ -1,0 +1,44 @@
+{
+	"api": {
+		"content": [
+			{
+				"type": "text",
+				"text": "Script ran on page and returned:\n```json\n{\"status\":200,\"kpis\":{\"overallReadiness\":{\"percent\":0,\"deltaPercent\":0,\"readyCount\":1,\"applicableCount\":506},\"soldiersBelow70\":{\"count\":504,\"totalApplicable\":504,\"thresholdPercent\":70},\"tasksExpiringSoon\":{\"count\":0,\"affectedSoldiers\":0,\"windowDays\":60},\"tasksBelowThreshold\":{\"count\":2,\"thresholdPercent\":70}}}\n```"
+			}
+		]
+	},
+	"dashboard": {
+		"content": [
+			{
+				"type": "text",
+				"text": "Script ran on page and returned:\n```json\n{\"title\":\"Verification Organization A — Dashboard — Troop to Task\",\"alerts\":[],\"busy\":0,\"loaderError\":false}\n```"
+			}
+		]
+	},
+	"originalCompletion": {
+		"table": "personnel_ict_completions",
+		"organization": "orgA",
+		"count": 1,
+		"rows": [
+			{
+				"id": "d66ba9f8-d759-47ab-9d72-a24362ddc726",
+				"organization_id": "d8527f5d-69e0-4f9b-b351-e06d713e7836",
+				"personnel_id": "ea3acfa5-2d86-4d1a-9100-7593e41f956e",
+				"ict_task_id": "0e47abc2-169a-48ad-a7bb-1e27d80393a3",
+				"completed_at": "2026-09-14",
+				"validation_method": "Demonstration",
+				"validated_by": null,
+				"notes": null,
+				"logged_by": "39d94836-43f5-46cf-9ceb-7f92ee0ada4b",
+				"created_at": "2026-09-30T02:02:29.146314+00:00",
+				"updated_at": "2026-09-30T02:02:29.146314+00:00"
+			}
+		]
+	},
+	"seed": {
+		"kind": "bulk-501",
+		"tag": "3263aed8",
+		"count": 501,
+		"firstId": "b59d6b7c-e2bf-482e-b2ca-670c4a7639cb"
+	}
+}

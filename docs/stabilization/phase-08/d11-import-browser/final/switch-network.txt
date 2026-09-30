@@ -1,0 +1,9 @@
+## Network requests
+Showing 1-7 of 7 (Page 1 of 1).
+reqid=63 POST http://127.0.0.1:43957/auth/login?/login [200]
+reqid=142 GET http://127.0.0.1:43957/org/bf0b4a11-595e-4009-9bd5-9b7e3757d121/critical-tasks/__data.json?x-sveltekit-invalidated=1110 [200]
+reqid=143 GET http://127.0.0.1:43957/org/bf0b4a11-595e-4009-9bd5-9b7e3757d121/api/app-shell-chrome?part=notification-count [200]
+reqid=144 POST http://127.0.0.1:43957/org/bf0b4a11-595e-4009-9bd5-9b7e3757d121/api/personnel-ict-completions/batch [200]
+reqid=145 GET http://127.0.0.1:43957/org/bf0b4a11-595e-4009-9bd5-9b7e3757d121/api/app-shell-chrome?part=organization-switcher [200]
+reqid=146 GET http://127.0.0.1:43957/org/3b5dfbdb-0799-4c93-9f56-807f1522921f/critical-tasks/__data.json?x-sveltekit-invalidated=0110 [200]
+reqid=147 GET http://127.0.0.1:43957/org/3b5dfbdb-0799-4c93-9f56-807f1522921f/api/app-shell-chrome?part=notification-count [200]

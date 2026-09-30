@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Script ran on page and returned:\n```json\n{\"status\":200,\"kpis\":{\"overallReadiness\":{\"percent\":99,\"deltaPercent\":99,\"readyCount\":502,\"applicableCount\":506},\"soldiersBelow70\":{\"count\":3,\"totalApplicable\":504,\"thresholdPercent\":70},\"tasksExpiringSoon\":{\"count\":0,\"affectedSoldiers\":0,\"windowDays\":60},\"tasksBelowThreshold\":{\"count\":1,\"thresholdPercent\":70}}}\n```"
+    }
+  ]
+}

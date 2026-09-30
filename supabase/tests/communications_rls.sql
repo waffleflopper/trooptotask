@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 
-SELECT plan(47);
+SELECT plan(53);
 
 -- Global content and account dismissals do not require Organization membership.
 -- Active/expiry filtering and admitted identity are application responsibilities;
@@ -50,6 +50,14 @@ FROM (VALUES
 	('30000000-0000-4000-8000-000000136802', '20000000-0000-4000-8000-000000136801', '10000000-0000-4000-8000-000000136807', 'member', 'communications-alpha-peer@example.test'),
 	('30000000-0000-4000-8000-000000136803', '20000000-0000-4000-8000-000000136802', '10000000-0000-4000-8000-000000136805', 'owner', 'communications-bravo-owner@example.test')
 ) AS fixture(id, org_id, user_id, role, email);
+
+INSERT INTO public.notifications (id, user_id, organization_id, type, title, message)
+VALUES
+	('60000000-0000-4000-8000-000000136801', '10000000-0000-4000-8000-000000136802', '20000000-0000-4000-8000-000000136801', 'training', 'Own Alpha notification', 'Own Alpha message'),
+	('60000000-0000-4000-8000-000000136802', '10000000-0000-4000-8000-000000136807', '20000000-0000-4000-8000-000000136801', 'training', 'Peer Alpha notification', 'Peer Alpha message'),
+	('60000000-0000-4000-8000-000000136803', '10000000-0000-4000-8000-000000136802', '20000000-0000-4000-8000-000000136802', 'training', 'Own Bravo notification', 'Own Bravo message'),
+	('60000000-0000-4000-8000-000000136804', '10000000-0000-4000-8000-000000136802', '20000000-0000-4000-8000-000000136801', 'training', 'Anonymous deletion witness', 'Saved own Alpha message'),
+	('60000000-0000-4000-8000-000000136805', '10000000-0000-4000-8000-000000136805', '20000000-0000-4000-8000-000000136802', 'training', 'Peer Bravo notification', 'Peer Bravo message');
 
 INSERT INTO public.platform_announcements (id, title, message, is_active, expires_at, created_by)
 VALUES
@@ -189,6 +197,33 @@ SELECT results_eq(
 	'peer sees only its own separate global dismissals'
 );
 
+WITH removed AS (
+	DELETE FROM public.notifications
+	WHERE id = '60000000-0000-4000-8000-000000136801' RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM removed), 1, 'account can delete its own notification in its Organization');
+
+WITH removed AS (
+	DELETE FROM public.notifications
+	WHERE id = '60000000-0000-4000-8000-000000136802' RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM removed), 0, 'Organization owner cannot delete a same-Organization peer notification');
+
+WITH removed AS (
+	DELETE FROM public.notifications
+	WHERE id = '60000000-0000-4000-8000-000000136805' RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM removed), 0, 'account cannot delete a foreign-Organization peer notification');
+
+-- Notification DELETE RLS checks account identity, even without membership in
+-- the saved Organization. The application operation separately restricts the
+-- requested Organization; do not invent that restriction in the SQL policy.
+WITH removed AS (
+	DELETE FROM public.notifications
+	WHERE id = '60000000-0000-4000-8000-000000136803' RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM removed), 1, 'current provider permits deletion of the same account notification in another Organization');
+
 SELECT results_eq(
 	$$ SELECT id FROM public.beta_feedback WHERE organization_id = '20000000-0000-4000-8000-000000136801' ORDER BY id $$,
 	$$ VALUES ('50000000-0000-4000-8000-000000136801'::uuid) $$,
@@ -293,6 +328,11 @@ SELECT is((SELECT count(*)::integer FROM public.platform_announcements), 0, 'ano
 SELECT is((SELECT count(*)::integer FROM public.announcement_dismissals), 0, 'anonymous caller cannot read account dismissals');
 SELECT is((SELECT count(*)::integer FROM public.beta_feedback), 0, 'anonymous caller cannot read feedback');
 
+WITH removed AS (
+	DELETE FROM public.notifications RETURNING id
+)
+SELECT is((SELECT count(*)::integer FROM removed), 0, 'anonymous caller cannot delete account notifications');
+
 SELECT throws_ok(
 	$$ INSERT INTO public.announcement_dismissals (announcement_id, user_id)
 	VALUES ('40000000-0000-4000-8000-000000136802', '10000000-0000-4000-8000-000000136801') $$,
@@ -306,6 +346,12 @@ SELECT throws_ok(
 );
 
 RESET ROLE;
+SELECT results_eq(
+	$$ SELECT id FROM public.notifications ORDER BY id $$,
+	$$ VALUES ('60000000-0000-4000-8000-000000136802'::uuid), ('60000000-0000-4000-8000-000000136804'::uuid), ('60000000-0000-4000-8000-000000136805'::uuid) $$,
+	'own deletions persist while denied peer and anonymous deletes preserve their saved notifications'
+);
+
 SELECT results_eq(
 	$$ SELECT status, admin_notes FROM public.beta_feedback WHERE id = '50000000-0000-4000-8000-000000136801' $$,
 	$$ VALUES ('new'::text, NULL::text) $$,

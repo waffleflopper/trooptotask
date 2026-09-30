@@ -591,3 +591,115 @@ it('resolves saved Group duty by ID after the Group is renamed', () => {
 	});
 	expect(model.dutyAssignments).toEqual([expect.objectContaining({ id: 'saved', assigneeName: 'Alpha Renamed' })]);
 });
+
+describe('Dashboard Training identity attribution', () => {
+	it('uses actual group counts for warning-only Alpha and expired Bravo instead of distributing record counts', () => {
+		const model = createDashboardScreenModel(
+			makeData({
+				trainingSummary: {
+					stats: {
+						current: 1,
+						expired: 2,
+						warningOrange: 1,
+						warningYellow: 0,
+						notCompleted: 1,
+						notRequired: 0,
+						total: 5
+					},
+					issues: [],
+					expiredPersonnelCount: 1,
+					groupDelinquencies: [
+						{ groupId: 'alpha', expiredPersonnelCount: 0, delinquentPersonnelCount: 1 },
+						{ groupId: 'bravo', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 }
+					]
+				}
+			}),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources({
+					personnel: [
+						{ id: 'able', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'alpha' },
+						{ id: 'baker', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'bravo' },
+						{ id: 'other', rank: 'SPC', firstName: 'Other', lastName: 'Person', groupId: 'alpha' }
+					],
+					groups: [
+						{ id: 'alpha', name: 'Alpha', sortOrder: 0 },
+						{ id: 'bravo', name: 'Bravo', sortOrder: 1 }
+					]
+				})
+			}
+		);
+
+		expect(model.expiredTrainingPersonnelCount).toBe(1);
+		expect(model.trainingGroupDelinquencies).toEqual([
+			{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 0, pct: 50 },
+			{ groupId: 'bravo', groupName: 'Bravo', count: 1, expiredPersonnelCount: 1, pct: 100 }
+		]);
+		expect(model.quickStatValue('expired-training')).toBe(2);
+	});
+
+	it('joins identically named groups by ID and counts distinct personnel IDs for the retained currency formula', () => {
+		const model = createDashboardScreenModel(
+			makeData({
+				trainingSummary: {
+					stats: {
+						current: 0,
+						expired: 1,
+						warningOrange: 2,
+						warningYellow: 0,
+						notCompleted: 0,
+						notRequired: 0,
+						total: 3
+					},
+					issues: [
+						{
+							personnelId: 'able',
+							personName: 'SGT Same, Name',
+							typeName: 'Required',
+							status: 'warning-orange',
+							label: '15d left',
+							daysUntilExpiration: 15
+						},
+						{
+							personnelId: 'baker',
+							personName: 'SGT Same, Name',
+							typeName: 'Required',
+							status: 'expired',
+							label: 'Expired',
+							daysUntilExpiration: -1
+						}
+					],
+					expiredPersonnelCount: 1,
+					groupDelinquencies: [
+						{ groupId: 'alpha', expiredPersonnelCount: 0, delinquentPersonnelCount: 1 },
+						{ groupId: 'bravo', expiredPersonnelCount: 1, delinquentPersonnelCount: 1 },
+						{ groupId: null, expiredPersonnelCount: 0, delinquentPersonnelCount: 1 }
+					]
+				}
+			}),
+			{
+				storage: createMemoryStorage(),
+				sources: makeSources({
+					personnel: [
+						{ id: 'able', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'alpha' },
+						{ id: 'baker', rank: 'SGT', firstName: 'Same', lastName: 'Name', groupId: 'bravo' },
+						{ id: 'other', rank: 'SPC', firstName: 'Other', lastName: 'Person', groupId: null }
+					],
+					groups: [
+						{ id: 'alpha', name: 'Shared name', sortOrder: 0 },
+						{ id: 'bravo', name: 'Shared name', sortOrder: 1 }
+					]
+				})
+			}
+		);
+
+		expect(model.trainingCurrencyPct).toBe(33);
+		expect(new Map(model.trainingGroupDelinquencies.map((group) => [group.groupId, group]))).toEqual(
+			new Map([
+				['alpha', { groupId: 'alpha', groupName: 'Shared name', count: 1, expiredPersonnelCount: 0, pct: 100 }],
+				['bravo', { groupId: 'bravo', groupName: 'Shared name', count: 1, expiredPersonnelCount: 1, pct: 100 }],
+				[null, { groupId: null, groupName: 'Unassigned', count: 1, expiredPersonnelCount: 0, pct: 100 }]
+			])
+		);
+	});
+});

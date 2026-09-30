@@ -16,6 +16,7 @@
 
 	const view = $derived(ctx.unitReadiness);
 	const statusEntries = $derived(view.statusEntries);
+	const trainingGroupDelinquencies = $derived(ctx.trainingGroupDelinquencies);
 	const dutyDays = $derived(ctx.dutyForDays(1));
 	const todayDuty = $derived(dutyDays.find((d) => d.isToday));
 	const tomorrowDuty = $derived(dutyDays.find((d) => !d.isToday));
@@ -43,15 +44,17 @@
 		const stats = ctx.trainingStats;
 		const ratings = ctx.ratingStats;
 
-		if (stats && stats.expired > 0) {
+		const expiredPersonnel = ctx.expiredTrainingPersonnelCount;
+		if (stats && expiredPersonnel > 0) {
 			items.push({
 				severity: 'danger',
-				message: `${stats.expired} personnel with expired training`,
-				detail: ctx.trainingGroupDelinquencies
+				message: `${expiredPersonnel} personnel with expired training`,
+				detail: trainingGroupDelinquencies
+					.filter((group) => group.expiredPersonnelCount > 0)
 					.slice(0, 3)
-					.map((g) => `${g.groupName} (${g.count})`)
+					.map((g) => `${g.groupName} (${g.expiredPersonnelCount})`)
 					.join(', '),
-				count: stats.expired
+				count: expiredPersonnel
 			});
 		}
 
@@ -254,7 +257,7 @@
 					<Separator class="my-3" />
 					<div class="grid gap-1.5">
 						{#each ctx.groupBreakdown as g (g.id)}
-							{@const delinquency = ctx.trainingGroupDelinquencies.find((d) => d.groupName === g.name)}
+							{@const delinquency = trainingGroupDelinquencies.find((d) => d.groupId === g.id)}
 							<div class="flex items-center gap-2">
 								<span class="w-14 truncate font-mono text-[0.625rem] font-semibold uppercase text-muted-foreground">
 									{g.name}

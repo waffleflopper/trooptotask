@@ -997,3 +997,100 @@ describe('deep Critical Tasks dated history', () => {
 		]);
 	});
 });
+
+describe('paged Critical Tasks report history', () => {
+	it.each([
+		['report', fetchCriticalTasksReportDashboard],
+		['Dashboard summary', fetchCriticalTasksDashboardSummary]
+	] as const)(
+		'retains older readiness dates in the %s when provider pages change incidental row order',
+		async (_name, fetchReport) => {
+			const ctx = createTestContext();
+			ctx.store.seed('personnel', [
+				{
+					id: 'person-history',
+					organization_id: ctx.auth.orgId,
+					first_name: 'Synthetic',
+					last_name: 'History',
+					mos: '68W',
+					archived_at: null
+				}
+			]);
+			ctx.store.seed('ict_tasks', [
+				{
+					id: 'history-task',
+					organization_id: ctx.auth.orgId,
+					task_code: 'HISTORY',
+					title: 'Historical readiness',
+					mos: [],
+					expiration_months: 1,
+					archived_at: null
+				}
+			]);
+			ctx.store.seed('organizations', [
+				{
+					id: ctx.auth.orgId,
+					critical_tasks_default_expiration_months: 1,
+					critical_tasks_expiring_soon_warning_days: 7
+				}
+			]);
+			const capture = (id: string, completedAt: string) => ({
+				id,
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-history',
+				ict_task_id: 'history-task',
+				completed_at: completedAt,
+				created_at: `${completedAt}T12:00:00Z`,
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: null
+			});
+			const captures: Record<string, string | null>[] = [
+				...Array.from({ length: 1000 }, (_, index) =>
+					capture(`capture-${String(index).padStart(4, '0')}`, '2026-03-15')
+				),
+				capture('capture-1000', '2026-01-01')
+			];
+			const client = createClient('https://provider.invalid', 'synthetic-key', {
+				auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+				global: {
+					fetch: async (input) => {
+						const url = new URL(String(input));
+						const offset = Number(url.searchParams.get('offset') ?? 0);
+						// Each page may choose another legal order for rows tied on every
+						// requested key; an omitted January capture changes the report trend.
+						const rows = offset === 0 ? [...captures] : [...captures].reverse();
+						const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
+						rows.sort((left, right) => {
+							for (const term of order) {
+								const [column, direction] = term.split('.');
+								const comparison = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+								if (comparison) return direction === 'desc' ? -comparison : comparison;
+							}
+							return 0;
+						});
+						return Response.json(rows.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000)));
+					}
+				}
+			});
+			const provider = createSupabaseDataStore(client);
+			const findMany = ctx.store.findMany.bind(ctx.store);
+			vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+				args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
+			);
+
+			const report = await fetchReport(ctx, { asOf: '2026-03-20' });
+			expect(report.kpis.overallReadiness).toMatchObject({ readyCount: 1, applicableCount: 1, percent: 100 });
+			// A January 1 capture is ready in January, expired in February; the
+			// March 15 capture restores readiness in March for this one-month task.
+			expect(
+				report.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+			).toEqual([
+				['2026-01', 100],
+				['2026-02', 0],
+				['2026-03', 100]
+			]);
+		}
+	);
+});

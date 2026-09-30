@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery';
 
@@ -124,5 +126,94 @@ describe('fetchCriticalTasksPersonnelHistory', () => {
 		await expect(fetchCriticalTasksPersonnelHistory(ctx, 'p-outside')).rejects.toMatchObject({
 			status: 404
 		});
+	});
+});
+
+describe('paged Personnel Critical Tasks history', () => {
+	it('retains distinct same-date captures when the provider reorders ties between pages', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [
+			{
+				id: 'person-history',
+				organization_id: ctx.auth.orgId,
+				first_name: 'Synthetic',
+				last_name: 'History',
+				archived_at: null
+			}
+		]);
+		ctx.store.seed('ict_tasks', [
+			{
+				id: 'retained-task',
+				organization_id: ctx.auth.orgId,
+				task_code: 'RETAINED',
+				title: 'Retained task',
+				mos: [],
+				archived_at: '2026-03-16T12:00:00Z'
+			}
+		]);
+		const capture = (id: string, completedAt: string, notes: string) => ({
+			id,
+			organization_id: ctx.auth.orgId,
+			personnel_id: 'person-history',
+			ict_task_id: 'retained-task',
+			completed_at: completedAt,
+			created_at: '2026-03-15T12:00:00Z',
+			validation_method: 'Demonstration',
+			validated_by: null,
+			notes,
+			logged_by: null
+		});
+		const captures: Record<string, string | null>[] = [
+			...Array.from({ length: 1000 }, (_, index) =>
+				capture(`capture-${String(index).padStart(4, '0')}`, '2026-03-15', 'Repeated practice')
+			),
+			capture('capture-1000', '2026-03-15', 'First distinct capture'),
+			capture('capture-1001', '2026-03-15', 'Second distinct capture'),
+			capture('older-capture', '2026-01-01', 'Older validation')
+		];
+		const client = createClient('https://provider.invalid', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					const offset = Number(url.searchParams.get('offset') ?? 0);
+					// SQL may return equal sort keys in a different order for each request.
+					// Apply the requested order after changing only that incidental input order.
+					const rows = offset === 0 ? [...captures] : [...captures].reverse();
+					const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
+					rows.sort((left, right) => {
+						for (const term of order) {
+							const [column, direction] = term.split('.');
+							const comparison = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+							if (comparison) return direction === 'desc' ? -comparison : comparison;
+						}
+						return 0;
+					});
+					return Response.json(rows.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000)));
+				}
+			}
+		});
+		const provider = createSupabaseDataStore(client);
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
+		);
+
+		const result = await fetchCriticalTasksPersonnelHistory(ctx, 'person-history');
+		expect(new Set(result.rows.map(({ completion }) => completion.id)).size).toBe(1003);
+		expect(
+			result.rows
+				.filter(({ completion }) => completion.notes !== 'Repeated practice')
+				.map(({ completion, taskArchivedAt }) => [
+					completion.id,
+					completion.completedAt,
+					completion.notes,
+					taskArchivedAt
+				])
+		).toEqual([
+			['capture-1000', '2026-03-15', 'First distinct capture', '2026-03-16T12:00:00Z'],
+			['capture-1001', '2026-03-15', 'Second distinct capture', '2026-03-16T12:00:00Z'],
+			['older-capture', '2026-01-01', 'Older validation', '2026-03-16T12:00:00Z']
+		]);
 	});
 });

@@ -18,7 +18,13 @@ export async function fetchCriticalTasksPersonnelHistory(
 		'personnel_ict_completions',
 		ctx.auth.orgId,
 		{ personnel_id: personnelId },
-		{ orderBy: [{ column: 'completed_at', ascending: false }] }
+		{
+			// A unique tie-break keeps equal-date captures on stable provider pages.
+			orderBy: [
+				{ column: 'completed_at', ascending: false },
+				{ column: 'id', ascending: true }
+			]
+		}
 	);
 	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
 	const taskIds = [...new Set(completions.map((completion) => completion.ictTaskId))];

@@ -41,6 +41,10 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 - [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.
 - [Training completions, matrix and reports](training-completions-reports.md): saved record lifecycle, import/upsert recovery, dated status math, report downloads and scoped denial.
 
+### Onboarding
+
+- [Onboarding templates and configuration](onboarding-templates.md): template/step lifecycle, ordering, duplication, independent lookups, linked history, scope and failure/retry.
+
 ### Critical Tasks
 
 - [Manage the Critical Tasks library](critical-tasks-library.md): task definitions, MOS filters, import, archive/restore, settings defaults, dedicated permissions and Organization isolation.

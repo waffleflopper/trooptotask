@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "Script ran on page and returned:\n```json\n[{\"text\":\" D14 Baseline Renamed 2 steps \",\"visible\":true},{\"text\":\" Verification Onboarding A 3 steps \",\"visible\":true},{\"text\":\" Select training type\",\"visible\":true},{\"text\":\" Verification Required Training\",\"visible\":true},{\"text\":\" Verification Targeted Training\",\"visible\":true},{\"text\":\" Verification Optional Training\",\"visible\":true}]\n```"
+    }
+  ]
+}

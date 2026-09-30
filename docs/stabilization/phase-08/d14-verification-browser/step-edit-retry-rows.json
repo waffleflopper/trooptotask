@@ -1,0 +1,43 @@
+{
+  "table": "onboarding_template_steps",
+  "organization": "orgA",
+  "count": 3,
+  "rows": [
+    {
+      "id": "00646100-e11d-4baf-a10e-4768358aed81",
+      "organization_id": "deaa14e6-723b-4c25-ae0c-6aa4b713727d",
+      "template_id": "c47a02dc-a656-4183-99c6-bc5aeba0a15c",
+      "name": "D14 Paperwork",
+      "description": null,
+      "step_type": "paperwork",
+      "training_type_id": null,
+      "stages": [
+        "D14 Submit",
+        "D14 File"
+      ],
+      "sort_order": 1
+    },
+    {
+      "id": "13c4a9f2-724b-48f1-833c-43bccfb29978",
+      "organization_id": "deaa14e6-723b-4c25-ae0c-6aa4b713727d",
+      "template_id": "c47a02dc-a656-4183-99c6-bc5aeba0a15c",
+      "name": "D14 Checkbox",
+      "description": "D14 step retry description",
+      "step_type": "checkbox",
+      "training_type_id": null,
+      "stages": null,
+      "sort_order": 0
+    },
+    {
+      "id": "ecbf4285-a9e2-4cf6-ac92-a77c6def56e8",
+      "organization_id": "deaa14e6-723b-4c25-ae0c-6aa4b713727d",
+      "template_id": "c47a02dc-a656-4183-99c6-bc5aeba0a15c",
+      "name": "D14 Training",
+      "description": null,
+      "step_type": "training",
+      "training_type_id": "a1f2be5b-17dc-42d1-919a-1676b8b6d11a",
+      "stages": null,
+      "sort_order": 2
+    }
+  ]
+}

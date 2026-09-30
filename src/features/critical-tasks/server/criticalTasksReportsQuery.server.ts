@@ -153,7 +153,9 @@ async function loadReportCompletions(
 					inFilters: {
 						personnel_id: people.slice(personIndex, personIndex + 50),
 						ict_task_id: tasks.slice(taskIndex, taskIndex + 50)
-					}
+					},
+					// Reports need every date; make offset pages stable even for tied captures.
+					orderBy: [{ column: 'id', ascending: true }]
 				})
 			);
 			if (pending.length === 4) {

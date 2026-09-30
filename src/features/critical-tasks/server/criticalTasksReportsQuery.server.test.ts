@@ -861,64 +861,217 @@ describe('bounded Critical Tasks report history', () => {
 
 describe('deep Critical Tasks dated history', () => {
 	it.each([
-		[1, 100],
-		[151, 1]
-	])('retains first and last historical dates for %i authorized People', async (personCount, expectedPercent) => {
-		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
-		const people = Array.from({ length: personCount }, (_, i) => ({
-			id: `deep-person-${i}`,
+		['remaining history windows', 1, 150, 150],
+		['four history windows', 151, 1, 151]
+	] as const)('retains dated readiness across %s', async (_name, personCount, taskCount, expectedReadyCount) => {
+		const id = (kind: number, index: number) =>
+			`${String(kind).padStart(8, '0')}-0000-4000-8000-${String(index).padStart(12, '0')}`;
+		const ctx = createTestContext({ auth: { orgId: id(9, 0) } });
+		const people = Array.from({ length: personCount }, (_, index) => ({
+			id: id(1, index),
 			organization_id: ctx.auth.orgId,
 			first_name: 'Synthetic',
-			last_name: `Deep${i}`,
+			last_name: `Deep${index}`,
 			mos: '68W',
 			group_id: null,
 			archived_at: null
 		}));
+		const tasks = Array.from({ length: taskCount }, (_, index) => ({
+			id: id(2, index),
+			organization_id: ctx.auth.orgId,
+			task_code: `DEEP${index}`,
+			title: `Deep history ${index}`,
+			mos: [],
+			expiration_months: 1,
+			archived_at: null
+		}));
 		ctx.store.seed('personnel', people);
-		ctx.store.seed('ict_tasks', [
-			{
-				id: 'deep-task',
-				organization_id: ctx.auth.orgId,
-				task_code: 'DEEP',
-				title: 'Deep history',
-				mos: [],
-				expiration_months: 1,
-				archived_at: null
-			}
-		]);
+		ctx.store.seed('ict_tasks', tasks);
 		ctx.store.seed('organizations', [
 			{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 1, critical_tasks_expiring_soon_warning_days: 7 }
 		]);
-		const history = Array.from({ length: 150000 }, (_, i) => ({
-			id: `deep-completion-${i}`,
-			organization_id: ctx.auth.orgId,
-			personnel_id: people[0].id,
-			ict_task_id: 'deep-task',
-			completed_at: i === 149999 ? '2026-03-15' : '2026-01-01',
-			created_at: '2026-03-15T12:00:00Z',
-			validation_method: 'Demonstration',
-			validated_by: null,
-			notes: null,
-			logged_by: null
-		}));
+		const dates = [
+			...Array.from({ length: 999 }, (_, index) => new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10)),
+			'2026-01-01',
+			'2026-03-15'
+		];
+		// Each pair has 1001 distinct dates. The 150-task case leaves three
+		// history windows; the 151-Person case fills four with 151151 rows.
+		const history: Record<string, string | null>[] = people.flatMap((person, personIndex) =>
+			tasks.flatMap((task, taskIndex) =>
+				dates.map((date, dateIndex) => ({
+					id: id(3, (personIndex * taskCount + taskIndex) * dates.length + dateIndex),
+					organization_id: ctx.auth.orgId,
+					personnel_id: person.id,
+					ict_task_id: task.id,
+					completed_at: date,
+					created_at: `${date}T12:00:00Z`,
+					validation_method: 'Demonstration',
+					validated_by: null,
+					notes: null,
+					logged_by: null
+				}))
+			)
+		);
+		// Cache the immutable fixture selection per provider query, so paging
+		// doesn't repeatedly scan/sort 150k stored captures inside this fake.
+		const selections = new Map<string, typeof history>();
+		const client = createClient('https://provider.invalid', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					const key = ['organization_id', 'personnel_id', 'ict_task_id', 'order']
+						.map((column) => url.searchParams.get(column))
+						.join('|');
+					let selected = selections.get(key);
+					if (!selected) {
+						const ids = (column: string) => new Set(url.searchParams.get(column)?.slice(4, -1).split(',') ?? []);
+						const personnelIds = ids('personnel_id');
+						const taskIds = ids('ict_task_id');
+						const organizationId = url.searchParams.get('organization_id')?.slice(3);
+						selected = history.filter(
+							(row) =>
+								row.organization_id === organizationId &&
+								personnelIds.has(row.personnel_id!) &&
+								taskIds.has(row.ict_task_id!)
+						);
+						const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
+						selected.sort((left, right) => {
+							for (const term of order) {
+								const [column, direction] = term.split('.');
+								const comparison = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+								if (comparison) return direction === 'desc' ? -comparison : comparison;
+							}
+							return 0;
+						});
+						selections.set(key, selected);
+					}
+					const offset = Number(url.searchParams.get('offset') ?? 0);
+					return Response.json(selected.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000)));
+				}
+			}
+		});
+		const provider = createSupabaseDataStore(client);
 		const findMany = ctx.store.findMany.bind(ctx.store);
 		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-			args[0] === 'personnel_ict_completions'
-				? Promise.resolve(args[3]?.inFilters?.personnel_id?.includes(people[0].id) ? history : [])
-				: findMany(...args)
+			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
 		);
 		const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
 		expect(summary.kpis.overallReadiness).toMatchObject({
-			readyCount: 1,
-			applicableCount: personCount,
-			percent: expectedPercent
+			readyCount: expectedReadyCount,
+			applicableCount: expectedReadyCount,
+			percent: 100
 		});
+		// All pairs are ready in January, expired in February, and restored
+		// by their March capture; the old 2020–2022 dates cannot supply readiness.
 		expect(
 			summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
 		).toEqual([
-			['2026-01', expectedPercent],
+			['2026-01', 100],
 			['2026-02', 0],
-			['2026-03', expectedPercent]
+			['2026-03', 100]
 		]);
 	});
+});
+
+describe('paged Critical Tasks report history', () => {
+	it.each([
+		['report', fetchCriticalTasksReportDashboard],
+		['Dashboard summary', fetchCriticalTasksDashboardSummary]
+	] as const)(
+		'retains older readiness dates in the %s when provider pages change incidental row order',
+		async (_name, fetchReport) => {
+			const ctx = createTestContext({ auth: { orgId: '70000000-0000-4000-8000-000000000001' } });
+			const personId = '40000000-0000-4000-8000-000000000001';
+			const taskId = '60000000-0000-4000-8000-000000000001';
+			ctx.store.seed('personnel', [
+				{
+					id: personId,
+					organization_id: ctx.auth.orgId,
+					first_name: 'Synthetic',
+					last_name: 'History',
+					mos: '68W',
+					archived_at: null
+				}
+			]);
+			ctx.store.seed('ict_tasks', [
+				{
+					id: taskId,
+					organization_id: ctx.auth.orgId,
+					task_code: 'HISTORY',
+					title: 'Historical readiness',
+					mos: [],
+					expiration_months: 1,
+					archived_at: null
+				}
+			]);
+			ctx.store.seed('organizations', [
+				{
+					id: ctx.auth.orgId,
+					critical_tasks_default_expiration_months: 1,
+					critical_tasks_expiring_soon_warning_days: 7
+				}
+			]);
+			const capture = (index: number, completedAt: string) => ({
+				id: `50000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+				organization_id: ctx.auth.orgId,
+				personnel_id: personId,
+				ict_task_id: taskId,
+				completed_at: completedAt,
+				created_at: `${completedAt}T12:00:00Z`,
+				validation_method: 'Demonstration',
+				validated_by: null,
+				notes: null,
+				logged_by: null
+			});
+			const captures: Record<string, string | null>[] = [
+				capture(0, '2026-03-15'),
+				// Distinct older dates obey the Person/task/date uniqueness constraint.
+				...Array.from({ length: 1000 }, (_, index) =>
+					capture(index + 1, new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10))
+				),
+				capture(1001, '2026-01-01')
+			];
+			const client = createClient('https://provider.invalid', 'synthetic-key', {
+				auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+				global: {
+					fetch: async (input) => {
+						const url = new URL(String(input));
+						const offset = Number(url.searchParams.get('offset') ?? 0);
+						// Each page may choose another legal order for rows tied on every
+						// requested key; an omitted January capture changes the report trend.
+						const rows = offset === 0 ? [...captures] : [...captures].reverse();
+						const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
+						rows.sort((left, right) => {
+							for (const term of order) {
+								const [column, direction] = term.split('.');
+								const comparison = String(left[column] ?? '').localeCompare(String(right[column] ?? ''));
+								if (comparison) return direction === 'desc' ? -comparison : comparison;
+							}
+							return 0;
+						});
+						return Response.json(rows.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000)));
+					}
+				}
+			});
+			const provider = createSupabaseDataStore(client);
+			const findMany = ctx.store.findMany.bind(ctx.store);
+			vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
+				args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
+			);
+
+			const report = await fetchReport(ctx, { asOf: '2026-03-20' });
+			expect(report.kpis.overallReadiness).toMatchObject({ readyCount: 1, applicableCount: 1, percent: 100 });
+			// A January 1 capture is ready in January, expired in February; the
+			// March 15 capture restores readiness in March for this one-month task.
+			expect(
+				report.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
+			).toEqual([
+				['2026-01', 100],
+				['2026-02', 0],
+				['2026-03', 100]
+			]);
+		}
+	);
 });

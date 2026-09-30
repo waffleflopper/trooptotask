@@ -1,0 +1,4 @@
+Script ran on page and returned:
+```json
+{"role":"ictScoped","pageId":4,"path":"/org/bf0b4a11-595e-4009-9bd5-9b7e3757d121/api/personnel-ict-completions/batch","payload":{"records":[{"rowNumber":2,"values":{"firstName":"Synthetic","lastName":"Foreign","taskCode":"VERIFY-ICT-ALL","completedAt":"2026-09-29","validationMethod":"Demonstration","notes":"D11 foreign person denied"}},{"rowNumber":3,"values":{"firstName":"Synthetic","lastName":"Able","taskCode":"VERIFY-ICT-FOREIGN","completedAt":"2026-09-29","validationMethod":"Demonstration","notes":"D11 foreign task denied"}}]},"status":200,"body":{"inserted":[],"updated":[],"errors":[{"rowNumber":2,"personnelName":"Synthetic Foreign","taskCode":"VERIFY-ICT-ALL","message":"Personnel record not found. Check the rank, first name, and last name values."},{"rowNumber":3,"personnelName":"Synthetic Able","taskCode":"VERIFY-ICT-FOREIGN","message":"Task code \"VERIFY-ICT-FOREIGN\" does not match an existing critical task"}]}}
+```

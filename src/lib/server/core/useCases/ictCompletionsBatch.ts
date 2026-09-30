@@ -10,6 +10,9 @@ import { requirePolicyDecision } from './policyAuthorization';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const MAX_BATCH_SIZE = 500;
+// Both UUID filters contribute to the provider URL. Bound pairs together so
+// a supported batch stays below its request-line limit in either dimension.
+const LOOKUP_PAIR_BATCH_SIZE = 50;
 
 export interface IctCompletionBatchImportInput {
 	records: IctCompletionImportMappedRow[];
@@ -102,21 +105,28 @@ export async function importIctCompletionsBatch(
 		}
 	}
 
-	const matchedTaskIds = [...new Set(preliminaryReview.validRows.map((row) => row.ictTaskId))];
-	const existingCompletionRows =
-		matchedPersonnelIds.length > 0 && matchedTaskIds.length > 0
-			? await ctx.store.findMany<Record<string, unknown>>(
-					PersonnelIctCompletionEntity.table,
-					ctx.auth.orgId,
-					undefined,
-					{
-						inFilters: {
-							personnel_id: matchedPersonnelIds,
-							ict_task_id: matchedTaskIds
-						}
-					}
-				)
-			: [];
+	const matchedPairs = [
+		...new Map(
+			preliminaryReview.validRows.map((row) => [
+				`${row.personnelId}:${row.ictTaskId}`,
+				{ personnelId: row.personnelId, ictTaskId: row.ictTaskId }
+			])
+		).values()
+	];
+	const lookups: Array<Promise<Record<string, unknown>[]>> = [];
+	for (let index = 0; index < matchedPairs.length; index += LOOKUP_PAIR_BATCH_SIZE) {
+		const pairs = matchedPairs.slice(index, index + LOOKUP_PAIR_BATCH_SIZE);
+		lookups.push(
+			ctx.store.findMany<Record<string, unknown>>(PersonnelIctCompletionEntity.table, ctx.auth.orgId, undefined, {
+				inFilters: {
+					personnel_id: [...new Set(pairs.map((pair) => pair.personnelId))],
+					ict_task_id: [...new Set(pairs.map((pair) => pair.ictTaskId))]
+				}
+			})
+		);
+	}
+	// The two filters can return overlapping history; retain each stored ID once.
+	const existingCompletionRows = [...new Map((await Promise.all(lookups)).flat().map((row) => [row.id, row])).values()];
 	const existingCompletions = PersonnelIctCompletionEntity.fromDbArray(existingCompletionRows);
 
 	const review = reviewMappedIctCompletionImportRows(input.records, {

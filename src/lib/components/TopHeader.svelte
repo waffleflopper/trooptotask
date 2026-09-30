@@ -291,6 +291,7 @@
 			} catch {
 				if (isCurrentNotificationRequest(scope, generation))
 					toastStore.error('Could not mark notification read. Reopen the bell to retry.');
+				return;
 			} finally {
 				if (isCurrentNotificationRequest(scope, generation)) notificationsWriting = false;
 			}

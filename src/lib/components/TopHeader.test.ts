@@ -173,7 +173,7 @@ describe('notification recovery', () => {
 		expect(requests).toBe(2);
 	});
 
-	it('keeps a failed single read unread and allows a successful retry', async () => {
+	it('keeps a failed linked read unread without navigating and allows a successful retry', async () => {
 		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
 		let attempts = 0;
 		vi.mocked(fetch).mockImplementation(async (input, options) => {
@@ -181,17 +181,19 @@ describe('notification recovery', () => {
 				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
 			}
 			if (options?.method === 'PUT') return notificationResponse({}, ++attempts > 1);
-			return notificationResponse([notification('own-note', 'Own notification')]);
+			return notificationResponse([notification('own-note', 'Own notification', '/org/org-1/settings')]);
 		});
 		renderHeader();
 		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
 		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
 		await waitFor(() => expect(error).toHaveBeenCalled());
 		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
+		expect(goto).not.toHaveBeenCalled();
 		await fireEvent.click(screen.getByRole('button', { name: '2 unread notifications' }));
 		await fireEvent.click(await screen.findByRole('menuitem', { name: /Own notification/ }));
 		await waitFor(() => expect(screen.getByRole('button', { name: '1 unread notifications' })).toBeTruthy());
 		expect(attempts).toBe(2);
+		expect(goto).toHaveBeenCalledWith('/org/org-1/settings');
 	});
 
 	it('retains the count after a failed bulk read and permits retry', async () => {

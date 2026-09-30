@@ -1,0 +1,18 @@
+{
+  "table": "onboarding_template_steps",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "ecbf4285-a9e2-4cf6-ac92-a77c6def56e8",
+      "organization_id": "deaa14e6-723b-4c25-ae0c-6aa4b713727d",
+      "template_id": "c47a02dc-a656-4183-99c6-bc5aeba0a15c",
+      "name": "D14 Training",
+      "description": null,
+      "step_type": "paperwork",
+      "training_type_id": null,
+      "stages": null,
+      "sort_order": 2
+    }
+  ]
+}

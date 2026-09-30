@@ -1,0 +1,17 @@
+{
+  "table": "personnel_onboardings",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "566b727b-c6b3-497e-8750-552b7a7d085d",
+      "organization_id": "deaa14e6-723b-4c25-ae0c-6aa4b713727d",
+      "personnel_id": "1a27be4e-bf77-47e2-bddb-2ae782e29eb6",
+      "template_id": "fa315350-b227-4b63-9965-8c7bbe12cb7f",
+      "started_at": "2026-03-01",
+      "completed_at": "2026-03-18",
+      "cancelled_at": null,
+      "status": "completed"
+    }
+  ]
+}

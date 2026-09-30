@@ -1,0 +1,13 @@
+{
+  "table": "onboarding_templates",
+  "organization": "orgA",
+  "count": 1,
+  "rows": [
+    {
+      "id": "3f7369ad-70fb-4853-b186-2922c6b669ca",
+      "organization_id": "9c90207d-5082-47e3-ad20-7ee639f4fab9",
+      "name": "D14 Baseline Template",
+      "description": "D14 original description"
+    }
+  ]
+}

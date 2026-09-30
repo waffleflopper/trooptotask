@@ -578,7 +578,7 @@ async function inMemoryPersonnelRows(
 	if (actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0) return [];
 	if (ids && ids.length === 0) return [];
 	return rawStore.findMany<Row>('personnel', actor.orgId, undefined, {
-		select: '*, groups:groups!personnel_group_id_fkey(name)',
+		select: '*, groups:groups!personnel_organization_group_fkey(name)',
 		...(status === 'active' ? { isNull: { archived_at: true } } : {}),
 		inFilters: {
 			...(actor.scopeSet.kind === 'groups' ? { group_id: actor.scopeSet.groupIds } : {}),

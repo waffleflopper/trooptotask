@@ -2,7 +2,7 @@
  * Personnel entity — maps the `personnel` table.
  * `groupScope: 'none'` because personnel rows live at the org level; group filtering
  * is applied by `ScopedDataStore` based on the `group_id` column via `scopeRules.ts`.
- * `customTransform` flattens the explicit Group relationship into `groupName`.
+ * `customTransform` flattens the same-Organization Group relationship into `groupName`.
  * Writes are handled by `personnel.ts` and `personnelBatch.ts` use cases (not generic CRUD)
  * for rank validation, scoped authorization and artifact lifecycle handling.
  */
@@ -13,7 +13,7 @@ import type { Personnel } from '$lib/types';
 export const PersonnelEntity = defineEntity<Personnel>({
 	table: 'personnel',
 	groupScope: 'none',
-	select: '*, groups:groups!personnel_group_id_fkey(name)',
+	select: '*, groups:groups!personnel_organization_group_fkey(name)',
 	schema: {
 		id: field(z.string(), { readOnly: true }),
 		slug: field(z.string(), { readOnly: true }),

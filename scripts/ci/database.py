@@ -43,6 +43,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20260926001300_calendar_catalog_scope.sql",
     "20260929000100_critical_tasks_library_configure_scope.sql",
     "20260929000200_training_catalog_configuration_scope.sql",
+    "20260929000300_personnel_group_reference_integrity.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -56,6 +57,7 @@ STAGED_UPGRADE_FIXTURES = (
     "personnel_extended_info_populated_before.sql",
     "calendar_catalog_scope_before.sql",
     "training_catalog_configuration_before.sql",
+    "personnel_group_reference_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -70,6 +72,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "personnel_extended_info_populated_after.sql",
     "calendar_catalog_scope_after.sql",
     "training_catalog_configuration_after.sql",
+    "personnel_group_reference_after.sql",
 )
 
 
@@ -212,6 +215,23 @@ def run(command, workdir, *, quiet=False, check=True, environment=None, input_te
     return result
 
 
+def _provider_environment(repository, workdir, execute):
+    status_output = execute(["supabase", "status", "-o", "json"], workdir, quiet=True).stdout
+    # CLI notices can surround the JSON in combined output. Never print the
+    # credential-bearing body; expose only this disposable project's values.
+    json_start = status_output.find("{")
+    if json_start < 0:
+        raise RuntimeError("Disposable Supabase status contained no JSON")
+    status, _ = json.JSONDecoder().raw_decode(status_output[json_start:])
+    environment = local_docker_environment(repository)
+    environment.update({
+        "T2T_PROBE_API_URL": status["API_URL"],
+        "T2T_PROBE_SERVICE_KEY": status["SERVICE_ROLE_KEY"],
+        "T2T_PROBE_ANON_KEY": status["ANON_KEY"],
+    })
+    return environment
+
+
 def validate(repository, *, staged_upgrade=False):
     execute = partial(run, environment=local_docker_environment(repository))
     source = tomllib.loads((repository / "supabase/config.toml").read_text())
@@ -270,6 +290,8 @@ def validate(repository, *, staged_upgrade=False):
                     PG_PROVE_IMAGE, "pg_prove", "--verbose",
                     f"/tests/migration-tests/{name}",
                 ], workdir)
+            run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],
+                workdir, environment=_provider_environment(repository, workdir, execute))
             print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme and extended info upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
@@ -291,19 +313,7 @@ def validate(repository, *, staged_upgrade=False):
         # Exercise actual GoTrue admin calls after historical migration
         # reapplication tests. The provider probe persists new failure reasons
         # that older migrations correctly did not know about.
-        status_output = execute(["supabase", "status", "-o", "json"], workdir, quiet=True).stdout
-        # CLI notices can precede or follow the JSON because quiet mode
-        # combines stdout and stderr; never print the credential-bearing body.
-        json_start = status_output.find("{")
-        if json_start < 0:
-            raise RuntimeError("Disposable Supabase status contained no JSON")
-        status, _ = json.JSONDecoder().raw_decode(status_output[json_start:])
-        provider_environment = local_docker_environment(repository)
-        provider_environment.update({
-            "T2T_PROBE_API_URL": status["API_URL"],
-            "T2T_PROBE_SERVICE_KEY": status["SERVICE_ROLE_KEY"],
-            "T2T_PROBE_ANON_KEY": status["ANON_KEY"],
-        })
+        provider_environment = _provider_environment(repository, workdir, execute)
         run(["node", str(repository / "scripts/ci/account_setup_provider_probe.mjs")],
             workdir, environment=provider_environment)
         run(["node", str(repository / "scripts/ci/personnel_roster_provider_probe.mjs")],

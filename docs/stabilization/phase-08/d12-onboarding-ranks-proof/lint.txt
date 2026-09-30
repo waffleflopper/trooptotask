@@ -8,4 +8,3 @@
   377:7  warning  Found a mutable instance of the built-in Map class. Use SvelteMap instead  svelte/prefer-svelte-reactivity
 
 ✖ 2 problems (0 errors, 2 warnings)
-

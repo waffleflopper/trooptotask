@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { fetchOnboardingTemplatesData } from './onboardingTemplatesQuery';
+import { fetchOnboardingTemplatesData } from './onboardingTemplateRead.server';
 
 describe('fetchOnboardingTemplatesData', () => {
 	it('returns templates and templateSteps from the store', async () => {

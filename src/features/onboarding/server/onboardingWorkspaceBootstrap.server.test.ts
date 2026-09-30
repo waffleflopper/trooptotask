@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Cookies } from '@sveltejs/kit';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -9,28 +8,16 @@ import type { TrainingType } from '$features/training/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$lib/types';
 
-const { fetchOnboardingBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
+const { fetchOnboardingBootstrapMock, mockCtx } = vi.hoisted(() => {
 	const fetchOnboardingBootstrapMock = vi.fn();
-	const loadWithContextMock = vi.fn();
 
 	return {
 		fetchOnboardingBootstrapMock,
-		loadWithContextMock,
 		mockCtx: {
 			auth: {
 				orgId: '11111111-1111-1111-1111-111111111111'
 			}
 		}
-	};
-});
-
-vi.mock('$lib/server/adapters/httpAdapter', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
-		'$lib/server/adapters/httpAdapter'
-	);
-	return {
-		...actual,
-		loadWithContext: loadWithContextMock
 	};
 });
 
@@ -44,15 +31,11 @@ vi.mock('$lib/server/core/useCases/onboardingQuery', async () => {
 	};
 });
 
-import { streamOnboardingWorkspaceBootstrap } from './onboardingWorkspaceBootstrap';
+import { fetchOnboardingWorkspace } from './onboardingWorkspaceBootstrap.server';
 
-describe('streamOnboardingWorkspaceBootstrap', () => {
+describe('fetchOnboardingWorkspace', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
-			const data = config.fn(mockCtx as never);
-			return config.defer ? { data } : data;
-		});
 	});
 
 	it('streams a lane-keyed Onboarding workspace result with explicit Onboarding hydration targets', async () => {
@@ -90,15 +73,9 @@ describe('streamOnboardingWorkspaceBootstrap', () => {
 		};
 		fetchOnboardingBootstrapMock.mockResolvedValue(onboardingData);
 
-		const routeData = await streamOnboardingWorkspaceBootstrap({
-			locals: {} as App.Locals,
-			cookies: {} as Cookies,
-			orgId: '1-11-bde'
-		});
+		const workspace = await fetchOnboardingWorkspace(mockCtx as never);
 
-		expect(routeData.onboarding.data).toBeInstanceOf(Promise);
-
-		await expect(routeData.onboarding.data).resolves.toMatchObject({
+		expect(workspace).toMatchObject({
 			laneKey: 'onboarding',
 			data: onboardingData,
 			hydration: {
@@ -131,7 +108,6 @@ describe('streamOnboardingWorkspaceBootstrap', () => {
 				})
 			}
 		});
-		const workspace = await routeData.onboarding.data;
 		expect(workspace.hydration.onboardingTemplates.snapshotKey).not.toContain('Reception');
 		expect(workspace.hydration.personnel.snapshotKey).not.toContain('Smith');
 	});
@@ -175,16 +151,7 @@ describe('streamOnboardingWorkspaceBootstrap', () => {
 			Promise.resolve(options?.mode === 'history' ? historyData : activeData)
 		);
 
-		const routeData = await streamOnboardingWorkspaceBootstrap(
-			{
-				locals: {} as App.Locals,
-				cookies: {} as Cookies,
-				orgId: '1-11-bde'
-			},
-			{ mode: 'history' }
-		);
-
-		const workspace = await routeData.onboarding.data;
+		const workspace = await fetchOnboardingWorkspace(mockCtx as never, { mode: 'history' });
 
 		expect(workspace.data.onboardings).toEqual([
 			expect.objectContaining({ id: 'completed-onboarding', status: 'completed' })

@@ -3,8 +3,7 @@
  * Steps belong to a template via `templateId`. `stepType` determines what happens when
  * the step is started: 'training' links to a TrainingType, 'paperwork' tracks a document,
  * 'checkbox' is a simple completion toggle. `stages` is only used by paperwork steps
- * (e.g., ['with soldier', 'submitted', 'filed']). When a template is saved, active
- * onboarding records are resynced via `onboardingResync.ts`.
+ * (e.g., ['with soldier', 'submitted', 'filed']). Existing onboarding progress retains its snapshot until an explicit resync.
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';

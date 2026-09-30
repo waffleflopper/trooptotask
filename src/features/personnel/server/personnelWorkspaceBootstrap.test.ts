@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { PersonnelBootstrap } from '$lib/server/core/useCases/personnelWorkspaceQuery';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel, PersonnelLookup } from '$lib/types';
+import type { Personnel, PersonnelLookup } from '../personnel.types';
 import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 
 const { fetchPersonnelBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted(() => ({

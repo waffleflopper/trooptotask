@@ -1,4 +1,4 @@
-import type { PersonnelLookup } from '$lib/types';
+import type { PersonnelLookup } from '$features/personnel/contracts';
 import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';

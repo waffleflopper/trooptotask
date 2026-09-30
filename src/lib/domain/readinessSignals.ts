@@ -10,7 +10,7 @@
  * Dashboard, personnel, and calendar surfaces should all consume this instead of
  * duplicating date-threshold arithmetic.
  */
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/personnel.types';
 
 // ---------------------------------------------------------------------------
 // Public types

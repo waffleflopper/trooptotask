@@ -5,7 +5,7 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import { ICT_VALIDATION_METHODS } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { applyMapping, autoMapColumns, detectHeaderRow, type ColumnDef } from '$lib/utils/columnMapping';
 import { parseDateString } from '$lib/utils/csvParser';
 

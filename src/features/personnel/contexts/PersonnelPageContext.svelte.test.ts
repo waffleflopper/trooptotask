@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
 

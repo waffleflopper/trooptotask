@@ -5,7 +5,7 @@ import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training';
 import { personnelRosterHydration } from '$features/personnel';
 import type { TrainingWorkspaceResult } from '$features/training/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 
 vi.mock('$lib/stores/orgContext.svelte', () => {

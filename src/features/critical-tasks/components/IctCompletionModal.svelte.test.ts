@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctCompletionModal from './IctCompletionModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 const person: Personnel = {
 	id: 'person-1',

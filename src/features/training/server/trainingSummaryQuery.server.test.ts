@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
 import { fetchDashboardTrainingSummary } from './trainingSummaryQuery.server';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 const ORG = 'test-org';
 

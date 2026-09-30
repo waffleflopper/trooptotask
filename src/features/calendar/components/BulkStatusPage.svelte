@@ -16,7 +16,7 @@
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { buildAddRecords } from '$features/calendar/utils/availabilityMutation';
 	import { loadCalendarRange, mergeCalendarRangeIntoStores } from '$features/calendar/utils/calendarRangeLoader';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { AvailabilityEntry } from '$features/calendar/contracts';
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 

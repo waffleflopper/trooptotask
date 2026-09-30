@@ -3,7 +3,7 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import type { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();

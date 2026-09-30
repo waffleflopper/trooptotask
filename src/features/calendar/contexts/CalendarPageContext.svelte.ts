@@ -1,4 +1,4 @@
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';

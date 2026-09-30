@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '../personnel.types';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';

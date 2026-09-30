@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType } from '$features/training/training.types';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';

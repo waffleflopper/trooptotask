@@ -19,7 +19,7 @@
 	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
 	import CriticalTaskStatusBadge from './CriticalTaskStatusBadge.svelte';
 	import type { Group } from '$features/personnel/contracts';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 
 	type IctMatrixViewMode = 'alphabetical' | 'by-group';
 

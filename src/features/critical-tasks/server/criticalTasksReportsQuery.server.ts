@@ -2,7 +2,7 @@ import type { CriticalTasksReportContext } from './criticalTasksReadPorts.server
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from '../contracts';
 import type { Group } from '$features/personnel/contracts';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
 import { buildCriticalTasksMatrix, matchesCriticalTasksPersonnelSearch } from '../utils/criticalTasksMatrix';

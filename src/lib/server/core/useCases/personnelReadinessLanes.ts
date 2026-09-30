@@ -1,7 +1,7 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { fail } from '$lib/server/core/errors';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/personnel.types';
 import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$lib/server/entities/personnel';

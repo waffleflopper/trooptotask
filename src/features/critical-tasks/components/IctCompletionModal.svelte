@@ -17,7 +17,7 @@
 	} from '$features/critical-tasks/criticalTasks.types';
 	import { calculateIctExpirationDate } from '$features/critical-tasks/utils/ictStatus';
 	import { isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import { compareIctCompletionRecency } from '../utils/ictReadinessSnapshot';
 
 	type CompletionSaveData = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;

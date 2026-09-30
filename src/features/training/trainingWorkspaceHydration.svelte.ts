@@ -12,7 +12,7 @@ import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingWorkspaceHydration, TrainingWorkspaceHydrationTarget } from './contracts';
 
 export interface TrainingHydrationLoadable<T> {

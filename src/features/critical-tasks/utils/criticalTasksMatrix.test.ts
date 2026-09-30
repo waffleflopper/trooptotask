@@ -5,7 +5,7 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { buildCriticalTasksMatrix, matchesCriticalTasksPersonnelSearch } from './criticalTasksMatrix';
 
 function person(overrides: Partial<Personnel>): Personnel {

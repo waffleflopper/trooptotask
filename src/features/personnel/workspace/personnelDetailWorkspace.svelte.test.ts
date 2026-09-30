@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { PersonnelDetailStreams, PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 import { createPersonnelDetailWorkspace } from './personnelDetailWorkspace.svelte';
 
 const person: Personnel = {

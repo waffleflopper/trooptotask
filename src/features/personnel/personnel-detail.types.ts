@@ -1,5 +1,5 @@
 import type { PersonnelLeaderNote } from './contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from './personnel.types';
 
 export interface PersonnelDetailHeader {
 	person: Personnel;

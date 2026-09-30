@@ -282,7 +282,7 @@ function compareAtRiskSoldierRows(left: IctAtRiskSoldierRow, right: IctAtRiskSol
 	);
 }
 
-function buildLastIctUpdateLookup(input: {
+export function buildLastIctUpdateLookup(input: {
 	personnel: Personnel[];
 	activeTasks: IctTask[];
 	completions: PersonnelIctCompletion[];

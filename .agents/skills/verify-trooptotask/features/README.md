@@ -41,6 +41,10 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 - [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.
 - [Training completions, matrix and reports](training-completions-reports.md): saved record lifecycle, import/upsert recovery, dated status math, report downloads and scoped denial.
 
+### Communications
+
+- [Notifications, feedback and announcements](notifications-feedback.md): real recipients, own inbox persistence/deletion, scope changes, failed requests, feedback and global dismissal.
+
 ### Onboarding
 
 - [Onboarding templates and configuration](onboarding-templates.md): template/step lifecycle, ordering, duplication, independent lookups, linked history, scope and failure/retry.

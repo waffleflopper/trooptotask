@@ -194,6 +194,7 @@
 				"src/lib/server/adapters/supabaseNotification.ts",
 				"src/lib/server/core/useCases/notifications.test.ts",
 				"src/lib/server/core/useCases/notifications.ts",
+				"src/lib/server/notifications.test.ts",
 				"src/lib/server/notifications.ts"
 			],
 			"packet": "08-M13"

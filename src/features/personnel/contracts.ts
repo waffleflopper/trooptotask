@@ -215,4 +215,14 @@ export const personnelLeaderNoteInputSchema = z.object({
 
 export type PersonnelLeaderNoteInput = z.infer<typeof personnelLeaderNoteInputSchema>;
 
-export { personnelCreationResource } from './personnelCreationResource';
+export { personnelScopeResource } from './personnelScopeResource';
+
+export type {
+	PersonnelImportRecord,
+	PersonnelImportInput,
+	PersonnelImportResult,
+	PersonnelBatchMessage,
+	PersonnelBackfillRecord,
+	PersonnelBackfillInput,
+	PersonnelBackfillResult
+} from './personnelImport.types';

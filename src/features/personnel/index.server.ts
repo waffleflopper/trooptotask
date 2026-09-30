@@ -56,3 +56,5 @@ export {
 	normalizeActivePersonnelRank
 } from './rankValidation.server';
 export type { LeaderNoteDataSource, LeaderNoteSourcePersistence } from './leaderNoteDataSource.server';
+export { importPersonnelBatch } from './personnelBatch.server';
+export { mergePersonnelBatch } from './personnelDateBackfill.server';

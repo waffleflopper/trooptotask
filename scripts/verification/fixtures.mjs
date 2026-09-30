@@ -82,6 +82,12 @@ export async function seed(session) {
 	);
 	const password = `Synthetic-${randomUUID()}!9`;
 	const actors = {};
+	const personnelActors = {
+		personnelOperate: { personnel: 'operate', scope: 'organization' },
+		personnelScoped: { personnel: 'configure', scope: 'groups', groups: [ids.groupA] },
+		personnelEmpty: { personnel: 'configure', scope: 'groups', groups: [] },
+		personnelSwitch: { personnel: 'configure', scope: 'organization' }
+	};
 	const calendarActors = {
 		calendarView: { organization: 'orgA', calendar: 'view', scope: 'organization' },
 		calendarOperate: { organization: 'orgA', calendar: 'operate', scope: 'organization' },
@@ -164,6 +170,7 @@ export async function seed(session) {
 		'viewer',
 		'scoped',
 		'foreign',
+		...Object.keys(personnelActors),
 		...Object.keys(calendarActors),
 		...Object.keys(trainingActors),
 		...Object.keys(criticalTasksActors),
@@ -200,8 +207,32 @@ export async function seed(session) {
 			{ id: ids.groupForeign, organization_id: ids.orgB, name: 'Foreign' }
 		])
 	);
+	// Personnel create/import needs an active catalog; direct Organization fixtures
+	// do not run the application's provisioning workflow.
+	checked(
+		await service.from('organization_rank_catalog').insert(
+			[ids.orgA, ids.orgB].flatMap((organizationId) =>
+				[
+					['PFC', 'Private First Class', 'E-3', 3],
+					['SPC', 'Specialist', 'E-4', 4],
+					['SGT', 'Sergeant', 'E-5', 5]
+				].map(([code, label, payGrade, order]) => ({
+					organization_id: organizationId,
+					code,
+					label,
+					pay_grade: payGrade,
+					service: 'army',
+					category: 'enlisted',
+					state: 'active',
+					source: 'built-in',
+					sort_order: order
+				}))
+			)
+		)
+	);
 	for (const [role, actor] of Object.entries(actors)) {
 		if (actor.organization === null) continue;
+		const personnel = personnelActors[role];
 		const calendar = calendarActors[role];
 		const training = trainingActors[role];
 		const criticalTasks = criticalTasksActors[role];
@@ -217,7 +248,10 @@ export async function seed(session) {
 				capability_overrides: {
 					personnel: criticalTasks
 						? 'none'
-						: (calendar?.personnel ?? training?.personnel ?? (role === 'manager' ? 'configure' : 'view')),
+						: (personnel?.personnel ??
+							calendar?.personnel ??
+							training?.personnel ??
+							(role === 'manager' ? 'configure' : 'view')),
 					calendar: calendar?.calendar ?? 'none',
 					training: training?.training ?? 'none',
 					criticalTasks: criticalTasks?.criticalTasks ?? 'none',
@@ -226,12 +260,14 @@ export async function seed(session) {
 				},
 				access_scope_kind:
 					organization?.scope ??
+					personnel?.scope ??
 					calendar?.scope ??
 					training?.scope ??
 					criticalTasks?.scope ??
 					(role === 'scoped' ? 'groups' : 'organization'),
 				access_scope_group_ids:
 					organization?.groups ??
+					personnel?.groups ??
 					calendar?.groups ??
 					training?.groups ??
 					criticalTasks?.groups ??
@@ -268,6 +304,24 @@ export async function seed(session) {
 				calendar: 'none',
 				training: 'none',
 				criticalTasks: 'view',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.personnelSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'view',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'none',
 				onboarding: 'none',
 				ratingScheme: 'none'
 			},

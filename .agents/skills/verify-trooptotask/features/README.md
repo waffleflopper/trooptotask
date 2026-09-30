@@ -35,6 +35,7 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 - [Invite and accept Organization members](organization-invitations.md): existing/new account paths, separate setup and invitation states, acceptance, denial and resend.
 - [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.
 - [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
+- [Personnel record lifecycle](personnel-records-lifecycle.md): create/edit, imports and ETS/DEROS backfill, archive/restore, approval, replay, scope and stable identities.
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.
 - [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.

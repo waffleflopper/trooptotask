@@ -1,0 +1,26 @@
+{
+	"kind": "personnel-lifecycle",
+	"tag": "c1a3ea2c",
+	"ids": {
+		"person": "d295d695-f196-4d62-84b9-409fdb06f448",
+		"duplicateAlpha": "713d9bf3-259c-4774-b7e6-9268afeafe63",
+		"duplicateBravo": "611a7b5d-32e8-487f-9d91-c5d2ad80705e",
+		"archivedDuplicate": "12c37180-04f8-4c04-964b-195683c52fda",
+		"noteActive": "db694b37-b348-46fe-9d20-db217fd41ec7",
+		"noteArchived": "43a37229-eeee-4425-ad27-e2d917b7eae4",
+		"noteControl": "7d56e238-d850-403e-9b6a-f772047f3a3f",
+		"counselingActive": "cde73b3b-ed4e-4c76-9295-600f8d7158d3",
+		"counselingArchived": "4af4b7f1-7284-4e9e-8fc6-cec029a82c84",
+		"documentActive": "3f6a860e-118a-4b93-9ceb-179ec31431c6",
+		"documentArchived": "43d22b32-6999-46c6-a2f8-5cbed1fb9708",
+		"followOpen": "2830361d-d669-49e4-a666-5f039d6c4196",
+		"followCompleted": "dec5aef4-87ae-4078-8ab8-a6f43cc834a2",
+		"followArchived": "c3f12a81-ed08-420f-b74a-d5020b33fb1c",
+		"training": "374c9e63-58dd-4731-80bc-2bcfe4c578c7",
+		"criticalTask": "52a8f613-6a20-439d-bd79-1223808fe15f"
+	},
+	"name": "MapLifecyclec1a3ea2c",
+	"duplicateName": "MapDuplicatec1a3ea2c",
+	"archivedAt": "2026-08-01T12:00:00.000Z",
+	"documentFiles": "Metadata only; no Storage objects. File lifecycle proof belongs to D13."
+}

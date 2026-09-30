@@ -4,17 +4,20 @@
  * Validates each row against Group scope and the Organization rank catalog,
  * sanitizes string fields, and reports invalid rows without discarding valid ones.
  *
- * For single-record personnel mutations, see `personnel.ts`.
+ * Single-record creation and editing use Personnel-owned record operations.
  */
 import { fail } from '$lib/server/core/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
 import { sanitizeString } from '$lib/server/validation';
 import type { WritePorts } from '$lib/server/core/ports';
 import { requireFeaturePolicy } from './featurePolicy';
-import { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug';
-import { createActivePersonnelRankResolver } from '$features/personnel/index.server';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import {
+	PersonnelEntity,
+	buildAvailablePersonnelSlug,
+	buildPersonnelSlugBase,
+	createActivePersonnelRankResolver,
+	listGroupCatalog
+} from '$features/personnel/index.server';
 
 const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';

@@ -3,12 +3,12 @@
  * `groupScope: 'none'` because personnel rows live at the org level; group filtering
  * is applied by `ScopedDataStore` based on the `group_id` column via `scopeRules.ts`.
  * `customTransform` flattens the same-Organization Group relationship into `groupName`.
- * Writes are handled by `personnel.ts` and `personnelBatch.ts` use cases (not generic CRUD)
- * for rank validation, scoped authorization and artifact lifecycle handling.
+ * Personnel-owned record operations and the retained batch/lifecycle workflows
+ * apply rank validation and scoped authorization before writing mapped rows.
  */
 import { z } from 'zod';
 import { defineEntity, field } from '$lib/server/entitySchema';
-import type { Personnel } from '$features/personnel/personnel.types';
+import type { Personnel } from './personnel.types';
 
 export const PersonnelEntity = defineEntity<Personnel>({
 	table: 'personnel',

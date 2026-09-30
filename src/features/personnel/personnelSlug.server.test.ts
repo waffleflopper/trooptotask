@@ -3,7 +3,7 @@ import {
 	buildAvailablePersonnelSlug,
 	buildPersonnelSlugBase,
 	isPersonnelSlugUniqueConstraintError
-} from './personnelSlug';
+} from './personnelSlug.server';
 
 describe('personnel slug helpers', () => {
 	it('normalizes accents and punctuation into lowercase ASCII slug parts', () => {

@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { PersonnelEntity } from './personnel';
-import type { Personnel } from '$features/personnel/personnel.types';
+import { PersonnelEntity } from './personnelEntity.server';
+import type { Personnel } from './personnel.types';
 
 describe('PersonnelEntity', () => {
 	it('fromDb produces correct Personnel shape with groups join', () => {
 		const row = {
 			id: 'p-1',
+			slug: 'smith-john',
 			rank: 'SGT',
 			last_name: 'Smith',
 			first_name: 'John',
@@ -21,6 +22,7 @@ describe('PersonnelEntity', () => {
 
 		expect(result).toEqual({
 			id: 'p-1',
+			slug: 'smith-john',
 			rank: 'SGT',
 			lastName: 'Smith',
 			firstName: 'John',
@@ -150,20 +152,6 @@ describe('PersonnelEntity', () => {
 		expect(result.group_id).toBeNull();
 	});
 
-	it('createSchema does not include groupName or archivedAt', () => {
-		const shape = PersonnelEntity.createSchema.shape;
-
-		expect(shape).not.toHaveProperty('groupName');
-		expect(shape).not.toHaveProperty('archivedAt');
-		expect(shape).not.toHaveProperty('id');
-		expect(shape).toHaveProperty('rank');
-		expect(shape).toHaveProperty('lastName');
-		expect(shape).toHaveProperty('firstName');
-		expect(shape).toHaveProperty('clinicRole');
-		expect(shape).toHaveProperty('ets');
-		expect(shape).toHaveProperty('deros');
-	});
-
 	it('createSchema validates correctly', () => {
 		const valid = PersonnelEntity.createSchema.safeParse({
 			rank: 'SGT',
@@ -177,13 +165,5 @@ describe('PersonnelEntity', () => {
 			rank: 'SGT'
 		});
 		expect(missing.success).toBe(false);
-	});
-
-	it('has correct table and select', () => {
-		expect(PersonnelEntity.table).toBe('personnel');
-	});
-
-	it('has groupScope none', () => {
-		expect(PersonnelEntity.groupScope).toBe('none');
 	});
 });

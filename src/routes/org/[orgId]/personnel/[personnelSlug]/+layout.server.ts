@@ -3,7 +3,7 @@ import type { LayoutServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
+import { PersonnelEntity } from '$features/personnel/index.server';
 import type { PersonnelDetailHeader } from '$features/personnel/personnel-detail.types';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 

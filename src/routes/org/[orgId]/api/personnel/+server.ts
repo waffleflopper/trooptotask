@@ -4,6 +4,7 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/server/core/errors';
 import { validateUUID } from '$lib/server/validation';
+import { createPersonnelRecord, updatePersonnelRecord } from '$features/personnel/index.server';
 import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
 
 const useCases = createPersonnelUseCases();
@@ -12,7 +13,7 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 	policyResource: { kind: 'unscoped' },
-	fn: (ctx, input) => useCases.create(ctx, input)
+	fn: createPersonnelRecord
 };
 
 export const POST = handle(_postConfig);
@@ -21,7 +22,7 @@ export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
-	fn: (ctx, input) => useCases.update(ctx, input)
+	fn: updatePersonnelRecord
 };
 
 export const PUT = handle(_putConfig);

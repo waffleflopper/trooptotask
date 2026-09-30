@@ -1,14 +1,17 @@
 /**
- * Onboarding retention use case — auto-archives completed onboarding records after a grace period.
- *
- * `runOnboardingRetention(store, orgId)` is intended to be called as a background job or from a
- * scheduled cron. It finds onboarding records that completed beyond `org.retentionMonths` and archives
- * them, then notifies admins with a summary.
+ * Onboarding retention deletes completed or cancelled records beyond the Organization retention period,
+ * then notifies administrators with a summary.
  *
  * This uses raw DataStore (not UseCaseContext) so it can run without a user session.
  */
 import type { DataStore } from '$lib/server/core/ports';
-import { notifyAdminsViaStore, retentionCutoff } from './retentionSupport';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
+import { retentionCutoff } from './retentionSupport';
+
+interface OnboardingRetentionPorts {
+	store: DataStore;
+	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
+}
 
 interface OnboardingRow {
 	id: string;
@@ -49,12 +52,13 @@ function normalizeRetentionMonths(retentionMonths: number | null | undefined): n
 }
 
 export async function cleanupExpiredOnboardings(
-	store: DataStore,
+	ports: OnboardingRetentionPorts,
 	orgConfigs: OnboardingRetentionOrgConfig[]
 ): Promise<OnboardingRetentionCleanupResult> {
 	if (orgConfigs.length === 0) {
 		return { deletedCount: 0, orgsAffected: 0 };
 	}
+	const { store } = ports;
 
 	const now = new Date();
 	let totalDeleted = 0;
@@ -97,7 +101,7 @@ export async function cleanupExpiredOnboardings(
 		affectedOrgs.add(org.id);
 		totalDeleted += deletedCount;
 
-		await notifyAdminsViaStore(store, org.id, null, {
+		await ports.notifications.notifyAdmins(org.id, null, {
 			type: 'onboarding_auto_deleted',
 			title: 'Onboarding Records Auto-Deleted',
 			message: `${deletedCount} onboarding record${deletedCount === 1 ? '' : 's'} auto-deleted after retention period`

@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { evaluateUpcomingLosses } from './readinessSignals';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/personnel.types';
 
 // ---------------------------------------------------------------------------
 // Helpers

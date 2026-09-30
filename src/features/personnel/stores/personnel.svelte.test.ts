@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { personnelRosterHydration, personnelStore, rosterStore } from './personnel.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 
 const mockPersonnel: Personnel[] = [
 	{

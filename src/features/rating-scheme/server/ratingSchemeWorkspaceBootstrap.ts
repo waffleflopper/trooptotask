@@ -10,7 +10,7 @@ import {
 } from '$lib/server/core/streamedWorkspace';
 import { requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
 import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
-import type { PersonnelLookup } from '$lib/types';
+import type { PersonnelLookup } from '$features/personnel/contracts';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 
 export const RATING_SCHEME_WORKSPACE_LANE_KEY = 'ratingScheme' as const;

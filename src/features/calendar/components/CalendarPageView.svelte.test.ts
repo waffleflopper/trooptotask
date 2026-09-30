@@ -14,7 +14,7 @@ import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { calendarStore } from '../stores/calendar.svelte';
 import { groupsStore } from '$features/personnel';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 const { exportMonthToExcelMock, printMonthCalendarMock } = vi.hoisted(() => ({
 	exportMonthToExcelMock: vi.fn(),

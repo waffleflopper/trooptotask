@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
 

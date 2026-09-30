@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { PersonnelLookup } from '$lib/types';
+	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import RatingSchemeEntryModal from '$features/rating-scheme/components/RatingSchemeEntryModal.svelte';

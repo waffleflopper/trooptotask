@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { Personnel, PersonnelLookup } from '$lib/types';
+import type { Personnel, PersonnelLookup } from './personnel.types';
+
+export type { Personnel, PersonnelLookup } from './personnel.types';
 
 /** Stable Organization Group identity and display order. */
 export interface Group {

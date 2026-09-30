@@ -1,5 +1,5 @@
 import type { AvailabilityEntry } from '$features/calendar/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
 
 export interface StatusDayRow {

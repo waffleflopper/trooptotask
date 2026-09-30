@@ -1,6 +1,6 @@
 import { listGroupCatalog, listPinnedGroupNames, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { PersonnelTrainingRosterPort, RankCatalogEntry, Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType, TrainingView, TrainingWorkspaceData } from '../contracts';
 import { listTrainingTypes, listTrainingViews } from './trainingCatalogRead.server';
 import { listTrainingCompletions } from './trainingCompletionRead.server';

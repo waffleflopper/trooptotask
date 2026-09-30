@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '../contracts';
 import type { PivotRow } from './reportCalculations';
 import { buildTrainingReportWorkbook } from './trainingReportWorkbook';

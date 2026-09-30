@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { PersonnelLookup } from '$lib/types';
+	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry } from '../rating-scheme.types';
 	import type { RatingDueStatus } from '../rating-scheme.types';
 	import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';

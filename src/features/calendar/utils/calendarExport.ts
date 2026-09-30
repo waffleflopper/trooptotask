@@ -1,4 +1,4 @@
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AvailabilityEntry,
 	StatusType,

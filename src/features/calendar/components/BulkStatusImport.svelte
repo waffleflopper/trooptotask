@@ -23,7 +23,7 @@
 		type StatusResolution
 	} from '$features/calendar/utils/availabilityImport';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { StatusType } from '$features/calendar/contracts';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';

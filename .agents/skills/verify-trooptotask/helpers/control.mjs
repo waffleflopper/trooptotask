@@ -574,10 +574,19 @@ async function main() {
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
 			const suffix = `/org/${org('orgA')}/api/${family}`;
 			const mode = action === 'arm-fail' ? 'fail' : action === 'arm-hold' ? 'hold' : 'observe';
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`;
+			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
+			if (family.startsWith('onboarding-')) {
+				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');
+				if (armed) throw new Error('Restore the existing map network control first');
+				await tool(state, 'navigate_page', { pageId, type: 'reload', initScript: install });
+			}
 			const result = await evaluate(
 				state,
 				pageId,
-				`() => (${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`
+				family.startsWith('onboarding-')
+					? '() => ({ armed: !!window.__mapNetwork, mode: window.__mapNetwork?.mode, suffix: window.__mapNetwork?.suffix, ordinal: window.__mapNetwork?.ordinal, reloaded: true })'
+					: `() => ${install}`
 			);
 			note(result);
 			return;

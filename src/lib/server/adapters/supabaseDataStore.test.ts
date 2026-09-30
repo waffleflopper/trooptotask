@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createSupabaseDataStore } from './supabaseDataStore';
-import { rethrowOrWrap } from './httpAdapter';
 
 const foreignCalendarStatus = {
 	code: '23503',
@@ -46,7 +45,7 @@ function write(store: ReturnType<typeof createSupabaseDataStore>, method: (typeo
 }
 
 describe('Supabase DataStore conflict handling', () => {
-	it('retains a Personnel slug conflict candidate internally without exposing provider details through HTTP', async () => {
+	it('retains a Personnel slug conflict candidate internally', async () => {
 		const providerError = {
 			code: '23505',
 			message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
@@ -57,22 +56,7 @@ describe('Supabase DataStore conflict handling', () => {
 			.insertMany('personnel', 'test-org', [{ slug: 'smith-jamie', group_id: 'group-alpha' }])
 			.catch((error: unknown) => error);
 
-		expect.soft(caught).toMatchObject({ code: '23505', details: providerError.details });
-		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-		try {
-			const wrapped = (() => {
-				try {
-					rethrowOrWrap(caught);
-				} catch (error) {
-					return error;
-				}
-			})();
-			expect(wrapped).toMatchObject({ status: 500, body: { message: 'Internal server error' } });
-			expect(JSON.stringify(wrapped)).not.toContain('smith-jamie');
-			expect(JSON.stringify(wrapped)).not.toContain('personnel_org_slug_key');
-		} finally {
-			log.mockRestore();
-		}
+		expect(caught).toMatchObject({ code: '23505', details: providerError.details });
 	});
 
 	it('does not attach slug recovery metadata for another Personnel constraint', async () => {

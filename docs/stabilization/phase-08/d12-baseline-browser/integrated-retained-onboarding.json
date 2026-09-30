@@ -1,0 +1,13 @@
+{
+	"table": "onboarding_templates",
+	"organization": "orgA",
+	"count": 1,
+	"rows": [
+		{
+			"id": "9b959a4c-9d7b-414d-884b-5fb4a685e6f4",
+			"organization_id": "bfd50632-e265-4aa8-ab7a-29d9999989a9",
+			"name": "Verification Onboarding A",
+			"description": "Synthetic A template description"
+		}
+	]
+}

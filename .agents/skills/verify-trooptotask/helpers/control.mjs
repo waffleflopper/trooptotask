@@ -20,6 +20,10 @@ const evidenceRoot = path.join(repository, '.verification/evidence/verify-troopt
 const tableColumns = {
 	groups: 'organization_id',
 	personnel: 'organization_id',
+	leader_notes: 'organization_id',
+	personnel_follow_ups: 'organization_id',
+	counseling_records: 'organization_id',
+	personnel_documents: 'organization_id',
 	availability_entries: 'organization_id',
 	status_types: 'organization_id',
 	assignment_types: 'organization_id',
@@ -62,6 +66,9 @@ const tableSelect = {
 };
 const filters = new Set([
 	'id',
+	'last_name',
+	'first_name',
+	'slug',
 	'name',
 	'title',
 	'note',
@@ -189,6 +196,7 @@ async function main() {
 			'onboarding/templates',
 			'onboarding/history',
 			'settings/policies',
+			'settings/archives',
 			'settings/members',
 			'settings/exports',
 			'settings/danger'
@@ -224,24 +232,26 @@ async function main() {
 					]
 				: destination === 'critical-tasks'
 					? ['Critical Tasks', 'Access restricted']
-					: destination === 'settings/policies'
-						? ['Archive Retention', "You don't have permission to view this page"]
-						: destination === 'settings/members'
-							? ['Access Management', "You don't have permission to view this page"]
-							: destination === 'settings/danger'
-								? ['Destructive Actions', "You don't have permission to view this page"]
-								: destination === 'dashboard'
-									? ['Pending Invitations', 'Organizations']
-									: destination === 'org/new'
-										? ['Create your first Organization', 'Confirm your email first']
-										: [
-												'Calendar',
-												'Training',
-												'Able, Synthetic',
-												'Foreign, Synthetic',
-												'No personnel on the active roster',
-												'Access restricted'
-											];
+					: destination === 'settings/archives'
+						? ['Archived Records', "You don't have permission to view this page"]
+						: destination === 'settings/policies'
+							? ['Archive Retention', "You don't have permission to view this page"]
+							: destination === 'settings/members'
+								? ['Access Management', "You don't have permission to view this page"]
+								: destination === 'settings/danger'
+									? ['Destructive Actions', "You don't have permission to view this page"]
+									: destination === 'dashboard'
+										? ['Pending Invitations', 'Organizations']
+										: destination === 'org/new'
+											? ['Create your first Organization', 'Confirm your email first']
+											: [
+													'Calendar',
+													'Training',
+													'Able, Synthetic',
+													'Foreign, Synthetic',
+													'No personnel on the active roster',
+													'Access restricted'
+												];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -447,11 +457,141 @@ async function main() {
 	}
 	if (command === 'seed') {
 		const kind = args[0];
-		if (!['duplicate-able', 'overlap', 'bulk-501', 'training-pages'].includes(kind))
+		if (!['duplicate-able', 'overlap', 'bulk-501', 'training-pages', 'personnel-lifecycle'].includes(kind))
 			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'personnel-lifecycle') {
+			const keys = [
+				'person',
+				'duplicateAlpha',
+				'duplicateBravo',
+				'archivedDuplicate',
+				'noteActive',
+				'noteArchived',
+				'noteControl',
+				'counselingActive',
+				'counselingArchived',
+				'documentActive',
+				'documentArchived',
+				'followOpen',
+				'followCompleted',
+				'followArchived',
+				'training',
+				'criticalTask'
+			];
+			const ids = Object.fromEntries(keys.map((key) => [key, randomUUID()]));
+			const archivedAt = '2026-08-01T12:00:00.000Z';
+			const base = { organization_id: org('orgA'), personnel_id: ids.person };
+			const name = `MapLifecycle${tag}`;
+			const duplicateName = `MapDuplicate${tag}`;
+			const batches = [
+				[
+					'personnel',
+					[
+						['person', name, fixture.ids.groupA, null],
+						['duplicateAlpha', duplicateName, fixture.ids.groupA, null],
+						['duplicateBravo', duplicateName, fixture.ids.groupB, null],
+						['archivedDuplicate', duplicateName, fixture.ids.groupA, archivedAt]
+					].map(([key, lastName, groupId, archived]) => ({
+						id: ids[key],
+						organization_id: base.organization_id,
+						group_id: groupId,
+						first_name: 'Synthetic',
+						last_name: lastName,
+						rank: 'SPC',
+						mos: '68W',
+						clinic_role: 'Medic',
+						slug: `map-lifecycle-${tag}-${key.toLowerCase()}`,
+						archived_at: archived
+					}))
+				],
+				[
+					'leader_notes',
+					[
+						{ ...base, id: ids.noteActive, author: 'Synthetic', text: `Active note ${tag}` },
+						{
+							...base,
+							personnel_id: fixture.ids.personA,
+							id: ids.noteControl,
+							author: 'Synthetic',
+							text: `Unrelated note ${tag}`
+						},
+						{ ...base, id: ids.noteArchived, author: 'Synthetic', text: `Older note ${tag}`, archived_at: archivedAt }
+					]
+				],
+				[
+					'counseling_records',
+					['Active', 'Archived'].map((status) => ({
+						...base,
+						id: ids[`counseling${status}`],
+						date_conducted: '2026-09-14',
+						subject: `${status} counseling ${tag}`,
+						title: `${status} counseling ${tag}`,
+						uploaded_by: fixture.actors.manager.id,
+						archived_at: status === 'Archived' ? archivedAt : null
+					}))
+				],
+				[
+					'personnel_documents',
+					['Active', 'Archived'].map((status) => ({
+						...base,
+						id: ids[`document${status}`],
+						title: `${status} document ${tag}`,
+						file_path: `${base.organization_id}/${ids.person}/synthetic-${status}.pdf`,
+						file_size_bytes: 1,
+						content_type: 'application/pdf',
+						uploaded_by: fixture.actors.manager.id,
+						archived_at: status === 'Archived' ? archivedAt : null
+					}))
+				],
+				[
+					'personnel_follow_ups',
+					['Open', 'Completed', 'Archived'].map((status) => ({
+						...base,
+						id: ids[`follow${status}`],
+						title: `${status} follow-up ${tag}`,
+						status: status.toLowerCase(),
+						created_by: fixture.actors.manager.id,
+						completed_at: status === 'Completed' ? '2026-09-14T12:00:00.000Z' : null,
+						archived_at: status === 'Archived' ? archivedAt : null
+					}))
+				],
+				[
+					'personnel_trainings',
+					[{ ...base, id: ids.training, training_type_id: fixture.ids.trainingRequired, completion_date: '2026-09-14' }]
+				],
+				[
+					'personnel_ict_completions',
+					[
+						{
+							...base,
+							id: ids.criticalTask,
+							ict_task_id: fixture.ids.ictTaskAlpha,
+							completed_at: '2026-09-14',
+							validation_method: 'Demonstration',
+							logged_by: fixture.actors.manager.id
+						}
+					]
+				]
+			];
+			// Record all dependent IDs before any insert so interrupted setup is recoverable.
+			for (const [table, records] of batches)
+				ownedState.seeded.push({ kind, table, ids: records.map((row) => row.id), tag });
+			await save(ownedState);
+			for (const [table, records] of batches) checked(await client.from(table).insert(records));
+			note({
+				kind,
+				tag,
+				ids,
+				name,
+				duplicateName,
+				archivedAt,
+				documentFiles: 'Metadata only; no Storage objects. File lifecycle proof belongs to D13.'
+			});
+			return;
+		}
 		let table, records;
 		if (kind === 'duplicate-able') {
 			table = 'personnel';
@@ -515,7 +655,7 @@ async function main() {
 	if (command === 'clean-seeds') {
 		const client = await provider();
 		const ownedState = await saved();
-		for (const item of ownedState.seeded) {
+		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
 				if (item.kind === 'bulk-501')
@@ -541,6 +681,10 @@ async function main() {
 		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-observe') {
 			if (
 				![
+					'personnel',
+					'personnel/batch',
+					'personnel/merge',
+					'personnel/archive-batch',
 					'calendar-range',
 					'availability',
 					'availability/batch',

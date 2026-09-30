@@ -103,6 +103,7 @@ export async function seed(session) {
 	const personnelActors = {
 		personnelOperate: { personnel: 'operate', scope: 'organization' },
 		personnelScoped: { personnel: 'configure', scope: 'groups', groups: [ids.groupA] },
+		personnelScopedOperate: { personnel: 'operate', scope: 'groups', groups: [ids.groupA] },
 		personnelEmpty: { personnel: 'configure', scope: 'groups', groups: [] },
 		personnelSwitch: { personnel: 'configure', scope: 'organization' }
 	};

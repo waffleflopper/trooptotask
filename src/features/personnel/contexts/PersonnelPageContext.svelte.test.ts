@@ -242,6 +242,32 @@ describe('PersonnelPageContext', () => {
 		expect(ctx.canAddPersonnel).toBe(allowed);
 	});
 
+	it.each([
+		{ personnel: 'configure' as const, groupIds: ['alpha'], allowed: true },
+		{ personnel: 'operate' as const, groupIds: ['alpha'], allowed: true },
+		{ personnel: 'view' as const, groupIds: ['alpha'], allowed: false },
+		{ personnel: 'configure' as const, groupIds: [] as string[], allowed: false }
+	])('offers import according to its own capability and nonempty scope (%j)', ({ personnel, groupIds, allowed }) => {
+		const ctx = new PersonnelPageContext(
+			makeData(),
+			makeModals(),
+			createTestOrgContext({
+				userRole: 'member',
+				capabilityMap: {
+					calendar: 'none',
+					personnel,
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds }
+			})
+		);
+		expect(ctx.canImportPersonnel).toBe(allowed);
+		if (personnel === 'operate') expect(ctx.canAddPersonnel).toBe(false);
+	});
+
 	describe('filtered personnel (search)', () => {
 		it('returns all personnel when searchQuery is empty', () => {
 			const people = [makePerson({ id: 'p1', lastName: 'Smith' }), makePerson({ id: 'p2', lastName: 'Jones' })];

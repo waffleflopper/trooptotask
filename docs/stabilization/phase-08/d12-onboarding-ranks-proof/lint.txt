@@ -1,0 +1,11 @@
+
+> trooptotask@0.1.0 lint
+> eslint .
+
+
+/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-53d16a2f/src/features/calendar/contexts/CalendarPageContext.svelte.ts
+  360:9  warning  Found a mutable instance of the built-in Set class. Use SvelteSet instead  svelte/prefer-svelte-reactivity
+  377:7  warning  Found a mutable instance of the built-in Map class. Use SvelteMap instead  svelte/prefer-svelte-reactivity
+
+✖ 2 problems (0 errors, 2 warnings)
+

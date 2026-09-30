@@ -1,0 +1,15 @@
+✔ feedback excludes an unchanged prior success and captures a later failed action (12.474525ms)
+✔ feedback captures an existing toast when its type or message changes (7.546912ms)
+✔ a held request is selected by arrival order when responses overlap (18.651468ms)
+✔ a single availability control ignores batch and another organization (1.623578ms)
+✔ observation preserves the real download and records only public response metadata (0.644085ms)
+✔ restoring a control disables a client-captured fetch wrapper (0.218679ms)
+✔ restoring while a provider response is pending leaves no held request (0.225609ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 227.931543

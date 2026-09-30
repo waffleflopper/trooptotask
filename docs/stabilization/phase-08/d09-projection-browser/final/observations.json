@@ -1,0 +1,2713 @@
+[
+  {
+    "label": "import503",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "POST",
+          "count": 2,
+          "ids": [
+            "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "127c4159-c322-4752-a65a-e2df2d4f0803"
+          ],
+          "notes": [
+            null
+          ],
+          "status": 503
+        }
+      ],
+      "held": false
+    }
+  },
+  {
+    "label": "importRetry",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "POST",
+          "count": 2,
+          "ids": [
+            "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "127c4159-c322-4752-a65a-e2df2d4f0803"
+          ],
+          "notes": [
+            null
+          ],
+          "status": 200,
+          "contentDisposition": null,
+          "contentType": "application/json"
+        }
+      ],
+      "held": false
+    }
+  },
+  {
+    "label": "datedRows",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 3,
+      "rows": [
+        {
+          "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2026-09-22",
+          "expiration_date": "2027-09-22",
+          "notes": null,
+          "certificate_url": null
+        },
+        {
+          "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2024-09-29",
+          "expiration_date": "2025-09-29",
+          "notes": "D09 expired import",
+          "certificate_url": null
+        },
+        {
+          "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+          "completion_date": "2025-10-14",
+          "expiration_date": "2026-10-14",
+          "notes": "D09 warning import",
+          "certificate_url": null
+        }
+      ]
+    }
+  },
+  {
+    "label": "datedReportExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/dated-report.xlsx",
+        "bytes": 6999,
+        "filename": "training-report-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "4c4c5a12d321194cf0c4f853855d0f03ee0e9a7e8a9bfe1b1ce486d7b7360c64"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Report",
+        "headers": [
+          "Name",
+          "Rank",
+          "MOS",
+          "Duty Role",
+          "Group",
+          "Verification Required Training",
+          "Verification Targeted Training",
+          "Verification Optional Training"
+        ],
+        "rows": [
+          [
+            "Able, Synthetic",
+            "SPC",
+            "68W",
+            "Medic",
+            "Alpha",
+            "Current (2027-09-22)",
+            "15d left (2026-10-14)",
+            "N/A"
+          ],
+          [
+            "Baker, Synthetic",
+            "SPC",
+            "11B",
+            "NCO",
+            "Bravo",
+            "Expired 365d ago (2025-09-29)",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "Unassigned, Synthetic",
+            "SPC",
+            "68W",
+            "NCO",
+            null,
+            "Not Done",
+            "N/A",
+            "N/A"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "label": "expiredExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/expired-filter.xlsx",
+        "bytes": 6857,
+        "filename": "training-report-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "b447ebed5387bc55622eddb7748d840b694ac8abea4cacfa1386f57e62118137"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Report",
+        "headers": [
+          "Name",
+          "Rank",
+          "MOS",
+          "Duty Role",
+          "Group",
+          "Verification Required Training",
+          "Verification Targeted Training",
+          "Verification Optional Training"
+        ],
+        "rows": [
+          [
+            "Baker, Synthetic",
+            "SPC",
+            "11B",
+            "NCO",
+            "Bravo",
+            "Expired 365d ago (2025-09-29)",
+            "N/A",
+            "N/A"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "label": "paginationSeed",
+    "data": {
+      "kind": "training-pages",
+      "tag": "f96b0c19",
+      "count": 26,
+      "firstId": "1a478690-54b2-4d71-accb-a4bcfcff28ec"
+    }
+  },
+  {
+    "label": "paginationExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/pagination-all-rows.xlsx",
+        "bytes": 7890,
+        "filename": "training-report-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "6d7e9565ec43c0009ebe73b301b4a6cc0fef542feced3a28ba93ee74f6cb3913"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Report",
+        "headers": [
+          "Name",
+          "Rank",
+          "MOS",
+          "Duty Role",
+          "Group",
+          "Verification Required Training",
+          "Verification Targeted Training",
+          "Verification Optional Training"
+        ],
+        "rows": [
+          [
+            "Able, Synthetic",
+            "SPC",
+            "68W",
+            "Medic",
+            "Alpha",
+            "Current (2027-09-22)",
+            "15d left (2026-10-14)",
+            "N/A"
+          ],
+          [
+            "Baker, Synthetic",
+            "SPC",
+            "11B",
+            "NCO",
+            "Bravo",
+            "Expired 365d ago (2025-09-29)",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1900, Synthetic",
+            "PFC",
+            "68W",
+            "Medic",
+            "Alpha",
+            "Not Done",
+            "Not Done",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1901, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1902, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1903, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1904, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1905, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1906, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1907, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1908, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1909, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1910, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1911, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1912, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1913, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1914, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1915, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1916, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1917, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1918, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1919, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1920, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1921, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1922, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1923, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1924, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1925, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "Unassigned, Synthetic",
+            "SPC",
+            "68W",
+            "NCO",
+            null,
+            "Not Done",
+            "N/A",
+            "N/A"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "label": "detailFailure",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "GET",
+          "count": 0,
+          "ids": [],
+          "notes": [],
+          "status": 503
+        }
+      ],
+      "held": false
+    }
+  },
+  {
+    "label": "detailRetry",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "GET",
+          "count": 0,
+          "ids": [],
+          "notes": [],
+          "status": 200,
+          "contentDisposition": null,
+          "contentType": "application/json"
+        }
+      ],
+      "held": false
+    }
+  },
+  {
+    "label": "reportFailure",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "GET",
+          "count": 0,
+          "ids": [],
+          "notes": [],
+          "status": 503
+        }
+      ],
+      "held": false
+    }
+  },
+  {
+    "label": "reportRetry",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "GET",
+          "count": 0,
+          "ids": [],
+          "notes": [],
+          "status": 200,
+          "contentDisposition": null,
+          "contentType": "application/json"
+        }
+      ],
+      "held": false
+    }
+  },
+  {
+    "label": "descendingExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/descending-report.xlsx",
+        "bytes": 7879,
+        "filename": "training-report-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "0c22ebeb6363ade993ba083ca323a581791c036a5ab489a630e03adef4396b15"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Report",
+        "headers": [
+          "Name",
+          "Rank",
+          "MOS",
+          "Duty Role",
+          "Group",
+          "Verification Required Training",
+          "Verification Targeted Training",
+          "Verification Optional Training"
+        ],
+        "rows": [
+          [
+            "Unassigned, Synthetic",
+            "SPC",
+            "68W",
+            "NCO",
+            null,
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1925, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1924, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1923, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1922, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1921, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1920, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1919, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1918, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1917, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1916, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1915, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1914, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1913, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1912, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1911, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1910, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1909, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1908, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1907, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1906, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1905, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1904, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1903, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1902, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1901, Synthetic",
+            "PFC",
+            "11B",
+            "NCO",
+            "Alpha",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "MapTrainingf96b0c1900, Synthetic",
+            "PFC",
+            "68W",
+            "Medic",
+            "Alpha",
+            "Not Done",
+            "Not Done",
+            "N/A"
+          ],
+          [
+            "Baker, Synthetic",
+            "SPC",
+            "11B",
+            "NCO",
+            "Bravo",
+            "Expired 365d ago (2025-09-29)",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "Able, Synthetic",
+            "SPC",
+            "68W",
+            "Medic",
+            "Alpha",
+            "Current (2027-09-22)",
+            "15d left (2026-10-14)",
+            "N/A"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "label": "exportFailure",
+    "data": {
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 503
+          }
+        ],
+        "held": false
+      },
+      "blob": {
+        "captured": false,
+        "filename": null,
+        "mimeType": null,
+        "bytes": null
+      }
+    }
+  },
+  {
+    "label": "exportRetry",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/export-retry.xlsx",
+        "bytes": 7000,
+        "filename": "training-report-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "b86edbcc4110c9aa11758f6edfbd76f8a4fe7099031be23004f003781b5de1a6"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      }
+    }
+  },
+  {
+    "label": "empty-denial",
+    "data": {
+      "method": "POST",
+      "family": "personnel-trainings",
+      "body": {
+        "personnelId": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+        "trainingTypeId": "a150be88-4591-4950-a0cb-7008224e0b35",
+        "completionDate": null,
+        "notes": "Denied final empty"
+      },
+      "before": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 expired import",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      },
+      "out": {
+        "status": 403,
+        "body": {
+          "message": "You do not have access to records outside your assigned scope"
+        }
+      },
+      "after": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 expired import",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      }
+    }
+  },
+  {
+    "label": "empty-denial",
+    "data": {
+      "method": "PUT",
+      "family": "personnel-trainings",
+      "body": {
+        "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+        "completionDate": "2026-09-22",
+        "notes": "Denied final empty edit"
+      },
+      "before": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 expired import",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      },
+      "out": {
+        "status": 403,
+        "body": {
+          "message": "You do not have access to records outside your assigned scope"
+        }
+      },
+      "after": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 expired import",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      }
+    }
+  },
+  {
+    "label": "empty-denial",
+    "data": {
+      "method": "POST",
+      "family": "personnel-trainings/batch",
+      "body": {
+        "records": [
+          {
+            "personnelId": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "trainingTypeId": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completionDate": "2026-09-29",
+            "status": "completed"
+          },
+          {
+            "personnelId": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "trainingTypeId": "a150be88-4591-4950-a0cb-7008224e0b35",
+            "completionDate": null,
+            "status": "completed"
+          }
+        ]
+      },
+      "before": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 expired import",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      },
+      "out": {
+        "status": 403,
+        "body": {
+          "message": "You do not have access to records outside your assigned scope"
+        }
+      },
+      "after": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 expired import",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      }
+    }
+  },
+  {
+    "label": "emptyAPIExport",
+    "data": {
+      "status": 200,
+      "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+      "bytes": 6740
+    }
+  },
+  {
+    "label": "org-export",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/organization.json",
+        "bytes": 100228,
+        "filename": "org-export-e98d7f93-bf75-43e3-83f2-c0c6230217a1-2026-09-30.json",
+        "mimeType": "application/json",
+        "sha256": "d6e911cd57abf8766fd28a5f5f98d97122c2af54ab6619237c5425a0710fb274"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "POST",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"org-export-e98d7f93-bf75-43e3-83f2-c0c6230217a1-2026-09-30.json\"",
+            "contentType": "application/json"
+          }
+        ],
+        "held": false
+      }
+    }
+  },
+  {
+    "label": "org-export-excel",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/organization.xlsx",
+        "bytes": 62324,
+        "filename": "org-export-e98d7f93-bf75-43e3-83f2-c0c6230217a1-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "e452e314e1c9a74e63ce52bc1911c567bd54b9eb5b2d332db2d1407fc3fc0c31"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "POST",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"org-export-e98d7f93-bf75-43e3-83f2-c0c6230217a1-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      }
+    }
+  },
+  {
+    "label": "personnelAllowedExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/personnel-allowed.xlsx",
+        "bytes": 9390,
+        "filename": "SPC_Able_Synthetic-export-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "fd44cb8f88f8d5ba81c61fdb7f84182ba19c3d29ee4723ebec189ea6979b6b81"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"SPC_Able_Synthetic-export-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Records",
+        "headers": [
+          "Training Type",
+          "Completed Date",
+          "Expiration Date",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "Verification Targeted Training",
+            "2025-10-14",
+            "2026-10-14",
+            "D09 warning import"
+          ],
+          [
+            "Verification Required Training",
+            "2026-09-22",
+            "2027-09-22"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "label": "personnelNoTrainingExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/personnel-no-training.xlsx",
+        "bytes": 9275,
+        "filename": "SPC_Able_Synthetic-export-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "30ac394c3dfc417d4586fe5eca25f9c7fcc3a9eb4f79a273cbc4d00317ee31df"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"SPC_Able_Synthetic-export-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Records",
+        "headers": [
+          "Training Type",
+          "Completed Date",
+          "Expiration Date",
+          "Notes"
+        ],
+        "rows": []
+      }
+    }
+  },
+  {
+    "label": "organizationExportDeniedMember",
+    "data": {
+      "status": 403,
+      "body": {
+        "message": "You do not have permission to perform this action"
+      }
+    }
+  },
+  {
+    "label": "neverType",
+    "data": {
+      "table": "training_types",
+      "organization": "orgA",
+      "count": 1,
+      "rows": [
+        {
+          "id": "d1da29d9-61f2-41cf-a10d-b60f2acfe2c1",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "name": "D09 Required Never",
+          "description": null,
+          "expiration_months": null,
+          "warning_days_yellow": 60,
+          "warning_days_orange": 30,
+          "applies_to_roles": [],
+          "applies_to_mos": [],
+          "applies_to_ranks": [],
+          "excluded_roles": [],
+          "excluded_mos": [],
+          "excluded_ranks": [],
+          "color": "#6b7280",
+          "sort_order": 3,
+          "expiration_date_only": false,
+          "can_be_exempted": true,
+          "exempt_personnel_ids": [],
+          "is_optional": false
+        }
+      ]
+    }
+  },
+  {
+    "label": "neverRecord",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 4,
+      "rows": [
+        {
+          "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2026-09-22",
+          "expiration_date": "2027-09-22",
+          "notes": null,
+          "certificate_url": null
+        },
+        {
+          "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2024-09-29",
+          "expiration_date": "2025-09-29",
+          "notes": "D09 expired import",
+          "certificate_url": null
+        },
+        {
+          "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+          "completion_date": "2025-10-14",
+          "expiration_date": "2026-10-14",
+          "notes": "D09 warning import",
+          "certificate_url": null
+        },
+        {
+          "id": "51cb46fc-0d3c-4b16-91d4-fd7ad88bce01",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "d1da29d9-61f2-41cf-a10d-b60f2acfe2c1",
+          "completion_date": null,
+          "expiration_date": null,
+          "notes": "D09 required never-expiring",
+          "certificate_url": null
+        }
+      ]
+    }
+  },
+  {
+    "label": "neverExemption",
+    "data": {
+      "type": {
+        "table": "training_types",
+        "organization": "orgA",
+        "count": 1,
+        "rows": [
+          {
+            "id": "d1da29d9-61f2-41cf-a10d-b60f2acfe2c1",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "name": "D09 Required Never",
+            "description": null,
+            "expiration_months": null,
+            "warning_days_yellow": 60,
+            "warning_days_orange": 30,
+            "applies_to_roles": [],
+            "applies_to_mos": [],
+            "applies_to_ranks": [],
+            "excluded_roles": [],
+            "excluded_mos": [],
+            "excluded_ranks": [],
+            "color": "#6b7280",
+            "sort_order": 3,
+            "expiration_date_only": false,
+            "can_be_exempted": true,
+            "exempt_personnel_ids": [
+              "b50d2cba-c59c-4712-9842-c64f605dfc13"
+            ],
+            "is_optional": false
+          }
+        ]
+      },
+      "records": {
+        "table": "personnel_trainings",
+        "organization": "orgA",
+        "count": 4,
+        "rows": [
+          {
+            "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2026-09-22",
+            "expiration_date": "2027-09-22",
+            "notes": null,
+            "certificate_url": null
+          },
+          {
+            "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2024-09-29",
+            "expiration_date": "2025-09-29",
+            "notes": "D09 expired import",
+            "certificate_url": null
+          },
+          {
+            "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+            "completion_date": "2025-10-14",
+            "expiration_date": "2026-10-14",
+            "notes": "D09 warning import",
+            "certificate_url": null
+          },
+          {
+            "id": "51cb46fc-0d3c-4b16-91d4-fd7ad88bce01",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "d1da29d9-61f2-41cf-a10d-b60f2acfe2c1",
+            "completion_date": null,
+            "expiration_date": null,
+            "notes": "D09 required never-expiring",
+            "certificate_url": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "label": "dateOnlyType",
+    "data": {
+      "table": "training_types",
+      "organization": "orgA",
+      "count": 1,
+      "rows": [
+        {
+          "id": "65f72256-14eb-41ee-8ff3-29fc6e7f11f9",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "name": "D09 Required Date Only",
+          "description": null,
+          "expiration_months": null,
+          "warning_days_yellow": 60,
+          "warning_days_orange": 30,
+          "applies_to_roles": [],
+          "applies_to_mos": [],
+          "applies_to_ranks": [],
+          "excluded_roles": [],
+          "excluded_mos": [],
+          "excluded_ranks": [],
+          "color": "#6b7280",
+          "sort_order": 4,
+          "expiration_date_only": true,
+          "can_be_exempted": false,
+          "exempt_personnel_ids": [],
+          "is_optional": false
+        }
+      ]
+    }
+  },
+  {
+    "label": "dateOnlyRecords",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 5,
+      "rows": [
+        {
+          "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2026-09-22",
+          "expiration_date": "2027-09-22",
+          "notes": null,
+          "certificate_url": null
+        },
+        {
+          "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2024-09-29",
+          "expiration_date": "2025-09-29",
+          "notes": "D09 expired import",
+          "certificate_url": null
+        },
+        {
+          "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+          "completion_date": "2025-10-14",
+          "expiration_date": "2026-10-14",
+          "notes": "D09 warning import",
+          "certificate_url": null
+        },
+        {
+          "id": "51cb46fc-0d3c-4b16-91d4-fd7ad88bce01",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "d1da29d9-61f2-41cf-a10d-b60f2acfe2c1",
+          "completion_date": null,
+          "expiration_date": null,
+          "notes": "D09 required never-expiring",
+          "certificate_url": null
+        },
+        {
+          "id": "06575916-92c3-491a-9adc-cda66423b15d",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "65f72256-14eb-41ee-8ff3-29fc6e7f11f9",
+          "completion_date": null,
+          "expiration_date": "2026-11-13",
+          "notes": "D09 date-only yellow expiry",
+          "certificate_url": null
+        }
+      ]
+    }
+  },
+  {
+    "label": "dateOnlyExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/date-only-report.xlsx",
+        "bytes": 7053,
+        "filename": "training-report-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "1e4027fb6b1d825e6664579d19f2bbd607b486f850e829f5656651d8740746da"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Report",
+        "headers": [
+          "Name",
+          "Rank",
+          "MOS",
+          "Duty Role",
+          "Group",
+          "D09 Required Never",
+          "D09 Required Date Only",
+          "Verification Required Training",
+          "Verification Targeted Training",
+          "Verification Optional Training"
+        ],
+        "rows": [
+          [
+            "Able, Synthetic",
+            "SPC",
+            "68W",
+            "Medic",
+            "Alpha",
+            "Current",
+            "45d left (2026-11-13)",
+            "Current (2027-09-22)",
+            "15d left (2026-10-14)",
+            "N/A"
+          ],
+          [
+            "Baker, Synthetic",
+            "SPC",
+            "11B",
+            "NCO",
+            "Bravo",
+            "Exempt",
+            "Not Done",
+            "Expired 365d ago (2025-09-29)",
+            "N/A",
+            "N/A"
+          ],
+          [
+            "Unassigned, Synthetic",
+            "SPC",
+            "68W",
+            "NCO",
+            null,
+            "Not Done",
+            "Not Done",
+            "Not Done",
+            "N/A",
+            "N/A"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "label": "temporaryTypesRemoved",
+    "data": {
+      "never": {
+        "table": "training_types",
+        "organization": "orgA",
+        "count": 0,
+        "rows": []
+      },
+      "dateOnly": {
+        "table": "training_types",
+        "organization": "orgA",
+        "count": 0,
+        "rows": []
+      },
+      "records": {
+        "table": "personnel_trainings",
+        "organization": "orgA",
+        "count": 3,
+        "rows": [
+          {
+            "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2026-09-22",
+            "expiration_date": "2027-09-22",
+            "notes": null,
+            "certificate_url": null
+          },
+          {
+            "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2024-09-29",
+            "expiration_date": "2025-09-29",
+            "notes": "D09 expired import",
+            "certificate_url": null
+          },
+          {
+            "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+            "completion_date": "2025-10-14",
+            "expiration_date": "2026-10-14",
+            "notes": "D09 warning import",
+            "certificate_url": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "label": "heldReport",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "GET",
+          "count": 0,
+          "ids": [],
+          "notes": [],
+          "status": 200,
+          "contentDisposition": null,
+          "contentType": "application/json"
+        }
+      ],
+      "held": true
+    }
+  },
+  {
+    "label": "heldReportRelease",
+    "data": {
+      "released": true
+    }
+  },
+  {
+    "label": "heldWriteBefore",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 1,
+      "rows": [
+        {
+          "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2024-09-29",
+          "expiration_date": "2025-09-29",
+          "notes": "D09 expired import",
+          "certificate_url": null
+        }
+      ]
+    }
+  },
+  {
+    "label": "heldWritePending",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "POST",
+          "count": 0,
+          "ids": [],
+          "notes": [],
+          "status": 200,
+          "contentDisposition": null,
+          "contentType": "application/json"
+        }
+      ],
+      "held": true
+    }
+  },
+  {
+    "label": "heldWritePersisted",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 1,
+      "rows": [
+        {
+          "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2024-09-29",
+          "expiration_date": "2025-09-29",
+          "notes": "D09 held final write",
+          "certificate_url": null
+        }
+      ]
+    }
+  },
+  {
+    "label": "heldWriteRelease",
+    "data": {
+      "released": true
+    }
+  },
+  {
+    "label": "heldWriteAfter",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 1,
+      "rows": [
+        {
+          "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2024-09-29",
+          "expiration_date": "2025-09-29",
+          "notes": "D09 held final write",
+          "certificate_url": null
+        }
+      ]
+    }
+  },
+  {
+    "label": "signOutHeld",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "GET",
+          "count": 0,
+          "ids": [],
+          "notes": [],
+          "status": 200,
+          "contentDisposition": null,
+          "contentType": "application/json"
+        }
+      ],
+      "held": true
+    }
+  },
+  {
+    "label": "signOutRelease",
+    "data": {
+      "released": false
+    }
+  },
+  {
+    "label": "scopedAlphaExport",
+    "data": {
+      "capture": {
+        "saved": "/home/waffleflops/.t3/worktrees/trooptotask-v1-maintenance/t3code-e6039333/.verification/evidence/verify-trooptotask/1357-projection-final/scoped-alpha.xlsx",
+        "bytes": 6862,
+        "filename": "training-report-2026-09-30.xlsx",
+        "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "sha256": "df0770a5d4aff95477b2cadb42b4aad0a49f4a721d53653da3d79c629fff6794"
+      },
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "GET",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": "attachment; filename=\"training-report-2026-09-30.xlsx\"",
+            "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          }
+        ],
+        "held": false
+      },
+      "workbook": {
+        "sheet": "Training Report",
+        "headers": [
+          "Name",
+          "Rank",
+          "MOS",
+          "Duty Role",
+          "Group",
+          "Verification Required Training",
+          "Verification Targeted Training",
+          "Verification Optional Training"
+        ],
+        "rows": [
+          [
+            "Able, Synthetic",
+            "SPC",
+            "68W",
+            "Medic",
+            "Alpha",
+            "Current (2027-09-22)",
+            "15d left (2026-10-14)",
+            "N/A"
+          ]
+        ]
+      }
+    }
+  },
+  {
+    "label": "foreignReadDenied",
+    "data": {
+      "status": 404,
+      "body": {
+        "message": "Organization not found"
+      }
+    }
+  },
+  {
+    "label": "noLaneReportDenied",
+    "data": {
+      "status": 403,
+      "body": {
+        "message": "You don't have permission. This requires Training can view permissions. Talk to your organization owner or admin."
+      }
+    }
+  },
+  {
+    "label": "scoped-single",
+    "data": {
+      "body": {
+        "personnelId": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+        "trainingTypeId": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+        "completionDate": "2026-09-29",
+        "notes": "Denied final scoped"
+      },
+      "family": "personnel-trainings",
+      "before": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      },
+      "out": {
+        "status": 403,
+        "body": {
+          "message": "You do not have access to records outside your assigned scope"
+        }
+      },
+      "after": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      }
+    }
+  },
+  {
+    "label": "scoped-mixed",
+    "data": {
+      "body": {
+        "records": [
+          {
+            "personnelId": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "trainingTypeId": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completionDate": "2026-09-29",
+            "status": "completed"
+          },
+          {
+            "personnelId": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "trainingTypeId": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completionDate": "2026-09-29",
+            "status": "completed"
+          }
+        ]
+      },
+      "family": "personnel-trainings/batch",
+      "before": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      },
+      "out": {
+        "status": 403,
+        "body": {
+          "message": "You do not have access to records outside your assigned scope"
+        }
+      },
+      "after": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      }
+    }
+  },
+  {
+    "label": "view-write",
+    "data": {
+      "body": {
+        "personnelId": "127c4159-c322-4752-a65a-e2df2d4f0803",
+        "trainingTypeId": "a150be88-4591-4950-a0cb-7008224e0b35",
+        "completionDate": null,
+        "notes": "Denied final view"
+      },
+      "family": "personnel-trainings",
+      "before": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      },
+      "out": {
+        "status": 403,
+        "body": {
+          "message": "You don't have permission. This requires Training can manage permissions. Talk to your organization owner or admin."
+        }
+      },
+      "after": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      }
+    }
+  },
+  {
+    "label": "foreign-write",
+    "data": {
+      "body": {
+        "personnelId": "127c4159-c322-4752-a65a-e2df2d4f0803",
+        "trainingTypeId": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+        "completionDate": "2026-09-29",
+        "notes": "Denied final foreign"
+      },
+      "family": "personnel-trainings",
+      "before": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      },
+      "out": {
+        "status": 404,
+        "body": {
+          "message": "Organization not found"
+        }
+      },
+      "after": {
+        "a": {
+          "table": "personnel_trainings",
+          "organization": "orgA",
+          "count": 3,
+          "rows": [
+            {
+              "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2026-09-22",
+              "expiration_date": "2027-09-22",
+              "notes": null,
+              "certificate_url": null
+            },
+            {
+              "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+              "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+              "completion_date": "2024-09-29",
+              "expiration_date": "2025-09-29",
+              "notes": "D09 held final write",
+              "certificate_url": null
+            },
+            {
+              "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+              "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+              "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+              "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+              "completion_date": "2025-10-14",
+              "expiration_date": "2026-10-14",
+              "notes": "D09 warning import",
+              "certificate_url": null
+            }
+          ]
+        },
+        "b": {
+          "table": "personnel_trainings",
+          "organization": "orgB",
+          "count": 0,
+          "rows": []
+        }
+      }
+    }
+  },
+  {
+    "label": "repeatImportResponse",
+    "data": {
+      "armed": true,
+      "calls": [
+        {
+          "method": "POST",
+          "count": 2,
+          "ids": [
+            "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "127c4159-c322-4752-a65a-e2df2d4f0803"
+          ],
+          "notes": [
+            null
+          ],
+          "status": 200,
+          "contentDisposition": null,
+          "contentType": "application/json"
+        }
+      ],
+      "held": false
+    }
+  },
+  {
+    "label": "repeatImportRows",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 3,
+      "rows": [
+        {
+          "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2026-09-22",
+          "expiration_date": "2027-09-22",
+          "notes": null,
+          "certificate_url": null
+        },
+        {
+          "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2024-09-29",
+          "expiration_date": "2025-09-29",
+          "notes": "D09 expired import",
+          "certificate_url": null
+        },
+        {
+          "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+          "completion_date": "2025-10-14",
+          "expiration_date": "2026-10-14",
+          "notes": "D09 warning import",
+          "certificate_url": null
+        }
+      ]
+    }
+  },
+  {
+    "label": "personRemoveFailure",
+    "data": {
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "DELETE",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 503
+          }
+        ],
+        "held": false
+      },
+      "rows": {
+        "table": "personnel_trainings",
+        "organization": "orgA",
+        "count": 3,
+        "rows": [
+          {
+            "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2026-09-22",
+            "expiration_date": "2027-09-22",
+            "notes": null,
+            "certificate_url": null
+          },
+          {
+            "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2024-09-29",
+            "expiration_date": "2025-09-29",
+            "notes": "D09 expired import",
+            "certificate_url": null
+          },
+          {
+            "id": "bea53ca1-1791-40f4-93dd-22c8bf18587a",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "1c96a01e-76c1-44db-b9e5-9415a2f22be0",
+            "completion_date": "2025-10-14",
+            "expiration_date": "2026-10-14",
+            "notes": "D09 warning import",
+            "certificate_url": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "label": "personRemoveRetry",
+    "data": {
+      "net": {
+        "armed": true,
+        "calls": [
+          {
+            "method": "DELETE",
+            "count": 0,
+            "ids": [],
+            "notes": [],
+            "status": 200,
+            "contentDisposition": null,
+            "contentType": "application/json"
+          }
+        ],
+        "held": false
+      },
+      "rows": {
+        "table": "personnel_trainings",
+        "organization": "orgA",
+        "count": 2,
+        "rows": [
+          {
+            "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2026-09-22",
+            "expiration_date": "2027-09-22",
+            "notes": null,
+            "certificate_url": null
+          },
+          {
+            "id": "36f5f38f-a2f1-4f71-a59e-c7a6d6601e9c",
+            "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+            "personnel_id": "b50d2cba-c59c-4712-9842-c64f605dfc13",
+            "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+            "completion_date": "2024-09-29",
+            "expiration_date": "2025-09-29",
+            "notes": "D09 expired import",
+            "certificate_url": null
+          }
+        ]
+      }
+    }
+  },
+  {
+    "label": "cleanupRows",
+    "data": {
+      "table": "personnel_trainings",
+      "organization": "orgA",
+      "count": 1,
+      "rows": [
+        {
+          "id": "b2e99009-1f33-4dc7-a368-d97b59b35258",
+          "organization_id": "e98d7f93-bf75-43e3-83f2-c0c6230217a1",
+          "personnel_id": "127c4159-c322-4752-a65a-e2df2d4f0803",
+          "training_type_id": "3a32aab3-26ff-4c83-b33b-ec0b03382e35",
+          "completion_date": "2026-09-22",
+          "expiration_date": "2027-09-22",
+          "notes": null,
+          "certificate_url": null
+        }
+      ]
+    }
+  }
+]

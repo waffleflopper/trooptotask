@@ -1,0 +1,199 @@
+import { describe, expect, it, vi } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { RatingSchemeDueActor, RatingSchemeDueEntry } from './contracts';
+import { createSupabaseRatingSchemeDuePort } from './ratingSchemeDue.server';
+
+type ProviderRow = {
+	id: string;
+	organization_id: string;
+	rating_period_end: string;
+	status: RatingSchemeDueEntry['status'];
+} & Record<string, unknown>;
+
+function actor(overrides: Partial<RatingSchemeDueActor> = {}): RatingSchemeDueActor {
+	return {
+		userId: 'user-a',
+		orgId: 'org-a',
+		role: 'member',
+		isPrivileged: false,
+		canManageMembers: false,
+		capabilityMap: {
+			calendar: 'none',
+			personnel: 'none',
+			training: 'none',
+			criticalTasks: 'none',
+			onboarding: 'none',
+			ratingScheme: 'view'
+		},
+		scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+		...overrides
+	};
+}
+
+function provider(rows: ProviderRow[] = [], failFrom?: number) {
+	const selections: string[] = [];
+	const ranges: Array<[number, number]> = [];
+	const ordering: Array<{ column: string; ascending: boolean }> = [];
+	const from = vi.fn((table: string) => {
+		if (table !== 'rating_scheme_entries') throw new Error('This projection cannot read another table');
+		let visible = [...rows];
+		const query = {
+			select: (columns: string) => {
+				selections.push(columns);
+				return query;
+			},
+			eq: (column: string, value: unknown) => {
+				visible = visible.filter((row) => row[column] === value);
+				return query;
+			},
+			order: (column: string, { ascending }: { ascending: boolean }) => {
+				ordering.push({ column, ascending });
+				visible.sort((a, b) => String(a[column]).localeCompare(String(b[column])) * (ascending ? 1 : -1));
+				return query;
+			},
+			range: async (start: number, end: number) => {
+				ranges.push([start, end]);
+				if (start === failFrom) return { data: null, error: { message: 'Due projection unavailable' } };
+				return { data: visible.slice(start, end + 1), error: null };
+			}
+		};
+		return query;
+	});
+	return {
+		from,
+		selections,
+		ranges,
+		ordering,
+		port: createSupabaseRatingSchemeDuePort({ from } as unknown as SupabaseClient)
+	};
+}
+
+function pageRows(): ProviderRow[] {
+	return [
+		...Array.from({ length: 1000 }, (_, index) => ({
+			id: `evaluation-${String(index).padStart(4, '0')}`,
+			organization_id: 'org-a',
+			rating_period_end: '2026-01-01',
+			status: 'active' as const
+		})),
+		{
+			id: 'evaluation-1000',
+			organization_id: 'org-a',
+			rating_period_end: '2030-12-31',
+			status: 'completed' as const
+		}
+	].reverse();
+}
+
+describe('Rating Scheme due projection', () => {
+	it('reads only due facts for the requested Organization without Personnel access', async () => {
+		const { port, selections, ordering } = provider([
+			{
+				id: 'evaluation-1',
+				organization_id: 'org-a',
+				rating_period_end: '2026-09-25',
+				status: 'active',
+				rated_person_id: 'person-a',
+				rater_name: 'Private evaluator name',
+				notes: 'Private evaluation notes'
+			},
+			{
+				id: 'evaluation-2',
+				organization_id: 'org-a',
+				rating_period_end: '2026-10-10',
+				status: 'change-of-rater'
+			},
+			{
+				id: 'evaluation-3',
+				organization_id: 'org-a',
+				rating_period_end: '2026-01-01',
+				status: 'completed'
+			},
+			{
+				id: 'foreign-evaluation',
+				organization_id: 'org-b',
+				rating_period_end: '2026-08-01',
+				status: 'active'
+			}
+		]);
+
+		await expect(port.listDueEntries(actor())).resolves.toEqual([
+			{ ratingPeriodEnd: '2026-09-25', status: 'active' },
+			{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
+			{ ratingPeriodEnd: '2026-01-01', status: 'completed' }
+		]);
+		expect(selections).toEqual(['rating_period_end, status']);
+		expect(ordering).toEqual([{ column: 'id', ascending: true }]);
+	});
+
+	it.each(['none', 'configure'] as const)(
+		'skips the provider without Rating view even with Personnel %s',
+		async (personnel) => {
+			const { port, from } = provider();
+			const reader = actor();
+			await expect(
+				port.listDueEntries({ ...reader, capabilityMap: { ...reader.capabilityMap, personnel, ratingScheme: 'none' } })
+			).resolves.toEqual([]);
+			expect(from).not.toHaveBeenCalled();
+		}
+	);
+
+	it('skips the provider for an empty Group scope', async () => {
+		const { port, from } = provider();
+		await expect(port.listDueEntries(actor({ scopeSet: { kind: 'groups', groupIds: [] } }))).resolves.toEqual([]);
+		expect(from).not.toHaveBeenCalled();
+	});
+
+	it.each(['owner', 'admin'] as const)('retains normalized %s access across the Organization', async (role) => {
+		const { port } = provider([
+			{
+				id: 'evaluation-1',
+				organization_id: 'org-a',
+				rating_period_end: '2026-10-20',
+				status: 'active'
+			}
+		]);
+		const reader = actor();
+		await expect(
+			port.listDueEntries({
+				...reader,
+				role,
+				isPrivileged: true,
+				canManageMembers: true,
+				scopeSet: { kind: 'organization' },
+				capabilityMap: {
+					calendar: 'configure',
+					personnel: 'configure',
+					training: 'configure',
+					criticalTasks: 'configure',
+					onboarding: 'configure',
+					ratingScheme: 'configure'
+				}
+			})
+		).resolves.toEqual([{ ratingPeriodEnd: '2026-10-20', status: 'active' }]);
+	});
+
+	it('includes evaluations beyond the first provider page in stable identity order', async () => {
+		const { port, ranges, ordering } = provider(pageRows());
+		const entries = await port.listDueEntries(actor());
+		expect(entries).toHaveLength(1001);
+		expect(entries[0]).toEqual({ ratingPeriodEnd: '2026-01-01', status: 'active' });
+		expect(entries[1000]).toEqual({ ratingPeriodEnd: '2030-12-31', status: 'completed' });
+		expect(ranges).toEqual([
+			[0, 999],
+			[1000, 1999]
+		]);
+		expect(ordering).toEqual([
+			{ column: 'id', ascending: true },
+			{ column: 'id', ascending: true }
+		]);
+	});
+
+	it.each([0, 1000])(
+		'rejects a provider failure at offset %i instead of returning an empty or partial projection',
+		async (offset) => {
+			const { port } = provider(pageRows(), offset);
+			await expect(port.listDueEntries(actor())).rejects.toThrow('Due projection unavailable');
+		}
+	);
+});

@@ -1,4 +1,4 @@
-import type { Cookies } from '@sveltejs/kit';
+import { isHttpError, type Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
@@ -42,8 +42,13 @@ export interface RatingSchemeWorkspaceResult {
 	hydration: RatingSchemeWorkspaceHydration;
 }
 
+export interface RatingSchemeWorkspaceRestricted {
+	laneKey: typeof RATING_SCHEME_WORKSPACE_LANE_KEY;
+	access: 'restricted';
+}
+
 export interface RatingSchemeWorkspaceRouteData {
-	ratingScheme: DeferredData<RatingSchemeWorkspaceResult>;
+	ratingScheme: DeferredData<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted>;
 }
 
 async function loadRatingSchemePersonnelLookup(ctx: QueryWithRawStorePorts): Promise<PersonnelLookup[]> {
@@ -115,6 +120,13 @@ export async function streamRatingSchemeWorkspaceBootstrap(
 	});
 
 	return {
-		ratingScheme: deferred
+		ratingScheme: {
+			data: deferred.data.catch((cause: unknown) => {
+				if (isHttpError(cause, 403)) {
+					return { laneKey: RATING_SCHEME_WORKSPACE_LANE_KEY, access: 'restricted' } as const;
+				}
+				throw cause;
+			})
+		}
 	};
 }

@@ -251,6 +251,7 @@
 				"src/lib/server/core/useCases/personnelReadinessLanes.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.test.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.ts",
+				"src/lib/server/counselingRecordMapping.test.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
 				"src/lib/server/entities/counselingRecord.ts",
 				"src/lib/server/entities/personnelOnboarding.test.ts",
@@ -363,13 +364,7 @@
 		},
 		"rating-scheme": {
 			"roots": ["src/features/rating-scheme/"],
-			"files": [
-				"src/lib/server/core/useCases/ratingSchemeEntryCrud.test.ts",
-				"src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
-				"src/lib/server/entities/ratingSchemeEntry.test.ts",
-				"src/lib/server/entities/ratingSchemeEntry.ts",
-				"src/lib/server/ratingSchemeRepository.test.ts"
-			],
+			"files": [],
 			"packet": "08-M10"
 		},
 		"scheduled-maintenance": {
@@ -621,7 +616,7 @@
 			"src/features/critical-tasks/index.server.ts"
 		],
 		"dashboard": ["src/features/dashboard/index.ts"],
-		"deletion-requests": ["src/features/deletion-requests/index.server.ts"],
+		"deletion-requests": ["src/features/deletion-requests/index.ts", "src/features/deletion-requests/index.server.ts"],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",
 			"src/features/onboarding/index.ts",

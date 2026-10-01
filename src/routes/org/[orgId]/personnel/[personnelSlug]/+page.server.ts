@@ -8,10 +8,10 @@ import {
 	currentPersonnelReadinessDate,
 	loadAvailabilityReadinessLane,
 	loadLossTrackingReadinessLane,
-	loadPersonnelForLane,
-	loadRatingSchemeReadinessLane
+	loadPersonnelForLane
 } from '$lib/server/core/useCases/personnelReadinessLanes';
 import { loadTrainingReadinessLane } from '$features/training/index.server';
+import { loadRatingSchemeReadinessLane } from '$features/rating-scheme/index.server';
 import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
 import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
@@ -52,7 +52,13 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 						'personnel_ict_completion'
 					)
 			}),
-			ratingScheme: loadRatingSchemeReadinessLane(ctx, personnelId, readinessAsOf),
+			ratingScheme: loadRatingSchemeReadinessLane({
+				store: ctx.rawStore,
+				orgId: ctx.auth.orgId,
+				personnelId,
+				loadAuthorizedPerson: () =>
+					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry')
+			}),
 			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)
 		},
 		// Artifact use cases keep their own authorization boundary. The shared helper caches

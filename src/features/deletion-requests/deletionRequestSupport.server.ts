@@ -11,12 +11,12 @@ export function fireAndForgetNotification(send: () => Promise<void>): void {
 
 export const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
-	counseling_record: 'counseling_records',
-	rating_scheme_entry: 'rating_scheme_entries'
+	counseling_record: 'counseling_records'
 };
 
 export function isSupportedResourceType(resourceType: string): boolean {
 	return (
+		resourceType === 'rating_scheme_entry' ||
 		resourceType === 'training_type' ||
 		resourceType === 'personnel_training' ||
 		Boolean(RESOURCE_TYPE_TABLE_MAP[resourceType])

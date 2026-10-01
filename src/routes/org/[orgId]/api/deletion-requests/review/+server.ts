@@ -2,6 +2,10 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { approveDeletionRequest, denyDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
+import {
+	createApprovedRatingSchemeDeletionPort,
+	type ApprovedRatingSchemeDeletionPort
+} from '$features/rating-scheme/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import {
 	createSupabaseApprovedTrainingDeletionPort,
@@ -9,7 +13,8 @@ import {
 } from '$features/training/index.server';
 
 export function _reviewPostConfig(
-	trainingDeletion: ApprovedTrainingDeletionPort
+	trainingDeletion: ApprovedTrainingDeletionPort,
+	ratingSchemeDeletion?: ApprovedRatingSchemeDeletionPort
 ): RouteConfig<Record<string, unknown>, unknown> {
 	return {
 		// Keep the use-case governance check as defense in depth because approve/deny
@@ -25,7 +30,12 @@ export function _reviewPostConfig(
 			}
 
 			if (action === 'approve') {
-				await approveDeletionRequest(ctx, id as string, trainingDeletion);
+				await approveDeletionRequest(
+					ctx,
+					id as string,
+					trainingDeletion,
+					ratingSchemeDeletion ?? createApprovedRatingSchemeDeletionPort(ctx.rawStore)
+				);
 			} else {
 				await denyDeletionRequest(ctx, id as string, denialReason as string | undefined);
 			}

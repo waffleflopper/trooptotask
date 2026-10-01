@@ -241,8 +241,6 @@
 				"src/lib/server/core/useCases/personnelCounselingRecords.ts",
 				"src/lib/server/core/useCases/personnelDocuments.test.ts",
 				"src/lib/server/core/useCases/personnelDocuments.ts",
-				"src/lib/server/core/useCases/personnelExport.test.ts",
-				"src/lib/server/core/useCases/personnelExport.ts",
 				"src/lib/server/core/useCases/personnelExtendedInfo.test.ts",
 				"src/lib/server/core/useCases/personnelExtendedInfo.ts",
 				"src/lib/server/core/useCases/personnelFollowUps.test.ts",

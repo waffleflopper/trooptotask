@@ -8,11 +8,24 @@ import {
 	type WorkbookRow
 } from '$lib/utils/workbook';
 import { fail } from '$lib/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import type { PersonnelAvailabilityPeriod } from '$features/personnel/contracts';
+import type { PersonnelAvailabilityPeriod } from './contracts';
 import { validateUUID } from '$lib/server/validation';
-import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { listGroupCatalog } from './groupCatalog.server';
+
+interface PersonnelExportContext {
+	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
+	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	rawStore: {
+		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
+		findMany<T>(
+			table: string,
+			orgId: string,
+			filters?: Record<string, unknown>,
+			options?: { select?: string; orderBy?: Array<{ column: string; ascending: boolean }> }
+		): Promise<T[]>;
+	};
+}
 
 export interface PersonnelExportInput {
 	personnelId: string;
@@ -24,25 +37,12 @@ export interface PersonnelExportOutput {
 }
 
 export async function exportPersonnelWorkbook(
-	ctx: UseCaseContext,
+	ctx: PersonnelExportContext,
 	input: PersonnelExportInput,
-	listAvailabilityHistory: (
-		ctx: Pick<UseCaseContext, 'auth' | 'rawStore'>,
-		personnelId: string
-	) => Promise<PersonnelAvailabilityPeriod[]>,
-	listStatusTypeLabels: (
-		store: UseCaseContext['rawStore'],
-		orgId: string
-	) => Promise<Array<{ id: string; name: string }>>,
-	listTrainingTypeLabels: (
-		store: UseCaseContext['rawStore'],
-		orgId: string
-	) => Promise<Array<{ id: string; name: string }>>,
-	listPersonnelTrainingExportRows: (
-		store: Pick<UseCaseContext['rawStore'], 'findMany'>,
-		orgId: string,
-		personnelId: string
-	) => Promise<Record<string, unknown>[]>
+	listAvailabilityHistory: (personnelId: string) => Promise<PersonnelAvailabilityPeriod[]>,
+	listStatusTypeLabels: () => Promise<Array<{ id: string; name: string }>>,
+	listTrainingTypeLabels: () => Promise<Array<{ id: string; name: string }>>,
+	listPersonnelTrainingExportRows: (personnelId: string) => Promise<Record<string, unknown>[]>
 ): Promise<PersonnelExportOutput> {
 	const orgId = ctx.auth.orgId;
 	const id = input.personnelId;
@@ -61,7 +61,7 @@ export async function exportPersonnelWorkbook(
 	);
 
 	const [trainings, counseling, availability, trainingTypes, statusTypes, groups] = await Promise.all([
-		listPersonnelTrainingExportRows(ctx.rawStore, orgId, id),
+		listPersonnelTrainingExportRows(id),
 		ctx.rawStore.findMany<Record<string, unknown>>(
 			'counseling_records',
 			orgId,
@@ -70,9 +70,9 @@ export async function exportPersonnelWorkbook(
 				orderBy: [{ column: 'date_conducted', ascending: false }]
 			}
 		),
-		listAvailabilityHistory(ctx, id),
-		listTrainingTypeLabels(ctx.rawStore, orgId),
-		listStatusTypeLabels(ctx.rawStore, orgId),
+		listAvailabilityHistory(id),
+		listTrainingTypeLabels(),
+		listStatusTypeLabels(),
 		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore })
 	]);
 

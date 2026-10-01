@@ -275,36 +275,7 @@ export interface PersonnelWorkspaceRouteData {
 }
 
 /** Soldier Data Sheet fields shared by its Server read and Web editor. */
-export interface PersonnelExtendedInfo {
-	bloodType: string;
-	basd: string;
-	dateOfRank: string;
-	maritalStatus: string;
-	numberOfDependents: number | null;
-	children: PersonnelChild[];
-	civilianEducation: string;
-	militaryEducation: string[];
-	emergencyContactName: string;
-	emergencyContactRelationship: string;
-	emergencyContactPhone: string;
-	spouseName: string;
-	spousePhone: string;
-	vehicleMakeModel: string;
-	vehiclePlate: string;
-	vehicleColor: string;
-	personalEmail: string;
-	personalPhone: string;
-	addressStreet: string;
-	addressCity: string;
-	addressState: string;
-	addressZip: string;
-	address: string;
-}
-
-interface PersonnelChild {
-	name: string;
-	age: number | null;
-}
+export type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 
 const childSchema = z.object({
 	name: z.string().trim().max(120),

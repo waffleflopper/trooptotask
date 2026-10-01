@@ -1,4 +1,5 @@
-import type { PersonnelExtendedInfo, PersonnelLeaderNote } from './contracts';
+import type { PersonnelLeaderNote } from './contracts';
+import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 import type { Personnel } from './personnel.types';
 
 export interface PersonnelDetailHeader {

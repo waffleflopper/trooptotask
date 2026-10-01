@@ -130,6 +130,8 @@ try {
 	const provider = await readJSON(path.join(session, 'provider.json'));
 	ownedOrigins = [new URL(state.origin).origin, new URL(provider.API_URL).origin];
 	const fixture = await seed(session);
+	const cleanupSecret = randomBytes(32).toString('hex');
+	await writeJSON(path.join(session, 'archive-cleanup.json'), { secret: cleanupSecret });
 	const env = {
 		...cleanEnvironment(),
 		PUBLIC_SUPABASE_URL: provider.API_URL,
@@ -137,6 +139,7 @@ try {
 		SUPABASE_SERVICE_ROLE_KEY: provider.SERVICE_ROLE_KEY,
 		ACCOUNT_SETUP_LINK_SECRET: randomBytes(32).toString('hex'),
 		ACCOUNT_SETUP_SESSION_SECRET: randomBytes(32).toString('hex'),
+		CLEANUP_SECRET: cleanupSecret,
 		APP_PUBLIC_ORIGIN: state.origin,
 		PUBLIC_APP_ORIGIN: '',
 		PUBLIC_SITE_URL: '',

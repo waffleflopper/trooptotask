@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import type { PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
 	PersonnelCounselingRecord,
+	PersonnelArchivedArtifactsPageData,
 	PersonnelCounselingsPageData,
 	PersonnelDocument,
 	PersonnelDocumentsPageData,
@@ -15,6 +16,7 @@ import FollowUpsPage from './follow-ups/+page.svelte';
 import DocumentsPage from './documents/+page.svelte';
 import CounselingsPage from './counselings/+page.svelte';
 import NotesPage from './notes/+page.svelte';
+import ArchivedPage from './archived/+page.svelte';
 
 const basePageData = {
 	orgId: 'org-1',
@@ -139,6 +141,32 @@ describe('personnel artifact subpages', () => {
 		vi.useRealTimers();
 		vi.unstubAllGlobals();
 	});
+
+	it.each([
+		{ archivedAt: new Date(2026, 7, 1, 12).toISOString(), expectedDate: 'Aug 1, 2026' },
+		{ archivedAt: null, expectedDate: 'Oct 1, 2026' }
+	])(
+		'shows the saved follow-up archive date, falling back only when absent ($expectedDate)',
+		({ archivedAt, expectedDate }) => {
+			const data: PersonnelArchivedArtifactsPageData = {
+				...basePageData,
+				title: 'Archived items',
+				records: [
+					{
+						...makeFollowUp({
+							status: 'archived',
+							archivedAt,
+							updatedAt: new Date(2026, 9, 1, 12).toISOString()
+						}),
+						kind: 'follow-up'
+					}
+				]
+			};
+			render(ArchivedPage, { props: { data } });
+
+			expect(screen.getByText(new RegExp(`Archived ${expectedDate}$`))).toBeTruthy();
+		}
+	);
 
 	it('creates follow-ups with the shared JSON draft contract', async () => {
 		fetchMock.mockResolvedValueOnce(jsonResponse(makeFollowUp()));

@@ -12,7 +12,7 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { PersonnelOnboarding } from '../onboarding.types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 
-vi.mock('$app/navigation', () => ({ invalidate: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidate: vi.fn(), invalidateAll: vi.fn() }));
 
 const packet: PersonnelOnboarding = {
 	id: 'packet-1',

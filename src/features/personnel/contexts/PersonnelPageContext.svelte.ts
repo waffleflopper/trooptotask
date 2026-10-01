@@ -10,7 +10,7 @@ import {
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 
 // ---------------------------------------------------------------------------
 // Data shape expected from the page server / layout

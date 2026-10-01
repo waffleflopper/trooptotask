@@ -1,6 +1,4 @@
-export { PersonnelEntity } from './personnelEntity.server';
 export { createPersonnelRecord, updatePersonnelRecord } from './personnelRecordOperations.server';
-export { buildAvailablePersonnelSlug, buildPersonnelSlugBase } from './personnelSlug.server';
 export {
 	archivePersonnelLeaderNote,
 	createPersonnelLeaderNote,
@@ -71,6 +69,14 @@ export {
 } from './personnelLifecycle.server';
 
 export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
+
+export {
+	loadPersonnelDetailHeader,
+	loadPersonnelForLane,
+	loadAvailabilityReadinessLane,
+	loadLossTrackingReadinessLane,
+	currentPersonnelReadinessDate
+} from './personnelDetail.server';
 
 export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';
 export { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';

@@ -6,7 +6,9 @@ const { invalidateMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('$app/navigation', () => ({
-	invalidate: invalidateMock
+	goto: vi.fn(),
+	invalidate: invalidateMock,
+	invalidateAll: vi.fn()
 }));
 
 const { startOnboardingMock } = vi.hoisted(() => ({

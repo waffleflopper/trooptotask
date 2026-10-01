@@ -43,7 +43,8 @@ async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
-	invalidate: invalidateMock
+	invalidate: invalidateMock,
+	invalidateAll: vi.fn()
 }));
 
 // ---------------------------------------------------------------------------

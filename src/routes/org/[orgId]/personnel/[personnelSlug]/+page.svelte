@@ -1,6 +1,6 @@
 <script lang="ts">
-	import PersonnelDetailPageView from '$features/personnel/components/PersonnelDetailPageView.svelte';
-	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
+	import { PersonnelDetailPageView } from '$features/personnel';
+	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
 	import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Group } from '$features/personnel/contracts';

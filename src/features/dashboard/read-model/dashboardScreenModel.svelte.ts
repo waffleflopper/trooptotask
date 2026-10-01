@@ -11,7 +11,7 @@ import { getRatingDueStatus } from '$features/rating-scheme/contracts';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';

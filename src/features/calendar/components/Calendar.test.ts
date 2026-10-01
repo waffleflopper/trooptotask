@@ -5,7 +5,7 @@ import { tick } from 'svelte';
 import Calendar from './Calendar.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
-import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
 
 const resizeObserve = vi.fn();
 const resizeDisconnect = vi.fn();

@@ -2,13 +2,13 @@ import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext, personnelLeaderNoteContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
+import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
 import {
 	currentPersonnelReadinessDate,
 	loadAvailabilityReadinessLane,
 	loadLossTrackingReadinessLane,
 	loadPersonnelForLane
-} from '$lib/server/core/useCases/personnelReadinessLanes';
+} from '$features/personnel/index.server';
 import { loadTrainingReadinessLane } from '$features/training/index.server';
 import { loadRatingSchemeReadinessLane } from '$features/rating-scheme/index.server';
 import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
@@ -27,8 +27,8 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 				ctx,
 				personnelId,
 				readinessAsOf,
-				listAvailabilityEntries,
-				listStatusTypes
+				(input) => listAvailabilityEntries(ctx, input),
+				() => listStatusTypes(ctx.store, ctx.auth.orgId)
 			),
 			training: loadTrainingReadinessLane({
 				store: ctx.store,
@@ -58,7 +58,15 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 				loadAuthorizedPerson: () =>
 					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry')
 			}),
-			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)
+			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf, async () => {
+				const settings = await ctx.store.findOne<{ loss_warning_window_days?: number | null }>(
+					'organizations',
+					ctx.auth.orgId,
+					{ id: ctx.auth.orgId },
+					'loss_warning_window_days'
+				);
+				return settings?.loss_warning_window_days;
+			})
 		},
 		// Artifact use cases keep their own authorization boundary. The shared helper caches
 		// the repeated Personnel access check per request context so these dashboard panels

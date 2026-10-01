@@ -43,7 +43,8 @@ const { loadWithContextMock, findManyMock, findOneMock, listActiveReferencesMock
 			},
 			personnelRatingSchemeRoster: {
 				listActiveReferences: listActiveReferencesMock,
-				findRatedPersonGroupForWrite: vi.fn()
+				findRatedPersonGroupForWrite: vi.fn(),
+				hasEvaluatorReferences: vi.fn()
 			}
 		}
 	};
@@ -172,7 +173,8 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 				{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' },
 				{ id: 'p1', rank: 'SGT', lastName: 'Smith', firstName: 'John' }
 			]),
-			findRatedPersonGroupForWrite: vi.fn()
+			findRatedPersonGroupForWrite: vi.fn(),
+			hasEvaluatorReferences: vi.fn()
 		};
 
 		const result = await fetchRatingSchemeWorkspaceData(ctx);
@@ -212,7 +214,11 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 		const listActiveReferences = vi
 			.fn()
 			.mockResolvedValue([{ id: 'p2', rank: 'CPT', lastName: 'Jones', firstName: 'Jane' }]);
-		ctx.personnelRatingSchemeRoster = { listActiveReferences, findRatedPersonGroupForWrite: vi.fn() };
+		ctx.personnelRatingSchemeRoster = {
+			listActiveReferences,
+			findRatedPersonGroupForWrite: vi.fn(),
+			hasEvaluatorReferences: vi.fn()
+		};
 
 		const result = await fetchRatingSchemeWorkspaceData(ctx);
 
@@ -238,7 +244,8 @@ describe('fetchRatingSchemeWorkspaceData', () => {
 		});
 		ctx.personnelRatingSchemeRoster = {
 			listActiveReferences: vi.fn().mockResolvedValue([]),
-			findRatedPersonGroupForWrite: vi.fn()
+			findRatedPersonGroupForWrite: vi.fn(),
+			hasEvaluatorReferences: vi.fn()
 		};
 
 		await expect(fetchRatingSchemeWorkspaceData(ctx)).rejects.toMatchObject({ status: 403 });

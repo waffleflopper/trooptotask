@@ -876,6 +876,12 @@ function createInMemoryPersonnelRatingSchemeRosterPort(
 		async findRatedPersonGroupForWrite(actor, personnelId) {
 			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
 			return rows[0] ? { groupId: (rows[0].group_id as string | null) ?? null } : null;
+		},
+		async hasEvaluatorReferences(actor, personnelIds) {
+			const ids = [...new Set(personnelIds.map((id) => id.toLowerCase()))];
+			if (!ids.length) return true;
+			const rows = await rawStore.findMany<Row>('personnel', actor.orgId, undefined, { inFilters: { id: ids } });
+			return rows.length === ids.length;
 		}
 	};
 }

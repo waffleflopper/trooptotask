@@ -24,7 +24,7 @@ Manifest failures precede parent deletion. Confirmation/Storage failures can occ
 
 ## Packaged evidence
 
-All runs finished final doctor or recorded failed doctor and owned cleanup before packaging. The migration/main integration changed only CI/prose/proof packaging; runtime, SQL, controls and driving instructions remain byte-identical to tested `c3a4dcf3` where applicable. This is not a new live run. Seven per-run archives preserve 1,484 payloads, including failed attempts; old proof is unchanged. Fresh extraction verifies exact file sets and every expanded hash. Native screenshots were visually inspected.
+Successful runs finished final doctor and owned cleanup before packaging. Interrupted/blocked attempts preserve their failed doctor or blocked launch and owned cleanup. The migration/main integration changed only CI/prose/proof packaging; runtime, SQL, controls and driving instructions remain byte-identical to tested `c3a4dcf3` where applicable. This is not a new live run. Seven per-run archives preserve 1,484 payloads, including failed attempts; old proof is unchanged. Fresh extraction verifies exact file sets and every expanded hash. Native screenshots were visually inspected.
 
 | Run                                                                             | Archive SHA-256                                                    | Payloads / expanded bytes |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------- |
@@ -42,6 +42,6 @@ The implementation worker retains its initial governance failure and correction;
 
 ## Review and release
 
-Independent source/provider acceptance passes; final expanded/native acceptance, packaging hashes, complete changed-file count, exact-head full CI/build and completed applicable bot review belong to the final PR record. This uses `Refs #1360`. Merge/read/detail/bootstrap/export, wider Web/selection/switching, artifact APIs and whole-issue consumer/removal acceptance remain separately accounted for; already integrated merge/backfill must not be refactored again because older metadata says it is open.
+Independent source/provider acceptance passes; final expanded/native acceptance, packaging hashes, complete changed-file count, exact-head full CI/build and completed applicable bot review belong to the final PR record. This uses `Refs #1360`. Individual export, workspace/bootstrap, detail/readiness, the global upcoming-loss path, wider Web/selection/switching and whole-issue consumer/removal acceptance remain. Already integrated merge/backfill earns delivered credit. Separate artifact APIs remain D13's scope, with affected Personnel consumers retained.
 
 Robert authorizes migration/application PR merges after green exact-head CI and completed reviews without actionable feedback, and will apply `supabase/migrations/20261001000100_personnel_archive_retention.sql` remotely in the morning. The agent performs no remote database action. If this app deploys before application, Personnel retention reports a missing-function error before new parent deletion; earlier artifact families may already have completed. CI does not migrate the provider; external production Vercel publication settings remain unknown.

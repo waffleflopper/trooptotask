@@ -3,7 +3,6 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext, personnelLeaderNoteContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
-import { readPersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
 import {
 	currentPersonnelReadinessDate,
 	loadAvailabilityReadinessLane,
@@ -13,7 +12,7 @@ import {
 import { loadTrainingReadinessLane } from '$features/training/index.server';
 import { loadRatingSchemeReadinessLane } from '$features/rating-scheme/index.server';
 import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
-import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
+import { listPersonnelLeaderNotes, readPersonnelExtendedInfo } from '$features/personnel/index.server';
 import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
 import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
 import { listPersonnelDocuments } from '$lib/server/core/useCases/personnelDocuments';

@@ -7,7 +7,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import type { PersonnelExtendedInfo } from '$features/personnel/personnel-detail.types';
+	import type { PersonnelExtendedInfo } from '$features/personnel/contracts';
 	import { untrack } from 'svelte';
 
 	interface Props {

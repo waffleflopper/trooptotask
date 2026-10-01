@@ -1,7 +1,6 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
-import { mapActivationHealthSummary } from '$lib/server/core/useCases/platformActivationHealth';
 
 const {
 	organizationLedgerMock,
@@ -156,26 +155,10 @@ describe('admin organizations route load', () => {
 					if (table !== 'rating_scheme_entries') throw new Error('Unexpected setup source');
 					return new Map(ids.map((id) => [id, rows.filter((row) => row.organization_id === id).length]));
 				});
-				return mapActivationHealthSummary({
-					now: new Date('2026-09-30T00:00:00Z'),
-					facts: [
-						{
-							organizationId: 'org-1',
-							organizationName: 'Synthetic',
-							organizationCreatedAt: '2026-09-01',
-							counts: {
-								activePersonnel: 0,
-								members: 1,
-								leaderMembers: 1,
-								statusTypes: 0,
-								assignmentTypes: 0,
-								onboardingTemplateSteps: 0,
-								trainingTypes: 0,
-								ratingSchemeEntries: rating.get('org-1') ?? 0
-							}
-						}
-					]
-				});
+				return {
+					counts: { setupStarted: (rating.get('org-1') ?? 0) > 0 ? 1 : 0 },
+					organizations: [{ supportBundle: { activation: { ratingSchemeEntries: rating.get('org-1') ?? 0 } } }]
+				};
 			}
 		}));
 		const result = (await load(event())) as PageData;

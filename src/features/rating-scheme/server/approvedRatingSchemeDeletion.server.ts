@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { DataStore } from '$lib/server/core/ports';
+import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
 import { fail } from '$lib/errors';
 
 interface ApprovedRatingSchemeDeletionActor {
@@ -22,7 +22,7 @@ export interface ApprovedRatingSchemeDeletionPort {
 
 /** Review authority and the exact pending request are checked before obtaining a privileged provider. */
 export function createSupabaseApprovedRatingSchemeDeletionPort(
-	requestStore: Pick<DataStore, 'findOne'>,
+	requestStore: Pick<RatingSchemeReadStore, 'findOne'>,
 	getAdminClient: () => SupabaseClient
 ): ApprovedRatingSchemeDeletionPort {
 	return {

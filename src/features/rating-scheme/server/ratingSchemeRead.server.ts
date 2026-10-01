@@ -1,11 +1,11 @@
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { DataStore } from '$lib/server/core/ports';
+import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
 import type { RatingSchemeDueActor } from '../contracts';
 
 /** Raw saved rows for the separately authorized Organization export, retaining request-client RLS. */
 export function listRatingSchemeExportRows(
-	store: Pick<DataStore, 'findMany'>,
+	store: Pick<RatingSchemeReadStore, 'findMany'>,
 	orgId: string
 ): Promise<Record<string, unknown>[]> {
 	return store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
@@ -18,7 +18,7 @@ export async function countRatingSchemeEntries({
 	store,
 	actor
 }: {
-	store: Pick<DataStore, 'findManyWithCount'>;
+	store: Pick<RatingSchemeReadStore, 'findManyWithCount'>;
 	actor: RatingSchemeDueActor;
 }): Promise<number> {
 	const decision = await evaluateFeaturePolicy({ auth: actor }, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, {

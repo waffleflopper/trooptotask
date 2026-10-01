@@ -1,5 +1,5 @@
 import type { Personnel } from '$features/personnel/contracts';
-import type { DataStore } from '$lib/server/core/ports';
+import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
 
 interface RatingSchemeReadinessLane {
 	label: 'Rating Scheme';
@@ -9,7 +9,7 @@ interface RatingSchemeReadinessLane {
 }
 
 interface RatingSchemeReadinessInput {
-	store: Pick<DataStore, 'findMany'>;
+	store: Pick<RatingSchemeReadStore, 'findMany'>;
 	orgId: string;
 	personnelId: string;
 	/** Delivery supplies the existing Person/Group check under Rating Scheme view policy. */

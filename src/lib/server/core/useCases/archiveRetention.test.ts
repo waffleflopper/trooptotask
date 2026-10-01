@@ -150,6 +150,289 @@ async function idsFor(ports: ReturnType<typeof buildPorts>, table: string): Prom
 	return rows.map((row) => row.id).sort();
 }
 
+function buildParentRetentionPorts(survivingPersonnelIds: string[] = []) {
+	const ports = buildPorts();
+	ports.store.seed('personnel', [
+		{ id: 'person-expired', organization_id: 'org-1', archived_at: '2025-01-01T00:00:00.000Z' },
+		{ id: 'person-survivor', organization_id: 'org-1', archived_at: '2025-02-01T00:00:00.000Z' },
+		{ id: 'person-foreign', organization_id: 'org-2', archived_at: '2025-01-01T00:00:00.000Z' }
+	]);
+	for (const [table, bucket] of [
+		['personnel_documents', PERSONNEL_DOCUMENTS_BUCKET],
+		['counseling_records', COUNSELING_RECORDS_BUCKET]
+	]) {
+		const rows = [
+			{ id: `${table}-active`, personnel_id: 'person-expired', organization_id: 'org-1', archived_at: null },
+			{
+				id: `${table}-recent`,
+				personnel_id: 'person-expired',
+				organization_id: 'org-1',
+				archived_at: '2026-04-01T00:00:00.000Z'
+			},
+			{
+				id: `${table}-survivor`,
+				personnel_id: 'person-survivor',
+				organization_id: 'org-1',
+				archived_at: null
+			},
+			{
+				id: `${table}-foreign`,
+				personnel_id: 'person-foreign',
+				organization_id: 'org-2',
+				archived_at: null
+			}
+		].map((row) => ({ ...row, file_path: `${row.organization_id}/${row.id}.pdf` }));
+		ports.store.seed(table, rows);
+		ports.storage.files.push(...rows.map((row) => ({ bucket, path: row.file_path, data: new ArrayBuffer(1) })), {
+			bucket,
+			path: 'org-1/unrelated.pdf',
+			data: new ArrayBuffer(1)
+		});
+	}
+
+	// Model the parent-delete port losing child metadata before it returns. This
+	// proves orchestration with fake ports, not PostgreSQL cascades or real Storage.
+	const deleteMany = ports.store.deleteManyByIds.bind(ports.store);
+	vi.spyOn(ports.store, 'deleteManyByIds').mockImplementation(async (table, orgId, ids) => {
+		if (table !== 'personnel') return deleteMany(table, orgId, ids);
+		const removedIds = ids.filter((id) => !survivingPersonnelIds.includes(id));
+		const deleted = await deleteMany(table, orgId, removedIds);
+		for (const childTable of ['personnel_documents', 'counseling_records', 'leader_notes']) {
+			const children = await ports.store.findMany<{ id: string }>(childTable, orgId, undefined, {
+				inFilters: { personnel_id: removedIds }
+			});
+			await deleteMany(
+				childTable,
+				orgId,
+				children.map((row) => row.id)
+			);
+		}
+		return deleted;
+	});
+	return ports;
+}
+
+function storedFileKeys(ports: ReturnType<typeof buildPorts>): string[] {
+	return ports.storage.files.map((file) => `${file.bucket}:${file.path}`).sort();
+}
+
+async function parentRetentionState(ports: ReturnType<typeof buildPorts>) {
+	const rows = await Promise.all(
+		['personnel', 'personnel_documents', 'counseling_records', 'leader_notes'].flatMap((table) =>
+			['org-1', 'org-2'].map((orgId) => ports.store.findMany(table, orgId))
+		)
+	);
+	return structuredClone({ rows, files: ports.storage.files });
+}
+
+const RETAINED_PARENT_FILES = [
+	`${COUNSELING_RECORDS_BUCKET}:org-1/unrelated.pdf`,
+	`${COUNSELING_RECORDS_BUCKET}:org-2/counseling_records-foreign.pdf`,
+	`${PERSONNEL_DOCUMENTS_BUCKET}:org-1/unrelated.pdf`,
+	`${PERSONNEL_DOCUMENTS_BUCKET}:org-2/personnel_documents-foreign.pdf`
+].sort();
+
+describe('Personnel parent retention', () => {
+	it('deletes only this Organization’s archived Personnel strictly before the cutoff', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel', [
+			{ id: 'expired', organization_id: 'org-1', archived_at: '2025-05-30T11:59:59.999Z' },
+			{ id: 'at-cutoff', organization_id: 'org-1', archived_at: '2025-05-30T12:00:00.000Z' },
+			{ id: 'after-cutoff', organization_id: 'org-1', archived_at: '2025-05-30T12:00:00.001Z' },
+			{ id: 'active', organization_id: 'org-1', archived_at: null },
+			{ id: 'foreign', organization_id: 'org-2', archived_at: '2025-01-01T00:00:00.000Z' }
+		]);
+		const foreignBefore = structuredClone(await ports.store.findMany('personnel', 'org-2'));
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.deletedCount).toBe(1);
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual(['active', 'after-cutoff', 'at-cutoff']);
+		await expect(ports.store.findMany('personnel', 'org-2')).resolves.toEqual(foreignBefore);
+	});
+
+	it('captures active and recently archived files before child metadata disappears, counting only parents', async () => {
+		const ports = buildParentRetentionPorts();
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.deletedCount).toBe(2);
+		expect(result.families).toEqual(
+			expect.arrayContaining([expect.objectContaining({ key: 'personnel', deletedCount: 2 })])
+		);
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual([]);
+		await expect(idsFor(ports, 'personnel_documents')).resolves.toEqual([]);
+		await expect(idsFor(ports, 'counseling_records')).resolves.toEqual([]);
+		expect(storedFileKeys(ports)).toEqual(RETAINED_PARENT_FILES);
+		await expect(ports.store.findMany('personnel', 'org-2')).resolves.toEqual([
+			{ id: 'person-foreign', organization_id: 'org-2', archived_at: '2025-01-01T00:00:00.000Z' }
+		]);
+	});
+
+	it('removes only confirmed deleted parents’ files when another candidate survives', async () => {
+		const ports = buildParentRetentionPorts(['person-survivor']);
+		const survivorDocuments = structuredClone(
+			await ports.store.findMany('personnel_documents', 'org-1', { personnel_id: 'person-survivor' })
+		);
+		const survivorCounselings = structuredClone(
+			await ports.store.findMany('counseling_records', 'org-1', { personnel_id: 'person-survivor' })
+		);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.deletedCount).toBe(1);
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual(['person-survivor']);
+		await expect(ports.store.findMany('personnel_documents', 'org-1')).resolves.toEqual(survivorDocuments);
+		await expect(ports.store.findMany('counseling_records', 'org-1')).resolves.toEqual(survivorCounselings);
+		expect(storedFileKeys(ports)).toEqual(
+			[
+				...RETAINED_PARENT_FILES,
+				`${COUNSELING_RECORDS_BUCKET}:org-1/counseling_records-survivor.pdf`,
+				`${PERSONNEL_DOCUMENTS_BUCKET}:org-1/personnel_documents-survivor.pdf`
+			].sort()
+		);
+	});
+
+	it('preserves all parent, artifact and file state when no candidate is deleted', async () => {
+		const ports = buildParentRetentionPorts(['person-expired', 'person-survivor']);
+		const before = await parentRetentionState(ports);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.deletedCount).toBe(0);
+		expect(result.orgsAffected).toBe(0);
+		expect(await parentRetentionState(ports)).toEqual(before);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
+	it.each(['personnel_documents', 'counseling_records'])(
+		'keeps parents and files when the %s manifest cannot be read',
+		async (failedTable) => {
+			const ports = buildParentRetentionPorts();
+			const before = await parentRetentionState(ports);
+			const findMany = ports.store.findMany.bind(ports.store);
+			vi.spyOn(ports.store, 'findMany').mockImplementation((table, orgId, filters, options) => {
+				if (table === failedTable && options?.inFilters?.personnel_id)
+					throw new Error('parent file manifest unavailable');
+				return findMany(table, orgId, filters, options);
+			});
+
+			await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+				'parent file manifest unavailable'
+			);
+
+			expect(await parentRetentionState(ports)).toEqual(before);
+			expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+		}
+	);
+
+	it('preserves all parent, artifact and file state when parent deletion fails', async () => {
+		const ports = buildParentRetentionPorts();
+		const before = await parentRetentionState(ports);
+		const deleteMany = ports.store.deleteManyByIds.bind(ports.store);
+		vi.spyOn(ports.store, 'deleteManyByIds').mockImplementation((table, orgId, ids) => {
+			if (table === 'personnel') throw new Error('parent deletion unavailable');
+			return deleteMany(table, orgId, ids);
+		});
+
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'parent deletion unavailable'
+		);
+
+		expect(await parentRetentionState(ports)).toEqual(before);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
+	it('retains every file and rejects success when durable parent deletion cannot be confirmed', async () => {
+		const ports = buildParentRetentionPorts();
+		const filesBefore = structuredClone(ports.storage.files);
+		const findMany = ports.store.findMany.bind(ports.store);
+		vi.spyOn(ports.store, 'findMany').mockImplementation((table, orgId, filters, options) => {
+			if (table === 'personnel' && options?.inFilters?.id) throw new Error('parent confirmation unavailable');
+			return findMany(table, orgId, filters, options);
+		});
+
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'parent confirmation unavailable'
+		);
+
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual([]);
+		await expect(idsFor(ports, 'personnel_documents')).resolves.toEqual([]);
+		await expect(idsFor(ports, 'counseling_records')).resolves.toEqual([]);
+		expect(ports.storage.files).toEqual(filesBefore);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
+	it('exposes Storage failure after durable cascade without rolling back parents or reporting success', async () => {
+		const ports = buildParentRetentionPorts();
+		const remove = ports.storage.remove.bind(ports.storage);
+		vi.spyOn(ports.storage, 'remove').mockImplementation(async (bucket, paths) => {
+			if (bucket === PERSONNEL_DOCUMENTS_BUCKET) throw new Error('document Storage unavailable');
+			return remove(bucket, paths);
+		});
+
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'document Storage unavailable'
+		);
+
+		await expect(idsFor(ports, 'personnel')).resolves.toEqual([]);
+		await expect(idsFor(ports, 'personnel_documents')).resolves.toEqual([]);
+		await expect(idsFor(ports, 'counseling_records')).resolves.toEqual([]);
+		expect(storedFileKeys(ports)).toEqual(
+			[
+				...RETAINED_PARENT_FILES,
+				`${PERSONNEL_DOCUMENTS_BUCKET}:org-1/personnel_documents-active.pdf`,
+				`${PERSONNEL_DOCUMENTS_BUCKET}:org-1/personnel_documents-recent.pdf`,
+				`${PERSONNEL_DOCUMENTS_BUCKET}:org-1/personnel_documents-survivor.pdf`
+			].sort()
+		);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
+	it('counts expired leader notes before their parent cascade and does not count recent cascaded notes', async () => {
+		const ports = buildParentRetentionPorts();
+		ports.store.seed('leader_notes', [
+			{
+				id: 'expired-note',
+				organization_id: 'org-1',
+				personnel_id: 'person-expired',
+				archived_at: '2025-01-01T00:00:00.000Z'
+			},
+			{
+				id: 'recent-note',
+				organization_id: 'org-1',
+				personnel_id: 'person-expired',
+				archived_at: '2026-04-01T00:00:00.000Z'
+			},
+			{
+				id: 'foreign-note',
+				organization_id: 'org-2',
+				personnel_id: 'person-foreign',
+				archived_at: '2025-01-01T00:00:00.000Z'
+			}
+		]);
+
+		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
+
+		expect(result.deletedCount).toBe(3);
+		expect(result.families).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: 'leader-notes', deletedCount: 1 }),
+				expect.objectContaining({ key: 'personnel', deletedCount: 2 })
+			])
+		);
+		await expect(idsFor(ports, 'leader_notes')).resolves.toEqual([]);
+		await expect(ports.store.findMany('leader_notes', 'org-2')).resolves.toEqual([
+			{
+				id: 'foreign-note',
+				organization_id: 'org-2',
+				personnel_id: 'person-foreign',
+				archived_at: '2025-01-01T00:00:00.000Z'
+			}
+		]);
+	});
+});
+
 describe('cleanupArchivedRecords', () => {
 	it('deletes expired archived rows and retains recent or active rows for every archive family', async () => {
 		const ports = buildPorts();

@@ -19,7 +19,7 @@
 		allowUnassigned?: boolean;
 		rankCatalog?: RankCatalogEntry[];
 		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
-		onRemove?: (id: string) => void | Promise<void>;
+		onRemove?: (id: string) => boolean | Promise<boolean>;
 		onClose: () => void;
 	}
 
@@ -80,6 +80,8 @@
 
 	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
 	let isSaving = $state(false);
+	let isArchiving = $state(false);
+	const busy = $derived(isSaving || isArchiving);
 
 	const groupOptions = $derived([
 		...(isEditing || allowUnassigned ? [{ value: '', label: 'No Group Assigned' }] : []),
@@ -94,7 +96,7 @@
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		submitAttempted = true;
-		if (!isValid || isSaving) return;
+		if (!isValid || busy) return;
 
 		isSaving = true;
 
@@ -126,15 +128,21 @@
 	}
 
 	async function doArchive() {
-		if (personnel && onRemove) {
-			await onRemove(personnel.id);
-			onClose();
+		if (!personnel || !onRemove || busy) return;
+		isArchiving = true;
+		try {
+			if (await onRemove(personnel.id)) onClose();
+		} catch (error) {
+			toastStore.error(error instanceof Error && error.message.trim() ? error.message : 'Failed to archive personnel');
+		} finally {
+			isArchiving = false;
+			showArchiveConfirm = false;
 		}
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={isSaving} {onClose}>
-	<AppDialog.Content closeBlocked={isSaving}>
+<AppDialog.Root open closeBlocked={busy} {onClose}>
+	<AppDialog.Content closeBlocked={busy}>
 		<AppDialog.Header class="px-4 pt-4">
 			<AppDialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</AppDialog.Title>
 		</AppDialog.Header>
@@ -238,14 +246,14 @@
 					variant="destructive"
 					data-testid="personnel-archive"
 					onclick={handleArchive}
-					disabled={isSaving}
+					disabled={busy}
 				>
 					<ArchiveIcon />
 					Archive
 				</Button>
 			{/if}
-			<Button type="button" variant="outline" onclick={onClose} disabled={isSaving}>Cancel</Button>
-			<Button type="submit" form="personnel-form" data-testid="personnel-save" disabled={isSaving}>
+			<Button type="button" variant="outline" onclick={onClose} disabled={busy}>Cancel</Button>
+			<Button type="submit" form="personnel-form" data-testid="personnel-save" disabled={busy}>
 				{#if isSaving}
 					Saving...
 				{:else}
@@ -262,6 +270,7 @@
 		message="Archive {personnel.rank} {personnel.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
 		confirmLabel="Archive"
 		variant="warning"
+		loading={isArchiving}
 		onConfirm={doArchive}
 		onCancel={() => (showArchiveConfirm = false)}
 	/>

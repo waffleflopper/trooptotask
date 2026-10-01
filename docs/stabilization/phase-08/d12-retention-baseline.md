@@ -48,6 +48,8 @@ Both live sessions completed final doctor and owned cleanup **before** adding ar
 | [unit-baseline](d12-retention-proof/unit-baseline.tar.gz)             | `963aa37f0efef1509d5ae089caaa266f19051994a55df798396873491e25ff9e` | 10 / 19,421                    |
 | [preparation-checks](d12-retention-proof/preparation-checks.tar.gz)   | `6bbd00b0fe79da78495ca18a16f117780685f0e3eef20bfcf67f7e9633edb2c3` | 2 / 1,008                      |
 
+The authored native run record calls the counseling bucket `personnel-counselings` in one sentence. That label is incorrect: the actual source, saved manifests and requests consistently use `counseling-files`, alongside `personnel-documents`. This external correction preserves the already packaged observations and their hashes; no nonexistent bucket was targeted.
+
 Each archive contains `ARTIFACT_SHA256SUMS` with every payload's original relative filename and SHA-256 of expanded bytes, excluding only that inventory. Root freshly extracted all four archives and verified all379 payload files, exact file sets and every hash. Extract each archive into its own fresh ignored directory using `tar -xzf ARCHIVE -C DIRECTORY`, run `sha256sum --check ARTIFACT_SHA256SUMS` there, and compare the recursively expanded regular-file set excluding only the inventory with its filenames. The archive hash protects the inventory itself. Checksums establish packaging integrity, not behavioral acceptance.
 
 ## Acceptance, limits and release

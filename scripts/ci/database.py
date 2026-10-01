@@ -44,6 +44,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20260929000100_critical_tasks_library_configure_scope.sql",
     "20260929000200_training_catalog_configuration_scope.sql",
     "20260929000300_personnel_group_reference_integrity.sql",
+    "20260930000100_rating_scheme_evaluator_integrity.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -58,6 +59,7 @@ STAGED_UPGRADE_FIXTURES = (
     "calendar_catalog_scope_before.sql",
     "training_catalog_configuration_before.sql",
     "personnel_group_reference_before.sql",
+    "rating_scheme_evaluator_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -73,6 +75,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "calendar_catalog_scope_after.sql",
     "training_catalog_configuration_after.sql",
     "personnel_group_reference_after.sql",
+    "rating_scheme_evaluator_after.sql",
 )
 
 

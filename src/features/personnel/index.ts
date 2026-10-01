@@ -20,8 +20,10 @@ export function loadPersonnelModals() {
 }
 
 // Other components are imported directly from their paths:
-// $features/personnel/components/PersonnelPageView.svelte
 // $features/personnel/components/PersonnelDetailPageView.svelte
 // PersonnelRow moved to $features/calendar/components/CalendarRow.svelte
 // $features/personnel/components/PersonnelImportPage.svelte
 // $features/personnel/components/ExtendedInfoModal.svelte
+
+export { default as PersonnelPageView } from './components/PersonnelPageView.svelte';
+export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';

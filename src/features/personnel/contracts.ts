@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
+import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 
 export type { Personnel, PersonnelLookup } from './personnel.types';
 
@@ -230,3 +231,45 @@ export type {
 } from './personnelImport.types';
 
 export type { ArchivePersonnelBatchResult } from './personnelArchive.types';
+
+export const PERSONNEL_WORKSPACE_LANE_KEY = 'personnel' as const;
+
+/** Authorized Personnel workspace facts shared by Server and Web consumers. */
+export interface PersonnelWorkspaceData {
+	personnel: Personnel[];
+	personnelLookup: PersonnelLookup[];
+	groups: Group[];
+	statusTypes: PersonnelCalendarStatusSnapshot[];
+	rankCatalog: OrganizationRankCatalogEntry[];
+	pinnedGroups: string[];
+	/** Organization loss warning window in days, defaulting to 180. */
+	lossWarningWindowDays: number;
+	awardTrackingAcknowledgedPersonnelIds: string[];
+}
+
+export type PersonnelWorkspaceHydrationMode = 'replace' | 'preserve-client';
+
+export interface PersonnelWorkspaceHydrationTarget<T> {
+	mode: PersonnelWorkspaceHydrationMode;
+	deferred?: boolean;
+	snapshotKey: string;
+	items: T[] | Promise<T[]>;
+}
+
+export interface PersonnelWorkspaceHydration {
+	orgId: string;
+	personnel: PersonnelWorkspaceHydrationTarget<Personnel>;
+	groups: PersonnelWorkspaceHydrationTarget<Group>;
+	statusTypes: PersonnelWorkspaceHydrationTarget<PersonnelCalendarStatusSnapshot>;
+	pinnedGroups: PersonnelWorkspaceHydrationTarget<string>;
+}
+
+export interface PersonnelWorkspaceResult {
+	laneKey: typeof PERSONNEL_WORKSPACE_LANE_KEY;
+	data: PersonnelWorkspaceData;
+	hydration: PersonnelWorkspaceHydration;
+}
+
+export interface PersonnelWorkspaceRouteData {
+	[PERSONNEL_WORKSPACE_LANE_KEY]: { data: Promise<PersonnelWorkspaceResult> };
+}

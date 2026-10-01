@@ -1,26 +1,47 @@
 import type { LayoutServerLoad } from './$types';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/core/featureLaneWorkspaceLoad';
-import {
-	streamPersonnelWorkspaceBootstrap,
-	type PersonnelWorkspaceRouteData
-} from '$features/personnel/server/personnelWorkspaceBootstrap';
+import { loadPersonnelWorkspace } from '$features/personnel/index.server';
+import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
 import { listStatusTypes } from '$features/calendar/index.server';
 
 export interface PersonnelLayoutLoadDeps {
 	streamPersonnelWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<PersonnelWorkspaceRouteData>;
 }
 
-export function _createPersonnelLayoutLoad(deps: PersonnelLayoutLoadDeps = {}): LayoutServerLoad {
-	const streamPersonnelWorkspace =
-		deps.streamPersonnelWorkspace ?? ((context) => streamPersonnelWorkspaceBootstrap(context, listStatusTypes));
+async function streamPersonnelWorkspace(
+	context: FeatureLaneWorkspaceRequestContext
+): Promise<PersonnelWorkspaceRouteData> {
+	const personnel = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
+		policyResource: { kind: 'unscoped' },
+		defer: true,
+		fn: (ctx) =>
+			loadPersonnelWorkspace(ctx, {
+				listStatusTypes: (orgId) => listStatusTypes(ctx.store, orgId),
+				loadLossWarningWindowDays: async (orgId) => {
+					const row = await ctx.store.findOne<{ loss_warning_window_days: number | null }>(
+						'organizations',
+						orgId,
+						{},
+						'loss_warning_window_days'
+					);
+					return row?.loss_warning_window_days ?? null;
+				}
+			})
+	});
+	return { personnel };
+}
 
+export function _createPersonnelLayoutLoad(deps: PersonnelLayoutLoadDeps = {}): LayoutServerLoad {
 	return async (event) =>
 		streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:personnel-data'],
-			streamWorkspace: streamPersonnelWorkspace
+			streamWorkspace: deps.streamPersonnelWorkspace ?? streamPersonnelWorkspace
 		});
 }
 

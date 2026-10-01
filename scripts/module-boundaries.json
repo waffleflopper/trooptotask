@@ -115,7 +115,7 @@
 			"packet": "08-M14"
 		},
 		"deletion-requests": {
-			"roots": [],
+			"roots": ["src/features/deletion-requests/"],
 			"files": [
 				"src/lib/server/core/useCases/deletionRequests.test.ts",
 				"src/lib/server/core/useCases/deletionRequests.ts",
@@ -250,6 +250,7 @@
 				"src/lib/server/core/useCases/personnelReadinessLanes.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.test.ts",
 				"src/lib/server/core/useCases/personnelWorkspaceQuery.ts",
+				"src/lib/server/counselingRecordMapping.test.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
 				"src/lib/server/entities/counselingRecord.ts",
 				"src/lib/server/entities/personnelOnboarding.test.ts",
@@ -362,13 +363,7 @@
 		},
 		"rating-scheme": {
 			"roots": ["src/features/rating-scheme/"],
-			"files": [
-				"src/lib/server/core/useCases/ratingSchemeEntryCrud.test.ts",
-				"src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
-				"src/lib/server/entities/ratingSchemeEntry.test.ts",
-				"src/lib/server/entities/ratingSchemeEntry.ts",
-				"src/lib/server/ratingSchemeRepository.test.ts"
-			],
+			"files": [],
 			"packet": "08-M10"
 		},
 		"scheduled-maintenance": {
@@ -666,7 +661,8 @@
 			"src/features/feedback/index.ts",
 			"src/features/feedback/index.server.ts"
 		],
-		"platform-admin": ["src/features/platform-admin/index.server.ts"]
+		"platform-admin": ["src/features/platform-admin/index.server.ts"],
+		"deletion-requests": ["src/features/deletion-requests/index.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

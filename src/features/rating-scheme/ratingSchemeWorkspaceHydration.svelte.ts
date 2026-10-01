@@ -4,10 +4,7 @@ import {
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { RatingSchemeEntry } from './rating-scheme.types';
-import type {
-	RatingSchemeWorkspaceHydration,
-	RatingSchemeWorkspaceHydrationTarget
-} from './server/ratingSchemeWorkspaceBootstrap';
+import type { RatingSchemeWorkspaceHydration, RatingSchemeWorkspaceHydrationTarget } from './contracts';
 
 export interface RatingSchemeHydrationLoadable<T> {
 	readonly orgId: string;

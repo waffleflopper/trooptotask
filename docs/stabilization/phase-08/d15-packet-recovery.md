@@ -37,6 +37,7 @@ Every tool/helper call preserves its sanitized exact arguments before execution.
 After each final doctor and owned cleanup, captures were inspected for synthetic-only content; no redaction was necessary. Recovery [archive](d15-packet-recovery.tar.gz): **654 payloads**, SHA-256 **`d43df95f3b51f00b05c35066fe7d2fdf74a5c4c042054bbd146f885cf75591e2`**. Confirmation [archive](d15-confirmation-retry.tar.gz): **252 payloads**, SHA-256 **`a5246ff01ba95c5a6c42617479fc64bfe6b048532a63c9be500a84e9a1225263`**. Public-layout [archive](d15-public-layout.tar.gz): **260 payloads**, SHA-256 **`cfcb8a21ddcf8665bdad0243d80cafa201ef5998da31a41c974567c09830ba0c`**. Each has `inventory.json` mapping every payload's original relative name to its expanded-byte SHA-256, excluding the inventory itself. Fresh independent extraction verified every hash, the exact payload file set and original-byte equality. Archive integrity is separate from behavioral acceptance. Verify the archive hash, extract into a fresh ignored directory, and compare every expanded file/hash and the complete file set:
 
 ```bash
+set -e
 sha256sum --check <<'SHA256'
 d43df95f3b51f00b05c35066fe7d2fdf74a5c4c042054bbd146f885cf75591e2  docs/stabilization/phase-08/d15-packet-recovery.tar.gz
 SHA256

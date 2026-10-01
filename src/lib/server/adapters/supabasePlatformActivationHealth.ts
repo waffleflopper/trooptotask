@@ -30,6 +30,11 @@ type PlatformCalendarCatalogCounter = (
 	countRows: (table: CalendarCatalogTable, organizationIds: string[]) => Promise<Map<string, number>>
 ) => Promise<{ statusTypes: Map<string, number>; assignmentTypes: Map<string, number> }>;
 
+type PlatformRatingSchemeCounter = (
+	organizationIds: string[],
+	countRows: (table: 'rating_scheme_entries', organizationIds: string[]) => Promise<Map<string, number>>
+) => Promise<Map<string, number>>;
+
 type RpcCountRow<T extends string> = {
 	organization_id: string;
 } & Record<T, number | string | null>;
@@ -131,7 +136,8 @@ function applyCounts(
 
 export function createSupabasePlatformActivationHealthStore(
 	supabase: SupabaseClient,
-	countCalendarCatalogs: PlatformCalendarCatalogCounter
+	countCalendarCatalogs: PlatformCalendarCatalogCounter,
+	countRatingSchemeEntries: PlatformRatingSchemeCounter
 ): PlatformActivationHealthStore {
 	return {
 		async listActivationOrganizationFacts(input): Promise<PlatformActivationOrganizationFacts[]> {
@@ -169,7 +175,7 @@ export function createSupabasePlatformActivationHealthStore(
 				countCalendarCatalogs(organizationIds, (table, ids) => countRowsByOrganization(supabase, table, ids)),
 				countRowsByOrganization(supabase, 'onboarding_template_steps', organizationIds),
 				countRowsByOrganization(supabase, 'training_types', organizationIds),
-				countRowsByOrganization(supabase, 'rating_scheme_entries', organizationIds)
+				countRatingSchemeEntries(organizationIds, (table, ids) => countRowsByOrganization(supabase, table, ids))
 			]);
 
 			applyCounts(factsByOrgId, activePersonnelCounts, 'activePersonnel');
@@ -188,9 +194,10 @@ export function createSupabasePlatformActivationHealthStore(
 
 export function createSupabasePlatformActivationHealth(
 	ctx: AdminContext,
-	countCalendarCatalogs: PlatformCalendarCatalogCounter
+	countCalendarCatalogs: PlatformCalendarCatalogCounter,
+	countRatingSchemeEntries: PlatformRatingSchemeCounter
 ): PlatformActivationHealth {
 	return createPlatformActivationHealth({
-		store: createSupabasePlatformActivationHealthStore(ctx.adminClient, countCalendarCatalogs)
+		store: createSupabasePlatformActivationHealthStore(ctx.adminClient, countCalendarCatalogs, countRatingSchemeEntries)
 	});
 }

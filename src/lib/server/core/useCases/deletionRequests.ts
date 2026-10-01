@@ -17,6 +17,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from './governancePolicy';
 import { requireIdentityOwnedPolicy } from './identityPolicy';
 import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
+import type { ApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
 import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 const TABLE = 'deletion_requests';
@@ -104,12 +105,12 @@ export async function createDeletionRequest(
 
 const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
 	personnel: 'personnel',
-	counseling_record: 'counseling_records',
-	rating_scheme_entry: 'rating_scheme_entries'
+	counseling_record: 'counseling_records'
 };
 
 function isSupportedResourceType(resourceType: string): boolean {
 	return (
+		resourceType === 'rating_scheme_entry' ||
 		resourceType === 'training_type' ||
 		resourceType === 'personnel_training' ||
 		Boolean(RESOURCE_TYPE_TABLE_MAP[resourceType])
@@ -145,7 +146,8 @@ function notifyRequester(
 export async function approveDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	requestId: string,
-	trainingDeletion?: ApprovedTrainingDeletionPort
+	trainingDeletion?: ApprovedTrainingDeletionPort,
+	ratingSchemeDeletion?: ApprovedRatingSchemeDeletionPort
 ): Promise<void> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
@@ -188,9 +190,9 @@ export async function approveDeletionRequest(
 		} else if (resourceType === 'personnel_training') {
 			if (!trainingDeletion) throw new Error('Training approved deletion port is required');
 			await trainingDeletion.deleteApprovedTrainingRecord(ctx.auth, requestId, resourceId);
-		} else {
-			if (!tableName) throw new Error('Deletion table is required');
-			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
+		} else if (resourceType === 'rating_scheme_entry') {
+			if (!ratingSchemeDeletion) throw new Error('Rating Scheme approved deletion port is required');
+			await ratingSchemeDeletion.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, resourceId);
 		}
 
 		await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {

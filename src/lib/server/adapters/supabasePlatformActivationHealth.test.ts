@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
+import { countRatingSchemeEntriesByOrganization } from '$features/rating-scheme/index.server';
 import { createSupabasePlatformActivationHealthStore } from './supabasePlatformActivationHealth';
 
 type Row = Record<string, string | number | null>;
@@ -24,7 +25,8 @@ function storeWithFetch(fetch: typeof globalThis.fetch) {
 				countRows('assignment_types', organizationIds)
 			]);
 			return { statusTypes, assignmentTypes };
-		}
+		},
+		countRatingSchemeEntriesByOrganization
 	);
 }
 
@@ -167,17 +169,21 @@ describe('noncommercial activation provider boundary', () => {
 	});
 
 	it('counts setup rows beyond the provider page cap without counting another Organization', async () => {
+		const rows = [
+			...Array.from({ length: 1005 }, (_, index) => ({
+				id: `setup-${String(index).padStart(4, '0')}`,
+				organization_id: 'large'
+			})),
+			{ id: 'outside', organization_id: 'outside' }
+		].reverse();
 		const store = providerStore({
 			organizations: [organization('large')],
-			training_types: [
-				...Array.from({ length: 1005 }, (_, index) => ({
-					id: `training-${String(index).padStart(4, '0')}`,
-					organization_id: 'large'
-				})),
-				{ id: 'outside', organization_id: 'outside' }
-			].reverse()
+			training_types: rows,
+			rating_scheme_entries: rows
 		});
-		expect((await store.listActivationOrganizationFacts({ limit: 1 }))[0].counts.trainingTypes).toBe(1005);
+		const facts = await store.listActivationOrganizationFacts({ limit: 1 });
+		expect(facts[0].counts.trainingTypes).toBe(1005);
+		expect(facts[0].counts.ratingSchemeEntries).toBe(1005);
 	});
 
 	it('returns an empty scan without attempting aggregate reads when no Organizations exist', async () => {
@@ -188,6 +194,7 @@ describe('noncommercial activation provider boundary', () => {
 	it.each([
 		'organizations',
 		'training_types',
+		'rating_scheme_entries',
 		'rpc/count_personnel_by_organization',
 		'rpc/count_memberships_by_organization'
 	])('propagates a failed %s read instead of returning misleading health', async (resource) => {

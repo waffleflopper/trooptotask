@@ -2,6 +2,7 @@ import {
 	listOnboardingTemplateExportRows,
 	listOnboardingTemplateStepExportRows
 } from '$features/onboarding/index.server';
+import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
@@ -54,7 +55,8 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 					{
 						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
 						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
-					}
+					},
+					{ listRatingSchemeExportRows }
 				);
 				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);

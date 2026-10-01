@@ -4,6 +4,122 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig, _reviewPostConfig } from './+server';
 
 describe('POST /api/deletion-requests/review', () => {
+	it('approves only the requested Rating entry, retaining pending status on resource failure and retrying a failed status write', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		ctx.rawStore.seed('deletion_requests', [
+			{
+				id: 'rating-request',
+				organization_id: ctx.auth.orgId,
+				resource_type: 'rating_scheme_entry',
+				resource_id: 'entry-1',
+				requested_by: 'requester',
+				status: 'pending'
+			}
+		]);
+		ctx.rawStore.seed('rating_scheme_entries', [
+			{ id: 'entry-1', organization_id: ctx.auth.orgId },
+			{ id: 'entry-2', organization_id: ctx.auth.orgId },
+			{ id: 'entry-1', organization_id: 'other-org' }
+		]);
+		let resourceFails = true;
+		const config = _reviewPostConfig(
+			{ deleteApprovedTrainingType: vi.fn(), deleteApprovedTrainingRecord: vi.fn() },
+			{
+				deleteApprovedRatingSchemeEntry: async (actor, requestId, entryId) => {
+					if (resourceFails) throw new Error('Rating deletion unavailable');
+					await ctx.rawStore.deleteWhere('rating_scheme_entries', actor.orgId, { id: entryId });
+				}
+			}
+		);
+		const approve = () => handleUseCaseRequest(config, ctx, { id: 'rating-request', action: 'approve' });
+		await expect(approve()).rejects.toThrow('Rating deletion unavailable');
+		await expect(
+			ctx.rawStore.findOne('rating_scheme_entries', ctx.auth.orgId, { id: 'entry-1' })
+		).resolves.not.toBeNull();
+		await expect(
+			ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'rating-request' })
+		).resolves.toMatchObject({ status: 'pending' });
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+		resourceFails = false;
+		const update = ctx.store.update;
+		let statusFails = true;
+		vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'deletion_requests' && statusFails) {
+				statusFails = false;
+				throw new Error('status write unavailable');
+			}
+			return update(table, orgId, id, data, select);
+		});
+		await expect(approve()).rejects.toThrow('status write unavailable');
+		await expect(ctx.rawStore.findOne('rating_scheme_entries', ctx.auth.orgId, { id: 'entry-1' })).resolves.toBeNull();
+		await expect(
+			ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'rating-request' })
+		).resolves.toMatchObject({ status: 'pending' });
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+		await expect(approve()).resolves.toEqual({ success: true });
+		await expect(ctx.rawStore.findMany('rating_scheme_entries', ctx.auth.orgId)).resolves.toEqual([
+			{ id: 'entry-2', organization_id: ctx.auth.orgId }
+		]);
+		await expect(ctx.rawStore.findOne('rating_scheme_entries', 'other-org', { id: 'entry-1' })).resolves.not.toBeNull();
+		await expect(
+			ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'rating-request' })
+		).resolves.toMatchObject({ status: 'approved', reviewed_by: ctx.auth.userId, reviewed_at: expect.any(String) });
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
+		expect(ctx.notificationPort.notifications).toHaveLength(1);
+	});
+
+	it('denies a Rating operator before the approval effect and leaves the pending request intact', async () => {
+		const ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'operate'
+				}
+			}
+		});
+		ctx.rawStore.seed('deletion_requests', [
+			{
+				id: 'request',
+				organization_id: ctx.auth.orgId,
+				resource_type: 'rating_scheme_entry',
+				resource_id: 'entry',
+				status: 'pending'
+			}
+		]);
+		const deleteApprovedRatingSchemeEntry = vi.fn();
+		const config = _reviewPostConfig(
+			{ deleteApprovedTrainingType: vi.fn(), deleteApprovedTrainingRecord: vi.fn() },
+			{ deleteApprovedRatingSchemeEntry }
+		);
+		await expect(handleUseCaseRequest(config, ctx, { id: 'request', action: 'approve' })).rejects.toMatchObject({
+			status: 403
+		});
+		expect(deleteApprovedRatingSchemeEntry).not.toHaveBeenCalled();
+		await expect(ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'request' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+	});
 	it('routes completion approval through Training and removes only its bound target before approval', async () => {
 		const ctx = createTestContext({
 			auth: {

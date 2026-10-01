@@ -2,7 +2,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { pinnedGroupsStore } from '$features/personnel';
+	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import UsersIcon from '@lucide/svelte/icons/users';

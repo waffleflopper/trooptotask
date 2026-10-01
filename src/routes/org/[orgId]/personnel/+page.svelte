@@ -1,13 +1,16 @@
 <script lang="ts">
-	import PersonnelPageView from '$features/personnel/components/PersonnelPageView.svelte';
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { pinnedGroupsStore, loadPersonnelModals } from '$features/personnel';
-	import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-	import type { PersonnelPageData } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+	import {
+		PersonnelPageView,
+		rosterStore,
+		pinnedGroupsStore,
+		loadPersonnelModals,
+		PersonnelPageContext,
+		type PersonnelPageData
+	} from '$features/personnel';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
-	import type { PersonnelWorkspaceData } from '$features/personnel/server/personnelWorkspaceBootstrap';
+	import type { PersonnelWorkspaceData } from '$features/personnel/contracts';
 
 	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
@@ -29,7 +32,7 @@
 	}
 
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {
-		return new PersonnelPageContext(createPageData(workspaceData), modals, org, personnelStore, pinnedGroupsStore);
+		return new PersonnelPageContext(createPageData(workspaceData), modals, org, rosterStore, pinnedGroupsStore);
 	}
 </script>
 

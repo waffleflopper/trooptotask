@@ -89,6 +89,8 @@ export interface PersonnelRatingSchemeRosterPort {
 		actor: PersonnelRosterActor,
 		personnelId: string
 	): Promise<{ groupId: string | null } | null>;
+	/** Evaluators may be archived or in another Group, but must belong to this Organization. */
+	hasEvaluatorReferences(actor: PersonnelRosterActor, personnelIds: string[]): Promise<boolean>;
 }
 
 /** Narrow award acknowledgement flags visible with the Personnel roster. */

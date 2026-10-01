@@ -51,6 +51,29 @@ export function createSupabasePersonnelRatingSchemeRosterPort(
 				ids: [personnelId]
 			});
 			return rows[0] ? { groupId: (rows[0].group_id as string | null) ?? null } : null;
+		},
+		async hasEvaluatorReferences(actor, personnelIds) {
+			await requireFeaturePolicy(
+				{ auth: actor },
+				POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
+				{ kind: 'unscoped' },
+				'personnel'
+			);
+			const ids = [...new Set(personnelIds.map((id) => id.toLowerCase()))];
+			if (!ids.length) return true;
+			// The rated Person anchors write scope. This existence-only check admits
+			// evaluators elsewhere in the same Organization, including archived People.
+			const rows = await queryScopedPersonnelRows(
+				getAdminClient,
+				actor.orgId,
+				{ kind: 'organization' },
+				{
+					select: 'id',
+					status: 'all',
+					ids
+				}
+			);
+			return rows.length === ids.length;
 		}
 	};
 }

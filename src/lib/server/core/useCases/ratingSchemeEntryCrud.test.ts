@@ -400,3 +400,126 @@ describe('Rating scheme entry — delete', () => {
 		expect(stored).not.toBeNull();
 	});
 });
+
+const evaluatorFields = [
+	['raterPersonId', 'rater_person_id'],
+	['seniorRaterPersonId', 'senior_rater_person_id'],
+	['intermediateRaterPersonId', 'intermediate_rater_person_id'],
+	['reviewerPersonId', 'reviewer_person_id']
+] as const;
+const localEvaluator = 'd1600000-0000-4000-8000-00000000000a';
+const foreignEvaluator = 'd1600000-0000-4000-8000-00000000000b';
+const missingEvaluator = 'd1600000-0000-4000-8000-00000000000c';
+
+function evaluatorContext() {
+	const ctx = buildContext({
+		auth: {
+			role: 'member',
+			isPrivileged: false,
+			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+			capabilityMap: {
+				ratingScheme: 'operate',
+				personnel: 'none',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none'
+			}
+		}
+	});
+	ctx.store.seed('personnel', [
+		{ id: 'person-1', organization_id: 'test-org', group_id: 'alpha' },
+		{ id: localEvaluator, organization_id: 'test-org', group_id: 'bravo', archived_at: '2026-01-01' },
+		{ id: foreignEvaluator, organization_id: 'foreign-org', group_id: 'alpha' }
+	]);
+	ctx.store.seed('rating_scheme_entries', [
+		{
+			id: 'rs-1',
+			organization_id: 'test-org',
+			rated_person_id: 'person-1',
+			eval_type: 'OER',
+			rating_period_start: '2026-01-01',
+			rating_period_end: '2026-06-30',
+			status: 'active',
+			notes: 'Retained note',
+			rater_person_id: null,
+			senior_rater_person_id: null,
+			intermediate_rater_person_id: null,
+			reviewer_person_id: null
+		}
+	]);
+	return ctx;
+}
+
+describe('Rating Scheme evaluator integrity', () => {
+	it.each(evaluatorFields)(
+		'rejects foreign/missing %s on create and update without mutation or success audit',
+		async (field) => {
+			const ctx = evaluatorContext();
+			const cases = createRatingSchemeEntryUseCases();
+			const before = structuredClone(await ctx.rawStore.findMany('rating_scheme_entries', 'test-org'));
+			for (const id of [foreignEvaluator, missingEvaluator, 'not-a-person-id']) {
+				await expect(cases.create(ctx, { ...validInput, [field]: id })).rejects.toMatchObject({ status: 400 });
+				await expect(cases.update(ctx, { id: 'rs-1', [field]: id, notes: 'Must not persist' })).rejects.toMatchObject({
+					status: 400
+				});
+			}
+			expect(await ctx.rawStore.findMany('rating_scheme_entries', 'test-org')).toEqual(before);
+			expect(ctx.auditPort.events).toEqual([]);
+		}
+	);
+
+	it.each(evaluatorFields)('allows local archived cross-Group %s, then explicit clearing', async (field, column) => {
+		const ctx = evaluatorContext();
+		const cases = createRatingSchemeEntryUseCases();
+		await cases.create(ctx, { ...validInput, [field]: localEvaluator.toUpperCase() });
+		await cases.update(ctx, { id: 'rs-1', [field]: localEvaluator });
+		expect(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' })).toMatchObject({
+			[column]: localEvaluator
+		});
+		await cases.update(ctx, { id: 'rs-1', [field]: '' });
+		expect(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' })).toMatchObject({
+			[column]: null
+		});
+	});
+
+	it('preserves resubmitted historical foreign relationships during unrelated edits', async () => {
+		const ctx = evaluatorContext();
+		await ctx.rawStore.update('rating_scheme_entries', 'test-org', 'rs-1', {
+			rater_person_id: foreignEvaluator,
+			senior_rater_person_id: foreignEvaluator,
+			intermediate_rater_person_id: foreignEvaluator,
+			reviewer_person_id: foreignEvaluator,
+			rater_name: 'Historical external name'
+		});
+		await createRatingSchemeEntryUseCases().update(ctx, {
+			id: 'rs-1',
+			raterPersonId: foreignEvaluator.toUpperCase(),
+			seniorRaterPersonId: foreignEvaluator,
+			intermediateRaterPersonId: foreignEvaluator,
+			reviewerPersonId: foreignEvaluator,
+			notes: 'Unrelated historical edit'
+		});
+		expect(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' })).toMatchObject({
+			rater_person_id: foreignEvaluator.toUpperCase(),
+			senior_rater_person_id: foreignEvaluator,
+			intermediate_rater_person_id: foreignEvaluator,
+			reviewer_person_id: foreignEvaluator,
+			rater_name: 'Historical external name',
+			notes: 'Unrelated historical edit'
+		});
+	});
+
+	it('does not mutate when evaluator validation is unavailable', async () => {
+		const ctx = evaluatorContext();
+		ctx.personnelRatingSchemeRoster!.hasEvaluatorReferences = async () => {
+			throw new Error('Synthetic provider failure');
+		};
+		const before = structuredClone(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' }));
+		await expect(
+			createRatingSchemeEntryUseCases().update(ctx, { id: 'rs-1', raterPersonId: localEvaluator })
+		).rejects.toThrow('Synthetic provider failure');
+		expect(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' })).toEqual(before);
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+});

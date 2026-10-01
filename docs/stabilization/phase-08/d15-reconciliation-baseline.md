@@ -46,6 +46,7 @@ sha256sum --check <<'SHA256'
 aa8be20a7945b202eccbdeaeb9d8af58894c66b484cf5d81020b1305210131f8  docs/stabilization/phase-08/d15-reconciliation-baseline.tar.gz
 33202a425ef4f2f869ae8f4c6d5cc2886f593a97931132281ef5852f5ae0b770  docs/stabilization/phase-08/d15-retention-admission.tar.gz
 SHA256
+mkdir -p ".verification/evidence/verify-trooptotask"
 for package in d15-reconciliation-baseline d15-retention-admission; do
   task_review_dir=$(mktemp -d ".verification/evidence/verify-trooptotask/${package}-review.XXXXXX")
   tar -xzf "docs/stabilization/phase-08/${package}.tar.gz" -C "$task_review_dir"

@@ -41,6 +41,7 @@ set -e
 sha256sum --check <<'SHA256'
 c1851ba59ff9d35a0ece20c2693c7be5ee09b2f2ded95ed20c62a68d94e79700  docs/stabilization/phase-08/d15-retention-repair.tar.gz
 SHA256
+mkdir -p ".verification/evidence/verify-trooptotask"
 task_review_dir=$(mktemp -d ".verification/evidence/verify-trooptotask/d15-retention-review.XXXXXX")
 tar -xzf docs/stabilization/phase-08/d15-retention-repair.tar.gz -C "$task_review_dir"
 python - "$task_review_dir" <<'PY'

@@ -46,17 +46,19 @@ sha256sum --check <<'SHA256'
 aa8be20a7945b202eccbdeaeb9d8af58894c66b484cf5d81020b1305210131f8  docs/stabilization/phase-08/d15-reconciliation-baseline.tar.gz
 33202a425ef4f2f869ae8f4c6d5cc2886f593a97931132281ef5852f5ae0b770  docs/stabilization/phase-08/d15-retention-admission.tar.gz
 SHA256
-mkdir .verification/evidence/verify-trooptotask/d15-admission-review
-tar -xzf docs/stabilization/phase-08/d15-retention-admission.tar.gz -C .verification/evidence/verify-trooptotask/d15-admission-review
-python - <<'PY'
+for package in d15-reconciliation-baseline d15-retention-admission; do
+  task_review_dir=$(mktemp -d ".verification/evidence/verify-trooptotask/${package}-review.XXXXXX")
+  tar -xzf "docs/stabilization/phase-08/${package}.tar.gz" -C "$task_review_dir"
+  python - "$task_review_dir" <<'PY'
 from pathlib import Path
-import hashlib, json
-p = Path('.verification/evidence/verify-trooptotask/d15-admission-review')
+import hashlib, json, sys
+p = Path(sys.argv[1])
 expected = json.loads((p / 'inventory.json').read_text())
 actual = {f.relative_to(p).as_posix(): hashlib.sha256(f.read_bytes()).hexdigest()
           for f in p.rglob('*') if f.is_file() and f.relative_to(p).as_posix() != 'inventory.json'}
 assert actual == expected
 PY
+done
 ```
 
 ## Review correction

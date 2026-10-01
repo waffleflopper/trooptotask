@@ -9,6 +9,7 @@ import { repository, sessionPath, readJSON, processIdentity } from '../../../../
 import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
+import { seedArtifactRetention } from './artifact-retention.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
@@ -199,6 +200,18 @@ async function main() {
 		return;
 	}
 	if (command === 'retention') {
+		if (args[0] === 'settings') {
+			const client = await provider();
+			note({
+				organizations: checked(
+					await client
+						.from('organizations')
+						.select('id,archive_retention_months')
+						.in('id', [org('orgA'), org('orgB')])
+				)
+			});
+			return;
+		}
 		if (args[0] === 'files') {
 			note(await readRetentionFiles(await provider(), await saved()));
 			return;
@@ -208,7 +221,9 @@ async function main() {
 			!['missing', 'wrong', 'run'].includes(args[1]) ||
 			(args[2] && !['records', 'personnel'].includes(args[2]))
 		)
-			throw new Error('Use retention files or retention cron missing|wrong|run [records|personnel].');
+			throw new Error(
+				'Use retention settings, retention files or retention cron missing|wrong|run [records|personnel].'
+			);
 		const endpoint = args[2] === 'personnel' ? '/api/cleanup-archived-personnel' : '/api/cleanup-archived-records';
 		const headers = {};
 		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
@@ -644,6 +659,8 @@ async function main() {
 				'personnel-retention',
 				'personnel-retention-1001',
 				'personnel-retention-dense',
+				'artifact-retention',
+				'artifact-retention-1001',
 				'communications',
 				'rating-scheme'
 			].includes(kind)
@@ -652,6 +669,10 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind.startsWith('artifact-retention')) {
+			note(await seedArtifactRetention({ client, fixture, kind, tag, ownedState, save }));
+			return;
+		}
 		if (kind.startsWith('personnel-retention')) {
 			note(await seedPersonnelRetention({ client, fixture, kind, tag, ownedState, save }));
 			return;

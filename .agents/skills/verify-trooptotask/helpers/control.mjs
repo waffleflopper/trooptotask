@@ -21,6 +21,7 @@ const evidenceRoot = path.join(repository, '.verification/evidence/verify-troopt
 const tableColumns = {
 	groups: 'organization_id',
 	personnel: 'organization_id',
+	personnel_extended_info: 'organization_id',
 	organization_rank_catalog: 'organization_id',
 	leader_notes: 'organization_id',
 	personnel_follow_ups: 'organization_id',
@@ -50,6 +51,8 @@ const tableColumns = {
 	rating_scheme_entries: 'organization_id'
 };
 const tableSelect = {
+	personnel_extended_info:
+		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at',
 	organization_rank_catalog: 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order',
 	training_types:
 		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional',
@@ -959,7 +962,8 @@ async function main() {
 				].includes(family) &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
-				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family)
+				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/extended-info$/.test(family)
 			)
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);

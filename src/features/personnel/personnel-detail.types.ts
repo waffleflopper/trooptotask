@@ -1,4 +1,5 @@
 import type { PersonnelLeaderNote } from './contracts';
+import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 import type { Personnel } from './personnel.types';
 
 export interface PersonnelDetailHeader {
@@ -47,37 +48,6 @@ export interface PersonnelDocumentsPageData {
 	title: string;
 	emptyState: string;
 	records: PersonnelDocument[];
-}
-
-export interface PersonnelExtendedInfo {
-	bloodType: string;
-	basd: string;
-	dateOfRank: string;
-	maritalStatus: string;
-	numberOfDependents: number | null;
-	children: PersonnelChild[];
-	civilianEducation: string;
-	militaryEducation: string[];
-	emergencyContactName: string;
-	emergencyContactRelationship: string;
-	emergencyContactPhone: string;
-	spouseName: string;
-	spousePhone: string;
-	vehicleMakeModel: string;
-	vehiclePlate: string;
-	vehicleColor: string;
-	personalEmail: string;
-	personalPhone: string;
-	addressStreet: string;
-	addressCity: string;
-	addressState: string;
-	addressZip: string;
-	address: string;
-}
-
-export interface PersonnelChild {
-	name: string;
-	age: number | null;
 }
 
 export interface PersonnelCounselingRecord {

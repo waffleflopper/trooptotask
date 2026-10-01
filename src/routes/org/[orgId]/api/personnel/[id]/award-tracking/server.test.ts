@@ -69,4 +69,21 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 			})
 		).rejects.toMatchObject({ status: 403 });
 	});
+
+	it.each([
+		{ value: true, expected: true },
+		{ value: false, expected: false },
+		{ value: 'true', expected: false },
+		{ value: undefined, expected: false }
+	])('uses only literal true and keeps the path Person authoritative ($value)', async ({ value, expected }) => {
+		await expect(
+			_postConfig.parseInput?.({
+				params: { id: 'person-1' },
+				request: new Request('http://localhost', {
+					method: 'POST',
+					body: JSON.stringify({ acknowledged: value, personnelId: 'foreign-person' })
+				})
+			} as never)
+		).resolves.toEqual({ personnelId: 'person-1', acknowledged: expected });
+	});
 });

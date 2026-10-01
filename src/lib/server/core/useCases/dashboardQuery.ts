@@ -24,7 +24,6 @@ import {
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import { listTrainingTypes } from '$features/training/index.server';
 import { formatDate } from '$lib/utils/dates';
-import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
 
 export interface DashboardData {
@@ -106,7 +105,9 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null),
-		listAwardTrackingAcknowledgedPersonnelIds(ctx)
+		ctx.personnelAwardAcknowledgement
+			? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
+			: Promise.reject(new Error('Personnel award acknowledgement port is required'))
 	]);
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 

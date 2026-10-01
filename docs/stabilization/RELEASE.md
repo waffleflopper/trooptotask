@@ -338,7 +338,7 @@ The [owned retention receipt](phase-08/d12-retention-ownership.md) records exact
 
 ## Phase 08 D15 atomic packet reconciliation
 
-[#1470](https://github.com/waffleflopper/trooptotask/pull/1470) remains unmerged while its local verification and reviews complete. Robert’s authorization stops this migration PR before merge for his manual database operation. The agent has not inspected or changed a remote database or the existing local development provider.
+[#1470](https://github.com/waffleflopper/trooptotask/pull/1470) remains unmerged for the manual migration boundary. Matching native/API/SQL proof and complete corrected CI pass; the linked PR records final publication checks/reviews. Robert’s authorization stops this migration PR before merge for his manual database operation. The agent has not inspected or changed a remote database or the existing local development provider.
 
 Robert applies reviewed `supabase/migrations/20261001000200_atomic_onboarding_reconciliation.sql`, SHA-256 `245ae146ac8babff887c51c4c07860e8d041a0dabf3510628142854b54f9d623`, through his normal ordered migration procedure after predecessors through `20261001000100`, and records the ledger/application outcome privately. It adds `public.reconcile_onboarding_packet(uuid, uuid, uuid)` with authenticated-only execution, ordinary RLS and Onboarding Configure/current Person scope. Its transaction includes the PostgREST schema-reload notification. It changes no existing rows, table definitions, constraints or table policies; it does not automatically reconcile historical mixed packets.
 

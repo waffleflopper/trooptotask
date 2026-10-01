@@ -188,6 +188,15 @@ export async function seed(session) {
 		onboardingForeign: { organization: 'orgB', onboarding: 'configure', scope: 'organization' },
 		onboardingSwitch: { organization: 'orgA', onboarding: 'configure', scope: 'organization' }
 	};
+	const ratingSchemeActors = {
+		ratingConfigure: { organization: 'orgA', ratingScheme: 'configure', scope: 'organization' },
+		ratingOperate: { organization: 'orgA', ratingScheme: 'operate', scope: 'organization' },
+		ratingView: { organization: 'orgA', ratingScheme: 'view', scope: 'organization' },
+		ratingScoped: { organization: 'orgA', ratingScheme: 'operate', scope: 'groups', groups: [ids.groupA] },
+		ratingEmpty: { organization: 'orgA', ratingScheme: 'operate', scope: 'groups', groups: [] },
+		ratingForeign: { organization: 'orgB', ratingScheme: 'operate', scope: 'organization' },
+		ratingSwitch: { organization: 'orgA', ratingScheme: 'operate', scope: 'organization' }
+	};
 	const organizationActors = {
 		orgOwner: { organization: 'orgA', role: 'owner', scope: 'organization' },
 		orgAdmin: { organization: 'orgA', role: 'admin', scope: 'organization' },
@@ -218,6 +227,7 @@ export async function seed(session) {
 		...Object.keys(trainingActors),
 		...Object.keys(criticalTasksActors),
 		...Object.keys(onboardingActors),
+		...Object.keys(ratingSchemeActors),
 		...Object.keys(organizationActors),
 		...Object.keys(notificationActors)
 	]) {
@@ -233,6 +243,7 @@ export async function seed(session) {
 					trainingActors[role]?.organization ??
 					criticalTasksActors[role]?.organization ??
 					onboardingActors[role]?.organization ??
+					ratingSchemeActors[role]?.organization ??
 					notificationActors[role]?.organization ??
 					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
@@ -303,6 +314,7 @@ export async function seed(session) {
 		const training = trainingActors[role];
 		const criticalTasks = criticalTasksActors[role];
 		const onboarding = onboardingActors[role];
+		const ratingScheme = ratingSchemeActors[role];
 		const organization = organizationActors[role];
 		const notification = notificationActors[role];
 		checked(
@@ -316,7 +328,7 @@ export async function seed(session) {
 				capability_overrides: {
 					personnel:
 						onboarding?.personnel ??
-						(criticalTasks || onboarding || notification
+						(criticalTasks || onboarding || ratingScheme || notification
 							? 'none'
 							: (personnel?.personnel ??
 								calendar?.personnel ??
@@ -326,7 +338,7 @@ export async function seed(session) {
 					training: training?.training ?? 'none',
 					criticalTasks: criticalTasks?.criticalTasks ?? 'none',
 					onboarding: onboarding?.onboarding ?? training?.onboarding ?? 'none',
-					ratingScheme: 'none'
+					ratingScheme: ratingScheme?.ratingScheme ?? 'none'
 				},
 				access_scope_kind:
 					organization?.scope ??
@@ -335,6 +347,7 @@ export async function seed(session) {
 					training?.scope ??
 					criticalTasks?.scope ??
 					onboarding?.scope ??
+					ratingScheme?.scope ??
 					(role === 'scoped' ? 'groups' : 'organization'),
 				access_scope_group_ids:
 					organization?.groups ??
@@ -343,10 +356,29 @@ export async function seed(session) {
 					training?.groups ??
 					criticalTasks?.groups ??
 					onboarding?.groups ??
+					ratingScheme?.groups ??
 					(role === 'scoped' ? [ids.groupA] : [])
 			})
 		);
 	}
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.ratingSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'none',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'view'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
 	checked(
 		await service.from('organization_memberships').insert({
 			organization_id: ids.orgB,
@@ -1094,6 +1126,7 @@ export async function seed(session) {
 		trainingActors,
 		criticalTasksActors,
 		onboardingActors,
+		ratingSchemeActors,
 		organizationActors,
 		notificationActors
 	};

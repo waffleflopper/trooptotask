@@ -188,7 +188,11 @@ describe('Personnel Edit archive recovery', () => {
 		const ctx = new PersonnelPageContext(
 			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog: [] },
 			modals,
-			createTestOrgContext({ orgId: 'org-a' })
+			createTestOrgContext({
+				orgId: 'org-a',
+				userRole: 'member',
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, personnel: 'operate' }
+			})
 		);
 		modals.open('personnel-modal', { person: structuredClone(originalPerson) });
 		render(PersonnelModals, { props: { ctx, modals } });
@@ -257,5 +261,30 @@ describe('Personnel Edit archive recovery', () => {
 		await waitFor(() => expect(modals.isOpen('personnel-modal')).toBe(false));
 		expect(personnelStore.items).toEqual([originalPerson]);
 		expect(error).not.toHaveBeenCalled();
+	});
+
+	it('blocks saving or closing the editor while archive is pending, then retains its draft on failure', async () => {
+		let respond!: (response: Response) => void;
+		const response = new Promise<Response>((resolve) => {
+			respond = resolve;
+		});
+		const fetch = vi.fn(() => response);
+		vi.stubGlobal('fetch', fetch);
+		vi.spyOn(toastStore, 'error').mockReturnValue('error');
+		const modals = openEditor();
+		await fireEvent.input(screen.getByLabelText('Duty Role'), { target: { value: 'Held archive duty' } });
+		await archive();
+		await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+		const editor = screen.getByRole('dialog', { name: 'Edit Personnel' });
+		expect((within(editor).getByRole('button', { name: 'Save Changes' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((within(editor).getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.keyDown(document, { key: 'Escape' });
+		expect(modals.isOpen('personnel-modal')).toBe(true);
+		respond(Response.json({}, { status: 503 }));
+		await waitFor(() => expect(toastStore.error).toHaveBeenCalled());
+		expect(modals.isOpen('personnel-modal')).toBe(true);
+		expect((screen.getByLabelText('Duty Role') as HTMLInputElement).value).toBe('Held archive duty');
+		expect((screen.getByRole('button', { name: 'Save Changes' }) as HTMLButtonElement).disabled).toBe(false);
+		expect(personnelStore.items).toEqual([originalPerson]);
 	});
 });

@@ -4,7 +4,7 @@
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupManager from './GroupManager.svelte';
-	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
+	import { archivePersonnel } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -33,21 +33,15 @@
 
 	async function handleArchive(id: string) {
 		const person = personnelStore.getById(id);
-		const result = await personnelStore.remove(id);
-		if (result === 'deleted') {
-			toastStore.success('Personnel archived');
-			await invalidateAll();
-		} else if (result === 'approval_required' && person) {
-			await submitDeletionRequest(
-				ctx.orgId,
-				'personnel',
-				id,
-				`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
-				`/org/${ctx.orgId}/personnel`
-			);
-		} else if (result === 'error') {
+		if (!person) {
 			toastStore.error('Failed to archive personnel');
+			return false;
 		}
+		const result = await archivePersonnel({ orgId: ctx.orgId, person });
+		if (result === 'archived') {
+			await invalidateAll();
+		}
+		return result !== 'error';
 	}
 </script>
 

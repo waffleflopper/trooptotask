@@ -76,8 +76,8 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 	}
 	const pageMarkerIds = {};
 	if (kind === 'personnel-retention-dense') {
-		// Nullable file metadata is supported history. A real final-page PDF in each
-		// bucket detects truncated manifests without uploading thousands of objects.
+		// Metadata-only rows carry valid synthetic paths without stored objects. A
+		// real final-page PDF detects truncated manifests in each bucket.
 		for (const type of ['document', 'counseling']) {
 			const rows = type === 'document' ? documents : counselings;
 			for (let index = 0; index < 1000; index++) {
@@ -86,13 +86,30 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 					organization_id: people[0].organization_id,
 					personnel_id: people[0].id,
 					title: 'Synthetic dense ' + type + ' ' + tag + ' ' + index,
-					file_path: null,
+					file_path:
+						type === 'document'
+							? people[0].organization_id +
+								'/personnel/' +
+								people[0].id +
+								'/documents/' +
+								tag +
+								'-metadata-' +
+								index +
+								'.pdf'
+							: people[0].organization_id +
+								'/counseling-records/' +
+								people[0].id +
+								'/' +
+								tag +
+								'-metadata-' +
+								index +
+								'.pdf',
 					archived_at: null,
 					uploaded_by: fixture.actors.manager.id
 				};
 				rows.push(
 					type === 'document'
-						? { ...base, file_size_bytes: 0, content_type: 'application/pdf' }
+						? { ...base, file_size_bytes: 1, content_type: 'application/pdf' }
 						: { ...base, date_conducted: '2026-09-14', subject: base.title, status: 'completed' }
 				);
 			}

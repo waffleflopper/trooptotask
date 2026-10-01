@@ -95,7 +95,7 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
 ### Product surface reality
 
 - `Critical Tasks` is a real feature surface with its own UI and workflow identity.
-- `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane. Its entry/workspace operations, mapping and consumed reverse reads/effects now live in the feature owner. Evals consumes portable, Web and Server entries; streaming, approval submission and notification binding stay in delivery. The mutable entry store and entity stay private; Dashboard receives only due facts. D16 final verification remains pending.
+- `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane. Its entry/workspace operations, mapping and consumed reverse reads/effects now live in the feature owner. Evals consumes portable, Web and Server entries; streaming, approval submission and notification binding stay in delivery. The mutable entry store and entity stay private; Dashboard receives only due facts. D16 source/native verification is recorded in the ownership receipt; final PR validation and accepted integration remain required.
 
 ## Intended Guardrails Going Forward
 

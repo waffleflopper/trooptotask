@@ -38,6 +38,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.
 - [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
 - [Personnel record lifecycle](personnel-records-lifecycle.md): create/edit, imports and ETS/DEROS backfill, archive/restore, approval, replay, scope and stable identities.
+- [Personnel artifacts](personnel-artifacts.md): counseling PDFs, documents, follow-ups and leader notes; drafts, sensitive access, archive/restore/removal, exports and retention.
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.
 - [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.

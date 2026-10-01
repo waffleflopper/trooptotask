@@ -522,6 +522,66 @@ describe('Personnel — permanent delete', () => {
 		});
 	});
 
+	it.each(['resolve', 'reject'] as const)(
+		'persists deletion and audit before waiting for administrator notification to %s',
+		async (completion) => {
+			const ctx = createTestContext();
+			seedPersonnel(ctx);
+			let startNotification!: () => void;
+			const notificationStarted = new Promise<void>((resolve) => {
+				startNotification = resolve;
+			});
+			let releaseNotification!: () => void;
+			let rejectNotification!: (reason: Error) => void;
+			const notificationPending = new Promise<void>((resolve, reject) => {
+				releaseNotification = resolve;
+				rejectNotification = reject;
+			});
+			let atNotification: { person: unknown; auditEvents: typeof ctx.auditPort.events } | undefined;
+			const notifyAdmins = ctx.notifications.notifyAdmins.bind(ctx.notifications);
+			ctx.notifications.notifyAdmins = async (...args) => {
+				atNotification = {
+					person: structuredClone(await ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })),
+					auditEvents: structuredClone(ctx.auditPort.events)
+				};
+				startNotification();
+				await notificationPending;
+				await notifyAdmins(...args);
+			};
+
+			let settled = false;
+			const deletion = createPersonnelUseCases().permanentlyDelete(ctx, 'p-1');
+			void deletion.then(
+				() => {
+					settled = true;
+				},
+				() => {
+					settled = true;
+				}
+			);
+			await notificationStarted;
+			await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toBeNull();
+			expect(atNotification?.person).toBeNull();
+			expect(atNotification?.auditEvents).toContainEqual(
+				expect.objectContaining({ action: 'personnel.permanently_deleted', resourceId: 'p-1' })
+			);
+			expect(settled).toBe(false);
+
+			if (completion === 'resolve') {
+				releaseNotification();
+				await expect(deletion).resolves.toEqual({ success: true });
+			} else {
+				const failure = new Error('administrator notification interrupted');
+				rejectNotification(failure);
+				await expect(deletion).rejects.toThrow('administrator notification interrupted');
+			}
+			await expect(ctx.rawStore.findOne('personnel', ctx.auth.orgId, { id: 'p-1' })).resolves.toBeNull();
+			expect(ctx.auditPort.events).toContainEqual(
+				expect.objectContaining({ action: 'personnel.permanently_deleted', resourceId: 'p-1' })
+			);
+		}
+	);
+
 	it('rejects permanent delete when id is missing', async () => {
 		const ctx = createTestContext();
 		const { permanentlyDelete } = createPersonnelUseCases();

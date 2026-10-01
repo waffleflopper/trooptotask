@@ -35,7 +35,6 @@ export { createSupabasePersonnelGovernanceDeletionPort } from './governanceDelet
 export type { PersonnelGovernanceDeletionPort } from './contracts';
 export { archiveLeaderNotesWithPersonnel, restoreLeaderNotesWithPersonnel } from './leaderNoteArchive.server';
 export type { LeaderNoteArchivePersistence } from './leaderNoteArchive.server';
-export { createLeaderNoteDataSource } from './leaderNoteDataSource.server';
 export {
 	addOrganizationRankServicePack,
 	bulkSetOrganizationRankCatalogState,
@@ -53,12 +52,15 @@ export {
 	createPersonnelCatalogRankResolver,
 	normalizeActivePersonnelRank
 } from './rankValidation.server';
-export type { LeaderNoteDataSource, LeaderNoteSourcePersistence } from './leaderNoteDataSource.server';
 export { importPersonnelBatch } from './personnelBatch.server';
 export { mergePersonnelBatch } from './personnelDateBackfill.server';
 export { exportPersonnelWorkbook } from './personnelExport.server';
 export type { PersonnelExportOutput } from './personnelExport.server';
 export { createSupabasePersonnelRetentionSource, type PersonnelRetentionSource } from './personnelRetention.server';
+export {
+	createSupabasePersonnelArtifactRetentionSource,
+	type PersonnelArtifactRetentionSource
+} from './personnelArtifactRetention.server';
 
 export {
 	archivePersonnelRecord,

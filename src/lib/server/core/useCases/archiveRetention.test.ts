@@ -1,16 +1,13 @@
-import { createLeaderNoteDataSource, type PersonnelRetentionSource } from '$features/personnel/index.server';
+import type { PersonnelArtifactRetentionSource, PersonnelRetentionSource } from '$features/personnel/index.server';
 import { describe, expect, it, vi } from 'vitest';
-import { createInMemoryDataStore, createTestStoragePort } from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { cleanupArchivedRecords } from './archiveRetention';
-import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
-import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 
 const NOW = new Date('2026-05-30T12:00:00.000Z');
 
 function buildPorts() {
 	const store = createInMemoryDataStore();
-	const storage = createTestStoragePort();
 	const assignmentTypes = {
 		async deleteExpiredUnreferenced(orgId: string, ids: string[], cutoff: string): Promise<number> {
 			const candidates = await store.findMany<{ id: string }>('assignment_types', orgId, undefined, {
@@ -32,17 +29,19 @@ function buildPorts() {
 
 	return {
 		store,
-		storage,
 		assignmentTypes,
 		personnel: { deleteExpired: vi.fn<PersonnelRetentionSource['deleteExpired']>().mockResolvedValue(0) },
 		notifications: { notifyAdmins: vi.fn<NotificationDeliveryPort['notifyAdmins']>().mockResolvedValue(undefined) },
-		leaderNotes: createLeaderNoteDataSource({
-			findArchivedBefore: async (orgId, cutoff) => {
-				const notes = await store.findMany<{ id: string; archived_at: string | null }>('leader_notes', orgId);
-				return notes.filter((note) => note.archived_at !== null && Date.parse(note.archived_at) < Date.parse(cutoff));
-			},
-			deleteByIds: (orgId, ids) => store.deleteManyByIds('leader_notes', orgId, ids)
-		})
+		artifacts: {
+			deleteExpiredFollowUps: vi.fn<PersonnelArtifactRetentionSource['deleteExpiredFollowUps']>().mockResolvedValue(0),
+			deleteExpiredCounselingRecords: vi
+				.fn<PersonnelArtifactRetentionSource['deleteExpiredCounselingRecords']>()
+				.mockResolvedValue(0),
+			deleteExpiredDocuments: vi.fn<PersonnelArtifactRetentionSource['deleteExpiredDocuments']>().mockResolvedValue(0),
+			deleteExpiredLeaderNotes: vi
+				.fn<PersonnelArtifactRetentionSource['deleteExpiredLeaderNotes']>()
+				.mockResolvedValue(0)
+		}
 	};
 }
 
@@ -57,51 +56,11 @@ function seedRetentionRows(ports: ReturnType<typeof buildPorts>) {
 	const recent = isoMonthsAgo(3);
 	ports.personnel.deleteExpired.mockResolvedValue(1);
 
-	ports.store.seed('personnel_follow_ups', [
-		{ id: 'follow-up-expired', organization_id: 'org-1', status: 'archived', archived_at: expired },
-		{ id: 'follow-up-recent', organization_id: 'org-1', status: 'archived', archived_at: recent },
-		{ id: 'follow-up-active', organization_id: 'org-1', status: 'open', archived_at: null }
-	]);
-	ports.store.seed('counseling_records', [
-		{
-			id: 'counseling-expired',
-			organization_id: 'org-1',
-			file_path: 'org-1/counseling-records/person-1/expired.pdf',
-			archived_at: expired
-		},
-		{
-			id: 'counseling-recent',
-			organization_id: 'org-1',
-			file_path: 'org-1/counseling-records/person-1/recent.pdf',
-			archived_at: recent
-		},
-		{ id: 'counseling-active', organization_id: 'org-1', archived_at: null }
-	]);
-	ports.store.seed('personnel_documents', [
-		{
-			id: 'document-expired',
-			organization_id: 'org-1',
-			file_path: 'org-1/personnel/person-1/documents/expired.pdf',
-			archived_at: expired
-		},
-		{
-			id: 'document-recent',
-			organization_id: 'org-1',
-			file_path: 'org-1/personnel/person-1/documents/recent.pdf',
-			archived_at: recent
-		},
-		{
-			id: 'document-active',
-			organization_id: 'org-1',
-			file_path: 'org-1/personnel/person-1/documents/active.pdf',
-			archived_at: null
-		}
-	]);
-	ports.store.seed('leader_notes', [
-		{ id: 'note-expired', organization_id: 'org-1', archived_at: expired },
-		{ id: 'note-recent', organization_id: 'org-1', archived_at: recent },
-		{ id: 'note-active', organization_id: 'org-1', archived_at: null }
-	]);
+	ports.artifacts.deleteExpiredFollowUps.mockResolvedValue(1);
+	ports.artifacts.deleteExpiredCounselingRecords.mockResolvedValue(1);
+	ports.artifacts.deleteExpiredDocuments.mockResolvedValue(1);
+	ports.artifacts.deleteExpiredLeaderNotes.mockResolvedValue(1);
+
 	ports.store.seed('ict_tasks', [
 		{ id: 'ict-expired', organization_id: 'org-1', archived_at: expired },
 		{ id: 'ict-recent', organization_id: 'org-1', archived_at: recent },
@@ -112,28 +71,6 @@ function seedRetentionRows(ports: ReturnType<typeof buildPorts>) {
 		{ id: 'assignment-recent', organization_id: 'org-1', archived_at: recent },
 		{ id: 'assignment-active', organization_id: 'org-1', archived_at: null }
 	]);
-	ports.storage.files.push(
-		{
-			bucket: PERSONNEL_DOCUMENTS_BUCKET,
-			path: 'org-1/personnel/person-1/documents/expired.pdf',
-			data: new ArrayBuffer(1)
-		},
-		{
-			bucket: PERSONNEL_DOCUMENTS_BUCKET,
-			path: 'org-1/personnel/person-1/documents/recent.pdf',
-			data: new ArrayBuffer(1)
-		},
-		{
-			bucket: COUNSELING_RECORDS_BUCKET,
-			path: 'org-1/counseling-records/person-1/expired.pdf',
-			data: new ArrayBuffer(1)
-		},
-		{
-			bucket: COUNSELING_RECORDS_BUCKET,
-			path: 'org-1/counseling-records/person-1/recent.pdf',
-			data: new ArrayBuffer(1)
-		}
-	);
 }
 
 async function idsFor(ports: ReturnType<typeof buildPorts>, table: string): Promise<string[]> {
@@ -142,145 +79,90 @@ async function idsFor(ports: ReturnType<typeof buildPorts>, table: string): Prom
 }
 
 describe('cleanupArchivedRecords', () => {
-	it('retains cutoff-equal and foreign artifacts plus unarchived completed Follow-up history', async () => {
-		const ports = buildPorts();
-		const cutoff = '2025-05-30T12:00:00.000Z';
-		const expired = '2025-05-30T11:59:59.999Z';
-		for (const table of ['personnel_follow_ups', 'counseling_records', 'personnel_documents']) {
-			ports.store.seed(table, [
-				{
-					id: 'expired',
-					organization_id: 'org-1',
-					personnel_id: 'active-parent',
-					archived_at: expired,
-					status: 'archived'
-				},
-				{
-					id: 'cutoff-equal',
-					organization_id: 'org-1',
-					personnel_id: 'active-parent',
-					archived_at: cutoff,
-					status: 'archived'
-				},
-				{
-					id: 'foreign-expired',
-					organization_id: 'org-2',
-					personnel_id: 'foreign-parent',
-					archived_at: expired,
-					status: 'archived'
-				}
-			]);
-		}
-		await ports.store.insert('personnel_follow_ups', 'org-1', {
-			id: 'completed-history',
-			personnel_id: 'active-parent',
-			status: 'completed',
-			completed_at: expired,
-			archived_at: null
-		});
-		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
-		expect(result.deletedCount).toBe(3);
-		for (const table of ['counseling_records', 'personnel_documents'])
-			await expect(idsFor(ports, table)).resolves.toEqual(['cutoff-equal']);
-		await expect(idsFor(ports, 'personnel_follow_ups')).resolves.toEqual(['completed-history', 'cutoff-equal']);
-		for (const table of ['personnel_follow_ups', 'counseling_records', 'personnel_documents'])
-			expect(await ports.store.findMany<{ id: string }>(table, 'org-2')).toEqual([
-				expect.objectContaining({ id: 'foreign-expired', archived_at: expired })
-			]);
-	});
-
-	it('deletes expired archived rows and retains recent or active rows for every archive family', async () => {
+	it('sums actual owned family counts and retains recent or active central rows', async () => {
 		const ports = buildPorts();
 		seedRetentionRows(ports);
 
+		ports.artifacts.deleteExpiredFollowUps.mockResolvedValue(2);
+		ports.artifacts.deleteExpiredCounselingRecords.mockResolvedValue(3);
+		ports.artifacts.deleteExpiredDocuments.mockResolvedValue(4);
+		ports.artifacts.deleteExpiredLeaderNotes.mockResolvedValue(5);
+		ports.personnel.deleteExpired.mockResolvedValue(6);
+
 		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
 
-		expect(result.deletedCount).toBe(7);
+		expect(result.deletedCount).toBe(22);
 		expect(result.orgsAffected).toBe(1);
 		expect(result.families).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({ key: 'personnel', deletedCount: 1 }),
-				expect.objectContaining({ key: 'personnel-follow-ups', deletedCount: 1 }),
-				expect.objectContaining({ key: 'counseling-records', deletedCount: 1 }),
-				expect.objectContaining({ key: 'personnel-documents', deletedCount: 1 }),
-				expect.objectContaining({ key: 'leader-notes', deletedCount: 1 }),
+				expect.objectContaining({ key: 'personnel', deletedCount: 6 }),
+				expect.objectContaining({ key: 'personnel-follow-ups', deletedCount: 2 }),
+				expect.objectContaining({ key: 'counseling-records', deletedCount: 3 }),
+				expect.objectContaining({ key: 'personnel-documents', deletedCount: 4 }),
+				expect.objectContaining({ key: 'leader-notes', deletedCount: 5 }),
 				expect.objectContaining({ key: 'critical-tasks', deletedCount: 1 }),
 				expect.objectContaining({ key: 'assignment-types', deletedCount: 1 })
 			])
 		);
 
-		await expect(idsFor(ports, 'personnel_follow_ups')).resolves.toEqual(['follow-up-active', 'follow-up-recent']);
-		await expect(idsFor(ports, 'counseling_records')).resolves.toEqual(['counseling-active', 'counseling-recent']);
-		await expect(idsFor(ports, 'personnel_documents')).resolves.toEqual(['document-active', 'document-recent']);
-		await expect(idsFor(ports, 'leader_notes')).resolves.toEqual(['note-active', 'note-recent']);
 		await expect(idsFor(ports, 'ict_tasks')).resolves.toEqual(['ict-active', 'ict-recent']);
 		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['assignment-active', 'assignment-recent']);
 	});
 
 	it('stops before deleting Personnel or reporting success when note deletion fails', async () => {
 		const ports = buildPorts();
-		ports.store.seed('leader_notes', [{ id: 'note', organization_id: 'org-1', archived_at: '2025-01-01T00:00:00Z' }]);
-		const deleteMany = ports.store.deleteManyByIds.bind(ports.store);
-		vi.spyOn(ports.store, 'deleteManyByIds').mockImplementation((table, orgId, ids) => {
-			if (table === 'leader_notes') throw new Error('Note deletion unavailable');
-			return deleteMany(table, orgId, ids);
-		});
+		ports.artifacts.deleteExpiredLeaderNotes.mockRejectedValue(new Error('Note deletion unavailable'));
 		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
 			'Note deletion unavailable'
 		);
 		expect(ports.personnel.deleteExpired).not.toHaveBeenCalled();
-		await expect(idsFor(ports, 'leader_notes')).resolves.toEqual(['note']);
 		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
 	});
 
-	it('removes expired document and counseling files while retaining recent files', async () => {
+	it('preserves earlier family effects and stops later work when counseling cleanup fails', async () => {
 		const ports = buildPorts();
-		seedRetentionRows(ports);
-
-		await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
-
-		expect(ports.storage.files).toEqual([
-			expect.objectContaining({
-				bucket: PERSONNEL_DOCUMENTS_BUCKET,
-				path: 'org-1/personnel/person-1/documents/recent.pdf'
-			}),
-			expect.objectContaining({
-				bucket: COUNSELING_RECORDS_BUCKET,
-				path: 'org-1/counseling-records/person-1/recent.pdf'
-			})
-		]);
+		let followUpsDeleted = false;
+		ports.artifacts.deleteExpiredFollowUps.mockImplementation(async () => {
+			followUpsDeleted = true;
+			return 1;
+		});
+		ports.artifacts.deleteExpiredCounselingRecords.mockRejectedValue(new Error('Counseling cleanup unavailable'));
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'Counseling cleanup unavailable'
+		);
+		expect(followUpsDeleted).toBe(true);
+		expect(ports.artifacts.deleteExpiredDocuments).not.toHaveBeenCalled();
+		expect(ports.artifacts.deleteExpiredLeaderNotes).not.toHaveBeenCalled();
+		expect(ports.personnel.deleteExpired).not.toHaveBeenCalled();
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
 	});
 
-	it('keeps storage files when database deletion fails', async () => {
+	it('forwards each Organization cutoff to every named artifact owner', async () => {
 		const ports = buildPorts();
-		seedRetentionRows(ports);
-		const deleteManyByIds = ports.store.deleteManyByIds.bind(ports.store);
-		vi.spyOn(ports.store, 'deleteManyByIds').mockImplementation(async (table, orgId, ids) => {
-			if (table === 'personnel_documents') {
-				throw new Error('database delete failed');
-			}
-			return deleteManyByIds(table, orgId, ids);
-		});
-
-		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
-			'database delete failed'
+		await cleanupArchivedRecords(
+			ports,
+			[
+				{ id: 'org-1', retentionMonths: 12 },
+				{ id: 'org-2', retentionMonths: 6 }
+			],
+			{ now: NOW }
 		);
-
-		expect(ports.storage.files).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({
-					bucket: PERSONNEL_DOCUMENTS_BUCKET,
-					path: 'org-1/personnel/person-1/documents/expired.pdf'
-				})
-			])
-		);
+		for (const cleanup of Object.values(ports.artifacts))
+			expect(cleanup.mock.calls).toEqual([
+				['org-1', '2025-05-30T12:00:00.000Z'],
+				['org-2', '2025-11-30T12:00:00.000Z']
+			]);
 	});
 
 	it('dispatches parent retention after notes and uses its actual count in the summary', async () => {
 		const ports = buildPorts();
-		ports.store.seed('leader_notes', [{ id: 'expired-note', organization_id: 'org-1', archived_at: isoMonthsAgo(13) }]);
+		let notesDeleted = false;
+		ports.artifacts.deleteExpiredLeaderNotes.mockImplementation(async () => {
+			notesDeleted = true;
+			return 1;
+		});
 		ports.personnel.deleteExpired.mockImplementation(async () => {
-			expect(await idsFor(ports, 'leader_notes')).toEqual([]);
+			expect(notesDeleted).toBe(true);
 			return 2;
 		});
 		const findMany = ports.store.findMany.bind(ports.store);

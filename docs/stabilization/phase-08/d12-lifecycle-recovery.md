@@ -22,7 +22,9 @@ Baseline provider analysis records73 exact row-set comparisons and24 literal art
 
 Server baseline `490b24203ebb78dd21a1e6a488375c2c15adf28d` (root cherry-pick `d76e0e92`) has unchanged production and five failures/28passes. Final repair `4f0c557e7f5bbf2174bd5761008309cd69d54e73` (root `4649513e`, identical source/test bytes) passes six focused files/98tests, types0errors/0warnings, focused ESLint/format and governance713/no regression. It groups residual cascades by saved/new event and completes matching children before clearing the restored parent. Inert type declarations are `PUBLIC_SUPABASE_URL=http://127.0.0.1:9` and `PUBLIC_SUPABASE_ANON_KEY=verification-only-placeholder`. Initial wrong403 assertions, missing-env type diagnostics and repaired test-import governance failure remain archived with their corrections, earning no product-defect or gate credit. These checks use fake persisted providers, not live RLS/file/concurrency proof.
 
-Final native production verification, independent acceptance, complete exact-candidate Depot CI/build and completed bot review remain pending. No migration or schema/provider boundary change.
+Final native production source `420e367dd0beeee859c00a0400bdd3940891258f`, digest `e873432e7e0788ae9b31e5c5c28ed2d3e759cac005bede5fb4b5b50d000e0186`, runs at `http://127.0.0.1:41865`, worker2/session `9ae4ad66-dded-4317-bb8a-b655c937b1a9`, same runtime/browser versions. Manager selected2 failure/fresh retry/reload and owner restore failure/retry/reload pass. Separate manager same-ID replay acknowledges both IDs without rewriting their saved event; scoped Alpha acknowledges only Alpha and conceals Bravo. Operate, empty and foreign refusals retain all fields and create no approval request. All nine artifacts, Training/ICT/control and restored parent identities/fields satisfy73 exact row-set comparisons and24 literal artifact expectations. Original A3/B1 and owner Archives0 after owned seed cleanup; both doctors retain revision/digest and cleanup passes. The wrong guessed Confirm Archive label caused no action; an invalid guessed HTTP restore path produced an HTML parse error, retained alongside the corrected valid400/404 and exact unchanged readback. Neither is a product failure. No instructions or executable inputs changed during the run.
+
+Independent source Standards/scoped Spec pass with no actionable finding; expanded-artifact acceptance, complete exact-candidate Depot CI/build and completed bot review remain pending. No migration or schema/provider boundary change.
 
 ## Durable proof
 
@@ -33,6 +35,8 @@ Each cleaned run/cohort is one archive; raw captures remain ignored. Inventory `
 | [Native unchanged baseline](d12-lifecycle-proof/native-baseline.tar.gz) | `1c9f24d8a1cf98b3b997cbeac613d2535b2b07b353f035d0d20af240e57a3a31` | 187 /865457               |
 | [Server failed baseline](d12-lifecycle-proof/server-baseline.tar.gz)    | `020b5f0de8893f5d7f31ed9ce6c8200871491b10ced848cdf721091372519d09` | 11 /22116                 |
 | [Server repaired checks](d12-lifecycle-proof/server-repair.tar.gz)      | `2da8feea4fc97f355c582b7475551f04009e6edee506e2325dff346eeff4cc7c` | 16 /9660                  |
+
+Final archive: [Native repaired final](d12-lifecycle-proof/native-final.tar.gz), SHA-256 `425d222b43632d3e43f7fdb9c56d350ad6fdbe580c8c544459210c592d3dc0e3`,190 payloads/878154 expanded bytes.
 
 Verify the archive hash above, extract into a fresh ignored scratch directory and run `sha256sum -c SHA256SUMS` there. Also compare the complete expanded file list (excluding `SHA256SUMS`) with its inventory filenames; extra or missing payloads fail integrity. Read `run-notes.md`, actual actions/readbacks and literal expectations after extraction. Checksums establish integrity; independent acceptance separately evaluates behavior and selection.
 

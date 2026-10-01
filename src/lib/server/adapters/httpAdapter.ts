@@ -53,6 +53,7 @@ import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
 import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
+import { createSupabaseRatingSchemeDuePort } from '$features/rating-scheme/index.server';
 import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelArtifactWritePort } from '$features/personnel/index.server';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
@@ -254,6 +255,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
@@ -290,6 +292,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			criticalTasksSettingsWrite,
 			personnelRatingSchemeRoster,
 			personnelAwardAcknowledgement,
+			ratingSchemeDue,
 			personnelArtifactWrites,
 			personnelOrganizationExport,
 			personnelGovernanceDeletion,
@@ -352,6 +355,7 @@ export async function buildLayoutContext(
 	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
@@ -387,6 +391,7 @@ export async function buildLayoutContext(
 		criticalTasksSettingsWrite,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
+		ratingSchemeDue,
 		personnelArtifactWrites,
 		personnelOrganizationExport,
 		personnelGovernanceDeletion,
@@ -437,6 +442,7 @@ export async function buildLayoutContextFromMembership(
 	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
@@ -472,6 +478,7 @@ export async function buildLayoutContextFromMembership(
 		criticalTasksSettingsWrite,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
+		ratingSchemeDue,
 		personnelArtifactWrites,
 		personnelOrganizationExport,
 		personnelGovernanceDeletion,

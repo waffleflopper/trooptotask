@@ -204,8 +204,6 @@
 				"src/lib/server/core/useCases/onboardingQuery.ts",
 				"src/lib/server/core/useCases/onboardingResync.test.ts",
 				"src/lib/server/core/useCases/onboardingResync.ts",
-				"src/lib/server/core/useCases/onboardingRetention.test.ts",
-				"src/lib/server/core/useCases/onboardingRetention.ts",
 				"src/lib/server/core/useCases/onboardingStepProgress.test.ts",
 				"src/lib/server/core/useCases/onboardingStepProgress.ts",
 				"src/lib/server/entities/onboardingStepProgress.ts"
@@ -391,7 +389,8 @@
 				"src/lib/utils/streamedWorkspaceHydrator.ts",
 				"src/lib/utils/workbook.test.ts",
 				"src/lib/utils/workbook.ts",
-				"src/lib/errors.ts"
+				"src/lib/errors.ts",
+				"src/lib/utils/retentionCutoff.ts"
 			],
 			"packet": "08-M16"
 		},

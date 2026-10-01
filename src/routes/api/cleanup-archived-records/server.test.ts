@@ -24,7 +24,12 @@ function request(authorization?: string) {
 
 describe.each([
 	{ name: 'main archive endpoint', run: GET },
-	{ name: 'legacy Personnel endpoint', run: cleanupLegacyPersonnel }
+	{ name: 'legacy Personnel endpoint', run: cleanupLegacyPersonnel },
+	{
+		name: 'Onboarding endpoint',
+		run: (event: RequestEvent) =>
+			cleanupOnboardings({ request: event.request } as Parameters<typeof cleanupOnboardings>[0])
+	}
 ])('$name admission', ({ run }) => {
 	beforeEach(() => {
 		getAdminClient.mockReset().mockReturnValue({ from });

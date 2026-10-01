@@ -85,7 +85,8 @@ The [counseling-file helper repair](../../supabase/migrations/20260926000800_per
 - Critical Tasks library writes now require `criticalTasks: configure` with Organization scope in both the route and task RLS. Its two Organization-wide defaults use a dedicated library form, route and authenticated SQL function that can change only those columns. The mixed Organization settings route continues to require owner/admin authority and no longer accepts Critical Tasks fields. The new forward migration is local until separately applied remotely.
 - Rating Scheme now owns a dedicated lane across route guards, CRUD, membership and invitation flags, and RLS-backed scoped record access.
   - its current primary surface is the first-class Evals route
-  - rating-scheme-only members can use that Evals route without Personnel access
+  - rating-scheme-only members can use that Evals route without Personnel access; denied deferred entry settles into an explicit restricted workspace and clears prior Rating rows
+  - Dashboard receives only Rating period end/status through the Rating-owned due port, using the same authenticated lane RLS without a Personnel SELECT or active-picker filter; missing Rating grant/empty Group scope skips provider access, and authorized provider failures remain errors. Browser-local due calculations are unchanged
   - its workspace reads active rated-person references through Personnel's narrow server port and the authenticated Rating Scheme RPC; Group-scoped members cannot resolve unassigned Personnel
   - its create, update and deletion-request policies resolve the rated Person's Group through a targeted Personnel-owned, Rating Scheme-authorized all-status read; the request client still applies Rating Scheme record RLS, and Group/empty-Group members cannot target other or unassigned People
   - its record model remains distinct from counseling and development-goal records

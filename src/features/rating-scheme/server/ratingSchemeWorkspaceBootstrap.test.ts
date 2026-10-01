@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Cookies } from '@sveltejs/kit';
+import { error, type Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createQueryWithRawStorePortsContext } from '$lib/server/adapters/inMemory';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
@@ -133,6 +133,28 @@ describe('streamRatingSchemeWorkspaceBootstrap', () => {
 				})
 			}
 		});
+	});
+
+	it('settles denied Evals access without loading private workspace data', async () => {
+		loadWithContextMock.mockImplementation(() => ({ data: Promise.resolve().then(() => error(403, 'Denied')) }));
+		const route = await streamRatingSchemeWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: 'org-1'
+		});
+		await expect(route.ratingScheme.data).resolves.toEqual({ laneKey: 'ratingScheme', access: 'restricted' });
+		expect(findManyMock).not.toHaveBeenCalled();
+		expect(listActiveReferencesMock).not.toHaveBeenCalled();
+	});
+
+	it('keeps unexpected workspace failures as errors', async () => {
+		loadWithContextMock.mockImplementation(() => ({ data: Promise.reject(new Error('Provider unavailable')) }));
+		const route = await streamRatingSchemeWorkspaceBootstrap({
+			locals: {} as App.Locals,
+			cookies: {} as Cookies,
+			orgId: 'org-1'
+		});
+		await expect(route.ratingScheme.data).rejects.toThrow('Provider unavailable');
 	});
 
 	it('composes Rating Scheme entries with Personnel-owned roster references', async () => {

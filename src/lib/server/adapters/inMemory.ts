@@ -861,6 +861,25 @@ function createInMemoryPersonnelCriticalTasksRosterPort(
 	};
 }
 
+function createInMemoryRatingSchemeDuePort(rawStore: DataStore): NonNullable<QueryPorts['ratingSchemeDue']> {
+	return {
+		async listDueEntries(actor) {
+			if (actor.capabilityMap.ratingScheme === 'none') return [];
+			const people = actor.scopeSet.kind === 'groups' ? await inMemoryPersonnelRows(rawStore, actor, 'all') : null;
+			const rows = await rawStore.findMany<{
+				rating_period_end: string;
+				status: 'active' | 'completed' | 'change-of-rater';
+			}>(
+				'rating_scheme_entries',
+				actor.orgId,
+				undefined,
+				people ? { inFilters: { rated_person_id: people.map((person) => person.id) } } : undefined
+			);
+			return rows.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
+		}
+	};
+}
+
 function createInMemoryPersonnelRatingSchemeRosterPort(
 	rawStore: DataStore
 ): NonNullable<UseCaseContext['personnelRatingSchemeRoster']> {
@@ -1047,6 +1066,7 @@ export function createTestContext(
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
+		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
@@ -1223,6 +1243,7 @@ export function createQueryPortsContext(options?: TestContextOptions): QueryPort
 		auth,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
+		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
@@ -1248,6 +1269,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		rawStore,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
+		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),

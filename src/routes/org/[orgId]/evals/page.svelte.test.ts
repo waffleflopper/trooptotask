@@ -2,7 +2,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
-import type { RatingSchemeWorkspaceResult } from '$features/rating-scheme/server/ratingSchemeWorkspaceBootstrap';
+import type {
+	RatingSchemeWorkspaceResult,
+	RatingSchemeWorkspaceRestricted
+} from '$features/rating-scheme/server/ratingSchemeWorkspaceBootstrap';
 
 vi.mock('$features/rating-scheme/components/RatingSchemePageView.svelte', () => ({
 	default: VisibleStub
@@ -83,7 +86,9 @@ function makeBootstrap(): RatingSchemeWorkspaceResult {
 	};
 }
 
-function makeRouteData(workspace: RatingSchemeWorkspaceResult | Promise<RatingSchemeWorkspaceResult>) {
+type Workspace = RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted;
+
+function makeRouteData(workspace: Workspace | Promise<Workspace>) {
 	return {
 		shell: {
 			org: {
@@ -171,4 +176,19 @@ describe('evals page', () => {
 		});
 		expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
 	});
+
+	it.each(['immediate', 'deferred'])(
+		'settles %s restriction without creating the Evals editor or a busy shell',
+		async (mode) => {
+			const restriction: RatingSchemeWorkspaceRestricted = { laneKey: 'ratingScheme', access: 'restricted' };
+			const workspace = deferred<Workspace>();
+			render(Page, { props: { data: makeRouteData(mode === 'immediate' ? restriction : workspace.promise) } });
+			if (mode === 'deferred') {
+				expect(screen.getByRole('status')).toBeTruthy();
+				workspace.resolve(restriction);
+			}
+			await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+			expect(screen.queryAllByTestId('visible-stub')).toHaveLength(0);
+		}
+	);
 });

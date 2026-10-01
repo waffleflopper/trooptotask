@@ -15,6 +15,8 @@
 		};
 	}
 
+	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
+
 	let { data }: { data: PersonnelLayoutData } = $props();
 
 	class PersonnelWorkspaceGroups {
@@ -61,5 +63,6 @@
 		orgName={org.orgName}
 		detail={data.personnelDetail}
 		{canArchivePersonnel}
+		{requestArchiveApproval}
 	/>
 {/if}

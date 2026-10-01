@@ -143,4 +143,5 @@ REVOKE ALL ON FUNCTION public.reconcile_onboarding_packet(uuid, uuid, uuid)
   FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.reconcile_onboarding_packet(uuid, uuid, uuid) TO authenticated;
 
+NOTIFY pgrst, 'reload schema';
 COMMIT;

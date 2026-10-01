@@ -16,7 +16,7 @@ import { reviewerDetails, subjectDetails } from '$lib/server/auditDetails';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from './governancePolicy';
 import { requireIdentityOwnedPolicy } from './identityPolicy';
-import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
+import { archiveApprovedPersonnelRecord } from '$features/personnel/index.server';
 import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 const TABLE = 'deletion_requests';
@@ -169,19 +169,7 @@ export async function approveDeletionRequest(
 		);
 	} else {
 		if (resourceType === 'personnel') {
-			if (!tableName) throw new Error('Personnel archive table is required');
-			const person = await (ctx.rawStore ?? ctx.store).findOne<{ archived_at: string | null }>(
-				tableName,
-				ctx.auth.orgId,
-				{ id: resourceId },
-				'archived_at'
-			);
-			if (!person) fail(404, 'Personnel not found');
-			const archivedAt = person.archived_at ?? new Date().toISOString();
-			if (!person.archived_at) {
-				await ctx.store.update(tableName, ctx.auth.orgId, resourceId, { archived_at: archivedAt });
-			}
-			await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
+			await archiveApprovedPersonnelRecord(ctx, resourceId);
 		} else if (resourceType === 'training_type') {
 			if (!trainingDeletion) throw new Error('Training approved deletion port is required');
 			await trainingDeletion.deleteApprovedTrainingType(ctx.auth, requestId, resourceId);

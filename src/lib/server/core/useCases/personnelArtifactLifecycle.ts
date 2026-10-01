@@ -1,5 +1,4 @@
 import type {
-	PersonnelArtifactKind,
 	PersonnelCounselingRecord,
 	PersonnelDocument,
 	PersonnelFollowUp
@@ -76,18 +75,6 @@ export interface PersonnelArtifactSpec<TRow, TDto> {
 	listClause(opts: { archived?: boolean; limit?: number }, personnelId: string): FindOptions;
 	archivePatch?(now: string): Partial<TRow>;
 	restorePatch?(): Partial<TRow>;
-	ownedArchive?: {
-		filters?: { status?: 'open' };
-		archivePatch(archivedAt: string): Partial<TRow>;
-		restorePatch(): Partial<TRow>;
-	};
-}
-
-interface PersonnelOwnedArchiveSpec {
-	table: PersonnelArtifactTable;
-	filters?: { status?: 'open' };
-	archivePatch(archivedAt: string): Record<string, unknown>;
-	restorePatch(): Record<string, unknown>;
 }
 
 export async function requirePersonnelArtifactAccess(ctx: UseCaseContext, personnelId: string): Promise<void> {
@@ -367,11 +354,7 @@ export const PERSONNEL_COUNSELING_RECORD_SPEC: PersonnelArtifactSpec<CounselingR
 		limit
 	}),
 	archivePatch: binaryArchivePatch,
-	restorePatch: binaryRestorePatch,
-	ownedArchive: {
-		archivePatch: binaryArchivePatch,
-		restorePatch: binaryRestorePatch
-	}
+	restorePatch: binaryRestorePatch
 };
 
 export const PERSONNEL_DOCUMENT_SPEC: PersonnelArtifactSpec<PersonnelDocumentRow, PersonnelDocument> = {
@@ -389,11 +372,7 @@ export const PERSONNEL_DOCUMENT_SPEC: PersonnelArtifactSpec<PersonnelDocumentRow
 		limit
 	}),
 	archivePatch: binaryArchivePatch,
-	restorePatch: binaryRestorePatch,
-	ownedArchive: {
-		archivePatch: binaryArchivePatch,
-		restorePatch: binaryRestorePatch
-	}
+	restorePatch: binaryRestorePatch
 };
 
 export const PERSONNEL_FOLLOW_UP_SPEC: PersonnelArtifactSpec<FollowUpRow, PersonnelFollowUp> = {
@@ -413,38 +392,5 @@ export const PERSONNEL_FOLLOW_UP_SPEC: PersonnelArtifactSpec<FollowUpRow, Person
 		],
 		...(archived ? {} : { notInFilters: { status: ['archived'] } }),
 		limit
-	}),
-	ownedArchive: {
-		filters: { status: 'open' },
-		archivePatch: (archivedAt) => ({ status: 'archived', archived_at: archivedAt }),
-		restorePatch: () => ({ status: 'open', archived_at: null })
-	}
+	})
 };
-
-type PersonnelArtifactSpecRegistry = {
-	[K in Exclude<PersonnelArtifactKind, 'note'>]: K extends 'follow-up'
-		? PersonnelArtifactSpec<FollowUpRow, PersonnelFollowUp>
-		: K extends 'counseling'
-			? PersonnelArtifactSpec<CounselingRecordRow, PersonnelCounselingRecord>
-			: K extends 'document'
-				? PersonnelArtifactSpec<PersonnelDocumentRow, PersonnelDocument>
-				: never;
-};
-
-const PERSONNEL_ARTIFACT_SPECS: PersonnelArtifactSpecRegistry = {
-	'follow-up': PERSONNEL_FOLLOW_UP_SPEC,
-	counseling: PERSONNEL_COUNSELING_RECORD_SPEC,
-	document: PERSONNEL_DOCUMENT_SPEC
-};
-
-export function personnelOwnedArchiveSpecs(): PersonnelOwnedArchiveSpec[] {
-	return Object.values(PERSONNEL_ARTIFACT_SPECS).map((spec) => {
-		if (!spec.ownedArchive) throw new Error(`${spec.noun} is missing owned artifact archive rules`);
-		return {
-			table: spec.table,
-			filters: spec.ownedArchive.filters,
-			archivePatch: (archivedAt) => spec.ownedArchive!.archivePatch(archivedAt) as Record<string, unknown>,
-			restorePatch: () => spec.ownedArchive!.restorePatch() as Record<string, unknown>
-		};
-	});
-}

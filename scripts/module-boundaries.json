@@ -616,7 +616,7 @@
 			"src/features/critical-tasks/index.server.ts"
 		],
 		"dashboard": ["src/features/dashboard/index.ts"],
-		"deletion-requests": ["src/features/deletion-requests/index.server.ts"],
+		"deletion-requests": ["src/features/deletion-requests/index.ts", "src/features/deletion-requests/index.server.ts"],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",
 			"src/features/onboarding/index.ts",
@@ -663,8 +663,7 @@
 			"src/features/feedback/index.ts",
 			"src/features/feedback/index.server.ts"
 		],
-		"platform-admin": ["src/features/platform-admin/index.server.ts"],
-		"deletion-requests": ["src/features/deletion-requests/index.ts"]
+		"platform-admin": ["src/features/platform-admin/index.server.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

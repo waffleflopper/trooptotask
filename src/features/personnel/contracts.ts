@@ -273,3 +273,94 @@ export interface PersonnelWorkspaceResult {
 export interface PersonnelWorkspaceRouteData {
 	[PERSONNEL_WORKSPACE_LANE_KEY]: { data: Promise<PersonnelWorkspaceResult> };
 }
+
+/** Soldier Data Sheet fields shared by its Server read and Web editor. */
+export interface PersonnelExtendedInfo {
+	bloodType: string;
+	basd: string;
+	dateOfRank: string;
+	maritalStatus: string;
+	numberOfDependents: number | null;
+	children: PersonnelChild[];
+	civilianEducation: string;
+	militaryEducation: string[];
+	emergencyContactName: string;
+	emergencyContactRelationship: string;
+	emergencyContactPhone: string;
+	spouseName: string;
+	spousePhone: string;
+	vehicleMakeModel: string;
+	vehiclePlate: string;
+	vehicleColor: string;
+	personalEmail: string;
+	personalPhone: string;
+	addressStreet: string;
+	addressCity: string;
+	addressState: string;
+	addressZip: string;
+	address: string;
+}
+
+interface PersonnelChild {
+	name: string;
+	age: number | null;
+}
+
+const childSchema = z.object({
+	name: z.string().trim().max(120),
+	age: z.number().int().min(0).max(120).nullable()
+});
+
+const dateInputSchema = z
+	.string()
+	.trim()
+	.refine((value) => value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value), 'Use YYYY-MM-DD date format')
+	.optional()
+	.default('');
+
+const dependentsInputSchema = z
+	.preprocess((value) => {
+		if (value === '' || value == null) return null;
+		if (typeof value === 'number') return Number.isNaN(value) ? null : value;
+		if (typeof value === 'string') return Number(value);
+		return value;
+	}, z.number().int().min(0).max(99).nullable())
+	.optional()
+	.default(null);
+
+const optionalEmailInputSchema = z.string().email();
+
+export const personnelExtendedInfoInputSchema = z.object({
+	personnelId: z.string().min(1),
+	bloodType: z.string().trim().max(12).optional().default(''),
+	basd: dateInputSchema,
+	dateOfRank: dateInputSchema,
+	maritalStatus: z.string().trim().max(80).optional().default(''),
+	numberOfDependents: dependentsInputSchema,
+	children: z.array(childSchema).optional().default([]),
+	civilianEducation: z.string().trim().max(500).optional().default(''),
+	militaryEducation: z.array(z.string().trim().max(120)).optional().default([]),
+	emergencyContactName: z.string().trim().max(160).optional().default(''),
+	emergencyContactRelationship: z.string().trim().max(120).optional().default(''),
+	emergencyContactPhone: z.string().trim().max(80).optional().default(''),
+	spouseName: z.string().trim().max(160).optional().default(''),
+	spousePhone: z.string().trim().max(80).optional().default(''),
+	vehicleMakeModel: z.string().trim().max(160).optional().default(''),
+	vehiclePlate: z.string().trim().max(40).optional().default(''),
+	vehicleColor: z.string().trim().max(80).optional().default(''),
+	personalEmail: z
+		.string()
+		.trim()
+		.max(255)
+		.refine(
+			(value) => value === '' || optionalEmailInputSchema.safeParse(value).success,
+			'Enter a valid personal email'
+		)
+		.optional()
+		.default(''),
+	personalPhone: z.string().trim().max(80).optional().default(''),
+	addressStreet: z.string().trim().max(255).optional().default(''),
+	addressCity: z.string().trim().max(120).optional().default(''),
+	addressState: z.string().trim().max(80).optional().default(''),
+	addressZip: z.string().trim().max(20).optional().default('')
+});

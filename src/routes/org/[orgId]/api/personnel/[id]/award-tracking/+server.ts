@@ -1,10 +1,9 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RequestEvent } from '@sveltejs/kit';
-import {
-	setPersonnelAwardTrackingAcknowledged,
-	type PersonnelAwardTrackingResult
-} from '$lib/server/core/useCases/personnelAwardTracking';
+import { setPersonnelAwardTrackingAcknowledged } from '$features/personnel/index.server';
+
+type PersonnelAwardTrackingResult = Awaited<ReturnType<typeof setPersonnelAwardTrackingAcknowledged>>;
 
 interface PersonnelAwardTrackingInput {
 	personnelId: string;

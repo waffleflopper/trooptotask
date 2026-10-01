@@ -2,7 +2,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { updatePersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
+import { updatePersonnelExtendedInfo } from '$features/personnel/index.server';
 
 export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	mutation: true,

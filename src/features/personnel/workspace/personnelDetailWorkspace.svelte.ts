@@ -1,11 +1,10 @@
 import { goto, invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
-import type { PersonnelLeaderNote } from '$features/personnel/contracts';
+import type { PersonnelExtendedInfo, PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
 	PersonnelCounselingRecord,
 	PersonnelDetailStreams,
 	PersonnelDocument,
-	PersonnelExtendedInfo,
 	PersonnelFollowUp,
 	PersonnelReadinessLane,
 	PersonnelReadinessLaneKey,

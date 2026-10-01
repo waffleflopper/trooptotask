@@ -1,9 +1,27 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import { fail } from '$lib/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { PersonnelExtendedInfo } from '$features/personnel/personnel-detail.types';
-import { policyResourceForPersonnel, requireFeaturePolicy } from './featurePolicy';
+import { personnelExtendedInfoInputSchema, type PersonnelExtendedInfo } from './contracts';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+
+interface PersonnelExtendedInfoContext {
+	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
+	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	scope: { requireGroupAccess(personnelId: string): Promise<void> };
+	store: {
+		findOne<T>(
+			table: 'personnel' | 'personnel_extended_info',
+			orgId: string,
+			filters: Record<string, unknown>,
+			select?: string
+		): Promise<T | null>;
+		findMany<T>(table: 'personnel_extended_info', orgId: string, filters: Record<string, unknown>): Promise<T[]>;
+		insert<T>(table: 'personnel_extended_info', orgId: string, data: Record<string, unknown>): Promise<T>;
+		update<T>(table: 'personnel_extended_info', orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
+	};
+}
+
+type PersonnelExtendedInfoInput = z.infer<typeof personnelExtendedInfoInputSchema>;
 
 interface ExtendedInfoRow {
 	id: string;
@@ -32,73 +50,12 @@ interface ExtendedInfoRow {
 	address_zip: string | null;
 }
 
-const childSchema = z.object({
-	name: z.string().trim().max(120),
-	age: z.number().int().min(0).max(120).nullable()
-});
-
-const dateInputSchema = z
-	.string()
-	.trim()
-	.refine((value) => value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value), 'Use YYYY-MM-DD date format')
-	.optional()
-	.default('');
-
-const dependentsInputSchema = z
-	.preprocess((value) => {
-		if (value === '' || value == null) return null;
-		if (typeof value === 'number') return Number.isNaN(value) ? null : value;
-		if (typeof value === 'string') return Number(value);
-		return value;
-	}, z.number().int().min(0).max(99).nullable())
-	.optional()
-	.default(null);
-
-const optionalEmailInputSchema = z.string().email();
-
-export const personnelExtendedInfoInputSchema = z.object({
-	personnelId: z.string().min(1),
-	bloodType: z.string().trim().max(12).optional().default(''),
-	basd: dateInputSchema,
-	dateOfRank: dateInputSchema,
-	maritalStatus: z.string().trim().max(80).optional().default(''),
-	numberOfDependents: dependentsInputSchema,
-	children: z.array(childSchema).optional().default([]),
-	civilianEducation: z.string().trim().max(500).optional().default(''),
-	militaryEducation: z.array(z.string().trim().max(120)).optional().default([]),
-	emergencyContactName: z.string().trim().max(160).optional().default(''),
-	emergencyContactRelationship: z.string().trim().max(120).optional().default(''),
-	emergencyContactPhone: z.string().trim().max(80).optional().default(''),
-	spouseName: z.string().trim().max(160).optional().default(''),
-	spousePhone: z.string().trim().max(80).optional().default(''),
-	vehicleMakeModel: z.string().trim().max(160).optional().default(''),
-	vehiclePlate: z.string().trim().max(40).optional().default(''),
-	vehicleColor: z.string().trim().max(80).optional().default(''),
-	personalEmail: z
-		.string()
-		.trim()
-		.max(255)
-		.refine(
-			(value) => value === '' || optionalEmailInputSchema.safeParse(value).success,
-			'Enter a valid personal email'
-		)
-		.optional()
-		.default(''),
-	personalPhone: z.string().trim().max(80).optional().default(''),
-	addressStreet: z.string().trim().max(255).optional().default(''),
-	addressCity: z.string().trim().max(120).optional().default(''),
-	addressState: z.string().trim().max(80).optional().default(''),
-	addressZip: z.string().trim().max(20).optional().default('')
-});
-
-export type PersonnelExtendedInfoInput = z.infer<typeof personnelExtendedInfoInputSchema>;
-
 function normalizeJsonStringArray(value: unknown): string[] {
 	return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
 function normalizeChildren(value: unknown): PersonnelExtendedInfo['children'] {
-	const parsed = z.array(childSchema).safeParse(value);
+	const parsed = personnelExtendedInfoInputSchema.shape.children.safeParse(value);
 	return parsed.success ? parsed.data : [];
 }
 
@@ -164,14 +121,20 @@ function toRowData(input: PersonnelExtendedInfoInput): Record<string, unknown> {
 	};
 }
 
-async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string): Promise<void> {
+async function requirePersonnelOperate(ctx: PersonnelExtendedInfoContext, personnelId: string): Promise<void> {
 	const person = await ctx.store.findOne<{ id: string }>('personnel', ctx.auth.orgId, { id: personnelId }, 'id');
 	if (!person) fail(404, 'Personnel record not found');
 
+	const policyPerson = await ctx.store.findOne<{ group_id: string | null }>(
+		'personnel',
+		ctx.auth.orgId,
+		{ id: personnelId },
+		'group_id'
+	);
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		await policyResourceForPersonnel(ctx, personnelId),
+		policyResourceForGroup(policyPerson?.group_id),
 		'personnel',
 		personnelId
 	);
@@ -179,7 +142,7 @@ async function requirePersonnelOperate(ctx: UseCaseContext, personnelId: string)
 }
 
 export async function readPersonnelExtendedInfo(
-	ctx: UseCaseContext,
+	ctx: PersonnelExtendedInfoContext,
 	personnelId: string
 ): Promise<PersonnelExtendedInfo | null> {
 	await requirePersonnelOperate(ctx, personnelId);
@@ -191,7 +154,7 @@ export async function readPersonnelExtendedInfo(
 }
 
 export async function updatePersonnelExtendedInfo(
-	ctx: UseCaseContext,
+	ctx: PersonnelExtendedInfoContext,
 	rawInput: unknown
 ): Promise<PersonnelExtendedInfo> {
 	const parsed = personnelExtendedInfoInputSchema.safeParse(rawInput);

@@ -18,7 +18,7 @@ import type { PersonnelOrganizationExportPort } from '$features/personnel/contra
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
-import type { OnboardingReconciliationPort } from '$features/onboarding/index.server';
+import type { OnboardingReconciliationPort } from '$features/onboarding/contracts';
 import type { CriticalTasksReadModelPort, CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 
 /** Options for DataStore.findMany queries */

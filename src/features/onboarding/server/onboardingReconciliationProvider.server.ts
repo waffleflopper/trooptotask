@@ -1,9 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fail } from '$lib/errors';
-import type {
-	OnboardingReconciliationPort,
-	OnboardingReconciliationResult
-} from './onboardingReconciliationPorts.server';
+import type { OnboardingReconciliationPort, OnboardingReconciliationResult } from '../contracts';
 
 /** Uses the ordinary authenticated client; SQL retains policy and atomic packet reconciliation. */
 export function createSupabaseOnboardingReconciliationPort(supabase: SupabaseClient): OnboardingReconciliationPort {

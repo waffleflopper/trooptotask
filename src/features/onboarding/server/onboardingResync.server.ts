@@ -7,11 +7,8 @@
  *
  * SQL locks the packet and reconciles its saved progress in one transaction.
  */
-import type {
-	OnboardingReconciliationPort,
-	OnboardingReconciliationPorts,
-	OnboardingReconciliationStepRow
-} from './onboardingReconciliationPorts.server';
+import type { OnboardingReconciliationPort, OnboardingReconciliationStepRow } from '../contracts';
+import type { OnboardingReconciliationPorts } from './onboardingReconciliationPorts.server';
 import {
 	requireOnboardingConfigurePolicy,
 	requireOnboardingManagePolicyForOnboarding

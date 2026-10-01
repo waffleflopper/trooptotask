@@ -4,7 +4,7 @@ import type { LeaderNoteDataSource, PersonnelRetentionSource } from '$features/p
 import { cleanupExpiredAssignmentTypes, type AssignmentTypeRetentionPort } from '$features/calendar/index.server';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
-import { retentionCutoff } from './retentionSupport';
+import { retentionCutoff } from '$lib/utils/retentionCutoff';
 
 export const DEFAULT_ARCHIVE_RETENTION_MONTHS = 36;
 const MIN_ARCHIVE_RETENTION_MONTHS = 1;

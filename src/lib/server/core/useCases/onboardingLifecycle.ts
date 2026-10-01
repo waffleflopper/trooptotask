@@ -7,7 +7,7 @@ import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
  *
  * Lifecycle transitions (cancel, complete) enforce that the record is in the correct
  * state before proceeding. For step-level progress, see `onboardingStepProgress.ts`.
- * For retention logic (auto-archive when complete), see `onboardingRetention.ts`.
+ * For expiry-based permanent deletion of terminal packets, see Onboarding-owned `cleanupExpiredOnboardings`.
  */
 import { fail } from '$lib/errors';
 import type { OnboardingTrainingPorts, OnboardingWorkflowPorts } from './onboardingPolicy';

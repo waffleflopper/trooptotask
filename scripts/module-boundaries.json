@@ -115,7 +115,7 @@
 			"packet": "08-M14"
 		},
 		"deletion-requests": {
-			"roots": [],
+			"roots": ["src/features/deletion-requests/"],
 			"files": [
 				"src/lib/server/core/useCases/deletionRequests.test.ts",
 				"src/lib/server/core/useCases/deletionRequests.ts",
@@ -621,6 +621,7 @@
 			"src/features/critical-tasks/index.server.ts"
 		],
 		"dashboard": ["src/features/dashboard/index.ts"],
+		"deletion-requests": ["src/features/deletion-requests/index.server.ts"],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",
 			"src/features/onboarding/index.ts",

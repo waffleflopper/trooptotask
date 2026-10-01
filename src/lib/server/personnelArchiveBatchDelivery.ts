@@ -1,6 +1,6 @@
 import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
 import { preparePersonnelArchiveBatch } from '$features/personnel/index.server';
-import { createDeletionRequest } from './core/useCases/deletionRequests';
+import { createDeletionRequest } from '$features/deletion-requests/index.server';
 
 type PersonnelArchiveBatchDeliveryContext = Parameters<typeof preparePersonnelArchiveBatch>[0] &
 	Parameters<typeof createDeletionRequest>[0];

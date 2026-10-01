@@ -457,7 +457,7 @@ describe('Rating Scheme evaluator integrity', () => {
 		async (field) => {
 			const ctx = evaluatorContext();
 			const cases = createRatingSchemeEntryUseCases();
-			const before = await ctx.rawStore.findMany('rating_scheme_entries', 'test-org');
+			const before = structuredClone(await ctx.rawStore.findMany('rating_scheme_entries', 'test-org'));
 			for (const id of [foreignEvaluator, missingEvaluator, 'not-a-person-id']) {
 				await expect(cases.create(ctx, { ...validInput, [field]: id })).rejects.toMatchObject({ status: 400 });
 				await expect(cases.update(ctx, { id: 'rs-1', [field]: id, notes: 'Must not persist' })).rejects.toMatchObject({
@@ -515,7 +515,7 @@ describe('Rating Scheme evaluator integrity', () => {
 		ctx.personnelRatingSchemeRoster!.hasEvaluatorReferences = async () => {
 			throw new Error('Synthetic provider failure');
 		};
-		const before = await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
+		const before = structuredClone(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' }));
 		await expect(
 			createRatingSchemeEntryUseCases().update(ctx, { id: 'rs-1', raterPersonId: localEvaluator })
 		).rejects.toThrow('Synthetic provider failure');

@@ -444,6 +444,90 @@ async function main() {
 		note({ organization, ...Object.fromEntries(results) });
 		return;
 	}
+	if (command === 'artifact-files') {
+		const [orgKey, personnelId, ...recordedPaths] = args;
+		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personnelId ?? ''))
+			throw new Error('Use a synthetic Personnel UUID.');
+		if (recordedPaths.length % 2 !== 0)
+			throw new Error('Optional recorded paths use counseling|document FILE_PATH pairs.');
+		const organizationId = org(orgKey);
+		const families = {
+			counseling: {
+				table: 'counseling_records',
+				bucket: 'counseling-files',
+				prefix: `${organizationId}/counseling-records/${personnelId}/`
+			},
+			document: {
+				table: 'personnel_documents',
+				bucket: 'personnel-documents',
+				prefix: `${organizationId}/personnel/${personnelId}/documents/`
+			}
+		};
+		const files = new Map();
+		const rememberPath = (kind, filePath) => {
+			const family = families[kind];
+			const prefix = family?.prefix;
+			const filename = prefix && filePath?.startsWith(prefix) ? filePath.slice(prefix.length) : '';
+			if (!prefix || !/^[a-zA-Z0-9._-]+$/.test(filename) || ['.', '..'].includes(filename))
+				throw new Error('Artifact file path is outside the exact synthetic Organization/Person file prefix.');
+			files.set(`${family.bucket}/${filePath}`, {
+				table: family.table,
+				bucket: family.bucket,
+				path: filePath,
+				prefix: prefix.slice(0, -1),
+				filename
+			});
+		};
+		for (let index = 0; index < recordedPaths.length; index += 2)
+			rememberPath(recordedPaths[index], recordedPaths[index + 1]);
+		const client = await provider();
+		const tables = await Promise.all(
+			Object.entries(families).map(async ([kind, family]) => {
+				const rows = checked(
+					await selectAllSupabaseRows((from, to) =>
+						client
+							.from(family.table)
+							.select('id,personnel_id,organization_id,file_path,archived_at')
+							.eq('organization_id', organizationId)
+							.eq('personnel_id', personnelId)
+							.order('id')
+							.range(from, to)
+					)
+				);
+				for (const row of rows) if (row.file_path !== null) rememberPath(kind, row.file_path);
+				return [family.table, rows];
+			})
+		);
+		const observations = [];
+		for (const file of files.values()) {
+			const bucket = client.storage.from(file.bucket);
+			let offset = 0;
+			let present = false;
+			do {
+				const entries = checked(
+					await bucket.list(file.prefix, {
+						search: file.filename,
+						limit: 1000,
+						offset,
+						sortBy: { column: 'name', order: 'asc' }
+					})
+				);
+				present = entries.some((entry) => entry.name === file.filename && entry.id !== null);
+				if (present || entries.length < 1000) break;
+				offset += 1000;
+			} while (!present);
+			const observation = { ...file, present, listingOffset: offset };
+			if (present) {
+				const blob = checked(await bucket.download(file.path));
+				const bytes = Buffer.from(await blob.arrayBuffer());
+				observation.size = bytes.length;
+				observation.sha256 = createHash('sha256').update(bytes).digest('hex');
+			}
+			observations.push(observation);
+		}
+		note({ organization: orgKey, personnelId, tables: Object.fromEntries(tables), files: observations });
+		return;
+	}
 	if (command === 'roster-files') {
 		const [orgKey, rosterId] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
@@ -778,7 +862,7 @@ async function main() {
 						...base,
 						id: ids[`document${status}`],
 						title: `${status} document ${tag}`,
-						file_path: `${base.organization_id}/${ids.person}/synthetic-${status}.pdf`,
+						file_path: `${base.organization_id}/personnel/${ids.person}/documents/synthetic-${status}.pdf`,
 						file_size_bytes: 1,
 						content_type: 'application/pdf',
 						uploaded_by: fixture.actors.manager.id,
@@ -963,7 +1047,13 @@ async function main() {
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
-				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/extended-info$/.test(family)
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/extended-info$/.test(family) &&
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:leader-notes|follow-ups|counseling-records)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.test(
+					family
+				) &&
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/documents(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/download)?)?$/.test(
+					family
+				)
 			)
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);
@@ -1116,7 +1206,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

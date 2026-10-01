@@ -105,7 +105,8 @@ export async function seed(session) {
 		personnelScoped: { personnel: 'configure', scope: 'groups', groups: [ids.groupA] },
 		personnelScopedOperate: { personnel: 'operate', scope: 'groups', groups: [ids.groupA] },
 		personnelEmpty: { personnel: 'configure', scope: 'groups', groups: [] },
-		personnelSwitch: { personnel: 'configure', scope: 'organization' }
+		personnelSwitch: { personnel: 'configure', scope: 'organization' },
+		personnelForeign: { organization: 'orgB', personnel: 'configure', scope: 'organization' }
 	};
 	const calendarActors = {
 		calendarView: { organization: 'orgA', calendar: 'view', scope: 'organization' },
@@ -239,7 +240,8 @@ export async function seed(session) {
 			id: user.id,
 			organization: Object.hasOwn(organizationActors, role)
 				? organizationActors[role].organization
-				: (calendarActors[role]?.organization ??
+				: (personnelActors[role]?.organization ??
+					calendarActors[role]?.organization ??
 					trainingActors[role]?.organization ??
 					criticalTasksActors[role]?.organization ??
 					onboardingActors[role]?.organization ??

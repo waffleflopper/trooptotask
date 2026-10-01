@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RequestEvent } from './$types';
 import { GET } from './+server';
+import { GET as cleanupLegacyPersonnel } from '../cleanup-archived-personnel/+server';
 import { GET as cleanupOnboardings } from '../cleanup-expired-onboardings/+server';
 
 const { getAdminClient, from, select, env } = vi.hoisted(() => ({
@@ -21,7 +22,10 @@ function request(authorization?: string) {
 	} as RequestEvent;
 }
 
-describe('scheduled archive cleanup admission', () => {
+describe.each([
+	{ name: 'main archive endpoint', run: GET },
+	{ name: 'legacy Personnel endpoint', run: cleanupLegacyPersonnel }
+])('$name admission', ({ run }) => {
 	beforeEach(() => {
 		getAdminClient.mockReset().mockReturnValue({ from });
 		from.mockReset().mockReturnValue({ select });
@@ -29,12 +33,12 @@ describe('scheduled archive cleanup admission', () => {
 	});
 
 	it.each([undefined, 'Bearer incorrect-secret'])('rejects %s before opening the admin client', async (header) => {
-		await expect(GET(request(header))).rejects.toMatchObject({ status: 401 });
+		await expect(run(request(header))).rejects.toMatchObject({ status: 401 });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('allows the configured cron secret to run the empty scoped cleanup', async () => {
-		const response = await GET(request('Bearer synthetic-retention-secret'));
+		const response = await run(request('Bearer synthetic-retention-secret'));
 		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({ deletedCount: 0, orgsAffected: 0 });
 		expect(from).toHaveBeenCalledWith('organizations');
@@ -42,7 +46,7 @@ describe('scheduled archive cleanup admission', () => {
 });
 
 /** A synthetic REST boundary: the real SDK, cleanup adapters and both feature owners run unchanged. */
-function retentionProvider(table: 'leader_notes' | 'personnel_onboardings') {
+function retentionProvider(table: 'leader_notes' | 'personnel_onboardings' | 'personnel') {
 	const administrators = Array.from({ length: 1000 }, (_, index) => `admin-${index}`);
 	const state = {
 		deleted: false,
@@ -91,6 +95,13 @@ function retentionProvider(table: 'leader_notes' | 'personnel_onboardings') {
 					}
 					state.notifications.push(...rows);
 					return new Response(null, { status: 201 });
+				}
+				if (resource === 'delete_expired_personnel' && method === 'POST' && table === 'personnel') {
+					const args = JSON.parse(String(init?.body)) as { p_org_id: string; p_candidate_ids: string[] };
+					if (args.p_org_id !== 'org-1' || !args.p_candidate_ids.includes('expired'))
+						throw new Error('Parent deletion is outside the requested Organization');
+					state.deleted = true;
+					return Response.json(1);
 				}
 				if (resource === table) {
 					const scoped = url.searchParams.get('organization_id') === 'eq.org-1';
@@ -166,4 +177,25 @@ describe.each([
 			expect(provider.state.attempts).toHaveLength(failure === 'lookup' ? 0 : 1);
 		}
 	);
+});
+
+describe.each([
+	{ name: 'main archive endpoint', run: GET },
+	{ name: 'legacy Personnel endpoint', run: cleanupLegacyPersonnel }
+])('$name Personnel source delivery', ({ run }) => {
+	it('deletes through the owned parent source and delivers its count-only summary', async () => {
+		const provider = retentionProvider('personnel');
+		getAdminClient.mockReturnValue(provider.client);
+
+		const response = await run(request('Bearer synthetic-retention-secret'));
+
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({
+			deletedCount: 1,
+			families: expect.arrayContaining([expect.objectContaining({ key: 'personnel', deletedCount: 1 })])
+		});
+		expect(provider.state.deleted).toBe(true);
+		expect(provider.state.notifications.map(({ user_id }) => user_id)).toEqual(provider.expectedRecipients);
+		expect(provider.state.notifications.every(({ message }) => String(message).includes('Personnel: 1'))).toBe(true);
+	});
 });

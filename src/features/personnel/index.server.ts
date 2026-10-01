@@ -71,3 +71,6 @@ export {
 } from './personnelLifecycle.server';
 
 export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
+
+export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';
+export { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';

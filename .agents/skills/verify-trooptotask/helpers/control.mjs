@@ -37,6 +37,7 @@ const tableColumns = {
 	special_days: 'organization_id',
 	notifications: 'organization_id',
 	audit_logs: 'org_id',
+	data_exports: 'org_id',
 	organization_memberships: 'organization_id',
 	organization_invitations: 'organization_id',
 	organization_invitation_email_outbox: 'organization_id',

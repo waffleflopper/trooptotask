@@ -76,7 +76,7 @@ export async function exportPersonnelWorkbook(
 		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore })
 	]);
 
-	// Extended info is a separate table without org_id scoping - query by personnel_id.
+	// Extended info is independently scoped to this Organization and Person.
 	const extResults = await ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId, {
 		personnel_id: id
 	});

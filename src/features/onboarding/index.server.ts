@@ -49,3 +49,6 @@ export {
 export { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './server/onboardingStepProgress.server';
 export { resyncOnboarding, switchTemplate } from './server/onboardingResync.server';
 export { listActiveOnboardings } from './server/onboardingQuery.server';
+
+export { createSupabaseOnboardingReconciliationPort } from './server/onboardingReconciliationProvider.server';
+export type { OnboardingReconciliationPort } from './server/onboardingReconciliationPorts.server';

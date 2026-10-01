@@ -24,12 +24,6 @@ interface OnboardingWriteStore extends OnboardingReadStore {
 	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
 	delete(table: string, orgId: string, id: string): Promise<void>;
 	insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
-	upsertMany<T>(
-		table: string,
-		orgId: string,
-		rows: Record<string, unknown>[],
-		options: { onConflict: string; select?: string }
-	): Promise<T[]>;
 }
 
 export interface OnboardingPolicyPorts {

@@ -32,3 +32,10 @@ export {
 	fetchOnboardingWorkspace,
 	type OnboardingWorkspaceBootstrapOptions
 } from './server/onboardingWorkspaceBootstrap.server';
+
+export { createSupabaseOnboardingRetentionSource } from './server/onboardingRetentionProvider.server';
+export {
+	cleanupExpiredOnboardings,
+	type OnboardingRetentionCleanupResult,
+	type OnboardingRetentionOrgConfig
+} from './server/onboardingRetention.server';

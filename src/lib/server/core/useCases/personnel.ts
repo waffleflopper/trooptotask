@@ -5,7 +5,7 @@
  * Archive requests approval when the actor cannot archive directly.
  *
  * Single-record creation and editing are owned by the Personnel feature.
- * For bulk import, see `personnelBatch.ts`. The workspace roster is loaded
+ * For bulk import, see Personnel-owned `personnelBatch.server.ts`. The workspace roster is loaded
  * through `personnelWorkspaceQuery.ts`.
  */
 import { fail } from '$lib/errors';

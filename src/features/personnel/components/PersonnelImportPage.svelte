@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { beforeNavigate, goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { Group } from '$features/personnel/contracts';
+	import type {
+		Group,
+		PersonnelBatchMessage,
+		PersonnelImportResult,
+		PersonnelBackfillResult
+	} from '$features/personnel/contracts';
+	import { PERSONNEL_COLUMNS } from '../personnelImportColumns';
 	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import * as BulkImportWorkspace from '$lib/components/ui/bulk-import-workspace';
@@ -10,7 +16,6 @@
 	import * as NativeSelect from '$lib/components/ui/native-select';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import {
-		PERSONNEL_COLUMNS,
 		autoMapColumns,
 		detectHeaderRow,
 		getMissingRequired,
@@ -59,8 +64,8 @@
 
 	interface ImportResult {
 		savedCount: number;
-		errors: Array<{ index: number; message: string }>;
-		skipped?: Array<{ index: number; message: string }>;
+		errors: PersonnelBatchMessage[];
+		skipped?: PersonnelBatchMessage[];
 		message?: string;
 	}
 
@@ -141,7 +146,10 @@
 
 		const groupName = (row.groupName ?? '').trim();
 		if (groupName && !groups.some((group) => group.name.toLowerCase() === groupName.toLowerCase())) {
-			cellWarnings.groupName = `"${groupName}" does not match a known group and will import as unassigned.`;
+			cellWarnings.groupName =
+				importMode === 'merge'
+					? `"${groupName}" does not match a known group. Group only disambiguates duplicate matches; backfill keeps the matched person's group.`
+					: `"${groupName}" does not match a known group and will import as unassigned.`;
 		}
 
 		return {
@@ -311,9 +319,14 @@
 	function updateCell(row: PreviewRow, fieldKey: string, value: string) {
 		const mapping = mappings.find((entry) => entry.fieldKey === fieldKey);
 		if (!mapping) return;
+		const shouldSelectWhenValid = selection.isSelected(row, row.rowIndex) || !row.validation.valid;
 		editableRows[row.rowIndex][mapping.columnIndex] = value;
 		editableRows = [...editableRows];
-		void tick().then(resetSelectionToValidRows);
+		void tick().then(() => {
+			const updated = previewRows[row.rowIndex];
+			if (!updated) return;
+			selection.toggleRow(updated, updated.rowIndex, updated.validation.valid && shouldSelectWhenValid);
+		});
 	}
 
 	async function handleFilesUpload(files: FileList | undefined) {
@@ -404,7 +417,9 @@
 				body: JSON.stringify({ records: checkedRows.map((row) => row.values) })
 			});
 
-			const data = await response.json().catch(() => ({}));
+			const data: Partial<PersonnelImportResult & PersonnelBackfillResult> & { message?: string } = await response
+				.json()
+				.catch(() => ({}));
 			if (!response.ok) {
 				importResult = {
 					savedCount: 0,

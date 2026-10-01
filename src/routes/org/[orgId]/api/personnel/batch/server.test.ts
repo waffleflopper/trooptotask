@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { handleUseCaseRequest, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 
 function seedRankCatalog(ctx: ReturnType<typeof createTestContext>) {
@@ -21,6 +23,42 @@ function seedRankCatalog(ctx: ReturnType<typeof createTestContext>) {
 }
 
 describe('POST /api/personnel/batch', () => {
+	it('conceals provider slug candidates in a failed HTTP response', async () => {
+		const providerError = {
+			code: '23505',
+			message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+			details: 'Key (organization_id, slug)=(test-org, smith-jamie) already exists.'
+		};
+		const client = createClient('http://127.0.0.1:1', 'synthetic-anon-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async () =>
+					new Response(JSON.stringify(providerError), {
+						status: 409,
+						headers: { 'Content-Type': 'application/json' }
+					})
+			}
+		});
+		const caught = await createSupabaseDataStore(client)
+			.insertMany('personnel', 'test-org', [{ slug: 'smith-jamie', group_id: 'group-alpha' }])
+			.catch((error: unknown) => error);
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			const wrapped = (() => {
+				try {
+					rethrowOrWrap(caught);
+				} catch (error) {
+					return error;
+				}
+			})();
+			expect(wrapped).toMatchObject({ status: 500, body: { message: 'Internal server error' } });
+			expect(JSON.stringify(wrapped)).not.toContain('smith-jamie');
+			expect(JSON.stringify(wrapped)).not.toContain('personnel_org_slug_key');
+		} finally {
+			log.mockRestore();
+		}
+	});
+
 	it('declares policy-first authorization for Personnel import', () => {
 		expect(_postConfig).toMatchObject({
 			mutation: true,

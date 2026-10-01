@@ -50,6 +50,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 ### Onboarding
 
 - [Onboarding templates and configuration](onboarding-templates.md): template/step lifecycle, ordering, duplication, independent lookups, linked history, scope and failure/retry.
+- [Onboarding packets, progress and history](onboarding-packets.md): start, checkbox/paperwork/Training progress, notes, lifecycle, template reconciliation, scope and failure recovery.
 
 ### Evals
 

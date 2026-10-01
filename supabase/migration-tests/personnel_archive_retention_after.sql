@@ -19,11 +19,11 @@ UPDATE public.personnel SET archived_at='2000-01-01Z' WHERE id IN
 INSERT INTO public.personnel (id,organization_id,rank,first_name,last_name,slug,archived_at) VALUES
  ('d1602000-0000-4000-8000-000000000391','d1602000-0000-4000-8000-000000000102','SGT','Freely','Deletable Bravo','retention-upgrade-free-bravo','2000-01-01Z'),
  ('d1602000-0000-4000-8000-000000000392','d1602000-0000-4000-8000-000000000101','SGT','Freely','Deletable Alpha','retention-upgrade-free-alpha','2000-01-01Z');
-INSERT INTO public.personnel_documents (id,organization_id,personnel_id,title,file_path,uploaded_by) VALUES
- ('d1602000-0000-4000-8000-000000000491','d1602000-0000-4000-8000-000000000102','d1602000-0000-4000-8000-000000000391','Free Bravo document','synthetic/free-bravo.pdf','fixture'),
- ('d1602000-0000-4000-8000-000000000492','d1602000-0000-4000-8000-000000000102','d1602000-0000-4000-8000-000000000305','Legacy Bravo document','synthetic/legacy-bravo.pdf','fixture'),
- ('d1602000-0000-4000-8000-000000000493','d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000392','Free Alpha document','synthetic/free-alpha.pdf','fixture'),
- ('d1602000-0000-4000-8000-000000000494','d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000302','Mixed Alpha document','synthetic/mixed-alpha.pdf','fixture');
+INSERT INTO public.personnel_documents (id,organization_id,personnel_id,title,file_path,uploaded_by,file_size_bytes,content_type) VALUES
+ ('d1602000-0000-4000-8000-000000000491','d1602000-0000-4000-8000-000000000102','d1602000-0000-4000-8000-000000000391','Free Bravo document','synthetic/free-bravo.pdf','fixture',1,'application/pdf'),
+ ('d1602000-0000-4000-8000-000000000492','d1602000-0000-4000-8000-000000000102','d1602000-0000-4000-8000-000000000305','Legacy Bravo document','synthetic/legacy-bravo.pdf','fixture',1,'application/pdf'),
+ ('d1602000-0000-4000-8000-000000000493','d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000392','Free Alpha document','synthetic/free-alpha.pdf','fixture',1,'application/pdf'),
+ ('d1602000-0000-4000-8000-000000000494','d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000302','Mixed Alpha document','synthetic/mixed-alpha.pdf','fixture',1,'application/pdf');
 INSERT INTO public.counseling_records (id,organization_id,personnel_id,date_conducted,subject,title,file_path,uploaded_by,archived_at) VALUES
  ('d1602000-0000-4000-8000-000000000495','d1602000-0000-4000-8000-000000000102','d1602000-0000-4000-8000-000000000391','2026-01-01','Free Bravo','Free Bravo','synthetic/free-bravo-counseling.pdf','fixture','2026-01-01Z'),
  ('d1602000-0000-4000-8000-000000000496','d1602000-0000-4000-8000-000000000101','d1602000-0000-4000-8000-000000000392','2026-01-01','Free Alpha','Free Alpha','synthetic/free-alpha-counseling.pdf','fixture','2026-01-01Z');

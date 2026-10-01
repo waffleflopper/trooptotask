@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 
 const { restrict, hydrate } = vi.hoisted(() => ({ restrict: vi.fn(), hydrate: vi.fn() }));
-vi.mock('$features/rating-scheme/ratingSchemeWorkspaceHydration.svelte', () => ({
+vi.mock('$features/rating-scheme', () => ({
 	ratingSchemeWorkspaceHydrator: { restrict, hydrate }
 }));
 import Layout from './+layout.svelte';

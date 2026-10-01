@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RatingSchemeEntryEntity } from './ratingSchemeEntry';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
+import { RatingSchemeEntryEntity } from './ratingSchemeEntryEntity.server';
 
 describe('RatingSchemeEntryEntity', () => {
 	const fullRow = {
@@ -24,7 +23,7 @@ describe('RatingSchemeEntryEntity', () => {
 	};
 
 	it('fromDb produces correct RatingSchemeEntry shape', () => {
-		const result = RatingSchemeEntryEntity.fromDb(fullRow) as RatingSchemeEntry;
+		const result = RatingSchemeEntryEntity.fromDb(fullRow);
 
 		expect(result).toEqual({
 			id: 'rse-1',
@@ -62,7 +61,7 @@ describe('RatingSchemeEntryEntity', () => {
 			report_type: null,
 			workflow_status: null
 		};
-		const result = RatingSchemeEntryEntity.fromDb(row) as RatingSchemeEntry;
+		const result = RatingSchemeEntryEntity.fromDb(row);
 
 		expect(result.raterPersonId).toBeNull();
 		expect(result.raterName).toBeNull();
@@ -79,7 +78,7 @@ describe('RatingSchemeEntryEntity', () => {
 
 	it('fromDbArray transforms multiple rows', () => {
 		const rows = [fullRow, { ...fullRow, id: 'rse-2', eval_type: 'NCOER' }];
-		const results = RatingSchemeEntryEntity.fromDbArray(rows) as RatingSchemeEntry[];
+		const results = RatingSchemeEntryEntity.fromDbArray(rows);
 
 		expect(results).toHaveLength(2);
 		expect(results[0].id).toBe('rse-1');
@@ -170,11 +169,31 @@ describe('RatingSchemeEntryEntity', () => {
 		expect(result).not.toHaveProperty('id');
 	});
 
-	it('has correct table name', () => {
-		expect(RatingSchemeEntryEntity.table).toBe('rating_scheme_entries');
+	it('retains the three record statuses and rejects unsupported create/update status', () => {
+		const input = {
+			ratedPersonId: 'p-1',
+			evalType: 'OER',
+			ratingPeriodStart: '2026-01-01',
+			ratingPeriodEnd: '2026-12-31'
+		};
+		for (const status of ['active', 'completed', 'change-of-rater']) {
+			expect(RatingSchemeEntryEntity.createSchema.safeParse({ ...input, status }).success).toBe(true);
+		}
+		expect(RatingSchemeEntryEntity.createSchema.safeParse({ ...input, status: 'inactive' }).success).toBe(false);
+		expect(RatingSchemeEntryEntity.updateSchema.safeParse({ id: 'rse-1', status: 'inactive' }).success).toBe(false);
 	});
 
-	it('has groupScope with rated_person_id personnel column', () => {
-		expect(RatingSchemeEntryEntity.groupScope).toEqual({ personnelColumn: 'rated_person_id' });
+	it('preserves Organization and timestamp metadata returned by the current JSON endpoints', () => {
+		const result = RatingSchemeEntryEntity.fromDb({
+			...fullRow,
+			organization_id: 'org-1',
+			created_at: '2026-01-01T12:00:00Z',
+			updated_at: '2026-06-01T12:00:00Z'
+		});
+		expect(result).toMatchObject({
+			organization_id: 'org-1',
+			created_at: '2026-01-01T12:00:00Z',
+			updated_at: '2026-06-01T12:00:00Z'
+		});
 	});
 });

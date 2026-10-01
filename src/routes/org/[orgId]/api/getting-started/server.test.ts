@@ -23,6 +23,42 @@ describe('GET /api/getting-started', () => {
 		expect(preferences).not.toHaveBeenCalled();
 	});
 
+	it.each(['none', 'view'] as const)(
+		'uses independent Rating %s access without Personnel lookup for its optional setup count',
+		async (ratingScheme) => {
+			const ctx = createTestContext({
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: {
+						calendar: 'none',
+						personnel: 'none',
+						training: 'none',
+						criticalTasks: 'none',
+						onboarding: 'none',
+						ratingScheme
+					}
+				}
+			});
+			ctx.rawStore.seed('rating_scheme_entries', [
+				{ id: 'own', organization_id: ctx.auth.orgId, rated_person_id: 'person' },
+				{ id: 'foreign', organization_id: 'other-org', rated_person_id: 'foreign-person' }
+			]);
+			const scopedStore = ctx.store;
+			ctx.store = {
+				...scopedStore,
+				findManyWithCount: (table, ...args) => {
+					if (table === 'rating_scheme_entries' || table === 'personnel')
+						throw new Error('Generic Personnel-scoped Rating read unavailable');
+					return scopedStore.findManyWithCount(table, ...args);
+				}
+			};
+			await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+				ratingSchemeEntryCount: ratingScheme === 'view' ? 1 : 0
+			});
+		}
+	);
+
 	it('dismisses and restores only the current user’s Organization preference', async () => {
 		const ctx = createTestContext();
 		const own = { id: 'own', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, dismissed_at: null };

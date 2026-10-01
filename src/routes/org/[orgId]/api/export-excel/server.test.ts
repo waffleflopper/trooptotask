@@ -108,6 +108,32 @@ describe('POST /api/export-excel', () => {
 			{ id: 'own-person', organization_id: ctx.auth.orgId, first_name: 'Local', last_name: 'Person', rank: 'SGT' },
 			{ id: 'foreign-person', organization_id: 'other-org', first_name: 'Private', last_name: 'Foreign', rank: 'SGT' }
 		]);
+		const evaluation = {
+			id: 'own-eval',
+			organization_id: ctx.auth.orgId,
+			rated_person_id: 'archived-person',
+			eval_type: 'OER',
+			rater_person_id: 'saved-rater',
+			rater_name: null,
+			senior_rater_person_id: null,
+			senior_rater_name: 'LTC External',
+			intermediate_rater_person_id: null,
+			intermediate_rater_name: null,
+			reviewer_person_id: 'saved-reviewer',
+			reviewer_name: null,
+			rating_period_start: '2025-09-30',
+			rating_period_end: '2026-09-29',
+			status: 'completed',
+			notes: 'Saved evaluation notes',
+			report_type: '02',
+			workflow_status: null,
+			created_at: '2025-09-30T01:02:03.654321Z',
+			updated_at: '2026-09-29T01:02:03.123456Z'
+		};
+		ctx.rawStore.seed('rating_scheme_entries', [
+			evaluation,
+			{ ...evaluation, id: 'foreign-eval', organization_id: 'other-org' }
+		]);
 		const notification = {
 			id: 'own-notification',
 			user_id: ctx.auth.userId,
@@ -152,6 +178,34 @@ describe('POST /api/export-excel', () => {
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(await response!.arrayBuffer()));
+		const rawRating = workbook.getWorksheet('Raw - Rating Scheme Entries')!;
+		const headers = rawRating.getRow(1).values as string[];
+		const savedCells = Object.fromEntries(
+			headers.slice(1).map((header, index) => [header, rawRating.getRow(2).getCell(index + 1).value ?? null])
+		);
+		expect(savedCells).toEqual({
+			Id: 'own-eval',
+			'Organization Id': ctx.auth.orgId,
+			'Rated Person Id': 'archived-person',
+			'Eval Type': 'OER',
+			'Rater Person Id': 'saved-rater',
+			'Rater Name': null,
+			'Senior Rater Person Id': null,
+			'Senior Rater Name': 'LTC External',
+			'Intermediate Rater Person Id': null,
+			'Intermediate Rater Name': null,
+			'Reviewer Person Id': 'saved-reviewer',
+			'Reviewer Name': null,
+			'Rating Period Start': '2025-09-30',
+			'Rating Period End': '2026-09-29',
+			Status: 'completed',
+			Notes: 'Saved evaluation notes',
+			'Report Type': '02',
+			'Workflow Status': null,
+			'Created At': '2025-09-30T01:02:03.654321Z',
+			'Updated At': '2026-09-29T01:02:03.123456Z'
+		});
+		expect(rawRating.rowCount).toBe(2);
 		const rowsInWorkbook = workbook.getWorksheet('Raw - Personnel')!.getSheetValues().flat(2);
 		expect(rowsInWorkbook).toContain('own-person');
 		expect(rowsInWorkbook).not.toContain('foreign-person');

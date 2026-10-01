@@ -62,7 +62,7 @@ const tableSelect = {
 	personnel_onboardings: 'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status',
 	onboarding_step_progress:
 		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active',
-	deletion_requests: 'id,organization_id,resource_type,resource_id,status',
+	deletion_requests: 'id,organization_id,resource_type,resource_id,status,reviewed_by,reviewed_at',
 	rating_scheme_entries:
 		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at',
 	organization_invitations:

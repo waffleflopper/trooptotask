@@ -20,10 +20,10 @@ import {
 	TABLE,
 	AUDIT_RESOURCE,
 	fireAndForgetNotification,
-	RESOURCE_TYPE_TABLE_MAP,
 	isSupportedResourceType
 } from '$features/deletion-requests/deletionRequestSupport.server';
 import { archiveApprovedPersonnelRecord } from '$features/personnel/index.server';
+import type { ApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
 import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 async function fetchPendingRequest(ctx: WritePorts, requestId: string): Promise<Record<string, unknown>> {
@@ -55,7 +55,8 @@ function notifyRequester(
 export async function approveDeletionRequest(
 	ctx: WriteWithNotificationsPorts,
 	requestId: string,
-	trainingDeletion?: ApprovedTrainingDeletionPort
+	trainingDeletion?: ApprovedTrainingDeletionPort,
+	ratingSchemeDeletion?: ApprovedRatingSchemeDeletionPort
 ): Promise<void> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
@@ -63,7 +64,6 @@ export async function approveDeletionRequest(
 
 	const resourceType = request.resource_type as string;
 	const resourceId = request.resource_id as string;
-	const tableName = RESOURCE_TYPE_TABLE_MAP[resourceType];
 
 	if (!isSupportedResourceType(resourceType)) {
 		fail(400, `Unsupported resource type: ${resourceType}`);
@@ -86,9 +86,9 @@ export async function approveDeletionRequest(
 		} else if (resourceType === 'personnel_training') {
 			if (!trainingDeletion) throw new Error('Training approved deletion port is required');
 			await trainingDeletion.deleteApprovedTrainingRecord(ctx.auth, requestId, resourceId);
-		} else {
-			if (!tableName) throw new Error('Deletion table is required');
-			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
+		} else if (resourceType === 'rating_scheme_entry') {
+			if (!ratingSchemeDeletion) throw new Error('Rating Scheme approved deletion port is required');
+			await ratingSchemeDeletion.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, resourceId);
 		}
 
 		await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {

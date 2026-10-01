@@ -1,7 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PersonnelDetailStreams, PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
+import { personnelStore } from '../stores/personnel.svelte';
 import { createPersonnelDetailWorkspace } from './personnelDetailWorkspace.svelte';
+
+afterEach(() => vi.unstubAllGlobals());
 
 const person: Personnel = {
 	id: 'person-1',
@@ -65,6 +68,7 @@ function makeWorkspace(deps: Parameters<typeof createPersonnelDetailWorkspace>[1
 	return createPersonnelDetailWorkspace(
 		{
 			orgId: 'org-1',
+			requestArchiveApproval: async () => false,
 			orgUrlSegment: 'org-alpha',
 			person,
 			orgName: 'Test Org',
@@ -216,6 +220,49 @@ describe('PersonnelDetailWorkspace', () => {
 			invalidateAll: true
 		});
 	});
+
+	it.each([false, true])(
+		'handles an uncached detail archive requiring approval (acknowledged: %s)',
+		async (accepted) => {
+			personnelStore.load([], 'another-org');
+			const fetchMock = vi.fn().mockResolvedValue(Response.json({ requiresApproval: true }, { status: 202 }));
+			vi.stubGlobal('fetch', fetchMock);
+			const requestArchiveApproval = vi.fn().mockResolvedValue(accepted);
+			const goto = vi.fn();
+			const invalidateAll = vi.fn();
+			const workspace = createPersonnelDetailWorkspace(
+				{
+					orgId: 'org-1',
+					orgUrlSegment: 'org-alpha',
+					person,
+					orgName: 'Test Org',
+					detail: makeDetail(),
+					requestArchiveApproval
+				},
+				{ goto, invalidateAll }
+			);
+			workspace.showArchiveConfirm = true;
+			await workspace.confirmArchive();
+			expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/personnel', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ id: 'person-1' })
+			});
+			expect(requestArchiveApproval).toHaveBeenCalledWith({
+				orgId: 'org-1',
+				personnelId: 'person-1',
+				description: expect.any(String),
+				resourceUrl: '/org/org-1/personnel/rivera-monica'
+			});
+			expect(workspace.currentPerson).toEqual(person);
+			expect(personnelStore.orgId).toBe('another-org');
+			expect(personnelStore.items).toEqual([]);
+			expect(workspace.showArchiveConfirm).toBe(false);
+			expect(workspace.archiveSubmitting).toBe(false);
+			expect(goto).not.toHaveBeenCalled();
+			expect(invalidateAll).not.toHaveBeenCalled();
+		}
+	);
 
 	it('centralizes personnel export download behavior', async () => {
 		const blob = new Blob(['records']);

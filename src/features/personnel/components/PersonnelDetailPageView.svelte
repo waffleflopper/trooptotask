@@ -15,6 +15,7 @@
 	} from '$features/personnel/workspace/personnelDetailWorkspace.svelte';
 	import type { Group } from '$features/personnel/contracts';
 	import type { Personnel } from '../personnel.types';
+	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { cn } from '$lib/utils';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import ClipboardListIcon from '@lucide/svelte/icons/clipboard-list';
@@ -31,6 +32,7 @@
 		orgName: string;
 		detail: PersonnelDetailStreams;
 		canArchivePersonnel?: boolean;
+		requestArchiveApproval: RequestPersonnelArchiveApproval;
 	}
 
 	let {
@@ -40,7 +42,8 @@
 		groups = [],
 		orgName,
 		detail,
-		canArchivePersonnel = false
+		canArchivePersonnel = false,
+		requestArchiveApproval
 	}: Props = $props();
 
 	const workspace = createPersonnelDetailWorkspace(() => ({
@@ -50,7 +53,8 @@
 		groups,
 		orgName,
 		detail,
-		canArchivePersonnel
+		canArchivePersonnel,
+		requestArchiveApproval
 	}));
 </script>
 

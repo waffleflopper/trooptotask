@@ -4,7 +4,7 @@
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupManager from './GroupManager.svelte';
-	import { archivePersonnel } from '../utils/archivePersonnel';
+	import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -13,9 +13,10 @@
 	interface Props {
 		ctx: PersonnelPageContext;
 		modals: ModalRegistry;
+		requestArchiveApproval: RequestPersonnelArchiveApproval;
 	}
 
-	let { ctx, modals }: Props = $props();
+	let { ctx, modals, requestArchiveApproval }: Props = $props();
 
 	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
 
@@ -37,7 +38,7 @@
 			toastStore.error('Failed to archive personnel');
 			return false;
 		}
-		const result = await archivePersonnel({ orgId: ctx.orgId, person });
+		const result = await archivePersonnel({ orgId: ctx.orgId, person, requestArchiveApproval });
 		if (result === 'archived') {
 			await invalidateAll();
 		}

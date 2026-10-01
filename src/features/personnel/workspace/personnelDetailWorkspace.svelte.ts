@@ -11,7 +11,7 @@ import type {
 	PersonnelReadinessLaneKey,
 	PersonnelReadinessLaneTone
 } from '$features/personnel/personnel-detail.types';
-import { archivePersonnel } from '$features/personnel/utils/archivePersonnel';
+import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '../personnel.types';
@@ -38,6 +38,7 @@ export interface PersonnelDetailWorkspaceInput {
 	orgName: string;
 	detail: PersonnelDetailStreams;
 	canArchivePersonnel?: boolean;
+	requestArchiveApproval: RequestPersonnelArchiveApproval;
 }
 
 export type PersonnelDetailWorkspaceInputSource = PersonnelDetailWorkspaceInput | (() => PersonnelDetailWorkspaceInput);
@@ -344,6 +345,7 @@ export class PersonnelDetailWorkspace {
 			const result = await this.#deps.archivePersonnel({
 				orgId: this.orgId,
 				person: this.currentPerson,
+				requestArchiveApproval: this.#input.requestArchiveApproval,
 				resourceUrl: `/org/${this.orgId}/personnel/${this.currentPerson.slug ?? this.currentPerson.id}`
 			});
 			if (result === 'archived') {

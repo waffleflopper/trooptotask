@@ -8,6 +8,7 @@ import ExcelJS from 'exceljs';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
+import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
@@ -63,7 +64,7 @@ const tableSelect = {
 		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active',
 	deletion_requests: 'id,organization_id,resource_type,resource_id,status',
 	rating_scheme_entries:
-		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status',
+		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -187,6 +188,28 @@ async function main() {
 			),
 			roles: Object.keys(fixture.actors)
 		});
+		return;
+	}
+	if (command === 'retention') {
+		if (args[0] === 'files') {
+			note(await readRetentionFiles(await provider(), await saved()));
+			return;
+		}
+		if (args[0] !== 'cron' || !['missing', 'wrong', 'run'].includes(args[1]))
+			throw new Error('Use retention files or retention cron missing|wrong|run.');
+		const headers = {};
+		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
+		if (args[1] === 'run') {
+			const credential = await readJSON(path.join(session, 'archive-cleanup.json'));
+			headers.authorization = `Bearer ${credential.secret}`;
+		}
+		const response = await fetch(new URL('/api/cleanup-archived-records', state.origin), {
+			headers,
+			redirect: 'error',
+			signal: AbortSignal.timeout(180000)
+		});
+		const body = await response.text();
+		note({ mode: args[1], status: response.status, body });
 		return;
 	}
 	if (command === 'actor') {
@@ -521,6 +544,8 @@ async function main() {
 				'bulk-501',
 				'training-pages',
 				'personnel-lifecycle',
+				'personnel-retention',
+				'personnel-retention-1001',
 				'communications',
 				'rating-scheme'
 			].includes(kind)
@@ -529,6 +554,10 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind.startsWith('personnel-retention')) {
+			note(await seedPersonnelRetention({ client, fixture, kind, tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'rating-scheme') {
 			const ids = Object.fromEntries(
 				[
@@ -871,6 +900,10 @@ async function main() {
 				if (item.kind !== 'communications' || item.table !== 'platform_announcements')
 					query = query.eq('organization_id', org(item.organization ?? 'orgA'));
 				checked(await query);
+			}
+			for (const bucket of ['personnel-documents', 'counseling-files']) {
+				const paths = (item.files ?? []).filter((file) => file.bucket === bucket).map((file) => file.path);
+				if (paths.length) checked(await client.storage.from(bucket).remove(paths));
 			}
 		}
 		ownedState.seeded = [];

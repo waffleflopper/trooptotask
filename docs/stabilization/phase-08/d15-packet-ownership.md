@@ -63,7 +63,9 @@ The [packet evidence bundle](d15-packet-evidence.tar.gz), SHA-256 **`e931be17041
 
 Root expands all six archives, verifies exact inventory sets/every hash and finds no credential-pattern hits. Packaging follows completed runs/cleanup; it changes artifact bytes in the candidate fingerprint, not tested application/recipe inputs. Independent acceptance of the complete `bb524e45 → 391645e3` diff covers 50 logical files / 59 old-and-new paths, all eight outer and 2,242 inner payloads, the reconstructed 4,562 native/248 SQL inputs, recomputed raw outcomes and restoration/disposal. This is source/artifact acceptance, not another live execution. The separately owned D13 integration preserves its code, deletions, evidence/tasks and continuation-authorization record.
 
-Committed CodeRabbit CLI review at `391645e3` completes all 49 readable files; the single binary bundle is accepted expanded independently. Its minor catalog-count suggestion is resolved by clarifying that the owner table includes later additions: the archived Phase 06 catalog actually contains 93 functions, so that historical count remains correct. Changed-prose and completed current hosted review remain gates. [CI at `391645e3`](https://depot.dev/orgs/rvsvvkd4rp/workflows/qd6zqtlw8k?job=smg2qjdzqz) passes 627 suites / 5,660 tests, type checks, lint, governance and production build; database contracts pass. The repository/application job fails changed-document formatting in two files. That failure remains visible until corrected current-head CI passes.
+Committed CodeRabbit CLI review at `391645e3` completes all 49 readable files; the single binary bundle is accepted expanded independently. Its minor catalog-count suggestion is resolved by clarifying that the owner table includes later additions: the archived Phase 06 catalog actually contains 93 functions, so that historical count remains correct. Hosted review through `391645e3` completes with no remaining app defect; its low-priority manual-extraction concern is addressed below. The generic 20% docstring metric identifies no missing contract and is not a repository acceptance requirement. Final changed-prose/hosted review remain gates. [CI at `391645e3`](https://depot.dev/orgs/rvsvvkd4rp/workflows/qd6zqtlw8k?job=smg2qjdzqz) passes 627 suites / 5,660 tests, type checks, lint, governance and production build; database contracts pass. The repository/application job fails changed-document formatting in two files. That failure remains visible until corrected current-head CI passes.
+
+The extraction recipe shares a 2,500-member / 32 MiB payload budget across the outer and all nested archives, checks each member before writing it and accepts only regular files. The present bundle uses 2,257 members / 23,058,431 expanded bytes including inventories and nested archive bytes. Actual full expansion/hash validation passes; synthetic byte/member overruns reject before the offending file is written. This bounds unpacked evidence payloads, not all decompression or metadata-parser resource use.
 
 ```bash
 set -e
@@ -75,10 +77,20 @@ python3 - <<'PY'
 from pathlib import Path
 import hashlib, json, tarfile, tempfile
 root = Path('.verification/evidence/verify-trooptotask')
+remaining = [2500, 32 * 1024 * 1024]
+def bounded_members(handle):
+    for member in handle:
+        if not member.isfile() or member.size < 0:
+            raise ValueError('Expected regular evidence files only')
+        remaining[0] -= 1
+        remaining[1] -= member.size
+        if min(remaining) < 0:
+            raise ValueError('Aggregate evidence extraction budget exceeded')
+        yield member
 def expand(archive):
     dest = Path(tempfile.mkdtemp(prefix='d15-review.', dir=root))
-    with tarfile.open(archive, 'r:gz') as handle:
-        handle.extractall(dest, filter='data')
+    with tarfile.open(archive, 'r|gz') as handle:
+        handle.extractall(dest, members=bounded_members(handle), filter='data')
     expected = json.loads((dest / 'inventory.json').read_text())
     actual = {p.relative_to(dest).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in dest.rglob('*') if p.is_file() and p.relative_to(dest).as_posix() != 'inventory.json'}

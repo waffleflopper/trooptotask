@@ -379,11 +379,16 @@ export class OnboardingPageContext {
 	async handleAddNote(step: OnboardingStepProgress) {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
-		const text = this.noteInputs[step.id]?.trim();
+		const draft = this.noteInputs[step.id];
+		const text = draft?.trim();
 		if (!text) return;
-		await onboardingStore.addNote(step.id, text);
+		const saved = await onboardingStore.addNote(step.id, text);
 		if (!this.#isCurrent(version)) return;
-		this.noteInputs[step.id] = '';
+		if (!saved) {
+			toastStore.error('Could not add this note. Try again.');
+			return;
+		}
+		if (this.noteInputs[step.id] === draft) this.noteInputs[step.id] = '';
 	}
 
 	async handleCancelOnboarding(id: string) {

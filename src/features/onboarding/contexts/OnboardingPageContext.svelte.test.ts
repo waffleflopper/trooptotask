@@ -83,6 +83,41 @@ function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 }
 
 describe('Onboarding Personnel creation result', () => {
+	it('keeps a failed note draft and clears it only after a confirmed retry', async () => {
+		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		ctx.noteInputs['step-1'] = ' Retained note ';
+		const save = vi.spyOn(onboardingStore, 'addNote').mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+		const feedback = vi.spyOn(toastStore, 'error');
+		await ctx.handleAddNote(makeStep());
+		expect(ctx.noteInputs['step-1']).toBe(' Retained note ');
+		expect(feedback).toHaveBeenCalledWith(expect.any(String));
+		await ctx.handleAddNote(makeStep());
+		expect(ctx.noteInputs['step-1']).toBe('');
+		expect(save.mock.calls).toEqual([
+			['step-1', 'Retained note'],
+			['step-1', 'Retained note']
+		]);
+	});
+
+	it('keeps a newer note draft when an earlier submission succeeds', async () => {
+		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		ctx.noteInputs['step-1'] = 'First note';
+		let confirm!: (saved: boolean) => void;
+		vi.spyOn(onboardingStore, 'addNote').mockImplementation(
+			() =>
+				new Promise<boolean>((resolve) => {
+					confirm = resolve;
+				})
+		);
+		const pending = ctx.handleAddNote(makeStep());
+		ctx.noteInputs['step-1'] = 'Next note';
+		confirm(true);
+		await pending;
+		expect(ctx.noteInputs['step-1']).toBe('Next note');
+	});
+
 	it('does not show a late save failure after its page context is disposed', async () => {
 		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
 		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());

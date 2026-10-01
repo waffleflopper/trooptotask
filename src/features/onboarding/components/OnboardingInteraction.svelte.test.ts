@@ -179,10 +179,33 @@ describe('Onboarding retained interactions', () => {
 		await fireEvent.click(within(confirmation).getByRole('button', { name: 'Mark Complete' }));
 		await waitFor(() => expect(feedback).toHaveBeenCalledWith(expect.any(String)));
 		expect(screen.getByRole('alertdialog', { name: 'Complete Onboarding' })).toBeTruthy();
+		await waitFor(() => expect(confirmation.contains(document.activeElement)).toBe(true));
 		expect(onboardingStore.getById('packet-1')).toEqual(packet);
 		await fireEvent.click(within(confirmation).getByRole('button', { name: 'Mark Complete' }));
 		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
 		expect(onboardingStore.getById('packet-1')).toMatchObject({ status: 'completed', steps: packet.steps });
+	});
+
+	it('retains focus in the cancellation confirmation after failure and permits retry', async () => {
+		const feedback = vi.spyOn(toastStore, 'error');
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(new Response('{}', { status: 503 }))
+				.mockResolvedValueOnce(Response.json({ status: 'cancelled', completedAt: null, cancelledAt: '2026-06-15' }))
+		);
+		mount([], false, true);
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+		const confirmation = await screen.findByRole('alertdialog', { name: 'Cancel Onboarding' });
+		await fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel Onboarding' }));
+		await waitFor(() => expect(feedback).toHaveBeenCalledWith(expect.any(String)));
+		await waitFor(() => expect(confirmation.contains(document.activeElement)).toBe(true));
+		expect(onboardingStore.getById('packet-1')).toEqual(packet);
+		await fireEvent.click(within(confirmation).getByRole('button', { name: 'Cancel Onboarding' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		expect(onboardingStore.getById('packet-1')).toMatchObject({ status: 'cancelled', steps: packet.steps });
 	});
 
 	it.each(['operate', 'configure'] as const)(

@@ -195,21 +195,26 @@ async function main() {
 			note(await readRetentionFiles(await provider(), await saved()));
 			return;
 		}
-		if (args[0] !== 'cron' || !['missing', 'wrong', 'run'].includes(args[1]))
-			throw new Error('Use retention files or retention cron missing|wrong|run.');
+		if (
+			args[0] !== 'cron' ||
+			!['missing', 'wrong', 'run'].includes(args[1]) ||
+			(args[2] && !['records', 'personnel'].includes(args[2]))
+		)
+			throw new Error('Use retention files or retention cron missing|wrong|run [records|personnel].');
+		const endpoint = args[2] === 'personnel' ? '/api/cleanup-archived-personnel' : '/api/cleanup-archived-records';
 		const headers = {};
 		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
 		if (args[1] === 'run') {
 			const credential = await readJSON(path.join(session, 'archive-cleanup.json'));
 			headers.authorization = `Bearer ${credential.secret}`;
 		}
-		const response = await fetch(new URL('/api/cleanup-archived-records', state.origin), {
+		const response = await fetch(new URL(endpoint, state.origin), {
 			headers,
 			redirect: 'error',
 			signal: AbortSignal.timeout(180000)
 		});
 		const body = await response.text();
-		note({ mode: args[1], status: response.status, body });
+		note({ mode: args[1], endpoint, status: response.status, body });
 		return;
 	}
 	if (command === 'actor') {
@@ -546,6 +551,7 @@ async function main() {
 				'personnel-lifecycle',
 				'personnel-retention',
 				'personnel-retention-1001',
+				'personnel-retention-dense',
 				'communications',
 				'rating-scheme'
 			].includes(kind)
@@ -1106,7 +1112,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, roster-files, signed-download, calendar-grant, seed, clean-seeds, network, export, or workbook.'
+		'Use fixture, actor, rows, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

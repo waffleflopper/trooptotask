@@ -60,6 +60,7 @@ export { importPersonnelBatch } from './personnelBatch.server';
 export { mergePersonnelBatch } from './personnelDateBackfill.server';
 export { exportPersonnelWorkbook } from './personnelExport.server';
 export type { PersonnelExportInput, PersonnelExportOutput } from './personnelExport.server';
+export { createSupabasePersonnelRetentionSource, type PersonnelRetentionSource } from './personnelRetention.server';
 
 export {
 	archivePersonnelRecord,

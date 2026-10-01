@@ -5,6 +5,7 @@ import { env } from '$env/dynamic/private';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import { createSupabaseAssignmentTypeRetention } from '$features/calendar/index.server';
+import { createSupabasePersonnelRetentionSource } from '$features/personnel/index.server';
 import { createSupabaseNotificationDelivery } from '$features/notifications/index.server';
 import { createSupabaseOrganizationAdministratorRecipients } from '$features/organization/index.server';
 import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
@@ -48,6 +49,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	const storage = createSupabaseStorageAdapter(admin);
 	const assignmentTypes = createSupabaseAssignmentTypeRetention(admin);
 	const leaderNotes = bindLeaderNoteDataSource(store);
+	const personnel = createSupabasePersonnelRetentionSource(admin, storage);
 	const notifications = createSupabaseNotificationDelivery({
 		getAdminClient: () => admin,
 		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(() => admin),
@@ -57,6 +59,6 @@ export const GET: RequestHandler = async ({ request }) => {
 	return runArchiveRetentionCleanupEndpoint({
 		loadOrgRows: async () => admin.from('organizations').select('id, archive_retention_months'),
 		runCleanup: (configs) =>
-			cleanupArchivedRecords({ store, storage, assignmentTypes, leaderNotes, notifications }, configs)
+			cleanupArchivedRecords({ store, storage, assignmentTypes, leaderNotes, personnel, notifications }, configs)
 	});
 };

@@ -41,12 +41,12 @@ set -e
 sha256sum --check <<'SHA256'
 c1851ba59ff9d35a0ece20c2693c7be5ee09b2f2ded95ed20c62a68d94e79700  docs/stabilization/phase-08/d15-retention-repair.tar.gz
 SHA256
-mkdir .verification/evidence/verify-trooptotask/d15-retention-review
-tar -xzf docs/stabilization/phase-08/d15-retention-repair.tar.gz -C .verification/evidence/verify-trooptotask/d15-retention-review
-python - <<'PY'
+task_review_dir=$(mktemp -d ".verification/evidence/verify-trooptotask/d15-retention-review.XXXXXX")
+tar -xzf docs/stabilization/phase-08/d15-retention-repair.tar.gz -C "$task_review_dir"
+python - "$task_review_dir" <<'PY'
 from pathlib import Path
-import hashlib, json
-p = Path('.verification/evidence/verify-trooptotask/d15-retention-review')
+import hashlib, json, sys
+p = Path(sys.argv[1])
 expected = json.loads((p / 'inventory.json').read_text())
 actual = {f.relative_to(p).as_posix(): hashlib.sha256(f.read_bytes()).hexdigest()
           for f in p.rglob('*') if f.is_file() and f.relative_to(p).as_posix() != 'inventory.json'}
@@ -65,3 +65,5 @@ Accepted Personnel verification #1467 / `17ed8452` is integrated without changin
 The automatic `71fc3c6a` Depot workflow failed before creating jobs because GitHub's PR merge ref was stale against the concurrent default update. It supplies no validation credit. Conflict resolution and the next published integration head request fresh CI; no failed workflow is relabelled as passing.
 
 Integrated `331c1270` passes full [Depot DoD/build](https://depot.dev/orgs/rvsvvkd4rp/workflows/c3425shn1x): 626 suites/5,651 tests, types 0/0, governance 584/no regression and 159 documents' links; Database contracts are correctly unselected for unchanged schema/SQL. Its complete 27-readable-file CLI review identifies one valid minor gap: the baseline archive instructions expanded only the admission inventory. The corrected fail-fast loop extracts and verifies both archives in separate fresh directories; executing that complete block with only the ignored destination prefix changed passes both checksums/inventories. Independent acceptance passes the two-receipt correction. Changed-material CLI review completes both receipts and requests reusable fresh directories; `mktemp -d` now gives each package a unique directory without deleting old evidence. Two executions of the complete corrected block pass both archive/inventory checks. This later prose requires current-head CI and completed changed-material/hosted review before merge; the integrated pass remains historical.
+
+Hosted review of `63df1558` finds the same fixed-directory rerun problem in the repaired archive block. It now also uses a unique ignored directory passed to both tar and Python; two complete repeat executions pass its checksum and all 260 payload hashes/exact set. The correction changes prose only, preserving all source and archive bytes.

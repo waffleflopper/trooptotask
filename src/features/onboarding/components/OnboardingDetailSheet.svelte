@@ -28,6 +28,7 @@
 	}
 
 	const canManage = $derived(ctx.canManageOnboarding(onboarding) && onboarding.status === 'in_progress');
+	const canConfigure = $derived(ctx.canConfigureOnboarding(onboarding));
 
 	const activeSteps = $derived(onboarding.steps.filter((s) => s.active && !s.completed));
 	const inactiveSteps = $derived(onboarding.steps.filter((s) => !s.active));
@@ -65,23 +66,25 @@
 		{#if canManage}
 			<div class="flex flex-wrap gap-2 border-b border-border px-4 pb-3">
 				<Button size="sm" onclick={() => ctx.promptCompleteOnboarding(onboarding.id)}>Mark Complete</Button>
-				<Button
-					size="sm"
-					variant="outline"
-					onclick={() => ctx.handleResync(onboarding.id)}
-					disabled={ctx.resyncingId === onboarding.id}
-				>
-					{#if ctx.resyncingId === onboarding.id}<Spinner />{/if}
-					Re-sync
-				</Button>
-				{#if onboarding.templateId === null}
-					<Button size="sm" variant="outline" onclick={() => ctx.openAssignTemplate(onboarding.id)}>
-						Assign Template
+				{#if canConfigure}
+					<Button
+						size="sm"
+						variant="outline"
+						onclick={() => ctx.handleResync(onboarding.id)}
+						disabled={ctx.resyncingId === onboarding.id}
+					>
+						{#if ctx.resyncingId === onboarding.id}<Spinner />{/if}
+						Re-sync
 					</Button>
-				{:else if ctx.canManageConfig}
-					<Button size="sm" variant="outline" onclick={() => ctx.openSwitchTemplate(onboarding.id)}>
-						Switch Template
-					</Button>
+					{#if onboarding.templateId === null}
+						<Button size="sm" variant="outline" onclick={() => ctx.openAssignTemplate(onboarding.id)}>
+							Assign Template
+						</Button>
+					{:else}
+						<Button size="sm" variant="outline" onclick={() => ctx.openSwitchTemplate(onboarding.id)}>
+							Switch Template
+						</Button>
+					{/if}
 				{/if}
 				<Button size="sm" variant="destructive" onclick={() => (ctx.cancellingId = onboarding.id)}>Cancel</Button>
 			</div>

@@ -1,3 +1,5 @@
+import { onboardingStore } from '../stores/onboarding.svelte';
+import { toastStore } from '$lib/stores/toast.svelte';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
@@ -10,21 +12,6 @@ vi.mock('$app/navigation', () => ({
 	invalidate: invalidateMock,
 	invalidateAll: vi.fn()
 }));
-
-const { startOnboardingMock } = vi.hoisted(() => ({
-	startOnboardingMock: vi.fn()
-}));
-
-vi.mock('$features/onboarding/stores/onboarding.svelte', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$features/onboarding/stores/onboarding.svelte')>();
-	return {
-		...actual,
-		onboardingStore: {
-			...actual.onboardingStore,
-			startOnboarding: startOnboardingMock
-		}
-	};
-});
 
 import {
 	OnboardingPageContext,
@@ -41,7 +28,8 @@ import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-suppor
 
 afterEach(() => {
 	personnelRosterHydration.load([], 'org-test-reset');
-	startOnboardingMock.mockReset();
+	onboardingStore.load([], 'org-test-reset');
+	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
 
@@ -95,6 +83,26 @@ function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 }
 
 describe('Onboarding Personnel creation result', () => {
+	it('does not show a late save failure after its page context is disposed', async () => {
+		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		let respond!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				() =>
+					new Promise<Response>((resolve) => {
+						respond = resolve;
+					})
+			)
+		);
+		const feedback = vi.spyOn(toastStore, 'error');
+		const pending = ctx.handleToggleCheckbox(makeStep());
+		ctx.dispose();
+		respond(new Response('{}', { status: 503 }));
+		await pending;
+		expect(feedback).not.toHaveBeenCalled();
+	});
 	it('rejects an unconfirmed old-Organization create without adding it to the new roster', async () => {
 		personnelRosterHydration.load([], 'org-a');
 		let finishRequest!: (response: Response) => void;
@@ -216,14 +224,18 @@ describe('OnboardingPageContext policy affordances', () => {
 });
 
 describe('OnboardingPageContext onboarding actions', () => {
-	it('passes selected start date to the onboarding store and closes the modal', async () => {
-		const close = vi.fn();
-		const ctx = new OnboardingPageContext({ close } as never, makeOrgContext());
+	it('returns success only for a confirmed current-Organization packet', async () => {
+		onboardingStore.load([], 'org-1');
+		const start = vi
+			.spyOn(onboardingStore, 'startOnboarding')
+			.mockResolvedValueOnce(null)
+			.mockResolvedValueOnce(makeOnboarding());
+		const ctx = new OnboardingPageContext({} as never, makeOrgContext());
 
-		await ctx.handleStartOnboarding('p-1', '2026-03-15', 'tpl-1');
+		await expect(ctx.handleStartOnboarding('p-1', '2026-03-15', 'tpl-1')).resolves.toBe(false);
+		await expect(ctx.handleStartOnboarding('p-1', '2026-03-15', 'tpl-1')).resolves.toBe(true);
 
-		expect(startOnboardingMock).toHaveBeenCalledWith('p-1', '2026-03-15', 'tpl-1');
-		expect(close).toHaveBeenCalledWith('startOnboarding');
+		expect(start).toHaveBeenLastCalledWith('p-1', '2026-03-15', 'tpl-1');
 	});
 });
 

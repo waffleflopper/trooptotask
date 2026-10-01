@@ -194,29 +194,30 @@
 								{#if canActOnThisOnboarding}
 									<OnboardingPacketList.Actions>
 										<Button size="sm" onclick={() => ctx.promptCompleteOnboarding(onboarding.id)}>Mark Complete</Button>
-										{#if onboarding.templateId === null}
-											<Button
-												size="sm"
-												variant="outline"
-												onclick={() => ctx.openAssignTemplate(onboarding.id)}
-												title="Assign a template to enable re-sync"
-											>
-												Assign Template
-											</Button>
-										{:else}
-											<Button
-												size="sm"
-												variant="outline"
-												onclick={() => ctx.handleResync(onboarding.id)}
-												disabled={ctx.resyncingId === onboarding.id}
-												title="Sync with current template"
-											>
-												{#if ctx.resyncingId === onboarding.id}
-													<Spinner />
-												{/if}
-												Re-sync
-											</Button>
-											{#if ctx.canManageConfig}
+										{#if ctx.canConfigureOnboarding(onboarding)}
+											{#if onboarding.templateId === null}
+												<Button
+													size="sm"
+													variant="outline"
+													onclick={() => ctx.openAssignTemplate(onboarding.id)}
+													title="Assign a template to enable re-sync"
+												>
+													Assign Template
+												</Button>
+											{:else}
+												<Button
+													size="sm"
+													variant="outline"
+													onclick={() => ctx.handleResync(onboarding.id)}
+													disabled={ctx.resyncingId === onboarding.id}
+													title="Sync with current template"
+												>
+													{#if ctx.resyncingId === onboarding.id}
+														<Spinner />
+													{/if}
+													Re-sync
+												</Button>
+
 												<Button
 													size="sm"
 													variant="outline"

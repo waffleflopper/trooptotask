@@ -45,6 +45,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20260929000200_training_catalog_configuration_scope.sql",
     "20260929000300_personnel_group_reference_integrity.sql",
     "20260930000100_rating_scheme_evaluator_integrity.sql",
+    "20261001000100_personnel_archive_retention.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -76,6 +77,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "training_catalog_configuration_after.sql",
     "personnel_group_reference_after.sql",
     "rating_scheme_evaluator_after.sql",
+    "personnel_archive_retention_after.sql",
 )
 
 
@@ -295,6 +297,9 @@ def validate(repository, *, staged_upgrade=False):
                 ], workdir)
             run(["node", str(repository / "scripts/ci/personnel_group_upgrade_provider_probe.mjs")],
                 workdir, environment=_provider_environment(repository, workdir, execute))
+            run(["node", str(repository / "scripts/ci/personnel_retention_provider_probe.mjs"),
+                 "--staged-upgrade"], workdir,
+                environment=_provider_environment(repository, workdir, execute))
             print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme and extended info upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
@@ -320,6 +325,8 @@ def validate(repository, *, staged_upgrade=False):
         run(["node", str(repository / "scripts/ci/account_setup_provider_probe.mjs")],
             workdir, environment=provider_environment)
         run(["node", str(repository / "scripts/ci/personnel_roster_provider_probe.mjs")],
+            workdir, environment=provider_environment)
+        run(["node", str(repository / "scripts/ci/personnel_retention_provider_probe.mjs")],
             workdir, environment=provider_environment)
         print("Fresh replay, SQL contracts, migration regressions and provider probes passed.", flush=True)
     finally:

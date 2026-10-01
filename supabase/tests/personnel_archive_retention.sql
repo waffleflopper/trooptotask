@@ -16,9 +16,9 @@ INSERT INTO public.personnel (id,organization_id,rank,first_name,last_name,slug,
  ('e1360000-0000-4000-8000-000000000307','e1360000-0000-4000-8000-000000000101','SGT','Rated','Active','retention-sql-rated',NULL);
 -- Candidate discovery preceded a restore. Eligibility must be rechecked by the DELETE.
 UPDATE public.personnel SET archived_at=NULL WHERE id='e1360000-0000-4000-8000-000000000302';
-INSERT INTO public.personnel_documents (id,organization_id,personnel_id,title,file_path,uploaded_by) VALUES
- ('e1360000-0000-4000-8000-000000000401','e1360000-0000-4000-8000-000000000101','e1360000-0000-4000-8000-000000000301','Active child','synthetic/retention/document.pdf','fixture'),
- ('e1360000-0000-4000-8000-000000000402','e1360000-0000-4000-8000-000000000102','e1360000-0000-4000-8000-000000000305','Foreign child','synthetic/retention/foreign.pdf','fixture');
+INSERT INTO public.personnel_documents (id,organization_id,personnel_id,title,file_path,uploaded_by,file_size_bytes,content_type) VALUES
+ ('e1360000-0000-4000-8000-000000000401','e1360000-0000-4000-8000-000000000101','e1360000-0000-4000-8000-000000000301','Active child','synthetic/retention/document.pdf','fixture',1,'application/pdf'),
+ ('e1360000-0000-4000-8000-000000000402','e1360000-0000-4000-8000-000000000102','e1360000-0000-4000-8000-000000000305','Foreign child','synthetic/retention/foreign.pdf','fixture',1,'application/pdf');
 INSERT INTO public.counseling_records (id,organization_id,personnel_id,date_conducted,subject,title,file_path,uploaded_by,archived_at) VALUES
  ('e1360000-0000-4000-8000-000000000411','e1360000-0000-4000-8000-000000000101','e1360000-0000-4000-8000-000000000301','2026-01-01','Recent child','Recent child','synthetic/retention/counseling.pdf','fixture','2026-01-01Z');
 INSERT INTO public.leader_notes (id,organization_id,personnel_id,author,text) VALUES

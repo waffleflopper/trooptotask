@@ -146,53 +146,49 @@ for (let offset = 0; offset < people.length; offset += 100)
 	checked(await service.from('personnel').insert(people.slice(offset, offset + 100)));
 checked(await service.from('personnel').insert(retained));
 checked(
-	await service
-		.from('personnel_documents')
-		.insert({
-			id: id(401),
-			organization_id: id(101),
-			personnel_id: people[0].id,
-			title: 'Active cascade document',
-			file_path: 'synthetic/provider-retention.pdf',
-			uploaded_by: 'fixture'
-		})
+	await service.from('personnel_documents').insert({
+		id: id(401),
+		organization_id: id(101),
+		personnel_id: people[0].id,
+		title: 'Active cascade document',
+		file_path: 'synthetic/provider-retention.pdf',
+		file_size_bytes: 1,
+		content_type: 'application/pdf',
+		uploaded_by: 'fixture'
+	})
 );
 checked(
-	await service
-		.from('counseling_records')
-		.insert({
-			id: id(402),
-			organization_id: id(101),
-			personnel_id: people[0].id,
-			title: 'Recent cascade counseling',
-			subject: 'Synthetic',
-			date_conducted: '2026-01-01',
-			file_path: 'synthetic/provider-retention-counseling.pdf',
-			uploaded_by: 'fixture',
-			archived_at: '2026-01-01Z'
-		})
+	await service.from('counseling_records').insert({
+		id: id(402),
+		organization_id: id(101),
+		personnel_id: people[0].id,
+		title: 'Recent cascade counseling',
+		subject: 'Synthetic',
+		date_conducted: '2026-01-01',
+		file_path: 'synthetic/provider-retention-counseling.pdf',
+		uploaded_by: 'fixture',
+		archived_at: '2026-01-01Z'
+	})
 );
 checked(
-	await service
-		.from('rating_scheme_entries')
-		.insert({
-			id: id(501),
-			organization_id: id(101),
-			rated_person_id: id(301),
-			eval_type: 'NCOER',
-			rater_person_id: people[0].id,
-			senior_rater_person_id: people[0].id,
-			intermediate_rater_person_id: people[0].id,
-			reviewer_person_id: people[0].id,
-			rater_name: 'Retained Rater',
-			senior_rater_name: 'Retained Senior',
-			intermediate_rater_name: 'Retained Intermediate',
-			reviewer_name: 'Retained Reviewer',
-			rating_period_start: '2026-01-01',
-			rating_period_end: '2026-12-31',
-			status: 'active',
-			notes: 'Retained evaluation facts'
-		})
+	await service.from('rating_scheme_entries').insert({
+		id: id(501),
+		organization_id: id(101),
+		rated_person_id: id(301),
+		eval_type: 'NCOER',
+		rater_person_id: people[0].id,
+		senior_rater_person_id: people[0].id,
+		intermediate_rater_person_id: people[0].id,
+		reviewer_person_id: people[0].id,
+		rater_name: 'Retained Rater',
+		senior_rater_name: 'Retained Senior',
+		intermediate_rater_name: 'Retained Intermediate',
+		reviewer_name: 'Retained Reviewer',
+		rating_period_start: '2026-01-01',
+		rating_period_end: '2026-12-31',
+		status: 'active',
+		notes: 'Retained evaluation facts'
+	})
 );
 const before = {
 	personnel: await allRows('personnel', id(101)),
@@ -281,34 +277,32 @@ if (process.argv.includes('--staged-upgrade')) {
 	];
 	checked(await service.from('personnel').insert(free));
 	checked(
-		await service
-			.from('personnel_documents')
-			.insert(
-				free.map((person) => ({
-					id: randomUUID(),
-					organization_id: person.organization_id,
-					personnel_id: person.id,
-					title: 'Retained free-person document',
-					file_path: 'synthetic/' + person.id + '.pdf',
-					uploaded_by: 'fixture'
-				}))
-			)
+		await service.from('personnel_documents').insert(
+			free.map((person) => ({
+				id: randomUUID(),
+				organization_id: person.organization_id,
+				personnel_id: person.id,
+				title: 'Retained free-person document',
+				file_path: 'synthetic/' + person.id + '.pdf',
+				file_size_bytes: 1,
+				content_type: 'application/pdf',
+				uploaded_by: 'fixture'
+			}))
+		)
 	);
 	checked(
-		await service
-			.from('counseling_records')
-			.insert(
-				free.map((person) => ({
-					id: randomUUID(),
-					organization_id: person.organization_id,
-					personnel_id: person.id,
-					title: 'Retained free-person counseling',
-					subject: 'Synthetic',
-					date_conducted: '2026-01-01',
-					file_path: 'synthetic/' + person.id + '-counseling.pdf',
-					uploaded_by: 'fixture'
-				}))
-			)
+		await service.from('counseling_records').insert(
+			free.map((person) => ({
+				id: randomUUID(),
+				organization_id: person.organization_id,
+				personnel_id: person.id,
+				title: 'Retained free-person counseling',
+				subject: 'Synthetic',
+				date_conducted: '2026-01-01',
+				file_path: 'synthetic/' + person.id + '-counseling.pdf',
+				uploaded_by: 'fixture'
+			}))
+		)
 	);
 	const prepared = await snapshot();
 	const attempts = [];

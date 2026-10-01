@@ -143,6 +143,12 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			};
 
 			const archivedAt = new Date().toISOString();
+			const artifactGroups = new Map<string, string[]>();
+			function includeArtifactGroup(id: string, timestamp: string) {
+				const group = artifactGroups.get(timestamp);
+				if (group) group.push(id);
+				else artifactGroups.set(timestamp, [id]);
+			}
 
 			for (const id of ids) {
 				const person = candidateById.get(id);
@@ -152,7 +158,24 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				}
 
 				if (person.archived_at) {
-					result.errors.push({ id, message: 'Personnel is already archived' });
+					const resource = policyResourceForGroup(person.group_id);
+					const manageDecision = await evaluateFeaturePolicy(
+						ctx,
+						POLICY_ACTION_CATALOG.personnel.manageRecords,
+						resource
+					);
+					const archiveDecision = await evaluateFeaturePolicy(
+						ctx,
+						POLICY_ACTION_CATALOG.personnel.archiveRecords,
+						resource
+					);
+					if (!manageDecision.allowed || !archiveDecision.allowed) {
+						result.errors.push({ id, message: 'Personnel is already archived' });
+						continue;
+					}
+					// Complete only active residual artifacts under this Person's original event.
+					includeArtifactGroup(id, person.archived_at);
+					result.archivedIds.push(id);
 					continue;
 				}
 
@@ -202,11 +225,14 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 				);
 
 				await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: archivedAt });
+				includeArtifactGroup(id, archivedAt);
 				result.archivedIds.push(id);
 			}
 
 			if (result.archivedIds.length > 0) {
-				await archivePersonnelOwnedArtifacts(ctx, result.archivedIds, archivedAt);
+				for (const [timestamp, personnelIds] of artifactGroups) {
+					await archivePersonnelOwnedArtifacts(ctx, personnelIds, timestamp);
+				}
 				ctx.audit.log({
 					action: `${AUDIT_RESOURCE}.bulk_archived`,
 					resourceType: AUDIT_RESOURCE,
@@ -240,8 +266,9 @@ export function createPersonnelUseCases(): PersonnelUseCases {
 			if (!person.archived_at) fail(400, 'Personnel is not archived');
 
 			const personnelArchivedAt = person.archived_at;
-			await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: null });
 			await restorePersonnelOwnedArtifacts(ctx, [id], personnelArchivedAt);
+			// Retain the event until every artifact restore is acknowledged, so a retry can finish it.
+			await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: null });
 
 			ctx.audit.log({
 				action: `${AUDIT_RESOURCE}.restored`,

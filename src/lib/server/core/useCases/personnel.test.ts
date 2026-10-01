@@ -1,18 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createTestContext, createWritePortsContext } from '$lib/server/adapters/inMemory';
 import { createPersonnelUseCases } from './personnel';
-import type { DataStore } from '$lib/server/core/ports';
+type TestDataStore = ReturnType<typeof createTestContext>['store'];
 
-function freshCopies(store: DataStore): DataStore {
+function freshCopies(store: TestDataStore): TestDataStore {
 	return {
 		...store,
-		async findOne<T>(...args: Parameters<DataStore['findOne']>) {
+		async findOne<T>(...args: Parameters<TestDataStore['findOne']>) {
 			return structuredClone(await store.findOne<T>(...args));
 		},
-		async findMany<T>(...args: Parameters<DataStore['findMany']>) {
+		async findMany<T>(...args: Parameters<TestDataStore['findMany']>) {
 			return structuredClone(await store.findMany<T>(...args));
 		},
-		async update<T>(...args: Parameters<DataStore['update']>) {
+		async update<T>(...args: Parameters<TestDataStore['update']>) {
 			return structuredClone(await store.update<T>(...args));
 		}
 	};
@@ -807,7 +807,7 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 
 	function context(overrides?: Parameters<typeof createTestContext>[0]) {
 		const ctx = createTestContext(overrides);
-		// Request reads and acknowledgements are copies, separate from persisted rows.
+		// Reads and update acknowledgements are copies, separate from persisted rows.
 		ctx.store = { ...ctx.store, ...freshCopies(ctx.store) };
 		ctx.rawStore = { ...ctx.rawStore, ...freshCopies(ctx.rawStore) };
 		return ctx;
@@ -997,7 +997,7 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 		const rows = seed(ctx);
 		const update = ctx.store.update.bind(ctx.store);
 		let pending = true;
-		ctx.store.update = async <T>(...args: Parameters<DataStore['update']>) => {
+		ctx.store.update = async <T>(...args: Parameters<TestDataStore['update']>) => {
 			if (args[0] === 'personnel' && args[2] === 'two' && pending) {
 				pending = false;
 				throw new Error('second parent write interrupted');
@@ -1129,7 +1129,7 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 		else {
 			const update = ctx.store.update.bind(ctx.store);
 			let pending = true;
-			ctx.store.update = async <T>(...args: Parameters<DataStore['update']>) => {
+			ctx.store.update = async <T>(...args: Parameters<TestDataStore['update']>) => {
 				if (args[0] === 'personnel' && args[2] === 'one' && pending) {
 					pending = false;
 					throw new Error('parent clear interrupted');
@@ -1270,7 +1270,7 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 			ctx.rawStore.seed('deletion_requests', [structuredClone(pending)]);
 			if (failSecond) {
 				const insert = ctx.store.insert.bind(ctx.store);
-				ctx.store.insert = async <T>(...args: Parameters<DataStore['insert']>) => {
+				ctx.store.insert = async <T>(...args: Parameters<TestDataStore['insert']>) => {
 					if (args[0] === 'deletion_requests') throw new Error('request write interrupted');
 					return insert<T>(...args);
 				};

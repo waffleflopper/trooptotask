@@ -20,7 +20,7 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/security')).toBe(true);
 	});
 
-	it.each(['/api/cleanup-archived-records', '/api/cleanup-archived-personnel'])(
+	it.each(['/api/cleanup-archived-records', '/api/cleanup-archived-personnel', '/api/cleanup-expired-onboardings'])(
 		'lets %s reach its own secret check without opening nested routes',
 		(path) => {
 			expect(isPublicRoute(path)).toBe(true);

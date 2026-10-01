@@ -30,6 +30,8 @@ import type {
 	QueryWithRawStorePorts
 } from '../core/ports';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { requireFeaturePolicy } from '$lib/access/index.server';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 
@@ -876,6 +878,18 @@ function createInMemoryPersonnelRatingSchemeRosterPort(
 		async findRatedPersonGroupForWrite(actor, personnelId) {
 			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
 			return rows[0] ? { groupId: (rows[0].group_id as string | null) ?? null } : null;
+		},
+		async hasEvaluatorReferences(actor, personnelIds) {
+			await requireFeaturePolicy(
+				{ auth: actor },
+				POLICY_ACTION_CATALOG.ratingScheme.updateEntries,
+				{ kind: 'unscoped' },
+				'personnel'
+			);
+			const ids = [...new Set(personnelIds.map((id) => id.toLowerCase()))];
+			if (!ids.length) return true;
+			const rows = await rawStore.findMany<Row>('personnel', actor.orgId, undefined, { inFilters: { id: ids } });
+			return rows.length === ids.length;
 		}
 	};
 }

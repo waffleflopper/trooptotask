@@ -140,3 +140,45 @@ describe('Personnel Rating Scheme roster port', () => {
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 });
+
+const alphaEvaluator = 'd1600000-0000-4000-8000-00000000000a';
+const bravoEvaluator = 'd1600000-0000-4000-8000-00000000000b';
+const archivedEvaluator = 'd1600000-0000-4000-8000-00000000000c';
+const unassignedEvaluator = 'd1600000-0000-4000-8000-00000000000d';
+const foreignEvaluator = 'd1600000-0000-4000-8000-00000000000e';
+
+describe('Personnel evaluator references', () => {
+	it('admits only Organization-local IDs, including other Groups, archives and unassigned People', async () => {
+		const rows = [
+			{ id: alphaEvaluator, organization_id: 'org-1', group_id: 'group-1', archived_at: null },
+			{ id: bravoEvaluator, organization_id: 'org-1', group_id: 'group-2', archived_at: null },
+			{ id: archivedEvaluator, organization_id: 'org-1', group_id: 'group-2', archived_at: '2026-01-01' },
+			{ id: unassignedEvaluator, organization_id: 'org-1', group_id: null, archived_at: null },
+			{ id: foreignEvaluator, organization_id: 'org-2', group_id: 'group-1', archived_at: null }
+		];
+		const getAdminClient = createPersonnelClient(rows);
+		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, getAdminClient);
+		const actor = ratingSchemeActor({ kind: 'groups', groupIds: ['group-1'] });
+		actor.capabilityMap.ratingScheme = 'operate';
+		await expect(
+			port.hasEvaluatorReferences(actor, [alphaEvaluator, bravoEvaluator, archivedEvaluator, unassignedEvaluator])
+		).resolves.toBe(true);
+		expect(getAdminClient).toHaveBeenCalledTimes(1);
+		await expect(port.hasEvaluatorReferences(actor, [alphaEvaluator, alphaEvaluator.toUpperCase()])).resolves.toBe(
+			true
+		);
+		await expect(port.hasEvaluatorReferences(actor, [alphaEvaluator, foreignEvaluator])).resolves.toBe(false);
+		await expect(port.hasEvaluatorReferences(actor, ['d1600000-0000-4000-8000-000000000099'])).resolves.toBe(false);
+	});
+
+	it('requires Rating Scheme operate before admin access, and avoids empty lookups', async () => {
+		const getAdminClient = vi.fn();
+		const port = createSupabasePersonnelRatingSchemeRosterPort({} as SupabaseClient, getAdminClient);
+		const actor = ratingSchemeActor();
+		actor.capabilityMap.personnel = 'configure';
+		await expect(port.hasEvaluatorReferences(actor, [alphaEvaluator])).rejects.toMatchObject({ status: 403 });
+		actor.capabilityMap.ratingScheme = 'operate';
+		await expect(port.hasEvaluatorReferences(actor, [])).resolves.toBe(true);
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+});

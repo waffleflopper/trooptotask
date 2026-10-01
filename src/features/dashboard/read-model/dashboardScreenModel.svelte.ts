@@ -7,7 +7,7 @@ import { calendarStatusSource, calendarAvailabilitySource, calendarAssignmentsSo
 import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
-import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
+import { getRatingDueStatus } from '$features/rating-scheme/contracts';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';

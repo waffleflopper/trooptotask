@@ -10,6 +10,7 @@ import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contr
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
+import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
 import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
 import type { PersonnelArtifactWritePort } from '$features/personnel/contracts';
 import type { PersonnelGovernanceDeletionPort } from '$features/personnel/contracts';
@@ -181,6 +182,7 @@ export interface QueryPorts {
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
+	ratingSchemeDue?: RatingSchemeDuePort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
@@ -209,6 +211,7 @@ export interface UseCaseContext {
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	criticalTasksSettingsWrite?: CriticalTasksSettingsWritePort;
 	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
+	ratingSchemeDue?: RatingSchemeDuePort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
 	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;

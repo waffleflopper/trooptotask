@@ -22,6 +22,7 @@ export interface RatingSchemeHydrationStores {
 
 export interface RatingSchemeWorkspaceHydrator {
 	hydrate(hydration?: RatingSchemeWorkspaceHydration, stores?: RatingSchemeHydrationStores): Promise<void>;
+	restrict(orgId: string, stores?: RatingSchemeHydrationStores): void;
 	reset(): void;
 }
 
@@ -53,6 +54,11 @@ export function createRatingSchemeWorkspaceHydrator(): RatingSchemeWorkspaceHydr
 	return {
 		reset() {
 			hydrationTargets.reset();
+		},
+
+		restrict(orgId: string, stores: RatingSchemeHydrationStores = defaultRatingSchemeHydrationStores) {
+			hydrationTargets.reset();
+			stores.ratingSchemeStore.load([], orgId);
 		},
 
 		async hydrate(

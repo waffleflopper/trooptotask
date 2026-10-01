@@ -630,7 +630,11 @@
 			"src/features/personnel/index.ts",
 			"src/features/personnel/index.server.ts"
 		],
-		"rating-scheme": ["src/features/rating-scheme/index.ts"],
+		"rating-scheme": [
+			"src/features/rating-scheme/contracts.ts",
+			"src/features/rating-scheme/index.ts",
+			"src/features/rating-scheme/index.server.ts"
+		],
 		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts", "src/features/sign-in-rosters/index.server.ts"],
 		"training": [
 			"src/features/training/contracts.ts",

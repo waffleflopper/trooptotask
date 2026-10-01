@@ -53,12 +53,6 @@ vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 vi.mock('$features/training', () => ({
 	trainingTypesStore: { items: [] }
 }));
-vi.mock('$features/rating-scheme/utils/ratingScheme', () => ({
-	getRatingDueStatus: vi.fn((_end: string, status: string) => {
-		if (status === 'completed') return 'completed';
-		return 'current';
-	})
-}));
 
 // ---------------------------------------------------------------------------
 // Helpers to build minimal page data shapes
@@ -366,6 +360,7 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 	// ratingStats / ratingTotal
 	// -------------------------------------------------------------------------
 	describe('ratingStats', () => {
+		afterEach(() => vi.useRealTimers());
 		it('returns zero counts with no rating entries', () => {
 			expect(ctx.ratingStats.overdue).toBe(0);
 			expect(ctx.ratingStats['due-30']).toBe(0);
@@ -373,30 +368,23 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			expect(ctx.ratingStats.current).toBe(0);
 		});
 
-		it('does not count completed entries', () => {
-			const entries = [{ ratingPeriodEnd: '2026-01-01', status: 'completed' }];
-			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
-			expect(c.ratingTotal).toBe(0);
-		});
-
-		it('counts non-completed entries as current (per mock)', () => {
+		it('buckets only the projected dates and record statuses using the local day', () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-09-30T00:00:00'));
 			const entries = [
-				{ ratingPeriodEnd: '2026-06-01', status: 'pending' },
-				{ ratingPeriodEnd: '2026-07-01', status: 'pending' }
+				{ ratingPeriodEnd: '2026-09-25', status: 'active' },
+				{ ratingPeriodEnd: '2026-09-28', status: 'active' },
+				{ ratingPeriodEnd: '2026-10-20', status: 'active' },
+				{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
+				{ ratingPeriodEnd: '2026-10-25', status: 'active' },
+				{ ratingPeriodEnd: '2026-10-15', status: 'active' },
+				{ ratingPeriodEnd: '2026-11-14', status: 'active' },
+				{ ratingPeriodEnd: '2026-12-29', status: 'active' },
+				{ ratingPeriodEnd: '2026-07-02', status: 'completed' }
 			];
-			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
-			expect(c.ratingTotal).toBe(2);
-			expect(c.ratingStats.current).toBe(2);
-		});
-
-		it('excludes completed entries from total but counts non-completed', () => {
-			const entries = [
-				{ ratingPeriodEnd: '2026-06-01', status: 'pending' },
-				{ ratingPeriodEnd: '2026-05-01', status: 'completed' },
-				{ ratingPeriodEnd: '2026-08-01', status: 'draft' }
-			];
-			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
-			expect(c.ratingTotal).toBe(2);
+			const model = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
+			expect(model.ratingStats).toEqual({ overdue: 2, 'due-30': 4, 'due-60': 1, current: 1 });
+			expect(model.ratingTotal).toBe(8);
 		});
 	});
 

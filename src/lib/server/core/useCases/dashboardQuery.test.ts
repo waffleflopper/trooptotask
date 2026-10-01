@@ -280,6 +280,49 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
+describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Rating Scheme projection', (load) => {
+	it('keeps the Rating-only projection when generic Rating storage is unavailable', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'view'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+			}
+		});
+		ctx.ratingSchemeDue = {
+			listDueEntries: vi.fn().mockResolvedValue([
+				{ ratingPeriodEnd: '2026-09-25', status: 'active' },
+				{ ratingPeriodEnd: '2026-10-20', status: 'change-of-rater' }
+			])
+		};
+		const findMany = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation((table, ...args) => {
+			if (table === 'rating_scheme_entries') throw new Error('Generic Rating storage is unavailable');
+			return findMany(table, ...args);
+		});
+		const result = await load(ctx);
+		expect(result.ratingSchemeEntries).toEqual([
+			{ ratingPeriodEnd: '2026-09-25', status: 'active' },
+			{ ratingPeriodEnd: '2026-10-20', status: 'change-of-rater' }
+		]);
+		expect(ctx.ratingSchemeDue.listDueEntries).toHaveBeenCalledWith(ctx.auth);
+	});
+
+	it('surfaces an authorized projection failure instead of reporting zero evaluations', async () => {
+		const ctx = buildCtx();
+		ctx.ratingSchemeDue = { listDueEntries: vi.fn().mockRejectedValue(new Error('Rating provider unavailable')) };
+		await expect(load(ctx)).rejects.toThrow('Rating provider unavailable');
+	});
+});
+
 describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar independence', (load) => {
 	it('retains scoped saved assignments without attempting duty event, slot or run reads', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });

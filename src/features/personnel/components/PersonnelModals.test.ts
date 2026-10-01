@@ -13,7 +13,7 @@ import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel'
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
-vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 
 afterEach(async () => {
 	cleanup();

@@ -1,5 +1,5 @@
 import type { PageServerLoadEvent } from './$types';
-import type { PersonnelDetailHeader } from '$features/personnel/personnel-detail.types';
+import type { PersonnelDetailHeader } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { listPersonnelFollowUps } from '$lib/server/core/useCases/personnelFollowUps';

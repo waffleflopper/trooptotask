@@ -6,7 +6,7 @@
  * No coupling to implementation internals.
  */
 import { describe, it, expect } from 'vitest';
-import { evaluateUpcomingLosses } from './readinessSignals';
+import { evaluateUpcomingLosses } from './upcomingLoss';
 import type { Personnel } from '$features/personnel/personnel.types';
 
 // ---------------------------------------------------------------------------

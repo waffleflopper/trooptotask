@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
-	import PersonnelImportPage from '$features/personnel/components/PersonnelImportPage.svelte';
+	import { PersonnelImportPage } from '$features/personnel';
 
 	let { data } = $props();
 

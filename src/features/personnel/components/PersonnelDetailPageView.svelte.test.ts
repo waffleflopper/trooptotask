@@ -136,7 +136,7 @@ describe('PersonnelDetailPageView', () => {
 		expect(link).toBeNull();
 	});
 
-	it('shows a per-lane skeleton while an individual readiness lane loads', () => {
+	it('renders settled siblings while one readiness lane remains pending', async () => {
 		render(PersonnelDetailPageView, {
 			props: {
 				requestArchiveApproval,
@@ -153,6 +153,33 @@ describe('PersonnelDetailPageView', () => {
 		});
 
 		expect(screen.getByLabelText('Availability loading')).toBeTruthy();
+		expect(await screen.findByText('2 due')).toBeTruthy();
+		expect(await screen.findByText('50%')).toBeTruthy();
+		expect(await screen.findByText('Aligned')).toBeTruthy();
+	});
+
+	it('keeps settled sibling lanes visible when another lane rejects', async () => {
+		let rejectLane!: (error: Error) => void;
+		const availability = new Promise<never>((_resolve, reject) => {
+			rejectLane = reject;
+		});
+		render(PersonnelDetailPageView, {
+			props: {
+				requestArchiveApproval,
+				orgId: 'org-1',
+				person,
+				orgName: 'Test Org',
+				detail: makeDetail({ readinessLanes: { ...makeDetail().readinessLanes, availability } })
+			}
+		});
+		expect(await screen.findByText('2 due')).toBeTruthy();
+		rejectLane(new Error('Calendar unavailable'));
+		expect(await screen.findByText('Unavailable')).toBeTruthy();
+		expect(screen.getByText('2 due')).toBeTruthy();
+		expect(screen.getByText('50%')).toBeTruthy();
+		expect(screen.getByText('Aligned')).toBeTruthy();
+		expect(screen.getByText('Action needed')).toBeTruthy();
+		expect(screen.queryByLabelText('Availability loading')).toBeNull();
 	});
 
 	it('shows recent document uploads with upload and show-all actions', async () => {

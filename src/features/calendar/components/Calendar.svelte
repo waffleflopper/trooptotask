@@ -8,7 +8,7 @@
 		AssignmentType,
 		DailyAssignment
 	} from '$features/calendar/contracts';
-	import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
+	import type { UpcomingLossRecord } from '$features/personnel/contracts';
 	import CalendarHeader from './CalendarHeader.svelte';
 	import CalendarRow from './CalendarRow.svelte';
 	import GroupHeader from '$lib/components/GroupHeader.svelte';

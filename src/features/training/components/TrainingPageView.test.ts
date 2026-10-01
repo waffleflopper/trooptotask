@@ -18,7 +18,8 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
-	invalidate: vi.fn()
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn()
 }));
 
 const trainingType: TrainingType = {

@@ -227,8 +227,6 @@
 		"personnel": {
 			"roots": ["src/features/personnel/"],
 			"files": [
-				"src/lib/domain/readinessSignals.test.ts",
-				"src/lib/domain/readinessSignals.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
 				"src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts",
@@ -241,8 +239,6 @@
 				"src/lib/server/core/useCases/personnelDocuments.ts",
 				"src/lib/server/core/useCases/personnelFollowUps.test.ts",
 				"src/lib/server/core/useCases/personnelFollowUps.ts",
-				"src/lib/server/core/useCases/personnelReadinessLanes.test.ts",
-				"src/lib/server/core/useCases/personnelReadinessLanes.ts",
 				"src/lib/server/counselingRecordMapping.test.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
 				"src/lib/server/entities/counselingRecord.ts",

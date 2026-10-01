@@ -22,7 +22,8 @@ const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, orgCo
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
-	invalidate: vi.fn()
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn()
 }));
 
 vi.mock('$app/state', () => ({

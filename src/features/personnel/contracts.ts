@@ -196,20 +196,7 @@ export type {
 	RosterViewOptions
 } from './rosterReadModel';
 
-/** JSON note returned by the current Personnel page, API and archive operations. */
-export interface PersonnelLeaderNote {
-	id: string;
-	personnelId: string;
-	/** Organization member label, stored author fallback, or Unknown leader. */
-	author: string;
-	/** YYYY-MM-DD, derived from createdAt. */
-	date: string;
-	text: string;
-	/** Timestamp string. */
-	createdAt: string;
-	/** Timestamp string when archived; null when active. */
-	archivedAt: string | null;
-}
+export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 
 export const personnelLeaderNoteInputSchema = z.object({
 	personnelId: z.string().min(1),
@@ -273,6 +260,11 @@ export interface PersonnelWorkspaceResult {
 export interface PersonnelWorkspaceRouteData {
 	[PERSONNEL_WORKSPACE_LANE_KEY]: { data: Promise<PersonnelWorkspaceResult> };
 }
+
+/** Detail delivery shares the parent identity and independent streamed lanes. */
+export type { PersonnelDetailHeader, PersonnelDetailStreams } from './personnel-detail.types';
+export { evaluateUpcomingLosses } from './upcomingLoss';
+export type { UpcomingLossRecord } from './upcomingLoss';
 
 /** Soldier Data Sheet fields shared by its Server read and Web editor. */
 export type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';

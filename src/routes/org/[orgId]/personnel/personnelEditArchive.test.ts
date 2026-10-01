@@ -8,7 +8,7 @@ import { toastStore } from '$lib/stores/toast.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
-vi.mock('$app/navigation', () => ({ invalidateAll: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 const { default: PersonnelModals } = await loadPersonnelModals();
 
 afterEach(async () => {

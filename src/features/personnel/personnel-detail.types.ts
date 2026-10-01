@@ -1,4 +1,4 @@
-import type { PersonnelLeaderNote } from './contracts';
+import type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 import type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
 import type { Personnel } from './personnel.types';
 

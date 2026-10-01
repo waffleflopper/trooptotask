@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { countRatingSchemeEntriesByOrganization } from '$features/rating-scheme/index.server';
 import { createSupabasePlatformActivationHealthStore } from './supabasePlatformActivationHealth';
 
 type Row = Record<string, string | number | null>;
@@ -26,7 +25,7 @@ function storeWithFetch(fetch: typeof globalThis.fetch) {
 			]);
 			return { statusTypes, assignmentTypes };
 		},
-		countRatingSchemeEntriesByOrganization
+		(organizationIds, countRows) => countRows('rating_scheme_entries', organizationIds)
 	);
 }
 

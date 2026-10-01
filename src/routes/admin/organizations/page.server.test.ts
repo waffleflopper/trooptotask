@@ -1,7 +1,7 @@
 import { isHttpError, isRedirect } from '@sveltejs/kit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageData } from './$types';
-import { countCalendarCatalogsByOrganization } from '$features/calendar/index.server';
+import { mapActivationHealthSummary } from '$lib/server/core/useCases/platformActivationHealth';
 
 const {
 	organizationLedgerMock,
@@ -127,10 +127,6 @@ describe('admin organizations route load', () => {
 		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
 			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
 		);
-		expect(createActivationHealthMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } }),
-			countCalendarCatalogsByOrganization
-		);
 		expect(organizationLedgerMock.listOrganizations).toHaveBeenCalledWith({
 			page: '3',
 			pageSize: '50',
@@ -146,6 +142,45 @@ describe('admin organizations route load', () => {
 			status: 'active'
 		});
 		expect(result.activationHealth).toMatchObject({ overallState: 'no_candidates' });
+	});
+
+	it('includes the Rating-owned setup count in platform activation through delivery composition', async () => {
+		createActivationHealthMock.mockImplementationOnce((_ctx, _countCalendar, countRating) => ({
+			summarize: async () => {
+				const rows = [
+					{ id: 'eval-1', organization_id: 'org-1' },
+					{ id: 'eval-2', organization_id: 'org-1' },
+					{ id: 'outside', organization_id: 'org-2' }
+				];
+				const rating = await countRating(['org-1'], async (table: string, ids: string[]) => {
+					if (table !== 'rating_scheme_entries') throw new Error('Unexpected setup source');
+					return new Map(ids.map((id) => [id, rows.filter((row) => row.organization_id === id).length]));
+				});
+				return mapActivationHealthSummary({
+					now: new Date('2026-09-30T00:00:00Z'),
+					facts: [
+						{
+							organizationId: 'org-1',
+							organizationName: 'Synthetic',
+							organizationCreatedAt: '2026-09-01',
+							counts: {
+								activePersonnel: 0,
+								members: 1,
+								leaderMembers: 1,
+								statusTypes: 0,
+								assignmentTypes: 0,
+								onboardingTemplateSteps: 0,
+								trainingTypes: 0,
+								ratingSchemeEntries: rating.get('org-1') ?? 0
+							}
+						}
+					]
+				});
+			}
+		}));
+		const result = (await load(event())) as PageData;
+		expect(result.activationHealth.counts.setupStarted).toBe(1);
+		expect(result.activationHealth.organizations[0].supportBundle.activation.ratingSchemeEntries).toBe(2);
 	});
 
 	it.each([null, 'billing'])('denies Organization listing for role %s before any protected read', async (role) => {

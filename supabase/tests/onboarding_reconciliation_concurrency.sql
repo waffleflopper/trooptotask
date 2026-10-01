@@ -257,6 +257,47 @@ SELECT is((SELECT value->>'template_id' FROM dblink('contender',pg_temp.packet_c
 SELECT dblink_exec('contender','COMMIT');
 SELECT dblink_exec('winner','COMMIT');
 
+-- The caller's Person can leave its Group while the saved parent is awaited.
+-- Fixture reassignment is a committed same-Organization edit; the waiting RPC
+-- remains an ordinary Group-scoped Configure caller with unchanged capability.
+SELECT pg_temp.packet_begin('winner',1);
+SELECT pg_temp.packet_begin('contender',5);
+SELECT is((SELECT value->>'template_id' FROM dblink('winner',pg_temp.packet_call_sql(701,401)) AS result(value jsonb)),
+  'd1503000-0000-4000-8000-000000000401','admitted winner holds the in-scope packet parent');
+CREATE TEMP TABLE person_scope_winner AS SELECT value FROM dblink('winner',$query$
+  SELECT jsonb_build_object(
+    'parents',(SELECT jsonb_agg(to_jsonb(po) ORDER BY id) FROM public.personnel_onboardings po
+      WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102')),
+    'steps',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM public.onboarding_step_progress p
+      WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102'))
+  )
+$query$) AS result(value jsonb);
+SELECT dblink_send_query('contender',pg_temp.packet_call_sql(701,402));
+SELECT ok(pg_temp.packet_waits('contender','winner'),'in-scope Group Configure assignment reaches an observed parent wait');
+SELECT dblink_exec('fixture',$move$
+  UPDATE public.personnel SET group_id='d1503000-0000-4000-8000-000000000202'
+  WHERE organization_id='d1503000-0000-4000-8000-000000000101' AND id='d1503000-0000-4000-8000-000000000301';
+$move$);
+SELECT is((SELECT group_id FROM dblink('fixture',$query$
+  SELECT group_id::text FROM public.personnel WHERE id='d1503000-0000-4000-8000-000000000301'
+$query$) AS result(group_id text)), 'd1503000-0000-4000-8000-000000000202',
+  'Person reassignment is committed before the parent lock releases');
+SELECT dblink_exec('winner','COMMIT');
+SELECT * FROM dblink_get_result('contender',false) AS result(value jsonb);
+SELECT ok(dblink_error_message('contender') LIKE '%Onboarding configuration is not allowed%',
+  'post-wait scope recheck rejects a Person now outside the caller Group');
+SELECT * FROM dblink_get_result('contender',false) AS result(value jsonb);
+SELECT dblink_exec('contender','ROLLBACK');
+SELECT results_eq($$ SELECT value FROM dblink('fixture',$query$
+  SELECT jsonb_build_object(
+    'parents',(SELECT jsonb_agg(to_jsonb(po) ORDER BY id) FROM public.personnel_onboardings po
+      WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102')),
+    'steps',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM public.onboarding_step_progress p
+      WHERE organization_id IN ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102'))
+  )
+$query$) AS result(value jsonb) $$,$$ SELECT value FROM person_scope_winner $$,
+  'scope-rejected contender retains every committed parent/progress field in both Organizations');
+
 -- Configure can be revoked while an ordinary caller is waiting on the parent.
 SELECT pg_temp.packet_begin('winner',1);
 SELECT pg_temp.packet_begin('contender',7);

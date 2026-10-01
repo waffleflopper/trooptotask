@@ -52,6 +52,13 @@ INSERT INTO public.personnel_onboardings(id, organization_id, personnel_id, stat
 ('d1503000-0000-4000-8000-000000000703', 'd1503000-0000-4000-8000-000000000101', 'd1503000-0000-4000-8000-000000000303', 'in_progress'),
 ('d1503000-0000-4000-8000-000000000704', 'd1503000-0000-4000-8000-000000000101', 'd1503000-0000-4000-8000-000000000301', 'cancelled'),
 ('d1503000-0000-4000-8000-000000000705', 'd1503000-0000-4000-8000-000000000102', 'd1503000-0000-4000-8000-000000000304', 'in_progress');
+INSERT INTO public.personnel_onboardings(id, organization_id, personnel_id, template_id, status, started_at, completed_at) VALUES
+('d1503000-0000-4000-8000-000000000706', 'd1503000-0000-4000-8000-000000000101', 'd1503000-0000-4000-8000-000000000301',
+ 'd1503000-0000-4000-8000-000000000401', 'completed', '2030-01-01', '2030-02-01');
+INSERT INTO public.onboarding_step_progress(id, organization_id, onboarding_id, template_step_id, step_name, step_type, completed, notes) VALUES
+('d1503000-0000-4000-8000-000000000810', 'd1503000-0000-4000-8000-000000000101', 'd1503000-0000-4000-8000-000000000706',
+ 'd1503000-0000-4000-8000-000000000501', 'Completed Orientation', 'checkbox', true,
+ '[{"text":"Completed packet note","timestamp":"2030-02-01T00:00:00Z","userId":"d1503000-0000-4000-8000-000000000002"}]');
 INSERT INTO public.onboarding_step_progress (
   id, organization_id, onboarding_id, template_step_id, step_name, step_type, sort_order, completed, current_stage, notes, active
 ) SELECT ('d1503000-0000-4000-8000-' || lpad(step_id::text, 12, '0'))::uuid,
@@ -98,15 +105,21 @@ SELECT throws_ok($$ SELECT public.reconcile_onboarding_packet('d1503000-0000-400
   'd1503000-0000-4000-8000-000000000704','d1503000-0000-4000-8000-000000000401') $$,
   'P0001', NULL, 'a cancelled packet cannot be reconciled');
 SELECT throws_ok($$ SELECT public.reconcile_onboarding_packet('d1503000-0000-4000-8000-000000000101',
+  'd1503000-0000-4000-8000-000000000706','d1503000-0000-4000-8000-000000000402') $$,
+  'P0001', NULL, 'a completed packet cannot switch templates');
+SELECT throws_ok($$ SELECT public.reconcile_onboarding_packet('d1503000-0000-4000-8000-000000000101',
+  'd1503000-0000-4000-8000-000000000706') $$,
+  'P0001', NULL, 'a completed packet cannot resync its saved template');
+SELECT throws_ok($$ SELECT public.reconcile_onboarding_packet('d1503000-0000-4000-8000-000000000101',
   'd1503000-0000-4000-8000-000000000701') $$,
   'P0001', 'Cannot resync: template has been deleted', 'resync cannot guess a template for an unassigned packet');
 RESET ROLE;
 SELECT results_eq($$ SELECT to_jsonb(p) FROM public.personnel_onboardings p WHERE organization_id IN
   ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102') ORDER BY id $$,
-  $$ SELECT row_data FROM packet_before ORDER BY row_data->>'id' $$, 'rejected requests retain every packet field');
+  $$ SELECT row_data FROM packet_before ORDER BY row_data->>'id' $$, 'rejected requests retain every packet field, including completed dates and template');
 SELECT results_eq($$ SELECT to_jsonb(p) FROM public.onboarding_step_progress p WHERE organization_id IN
   ('d1503000-0000-4000-8000-000000000101','d1503000-0000-4000-8000-000000000102') ORDER BY id $$,
-  $$ SELECT row_data FROM progress_before ORDER BY row_data->>'id' $$, 'rejected requests retain every saved progress field');
+  $$ SELECT row_data FROM progress_before ORDER BY row_data->>'id' $$, 'rejected requests retain every saved progress field, including completed work and attributed notes');
 
 CREATE FUNCTION pg_temp.fail_packet_training_insert() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

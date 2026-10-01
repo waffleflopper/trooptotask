@@ -39,3 +39,13 @@ export {
 	type OnboardingRetentionCleanupResult,
 	type OnboardingRetentionOrgConfig
 } from './server/onboardingRetention.server';
+
+export {
+	startOnboarding,
+	cancelOnboarding,
+	reopenOnboarding,
+	completeOnboarding
+} from './server/onboardingLifecycle.server';
+export { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './server/onboardingStepProgress.server';
+export { resyncOnboarding, switchTemplate } from './server/onboardingResync.server';
+export { listActiveOnboardings } from './server/onboardingQuery.server';

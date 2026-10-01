@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './onboardingStepProgress';
+import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './onboardingStepProgress.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);

@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { resyncOnboarding, switchTemplate } from './onboardingResync';
+import { resyncOnboarding, switchTemplate } from './onboardingResync.server';
 
 const operateOnlyCapabilityMap: CapabilityMap = {
 	calendar: 'none',
@@ -33,6 +33,7 @@ function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record
 }
 
 function seedTemplateSteps(ctx: ReturnType<typeof buildContext>, steps?: Record<string, unknown>[]) {
+	ctx.store.seed('onboarding_templates', [{ id: 'tmpl-1', organization_id: 'test-org', name: 'Packet template' }]);
 	const defaults = [
 		{
 			id: 'ts-1',
@@ -123,6 +124,92 @@ function seedInstanceSteps(ctx: ReturnType<typeof buildContext>, steps?: Record<
 }
 
 describe('resyncOnboarding', () => {
+	it('returns reordered and newly inserted steps in their saved display order', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+		seedTemplateSteps(ctx);
+		seedInstanceSteps(ctx);
+		await ctx.store.update('onboarding_template_steps', 'test-org', 'ts-1', { sort_order: 2 });
+		await ctx.store.update('onboarding_template_steps', 'test-org', 'ts-3', { sort_order: 0 });
+		await ctx.store.insert('onboarding_template_steps', 'test-org', {
+			id: 'ts-new-first',
+			template_id: 'tmpl-1',
+			name: 'New first task',
+			step_type: 'checkbox',
+			training_type_id: null,
+			stages: null,
+			sort_order: -1
+		});
+
+		const result = await resyncOnboarding(ctx, 'ob-1');
+
+		expect(result.steps.map((step) => step.templateStepId)).toEqual(['ts-new-first', 'ts-3', 'ts-2', 'ts-1']);
+		expect(result.steps.map((step) => step.sortOrder)).toEqual([-1, 0, 1, 2]);
+		expect(result.steps[3]).toMatchObject({ id: 'sp-1', completed: true, notes: [{ text: 'Called badge office' }] });
+	});
+
+	it('retains null-reference work and already inactive history in every response without adopting a replacement by name', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx);
+		seedTemplateSteps(ctx);
+		seedInstanceSteps(ctx);
+		// PostgreSQL clears this reference when its template definition is deleted.
+		await ctx.store.update('onboarding_step_progress', 'test-org', 'sp-1', { template_step_id: null });
+		await ctx.store.delete('onboarding_template_steps', 'test-org', 'ts-1');
+		await ctx.store.insert('onboarding_template_steps', 'test-org', {
+			id: 'ts-replacement',
+			template_id: 'tmpl-1',
+			name: 'Get ID card',
+			step_type: 'checkbox',
+			training_type_id: null,
+			stages: null,
+			sort_order: 0
+		});
+		const notes = [{ text: 'Called badge office', timestamp: '2026-03-01T00:00:00Z', userId: 'user-1' }];
+		await ctx.store.insert('onboarding_step_progress', 'test-org', {
+			id: 'sp-history',
+			onboarding_id: 'ob-1',
+			template_step_id: null,
+			step_name: 'Historical task',
+			step_type: 'checkbox',
+			training_type_id: null,
+			stages: null,
+			sort_order: 10,
+			completed: true,
+			current_stage: null,
+			notes,
+			active: false
+		});
+
+		const first = await resyncOnboarding(ctx, 'ob-1');
+		expect(first.steps.find((step) => step.id === 'sp-1')).toMatchObject({
+			templateStepId: null,
+			completed: true,
+			active: false,
+			notes
+		});
+		expect(first.steps.find((step) => step.id === 'sp-history')).toMatchObject({
+			completed: true,
+			active: false,
+			notes
+		});
+		expect(first.steps.find((step) => step.templateStepId === 'ts-replacement')).toMatchObject({
+			stepName: 'Get ID card',
+			completed: false,
+			active: true,
+			notes: []
+		});
+		expect(first.steps).toHaveLength(5);
+
+		const repeated = await resyncOnboarding(ctx, 'ob-1');
+		expect(repeated.steps).toEqual(first.steps);
+		const saved = await ctx.store.findMany<{ id: string; active: boolean }>('onboarding_step_progress', 'test-org', {
+			onboarding_id: 'ob-1'
+		});
+		expect(saved).toHaveLength(5);
+		expect(saved.find((step) => step.id === 'sp-1')?.active).toBe(false);
+	});
+
 	it('deactivates instance steps that are no longer in the template', async () => {
 		const ctx = buildContext();
 		seedOnboarding(ctx);
@@ -709,6 +796,105 @@ describe('resyncOnboarding', () => {
 });
 
 describe('switchTemplate', () => {
+	it('retains matching legacy IDs and work when retrying after a failed progress write', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { template_id: null });
+		seedTemplateSteps(ctx);
+		seedInstanceSteps(ctx);
+		for (const id of ['sp-1', 'sp-2', 'sp-3']) {
+			await ctx.store.update('onboarding_step_progress', 'test-org', id, { template_step_id: null });
+		}
+		vi.spyOn(ctx.store, 'upsertMany').mockRejectedValueOnce(new Error('Progress persistence unavailable'));
+		const input = { onboardingId: 'ob-1', newTemplateId: 'tmpl-1' };
+
+		await expect(switchTemplate(ctx, input)).rejects.toThrow('Progress persistence unavailable');
+		await expect(ctx.store.findOne('personnel_onboardings', 'test-org', { id: 'ob-1' })).resolves.toMatchObject({
+			template_id: null
+		});
+		const retry = await switchTemplate(ctx, input);
+
+		expect(retry.steps.find((step) => step.templateStepId === 'ts-1')).toMatchObject({
+			id: 'sp-1',
+			completed: true,
+			active: true,
+			notes: [{ text: 'Called badge office' }]
+		});
+		expect(retry.steps.find((step) => step.templateStepId === 'ts-2')).toMatchObject({
+			id: 'sp-2',
+			currentStage: 'submitted',
+			completed: false,
+			active: true
+		});
+		expect(retry.steps).toHaveLength(3);
+	});
+
+	it.each(['new steps', 'parent assignment'] as const)(
+		'retries legacy assignment after %s fail without duplicating adopted work',
+		async (failure) => {
+			const ctx = buildContext();
+			seedOnboarding(ctx, { template_id: null });
+			seedTemplateSteps(ctx);
+			seedInstanceSteps(ctx);
+			for (const id of ['sp-1', 'sp-2', 'sp-3']) {
+				await ctx.store.update('onboarding_step_progress', 'test-org', id, { template_step_id: null });
+			}
+			await ctx.store.insert('onboarding_template_steps', 'test-org', {
+				id: 'ts-extra',
+				template_id: 'tmpl-1',
+				name: 'Fresh task',
+				step_type: 'checkbox',
+				training_type_id: null,
+				stages: null,
+				sort_order: 3
+			});
+			if (failure === 'new steps')
+				vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(new Error('Persistence unavailable'));
+			else vi.spyOn(ctx.store, 'update').mockRejectedValueOnce(new Error('Persistence unavailable'));
+			const input = { onboardingId: 'ob-1', newTemplateId: 'tmpl-1' };
+
+			await expect(switchTemplate(ctx, input)).rejects.toThrow('Persistence unavailable');
+			await expect(ctx.store.findOne('personnel_onboardings', 'test-org', { id: 'ob-1' })).resolves.toMatchObject({
+				template_id: null
+			});
+			// Adopted references may have committed; that partial progress is reused by retry.
+			await expect(ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'sp-1' })).resolves.toMatchObject({
+				template_step_id: 'ts-1',
+				completed: true,
+				notes: [{ text: 'Called badge office' }]
+			});
+			const retry = await switchTemplate(ctx, input);
+
+			expect(retry.steps.map((step) => step.id).slice(0, 3)).toEqual(['sp-1', 'sp-2', 'sp-3']);
+			expect(retry.steps).toHaveLength(4);
+			expect(retry.steps[0]).toMatchObject({ completed: true, notes: [{ text: 'Called badge office' }] });
+			expect(retry.steps[1]).toMatchObject({ currentStage: 'submitted', completed: false });
+			expect(retry.steps[3]).toMatchObject({ templateStepId: 'ts-extra', completed: false, notes: [] });
+			await expect(
+				ctx.store.findMany('onboarding_step_progress', 'test-org', { onboarding_id: 'ob-1' })
+			).resolves.toHaveLength(4);
+		}
+	);
+
+	it('rejects a foreign template before changing legacy work', async () => {
+		const ctx = buildContext();
+		seedOnboarding(ctx, { template_id: null });
+		seedTemplateSteps(ctx);
+		seedInstanceSteps(ctx);
+		ctx.store.seed('onboarding_templates', [
+			{ id: 'tmpl-foreign', organization_id: 'foreign-org', name: 'Foreign template' }
+		]);
+		const before = await ctx.store.findMany('onboarding_step_progress', 'test-org');
+
+		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-foreign' })).rejects.toMatchObject({
+			status: 404
+		});
+
+		await expect(ctx.store.findOne('personnel_onboardings', 'test-org', { id: 'ob-1' })).resolves.toMatchObject({
+			template_id: null
+		});
+		await expect(ctx.store.findMany('onboarding_step_progress', 'test-org')).resolves.toEqual(before);
+	});
+
 	it('updates template_id and runs diff against new template', async () => {
 		const ctx = buildContext();
 		seedOnboarding(ctx); // template_id: tmpl-1
@@ -778,13 +964,114 @@ describe('switchTemplate', () => {
 		);
 	});
 
-	it('blocks switch when template_id is null', async () => {
+	it('assigns a first template by exact legacy name/type while preserving IDs, work and notes without duplication on repeat', async () => {
 		const ctx = buildContext();
 		seedOnboarding(ctx, { template_id: null });
+		seedTemplateSteps(ctx);
+		seedInstanceSteps(ctx);
+		const notes = [{ text: 'Legacy retained work', timestamp: '2026-03-01T00:00:00Z', userId: 'author-1' }];
+		await ctx.store.update('onboarding_template_steps', 'test-org', 'ts-1', { name: 'Orientation' });
+		await ctx.store.update('onboarding_template_steps', 'test-org', 'ts-2', {
+			name: 'Paperwork',
+			stages: ['Submitted', 'Reviewed', 'Filed']
+		});
+		await ctx.store.update('onboarding_step_progress', 'test-org', 'sp-1', {
+			template_step_id: null,
+			step_name: 'Orientation',
+			notes
+		});
+		await ctx.store.update('onboarding_step_progress', 'test-org', 'sp-2', {
+			template_step_id: null,
+			step_name: 'Paperwork',
+			stages: ['Submitted', 'Reviewed', 'Filed'],
+			current_stage: 'Reviewed',
+			notes
+		});
+		await ctx.store.update('onboarding_step_progress', 'test-org', 'sp-3', {
+			template_step_id: null,
+			step_name: 'Historic task',
+			completed: true,
+			notes
+		});
+		await ctx.store.insert('onboarding_step_progress', 'test-org', {
+			id: 'sp-wrong-type',
+			onboarding_id: 'ob-1',
+			template_step_id: null,
+			step_name: 'Orientation',
+			step_type: 'paperwork',
+			training_type_id: null,
+			stages: ['Submitted'],
+			sort_order: 5,
+			completed: true,
+			current_stage: 'Submitted',
+			notes,
+			active: true
+		});
 
-		await expect(switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-2' })).rejects.toThrow(
-			'Cannot switch template: current template has been deleted'
-		);
+		await ctx.store.insert('onboarding_step_progress', 'test-org', {
+			id: 'sp-inactive-match',
+			onboarding_id: 'ob-1',
+			template_step_id: null,
+			step_name: 'Orientation',
+			step_type: 'checkbox',
+			training_type_id: null,
+			stages: null,
+			sort_order: 6,
+			completed: true,
+			current_stage: null,
+			notes,
+			active: false
+		});
+
+		const first = await switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-1' });
+		expect(first.steps.find((step) => step.id === 'sp-1')).toMatchObject({
+			templateStepId: 'ts-1',
+			completed: true,
+			active: true,
+			notes
+		});
+		expect(first.steps.find((step) => step.id === 'sp-2')).toMatchObject({
+			templateStepId: 'ts-2',
+			completed: false,
+			currentStage: 'Reviewed',
+			active: true,
+			notes
+		});
+		expect(first.steps.find((step) => step.id === 'sp-3')).toMatchObject({
+			templateStepId: null,
+			completed: true,
+			active: false,
+			notes
+		});
+		expect(first.steps.find((step) => step.id === 'sp-wrong-type')).toMatchObject({
+			templateStepId: null,
+			completed: true,
+			active: false,
+			notes
+		});
+		expect(first.steps.find((step) => step.templateStepId === 'ts-3')).toMatchObject({
+			completed: false,
+			active: true,
+			notes: []
+		});
+		expect(first.steps.find((step) => step.id === 'sp-inactive-match')).toMatchObject({
+			templateStepId: null,
+			completed: true,
+			active: false,
+			notes
+		});
+
+		expect(first.steps).toHaveLength(6);
+		await expect(ctx.store.findOne('personnel_onboardings', 'test-org', { id: 'ob-1' })).resolves.toMatchObject({
+			template_id: 'tmpl-1'
+		});
+
+		const repeated = await switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'tmpl-1' });
+		expect(repeated.steps).toEqual(first.steps);
+		await expect(
+			ctx.store.findMany('onboarding_step_progress', 'test-org', { onboarding_id: 'ob-1' })
+		).resolves.toHaveLength(6);
+		expect(ctx.audit.events[0]).toMatchObject({ details: { oldTemplateId: null, newTemplateId: 'tmpl-1' } });
 	});
 
 	it('requires Onboarding configure policy before switching templates', async () => {

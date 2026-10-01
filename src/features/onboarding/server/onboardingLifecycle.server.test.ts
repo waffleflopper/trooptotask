@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle';
+import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle.server';
 
 const operatorCapabilityMap: CapabilityMap = {
 	calendar: 'none',

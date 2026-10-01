@@ -196,18 +196,7 @@
 		},
 		"onboarding": {
 			"roots": ["src/features/onboarding/", "src/lib/components/ui/onboarding-packet-list/"],
-			"files": [
-				"src/lib/server/core/useCases/onboardingLifecycle.test.ts",
-				"src/lib/server/core/useCases/onboardingLifecycle.ts",
-				"src/lib/server/core/useCases/onboardingPolicy.ts",
-				"src/lib/server/core/useCases/onboardingQuery.test.ts",
-				"src/lib/server/core/useCases/onboardingQuery.ts",
-				"src/lib/server/core/useCases/onboardingResync.test.ts",
-				"src/lib/server/core/useCases/onboardingResync.ts",
-				"src/lib/server/core/useCases/onboardingStepProgress.test.ts",
-				"src/lib/server/core/useCases/onboardingStepProgress.ts",
-				"src/lib/server/entities/onboardingStepProgress.ts"
-			],
+			"files": [],
 			"packet": "08-M09"
 		},
 		"organization": {
@@ -239,9 +228,7 @@
 				"src/lib/server/core/useCases/personnelFollowUps.ts",
 				"src/lib/server/counselingRecordMapping.test.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
-				"src/lib/server/entities/counselingRecord.ts",
-				"src/lib/server/entities/personnelOnboarding.test.ts",
-				"src/lib/server/entities/personnelOnboarding.ts"
+				"src/lib/server/entities/counselingRecord.ts"
 			],
 			"packet": "08-M04"
 		},

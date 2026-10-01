@@ -1,16 +1,19 @@
-import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
+import { listOnboardingTemplateSteps } from './onboardingTemplateRead.server';
 /**
  * Onboarding resync use case — reconciles step progress rows when a template is edited.
  *
  * When steps are added/removed from an onboarding template after active onboarding records
- * exist, `resyncOnboardingSteps(ctx, onboardingId)` adds missing step rows and removes
- * orphaned ones, preserving completion state for steps that still exist in the template.
+ * exist, `resyncOnboarding(ctx, onboardingId)` adds missing step rows and retains
+ * removed steps as inactive history, preserving completion and attributed notes.
  *
  * This is triggered from the template-edit flow, not from normal lifecycle events.
  */
 import { fail } from '$lib/errors';
-import type { OnboardingWorkflowPorts } from './onboardingPolicy';
-import { requireOnboardingConfigurePolicy, requireOnboardingManagePolicyForOnboarding } from './onboardingPolicy';
+import type { OnboardingWorkflowPorts } from './onboardingPorts.server';
+import {
+	requireOnboardingConfigurePolicy,
+	requireOnboardingManagePolicyForOnboarding
+} from './onboardingPolicy.server';
 
 interface StepProgressRow {
 	id: string;
@@ -68,7 +71,8 @@ function mapToResult(row: StepProgressRow): ResyncStepResult {
 async function performDiff(
 	ctx: OnboardingWorkflowPorts,
 	onboardingId: string,
-	templateId: string
+	templateId: string,
+	matchLegacySteps = false
 ): Promise<ResyncStepResult[]> {
 	// Fetch current template steps
 	const templateSteps = await listOnboardingTemplateSteps(ctx.store, ctx.auth.orgId, templateId);
@@ -82,13 +86,34 @@ async function performDiff(
 	const instanceStepMap = new Map(
 		instanceSteps.filter((is) => is.template_step_id).map((is) => [is.template_step_id!, is])
 	);
+	// A first template assignment can adopt active legacy work by exact name/type.
+	// A normal resync must not adopt a deleted definition's null-reference history.
+	if (matchLegacySteps) {
+		const legacyByNameAndType = new Map<string, StepProgressRow[]>();
+		for (const step of instanceSteps) {
+			if (step.template_step_id !== null || !step.active) continue;
+			const key = JSON.stringify([step.step_name, step.step_type]);
+			const matches = legacyByNameAndType.get(key) ?? [];
+			matches.push(step);
+			legacyByNameAndType.set(key, matches);
+		}
+		for (const step of templateSteps) {
+			if (instanceStepMap.has(step.id)) continue;
+			const legacy = legacyByNameAndType.get(JSON.stringify([step.name, step.stepType]))?.shift();
+			if (legacy) instanceStepMap.set(step.id, legacy);
+		}
+	}
+	const matchedIds = new Set(
+		templateSteps.map((step) => instanceStepMap.get(step.id)?.id).filter((id) => id !== undefined)
+	);
 
-	const results: ResyncStepResult[] = [];
+	// Include unchanged inactive history in the immediate response, without a reload.
+	const resultRows = new Map(instanceSteps.map((step) => [step.id, step]));
 	const existingRowUpserts: Record<string, unknown>[] = [];
 
 	// 1. Steps in instance but not in template → deactivate
 	for (const instanceStep of instanceSteps) {
-		if (instanceStep.template_step_id && !templateStepMap.has(instanceStep.template_step_id)) {
+		if (instanceStep.active && !matchedIds.has(instanceStep.id)) {
 			existingRowUpserts.push({ ...instanceStep, active: false });
 		}
 	}
@@ -98,6 +123,8 @@ async function performDiff(
 		const instanceStep = instanceStepMap.get(templateStepId);
 		if (instanceStep) {
 			const updateData: Record<string, unknown> = {
+				template_step_id: templateStepId,
+				active: true,
 				step_name: templateStep.name,
 				step_type: templateStep.stepType,
 				training_type_id: templateStep.trainingTypeId,
@@ -129,7 +156,7 @@ async function performDiff(
 			existingRowUpserts,
 			{ onConflict: 'id' }
 		);
-		for (const row of upserted) results.push(mapToResult(row));
+		for (const row of upserted) resultRows.set(row.id, row);
 	}
 
 	// 3. Steps in template but not in instance → insert new
@@ -157,10 +184,10 @@ async function performDiff(
 
 	if (newRows.length > 0) {
 		const inserted = await ctx.store.insertMany<StepProgressRow>('onboarding_step_progress', ctx.auth.orgId, newRows);
-		for (const row of inserted) results.push(mapToResult(row));
+		for (const row of inserted) resultRows.set(row.id, row);
 	}
 
-	return results;
+	return [...resultRows.values()].sort((a, b) => a.sort_order - b.sort_order).map(mapToResult);
 }
 
 export async function resyncOnboarding(ctx: OnboardingWorkflowPorts, onboardingId: string): Promise<ResyncResult> {
@@ -228,19 +255,27 @@ export async function switchTemplate(ctx: OnboardingWorkflowPorts, input: Switch
 		fail(400, 'Only in-progress onboardings can switch templates');
 	}
 
-	if (!onboarding.template_id) {
-		fail(400, 'Cannot switch template: current template has been deleted');
-	}
-
 	const oldTemplateId = onboarding.template_id;
 
-	// Update template_id on the onboarding
-	await ctx.store.update('personnel_onboardings', ctx.auth.orgId, input.onboardingId, {
-		template_id: input.newTemplateId
-	});
-
-	// Run diff against the new template
-	const steps = await performDiff(ctx, input.onboardingId, input.newTemplateId);
+	const assigningLegacy = oldTemplateId === null;
+	if (assigningLegacy) {
+		const template = await ctx.store.findOne<{ id: string }>(
+			'onboarding_templates',
+			ctx.auth.orgId,
+			{ id: input.newTemplateId },
+			'id'
+		);
+		if (!template) fail(404, 'Onboarding template not found');
+	}
+	const assignTemplate = () =>
+		ctx.store.update('personnel_onboardings', ctx.auth.orgId, input.onboardingId, {
+			template_id: input.newTemplateId
+		});
+	// Keep a first assignment retryable if progress persistence fails. Existing SQL
+	// checks each definition's Organization, without requiring the parent template first.
+	if (!assigningLegacy) await assignTemplate();
+	const steps = await performDiff(ctx, input.onboardingId, input.newTemplateId, assigningLegacy);
+	if (assigningLegacy) await assignTemplate();
 
 	ctx.audit.log({
 		action: 'onboarding.template_switched',

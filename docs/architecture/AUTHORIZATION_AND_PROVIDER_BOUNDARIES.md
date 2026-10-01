@@ -281,3 +281,5 @@ The approved v1 replacement direction keeps `Organization` and `Group` as canoni
 - copying one feature's permission lane into another as a convenience shortcut
 - adding more UI presets without improving the underlying model
 - documenting the current system as if it were already the desired design
+
+D15 packet operations now consume narrow Onboarding-owned actor/audit/store/Personnel/Training ports under `src/features/onboarding/server/`. API delivery binds the existing authenticated request context through the public server entry; packet/step authorization still resolves the parent Person's Group before mutation. Dashboard's separately authorized saved-packet read does not invoke Onboarding workspace policy or hydrate current Training facts. Reconciliation remains a sequence of provider writes, without a packet-wide transaction or a new concurrency guarantee.

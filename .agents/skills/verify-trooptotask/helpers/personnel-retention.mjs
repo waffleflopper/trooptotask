@@ -92,7 +92,7 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 				};
 				rows.push(
 					type === 'document'
-						? { ...base, file_size_bytes: null, content_type: null }
+						? { ...base, file_size_bytes: 0, content_type: 'application/pdf' }
 						: { ...base, date_conducted: '2026-09-14', subject: base.title, status: 'completed' }
 				);
 			}

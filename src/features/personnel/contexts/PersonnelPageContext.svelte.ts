@@ -1,6 +1,6 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '../personnel.types';
-import { personnelCreationResource } from '../personnelCreationResource';
+import { personnelScopeResource } from '../personnelScopeResource';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
@@ -107,7 +107,7 @@ export class PersonnelPageContext {
 	}
 
 	get canAddPersonnel(): boolean {
-		const resource = personnelCreationResource(this.#org.scopeSet);
+		const resource = personnelScopeResource(this.#org.scopeSet);
 		return (
 			resource !== null &&
 			this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, resource).allowed
@@ -127,7 +127,11 @@ export class PersonnelPageContext {
 	}
 
 	get canImportPersonnel(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.importRecords).allowed;
+		const resource = personnelScopeResource(this.#org.scopeSet);
+		return (
+			resource !== null &&
+			this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.importRecords, resource).allowed
+		);
 	}
 
 	get canManageGroups(): boolean {

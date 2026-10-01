@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { PERSONNEL_COLUMNS, autoMapColumns, detectHeaderRow } from './columnMapping';
+import { autoMapColumns, detectHeaderRow } from '$lib/utils/columnMapping';
+import { PERSONNEL_COLUMNS } from './personnelImportColumns';
 
 describe('PERSONNEL_COLUMNS', () => {
 	it('detects ETS and PCS / DEROS headers for personnel imports', () => {
-		expect(detectHeaderRow(['Rank', 'Last Name', 'First Name', 'ETS', 'PCS / DEROS'], PERSONNEL_COLUMNS)).toBe(true);
+		expect(detectHeaderRow(['ETS', 'PCS / DEROS'], PERSONNEL_COLUMNS)).toBe(true);
 	});
 
 	it('maps ETS and PCS / DEROS columns into the personnel import shape', () => {

@@ -74,3 +74,36 @@ export function isPersonnelSlugUniqueConstraintError(error: unknown): boolean {
 		haystack.includes('personnel_org_slug_key') || (haystack.includes('duplicate key') && haystack.includes('slug'))
 	);
 }
+
+/** A named constraint can be confirmed even when the provider conceals its key values. */
+export function isRedactedPersonnelSlugConstraintError(error: unknown): boolean {
+	if (typeof error !== 'object' || error === null) return false;
+	const conflict = error as { code?: unknown; message?: unknown; details?: unknown };
+	return (
+		conflict.code === '23505' &&
+		typeof conflict.message === 'string' &&
+		conflict.message.includes('"personnel_org_slug_key"') &&
+		(conflict.details === undefined || conflict.details === null || conflict.details === '')
+	);
+}
+
+/** Retry only the submitted candidate rejected by this Organization's slug index. */
+export function conflictingPersonnelSlug(
+	error: unknown,
+	orgId: string,
+	candidates: ReadonlySet<string>
+): string | null {
+	if (typeof error !== 'object' || error === null) return null;
+	const conflict = error as { code?: unknown; message?: unknown; details?: unknown };
+	if (
+		conflict.code !== '23505' ||
+		typeof conflict.message !== 'string' ||
+		!conflict.message.includes('"personnel_org_slug_key"') ||
+		typeof conflict.details !== 'string'
+	) {
+		return null;
+	}
+	const key = /^Key \(organization_id, slug\)=\(([^,()]+), ([a-z0-9-]+)\) already exists\.$/.exec(conflict.details);
+	if (!key || key[1] !== orgId || !candidates.has(key[2])) return null;
+	return key[2];
+}

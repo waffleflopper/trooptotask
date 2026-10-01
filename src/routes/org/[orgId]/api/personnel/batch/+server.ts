@@ -1,6 +1,7 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { importPersonnelBatch } from '$lib/server/core/useCases/personnelBatch';
+import { importPersonnelBatch } from '$features/personnel/index.server';
+import type { PersonnelImportInput, PersonnelImportResult } from '$features/personnel/contracts';
 import { z } from 'zod';
 
 const requiredPersonnelCell = z.preprocess((value) => (value === undefined ? '' : value), z.string());
@@ -29,6 +30,6 @@ export const _postConfig = {
 		importPersonnelBatch(ctx, {
 			records: input.records
 		})
-} satisfies RouteConfig<z.infer<typeof batchInput>, unknown>;
+} satisfies RouteConfig<PersonnelImportInput, PersonnelImportResult>;
 
 export const POST = handle(_postConfig);

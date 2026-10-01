@@ -1,7 +1,7 @@
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { createPersonnel } from '$features/personnel';
-import { personnelCreationResource } from '$features/personnel/contracts';
+import { personnelScopeResource } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import { trainingTypeSource } from '$features/training';
@@ -205,7 +205,7 @@ export class OnboardingPageContext {
 	}
 
 	get canAddPerson(): boolean {
-		const resource = personnelCreationResource(this.#org.scopeSet);
+		const resource = personnelScopeResource(this.#org.scopeSet);
 		return (
 			resource !== null &&
 			this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, resource).allowed

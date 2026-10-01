@@ -4,7 +4,7 @@ import { fetchOnboardingTemplatesData } from '$features/onboarding/server/onboar
 import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onboarding/contracts';
 import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
 import { requireOnboardingViewPolicy, type OnboardingTrainingPorts } from './onboardingPolicy';
-import { personnelCreationResource } from '$features/personnel/contracts';
+import { personnelScopeResource } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 
@@ -15,7 +15,7 @@ export interface FetchOnboardingBootstrapOptions {
 async function loadPersonnelCreationRanks(
 	ctx: OnboardingTrainingPorts
 ): Promise<Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'>> {
-	const resource = personnelCreationResource(ctx.auth.scopeSet);
+	const resource = personnelScopeResource(ctx.auth.scopeSet);
 	if (resource === null) return { rankCatalog: [], rankCatalogUnavailable: false };
 	const decision = await evaluateFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.createRecords, resource);
 	if (!decision.allowed) return { rankCatalog: [], rankCatalogUnavailable: false };

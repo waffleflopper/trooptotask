@@ -39,39 +39,84 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 	const documents = [];
 	const counselings = [];
 	const objects = [];
+	function addFile(person, type, status, id = randomUUID()) {
+		const pdf = new jsPDF();
+		pdf.text('Synthetic retention ' + tag + ' ' + type + ' ' + status + ' ' + id, 10, 20);
+		const bytes = Buffer.from(pdf.output('arraybuffer'));
+		const filePath =
+			type === 'document'
+				? person.organization_id + '/personnel/' + person.id + '/documents/' + id + '-synthetic.pdf'
+				: person.organization_id + '/counseling-records/' + person.id + '/' + id + '-synthetic.pdf';
+		const base = {
+			id,
+			organization_id: person.organization_id,
+			personnel_id: person.id,
+			title: 'Synthetic ' + type + ' ' + status + ' ' + tag,
+			file_path: filePath,
+			archived_at: status === 'active' ? null : status === 'expired' ? expiredAt : recentAt,
+			uploaded_by: fixture.actors.manager.id
+		};
+		if (type === 'document')
+			documents.push({ ...base, file_size_bytes: bytes.length, content_type: 'application/pdf' });
+		else counselings.push({ ...base, date_conducted: '2026-09-14', subject: base.title, status: 'completed' });
+		objects.push({
+			bucket: type === 'document' ? 'personnel-documents' : 'counseling-files',
+			path: filePath,
+			personnelId: person.id,
+			rowId: id,
+			size: bytes.length,
+			sha256: createHash('sha256').update(bytes).digest('hex'),
+			bytes
+		});
+	}
 	for (const person of selected) {
 		for (const status of ['active', 'recent', ...(person === people[0] ? ['expired'] : [])]) {
-			for (const type of ['document', 'counseling']) {
-				const id = randomUUID();
-				const pdf = new jsPDF();
-				pdf.text('Synthetic retention ' + tag + ' ' + type + ' ' + status + ' ' + id, 10, 20);
-				const bytes = Buffer.from(pdf.output('arraybuffer'));
-				const filePath =
-					type === 'document'
-						? person.organization_id + '/personnel/' + person.id + '/documents/' + id + '-synthetic.pdf'
-						: person.organization_id + '/counseling-records/' + person.id + '/' + id + '-synthetic.pdf';
+			for (const type of ['document', 'counseling']) addFile(person, type, status);
+		}
+	}
+	const pageMarkerIds = {};
+	if (kind === 'personnel-retention-dense') {
+		// Metadata-only rows carry valid synthetic paths without stored objects. A
+		// real final-page PDF detects truncated manifests in each bucket.
+		for (const type of ['document', 'counseling']) {
+			const rows = type === 'document' ? documents : counselings;
+			for (let index = 0; index < 1000; index++) {
 				const base = {
-					id,
-					organization_id: person.organization_id,
-					personnel_id: person.id,
-					title: 'Synthetic ' + type + ' ' + status + ' ' + tag,
-					file_path: filePath,
-					archived_at: status === 'active' ? null : status === 'expired' ? expiredAt : recentAt,
+					id: randomUUID(),
+					organization_id: people[0].organization_id,
+					personnel_id: people[0].id,
+					title: 'Synthetic dense ' + type + ' ' + tag + ' ' + index,
+					file_path:
+						type === 'document'
+							? people[0].organization_id +
+								'/personnel/' +
+								people[0].id +
+								'/documents/' +
+								tag +
+								'-metadata-' +
+								index +
+								'.pdf'
+							: people[0].organization_id +
+								'/counseling-records/' +
+								people[0].id +
+								'/' +
+								tag +
+								'-metadata-' +
+								index +
+								'.pdf',
+					archived_at: null,
 					uploaded_by: fixture.actors.manager.id
 				};
-				if (type === 'document')
-					documents.push({ ...base, file_size_bytes: bytes.length, content_type: 'application/pdf' });
-				else counselings.push({ ...base, date_conducted: '2026-09-14', subject: base.title, status: 'completed' });
-				objects.push({
-					bucket: type === 'document' ? 'personnel-documents' : 'counseling-files',
-					path: filePath,
-					personnelId: person.id,
-					rowId: id,
-					size: bytes.length,
-					sha256: createHash('sha256').update(bytes).digest('hex'),
-					bytes
-				});
+				rows.push(
+					type === 'document'
+						? { ...base, file_size_bytes: 1, content_type: 'application/pdf' }
+						: { ...base, date_conducted: '2026-09-14', subject: base.title, status: 'completed' }
+				);
 			}
+			const marker = 'ffffffff-ffff-4fff-bfff-' + randomUUID().slice(-12);
+			if (rows.some((row) => row.id >= marker)) throw new Error('Dense marker must sort after every seeded artifact.');
+			pageMarkerIds[type] = marker;
+			addFile(people[0], type, 'active', marker);
 		}
 	}
 	// Unrelated real bytes without artifact metadata must survive the job.
@@ -181,6 +226,8 @@ export async function seedPersonnelRetention({ client, fixture, kind, tag, owned
 		expiredAt,
 		recentAt,
 		expiredCount: people.length,
+		denseChildCountPerBucket: kind === 'personnel-retention-dense' ? 1001 : 0,
+		pageMarkerIds,
 		expiredIds: people.map((person) => person.id),
 		people: selected.map(({ id, last_name, slug, organization_id }) => ({ id, last_name, slug, organization_id })),
 		retained,

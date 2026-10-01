@@ -51,7 +51,13 @@
 	let selectedId = $state<string | null>(null);
 
 	const selectedOnboarding = $derived(
-		selectedId ? (ctx.filteredOnboardings.find((o) => o.id === selectedId) ?? null) : null
+		selectedId
+			? (ctx.onboardings.find(
+					(o) =>
+						o.id === selectedId &&
+						(o.status === 'in_progress' || ctx.completingId === o.id || ctx.cancellingId === o.id)
+				) ?? null)
+			: null
 	);
 
 	const sheetOpen = $derived(selectedOnboarding !== null);

@@ -249,8 +249,6 @@
 				"src/lib/server/core/useCases/personnelFollowUps.ts",
 				"src/lib/server/core/useCases/personnelReadinessLanes.test.ts",
 				"src/lib/server/core/useCases/personnelReadinessLanes.ts",
-				"src/lib/server/core/useCases/personnelWorkspaceQuery.test.ts",
-				"src/lib/server/core/useCases/personnelWorkspaceQuery.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
 				"src/lib/server/entities/counselingRecord.ts",
 				"src/lib/server/entities/personnelOnboarding.test.ts",

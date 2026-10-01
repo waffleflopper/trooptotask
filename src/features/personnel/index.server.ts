@@ -67,3 +67,6 @@ export {
 	archiveApprovedPersonnelRecord,
 	preparePersonnelArchiveBatch
 } from './personnelLifecycle.server';
+
+export { loadPersonnelWorkspace } from './personnelWorkspaceQuery.server';
+export type { PersonnelWorkspaceSources } from './personnelWorkspaceQuery.server';

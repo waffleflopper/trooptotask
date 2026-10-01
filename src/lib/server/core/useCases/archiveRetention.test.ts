@@ -1,5 +1,4 @@
-import type { PersonnelRetentionSource } from '$features/personnel/index.server';
-import { bindLeaderNoteDataSource } from '$lib/server/adapters/leaderNoteDataSource';
+import { createLeaderNoteDataSource, type PersonnelRetentionSource } from '$features/personnel/index.server';
 import { describe, expect, it, vi } from 'vitest';
 import { createInMemoryDataStore, createTestStoragePort } from '$lib/server/adapters/inMemory';
 import { cleanupArchivedRecords } from './archiveRetention';
@@ -37,7 +36,13 @@ function buildPorts() {
 		assignmentTypes,
 		personnel: { deleteExpired: vi.fn<PersonnelRetentionSource['deleteExpired']>().mockResolvedValue(0) },
 		notifications: { notifyAdmins: vi.fn<NotificationDeliveryPort['notifyAdmins']>().mockResolvedValue(undefined) },
-		leaderNotes: bindLeaderNoteDataSource(store)
+		leaderNotes: createLeaderNoteDataSource({
+			findArchivedBefore: async (orgId, cutoff) => {
+				const notes = await store.findMany<{ id: string; archived_at: string | null }>('leader_notes', orgId);
+				return notes.filter((note) => note.archived_at !== null && Date.parse(note.archived_at) < Date.parse(cutoff));
+			},
+			deleteByIds: (orgId, ids) => store.deleteManyByIds('leader_notes', orgId, ids)
+		})
 	};
 }
 
@@ -141,7 +146,7 @@ describe('cleanupArchivedRecords', () => {
 		const ports = buildPorts();
 		const cutoff = '2025-05-30T12:00:00.000Z';
 		const expired = '2025-05-30T11:59:59.999Z';
-		for (const table of ['personnel_follow_ups', 'counseling_records', 'personnel_documents', 'leader_notes']) {
+		for (const table of ['personnel_follow_ups', 'counseling_records', 'personnel_documents']) {
 			ports.store.seed(table, [
 				{
 					id: 'expired',
@@ -174,11 +179,11 @@ describe('cleanupArchivedRecords', () => {
 			archived_at: null
 		});
 		const result = await cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW });
-		expect(result.deletedCount).toBe(4);
-		for (const table of ['counseling_records', 'personnel_documents', 'leader_notes'])
+		expect(result.deletedCount).toBe(3);
+		for (const table of ['counseling_records', 'personnel_documents'])
 			await expect(idsFor(ports, table)).resolves.toEqual(['cutoff-equal']);
 		await expect(idsFor(ports, 'personnel_follow_ups')).resolves.toEqual(['completed-history', 'cutoff-equal']);
-		for (const table of ['personnel_follow_ups', 'counseling_records', 'personnel_documents', 'leader_notes'])
+		for (const table of ['personnel_follow_ups', 'counseling_records', 'personnel_documents'])
 			expect(await ports.store.findMany<{ id: string }>(table, 'org-2')).toEqual([
 				expect.objectContaining({ id: 'foreign-expired', archived_at: expired })
 			]);

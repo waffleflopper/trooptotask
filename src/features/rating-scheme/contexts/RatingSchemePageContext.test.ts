@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import type { CreateOrgContextInput } from '$lib/stores/orgContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from './RatingSchemePageContext.svelte';
 import {
@@ -69,7 +68,7 @@ const entries: RatingSchemeEntry[] = [
 	}
 ];
 
-function makeOrg(overrides: Partial<CreateOrgContextInput> = {}) {
+function makeOrg(overrides: Partial<Parameters<typeof createTestOrgContext>[0]> = {}) {
 	return createTestOrgContext({
 		userRole: 'member',
 		capabilityMap: VIEW_TEST_CAPABILITY_MAP,

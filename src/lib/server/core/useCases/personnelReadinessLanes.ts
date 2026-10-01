@@ -5,7 +5,6 @@ import type { Personnel } from '$features/personnel/personnel.types';
 import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
 import { PersonnelEntity } from '$features/personnel/index.server';
-import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
 import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
 
@@ -95,54 +94,6 @@ export async function loadAvailabilityReadinessLane(
 		detail: `${statusName} ${dateRangeDetail(current)}.${note}`,
 		tone: 'watch'
 	};
-}
-
-export async function loadRatingSchemeReadinessLane(
-	ctx: UseCaseContext,
-	personnelId: string,
-	_asOf?: string | Date
-): Promise<PersonnelReadinessLane> {
-	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry');
-	const rows = await ctx.store.findMany<Record<string, unknown>>(
-		'rating_scheme_entries',
-		ctx.auth.orgId,
-		{ rated_person_id: personnelId },
-		{
-			select: RatingSchemeEntryEntity.select,
-			orderBy: [{ column: 'rating_period_end', ascending: false }]
-		}
-	);
-	const active = RatingSchemeEntryEntity.fromDbArray(rows).find((entry) => entry.status !== 'completed');
-	if (!active) {
-		return {
-			label: 'Rating Scheme',
-			value: 'Not assigned',
-			detail: 'No active Rating Scheme entry for this Soldier.',
-			tone: 'bad'
-		};
-	}
-
-	const hasRater = hasRatingPerson(active.raterPersonId, active.raterName);
-	const hasSeniorRater = hasRatingPerson(active.seniorRaterPersonId, active.seniorRaterName);
-	if (hasRater && hasSeniorRater) {
-		return {
-			label: 'Rating Scheme',
-			value: 'Aligned',
-			detail: 'Rater and senior rater assigned.',
-			tone: 'info'
-		};
-	}
-
-	return {
-		label: 'Rating Scheme',
-		value: hasRater ? 'Senior rater needed' : 'Rater needed',
-		detail: `${hasRater ? 'Rater assigned' : 'Rater missing'}. ${hasSeniorRater ? 'Senior rater assigned' : 'Senior rater missing'}.`,
-		tone: 'watch'
-	};
-}
-
-function hasRatingPerson(id: string | null, name: string | null): boolean {
-	return Boolean(id || name?.trim());
 }
 
 export async function loadLossTrackingReadinessLane(

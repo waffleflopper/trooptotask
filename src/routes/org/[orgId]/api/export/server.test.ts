@@ -127,6 +127,32 @@ describe('POST /api/export', () => {
 		] as const) {
 			ctx.rawStore.seed(table, [row, { ...row, id: `foreign-${table}`, organization_id: 'other-org' }]);
 		}
+		const evaluation = {
+			id: 'own-eval',
+			organization_id: ctx.auth.orgId,
+			rated_person_id: 'archived-person',
+			eval_type: 'OER',
+			rater_person_id: 'saved-rater',
+			rater_name: null,
+			senior_rater_person_id: null,
+			senior_rater_name: 'LTC External',
+			intermediate_rater_person_id: null,
+			intermediate_rater_name: null,
+			reviewer_person_id: 'saved-reviewer',
+			reviewer_name: null,
+			rating_period_start: '2025-09-30',
+			rating_period_end: '2026-09-29',
+			status: 'completed',
+			notes: 'Saved evaluation notes',
+			report_type: '02',
+			workflow_status: null,
+			created_at: '2025-09-30T01:02:03.654321Z',
+			updated_at: '2026-09-29T01:02:03.123456Z'
+		};
+		ctx.rawStore.seed('rating_scheme_entries', [
+			evaluation,
+			{ ...evaluation, id: 'foreign-eval', organization_id: 'other-org' }
+		]);
 		const notification = {
 			id: 'own-notification',
 			user_id: ctx.auth.userId,
@@ -171,6 +197,11 @@ describe('POST /api/export', () => {
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
 		const payload = await response!.json();
 		expect(payload.personnel.map((person: { id: string }) => person.id)).toEqual(['own-person']);
+		expect(payload.ratingSchemeEntries).toEqual([evaluation]);
+		expect(payload.sections.ratingSchemeEntries).toEqual([evaluation]);
+		expect(payload.sectionInventory).toContainEqual(
+			expect.objectContaining({ key: 'ratingSchemeEntries', table: 'rating_scheme_entries', rowCount: 1 })
+		);
 		expect(payload.trainingTypes).toEqual([trainingType]);
 		expect(payload.personnelTrainings).toEqual([training]);
 		expect(payload.trainingViews).toEqual([view]);

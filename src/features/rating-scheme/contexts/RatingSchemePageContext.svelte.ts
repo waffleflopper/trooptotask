@@ -1,8 +1,9 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
+import type { RatingSchemeAffordance, RatingSchemePageAccess } from '../contracts';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { RatingSchemeEntry, WorkflowStatus } from '$features/rating-scheme/rating-scheme.types';
 import { getRatingDueStatus } from '$features/rating-scheme/utils/ratingScheme';
+import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 
 export interface RatingSchemePageData {
 	orgId: string;
@@ -24,14 +25,14 @@ export class RatingSchemePageContext {
 
 	readonly #data: RatingSchemePageData;
 	readonly #modals: ModalRegistry;
-	readonly #org: OrgContext;
+	readonly #org: RatingSchemePageAccess;
 	readonly #ratingStore: RatingSchemeStoreAccessor;
 
 	constructor(
 		data: RatingSchemePageData,
 		modals: ModalRegistry,
-		org: OrgContext,
-		ratingStore: RatingSchemeStoreAccessor | RatingSchemeEntry[] = []
+		org: RatingSchemePageAccess,
+		ratingStore: RatingSchemeStoreAccessor | RatingSchemeEntry[] = ratingSchemeStore
 	) {
 		this.#data = data;
 		this.#modals = modals;
@@ -74,7 +75,7 @@ export class RatingSchemePageContext {
 		return this.ratingSchemeWriteAffordance.allowed;
 	}
 
-	get ratingSchemeWriteAffordance(): ClientAffordance {
+	get ratingSchemeWriteAffordance(): RatingSchemeAffordance {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.ratingScheme.updateEntries, { kind: 'unscoped' });
 	}
 

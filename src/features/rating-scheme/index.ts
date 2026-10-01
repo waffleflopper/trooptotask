@@ -8,7 +8,7 @@ export type {
 	RatingDueStatus,
 	ReportType,
 	ReportTypeOption
-} from './rating-scheme.types';
+} from './contracts';
 
 export {
 	OER_REPORT_TYPES,
@@ -17,16 +17,18 @@ export {
 	WORKFLOW_STATUS_OPTIONS,
 	WORKFLOW_STATUS_COLORS,
 	RATING_STATUS_COLORS
-} from './rating-scheme.types';
-
-// Stores
-export { ratingSchemeStore } from './stores/ratingScheme.svelte';
+} from './contracts';
 
 // Utils
 export { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './utils/ratingScheme';
 export { exportRatingScheme } from './utils/ratingSchemeExport';
 
-// Components are imported directly from their paths:
-// $features/rating-scheme/components/RatingSchemeEntryModal.svelte
-// $features/rating-scheme/components/RatingSchemeTableView.svelte
-// $features/rating-scheme/components/RatingSchemeGroupedView.svelte
+export { RatingSchemePageContext } from './contexts/RatingSchemePageContext.svelte';
+export type { RatingSchemePageData } from './contexts/RatingSchemePageContext.svelte';
+export { ratingSchemeWorkspaceHydrator } from './ratingSchemeWorkspaceHydration.svelte';
+export { default as RatingSchemePageView } from './components/RatingSchemePageView.svelte';
+
+/** Keep the editor deferred while delivery consumes the public Web seam. */
+export function loadRatingSchemeModals() {
+	return import('./components/RatingSchemeModals.svelte');
+}

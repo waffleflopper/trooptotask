@@ -1,12 +1,18 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
-import type { RatingSchemeEntry } from '../rating-scheme.types';
-import type { RatingSchemePageContext } from '../contexts/RatingSchemePageContext.svelte';
+import {
+	RatingSchemePageContext,
+	ratingSchemeWorkspaceHydrator,
+	loadRatingSchemeModals
+} from '$features/rating-scheme';
+import type { RatingSchemeEntry } from '$features/rating-scheme/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import RatingSchemeModals from './RatingSchemeModals.svelte';
+import { submitDeletionRequest } from '$features/deletion-requests';
+const { default: RatingSchemeModals } = await loadRatingSchemeModals();
+let snapshot = 0;
+let ctx: RatingSchemePageContext;
 
 const entry: RatingSchemeEntry = {
 	id: 'evaluation-a',
@@ -29,14 +35,23 @@ const entry: RatingSchemeEntry = {
 };
 const otherEntry = { ...entry, id: 'evaluation-b', ratedPersonId: 'person-b', notes: 'Other evaluation' };
 
-function openEditor() {
-	ratingSchemeStore.load([entry, otherEntry], 'org-a');
+async function openEditor() {
+	await ratingSchemeWorkspaceHydrator.hydrate({
+		orgId: 'org-a',
+		ratingSchemeEntries: { mode: 'replace', snapshotKey: `recovery-${++snapshot}`, items: [entry, otherEntry] }
+	});
 	const modals = new ModalRegistry();
 	modals.open('rating-modal', { entry });
-	render(RatingSchemeModals, {
-		ctx: { orgId: 'org-a' } as RatingSchemePageContext,
+	ctx = new RatingSchemePageContext(
+		{ orgId: 'org-a', orgName: 'Synthetic A', ratingSchemeEntries: [entry, otherEntry] },
 		modals,
-		personnelLookup: [{ id: 'person-a', rank: 'SGT', firstName: 'Synthetic', lastName: 'Able' }]
+		{} as ConstructorParameters<typeof RatingSchemePageContext>[2]
+	);
+	render(RatingSchemeModals, {
+		modals,
+		personnelLookup: [{ id: 'person-a', rank: 'SGT', firstName: 'Synthetic', lastName: 'Able' }],
+		onRequestDeletion: (id, description) =>
+			submitDeletionRequest('org-a', 'rating_scheme_entry', id, description, '/org/org-a/evals')
 	});
 	return modals;
 }
@@ -50,7 +65,7 @@ afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
-	ratingSchemeStore.load([], 'org-reset');
+	ratingSchemeWorkspaceHydrator.restrict('org-reset');
 });
 
 describe('Evals deletion recovery', () => {
@@ -70,14 +85,14 @@ describe('Evals deletion recovery', () => {
 				requests.push(JSON.parse(init.body as string));
 				return Response.json({ id: 'request-a' }, { status: 201 });
 			});
-			const modals = openEditor();
+			const modals = await openEditor();
 			await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Unsaved draft' } });
 			await confirmDeletion();
 			await waitFor(() => expect(errorToast).toHaveBeenCalledTimes(1));
 			expect(modals.isOpen('rating-modal')).toBe(true);
 			expect(screen.getByRole('alertdialog')).toBeTruthy();
 			expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('Unsaved draft');
-			expect(ratingSchemeStore.items).toEqual([entry, otherEntry]);
+			expect(ctx.filteredRatingEntries).toEqual([entry, otherEntry]);
 			expect(requests).toEqual([]);
 			await waitFor(() =>
 				expect(
@@ -88,7 +103,7 @@ describe('Evals deletion recovery', () => {
 			failed = false;
 			await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /Delete Entry/ }));
 			await waitFor(() => expect(modals.isOpen('rating-modal')).toBe(false));
-			expect(ratingSchemeStore.items).toEqual(operation === 'delete' ? [otherEntry] : [entry, otherEntry]);
+			expect(ctx.filteredRatingEntries).toEqual(operation === 'delete' ? [otherEntry] : [entry, otherEntry]);
 			if (operation === 'approval request')
 				expect(requests).toEqual([
 					expect.objectContaining({
@@ -109,10 +124,10 @@ describe('Evals deletion recovery', () => {
 				? Response.json({ requiresApproval: true }, { status: 202 })
 				: Response.json({}, { status: 409 })
 		);
-		const modals = openEditor();
+		const modals = await openEditor();
 		await confirmDeletion();
 		await waitFor(() => expect(modals.isOpen('rating-modal')).toBe(false));
-		expect(ratingSchemeStore.items).toEqual([entry, otherEntry]);
+		expect(ctx.filteredRatingEntries).toEqual([entry, otherEntry]);
 		expect(infoToast).toHaveBeenCalledTimes(1);
 		expect(errorToast).not.toHaveBeenCalled();
 	});
@@ -130,7 +145,7 @@ describe('Evals deletion recovery', () => {
 				effects.push(init.method!);
 				return init.method === pendingMethod ? pending : Response.json({ requiresApproval: true }, { status: 202 });
 			});
-			const modals = openEditor();
+			const modals = await openEditor();
 			await confirmDeletion();
 			const confirmation = within(screen.getByRole('alertdialog'));
 			await fireEvent.click(confirmation.getByRole('button', { name: /Delete Entry/ }));
@@ -145,7 +160,7 @@ describe('Evals deletion recovery', () => {
 			expect(effects).toEqual(pendingMethod === 'DELETE' ? ['DELETE'] : ['DELETE', 'POST']);
 			release(Response.json({}, { status: 200 }));
 			await waitFor(() => expect(modals.isOpen('rating-modal')).toBe(false));
-			expect(ratingSchemeStore.items).toEqual(pendingMethod === 'DELETE' ? [otherEntry] : [entry, otherEntry]);
+			expect(ctx.filteredRatingEntries).toEqual(pendingMethod === 'DELETE' ? [otherEntry] : [entry, otherEntry]);
 		}
 	);
 
@@ -160,7 +175,7 @@ describe('Evals deletion recovery', () => {
 			effects.push(init.method!);
 			return pending;
 		});
-		const modals = openEditor();
+		const modals = await openEditor();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Updated notes' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 		const deleteButton = screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement;
@@ -172,6 +187,6 @@ describe('Evals deletion recovery', () => {
 		expect(effects).toEqual(['PUT']);
 		release(Response.json({ ...entry, notes: 'Updated notes' }));
 		await waitFor(() => expect(modals.isOpen('rating-modal')).toBe(false));
-		expect(ratingSchemeStore.getById(entry.id)?.notes).toBe('Updated notes');
+		expect(ctx.filteredRatingEntries.find((item) => item.id === entry.id)?.notes).toBe('Updated notes');
 	});
 });

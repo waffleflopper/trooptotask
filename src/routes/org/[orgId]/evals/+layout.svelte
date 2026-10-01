@@ -1,9 +1,6 @@
 <script lang="ts">
-	import { ratingSchemeWorkspaceHydrator } from '$features/rating-scheme/ratingSchemeWorkspaceHydration.svelte';
-	import type {
-		RatingSchemeWorkspaceResult,
-		RatingSchemeWorkspaceRestricted
-	} from '$features/rating-scheme/server/ratingSchemeWorkspaceBootstrap';
+	import { ratingSchemeWorkspaceHydrator } from '$features/rating-scheme';
+	import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as PageShell from '$lib/components/ui/page-shell';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';

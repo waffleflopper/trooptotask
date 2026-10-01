@@ -1,9 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createRatingSchemeEntryUseCases } from './ratingSchemeEntryCrud';
+import {
+	createRatingSchemeEntry,
+	updateRatingSchemeEntry,
+	removeRatingSchemeEntry
+} from './ratingSchemeEntryOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
-	return createTestContext(overrides);
+	const ctx = createTestContext(overrides);
+	return {
+		...ctx,
+		notifyRatingSchemeEntryDeleted: vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
+	};
 }
 
 function seedRatedPerson(ctx: ReturnType<typeof buildContext>, groupId: string | null = null) {
@@ -56,7 +64,7 @@ describe('Rating scheme entry — create', () => {
 				group_id: null
 			}
 		]);
-		const { create } = createRatingSchemeEntryUseCases();
+		const create = createRatingSchemeEntry;
 
 		await create(ctx, { ...validInput });
 
@@ -69,9 +77,9 @@ describe('Rating scheme entry — create', () => {
 	it('creates an entry, persists it, and audits', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		const { create } = createRatingSchemeEntryUseCases();
+		const create = createRatingSchemeEntry;
 
-		const result = (await create(ctx, { ...validInput })) as Record<string, unknown>;
+		const result = await create(ctx, { ...validInput });
 
 		expect(result).toMatchObject({
 			ratedPersonId: 'person-1',
@@ -92,7 +100,7 @@ describe('Rating scheme entry — create', () => {
 	it('coerces empty strings to null on create', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		const { create } = createRatingSchemeEntryUseCases();
+		const create = createRatingSchemeEntry;
 
 		await create(ctx, { ...validInput, raterName: '', seniorRaterName: '' });
 
@@ -116,7 +124,7 @@ describe('Rating scheme entry — create', () => {
 				}
 			}
 		});
-		const { create } = createRatingSchemeEntryUseCases();
+		const create = createRatingSchemeEntry;
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toContainEqual(
@@ -158,9 +166,9 @@ describe('Rating scheme entry — create', () => {
 				group_id: 'group-c'
 			}
 		]);
-		const { create } = createRatingSchemeEntryUseCases();
+		const create = createRatingSchemeEntry;
 
-		const result = (await create(ctx, { ...validInput })) as Record<string, unknown>;
+		const result = await create(ctx, { ...validInput });
 
 		expect(result.ratedPersonId).toBe('person-1');
 	});
@@ -191,7 +199,7 @@ describe('Rating scheme entry — create', () => {
 				group_id: null
 			}
 		]);
-		const { create } = createRatingSchemeEntryUseCases();
+		const create = createRatingSchemeEntry;
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual([]);
@@ -229,7 +237,7 @@ describe('Rating scheme entry — create', () => {
 				group_id: 'group-b'
 			}
 		]);
-		const { create } = createRatingSchemeEntryUseCases();
+		const create = createRatingSchemeEntry;
 
 		await expect(create(ctx, { ...validInput })).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toContainEqual(
@@ -249,7 +257,7 @@ describe('Rating scheme entry — update', () => {
 	it('updates an entry and audits', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		const { update } = createRatingSchemeEntryUseCases();
+		const update = updateRatingSchemeEntry;
 
 		ctx.store.seed('rating_scheme_entries', [
 			{
@@ -263,7 +271,7 @@ describe('Rating scheme entry — update', () => {
 			}
 		]);
 
-		const result = (await update(ctx, { id: 'rs-1', status: 'completed' })) as Record<string, unknown>;
+		const result = await update(ctx, { id: 'rs-1', status: 'completed' });
 		expect(result.status).toBe('completed');
 
 		expect(ctx.auditPort.events[0]).toMatchObject({
@@ -275,7 +283,7 @@ describe('Rating scheme entry — update', () => {
 	it('coerces empty strings to null on update', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		const { update } = createRatingSchemeEntryUseCases();
+		const update = updateRatingSchemeEntry;
 
 		ctx.store.seed('rating_scheme_entries', [
 			{
@@ -304,7 +312,7 @@ describe('Rating scheme entry — delete', () => {
 	it('deletes entry, audits, and notifies admins', async () => {
 		const ctx = buildContext();
 		seedRatedPerson(ctx);
-		const { remove } = createRatingSchemeEntryUseCases();
+		const remove = removeRatingSchemeEntry;
 
 		ctx.store.seed('rating_scheme_entries', [
 			{
@@ -325,8 +333,7 @@ describe('Rating scheme entry — delete', () => {
 			resourceId: 'rs-1'
 		});
 
-		const notifications = ctx.notificationPort.notifications;
-		expect(notifications).toHaveLength(1);
+		expect(ctx.notifyRatingSchemeEntryDeleted).toHaveBeenCalledOnce();
 	});
 
 	it('returns requiresApproval for non-governance members with Rating Scheme capability', async () => {
@@ -345,7 +352,7 @@ describe('Rating scheme entry — delete', () => {
 			}
 		});
 		seedRatedPerson(ctx);
-		const { remove } = createRatingSchemeEntryUseCases();
+		const remove = removeRatingSchemeEntry;
 
 		ctx.store.seed('rating_scheme_entries', [
 			{
@@ -381,7 +388,7 @@ describe('Rating scheme entry — delete', () => {
 			}
 		});
 		seedRatedPerson(ctx);
-		const { remove } = createRatingSchemeEntryUseCases();
+		const remove = removeRatingSchemeEntry;
 
 		ctx.store.seed('rating_scheme_entries', [
 			{
@@ -398,6 +405,52 @@ describe('Rating scheme entry — delete', () => {
 
 		const stored = await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' });
 		expect(stored).not.toBeNull();
+	});
+
+	it('preserves the entry and skips success effects when deletion fails', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		const entry = await createRatingSchemeEntry(ctx, validInput);
+		const before = structuredClone(await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: entry.id }));
+		vi.spyOn(ctx.store, 'delete').mockRejectedValueOnce(new Error('Synthetic deletion failure'));
+
+		await expect(removeRatingSchemeEntry(ctx, entry.id)).rejects.toThrow('Synthetic deletion failure');
+		expect(await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: entry.id })).toEqual(before);
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['rating_scheme.created']);
+		expect(ctx.notifyRatingSchemeEntryDeleted).not.toHaveBeenCalled();
+	});
+
+	it('awaits the delivery notification after successful deletion and audit', async () => {
+		const ctx = buildContext();
+		seedRatedPerson(ctx);
+		const entry = await createRatingSchemeEntry(ctx, validInput);
+		let releaseNotification!: () => void;
+		let notificationStarted!: () => void;
+		const pendingNotification = new Promise<void>((resolve) => {
+			releaseNotification = resolve;
+		});
+		const started = new Promise<void>((resolve) => {
+			notificationStarted = resolve;
+		});
+		ctx.notifyRatingSchemeEntryDeleted.mockImplementation(() => {
+			notificationStarted();
+			return pendingNotification;
+		});
+		let settled = false;
+		const removal = removeRatingSchemeEntry(ctx, entry.id).then(() => {
+			settled = true;
+		});
+		await started;
+
+		expect(await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: entry.id })).toBeNull();
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual([
+			'rating_scheme.created',
+			'rating_scheme.deleted'
+		]);
+		expect(settled).toBe(false);
+		releaseNotification();
+		await removal;
+		expect(settled).toBe(true);
 	});
 });
 
@@ -456,7 +509,7 @@ describe('Rating Scheme evaluator integrity', () => {
 		'rejects foreign/missing %s on create and update without mutation or success audit',
 		async (field) => {
 			const ctx = evaluatorContext();
-			const cases = createRatingSchemeEntryUseCases();
+			const cases = { create: createRatingSchemeEntry, update: updateRatingSchemeEntry };
 			const before = structuredClone(await ctx.rawStore.findMany('rating_scheme_entries', 'test-org'));
 			for (const id of [foreignEvaluator, missingEvaluator, 'not-a-person-id']) {
 				await expect(cases.create(ctx, { ...validInput, [field]: id })).rejects.toMatchObject({ status: 400 });
@@ -471,7 +524,7 @@ describe('Rating Scheme evaluator integrity', () => {
 
 	it.each(evaluatorFields)('allows local archived cross-Group %s, then explicit clearing', async (field, column) => {
 		const ctx = evaluatorContext();
-		const cases = createRatingSchemeEntryUseCases();
+		const cases = { create: createRatingSchemeEntry, update: updateRatingSchemeEntry };
 		await cases.create(ctx, { ...validInput, [field]: localEvaluator.toUpperCase() });
 		await cases.update(ctx, { id: 'rs-1', [field]: localEvaluator });
 		expect(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' })).toMatchObject({
@@ -492,7 +545,7 @@ describe('Rating Scheme evaluator integrity', () => {
 			reviewer_person_id: foreignEvaluator,
 			rater_name: 'Historical external name'
 		});
-		await createRatingSchemeEntryUseCases().update(ctx, {
+		await updateRatingSchemeEntry(ctx, {
 			id: 'rs-1',
 			raterPersonId: foreignEvaluator.toUpperCase(),
 			seniorRaterPersonId: foreignEvaluator,
@@ -516,10 +569,48 @@ describe('Rating Scheme evaluator integrity', () => {
 			throw new Error('Synthetic provider failure');
 		};
 		const before = structuredClone(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' }));
-		await expect(
-			createRatingSchemeEntryUseCases().update(ctx, { id: 'rs-1', raterPersonId: localEvaluator })
-		).rejects.toThrow('Synthetic provider failure');
+		await expect(updateRatingSchemeEntry(ctx, { id: 'rs-1', raterPersonId: localEvaluator })).rejects.toThrow(
+			'Synthetic provider failure'
+		);
 		expect(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' })).toEqual(before);
 		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it('rejects retargeting an accessible evaluation to a Person outside the rated Group scope', async () => {
+		const ctx = evaluatorContext();
+		const before = structuredClone(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' }));
+
+		await expect(
+			updateRatingSchemeEntry(ctx, {
+				id: 'rs-1',
+				ratedPersonId: localEvaluator,
+				notes: 'Must not persist'
+			})
+		).rejects.toMatchObject({ status: 403 });
+		expect(await ctx.rawStore.findOne('rating_scheme_entries', 'test-org', { id: 'rs-1' })).toEqual(before);
+		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['policy.denied']);
+	});
+
+	it('hides foreign entries from updates and deletions without success effects', async () => {
+		const ctx = evaluatorContext();
+		ctx.store.seed('rating_scheme_entries', [
+			{
+				id: 'rs-foreign',
+				organization_id: 'foreign-org',
+				rated_person_id: foreignEvaluator,
+				eval_type: 'OER',
+				status: 'active',
+				notes: 'Foreign retained note'
+			}
+		]);
+		const before = structuredClone(await ctx.rawStore.findMany('rating_scheme_entries', 'foreign-org'));
+
+		await expect(updateRatingSchemeEntry(ctx, { id: 'rs-foreign', notes: 'Must not persist' })).rejects.toMatchObject({
+			status: 404
+		});
+		await expect(removeRatingSchemeEntry(ctx, 'rs-foreign')).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.rawStore.findMany('rating_scheme_entries', 'foreign-org')).toEqual(before);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notifyRatingSchemeEntryDeleted).not.toHaveBeenCalled();
 	});
 });

@@ -2,10 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
-import type {
-	RatingSchemeWorkspaceResult,
-	RatingSchemeWorkspaceRestricted
-} from '$features/rating-scheme/server/ratingSchemeWorkspaceBootstrap';
+import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 
 vi.mock('$features/rating-scheme/components/RatingSchemePageView.svelte', () => ({
 	default: VisibleStub

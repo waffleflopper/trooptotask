@@ -8,7 +8,7 @@ import { PersonnelEntity } from './personnelEntity.server';
 import type { Personnel } from './personnel.types';
 
 interface PersonnelDetailReadStore {
-	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
+	findOne<T>(table: 'personnel', orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
 }
 
 interface PersonnelDetailContext {

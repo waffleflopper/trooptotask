@@ -893,6 +893,7 @@ async function main() {
 					'personnel/batch',
 					'personnel/merge',
 					'personnel/archive-batch',
+					'personnel/permanent',
 					'calendar-range',
 					'availability',
 					'availability/batch',

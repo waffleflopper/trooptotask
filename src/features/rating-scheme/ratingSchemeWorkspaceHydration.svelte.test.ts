@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RatingSchemeEntry } from './rating-scheme.types';
-import type { RatingSchemeWorkspaceHydration } from './server/ratingSchemeWorkspaceBootstrap';
+import type { RatingSchemeWorkspaceHydration } from './contracts';
 import {
 	createRatingSchemeWorkspaceHydrator,
 	type RatingSchemeHydrationStores

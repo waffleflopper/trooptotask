@@ -2,6 +2,7 @@ import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { createSupabasePlatformActivationHealth } from '$lib/server/adapters/supabasePlatformActivationHealth';
+import { countRatingSchemeEntriesByOrganization } from '$features/rating-scheme/index.server';
 import { countCalendarCatalogsByOrganization } from '$features/calendar/index.server';
 import { createSupabasePlatformOrganizationLedger } from '$lib/server/adapters/supabasePlatformOrganizationLedger';
 import {
@@ -23,7 +24,8 @@ export const load: PageServerLoad = loadWithAdminContext({
 			try {
 				activationHealth = await createSupabasePlatformActivationHealth(
 					ctx,
-					countCalendarCatalogsByOrganization
+					countCalendarCatalogsByOrganization,
+					countRatingSchemeEntriesByOrganization
 				).summarize();
 			} catch (err) {
 				console.error('Admin organizations activation health query failed:', err);

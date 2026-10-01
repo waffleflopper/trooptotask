@@ -39,6 +39,10 @@ interface OrganizationOnboardingExportReads {
 	): Promise<Record<string, unknown>[]>;
 }
 
+interface OrganizationRatingSchemeExportReads {
+	listRatingSchemeExportRows(store: Pick<DataStore, 'findMany'>, orgId: string): Promise<Record<string, unknown>[]>;
+}
+
 interface OrganizationCommunicationsExportReads {
 	listNotificationExportRows(): Promise<Record<string, unknown>[]>;
 	listFeedbackExportRows(): Promise<FeedbackExportRow[]>;
@@ -66,7 +70,8 @@ export async function loadOrganizationExportPayload(
 	personnelExport: PersonnelOrganizationExportPort,
 	trainingExport: OrganizationTrainingExportReads,
 	onboardingExport: OrganizationOnboardingExportReads,
-	communicationsExport: OrganizationCommunicationsExportReads
+	communicationsExport: OrganizationCommunicationsExportReads,
+	ratingSchemeExport: OrganizationRatingSchemeExportReads
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const orgId = actor.orgId;
@@ -84,6 +89,9 @@ export async function loadOrganizationExportPayload(
 					}
 					if (section.areaKey === 'personnel' && isPersonnelOrganizationExportTable(section.table)) {
 						return [section.key, await personnelExport.listRows(actor, section.table)] as const;
+					}
+					if (section.key === 'ratingSchemeEntries') {
+						return [section.key, await ratingSchemeExport.listRatingSchemeExportRows(store, orgId)] as const;
 					}
 					if (section.key === 'trainingTypes') {
 						return [section.key, await trainingExport.listTrainingTypeExportRows(store, orgId)] as const;

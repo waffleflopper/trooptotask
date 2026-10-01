@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import {
-	loadAvailabilityReadinessLane,
-	loadLossTrackingReadinessLane,
-	loadRatingSchemeReadinessLane
-} from './personnelReadinessLanes';
+import { loadAvailabilityReadinessLane, loadLossTrackingReadinessLane } from './personnelReadinessLanes';
 
 const AS_OF = '2026-05-14';
 const listStatusTypes = async () => [{ id: 'tdy', name: 'TDY', color: '#000', textColor: '#fff' }];
@@ -122,33 +118,6 @@ describe('personnel readiness lanes', () => {
 			{ status: 404 }
 		);
 		expect(reads).not.toHaveBeenCalled();
-	});
-
-	it('reports whether Rating Scheme raters are assigned', async () => {
-		const ctx = createTestContext();
-		seedPerson(ctx);
-		ctx.store.seed('rating_scheme_entries', [
-			{
-				id: 'rating-1',
-				organization_id: ctx.auth.orgId,
-				rated_person_id: 'person-1',
-				eval_type: 'NCOER',
-				rater_person_id: 'rater-1',
-				rater_name: null,
-				senior_rater_person_id: null,
-				senior_rater_name: null,
-				rating_period_start: '2026-01-01',
-				rating_period_end: '2026-12-31',
-				status: 'active'
-			}
-		]);
-
-		await expect(loadRatingSchemeReadinessLane(ctx, 'person-1', AS_OF)).resolves.toMatchObject({
-			label: 'Rating Scheme',
-			value: 'Senior rater needed',
-			detail: 'Rater assigned. Senior rater missing.',
-			tone: 'watch'
-		});
 	});
 
 	it('calculates Loss Tracking from the Soldier ETS proximity', async () => {

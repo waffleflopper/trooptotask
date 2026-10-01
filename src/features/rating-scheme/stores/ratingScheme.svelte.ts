@@ -1,10 +1,10 @@
 /**
- * Rating scheme store — the org's evaluation rating level definitions (e.g., OER/NCOER levels).
+ * Internal Evals state for the Organization's OER/NCOER/WOER evaluation records.
  *
  * Uses `overrides: { resource: 'rating-scheme' }` so API calls hit `/api/rating-scheme`
  * instead of the default table-name-derived path.
  *
- * Loaded by the Evals page and dashboard; mutations go through `ratingSchemeEntryCrud.ts`.
+ * Loaded through controlled Evals hydration; mutations use Rating-owned Server operations.
  */
 import { defineStore } from '$lib/stores/core';
 import type { RatingSchemeEntry } from '../rating-scheme.types';

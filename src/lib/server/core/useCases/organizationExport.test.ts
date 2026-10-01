@@ -2,6 +2,7 @@ import {
 	listOnboardingTemplateExportRows,
 	listOnboardingTemplateStepExportRows
 } from '$features/onboarding/index.server';
+import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import { describe, expect, it } from 'vitest';
 import type { DataStore } from '../ports';
 import { createClient } from '@supabase/supabase-js';
@@ -65,7 +66,8 @@ describe('organization export inventory', () => {
 			{
 				listNotificationExportRows: () => store.findMany('notifications', 'org-1'),
 				listFeedbackExportRows: () => store.findMany<FeedbackExportRow>('beta_feedback', 'org-1')
-			}
+			},
+			{ listRatingSchemeExportRows }
 		);
 
 		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
@@ -180,7 +182,8 @@ function communicationsProvider(platformAdministrator = false) {
 			{
 				listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
 				listFeedbackExportRows: () => listFeedbackExportRows(client, ctx.auth.orgId)
-			}
+			},
+			{ listRatingSchemeExportRows }
 		);
 	return { state, load, notifications, feedbackRows };
 }
@@ -478,7 +481,8 @@ describe('retained Organization export projection', () => {
 						store: createSupabaseNotificationStore(client)
 					}),
 				listFeedbackExportRows: () => listFeedbackExportRows(client, actor.orgId)
-			}
+			},
+			{ listRatingSchemeExportRows }
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');

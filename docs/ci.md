@@ -26,7 +26,7 @@ The governance job needs full Git history and `origin/main`; preserve that check
 
 ## Database isolation
 
-`python3 scripts/ci/database.py` creates a unique disposable project outside the checkout, copies only the required Supabase configuration/migrations/tests/templates, disables seeds and chooses unused ports outside existing local stacks. It starts only the services needed for SQL tests and cleans up its exact project after success or failure. It never reuses the repository's local project or reads production credentials. The database job does not install the application dependency tree.
+`python3 scripts/ci/database.py` creates a unique disposable project outside the checkout, copies only the required Supabase configuration/migrations/tests/templates, disables seeds and chooses unused ports outside existing local stacks. It starts only the services needed for SQL tests and cleans up its exact project after success or failure. It never reuses the repository's local project or reads production credentials. The database job installs the locked npm dependency tree with lifecycle scripts disabled for its SDK/provider regression probes. This includes the development parser those probes require; it does not build or deploy the application.
 
 The pinned PostgreSQL image's known reserved-role denial crash is worked around by disabling `supautils.hint_roles` decoration only in the disposable database. This preserves grants, RLS and expected SQLSTATE denials. The Calendar migration regression runs through pg_prove with its relative migration includes intact. Failures remain failures; the existing SQL tests and historical migrations are unchanged.
 

@@ -58,6 +58,8 @@ export {
 export type { LeaderNoteDataSource, LeaderNoteSourcePersistence } from './leaderNoteDataSource.server';
 export { importPersonnelBatch } from './personnelBatch.server';
 export { mergePersonnelBatch } from './personnelDateBackfill.server';
+export { exportPersonnelWorkbook } from './personnelExport.server';
+export type { PersonnelExportOutput } from './personnelExport.server';
 export { createSupabasePersonnelRetentionSource, type PersonnelRetentionSource } from './personnelRetention.server';
 
 export {

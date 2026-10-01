@@ -5,7 +5,7 @@ import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { pinnedGroupsHydration } from '$features/personnel';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 

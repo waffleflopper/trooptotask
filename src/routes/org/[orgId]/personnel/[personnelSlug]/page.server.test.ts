@@ -217,4 +217,48 @@ describe('personnel detail page server load', () => {
 			expect.any(Object)
 		);
 	});
+
+	it('preserves independently settled lanes when the request-bound Calendar read fails', async () => {
+		const failure = new Error('Calendar read failed');
+		const ctx = {
+			store: {
+				findOne: vi.fn(async (_table: string, _orgId: string, filters: Record<string, unknown>) =>
+					filters.id === 'person-1' ? { id: 'person-1', group_id: null, ets: null } : null
+				),
+				findMany: vi.fn(async (table: string) => {
+					if (table === 'availability_entries') throw failure;
+					return [];
+				})
+			},
+			get rawStore() {
+				return this.store;
+			},
+			auth: { ...operateAuth },
+			scope: { ...operateScope },
+			audit: { log: vi.fn() }
+		};
+		const load = _createPersonnelDetailPageLoad({
+			loadWithContext: vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx))
+		});
+		const result = await load({
+			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },
+			locals: {} as App.Locals,
+			cookies: {} as never,
+			depends: vi.fn(),
+			parent: vi.fn(async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } }))
+		} as never);
+		const lanes = result.personnelDetail.readinessLanes;
+		const [availability, training, criticalTasks, ratingScheme, lossTracking] = await Promise.allSettled([
+			lanes.availability,
+			lanes.training,
+			lanes.criticalTasks,
+			lanes.ratingScheme,
+			lanes.lossTracking
+		]);
+		expect(availability).toEqual({ status: 'rejected', reason: failure });
+		expect(training).toMatchObject({ status: 'fulfilled', value: { value: 'Current' } });
+		expect(criticalTasks).toMatchObject({ status: 'fulfilled', value: { value: 'No tasks' } });
+		expect(ratingScheme).toMatchObject({ status: 'fulfilled', value: { value: 'Not assigned' } });
+		expect(lossTracking).toMatchObject({ status: 'fulfilled', value: { value: 'Missing ETS' } });
+	});
 });

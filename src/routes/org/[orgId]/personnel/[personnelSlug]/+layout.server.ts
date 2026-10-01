@@ -1,40 +1,12 @@
-import { error } from '@sveltejs/kit';
 import type { LayoutServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { PersonnelEntity } from '$features/personnel/index.server';
-import type { PersonnelDetailHeader } from '$features/personnel/personnel-detail.types';
-import { policyResourceForGroup, requireFeaturePolicy } from '$lib/server/core/useCases/featurePolicy';
+import { loadPersonnelDetailHeader } from '$features/personnel/index.server';
 
 type LoadWithContext = typeof loadWithContext;
 
 export interface PersonnelDetailLayoutLoadDeps {
 	loadWithContext?: LoadWithContext;
-}
-
-async function resolvePersonnelHeader(ctx: UseCaseContext, personnelSlug: string): Promise<PersonnelDetailHeader> {
-	const row = await (ctx.rawStore ?? ctx.store).findOne<Record<string, unknown>>(
-		'personnel',
-		ctx.auth.orgId,
-		{ slug: personnelSlug },
-		PersonnelEntity.select
-	);
-	if (!row) {
-		throw error(404, 'Personnel record not found');
-	}
-
-	const person = PersonnelEntity.fromDb(row);
-	await requireFeaturePolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		policyResourceForGroup(person.groupId),
-		'personnel',
-		person.id
-	);
-	await ctx.scope.requireGroupAccess(person.id);
-
-	return { person };
 }
 
 export function _createPersonnelDetailLayoutLoad(deps: PersonnelDetailLayoutLoadDeps = {}) {
@@ -47,7 +19,7 @@ export function _createPersonnelDetailLayoutLoad(deps: PersonnelDetailLayoutLoad
 		const personnelDetailHeader = await loadWithContextFn(locals, cookies, orgId, {
 			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: (ctx) => resolvePersonnelHeader(ctx, personnelSlug)
+			fn: (ctx) => loadPersonnelDetailHeader(ctx, personnelSlug)
 		});
 
 		return {

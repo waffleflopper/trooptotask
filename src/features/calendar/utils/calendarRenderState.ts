@@ -1,5 +1,5 @@
 import type { Group } from '$features/personnel/contracts';
-import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,

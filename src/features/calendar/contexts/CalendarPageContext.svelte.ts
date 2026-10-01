@@ -23,7 +23,7 @@ import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
 

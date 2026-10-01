@@ -1,39 +1,67 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
-import type { Personnel } from '$features/personnel/personnel.types';
-import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
-import type { PersonnelReadinessLane } from '$features/personnel/personnel-detail.types';
-import { PersonnelEntity } from '$features/personnel/index.server';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
-import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from './contracts';
+import type { PersonnelDetailHeader, PersonnelReadinessLane } from './personnel-detail.types';
+import { PersonnelEntity } from './personnelEntity.server';
+import type { Personnel } from './personnel.types';
+
+interface PersonnelDetailReadStore {
+	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
+}
+
+interface PersonnelDetailContext {
+	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
+	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	store: PersonnelDetailReadStore;
+	rawStore?: PersonnelDetailReadStore;
+	scope: { requireGroupAccess(personnelId: string): Promise<void> };
+}
 
 interface PersonnelPolicyRow extends Record<string, unknown> {
 	id: string;
 	group_id: string | null;
 }
 
-interface OrgSettingsRow {
-	loss_warning_window_days?: number | null;
+/** Resolve the shared detail header without excluding archived Personnel. */
+export async function loadPersonnelDetailHeader(
+	ctx: PersonnelDetailContext,
+	personnelSlug: string
+): Promise<PersonnelDetailHeader> {
+	const row = await (ctx.rawStore ?? ctx.store).findOne<PersonnelPolicyRow>(
+		'personnel',
+		ctx.auth.orgId,
+		{ slug: personnelSlug },
+		PersonnelEntity.select
+	);
+	if (!row) fail(404, 'Personnel record not found');
+	const person = PersonnelEntity.fromDb(row);
+	await requireFeaturePolicy(
+		ctx,
+		POLICY_ACTION_CATALOG.personnel.manageRecords,
+		policyResourceForGroup(person.groupId),
+		'personnel',
+		person.id
+	);
+	await ctx.scope.requireGroupAccess(person.id);
+	return { person };
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
+/** Delivery selects the independently required feature action before any lane reads. */
 export async function loadPersonnelForLane(
-	ctx: UseCaseContext,
+	ctx: PersonnelDetailContext,
 	personnelId: string,
 	action: FeatureLanePolicyAction,
 	resourceType: string
 ): Promise<Personnel> {
-	const lookupStore = ctx.rawStore ?? ctx.store;
-	const row = await lookupStore.findOne<PersonnelPolicyRow>(
+	const row = await (ctx.rawStore ?? ctx.store).findOne<PersonnelPolicyRow>(
 		'personnel',
 		ctx.auth.orgId,
 		{ id: personnelId },
 		PersonnelEntity.select
 	);
 	if (!row) fail(404, 'Personnel record not found');
-
 	await ctx.scope.requireGroupAccess(personnelId);
 	await requireFeaturePolicy(ctx, action, policyResourceForGroup(row.group_id), resourceType, personnelId);
 	return PersonnelEntity.fromDb(row);
@@ -44,35 +72,28 @@ function asOfDate(value?: string | Date): Date {
 	return typeof value === 'string' ? parseDate(value) : parseDate(formatDate(value));
 }
 
-function daysBetween(from: Date, to: Date): number {
-	return Math.floor((to.getTime() - from.getTime()) / DAY_MS);
-}
-
 function dateRangeDetail(entry: PersonnelAvailabilityPeriod): string {
 	if (entry.startDate === entry.endDate) return formatDisplayDate(entry.startDate);
 	return entry.endDate ? `through ${formatDisplayDate(entry.endDate)}` : `since ${formatDisplayDate(entry.startDate)}`;
 }
 
 export async function loadAvailabilityReadinessLane(
-	ctx: UseCaseContext,
+	ctx: PersonnelDetailContext,
 	personnelId: string,
 	asOf: string | Date | undefined,
-	listEntries: (
-		ctx: UseCaseContext,
-		input: { rangeStart: string; rangeEnd: string; personnelId: string; orderByEndDate: true }
-	) => Promise<PersonnelAvailabilityPeriod[]>,
-	listStatusTypes: (store: UseCaseContext['store'], orgId: string) => Promise<PersonnelCalendarStatusSnapshot[]>
+	listEntries: (input: {
+		rangeStart: string;
+		rangeEnd: string;
+		personnelId: string;
+		orderByEndDate: true;
+	}) => Promise<PersonnelAvailabilityPeriod[]>,
+	listStatusTypes: () => Promise<PersonnelCalendarStatusSnapshot[]>
 ): Promise<PersonnelReadinessLane> {
 	await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.calendar.viewAvailability, 'availability');
 	const today = formatDate(asOfDate(asOf));
 	const [entries, statusTypes] = await Promise.all([
-		listEntries(ctx, {
-			rangeStart: today,
-			rangeEnd: today,
-			personnelId,
-			orderByEndDate: true
-		}),
-		listStatusTypes(ctx.store, ctx.auth.orgId)
+		listEntries({ rangeStart: today, rangeEnd: today, personnelId, orderByEndDate: true }),
+		listStatusTypes()
 	]);
 	const statusById = new Map(statusTypes.map((status) => [status.id, status]));
 	const current = entries[0];
@@ -84,9 +105,7 @@ export async function loadAvailabilityReadinessLane(
 			tone: 'good'
 		};
 	}
-
-	const status: PersonnelCalendarStatusSnapshot | undefined = statusById.get(current.statusTypeId);
-	const statusName = status?.name ?? 'Unavailable';
+	const statusName = statusById.get(current.statusTypeId)?.name ?? 'Unavailable';
 	const note = current.note ? ` ${current.note}` : '';
 	return {
 		label: 'Availability',
@@ -96,10 +115,12 @@ export async function loadAvailabilityReadinessLane(
 	};
 }
 
+/** The detail lane intentionally evaluates ETS alone; global loss signals also use DEROS. */
 export async function loadLossTrackingReadinessLane(
-	ctx: UseCaseContext,
+	ctx: PersonnelDetailContext,
 	personnelId: string,
-	asOf?: string | Date
+	asOf: string | Date | undefined,
+	readWarningWindowDays: () => Promise<number | null | undefined>
 ): Promise<PersonnelReadinessLane> {
 	const person = await loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.personnel.viewRoster, 'personnel');
 	if (!person.ets) {
@@ -110,18 +131,12 @@ export async function loadLossTrackingReadinessLane(
 			tone: 'bad'
 		};
 	}
-
-	const today = asOfDate(asOf);
-	const daysUntilEts = daysBetween(today, parseDate(person.ets));
-	const settings = await ctx.store
-		.findOne<OrgSettingsRow>('organizations', ctx.auth.orgId, { id: ctx.auth.orgId }, 'loss_warning_window_days')
-		.catch(() => null);
-	const warningWindowDays = settings?.loss_warning_window_days ?? 180;
+	const daysUntilEts = Math.floor((parseDate(person.ets).getTime() - asOfDate(asOf).getTime()) / (24 * 60 * 60 * 1000));
+	const warningWindowDays = (await readWarningWindowDays().catch(() => null)) ?? 180;
 	const detail =
 		daysUntilEts < 0
 			? `ETS ${formatDisplayDate(person.ets)} was ${Math.abs(daysUntilEts)} days ago.`
 			: `ETS ${formatDisplayDate(person.ets)} is ${daysUntilEts} days away.`;
-
 	return {
 		label: 'Loss Tracking',
 		value: daysUntilEts <= warningWindowDays ? 'Action needed' : 'No loss risk',

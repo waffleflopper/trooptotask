@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
-	import type { PersonnelDetailHeader } from '$features/personnel/personnel-detail.types';
+	import type { PersonnelDetailHeader } from '$features/personnel/contracts';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
 	import FilePlus2Icon from '@lucide/svelte/icons/file-plus-2';
 

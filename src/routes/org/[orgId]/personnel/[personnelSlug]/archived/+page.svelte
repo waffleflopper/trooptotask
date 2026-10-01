@@ -20,7 +20,7 @@
 	}
 
 	function archivedAt(record: PersonnelArchivedArtifact): string | null {
-		if (record.kind === 'follow-up') return record.updatedAt;
+		if (record.kind === 'follow-up') return record.archivedAt ?? record.updatedAt;
 		return record.archivedAt ?? record.createdAt;
 	}
 

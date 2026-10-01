@@ -58,3 +58,12 @@ export {
 export type { LeaderNoteDataSource, LeaderNoteSourcePersistence } from './leaderNoteDataSource.server';
 export { importPersonnelBatch } from './personnelBatch.server';
 export { mergePersonnelBatch } from './personnelDateBackfill.server';
+export { createSupabasePersonnelRetentionSource, type PersonnelRetentionSource } from './personnelRetention.server';
+
+export {
+	archivePersonnelRecord,
+	restorePersonnelRecord,
+	permanentlyDeletePersonnelRecord,
+	archiveApprovedPersonnelRecord,
+	preparePersonnelArchiveBatch
+} from './personnelLifecycle.server';

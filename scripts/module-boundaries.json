@@ -130,6 +130,9 @@
 				"src/hooks.organizationAdmission.test.ts",
 				"src/hooks.server.test.ts",
 				"src/hooks.server.ts",
+				"src/lib/personnelArchiveRequestDelivery.ts",
+				"src/lib/server/personnelArchiveBatchDelivery.ts",
+				"src/lib/server/personnelArchiveBatchDelivery.test.ts",
 				"src/hooks.signOut.test.ts",
 				"src/lib/server/adapters/buildLayoutContext.test.ts",
 				"src/lib/server/adapters/entityHandlers.test.ts",
@@ -228,8 +231,6 @@
 				"src/lib/domain/readinessSignals.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
-				"src/lib/server/core/useCases/personnel.test.ts",
-				"src/lib/server/core/useCases/personnel.ts",
 				"src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts",
 				"src/lib/server/core/useCases/personnelArchivedArtifacts.ts",
 				"src/lib/server/core/useCases/personnelArtifactLifecycle.test.ts",
@@ -615,6 +616,7 @@
 			"src/features/critical-tasks/index.server.ts"
 		],
 		"dashboard": ["src/features/dashboard/index.ts"],
+		"deletion-requests": ["src/features/deletion-requests/index.server.ts"],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",
 			"src/features/onboarding/index.ts",

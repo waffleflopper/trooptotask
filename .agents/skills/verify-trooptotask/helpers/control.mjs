@@ -8,6 +8,7 @@ import ExcelJS from 'exceljs';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
+import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
@@ -187,6 +188,33 @@ async function main() {
 			),
 			roles: Object.keys(fixture.actors)
 		});
+		return;
+	}
+	if (command === 'retention') {
+		if (args[0] === 'files') {
+			note(await readRetentionFiles(await provider(), await saved()));
+			return;
+		}
+		if (
+			args[0] !== 'cron' ||
+			!['missing', 'wrong', 'run'].includes(args[1]) ||
+			(args[2] && !['records', 'personnel'].includes(args[2]))
+		)
+			throw new Error('Use retention files or retention cron missing|wrong|run [records|personnel].');
+		const endpoint = args[2] === 'personnel' ? '/api/cleanup-archived-personnel' : '/api/cleanup-archived-records';
+		const headers = {};
+		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
+		if (args[1] === 'run') {
+			const credential = await readJSON(path.join(session, 'archive-cleanup.json'));
+			headers.authorization = `Bearer ${credential.secret}`;
+		}
+		const response = await fetch(new URL(endpoint, state.origin), {
+			headers,
+			redirect: 'error',
+			signal: AbortSignal.timeout(180000)
+		});
+		const body = await response.text();
+		note({ mode: args[1], endpoint, status: response.status, body });
 		return;
 	}
 	if (command === 'actor') {
@@ -521,6 +549,9 @@ async function main() {
 				'bulk-501',
 				'training-pages',
 				'personnel-lifecycle',
+				'personnel-retention',
+				'personnel-retention-1001',
+				'personnel-retention-dense',
 				'communications',
 				'rating-scheme'
 			].includes(kind)
@@ -529,6 +560,10 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind.startsWith('personnel-retention')) {
+			note(await seedPersonnelRetention({ client, fixture, kind, tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'rating-scheme') {
 			const ids = Object.fromEntries(
 				[
@@ -872,6 +907,10 @@ async function main() {
 					query = query.eq('organization_id', org(item.organization ?? 'orgA'));
 				checked(await query);
 			}
+			for (const bucket of ['personnel-documents', 'counseling-files']) {
+				const paths = (item.files ?? []).filter((file) => file.bucket === bucket).map((file) => file.path);
+				if (paths.length) checked(await client.storage.from(bucket).remove(paths));
+			}
 		}
 		ownedState.seeded = [];
 		await save(ownedState);
@@ -1073,7 +1112,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, roster-files, signed-download, calendar-grant, seed, clean-seeds, network, export, or workbook.'
+		'Use fixture, actor, rows, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

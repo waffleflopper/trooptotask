@@ -3,12 +3,8 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import {
-	listDeletionRequests,
-	createDeletionRequest,
-	cancelDeletionRequest,
-	type CreateDeletionRequestInput
-} from '$lib/server/core/useCases/deletionRequests';
+import { createDeletionRequest, type CreateDeletionRequestInput } from '$features/deletion-requests/index.server';
+import { listDeletionRequests, cancelDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
 
 export const _getConfig: RouteConfig<{ status?: string }, unknown> = {
 	// This route serves self-service callers and Settings reviewers. The route

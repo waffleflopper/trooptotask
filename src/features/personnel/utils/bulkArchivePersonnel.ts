@@ -1,10 +1,6 @@
-export interface BulkArchivePersonnelResult {
-	archivedIds: string[];
-	approvalRequestedIds: string[];
-	errors: Array<{ id: string; message: string }>;
-}
+import type { ArchivePersonnelBatchResult } from '../contracts';
 
-export async function bulkArchivePersonnel(orgId: string, ids: string[]): Promise<BulkArchivePersonnelResult> {
+export async function bulkArchivePersonnel(orgId: string, ids: string[]): Promise<ArchivePersonnelBatchResult> {
 	const response = await fetch(`/org/${orgId}/api/personnel/archive-batch`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },

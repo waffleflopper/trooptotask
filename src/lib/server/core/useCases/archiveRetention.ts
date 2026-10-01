@@ -1,6 +1,6 @@
 import type { DataStore, StoragePort } from '$lib/server/core/ports';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
-import type { LeaderNoteDataSource } from '$features/personnel/index.server';
+import type { LeaderNoteDataSource, PersonnelRetentionSource } from '$features/personnel/index.server';
 import { cleanupExpiredAssignmentTypes, type AssignmentTypeRetentionPort } from '$features/calendar/index.server';
 import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords';
 import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments';
@@ -31,6 +31,7 @@ interface ArchiveRetentionPorts {
 	store: DataStore;
 	storage: StoragePort;
 	leaderNotes: Pick<LeaderNoteDataSource, 'deleteExpired'>;
+	personnel: PersonnelRetentionSource;
 	assignmentTypes: AssignmentTypeRetentionPort;
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
@@ -50,12 +51,6 @@ interface StoredCleanupFamily extends CleanupFamilyIdentity {
 		orgId: string,
 		rows: CleanupCandidate[]
 	) => Promise<CleanupCandidate[]>;
-	deleteCandidates?: (
-		ports: ArchiveRetentionPorts,
-		orgId: string,
-		rows: CleanupCandidate[],
-		cutoff: string
-	) => Promise<number>;
 	prepareDelete?: (
 		ports: ArchiveRetentionPorts,
 		orgId: string,
@@ -72,7 +67,6 @@ type CleanupFamily =
 interface CleanupCandidate {
 	id: string;
 	file_path?: string | null;
-	personnel_id?: string | null;
 }
 
 const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
@@ -109,8 +103,7 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		key: 'personnel',
 		table: 'personnel',
 		label: 'Personnel',
-		timestampColumn: 'archived_at',
-		prepareDelete: preparePersonnelOwnedDocumentFileRemoval
+		cleanup: (ports, orgId, cutoff) => ports.personnel.deleteExpired(orgId, cutoff)
 	},
 	{
 		key: 'critical-tasks',
@@ -196,41 +189,6 @@ async function prepareCounselingRecordFileRemoval(
 	return prepareFileRemoval(ports, COUNSELING_RECORDS_BUCKET, rows);
 }
 
-async function preparePersonnelOwnedDocumentFileRemoval(
-	ports: ArchiveRetentionPorts,
-	orgId: string,
-	rows: CleanupCandidate[]
-): Promise<((deletedRows: CleanupCandidate[]) => Promise<void>) | undefined> {
-	const personnelIds = rows.map((row) => row.id);
-	if (personnelIds.length === 0) return undefined;
-
-	const [documents, counselingRecords] = await Promise.all([
-		ports.store.findMany<CleanupCandidate>('personnel_documents', orgId, undefined, {
-			select: 'id, personnel_id, file_path',
-			inFilters: { personnel_id: personnelIds }
-		}),
-		ports.store.findMany<CleanupCandidate>('counseling_records', orgId, undefined, {
-			select: 'id, personnel_id, file_path',
-			inFilters: { personnel_id: personnelIds }
-		})
-	]);
-
-	const documentCleanup = prepareFileRemoval(ports, PERSONNEL_DOCUMENTS_BUCKET, documents);
-	const counselingCleanup = prepareFileRemoval(ports, COUNSELING_RECORDS_BUCKET, counselingRecords);
-
-	if (!documentCleanup && !counselingCleanup) return undefined;
-
-	return async (deletedRows) => {
-		const deletedPersonnelIds = new Set(deletedRows.map((row) => row.id));
-		await Promise.all([
-			documentCleanup?.(documents.filter((row) => row.personnel_id && deletedPersonnelIds.has(row.personnel_id))),
-			counselingCleanup?.(
-				counselingRecords.filter((row) => row.personnel_id && deletedPersonnelIds.has(row.personnel_id))
-			)
-		]);
-	};
-}
-
 async function cleanupStoredFamily(
 	ports: ArchiveRetentionPorts,
 	family: StoredCleanupFamily,
@@ -247,13 +205,11 @@ async function cleanupStoredFamily(
 	if (rows.length === 0) return 0;
 
 	const afterDelete = await family.prepareDelete?.(ports, orgId, rows);
-	const deletedCount = family.deleteCandidates
-		? await family.deleteCandidates(ports, orgId, rows, cutoff)
-		: await ports.store.deleteManyByIds(
-				family.table,
-				orgId,
-				rows.map((row) => row.id)
-			);
+	const deletedCount = await ports.store.deleteManyByIds(
+		family.table,
+		orgId,
+		rows.map((row) => row.id)
+	);
 	if (afterDelete && deletedCount > 0) {
 		const remainingRows = await ports.store.findMany<CleanupCandidate>(family.table, orgId, undefined, {
 			select: 'id',

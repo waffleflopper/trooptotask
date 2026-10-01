@@ -1,3 +1,4 @@
+import { toastStore } from '$lib/stores/toast.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
 import { createPersonnel } from '$features/personnel';
@@ -151,7 +152,9 @@ export interface AssignTemplatePayload {
 export class OnboardingPageContext {
 	// Injected dependencies
 	readonly #org: OrgContext;
+	readonly orgId: string;
 	readonly modals: ModalRegistry;
+	#disposed = false;
 
 	// UI state
 	expandedOnboardingId = $state<string | null>(null);
@@ -182,6 +185,7 @@ export class OnboardingPageContext {
 	constructor(modals: ModalRegistry, org: OrgContext) {
 		this.modals = modals;
 		this.#org = org;
+		this.orgId = org.orgId;
 	}
 
 	// ── Permission flags (derived from OrgContext) ─────────────
@@ -282,6 +286,13 @@ export class OnboardingPageContext {
 		).visible;
 	}
 
+	canConfigureOnboarding(onboarding: PersonnelOnboarding): boolean {
+		return this.#org.affordanceForFeatureAction(
+			ONBOARDING_POLICY_ACTIONS.configureWorkflows,
+			this.getPersonnelPolicyResource(onboarding.personnelId)
+		).visible;
+	}
+
 	getTemplateName(templateId: string | null): string {
 		return getTemplateDisplayName(templateId, onboardingTemplateStore.templates);
 	}
@@ -313,11 +324,26 @@ export class OnboardingPageContext {
 		return formatTimestamp(isoStr);
 	}
 
+	#isCurrent(version: number): boolean {
+		return (
+			!this.#disposed &&
+			this.orgId === this.#org.orgId &&
+			this.orgId === onboardingStore.orgId &&
+			version === onboardingStore.organizationVersion
+		);
+	}
+
+	dispose() {
+		this.#disposed = true;
+	}
+
 	// ── Event handlers ─────────────────────────────────────────
 
-	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null) {
-		await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
-		this.modals.close(MODAL_IDS.startOnboarding);
+	async handleStartOnboarding(personnelId: string, startedAt: string, templateId: string | null): Promise<boolean> {
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return false;
+		const result = await onboardingStore.startOnboarding(personnelId, startedAt, templateId);
+		return this.#isCurrent(version) && result !== null;
 	}
 
 	async handleAddPerson(data: Omit<Personnel, 'id'>): Promise<string> {
@@ -328,13 +354,19 @@ export class OnboardingPageContext {
 	}
 
 	async handleToggleCheckbox(step: OnboardingStepProgress) {
-		await onboardingStore.toggleCheckbox(step.id, !step.completed);
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
+		const saved = await onboardingStore.toggleCheckbox(step.id, !step.completed);
+		if (this.#isCurrent(version) && !saved) toastStore.error('Could not update this step. Try again.');
 	}
 
 	async handleStageClick(step: OnboardingStepProgress, stageName: string) {
 		const stages = step.stages ?? [];
 		if (!stages.includes(stageName)) return;
-		await onboardingStore.advanceStage(step.id, stageName);
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
+		const saved = await onboardingStore.advanceStage(step.id, stageName);
+		if (this.#isCurrent(version) && !saved) toastStore.error('Could not update this stage. Try again.');
 	}
 
 	toggleNotes(stepId: string) {
@@ -345,14 +377,29 @@ export class OnboardingPageContext {
 	}
 
 	async handleAddNote(step: OnboardingStepProgress) {
-		const text = this.noteInputs[step.id]?.trim();
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
+		const draft = this.noteInputs[step.id];
+		const text = draft?.trim();
 		if (!text) return;
-		await onboardingStore.addNote(step.id, text);
-		this.noteInputs[step.id] = '';
+		const saved = await onboardingStore.addNote(step.id, text);
+		if (!this.#isCurrent(version)) return;
+		if (!saved) {
+			toastStore.error('Could not add this note. Try again.');
+			return;
+		}
+		if (this.noteInputs[step.id] === draft) this.noteInputs[step.id] = '';
 	}
 
 	async handleCancelOnboarding(id: string) {
-		await onboardingStore.cancelOnboarding(id);
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
+		const saved = await onboardingStore.cancelOnboarding(id);
+		if (!this.#isCurrent(version)) return;
+		if (!saved) {
+			toastStore.error('Could not cancel onboarding. Try again.');
+			return;
+		}
 		this.cancellingId = null;
 		this.modals.close(MODAL_IDS.cancelConfirm);
 	}
@@ -368,7 +415,14 @@ export class OnboardingPageContext {
 
 	async confirmCompleteOnboarding() {
 		if (!this.completingId) return;
-		await onboardingStore.completeOnboarding(this.completingId);
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
+		const saved = await onboardingStore.completeOnboarding(this.completingId);
+		if (!this.#isCurrent(version)) return;
+		if (!saved) {
+			toastStore.error('Could not complete onboarding. Try again.');
+			return;
+		}
 		this.completingId = null;
 		this.completingIncompleteCount = 0;
 	}
@@ -383,9 +437,12 @@ export class OnboardingPageContext {
 	}
 
 	async handleResync(onboardingId: string) {
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
 		this.resyncingId = onboardingId;
 		this.resyncError = null;
 		const result = await onboardingStore.resync(onboardingId);
+		if (!this.#isCurrent(version)) return;
 		this.resyncingId = null;
 		if (!result.success) {
 			this.resyncError = result.error ?? 'Re-sync failed';
@@ -406,10 +463,13 @@ export class OnboardingPageContext {
 	}
 
 	async handleAssignTemplate() {
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
 		if (!this.assigningTemplateId || !this.assignTemplateSelected) return;
 		this.assigningTemplate = true;
 		this.assignTemplateError = '';
 		const result = await onboardingStore.assignTemplate(this.assigningTemplateId, this.assignTemplateSelected);
+		if (!this.#isCurrent(version)) return;
 		this.assigningTemplate = false;
 		if (result.success) {
 			this.closeAssignTemplate();
@@ -430,10 +490,13 @@ export class OnboardingPageContext {
 	}
 
 	async handleSwitchTemplate() {
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
 		if (!this.switchingTemplateId || !this.switchTemplateSelected) return;
 		this.switchingTemplate = true;
 		this.switchTemplateError = '';
 		const result = await onboardingStore.switchTemplate(this.switchingTemplateId, this.switchTemplateSelected);
+		if (!this.#isCurrent(version)) return;
 		this.switchingTemplate = false;
 		if (result.success) {
 			this.closeSwitchTemplate();
@@ -443,8 +506,11 @@ export class OnboardingPageContext {
 	}
 
 	async handleRemoveDeprecatedStep(stepId: string) {
+		const version = onboardingStore.organizationVersion;
+		if (!this.#isCurrent(version)) return;
 		this.removingDeprecatedStepId = stepId;
 		await onboardingStore.removeDeprecatedStep(stepId);
+		if (!this.#isCurrent(version)) return;
 		this.removingDeprecatedStepId = null;
 	}
 

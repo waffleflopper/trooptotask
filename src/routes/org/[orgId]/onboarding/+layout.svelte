@@ -1,10 +1,15 @@
 <script lang="ts">
-	import { onboardingWorkspaceHydrator } from '$features/onboarding';
+	import { onDestroy, untrack } from 'svelte';
+	import { onboardingWorkspaceHydrator, onboardingStore } from '$features/onboarding';
 	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
+	onDestroy(() => {
+		onboardingStore.invalidatePendingRequests();
+		onboardingWorkspaceHydrator.reset();
+	});
 	let hydrationError = $state<Error | null>(null);
 	const renderHydrationError = $derived.by(() => {
 		if (hydrationError) {
@@ -14,6 +19,11 @@
 	});
 
 	$effect(() => {
+		const orgId = data.shell.org.id;
+		untrack(() => {
+			if (onboardingStore.orgId !== orgId) onboardingWorkspaceHydrator.reset();
+			onboardingStore.enterOrganization(orgId);
+		});
 		hydrationError = null;
 
 		return hydrateStreamedWorkspace<OnboardingWorkspaceResult>({

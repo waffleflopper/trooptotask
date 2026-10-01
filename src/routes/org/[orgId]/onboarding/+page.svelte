@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { OnboardingPageContext } from '$features/onboarding/contexts/OnboardingPageContext.svelte';
 	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
+	import { untrack } from 'svelte';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import OnboardingKanbanView from '$features/onboarding/components/OnboardingKanbanView.svelte';
@@ -12,6 +13,12 @@
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
+	let modalOrgId = org.orgId;
+	$effect(() => {
+		const orgId = org.orgId;
+		if (orgId !== modalOrgId) untrack(() => modals.closeAll());
+		modalOrgId = orgId;
+	});
 	const loadingSkeletonItems = [0, 1, 2];
 	let onboardingBootstrap = $state<OnboardingWorkspaceResult | null>(null);
 	let OnboardingModals = $state<
@@ -61,6 +68,10 @@
 
 	const workspacePending = $derived(!!data.onboarding?.data && onboardingBootstrap === null && loadError === null);
 	const ctx = $derived(onboardingBootstrap ? new OnboardingPageContext(modals, org) : null);
+	$effect(() => {
+		const context = ctx;
+		return () => context?.dispose();
+	});
 	const needsModalSurface = $derived(
 		!!ctx &&
 			(ctx.modals.isOpen(MODAL_IDS.startOnboarding) ||
@@ -110,12 +121,14 @@
 		</div>
 	</section>
 {:else if ctx}
-	<OnboardingKanbanView {ctx} />
-	{#if needsModalSurface && OnboardingModals && onboardingBootstrap}
-		<OnboardingModals
-			{ctx}
-			rankCatalog={onboardingBootstrap.data.rankCatalog}
-			rankCatalogUnavailable={onboardingBootstrap.data.rankCatalogUnavailable}
-		/>
-	{/if}
+	{#key ctx.orgId}
+		<OnboardingKanbanView {ctx} />
+		{#if needsModalSurface && OnboardingModals && onboardingBootstrap}
+			<OnboardingModals
+				{ctx}
+				rankCatalog={onboardingBootstrap.data.rankCatalog}
+				rankCatalogUnavailable={onboardingBootstrap.data.rankCatalogUnavailable}
+			/>
+		{/if}
+	{/key}
 {/if}

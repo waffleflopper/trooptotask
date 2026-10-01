@@ -2,14 +2,14 @@
  * Onboarding retention deletes completed or cancelled records beyond the Organization retention period,
  * then notifies administrators with a summary.
  *
- * This uses raw DataStore (not UseCaseContext) so it can run without a user session.
+ * The scheduled service supplies Organization-scoped persistence without a user session.
  */
-import type { DataStore } from '$lib/server/core/ports';
+import type { OnboardingRetentionStore } from './onboardingRetentionPorts.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
-import { retentionCutoff } from './retentionSupport';
+import { retentionCutoff } from '$lib/utils/retentionCutoff';
 
 interface OnboardingRetentionPorts {
-	store: DataStore;
+	store: OnboardingRetentionStore;
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 
@@ -87,14 +87,17 @@ export async function cleanupExpiredOnboardings(
 			}
 		);
 
-		const expiredIds = [...completed, ...cancelled].map((ob) => ob.id);
-		if (expiredIds.length === 0) continue;
-
 		let deletedCount = 0;
-		for (const expiredIdChunk of chunksOf(expiredIds, RETENTION_DELETE_CHUNK_SIZE)) {
-			const stepProgressFilters = expiredIdChunk.map((id) => ({ onboarding_id: id }));
-			await store.deleteWhereAny('onboarding_step_progress', org.id, stepProgressFilters);
-			deletedCount += await store.deleteManyByIds('personnel_onboardings', org.id, expiredIdChunk);
+		for (const [status, rows] of [
+			['completed', completed],
+			['cancelled', cancelled]
+		] as const) {
+			for (const ids of chunksOf(
+				rows.map((row) => row.id),
+				RETENTION_DELETE_CHUNK_SIZE
+			)) {
+				deletedCount += await store.deleteExpiredBatch(org.id, status, ids, cutoff);
+			}
 		}
 		if (deletedCount === 0) continue;
 

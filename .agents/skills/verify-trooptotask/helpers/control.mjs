@@ -10,6 +10,7 @@ import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
+import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
@@ -219,12 +220,17 @@ async function main() {
 		if (
 			args[0] !== 'cron' ||
 			!['missing', 'wrong', 'run'].includes(args[1]) ||
-			(args[2] && !['records', 'personnel'].includes(args[2]))
+			(args[2] && !['records', 'personnel', 'onboarding'].includes(args[2]))
 		)
 			throw new Error(
-				'Use retention settings, retention files or retention cron missing|wrong|run [records|personnel].'
+				'Use retention settings, retention files or retention cron missing|wrong|run [records|personnel|onboarding].'
 			);
-		const endpoint = args[2] === 'personnel' ? '/api/cleanup-archived-personnel' : '/api/cleanup-archived-records';
+		const endpoint =
+			args[2] === 'onboarding'
+				? '/api/cleanup-expired-onboardings'
+				: args[2] === 'personnel'
+					? '/api/cleanup-archived-personnel'
+					: '/api/cleanup-archived-records';
 		const headers = {};
 		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
 		if (args[1] === 'run') {
@@ -661,6 +667,9 @@ async function main() {
 				'personnel-retention-dense',
 				'artifact-retention',
 				'artifact-retention-1001',
+				'onboarding-legacy',
+				'onboarding-retention',
+				'onboarding-retention-1001',
 				'communications',
 				'rating-scheme'
 			].includes(kind)
@@ -675,6 +684,10 @@ async function main() {
 		}
 		if (kind.startsWith('personnel-retention')) {
 			note(await seedPersonnelRetention({ client, fixture, kind, tag, ownedState, save }));
+			return;
+		}
+		if (kind.startsWith('onboarding-')) {
+			note(await seedOnboarding({ client, fixture, kind, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'rating-scheme') {

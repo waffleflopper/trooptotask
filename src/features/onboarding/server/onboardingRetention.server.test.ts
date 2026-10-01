@@ -1,11 +1,38 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
-import { cleanupExpiredOnboardings } from './onboardingRetention';
+import { cleanupExpiredOnboardings } from './onboardingRetention.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
+import type { OnboardingRetentionStore } from './onboardingRetentionPorts.server';
 
 function buildPorts() {
+	const memory = createInMemoryDataStore();
+	const deleteExpiredBatch = vi.fn<OnboardingRetentionStore['deleteExpiredBatch']>(
+		async (orgId, status, ids, cutoff) => {
+			if (ids.length > 100) throw new Error('Retention persistence accepts at most 100 candidate IDs per batch');
+			const column = status === 'completed' ? 'completed_at' : 'cancelled_at';
+			const eligible = await memory.findMany<{ id: string }>(
+				'personnel_onboardings',
+				orgId,
+				{ status },
+				{
+					inFilters: { id: ids },
+					rangeFilters: [{ column, op: 'lt', value: cutoff }],
+					isNull: { [column]: false }
+				}
+			);
+			const deletedIds = eligible.map((row) => row.id);
+			const count = await memory.deleteManyByIds('personnel_onboardings', orgId, deletedIds);
+			// This test persistence models the existing FK. Owned provider proof establishes the real cascade.
+			await memory.deleteWhereAny(
+				'onboarding_step_progress',
+				orgId,
+				deletedIds.map((id) => ({ onboarding_id: id }))
+			);
+			return count;
+		}
+	);
 	return {
-		store: createInMemoryDataStore(),
+		store: Object.assign(memory, { deleteExpiredBatch }),
 		notifications: { notifyAdmins: vi.fn<NotificationDeliveryPort['notifyAdmins']>().mockResolvedValue(undefined) }
 	};
 }
@@ -45,6 +72,62 @@ function makeStepProgress(onboardingId: string, orgId = 'org-1') {
 }
 
 describe('cleanupExpiredOnboardings', () => {
+	it('preserves parent and retained progress when parent deletion fails', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel_onboardings', [makeCompletedOnboarding('ob-fault', monthsAgo(13))]);
+		const progress = {
+			...makeStepProgress('ob-fault'),
+			notes: [{ text: 'Retained work', timestamp: '2025-01-01T12:00:00Z', userId: 'author-1' }]
+		};
+		ports.store.seed('onboarding_step_progress', [progress]);
+		ports.store.deleteExpiredBatch.mockRejectedValue(new Error('parent delete unavailable'));
+
+		await expect(cleanupExpiredOnboardings(ports, [org1Config])).rejects.toThrow('parent delete unavailable');
+		await expect(ports.store.findOne('personnel_onboardings', 'org-1', { id: 'ob-fault' })).resolves.toMatchObject({
+			id: 'ob-fault'
+		});
+		await expect(ports.store.findMany('onboarding_step_progress', 'org-1')).resolves.toEqual([progress]);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
+	it('reports actual deletion counts, excluding candidates retained by the persistence guard', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel_onboardings', [
+			makeCompletedOnboarding('ob-delete', monthsAgo(13)),
+			makeCompletedOnboarding('ob-keep', monthsAgo(13))
+		]);
+		const persist = ports.store.deleteExpiredBatch.getMockImplementation()!;
+		ports.store.deleteExpiredBatch.mockImplementation(async (orgId, status, ids, cutoff) => {
+			await ports.store.update('personnel_onboardings', orgId, 'ob-keep', { completed_at: new Date().toISOString() });
+			return persist(orgId, status, ids, cutoff);
+		});
+		const result = await cleanupExpiredOnboardings(ports, [org1Config]);
+		expect(result).toEqual({ deletedCount: 1, orgsAffected: 1 });
+		await expect(ports.store.findMany('personnel_onboardings', 'org-1')).resolves.toEqual([
+			expect.objectContaining({ id: 'ob-keep' })
+		]);
+		expect(ports.notifications.notifyAdmins).toHaveBeenCalledWith(
+			'org-1',
+			null,
+			expect.objectContaining({ message: '1 onboarding record auto-deleted after retention period' })
+		);
+	});
+
+	it('does not notify when the deletion guard retains every discovered candidate', async () => {
+		const ports = buildPorts();
+		ports.store.seed('personnel_onboardings', [makeCompletedOnboarding('ob-reopened', monthsAgo(13))]);
+		const persist = ports.store.deleteExpiredBatch.getMockImplementation()!;
+		ports.store.deleteExpiredBatch.mockImplementation(async (orgId, status, ids, cutoff) => {
+			await ports.store.update('personnel_onboardings', orgId, 'ob-reopened', {
+				status: 'in_progress',
+				completed_at: null
+			});
+			return persist(orgId, status, ids, cutoff);
+		});
+		await expect(cleanupExpiredOnboardings(ports, [org1Config])).resolves.toEqual({ deletedCount: 0, orgsAffected: 0 });
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
 	it('deletes completed onboardings past retention period', async () => {
 		const ports = buildPorts();
 		const { store } = ports;

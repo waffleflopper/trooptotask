@@ -22,12 +22,11 @@ async function evidenceFile(root, input) {
 	if (typeof input !== 'string' || !input) throw new Error('Use an evidence file path.');
 	const resolved = path.resolve(input);
 	const inside = (file) => file.startsWith(root + path.sep);
-	if (!inside(resolved)) throw new Error('Input files must be inside the verification evidence directory.');
 	let real;
 	try {
 		real = await fs.realpath(resolved);
 		if (!inside(real) || !(await fs.stat(real)).isFile()) throw new Error();
-		return { bytes: await fs.readFile(real), relative: path.relative(root, resolved) };
+		return { bytes: await fs.readFile(real), relative: path.relative(root, real) };
 	} catch {
 		throw new Error('Input must be a readable evidence file without a symlink escape.');
 	}

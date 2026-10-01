@@ -264,6 +264,55 @@ test('JSON writes and foreign Organization requests preserve submitted fields an
 	assert.ok(output.redactedValues >= 4);
 });
 
+for (const family of ['leader-notes', 'documents']) {
+	test(`${family} writes through a symlinked evidence root preserve payloads and canonical file sources`, async (t) => {
+		const context = await inputs(t);
+		const alias = path.join(context.root, 'evidence-alias');
+		await fs.symlink(context.evidenceRoot, alias, 'dir');
+		await fs.mkdir(path.join(context.evidenceRoot, 'bodies'));
+		await fs.mkdir(path.join(context.evidenceRoot, 'uploads'));
+		const bodyFile = path.join(alias, 'bodies', 'request.json');
+		const bytes = Buffer.from('%PDF-1.7\nSynthetic alias upload\n');
+		const payload = { title: 'Alias evidence', notes: 'Retained payload' };
+		if (family === 'documents') {
+			await fs.writeFile(path.join(context.evidenceRoot, 'uploads', 'actual.pdf'), bytes);
+			payload.file = { path: path.join(alias, 'uploads', 'actual.pdf'), type: 'application/pdf', name: 'alias.pdf' };
+		}
+		await fs.writeFile(bodyFile, JSON.stringify(payload));
+		const http = authenticated(async (url, options) => {
+			assert.equal(url, `${origin}/org/${orgA}/api/personnel/${person}/${family}`);
+			if (family === 'documents') {
+				assert.equal(options.body.get('title'), payload.title);
+				assert.equal(options.body.get('notes'), payload.notes);
+				const file = options.body.get('file');
+				assert.equal(file.name, 'alias.pdf');
+				assert.equal(file.type, 'application/pdf');
+				assert.deepEqual(Buffer.from(await file.arrayBuffer()), bytes);
+			} else assert.deepEqual(JSON.parse(options.body), payload);
+			return Response.json({ saved: true });
+		});
+		const output = await artifactHttp({
+			...context,
+			origin,
+			fixture,
+			evidenceRoot: alias,
+			args: args('POST', family, bodyFile),
+			...http
+		});
+		assert.equal(output.status, 200);
+		assert.equal(output.request.source, path.join('bodies', 'request.json'));
+		assert.deepEqual(output.request.body, {
+			...payload,
+			...(family === 'documents' ? { file: { ...payload.file, path: path.join('uploads', 'actual.pdf') } } : {})
+		});
+		if (family === 'documents') {
+			assert.equal(output.request.upload.source, path.join('uploads', 'actual.pdf'));
+			assert.equal(output.request.upload.bytes, bytes.length);
+			assert.equal(output.request.upload.sha256, createHash('sha256').update(bytes).digest('hex'));
+		}
+	});
+}
+
 test('multipart uses exact evidence bytes with explicit MIME/name overrides and supports missing-file probes', async (t) => {
 	const { evidenceRoot, bodyFile } = await inputs(t);
 	const uploadFile = path.join(evidenceRoot, 'actual.txt');

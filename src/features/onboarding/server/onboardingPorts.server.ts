@@ -1,6 +1,7 @@
 import type { requireFeaturePolicy } from '$lib/access/index.server';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
+import type { OnboardingReconciliationPort } from '../contracts';
 
 type OnboardingActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
 type OnboardingAudit = NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
@@ -36,6 +37,11 @@ export interface OnboardingResourcePorts extends OnboardingPolicyPorts {
 	/** Same authenticated request client; only explicit policy resource lookup bypasses Group filtering. */
 	readonly rawStore?: Pick<OnboardingReadStore, 'findOne'>;
 	readonly personnelOnboardingRoster: Pick<PersonnelOnboardingRosterPort, 'findGroupIds'>;
+}
+
+export interface OnboardingReconciliationPorts extends OnboardingResourcePorts {
+	readonly audit: OnboardingAudit;
+	readonly onboardingReconciliation?: OnboardingReconciliationPort;
 }
 
 export interface OnboardingWorkflowPorts extends OnboardingResourcePorts {

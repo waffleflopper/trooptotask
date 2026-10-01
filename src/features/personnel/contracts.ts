@@ -228,3 +228,5 @@ export type {
 	PersonnelBackfillInput,
 	PersonnelBackfillResult
 } from './personnelImport.types';
+
+export type { ArchivePersonnelBatchResult } from './personnelArchive.types';

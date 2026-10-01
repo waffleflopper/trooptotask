@@ -18,13 +18,15 @@
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 	import type { Personnel } from '../personnel.types';
+	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: PersonnelPageContext;
+		requestArchiveApproval: RequestPersonnelArchiveApproval;
 	}
 
-	let { ctx }: Props = $props();
+	let { ctx, requestArchiveApproval }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const ROSTER_PAGE_SIZE = 75;
@@ -196,7 +198,7 @@
 		archiveSubmitting = true;
 		try {
 			const { archivePersonnel } = await import('$features/personnel/utils/archivePersonnel');
-			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget });
+			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget, requestArchiveApproval });
 			if (result === 'archived') {
 				locallyArchivedIds.add(archiveTarget.id);
 				await invalidateAll();

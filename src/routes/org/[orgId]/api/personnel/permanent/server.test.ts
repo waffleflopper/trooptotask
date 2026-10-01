@@ -44,5 +44,15 @@ describe('DELETE /api/personnel/permanent', () => {
 		const result = await handleUseCaseRequest(_deleteConfig, ctx, { id: '11111111-1111-4111-8111-111111111111' });
 
 		expect(result).toEqual({ success: true });
+		expect(ctx.notificationPort.notifications).toContainEqual({
+			target: 'admins',
+			orgId: ctx.auth.orgId,
+			excludeUserId: ctx.auth.userId,
+			notification: {
+				type: 'personnel_permanently_deleted',
+				title: 'Personnel Permanently Deleted',
+				message: 'Personnel "SGT Smith, Jamie" was permanently deleted.'
+			}
+		});
 	});
 });

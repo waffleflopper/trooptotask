@@ -3,6 +3,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
+import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
+
+const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
 const { gotoMock, invalidateAllMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -86,6 +89,7 @@ describe('PersonnelDetailPageView', () => {
 	it('renders readiness cards from streamed lane data instead of mock values', async () => {
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -116,6 +120,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -134,6 +139,7 @@ describe('PersonnelDetailPageView', () => {
 	it('shows a per-lane skeleton while an individual readiness lane loads', () => {
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -152,6 +158,7 @@ describe('PersonnelDetailPageView', () => {
 	it('shows recent document uploads with upload and show-all actions', async () => {
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -203,6 +210,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -258,6 +266,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -301,6 +310,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -329,6 +339,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -373,6 +384,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				groups: [
@@ -405,6 +417,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',
@@ -431,6 +444,7 @@ describe('PersonnelDetailPageView', () => {
 
 		render(PersonnelDetailPageView, {
 			props: {
+				requestArchiveApproval,
 				orgId: 'org-1',
 				person,
 				orgName: 'Test Org',

@@ -42,7 +42,7 @@ function openEditor() {
 }
 
 async function confirmDeletion() {
-	await fireEvent.click(screen.getByRole('button', { name: 'Delete', exact: true }));
+	await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 	await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /Delete Entry/ }));
 }
 
@@ -139,9 +139,7 @@ describe('Evals deletion recovery', () => {
 			expect(screen.getByRole('alertdialog')).toBeTruthy();
 			const editor = within(screen.getByRole('dialog', { name: 'Edit Rating Entry', hidden: true }));
 			for (const name of ['Save', 'Delete', 'Cancel']) {
-				expect((editor.getByRole('button', { name, exact: true, hidden: true }) as HTMLButtonElement).disabled).toBe(
-					true
-				);
+				expect((editor.getByRole('button', { name, hidden: true }) as HTMLButtonElement).disabled).toBe(true);
 			}
 			expect(modals.isOpen('rating-modal')).toBe(true);
 			expect(effects).toEqual(pendingMethod === 'DELETE' ? ['DELETE'] : ['DELETE', 'POST']);
@@ -165,7 +163,7 @@ describe('Evals deletion recovery', () => {
 		const modals = openEditor();
 		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Updated notes' } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-		const deleteButton = screen.getByRole('button', { name: 'Delete', exact: true }) as HTMLButtonElement;
+		const deleteButton = screen.getByRole('button', { name: 'Delete' }) as HTMLButtonElement;
 		expect(deleteButton.disabled).toBe(true);
 		await fireEvent.click(deleteButton);
 		await fireEvent.keyDown(document, { key: 'Escape' });

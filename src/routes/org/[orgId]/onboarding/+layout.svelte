@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { onboardingWorkspaceHydrator, onboardingStore } from '$features/onboarding';
 	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
@@ -7,7 +6,6 @@
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
-	const org = getOrgContext();
 	onDestroy(() => {
 		onboardingStore.invalidatePendingRequests();
 		onboardingWorkspaceHydrator.reset();
@@ -21,7 +19,7 @@
 	});
 
 	$effect(() => {
-		const orgId = org.orgId;
+		const orgId = data.shell.org.id;
 		untrack(() => {
 			if (onboardingStore.orgId !== orgId) onboardingWorkspaceHydrator.reset();
 			onboardingStore.enterOrganization(orgId);

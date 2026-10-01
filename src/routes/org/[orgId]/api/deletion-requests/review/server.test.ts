@@ -4,7 +4,7 @@ import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig, _reviewPostConfig } from './+server';
 
 describe('POST /api/deletion-requests/review', () => {
-	it('approves only the requested Rating entry, retaining pending status on resource failure and retrying a failed status write', async () => {
+	it('uses the default Rating port, retains pending status on resource failure and retries a failed status write', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'admin',
@@ -34,16 +34,11 @@ describe('POST /api/deletion-requests/review', () => {
 			{ id: 'entry-2', organization_id: ctx.auth.orgId },
 			{ id: 'entry-1', organization_id: 'other-org' }
 		]);
-		let resourceFails = true;
-		const config = _reviewPostConfig(
-			{ deleteApprovedTrainingType: vi.fn(), deleteApprovedTrainingRecord: vi.fn() },
-			{
-				deleteApprovedRatingSchemeEntry: async (actor, requestId, entryId) => {
-					if (resourceFails) throw new Error('Rating deletion unavailable');
-					await ctx.rawStore.deleteWhere('rating_scheme_entries', actor.orgId, { id: entryId });
-				}
-			}
-		);
+		// Match the production store's idempotent DELETE using real in-memory rows.
+		vi.spyOn(ctx.rawStore, 'delete')
+			.mockImplementation((table, orgId, id) => ctx.rawStore.deleteWhere(table, orgId, { id }))
+			.mockRejectedValueOnce(new Error('Rating deletion unavailable'));
+		const config = _reviewPostConfig({ deleteApprovedTrainingType: vi.fn(), deleteApprovedTrainingRecord: vi.fn() });
 		const approve = () => handleUseCaseRequest(config, ctx, { id: 'rating-request', action: 'approve' });
 		await expect(approve()).rejects.toThrow('Rating deletion unavailable');
 		await expect(
@@ -54,7 +49,6 @@ describe('POST /api/deletion-requests/review', () => {
 		).resolves.toMatchObject({ status: 'pending' });
 		expect(ctx.notificationPort.notifications).toEqual([]);
 		expect(ctx.auditPort.events).toEqual([]);
-		resourceFails = false;
 		const update = ctx.store.update;
 		let statusFails = true;
 		vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
@@ -81,6 +75,47 @@ describe('POST /api/deletion-requests/review', () => {
 		).resolves.toMatchObject({ status: 'approved', reviewed_by: ctx.auth.userId, reviewed_at: expect.any(String) });
 		expect(ctx.auditPort.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
 		expect(ctx.notificationPort.notifications).toHaveLength(1);
+	});
+
+	it('retains the evaluation and denial when another reviewer denies before the owner pending recheck', async () => {
+		const ctx = createTestContext({ auth: { role: 'admin', isPrivileged: true } });
+		ctx.rawStore.seed('deletion_requests', [
+			{
+				id: 'rating-request',
+				organization_id: ctx.auth.orgId,
+				resource_type: 'rating_scheme_entry',
+				resource_id: 'entry-1',
+				status: 'pending'
+			}
+		]);
+		ctx.rawStore.seed('rating_scheme_entries', [{ id: 'entry-1', organization_id: ctx.auth.orgId }]);
+		const findOne = ctx.rawStore.findOne;
+		let denied = false;
+		vi.spyOn(ctx.rawStore, 'findOne').mockImplementation(async (table, orgId, filters, select) => {
+			const row = await findOne(table, orgId, filters, select);
+			if (table === 'deletion_requests' && row && !denied) {
+				denied = true;
+				await ctx.rawStore.update(table, orgId, 'rating-request', {
+					status: 'denied',
+					reviewed_by: 'other-reviewer',
+					denial_reason: 'Keep the evaluation'
+				});
+			}
+			return row;
+		});
+
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { id: 'rating-request', action: 'approve' })
+		).rejects.toMatchObject({ status: 404 });
+		await expect(ctx.rawStore.findOne('rating_scheme_entries', ctx.auth.orgId, { id: 'entry-1' })).resolves.toEqual({
+			id: 'entry-1',
+			organization_id: ctx.auth.orgId
+		});
+		await expect(
+			ctx.rawStore.findOne('deletion_requests', ctx.auth.orgId, { id: 'rating-request' })
+		).resolves.toMatchObject({ status: 'denied', reviewed_by: 'other-reviewer', denial_reason: 'Keep the evaluation' });
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
 	});
 
 	it('denies a Rating operator before the approval effect and leaves the pending request intact', async () => {

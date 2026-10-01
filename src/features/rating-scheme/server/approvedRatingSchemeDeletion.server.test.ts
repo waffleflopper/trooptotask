@@ -1,7 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestAuthContext, createTestContext } from '$lib/server/adapters/inMemory';
-import { createSupabaseApprovedRatingSchemeDeletionPort } from './approvedRatingSchemeDeletion.server';
+import { createApprovedRatingSchemeDeletionPort } from './approvedRatingSchemeDeletion.server';
 
 function reviewer(role: 'admin' | 'member' = 'admin') {
 	return createTestAuthContext({
@@ -19,7 +18,7 @@ function reviewer(role: 'admin' | 'member' = 'admin') {
 	});
 }
 
-function provider(overrides: Record<string, unknown> = {}, failDelete = false) {
+function provider(overrides: Record<string, unknown> = {}) {
 	const ctx = createTestContext({ auth: { ...reviewer() } });
 	ctx.rawStore.seed('deletion_requests', [
 		{
@@ -31,87 +30,77 @@ function provider(overrides: Record<string, unknown> = {}, failDelete = false) {
 			...overrides
 		}
 	]);
-	const entries = [
+	ctx.rawStore.seed('rating_scheme_entries', [
 		{ id: 'entry-1', organization_id: 'org-1' },
 		{ id: 'entry-2', organization_id: 'org-1' },
 		{ id: 'entry-1', organization_id: 'org-2' }
-	];
-	const admin = createClient('http://127.0.0.1:9', 'synthetic-service-key', {
-		auth: { persistSession: false, autoRefreshToken: false },
-		global: {
-			fetch: async (input, init) => {
-				const request = new Request(input, init);
-				const url = new URL(request.url);
-				if (request.method !== 'DELETE' || !url.pathname.endsWith('/rating_scheme_entries'))
-					throw new Error('Unexpected privileged operation');
-				if (failDelete) return Response.json({ message: 'delete unavailable' }, { status: 403 });
-				for (let i = entries.length - 1; i >= 0; i--)
-					if (
-						url.searchParams.get('id') === `eq.${entries[i].id}` &&
-						url.searchParams.get('organization_id') === `eq.${entries[i].organization_id}`
-					)
-						entries.splice(i, 1);
-				return new Response(null, { status: 204 });
-			}
-		}
-	});
-	const getAdminClient = vi.fn(() => admin);
-	return {
-		ctx,
-		entries,
-		getAdminClient,
-		port: createSupabaseApprovedRatingSchemeDeletionPort(ctx.rawStore, getAdminClient)
-	};
+	]);
+	// InMemory.delete rejects absent rows; deleteWhere supplies the production
+	// store's idempotent DELETE contract while keeping real stored effects.
+	const deleteEntry = vi
+		.spyOn(ctx.rawStore, 'delete')
+		.mockImplementation((table, orgId, id) => ctx.rawStore.deleteWhere(table, orgId, { id }));
+	return { ctx, deleteEntry, port: createApprovedRatingSchemeDeletionPort(ctx.rawStore) };
 }
 
 describe('approved Rating Scheme deletion', () => {
 	it('lets the Organization reviewer without a Rating lane delete only the bound entry and safely retry', async () => {
-		const { port, entries } = provider();
+		const { ctx, port } = provider();
 		await port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1');
 		await port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1');
-		expect(entries).toEqual([
-			{ id: 'entry-2', organization_id: 'org-1' },
+		await expect(ctx.rawStore.findMany('rating_scheme_entries', 'org-1')).resolves.toEqual([
+			{ id: 'entry-2', organization_id: 'org-1' }
+		]);
+		await expect(ctx.rawStore.findMany('rating_scheme_entries', 'org-2')).resolves.toEqual([
 			{ id: 'entry-1', organization_id: 'org-2' }
 		]);
+		await expect(ctx.rawStore.findOne('deletion_requests', 'org-1', { id: 'request-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
 	});
-	it('denies an ordinary member before privileged access despite Rating configure', async () => {
-		const { port, getAdminClient } = provider();
+	it('denies an ordinary member before reading or deleting despite Rating configure', async () => {
+		const { ctx, port, deleteEntry } = provider();
+		const findRequest = vi.spyOn(ctx.rawStore, 'findOne');
 		await expect(
 			port.deleteApprovedRatingSchemeEntry(reviewer('member'), 'request-1', 'entry-1')
 		).rejects.toMatchObject({ status: 403 });
-		expect(getAdminClient).not.toHaveBeenCalled();
+		expect(findRequest).not.toHaveBeenCalled();
+		expect(deleteEntry).not.toHaveBeenCalled();
 	});
 	it.each([
 		['another Organization', { organization_id: 'org-2' }],
 		['completed review', { status: 'approved' }],
+		['denied review', { status: 'denied' }],
 		['another kind', { resource_type: 'personnel_training' }],
 		['another target', { resource_id: 'entry-2' }],
 		['another request', { id: 'request-2' }]
-	])('rejects %s before privileged access', async (_reason, overrides) => {
-		const { port, getAdminClient, entries } = provider(overrides);
+	])('rejects %s before deletion', async (_reason, overrides) => {
+		const { ctx, port, deleteEntry } = provider(overrides);
 		await expect(port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1')).rejects.toMatchObject({
 			status: 404
 		});
-		expect(getAdminClient).not.toHaveBeenCalled();
-		expect(entries).toHaveLength(3);
+		expect(deleteEntry).not.toHaveBeenCalled();
+		await expect(ctx.rawStore.findMany('rating_scheme_entries', 'org-1')).resolves.toEqual([
+			{ id: 'entry-1', organization_id: 'org-1' },
+			{ id: 'entry-2', organization_id: 'org-1' }
+		]);
 	});
-	it('does not acquire admin access when authenticated pending-request lookup fails', async () => {
-		const { ctx, getAdminClient } = provider();
+	it('does not delete when authenticated pending-request lookup fails', async () => {
+		const { ctx, port, deleteEntry } = provider();
 		vi.spyOn(ctx.rawStore, 'findOne').mockRejectedValue(new Error('request unavailable'));
-		await expect(
-			createSupabaseApprovedRatingSchemeDeletionPort(ctx.rawStore, getAdminClient).deleteApprovedRatingSchemeEntry(
-				reviewer(),
-				'request-1',
-				'entry-1'
-			)
-		).rejects.toThrow('request unavailable');
-		expect(getAdminClient).not.toHaveBeenCalled();
+		await expect(port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1')).rejects.toThrow(
+			'request unavailable'
+		);
+		expect(deleteEntry).not.toHaveBeenCalled();
 	});
-	it('propagates deletion failure and preserves the target', async () => {
-		const { port, entries } = provider({}, true);
+	it('propagates authenticated deletion failure, preserves the target, and allows retry', async () => {
+		const { ctx, port, deleteEntry } = provider();
+		deleteEntry.mockRejectedValueOnce(new Error('delete unavailable'));
 		await expect(port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1')).rejects.toThrow(
 			'delete unavailable'
 		);
-		expect(entries).toHaveLength(3);
+		await expect(ctx.rawStore.findOne('rating_scheme_entries', 'org-1', { id: 'entry-1' })).resolves.not.toBeNull();
+		await port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1');
+		await expect(ctx.rawStore.findOne('rating_scheme_entries', 'org-1', { id: 'entry-1' })).resolves.toBeNull();
 	});
 });

@@ -1,7 +1,6 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
+import type { RatingSchemeEntryWriteContext } from './ratingSchemeEntryPorts.server';
 import { fail } from '$lib/errors';
 
 interface ApprovedRatingSchemeDeletionActor {
@@ -20,10 +19,9 @@ export interface ApprovedRatingSchemeDeletionPort {
 	): Promise<void>;
 }
 
-/** Review authority and the exact pending request are checked before obtaining a privileged provider. */
-export function createSupabaseApprovedRatingSchemeDeletionPort(
-	requestStore: Pick<RatingSchemeReadStore, 'findOne'>,
-	getAdminClient: () => SupabaseClient
+/** Review authority and the exact pending request precede deletion under the request's Rating RLS. */
+export function createApprovedRatingSchemeDeletionPort(
+	requestStore: Pick<RatingSchemeEntryWriteContext['store'], 'findOne' | 'delete'>
 ): ApprovedRatingSchemeDeletionPort {
 	return {
 		async deleteApprovedRatingSchemeEntry(actor, requestId, entryId) {
@@ -45,12 +43,7 @@ export function createSupabaseApprovedRatingSchemeDeletionPort(
 			);
 			if (!request) fail(404, 'Pending deletion request not found');
 
-			const { error } = await getAdminClient()
-				.from('rating_scheme_entries')
-				.delete()
-				.eq('organization_id', actor.orgId)
-				.eq('id', entryId);
-			if (error) throw new Error(error.message);
+			await requestStore.delete('rating_scheme_entries', actor.orgId, entryId);
 			// A preceding deletion can persist when the coordinator's request-status write fails.
 			// Retrying that same pending request must still complete its status transition.
 		}

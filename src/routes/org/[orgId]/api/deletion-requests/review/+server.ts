@@ -3,7 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { approveDeletionRequest, denyDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
 import {
-	createSupabaseApprovedRatingSchemeDeletionPort,
+	createApprovedRatingSchemeDeletionPort,
 	type ApprovedRatingSchemeDeletionPort
 } from '$features/rating-scheme/index.server';
 import { getAdminClient } from '$lib/server/supabase';
@@ -34,7 +34,7 @@ export function _reviewPostConfig(
 					ctx,
 					id as string,
 					trainingDeletion,
-					ratingSchemeDeletion ?? createSupabaseApprovedRatingSchemeDeletionPort(ctx.rawStore, getAdminClient)
+					ratingSchemeDeletion ?? createApprovedRatingSchemeDeletionPort(ctx.rawStore)
 				);
 			} else {
 				await denyDeletionRequest(ctx, id as string, denialReason as string | undefined);

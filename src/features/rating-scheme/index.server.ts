@@ -7,7 +7,7 @@ export {
 	countRatingSchemeEntriesByOrganization
 } from './server/ratingSchemeRead.server';
 export {
-	createSupabaseApprovedRatingSchemeDeletionPort,
+	createApprovedRatingSchemeDeletionPort,
 	type ApprovedRatingSchemeDeletionPort
 } from './server/approvedRatingSchemeDeletion.server';
 export {

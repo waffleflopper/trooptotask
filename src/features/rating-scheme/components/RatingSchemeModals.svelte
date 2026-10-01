@@ -4,6 +4,7 @@
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import RatingSchemeEntryModal from '$features/rating-scheme/components/RatingSchemeEntryModal.svelte';
 	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
@@ -29,14 +30,17 @@
 		}
 	}
 
-	async function handleDeleteRatingEntry(id: string) {
+	async function handleDeleteRatingEntry(id: string): Promise<boolean> {
 		const entry = ratingSchemeStore.items.find((ratingEntry) => ratingEntry.id === id);
 		const result = await ratingSchemeStore.remove(id);
+		if (result === 'deleted') return true;
 		if (result === 'approval_required' && entry) {
 			const person = personnelLookup.find((p) => p.id === entry.ratedPersonId);
 			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
-			await submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, ratingSchemeResourceUrl);
+			return submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, ratingSchemeResourceUrl);
 		}
+		toastStore.error('Failed to delete rating entry. Try again.');
+		return false;
 	}
 </script>
 

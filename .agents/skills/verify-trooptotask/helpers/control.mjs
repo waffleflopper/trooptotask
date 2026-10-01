@@ -9,6 +9,7 @@ import { repository, sessionPath, readJSON, processIdentity } from '../../../../
 import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
+import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
@@ -180,6 +181,10 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'artifact-http') {
+		note(await artifactHttp({ origin: doctor.origin, fixture, evidenceRoot, session, sessionId: state.id, args }));
+		return;
+	}
 	if (command === 'fixture') {
 		note({
 			ids: fixture.ids,
@@ -1001,7 +1006,8 @@ async function main() {
 		}
 		ownedState.seeded = [];
 		await save(ownedState);
-		note({ cleaned: true });
+		await clearArtifactHttpCache({ session, sessionId: state.id });
+		note({ cleaned: true, artifactHttpSessionsCleared: true });
 		return;
 	}
 	if (command === 'network') {
@@ -1209,7 +1215,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

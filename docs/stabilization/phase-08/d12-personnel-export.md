@@ -20,7 +20,7 @@ Early SDK-not-installed, Docker128, `/tmp` inode exhaustion and long-TMPDIR brow
 
 ## Durable proof and review scope
 
-All live runs finished final doctor and owned cleanup before these archives entered the checkout. Later changes add proof/prose and correct an inaccurate source comment only; they do not constitute another live run or change the frozen executable candidate. Prior proof and its tested revisions remain unchanged.
+All live runs finished final doctor and owned cleanup before these archives entered the checkout. Later changes add proof/prose and correct an inaccurate source comment only; they do not constitute another live run or change the frozen executable candidate. Prior proof and its tested revisions remain unchanged. Incoming main `b5f6f559` (#1455) is integrated after cleanup: it relocates the independent Rating detail lane behind its owner and adds unrelated deletion-review readback fields. Export source, route, tests, Calendar/Training dependencies and caller download controls are unchanged. The recorded export proof is reused for those unchanged seams; integrated focused checks cover the affected Rating detail callback without claiming another live run.
 
 | Run                                                            | Archive SHA-256                                                    | Payloads / expanded bytes |
 | -------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------- |

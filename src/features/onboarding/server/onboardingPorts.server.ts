@@ -5,7 +5,8 @@ import type {
 	OnboardingReconciliationPort,
 	OnboardingNoteAppendPort,
 	OnboardingLifecycleTransitionPort,
-	OnboardingInactiveStepRemovalPort
+	OnboardingInactiveStepRemovalPort,
+	OnboardingPacketCreationPort
 } from '../contracts';
 
 type OnboardingActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
@@ -26,10 +27,7 @@ export interface OnboardingReadStore {
 }
 
 interface OnboardingWriteStore extends OnboardingReadStore {
-	insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
 	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
-	delete(table: string, orgId: string, id: string): Promise<void>;
-	insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
 }
 
 export interface OnboardingPolicyPorts {
@@ -70,7 +68,10 @@ export interface OnboardingWorkflowPorts extends OnboardingResourcePorts {
 	readonly store: OnboardingWriteStore;
 }
 
-export interface OnboardingTrainingPorts extends OnboardingWorkflowPorts {
+export interface OnboardingTrainingPorts extends OnboardingResourcePorts {
+	readonly audit: OnboardingAudit;
+	readonly store: OnboardingReadStore;
+	readonly onboardingPacketCreation?: OnboardingPacketCreationPort;
 	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'completedTypeIds'>;
 }
 

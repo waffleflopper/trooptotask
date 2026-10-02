@@ -49,6 +49,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261001000200_atomic_onboarding_reconciliation.sql",
     "20261002001000_organization_storage_cleanup.sql",
     "20261002002000_organization_file_upload_registration.sql",
+    "20261002001100_atomic_onboarding_start.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -67,6 +68,7 @@ STAGED_UPGRADE_FIXTURES = (
     "onboarding_reconciliation_before.sql",
     "organization_storage_cleanup_before.sql",
     "organization_file_upload_before.sql",
+    "onboarding_start_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -87,6 +89,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "onboarding_reconciliation_after.sql",
     "organization_storage_cleanup_after.sql",
     "organization_file_upload_after.sql",
+    "onboarding_start_after.sql",
 )
 
 
@@ -309,6 +312,8 @@ def validate(repository, *, staged_upgrade=False):
             run(["node", str(repository / "scripts/ci/personnel_retention_provider_probe.mjs"),
                  "--staged-upgrade"], workdir,
                 environment=_provider_environment(repository, workdir, execute))
+            run(["node", str(repository / "scripts/ci/onboarding_start_provider_probe.mjs")],
+                workdir, environment=_provider_environment(repository, workdir, execute))
             print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding and Organization Storage upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
@@ -338,6 +343,8 @@ def validate(repository, *, staged_upgrade=False):
         run(["node", str(repository / "scripts/ci/personnel_roster_provider_probe.mjs")],
             workdir, environment=provider_environment)
         run(["node", str(repository / "scripts/ci/personnel_retention_provider_probe.mjs")],
+            workdir, environment=provider_environment)
+        run(["node", str(repository / "scripts/ci/onboarding_start_provider_probe.mjs")],
             workdir, environment=provider_environment)
         print("Fresh replay, SQL contracts, migration regressions and provider probes passed.", flush=True)
     finally:

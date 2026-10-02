@@ -54,7 +54,12 @@ interface StartResult {
 export async function startOnboarding(ctx: OnboardingTrainingPorts, input: StartInput): Promise<StartResult> {
 	await requireOnboardingManagePolicyForPersonnel(ctx, input.personnelId);
 
-	// Enforce one-active-per-soldier
+	if (typeof input.templateId !== 'string' || input.templateId.trim().length === 0) {
+		fail(400, 'A configured onboarding template is required');
+	}
+
+	// Enforce one-active-per-soldier before preparing a new packet. The creation
+	// transaction also enforces the existing unique index for overlapping starts.
 	const existing = await ctx.store.findMany<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
 		personnel_id: input.personnelId,
 		status: 'in_progress'
@@ -63,106 +68,68 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 		fail(409, 'Soldier already has an active onboarding');
 	}
 
-	// Fetch template steps
-	const templateSteps = await listOnboardingTemplateSteps(ctx.store, ctx.auth.orgId, input.templateId);
-
-	// Create onboarding record
 	const startedAt = resolveStartedAt(input.startedAt);
-	const onboarding = await ctx.store.insert<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
-		personnel_id: input.personnelId,
-		template_id: input.templateId,
-		status: 'in_progress',
-		started_at: startedAt,
-		completed_at: null,
-		cancelled_at: null
+	const templateSteps = await listOnboardingTemplateSteps(ctx.store, ctx.auth.orgId, input.templateId);
+	const trainingTypeIds = templateSteps
+		.filter((step) => step.stepType === 'training' && step.trainingTypeId)
+		.map((step) => step.trainingTypeId!);
+	const completedTrainingTypeIds =
+		trainingTypeIds.length > 0
+			? ((await ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, [input.personnelId], trainingTypeIds)).get(
+					input.personnelId
+				) ?? new Set<string>())
+			: new Set<string>();
+
+	if (!ctx.onboardingPacketCreation) throw new Error('Bind the owned Onboarding packet creation provider');
+	const { onboarding, steps } = await ctx.onboardingPacketCreation.create(ctx.auth.orgId, {
+		personnelId: input.personnelId,
+		templateId: input.templateId,
+		startedAt,
+		steps: templateSteps.map((step) => ({
+			template_step_id: step.id,
+			step_name: step.name,
+			step_type: step.stepType,
+			training_type_id: step.trainingTypeId,
+			stages: step.stages,
+			sort_order: step.sortOrder,
+			completed:
+				step.stepType === 'training' && step.trainingTypeId ? completedTrainingTypeIds.has(step.trainingTypeId) : false
+		}))
 	});
 
-	try {
-		// Check training records for training-type steps (targeted query)
-		const trainingTypeIds = templateSteps
-			.filter((ts) => ts.stepType === 'training' && ts.trainingTypeId)
-			.map((ts) => ts.trainingTypeId!);
-
-		const completedTrainingTypeIds =
-			trainingTypeIds.length > 0
-				? ((
-						await ctx.trainingOnboardingReferences.completedTypeIds(ctx.auth, [input.personnelId], trainingTypeIds)
-					).get(input.personnelId) ?? new Set<string>())
-				: new Set<string>();
-
-		// Snapshot template steps into step progress rows
-		const stepRows = templateSteps.map((ts) => ({
-			onboarding_id: onboarding.id,
-			step_name: ts.name,
-			step_type: ts.stepType,
-			training_type_id: ts.trainingTypeId,
-			stages: ts.stages,
-			sort_order: ts.sortOrder,
-			completed:
-				ts.stepType === 'training' && ts.trainingTypeId ? completedTrainingTypeIds.has(ts.trainingTypeId) : false,
-			current_stage:
-				ts.stepType === 'paperwork' && Array.isArray(ts.stages) && ts.stages.length > 0 ? ts.stages[0] : null,
-			notes: [],
-			template_step_id: ts.id,
-			active: true
-		}));
-
-		const steps = await ctx.store.insertMany<{
-			id: string;
-			onboarding_id: string;
-			step_name: string;
-			step_type: string;
-			training_type_id: string | null;
-			stages: string[] | null;
-			sort_order: number;
-			completed: boolean;
-			current_stage: string | null;
-			notes: Array<{ text: string; timestamp: string }>;
-			template_step_id: string | null;
-			active: boolean;
-		}>('onboarding_step_progress', ctx.auth.orgId, stepRows);
-
-		ctx.audit.log({
-			action: 'onboarding.started',
-			resourceType: 'personnel_onboarding',
-			resourceId: onboarding.id,
-			details: {
-				...subjectDetails({ subjectType: 'personnel', subjectId: input.personnelId }),
-				template_id: input.templateId
-			}
-		});
-
-		return {
-			id: onboarding.id,
-			personnelId: input.personnelId,
-			templateId: input.templateId,
-			status: 'in_progress',
-			startedAt,
-			completedAt: null,
-			cancelledAt: null,
-			steps: steps.map((s) => ({
-				id: s.id,
-				onboardingId: s.onboarding_id,
-				stepName: s.step_name,
-				stepType: s.step_type,
-				trainingTypeId: s.training_type_id,
-				stages: s.stages,
-				sortOrder: s.sort_order,
-				completed: s.completed,
-				currentStage: s.current_stage,
-				notes: s.notes,
-				templateStepId: s.template_step_id,
-				active: s.active
-			}))
-		};
-	} catch (error) {
-		try {
-			await ctx.store.delete('personnel_onboardings', ctx.auth.orgId, onboarding.id);
-		} catch {
-			// Preserve the original failure from the start workflow.
+	ctx.audit.log({
+		action: 'onboarding.started',
+		resourceType: 'personnel_onboarding',
+		resourceId: onboarding.id,
+		details: {
+			...subjectDetails({ subjectType: 'personnel', subjectId: onboarding.personnel_id }),
+			template_id: onboarding.template_id
 		}
-		throw error;
-	}
+	});
+
+	return {
+		id: onboarding.id,
+		personnelId: onboarding.personnel_id,
+		templateId: onboarding.template_id,
+		status: onboarding.status,
+		startedAt: onboarding.started_at,
+		completedAt: onboarding.completed_at,
+		cancelledAt: onboarding.cancelled_at,
+		steps: steps.map((step) => ({
+			id: step.id,
+			onboardingId: step.onboarding_id,
+			stepName: step.step_name,
+			stepType: step.step_type,
+			trainingTypeId: step.training_type_id,
+			stages: step.stages,
+			sortOrder: step.sort_order,
+			completed: step.completed,
+			currentStage: step.current_stage,
+			notes: step.notes,
+			templateStepId: step.template_step_id,
+			active: step.active
+		}))
+	};
 }
 
 function resolveStartedAt(startedAt?: string): string {

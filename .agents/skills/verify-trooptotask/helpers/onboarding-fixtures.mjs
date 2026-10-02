@@ -12,7 +12,37 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 	let packets;
 	let progress;
 	let people;
-	if (kind === 'onboarding-legacy') {
+	if (kind === 'onboarding-start') {
+		people = [
+			{
+				id: randomUUID(),
+				organization_id: fixture.ids.orgA,
+				group_id: fixture.ids.groupA,
+				rank: 'SPC',
+				first_name: 'Synthetic',
+				last_name: 'MapStart' + tag,
+				slug: 'map-start-' + tag
+			}
+		];
+		packets = [];
+		progress = [];
+		batches.push(
+			['personnel', people],
+			[
+				'personnel_trainings',
+				[
+					{
+						id: randomUUID(),
+						organization_id: fixture.ids.orgA,
+						personnel_id: people[0].id,
+						training_type_id: fixture.ids.trainingRequired,
+						completion_date: '1999-01-01',
+						expiration_date: '2000-01-01'
+					}
+				]
+			]
+		);
+	} else if (kind === 'onboarding-legacy') {
 		const person = {
 			id: randomUUID(),
 			organization_id: fixture.ids.orgA,
@@ -238,10 +268,8 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		}));
 	}
 	const publicPackets = packets;
-	batches.push(
-		['personnel_onboardings', packets.map(({ key: _key, ...packet }) => packet)],
-		['onboarding_step_progress', progress]
-	);
+	if (packets.length) batches.push(['personnel_onboardings', packets.map(({ key: _key, ...packet }) => packet)]);
+	if (progress.length) batches.push(['onboarding_step_progress', progress]);
 	for (const [table, rows] of batches) {
 		for (const organization of ['orgA', 'orgB']) {
 			const ids = rows.filter((row) => row.organization_id === fixture.ids[organization]).map((row) => row.id);
@@ -260,6 +288,9 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		progress,
 		...(people ? { people } : {}),
 		...(kind === 'onboarding-history' ? { training: batches[1][1] } : {}),
+		...(kind === 'onboarding-start'
+			? { person: people[0], templateId: fixture.ids.onboardingTemplate, training: batches[1][1] }
+			: {}),
 		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {})
 	};
 }

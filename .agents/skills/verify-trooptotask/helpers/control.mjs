@@ -909,6 +909,7 @@ async function main() {
 				'artifact-retention',
 				'artifact-retention-1001',
 				'onboarding-legacy',
+				'onboarding-start',
 				'onboarding-history',
 				'onboarding-consumers',
 				'onboarding-retention',

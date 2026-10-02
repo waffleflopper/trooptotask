@@ -87,6 +87,63 @@ const resetStageSteps = [
 	reconciledSteps[2]
 ];
 
+describe('onboardingStore reconciliation failure admission', () => {
+	it.each([
+		['error-body', 'current'],
+		['error-body', 'organization-return'],
+		['error-body', 'invalidated'],
+		['fetch-rejection', 'current'],
+		['fetch-rejection', 'organization-return'],
+		['fetch-rejection', 'invalidated'],
+		['json-rejection', 'current'],
+		['json-rejection', 'organization-return'],
+		['json-rejection', 'invalidated']
+	] as const)('admits %s feedback only for the %s lifetime', async (outcome, lifetime) => {
+		onboardingStore.load([checklistOnboarding], 'org-1');
+		let finish!: () => void;
+		let reading!: () => void;
+		const startedReading = new Promise<void>((resolve) => {
+			reading = resolve;
+		});
+		const delayed = new Promise<string>((resolve, reject) => {
+			finish = () =>
+				outcome === 'error-body'
+					? resolve(JSON.stringify({ message: 'Provider rejected this packet' }))
+					: reject(new Error('Synthetic transport/body failure'));
+		});
+		const read = () => {
+			reading();
+			return delayed;
+		};
+		vi.stubGlobal(
+			'fetch',
+			outcome === 'fetch-rejection'
+				? read
+				: vi.fn().mockResolvedValue(outcome === 'error-body' ? { ok: false, text: read } : { ok: true, json: read })
+		);
+		const pending = onboardingStore.resync('ob-1');
+		await startedReading;
+		const refreshed = { ...checklistOnboarding, startedAt: '2026-03-16' };
+		if (lifetime === 'organization-return') {
+			onboardingStore.enterOrganization('org-2');
+			onboardingStore.load([refreshed], 'org-1');
+		} else if (lifetime === 'invalidated') {
+			onboardingStore.invalidatePendingRequests();
+			onboardingStore.load([refreshed], 'org-1');
+		}
+		finish();
+		await expect(pending).resolves.toEqual(
+			lifetime === 'current'
+				? {
+						success: false,
+						error: outcome === 'error-body' ? 'Provider rejected this packet' : 'Failed to re-sync onboarding'
+					}
+				: { success: false }
+		);
+		expect(onboardingStore.items).toEqual([lifetime === 'current' ? checklistOnboarding : refreshed]);
+	});
+});
+
 function deferredResponse() {
 	let respond!: (response: Response) => void;
 	const promise = new Promise<Response>((resolve) => {

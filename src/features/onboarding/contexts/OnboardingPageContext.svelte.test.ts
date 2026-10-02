@@ -191,7 +191,7 @@ describe('Onboarding reconciliation draft lifetime', () => {
 
 describe('Onboarding Re-sync feedback lifetime', () => {
 	it.each(['older-first', 'older-last'] as const)(
-		'retains current packet feedback when delivery is %s',
+		'keeps each packet failure when overlapping delivery is %s',
 		async (order) => {
 			onboardingStore.load([makeOnboarding(), makeOnboarding({ id: 'ob-2', personnelId: 'p-2' })], 'org-1');
 			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
@@ -203,8 +203,9 @@ describe('Onboarding Re-sync feedback lifetime', () => {
 			if (order === 'older-first') {
 				oldResponse.respond(Response.json({ message: 'Older packet failed' }, { status: 503 }));
 				await older;
-				expect.soft(ctx.resyncingId).toBe('ob-2');
-				expect.soft(ctx.resyncError).toBeNull();
+				expect.soft(ctx.isResyncing('ob-1')).toBe(false);
+				expect.soft(ctx.isResyncing('ob-2')).toBe(true);
+				expect.soft(ctx.getResyncError('ob-1')).toBe('Older packet failed');
 			}
 			newResponse.respond(Response.json({ message: 'Current packet failed' }, { status: 503 }));
 			await newer;
@@ -212,8 +213,91 @@ describe('Onboarding Re-sync feedback lifetime', () => {
 				oldResponse.respond(Response.json({ message: 'Older packet failed' }, { status: 503 }));
 				await older;
 			}
-			expect(ctx.resyncingId).toBeNull();
-			expect(ctx.resyncError).toBe('Current packet failed');
+			expect(ctx.isResyncing('ob-1')).toBe(false);
+			expect(ctx.isResyncing('ob-2')).toBe(false);
+			expect(ctx.getResyncError('ob-1')).toBe('Older packet failed');
+			expect(ctx.getResyncError('ob-2')).toBe('Current packet failed');
+		}
+	);
+
+	it('keeps an earlier packet failure while another packet starts and succeeds', async () => {
+		onboardingStore.load([makeOnboarding(), makeOnboarding({ id: 'ob-2', personnelId: 'p-2' })], 'org-1');
+		const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+		const otherResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ message: 'First packet failed' }, { status: 503 }))
+				.mockReturnValueOnce(otherResponse.promise)
+		);
+		await ctx.handleResync('ob-1');
+		const other = ctx.handleResync('ob-2');
+		expect.soft(ctx.getResyncError('ob-1')).toBe('First packet failed');
+		expect(ctx.isResyncing('ob-2')).toBe(true);
+		otherResponse.respond(Response.json({ templateId: 'tpl-1', steps: [] }));
+		await other;
+		expect(ctx.getResyncError('ob-1')).toBe('First packet failed');
+		expect(ctx.getResyncError('ob-2')).toBeNull();
+		expect(ctx.isResyncing('ob-2')).toBe(false);
+	});
+
+	it.each([
+		['older-first', 200, 503],
+		['older-last', 200, 503],
+		['older-first', 503, 200],
+		['older-last', 503, 200]
+	] as const)(
+		'keeps the newer same-packet result for %s delivery of %s then %s',
+		async (order, oldStatus, newStatus) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+			const older = ctx.handleResync('ob-1');
+			const newer = ctx.handleResync('ob-1');
+			const oldBody = oldStatus === 200 ? { templateId: 'tpl-1', steps: [] } : { message: 'Old request failed' };
+			if (order === 'older-first') {
+				oldResponse.respond(Response.json(oldBody, { status: oldStatus }));
+				await older;
+				expect(ctx.isResyncing('ob-1')).toBe(true);
+				expect(ctx.getResyncError('ob-1')).toBeNull();
+			}
+			newResponse.respond(
+				Response.json(newStatus === 200 ? { templateId: 'tpl-1', steps: [] } : { message: 'New request failed' }, {
+					status: newStatus
+				})
+			);
+			await newer;
+			if (order === 'older-last') {
+				oldResponse.respond(Response.json(oldBody, { status: oldStatus }));
+				await older;
+			}
+			expect(ctx.isResyncing('ob-1')).toBe(false);
+			expect(ctx.getResyncError('ob-1')).toBe(newStatus === 200 ? null : 'New request failed');
+		}
+	);
+
+	it.each(['same-organization-load', 'disposed', 'organization-return'] as const)(
+		'admits packet failure feedback only in the current %s context',
+		async (lifetime) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const response = deferredResponse();
+			vi.stubGlobal('fetch', () => response.promise);
+			const pending = ctx.handleResync('ob-1');
+			if (lifetime === 'same-organization-load') onboardingStore.load([makeOnboarding()], 'org-1');
+			else if (lifetime === 'disposed') ctx.dispose();
+			else {
+				onboardingStore.enterOrganization('org-2');
+				onboardingStore.load([makeOnboarding()], 'org-1');
+			}
+			response.respond(Response.json({ message: 'Current packet unavailable' }, { status: 503 }));
+			await pending;
+			expect(ctx.getResyncError('ob-1')).toBe(
+				lifetime === 'same-organization-load' ? 'Current packet unavailable' : null
+			);
 		}
 	);
 });

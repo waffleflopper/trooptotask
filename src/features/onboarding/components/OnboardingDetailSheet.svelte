@@ -31,6 +31,7 @@
 
 	const canManage = $derived(ctx.canManageOnboarding(onboarding) && onboarding.status === 'in_progress');
 	const canConfigure = $derived(ctx.canConfigureOnboarding(onboarding));
+	const resyncError = $derived(ctx.getResyncError(onboarding.id));
 
 	const activeSteps = $derived(onboarding.steps.filter((s) => s.active && !s.completed));
 	const inactiveSteps = $derived(onboarding.steps.filter((s) => !s.active));
@@ -73,9 +74,9 @@
 						size="sm"
 						variant="outline"
 						onclick={() => ctx.handleResync(onboarding.id)}
-						disabled={ctx.resyncingId === onboarding.id}
+						disabled={ctx.isResyncing(onboarding.id)}
 					>
-						{#if ctx.resyncingId === onboarding.id}<Spinner />{/if}
+						{#if ctx.isResyncing(onboarding.id)}<Spinner />{/if}
 						Re-sync
 					</Button>
 					{#if onboarding.templateId === null}
@@ -94,11 +95,11 @@
 
 		<div class="flex-1 overflow-y-auto px-4 py-3">
 			<div class="flex flex-col gap-2">
-				{#if ctx.resyncError && ctx.resyncErrorOnboardingId === onboarding.id}
+				{#if resyncError}
 					<Alert.Root variant="destructive">
 						<CircleAlert />
 						<Alert.Title>Sync Problem</Alert.Title>
-						<Alert.Description>{ctx.resyncError}</Alert.Description>
+						<Alert.Description>{resyncError}</Alert.Description>
 					</Alert.Root>
 				{/if}
 				{#each activeSteps as step (step.id)}

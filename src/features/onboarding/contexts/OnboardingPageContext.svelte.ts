@@ -6,7 +6,7 @@ import { personnelScopeResource } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
-import { SvelteDate } from 'svelte/reactivity';
+import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type {
@@ -108,15 +108,12 @@ export class OnboardingPageContext {
 	readonly orgId: string;
 	readonly modals: ModalRegistry;
 	#disposed = false;
-	#resyncRequest = 0;
+	readonly #resyncs = new SvelteMap<string, { pending: boolean; error: string | null }>();
 	#assignTemplateRequest = 0;
 	#switchTemplateRequest = 0;
 
 	// UI state
 	cancellingId = $state<string | null>(null);
-	resyncingId = $state<string | null>(null);
-	resyncError = $state<string | null>(null);
-	resyncErrorOnboardingId = $state<string | null>(null);
 	assigningTemplateId = $state<string | null>(null);
 	assignTemplateSelected = $state('');
 	assigningTemplate = $state(false);
@@ -334,20 +331,33 @@ export class OnboardingPageContext {
 		this.completingIncompleteCount = 0;
 	}
 
+	isResyncing(onboardingId: string): boolean {
+		return this.#resyncs.get(onboardingId)?.pending ?? false;
+	}
+
+	getResyncError(onboardingId: string): string | null {
+		return this.#resyncs.get(onboardingId)?.error ?? null;
+	}
+
+	get resyncErrors(): { onboardingId: string; error: string }[] {
+		return [...this.#resyncs].flatMap(([onboardingId, result]) =>
+			result.error ? [{ onboardingId, error: result.error }] : []
+		);
+	}
+
+	dismissResyncError(onboardingId: string) {
+		if (this.getResyncError(onboardingId)) this.#resyncs.delete(onboardingId);
+	}
+
 	async handleResync(onboardingId: string) {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
-		const request = ++this.#resyncRequest;
-		this.resyncingId = onboardingId;
-		this.resyncError = null;
-		this.resyncErrorOnboardingId = null;
+		const request = { pending: true, error: null };
+		this.#resyncs.set(onboardingId, request);
 		const result = await onboardingStore.resync(onboardingId);
-		if (!this.#isCurrent(version) || request !== this.#resyncRequest) return;
-		this.resyncingId = null;
-		if (!result.success) {
-			this.resyncError = result.error ?? 'Re-sync failed';
-			this.resyncErrorOnboardingId = onboardingId;
-		}
+		if (!this.#isCurrent(version) || this.#resyncs.get(onboardingId) !== request) return;
+		if (result.success) this.#resyncs.delete(onboardingId);
+		else this.#resyncs.set(onboardingId, { pending: false, error: result.error ?? 'Re-sync failed' });
 	}
 
 	openAssignTemplate(onboardingId: string) {

@@ -200,7 +200,10 @@ function enhance(
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ onboardingId, newTemplateId })
 			});
-			if (!res.ok) return { success: false, error: await parseErrorMessage(res, fallback) };
+			if (!res.ok) {
+				const error = await parseErrorMessage(res, fallback);
+				return version === organizationVersion ? { success: false, error } : { success: false };
+			}
 			const result: Pick<PersonnelOnboarding, 'templateId' | 'steps'> = await res.json();
 			if (version !== organizationVersion) return { success: false };
 			if (!mutation.superseded) {
@@ -231,7 +234,7 @@ function enhance(
 			}
 			return { success: true };
 		} catch {
-			return { success: false, error: fallback };
+			return version === organizationVersion ? { success: false, error: fallback } : { success: false };
 		} finally {
 			pendingReconciliations = pendingReconciliations.filter((pending) => pending !== mutation);
 		}

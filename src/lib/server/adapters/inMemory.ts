@@ -67,6 +67,10 @@ function createInMemorySignInRosterFileWritePort(
 				async remove(path) {
 					assertPath(path);
 					await storage.remove('counseling-files', [path]);
+				},
+				async removePrevious(path) {
+					assertPath(path);
+					await storage.remove('counseling-files', [path]);
 				}
 			};
 		}

@@ -139,7 +139,7 @@ export async function uploadSignedScan(
 
 	if (previousSignedFilePath && previousSignedFilePath !== storagePath) {
 		try {
-			await files.remove(previousSignedFilePath);
+			await files.removePrevious(previousSignedFilePath);
 		} catch (cleanupError) {
 			try {
 				await ctx.persistence.setSignedFilePath(rosterId, previousSignedFilePath);

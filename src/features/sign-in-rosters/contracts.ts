@@ -20,5 +20,7 @@ export interface SignInRosterFileWritePort {
 	): Promise<{
 		upload(path: string, file: unknown): Promise<OrganizationFileUploadRegistration>;
 		remove(path: string): Promise<void>;
+		/** Obsolete scans may already be absent; new-upload compensation stays strict. */
+		removePrevious(path: string): Promise<void>;
 	}>;
 }

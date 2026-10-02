@@ -79,6 +79,7 @@ $V rows sign_in_rosters orgA title 'Unique synthetic title'
 $V rows organization_invitations orgA status pending
 $V created-org 'Unique synthetic Organization name' # orgCreator-owned row and default readback
 $V roster-files orgA ROSTER_ID           # private Storage names, sizes and SHA-256
+$V roster-replace PAGE orgA rosterAlpha EVIDENCE_PDF # ordinary multipart replacement; separate HTTP proof
 $V calendar-grant calendarOperate view   # simulate an open page losing operate access
 $V calendar-grant calendarOperate restore
 $V seed duplicate-able                  # or overlap, bulk-501, training-pages; returns a tag

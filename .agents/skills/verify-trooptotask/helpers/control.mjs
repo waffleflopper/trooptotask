@@ -685,6 +685,79 @@ async function main() {
 		note({ organization: orgKey, rosterId, files });
 		return;
 	}
+	if (command === 'roster-replace') {
+		const [page, orgKey, rosterKey, filename] = args;
+		const pageId = Number(page);
+		if (
+			args.length !== 4 ||
+			!Number.isInteger(pageId) ||
+			pageId < 1 ||
+			!['rosterAlpha', 'rosterMixed', 'rosterUnassigned', 'rosterForeign'].includes(rosterKey)
+		)
+			throw new Error('Use roster-replace PAGE orgA|orgB FIXTURE_ROSTER_KEY EVIDENCE_PDF.');
+		const rosterId = fixture.ids[rosterKey];
+		const client = await provider();
+		const roster = checked(
+			await client
+				.from('sign_in_rosters')
+				.select('id,signed_file_path')
+				.eq('organization_id', org(orgKey))
+				.eq('id', rosterId)
+				.single()
+		);
+		const target = await fs.realpath(path.resolve(filename ?? ''));
+		if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.pdf') || !(await fs.stat(target)).isFile())
+			throw new Error('Use a real PDF under the skill evidence directory without a symlink escape.');
+		const bytes = await fs.readFile(target);
+		if (bytes.length > 1024 * 1024 || bytes.subarray(0, 5).toString() !== '%PDF-')
+			throw new Error('Use a synthetic PDF no larger than 1 MiB.');
+		const location = new URL(await evaluate(state, pageId, '() => location.href'));
+		if (location.origin !== doctor.origin) throw new Error('Use a normally signed-in page on this owned app.');
+		const previous = roster.signed_file_path
+			? await client.storage.from('counseling-files').info(roster.signed_file_path)
+			: null;
+		const endpoint = `/org/${org(orgKey)}/api/sign-in-rosters/${rosterId}/upload`;
+		const response = await evaluate(
+			state,
+			pageId,
+			`async () => {
+				if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Owned app origin changed before roster replacement.');
+				const bytes = Uint8Array.from(atob(${JSON.stringify(bytes.toString('base64'))}), c => c.charCodeAt(0));
+				const form = new FormData();
+				form.set('file', new File([bytes], ${JSON.stringify(path.basename(target))}, { type: 'application/pdf' }));
+				const response = await fetch(${JSON.stringify(endpoint)}, { method: 'POST', body: form, redirect: 'error' });
+				return { status: response.status, body: await response.text() };
+			}`
+		);
+		note({
+			pageId,
+			organization: orgKey,
+			rosterId,
+			endpoint,
+			method: 'POST',
+			previousPath: roster.signed_file_path,
+			previousInfo: previous
+				? {
+						present: !!previous.data,
+						error: previous.error
+							? {
+									name: previous.error.name,
+									status: previous.error.status,
+									statusCode: previous.error.statusCode,
+									message: previous.error.message
+								}
+							: null
+					}
+				: null,
+			upload: {
+				filename: path.basename(target),
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex')
+			},
+			...response
+		});
+		return;
+	}
 	if (command === 'signed-download') {
 		const [orgKey, rosterId, filename] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
@@ -1752,7 +1825,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

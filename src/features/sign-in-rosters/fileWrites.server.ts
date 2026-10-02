@@ -40,6 +40,26 @@ export function createSupabaseSignInRosterFileWritePort(
 				)
 					throw Object.assign(new Error('Scan path is outside the authorized roster'), { status: 400 });
 			}
+			async function removeFile(path: string, previous: boolean) {
+				assertPath(path);
+				const { data, error } = await request.storage.from(SENSITIVE_FILE_BUCKET).remove([path]);
+				if (!error && data?.length === 1 && data[0].name === path) return;
+				if (previous && !error && Array.isArray(data) && data.length === 0) {
+					// An ordinary empty ACK can also hide an existing object through RLS.
+					// Read only this admitted roster's exact key with the server provider.
+					const current = await admin.storage.from(SENSITIVE_FILE_BUCKET).info(path);
+					// Storage uses HTTP 400 with embedded 404 for NoSuchKey. The SDK
+					// drops its code, so distinguish it from the missing-bucket message.
+					if (
+						current.data === null &&
+						(current.error?.status === 400 || current.error?.status === 404) &&
+						current.error.statusCode === '404' &&
+						current.error.message === 'Object not found'
+					)
+						return;
+				}
+				throw new Error('Scan file removal could not be confirmed');
+			}
 			return {
 				async upload(path, file) {
 					assertPath(path);
@@ -69,12 +89,8 @@ export function createSupabaseSignInRosterFileWritePort(
 						throw new Error('Scan upload could not be confirmed');
 					return registration;
 				},
-				async remove(path) {
-					assertPath(path);
-					const { data, error } = await request.storage.from(SENSITIVE_FILE_BUCKET).remove([path]);
-					if (error || data?.length !== 1 || data[0].name !== path)
-						throw new Error('Scan file removal could not be confirmed');
-				}
+				remove: (path) => removeFile(path, false),
+				removePrevious: (path) => removeFile(path, true)
 			};
 		}
 	};

@@ -5,7 +5,8 @@ import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
 	PersonnelOnboarding,
-	OnboardingStepNote
+	OnboardingStepNote,
+	OnboardingStatus
 } from './onboarding.types';
 export type {
 	OnboardingTemplate,
@@ -109,4 +110,26 @@ export interface OnboardingNoteAppendResult {
 export interface OnboardingNoteAppendPort {
 	/** Attribution and timestamp come from the ordinary authenticated database request. */
 	append(organizationId: string, stepId: string, text: string): Promise<OnboardingNoteAppendResult>;
+}
+
+export type OnboardingLifecycleTransition =
+	| { kind: 'cancel'; at: string }
+	| { kind: 'complete'; at: string }
+	| { kind: 'reopen' };
+
+/** Only the saved parent fields consumed by lifecycle responses. */
+export interface OnboardingLifecycleTransitionResult {
+	id: string;
+	status: OnboardingStatus;
+	cancelled_at: string | null;
+	completed_at: string | null;
+}
+
+export interface OnboardingLifecycleTransitionPort {
+	/** Null means the parent no longer matches this transition's required status. */
+	transition(
+		organizationId: string,
+		onboardingId: string,
+		command: OnboardingLifecycleTransition
+	): Promise<OnboardingLifecycleTransitionResult | null>;
 }

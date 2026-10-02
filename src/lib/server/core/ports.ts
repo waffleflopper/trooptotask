@@ -18,7 +18,11 @@ import type { PersonnelOrganizationExportPort } from '$features/personnel/contra
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
-import type { OnboardingReconciliationPort, OnboardingNoteAppendPort } from '$features/onboarding/contracts';
+import type {
+	OnboardingReconciliationPort,
+	OnboardingNoteAppendPort,
+	OnboardingLifecycleTransitionPort
+} from '$features/onboarding/contracts';
 import type { CriticalTasksReadModelPort, CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 
 /** Options for DataStore.findMany queries */
@@ -157,6 +161,7 @@ export interface WritePorts {
 	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
 	onboardingReconciliation?: OnboardingReconciliationPort;
 	onboardingNoteAppend?: OnboardingNoteAppendPort;
+	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
@@ -220,6 +225,7 @@ export interface UseCaseContext {
 	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
 	onboardingReconciliation?: OnboardingReconciliationPort;
 	onboardingNoteAppend?: OnboardingNoteAppendPort;
+	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
 	personnelOrganizationExport?: PersonnelOrganizationExportPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;

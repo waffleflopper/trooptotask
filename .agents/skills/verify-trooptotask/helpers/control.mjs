@@ -2,6 +2,8 @@
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
@@ -225,6 +227,48 @@ async function main() {
 		note(
 			await evaluate(state, pageId, `async () => (${requestSettings.toString()})(window, ${JSON.stringify(input)})`)
 		);
+		return;
+	}
+	if (command === 'reauth') {
+		const [page, role] = args;
+		const pageId = Number(page);
+		if (args.length !== 2 || !Number.isInteger(pageId) || pageId < 1 || !fixture.actors[role])
+			throw new Error('Use reauth PAGE FIXTURE_ROLE on the normal owned password confirmation page.');
+		const location = new URL(await evaluate(state, pageId, '() => location.href'));
+		if (
+			location.origin !== doctor.origin ||
+			location.pathname !== '/auth/login' ||
+			location.searchParams.get('reauth') !== '1'
+		)
+			throw new Error('Use the existing owned reauthentication handoff; no navigation or session is injected.');
+		const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
+		const uid = (label) => {
+			const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
+			if (matches.length !== 1) throw new Error('Normal confirmation fields are unavailable.');
+			return matches[0].match(/uid=([^\s]+)/)?.[1];
+		};
+		await tool(state, 'fill_form', {
+			pageId,
+			elements: [
+				{ uid: uid('Email Address'), value: fixture.actors[role].email },
+				{ uid: uid('Password'), value: fixture.actors[role].password }
+			]
+		});
+		const ready = text(await tool(state, 'take_snapshot', { pageId }));
+		const button = ready
+			.split('\n')
+			.find((line) => line.includes('button "Sign In"'))
+			?.match(/uid=([^\s]+)/)?.[1];
+		if (!button) throw new Error('Normal confirmation submit is unavailable.');
+		await tool(state, 'click', { pageId, uid: button });
+		await tool(state, 'wait_for', { pageId, text: ['Destructive Actions'], timeout: 20000 });
+		note({
+			pageId,
+			role,
+			handoff: location.pathname + location.search,
+			returnedPath: await evaluate(state, pageId, '() => location.pathname'),
+			snapshot: text(await tool(state, 'take_snapshot', { pageId }))
+		});
 		return;
 	}
 	if (command === 'onboarding-request') {
@@ -718,6 +762,49 @@ async function main() {
 		note({ role, calendar: next.calendar });
 		return;
 	}
+	if (command === 'destruction') {
+		if (['fault-on', 'fault-off', 'bytes'].includes(args[0])) {
+			const { stdout } = await promisify(execFile)(
+				'python3',
+				[
+					path.join(repository, '.agents/skills/verify-trooptotask/helpers/organization-destruction-provider.py'),
+					'--worker',
+					worker,
+					args[0]
+				],
+				{ maxBuffer: 8 * 1024 * 1024 }
+			);
+			note(JSON.parse(stdout));
+			return;
+		}
+		if (args[0] !== 'files') throw new Error('Use destruction files, bytes, fault-on, or fault-off.');
+		const client = await provider();
+		const files = (await saved()).seeded.flatMap((item) => item.files ?? []);
+		const observations = [];
+		for (let start = 0; start < files.length; start += 16) {
+			observations.push(
+				...(await Promise.all(
+					files.slice(start, start + 16).map(async (file) => {
+						const { data, error } = await client.storage.from(file.bucket).download(file.path);
+						if (error) {
+							const status = String(error.statusCode ?? error.status ?? '');
+							if (status !== '404') throw new Error('Owned Storage byte read failed rather than proving absence.');
+							return { ...file, present: false, status };
+						}
+						const bytes = Buffer.from(await data.arrayBuffer());
+						return {
+							...file,
+							present: true,
+							observedSize: bytes.length,
+							observedSha256: createHash('sha256').update(bytes).digest('hex')
+						};
+					})
+				))
+			);
+		}
+		note({ files: observations });
+		return;
+	}
 	if (command === 'seed') {
 		const kind = args[0];
 		if (
@@ -739,6 +826,7 @@ async function main() {
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'communications',
+				'organization-destruction',
 				'rating-scheme'
 			].includes(kind)
 		)
@@ -746,6 +834,68 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'organization-destruction') {
+			if (ownedState.seeded.some((item) => item.kind === kind))
+				throw new Error('Restore and clean the existing destruction seed first.');
+			const objects = [];
+			const add = (bucket, filePath, classification) => {
+				const bytes = Buffer.from('Synthetic Organization destruction ' + tag + ' ' + classification + ' ' + filePath);
+				objects.push({
+					bucket,
+					path: filePath,
+					classification,
+					size: bytes.length,
+					sha256: createHash('sha256').update(bytes).digest('hex'),
+					bytes
+				});
+			};
+			for (let n = 0; n < 1002; n++)
+				add(
+					'personnel-documents',
+					`${org('orgA')}/destruction-${tag}/page/${String(n).padStart(4, '0')}.pdf`,
+					'target-orphan'
+				);
+			const lowerId = org('orgA').toLowerCase();
+			const upperId = lowerId.toUpperCase();
+			const mixedId = lowerId.replace(/[a-f]/, (letter) => letter.toUpperCase());
+			if (mixedId === lowerId || mixedId === upperId) throw new Error('Fixture needs distinct UUID path casing.');
+			const sharedSuffix = `/destruction-${tag}/nested/orphan.pdf`;
+			add('counseling-files', lowerId + sharedSuffix, 'target-lowercase');
+			add('counseling-files', upperId + sharedSuffix, 'target-uppercase');
+			add('counseling-files', mixedId + sharedSuffix, 'target-mixed');
+			add('counseling-files', `${org('orgA')}/destruction-${tag}-root.pdf`, 'target-root');
+			for (const bucket of ['counseling-files', 'personnel-documents']) {
+				add(bucket, `${org('orgB')}/destruction-${tag}/foreign.pdf`, 'foreign');
+				add(bucket, `${org('orgA')}-extra/destruction-${tag}/lookalike.pdf`, 'lookalike');
+			}
+			const source = objects.find((file) => file.classification === 'target-lowercase');
+			const prefixRoot = {
+				...source,
+				path: lowerId + '/',
+				classification: 'target-prefix-root',
+				copyFrom: source.path
+			};
+			// SDK upload trims trailing slashes; copy preserves this valid raw key.
+			// Ledger the destination before any effect and copy only after its source exists.
+			objects.push(prefixRoot);
+			const files = objects.map(({ bytes: _bytes, ...file }) => file);
+			ownedState.seeded.push({ kind, tag, table: 'organizations', organization: 'orgA', ids: [], files });
+			await save(ownedState);
+			const uploads = objects.filter((file) => !file.copyFrom);
+			for (let start = 0; start < uploads.length; start += 16)
+				await Promise.all(
+					uploads
+						.slice(start, start + 16)
+						.map(async (file) =>
+							checked(
+								await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' })
+							)
+						)
+				);
+			checked(await client.storage.from(prefixRoot.bucket).copy(prefixRoot.copyFrom, prefixRoot.path));
+			note({ kind, tag, files, setup: 'Synthetic Storage API upload/copy; no application acceptance claim.' });
+			return;
+		}
 		if (kind === 'personnel-artifact-context') {
 			const actor = fixture.actors.personnelContext;
 			if (!actor || actor.organization !== 'orgA') throw new Error('The Personnel context actor is unavailable.');
@@ -1253,7 +1403,8 @@ async function main() {
 			}
 			for (const bucket of ['personnel-documents', 'counseling-files']) {
 				const paths = (item.files ?? []).filter((file) => file.bucket === bucket).map((file) => file.path);
-				if (paths.length) checked(await client.storage.from(bucket).remove(paths));
+				for (let start = 0; start < paths.length; start += 1000)
+					checked(await client.storage.from(bucket).remove(paths.slice(start, start + 1000)));
 			}
 		}
 		ownedState.seeded = [];

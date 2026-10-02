@@ -13,7 +13,7 @@ interface RequestInfo {
 	userAgent: string;
 }
 
-export function createSupabaseAuditAdapter(orgId: string, requestInfo: RequestInfo): AuditPort {
+export function createSupabaseAuditAdapter(orgId: string | null, requestInfo: RequestInfo): AuditPort {
 	return {
 		log(event): void {
 			auditLog(
@@ -21,7 +21,7 @@ export function createSupabaseAuditAdapter(orgId: string, requestInfo: RequestIn
 					action: event.action,
 					resourceType: event.resourceType,
 					resourceId: event.resourceId,
-					orgId,
+					orgId: orgId ?? undefined,
 					details: event.details,
 					severity: event.severity
 				},

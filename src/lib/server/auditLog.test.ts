@@ -8,12 +8,30 @@ vi.mock('$lib/server/supabase', () => ({
 }));
 
 import { auditLog } from './auditLog';
+import { createSupabaseAuditAdapter } from './adapters/supabaseAudit';
 
 describe('auditLog', () => {
 	beforeEach(() => {
 		insert.mockReset();
 		from.mockClear();
 		insert.mockResolvedValue({ error: null });
+	});
+
+	it('retains a deleted Organization identifier without referencing its missing parent', () => {
+		const id = '11111111-1111-4111-8111-111111111111';
+		createSupabaseAuditAdapter(null, {
+			userId: 'owner-1',
+			userEmail: 'owner@example.test',
+			ip: '127.0.0.1',
+			userAgent: 'Vitest'
+		}).log({ action: 'org.deleted', resourceType: 'organization', resourceId: id, severity: 'critical' });
+		expect(insert.mock.calls[0]?.[0]).toMatchObject({
+			org_id: null,
+			resource_id: id,
+			user_id: 'owner-1',
+			action: 'org.deleted',
+			severity: 'critical'
+		});
 	});
 
 	it('masks unauthenticated actor identifiers and redacts risky freeform fields', async () => {

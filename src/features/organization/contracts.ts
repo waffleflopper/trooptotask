@@ -11,3 +11,5 @@ export type {
 	SettingsInvitationFunnelStatus
 } from './memberSettingsTypes';
 export type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
+
+export type { DangerSettingsData, SettingsDangerSectionData } from './dangerSettingsTypes';

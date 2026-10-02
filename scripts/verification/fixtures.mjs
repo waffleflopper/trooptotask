@@ -371,6 +371,7 @@ export async function seed(session) {
 		await service.from('organization_memberships').insert({
 			organization_id: ids.orgB,
 			user_id: actors.orgSettingsSwitch.id,
+			email: actors.orgSettingsSwitch.email,
 			role: 'admin',
 			member_preset: 'viewer',
 			capability_overrides: {

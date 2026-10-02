@@ -3,7 +3,6 @@ import type { RankCategory, RankPayGrade, RankService, RankState } from '$featur
 import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
 import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
 import type { DeletionRequestRow } from './settingsRows.server';
-import type { OwnershipTransferCandidate } from '$features/organization';
 
 export type SettingsArchivedPersonnelRow = {
 	id: string;
@@ -41,15 +40,12 @@ export type SettingsApprovalsSectionData = {
 	activity: SettingsActivityData;
 };
 
-export type SettingsOwnershipTransferCandidate = OwnershipTransferCandidate;
-
 export type SettingsCurrentMemberData = {
 	role: MembershipRole;
 	isOwner: boolean;
 	isAdmin: boolean;
 	canManageMembers: boolean;
 };
-
 export type SettingsOrganizationSectionData = {
 	id: string;
 	name: string | null;
@@ -119,25 +115,5 @@ export type SettingsRanksSectionData = {
 		canManageCatalog: boolean;
 		canAddServicePack: boolean;
 		canAddCustomRank: boolean;
-	};
-};
-
-export type SettingsDangerSectionData = {
-	transferOwnershipCandidates: SettingsOwnershipTransferCandidate[];
-	deleteConfirmation: {
-		organizationName: string | null;
-		normalizedOrganizationName: string;
-	};
-	commands: {
-		canTransferOwnership: boolean;
-		canDeleteOrganization: boolean;
-	};
-};
-
-export type DangerSettingsData = {
-	currentMember: SettingsCurrentMemberData;
-	sections: {
-		organization: SettingsOrganizationSectionData;
-		dangerZone: SettingsDangerSectionData;
 	};
 };

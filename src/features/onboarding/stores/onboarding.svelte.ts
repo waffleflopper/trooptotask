@@ -52,7 +52,7 @@ function enhance(
 		stepId: string;
 		mutationId: string;
 		update: (steps: OnboardingStepProgress[]) => OnboardingStepProgress[];
-		stage: boolean;
+		progress: boolean;
 		superseded: boolean;
 	};
 	let pendingStepMutations: StepMutation[] = [];
@@ -92,7 +92,7 @@ function enhance(
 		}
 	}
 
-	function applyStepMutation(stepId: string, update: StepMutation['update'], stage = false) {
+	function applyStepMutation(stepId: string, update: StepMutation['update'], progress = false) {
 		const onboarding = getDisplay().find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return null;
 
@@ -101,7 +101,7 @@ function enhance(
 			stepId,
 			mutationId: crypto.randomUUID(),
 			update,
-			stage,
+			progress,
 			superseded: false
 		};
 		pendingStepMutations.push(mutation);
@@ -112,12 +112,12 @@ function enhance(
 	function applyStepUpdate(
 		stepId: string,
 		updater: (step: OnboardingStepProgress) => OnboardingStepProgress,
-		stage = false
+		progress = false
 	) {
 		return applyStepMutation(
 			stepId,
 			(steps) => steps.map((step) => (step.id === stepId ? updater(step) : step)),
-			stage
+			progress
 		);
 	}
 
@@ -137,12 +137,12 @@ function enhance(
 					.getSnapshot()
 					.map((o) => (o.id === mutation.onboardingId ? { ...o, steps: update(o.steps) } : o))
 			);
-			if (mutation.stage) {
-				// Only a confirmed newer stage supersedes older selections. Failed
+			if (mutation.progress) {
+				// Only confirmed newer checkbox/stage progress supersedes older selections. Failed
 				// requests still roll back to saved state and leave a usable retry.
 				for (const pending of pendingStepMutations) {
 					if (pending === mutation) break;
-					if (pending.stage && pending.stepId === mutation.stepId) pending.superseded = true;
+					if (pending.progress && pending.stepId === mutation.stepId) pending.superseded = true;
 				}
 			}
 		}
@@ -213,7 +213,7 @@ function enhance(
 
 		async toggleCheckbox(stepId: string, completed: boolean): Promise<boolean> {
 			const version = organizationVersion;
-			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, completed }));
+			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, completed }), true);
 			if (!mutation) return false;
 
 			try {

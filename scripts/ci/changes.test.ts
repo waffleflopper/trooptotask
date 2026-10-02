@@ -41,6 +41,7 @@ describe('CI job selection', () => {
 			'supabase/tests/scope.sql',
 			'scripts/ci/database.py',
 			'.depot/workflows/ci.yml',
+			'.github/workflows/ci.yml',
 			'package.json',
 			'package-lock.json',
 			'.nvmrc'

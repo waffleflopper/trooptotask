@@ -1,16 +1,17 @@
 import { listOnboardingTemplateSteps } from './onboardingTemplateRead.server';
 /**
- * Onboarding lifecycle use cases — start, cancel, and complete an onboarding record.
+ * Onboarding lifecycle use cases — start, cancel, complete, and reopen an onboarding record.
  *
  * `startOnboarding(ctx, input)` instantiates a new onboarding record from a template,
  * creating step records for each template step. Returns the created record ID.
  *
- * Lifecycle transitions (cancel, complete) enforce that the record is in the correct
- * state before proceeding. For step-level progress, see `onboardingStepProgress.server.ts`.
+ * Lifecycle transitions require the expected saved status at the parent mutation.
+ * For step-level progress, see `onboardingStepProgress.server.ts`.
  * For expiry-based permanent deletion of terminal packets, see Onboarding-owned `cleanupExpiredOnboardings`.
  */
 import { fail } from '$lib/errors';
-import type { OnboardingTrainingPorts, OnboardingWorkflowPorts } from './onboardingPorts.server';
+import type { OnboardingTrainingPorts, OnboardingLifecyclePorts } from './onboardingPorts.server';
+import type { OnboardingLifecycleTransition } from '../contracts';
 import { subjectDetails } from '$lib/audit/index.server';
 import { formatToday } from '$lib/utils/dates';
 import {
@@ -189,7 +190,14 @@ interface LifecycleResult {
 	completedAt: string | null;
 }
 
-export async function cancelOnboarding(ctx: OnboardingWorkflowPorts, id: string): Promise<LifecycleResult> {
+async function persistTransition(ctx: OnboardingLifecyclePorts, id: string, command: OnboardingLifecycleTransition) {
+	if (!ctx.onboardingLifecycleTransition) throw new Error('Bind the owned Onboarding lifecycle transition provider');
+	const updated = await ctx.onboardingLifecycleTransition.transition(ctx.auth.orgId, id, command);
+	if (!updated) fail(409, 'Onboarding changed before the transition could be saved');
+	return updated;
+}
+
+export async function cancelOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<LifecycleResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
@@ -203,16 +211,7 @@ export async function cancelOnboarding(ctx: OnboardingWorkflowPorts, id: string)
 		fail(400, 'Only in-progress onboardings can be cancelled');
 	}
 
-	const now = new Date().toISOString();
-	const updated = await ctx.store.update<{
-		id: string;
-		status: string;
-		cancelled_at: string | null;
-		completed_at: string | null;
-	}>('personnel_onboardings', ctx.auth.orgId, id, {
-		status: 'cancelled',
-		cancelled_at: now
-	});
+	const updated = await persistTransition(ctx, id, { kind: 'cancel', at: new Date().toISOString() });
 
 	ctx.audit.log({
 		action: 'onboarding.cancelled',
@@ -228,7 +227,7 @@ export async function cancelOnboarding(ctx: OnboardingWorkflowPorts, id: string)
 	};
 }
 
-export async function reopenOnboarding(ctx: OnboardingWorkflowPorts, id: string): Promise<LifecycleResult> {
+export async function reopenOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<LifecycleResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
@@ -242,15 +241,7 @@ export async function reopenOnboarding(ctx: OnboardingWorkflowPorts, id: string)
 		fail(400, 'Only cancelled onboardings can be reopened');
 	}
 
-	const updated = await ctx.store.update<{
-		id: string;
-		status: string;
-		cancelled_at: string | null;
-		completed_at: string | null;
-	}>('personnel_onboardings', ctx.auth.orgId, id, {
-		status: 'in_progress',
-		cancelled_at: null
-	});
+	const updated = await persistTransition(ctx, id, { kind: 'reopen' });
 
 	ctx.audit.log({
 		action: 'onboarding.reopened',
@@ -270,7 +261,7 @@ interface CompleteResult extends LifecycleResult {
 	incompleteCount: number;
 }
 
-export async function completeOnboarding(ctx: OnboardingWorkflowPorts, id: string): Promise<CompleteResult> {
+export async function completeOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<CompleteResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
 	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
@@ -291,16 +282,7 @@ export async function completeOnboarding(ctx: OnboardingWorkflowPorts, id: strin
 		completed: false
 	});
 
-	const now = new Date().toISOString();
-	const updated = await ctx.store.update<{
-		id: string;
-		status: string;
-		cancelled_at: string | null;
-		completed_at: string | null;
-	}>('personnel_onboardings', ctx.auth.orgId, id, {
-		status: 'completed',
-		completed_at: now
-	});
+	const updated = await persistTransition(ctx, id, { kind: 'complete', at: new Date().toISOString() });
 
 	ctx.audit.log({
 		action: 'onboarding.completed',

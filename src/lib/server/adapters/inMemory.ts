@@ -123,7 +123,16 @@ type TestContextOptions = {
 	criticalTasksReadModelFactory?: (rawStore: DataStore) => QueryPorts['criticalTasksReadModel'];
 	onboardingReconciliation?: UseCaseContext['onboardingReconciliation'];
 	onboardingNoteAppend?: UseCaseContext['onboardingNoteAppend'];
+	onboardingLifecycleTransition?: UseCaseContext['onboardingLifecycleTransition'];
 };
+
+function unavailableOnboardingLifecycleTransition(): NonNullable<UseCaseContext['onboardingLifecycleTransition']> {
+	return {
+		async transition() {
+			throw new Error('Bind the owned Onboarding lifecycle transition provider');
+		}
+	};
+}
 
 function unavailableOnboardingNoteAppend(): NonNullable<UseCaseContext['onboardingNoteAppend']> {
 	return {
@@ -1071,6 +1080,8 @@ export function createTestContext(
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
+		onboardingLifecycleTransition:
+			overrides?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
 		auditPort,
 
 		notifications: notificationPort,
@@ -1185,6 +1196,7 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
+		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1225,6 +1237,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
+		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,

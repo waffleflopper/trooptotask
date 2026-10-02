@@ -38,6 +38,7 @@ import hashlib,json,tarfile,tempfile
 expected={
 'd15-ordering-baseline-native.tar.gz':'422d06e3a5a5176c4ca01d7a789bb2811e7a9f101f3af670109fd806419989c7',
 'd15-ordering-final-native.tar.gz':'d44ab1ebb6187193fad4c60d7217aa7b00eb1b2e8847a11d866895121ef057cd'}
+Path('.verification/tmp').mkdir(parents=True,exist_ok=True)
 shared=[5000,64*1024*1024]
 for name,digest in expected.items():
  archive=Path('docs/stabilization/phase-08')/name
@@ -59,7 +60,7 @@ for name,digest in expected.items():
  print(name,'PASS',len(inventory),'payloads',target)
 ```
 
-Independent baseline artifact/input and complete nine-path integrated source/selection reviews pass at `0f52036b`. They are distinct from independent live execution. Two stale prose statements are corrected after disposal, without changing runtime/helper/recipe inputs. Final complete eleven-path/two-expanded-archive acceptance, intended-diff CLI review, publication, exact-head Actions/build and completed hosted review remain gates. Later artifact adoption and result-record edits change the checkout fingerprint; they do not claim another native run or alter the tested app/helper/recipe bytes.
+Independent baseline artifact/input and complete nine-path integrated source/selection reviews pass at `0f52036b`. Complete eleven-path acceptance at `d01f333b` independently checks both freshly expanded archives, actual native bodies/states/screens, restored data, frozen inputs, exact disposal and incoming Settings preservation. This is independent source/artifact acceptance, not independent live execution. Its extraction-example parent-directory finding is corrected and the example rerun successfully; preparation wording is made current. CodeRabbit CLI 0.8.2 completes committed `d01f333b` against `28405962` with zero findings across all nine readable paths; the two excluded archives are covered by expanded acceptance. Publication, exact-head Actions/build and completed hosted review remain gates, with changed prose reviewed separately. Later artifact adoption and result-record edits change the checkout fingerprint; they do not claim another native run or alter the tested app/helper/recipe bytes.
 
 ## Release
 

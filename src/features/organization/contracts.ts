@@ -34,8 +34,12 @@ export type {
 	OrganizationPolicySettings,
 	OrganizationPolicyChanges,
 	OrganizationPolicyWritePort,
-	OrganizationSettingsInput
+	OrganizationSettingsInput,
+	OrganizationRetentionConfiguration,
+	OrganizationRetentionSettingsReader
 } from './settingsTypes';
+export { isOrganizationRawExportTable } from './rawExportTypes';
+export type { OrganizationRawExportTable, OrganizationRawExportReader } from './rawExportTypes';
 export type { PoliciesSettingsData, SettingsPoliciesSectionData } from './policiesSettingsTypes';
 export { DEFAULT_ARCHIVE_RETENTION_MONTHS, DEFAULT_LOSS_WARNING_WINDOW_DAYS } from './policyConstraints';
 

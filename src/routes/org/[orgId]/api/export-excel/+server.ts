@@ -63,7 +63,8 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
 						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
 					},
-					{ listRatingSchemeExportRows }
+					{ listRatingSchemeExportRows },
+					ctx.organizationRawExport
 				);
 				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);

@@ -9,7 +9,10 @@ import {
 	createSupabasePersonnelRetentionSource
 } from '$features/personnel/index.server';
 import { createSupabaseNotificationDelivery } from '$features/notifications/index.server';
-import { createSupabaseOrganizationAdministratorRecipients } from '$features/organization/index.server';
+import {
+	createSupabaseOrganizationAdministratorRecipients,
+	createSupabaseOrganizationRetentionSettingsReader
+} from '$features/organization/index.server';
 import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
 import { getAdminClient } from '$lib/server/supabase';
 import {
@@ -17,21 +20,18 @@ import {
 	type ArchiveRetentionCleanupResult,
 	type ArchiveRetentionOrgConfig
 } from '$lib/server/core/useCases/archiveRetention';
-import {
-	mapArchiveRetentionOrgConfigs,
-	type ArchiveRetentionSettingsRow
-} from '$lib/server/core/useCases/retentionSupport';
 import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 interface ArchiveRetentionEndpointInput {
-	loadOrgRows: () => Promise<{ data: ArchiveRetentionSettingsRow[] | null; error: unknown }>;
+	loadOrgConfigs: () => Promise<ArchiveRetentionOrgConfig[]>;
 	runCleanup: (orgConfigs: ArchiveRetentionOrgConfig[]) => Promise<ArchiveRetentionCleanupResult>;
 }
 
 async function runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpointInput): Promise<Response> {
-	const { data: orgs, error: orgError } = await input.loadOrgRows();
-
-	if (orgError) {
+	let orgConfigs: ArchiveRetentionOrgConfig[];
+	try {
+		orgConfigs = await input.loadOrgConfigs();
+	} catch (orgError) {
 		console.error(
 			'[cleanup-archived-records] Failed to load organization retention settings:',
 			sanitizeErrorForLog(orgError)
@@ -39,14 +39,13 @@ async function runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpoin
 		throw error(500, 'Internal server error');
 	}
 
-	const orgConfigs = mapArchiveRetentionOrgConfigs(orgs ?? []);
-
 	return json(await input.runCleanup(orgConfigs));
 }
 
 export const GET: RequestHandler = async ({ request }) => {
 	assertCronEndpointAuthorized(request.headers.get('authorization'), [env.CLEANUP_SECRET, env.CRON_SECRET]);
 	const admin = getAdminClient();
+	const settings = createSupabaseOrganizationRetentionSettingsReader(admin);
 	const store = createSupabaseDataStore(admin);
 	const storage = createSupabaseStorageAdapter(admin);
 	const assignmentTypes = createSupabaseAssignmentTypeRetention(admin);
@@ -59,7 +58,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	});
 
 	return runArchiveRetentionCleanupEndpoint({
-		loadOrgRows: async () => admin.from('organizations').select('id, archive_retention_months'),
+		loadOrgConfigs: () => settings.listConfigurations(),
 		runCleanup: (configs) =>
 			cleanupArchivedRecords({ store, assignmentTypes, artifacts, personnel, notifications }, configs)
 	});

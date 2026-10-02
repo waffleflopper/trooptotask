@@ -5,10 +5,8 @@ import { GET } from './+server';
 import { GET as cleanupLegacyPersonnel } from '../cleanup-archived-personnel/+server';
 import { GET as cleanupOnboardings } from '../cleanup-expired-onboardings/+server';
 
-const { getAdminClient, from, select, env } = vi.hoisted(() => ({
+const { getAdminClient, env } = vi.hoisted(() => ({
 	getAdminClient: vi.fn(),
-	from: vi.fn(),
-	select: vi.fn(),
 	env: { CLEANUP_SECRET: 'synthetic-retention-secret', CRON_SECRET: 'synthetic-shared-cron-secret' }
 }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
@@ -32,9 +30,7 @@ describe.each([
 	}
 ])('$name admission', ({ run }) => {
 	beforeEach(() => {
-		getAdminClient.mockReset().mockReturnValue({ from });
-		from.mockReset().mockReturnValue({ select });
-		select.mockReset().mockResolvedValue({ data: [], error: null });
+		getAdminClient.mockReset().mockReturnValue(organizationEnumerationProvider(0).client);
 	});
 
 	it.each([undefined, 'Bearer incorrect-secret'])('rejects %s before opening the admin client', async (header) => {
@@ -46,7 +42,6 @@ describe.each([
 		const response = await run(request('Bearer synthetic-retention-secret'));
 		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({ deletedCount: 0, orgsAffected: 0 });
-		expect(from).toHaveBeenCalledWith('organizations');
 	});
 });
 
@@ -202,5 +197,136 @@ describe.each([
 		expect(provider.state.deleted).toBe(true);
 		expect(provider.state.notifications.map(({ user_id }) => user_id)).toEqual(provider.expectedRecipients);
 		expect(provider.state.notifications.every(({ message }) => String(message).includes('Personnel: 1'))).toBe(true);
+	});
+});
+
+// Actual SDK, handlers and downstream discovery adapters. Empty resource cohorts
+// isolate complete Organization dispatch from each owner's deletion behavior.
+const discoveryTables = new Set([
+	'personnel_follow_ups',
+	'counseling_records',
+	'personnel_documents',
+	'leader_notes',
+	'personnel',
+	'ict_tasks',
+	'assignment_types',
+	'personnel_onboardings'
+]);
+function organizationFixture(count: number) {
+	return Array.from({ length: count }, (_, index) => ({
+		id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+		archive_retention_months: index === 0 ? null : index === 1 ? 0 : 12,
+		// The tail is deliberately suspended. Current maintenance enumerates all
+		// Organizations; suspension must not remove its retention dispatch.
+		suspended_at: index === count - 1 ? '2020-01-01T00:00:00.000Z' : null
+	}));
+}
+
+function organizationEnumerationProvider(count: number) {
+	const organizations = organizationFixture(count);
+	const expectedIds = new Set(organizations.map(({ id }) => id));
+	let reached!: () => void;
+	let release!: () => void;
+	const pageReached = new Promise<void>((resolve) => {
+		reached = resolve;
+	});
+	const pageRelease = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const state = {
+		failFrom: null as number | null,
+		holdFrom: null as number | null,
+		organizationReads: [] as Array<Record<string, unknown>>,
+		resourceReads: [] as Array<{ table: string; organizationId: string; query: string }>,
+		unexpectedEffects: [] as Array<{ method: string; path: string }>
+	};
+	const client = createClient('http://127.0.0.1:9', 'synthetic-service-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const url = new URL(String(input));
+				const table = url.pathname.split('/').at(-1)!;
+				const method = init?.method ?? 'GET';
+				if (method !== 'GET' || !url.pathname.startsWith('/rest/v1/')) {
+					state.unexpectedEffects.push({ method, path: url.pathname });
+					throw new Error('Empty discovery fixture must not mutate rows or invoke Storage');
+				}
+				if (table === 'organizations') {
+					const offset = Number(url.searchParams.get('offset') ?? 0);
+					if (state.failFrom !== null && offset >= state.failFrom)
+						return Response.json({ message: 'Organization settings unavailable', code: '42501' }, { status: 403 });
+					if (state.holdFrom !== null && offset >= state.holdFrom) {
+						reached();
+						await pageRelease;
+					}
+					const limit = Number(url.searchParams.get('limit') ?? 1000);
+					const fields = (url.searchParams.get('select') ?? '*').split(',');
+					const ordered =
+						url.searchParams.get('order') === 'id.asc'
+							? [...organizations].sort((left, right) => left.id.localeCompare(right.id))
+							: organizations;
+					const page = ordered.slice(offset, offset + Math.min(limit, 1000));
+					state.organizationReads.push({ query: url.search, offset, limit, returnedCount: page.length });
+					return Response.json(
+						page.map((row) =>
+							fields[0] === '*'
+								? row
+								: Object.fromEntries(fields.map((field) => [field, row[field as keyof typeof row]]))
+						)
+					);
+				}
+				if (!discoveryTables.has(table)) throw new Error(`Unexpected discovery table: ${table}`);
+				const organizationId = url.searchParams.get('organization_id')?.replace(/^eq\./, '');
+				if (!organizationId || !expectedIds.has(organizationId)) {
+					throw new Error('Resource discovery must target a known Organization');
+				}
+				state.resourceReads.push({ table, organizationId, query: url.search });
+				return Response.json([]);
+			}
+		}
+	});
+	return { client, organizations, state, pageReached, release };
+}
+
+describe.each([
+	{ label: 'records', run: (input: Request) => GET({ request: input } as Parameters<typeof GET>[0]) },
+	{
+		label: 'onboarding',
+		run: (input: Request) => cleanupOnboardings({ request: input } as Parameters<typeof cleanupOnboardings>[0])
+	}
+])('$label complete Organization settings dispatch', ({ run }) => {
+	it.each([0, 1000, 1001])('discovers resources for every one of %s Organizations', async (count) => {
+		const provider = organizationEnumerationProvider(count);
+		getAdminClient.mockReturnValue(provider.client);
+		const response = await run(request('Bearer synthetic-retention-secret').request);
+		const dispatched = new Set(provider.state.resourceReads.map(({ organizationId }) => organizationId));
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({ deletedCount: 0, orgsAffected: 0 });
+		expect(provider.organizations.filter(({ id }) => !dispatched.has(id)).map(({ id }) => id)).toEqual([]);
+		expect(provider.state.unexpectedEffects).toEqual([]);
+	});
+
+	it.each([0, 1000])('fails Organization settings page %s before any resource effects', async (offset) => {
+		const provider = organizationEnumerationProvider(1001);
+		provider.state.failFrom = offset;
+		getAdminClient.mockReturnValue(provider.client);
+		await expect(run(request('Bearer synthetic-retention-secret').request)).rejects.toMatchObject({
+			status: 500
+		});
+		expect(provider.state.resourceReads).toEqual([]);
+		expect(provider.state.unexpectedEffects).toEqual([]);
+	});
+
+	it('waits for the last settings page before resource discovery begins', async () => {
+		const provider = organizationEnumerationProvider(1001);
+		provider.state.holdFrom = 1000;
+		getAdminClient.mockReturnValue(provider.client);
+		const pending = run(request('Bearer synthetic-retention-secret').request);
+		await provider.pageReached;
+		expect(provider.state.resourceReads).toEqual([]);
+		provider.release();
+		expect((await pending).status).toBe(200);
+		const dispatched = new Set(provider.state.resourceReads.map(({ organizationId }) => organizationId));
+		expect(provider.organizations.filter(({ id }) => !dispatched.has(id)).map(({ id }) => id)).toEqual([]);
 	});
 });

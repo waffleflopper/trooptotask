@@ -1,6 +1,6 @@
 # D15 packet ownership and atomic reconciliation
 
-[#1470](https://github.com/waffleflopper/trooptotask/pull/1470) repairs a reproduced two-template assignment failure and moves packet server operations to Onboarding. The repaired production candidate `9c5a477df68d2d780b4bbb40f50311dee185fa98` passes matching native/API and isolated SQL proof. Complete independent source/artifact acceptance passes at `391645e3`, with subsequent prose accepted separately; complete corrected CI passes at `801b3a4d`. Final publication checks and completed reviews are recorded on the linked PR. **This PR contains a migration and stays unmerged for Robert’s manual database step.**
+[#1470](https://github.com/waffleflopper/trooptotask/pull/1470) repairs a reproduced two-template assignment failure and moves packet server operations to Onboarding. The repaired production candidate `9c5a477df68d2d780b4bbb40f50311dee185fa98` passes matching native/API and isolated SQL proof. Complete independent source/artifact acceptance passes at `391645e3`, with subsequent prose accepted separately; complete corrected CI passes at `801b3a4d`. Final publication checks and completed reviews are recorded on the linked PR. **Robert confirmed manual application to the live database on 2026-10-02 UTC (2026-10-01 America/Anchorage). Merge remains conditional on green exact-head CI and completed clean review.**
 
 ## Outcome and issue scope
 
@@ -17,7 +17,7 @@ First assignment adopts only active exact-name/type legacy rows, at most once. I
 | Web/history/export ownership and complete reverse consumers                                                               | Remaining #1363 work: owned exports, Calendar marker, Add Person and broader Training/history obligations.                                            |
 | Broader access and same-Organization edits                                                                                | Remaining issue acceptance; this RPC does not serialize template editing, direct writers, all note/lifecycle operations or general response ordering. |
 
-This intermediate deliverable uses `Refs #1363`. The issue stays open and its dependencies remain blocked until every requirement is integrated. Prepared Web work remains separate; the migration boundary stops this continuation before another deliverable.
+This intermediate deliverable uses `Refs #1363`. The issue stays open and its dependencies remain blocked until every requirement is integrated. Prepared Web work remains separate until this PR is accepted and merged; the same #1363 continuation can then proceed.
 
 ## Preserved baseline and historical proof
 
@@ -107,8 +107,8 @@ for entry in json.loads((outer / 'manifest.json').read_text())['archives']:
 PY
 ```
 
-## Manual migration and stopping point
+## Manual migration and continuation
 
 The additive [migration](../../../supabase/migrations/20261001000200_atomic_onboarding_reconciliation.sql), SHA-256 `245ae146ac8babff887c51c4c07860e8d041a0dabf3510628142854b54f9d623`, adds the ordinary authenticated RPC and schema-reload notification without changing existing rows/table policies/constraints. It does not automatically reconcile old mixed packets. [RELEASE](../RELEASE.md#phase-08-d15-atomic-packet-reconciliation) records Robert’s ordered manual application before merge/release, draining older multi-write instances and compatible rollback. Without this function the new app cannot assign/switch/resync.
 
-No agent remote inspection/application or existing-local migration occurred. Complete the current CI/review gates, then stop with this verified migration PR unmerged. Robert’s migration confirmation and applicable merge authority govern the next step. External production deployment settings remain uninspected. #1363’s remaining deliverables do not advance at this boundary.
+Robert reported completing this migration manually; the agent did not inspect the remote function/ledger or perform any remote or existing-local migration. His existing authorization now permits merge after green exact-head CI and completed reviews without actionable feedback, followed by the next deliverable for #1363. External production deployment settings and draining older writers remain operator-owned and uninspected; no production acceptance is claimed.

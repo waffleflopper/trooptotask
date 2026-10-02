@@ -4,16 +4,16 @@ import {
 	clearOrganizationUrlSlug,
 	renameOrganization,
 	updateOrganizationUrlSlug,
-	type OrganizationSettingsAdministrationPort
-} from './orgSettingsAdministration';
+	type OrganizationProfilePort
+} from './profile.server';
 
-function createOrganizationSettingsAdministrationPort(
+function createOrganizationProfilePort(
 	options: {
 		renameOrganizationError?: string | null;
 		updateOrganizationUrlSlugError?: string | null;
 		existingSlugOrgId?: string | null;
 	} = {}
-): OrganizationSettingsAdministrationPort & {
+): OrganizationProfilePort & {
 	renameRequests: Array<{ orgId: string; name: string }>;
 	slugRequests: Array<{ orgId: string; urlSlug: string | null }>;
 	slugLookups: string[];
@@ -49,7 +49,7 @@ describe('renameOrganization', () => {
 				role: 'member'
 			}
 		});
-		const port = createOrganizationSettingsAdministrationPort();
+		const port = createOrganizationProfilePort();
 
 		await expect(
 			renameOrganization({ auth: ctx.auth, audit: ctx.audit, administration: port }, { name: 'Alpha Company' })
@@ -78,7 +78,7 @@ describe('renameOrganization', () => {
 				orgId: 'org-1'
 			}
 		});
-		const port = createOrganizationSettingsAdministrationPort();
+		const port = createOrganizationProfilePort();
 
 		const result = await renameOrganization(
 			{ auth: ctx.auth, audit: ctx.audit, administration: port },
@@ -96,9 +96,17 @@ describe('renameOrganization', () => {
 		]);
 	});
 
+	it('caps normalized Organization names at the retained 100-character limit', async () => {
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		const port = createOrganizationProfilePort();
+		await renameOrganization({ auth: ctx.auth, audit: ctx.audit, administration: port }, { name: 'X'.repeat(101) });
+		expect(port.renameRequests).toEqual([{ orgId: 'org-1', name: 'X'.repeat(100) }]);
+		expect(ctx.auditPort.events).toMatchObject([{ details: { name: 'X'.repeat(100) } }]);
+	});
+
 	it('rejects empty organization names before provider work starts', async () => {
 		const ctx = createTestContext();
-		const port = createOrganizationSettingsAdministrationPort();
+		const port = createOrganizationProfilePort();
 
 		await expect(
 			renameOrganization({ auth: ctx.auth, audit: ctx.audit, administration: port }, { name: '   ' })
@@ -113,7 +121,7 @@ describe('renameOrganization', () => {
 
 	it('preserves provider failures without auditing', async () => {
 		const ctx = createTestContext();
-		const port = createOrganizationSettingsAdministrationPort({
+		const port = createOrganizationProfilePort({
 			renameOrganizationError: 'rename failed'
 		});
 
@@ -135,7 +143,7 @@ describe('updateOrganizationUrlSlug', () => {
 				orgId: 'org-1'
 			}
 		});
-		const port = createOrganizationSettingsAdministrationPort();
+		const port = createOrganizationProfilePort();
 
 		const result = await updateOrganizationUrlSlug(
 			{ auth: ctx.auth, audit: ctx.audit, administration: port },
@@ -160,7 +168,7 @@ describe('updateOrganizationUrlSlug', () => {
 				orgId: 'org-1'
 			}
 		});
-		const port = createOrganizationSettingsAdministrationPort({ existingSlugOrgId: 'org-2' });
+		const port = createOrganizationProfilePort({ existingSlugOrgId: 'org-2' });
 
 		await expect(
 			updateOrganizationUrlSlug({ auth: ctx.auth, audit: ctx.audit, administration: port }, { urlSlug: '1-11-bde' })
@@ -179,7 +187,7 @@ describe('updateOrganizationUrlSlug', () => {
 				orgId: 'org-1'
 			}
 		});
-		const port = createOrganizationSettingsAdministrationPort();
+		const port = createOrganizationProfilePort();
 
 		const result = await clearOrganizationUrlSlug({
 			auth: ctx.auth,

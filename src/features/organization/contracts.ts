@@ -18,3 +18,13 @@ export type {
 export type { SettingsMemberAccessRow } from './settingsMemberAccessModel';
 
 export type { DangerSettingsData, SettingsDangerSectionData } from './dangerSettingsTypes';
+
+export { getPreferredOrganizationUrlSegment, normalizeOrganizationUrlSlug, validateOrganizationUrlSlug } from './url';
+export type { OrganizationRouteIdentity, OrganizationMembershipSummary } from './profileTypes';
+export type {
+	GeneralSettingsData,
+	GeneralSettingsOrganizationSource,
+	SettingsOrganizationSectionData,
+	GeneralSettingsActionData
+} from './generalSettingsTypes';
+export { buildGeneralSettingsData } from './generalSettings';

@@ -199,14 +199,7 @@
 		},
 		"organization": {
 			"roots": ["src/features/organization/"],
-			"files": [
-				"src/lib/server/adapters/supabaseOrgSettingsAdministration.ts",
-				"src/lib/server/adapters/supabaseOrganizationAdmission.ts",
-				"src/lib/server/core/useCases/orgSettingsAdministration.test.ts",
-				"src/lib/server/core/useCases/orgSettingsAdministration.ts",
-				"src/lib/server/core/useCases/organizationUrlSlug.test.ts",
-				"src/lib/server/core/useCases/organizationUrlSlug.ts"
-			],
+			"files": [],
 			"packet": "08-M02"
 		},
 		"personnel": {

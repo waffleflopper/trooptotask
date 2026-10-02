@@ -36,3 +36,10 @@ export { createSupabaseFeedbackOrganizationContextPort } from './feedbackOrganiz
 
 export { loadDangerSettings } from './dangerSettings.server';
 export { registerOrganizationFileUpload } from './fileUploadRegistration.server';
+
+export { renameOrganization, updateOrganizationUrlSlug, clearOrganizationUrlSlug } from './profile.server';
+export type { OrganizationProfilePort } from './profile.server';
+export { createSupabaseOrganizationProfilePort } from './profileProvider.server';
+export { resolveOrganizationRouteIdentity } from './routeIdentity.server';
+export { requireActiveOrganization } from './admission.server';
+export { readOrganizationMembershipSummaries } from './membershipSummaries.server';

@@ -18,6 +18,8 @@ D10's Critical Tasks library/configuration cutover aligns task-library SQL and d
 
 D11's bounded M15 prerequisite preserves explicit empty Group scope through member edits/storage and Identity projection; mapped shared scoped reads return no rows without provider access. This repairs the Personnel disclosure and application/provider disagreement without broadening SQL grants or changing the Access owner. Full D27 ownership remains separate, and D11 completion/report cutovers are still required.
 
+D17’s profile candidate moves General model/UI/state, profile writes, portable URL meaning, route identity, fresh admission and complete membership summaries into Organization’s public seams. It removes the replaced global helpers/providers and their six legacy manifest assignments. Canonical Organization lifetimes discard old callbacks, and provider writes require matching saved facts before success. Delivery retains mixed settings-shell composition; policy models/readers/API, reverse consumers, exports/jobs and Units retirement remain open. No dependency exception, database change or default architecture change is introduced; acceptance is recorded in [the profile receipt](../stabilization/phase-08/d17-organization-profile.md).
+
 ## D-05 Legacy Clinic Vocabulary
 
 `clinicRole` / `clinic_role` remain retained Personnel fields. Their canonical user-facing term is **Duty Role**; some surfaces still use clinic-era or ambiguous `Role` labels. Preserve existing data, runtime/API shapes and tolerated legacy import labels while using canonical copy in new work. [ADR 0006](adrs/0006-legacy-terminology-compatibility-policy.md) owns this compatibility rule.

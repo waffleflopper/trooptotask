@@ -5,9 +5,8 @@ import { createPersonnel } from '$features/personnel';
 import { personnelScopeResource } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
-import { trainingTypeSource } from '$features/training';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
-import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
+import { SvelteDate } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type {
@@ -16,7 +15,6 @@ import type {
 	OnboardingTemplate
 } from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$features/personnel/contracts';
-import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
@@ -24,33 +22,12 @@ const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 // ── Modal IDs ─────────────────────────────────────────────────
 
 export const MODAL_IDS = {
-	templateManager: 'templateManager',
 	startOnboarding: 'startOnboarding',
 	assignTemplate: 'assignTemplate',
-	cancelConfirm: 'cancelConfirm',
-	switchTemplate: 'switchTemplate',
-	completeConfirm: 'completeConfirm'
+	cancelConfirm: 'cancelConfirm'
 } as const;
 
 // ── Pure exported functions (testable) ───────────────────────
-
-/**
- * A step is deprecated when it has a templateStepId that no longer exists
- * in any known template step. Legacy steps (templateStepId === null) are never deprecated.
- */
-export function isStepDeprecated(step: OnboardingStepProgress, knownTemplateStepIds: string[]): boolean {
-	if (step.templateStepId === null) return false;
-	return !knownTemplateStepIds.includes(step.templateStepId);
-}
-
-/**
- * Determines whether a training step counts as complete.
- * Training step completion is now server-derived (read-through cache pattern).
- * The server refreshes `step.completed` from personnel_trainings on every load.
- */
-export function isTrainingStepComplete(step: OnboardingStepProgress): boolean {
-	return step.completed;
-}
 
 /**
  * Calculates completed/total progress for an onboarding.
@@ -65,16 +42,6 @@ export function getProgress(onboarding: PersonnelOnboarding): { completed: numbe
 		if (step.completed) completed++;
 	}
 	return { completed, total };
-}
-
-/**
- * Returns the 0-based index of the current paperwork stage.
- */
-export function getPaperworkStageIndex(step: OnboardingStepProgress): number {
-	const stages = step.stages ?? [];
-	if (!step.currentStage) return 0;
-	const idx = stages.indexOf(step.currentStage);
-	return idx >= 0 ? idx : 0;
 }
 
 /**
@@ -117,35 +84,11 @@ export function getTemplateDisplayName(templateId: string | null, templates: Onb
 
 // ── Step type constants ───────────────────────────────────────
 
-export const STEP_TYPE_COLORS: Record<string, string> = {
-	training: '#3b82f6',
-	paperwork: '#f59e0b',
-	checkbox: '#6b7280'
-};
-
 export const STEP_TYPE_LABELS: Record<string, string> = {
 	training: 'Training',
 	paperwork: 'Paperwork',
 	checkbox: 'Checkbox'
 };
-
-export const STATUS_COLORS: Record<string, string> = {
-	in_progress: '#3b82f6',
-	completed: '#22c55e',
-	cancelled: '#6b7280'
-};
-
-export const STATUS_LABELS: Record<string, string> = {
-	in_progress: 'In Progress',
-	completed: 'Completed',
-	cancelled: 'Cancelled'
-};
-
-// ── Payload types for modals ──────────────────────────────────
-
-export interface AssignTemplatePayload {
-	onboardingId: string;
-}
 
 // ── Context class ─────────────────────────────────────────────
 
@@ -167,7 +110,6 @@ export class OnboardingPageContext {
 	#disposed = false;
 
 	// UI state
-	expandedOnboardingId = $state<string | null>(null);
 	cancellingId = $state<string | null>(null);
 	resyncingId = $state<string | null>(null);
 	resyncError = $state<string | null>(null);
@@ -176,8 +118,6 @@ export class OnboardingPageContext {
 	assigningTemplate = $state(false);
 	assignTemplateError = $state('');
 	removingDeprecatedStepId = $state<string | null>(null);
-	noteInputs = $state<Record<string, string>>({});
-	expandedNotes = $state<SvelteSet<string>>(new SvelteSet());
 	// Switch template state
 	switchingTemplateId = $state<string | null>(null);
 	switchTemplateSelected = $state('');
@@ -263,17 +203,6 @@ export class OnboardingPageContext {
 		return `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/onboarding/templates`;
 	}
 
-	get overflowItems(): OverflowItem[] {
-		const items: OverflowItem[] = [];
-		if (this.canManageConfig) {
-			items.push({
-				label: 'Manage Templates',
-				href: this.templatesUrl
-			});
-		}
-		return items;
-	}
-
 	// ── Helpers ────────────────────────────────────────────────
 
 	getPersonName(personnelId: string): string {
@@ -311,27 +240,8 @@ export class OnboardingPageContext {
 		return `/org/${this.#org.orgUrlSegment ?? this.#org.orgId}/training`;
 	}
 
-	isTrainingStepComplete(step: OnboardingStepProgress): boolean {
-		return isTrainingStepComplete(step);
-	}
-
-	getTrainingTypeName(step: OnboardingStepProgress): string | null {
-		if (step.stepType !== 'training' || !step.trainingTypeId) return null;
-		const type = trainingTypeSource.items.find((t) => t.id === step.trainingTypeId);
-		if (!type || type.name === step.stepName) return null;
-		return type.name;
-	}
-
 	getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
 		return getProgress(onboarding);
-	}
-
-	getPaperworkStageIndex(step: OnboardingStepProgress): number {
-		return getPaperworkStageIndex(step);
-	}
-
-	formatTimestamp(isoStr: string): string {
-		return formatTimestamp(isoStr);
 	}
 
 	#isCurrent(version: number): boolean {
@@ -379,28 +289,6 @@ export class OnboardingPageContext {
 		if (this.#isCurrent(version) && !saved) toastStore.error('Could not update this stage. Try again.');
 	}
 
-	toggleNotes(stepId: string) {
-		const newSet = new SvelteSet(this.expandedNotes);
-		if (newSet.has(stepId)) newSet.delete(stepId);
-		else newSet.add(stepId);
-		this.expandedNotes = newSet;
-	}
-
-	async handleAddNote(step: OnboardingStepProgress) {
-		const version = onboardingStore.organizationVersion;
-		if (!this.#isCurrent(version)) return;
-		const draft = this.noteInputs[step.id];
-		const text = draft?.trim();
-		if (!text) return;
-		const saved = await onboardingStore.addNote(step.id, text);
-		if (!this.#isCurrent(version)) return;
-		if (!saved) {
-			toastStore.error('Could not add this note. Try again.');
-			return;
-		}
-		if (this.noteInputs[step.id] === draft) this.noteInputs[step.id] = '';
-	}
-
 	async handleCancelOnboarding(id: string) {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
@@ -440,10 +328,6 @@ export class OnboardingPageContext {
 	cancelComplete() {
 		this.completingId = null;
 		this.completingIncompleteCount = 0;
-	}
-
-	toggleExpand(id: string) {
-		this.expandedOnboardingId = this.expandedOnboardingId === id ? null : id;
 	}
 
 	async handleResync(onboardingId: string) {
@@ -541,10 +425,6 @@ export class OnboardingPageContext {
 
 	get templates() {
 		return onboardingTemplateStore.templates;
-	}
-
-	get trainingTypeNames(): Map<string, string> {
-		return new SvelteMap(trainingTypeSource.items.map((t) => [t.id, t.name]));
 	}
 
 	private get rosterView(): RosterReadModelView {

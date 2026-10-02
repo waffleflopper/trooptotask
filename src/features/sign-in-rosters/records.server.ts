@@ -7,8 +7,7 @@ import {
 } from '$lib/storage/sensitiveFiles';
 import { prepareSignInRosterSnapshot, type SignInRosterSnapshotContext } from './snapshot.server';
 import type { SignInRosterListInput, SignInRosterPersistence, SignInRosterRecord } from './rosterPersistence.server';
-import type { AuthContext } from '$lib/server/core/ports';
-import type { SignInRosterFileWritePort } from './contracts';
+import type { SignInRosterFileWritePort, SignInRosterFileActor } from './contracts';
 
 interface RosterContext {
 	orgId: string;
@@ -108,7 +107,7 @@ function buildScanPath(orgId: string, rosterId: string, filename: string): strin
 }
 
 export async function uploadSignedScan(
-	ctx: RosterContext & { actor: AuthContext; fileWrites: SignInRosterFileWritePort },
+	ctx: RosterContext & { actor: SignInRosterFileActor; fileWrites: SignInRosterFileWritePort },
 	rosterId: string,
 	file: File | null
 ) {

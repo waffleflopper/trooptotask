@@ -1,3 +1,4 @@
+import type { OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
@@ -113,11 +114,7 @@ export interface PersonnelArtifactWriter {
 	delete(table: PersonnelArtifactTable, id: string): Promise<void>;
 	sumActiveDocumentBytes(): Promise<number>;
 	/** The server implementation accepts only a File after runtime validation. */
-	uploadFile(
-		kind: 'counseling' | 'document',
-		path: string,
-		file: unknown
-	): Promise<import('$features/organization/contracts').OrganizationFileUploadRegistration>;
+	uploadFile(kind: 'counseling' | 'document', path: string, file: unknown): Promise<OrganizationFileUploadRegistration>;
 	removeFile(kind: 'counseling' | 'document', path: string): Promise<void>;
 }
 

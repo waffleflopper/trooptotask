@@ -1,4 +1,4 @@
-import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/index.server';
+import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { NotificationStore } from '$features/notifications/contracts.server';
 import type { FeedbackExportRow } from '$features/feedback/index.server';

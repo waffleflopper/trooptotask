@@ -59,6 +59,7 @@ function createInMemorySignInRosterFileWritePort(
 			}
 			return {
 				async upload(path, file) {
+					if (!(file instanceof File)) throw Object.assign(new Error('A scan file is required'), { status: 400 });
 					assertPath(path);
 					await storage.upload('counseling-files', path, file, { upsert: false });
 					return { async complete() {} };

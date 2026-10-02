@@ -1,6 +1,6 @@
 // This function runs in the owned browser page. Keep it self-contained so
 // control.mjs can inject it through the native DevTools evaluation tool.
-export function installNetworkControl(target, { mode, ordinal, suffix }) {
+export function installNetworkControl(target, { mode, ordinal, suffix, search = null, failureField = null }) {
 	if (target.__mapNetwork) throw new Error('Restore the existing map network control first');
 	const original = target.fetch;
 	const control = { original, calls: [], release: null, mode, ordinal, suffix };
@@ -10,9 +10,16 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 		if (target.__mapNetwork !== control) return original(...input);
 		const [url, init] = input;
 		const requestUrl = typeof Request !== 'undefined' && url instanceof Request ? url.url : String(url);
-		const pathname = new URL(requestUrl, target.location?.href ?? 'http://localhost/').pathname;
-		if (pathname !== control.suffix) return original(...input);
-		const call = { method: init?.method ?? 'GET', count: 0, ids: [], notes: [], status: null };
+		const parsedUrl = new URL(requestUrl, target.location?.href ?? 'http://localhost/');
+		const method = String(
+			init?.method ?? (typeof Request !== 'undefined' && url instanceof Request ? url.method : 'GET')
+		).toUpperCase();
+		if (
+			parsedUrl.pathname !== control.suffix ||
+			(search !== null && (parsedUrl.search !== search || method !== 'POST'))
+		)
+			return original(...input);
+		const call = { method, count: 0, ids: [], notes: [], status: null };
 		try {
 			const records = JSON.parse(init?.body ?? '{}').records ?? [];
 			call.count = records.length;
@@ -24,7 +31,10 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 		const requestNumber = control.calls.push(call);
 		if (control.mode === 'fail' && requestNumber === control.ordinal) {
 			call.status = 503;
-			return new Response(JSON.stringify({ message: 'Synthetic request failure' }), {
+			const body = failureField
+				? { type: 'failure', status: 503, data: JSON.stringify([{ [failureField]: 1 }, 'Synthetic request failure']) }
+				: { message: 'Synthetic request failure' };
+			return new Response(JSON.stringify(body), {
 				status: 503,
 				headers: { 'Content-Type': 'application/json' }
 			});

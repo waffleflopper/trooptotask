@@ -8,6 +8,7 @@ import ExcelJS from 'exceljs';
 import { jsPDF } from 'jspdf';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
+import { requestSettings } from './settings-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
@@ -23,6 +24,7 @@ const session = sessionPath(worker);
 const scratch = path.join(session, 'verify-trooptotask-owned.json');
 const evidenceRoot = path.join(repository, '.verification/evidence/verify-trooptotask');
 const tableColumns = {
+	organizations: 'id',
 	groups: 'organization_id',
 	personnel: 'organization_id',
 	personnel_extended_info: 'organization_id',
@@ -56,6 +58,8 @@ const tableColumns = {
 	rating_scheme_entries: 'organization_id'
 };
 const tableSelect = {
+	organizations:
+		'id,name,url_slug,created_by,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days',
 	personnel_extended_info:
 		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at',
 	organization_rank_catalog: 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order',
@@ -203,6 +207,25 @@ async function main() {
 		});
 		return;
 	}
+	if (command === 'settings-request') {
+		const [page, orgKey, family, bodyText] = args;
+		const pageId = Number(page);
+		if (args.length !== 4 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use settings-request PAGE orgA|orgB FAMILY JSON.');
+		const organization = checked(
+			await (await provider()).from('organizations').select('url_slug').eq('id', org(orgKey)).single()
+		);
+		const input = {
+			origin: doctor.origin,
+			organizationSegment: organization.url_slug || org(orgKey),
+			family,
+			body: JSON.parse(bodyText)
+		};
+		note(
+			await evaluate(state, pageId, `async () => (${requestSettings.toString()})(window, ${JSON.stringify(input)})`)
+		);
+		return;
+	}
 	if (command === 'retention') {
 		if (args[0] === 'settings') {
 			const client = await provider();
@@ -268,6 +291,7 @@ async function main() {
 			'onboarding/templates',
 			'onboarding/history',
 			'settings/policies',
+			'settings/general',
 			'settings/archives',
 			'settings/members',
 			'settings/exports',
@@ -318,26 +342,28 @@ async function main() {
 									? ['Archived Records', "You don't have permission to view this page"]
 									: destination === 'settings/policies'
 										? ['Archive Retention', "You don't have permission to view this page"]
-										: destination === 'settings/members'
-											? ['Access Management', "You don't have permission to view this page"]
-											: destination === 'settings/exports'
-												? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
-												: destination === 'settings/danger'
-													? ['Destructive Actions', "You don't have permission to view this page"]
-													: destination === 'dashboard'
-														? ['Pending Invitations', 'Organizations']
-														: destination === 'org/new'
-															? ['Create your first Organization', 'Confirm your email first']
-															: [
-																	'Calendar',
-																	'Evaluation controls',
-																	'Training',
-																	'Able, Synthetic',
-																	'Foreign, Synthetic',
-																	'No personnel on the active roster',
-																	'Access restricted',
-																	'Access Restricted'
-																];
+										: destination === 'settings/general'
+											? ['Organization Profile', "You don't have permission to view this page"]
+											: destination === 'settings/members'
+												? ['Access Management', "You don't have permission to view this page"]
+												: destination === 'settings/exports'
+													? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
+													: destination === 'settings/danger'
+														? ['Destructive Actions', "You don't have permission to view this page"]
+														: destination === 'dashboard'
+															? ['Pending Invitations', 'Organizations']
+															: destination === 'org/new'
+																? ['Create your first Organization', 'Confirm your email first']
+																: [
+																		'Calendar',
+																		'Evaluation controls',
+																		'Training',
+																		'Able, Synthetic',
+																		'Foreign, Synthetic',
+																		'No personnel on the active roster',
+																		'Access restricted',
+																		'Access Restricted'
+																	];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -1206,9 +1232,16 @@ async function main() {
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
 		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-observe') {
+			const formActions = {
+				'settings/general/updateName': 'error',
+				'settings/general/updateSlug': 'slugError',
+				'settings/general/clearSlug': 'slugError',
+				'settings/danger/deleteOrganization': 'deleteError'
+			};
 			if (
 				![
 					'notifications',
+					'organization/settings',
 					'rating-scheme',
 					'feedback',
 					'announcements/dismiss',
@@ -1244,6 +1277,7 @@ async function main() {
 					'critical-tasks/reports/export',
 					'critical-tasks/matrix/export'
 				].includes(family) &&
+				!Object.hasOwn(formActions, family) &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
@@ -1258,11 +1292,23 @@ async function main() {
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
-			const suffix = ['feedback', 'announcements/dismiss'].includes(family)
-				? `/api/${family}`
-				: `/org/${org('orgA')}/api/${family}`;
+			const formAction = Object.hasOwn(formActions, family) ? family.split('/').at(-1) : null;
+			let organizationSegment = org('orgA');
+			if (formAction || family === 'organization/settings') {
+				const organization = checked(
+					await (await provider()).from('organizations').select('url_slug').eq('id', org('orgA')).single()
+				);
+				organizationSegment = organization.url_slug || organizationSegment;
+			}
+			const suffix = formAction
+				? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
+				: ['feedback', 'announcements/dismiss'].includes(family)
+					? `/api/${family}`
+					: `/org/${organizationSegment}/api/${family}`;
 			const mode = action === 'arm-fail' ? 'fail' : action === 'arm-hold' ? 'hold' : 'observe';
-			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`;
+			const search = formAction ? `?/${formAction}` : null;
+			const failureField = formAction ? formActions[family] : null;
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-')) {
 				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');
@@ -1429,7 +1475,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

@@ -1,12 +1,12 @@
-import type { PersonnelArchivedArtifact } from '$features/personnel/personnel-detail.types';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { listPersonnelCounselingRecords } from './personnelCounselingRecords';
-import { listPersonnelDocuments } from './personnelDocuments';
-import { listPersonnelFollowUps } from './personnelFollowUps';
-import { listPersonnelLeaderNotes, type LeaderNoteContext } from '$features/personnel/index.server';
+import type { PersonnelArchivedArtifact } from './contracts';
+import type { PersonnelArtifactsContext } from './personnelArtifactContext.server';
+import { listPersonnelCounselingRecords } from './personnelCounselingRecords.server';
+import { listPersonnelDocuments } from './personnelDocuments.server';
+import { listPersonnelFollowUps } from './personnelFollowUps.server';
+import { listPersonnelLeaderNotes, type LeaderNoteContext } from './leaderNotes.server';
 
 export async function listPersonnelArchivedArtifacts(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	noteContext: LeaderNoteContext,
 	personnelId: string
 ): Promise<PersonnelArchivedArtifact[]> {

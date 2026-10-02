@@ -1,4 +1,6 @@
 export { loadOrganizationMemberLabels } from './memberLabels.server';
+export { loadPersonnelDocumentStorageCapBytes } from './personnelDocumentSettings.server';
+export type { OrganizationPersonnelDocumentSettingsReader } from './personnelDocumentSettings.server';
 export type { OrganizationMemberLabelReader, OrganizationMemberLabelRow } from './memberLabels.server';
 export { provisionOrganization } from './provisioning.server';
 export type { OrgProvisioningPort } from './provisioning.server';

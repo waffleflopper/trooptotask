@@ -1,7 +1,8 @@
+import { personnelArtifactsContext, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { createPersonnelDocument } from '$lib/server/core/useCases/personnelDocuments';
+
+import { createPersonnelDocument } from '$features/personnel/index.server';
 import { _getConfig } from './+server';
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
@@ -26,7 +27,7 @@ describe('/api/personnel/[id]/documents/[documentId]/download', () => {
 			}
 		});
 		seedPersonnel(ctx);
-		const created = await createPersonnelDocument(ctx, {
+		const created = await createPersonnelDocument(personnelArtifactsContext(ctx), {
 			personnelId: 'person-1',
 			file: new File([PDF_BYTES], 'download.pdf', { type: 'application/pdf' })
 		});

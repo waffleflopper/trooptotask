@@ -2,7 +2,8 @@
 	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import type { PersonnelDocument, PersonnelDocumentsPageData } from '$features/personnel/personnel-detail.types';
+	import type { PersonnelDocument } from '$features/personnel/contracts';
+	import type { PersonnelDocumentsPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
 	import { documentDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 

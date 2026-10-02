@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import type { PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
+import type { PersonnelFollowUp } from '$features/personnel/contracts';
 import { _getConfig, _postConfig } from './+server';
 import { _patchConfig } from './[followUpId]/+server';
 

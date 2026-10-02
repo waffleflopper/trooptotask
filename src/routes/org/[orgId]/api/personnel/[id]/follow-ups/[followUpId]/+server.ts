@@ -1,7 +1,8 @@
+import { personnelArtifactsContext, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 import { fail } from '$lib/errors';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	archivePersonnelFollowUp,
@@ -9,7 +10,7 @@ import {
 	restorePersonnelFollowUp,
 	setPersonnelFollowUpStatus,
 	updatePersonnelFollowUp
-} from '$lib/server/core/useCases/personnelFollowUps';
+} from '$features/personnel/index.server';
 
 function routeIds(event: RequestEvent): { personnelId: string; followUpId: string } {
 	const personnelId = event.params.id;
@@ -37,10 +38,11 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 		if (input.status !== undefined && !['open', 'completed', 'archived'].includes(String(input.status))) {
 			fail(400, 'Unsupported follow-up status.');
 		}
-		if (input.action === 'restore') return restorePersonnelFollowUp(ctx, input);
-		if (input.status === 'archived') return archivePersonnelFollowUp(ctx, input);
-		if (input.status === 'open' || input.status === 'completed') return setPersonnelFollowUpStatus(ctx, input);
-		return updatePersonnelFollowUp(ctx, input);
+		if (input.action === 'restore') return restorePersonnelFollowUp(personnelArtifactsContext(ctx), input);
+		if (input.status === 'archived') return archivePersonnelFollowUp(personnelArtifactsContext(ctx), input);
+		if (input.status === 'open' || input.status === 'completed')
+			return setPersonnelFollowUpStatus(personnelArtifactsContext(ctx), input);
+		return updatePersonnelFollowUp(personnelArtifactsContext(ctx), input);
 	}
 };
 
@@ -50,7 +52,7 @@ export const _deleteConfig: RouteConfig<{ personnelId: string; followUpId: strin
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => routeIds(event),
 	fn: async (ctx, input) => {
-		await deletePersonnelFollowUp(ctx, input);
+		await deletePersonnelFollowUp(personnelArtifactsContext(ctx), input);
 		return { success: true };
 	},
 	formatOutput: (result) => json(result)

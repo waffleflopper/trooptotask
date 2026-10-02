@@ -1,8 +1,9 @@
+import { personnelArtifactsContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { PageServerLoadEvent } from './$types';
 import type { PersonnelDetailHeader } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { listPersonnelFollowUps } from '$lib/server/core/useCases/personnelFollowUps';
+
+import { listPersonnelFollowUps } from '$features/personnel/index.server';
 
 type LoadWithContext = typeof loadWithContext;
 
@@ -24,7 +25,7 @@ export function _createPersonnelFollowUpsPageLoad(deps: PersonnelFollowUpsPageLo
 		const records = await loadWithContextFn(locals, cookies, params.orgId, {
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: (ctx) => listPersonnelFollowUps(ctx, personnelId)
+			fn: (ctx) => listPersonnelFollowUps(personnelArtifactsContext(ctx), personnelId)
 		});
 
 		return {

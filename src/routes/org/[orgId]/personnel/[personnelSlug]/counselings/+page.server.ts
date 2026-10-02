@@ -1,8 +1,9 @@
+import { personnelArtifactsContext, loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { PageServerLoadEvent } from './$types';
 import type { PersonnelDetailHeader } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
+
+import { listPersonnelCounselingRecords } from '$features/personnel/index.server';
 
 type LoadWithContext = typeof loadWithContext;
 
@@ -24,7 +25,7 @@ export function _createPersonnelCounselingsPageLoad(deps: PersonnelCounselingsPa
 		const records = await loadWithContextFn(locals, cookies, params.orgId, {
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: (ctx) => listPersonnelCounselingRecords(ctx, personnelId)
+			fn: (ctx) => listPersonnelCounselingRecords(personnelArtifactsContext(ctx), personnelId)
 		});
 
 		return {

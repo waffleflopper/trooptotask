@@ -1,9 +1,7 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { loadOwnershipTransferCandidates } from '$features/organization/index.server';
-import type { OwnershipTransferCandidate } from '$features/organization';
-import { normalizeOrganizationName } from '../settingsWorkspaceFormatters';
-import type { DangerSettingsData, SettingsDangerSectionData } from '../settingsSectionTypes';
+import { loadOwnershipTransferCandidates } from './ownershipTransferSettings.server';
+import type { OwnershipTransferCandidate } from './ownershipTransferSettings';
+import type { DangerSettingsData, SettingsDangerSectionData } from './dangerSettingsTypes';
 
 export interface DangerSettingsOrganizationSource {
 	id: string;
@@ -13,7 +11,7 @@ export interface DangerSettingsOrganizationSource {
 }
 
 export async function loadDangerSettings(
-	ctx: Pick<UseCaseContext, 'auth' | 'store'>,
+	ctx: Parameters<typeof loadOwnershipTransferCandidates>[0] & { auth: { canManageMembers: boolean } },
 	input: { isAdmin: boolean; organization: DangerSettingsOrganizationSource }
 ): Promise<DangerSettingsData> {
 	const transferOwnershipCandidates = await loadOwnershipTransferCandidates(ctx);
@@ -73,7 +71,7 @@ export function buildDangerSection(input: {
 		transferOwnershipCandidates,
 		deleteConfirmation: {
 			organizationName: input.organizationName,
-			normalizedOrganizationName: normalizeOrganizationName(input.organizationName ?? '')
+			normalizedOrganizationName: (input.organizationName ?? '').trim().replace(/\s+/g, ' ')
 		},
 		commands: {
 			canTransferOwnership: input.isOwner && transferOwnershipCandidates.length > 0,

@@ -3,6 +3,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
+import { registerOrganizationFileUpload } from '$features/organization/index.server';
 import type {
 	PersonnelArtifactArchiveWriter,
 	PersonnelArtifactRef,
@@ -141,13 +142,23 @@ export function createSupabasePersonnelArtifactWritePort(
 				async uploadFile(kind, path, file) {
 					if (!(file instanceof File)) fail(400, 'An artifact file is required');
 					const bucket = artifactFileTarget(kind, actor.orgId, personnelId, path);
-					const { error } = await admin.storage.from(bucket).upload(path, file, { upsert: false });
+					const registration = await registerOrganizationFileUpload(admin, {
+						orgId: actor.orgId,
+						userId: actor.userId,
+						bucket,
+						path
+					});
+					const { data, error } = await admin.storage.from(bucket).upload(path, file, { upsert: false });
 					if (error) throw new Error(`Storage upload failed: ${error.message}`);
+					if (data?.path !== path || data.fullPath !== `${bucket}/${path}`)
+						throw new Error('Storage upload was not acknowledged');
+					return registration;
 				},
 				async removeFile(kind, path) {
 					const bucket = artifactFileTarget(kind, actor.orgId, personnelId, path);
-					const { error } = await admin.storage.from(bucket).remove([path]);
+					const { data, error } = await admin.storage.from(bucket).remove([path]);
 					if (error) throw new Error(`Storage remove failed: ${error.message}`);
+					if (data?.length !== 1 || data[0].name !== path) throw new Error('Storage removal was not acknowledged');
 				}
 			};
 			return writer;

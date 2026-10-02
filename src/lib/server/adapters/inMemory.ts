@@ -43,6 +43,40 @@ type SensitiveActionAuthorizer = UseCaseContext['sensitiveActionAuthorizer'];
 type SensitiveActionAuthorizeInput = Parameters<SensitiveActionAuthorizer['authorize']>[0];
 type SensitiveActionDecision = Awaited<ReturnType<SensitiveActionAuthorizer['authorize']>>;
 
+function createInMemorySignInRosterFileWritePort(
+	storage: StoragePort
+): NonNullable<UseCaseContext['signInRosterFileWrites']> {
+	return {
+		async forRoster(actor, rosterId) {
+			function assertPath(path: string) {
+				const prefix = `${actor.orgId}/sign-in-rosters/${rosterId}/`;
+				if (
+					!path.startsWith(prefix) ||
+					path.length === prefix.length ||
+					path.split('/').some((part) => part === '.' || part === '..')
+				)
+					throw Object.assign(new Error('Scan path is outside the authorized roster'), { status: 400 });
+			}
+			return {
+				async upload(path, file) {
+					if (!(file instanceof File)) throw Object.assign(new Error('A scan file is required'), { status: 400 });
+					assertPath(path);
+					await storage.upload('counseling-files', path, file, { upsert: false });
+					return { async complete() {} };
+				},
+				async remove(path) {
+					assertPath(path);
+					await storage.remove('counseling-files', [path]);
+				},
+				async removePrevious(path) {
+					assertPath(path);
+					await storage.remove('counseling-files', [path]);
+				}
+			};
+		}
+	};
+}
+
 function createInMemoryPersonnelOrganizationExportPort(
 	rawStore: DataStore
 ): NonNullable<UseCaseContext['personnelOrganizationExport']> {
@@ -734,6 +768,7 @@ function createInMemoryPersonnelArtifactWritePort(
 						throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
 					}
 					await storage.upload(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', path, file);
+					return { async complete() {} };
 				},
 				async removeFile(kind: 'counseling' | 'document', path: string) {
 					const prefix =
@@ -1120,6 +1155,7 @@ export function createTestContext(
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
+		signInRosterFileWrites: createInMemorySignInRosterFileWritePort(storagePort),
 		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),

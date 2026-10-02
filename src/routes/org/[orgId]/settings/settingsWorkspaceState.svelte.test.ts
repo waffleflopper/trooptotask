@@ -2,12 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { createSettingsPoliciesState, type SettingsPoliciesSectionData } from './settingsPoliciesState.svelte';
 import { createSettingsMemberAccessWorkspace } from '$features/organization';
 import type { SettingsMembersSectionData } from '$features/organization/contracts';
-import type { DangerSettingsData, SettingsArchivesSectionData } from './settingsSectionTypes';
-import {
-	createSettingsArchivedPersonnelState,
-	createSettingsDangerZoneState,
-	createSettingsDataExportState
-} from './settingsWorkspaceState.svelte';
+import type { SettingsArchivesSectionData } from './settingsSectionTypes';
+import { createSettingsArchivedPersonnelState, createSettingsDataExportState } from './settingsWorkspaceState.svelte';
 
 const capabilityMap = {
 	calendar: 'configure',
@@ -18,8 +14,9 @@ const capabilityMap = {
 	ratingScheme: 'configure'
 } as const;
 
-type SettingsStateTestData = DangerSettingsData & {
-	sections: DangerSettingsData['sections'] & {
+type SettingsStateTestData = {
+	currentMember: { isOwner: boolean };
+	sections: {
 		members: SettingsMembersSectionData;
 		policies: SettingsPoliciesSectionData;
 		archivedPersonnel: SettingsArchivesSectionData;
@@ -29,10 +26,7 @@ type SettingsStateTestData = DangerSettingsData & {
 function makeSettingsData(): SettingsStateTestData {
 	return {
 		currentMember: {
-			role: 'owner',
-			isOwner: true,
-			isAdmin: false,
-			canManageMembers: true
+			isOwner: true
 		},
 		sections: {
 			members: {
@@ -84,14 +78,6 @@ function makeSettingsData(): SettingsStateTestData {
 				},
 				canUpdateRetention: true
 			},
-			organization: {
-				id: 'org-1',
-				name: 'Test Org',
-				urlSlug: '1-11-bde',
-				urlSegment: '1-11-bde',
-				canUpdateProfile: true,
-				canUpdateUrlSlug: true
-			},
 			archivedPersonnel: {
 				rows: [
 					{
@@ -115,24 +101,6 @@ function makeSettingsData(): SettingsStateTestData {
 					canRestore: true,
 					canExport: true,
 					canPermanentlyDelete: true
-				}
-			},
-			dangerZone: {
-				transferOwnershipCandidates: [
-					{
-						id: 'member-1',
-						userId: 'user-1',
-						email: 'member@example.com',
-						membershipRole: 'member'
-					}
-				],
-				deleteConfirmation: {
-					organizationName: 'Test Org',
-					normalizedOrganizationName: 'Test Org'
-				},
-				commands: {
-					canTransferOwnership: true,
-					canDeleteOrganization: true
 				}
 			}
 		}
@@ -210,25 +178,6 @@ describe('settings workspace state', () => {
 
 		expect(state.exportingOrgJson).toBe(false);
 		expect(state.exportSuccess).toBe(true);
-	});
-
-	it('owns danger zone delete confirmation transition state', () => {
-		const state = createSettingsDangerZoneState(makeSettingsData());
-
-		state.openDeleteConfirmation();
-		state.deleteConfirmText = 'test org';
-
-		expect(state.showDeleteConfirm).toBe(true);
-		expect(state.deleteConfirmMatches).toBe(false);
-
-		state.deleteConfirmText = 'Test Org';
-
-		expect(state.deleteConfirmMatches).toBe(true);
-
-		state.closeDeleteConfirmation();
-
-		expect(state.showDeleteConfirm).toBe(false);
-		expect(state.deleteConfirmText).toBe('');
 	});
 
 	it('owns member capability edits while the editor is open', () => {

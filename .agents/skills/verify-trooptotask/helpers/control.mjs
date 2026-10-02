@@ -1,7 +1,10 @@
 #!/usr/bin/env node
+import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
@@ -15,6 +18,11 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
+import {
+	prepareUploadOverlap,
+	inspectUploadOverlap,
+	deleteAfterUploadOverlap
+} from './organization-upload-overlap.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
@@ -225,6 +233,48 @@ async function main() {
 		note(
 			await evaluate(state, pageId, `async () => (${requestSettings.toString()})(window, ${JSON.stringify(input)})`)
 		);
+		return;
+	}
+	if (command === 'reauth') {
+		const [page, role] = args;
+		const pageId = Number(page);
+		if (args.length !== 2 || !Number.isInteger(pageId) || pageId < 1 || !fixture.actors[role])
+			throw new Error('Use reauth PAGE FIXTURE_ROLE on the normal owned password confirmation page.');
+		const location = new URL(await evaluate(state, pageId, '() => location.href'));
+		if (
+			location.origin !== doctor.origin ||
+			location.pathname !== '/auth/login' ||
+			location.searchParams.get('reauth') !== '1'
+		)
+			throw new Error('Use the existing owned reauthentication handoff; no navigation or session is injected.');
+		const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
+		const uid = (label) => {
+			const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
+			if (matches.length !== 1) throw new Error('Normal confirmation fields are unavailable.');
+			return matches[0].match(/uid=([^\s]+)/)?.[1];
+		};
+		await tool(state, 'fill_form', {
+			pageId,
+			elements: [
+				{ uid: uid('Email Address'), value: fixture.actors[role].email },
+				{ uid: uid('Password'), value: fixture.actors[role].password }
+			]
+		});
+		const ready = text(await tool(state, 'take_snapshot', { pageId }));
+		const button = ready
+			.split('\n')
+			.find((line) => line.includes('button "Sign In"'))
+			?.match(/uid=([^\s]+)/)?.[1];
+		if (!button) throw new Error('Normal confirmation submit is unavailable.');
+		await tool(state, 'click', { pageId, uid: button });
+		await tool(state, 'wait_for', { pageId, text: ['Destructive Actions'], timeout: 20000 });
+		note({
+			pageId,
+			role,
+			handoff: location.pathname + location.search,
+			returnedPath: await evaluate(state, pageId, '() => location.pathname'),
+			snapshot: text(await tool(state, 'take_snapshot', { pageId }))
+		});
 		return;
 	}
 	if (command === 'onboarding-request') {
@@ -635,6 +685,79 @@ async function main() {
 		note({ organization: orgKey, rosterId, files });
 		return;
 	}
+	if (command === 'roster-replace') {
+		const [page, orgKey, rosterKey, filename] = args;
+		const pageId = Number(page);
+		if (
+			args.length !== 4 ||
+			!Number.isInteger(pageId) ||
+			pageId < 1 ||
+			!['rosterAlpha', 'rosterMixed', 'rosterUnassigned', 'rosterForeign'].includes(rosterKey)
+		)
+			throw new Error('Use roster-replace PAGE orgA|orgB FIXTURE_ROSTER_KEY EVIDENCE_PDF.');
+		const rosterId = fixture.ids[rosterKey];
+		const client = await provider();
+		const roster = checked(
+			await client
+				.from('sign_in_rosters')
+				.select('id,signed_file_path')
+				.eq('organization_id', org(orgKey))
+				.eq('id', rosterId)
+				.single()
+		);
+		const target = await fs.realpath(path.resolve(filename ?? ''));
+		if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.pdf') || !(await fs.stat(target)).isFile())
+			throw new Error('Use a real PDF under the skill evidence directory without a symlink escape.');
+		const bytes = await fs.readFile(target);
+		if (bytes.length > 1024 * 1024 || bytes.subarray(0, 5).toString() !== '%PDF-')
+			throw new Error('Use a synthetic PDF no larger than 1 MiB.');
+		const location = new URL(await evaluate(state, pageId, '() => location.href'));
+		if (location.origin !== doctor.origin) throw new Error('Use a normally signed-in page on this owned app.');
+		const previous = roster.signed_file_path
+			? await client.storage.from('counseling-files').info(roster.signed_file_path)
+			: null;
+		const endpoint = `/org/${org(orgKey)}/api/sign-in-rosters/${rosterId}/upload`;
+		const response = await evaluate(
+			state,
+			pageId,
+			`async () => {
+				if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Owned app origin changed before roster replacement.');
+				const bytes = Uint8Array.from(atob(${JSON.stringify(bytes.toString('base64'))}), c => c.charCodeAt(0));
+				const form = new FormData();
+				form.set('file', new File([bytes], ${JSON.stringify(path.basename(target))}, { type: 'application/pdf' }));
+				const response = await fetch(${JSON.stringify(endpoint)}, { method: 'POST', body: form, redirect: 'error' });
+				return { status: response.status, body: await response.text() };
+			}`
+		);
+		note({
+			pageId,
+			organization: orgKey,
+			rosterId,
+			endpoint,
+			method: 'POST',
+			previousPath: roster.signed_file_path,
+			previousInfo: previous
+				? {
+						present: !!previous.data,
+						error: previous.error
+							? {
+									name: previous.error.name,
+									status: previous.error.status,
+									statusCode: previous.error.statusCode,
+									message: previous.error.message
+								}
+							: null
+					}
+				: null,
+			upload: {
+				filename: path.basename(target),
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex')
+			},
+			...response
+		});
+		return;
+	}
 	if (command === 'signed-download') {
 		const [orgKey, rosterId, filename] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
@@ -718,6 +841,131 @@ async function main() {
 		note({ role, calendar: next.calendar });
 		return;
 	}
+	if (command === 'destruction') {
+		if (['overlap-scan', 'overlap-delete'].includes(args[0])) {
+			if (args.length !== 1) throw new Error('Overlap controls accept no target or credentials.');
+			const client = await provider();
+			const ownedState = await saved();
+			const config = await readJSON(path.join(session, 'provider.json'));
+			const owner = createClient(config.API_URL, config.ANON_KEY, {
+				auth: { persistSession: false, autoRefreshToken: false }
+			});
+			const login = await owner.auth.signInWithPassword({
+				email: fixture.actors.orgOwner.email,
+				password: fixture.actors.orgOwner.password
+			});
+			if (login.error || login.data.user?.id !== fixture.actors.orgOwner.id)
+				throw new Error('Normal owned owner provider sign-in failed.');
+			if (args[0] === 'overlap-scan') {
+				if (ownedState.uploadOverlap) throw new Error('Use a fresh worker for another overlap.');
+				const prepared = await prepareUploadOverlap(owner, {
+					orgId: org('orgA'),
+					personId: fixture.ids.personA,
+					tag: randomUUID().slice(0, 8)
+				});
+				ownedState.uploadOverlap = { ...prepared, sessionId: state.id, candidate: doctor.candidate };
+				await save(ownedState);
+				note(ownedState.uploadOverlap);
+				return;
+			}
+			const prepared = ownedState.uploadOverlap;
+			if (
+				!prepared ||
+				prepared.sessionId !== state.id ||
+				prepared.candidate !== doctor.candidate ||
+				prepared.orgId !== org('orgA') ||
+				prepared.personId !== fixture.ids.personA
+			)
+				throw new Error('No unchanged owned final scan belongs to this worker.');
+			const { row, bytes } = await inspectUploadOverlap(client, prepared);
+			const file = {
+				bucket: 'personnel-documents',
+				path: row.file_path,
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex')
+			};
+			ownedState.seeded.push({
+				kind: 'organization-upload-overlap',
+				table: 'personnel_documents',
+				organization: 'orgA',
+				ids: [row.id],
+				files: [file]
+			});
+			await save(ownedState);
+
+			const deletion = await deleteAfterUploadOverlap(owner, prepared);
+			const organizationAfter = checked(await client.from('organizations').select('id,name').eq('id', prepared.orgId));
+			const documentAfter = checked(await client.from('personnel_documents').select('*').eq('id', row.id));
+			const blob = checked(await client.storage.from(file.bucket).download(file.path));
+			const afterBytes = Buffer.from(await blob.arrayBuffer());
+			note({
+				prepared,
+				nativeDocument: row,
+				fileBefore: file,
+				deletion,
+				organizationAfter,
+				documentAfter,
+				fileAfter: { ...file, size: afterBytes.length, sha256: createHash('sha256').update(afterBytes).digest('hex') },
+				boundary: 'Ordinary provider delete after native upload; not Identity or native destruction proof.'
+			});
+			return;
+		}
+		if (['fault-on', 'fault-off', 'bytes'].includes(args[0])) {
+			let stdout;
+			try {
+				({ stdout } = await promisify(execFile)(
+					'python3',
+					[
+						path.join(repository, '.agents/skills/verify-trooptotask/helpers/organization-destruction-provider.py'),
+						'--worker',
+						worker,
+						args[0]
+					],
+					{ maxBuffer: 8 * 1024 * 1024 }
+				));
+			} catch (cause) {
+				let blocked;
+				try {
+					blocked = JSON.parse(cause.stdout);
+				} catch {
+					throw cause;
+				}
+				if (blocked?.status === 'BLOCKED' && typeof blocked.message === 'string') {
+					throw new Error(blocked.message);
+				}
+				throw cause;
+			}
+			note(JSON.parse(stdout));
+			return;
+		}
+		if (args[0] !== 'files') throw new Error('Use destruction files, bytes, fault-on, or fault-off.');
+		const client = await provider();
+		const files = (await saved()).seeded.flatMap((item) => item.files ?? []);
+		const observations = [];
+		for (let start = 0; start < files.length; start += 16) {
+			observations.push(
+				...(await Promise.all(
+					files.slice(start, start + 16).map(async (file) => {
+						const { data, error } = await client.storage.from(file.bucket).download(file.path);
+						if (error) {
+							const status = String(error.statusCode ?? error.status ?? '');
+							if (status !== '404') throw new Error('Owned Storage byte read failed rather than proving absence.');
+							return { ...file, present: false, status };
+						}
+						const bytes = Buffer.from(await data.arrayBuffer());
+						return {
+							...file,
+							present: true,
+							observedSize: bytes.length,
+							observedSha256: createHash('sha256').update(bytes).digest('hex')
+						};
+					})
+				))
+			);
+		}
+		note({ files: observations });
+		return;
+	}
 	if (command === 'seed') {
 		const kind = args[0];
 		if (
@@ -740,6 +988,7 @@ async function main() {
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'communications',
+				'organization-destruction',
 				'rating-scheme'
 			].includes(kind)
 		)
@@ -747,6 +996,63 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'organization-destruction') {
+			if (ownedState.seeded.some((item) => item.kind === kind))
+				throw new Error('Restore and clean the existing destruction seed first.');
+			const objects = [];
+			const add = (bucket, filePath, classification) => {
+				const bytes = Buffer.from('Synthetic Organization destruction ' + tag + ' ' + classification + ' ' + filePath);
+				objects.push({
+					bucket,
+					path: filePath,
+					classification,
+					size: bytes.length,
+					sha256: createHash('sha256').update(bytes).digest('hex'),
+					bytes
+				});
+			};
+			for (let n = 0; n < 1002; n++)
+				add(
+					'personnel-documents',
+					`${org('orgA')}/destruction-${tag}/page/${String(n).padStart(4, '0')}.pdf`,
+					'target-orphan'
+				);
+			const lowerId = org('orgA').toLowerCase();
+			const upperId = lowerId.toUpperCase();
+			const mixedId = lowerId.replace(/[a-f]/, (letter) => letter.toUpperCase());
+			if (mixedId === lowerId || mixedId === upperId) throw new Error('Fixture needs distinct UUID path casing.');
+			const sharedSuffix = `/destruction-${tag}/nested/orphan.pdf`;
+			add('counseling-files', lowerId + sharedSuffix, 'target-lowercase');
+			add('counseling-files', upperId + sharedSuffix, 'target-uppercase');
+			add('counseling-files', mixedId + sharedSuffix, 'target-mixed');
+			add('counseling-files', `${org('orgA')}/destruction-${tag}-root.pdf`, 'target-root');
+			for (const bucket of ['counseling-files', 'personnel-documents']) {
+				add(bucket, `${org('orgB')}/destruction-${tag}/foreign.pdf`, 'foreign');
+				// Invalid namespace lookalikes are historical SQL fixtures; runtime writes now require a canonical Organization.
+			}
+			const source = objects.find((file) => file.classification === 'target-lowercase');
+			const prefixRoot = {
+				...source,
+				path: lowerId + '/',
+				classification: 'target-prefix-root',
+				copyFrom: source.path
+			};
+			// SDK upload trims trailing slashes; copy preserves this valid raw key.
+			// Ledger the destination before any effect and copy only after its source exists.
+			objects.push(prefixRoot);
+			for (const file of objects) file.uploadId = randomUUID();
+			const files = objects.map(({ bytes: _bytes, ...file }) => file);
+			ownedState.seeded.push({ kind, tag, table: 'organizations', organization: 'orgA', ids: [], files });
+			await save(ownedState);
+			const uploads = objects.filter((file) => !file.copyFrom);
+			for (let start = 0; start < uploads.length; start += 16)
+				await Promise.all(
+					uploads.slice(start, start + 16).map((file) => registeredFixtureFileWrite(client, fixture, file))
+				);
+			await registeredFixtureFileWrite(client, fixture, prefixRoot);
+			note({ kind, tag, files, setup: 'Synthetic Storage API upload/copy; no application acceptance claim.' });
+			return;
+		}
 		if (kind === 'personnel-artifact-context') {
 			const actor = fixture.actors.personnelContext;
 			if (!actor || actor.organization !== 'orgA') throw new Error('The Personnel context actor is unavailable.');
@@ -850,6 +1156,7 @@ async function main() {
 					}
 				}
 			}
+			for (const file of objects) file.uploadId = randomUUID();
 			const files = objects.map(({ bytes: _bytes, ...file }) => file);
 			const batches = [
 				['organization_memberships', 'orgB', [membership]],
@@ -879,10 +1186,7 @@ async function main() {
 				});
 			await save(ownedState);
 			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
-			for (const file of objects)
-				checked(
-					await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' })
-				);
+			for (const file of objects) await registeredFixtureFileWrite(client, fixture, file);
 			note({
 				kind,
 				tag,
@@ -1254,7 +1558,8 @@ async function main() {
 			}
 			for (const bucket of ['personnel-documents', 'counseling-files']) {
 				const paths = (item.files ?? []).filter((file) => file.bucket === bucket).map((file) => file.path);
-				if (paths.length) checked(await client.storage.from(bucket).remove(paths));
+				for (let start = 0; start < paths.length; start += 1000)
+					checked(await client.storage.from(bucket).remove(paths.slice(start, start + 1000)));
 			}
 		}
 		ownedState.seeded = [];
@@ -1520,7 +1825,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

@@ -3,14 +3,14 @@ import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteDat
 
 const {
 	buildRouteContextMock,
-	createSupabaseOrgSettingsAdministrationPortMock,
+	createSupabaseOrganizationDestructionPortMock,
 	createSupabaseOrganizationOwnershipTransferPortMock,
 	deleteOrganizationUseCaseMock,
 	loadWithContextMock,
 	transferOrganizationOwnershipMock
 } = vi.hoisted(() => ({
 	buildRouteContextMock: vi.fn(),
-	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
+	createSupabaseOrganizationDestructionPortMock: vi.fn(),
 	createSupabaseOrganizationOwnershipTransferPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
@@ -29,27 +29,14 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
-vi.mock('$lib/server/adapters/supabaseOrgSettingsAdministration', () => ({
-	createSupabaseOrgSettingsAdministrationPort: createSupabaseOrgSettingsAdministrationPortMock
-}));
-
-vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/orgSettingsAdministration')>(
-		'$lib/server/core/useCases/orgSettingsAdministration'
-	);
-
-	return {
-		...actual,
-		deleteOrganization: deleteOrganizationUseCaseMock
-	};
-});
-
 vi.mock('$features/organization/index.server', async () => {
 	const actual = await vi.importActual<typeof import('$features/organization/index.server')>(
 		'$features/organization/index.server'
 	);
 	return {
 		...actual,
+		createSupabaseOrganizationDestructionPort: createSupabaseOrganizationDestructionPortMock,
+		deleteOrganization: deleteOrganizationUseCaseMock,
 		createSupabaseOrganizationOwnershipTransferPort: createSupabaseOrganizationOwnershipTransferPortMock,
 		transferOrganizationOwnership: transferOrganizationOwnershipMock
 	};
@@ -87,7 +74,7 @@ describe('danger settings page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		buildRouteContextMock.mockResolvedValue(authContext);
-		createSupabaseOrgSettingsAdministrationPortMock.mockReturnValue({ kind: 'admin-port' });
+		createSupabaseOrganizationDestructionPortMock.mockReturnValue({ kind: 'admin-port' });
 		createSupabaseOrganizationOwnershipTransferPortMock.mockReturnValue({ kind: 'transfer-port' });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });

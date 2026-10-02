@@ -91,9 +91,8 @@ SELECT throws_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_i
   '42501', NULL, 'Group configurator cannot insert unassigned counseling object');
 ROLLBACK TO SAVEPOINT denied_group_storage_writes;
 SAVEPOINT allowed_group_storage_writes;
-SELECT lives_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
-  VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/new.pdf', 'e8000000-0000-4000-8000-000000000001', 'e8000000-0000-4000-8000-000000000001', '{}'::jsonb) $$,
-  'Group configurator can create in-Group counseling object');
+SELECT throws_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
+  VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/new.pdf', 'e8000000-0000-4000-8000-000000000001', 'e8000000-0000-4000-8000-000000000001', '{}'::jsonb) $$, '42501', NULL, 'Group configurator must use the registered server counseling uploader');
 WITH changed AS (UPDATE storage.objects SET metadata = '{"allowed":true}' WHERE id = 'e8000000-0000-4000-8000-000000000601' RETURNING id)
 SELECT is(count(*)::integer, 1, 'Group configurator can update in-Group counseling object') FROM changed;
 ROLLBACK TO SAVEPOINT allowed_group_storage_writes;
@@ -111,9 +110,8 @@ SELECT is((SELECT count(*)::integer FROM public.counseling_records), 1, 'Organiz
 SELECT is((SELECT count(*)::integer FROM public.personnel_documents), 1, 'Organization configurator reads unassigned document metadata');
 SELECT is((SELECT count(*)::integer FROM public.leader_notes), 1, 'Organization configurator reads unassigned leader note');
 SAVEPOINT allowed_org_storage_writes;
-SELECT lives_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
-  VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/new.pdf', 'e8000000-0000-4000-8000-000000000003', 'e8000000-0000-4000-8000-000000000003', '{}'::jsonb) $$,
-  'Organization configurator can create unassigned counseling object');
+SELECT throws_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
+  VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000302/new.pdf', 'e8000000-0000-4000-8000-000000000003', 'e8000000-0000-4000-8000-000000000003', '{}'::jsonb) $$, '42501', NULL, 'Organization configurator must use the registered server counseling uploader');
 WITH changed AS (UPDATE storage.objects SET metadata = '{"allowed":true}' WHERE id = 'e8000000-0000-4000-8000-000000000602' RETURNING id)
 SELECT is(count(*)::integer, 1, 'Organization configurator can update unassigned counseling object') FROM changed;
 ROLLBACK TO SAVEPOINT allowed_org_storage_writes;
@@ -130,9 +128,8 @@ SELECT is((SELECT id FROM storage.objects), 'e8000000-0000-4000-8000-00000000060
 SELECT set_config('request.jwt.claim.sub', 'e8000000-0000-4000-8000-000000000006', true);
 SELECT ok(public.sensitive_file_object_is_writable('counseling-files', 'e8000000-0000-4000-8000-000000000101/sign-in-rosters/e8000000-0000-4000-8000-000000000401/new.pdf'),
   'Training operator retains Sign-In Roster file write');
-SELECT lives_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
-  VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/sign-in-rosters/e8000000-0000-4000-8000-000000000401/new.pdf', 'e8000000-0000-4000-8000-000000000006', 'e8000000-0000-4000-8000-000000000006', '{}'::jsonb) $$,
-  'Training operator can create Sign-In Roster file');
+SELECT throws_ok($$ INSERT INTO storage.objects (bucket_id, name, owner, owner_id, metadata)
+  VALUES ('counseling-files', 'e8000000-0000-4000-8000-000000000101/sign-in-rosters/e8000000-0000-4000-8000-000000000401/new.pdf', 'e8000000-0000-4000-8000-000000000006', 'e8000000-0000-4000-8000-000000000006', '{}'::jsonb) $$, '42501', NULL, 'Training operator must use the registered server roster uploader');
 SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'e8000000-0000-4000-8000-000000000101/counseling-records/e8000000-0000-4000-8000-000000000301/alpha.pdf'),
   'Training-only operator cannot read counseling file');
 SELECT ok(NOT public.sensitive_file_object_is_readable('counseling-files', 'not-a-valid-path.pdf'), 'invalid sensitive path is denied');

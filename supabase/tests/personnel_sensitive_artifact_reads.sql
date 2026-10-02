@@ -58,6 +58,12 @@ INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VAL
   ('d8000000-0000-4000-8000-000000000504', 'counseling-files', 'd8000000-0000-4000-8000-000000000101/counseling-records/d8000000-0000-4000-8000-000000000303/unassigned.pdf', 'd8000000-0000-4000-8000-000000000001', 'd8000000-0000-4000-8000-000000000001', '{}'::jsonb),
   ('d8000000-0000-4000-8000-000000000505', 'personnel-documents', 'd8000000-0000-4000-8000-000000000102/personnel/d8000000-0000-4000-8000-000000000304/documents/foreign.pdf', 'd8000000-0000-4000-8000-000000000001', 'd8000000-0000-4000-8000-000000000001', '{}'::jsonb);
 
+-- Historical metadata witnesses preserve the separate retained read contract.
+INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
+  ('d8000000-0000-4000-8000-000000000506', 'counseling-files', 'd8000000-0000-4000-8000-000000000101/counseling-records/d8000000-0000-4000-8000-000000000301/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb);
+INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
+  ('d8000000-0000-4000-8000-000000000507', 'personnel-documents', 'd8000000-0000-4000-8000-000000000101/personnel/d8000000-0000-4000-8000-000000000301/documents/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb);
+
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'd8000000-0000-4000-8000-000000000001', true);
 SELECT is((SELECT count(*)::integer FROM public.personnel), 1, 'viewer still sees the ordinary in-Group Person');
@@ -93,12 +99,10 @@ SELECT lives_ok($$ INSERT INTO public.personnel_documents
   (id, organization_id, personnel_id, title, file_path, file_size_bytes, content_type, uploaded_by) VALUES
   ('d8000000-0000-4000-8000-000000000411', 'd8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000301', 'Operate insert', 'd8000000-0000-4000-8000-000000000101/personnel/d8000000-0000-4000-8000-000000000301/documents/operate.pdf', 128, 'application/pdf', 'fixture') $$,
   'operator retains scoped document insert without direct read');
-SELECT lives_ok($$ INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
-  ('d8000000-0000-4000-8000-000000000506', 'counseling-files', 'd8000000-0000-4000-8000-000000000101/counseling-records/d8000000-0000-4000-8000-000000000301/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb) $$,
-  'operator retains scoped counseling file insert without direct read');
-SELECT lives_ok($$ INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
-  ('d8000000-0000-4000-8000-000000000507', 'personnel-documents', 'd8000000-0000-4000-8000-000000000101/personnel/d8000000-0000-4000-8000-000000000301/documents/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb) $$,
-  'operator retains scoped document file insert without direct read');
+SELECT throws_ok($$ INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
+  ('d8000000-0000-4000-8000-000000000506', 'counseling-files', 'd8000000-0000-4000-8000-000000000101/counseling-records/d8000000-0000-4000-8000-000000000301/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb) $$, '42501', NULL, 'operator must use the registered server counseling uploader');
+SELECT throws_ok($$ INSERT INTO storage.objects (id, bucket_id, name, owner, owner_id, metadata) VALUES
+  ('d8000000-0000-4000-8000-000000000507', 'personnel-documents', 'd8000000-0000-4000-8000-000000000101/personnel/d8000000-0000-4000-8000-000000000301/documents/operate.pdf', 'd8000000-0000-4000-8000-000000000002', 'd8000000-0000-4000-8000-000000000002', '{}'::jsonb) $$, '42501', NULL, 'operator must use the registered server document uploader');
 SELECT throws_ok($$ INSERT INTO public.personnel_follow_ups
   (organization_id, personnel_id, title, notes, due_date, status, created_by) VALUES
   ('d8000000-0000-4000-8000-000000000101', 'd8000000-0000-4000-8000-000000000302', 'Denied', 'Denied', '2030-02-02', 'open', 'fixture') $$,

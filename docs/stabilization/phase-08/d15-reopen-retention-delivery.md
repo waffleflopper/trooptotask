@@ -43,7 +43,7 @@ Robert reports the reviewed reconciliation/note/atomic Start migrations live. Th
 
 [Final selected native campaign and supporting preparation/accounting](d15-closing-verification-final-native.tar.gz), SHA-256 `6041ca878ff0847842579339fbce88f3f52c4deb3074c422400da8c9039efe31`, contains1,440 inventoried payloads/1,441members/5,137,648expanded bytes, compressed1,350,159bytes. Inventory excludes itself; every raw byte remains exact. Fresh bounded extraction and all names/hashes pass. Packaging is integrity, not behavior. Original frozen revision/digest above are preserved; post-disposal archive/prose changes alter the checkout fingerprint and earn no new live run.
 
-Run this explicit guarded reader from the repository root with Python supporting `tarfile.data_filter`. It enforces the unchanged per-archive2,500/32MiB and shared5,000/64MiB budgets, checks compressed SHA before extraction and exact payload sets/hashes afterward. Guards remain active under `python -O`.
+Run this explicit guarded reader from the repository root with Python supporting `tarfile.data_filter`. It hashes in1MiB chunks under a2MiB compressed-size cap before extraction, enforces the unchanged per-archive2,500/32MiB and shared5,000/64MiB budgets, and checks exact payload sets/hashes afterward. Guards remain active under `python -O`.
 
 ```python
 from pathlib import Path, PurePosixPath
@@ -62,9 +62,17 @@ expected = {
 }
 Path('.verification/tmp').mkdir(parents=True, exist_ok=True)
 shared = [5000, 64 * 1024 * 1024]
+compressed_limit = 2 * 1024 * 1024
 for name, digest in expected.items():
     archive = Path('docs/stabilization/phase-08') / name
-    require(hashlib.sha256(archive.read_bytes()).hexdigest() == digest, 'Archive hash: ' + name)
+    require(archive.stat().st_size <= compressed_limit, 'Compressed archive size: ' + name)
+    hasher, total = hashlib.sha256(), 0
+    with archive.open('rb') as source:
+        while chunk := source.read(1024 * 1024):
+            total += len(chunk)
+            require(total <= compressed_limit, 'Compressed archive size: ' + name)
+            hasher.update(chunk)
+    require(hasher.hexdigest() == digest, 'Archive hash: ' + name)
     target = Path(tempfile.mkdtemp(prefix='d15-closing-expanded-', dir='.verification/tmp'))
     budget, seen = [2500, 32 * 1024 * 1024], set()
 
@@ -104,3 +112,5 @@ Independent review also identifies obsolete current D15 statements in CURRENT_OW
 Complete independent source/artifact/integration acceptance is GO for clean `b70928e6ae99bcd1c03d4da29ecc410399f14286` against `b6a1e6bfdd6713c4e55a4e37658f5dc777fe8be7`, covering all eleven paths and the whole #1363 outcome. The reviewer independently recomputes Reopen, retention, History, real export bytes, restoration and disposal from expanded observations, verifies every archive payload against raw bytes, and repeats the optimized reader's positive and negative cases. The Organization import integration is compatible without claiming a fresh native run or acceptance of the separately owned D17 work. No unresolved source, product or artifact finding remains. Report SHA-256 `b813b1c3ec4a491dc6d2568b0822d32a05282670d0d69e3b96ee46db0231e720`; support `1bf773e313801aa3ec19eb37ae2b5a054117eeb5d014cc7dbd8cd1408b7d4c14`. These identify the coordinator's temporary review records, not additional archived raw evidence or independent live/production execution.
 
 CodeRabbit CLI0.8.2 completes committed review of the same base/head and all ten readable paths with exit0 and zero findings; the unsupported archive receives the separate expanded assessment above. Log SHA-256 `52e43009619f62154489f70a7d9e110547fd28ec47e823f7bf73755d97966879`. This acceptance-record update changes only three prose files. The final published head still requires applicable DoD/build, green CI, completed hosted review and authorized tree-identical merge/readback. #1492 is ready to complete #1363 through those gates; the issue and a/b are not yet integrated or closed. The earlier failed PR run and superseded full run are not current green credit: the latter's disposable database job passes and cleans up before its redundant stale application job is explicitly cancelled. A new explicit full run must validate the final head's three jobs.
+
+The three-file recording delta at `bb7ed5b4` receives bounded independent GO and completed zero-finding CLI review. Hosted review5397275355 identifies one actionable reader issue: the whole compressed file is allocated before its digest check. The example now enforces a2MiB compressed cap before reading and while hashing in1MiB chunks, with existing digest, extraction budgets and exact inventory checks preserved. Its actual optimized-reader run extracts all1,441 files; wrong digest, zero per/shared/compressed budgets and an owned archive copy growing past the compressed limit after the initial size check each reject before any extracted payload is written. The original archive and all application/helper/recipe/proof inputs remain unchanged. This is a bounded executable-reference correction, not another native campaign; its final review and current-head CI remain required.

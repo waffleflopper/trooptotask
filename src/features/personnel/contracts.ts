@@ -262,7 +262,15 @@ export interface PersonnelWorkspaceRouteData {
 }
 
 /** Detail delivery shares the parent identity and independent streamed lanes. */
-export type { PersonnelDetailHeader, PersonnelDetailStreams } from './personnel-detail.types';
+export type {
+	PersonnelDetailHeader,
+	PersonnelDetailStreams,
+	PersonnelFollowUpsPageData,
+	PersonnelCounselingsPageData,
+	PersonnelDocumentsPageData,
+	PersonnelNotesPageData,
+	PersonnelArchivedArtifactsPageData
+} from './personnel-detail.types';
 export { evaluateUpcomingLosses } from './upcomingLoss';
 export type { UpcomingLossRecord } from './upcomingLoss';
 

@@ -23,3 +23,8 @@ export { default as PersonnelPageView } from './components/PersonnelPageView.sve
 export { personnelWorkspaceHydrator } from './personnelWorkspaceHydration.svelte';
 export { default as PersonnelDetailPageView } from './components/PersonnelDetailPageView.svelte';
 export { default as PersonnelImportPage } from './components/PersonnelImportPage.svelte';
+export { default as PersonnelFollowUpsPageView } from './components/PersonnelFollowUpsPageView.svelte';
+export { default as PersonnelCounselingsPageView } from './components/PersonnelCounselingsPageView.svelte';
+export { default as PersonnelDocumentsPageView } from './components/PersonnelDocumentsPageView.svelte';
+export { default as PersonnelNotesPageView } from './components/PersonnelNotesPageView.svelte';
+export { default as PersonnelArchivedArtifactsPageView } from './components/PersonnelArchivedArtifactsPageView.svelte';

@@ -18,6 +18,7 @@ import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.
 import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
+import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 afterEach(() => {
 	personnelRosterHydration.load([], 'org-test-reset');
@@ -74,6 +75,232 @@ function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 		scopeSet: { kind: 'groups', groupIds: ['g-1'] }
 	});
 }
+
+function deferredResponse() {
+	let respond!: (response: Response) => void;
+	const promise = new Promise<Response>((resolve) => {
+		respond = resolve;
+	});
+	return { promise, respond };
+}
+
+describe('Onboarding reconciliation draft lifetime', () => {
+	it.each([
+		['switch', 200, false],
+		['switch', 503, false],
+		['assign', 200, false],
+		['assign', 503, false],
+		['switch', 200, true],
+		['switch', 503, true],
+		['assign', 200, true],
+		['assign', 503, true]
+	] as const)(
+		'keeps a reopened %s draft independent of earlier response %s with new submission pending=%s',
+		async (kind, status, newRequestPending) => {
+			onboardingStore.load([makeOnboarding({ templateId: kind === 'assign' ? null : 'tpl-1' })], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const draft =
+				kind === 'switch'
+					? {
+							open: () => ctx.openSwitchTemplate('ob-1'),
+							close: () => ctx.closeSwitchTemplate(),
+							select: (id: string) => (ctx.switchTemplateSelected = id),
+							submit: () => ctx.handleSwitchTemplate(),
+							state: () => ({
+								id: ctx.switchingTemplateId,
+								selected: ctx.switchTemplateSelected,
+								pending: ctx.switchingTemplate,
+								error: ctx.switchTemplateError
+							})
+						}
+					: {
+							open: () => ctx.openAssignTemplate('ob-1'),
+							close: () => ctx.closeAssignTemplate(),
+							select: (id: string) => (ctx.assignTemplateSelected = id),
+							submit: () => ctx.handleAssignTemplate(),
+							state: () => ({
+								id: ctx.assigningTemplateId,
+								selected: ctx.assignTemplateSelected,
+								pending: ctx.assigningTemplate,
+								error: ctx.assignTemplateError
+							})
+						};
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockReturnValueOnce(oldResponse.promise)
+					.mockReturnValueOnce(newResponse.promise)
+					.mockResolvedValueOnce(Response.json({ templateId: 'tpl-a', steps: [] }))
+			);
+			draft.open();
+			draft.select('tpl-b');
+			const older = draft.submit();
+			draft.close();
+			draft.open();
+			draft.select('tpl-a');
+			expect.soft(draft.state()).toEqual({ id: 'ob-1', selected: 'tpl-a', pending: false, error: '' });
+			let newer = newRequestPending ? draft.submit() : undefined;
+			oldResponse.respond(
+				Response.json(status === 200 ? { templateId: 'tpl-b', steps: [] } : { message: 'Earlier selection failed' }, {
+					status
+				})
+			);
+			await older;
+			expect.soft(draft.state()).toEqual({ id: 'ob-1', selected: 'tpl-a', pending: newRequestPending, error: '' });
+			newer ??= draft.submit();
+			newResponse.respond(Response.json({ message: 'New selection failed' }, { status: 503 }));
+			await newer;
+			expect(draft.state()).toEqual({ id: 'ob-1', selected: 'tpl-a', pending: false, error: 'New selection failed' });
+			expect(onboardingStore.getById('ob-1')?.templateId).toBe(
+				status === 200 ? 'tpl-b' : kind === 'assign' ? null : 'tpl-1'
+			);
+
+			await draft.submit();
+			expect(draft.state()).toEqual({ id: null, selected: 'tpl-a', pending: false, error: '' });
+			expect(onboardingStore.getById('ob-1')?.templateId).toBe('tpl-a');
+		}
+	);
+
+	it.each(['same-organization-load', 'disposed', 'organization-return'] as const)(
+		'preserves current response admission for %s',
+		async (lifetime) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const response = deferredResponse();
+			vi.stubGlobal('fetch', () => response.promise);
+			ctx.openSwitchTemplate('ob-1');
+			ctx.switchTemplateSelected = 'tpl-b';
+			const pending = ctx.handleSwitchTemplate();
+			if (lifetime === 'same-organization-load') onboardingStore.load([makeOnboarding()], 'org-1');
+			else if (lifetime === 'disposed') ctx.dispose();
+			else {
+				onboardingStore.enterOrganization('org-2');
+				onboardingStore.load([makeOnboarding()], 'org-1');
+			}
+			response.respond(Response.json({ templateId: 'tpl-b', steps: [] }));
+			await pending;
+			expect(ctx.switchingTemplateId).toBe(lifetime === 'same-organization-load' ? null : 'ob-1');
+			expect(ctx.switchingTemplate).toBe(lifetime !== 'same-organization-load');
+			expect(ctx.switchTemplateError).toBe('');
+		}
+	);
+});
+
+describe('Onboarding Re-sync feedback lifetime', () => {
+	it.each(['older-first', 'older-last'] as const)(
+		'keeps each packet failure when overlapping delivery is %s',
+		async (order) => {
+			onboardingStore.load([makeOnboarding(), makeOnboarding({ id: 'ob-2', personnelId: 'p-2' })], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+			const older = ctx.handleResync('ob-1');
+			const newer = ctx.handleResync('ob-2');
+			if (order === 'older-first') {
+				oldResponse.respond(Response.json({ message: 'Older packet failed' }, { status: 503 }));
+				await older;
+				expect.soft(ctx.isResyncing('ob-1')).toBe(false);
+				expect.soft(ctx.isResyncing('ob-2')).toBe(true);
+				expect.soft(ctx.getResyncError('ob-1')).toBe('Older packet failed');
+			}
+			newResponse.respond(Response.json({ message: 'Current packet failed' }, { status: 503 }));
+			await newer;
+			if (order === 'older-last') {
+				oldResponse.respond(Response.json({ message: 'Older packet failed' }, { status: 503 }));
+				await older;
+			}
+			expect(ctx.isResyncing('ob-1')).toBe(false);
+			expect(ctx.isResyncing('ob-2')).toBe(false);
+			expect(ctx.getResyncError('ob-1')).toBe('Older packet failed');
+			expect(ctx.getResyncError('ob-2')).toBe('Current packet failed');
+		}
+	);
+
+	it('keeps an earlier packet failure while another packet starts and succeeds', async () => {
+		onboardingStore.load([makeOnboarding(), makeOnboarding({ id: 'ob-2', personnelId: 'p-2' })], 'org-1');
+		const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+		const otherResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ message: 'First packet failed' }, { status: 503 }))
+				.mockReturnValueOnce(otherResponse.promise)
+		);
+		await ctx.handleResync('ob-1');
+		const other = ctx.handleResync('ob-2');
+		expect.soft(ctx.getResyncError('ob-1')).toBe('First packet failed');
+		expect(ctx.isResyncing('ob-2')).toBe(true);
+		otherResponse.respond(Response.json({ templateId: 'tpl-1', steps: [] }));
+		await other;
+		expect(ctx.getResyncError('ob-1')).toBe('First packet failed');
+		expect(ctx.getResyncError('ob-2')).toBeNull();
+		expect(ctx.isResyncing('ob-2')).toBe(false);
+	});
+
+	it.each([
+		['older-first', 200, 503],
+		['older-last', 200, 503],
+		['older-first', 503, 200],
+		['older-last', 503, 200]
+	] as const)(
+		'keeps the newer same-packet result for %s delivery of %s then %s',
+		async (order, oldStatus, newStatus) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+			const older = ctx.handleResync('ob-1');
+			const newer = ctx.handleResync('ob-1');
+			const oldBody = oldStatus === 200 ? { templateId: 'tpl-1', steps: [] } : { message: 'Old request failed' };
+			if (order === 'older-first') {
+				oldResponse.respond(Response.json(oldBody, { status: oldStatus }));
+				await older;
+				expect(ctx.isResyncing('ob-1')).toBe(true);
+				expect(ctx.getResyncError('ob-1')).toBeNull();
+			}
+			newResponse.respond(
+				Response.json(newStatus === 200 ? { templateId: 'tpl-1', steps: [] } : { message: 'New request failed' }, {
+					status: newStatus
+				})
+			);
+			await newer;
+			if (order === 'older-last') {
+				oldResponse.respond(Response.json(oldBody, { status: oldStatus }));
+				await older;
+			}
+			expect(ctx.isResyncing('ob-1')).toBe(false);
+			expect(ctx.getResyncError('ob-1')).toBe(newStatus === 200 ? null : 'New request failed');
+		}
+	);
+
+	it.each(['same-organization-load', 'disposed', 'organization-return'] as const)(
+		'admits packet failure feedback only in the current %s context',
+		async (lifetime) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const response = deferredResponse();
+			vi.stubGlobal('fetch', () => response.promise);
+			const pending = ctx.handleResync('ob-1');
+			if (lifetime === 'same-organization-load') onboardingStore.load([makeOnboarding()], 'org-1');
+			else if (lifetime === 'disposed') ctx.dispose();
+			else {
+				onboardingStore.enterOrganization('org-2');
+				onboardingStore.load([makeOnboarding()], 'org-1');
+			}
+			response.respond(Response.json({ message: 'Current packet unavailable' }, { status: 503 }));
+			await pending;
+			expect(ctx.getResyncError('ob-1')).toBe(
+				lifetime === 'same-organization-load' ? 'Current packet unavailable' : null
+			);
+		}
+	);
+});
 
 describe('OnboardingPageContext Organization input', () => {
 	it('uses the canonical Organization segment for History, Templates and Training links', () => {

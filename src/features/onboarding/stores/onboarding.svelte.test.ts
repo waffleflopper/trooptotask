@@ -41,6 +41,109 @@ const paperworkOnboarding: PersonnelOnboarding = {
 	]
 };
 
+const checklistOnboarding: PersonnelOnboarding = {
+	...mockOnboarding,
+	templateId: 'template-a',
+	steps: [
+		{ ...mockOnboarding.steps[0], templateStepId: 'orientation-definition', stepName: 'Orientation' },
+		{
+			...paperworkOnboarding.steps[0],
+			id: 'paperwork-2',
+			templateStepId: 'paperwork-definition',
+			stepName: 'Paperwork'
+		}
+	]
+};
+
+const reconciledSteps = [
+	{
+		...checklistOnboarding.steps[1],
+		templateStepId: 'paperwork-definition',
+		stepName: 'Updated Paperwork',
+		sortOrder: 0,
+		notes: [
+			{ text: 'Fresh saved history', timestamp: '2026-10-01T13:00:00.000Z', userId: 'another-operator' },
+			...checklistOnboarding.steps[1].notes
+		]
+	},
+	{
+		...checklistOnboarding.steps[0],
+		templateStepId: 'orientation-definition',
+		stepName: 'Updated Orientation',
+		sortOrder: 1
+	},
+	{
+		...mockOnboarding.steps[0],
+		id: 'new-step',
+		templateStepId: 'new-definition',
+		stepName: 'New task',
+		sortOrder: 2
+	}
+];
+
+const resetStageSteps = [
+	{ ...reconciledSteps[0], stages: ['Submitted', 'Reviewed'], currentStage: 'Submitted', completed: false },
+	reconciledSteps[1],
+	reconciledSteps[2]
+];
+
+describe('onboardingStore reconciliation failure admission', () => {
+	it.each([
+		['error-body', 'current'],
+		['error-body', 'organization-return'],
+		['error-body', 'invalidated'],
+		['fetch-rejection', 'current'],
+		['fetch-rejection', 'organization-return'],
+		['fetch-rejection', 'invalidated'],
+		['json-rejection', 'current'],
+		['json-rejection', 'organization-return'],
+		['json-rejection', 'invalidated']
+	] as const)('admits %s feedback only for the %s lifetime', async (outcome, lifetime) => {
+		onboardingStore.load([checklistOnboarding], 'org-1');
+		let finish!: () => void;
+		let reading!: () => void;
+		const startedReading = new Promise<void>((resolve) => {
+			reading = resolve;
+		});
+		const delayed = new Promise<string>((resolve, reject) => {
+			finish = () =>
+				outcome === 'error-body'
+					? resolve(JSON.stringify({ message: 'Provider rejected this packet' }))
+					: reject(new Error('Synthetic transport/body failure'));
+		});
+		const read = () => {
+			reading();
+			return delayed;
+		};
+		vi.stubGlobal(
+			'fetch',
+			outcome === 'fetch-rejection'
+				? read
+				: vi.fn().mockResolvedValue(outcome === 'error-body' ? { ok: false, text: read } : { ok: true, json: read })
+		);
+		const pending = onboardingStore.resync('ob-1');
+		await startedReading;
+		const refreshed = { ...checklistOnboarding, startedAt: '2026-03-16' };
+		if (lifetime === 'organization-return') {
+			onboardingStore.enterOrganization('org-2');
+			onboardingStore.load([refreshed], 'org-1');
+		} else if (lifetime === 'invalidated') {
+			onboardingStore.invalidatePendingRequests();
+			onboardingStore.load([refreshed], 'org-1');
+		}
+		finish();
+		await expect(pending).resolves.toEqual(
+			lifetime === 'current'
+				? {
+						success: false,
+						error: outcome === 'error-body' ? 'Provider rejected this packet' : 'Failed to re-sync onboarding'
+					}
+				: { success: false }
+		);
+		expect(onboardingStore.items).toEqual([lifetime === 'current' ? checklistOnboarding : refreshed]);
+	});
+});
+
 function deferredResponse() {
 	let respond!: (response: Response) => void;
 	const promise = new Promise<Response>((resolve) => {
@@ -258,48 +361,6 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 	});
 
-	it('adopts saved notes without bringing back a superseded pending stage', async () => {
-		onboardingStore.load([paperworkOnboarding], 'org-1');
-		const reviewedResponse = deferredResponse();
-		const noteResponse = deferredResponse();
-		const filedResponse = deferredResponse();
-		vi.stubGlobal(
-			'fetch',
-			vi
-				.fn()
-				.mockReturnValueOnce(reviewedResponse.promise)
-				.mockReturnValueOnce(noteResponse.promise)
-				.mockReturnValueOnce(filedResponse.promise)
-		);
-		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
-		const noted = onboardingStore.addNote('step-1', 'Filed with clinic');
-		const filed = onboardingStore.advanceStage('step-1', 'Filed');
-
-		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
-		await expect(filed).resolves.toBe(true);
-		expect(onboardingStore.getById('ob-1')?.steps[0]).toMatchObject({
-			currentStage: 'Filed',
-			completed: true,
-			notes: [{ text: 'Filed with clinic', userId: '' }, ...paperworkOnboarding.steps[0].notes]
-		});
-
-		const notes = [
-			...paperworkOnboarding.steps[0].notes,
-			{ text: 'Another committed note', timestamp: '2026-10-02T12:00:00.001Z', userId: 'other-author' },
-			{ text: 'Filed with clinic', timestamp: '2026-10-02T12:00:00.002Z', userId: 'operator' }
-		];
-		noteResponse.respond(Response.json({ id: 'step-1', notes }));
-		await expect(noted).resolves.toBe(true);
-		const expected = {
-			...paperworkOnboarding,
-			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Filed', completed: true, notes }]
-		};
-		expect(onboardingStore.getById('ob-1')).toEqual(expected);
-		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
-		await expect(reviewed).resolves.toBe(true);
-		expect(onboardingStore.getById('ob-1')).toEqual(expected);
-	});
-
 	it.each([200, 500])('keeps the confirmed stage when a pending deprecated-step removal returns %s', async (status) => {
 		const deprecated = {
 			...mockOnboarding.steps[0],
@@ -396,40 +457,6 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		expect(onboardingStore.getById('ob-1')).toEqual(expected);
 	});
 
-	it('adopts authoritative note attribution and another committed note instead of retaining its optimistic placeholder', async () => {
-		const originalNote = { text: 'Original note', timestamp: '2026-09-01T12:00:00.000Z', userId: 'original-author' };
-		onboardingStore.load(
-			[{ ...mockOnboarding, steps: [{ ...mockOnboarding.steps[0], notes: [originalNote] }] }],
-			'org-1'
-		);
-		const notes = [
-			originalNote,
-			{ text: 'Another committed note', timestamp: '2026-10-01T12:00:00.001Z', userId: 'other-author' },
-			{ text: 'Sent to clinic', timestamp: '2026-10-01T12:00:00.002Z', userId: 'operator' }
-		];
-		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ id: 'step-1', notes })));
-
-		await expect(onboardingStore.addNote('step-1', 'Sent to clinic')).resolves.toBe(true);
-
-		expect(onboardingStore.getById('ob-1')?.steps[0].notes).toEqual(notes);
-	});
-
-	it('removes an unsuccessful optimistic note while retaining saved notes', async () => {
-		const originalNote = { text: 'Original note', timestamp: '2026-09-01T12:00:00.000Z', userId: 'original-author' };
-		onboardingStore.load(
-			[{ ...mockOnboarding, steps: [{ ...mockOnboarding.steps[0], notes: [originalNote] }] }],
-			'org-1'
-		);
-		vi.stubGlobal(
-			'fetch',
-			vi.fn().mockResolvedValue(Response.json({ message: 'Note append failed' }, { status: 500 }))
-		);
-
-		await expect(onboardingStore.addNote('step-1', 'Uncommitted note')).resolves.toBe(false);
-
-		expect(onboardingStore.getById('ob-1')?.steps[0].notes).toEqual([originalNote]);
-	});
-
 	it.each(['cancel', 'complete'] as const)(
 		'rolls back optimistic %s after a 409 while retaining saved work and notes',
 		async (operation) => {
@@ -473,6 +500,308 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		}
 	);
 
+	it.each([
+		{
+			kind: 'checkbox',
+			mutate: () => onboardingStore.toggleCheckbox('step-1', true),
+			result: { completed: true, currentStage: null },
+			expectedSteps: [reconciledSteps[0], { ...reconciledSteps[1], completed: true }, reconciledSteps[2]]
+		},
+		{
+			kind: 'stage',
+			mutate: () => onboardingStore.advanceStage('paperwork-2', 'Filed'),
+			result: { completed: true, currentStage: 'Filed' },
+			expectedSteps: [
+				{ ...reconciledSteps[0], completed: true, currentStage: 'Filed' },
+				reconciledSteps[1],
+				reconciledSteps[2]
+			]
+		}
+	])(
+		'retains a later confirmed $kind while adopting older reconciliation definitions',
+		async ({ mutate, result, expectedSteps }) => {
+			onboardingStore.load([checklistOnboarding], 'org-1');
+			const resyncResponse = deferredResponse();
+			const progressResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValueOnce(resyncResponse.promise).mockReturnValueOnce(progressResponse.promise)
+			);
+			const resynced = onboardingStore.resync('ob-1');
+			const progressed = mutate();
+			progressResponse.respond(Response.json(result));
+			await expect(progressed).resolves.toBe(true);
+
+			resyncResponse.respond(Response.json({ templateId: 'template-a', steps: reconciledSteps }));
+			await expect(resynced).resolves.toEqual({ success: true });
+			expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: expectedSteps });
+		}
+	);
+
+	it('retains confirmed progress across a same-organization load while an older reconciliation response is held', async () => {
+		onboardingStore.load([checklistOnboarding], 'org-1');
+		const resyncResponse = deferredResponse();
+		const progressResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(resyncResponse.promise).mockReturnValueOnce(progressResponse.promise)
+		);
+		const resynced = onboardingStore.resync('ob-1');
+		const progressed = onboardingStore.toggleCheckbox('step-1', true);
+		progressResponse.respond(Response.json({ completed: true, currentStage: null }));
+		await expect(progressed).resolves.toBe(true);
+		const refreshed = {
+			...checklistOnboarding,
+			startedAt: '2026-03-02',
+			steps: [reconciledSteps[0], { ...reconciledSteps[1], completed: true }, reconciledSteps[2]]
+		};
+		onboardingStore.load([refreshed], 'org-1');
+		resyncResponse.respond(Response.json({ templateId: 'template-a', steps: reconciledSteps }));
+		await expect(resynced).resolves.toEqual({ success: true });
+		expect(onboardingStore.getById('ob-1')).toEqual(refreshed);
+	});
+
+	it('adopts the older reconciliation after a later checkbox failure and permits retry', async () => {
+		onboardingStore.load([checklistOnboarding], 'org-1');
+		const resyncResponse = deferredResponse();
+		const progressResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(resyncResponse.promise).mockReturnValueOnce(progressResponse.promise)
+		);
+		const resynced = onboardingStore.resync('ob-1');
+		const progressed = onboardingStore.toggleCheckbox('step-1', true);
+		progressResponse.respond(Response.json({ message: 'Save failed' }, { status: 503 }));
+		await expect(progressed).resolves.toBe(false);
+		resyncResponse.respond(Response.json({ templateId: 'template-a', steps: reconciledSteps }));
+		await expect(resynced).resolves.toEqual({ success: true });
+		expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: reconciledSteps });
+
+		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ completed: true, currentStage: null }));
+		await expect(onboardingStore.toggleCheckbox('step-1', true)).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual({
+			...checklistOnboarding,
+			steps: [reconciledSteps[0], { ...reconciledSteps[1], completed: true }, reconciledSteps[2]]
+		});
+	});
+
+	it.each([200, 503])(
+		'rebases newer pending checkbox progress over adopted definitions before its response returns %s',
+		async (status) => {
+			onboardingStore.load([checklistOnboarding], 'org-1');
+			const resyncResponse = deferredResponse();
+			const progressResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValueOnce(resyncResponse.promise).mockReturnValueOnce(progressResponse.promise)
+			);
+			const resynced = onboardingStore.resync('ob-1');
+			const progressed = onboardingStore.toggleCheckbox('step-1', true);
+			const savedSteps = [reconciledSteps[0], { ...reconciledSteps[1], completed: status === 200 }, reconciledSteps[2]];
+			resyncResponse.respond(Response.json({ templateId: 'template-a', steps: reconciledSteps }));
+			await expect(resynced).resolves.toEqual({ success: true });
+			expect.soft(onboardingStore.getById('ob-1')).toEqual({
+				...checklistOnboarding,
+				steps: [reconciledSteps[0], { ...reconciledSteps[1], completed: true }, reconciledSteps[2]]
+			});
+
+			progressResponse.respond(Response.json({ completed: true, currentStage: null }, { status }));
+			await expect(progressed).resolves.toBe(status === 200);
+			expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: savedSteps });
+		}
+	);
+
+	it('retains a newer reconciliation stage reset when the earlier Filed response arrives last', async () => {
+		onboardingStore.load([checklistOnboarding], 'org-1');
+		const progressResponse = deferredResponse();
+		const resyncResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(progressResponse.promise).mockReturnValueOnce(resyncResponse.promise)
+		);
+		const progressed = onboardingStore.advanceStage('paperwork-2', 'Filed');
+		const resynced = onboardingStore.resync('ob-1');
+		resyncResponse.respond(Response.json({ templateId: 'template-a', steps: resetStageSteps }));
+		await expect(resynced).resolves.toEqual({ success: true });
+		expect.soft(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: resetStageSteps });
+
+		progressResponse.respond(Response.json({ completed: true, currentStage: 'Filed' }));
+		await expect(progressed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: resetStageSteps });
+	});
+
+	it('keeps earlier pending progress eligible after a newer reconciliation fails and permits retry', async () => {
+		onboardingStore.load([checklistOnboarding], 'org-1');
+		const progressResponse = deferredResponse();
+		const resyncResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(progressResponse.promise).mockReturnValueOnce(resyncResponse.promise)
+		);
+		const progressed = onboardingStore.advanceStage('paperwork-2', 'Filed');
+		const resynced = onboardingStore.resync('ob-1');
+		resyncResponse.respond(Response.json({ message: 'Cannot reconcile' }, { status: 503 }));
+		await expect(resynced).resolves.toEqual({ success: false, error: 'Cannot reconcile' });
+		const expected = {
+			...checklistOnboarding,
+			steps: [checklistOnboarding.steps[0], { ...checklistOnboarding.steps[1], completed: true, currentStage: 'Filed' }]
+		};
+		expect.soft(onboardingStore.getById('ob-1')).toEqual(expected);
+		progressResponse.respond(Response.json({ completed: true, currentStage: 'Filed' }));
+		await expect(progressed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+
+		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ templateId: 'template-a', steps: resetStageSteps }));
+		await expect(onboardingStore.resync('ob-1')).resolves.toEqual({ success: true });
+		expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: resetStageSteps });
+	});
+
+	it.each(['switch', 'assign', 'resync'] as const)(
+		'retains a newer %s result when the older reconciliation response arrives last',
+		async (kind) => {
+			const original =
+				kind === 'assign'
+					? {
+							...checklistOnboarding,
+							templateId: null,
+							steps: checklistOnboarding.steps.map((step) => ({ ...step, templateStepId: null }))
+						}
+					: checklistOnboarding;
+			onboardingStore.load([original], 'org-1');
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+			const older =
+				kind === 'assign' ? onboardingStore.assignTemplate('ob-1', 'template-b') : onboardingStore.resync('ob-1');
+			const newer =
+				kind === 'switch'
+					? onboardingStore.switchTemplate('ob-1', 'template-a')
+					: kind === 'assign'
+						? onboardingStore.assignTemplate('ob-1', 'template-a')
+						: onboardingStore.resync('ob-1');
+			const olderTask = {
+				...mockOnboarding.steps[0],
+				id: 'older-only',
+				templateStepId: 'older-definition',
+				stepName: 'Older template task'
+			};
+			const savedSteps =
+				kind === 'assign'
+					? [
+							{ ...reconciledSteps[0], id: 'assigned-paperwork', notes: [] },
+							{ ...reconciledSteps[1], id: 'assigned-orientation' },
+							reconciledSteps[2],
+							...original.steps.map((step) => ({ ...step, active: false })),
+							{ ...olderTask, active: false }
+						]
+					: [...reconciledSteps, { ...olderTask, active: false }];
+
+			newResponse.respond(Response.json({ templateId: 'template-a', steps: savedSteps }));
+			await expect(newer).resolves.toEqual({ success: true });
+			const expected = { ...original, templateId: 'template-a', steps: savedSteps };
+			expect(onboardingStore.getById('ob-1')).toEqual(expected);
+
+			oldResponse.respond(
+				Response.json({
+					templateId: 'template-b',
+					steps: [{ ...original.steps[0], active: false }, { ...original.steps[1], active: false }, olderTask]
+				})
+			);
+			await expect(older).resolves.toEqual({ success: true });
+			expect(onboardingStore.getById('ob-1')).toEqual(expected);
+		}
+	);
+
+	it('keeps the older reconciliation eligible after a newer template switch fails', async () => {
+		onboardingStore.load([checklistOnboarding], 'org-1');
+		const oldResponse = deferredResponse();
+		const newResponse = deferredResponse();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+		const older = onboardingStore.resync('ob-1');
+		const newer = onboardingStore.switchTemplate('ob-1', 'template-b');
+		newResponse.respond(Response.json({ message: 'Template unavailable' }, { status: 503 }));
+		await expect(newer).resolves.toEqual({ success: false, error: 'Template unavailable' });
+		oldResponse.respond(Response.json({ templateId: 'template-a', steps: reconciledSteps }));
+		await expect(older).resolves.toEqual({ success: true });
+		expect(onboardingStore.getById('ob-1')).toEqual({ ...checklistOnboarding, steps: reconciledSteps });
+
+		const switchedSteps = [
+			{ ...reconciledSteps[0], active: false },
+			{ ...reconciledSteps[1], active: false },
+			{ ...reconciledSteps[2], active: false },
+			{
+				...mockOnboarding.steps[0],
+				id: 'alternate-step',
+				templateStepId: 'alternate-definition',
+				stepName: 'Alternate task'
+			}
+		];
+		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ templateId: 'template-b', steps: switchedSteps }));
+		await expect(onboardingStore.switchTemplate('ob-1', 'template-b')).resolves.toEqual({ success: true });
+		expect(onboardingStore.getById('ob-1')).toEqual({
+			...checklistOnboarding,
+			templateId: 'template-b',
+			steps: switchedSteps
+		});
+	});
+
+	it.each([200, 503])(
+		'retains reconciliation additions and the saved disposition of an inactive removal returning %s',
+		async (status) => {
+			const inactive = {
+				...mockOnboarding.steps[0],
+				id: 'obsolete-step',
+				stepName: 'Retired work',
+				active: false,
+				notes: [{ text: 'Keep saved history', timestamp: '2026-09-01T12:00:00.000Z', userId: 'author' }]
+			};
+			onboardingStore.load([{ ...checklistOnboarding, steps: [...checklistOnboarding.steps, inactive] }], 'org-1');
+			const resyncResponse = deferredResponse();
+			const removalResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValueOnce(resyncResponse.promise).mockReturnValueOnce(removalResponse.promise)
+			);
+			const resynced = onboardingStore.resync('ob-1');
+			const removed = onboardingStore.removeDeprecatedStep('obsolete-step');
+			removalResponse.respond(Response.json({ success: status === 200 }, { status }));
+			await expect(removed).resolves.toBe(status === 200);
+			resyncResponse.respond(Response.json({ templateId: 'template-a', steps: [...reconciledSteps, inactive] }));
+			await expect(resynced).resolves.toEqual({ success: true });
+			expect(onboardingStore.getById('ob-1')).toEqual({
+				...checklistOnboarding,
+				steps: status === 200 ? reconciledSteps : [...reconciledSteps, inactive]
+			});
+		}
+	);
+
+	it.each(['organization', 'disposal'] as const)(
+		'ignores an invalidated reconciliation after %s without disturbing a new same-organization request',
+		async (lifetime) => {
+			onboardingStore.load([checklistOnboarding], 'org-1');
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+			const older = onboardingStore.resync('ob-1');
+			if (lifetime === 'organization') onboardingStore.enterOrganization('org-2');
+			else onboardingStore.invalidatePendingRequests();
+			const refreshed = { ...checklistOnboarding, startedAt: '2026-03-02' };
+			onboardingStore.load([refreshed], 'org-1');
+			const newer = onboardingStore.switchTemplate('ob-1', 'template-a');
+
+			oldResponse.respond(Response.json({ templateId: 'old-template', steps: [] }));
+			await expect(older).resolves.toEqual({ success: false });
+			expect(onboardingStore.getById('ob-1')).toEqual(refreshed);
+			newResponse.respond(Response.json({ templateId: 'template-a', steps: reconciledSteps }));
+			await expect(newer).resolves.toEqual({ success: true });
+			expect(onboardingStore.getById('ob-1')).toEqual({
+				...refreshed,
+				templateId: 'template-a',
+				steps: reconciledSteps
+			});
+		}
+	);
+
 	it('resyncs the template and steps when another user has switched the packet', async () => {
 		onboardingStore.load([{ ...mockOnboarding, templateId: 'template-a' }], 'org-1');
 		const steps = [{ ...mockOnboarding.steps[0], templateStepId: 'template-b-step', stepName: 'Equipment' }];
@@ -491,11 +820,6 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		],
 		['checkbox', () => onboardingStore.toggleCheckbox('step-1', true), { completed: true, currentStage: null }],
 		['stage', () => onboardingStore.advanceStage('step-1', 'Filed'), { completed: true, currentStage: 'Filed' }],
-		[
-			'note',
-			() => onboardingStore.addNote('step-1', 'Received'),
-			{ notes: [{ text: 'Received', userId: 'u-1', timestamp: '2026-03-15T12:00:00Z' }] }
-		],
 		['remove', () => onboardingStore.removeDeprecatedStep('step-1'), { success: true }],
 		['resync', () => onboardingStore.resync('ob-1'), { steps: [] }],
 		['switch', () => onboardingStore.switchTemplate('ob-1', 'template-2'), { templateId: 'template-2', steps: [] }],

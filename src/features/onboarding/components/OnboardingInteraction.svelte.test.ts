@@ -193,6 +193,149 @@ describe('Onboarding retained interactions', () => {
 		await waitFor(() => expect(onboardingStore.getById('packet-1')?.steps[0].currentStage).toBe('Reviewed'));
 	});
 
+	it('shows Re-sync failure inside its packet detail, excludes another packet, and clears it after retry', async () => {
+		onboardingStore.load(
+			[
+				packet,
+				{
+					...packet,
+					id: 'packet-2',
+					personnelId: 'person-2',
+					steps: [{ ...packet.steps[0], id: 'step-2', onboardingId: 'packet-2' }]
+				}
+			],
+			'org-1'
+		);
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ message: 'Template unavailable' }, { status: 503 }))
+				.mockResolvedValueOnce(Response.json({ templateId: packet.templateId, steps: [] }))
+				.mockResolvedValueOnce(Response.json({ templateId: packet.templateId, steps: packet.steps }))
+		);
+		const ctx = mount();
+		const resync = vi.spyOn(ctx, 'handleResync');
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		const ownDetail = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: 'Re-sync' }));
+		await resync.mock.results[0].value;
+		await waitFor(() => expect(ctx.getResyncError(packet.id)).toBe('Template unavailable'));
+		const notice = within(ownDetail).queryByRole('alert');
+		expect.soft(notice).not.toBeNull();
+		if (notice) expect(notice.textContent).toContain('Template unavailable');
+		expect((within(ownDetail).getByRole('button', { name: 'Re-sync' }) as HTMLButtonElement).disabled).toBe(false);
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(screen.getByRole('alert').textContent).toContain('Template unavailable');
+
+		await fireEvent.click(screen.getByRole('button', { name: /CPL Jones, Alex/ }));
+		const otherDetail = await screen.findByRole('dialog', { name: 'CPL Jones, Alex' });
+		expect(within(otherDetail).queryByRole('alert')).toBeNull();
+		await fireEvent.click(within(otherDetail).getByRole('button', { name: 'Re-sync' }));
+		await resync.mock.results[1].value;
+		expect(within(otherDetail).queryByRole('alert')).toBeNull();
+		await fireEvent.click(within(otherDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		const reopened = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		expect.soft(within(reopened).queryByRole('alert')).not.toBeNull();
+		await fireEvent.click(within(reopened).getByRole('button', { name: 'Re-sync' }));
+		await resync.mock.results[2].value;
+		await waitFor(() => expect(within(reopened).queryByRole('alert')).toBeNull());
+		expect(ctx.getResyncError(packet.id)).toBeNull();
+		expect(onboardingStore.getById(packet.id)).toEqual(packet);
+	});
+
+	it('keeps both packet Re-sync controls pending independently and retains the failing packet feedback', async () => {
+		const otherPacket = { ...packet, id: 'packet-2', personnelId: 'person-2', steps: [] };
+		onboardingStore.load([packet, otherPacket], 'org-1');
+		let firstResponse!: (response: Response) => void;
+		let otherResponse!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockReturnValueOnce(
+					new Promise<Response>((resolve) => {
+						firstResponse = resolve;
+					})
+				)
+				.mockReturnValueOnce(
+					new Promise<Response>((resolve) => {
+						otherResponse = resolve;
+					})
+				)
+		);
+		const ctx = mount();
+		const resync = vi.spyOn(ctx, 'handleResync');
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		let ownDetail = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: /Re-sync/ }));
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: /CPL Jones, Alex/ }));
+		let otherDetail = await screen.findByRole('dialog', { name: 'CPL Jones, Alex' });
+		await fireEvent.click(within(otherDetail).getByRole('button', { name: /Re-sync/ }));
+		await fireEvent.click(within(otherDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		ownDetail = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		expect.soft((within(ownDetail).getByRole('button', { name: /Re-sync/ }) as HTMLButtonElement).disabled).toBe(true);
+		firstResponse(Response.json({ message: 'First packet unavailable' }, { status: 503 }));
+		await resync.mock.results[0].value;
+		await waitFor(() =>
+			expect((within(ownDetail).getByRole('button', { name: /Re-sync/ }) as HTMLButtonElement).disabled).toBe(false)
+		);
+		expect.soft(within(ownDetail).queryByRole('alert')).not.toBeNull();
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: /CPL Jones, Alex/ }));
+		otherDetail = await screen.findByRole('dialog', { name: 'CPL Jones, Alex' });
+		expect
+			.soft((within(otherDetail).getByRole('button', { name: /Re-sync/ }) as HTMLButtonElement).disabled)
+			.toBe(true);
+		otherResponse(Response.json({ templateId: otherPacket.templateId, steps: otherPacket.steps }));
+		await resync.mock.results[1].value;
+		await waitFor(() =>
+			expect((within(otherDetail).getByRole('button', { name: /Re-sync/ }) as HTMLButtonElement).disabled).toBe(false)
+		);
+		expect(within(otherDetail).queryByRole('alert')).toBeNull();
+		await fireEvent.click(within(otherDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		ownDetail = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		expect.soft(within(ownDetail).queryByRole('alert')).not.toBeNull();
+	});
+
+	it('dismisses only the chosen packet error in the pipeline and its detail', async () => {
+		onboardingStore.load([packet, { ...packet, id: 'packet-2', personnelId: 'person-2', steps: [] }], 'org-1');
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ message: 'First packet unavailable' }, { status: 503 }))
+				.mockResolvedValueOnce(Response.json({ message: 'Other packet unavailable' }, { status: 503 }))
+		);
+		const ctx = mount();
+		await ctx.handleResync(packet.id);
+		await ctx.handleResync('packet-2');
+		const firstNotice = (await screen.findAllByRole('alert')).find((notice) =>
+			notice.textContent?.includes('First packet unavailable')
+		)!;
+		await fireEvent.click(within(firstNotice).getByRole('button', { name: 'Dismiss' }));
+		expect(ctx.getResyncError(packet.id)).toBeNull();
+		expect(screen.getByRole('alert').textContent).toContain('Other packet unavailable');
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		const ownDetail = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		expect(within(ownDetail).queryByRole('alert')).toBeNull();
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: /CPL Jones, Alex/ }));
+		const otherDetail = await screen.findByRole('dialog', { name: 'CPL Jones, Alex' });
+		expect(within(otherDetail).getByRole('alert').textContent).toContain('Other packet unavailable');
+	});
+
 	it('retains the incomplete-step confirmation after a failed completion and retries successfully', async () => {
 		const feedback = vi.spyOn(toastStore, 'error');
 		vi.stubGlobal(

@@ -10,6 +10,29 @@ const input = {
 	body: { id: 'synthetic-step' }
 };
 
+test('ordinary Start submits only its recorded inputs and preserves a blocked retry response', async () => {
+	let sent;
+	const page = {
+		location: { origin: input.origin },
+		fetch: async (...args) => {
+			sent = args;
+			return new Response('active packet conflict', { status: 409, headers: { 'Set-Cookie': 'private' } });
+		}
+	};
+	const body = { personnelId: 'fresh-person', templateId: null, startedAt: '2026-10-02' };
+	const result = await requestOnboarding(page, { ...input, family: 'onboarding', method: 'POST', body });
+	assert.equal(sent[0], '/org/synthetic-a/api/onboarding');
+	assert.equal(sent[1].method, 'POST');
+	assert.equal(sent[1].redirect, 'manual');
+	assert.deepEqual(JSON.parse(sent[1].body), body);
+	assert.equal(result.status, 409);
+	assert.equal(result.body, 'active packet conflict');
+	assert.equal(Object.hasOwn(result, 'headers'), false);
+	await assert.rejects(
+		requestOnboarding(page, { ...input, family: 'onboarding', method: 'POST', body: { ...body, status: 'completed' } })
+	);
+});
+
 test('ordinary removal records exact submitted values and real failure without credential headers', async () => {
 	let sent;
 	const page = {

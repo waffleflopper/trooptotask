@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { OnboardingLifecycleTransitionResult } from '$features/onboarding/contracts';
+import type { OnboardingLifecycleTransitionResult, OnboardingPacketCreationPort } from '$features/onboarding/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -15,7 +15,20 @@ describe('/api/onboarding route config', () => {
 	});
 
 	it('starts onboarding after the route-level policy decision allows the request', async () => {
+		const create = vi.fn<OnboardingPacketCreationPort['create']>().mockResolvedValue({
+			onboarding: {
+				id: 'saved-packet',
+				personnel_id: 'p-1',
+				template_id: 'template-1',
+				status: 'in_progress',
+				started_at: '2026-03-15',
+				completed_at: null,
+				cancelled_at: null
+			},
+			steps: []
+		});
 		const ctx = createTestContext({
+			onboardingPacketCreation: { create },
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -44,11 +57,72 @@ describe('/api/onboarding route config', () => {
 
 		const result = await handleUseCaseRequest(_postConfig, ctx, {
 			personnelId: 'p-1',
-			templateId: 'template-1'
+			templateId: 'template-1',
+			startedAt: '2026-03-15'
 		});
 
-		expect(result).toMatchObject({ personnelId: 'p-1', templateId: 'template-1', status: 'in_progress' });
+		expect(result).toEqual({
+			id: 'saved-packet',
+			personnelId: 'p-1',
+			templateId: 'template-1',
+			status: 'in_progress',
+			startedAt: '2026-03-15',
+			completedAt: null,
+			cancelledAt: null,
+			steps: []
+		});
+		expect(create).toHaveBeenCalledWith(ctx.auth.orgId, {
+			personnelId: 'p-1',
+			templateId: 'template-1',
+			startedAt: '2026-03-15',
+			steps: []
+		});
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({ action: 'onboarding.started', resourceId: 'saved-packet' })
+		]);
 	});
+
+	it.each([
+		{},
+		{ templateId: null },
+		{ templateId: '' },
+		{ templateId: '   ' },
+		{ templateId: 42 },
+		{ templateId: {} }
+	])('rejects malformed configured-template input %j through the actual POST config', async (body) => {
+		const create = vi.fn<OnboardingPacketCreationPort['create']>();
+		const ctx = createTestContext({ onboardingPacketCreation: { create } });
+		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
+		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
+		const reads = vi.spyOn(ctx.store, 'findMany');
+		await expect(handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', ...body })).rejects.toMatchObject({
+			status: 400
+		});
+		expect(reads.mock.calls.filter(([table]) => table === 'onboarding_template_steps')).toEqual([]);
+		expect(training).not.toHaveBeenCalled();
+		expect(create).not.toHaveBeenCalled();
+		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it.each([403, 404, 409, 500])(
+		'propagates a creation failure %s without a success audit or parent fallback',
+		async (status) => {
+			const failure =
+				status === 500 ? new Error('Creation failed') : Object.assign(new Error('Creation rejected'), { status });
+			const ctx = createTestContext({ onboardingPacketCreation: { create: vi.fn().mockRejectedValue(failure) } });
+			ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
+			const insert = vi.spyOn(ctx.store, 'insert').mockRejectedValue(new Error('Generic Start insert must not run'));
+			const deleteParent = vi
+				.spyOn(ctx.store, 'delete')
+				.mockRejectedValue(new Error('Compensation delete must not run'));
+			await expect(
+				handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', templateId: 'template-1' })
+			).rejects.toBe(failure);
+			expect(insert).not.toHaveBeenCalled();
+			expect(deleteParent).not.toHaveBeenCalled();
+			expect(ctx.auditPort.events).toEqual([]);
+		}
+	);
 
 	it.each([_postConfig, _putConfig])(
 		'denies onboarding lifecycle mutations before use-case execution when policy is missing',

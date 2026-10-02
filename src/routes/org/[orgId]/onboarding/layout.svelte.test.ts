@@ -70,11 +70,11 @@ it('ignores a request from a destroyed layout when returning to the same organiz
 				})
 		)
 	);
-	const pending = onboardingStore.startOnboarding('person-new', '2026-03-15', null);
+	const pending = onboardingStore.startOnboarding('person-new', '2026-03-15', 'template-1');
 	view.unmount();
 	render(Layout, { props: { children, data: { shell: shell(), onboarding: { data: workspace } } } });
 	await waitFor(() => expect(onboardingStore.items).toEqual([packet]));
-	respond(Response.json({ ...packet, id: 'new-packet', personnelId: 'person-new' }));
+	respond(Response.json({ ...packet, id: 'new-packet', personnelId: 'person-new', templateId: 'template-1' }));
 	await expect(pending).resolves.toBeNull();
 	expect(onboardingStore.items).toEqual([packet]);
 });

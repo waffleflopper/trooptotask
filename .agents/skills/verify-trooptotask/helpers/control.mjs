@@ -9,6 +9,7 @@ import { jsPDF } from 'jspdf';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { requestSettings } from './settings-request.mjs';
+import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
@@ -223,6 +224,39 @@ async function main() {
 		};
 		note(
 			await evaluate(state, pageId, `async () => (${requestSettings.toString()})(window, ${JSON.stringify(input)})`)
+		);
+		return;
+	}
+	if (command === 'onboarding-request') {
+		const [page, orgKey, method, family, bodyText, mode = 'await'] = args;
+		const pageId = Number(page);
+		if (![5, 6].includes(args.length) || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use onboarding-request PAGE orgA|orgB METHOD FAMILY JSON [start].');
+		const organization = checked(
+			await (await provider()).from('organizations').select('url_slug').eq('id', org(orgKey)).single()
+		);
+		const input = {
+			origin: doctor.origin,
+			organizationSegment: organization.url_slug || org(orgKey),
+			method,
+			family,
+			body: JSON.parse(bodyText),
+			mode
+		};
+		note(
+			await evaluate(state, pageId, `async () => (${requestOnboarding.toString()})(window, ${JSON.stringify(input)})`)
+		);
+		return;
+	}
+	if (['onboarding-request-state', 'onboarding-request-restore'].includes(command)) {
+		const pageId = Number(args[0]);
+		if (args.length !== 1 || !Number.isInteger(pageId) || pageId < 1) throw new Error('Use an owned page ID.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`() => (${readOnboardingRequests.toString()})(window, ${JSON.stringify(doctor.origin)}, ${command === 'onboarding-request-restore'})`
+			)
 		);
 		return;
 	}
@@ -1485,7 +1519,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

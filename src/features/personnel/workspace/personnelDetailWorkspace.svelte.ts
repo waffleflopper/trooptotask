@@ -111,6 +111,7 @@ export function createPersonnelDetailWorkspace(
 export class PersonnelDetailWorkspace {
 	readonly #getInput: () => PersonnelDetailWorkspaceInput;
 	readonly #deps: Required<PersonnelDetailWorkspaceDeps>;
+	#disposed = false;
 
 	followUps: ArtifactDraft<FollowUpDraftInput, PersonnelFollowUp>;
 	leaderNotes: ArtifactDraft<LeaderNoteDraftInput, PersonnelLeaderNote>;
@@ -152,6 +153,10 @@ export class PersonnelDetailWorkspace {
 		this.counselingRecords = new ArtifactDraft(counselingRecordDraftSpec, draftDeps);
 		this.documents = new ArtifactDraft(documentDraftSpec, draftDeps);
 	}
+
+	dispose = (): void => {
+		this.#disposed = true;
+	};
 
 	get #input(): PersonnelDetailWorkspaceInput {
 		return this.#getInput();
@@ -301,6 +306,7 @@ export class PersonnelDetailWorkspace {
 	};
 
 	saveBasicInfo = async (): Promise<void> => {
+		if (this.#disposed) return;
 		this.basicInfoError = '';
 		this.basicInfoSaving = true;
 		try {
@@ -319,9 +325,11 @@ export class PersonnelDetailWorkspace {
 					deros: this.basicInfoDeros || null
 				})
 			});
+			if (this.#disposed) return;
 			if (!response.ok) throw new Error('Unable to update basic info.');
 			const previousSlug = this.currentPerson.slug;
 			const savedPerson = (await response.json()) as Personnel;
+			if (this.#disposed) return;
 			this.updatedPerson = savedPerson;
 			if (savedPerson.slug !== previousSlug) {
 				await this.#deps.goto(this.#deps.resolve(`/org/${this.orgUrlSegment}/personnel/${savedPerson.slug}`), {
@@ -338,7 +346,7 @@ export class PersonnelDetailWorkspace {
 	};
 
 	confirmArchive = async (): Promise<void> => {
-		if (this.archiveSubmitting) return;
+		if (this.#disposed || this.archiveSubmitting) return;
 		this.archiveSubmitting = true;
 		try {
 			const result = await this.#deps.archivePersonnel({
@@ -347,8 +355,10 @@ export class PersonnelDetailWorkspace {
 				requestArchiveApproval: this.#input.requestArchiveApproval,
 				resourceUrl: `/org/${this.orgId}/personnel/${this.currentPerson.slug ?? this.currentPerson.id}`
 			});
+			if (this.#disposed) return;
 			if (result === 'archived') {
 				await this.#deps.invalidateAll();
+				if (this.#disposed) return;
 				await this.#deps.goto(this.#deps.resolve(`/org/${this.orgUrlSegment}/personnel`));
 			} else {
 				this.showArchiveConfirm = false;
@@ -411,14 +421,17 @@ export class PersonnelDetailWorkspace {
 	};
 
 	openDocument = async (documentId: string): Promise<void> => {
+		if (this.#disposed) return;
 		this.documents.error = '';
 		this.openingDocumentId = documentId;
 		try {
 			const response = await this.#deps.fetch(
 				`/org/${this.orgId}/api/personnel/${this.currentPerson.id}/documents/${documentId}/download`
 			);
+			if (this.#disposed) return;
 			if (!response.ok) throw new Error('Unable to open document.');
 			const { url } = (await response.json()) as { url: string };
+			if (this.#disposed) return;
 			this.#deps.openDocumentUrl(url);
 		} catch (caught) {
 			this.documents.error = caught instanceof Error ? caught.message : 'Unable to open document.';
@@ -428,15 +441,17 @@ export class PersonnelDetailWorkspace {
 	};
 
 	exportPersonnelRecords = async (): Promise<void> => {
-		if (this.exportSubmitting) return;
+		if (this.#disposed || this.exportSubmitting) return;
 		this.exportSubmitting = true;
 		this.exportError = '';
 		try {
 			const response = await this.#deps.fetch(`/org/${this.orgId}/api/personnel/${this.currentPerson.id}/export`);
+			if (this.#disposed) return;
 			if (!response.ok) {
 				throw new Error('Unable to export personnel records.');
 			}
 			const blob = await response.blob();
+			if (this.#disposed) return;
 			const fallbackName = `${this.currentPerson.rank}-${this.currentPerson.lastName}-records.xlsx`;
 			this.#deps.downloadBlob(
 				blob,

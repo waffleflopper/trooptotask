@@ -1,10 +1,8 @@
+import type { CriticalTasksWorkbookExport } from '$features/critical-tasks/contracts';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import {
-	generateCriticalTasksReportWorkbookExport,
-	type CriticalTasksWorkbookExport
-} from '$lib/server/core/useCases/criticalTasksReportsQuery';
+import { generateCriticalTasksReportWorkbookExport } from '$features/critical-tasks/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { workbookBufferResponse } from '$lib/export/workbook';
+import { workbookBufferResponse } from '$lib/utils/workbook';
 import {
 	PRIVATE_REPORT_HEADERS,
 	criticalTasksReportInput,

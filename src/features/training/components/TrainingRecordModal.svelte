@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
 	import { formatDate } from '$lib/utils/dates';
-	import { toastStore } from '$lib/stores/toast.svelte';
+	import { toast } from 'svelte-sonner';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Badge } from '$lib/components/ui/badge';
@@ -14,7 +14,7 @@
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import { TrainingStatusBadge } from '$lib/components/ui/requirement-status-badge';
+	import TrainingStatusBadge from './TrainingStatusBadge.svelte';
 
 	interface Props {
 		person: Personnel;
@@ -112,10 +112,10 @@
 		isSaving = true;
 		try {
 			await onSave(saveData);
-			toastStore.success(isUpdate ? 'Training record updated' : 'Training record saved');
+			toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
 			onClose();
 		} catch (error) {
-			toastStore.error(getErrorMessage(error));
+			toast.error(getErrorMessage(error), { duration: 6000 });
 		} finally {
 			isSaving = false;
 		}
@@ -125,10 +125,12 @@
 		if (existingTraining) {
 			try {
 				await onRemove(existingTraining.id);
+				onClose();
 			} catch (err) {
-				console.error('Training record removal failed:', err);
+				toast.error(err instanceof Error ? err.message : 'Could not remove training record. Try again.', {
+					duration: 6000
+				});
 			}
-			onClose();
 		}
 	}
 </script>

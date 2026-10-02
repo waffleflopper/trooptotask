@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '../personnel.types';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 	import { groupManagementStore } from '$features/personnel/stores/groups.svelte';
 	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
 	import GroupManager from './GroupManager.svelte';
-	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
+	import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
@@ -13,9 +13,10 @@
 	interface Props {
 		ctx: PersonnelPageContext;
 		modals: ModalRegistry;
+		requestArchiveApproval: RequestPersonnelArchiveApproval;
 	}
 
-	let { ctx, modals }: Props = $props();
+	let { ctx, modals, requestArchiveApproval }: Props = $props();
 
 	const personnelPayload = $derived(modals.payload<{ person: Personnel | null }>('personnel-modal'));
 
@@ -33,28 +34,25 @@
 
 	async function handleArchive(id: string) {
 		const person = personnelStore.getById(id);
-		const result = await personnelStore.remove(id);
-		if (result === 'deleted') {
-			toastStore.success('Personnel archived');
-			await invalidateAll();
-		} else if (result === 'approval_required' && person) {
-			await submitDeletionRequest(
-				ctx.orgId,
-				'personnel',
-				id,
-				`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
-				`/org/${ctx.orgId}/personnel`
-			);
-		} else if (result === 'error') {
+		if (!person) {
 			toastStore.error('Failed to archive personnel');
+			return false;
 		}
+		const result = await archivePersonnel({ orgId: ctx.orgId, person, requestArchiveApproval });
+		if (result === 'archived') {
+			await invalidateAll();
+		}
+		return result !== 'error';
 	}
 </script>
 
 {#if modals.isOpen('personnel-modal')}
 	<PersonnelModal
 		personnel={editingPerson}
-		groups={groupManagementStore.items}
+		groups={editingPerson
+			? groupManagementStore.items
+			: groupManagementStore.items.filter((group) => ctx.canCreatePersonnelInGroup(group.id))}
+		allowUnassigned={!!editingPerson || ctx.allowUnassignedPersonnel}
 		rankCatalog={ctx.data.rankCatalog ?? []}
 		onSubmit={handleSubmit}
 		onRemove={handleArchive}

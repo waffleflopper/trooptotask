@@ -1,7 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { createSupabaseAuditAdapter } from '$lib/server/adapters/supabaseAudit';
-import { createSupabaseNotificationAdapter } from '$lib/server/adapters/supabaseNotification';
+import { createRequestNotificationDelivery } from '$lib/server/adapters/httpAdapter';
 import {
 	acceptDashboardInvitation,
 	createSupabaseDashboardOrgAccessPort,
@@ -45,7 +45,7 @@ export const actions: Actions = {
 			return await acceptDashboardInvitation(
 				{
 					dashboard: createSupabaseDashboardOrgAccessPort(locals),
-					notifications: createSupabaseNotificationAdapter(),
+					notifications: createRequestNotificationDelivery(),
 					audit: (organizationId) =>
 						createSupabaseAuditAdapter(organizationId, {
 							userId: user.id,
@@ -80,7 +80,7 @@ export const actions: Actions = {
 			return await declineDashboardInvitation(
 				{
 					dashboard: createSupabaseDashboardOrgAccessPort(locals),
-					notifications: createSupabaseNotificationAdapter(),
+					notifications: createRequestNotificationDelivery(),
 					audit: (organizationId) =>
 						createSupabaseAuditAdapter(organizationId, {
 							userId: user.id,

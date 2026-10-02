@@ -1,17 +1,24 @@
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { submitDeletionRequest, type DeleteResult } from '$lib/utils/deletionRequests';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 
 export type PersonnelArchiveResult = 'archived' | 'approval_requested' | 'error';
+
+export type RequestPersonnelArchiveApproval = (request: {
+	orgId: string;
+	personnelId: string;
+	description: string;
+	resourceUrl: string;
+}) => Promise<boolean>;
 
 interface ArchivePersonnelOptions {
 	orgId: string;
 	person: Personnel;
 	resourceUrl?: string;
+	requestArchiveApproval: RequestPersonnelArchiveApproval;
 }
 
-async function archiveViaApi(orgId: string, id: string): Promise<DeleteResult> {
+async function archiveViaApi(orgId: string, id: string): Promise<'deleted' | 'approval_required' | 'error'> {
 	try {
 		const response = await fetch(`/org/${orgId}/api/personnel`, {
 			method: 'DELETE',
@@ -33,7 +40,8 @@ async function archiveViaApi(orgId: string, id: string): Promise<DeleteResult> {
 export async function archivePersonnel({
 	orgId,
 	person,
-	resourceUrl = `/org/${orgId}/personnel`
+	resourceUrl = `/org/${orgId}/personnel`,
+	requestArchiveApproval
 }: ArchivePersonnelOptions): Promise<PersonnelArchiveResult> {
 	const result =
 		personnelStore.orgId === orgId && personnelStore.getById(person.id)
@@ -46,13 +54,12 @@ export async function archivePersonnel({
 	}
 
 	if (result === 'approval_required') {
-		const submitted = await submitDeletionRequest(
+		const submitted = await requestArchiveApproval({
 			orgId,
-			'personnel',
-			person.id,
-			`Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
+			personnelId: person.id,
+			description: `Archive ${person.rank} ${person.lastName}, ${person.firstName}`,
 			resourceUrl
-		);
+		});
 		return submitted ? 'approval_requested' : 'error';
 	}
 

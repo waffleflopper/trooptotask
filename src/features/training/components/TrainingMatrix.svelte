@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import {
 		getTrainingStatus,
@@ -13,7 +13,8 @@
 	import type { ColumnDef, GroupDef } from '$lib/components/ui/data-table';
 	import { useDataTable } from '$lib/components/ui/data-table';
 	import { Input } from '$lib/components/ui/input';
-	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import TrainingStatusBadge from './TrainingStatusBadge.svelte';
+	import TrainingStatusCell from './TrainingStatusCell.svelte';
 
 	interface Props {
 		personnel: Personnel[];

@@ -260,3 +260,92 @@ ROLLBACK;
 ```
 
 A nonzero count needs a separately reviewed, row-specific disposition before validation; do not infer that a saved availability row or status may be deleted or reassigned. Until resolved, deletion of the referenced status fails safely. The owner-reported absence of mismatches does not replace a fresh, complete count before future validation. Creating the unique `(organization_id, id)` key on `status_types` took an `ACCESS EXCLUSIVE` lock during the migration transaction; the prior migration-first, status-deletion pause and old-instance drainage instructions governed that release. The owner reports the migration applied, but this work has not independently verified the deployed application version, old-instance drainage or backup state. Check the hosted ledger and compatibility privately before any later validation or release decision. Repository proof permits no remote query, migration, deployment or merge.
+
+## Phase 08 D10 Critical Tasks configuration cutover
+
+The forward migration `20260929000100_critical_tasks_library_configure_scope.sql` changes task-library INSERT/UPDATE policies from owner/admin-only to Critical Tasks `configure` with Organization scope. It adds a narrowly scoped function to save only default expiration and expiring-soon warning values. It changes no existing task, completion or Organization setting rows. The application moves those two defaults from mixed Organization Policies to the Task Library; unrelated Organization settings keep their owner/admin boundary.
+
+Apply this migration before deploying the application change. Without it, an ordinary configurator's library write still fails and the new defaults request cannot find its SQL function. The old application remains compatible with the new policies and function. Before release, the owner should confirm the hosted migration ledger, backup/recovery point, application/schema order and actual deployment triggers. Repository CI does not apply remote migrations; no hosted database or deployment was inspected or changed for this PR.
+
+## Phase 08 D08 Training catalog policy repair
+
+The forward migration `20260929000200_training_catalog_configuration_scope.sql` makes direct writes to Organization-wide Training types and saved views require both Training `configure` and Organization scope. It also gives the three Training type references an Organization-qualified delete action: same-Organization completions cascade and Onboarding references clear, while a historical foreign-Organization reference rejects the whole type deletion. The new composite foreign keys are `NOT VALID`, so the migration retains existing mismatches for review and prevents new ones. It changes no saved rows. Two narrow Onboarding reference indexes support the delete checks; their builds and the Training type key addition hold table writes until the migration transaction commits.
+
+Before a separately authorized hosted application, confirm the ledger follows the Critical Tasks `20260929000100` migration, an effective backup/recovery point, the actual deployment triggers and any external direct catalog writers. In an authorized privileged read-only session, privately identify historical cross-Organization references. `row_security = off` makes a partially visible query fail rather than report a misleading empty result:
+
+```sql
+BEGIN TRANSACTION READ ONLY;
+SET LOCAL row_security = off;
+WITH refs AS (
+  SELECT 'personnel_trainings' AS source, id AS reference_id,
+    organization_id AS reference_org_id, training_type_id
+  FROM public.personnel_trainings
+  UNION ALL
+  SELECT 'onboarding_template_steps', id, organization_id, training_type_id
+  FROM public.onboarding_template_steps WHERE training_type_id IS NOT NULL
+  UNION ALL
+  SELECT 'onboarding_step_progress', id, organization_id, training_type_id
+  FROM public.onboarding_step_progress WHERE training_type_id IS NOT NULL
+)
+SELECT r.source, r.reference_id, r.reference_org_id,
+  t.organization_id AS type_org_id, r.training_type_id
+FROM refs r JOIN public.training_types t ON t.id = r.training_type_id
+WHERE r.reference_org_id <> t.organization_id
+ORDER BY r.source, r.reference_id;
+COMMIT;
+```
+
+Any returned row needs individual review; do not automatically delete or reassign a completion or Onboarding reference. Pause Training type deletion from this preflight through migration and deployment, and drain old application instances before resuming: the old app predeletes completions in a separate request, while the new app relies on the migrated scoped constraints. Apply the migration before deploying the new app, then verify normal type deletion and denied Group/operator writes. Plan an off-peak window and lock timeout for the key, index and foreign-key changes. Validate the composite constraints only after resolving historical mismatches; validation scans the child tables and takes locks. Repository proof uses disposable local databases; no hosted database or deployment was inspected or changed.
+
+Organization deletion-request reviewers retain approved Training type deletion even without a Training configuration grant. That provider effect rechecks the pending request and exact Organization/type binding. As with other non-counseling deletion requests, the delete occurs before the request-status update; if the later status write fails, staff must reconcile a pending request whose type is already gone. This workflow has no new atomic approval command in D08.
+
+## Phase 08 D12 Personnel Group integrity
+
+**Operator update, September 30:** Robert reported successful manual application and requested continuation. #1436 subsequently merged as `9529af826bc8a32dac6660b456de96009aa9758c` after exact-head green CI and completed approved review. This owner report satisfies the manual merge boundary; the agent has not queried hosted schema/data or independently verified serving parity. The ordered instructions below remain the release and compatible-rollback provenance.
+
+API preparation [#1434](https://github.com/waffleflopper/trooptotask/pull/1434) merged as `88184a572e53dfd9f1b5c7f091db75d18288ccb2`. GitHub Production deployment `6753699366` reports success for that SHA at September 30, 07:12 UTC. This metadata reports a Production deployment of the preparation revision; the operator still confirms the serving revision and drained instances without relying on hosted app/data/schema inspection by this agent. It explicitly selects the old Group foreign key and remains usable after the next migration introduces a second relationship. An earlier unhinted application would produce an ambiguous PostgREST embed, so rollback must use this preparation or a later compatible revision.
+
+**Robert's manual sequence:**
+
+1. Confirm the serving application includes #1434, drain earlier unhinted instances, and privately confirm the migration ledger is ordered through `20260929000200`. Confirm an effective backup/recovery point and arrange an off-peak schema-change window with bounded lock/statement timeouts. The unique Group key and foreign-key changes take table locks until commit. Stop on an unexpected ledger, deployment or catalog state.
+2. With a privileged role that can see both complete tables, run the following read-only count privately. `row_security = off` makes a partial RLS view fail. Preserve any returned count outside Git; a nonzero result needs individual disposition, not automatic deletion or reassignment.
+
+   ```sql
+   BEGIN TRANSACTION READ ONLY;
+   SET LOCAL row_security = off;
+   SELECT count(*) AS mismatched_personnel_group_references
+   FROM public.personnel AS person
+   LEFT JOIN public.groups AS grp ON grp.id = person.group_id
+   WHERE person.group_id IS NOT NULL
+     AND (grp.id IS NULL OR person.organization_id IS DISTINCT FROM grp.organization_id);
+   ROLLBACK;
+   ```
+
+3. Apply only reviewed `supabase/migrations/20260929000300_personnel_group_reference_integrity.sql`, SHA-256 `d95c1a4443a12f55b1e8a1cd0d91f5c4bfd26c9f3cab01145f128e0f43cac842`, manually and record its migration/hash/ledger result privately. Its transaction changes constraints and notifies PostgREST to reload schema; it does not alter existing records. The composite key enforces new references. Same-Organization Group deletion clears only `group_id` for active/archived Personnel. A historical foreign reference instead makes the entire Group deletion fail, preserving both Organizations and history. Do not validate the `NOT VALID` constraints until historical mismatches have a separately reviewed resolution.
+4. Report the successful manual application before this migration PR is merged/deployed. Its application selects the composite relationship and hides historical foreign Group labels without erasing the saved Group reference. Verify normal Personnel reads, allowed Group changes/unassignment, independent-lane reads and Group deletion. Until this application releases, prepared readers retain their earlier foreign-label behavior; actual compatibility is covered by the isolated populated-upgrade probe.
+
+The agent stops with a verified, unmerged migration PR. Repository CI performs no remote migration. A failed migration transaction rolls back; after commit, application rollback uses #1434 or later compatible code while retaining the forward constraints. No reverse migration, historical cleanup, hosted query or remote operation is authorized by this record. Archive replay, Onboarding rank/import repairs and remaining Personnel ownership stay under open #1360.
+
+## Phase 08 D12 scheduled Personnel retention RPC
+
+**Remote application pending, October 1:** Robert merged the additive migration [#1457](https://github.com/waffleflopper/trooptotask/pull/1457), and authorized reviewed green application/migration merges while deferring remote SQL until morning. The owned retention consumer [#1458](https://github.com/waffleflopper/trooptotask/pull/1458) is integrated. The agent has not accessed or changed a remote database. This operator obligation remains separate from repository #1360 acceptance.
+
+Robert applies reviewed `supabase/migrations/20261001000100_personnel_archive_retention.sql`, SHA-256 `8681e85f38768dd61c543becde5685dd0bca2c770250e9b6c3013efc521754e8`, through his normal ordered migration procedure and records the ledger/application outcome privately. Applying it adds `public.delete_expired_personnel(uuid, uuid[], timestamptz)`, service-role-only execution and a schema-reload notification. It changes no existing row, table, constraint, RLS policy or table permission. Later scheduled use atomically deletes only explicitly selected same-Organization parents with a non-null archive timestamp strictly before the cutoff, using existing cascades and FK rollback; the returned integer is the actual deleted-parent count. Fresh/staged disposable proof and inherited historical-reference refusal are in [the migration receipt](phase-08/d12-retention-migration.md).
+
+Until application, a deployed retention consumer reports a missing-function failure before its new parent DELETE. Earlier independent artifact families may already have completed; a failed run is not an all-family rollback. After application, the operator confirms the ordered ledger, serving revision and normal authorized cron result through ordinary operation; repository fixtures/tests must not run against hosted data. No historical references should be automatically rewritten, removed or validated.
+
+The [owned retention receipt](phase-08/d12-retention-ownership.md) records exact local proof and remaining limits. Confirmation/Storage failure can occur after durable cascade, and there is no transactional Storage or durable orphan-file retry manifest. Those existing limitations remain explicit. CI uses disposable local providers and performs no remote production migration; external production deployment settings remain uninspected.
+
+## Phase 08 D15 atomic packet reconciliation
+
+Robert confirmed manual application of the [#1470](https://github.com/waffleflopper/trooptotask/pull/1470) migration to the live remote database on 2026-10-02 UTC (2026-10-01 America/Anchorage). This satisfied his manual-application prerequisite. #1470 merged at `57a5da85` after final exact-head green CI, completed reviews without actionable feedback and independent acceptance; accepted head `72d28256` shares the integrated tree. Matching native/API/SQL proof passes. The same #1363 continuation proceeds with migration-free Web/history ownership. The agent has not inspected the remote function/ledger or changed a remote database or the existing local development provider.
+
+The reviewed file is `supabase/migrations/20261001000200_atomic_onboarding_reconciliation.sql`, SHA-256 `245ae146ac8babff887c51c4c07860e8d041a0dabf3510628142854b54f9d623`. Robert’s normal ordered procedure follows predecessors through `20261001000100`; the hosted ledger/application outcome remains his private operator record. It adds `public.reconcile_onboarding_packet(uuid, uuid, uuid)` with authenticated-only execution, ordinary RLS and Onboarding Configure/current Person scope. Its transaction includes the PostgREST schema-reload notification. It changes no existing rows, table definitions, constraints or table policies; it does not automatically reconcile historical mixed packets.
+
+Apply the function before merging or releasing its consumer: without it, the new app cannot assign, switch or resync a template. Robert’s confirmation above satisfies the manual application gate for this PR. Once the reviewed application is serving, drain earlier application instances and stop older reconciliation writers before claiming serialized reconciliation; old code and direct writers do not participate in the parent-first operation. Verify normal allowed assignment/switch/resync, retained work/history and current Group boundaries through ordinary operation. Repository synthetic fixtures and tests must never run against hosted data.
+
+The function can remain if the application is rolled back; older application code remains compatible but retains its prior multi-write limitation. A failed migration transaction rolls back. Audit delivery and other packet/note/lifecycle operations are outside the RPC transaction. Current-head full CI and completed clean reviews remain required before handoff. CI uses disposable providers and performs no remote migration; external production deployment settings remain uninspected. The separate D12 migration obligation above is unchanged.
+
+## Phase 08 D15 Web and History
+
+The [Web/history candidate](phase-08/d15-web-history.md) moves presentation and lazy dialog loading through the existing Onboarding Web entry and repairs saved-stage display. It changes no schema, provider policy or hosted configuration and requires no manual database operation. It remains subject to exact-head full CI, completed review without actionable feedback and independent acceptance before authorized merge. The earlier #1470 application-drain/operator guidance remains applicable; this candidate does not claim remote readback or production acceptance. #1363 remains open for its following deliverables.

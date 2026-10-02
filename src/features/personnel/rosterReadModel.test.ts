@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRosterReadModel, rosterGroupFilterValue } from './rosterReadModel';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from './personnel.types';
 
 function makePerson(overrides: Partial<Personnel>): Personnel {
 	return {

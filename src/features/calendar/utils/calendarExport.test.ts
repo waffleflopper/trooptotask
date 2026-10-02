@@ -30,8 +30,14 @@ vi.mock('jspdf-autotable', () => ({
 }));
 
 import { exportMonthToExcel, exportQuarterToExcel, printMonthCalendar, printQuarterCalendar } from './calendarExport';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	SpecialDay,
+	StatusType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 

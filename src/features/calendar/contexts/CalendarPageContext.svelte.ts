@@ -1,4 +1,4 @@
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry } from '$features/calendar/contracts';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
@@ -23,7 +23,7 @@ import { browser } from '$app/environment';
 import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 
 const CALENDAR_WORKSPACE_RESOURCE: PolicyResource = { kind: 'unscoped' };
 

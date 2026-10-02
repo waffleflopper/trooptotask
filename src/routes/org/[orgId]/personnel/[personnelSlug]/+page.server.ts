@@ -2,17 +2,17 @@ import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext, personnelLeaderNoteContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
-import { readPersonnelExtendedInfo } from '$lib/server/core/useCases/personnelExtendedInfo';
+import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
 import {
 	currentPersonnelReadinessDate,
 	loadAvailabilityReadinessLane,
-	loadCriticalTasksReadinessLane,
 	loadLossTrackingReadinessLane,
-	loadRatingSchemeReadinessLane,
-	loadTrainingReadinessLane
-} from '$lib/server/core/useCases/personnelReadinessLanes';
-import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
+	loadPersonnelForLane
+} from '$features/personnel/index.server';
+import { loadTrainingReadinessLane } from '$features/training/index.server';
+import { loadRatingSchemeReadinessLane } from '$features/rating-scheme/index.server';
+import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
+import { listPersonnelLeaderNotes, readPersonnelExtendedInfo } from '$features/personnel/index.server';
 import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
 import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
 import { listPersonnelDocuments } from '$lib/server/core/useCases/personnelDocuments';
@@ -27,13 +27,46 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 				ctx,
 				personnelId,
 				readinessAsOf,
-				listAvailabilityEntries,
-				listStatusTypes
+				(input) => listAvailabilityEntries(ctx, input),
+				() => listStatusTypes(ctx.store, ctx.auth.orgId)
 			),
-			training: loadTrainingReadinessLane(ctx, personnelId, readinessAsOf),
-			criticalTasks: loadCriticalTasksReadinessLane(ctx, personnelId, readinessAsOf),
-			ratingScheme: loadRatingSchemeReadinessLane(ctx, personnelId, readinessAsOf),
-			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf)
+			training: loadTrainingReadinessLane({
+				store: ctx.store,
+				orgId: ctx.auth.orgId,
+				personnelId,
+				asOf: readinessAsOf,
+				loadAuthorizedPerson: () =>
+					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.training.viewRecords, 'training_record')
+			}),
+			criticalTasks: loadCriticalTasksReadinessLane({
+				store: ctx.store,
+				orgId: ctx.auth.orgId,
+				personnelId,
+				asOf: readinessAsOf,
+				loadAuthorizedPerson: () =>
+					loadPersonnelForLane(
+						ctx,
+						personnelId,
+						POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
+						'personnel_ict_completion'
+					)
+			}),
+			ratingScheme: loadRatingSchemeReadinessLane({
+				store: ctx.rawStore,
+				orgId: ctx.auth.orgId,
+				personnelId,
+				loadAuthorizedPerson: () =>
+					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry')
+			}),
+			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf, async () => {
+				const settings = await ctx.store.findOne<{ loss_warning_window_days?: number | null }>(
+					'organizations',
+					ctx.auth.orgId,
+					{ id: ctx.auth.orgId },
+					'loss_warning_window_days'
+				);
+				return settings?.loss_warning_window_days;
+			})
 		},
 		// Artifact use cases keep their own authorization boundary. The shared helper caches
 		// the repeated Personnel access check per request context so these dashboard panels

@@ -1,4 +1,4 @@
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 export const ICT_VALIDATION_METHODS = [
 	'Lecture',

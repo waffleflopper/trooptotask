@@ -3,9 +3,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { buildRatingSchemeWorkbook, exportRatingScheme } from './ratingSchemeExport';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
-import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
+import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 

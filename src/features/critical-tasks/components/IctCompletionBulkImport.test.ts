@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/sv
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctCompletionBulkImport from './IctCompletionBulkImport.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 
 const { parseFileMock } = vi.hoisted(() => ({

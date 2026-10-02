@@ -3,7 +3,7 @@ import { PERSONNEL_RANK_ORDER } from '../personnelRank';
 import { createRosterReadModel, type CreateRosterReadModelInput, type RosterReadModel } from '../rosterReadModel';
 import { defineStore } from '$lib/stores/core';
 import type { Store } from '$lib/stores/core';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 
 export type RosterReadModelStoreOptions = Omit<CreateRosterReadModelInput, 'personnel'>;
 
@@ -85,3 +85,8 @@ export const personnelRosterHydration = {
 		personnelStore.startLoading();
 	}
 };
+
+/** Create through the Personnel adapter while retaining the shared roster backing. */
+export async function createPersonnel(data: Omit<Personnel, 'id'>): Promise<Personnel | null> {
+	return personnelStore.add(data);
+}

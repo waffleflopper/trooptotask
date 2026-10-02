@@ -3,9 +3,9 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { Group } from '$features/personnel/contracts';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import type { TrainingType } from '$features/training/training.types';
+import type { Personnel } from '$features/personnel/contracts';
+import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
+import type { TrainingType } from '$features/training/contracts';
 
 const { fetchDashboardBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted(() => ({
 	fetchDashboardBootstrapMock: vi.fn(),

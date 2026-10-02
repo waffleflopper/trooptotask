@@ -2,7 +2,7 @@
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { pinnedGroupsStore } from '$features/personnel';
+	import { pinnedGroupsStore } from '../stores/pinnedGroups.svelte';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import UsersIcon from '@lucide/svelte/icons/users';
@@ -17,14 +17,16 @@
 	import type { ColumnDef } from '$lib/components/ui/data-table';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '../personnel.types';
+	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		ctx: PersonnelPageContext;
+		requestArchiveApproval: RequestPersonnelArchiveApproval;
 	}
 
-	let { ctx }: Props = $props();
+	let { ctx, requestArchiveApproval }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
 
 	const ROSTER_PAGE_SIZE = 75;
@@ -196,7 +198,7 @@
 		archiveSubmitting = true;
 		try {
 			const { archivePersonnel } = await import('$features/personnel/utils/archivePersonnel');
-			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget });
+			const result = await archivePersonnel({ orgId: ctx.orgId, person: archiveTarget, requestArchiveApproval });
 			if (result === 'archived') {
 				locallyArchivedIds.add(archiveTarget.id);
 				await invalidateAll();

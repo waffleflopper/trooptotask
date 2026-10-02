@@ -1,44 +1,40 @@
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import {
 	createOnboardingTemplate,
-	deleteOnboardingTemplate,
-	updateOnboardingTemplate
-} from '$lib/server/core/useCases/onboardingTemplateCrud';
-import { OnboardingTemplateEntity } from '$lib/server/entities/onboardingTemplate';
-import { handle } from '$lib/server/adapters/httpAdapter';
+	updateOnboardingTemplate,
+	deleteOnboardingTemplate
+} from '$features/onboarding/index.server';
+import type { OnboardingTemplate } from '$features/onboarding/contracts';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { validateUUID } from '$lib/server/validation';
 
-const policyAction = OnboardingTemplateEntity.policyAction!;
-
-export const POST = handle({
+const policyAction = POLICY_ACTION_CATALOG.onboarding.configureWorkflows;
+const policyResource = { kind: 'organization' } as const;
+export const _postConfig = {
 	mutation: true,
 	policyAction,
-	policyResource: { kind: 'unscoped' },
-	input: OnboardingTemplateEntity.createSchema,
-	fn: createOnboardingTemplate
-});
-
-export const PUT = handle({
+	policyResource,
+	fn: (ctx, input) => createOnboardingTemplate(ctx, input)
+} satisfies RouteConfig<Record<string, unknown>, OnboardingTemplate>;
+export const _putConfig = {
 	mutation: true,
 	policyAction,
-	policyResource: { kind: 'unscoped' },
-	input: OnboardingTemplateEntity.updateSchema,
-	fn: updateOnboardingTemplate
-});
-
-export const DELETE = handle({
+	policyResource,
+	fn: (ctx, input) => updateOnboardingTemplate(ctx, input)
+} satisfies RouteConfig<Record<string, unknown>, OnboardingTemplate>;
+export const _deleteConfig = {
 	mutation: true,
 	policyAction,
-	policyResource: { kind: 'unscoped' },
+	policyResource,
 	fn: async (ctx, input) => {
-		const id = input && typeof input === 'object' && 'id' in input ? input.id : undefined;
-		if (typeof id !== 'string') {
-			fail(400, 'Missing id');
-		}
-		if (!validateUUID(id)) {
-			fail(400, 'Invalid resource ID');
-		}
+		const id = input?.id;
+		if (typeof id !== 'string') fail(400, 'Missing id');
+		if (!validateUUID(id)) fail(400, 'Invalid resource ID');
 		await deleteOnboardingTemplate(ctx, id);
 		return { success: true };
 	}
-});
+} satisfies RouteConfig<Record<string, unknown>, { success: true }>;
+export const POST = handle(_postConfig);
+export const PUT = handle(_putConfig);
+export const DELETE = handle(_deleteConfig);

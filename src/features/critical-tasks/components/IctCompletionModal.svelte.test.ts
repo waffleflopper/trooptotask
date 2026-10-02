@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctCompletionModal from './IctCompletionModal.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -35,6 +35,7 @@ function renderModal(
 		task: IctTask | null;
 		personnelOptions: Personnel[];
 		taskOptions: IctTask[];
+		completions: PersonnelIctCompletion[];
 		existingCompletion: PersonnelIctCompletion;
 		currentUserDisplayName: string | null;
 		onSave: (
@@ -78,6 +79,42 @@ afterEach(() => {
 });
 
 describe('IctCompletionModal', () => {
+	it('edits the latest capture for the selected pair, breaking same-date ties by log time', async () => {
+		const onSave = vi.fn().mockResolvedValue(undefined);
+		const capture: PersonnelIctCompletion = {
+			id: 'same-date-earlier-log',
+			personnelId: person.id,
+			ictTaskId: task.id,
+			completedAt: '2026-04-02',
+			validationMethod: 'Demonstration',
+			validatedBy: null,
+			notes: 'Selected capture',
+			loggedBy: null,
+			createdAt: '2026-04-02T10:00:00Z'
+		};
+		renderModal({
+			onSave,
+			completions: [
+				{ ...capture, id: 'backdated-later-log', completedAt: '2026-04-01', createdAt: '2099-01-01T12:00:00Z' },
+				{ ...capture, id: 'same-date-latest-log', createdAt: '2026-04-02T11:00:00Z' },
+				capture,
+				{ ...capture, id: 'another-person', personnelId: 'person-2', completedAt: '2026-05-01' }
+			]
+		});
+
+		await fireEvent.click(screen.getByTestId('ict-completion-save'));
+		await waitFor(() => {
+			expect(onSave).toHaveBeenCalledWith(
+				expect.objectContaining({
+					completedAt: '2026-04-02',
+					validationMethod: 'Demonstration',
+					notes: 'Selected capture'
+				}),
+				'same-date-latest-log'
+			);
+		});
+	});
+
 	it('validates required fields before saving', async () => {
 		const onSave = vi.fn();
 

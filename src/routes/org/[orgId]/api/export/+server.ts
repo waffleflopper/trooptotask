@@ -1,3 +1,8 @@
+import {
+	listOnboardingTemplateExportRows,
+	listOnboardingTemplateStepExportRows
+} from '$features/onboarding/index.server';
+import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
@@ -6,7 +11,13 @@ import {
 	type OrganizationDataExportExecutionResult
 } from '$lib/server/core/useCases/organizationDataExportExecution';
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
+import { listNotificationExportRows } from '$features/notifications/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import {
+	listTrainingTypeExportRows,
+	listTrainingCompletionExportRows,
+	listTrainingViewExportRows
+} from '$features/training/index.server';
 
 interface ExportInput {
 	email: string | undefined;
@@ -29,7 +40,22 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 			auditAction: 'export.created',
 			buildArtifact: async () => {
 				if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
-				const exportData = await loadOrganizationExportPayload(ctx.rawStore, ctx.auth, ctx.personnelOrganizationExport);
+				const exportData = await loadOrganizationExportPayload(
+					ctx.rawStore,
+					ctx.auth,
+					ctx.personnelOrganizationExport,
+					{
+						listTrainingTypeExportRows,
+						listTrainingCompletionExportRows,
+						listTrainingViewExportRows
+					},
+					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+					{
+						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
+						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
+					},
+					{ listRatingSchemeExportRows }
+				);
 				const jsonStr = JSON.stringify(exportData, null, 2);
 				const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
 

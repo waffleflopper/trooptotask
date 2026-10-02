@@ -10,12 +10,13 @@
 	import { parseFile } from '$lib/utils/csvParser';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
 	import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 	import {
 		ICT_COMPLETION_IMPORT_COLUMNS,
-		reviewMappedIctCompletionImportRows,
-		type IctCompletionImportMappedRow
+		reviewMappedIctCompletionImportRows
 	} from '$features/critical-tasks/utils/ictCompletionImport';
+
+	import type { IctCompletionImportMappedRow, IctCompletionBatchImportError } from '../contracts';
 
 	interface Props {
 		personnel: Personnel[];
@@ -47,9 +48,7 @@
 	let uploadedFileName = $state('');
 	let importError = $state('');
 	let importResult = $state<{ created: number; updated: number; failed: number } | null>(null);
-	let importFailures = $state<Array<{ rowNumber: number; personnelName: string; taskCode: string; message: string }>>(
-		[]
-	);
+	let importFailures = $state<IctCompletionBatchImportError[]>([]);
 	let activeReviewGroup = $state<ReviewGroup>('ready');
 	let reviewGroupInitialized = $state(false);
 	let selectionInitialized = $state(false);

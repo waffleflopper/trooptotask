@@ -11,7 +11,7 @@ import {
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { handleUseCaseRequest, rethrowOrWrap, type RouteConfig } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createPersonnelUseCases } from '$lib/server/core/useCases/personnel';
+import { createPersonnelRecord, archivePersonnelRecord } from '$features/personnel/index.server';
 
 type TestContext = {
 	store: ReturnType<typeof createInMemoryDataStore>;
@@ -453,13 +453,12 @@ describe('Personnel writes without commercial enforcement', () => {
 			vi.spyOn(store, 'findMany'),
 			vi.spyOn(store, 'findManyWithCount')
 		]);
-		const personnel = createPersonnelUseCases();
 		const created = (await handleUseCaseRequest(
 			{
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 				policyResource: { kind: 'organization' },
-				fn: personnel.create
+				fn: createPersonnelRecord
 			},
 			ctx,
 			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan', clinicRole: 'Team Leader', groupId: null }
@@ -469,7 +468,7 @@ describe('Personnel writes without commercial enforcement', () => {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.personnel.archiveRecords,
 				policyResource: { kind: 'organization' },
-				fn: personnel.archive
+				fn: archivePersonnelRecord
 			},
 			ctx,
 			created.id

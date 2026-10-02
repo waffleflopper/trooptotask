@@ -1,5 +1,6 @@
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
+import { personnelScopeResource } from '../personnelScopeResource';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import {
 	createRosterReadModel,
@@ -9,7 +10,7 @@ import {
 import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 
 // ---------------------------------------------------------------------------
 // Data shape expected from the page server / layout
@@ -106,11 +107,31 @@ export class PersonnelPageContext {
 	}
 
 	get canAddPersonnel(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords).allowed;
+		const resource = personnelScopeResource(this.#org.scopeSet);
+		return (
+			resource !== null &&
+			this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, resource).allowed
+		);
+	}
+
+	get allowUnassignedPersonnel(): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, { kind: 'organization' })
+			.allowed;
+	}
+
+	canCreatePersonnelInGroup(groupId: string): boolean {
+		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.createRecords, {
+			kind: 'group',
+			groupId
+		}).allowed;
 	}
 
 	get canImportPersonnel(): boolean {
-		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.importRecords).allowed;
+		const resource = personnelScopeResource(this.#org.scopeSet);
+		return (
+			resource !== null &&
+			this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.importRecords, resource).allowed
+		);
 	}
 
 	get canManageGroups(): boolean {

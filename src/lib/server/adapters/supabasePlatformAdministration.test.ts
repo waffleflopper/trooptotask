@@ -100,12 +100,6 @@ describe('createSupabasePlatformAdministrationStore', () => {
 			message: 'table access_requests pending count failed: database offline (XX000)'
 		},
 		{
-			name: 'countPendingFeedback',
-			create: () => createStoreWithFromResult({ data: null, error: PROVIDER_ERROR, count: null }),
-			run: (store: PlatformAdministrationStore) => store.countPendingFeedback(),
-			message: 'table beta_feedback new count failed: database offline (XX000)'
-		},
-		{
 			name: 'listRecentActivity',
 			create: () => createStoreWithFromResult({ data: null, error: PROVIDER_ERROR }),
 			run: (store: PlatformAdministrationStore) => store.listRecentActivity(10),
@@ -133,6 +127,12 @@ describe('createSupabasePlatformAdministrationStore', () => {
 		const { store } = create();
 
 		await expect(run(store)).rejects.toThrow(message);
+	});
+
+	it('does not report an empty Feedback queue when its source count fails', async () => {
+		const { store } = createStoreWithFromResult({ data: null, error: PROVIDER_ERROR, count: 7 });
+
+		await expect(store.countPendingFeedback()).rejects.toMatchObject({ cause: PROVIDER_ERROR });
 	});
 
 	it.each([

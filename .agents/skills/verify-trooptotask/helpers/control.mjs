@@ -5,8 +5,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
+import { jsPDF } from 'jspdf';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
+import { installFeedbackControl } from './feedback-control.mjs';
+import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
+import { seedArtifactRetention } from './artifact-retention.mjs';
+import { seedOnboarding } from './onboarding-fixtures.mjs';
+import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
+import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
 const workerIndex = argv.indexOf('--worker');
@@ -18,6 +25,12 @@ const evidenceRoot = path.join(repository, '.verification/evidence/verify-troopt
 const tableColumns = {
 	groups: 'organization_id',
 	personnel: 'organization_id',
+	personnel_extended_info: 'organization_id',
+	organization_rank_catalog: 'organization_id',
+	leader_notes: 'organization_id',
+	personnel_follow_ups: 'organization_id',
+	counseling_records: 'organization_id',
+	personnel_documents: 'organization_id',
 	availability_entries: 'organization_id',
 	status_types: 'organization_id',
 	assignment_types: 'organization_id',
@@ -25,12 +38,41 @@ const tableColumns = {
 	special_days: 'organization_id',
 	notifications: 'organization_id',
 	audit_logs: 'org_id',
+	data_exports: 'org_id',
 	organization_memberships: 'organization_id',
 	organization_invitations: 'organization_id',
 	organization_invitation_email_outbox: 'organization_id',
-	sign_in_rosters: 'organization_id'
+	sign_in_rosters: 'organization_id',
+	training_types: 'organization_id',
+	training_views: 'organization_id',
+	personnel_trainings: 'organization_id',
+	onboarding_templates: 'organization_id',
+	onboarding_template_steps: 'organization_id',
+	personnel_onboardings: 'organization_id',
+	onboarding_step_progress: 'organization_id',
+	deletion_requests: 'organization_id',
+	ict_tasks: 'organization_id',
+	personnel_ict_completions: 'organization_id',
+	rating_scheme_entries: 'organization_id'
 };
 const tableSelect = {
+	personnel_extended_info:
+		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at',
+	organization_rank_catalog: 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order',
+	training_types:
+		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional',
+	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
+	personnel_trainings:
+		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url',
+	onboarding_templates: 'id,organization_id,name,description',
+	onboarding_template_steps:
+		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order',
+	personnel_onboardings: 'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status',
+	onboarding_step_progress:
+		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active',
+	deletion_requests: 'id,organization_id,resource_type,resource_id,status,reviewed_by,reviewed_at',
+	rating_scheme_entries:
+		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at',
 	organization_invitations:
 		'id,organization_id,email,status,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids,created_at,expires_at,accepted_at,declined_at,revoked_at,blocked_at',
 	organization_invitation_email_outbox:
@@ -38,18 +80,28 @@ const tableSelect = {
 };
 const filters = new Set([
 	'id',
+	'last_name',
+	'first_name',
+	'slug',
 	'name',
 	'title',
 	'note',
 	'date',
 	'assignee_id',
 	'assignment_type_id',
+	'training_type_id',
 	'personnel_id',
 	'user_id',
 	'type',
 	'email',
 	'status',
-	'invitation_id'
+	'invitation_id',
+	'task_code',
+	'ict_task_id',
+	'template_id',
+	'onboarding_id',
+	'template_step_id',
+	'rated_person_id'
 ]);
 
 async function owned() {
@@ -133,52 +185,159 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'artifact-http') {
+		note(await artifactHttp({ origin: doctor.origin, fixture, evidenceRoot, session, sessionId: state.id, args }));
+		return;
+	}
 	if (command === 'fixture') {
 		note({
 			ids: fixture.ids,
+			rankCatalog: fixture.rankCatalog,
 			dates: fixture.dates,
 			invitationEmails: fixture.invitationEmails,
+			notificationUsers: Object.fromEntries(
+				Object.keys(fixture.notificationActors).map((role) => [role, fixture.actors[role].id])
+			),
 			roles: Object.keys(fixture.actors)
 		});
+		return;
+	}
+	if (command === 'retention') {
+		if (args[0] === 'settings') {
+			const client = await provider();
+			note({
+				organizations: checked(
+					await client
+						.from('organizations')
+						.select('id,archive_retention_months')
+						.in('id', [org('orgA'), org('orgB')])
+				)
+			});
+			return;
+		}
+		if (args[0] === 'files') {
+			note(await readRetentionFiles(await provider(), await saved()));
+			return;
+		}
+		if (
+			args[0] !== 'cron' ||
+			!['missing', 'wrong', 'run'].includes(args[1]) ||
+			(args[2] && !['records', 'personnel', 'onboarding'].includes(args[2]))
+		)
+			throw new Error(
+				'Use retention settings, retention files or retention cron missing|wrong|run [records|personnel|onboarding].'
+			);
+		const endpoint =
+			args[2] === 'onboarding'
+				? '/api/cleanup-expired-onboardings'
+				: args[2] === 'personnel'
+					? '/api/cleanup-archived-personnel'
+					: '/api/cleanup-archived-records';
+		const headers = {};
+		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
+		if (args[1] === 'run') {
+			const credential = await readJSON(path.join(session, 'archive-cleanup.json'));
+			headers.authorization = `Bearer ${credential.secret}`;
+		}
+		const response = await fetch(new URL(endpoint, state.origin), {
+			headers,
+			redirect: 'error',
+			signal: AbortSignal.timeout(180000)
+		});
+		const body = await response.text();
+		note({ mode: args[1], endpoint, status: response.status, body });
 		return;
 	}
 	if (command === 'actor') {
 		const [role, destination = 'calendar'] = args;
 		const orgDestinations = [
+			'evals',
 			'personnel',
+			'home',
 			'training',
+			'training/reports',
 			'calendar',
 			'calendar/settings',
 			'calendar/bulk',
 			'calendar/reports',
+			'critical-tasks',
+			'critical-tasks/library',
+			'critical-tasks/reports',
+			'onboarding',
+			'onboarding/templates',
+			'onboarding/history',
+			'settings/policies',
+			'settings/archives',
 			'settings/members',
+			'settings/exports',
 			'settings/danger'
 		];
 		if (
 			!fixture.actors[role] ||
-			![...orgDestinations, 'dashboard', 'org/new'].includes(destination) ||
-			(fixture.actors[role].organization === null && orgDestinations.includes(destination))
+			![...orgDestinations, 'dashboard', 'org/new', 'admin/feedback'].includes(destination) ||
+			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
+			(destination === 'admin/feedback' && !['platformReviewer', 'platformSupport'].includes(role))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
 		const destinationPath =
-			destination === 'dashboard'
-				? '/dashboard?show=all'
-				: destination === 'org/new'
-					? '/org/new'
-					: `/org/${org(targetOrg)}/${destination}`;
+			destination === 'admin/feedback'
+				? '/admin/feedback'
+				: destination === 'dashboard'
+					? '/dashboard?show=all'
+					: destination === 'org/new'
+						? '/org/new'
+						: destination === 'home'
+							? `/org/${org(targetOrg)}`
+							: `/org/${org(targetOrg)}/${destination}`;
 		const readyText =
-			destination === 'settings/members'
-				? ['Access Management', "You don't have permission to view this page"]
-				: destination === 'settings/danger'
-					? ['Destructive Actions', "You don't have permission to view this page"]
-					: destination === 'dashboard'
-						? ['Pending Invitations', 'Organizations']
-						: destination === 'org/new'
-							? ['Create your first Organization', 'Confirm your email first']
-							: ['Calendar', 'Training', 'Able, Synthetic', 'Foreign, Synthetic', 'Access restricted'];
+			destination === 'admin/feedback'
+				? ['Beta Feedback', 'Access denied', 'Forbidden']
+				: destination.startsWith('onboarding')
+					? [
+							'STEPS',
+							'No templates yet.',
+							'Onboarding Pipeline',
+							'Onboarding History',
+							'Access restricted',
+							"You don't have permission to view this page"
+						]
+					: destination === 'home'
+						? ['Verification Organization A', 'Verification Organization B']
+						: destination === 'critical-tasks/library'
+							? [
+									'ICT task library controls',
+									'Access Restricted',
+									'Access restricted',
+									"You don't have permission to view this page"
+								]
+							: destination === 'critical-tasks'
+								? ['Critical Tasks', 'Access restricted']
+								: destination === 'settings/archives'
+									? ['Archived Records', "You don't have permission to view this page"]
+									: destination === 'settings/policies'
+										? ['Archive Retention', "You don't have permission to view this page"]
+										: destination === 'settings/members'
+											? ['Access Management', "You don't have permission to view this page"]
+											: destination === 'settings/danger'
+												? ['Destructive Actions', "You don't have permission to view this page"]
+												: destination === 'dashboard'
+													? ['Pending Invitations', 'Organizations']
+													: destination === 'org/new'
+														? ['Create your first Organization', 'Confirm your email first']
+														: [
+																'Calendar',
+																'Evaluation controls',
+																'Training',
+																'Able, Synthetic',
+																'Foreign, Synthetic',
+																'No personnel on the active roster',
+																'Access restricted',
+																'Access Restricted'
+															];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
-		const created = text(await tool(state, 'new_page', { url, isolatedContext: `map-${role}-${randomUUID()}` }));
+		const browserContext = `map-${role}-${randomUUID()}`;
+		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
 		const pageId = Number(
 			created
 				.split('\n')
@@ -217,27 +376,66 @@ async function main() {
 		note({
 			role,
 			pageId,
+			browserContext,
 			orgId: targetOrg ? org(targetOrg) : null,
 			path: landed,
-			access: page.includes("You don't have permission to view this page") ? 'denied' : 'allowed',
+			access: page.includes("You don't have permission to view this page") ? 'denied' : 'not-assessed',
 			origin: doctor.origin
 		});
+		return;
+	}
+	if (command === 'communications') {
+		const role = args[0];
+		if (!fixture.actors[role]) throw new Error('Use a known synthetic actor.');
+		const client = await provider();
+		const userId = fixture.actors[role].id;
+		const ownedState = await saved();
+		const announcementIds = ownedState.seeded
+			.filter((item) => item.kind === 'communications' && item.table === 'platform_announcements')
+			.flatMap((item) => item.ids);
+		const dismissals = announcementIds.length
+			? checked(
+					await client
+						.from('announcement_dismissals')
+						.select('announcement_id,user_id,dismissed_at')
+						.eq('user_id', userId)
+						.in('announcement_id', announcementIds)
+				)
+			: [];
+		const feedback = checked(
+			await selectAllSupabaseRows((from, to) =>
+				client
+					.from('beta_feedback')
+					.select(
+						'id,user_id,organization_id,organization_name,category,message,page_url,page_section,github_issue_number,github_issue_url,status,admin_notes'
+					)
+					.eq('user_id', userId)
+					.order('id')
+					.range(from, to)
+			)
+		);
+		note({ role, userId, dismissals, feedback });
 		return;
 	}
 	if (command === 'rows') {
 		const [table, orgKey, field, value] = args;
 		if (!tableColumns[table]) throw new Error('Table is outside the synthetic readback allowlist.');
 		if (field && (!filters.has(field) || value === undefined)) throw new Error('Use an allowed field and value.');
-		let query = (await provider())
-			.from(table)
-			.select(tableSelect[table] ?? '*')
-			.eq(tableColumns[table], org(orgKey));
-		if (field)
-			query = query.eq(
-				table === 'organization_invitation_email_outbox' && field === 'email' ? 'recipient' : field,
-				value
-			);
-		const rows = checked(await query);
+		const client = await provider();
+		const rows = checked(
+			await selectAllSupabaseRows(async (from, to) => {
+				let query = client
+					.from(table)
+					.select(tableSelect[table] ?? '*')
+					.eq(tableColumns[table], org(orgKey));
+				if (field)
+					query = query.eq(
+						table === 'organization_invitation_email_outbox' && field === 'email' ? 'recipient' : field,
+						value
+					);
+				return query.order('id').range(from, to);
+			})
+		);
 		note({ table, organization: orgKey, count: rows.length, rows });
 		return;
 	}
@@ -272,6 +470,90 @@ async function main() {
 			})
 		);
 		note({ organization, ...Object.fromEntries(results) });
+		return;
+	}
+	if (command === 'artifact-files') {
+		const [orgKey, personnelId, ...recordedPaths] = args;
+		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(personnelId ?? ''))
+			throw new Error('Use a synthetic Personnel UUID.');
+		if (recordedPaths.length % 2 !== 0)
+			throw new Error('Optional recorded paths use counseling|document FILE_PATH pairs.');
+		const organizationId = org(orgKey);
+		const families = {
+			counseling: {
+				table: 'counseling_records',
+				bucket: 'counseling-files',
+				prefix: `${organizationId}/counseling-records/${personnelId}/`
+			},
+			document: {
+				table: 'personnel_documents',
+				bucket: 'personnel-documents',
+				prefix: `${organizationId}/personnel/${personnelId}/documents/`
+			}
+		};
+		const files = new Map();
+		const rememberPath = (kind, filePath) => {
+			const family = families[kind];
+			const prefix = family?.prefix;
+			const filename = prefix && filePath?.startsWith(prefix) ? filePath.slice(prefix.length) : '';
+			if (!prefix || !/^[a-zA-Z0-9._-]+$/.test(filename) || ['.', '..'].includes(filename))
+				throw new Error('Artifact file path is outside the exact synthetic Organization/Person file prefix.');
+			files.set(`${family.bucket}/${filePath}`, {
+				table: family.table,
+				bucket: family.bucket,
+				path: filePath,
+				prefix: prefix.slice(0, -1),
+				filename
+			});
+		};
+		for (let index = 0; index < recordedPaths.length; index += 2)
+			rememberPath(recordedPaths[index], recordedPaths[index + 1]);
+		const client = await provider();
+		const tables = await Promise.all(
+			Object.entries(families).map(async ([kind, family]) => {
+				const rows = checked(
+					await selectAllSupabaseRows((from, to) =>
+						client
+							.from(family.table)
+							.select('id,personnel_id,organization_id,file_path,archived_at')
+							.eq('organization_id', organizationId)
+							.eq('personnel_id', personnelId)
+							.order('id')
+							.range(from, to)
+					)
+				);
+				for (const row of rows) if (row.file_path !== null) rememberPath(kind, row.file_path);
+				return [family.table, rows];
+			})
+		);
+		const observations = [];
+		for (const file of files.values()) {
+			const bucket = client.storage.from(file.bucket);
+			let offset = 0;
+			let present = false;
+			do {
+				const entries = checked(
+					await bucket.list(file.prefix, {
+						search: file.filename,
+						limit: 1000,
+						offset,
+						sortBy: { column: 'name', order: 'asc' }
+					})
+				);
+				present = entries.some((entry) => entry.name === file.filename && entry.id !== null);
+				if (present || entries.length < 1000) break;
+				offset += 1000;
+			} while (!present);
+			const observation = { ...file, present, listingOffset: offset };
+			if (present) {
+				const blob = checked(await bucket.download(file.path));
+				const bytes = Buffer.from(await blob.arrayBuffer());
+				observation.size = bytes.length;
+				observation.sha256 = createHash('sha256').update(bytes).digest('hex');
+			}
+			observations.push(observation);
+		}
+		note({ organization: orgKey, personnelId, tables: Object.fromEntries(tables), files: observations });
 		return;
 	}
 	if (command === 'roster-files') {
@@ -375,10 +657,457 @@ async function main() {
 	}
 	if (command === 'seed') {
 		const kind = args[0];
-		if (!['duplicate-able', 'overlap', 'bulk-501'].includes(kind)) throw new Error('Unknown temporary seed.');
+		if (
+			![
+				'duplicate-able',
+				'overlap',
+				'bulk-501',
+				'training-pages',
+				'personnel-lifecycle',
+				'personnel-artifact-context',
+				'personnel-retention',
+				'personnel-retention-1001',
+				'personnel-retention-dense',
+				'artifact-retention',
+				'artifact-retention-1001',
+				'onboarding-legacy',
+				'onboarding-history',
+				'onboarding-retention',
+				'onboarding-retention-1001',
+				'communications',
+				'rating-scheme'
+			].includes(kind)
+		)
+			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'personnel-artifact-context') {
+			const actor = fixture.actors.personnelContext;
+			if (!actor || actor.organization !== 'orgA') throw new Error('The Personnel context actor is unavailable.');
+			const archivedAt = '2026-08-01T12:00:00.000Z';
+			const sharedSlug = `map-artifact-context-${tag}`;
+			const membership = {
+				id: randomUUID(),
+				organization_id: org('orgB'),
+				user_id: actor.id,
+				role: 'member',
+				member_preset: 'viewer',
+				capability_overrides: {
+					personnel: 'configure',
+					calendar: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				access_scope_kind: 'organization',
+				access_scope_group_ids: []
+			};
+			const parents = ['orgA', 'orgB'].map((organization) => ({
+				id: randomUUID(),
+				organization_id: org(organization),
+				group_id: fixture.ids[organization === 'orgA' ? 'groupA' : 'groupForeign'],
+				first_name: 'Synthetic',
+				last_name: `MapContext${organization === 'orgA' ? 'Alpha' : 'Foreign'}${tag}`,
+				rank: 'SPC',
+				mos: '68W',
+				clinic_role: 'Medic',
+				slug: sharedSlug,
+				archived_at: null
+			}));
+			const rows = {
+				leader_notes: [],
+				personnel_follow_ups: [],
+				counseling_records: [],
+				personnel_documents: []
+			};
+			const objects = [];
+			for (const parent of parents) {
+				const organization = parent.organization_id === org('orgA') ? 'orgA' : 'orgB';
+				for (const classification of ['active', 'archived']) {
+					const base = {
+						organization_id: parent.organization_id,
+						personnel_id: parent.id,
+						archived_at: classification === 'archived' ? archivedAt : null
+					};
+					const label = `${organization} ${classification} context ${tag}`;
+					rows.leader_notes.push({
+						...base,
+						id: randomUUID(),
+						author: actor.id,
+						text: `${label} note`
+					});
+					rows.personnel_follow_ups.push({
+						...base,
+						id: randomUUID(),
+						title: `${label} follow-up`,
+						notes: `${label} follow-up details`,
+						status: classification === 'archived' ? 'archived' : 'open',
+						created_by: actor.id,
+						completed_at: base.archived_at
+					});
+					for (const table of ['counseling_records', 'personnel_documents']) {
+						const id = randomUUID();
+						const title = `${label} ${table === 'personnel_documents' ? 'document' : 'counseling'}`;
+						const pdf = new jsPDF();
+						pdf.text(`Synthetic ${title} ${id}`, 10, 20);
+						const bytes = Buffer.from(pdf.output('arraybuffer'));
+						const filePath =
+							table === 'personnel_documents'
+								? `${parent.organization_id}/personnel/${parent.id}/documents/${id}-synthetic.pdf`
+								: `${parent.organization_id}/counseling-records/${parent.id}/${id}-synthetic.pdf`;
+						const record = { ...base, id, title, file_path: filePath, uploaded_by: actor.id };
+						rows[table].push(
+							table === 'personnel_documents'
+								? { ...record, file_size_bytes: bytes.length, content_type: 'application/pdf' }
+								: {
+										...record,
+										date_conducted: classification === 'archived' ? '2026-07-15' : fixture.dates.ui,
+										subject: title,
+										summary: `${label} counseling summary`,
+										notes: `${label} counseling summary`,
+										status: 'completed'
+									}
+						);
+						objects.push({
+							bucket: table === 'personnel_documents' ? 'personnel-documents' : 'counseling-files',
+							path: filePath,
+							organization,
+							organizationId: parent.organization_id,
+							personnelId: parent.id,
+							rowId: id,
+							classification,
+							size: bytes.length,
+							sha256: createHash('sha256').update(bytes).digest('hex'),
+							bytes
+						});
+					}
+				}
+			}
+			const files = objects.map(({ bytes: _bytes, ...file }) => file);
+			const batches = [
+				['organization_memberships', 'orgB', [membership]],
+				...['orgA', 'orgB'].map((organization) => [
+					'personnel',
+					organization,
+					parents.filter((parent) => parent.organization_id === org(organization))
+				]),
+				...Object.entries(rows).flatMap(([table, records]) =>
+					['orgA', 'orgB'].map((organization) => [
+						table,
+						organization,
+						records.filter((record) => record.organization_id === org(organization))
+					])
+				)
+			];
+			// Save every row and actual path before effects; attach files once so
+			// reverse cleanup deletes children and parents before the B membership.
+			for (const [table, organization, records] of batches)
+				ownedState.seeded.push({
+					kind,
+					tag,
+					table,
+					organization,
+					ids: records.map((record) => record.id),
+					...(table === 'personnel' && organization === 'orgA' ? { files } : {})
+				});
+			await save(ownedState);
+			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
+			for (const file of objects)
+				checked(
+					await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' })
+				);
+			note({
+				kind,
+				tag,
+				actor: { role: 'personnelContext', id: actor.id },
+				membership,
+				sharedSlug,
+				archivedAt,
+				parents,
+				rows,
+				files,
+				fileSetup: 'Actual synthetic PDF uploads; provider readback and native interactions remain unverified.'
+			});
+			return;
+		}
+		if (kind.startsWith('artifact-retention')) {
+			note(await seedArtifactRetention({ client, fixture, kind, tag, ownedState, save }));
+			return;
+		}
+		if (kind.startsWith('personnel-retention')) {
+			note(await seedPersonnelRetention({ client, fixture, kind, tag, ownedState, save }));
+			return;
+		}
+		if (kind.startsWith('onboarding-')) {
+			note(await seedOnboarding({ client, fixture, kind, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'rating-scheme') {
+			const ids = Object.fromEntries(
+				[
+					'officer',
+					'warrant',
+					'nco',
+					'archived',
+					'overdue',
+					'due30',
+					'due60',
+					'current',
+					'completed',
+					'changed',
+					'bravo',
+					'unassigned',
+					'archivedEntry',
+					'foreign'
+				].map((key) => [key, randomUUID()])
+			);
+			const date = (offset) => {
+				const value = new Date(fixture.dates.ui + 'T12:00:00');
+				value.setDate(value.getDate() + offset);
+				return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+			};
+			const people = [
+				['officer', '1LT'],
+				['warrant', 'CW2'],
+				['nco', 'SSG'],
+				['archived', 'SGT']
+			].map(([key, rank]) => ({
+				id: ids[key],
+				organization_id: org('orgA'),
+				group_id: fixture.ids.groupA,
+				first_name: 'Synthetic',
+				last_name: `Eval${key}${tag}`,
+				rank,
+				slug: `map-eval-${key}-${tag}`,
+				archived_at: key === 'archived' ? date(-100) + 'T00:00:00Z' : null
+			}));
+			const examples = [
+				['overdue', 'orgA', fixture.ids.personA, 'NCOER', -5, 'active'],
+				['due30', 'orgA', ids.nco, 'NCOER', 20, 'active'],
+				['due60', 'orgA', ids.officer, 'OER', 45, 'active'],
+				['current', 'orgA', ids.warrant, 'WOER', 90, 'active'],
+				['completed', 'orgA', ids.nco, 'NCOER', -90, 'completed'],
+				['changed', 'orgA', ids.officer, 'OER', 10, 'change-of-rater'],
+				['bravo', 'orgA', fixture.ids.personB, 'NCOER', 25, 'active'],
+				['unassigned', 'orgA', fixture.ids.personUnassigned, 'NCOER', 15, 'active'],
+				['archivedEntry', 'orgA', ids.archived, 'NCOER', -2, 'active'],
+				['foreign', 'orgB', fixture.ids.personForeign, 'NCOER', 18, 'active']
+			];
+			const entries = examples.map(([key, orgKey, personId, evalType, offset, status]) => ({
+				id: ids[key],
+				organization_id: org(orgKey),
+				rated_person_id: personId,
+				eval_type: evalType,
+				rater_person_id: key === 'due60' ? fixture.ids.personA : null,
+				rater_name: key === 'due60' ? null : `External Rater ${key}`,
+				senior_rater_name: 'External Senior Rater',
+				intermediate_rater_name: key === 'current' ? 'External Intermediate Rater' : null,
+				reviewer_name: key === 'current' ? 'External Reviewer' : null,
+				rating_period_start: date(-365),
+				rating_period_end: date(offset),
+				status,
+				report_type: key === 'changed' ? 'CR' : 'AN',
+				workflow_status: key === 'due30' ? 'with-rater' : null,
+				notes: `Synthetic Evals ${key} ${tag}`
+			}));
+			const batches = [
+				['personnel', 'orgA', people],
+				['rating_scheme_entries', 'orgA', entries.filter((row) => row.organization_id === org('orgA'))],
+				['rating_scheme_entries', 'orgB', entries.filter((row) => row.organization_id === org('orgB'))]
+			];
+			for (const [table, organization, records] of batches)
+				ownedState.seeded.push({ kind, table, organization, ids: records.map((row) => row.id), tag });
+			await save(ownedState);
+			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
+			note({ kind, tag, ids, today: fixture.dates.ui, people, examples: entries });
+			return;
+		}
+		if (kind === 'communications') {
+			const notificationIds = {};
+			for (const [orgKey, role, count] of [
+				['orgA', 'notificationMember', 24],
+				['orgA', 'notificationOther', 1],
+				['orgB', 'notificationForeign', 1],
+				['orgA', 'notificationSwitch', 1],
+				['orgB', 'notificationSwitch', 1]
+			]) {
+				const records = Array.from({ length: count }, (_, index) => ({
+					id: randomUUID(),
+					organization_id: org(orgKey),
+					user_id: fixture.actors[role].id,
+					type: 'verification',
+					title: `${orgKey} ${role} ${String(index + 1).padStart(2, '0')} ${tag}`,
+					message: `Synthetic recipient isolation ${tag}`,
+					link:
+						role === 'notificationSwitch'
+							? `/org/${org(orgKey)}`
+							: role === 'notificationMember' && index === count - 1
+								? `/org/${org(orgKey)}?notification=${tag}`
+								: null,
+					read: false,
+					created_at: new Date(Date.now() - (count - index) * 60000).toISOString()
+				}));
+				ownedState.seeded.push({
+					kind,
+					table: 'notifications',
+					organization: orgKey,
+					ids: records.map((row) => row.id),
+					tag
+				});
+				await save(ownedState);
+				checked(await client.from('notifications').insert(records));
+				notificationIds[`${orgKey}-${role}`] = records.map((row) => row.id);
+			}
+			const announcements = [
+				{ state: 'active', is_active: true, expires_at: null },
+				{ state: 'inactive', is_active: false, expires_at: null },
+				{ state: 'expired', is_active: true, expires_at: '2000-01-01T00:00:00Z' }
+			].map(({ state, ...row }) => ({
+				...row,
+				id: randomUUID(),
+				title: `Verification ${state} announcement ${tag}`,
+				message: `Synthetic global announcement ${tag}`,
+				type: 'info',
+				created_by: fixture.actors.orgOwner.id
+			}));
+			ownedState.seeded.push({ kind, table: 'platform_announcements', ids: announcements.map((row) => row.id), tag });
+			await save(ownedState);
+			checked(await client.from('platform_announcements').insert(announcements));
+			note({ kind, tag, notificationIds, announcements: announcements.map(({ id, title }) => ({ id, title })) });
+			return;
+		}
+		if (kind === 'personnel-lifecycle') {
+			const keys = [
+				'person',
+				'duplicateAlpha',
+				'duplicateBravo',
+				'archivedDuplicate',
+				'noteActive',
+				'noteArchived',
+				'noteControl',
+				'counselingActive',
+				'counselingArchived',
+				'documentActive',
+				'documentArchived',
+				'followOpen',
+				'followCompleted',
+				'followArchived',
+				'training',
+				'criticalTask'
+			];
+			const ids = Object.fromEntries(keys.map((key) => [key, randomUUID()]));
+			const archivedAt = '2026-08-01T12:00:00.000Z';
+			const base = { organization_id: org('orgA'), personnel_id: ids.person };
+			const name = `MapLifecycle${tag}`;
+			const duplicateName = `MapDuplicate${tag}`;
+			const batches = [
+				[
+					'personnel',
+					[
+						['person', name, fixture.ids.groupA, null],
+						['duplicateAlpha', duplicateName, fixture.ids.groupA, null],
+						['duplicateBravo', duplicateName, fixture.ids.groupB, null],
+						['archivedDuplicate', duplicateName, fixture.ids.groupA, archivedAt]
+					].map(([key, lastName, groupId, archived]) => ({
+						id: ids[key],
+						organization_id: base.organization_id,
+						group_id: groupId,
+						first_name: 'Synthetic',
+						last_name: lastName,
+						rank: 'SPC',
+						mos: '68W',
+						clinic_role: 'Medic',
+						slug: `map-lifecycle-${tag}-${key.toLowerCase()}`,
+						archived_at: archived
+					}))
+				],
+				[
+					'leader_notes',
+					[
+						{ ...base, id: ids.noteActive, author: 'Synthetic', text: `Active note ${tag}` },
+						{
+							...base,
+							personnel_id: fixture.ids.personA,
+							id: ids.noteControl,
+							author: 'Synthetic',
+							text: `Unrelated note ${tag}`
+						},
+						{ ...base, id: ids.noteArchived, author: 'Synthetic', text: `Older note ${tag}`, archived_at: archivedAt }
+					]
+				],
+				[
+					'counseling_records',
+					['Active', 'Archived'].map((status) => ({
+						...base,
+						id: ids[`counseling${status}`],
+						date_conducted: '2026-09-14',
+						subject: `${status} counseling ${tag}`,
+						title: `${status} counseling ${tag}`,
+						uploaded_by: fixture.actors.manager.id,
+						archived_at: status === 'Archived' ? archivedAt : null
+					}))
+				],
+				[
+					'personnel_documents',
+					['Active', 'Archived'].map((status) => ({
+						...base,
+						id: ids[`document${status}`],
+						title: `${status} document ${tag}`,
+						file_path: `${base.organization_id}/personnel/${ids.person}/documents/synthetic-${status}.pdf`,
+						file_size_bytes: 1,
+						content_type: 'application/pdf',
+						uploaded_by: fixture.actors.manager.id,
+						archived_at: status === 'Archived' ? archivedAt : null
+					}))
+				],
+				[
+					'personnel_follow_ups',
+					['Open', 'Completed', 'Archived'].map((status) => ({
+						...base,
+						id: ids[`follow${status}`],
+						title: `${status} follow-up ${tag}`,
+						status: status.toLowerCase(),
+						created_by: fixture.actors.manager.id,
+						completed_at: status === 'Completed' ? '2026-09-14T12:00:00.000Z' : null,
+						archived_at: status === 'Archived' ? archivedAt : null
+					}))
+				],
+				[
+					'personnel_trainings',
+					[{ ...base, id: ids.training, training_type_id: fixture.ids.trainingRequired, completion_date: '2026-09-14' }]
+				],
+				[
+					'personnel_ict_completions',
+					[
+						{
+							...base,
+							id: ids.criticalTask,
+							ict_task_id: fixture.ids.ictTaskAlpha,
+							completed_at: '2026-09-14',
+							validation_method: 'Demonstration',
+							logged_by: fixture.actors.manager.id
+						}
+					]
+				]
+			];
+			// Record all dependent IDs before any insert so interrupted setup is recoverable.
+			for (const [table, records] of batches)
+				ownedState.seeded.push({ kind, table, ids: records.map((row) => row.id), tag });
+			await save(ownedState);
+			for (const [table, records] of batches) checked(await client.from(table).insert(records));
+			note({
+				kind,
+				tag,
+				ids,
+				name,
+				duplicateName,
+				archivedAt,
+				documentFiles: 'Metadata only; no Storage objects. File lifecycle proof belongs to D13.'
+			});
+			return;
+		}
 		let table, records;
 		if (kind === 'duplicate-able') {
 			table = 'personnel';
@@ -394,6 +1123,19 @@ async function main() {
 					slug: `map-duplicate-${tag}`
 				}
 			];
+		} else if (kind === 'training-pages') {
+			table = 'personnel';
+			records = Array.from({ length: 26 }, (_, index) => ({
+				id: randomUUID(),
+				organization_id: org('orgA'),
+				group_id: fixture.ids.groupA,
+				first_name: 'Synthetic',
+				last_name: `MapTraining${tag}${String(index).padStart(2, '0')}`,
+				rank: 'PFC',
+				mos: index === 0 ? '68W' : '11B',
+				clinic_role: index === 0 ? 'Medic' : 'NCO',
+				slug: `map-training-${tag}-${String(index).padStart(2, '0')}`
+			}));
 		} else if (kind === 'overlap') {
 			table = 'availability_entries';
 			records = [
@@ -429,7 +1171,7 @@ async function main() {
 	if (command === 'clean-seeds') {
 		const client = await provider();
 		const ownedState = await saved();
-		for (const item of ownedState.seeded) {
+		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
 				if (item.kind === 'bulk-501')
@@ -440,33 +1182,99 @@ async function main() {
 							.eq('organization_id', org('orgA'))
 							.in('personnel_id', ids)
 					);
-				checked(await client.from(item.table).delete().eq('organization_id', org('orgA')).in('id', ids));
+				let query = client.from(item.table).delete().in('id', ids);
+				if (item.kind !== 'communications' || item.table !== 'platform_announcements')
+					query = query.eq('organization_id', org(item.organization ?? 'orgA'));
+				checked(await query);
+			}
+			for (const bucket of ['personnel-documents', 'counseling-files']) {
+				const paths = (item.files ?? []).filter((file) => file.bucket === bucket).map((file) => file.path);
+				if (paths.length) checked(await client.storage.from(bucket).remove(paths));
 			}
 		}
 		ownedState.seeded = [];
 		await save(ownedState);
-		note({ cleaned: true });
+		await clearArtifactHttpCache({ session, sessionId: state.id });
+		note({ cleaned: true, artifactHttpSessionsCleared: true });
 		return;
 	}
 	if (command === 'network') {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (action === 'arm-fail' || action === 'arm-hold') {
+		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-observe') {
 			if (
-				!['calendar-range', 'availability', 'availability/batch', 'sign-in-rosters'].includes(family) &&
-				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family)
+				![
+					'notifications',
+					'rating-scheme',
+					'feedback',
+					'announcements/dismiss',
+					'personnel',
+					'personnel/batch',
+					'personnel/merge',
+					'personnel/archive-batch',
+					'personnel/permanent',
+					'calendar-range',
+					'availability',
+					'availability/batch',
+					'sign-in-rosters',
+					'training-types',
+					'training-views',
+					'onboarding',
+					'onboarding-steps',
+					'onboarding-resync',
+					'onboarding-templates',
+					'onboarding-template-steps',
+					'onboarding-template-steps/reorder',
+					'personnel-trainings',
+					'personnel-trainings/batch',
+					'deletion-requests',
+					'deletion-requests/review',
+					'training-reports',
+					'training-reports/detail',
+					'training-reports/export',
+					'export',
+					'export-excel',
+					'personnel-ict-completions',
+					'personnel-ict-completions/batch',
+					'critical-tasks/reports/summary',
+					'critical-tasks/reports/export',
+					'critical-tasks/matrix/export'
+				].includes(family) &&
+				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
+				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
+				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/extended-info$/.test(family) &&
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:leader-notes|follow-ups|counseling-records)(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})?$/.test(
+					family
+				) &&
+				!/^personnel\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/documents(?:\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/download)?)?$/.test(
+					family
+				)
 			)
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
-			const suffix = `/org/${org('orgA')}/api/${family}`;
-			const mode = action === 'arm-fail' ? 'fail' : 'hold';
+			const suffix = ['feedback', 'announcements/dismiss'].includes(family)
+				? `/api/${family}`
+				: `/org/${org('orgA')}/api/${family}`;
+			const mode = action === 'arm-fail' ? 'fail' : action === 'arm-hold' ? 'hold' : 'observe';
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`;
+			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
+			if (family.startsWith('onboarding-')) {
+				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');
+				if (armed) throw new Error('Restore the existing map network control first');
+				await tool(state, 'navigate_page', { pageId, type: 'reload', initScript: install });
+			}
 			const result = await evaluate(
 				state,
 				pageId,
-				`() => (${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`
+				family.startsWith('onboarding-')
+					? '() => ({ armed: !!window.__mapNetwork, mode: window.__mapNetwork?.mode, suffix: window.__mapNetwork?.suffix, ordinal: window.__mapNetwork?.ordinal, reloaded: true })'
+					: `() => ${install}`
 			);
+			if (!result.armed || result.mode !== mode || result.suffix !== suffix || result.ordinal !== ordinal)
+				throw new Error('Network control was not installed; inspect the owned page before retrying.');
 			note(result);
 			return;
 		}
@@ -477,6 +1285,20 @@ async function main() {
 				: action === 'release'
 					? '() => { const c = window.__mapNetwork; if (!c?.release) return { released: false }; c.release(); c.release = null; return { released: true }; }'
 					: '() => { const c = window.__mapNetwork; if (!c) return { restored: false }; c.release?.(); window.fetch = c.original; delete window.__mapNetwork; return { restored: true }; }';
+		note(await evaluate(state, pageId, source));
+		return;
+	}
+	if (command === 'feedback') {
+		const [action, page] = args;
+		const pageId = Number(page);
+		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
+		if (!['arm', 'state', 'restore'].includes(action)) throw new Error('Unknown feedback action.');
+		const source =
+			action === 'arm'
+				? `() => (${installFeedbackControl.toString()})(window)`
+				: action === 'state'
+					? '() => ({ armed: !!window.__mapFeedback, entries: window.__mapFeedback?.entries ?? [] })'
+					: '() => { const c = window.__mapFeedback; if (!c) return { restored: false }; c.observer.disconnect(); delete window.__mapFeedback; return { restored: true }; }';
 		note(await evaluate(state, pageId, source));
 		return;
 	}
@@ -492,8 +1314,21 @@ async function main() {
 					`() => {
 				if (window.__mapExport) throw new Error('Restore the previous export capture first');
 				const original = URL.createObjectURL;
-				window.__mapExport = { original, blob: null };
-				URL.createObjectURL = function(blob) { window.__mapExport.blob = blob; return original.call(URL, blob); };
+				const capture = { original, blob: null, url: null, filename: null, observer: null };
+				window.__mapExport = capture;
+				URL.createObjectURL = function(blob) {
+					capture.blob = blob;
+					capture.url = original.call(URL, blob);
+					capture.filename = null;
+					return capture.url;
+				};
+				capture.observer = new MutationObserver((records) => {
+					for (const record of records) for (const node of record.addedNodes) {
+						if (node instanceof HTMLAnchorElement && node.href === capture.url && node.download)
+							capture.filename = node.download;
+					}
+				});
+				capture.observer.observe(document.body, { childList: true, subtree: true });
 				return { armed: true };
 			}`
 				)
@@ -505,15 +1340,25 @@ async function main() {
 				await evaluate(
 					state,
 					pageId,
-					'() => { const c = window.__mapExport; if (!c) return { restored: false }; URL.createObjectURL = c.original; delete window.__mapExport; return { restored: true }; }'
+					'() => { const c = window.__mapExport; if (!c) return { restored: false }; c.observer.disconnect(); URL.createObjectURL = c.original; delete window.__mapExport; return { restored: true }; }'
+				)
+			);
+			return;
+		}
+		if (action === 'state') {
+			note(
+				await evaluate(
+					state,
+					pageId,
+					'() => ({ captured: !!window.__mapExport?.blob, filename: window.__mapExport?.filename ?? null, mimeType: window.__mapExport?.blob?.type ?? null, bytes: window.__mapExport?.blob?.size ?? null })'
 				)
 			);
 			return;
 		}
 		if (action !== 'save' || !filename) throw new Error('Use export arm, save PAGE FILE, or restore.');
 		const target = path.resolve(filename);
-		if (!target.startsWith(evidenceRoot + path.sep) || !/\.(xlsx|pdf)$/.test(target))
-			throw new Error('Export path must be an .xlsx or .pdf under the skill evidence directory.');
+		if (!target.startsWith(evidenceRoot + path.sep) || !/\.(xlsx|pdf|json)$/.test(target))
+			throw new Error('Export path must be an .xlsx, .pdf or .json under the skill evidence directory.');
 		const result = await evaluate(
 			state,
 			pageId,
@@ -523,13 +1368,20 @@ async function main() {
 			const bytes = new Uint8Array(await blob.arrayBuffer());
 			let binary = '';
 			for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-			return { captured: true, base64: btoa(binary) };
+			return { captured: true, base64: btoa(binary), filename: window.__mapExport.filename, mimeType: blob.type };
 		}`
 		);
 		if (!result.captured) throw new Error('No workbook Blob was captured.');
 		await fs.mkdir(path.dirname(target), { recursive: true });
-		await fs.writeFile(target, Buffer.from(result.base64, 'base64'));
-		note({ saved: target, bytes: (await fs.stat(target)).size });
+		const bytes = Buffer.from(result.base64, 'base64');
+		await fs.writeFile(target, bytes);
+		note({
+			saved: target,
+			bytes: bytes.length,
+			filename: result.filename,
+			mimeType: result.mimeType,
+			sha256: createHash('sha256').update(bytes).digest('hex')
+		});
 		return;
 	}
 	if (command === 'workbook') {
@@ -551,7 +1403,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, roster-files, signed-download, calendar-grant, seed, clean-seeds, network, export, or workbook.'
+		'Use fixture, actor, rows, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

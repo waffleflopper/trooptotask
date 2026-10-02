@@ -3,10 +3,13 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import { pinnedGroupsHydration } from '$features/personnel';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
 import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
+import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
+
+const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
 const { gotoMock, invalidateAllMock, toastSuccessMock, toastInfoMock, toastErrorMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -203,7 +206,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		expect(screen.getByRole('columnheader', { name: 'Duty Role' })).toBeTruthy();
@@ -213,7 +216,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		expect(screen.getByRole('group', { name: 'Roster sort mode' })).toBeTruthy();
@@ -231,7 +234,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
@@ -248,7 +251,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		expect(screen.getByRole('link', { name: 'Import' }).getAttribute('href')).toBe('/org/org-1/personnel/import');
@@ -265,7 +268,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
@@ -287,7 +290,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Personnel controls' });
@@ -322,7 +325,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		await fireEvent.input(screen.getByTestId('personnel-search'), { target: { value: 'Luis Garcia' } });
@@ -335,7 +338,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		const azToggle = screen.getByRole('button', { name: 'A-Z' });
@@ -369,7 +372,7 @@ describe('PersonnelPageView', () => {
 		);
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		const pin = screen.getByRole('button', { name: 'Pin Alpha' });
@@ -393,7 +396,7 @@ describe('PersonnelPageView', () => {
 			} as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, {
-				props: { ctx }
+				props: { ctx, requestArchiveApproval }
 			});
 
 			// The ETS chip should appear in the roster row
@@ -405,7 +408,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), lossMap);
 
 			render(PersonnelPageView, {
-				props: { ctx }
+				props: { ctx, requestArchiveApproval }
 			});
 
 			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('ETS');
@@ -416,7 +419,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), lossMap);
 
 			render(PersonnelPageView, {
-				props: { ctx }
+				props: { ctx, requestArchiveApproval }
 			});
 
 			expect(screen.getByTestId('loss-indicator-person-1').textContent).toBe('PCS');
@@ -427,7 +430,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), new Map());
 
 			render(PersonnelPageView, {
-				props: { ctx }
+				props: { ctx, requestArchiveApproval }
 			});
 
 			expect(screen.queryByTestId('loss-indicator-person-1')).toBeNull();
@@ -442,7 +445,7 @@ describe('PersonnelPageView', () => {
 			} as unknown as PersonnelPageContext;
 
 			render(PersonnelPageView, {
-				props: { ctx }
+				props: { ctx, requestArchiveApproval }
 			});
 
 			expect(screen.getByTestId('loss-indicator-person-1')).toBeTruthy();
@@ -454,7 +457,7 @@ describe('PersonnelPageView', () => {
 			const ctx = makeCtx(vi.fn(), new Map());
 
 			render(PersonnelPageView, {
-				props: { ctx }
+				props: { ctx, requestArchiveApproval }
 			});
 
 			expect(screen.queryByTestId('award-ack-action-person-1')).toBeNull();
@@ -475,6 +478,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 		const view = render(PersonnelPageView, {
 			props: {
+				requestArchiveApproval,
 				ctx: editableCtx
 			}
 		});
@@ -483,6 +487,7 @@ describe('PersonnelPageView', () => {
 		handleEdit.mockClear();
 
 		await view.rerender({
+			requestArchiveApproval,
 			ctx: viewOnlyCtx
 		});
 
@@ -507,7 +512,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		const row = screen.getByText('Smith, Jane').closest('tr');
@@ -534,7 +539,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		expect(screen.getByRole('columnheader', { name: 'Actions' })).toBeTruthy();
@@ -556,7 +561,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive SGT Smith, Jane' }));
@@ -586,7 +591,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
@@ -626,7 +631,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
@@ -659,7 +664,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
@@ -697,7 +702,7 @@ describe('PersonnelPageView', () => {
 		} as unknown as PersonnelPageContext;
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
@@ -721,7 +726,7 @@ describe('PersonnelPageView', () => {
 		const ctx = makeCtx();
 
 		render(PersonnelPageView, {
-			props: { ctx }
+			props: { ctx, requestArchiveApproval }
 		});
 
 		expect(screen.queryByRole('button', { name: 'Rating Scheme' })).toBeNull();

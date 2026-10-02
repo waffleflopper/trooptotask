@@ -30,7 +30,7 @@ vi.mock('jspdf-autotable', () => ({
 
 import SignInRosterModal from './SignInRosterModal.svelte';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { SignInRoster } from '../sign-in-rosters.types';
 
 const personnel: Personnel[] = [

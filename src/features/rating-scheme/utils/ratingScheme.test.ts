@@ -4,24 +4,25 @@ import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratin
 describe('getRatingDueStatus', () => {
 	const today = new Date('2026-03-19T12:00:00');
 
-	it('returns completed for completed status', () => {
-		expect(getRatingDueStatus('2026-04-01', 'completed', today)).toBe('completed');
+	it.each([
+		['2026-03-18', -1, 'overdue'],
+		['2026-03-19', 0, 'due-30'],
+		['2026-04-18', 30, 'due-30'],
+		['2026-04-19', 31, 'due-60'],
+		['2026-05-18', 60, 'due-60'],
+		['2026-05-19', 61, 'current']
+	] as const)('classifies the %s calendar-day boundary (%i days)', (end, days, status) => {
+		expect(getRatingDueStatus(end, 'active', today)).toBe(status);
+		// Numeric equality treats today's -0 and 0 as the same day count.
+		expect(getDaysUntilDue(end, today) === days).toBe(true);
 	});
 
-	it('returns overdue when past end date', () => {
-		expect(getRatingDueStatus('2026-03-01', 'active', today)).toBe('overdue');
+	it('excludes completed past evaluations from overdue counts', () => {
+		expect(getRatingDueStatus('2026-03-01', 'completed', today)).toBe('completed');
 	});
 
-	it('returns due-30 when within 30 days', () => {
-		expect(getRatingDueStatus('2026-04-10', 'active', today)).toBe('due-30');
-	});
-
-	it('returns due-60 when within 60 days', () => {
-		expect(getRatingDueStatus('2026-05-10', 'active', today)).toBe('due-60');
-	});
-
-	it('returns current when more than 60 days away', () => {
-		expect(getRatingDueStatus('2026-06-01', 'active', today)).toBe('current');
+	it('keeps a change-of-rater record subject to due warnings', () => {
+		expect(getRatingDueStatus('2026-04-18', 'change-of-rater', today)).toBe('due-30');
 	});
 });
 

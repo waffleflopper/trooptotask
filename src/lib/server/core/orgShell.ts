@@ -9,17 +9,7 @@
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { UserOrgPreferences } from '$lib/preferences/userPreferences';
 
-// ---------------------------------------------------------------------------
-// Announcement — defined here as a domain type (not tied to the DB query)
-// ---------------------------------------------------------------------------
-
-export interface Announcement {
-	id: string;
-	title: string;
-	message: string;
-	type: 'info' | 'warning' | 'maintenance';
-}
-
+import type { Announcement } from '$features/notifications/contracts';
 // ---------------------------------------------------------------------------
 // App shell data — first paint and deferred chrome
 // ---------------------------------------------------------------------------

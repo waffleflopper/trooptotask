@@ -1,9 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import ExcelJS from 'exceljs';
-import type { Personnel } from '$lib/types';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 import {
-	buildTrainingReportWorkbook,
 	buildPivotTable,
 	buildPivotTableFromMatrix,
 	buildTrainingReportMatrix,
@@ -12,11 +10,11 @@ import {
 	filterPersonnel
 } from './reportCalculations';
 
-type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
-
-function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
-	return buffer as WorkbookLoadBuffer;
-}
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-09-29T12:00:00Z'));
+});
+afterEach(() => vi.useRealTimers());
 
 function makeType(overrides: Partial<TrainingType> = {}): TrainingType {
 	return {
@@ -354,72 +352,6 @@ describe('buildTrainingReportMatrix', () => {
 	});
 });
 
-describe('buildTrainingReportWorkbook', () => {
-	async function parseTrainingWorkbook(rows: ReturnType<typeof buildPivotTable>, types: TrainingType[]) {
-		const workbook = await buildTrainingReportWorkbook(rows, types);
-		const parsed = new ExcelJS.Workbook();
-		await parsed.xlsx.load(toWorkbookBuffer(await workbook.xlsx.writeBuffer()));
-		return parsed.getWorksheet('Training Report')!;
-	}
-
-	it('produces header row with person info and training type names', async () => {
-		const types = [makeType({ id: 'type-1', name: 'CPR' }), makeType({ id: 'type-2', name: 'BLS' })];
-		const personnel = [makePerson({ id: 'p-1', rank: 'SGT', lastName: 'Smith', firstName: 'John' })];
-		const trainings = [makeTraining({ personnelId: 'p-1', trainingTypeId: 'type-1' })];
-		const rows = buildPivotTable(personnel, types, trainings);
-
-		const sheet = await parseTrainingWorkbook(rows, types);
-		const headers = sheet.getRow(1).values as string[];
-
-		expect(headers).toContain('Name');
-		expect(headers).toContain('Rank');
-		expect(headers).toContain('Duty Role');
-		expect(headers).toContain('CPR');
-		expect(headers).toContain('BLS');
-	});
-
-	it('produces data rows with status and date per training type', async () => {
-		const types = [makeType({ id: 'type-1', name: 'CPR' })];
-		const personnel = [makePerson({ id: 'p-1', rank: 'SGT', lastName: 'Smith', firstName: 'John' })];
-		const trainings = [
-			makeTraining({
-				personnelId: 'p-1',
-				trainingTypeId: 'type-1',
-				expirationDate: '2027-01-01'
-			})
-		];
-		const rows = buildPivotTable(personnel, types, trainings);
-
-		const sheet = await parseTrainingWorkbook(rows, types);
-		const dataRow = sheet.getRow(2).values as string[];
-
-		expect(dataRow).toContain('Smith, John');
-		expect(dataRow).toContain('Current (2027-01-01)');
-	});
-
-	it('only includes filtered training types when trainingTypeIds filter is set', async () => {
-		const types = [makeType({ id: 'type-1', name: 'CPR' }), makeType({ id: 'type-2', name: 'BLS' })];
-		const filteredTypes = types.filter((t) => ['type-1'].includes(t.id));
-		const personnel = [makePerson({ id: 'p-1' })];
-		const trainings = [makeTraining({ personnelId: 'p-1', trainingTypeId: 'type-1' })];
-		const rows = buildPivotTable(personnel, filteredTypes, trainings);
-
-		const sheet = await parseTrainingWorkbook(rows, filteredTypes);
-		const headers = sheet.getRow(1).values as string[];
-		expect(headers).toContain('CPR');
-		expect(headers).not.toContain('BLS');
-	});
-
-	it('keeps names with punctuation as native cell values', async () => {
-		const types = [makeType({ id: 'type-1', name: 'CPR' })];
-		const personnel = [makePerson({ id: 'p-1', lastName: "O'Brien", firstName: 'John' })];
-		const rows = buildPivotTable(personnel, types, []);
-
-		const sheet = await parseTrainingWorkbook(rows, types);
-		expect(sheet.getCell('A2').value).toBe("O'Brien, John");
-	});
-});
-
 describe('filters control both dashboard and detail table', () => {
 	it('filtering personnel narrows both dashboard stats and pivot rows', () => {
 		const allPersonnel = [
@@ -466,5 +398,82 @@ describe('filters control both dashboard and detail table', () => {
 		expect(filteredDashboard.readinessPercent).toBe(100);
 		expect(filteredPivot[0].cells.size).toBe(1);
 		expect(filteredPivot[0].cells.has('type-1')).toBe(true);
+	});
+});
+
+describe('dated required-cell readiness contract', () => {
+	it('uses current cells only and excludes optional and inapplicable cells from all denominators', () => {
+		const personnel = [
+			makePerson({ id: 'able', groupId: 'alpha', groupName: 'Alpha', mos: '68W' }),
+			makePerson({ id: 'baker', groupId: 'bravo', groupName: 'Bravo', mos: '11B' }),
+			makePerson({ id: 'charlie', groupId: null, groupName: '', mos: '42A' })
+		];
+		const types = [
+			makeType({ id: 'required', name: 'Required' }),
+			makeType({ id: 'targeted', name: 'Targeted', appliesToMos: ['68W'] }),
+			makeType({ id: 'optional', name: 'Optional', isOptional: true })
+		];
+		const trainings = [
+			makeTraining({
+				id: 'able-required',
+				personnelId: 'able',
+				trainingTypeId: 'required',
+				completionDate: '2026-09-22',
+				expirationDate: '2027-09-22'
+			}),
+			makeTraining({
+				id: 'baker-required',
+				personnelId: 'baker',
+				trainingTypeId: 'required',
+				completionDate: '2024-09-29',
+				expirationDate: '2025-09-29'
+			}),
+			makeTraining({
+				id: 'able-targeted',
+				personnelId: 'able',
+				trainingTypeId: 'targeted',
+				completionDate: '2025-10-14',
+				expirationDate: '2026-10-14'
+			}),
+			makeTraining({
+				id: 'optional-row',
+				personnelId: 'able',
+				trainingTypeId: 'optional',
+				expirationDate: '2025-09-29'
+			})
+		];
+		const matrix = buildTrainingReportMatrix(personnel, types, trainings);
+		const dashboard = computeReadinessDashboardFromMatrix(matrix);
+		expect(dashboard.statusCounts).toEqual({
+			current: 1,
+			warningYellow: 0,
+			warningOrange: 1,
+			expired: 1,
+			notCompleted: 1
+		});
+		expect(dashboard.readinessPercent).toBe(25);
+		expect(dashboard.groupComparison).toEqual([
+			{ groupId: 'alpha', groupName: 'Alpha', readinessPercent: 50 },
+			{ groupId: 'bravo', groupName: 'Bravo', readinessPercent: 0 },
+			{ groupId: 'unassigned', groupName: 'Unassigned', readinessPercent: 0 }
+		]);
+		expect(
+			dashboard.typeBreakdown.map((type) => ({
+				id: type.typeId,
+				current: type.current,
+				expired: type.expired,
+				warningOrange: type.warningOrange,
+				notCompleted: type.notCompleted,
+				applicable: type.applicable,
+				complianceRate: type.complianceRate
+			}))
+		).toEqual([
+			{ id: 'required', current: 1, expired: 1, warningOrange: 0, notCompleted: 1, applicable: 3, complianceRate: 33 },
+			{ id: 'targeted', current: 0, expired: 0, warningOrange: 1, notCompleted: 0, applicable: 1, complianceRate: 0 }
+		]);
+		const rows = buildPivotTableFromMatrix(matrix);
+		expect(rows[0].cells.get('optional')?.status).toBe('expired');
+		expect(rows[0].cells.get('targeted')?.date).toBe('2026-10-14');
+		expect(rows[1].cells.get('targeted')?.status).toBe('not-required');
 	});
 });

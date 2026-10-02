@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '../personnel.types';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import type { Group } from '$features/personnel/contracts';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -16,13 +16,22 @@
 	interface Props {
 		personnel?: Personnel | null;
 		groups: Group[];
+		allowUnassigned?: boolean;
 		rankCatalog?: RankCatalogEntry[];
 		onSubmit: (data: Omit<Personnel, 'id'>) => void | Promise<void>;
-		onRemove?: (id: string) => void | Promise<void>;
+		onRemove?: (id: string) => boolean | Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { personnel = null, groups, rankCatalog = [], onSubmit, onRemove, onClose }: Props = $props();
+	let {
+		personnel = null,
+		groups,
+		allowUnassigned = true,
+		rankCatalog = [],
+		onSubmit,
+		onRemove,
+		onClose
+	}: Props = $props();
 
 	const COMMON_NEW_PERSONNEL_RANK = 'SPC';
 
@@ -62,16 +71,20 @@
 	const rankMissing = $derived(rank.trim() === '');
 	const firstNameMissing = $derived(firstName.trim() === '');
 	const lastNameMissing = $derived(lastName.trim() === '');
-	const isValid = $derived(!rankMissing && !firstNameMissing && !lastNameMissing);
+	const groupMissing = $derived(!isEditing && !allowUnassigned && !groups.some((group) => group.id === groupId));
+	const isValid = $derived(!rankMissing && !firstNameMissing && !lastNameMissing && !groupMissing);
+	const groupError = $derived(submitAttempted && groupMissing ? 'Select a permitted Group.' : undefined);
 	const rankError = $derived(submitAttempted && rankMissing ? 'Select a rank.' : undefined);
 	const firstNameError = $derived(submitAttempted && firstNameMissing ? 'Enter a first name.' : undefined);
 	const lastNameError = $derived(submitAttempted && lastNameMissing ? 'Enter a last name.' : undefined);
 
 	const selectedGroupName = $derived(groups.find((g) => g.id === groupId)?.name ?? '');
 	let isSaving = $state(false);
+	let isArchiving = $state(false);
+	const busy = $derived(isSaving || isArchiving);
 
 	const groupOptions = $derived([
-		{ value: '', label: 'No Group Assigned' },
+		...(isEditing || allowUnassigned ? [{ value: '', label: 'No Group Assigned' }] : []),
 		...groups.map((g) => ({ value: g.id, label: g.name }))
 	]);
 
@@ -83,7 +96,7 @@
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		submitAttempted = true;
-		if (!isValid || isSaving) return;
+		if (!isValid || busy) return;
 
 		isSaving = true;
 
@@ -115,15 +128,21 @@
 	}
 
 	async function doArchive() {
-		if (personnel && onRemove) {
-			await onRemove(personnel.id);
-			onClose();
+		if (!personnel || !onRemove || busy) return;
+		isArchiving = true;
+		try {
+			if (await onRemove(personnel.id)) onClose();
+		} catch (error) {
+			toastStore.error(error instanceof Error && error.message.trim() ? error.message : 'Failed to archive personnel');
+		} finally {
+			isArchiving = false;
+			showArchiveConfirm = false;
 		}
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={isSaving} {onClose}>
-	<AppDialog.Content closeBlocked={isSaving}>
+<AppDialog.Root open closeBlocked={busy} {onClose}>
+	<AppDialog.Content closeBlocked={busy}>
 		<AppDialog.Header class="px-4 pt-4">
 			<AppDialog.Title>{isEditing ? 'Edit Personnel' : 'Add Personnel'}</AppDialog.Title>
 		</AppDialog.Header>
@@ -201,13 +220,21 @@
 				<div class="grid gap-2">
 					<Label for="group">Group</Label>
 					<Combobox.Root items={groupOptions} bind:value={groupId} label="Group" autoHighlight>
-						<Combobox.Trigger id="group" clearable placeholder="No Group Assigned" aria-label="Group" />
+						<Combobox.Trigger
+							id="group"
+							clearable={isEditing || allowUnassigned}
+							placeholder={isEditing || allowUnassigned ? 'No Group Assigned' : 'Select Group...'}
+							aria-label="Group"
+							aria-invalid={!!groupError}
+							aria-describedby={groupError ? 'group-error' : undefined}
+						/>
 						<Combobox.Content>
-							<Combobox.Search placeholder="No Group Assigned" />
+							<Combobox.Search placeholder="Search Groups..." />
 							<Combobox.Empty>No groups found.</Combobox.Empty>
 							<Combobox.List />
 						</Combobox.Content>
 					</Combobox.Root>
+					{#if groupError}<p id="group-error">{groupError}</p>{/if}
 				</div>
 			</form>
 		</AppDialog.Body>
@@ -219,14 +246,14 @@
 					variant="destructive"
 					data-testid="personnel-archive"
 					onclick={handleArchive}
-					disabled={isSaving}
+					disabled={busy}
 				>
 					<ArchiveIcon />
 					Archive
 				</Button>
 			{/if}
-			<Button type="button" variant="outline" onclick={onClose} disabled={isSaving}>Cancel</Button>
-			<Button type="submit" form="personnel-form" data-testid="personnel-save" disabled={isSaving}>
+			<Button type="button" variant="outline" onclick={onClose} disabled={busy}>Cancel</Button>
+			<Button type="submit" form="personnel-form" data-testid="personnel-save" disabled={busy}>
 				{#if isSaving}
 					Saving...
 				{:else}
@@ -243,6 +270,7 @@
 		message="Archive {personnel.rank} {personnel.lastName}? They will be removed from active rosters, calendars, and reports, but their records remain available in archived personnel."
 		confirmLabel="Archive"
 		variant="warning"
+		loading={isArchiving}
 		onConfirm={doArchive}
 		onCancel={() => (showArchiveConfirm = false)}
 	/>

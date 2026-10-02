@@ -62,3 +62,53 @@ test('a single availability control ignores batch and another organization', asy
 	assert.equal((await page.fetch('/org/a/api/availability?day=2026-09-27')).status, 503);
 	assert.equal(page.__mapNetwork.calls.length, 1);
 });
+
+test('observation preserves the real download and records only public response metadata', async () => {
+	const response = new Response('download contents', {
+		status: 200,
+		headers: {
+			'Content-Disposition': 'attachment; filename="training-report.xlsx"',
+			'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+			'Set-Cookie': 'private-session'
+		}
+	});
+	const page = { fetch: async () => response };
+	installNetworkControl(page, { mode: 'observe', ordinal: 1, suffix: '/org/a/api/training-reports/export' });
+	const result = await page.fetch('/org/a/api/training-reports/export');
+	assert.equal(await result.text(), 'download contents');
+	assert.equal(page.__mapNetwork.calls[0].status, 200);
+	assert.equal(page.__mapNetwork.calls[0].contentDisposition, 'attachment; filename="training-report.xlsx"');
+	assert.equal(
+		page.__mapNetwork.calls[0].contentType,
+		'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+	);
+	assert.equal(page.__mapNetwork.release, null);
+	assert.ok(!JSON.stringify(page.__mapNetwork.calls).includes('private-session'));
+});
+
+test('restoring a control disables a client-captured fetch wrapper', async () => {
+	const page = { fetch: async () => new Response('provider result', { status: 200 }) };
+	installNetworkControl(page, { mode: 'fail', ordinal: 1, suffix: '/org/a/api/onboarding-templates' });
+	const captured = page.fetch;
+	const control = page.__mapNetwork;
+	page.fetch = control.original;
+	delete page.__mapNetwork;
+	const response = await captured('/org/a/api/onboarding-templates', { method: 'POST' });
+	assert.equal(response.status, 200);
+	assert.equal(await response.text(), 'provider result');
+	assert.equal(control.calls.length, 0);
+});
+
+test('restoring while a provider response is pending leaves no held request', async () => {
+	const provider = deferred();
+	const page = { fetch: () => provider.promise };
+	installNetworkControl(page, { mode: 'hold', ordinal: 1, suffix: '/org/a/api/onboarding-templates' });
+	const request = page.fetch('/org/a/api/onboarding-templates', { method: 'POST' });
+	const control = page.__mapNetwork;
+	page.fetch = control.original;
+	delete page.__mapNetwork;
+	provider.resolve(new Response('saved provider result', { status: 200 }));
+	const response = await request;
+	assert.equal(await response.text(), 'saved provider result');
+	assert.equal(control.release, null);
+});

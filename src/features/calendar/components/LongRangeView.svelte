@@ -1,7 +1,13 @@
 <script lang="ts">
 	import type { Group } from '$features/personnel/contracts';
-	import type { Personnel, DailyAssignment } from '$lib/types';
-	import type { AvailabilityEntry, StatusType, SpecialDay, AssignmentType } from '$features/calendar/contracts';
+	import type { Personnel } from '$features/personnel/contracts';
+	import type {
+		AvailabilityEntry,
+		StatusType,
+		SpecialDay,
+		AssignmentType,
+		DailyAssignment
+	} from '$features/calendar/contracts';
 	import { formatDate, getMonthDates, getMonthName, addMonths } from '$lib/utils/dates';
 	import { exportQuarterToExcel, printQuarterCalendar } from '../utils/calendarExport';
 	import CalendarNavigation from './CalendarNavigation.svelte';

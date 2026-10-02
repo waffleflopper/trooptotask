@@ -1,8 +1,10 @@
 <script lang="ts">
-	import type { Personnel } from '$lib/types';
-	import type { Group } from '$features/personnel/contracts';
+	import { onDestroy } from 'svelte';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import type { Personnel } from '$features/personnel/contracts';
+	import type { Group, RankCatalogEntry } from '$features/personnel/contracts';
 	import type { OnboardingTemplate } from '../onboarding.types';
-	import PersonnelModal from '$features/personnel/components/PersonnelModal.svelte';
+	import { PersonnelModal } from '$features/personnel';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
@@ -18,9 +20,12 @@
 		canAddPerson: boolean;
 		existingOnboardingPersonnelIds: string[];
 		groups: Group[];
+		allowUnassigned?: boolean;
+		rankCatalog: RankCatalogEntry[];
+		rankCatalogUnavailable: boolean;
 		templates: OnboardingTemplate[];
 		hasTemplateSteps?: boolean;
-		onSubmit: (personnelId: string, startedAt: string, templateId: string | null) => void | Promise<void>;
+		onSubmit: (personnelId: string, startedAt: string, templateId: string | null) => Promise<boolean>;
 		onAddPerson: (data: Omit<Personnel, 'id'>) => Promise<string | null>;
 		onClose: () => void;
 	}
@@ -30,6 +35,9 @@
 		canAddPerson,
 		existingOnboardingPersonnelIds,
 		groups,
+		allowUnassigned = true,
+		rankCatalog,
+		rankCatalogUnavailable,
 		templates,
 		hasTemplateSteps = true,
 		onSubmit,
@@ -41,6 +49,12 @@
 	let startDate = $state(formatDate(new Date()));
 	let selectedTemplateId = $state<string>('');
 	let showAddPersonModal = $state(false);
+	let saving = $state(false);
+	let saveError = $state('');
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const availablePersonnel = $derived(
 		personnel
@@ -54,7 +68,7 @@
 		templates.find((template) => template.id === (selectedTemplateId || templates[0]?.id))?.name ?? 'Select a template'
 	);
 
-	const canSave = $derived(!!selectedPersonnelId && !!startDate && hasTemplateSteps);
+	const canSave = $derived(!!selectedPersonnelId && !!startDate && hasTemplateSteps && !saving);
 	const showTemplateSelector = $derived(templates.length > 1);
 
 	async function handleSave() {
@@ -62,8 +76,18 @@
 		const personnelId = selectedPersonnelId;
 		const date = startDate;
 		const templateId = selectedTemplateId || templates[0]?.id || null;
-		onClose();
-		await onSubmit(personnelId, date, templateId);
+		saving = true;
+		saveError = '';
+		try {
+			const saved = await onSubmit(personnelId, date, templateId);
+			if (!active) return;
+			if (saved) onClose();
+			else saveError = 'Could not start onboarding. Try again.';
+		} catch {
+			if (active) saveError = 'Could not start onboarding. Try again.';
+		} finally {
+			if (active) saving = false;
+		}
 	}
 
 	async function handleAddPersonSubmit(data: Omit<Personnel, 'id'>) {
@@ -94,7 +118,9 @@
 							<Field.Root>
 								<Field.Label for="template-select">Template</Field.Label>
 								<Select.Root type="single" bind:value={selectedTemplateId}>
-									<Select.Trigger id="template-select" class="w-full">{selectedTemplateLabel}</Select.Trigger>
+									<Select.Trigger disabled={saving} id="template-select" class="w-full"
+										>{selectedTemplateLabel}</Select.Trigger
+									>
 									<Select.Content>
 										{#each templates as t (t.id)}
 											<Select.Item value={t.id} label={t.name} />
@@ -106,7 +132,7 @@
 
 						<Field.Root>
 							<Field.Label for="start-date">Start Date</Field.Label>
-							<DatePicker id="start-date" bind:value={startDate} placeholder="Select start date" />
+							<DatePicker disabled={saving} id="start-date" bind:value={startDate} placeholder="Select start date" />
 						</Field.Root>
 					</div>
 				</div>
@@ -115,7 +141,13 @@
 					<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 						<p class="m-0 font-mono text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">Member</p>
 						{#if canAddPerson}
-							<Button size="sm" variant="outline" type="button" onclick={() => (showAddPersonModal = true)}>
+							<Button
+								size="sm"
+								variant="outline"
+								type="button"
+								disabled={rankCatalogUnavailable || saving}
+								onclick={() => (showAddPersonModal = true)}
+							>
 								Add Person
 							</Button>
 						{/if}
@@ -124,6 +156,7 @@
 					<Combobox.Root items={personnelOptions} bind:value={selectedPersonnelId} label="Member" autoHighlight>
 						<Combobox.Trigger
 							id="personnel-select"
+							disabled={saving}
 							clearable
 							placeholder="Search for a member..."
 							aria-label="Member"
@@ -135,6 +168,24 @@
 						</Combobox.Content>
 					</Combobox.Root>
 				</div>
+
+				{#if saveError}
+					<Alert.Root variant="destructive">
+						<TriangleAlert />
+						<Alert.Title>Onboarding not started</Alert.Title>
+						<Alert.Description>{saveError}</Alert.Description>
+					</Alert.Root>
+				{/if}
+
+				{#if canAddPerson && rankCatalogUnavailable}
+					<Alert.Root variant="warning">
+						<TriangleAlert />
+						<Alert.Title>Ranks unavailable</Alert.Title>
+						<Alert.Description>
+							Reload this page before adding a Person. You can still start onboarding for an existing member.
+						</Alert.Description>
+					</Alert.Root>
+				{/if}
 
 				{#if !hasTemplateSteps}
 					<Alert.Root variant="warning">
@@ -150,7 +201,10 @@
 
 		<AppDialog.Footer>
 			<Button variant="outline" type="button" onclick={onClose}>Cancel</Button>
-			<Button type="button" disabled={!canSave} onclick={handleSave}>Start Onboarding</Button>
+			<Button type="button" disabled={!canSave} onclick={handleSave}>
+				{#if saving}<Spinner />{/if}
+				Start Onboarding
+			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
@@ -159,6 +213,8 @@
 	<PersonnelModal
 		personnel={null}
 		{groups}
+		{rankCatalog}
+		{allowUnassigned}
 		onSubmit={handleAddPersonSubmit}
 		onClose={() => (showAddPersonModal = false)}
 	/>

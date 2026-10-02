@@ -2,11 +2,10 @@ import { json } from '@sveltejs/kit';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
-import { createPersonnelUseCases, type ArchivePersonnelBatchResult } from '$lib/server/core/useCases/personnel';
+import { fail } from '$lib/errors';
+import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
+import { archivePersonnelBatch } from '$lib/server/personnelArchiveBatchDelivery';
 import { validateUUID } from '$lib/server/validation';
-
-const useCases = createPersonnelUseCases();
 
 interface ArchivePersonnelBatchRouteInput {
 	ids: string[];
@@ -30,7 +29,7 @@ export const _postConfig: RouteConfig<ArchivePersonnelBatchRouteInput, ArchivePe
 			userEmail: event.locals.user?.email ?? 'unknown'
 		};
 	},
-	fn: (ctx, input) => useCases.archiveBatch(ctx, input),
+	fn: (ctx, input) => archivePersonnelBatch(ctx, input),
 	formatOutput: (result) => json(result)
 };
 

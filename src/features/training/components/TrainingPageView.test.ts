@@ -8,17 +8,18 @@ import { personnelTrainingsStore } from '$features/training/stores/personnelTrai
 import { personnelRosterHydration } from '$features/personnel';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 import TrainingModals from './TrainingModals.svelte';
-import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
+import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
-	invalidate: vi.fn()
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn()
 }));
 
 const trainingType: TrainingType = {
@@ -74,6 +75,7 @@ interface TrainingPageViewTestCtx {
 	selectedViewId: string | null;
 	setSelectedViewId: ReturnType<typeof vi.fn>;
 	canManageConfig: boolean;
+	canBulkImport: boolean;
 
 	canViewTraining: boolean;
 	canRecordTraining: boolean;
@@ -95,6 +97,7 @@ function makeCtx(viewMode: 'alphabetical' | 'by-group', overrides: Partial<Train
 		selectedViewId: null,
 		setSelectedViewId: vi.fn(),
 		canManageConfig: true,
+		canBulkImport: true,
 		canViewTraining: true,
 		canRecordTraining: true,
 		trainingOverflowItems: [],
@@ -191,7 +194,9 @@ describe('TrainingPageView', () => {
 		const ctx = new TrainingPageContext(
 			{ orgId: 'org-1', orgName: 'Test Org' },
 			modals,
-			createTestOrgContext({ orgId: 'org-1' })
+			createTestOrgContext({ orgId: 'org-1' }),
+			vi.fn().mockResolvedValue(true),
+			vi.fn().mockResolvedValue(undefined)
 		);
 		render(TrainingPageView, { props: { ctx, modals } });
 		render(TrainingModals, { props: { ctx, modals } });
@@ -234,5 +239,26 @@ describe('TrainingPageView', () => {
 
 		const manageViews = screen.getByRole('link', { name: /Manage Views/i });
 		expect(manageViews.getAttribute('href')).toBe('/org/org-1/training/views');
+	});
+
+	it('offers Group-scoped configurators bulk import but no catalog management', () => {
+		const org = createTestOrgContext({
+			orgId: 'org-1',
+			userRole: 'member',
+			capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
+			scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+		});
+		const ctx = new TrainingPageContext(
+			{ orgId: 'org-1', orgName: 'Test Org' },
+			new ModalRegistry(),
+			org,
+			vi.fn().mockResolvedValue(true),
+			vi.fn().mockResolvedValue(undefined)
+		);
+		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+
+		expect(screen.getByRole('button', { name: 'Import' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Manage Views' })).toBeNull();
+		expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
 	});
 });

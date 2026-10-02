@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { OnboardingTemplate } from '../onboarding.types';
 import StartOnboardingModal from './StartOnboardingModal.svelte';
 
@@ -41,6 +41,8 @@ describe('StartOnboardingModal', () => {
 				canAddPerson: false,
 				existingOnboardingPersonnelIds: [],
 				groups: [],
+				rankCatalogUnavailable: false,
+				rankCatalog: [],
 				templates: [template],
 				onSubmit: vi.fn(),
 				onAddPerson: vi.fn(),
@@ -59,6 +61,8 @@ describe('StartOnboardingModal', () => {
 				canAddPerson: true,
 				existingOnboardingPersonnelIds: [],
 				groups: [],
+				rankCatalogUnavailable: false,
+				rankCatalog: [],
 				templates: [template],
 				hasTemplateSteps: false,
 				onSubmit: vi.fn(),
@@ -72,10 +76,16 @@ describe('StartOnboardingModal', () => {
 		expect((screen.getByRole('button', { name: 'Start Onboarding' }) as HTMLButtonElement).disabled).toBe(true);
 	});
 
-	it('submits the selected member, start date, and template through the existing close-first flow', async () => {
+	it('submits the selected member, start date, and template and closes only after confirmed save', async () => {
 		vi.useFakeTimers({ shouldAdvanceTime: true });
 		vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'));
-		const onSubmit = vi.fn();
+		let confirm!: (saved: boolean) => void;
+		const onSubmit = vi.fn(
+			() =>
+				new Promise<boolean>((resolve) => {
+					confirm = resolve;
+				})
+		);
 		const onClose = vi.fn();
 
 		render(StartOnboardingModal, {
@@ -84,6 +94,8 @@ describe('StartOnboardingModal', () => {
 				canAddPerson: true,
 				existingOnboardingPersonnelIds: [],
 				groups: [],
+				rankCatalogUnavailable: false,
+				rankCatalog: [],
 				templates: [template],
 				onSubmit,
 				onAddPerson: vi.fn(),
@@ -94,6 +106,11 @@ describe('StartOnboardingModal', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
 		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Smith, Jane' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+		expect(onClose).not.toHaveBeenCalled();
+		expect((screen.getByRole('button', { name: /Start Onboarding/ }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: /Start Onboarding/ }));
+		expect(onSubmit).toHaveBeenCalledTimes(1);
+		confirm(true);
 
 		await waitFor(() => {
 			expect(onClose).toHaveBeenCalledTimes(1);
@@ -101,12 +118,45 @@ describe('StartOnboardingModal', () => {
 		});
 	});
 
+	it('does not close a replacement dialog when a dismissed submission later succeeds', async () => {
+		let confirm!: (saved: boolean) => void;
+		const onSubmit = vi.fn(
+			() =>
+				new Promise<boolean>((resolve) => {
+					confirm = resolve;
+				})
+		);
+		const onClose = vi.fn();
+		const props = {
+			personnel,
+			canAddPerson: false,
+			existingOnboardingPersonnelIds: [],
+			groups: [],
+			rankCatalogUnavailable: false,
+			rankCatalog: [],
+			templates: [template],
+			onSubmit,
+			onAddPerson: vi.fn(),
+			onClose
+		};
+		const first = render(StartOnboardingModal, { props });
+		await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
+		await fireEvent.click(await screen.findByRole('option', { name: 'SGT Smith, Jane' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
+		first.unmount();
+		render(StartOnboardingModal, { props });
+		confirm(true);
+		await onSubmit.mock.results[0].value;
+		expect(onClose).not.toHaveBeenCalled();
+		expect(screen.getByRole('dialog', { name: 'Start Onboarding' })).toBeTruthy();
+	});
+
 	it('uses the local calendar date for the default start date', async () => {
 		const originalTimezone = process.env.TZ;
 		process.env.TZ = 'America/Anchorage';
 		vi.useFakeTimers({ shouldAdvanceTime: true });
 		vi.setSystemTime(new Date('2026-05-05T02:00:00.000Z'));
-		const onSubmit = vi.fn();
+		const onSubmit = vi.fn().mockResolvedValue(true);
 
 		try {
 			render(StartOnboardingModal, {
@@ -115,6 +165,8 @@ describe('StartOnboardingModal', () => {
 					canAddPerson: true,
 					existingOnboardingPersonnelIds: [],
 					groups: [],
+					rankCatalogUnavailable: false,
+					rankCatalog: [],
 					templates: [template],
 					onSubmit,
 					onAddPerson: vi.fn(),

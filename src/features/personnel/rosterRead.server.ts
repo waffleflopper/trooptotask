@@ -1,6 +1,6 @@
 import type { RosterStatus } from './rosterReadModel';
-import { PersonnelEntity } from '$lib/server/entities/personnel';
-import type { Personnel } from '$lib/types';
+import { PersonnelEntity } from './personnelEntity.server';
+import type { Personnel } from './personnel.types';
 
 interface RosterQueryContext {
 	auth: { orgId: string };

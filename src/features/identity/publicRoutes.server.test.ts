@@ -20,10 +20,13 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/security')).toBe(true);
 	});
 
-	it('lets the archive cron reach its own secret check without opening nested routes', () => {
-		expect(isPublicRoute('/api/cleanup-archived-records')).toBe(true);
-		expect(isPublicRoute('/api/cleanup-archived-records/other')).toBe(false);
-	});
+	it.each(['/api/cleanup-archived-records', '/api/cleanup-archived-personnel', '/api/cleanup-expired-onboardings'])(
+		'lets %s reach its own secret check without opening nested routes',
+		(path) => {
+			expect(isPublicRoute(path)).toBe(true);
+			expect(isPublicRoute(path + '/other')).toBe(false);
+		}
+	);
 
 	it('does not classify the removed help route as public', () => {
 		expect(isPublicRoute('/help')).toBe(false);

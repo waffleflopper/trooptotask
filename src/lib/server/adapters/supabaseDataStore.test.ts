@@ -2,13 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseDataStore } from './supabaseDataStore';
 
-const slotConflict = {
-	code: '23505',
-	message: 'duplicate key value violates unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key"',
-	details: 'Key (organization_id, assignment_type_id, date)=(hidden-org, hidden-type, 2026-03-22) already exists.',
-	hint: ''
-};
-
 const foreignCalendarStatus = {
 	code: '23503',
 	message:
@@ -17,7 +10,13 @@ const foreignCalendarStatus = {
 	hint: ''
 };
 
-function storeWithProviderError(error: typeof slotConflict) {
+const duplicateTaskCode = {
+	...foreignCalendarStatus,
+	code: '23505',
+	message: 'duplicate key value violates unique constraint "ict_tasks_organization_id_task_code_key"'
+};
+
+function storeWithProviderError(error: Omit<typeof foreignCalendarStatus, 'details'> & { details: string | null }) {
 	const client = createClient('http://127.0.0.1:1', 'synthetic-anon-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
@@ -46,6 +45,55 @@ function write(store: ReturnType<typeof createSupabaseDataStore>, method: (typeo
 }
 
 describe('Supabase DataStore conflict handling', () => {
+	it('retains the named Personnel conflict code when transport DETAIL is null', async () => {
+		const providerError = {
+			code: '23505',
+			message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+			details: null,
+			hint: ''
+		};
+		const caught = await storeWithProviderError(providerError)
+			.insertMany('personnel', 'test-org', [{ slug: 'smith-jamie', group_id: 'group-alpha' }])
+			.catch((error: unknown) => error);
+		expect(caught).toMatchObject({ code: '23505', message: providerError.message, details: null });
+	});
+	it('retains a Personnel slug conflict candidate internally', async () => {
+		const providerError = {
+			code: '23505',
+			message: 'duplicate key value violates unique constraint "personnel_org_slug_key"',
+			details: 'Key (organization_id, slug)=(test-org, smith-jamie) already exists.',
+			hint: ''
+		};
+		const caught = await storeWithProviderError(providerError)
+			.insertMany('personnel', 'test-org', [{ slug: 'smith-jamie', group_id: 'group-alpha' }])
+			.catch((error: unknown) => error);
+
+		expect(caught).toMatchObject({ code: '23505', details: providerError.details });
+	});
+
+	it('does not attach slug recovery metadata for another Personnel constraint', async () => {
+		const providerError = {
+			code: '23505',
+			message: 'duplicate key value violates unique constraint "personnel_pkey"',
+			details: 'Key (id)=(private-person-id) already exists.',
+			hint: ''
+		};
+		const caught = await storeWithProviderError(providerError)
+			.insertMany('personnel', 'test-org', [{ id: 'private-person-id', slug: 'smith-jamie' }])
+			.catch((error: unknown) => error);
+
+		expect(caught).toBeInstanceOf(Error);
+		expect(caught).not.toHaveProperty('code');
+		expect(caught).not.toHaveProperty('details');
+	});
+
+	it.each(writes)('%s returns a conflict for a duplicate Critical Tasks code', async (method) => {
+		await expect(write(storeWithProviderError(duplicateTaskCode), method, 'ict_tasks')).rejects.toMatchObject({
+			status: 409,
+			message: 'Task code already exists in this Organization'
+		});
+	});
+
 	it.each(writes)('%s returns a concealed 404 for a foreign Calendar status reference', async (method) => {
 		await expect(
 			write(storeWithProviderError(foreignCalendarStatus), method, 'availability_entries')
@@ -64,51 +112,6 @@ describe('Supabase DataStore conflict handling', () => {
 		],
 		['another provider code', 'availability_entries', { ...foreignCalendarStatus, code: '42501' }]
 	])('does not reinterpret %s as a Calendar status reference', async (_label, table, error) => {
-		const result = write(storeWithProviderError(error), 'insert', table);
-		await expect(result).rejects.toThrow(error.message);
-		await expect(result).rejects.not.toHaveProperty('status');
-	});
-
-	it.each(writes)(
-		'%s returns a safe 409 for a Calendar slot collision without exposing provider details',
-		async (method) => {
-			await expect(write(storeWithProviderError(slotConflict), method, 'daily_assignments')).rejects.toMatchObject({
-				status: 409,
-				message: 'This assignment slot is unavailable. Refresh the Calendar and try again.'
-			});
-		}
-	);
-
-	it.each([
-		['another table', 'personnel', slotConflict],
-		[
-			'another unique constraint',
-			'daily_assignments',
-			{
-				...slotConflict,
-				message: 'duplicate key value violates unique constraint "daily_assignments_pkey"'
-			}
-		],
-		[
-			'a similarly named constraint',
-			'daily_assignments',
-			{
-				...slotConflict,
-				message:
-					'duplicate key value violates unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key_other"'
-			}
-		],
-		['another provider error code', 'daily_assignments', { ...slotConflict, code: '42501' }],
-		[
-			'an unrelated provider failure',
-			'daily_assignments',
-			{
-				...slotConflict,
-				code: 'PGRST000',
-				message: 'Database connection unavailable'
-			}
-		]
-	])('preserves existing errors for %s', async (_label, table, error) => {
 		const result = write(storeWithProviderError(error), 'insert', table);
 		await expect(result).rejects.toThrow(error.message);
 		await expect(result).rejects.not.toHaveProperty('status');

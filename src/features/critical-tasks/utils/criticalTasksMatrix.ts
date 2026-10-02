@@ -6,9 +6,10 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { createRosterReadModel } from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
+import { buildLatestIctCompletionLookup, ictCompletionKey, isCriticalTaskStatusReady } from './ictReadinessSnapshot';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 
 export interface CriticalTasksMatrixCell {
@@ -57,30 +58,6 @@ export interface BuildCriticalTasksMatrixOptions {
 	gapsOnly?: boolean;
 	asOf?: string | Date;
 	orgName?: string;
-}
-
-function completionKey(personnelId: string, ictTaskId: string): string {
-	return `${personnelId}:${ictTaskId}`;
-}
-
-function compareCompletionRecency(a: PersonnelIctCompletion, b: PersonnelIctCompletion): number {
-	const completedAtDiff = a.completedAt.localeCompare(b.completedAt);
-	if (completedAtDiff !== 0) return completedAtDiff;
-	return a.createdAt.localeCompare(b.createdAt);
-}
-
-function getLatestCompletionLookup(completions: PersonnelIctCompletion[]): Map<string, PersonnelIctCompletion> {
-	const lookup = new Map<string, PersonnelIctCompletion>();
-
-	for (const completion of completions) {
-		const key = completionKey(completion.personnelId, completion.ictTaskId);
-		const existing = lookup.get(key);
-		if (!existing || compareCompletionRecency(existing, completion) < 0) {
-			lookup.set(key, completion);
-		}
-	}
-
-	return lookup;
 }
 
 const statusLabels: Record<IctStatus, string> = {
@@ -161,7 +138,8 @@ export function buildCriticalTasksMatrix({
 	orgName = 'Unassigned'
 }: BuildCriticalTasksMatrixOptions): CriticalTasksMatrix {
 	const activeTasks = getActiveIctTasksForLibrary(tasks);
-	const latestCompletions = getLatestCompletionLookup(completions);
+	// The matrix shows the latest saved capture; asOf only evaluates its status.
+	const latestCompletions = buildLatestIctCompletionLookup(completions);
 	const groupOrder = [...groups]
 		.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
 		.map((g) => g.name);
@@ -182,13 +160,13 @@ export function buildCriticalTasksMatrix({
 				let applicableCount = 0;
 				const cells = activeTasks.map((task) => {
 					const applicable = isIctTaskApplicableToMos(task, person.mos);
-					const completion = applicable ? latestCompletions.get(completionKey(person.id, task.id)) : undefined;
+					const completion = applicable ? latestCompletions.get(ictCompletionKey(person.id, task.id)) : undefined;
 					const statusInfo = getIctStatus(completion?.completedAt ?? null, task, settings, asOf);
 					const isGap = applicable && (statusInfo.status === 'expired' || statusInfo.status === 'not-recorded');
 					const detailLabel = buildDetailLabel(task, completion, statusInfo);
 					if (applicable) {
 						applicableCount += 1;
-						if (statusInfo.status === 'current' || statusInfo.status === 'expiring-soon') {
+						if (isCriticalTaskStatusReady(statusInfo.status)) {
 							readyCount += 1;
 						}
 					}

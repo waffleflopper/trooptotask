@@ -22,6 +22,7 @@
 		loading?: boolean;
 		selection?: DataTableSelectionState<T>;
 		rowKey?: (row: T, index: number) => string | number;
+		/** Blocks import selection while leaving cell editors available for correction. */
 		disabledRow?: (row: T) => boolean;
 		disabledReason?: (row: T, index: number) => string | undefined;
 		rowStatus?: (row: T, index: number) => BulkImportRowStatus | undefined;
@@ -156,7 +157,6 @@
 		{emptyMessage}
 		{loading}
 		{rowKey}
-		{disabledRow}
 		density="dense"
 		stickyHeader
 		maxHeight="30rem"

@@ -17,7 +17,8 @@
 	} from '$features/critical-tasks/criticalTasks.types';
 	import { calculateIctExpirationDate } from '$features/critical-tasks/utils/ictStatus';
 	import { isIctTaskApplicableToMos } from '$features/critical-tasks/utils/ictTaskLibrary';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
+	import { compareIctCompletionRecency } from '../utils/ictReadinessSnapshot';
 
 	type CompletionSaveData = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
 
@@ -101,7 +102,7 @@
 		let latest: PersonnelIctCompletion | undefined;
 		for (const completion of completions) {
 			if (completion.personnelId !== selectedPerson.id || completion.ictTaskId !== selectedTask.id) continue;
-			if (!latest || compareCompletionRecency(latest, completion) < 0) {
+			if (!latest || compareIctCompletionRecency(latest, completion) < 0) {
 				latest = completion;
 			}
 		}
@@ -112,12 +113,6 @@
 	const previewExpirationDate = $derived(
 		selectedTask ? calculateIctExpirationDate(completionDate || null, selectedTask, settings) : null
 	);
-
-	function compareCompletionRecency(a: PersonnelIctCompletion, b: PersonnelIctCompletion): number {
-		const completedAtDiff = a.completedAt.localeCompare(b.completedAt);
-		if (completedAtDiff !== 0) return completedAtDiff;
-		return a.createdAt.localeCompare(b.createdAt);
-	}
 
 	$effect(() => {
 		if (person?.id && selectedPersonnelId !== person.id) {

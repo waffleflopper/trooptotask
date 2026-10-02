@@ -1,7 +1,7 @@
 <script lang="ts">
-	import PersonnelDetailPageView from '$features/personnel/components/PersonnelDetailPageView.svelte';
-	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
-	import type { PersonnelWorkspaceResult } from '$features/personnel/server/personnelWorkspaceBootstrap';
+	import { PersonnelDetailPageView } from '$features/personnel';
+	import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
+	import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Group } from '$features/personnel/contracts';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
@@ -14,6 +14,8 @@
 			data: Promise<PersonnelWorkspaceResult>;
 		};
 	}
+
+	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
 	let { data }: { data: PersonnelLayoutData } = $props();
 
@@ -61,5 +63,6 @@
 		orgName={org.orgName}
 		detail={data.personnelDetail}
 		{canArchivePersonnel}
+		{requestArchiveApproval}
 	/>
 {/if}

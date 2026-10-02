@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { IctTask, PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import {
 	buildCriticalTasksReadinessSnapshot,
 	buildCriticalTasksSoldierReadinessSummary,
@@ -48,6 +48,24 @@ function completion(overrides: Partial<PersonnelIctCompletion> = {}): PersonnelI
 }
 
 describe('Critical Task readiness snapshot', () => {
+	it('keeps the last logged update separate from the latest completion date used for readiness', () => {
+		const snapshot = buildCriticalTasksReadinessSnapshot({
+			personnel: [basePerson],
+			activeTasks: [commonTask],
+			completions: [
+				completion({ id: 'latest-completion-date', completedAt: '2026-03-10', createdAt: '2026-03-10T12:00:00Z' }),
+				completion({ id: 'recent-backdated-log', completedAt: '2025-01-01', createdAt: '2026-04-14T12:00:00Z' })
+			],
+			asOf: '2026-04-15'
+		});
+
+		expect(snapshot).toMatchObject({ readyCount: 1, applicableCount: 1, percent: 100 });
+		expect(snapshot.atRiskSoldierRows[0]).toMatchObject({
+			lastIctUpdateAt: '2026-04-14T12:00:00Z',
+			daysSinceLastIctUpdate: 1
+		});
+	});
+
 	it('treats expiring-soon completions as ready behind one readiness helper', () => {
 		expect(
 			isCriticalTaskCompletionReady(

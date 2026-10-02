@@ -160,6 +160,22 @@ describe('IctTaskLibraryPage', () => {
 		expect(screen.getByRole('button', { name: 'New Task' })).toBeTruthy();
 	});
 
+	it('discards an unsaved task draft when the Organization changes', async () => {
+		const view = render(IctTaskLibraryPage, { props: { data: { orgId: 'org-1' } } });
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		await fireEvent.input(screen.getByLabelText('Task code'), { target: { value: 'A-PRIVATE-TASK' } });
+		await fireEvent.input(screen.getByLabelText('Title'), { target: { value: 'A task draft' } });
+
+		ictTasksStore.load([{ ...activeTask, id: 'task-b', taskCode: 'B-EXISTING' }], 'org-2');
+		personnelIctCompletionsStore.load([], 'org-2');
+		await view.rerender({ data: { orgId: 'org-2' } });
+
+		await waitFor(() => expect(screen.queryByRole('heading', { name: 'New ICT Task' })).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: 'New Task' }));
+		expect((screen.getByLabelText('Task code') as HTMLInputElement).value).toBe('');
+		expect((screen.getByLabelText('Title') as HTMLInputElement).value).toBe('');
+	});
+
 	it('filters active tasks by task search text', async () => {
 		ictTasksStore.load([activeTask, infantryTask, allMosTask, archivedTask], 'org-1');
 

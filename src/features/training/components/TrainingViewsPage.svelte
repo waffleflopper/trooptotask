@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -10,16 +11,15 @@
 	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import type { TrainingView } from '$features/training/training.types';
 
-	const org = getOrgContext();
+	let { org }: { org: TrainingPageAccess } = $props();
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
 	const configureAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'unscoped' })
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'organization' })
 	);
 	const canMutate = $derived(configureAffordance.allowed);
 

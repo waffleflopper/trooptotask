@@ -14,7 +14,7 @@ function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } =
 		const query = {
 			select: (selection: string) => {
 				joinedPersonnel = selection.includes('personnel!inner');
-				joinedType = selection.includes('training_types!inner');
+				joinedType = /training_types(?:![^(),]+)*!inner\(/.test(selection);
 				return query;
 			},
 			eq: (column: string, value: unknown) => {

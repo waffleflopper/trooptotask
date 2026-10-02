@@ -11,18 +11,16 @@
  * - Port bundle builders (`createWritePortsContext`, `createQueryPortsContext`, etc.)
  *   matching the narrower port subsets accepted by individual use cases.
  *
- * Group scoping works automatically from `auth.scopeSet`.
+ * Group scoping works automatically from `auth.scopeSet`. Critical Tasks latest-read
+ * consumers supply their owned adapter through `criticalTasksReadModelFactory`.
  */
 import type {
-	CriticalTasksReadModelPort,
 	DataStore,
 	FindOptions,
 	FindResult,
 	AuthContext,
 	AuditPort,
 	ScopeEnforcementPort,
-	NotificationPort,
-	NotificationPayload,
 	StoragePort,
 	UseCaseContext,
 	WritePorts,
@@ -34,11 +32,13 @@ import type {
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
+type CalendarAssignmentReplacementPort = UseCaseContext['calendarAssignmentReplacement'];
+type AssignmentSlotChange = Parameters<CalendarAssignmentReplacementPort['replace']>[2][number];
+type SavedAssignment = Awaited<ReturnType<CalendarAssignmentReplacementPort['replace']>>[number];
 type SensitiveActionAuthorizer = UseCaseContext['sensitiveActionAuthorizer'];
 type SensitiveActionAuthorizeInput = Parameters<SensitiveActionAuthorizer['authorize']>[0];
 type SensitiveActionDecision = Awaited<ReturnType<SensitiveActionAuthorizer['authorize']>>;
@@ -118,6 +118,28 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 
 type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
 
+type TestContextOptions = {
+	auth?: Parameters<typeof createTestAuthContext>[0];
+	criticalTasksReadModelFactory?: (rawStore: DataStore) => QueryPorts['criticalTasksReadModel'];
+	onboardingReconciliation?: UseCaseContext['onboardingReconciliation'];
+};
+
+function unavailableOnboardingReconciliation(): NonNullable<UseCaseContext['onboardingReconciliation']> {
+	return {
+		async reconcile() {
+			throw new Error('Bind the owned Onboarding reconciliation provider');
+		}
+	};
+}
+
+function unavailableCriticalTasksReadModel(): QueryPorts['criticalTasksReadModel'] {
+	return {
+		async findLatestCompletions() {
+			throw new Error('Bind the owned Critical Tasks read model in this test context');
+		}
+	};
+}
+
 function getOrgColumn(table: string): string {
 	switch (table) {
 		case 'audit_logs':
@@ -131,7 +153,14 @@ function getOrgColumn(table: string): string {
 	}
 }
 
-export function createInMemoryDataStore(): DataStore & { seed(table: string, rows: Row[]): void } {
+export function createInMemoryDataStore(): DataStore & {
+	seed(table: string, rows: Row[]): void;
+	replaceDailyAssignmentSlots(
+		orgId: string,
+		replaceDays: string[],
+		slots: AssignmentSlotChange[]
+	): Promise<SavedAssignment[]>;
+} {
 	const tables: TableStore = new Map();
 
 	function getRows(table: string): Row[] {
@@ -272,6 +301,34 @@ export function createInMemoryDataStore(): DataStore & { seed(table: string, row
 		seed(table: string, rows: Row[]): void {
 			const existing = getRows(table);
 			existing.push(...rows);
+		},
+
+		async replaceDailyAssignmentSlots(orgId, replaceDays, slots) {
+			const rows = getRows('daily_assignments');
+			const days = new Set(replaceDays);
+			const slotKeys = new Set(slots.map((slot) => `${slot.date}::${slot.assignmentTypeId}`));
+			const retained = rows.filter(
+				(row) =>
+					row.organization_id !== orgId ||
+					(!days.has(String(row.date)) && !slotKeys.has(`${row.date}::${row.assignment_type_id}`))
+			);
+			const inserted = slots
+				.filter((slot) => slot.assigneeId)
+				.map((slot) => ({
+					id: crypto.randomUUID(),
+					organization_id: orgId,
+					date: slot.date,
+					assignment_type_id: slot.assignmentTypeId,
+					assignee_id: slot.assigneeId
+				}));
+			rows.splice(0, rows.length, ...retained, ...inserted);
+			return inserted.map((row) => ({
+				id: row.id,
+				date: row.date,
+				assignmentTypeId: row.assignment_type_id,
+				assigneeId: row.assignee_id,
+				organization_id: row.organization_id
+			}));
 		},
 
 		async findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null> {
@@ -481,17 +538,27 @@ interface RecordedNotification {
 	orgId: string;
 	userId?: string;
 	excludeUserId?: string | null;
-	notification: NotificationPayload;
+	notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2];
 }
 
-export function createTestNotificationPort(): NotificationPort & { notifications: RecordedNotification[] } {
+export function createTestNotificationPort(): UseCaseContext['notifications'] & {
+	notifications: RecordedNotification[];
+} {
 	const notifications: RecordedNotification[] = [];
 	return {
 		notifications,
-		async notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
+		async notifyUser(
+			orgId: string,
+			userId: string,
+			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
+		): Promise<void> {
 			notifications.push({ target: 'user', orgId, userId, notification });
 		},
-		async notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void> {
+		async notifyAdmins(
+			orgId: string,
+			excludeUserId: string | null,
+			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
+		): Promise<void> {
 			notifications.push({ target: 'admins', orgId, excludeUserId, notification });
 		}
 	};
@@ -513,6 +580,12 @@ function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; 
 	};
 }
 
+function createInMemoryCalendarAssignmentReplacementPort(
+	rawStore: InMemoryDataStore
+): CalendarAssignmentReplacementPort {
+	return { replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore) };
+}
+
 async function inMemoryPersonnelRows(
 	rawStore: DataStore,
 	actor: AuthContext,
@@ -522,7 +595,7 @@ async function inMemoryPersonnelRows(
 	if (actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0) return [];
 	if (ids && ids.length === 0) return [];
 	return rawStore.findMany<Row>('personnel', actor.orgId, undefined, {
-		select: '*, groups(name)',
+		select: '*, groups:groups!personnel_organization_group_fkey(name)',
 		...(status === 'active' ? { isNull: { archived_at: true } } : {}),
 		inFilters: {
 			...(actor.scopeSet.kind === 'groups' ? { group_id: actor.scopeSet.groupIds } : {}),
@@ -797,6 +870,25 @@ function createInMemoryPersonnelCriticalTasksRosterPort(
 	};
 }
 
+function createInMemoryRatingSchemeDuePort(rawStore: DataStore): NonNullable<QueryPorts['ratingSchemeDue']> {
+	return {
+		async listDueEntries(actor) {
+			if (actor.capabilityMap.ratingScheme === 'none') return [];
+			const people = actor.scopeSet.kind === 'groups' ? await inMemoryPersonnelRows(rawStore, actor, 'all') : null;
+			const rows = await rawStore.findMany<{
+				rating_period_end: string;
+				status: 'active' | 'completed' | 'change-of-rater';
+			}>(
+				'rating_scheme_entries',
+				actor.orgId,
+				undefined,
+				people ? { inFilters: { rated_person_id: people.map((person) => person.id) } } : undefined
+			);
+			return rows.map((row) => ({ ratingPeriodEnd: row.rating_period_end, status: row.status }));
+		}
+	};
+}
+
 function createInMemoryPersonnelRatingSchemeRosterPort(
 	rawStore: DataStore
 ): NonNullable<UseCaseContext['personnelRatingSchemeRoster']> {
@@ -812,6 +904,12 @@ function createInMemoryPersonnelRatingSchemeRosterPort(
 		async findRatedPersonGroupForWrite(actor, personnelId) {
 			const rows = await inMemoryPersonnelRows(rawStore, actor, 'all', [personnelId]);
 			return rows[0] ? { groupId: (rows[0].group_id as string | null) ?? null } : null;
+		},
+		async hasEvaluatorReferences(actor, personnelIds) {
+			const ids = [...new Set(personnelIds.map((id) => id.toLowerCase()))];
+			if (!ids.length) return true;
+			const rows = await rawStore.findMany<Row>('personnel', actor.orgId, undefined, { inFilters: { id: ids } });
+			return rows.length === ids.length;
 		}
 	};
 }
@@ -915,13 +1013,30 @@ function createInMemoryOnboardingCalendarMarkersPort(
 	};
 }
 
-/** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
-export function createTestContext(overrides?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-	scope?: Partial<ScopeEnforcementPort>;
+function unavailableNotificationStore(): UseCaseContext['notificationSelf']['store'] {
+	const unavailable = async (): Promise<never> => {
+		throw new Error('Bind the owned Notifications provider in this test context');
+	};
+	return {
+		findNotification: unavailable,
+		listOwn: unavailable,
+		listOwnUnreadIds: unavailable,
+		markRead: unavailable,
+		deleteNotification: unavailable,
+		deleteOwn: unavailable,
+		countOwnUnread: unavailable,
+		listOwnExportRows: unavailable
+	};
+}
 
-	sensitiveActionDecision?: Partial<SensitiveActionDecision>;
-}): UseCaseContext & {
+/** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
+export function createTestContext(
+	overrides?: TestContextOptions & {
+		scope?: Partial<ScopeEnforcementPort>;
+
+		sensitiveActionDecision?: Partial<SensitiveActionDecision>;
+	}
+): UseCaseContext & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
 	auditPort: ReturnType<typeof createTestAuditPort>;
@@ -936,22 +1051,32 @@ export function createTestContext(overrides?: {
 	const notificationPort = createTestNotificationPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		overrides?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		rawStore,
 		auth,
 		scope,
 		audit: auditPort,
+		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		auditPort,
 
 		notifications: notificationPort,
+		notificationSelf: { auth, audit: auditPort, store: unavailableNotificationStore() },
+		feedbackExport: {
+			async listRows() {
+				throw new Error('Bind the owned Feedback export provider in this test context');
+			}
+		},
 		notificationPort,
 		storage: storagePort,
 		storagePort,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
+		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
@@ -1024,7 +1149,7 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 // Port bundle context builders — return exactly the ports in each bundle
 // ---------------------------------------------------------------------------
 
-export function createWritePortsContext(options?: { auth?: Parameters<typeof createTestAuthContext>[0] }): WritePorts &
+export function createWritePortsContext(options?: TestContextOptions): WritePorts &
 	Pick<
 		UseCaseContext,
 		| 'personnelTrainingRoster'
@@ -1035,17 +1160,20 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 	> & {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
-		criticalTasksReadModel: CriticalTasksReadModelPort;
+		criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 	} {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
+		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1059,9 +1187,7 @@ export function createWritePortsContext(options?: { auth?: Parameters<typeof cre
 	};
 }
 
-export function createWriteWithNotificationsPortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-}): WriteWithNotificationsPorts &
+export function createWriteWithNotificationsPortsContext(options?: TestContextOptions): WriteWithNotificationsPorts &
 	Pick<
 		UseCaseContext,
 		| 'personnelTrainingRoster'
@@ -1073,17 +1199,20 @@ export function createWriteWithNotificationsPortsContext(options?: {
 		store: ReturnType<typeof createInMemoryDataStore>;
 		audit: ReturnType<typeof createTestAuditPort>;
 		notifications: ReturnType<typeof createTestNotificationPort>;
-		criticalTasksReadModel: CriticalTasksReadModelPort;
+		criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 	} {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
 		rawStore,
 		auth,
 		audit: createTestAuditPort(),
+		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
@@ -1113,20 +1242,20 @@ export function createUserWritePortsContext(options?: {
 	};
 }
 
-export function createQueryPortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-}): QueryPorts & {
+export function createQueryPortsContext(options?: TestContextOptions): QueryPorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
-	criticalTasksReadModel: CriticalTasksReadModelPort;
+	criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 } {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
+		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
@@ -1137,22 +1266,22 @@ export function createQueryPortsContext(options?: {
 	};
 }
 
-export function createQueryWithRawStorePortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-}): QueryWithRawStorePorts & {
+export function createQueryWithRawStorePortsContext(options?: TestContextOptions): QueryWithRawStorePorts & {
 	store: ReturnType<typeof createInMemoryDataStore>;
 	rawStore: ReturnType<typeof createInMemoryDataStore>;
-	criticalTasksReadModel: CriticalTasksReadModelPort;
+	criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
 } {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
-	const criticalTasksReadModel = createInMemoryCriticalTasksReadModelAdapter(rawStore);
+	const criticalTasksReadModel =
+		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,
 		rawStore,
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
+		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),

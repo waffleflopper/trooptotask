@@ -1,0 +1,203 @@
+import { randomUUID } from 'node:crypto';
+
+const expiredAt = '2000-01-01T12:00:00.000Z';
+const checked = (result) => {
+	if (result.error) throw new Error('Owned Onboarding setup failed: ' + result.error.message);
+};
+
+// Record every temporary ID before writing, so interrupted setup is still removable.
+export async function seedOnboarding({ client, fixture, kind, tag, ownedState, save }) {
+	const recentAt = new Date(Date.now() - 86400000).toISOString();
+	const batches = [];
+	let packets;
+	let progress;
+	let people;
+	if (kind === 'onboarding-legacy') {
+		const person = {
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			group_id: fixture.ids.groupA,
+			rank: 'SPC',
+			first_name: 'Synthetic',
+			last_name: 'MapLegacy' + tag,
+			slug: 'map-legacy-' + tag
+		};
+		packets = [
+			{
+				id: randomUUID(),
+				organization_id: fixture.ids.orgA,
+				personnel_id: person.id,
+				template_id: null,
+				started_at: fixture.dates.ui,
+				status: 'in_progress'
+			}
+		];
+		progress = [
+			['Orientation', 'checkbox', true, null, null],
+			['Paperwork', 'paperwork', false, ['Submitted', 'Reviewed', 'Filed'], 'Reviewed'],
+			['Historic task', 'checkbox', true, null, null]
+		].map(([step_name, step_type, completed, stages, current_stage], sort_order) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids.orgA,
+			onboarding_id: packets[0].id,
+			template_step_id: null,
+			step_name,
+			step_type,
+			completed,
+			stages,
+			current_stage,
+			sort_order,
+			active: true,
+			notes: [
+				{ text: 'Legacy retained work ' + tag, timestamp: expiredAt, userId: fixture.actors.onboardingConfigure.id }
+			]
+		}));
+		batches.push(['personnel', [person]]);
+	} else if (kind === 'onboarding-history') {
+		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+		const examples = [
+			['alpha', 'orgA', 'groupA', 'completed', false],
+			['archived', 'orgA', 'groupA', 'cancelled', true],
+			['bravo', 'orgA', 'groupB', 'completed', false],
+			['foreign', 'orgB', 'groupForeign', 'completed', false]
+		];
+		people = examples.map(([key, organization, group, _status, archived]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids[organization],
+			group_id: fixture.ids[group],
+			rank: 'SPC',
+			first_name: 'Synthetic',
+			last_name: 'History' + key + tag,
+			slug: 'map-history-' + key + '-' + tag,
+			archived_at: archived ? recentAt : null
+		}));
+		packets = examples.map(([key, organization, _group, status], index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids[organization],
+			personnel_id: people[index].id,
+			template_id: fixture.ids[organization === 'orgA' ? 'onboardingTemplate' : 'onboardingForeignTemplate'],
+			started_at: startedAt,
+			completed_at: status === 'completed' ? recentAt : null,
+			cancelled_at: status === 'cancelled' ? recentAt : null,
+			status,
+			key
+		}));
+		progress = packets.flatMap((packet) =>
+			[
+				['Checkbox', 'checkbox', true, true, null],
+				['Paperwork', 'paperwork', false, true, 'Reviewed'],
+				['Training', 'training', false, true, null],
+				['Removed done', 'checkbox', true, false, null],
+				['Removed pending', 'checkbox', false, false, null]
+			].map(([label, step_type, completed, active, current_stage], sort_order) => ({
+				id: randomUUID(),
+				organization_id: packet.organization_id,
+				onboarding_id: packet.id,
+				template_step_id: null,
+				step_name: 'History ' + label + ' ' + packet.key + ' ' + tag,
+				step_type,
+				training_type_id:
+					step_type === 'training'
+						? fixture.ids[packet.key === 'foreign' ? 'trainingForeignType' : 'trainingRequired']
+						: null,
+				stages: step_type === 'paperwork' ? ['Submitted', 'Reviewed', 'Filed'] : null,
+				current_stage: packet.key === 'foreign' && step_type === 'paperwork' ? 'Archived review' : current_stage,
+				sort_order,
+				completed,
+				active,
+				notes: [
+					{
+						text: 'History note ' + label + ' ' + packet.key + ' ' + tag,
+						timestamp: recentAt,
+						userId: fixture.actors[packet.key === 'foreign' ? 'onboardingForeign' : 'onboardingConfigure'].id
+					}
+				]
+			}))
+		);
+		batches.push(
+			['personnel', people],
+			[
+				'personnel_trainings',
+				[
+					{
+						id: randomUUID(),
+						organization_id: fixture.ids.orgA,
+						personnel_id: people[0].id,
+						training_type_id: fixture.ids.trainingRequired,
+						completion_date: fixture.dates.trainingCompleted,
+						expiration_date: fixture.dates.trainingExpires
+					}
+				]
+			]
+		);
+	} else {
+		const completedCount = kind === 'onboarding-retention-1001' ? 1001 : 1;
+		const examples = [
+			...Array.from({ length: completedCount }, (_, index) => [
+				'expiredCompleted' + index,
+				'orgA',
+				'completed',
+				expiredAt
+			]),
+			['expiredCancelled', 'orgA', 'cancelled', expiredAt],
+			['recentCompleted', 'orgA', 'completed', recentAt],
+			['recentCancelled', 'orgA', 'cancelled', recentAt],
+			['nullCompleted', 'orgA', 'completed', null],
+			['nullCancelled', 'orgA', 'cancelled', null],
+			['active', 'orgA', 'in_progress', null],
+			['foreignRecent', 'orgB', 'completed', recentAt]
+		];
+		packets = examples.map(([key, organization, status, terminalAt]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids[organization],
+			personnel_id:
+				organization === 'orgB'
+					? fixture.ids.personForeign
+					: status === 'in_progress'
+						? fixture.ids.personUnassigned
+						: fixture.ids.personA,
+			template_id: organization === 'orgB' ? fixture.ids.onboardingForeignTemplate : fixture.ids.onboardingTemplate,
+			started_at: '1999-01-01',
+			status,
+			completed_at: status === 'completed' ? terminalAt : null,
+			cancelled_at: status === 'cancelled' ? terminalAt : null,
+			key
+		}));
+		progress = packets.map((packet) => ({
+			id: randomUUID(),
+			organization_id: packet.organization_id,
+			onboarding_id: packet.id,
+			template_step_id: null,
+			step_name: 'Retention witness ' + packet.key + ' ' + tag,
+			step_type: 'checkbox',
+			sort_order: 0,
+			completed: true,
+			active: true,
+			notes: [{ text: 'Retained history ' + tag, timestamp: expiredAt, userId: fixture.actors.onboardingConfigure.id }]
+		}));
+	}
+	const publicPackets = packets;
+	batches.push(
+		['personnel_onboardings', packets.map(({ key: _key, ...packet }) => packet)],
+		['onboarding_step_progress', progress]
+	);
+	for (const [table, rows] of batches) {
+		for (const organization of ['orgA', 'orgB']) {
+			const ids = rows.filter((row) => row.organization_id === fixture.ids[organization]).map((row) => row.id);
+			if (ids.length) ownedState.seeded.push({ kind, tag, table, organization, ids });
+		}
+	}
+	await save(ownedState);
+	for (const [table, rows] of batches) {
+		for (let offset = 0; offset < rows.length; offset += 100)
+			checked(await client.from(table).insert(rows.slice(offset, offset + 100)));
+	}
+	return {
+		kind,
+		tag,
+		packets: publicPackets,
+		progress,
+		...(people ? { people, training: batches[1][1] } : {}),
+		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {})
+	};
+}

@@ -2,11 +2,11 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
-import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { trainingTypesStore } from '$features/training';
 import { personnelRosterHydration } from '$features/personnel';
-import type { TrainingWorkspaceResult } from '$features/training/server/trainingWorkspaceBootstrap';
-import type { Personnel } from '$lib/types';
-import type { TrainingType } from '$features/training/training.types';
+import type { TrainingWorkspaceResult } from '$features/training/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type { TrainingType } from '$features/training/contracts';
 
 vi.mock('$lib/stores/orgContext.svelte', () => {
 	const capabilityRank = ['none', 'view', 'operate', 'configure'];

@@ -3,12 +3,9 @@ import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from './personnel.types';
 import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
-import type {
-	PersonnelWorkspaceHydration,
-	PersonnelWorkspaceHydrationTarget
-} from './server/personnelWorkspaceBootstrap';
+import type { PersonnelWorkspaceHydration, PersonnelWorkspaceHydrationTarget } from './contracts';
 
 export interface PersonnelHydrationLoadable<T> {
 	readonly orgId: string;

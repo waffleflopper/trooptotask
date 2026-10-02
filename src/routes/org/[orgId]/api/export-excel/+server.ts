@@ -1,3 +1,8 @@
+import {
+	listOnboardingTemplateExportRows,
+	listOnboardingTemplateStepExportRows
+} from '$features/onboarding/index.server';
+import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
@@ -6,9 +11,15 @@ import {
 	type OrganizationDataExportExecutionResult
 } from '$lib/server/core/useCases/organizationDataExportExecution';
 import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
+import { listNotificationExportRows } from '$features/notifications/index.server';
 import { buildOrganizationDataExportWorkbook } from '$lib/server/core/useCases/organizationExportWorkbook';
-import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/export/workbook';
+import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/utils/workbook';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import {
+	listTrainingTypeExportRows,
+	listTrainingCompletionExportRows,
+	listTrainingViewExportRows
+} from '$features/training/index.server';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -25,12 +36,28 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 		email: event.locals.user?.email
 	}),
 	fn: async (ctx, input) => {
+		const orgId = ctx.auth.orgId;
 		return executeOrganizationDataExport(ctx, {
 			requestedByEmail: input.email,
 			auditAction: 'export.excel_created',
 			buildArtifact: async () => {
 				if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
-				const exportData = await loadOrganizationExportPayload(ctx.rawStore, ctx.auth, ctx.personnelOrganizationExport);
+				const exportData = await loadOrganizationExportPayload(
+					ctx.rawStore,
+					ctx.auth,
+					ctx.personnelOrganizationExport,
+					{
+						listTrainingTypeExportRows,
+						listTrainingCompletionExportRows,
+						listTrainingViewExportRows
+					},
+					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+					{
+						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
+						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
+					},
+					{ listRatingSchemeExportRows }
+				);
 				const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 				const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);
 

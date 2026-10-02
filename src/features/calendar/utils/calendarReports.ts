@@ -1,5 +1,5 @@
-import type { Personnel, DailyAssignment } from '$lib/types';
-import type { AvailabilityEntry, StatusType, AssignmentType } from '$features/calendar/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type { AvailabilityEntry, StatusType, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import { comparePersonnelByRankThenName } from '$features/personnel/contracts';
 
 // --- Shared helpers ---

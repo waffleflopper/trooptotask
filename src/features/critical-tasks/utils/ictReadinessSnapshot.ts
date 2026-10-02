@@ -4,7 +4,7 @@ import type {
 	IctTask,
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { getIctStatus } from './ictStatus';
 import { isIctTaskApplicableToMos } from './ictTaskLibrary';
 import {
@@ -282,7 +282,7 @@ function compareAtRiskSoldierRows(left: IctAtRiskSoldierRow, right: IctAtRiskSol
 	);
 }
 
-function buildLastIctUpdateLookup(input: {
+export function buildLastIctUpdateLookup(input: {
 	personnel: Personnel[];
 	activeTasks: IctTask[];
 	completions: PersonnelIctCompletion[];

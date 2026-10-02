@@ -9,23 +9,21 @@
  * includes data (onboarding, rating scheme) the calendar page doesn't need.
  */
 import type { QueryPorts } from '$lib/server/core/ports';
-import type { Personnel, DailyAssignment } from '$lib/types';
-import type { StatusType, AvailabilityEntry, AssignmentType } from '$features/calendar/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type { StatusType, AvailabilityEntry, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { TrainingType } from '$features/training/training.types';
-import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
-import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import type { TrainingType } from '$features/training/contracts';
+import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
+import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import {
 	listAssignmentTypes,
 	listAvailabilityEntries,
 	listDailyAssignments,
 	listStatusTypes
 } from '$features/calendar/index.server';
-import { RatingSchemeEntryEntity } from '$lib/server/entities/ratingSchemeEntry';
-import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { TrainingTypeEntity } from '$lib/server/entities/trainingType';
+import { listActiveOnboardings } from '$features/onboarding/index.server';
+import { listTrainingTypes } from '$features/training/index.server';
 import { formatDate } from '$lib/utils/dates';
-import { listAwardTrackingAcknowledgedPersonnelIds } from './personnelAwardTracking';
 import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
 
 export interface DashboardData {
@@ -33,7 +31,7 @@ export interface DashboardData {
 	assignmentTypes: AssignmentType[];
 	todayAssignments: DailyAssignment[];
 	pinnedGroups: string[];
-	ratingSchemeEntries: RatingSchemeEntry[];
+	ratingSchemeEntries: RatingSchemeDueEntry[];
 	activeOnboardings: PersonnelOnboarding[];
 }
 
@@ -49,7 +47,7 @@ export interface DashboardBootstrap {
 	assignmentTypes: AssignmentType[];
 	todayAssignments: DailyAssignment[] | Promise<DailyAssignment[]>;
 	pinnedGroups: string[];
-	ratingSchemeEntries: RatingSchemeEntry[];
+	ratingSchemeEntries: RatingSchemeDueEntry[];
 	activeOnboardings: PersonnelOnboarding[];
 	personnel: Personnel[];
 	groups: Group[];
@@ -61,14 +59,9 @@ export interface DashboardBootstrap {
 	awardTrackingAcknowledgedPersonnelIds: string[];
 }
 
-async function loadActiveOnboardings(ctx: QueryPorts, orgId: string) {
-	const rows = await ctx.store.findMany<Record<string, unknown>>(
-		'personnel_onboardings',
-		orgId,
-		{ status: 'in_progress' },
-		{ select: PersonnelOnboardingEntity.select }
-	);
-	return PersonnelOnboardingEntity.fromDbArray(rows);
+async function loadRatingSchemeDueEntries(ctx: QueryPorts): Promise<RatingSchemeDueEntry[]> {
+	if (!ctx.ratingSchemeDue) throw new Error('Rating Scheme due projection port is required');
+	return ctx.ratingSchemeDue.listDueEntries(ctx.auth);
 }
 
 export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
@@ -82,32 +75,29 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 	const [
 		assignmentTypes,
 		pinnedGroups,
-		ratingSchemeRows,
+		ratingSchemeEntries,
 		activeOnboardings,
 		personnel,
 		groups,
 		statusTypes,
-		trainingTypeRows,
+		trainingTypes,
 		orgSettingsRow,
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
 		listAssignmentTypes(ctx.store, orgId),
 		listPinnedGroupNames(ctx),
-		ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
-			select: 'id, rated_person_id, eval_type, rating_period_end, status',
-			orderBy: [{ column: 'rating_period_end', ascending: true }]
-		}),
-		loadActiveOnboardings(ctx, orgId),
+		loadRatingSchemeDueEntries(ctx),
+		listActiveOnboardings(ctx.store, orgId),
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		listGroupCatalog(ctx),
 		listStatusTypes(ctx.store, orgId),
-		ctx.store.findMany<Record<string, unknown>>('training_types', orgId, undefined, {
-			orderBy: [{ column: 'sort_order', ascending: true }]
-		}),
+		listTrainingTypes(ctx.store, orgId),
 		ctx.store
 			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
 			.catch(() => null),
-		listAwardTrackingAcknowledgedPersonnelIds(ctx)
+		ctx.personnelAwardAcknowledgement
+			? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
+			: Promise.reject(new Error('Personnel award acknowledgement port is required'))
 	]);
 	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
 
@@ -116,12 +106,12 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		assignmentTypes,
 		todayAssignments,
 		pinnedGroups,
-		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
+		ratingSchemeEntries,
 		activeOnboardings,
 		personnel,
 		groups,
 		statusTypes,
-		trainingTypes: TrainingTypeEntity.fromDbArray(trainingTypeRows),
+		trainingTypes,
 		lossWarningWindowDays,
 		awardTrackingAcknowledgedPersonnelIds
 	};
@@ -134,17 +124,14 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 	const yesterday = formatDate(new Date(serverNow.getTime() - 24 * 60 * 60 * 1000));
 	const twoWeeksOut = formatDate(new Date(serverNow.getTime() + 15 * 24 * 60 * 60 * 1000));
 
-	const [availabilityEntries, assignmentTypes, todayAssignments, pinnedGroups, ratingSchemeRows, activeOnboardings] =
+	const [availabilityEntries, assignmentTypes, todayAssignments, pinnedGroups, ratingSchemeEntries, activeOnboardings] =
 		await Promise.all([
 			listAvailabilityEntries(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }),
 			listAssignmentTypes(ctx.store, orgId),
 			listDailyAssignments(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }, null),
 			listPinnedGroupNames(ctx),
-			ctx.store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
-				select: 'id, rated_person_id, eval_type, rating_period_end, status',
-				orderBy: [{ column: 'rating_period_end', ascending: true }]
-			}),
-			loadActiveOnboardings(ctx, orgId)
+			loadRatingSchemeDueEntries(ctx),
+			listActiveOnboardings(ctx.store, orgId)
 		]);
 
 	return {
@@ -152,7 +139,7 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 		assignmentTypes,
 		todayAssignments,
 		pinnedGroups,
-		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(ratingSchemeRows),
+		ratingSchemeEntries,
 		activeOnboardings
 	};
 }

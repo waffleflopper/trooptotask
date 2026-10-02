@@ -9,8 +9,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { DataStore, FindOptions, FindResult } from '../core/ports';
-import { fail } from '../core/errors';
-import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination';
+import { fail } from '$lib/errors';
+import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination.server';
 
 type DistinctAuditLogActionsRpcClient = {
 	rpc(
@@ -33,7 +33,12 @@ function getOrgColumn(table: string): string {
 	}
 }
 
-function throwMutationError(table: string, error: { code?: string; message: string }): never {
+function throwMutationError(table: string, error: { code?: string; message: string; details?: string }): never {
+	if (table === 'personnel' && error.code === '23505' && error.message.includes('"personnel_org_slug_key"')) {
+		// Preserve only this named conflict's metadata for ordinary request-store
+		// URL recovery. The HTTP boundary still conceals internal provider errors.
+		throw Object.assign(new Error(error.message), { code: error.code, details: error.details });
+	}
 	if (
 		table === 'availability_entries' &&
 		error.code === '23503' &&
@@ -44,12 +49,11 @@ function throwMutationError(table: string, error: { code?: string; message: stri
 		fail(404, 'Status type is unavailable for this Organization');
 	}
 	if (
-		table === 'daily_assignments' &&
+		table === 'ict_tasks' &&
 		error.code === '23505' &&
-		error.message.includes('unique constraint "daily_assignments_clinic_id_assignment_type_id_date_key"')
+		error.message.includes('"ict_tasks_organization_id_task_code_key"')
 	) {
-		// The conflicting slot may be hidden by RLS; expose neither its row nor provider details.
-		fail(409, 'This assignment slot is unavailable. Refresh the Calendar and try again.');
+		fail(409, 'Task code already exists in this Organization');
 	}
 	throw new Error(error.message);
 }

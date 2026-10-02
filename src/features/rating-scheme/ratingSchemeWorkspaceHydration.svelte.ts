@@ -4,10 +4,7 @@ import {
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
 import type { RatingSchemeEntry } from './rating-scheme.types';
-import type {
-	RatingSchemeWorkspaceHydration,
-	RatingSchemeWorkspaceHydrationTarget
-} from './server/ratingSchemeWorkspaceBootstrap';
+import type { RatingSchemeWorkspaceHydration, RatingSchemeWorkspaceHydrationTarget } from './contracts';
 
 export interface RatingSchemeHydrationLoadable<T> {
 	readonly orgId: string;
@@ -22,6 +19,7 @@ export interface RatingSchemeHydrationStores {
 
 export interface RatingSchemeWorkspaceHydrator {
 	hydrate(hydration?: RatingSchemeWorkspaceHydration, stores?: RatingSchemeHydrationStores): Promise<void>;
+	restrict(orgId: string, stores?: RatingSchemeHydrationStores): void;
 	reset(): void;
 }
 
@@ -53,6 +51,11 @@ export function createRatingSchemeWorkspaceHydrator(): RatingSchemeWorkspaceHydr
 	return {
 		reset() {
 			hydrationTargets.reset();
+		},
+
+		restrict(orgId: string, stores: RatingSchemeHydrationStores = defaultRatingSchemeHydrationStores) {
+			hydrationTargets.reset();
+			stores.ratingSchemeStore.load([], orgId);
 		},
 
 		async hydrate(

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	SpecialDay,
+	StatusType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 import { createCalendarWorkspaceHydrator, type CalendarHydrationStores } from './calendarWorkspaceHydration.svelte';
 import type { CalendarWorkspaceHydration } from './server/calendarWorkspaceBootstrap';
 
@@ -199,5 +205,35 @@ describe('Calendar workspace hydration adapter', () => {
 		expect(stores.specialDaysStore.loadCount).toBe(0);
 		expect(stores.calendarAssignmentsStore.loadCount).toBe(0);
 		expect(stores.pinnedGroupsStore.loadCount).toBe(0);
+	});
+
+	it('clears prior Calendar data and cancels pending hydration when access is revoked', async () => {
+		const stores = createStores();
+		const oldEntry = { id: 'old', personnelId: 'p1' } as AvailabilityEntry;
+		const lateEntry = { id: 'late', personnelId: 'p1' } as AvailabilityEntry;
+		stores.availabilityEntriesStore.load([oldEntry], 'org-1');
+		stores.calendarAssignmentsStore.load([{ id: 'type-1' } as AssignmentType], [], 'org-1');
+		stores.personnelStore.load([{ id: 'p1' } as Personnel], 'org-1');
+		let resolveEntries!: (entries: AvailabilityEntry[]) => void;
+		const entries = new Promise<AvailabilityEntry[]>((resolve) => {
+			resolveEntries = resolve;
+		});
+		const hydrator = createCalendarWorkspaceHydrator();
+		const pending = hydrator.hydrate(
+			preserveClientHydration({
+				availabilityEntries: { mode: 'merge', snapshotKey: 'availability:late', items: entries }
+			}),
+			stores
+		);
+		expect(stores.availabilityEntriesStore.loading).toBe(true);
+
+		hydrator.restrict('org-1', stores);
+		resolveEntries([lateEntry]);
+		await pending;
+
+		expect(stores.availabilityEntriesStore.items).toEqual([]);
+		expect(stores.availabilityEntriesStore.loading).toBe(false);
+		expect(stores.calendarAssignmentsStore.types).toEqual([]);
+		expect(stores.personnelStore.items).toEqual([]);
 	});
 });

@@ -1,10 +1,13 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
 import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
 import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
+import { countRatingSchemeEntries } from '$features/rating-scheme/index.server';
+import { countTrainingTypes } from '$features/training/index.server';
+import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';
 
 interface GettingStartedSupportData {
 	trainingTypeCount: number;
@@ -39,9 +42,9 @@ async function fetchGettingStartedSupport(ctx: UseCaseContext) {
 		gettingStartedRows,
 		starterConfigurationPacks
 	] = await Promise.all([
-		countRows(ctx, 'training_types'),
-		countRows(ctx, 'onboarding_template_steps'),
-		countRows(ctx, 'rating_scheme_entries'),
+		countTrainingTypes(ctx.store, ctx.auth.orgId),
+		countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
+		countRatingSchemeEntries({ store: ctx.rawStore, actor: ctx.auth }),
 		countRows(ctx, 'organization_memberships'),
 		ctx.auth.userId
 			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {

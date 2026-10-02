@@ -1,5 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createPersonnelFollowUp, listPersonnelFollowUps } from '$lib/server/core/useCases/personnelFollowUps';

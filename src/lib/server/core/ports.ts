@@ -1,4 +1,8 @@
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
+import type { NotificationStore } from '$features/notifications/contracts.server';
+import type { FeedbackExportRow } from '$features/feedback/index.server';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
@@ -6,6 +10,7 @@ import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contr
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
+import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
 import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
 import type { PersonnelArtifactWritePort } from '$features/personnel/contracts';
 import type { PersonnelGovernanceDeletionPort } from '$features/personnel/contracts';
@@ -13,6 +18,8 @@ import type { PersonnelOrganizationExportPort } from '$features/personnel/contra
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
+import type { OnboardingReconciliationPort } from '$features/onboarding/contracts';
+import type { CriticalTasksReadModelPort, CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -42,24 +49,6 @@ export interface FindOptions {
 export interface FindResult<T> {
 	data: T[];
 	count: number | null;
-}
-
-export interface CriticalTasksReadModelFilters {
-	personnelIds?: string[];
-	taskIds?: string[];
-}
-
-export interface CriticalTasksCompletionTrendPoint {
-	month: string;
-	completions: number;
-}
-
-export interface CriticalTasksReadModelPort {
-	findLatestCompletions(orgId: string, filters?: CriticalTasksReadModelFilters): Promise<Record<string, unknown>[]>;
-	findCompletionTrend(
-		orgId: string,
-		filters?: CriticalTasksReadModelFilters
-	): Promise<CriticalTasksCompletionTrendPoint[]>;
 }
 
 /**
@@ -148,20 +137,6 @@ export interface AuditPort {
 	}): void;
 }
 
-/** Notification payload for user/admin notifications */
-export interface NotificationPayload {
-	type: string;
-	title: string;
-	message: string;
-	link?: string | null;
-}
-
-/** Abstracts notification delivery — business logic never imports Supabase notifications */
-export interface NotificationPort {
-	notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void>;
-	notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void>;
-}
-
 /** Abstracts file storage operations — business logic never imports Supabase storage */
 export interface StoragePort {
 	upload(bucket: string, path: string, data: File | Blob | ArrayBuffer, options?: { upsert?: boolean }): Promise<void>;
@@ -175,10 +150,12 @@ export interface WritePorts {
 	rawStore?: DataStore;
 	auth: AuthContext;
 	audit: AuditPort;
+	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
 	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
+	onboardingReconciliation?: OnboardingReconciliationPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
@@ -189,7 +166,7 @@ export interface WritePorts {
 
 /** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
 export interface WriteWithNotificationsPorts extends WritePorts {
-	notifications: NotificationPort;
+	notifications: NotificationDeliveryPort;
 }
 
 /** User-scoped operations that aren't org-level writes (e.g., pinned groups) */
@@ -207,6 +184,7 @@ export interface QueryPorts {
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
+	ratingSchemeDue?: RatingSchemeDuePort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
@@ -221,19 +199,25 @@ export interface QueryWithRawStorePorts extends QueryPorts {
 
 /** Combined context for all use cases */
 export interface UseCaseContext {
+	notificationSelf: { auth: AuthContext; audit: AuditPort; store: NotificationStore };
+	feedbackExport: { listRows(orgId: string): Promise<FeedbackExportRow[]> };
 	store: DataStore;
 	auth: AuthContext;
 	scope: ScopeEnforcementPort;
 	audit: AuditPort;
+	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
 
-	notifications: NotificationPort;
+	notifications: NotificationDeliveryPort;
 	storage: StoragePort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	criticalTasksSettingsWrite?: CriticalTasksSettingsWritePort;
 	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
+	ratingSchemeDue?: RatingSchemeDuePort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
 	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
+	onboardingReconciliation?: OnboardingReconciliationPort;
 	personnelOrganizationExport?: PersonnelOrganizationExportPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;

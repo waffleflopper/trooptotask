@@ -1,19 +1,18 @@
 <script lang="ts">
-	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
-	import { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
-	import type { RatingSchemePageData } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
+	import { RatingSchemePageContext, RatingSchemePageView, loadRatingSchemeModals } from '$features/rating-scheme';
+	import type { RatingSchemePageData } from '$features/rating-scheme';
+	import { submitDeletionRequest } from '$features/deletion-requests';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
-	import type { RatingSchemeWorkspaceResult } from '$features/rating-scheme/server/ratingSchemeWorkspaceBootstrap';
-	import RatingSchemePageView from '$features/rating-scheme/components/RatingSchemePageView.svelte';
+	import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 
 	let { data } = $props();
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
-	let ratingSchemeBootstrap = $state<RatingSchemeWorkspaceResult | null>(null);
+	let ratingSchemeBootstrap = $state<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted | null>(null);
 	let loadError = $state<Error | null>(null);
 	const renderLoadError = $derived.by(() => {
 		if (loadError) {
@@ -32,13 +31,13 @@
 	}
 
 	function createContext(workspace: RatingSchemeWorkspaceResult): RatingSchemePageContext {
-		return new RatingSchemePageContext(createPageData(workspace), modals, org, ratingSchemeStore);
+		return new RatingSchemePageContext(createPageData(workspace), modals, org);
 	}
 
 	const streamedRatingScheme = $derived(data.ratingScheme?.data);
 	const immediateRatingScheme = $derived.by(() =>
 		streamedRatingScheme && !isPromiseLike(streamedRatingScheme)
-			? (streamedRatingScheme as RatingSchemeWorkspaceResult)
+			? (streamedRatingScheme as RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted)
 			: null
 	);
 	const resolvedRatingScheme = $derived(ratingSchemeBootstrap ?? immediateRatingScheme);
@@ -86,12 +85,19 @@
 		<Skeleton class="h-[320px] w-full" />
 	</section>
 {:else if resolvedRatingScheme}
-	{@const ctx = createContext(resolvedRatingScheme)}
-	{@const personnelLookup = resolvedRatingScheme.data.personnelLookup}
-	<RatingSchemePageView {ctx} {personnelLookup} />
-	{#await import('$features/rating-scheme/components/RatingSchemeModals.svelte') then { default: RatingSchemeModals }}
-		<RatingSchemeModals {ctx} {modals} {personnelLookup} />
-	{/await}
+	{#if !('access' in resolvedRatingScheme)}
+		{@const ctx = createContext(resolvedRatingScheme)}
+		{@const personnelLookup = resolvedRatingScheme.data.personnelLookup}
+		<RatingSchemePageView {ctx} {personnelLookup} />
+		{#await loadRatingSchemeModals() then { default: RatingSchemeModals }}
+			<RatingSchemeModals
+				{modals}
+				{personnelLookup}
+				onRequestDeletion={(id, description) =>
+					submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, description, `/org/${ctx.orgId}/evals`)}
+			/>
+		{/await}
+	{/if}
 {:else}
 	{throwRenderError(new Error('Missing Rating Scheme workspace data'), 'Failed to load Rating Scheme workspace')}
 {/if}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { PersonnelLookup } from '$lib/types';
+	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
 	import {
 		applyRatedPersonToNewRatingSchemeEntryDraft,
@@ -15,7 +15,7 @@
 		syncReportTypeForRatingSchemeEntryDraft
 	} from '$features/rating-scheme/utils/ratingSchemeEntryDraft';
 	import * as Alert from '$lib/components/ui/alert';
-	import * as AlertDialog from '$lib/components/ui/alert-dialog';
+	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
@@ -31,7 +31,7 @@
 		entry: RatingSchemeEntry | null;
 		personnel: PersonnelLookup[];
 		onSave: (data: Omit<RatingSchemeEntry, 'id'>) => Promise<void>;
-		onDelete?: (id: string) => Promise<void>;
+		onDelete?: (id: string) => Promise<boolean>;
 		onClose: () => void;
 	}
 
@@ -50,6 +50,8 @@
 	let showDeleteConfirm = $state(false);
 	let saveAttempted = $state(false);
 	let isSaving = $state(false);
+	let isDeleting = $state(false);
+	const busy = $derived(isSaving || isDeleting);
 
 	const view = $derived(getRatingSchemeEntryDraftView(draft));
 
@@ -97,7 +99,7 @@
 
 	async function handleSave() {
 		saveAttempted = true;
-		if (!view.canSave || isSaving) return;
+		if (!view.canSave || busy) return;
 
 		isSaving = true;
 		try {
@@ -113,9 +115,15 @@
 
 	async function handleDelete() {
 		const deleteHandler = onDelete;
-		if (!entry || typeof deleteHandler !== 'function') return;
-		await deleteHandler(entry.id);
-		onClose();
+		if (!entry || typeof deleteHandler !== 'function' || busy) return;
+		isDeleting = true;
+		try {
+			if (await deleteHandler(entry.id)) onClose();
+		} catch {
+			toastStore.error('Failed to delete rating entry. Try again.');
+		} finally {
+			isDeleting = false;
+		}
 	}
 
 	function formatPersonLabel(p: PersonnelLookup): string {
@@ -123,8 +131,8 @@
 	}
 </script>
 
-<AppDialog.Root open closeBlocked={isSaving} {onClose}>
-	<AppDialog.Content size="wide" closeBlocked={isSaving} class="h-[calc(100dvh-2rem)]">
+<AppDialog.Root open closeBlocked={busy} {onClose}>
+	<AppDialog.Content size="wide" closeBlocked={busy} class="h-[calc(100dvh-2rem)]">
 		<AppDialog.Header>
 			<AppDialog.Title>{entry ? 'Edit Rating Entry' : 'Add Rating Entry'}</AppDialog.Title>
 			<AppDialog.Description
@@ -433,25 +441,21 @@
 
 		<AppDialog.Footer>
 			{#if entry && onDelete}
-				<Button variant="destructive" onclick={() => (showDeleteConfirm = true)}>Delete</Button>
+				<Button variant="destructive" disabled={busy} onclick={() => (showDeleteConfirm = true)}>Delete</Button>
 			{/if}
-			<Button variant="outline" onclick={onClose} disabled={isSaving}>Cancel</Button>
-			<Button disabled={isSaving} onclick={handleSave}>{isSaving ? 'Saving...' : 'Save'}</Button>
+			<Button variant="outline" onclick={onClose} disabled={busy}>Cancel</Button>
+			<Button disabled={busy} onclick={handleSave}>{isSaving ? 'Saving...' : 'Save'}</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
 
-<AlertDialog.Root open={showDeleteConfirm} onOpenChange={(open) => (showDeleteConfirm = open)}>
-	<AlertDialog.Content>
-		<AlertDialog.Header>
-			<AlertDialog.Title>Delete this entry?</AlertDialog.Title>
-			<AlertDialog.Description>
-				This removes the rating scheme entry. Continue only if this evaluation record should no longer be tracked.
-			</AlertDialog.Description>
-		</AlertDialog.Header>
-		<AlertDialog.Footer>
-			<Button variant="outline" onclick={() => (showDeleteConfirm = false)}>Cancel</Button>
-			<Button variant="destructive" onclick={handleDelete}>Delete Entry</Button>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>
+{#if showDeleteConfirm}
+	<ConfirmDialog
+		title="Delete this entry?"
+		message="This removes the rating scheme entry. Continue only if this evaluation record should no longer be tracked."
+		confirmLabel="Delete Entry"
+		loading={isDeleting}
+		onConfirm={handleDelete}
+		onCancel={() => (showDeleteConfirm = false)}
+	/>
+{/if}

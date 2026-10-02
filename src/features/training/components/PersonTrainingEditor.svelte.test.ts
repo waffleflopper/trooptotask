@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonTrainingEditor from './PersonTrainingEditor.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
+import { toast } from 'svelte-sonner';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -99,6 +100,75 @@ afterEach(() => {
 });
 
 describe('PersonTrainingEditor', () => {
+	it('counts saved currency states instead of display labels and excludes exemptions and inapplicable rows', () => {
+		const types: TrainingType[] = [
+			neverExpiresType,
+			{ ...expirationDateOnlyType, id: 'orange' },
+			{ ...expirationDateOnlyType, id: 'yellow' },
+			{ ...expirationDateOnlyType, id: 'expired' },
+			expiringType,
+			{ ...expiringType, id: 'exempt', canBeExempted: true, exemptPersonnelIds: [person.id] },
+			{ ...expiringType, id: 'optional', isOptional: true }
+		];
+		const records: PersonnelTraining[] = [
+			{ type: neverExpiresType.id, expires: null },
+			{ type: 'orange', expires: '2026-04-20' },
+			{ type: 'yellow', expires: '2026-05-21' },
+			{ type: 'expired', expires: '2026-04-05' }
+		].map(({ type, expires }) => ({
+			id: `record-${type}`,
+			personnelId: person.id,
+			trainingTypeId: type,
+			completionDate: null,
+			expirationDate: expires,
+			notes: null,
+			certificateUrl: null
+		}));
+		render(PersonTrainingEditor, {
+			props: { person, trainingTypes: types, trainings: records, onSave: vi.fn(), onRemove: vi.fn(), onClose: vi.fn() }
+		});
+		for (const label of ['Current', '<60d', '<30d', 'Expired', 'Not Done']) {
+			expect(within(screen.getByRole('group', { name: label })).getByText('1')).toBeTruthy();
+		}
+	});
+
+	it('retains the deletion confirmation and saved record after failure and permits retry', async () => {
+		vi.useRealTimers();
+		const onRemove = vi.fn().mockRejectedValueOnce(new Error('Removal failed')).mockResolvedValueOnce(undefined);
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: person.id,
+			trainingTypeId: neverExpiresType.id,
+			completionDate: null,
+			expirationDate: null,
+			notes: 'Saved notes',
+			certificateUrl: null
+		};
+		render(PersonTrainingEditor, {
+			props: {
+				person,
+				trainingTypes: [neverExpiresType],
+				trainings: [record],
+				onSave: vi.fn(),
+				onRemove,
+				onClose: vi.fn()
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove Orientation record' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await waitFor(() => expect(errorToast).toHaveBeenCalled());
+		expect(screen.getByRole('alertdialog')).toBeTruthy();
+		expect(screen.getByText('Saved notes')).toBeTruthy();
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+		// A resolved callback can mean an approval request; retained props remain authoritative.
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		expect((screen.getByLabelText('Mark as Complete') as HTMLButtonElement).getAttribute('aria-checked')).toBe('true');
+		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('Saved notes');
+		expect(onRemove.mock.calls).toEqual([['record-1'], ['record-1']]);
+	});
+
 	it('calls onSaveBatch once when marking all applicable trainings completed today', async () => {
 		const onSave = vi.fn().mockResolvedValue(undefined);
 		const onSaveBatch = vi.fn().mockResolvedValue(undefined);

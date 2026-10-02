@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 
 export class InvitationAcceptanceError extends Error {
 	constructor(

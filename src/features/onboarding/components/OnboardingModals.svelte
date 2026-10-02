@@ -3,6 +3,7 @@
 	import { MODAL_IDS } from '../contexts/OnboardingPageContext.svelte';
 	import StartOnboardingModal from './StartOnboardingModal.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
+	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
@@ -11,9 +12,11 @@
 
 	interface Props {
 		ctx: OnboardingPageContext;
+		rankCatalog: RankCatalogEntry[];
+		rankCatalogUnavailable: boolean;
 	}
 
-	let { ctx }: Props = $props();
+	let { ctx, rankCatalog, rankCatalogUnavailable }: Props = $props();
 
 	const switchTemplateLabel = $derived(
 		ctx.templates.find((template) => template.id === ctx.switchTemplateSelected)?.name ?? 'Select a template'
@@ -28,7 +31,10 @@
 		personnel={ctx.personnel}
 		canAddPerson={ctx.canAddPerson}
 		existingOnboardingPersonnelIds={ctx.existingOnboardingPersonnelIds}
-		groups={ctx.groups}
+		groups={ctx.personnelCreationGroups}
+		allowUnassigned={ctx.allowUnassignedPersonnel}
+		{rankCatalog}
+		{rankCatalogUnavailable}
 		templates={ctx.templates}
 		hasTemplateSteps={ctx.hasTemplateSteps}
 		onSubmit={(personnelId, startedAt, templateId) => ctx.handleStartOnboarding(personnelId, startedAt, templateId)}

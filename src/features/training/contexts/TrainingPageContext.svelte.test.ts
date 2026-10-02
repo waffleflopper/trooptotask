@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+const getDefaultUserOrgPreferences = () => ({
+	training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' as const }
+});
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
@@ -13,6 +15,7 @@ import { personnelRosterHydration } from '$features/personnel';
 import { groupCatalogHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
+import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 
 const { gotoMock, invalidateMock, queueUserPreferencesPatchMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -40,11 +43,8 @@ async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
-	invalidate: invalidateMock
-}));
-
-vi.mock('$lib/preferences/userPreferences.client', () => ({
-	queueUserPreferencesPatch: queueUserPreferencesPatchMock
+	invalidate: invalidateMock,
+	invalidateAll: vi.fn()
 }));
 
 // ---------------------------------------------------------------------------
@@ -152,11 +152,18 @@ function makeData(overrides: Record<string, unknown> = {}) {
 // Tests
 // ---------------------------------------------------------------------------
 
+const submitRemovalRequest = vi.fn().mockResolvedValue(true);
+type ContextArgs = ConstructorParameters<typeof TrainingPageContext>;
+function makeContext(data: ContextArgs[0], modals: ContextArgs[1], org: ContextArgs[2]) {
+	return new TrainingPageContext(data, modals, org, submitRemovalRequest, queueUserPreferencesPatchMock);
+}
+
 describe('TrainingPageContext', () => {
 	let modals: ModalRegistry;
 
 	beforeEach(() => {
 		vi.restoreAllMocks();
+		submitRemovalRequest.mockReset().mockResolvedValue(true);
 		vi.unstubAllGlobals();
 		modals = makeModals();
 		queueUserPreferencesPatchMock.mockReset();
@@ -165,39 +172,55 @@ describe('TrainingPageContext', () => {
 		groupCatalogHydration.load(mockGroups, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
 		trainingViewsStore.load([], 'org-1');
+		trainingTypesStore.load([], 'org-1');
 	});
 
 	describe('canManageConfig', () => {
 		it('is false without Training configure capability', () => {
 			const org = makePolicyOrg({ training: 'operate' });
-			const ctx = new TrainingPageContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), modals, org);
 			expect(ctx.canManageConfig).toBe(false);
 		});
 
 		it('uses Training configure policy instead of legacy full-editor state', () => {
 			const org = makePolicyOrg({ training: 'configure' });
-			const ctx = new TrainingPageContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), modals, org);
 			expect(ctx.canManageConfig).toBe(true);
+		});
+
+		it('keeps Group-scoped configurators in the matrix without Organization-wide controls', () => {
+			const org = createTestOrgContext({
+				userRole: 'member',
+				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
+				scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+			});
+			const ctx = makeContext(makeData(), modals, org);
+
+			expect(ctx.canViewTraining).toBe(true);
+			expect(ctx.canManageConfig).toBe(false);
+			expect(ctx.canBulkImport).toBe(true);
+			expect(ctx.trainingOverflowItems.map((item) => item.label)).toContain('Bulk Import');
+			expect(ctx.trainingOverflowItems.map((item) => item.label)).not.toContain('Manage Types');
 		});
 	});
 
 	describe('training policy affordances', () => {
 		it('allows an operator to record completions with Training operate capability', () => {
 			const org = makePolicyOrg({ training: 'operate' });
-			const ctx = new TrainingPageContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), modals, org);
 
 			expect(ctx.canViewTraining).toBe(true);
 			expect(ctx.canRecordTraining).toBe(true);
 		});
 
 		it('denies record affordances for view-only capability', () => {
-			const viewOnly = new TrainingPageContext(makeData(), modals, makePolicyOrg({ training: 'view' }));
+			const viewOnly = makeContext(makeData(), modals, makePolicyOrg({ training: 'view' }));
 
 			expect(viewOnly.canRecordTraining).toBe(false);
 		});
 
 		it('uses Training view policy for page visibility', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makePolicyOrg({ training: 'none' }));
+			const ctx = makeContext(makeData(), modals, makePolicyOrg({ training: 'none' }));
 
 			expect(ctx.canViewTraining).toBe(false);
 		});
@@ -205,7 +228,7 @@ describe('TrainingPageContext', () => {
 
 	describe('availableRoles', () => {
 		it('returns sorted unique non-null clinic roles', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			// mockPerson has null clinicRole, mockPerson2 has 'Medic'
 			expect(ctx.availableRoles).toEqual(['Medic']);
 		});
@@ -213,7 +236,7 @@ describe('TrainingPageContext', () => {
 		it('returns empty array when no roles', () => {
 			personnelRosterHydration.load([{ ...mockPerson, clinicRole: null } as unknown as Personnel], 'org-1');
 			const data = makeData();
-			const ctx = new TrainingPageContext(data, modals, makeOrg());
+			const ctx = makeContext(data, modals, makeOrg());
 			expect(ctx.availableRoles).toEqual([]);
 		});
 	});
@@ -223,7 +246,7 @@ describe('TrainingPageContext', () => {
 		personnelRosterHydration.load([workspacePerson], 'org-1');
 		const data = makeData();
 
-		const ctx = new TrainingPageContext(data, modals, makeOrg());
+		const ctx = makeContext(data, modals, makeOrg());
 
 		expect(ctx.personnel).toEqual([workspacePerson]);
 		expect(ctx.filteredPersonnel[0].id).toBe('workspace-person');
@@ -231,14 +254,14 @@ describe('TrainingPageContext', () => {
 
 	describe('filteredPersonnel', () => {
 		it('returns all personnel sorted by last name when no group selected', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			// Adams before Smith
 			expect(ctx.filteredPersonnel[0].lastName).toBe('Adams');
 			expect(ctx.filteredPersonnel[1].lastName).toBe('Smith');
 		});
 
 		it('filters by selectedGroupId', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			ctx.selectedGroupId = 'g-1';
 			expect(ctx.filteredPersonnel).toHaveLength(1);
 			expect(ctx.filteredPersonnel[0].id).toBe('p-1');
@@ -246,7 +269,7 @@ describe('TrainingPageContext', () => {
 
 		it('filters unassigned personnel through the roster group filter value', async () => {
 			personnelRosterHydration.load([mockPerson, mockPerson2, unassignedPerson], 'org-1');
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 
 			expect(ctx.groupFilterOptions).toContainEqual({ value: 'name:Unassigned', label: 'Unassigned' });
 
@@ -261,7 +284,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('preserves an empty group selection after stores hydrate', () => {
-			const ctx = new TrainingPageContext(
+			const ctx = makeContext(
 				makeData({
 					userPreferences: {
 						...getDefaultUserOrgPreferences(),
@@ -285,7 +308,7 @@ describe('TrainingPageContext', () => {
 
 	describe('groups', () => {
 		it('reads groups from the hydrated groups store', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 
 			expect(ctx.groups).toEqual(mockGroups);
 			expect(ctx.groupOrder).toEqual(mockGroups.map((group) => group.name));
@@ -300,7 +323,7 @@ describe('TrainingPageContext', () => {
 			];
 			trainingRankCatalogStore.load(catalog, 'org-1');
 
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 
 			expect(ctx.rankCatalog).toEqual(catalog);
 		});
@@ -308,7 +331,7 @@ describe('TrainingPageContext', () => {
 
 	describe('trainingOverflowItems', () => {
 		it('always includes Sign-In Rosters and Reports', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			const labels = ctx.trainingOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Sign-In Rosters');
 			expect(labels).toContain('Reports');
@@ -316,7 +339,7 @@ describe('TrainingPageContext', () => {
 
 		it('excludes config items for plain member', () => {
 			const org = makePolicyOrg({ training: 'operate' });
-			const ctx = new TrainingPageContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), modals, org);
 			const labels = ctx.trainingOverflowItems.map((i) => i.label);
 			expect(labels).not.toContain('Bulk Import');
 			expect(labels).not.toContain('Manage Types');
@@ -325,7 +348,7 @@ describe('TrainingPageContext', () => {
 
 		it('includes config items with Training configure capability', () => {
 			const org = makePolicyOrg({ training: 'configure' });
-			const ctx = new TrainingPageContext(makeData(), modals, org);
+			const ctx = makeContext(makeData(), modals, org);
 			const labels = ctx.trainingOverflowItems.map((i) => i.label);
 			expect(labels).toContain('Bulk Import');
 			expect(labels).toContain('Manage Types');
@@ -333,7 +356,7 @@ describe('TrainingPageContext', () => {
 	});
 
 	it('propagates training save failures', async () => {
-		const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+		const ctx = makeContext(makeData(), modals, makeOrg());
 		vi.spyOn(personnelTrainingsStore, 'add').mockRejectedValueOnce(new Error('insert blocked by policy'));
 
 		await expect(
@@ -346,6 +369,65 @@ describe('TrainingPageContext', () => {
 				certificateUrl: null
 			})
 		).rejects.toThrow('insert blocked by policy');
+	});
+
+	it('rejects a failed removal without losing the stored record and succeeds on retry', async () => {
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: mockPerson.id,
+			trainingTypeId: mockType.id,
+			completionDate: '2026-01-05',
+			expirationDate: '2027-01-05',
+			notes: 'Retain me',
+			certificateUrl: null
+		};
+		personnelTrainingsStore.load([record], 'org-1');
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(new Response(null, { status: 503 }))
+				.mockResolvedValueOnce(new Response(null, { status: 200 }))
+		);
+		const ctx = makeContext(makeData(), modals, makeOrg());
+		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
+		expect(personnelTrainingsStore.items).toEqual([record]);
+		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
+		expect(personnelTrainingsStore.items).toEqual([]);
+	});
+
+	it('retains the completion on failed submission and retries through the bound removal callback', async () => {
+		trainingTypesStore.load([mockType], 'org-1');
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: mockPerson.id,
+			trainingTypeId: mockType.id,
+			completionDate: null,
+			expirationDate: null,
+			notes: 'Awaiting approval',
+			certificateUrl: null
+		};
+		personnelTrainingsStore.load([record], 'org-1');
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
+				.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
+		);
+		submitRemovalRequest.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+		const ctx = makeContext(makeData(), modals, makeOrg());
+		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
+		expect(personnelTrainingsStore.items).toEqual([record]);
+		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
+		expect(submitRemovalRequest).toHaveBeenCalledWith(
+			'org-1',
+			'personnel_training',
+			record.id,
+			`${mockType.name} record for ${mockPerson.rank} ${mockPerson.lastName}`,
+			'/org/org-1/training'
+		);
+		expect(personnelTrainingsStore.items).toEqual([record]);
 	});
 
 	describe('handleSaveTrainingBatch', () => {
@@ -376,7 +458,7 @@ describe('TrainingPageContext', () => {
 		};
 
 		it('posts one batch request and merges inserted and updated results', async () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			const addBatchResults = vi.spyOn(personnelTrainingsStore, 'addBatchResults').mockImplementation(() => {});
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,
@@ -397,7 +479,7 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('throws on non-OK response and does not mutate the training store', async () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			const addBatchResults = vi.spyOn(personnelTrainingsStore, 'addBatchResults').mockImplementation(() => {});
 			vi.stubGlobal(
 				'fetch',
@@ -415,7 +497,7 @@ describe('TrainingPageContext', () => {
 
 	describe('default viewMode', () => {
 		it('defaults to by-group', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			expect(ctx.viewMode).toBe('by-group');
 		});
 
@@ -424,7 +506,7 @@ describe('TrainingPageContext', () => {
 				[{ id: 'view-1', name: 'Required', columnIds: [], createdBy: 'u1', createdAt: '', updatedAt: '' }],
 				'org-1'
 			);
-			const ctx = new TrainingPageContext(
+			const ctx = makeContext(
 				makeData({
 					userPreferences: {
 						...getDefaultUserOrgPreferences(),
@@ -448,7 +530,7 @@ describe('TrainingPageContext', () => {
 			groupCatalogHydration.load([], 'org-stale');
 			trainingViewsStore.load([], 'org-stale');
 
-			const ctx = new TrainingPageContext(
+			const ctx = makeContext(
 				makeData({
 					userPreferences: {
 						...getDefaultUserOrgPreferences(),
@@ -481,7 +563,7 @@ describe('TrainingPageContext', () => {
 			groupCatalogHydration.load([], 'org-stale');
 			trainingViewsStore.load([], 'org-stale');
 
-			const ctx = new TrainingPageContext(
+			const ctx = makeContext(
 				makeData({
 					userPreferences: {
 						...getDefaultUserOrgPreferences(),
@@ -522,14 +604,14 @@ describe('TrainingPageContext', () => {
 
 	describe('toggleGroup', () => {
 		it('adds a group to collapsedGroups', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(false);
 			ctx.toggleGroup('Alpha');
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(true);
 		});
 
 		it('removes a group already in collapsedGroups', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			ctx.toggleGroup('Alpha');
 			ctx.toggleGroup('Alpha');
 			expect(ctx.collapsedGroups.has('Alpha')).toBe(false);
@@ -538,7 +620,7 @@ describe('TrainingPageContext', () => {
 
 	describe('handleCellClick', () => {
 		it('opens the record modal with the correct payload', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			ctx.handleCellClick(mockPerson, mockType, undefined);
 			expect(modals.isOpen('record')).toBe(true);
 			const payload = modals.payload<{ person: Personnel; type: TrainingType }>('record');
@@ -549,7 +631,7 @@ describe('TrainingPageContext', () => {
 
 	describe('handlePersonClick', () => {
 		it('opens the person-editor modal with the person', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			ctx.handlePersonClick(mockPerson);
 			expect(modals.isOpen('person-editor')).toBe(true);
 			const payload = modals.payload<{ person: Personnel }>('person-editor');
@@ -559,18 +641,18 @@ describe('TrainingPageContext', () => {
 
 	describe('isExempt', () => {
 		it('returns true when person is in exemptPersonnelIds', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			expect(ctx.isExempt(mockPerson, mockType)).toBe(true);
 		});
 
 		it('returns false when person is not exempt', () => {
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			expect(ctx.isExempt(mockPerson2, mockType)).toBe(false);
 		});
 
 		it('returns false when type cannot be exempted', () => {
 			const nonExemptType = { ...mockType, canBeExempted: false };
-			const ctx = new TrainingPageContext(makeData(), modals, makeOrg());
+			const ctx = makeContext(makeData(), modals, makeOrg());
 			expect(ctx.isExempt(mockPerson, nonExemptType)).toBe(false);
 		});
 	});

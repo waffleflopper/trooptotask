@@ -1,8 +1,12 @@
 <script lang="ts">
-	import { personnelWorkspaceHydrator } from '$features/personnel/personnelWorkspaceHydration.svelte';
-	import { personnelRosterHydration, groupCatalogHydration, pinnedGroupsHydration } from '$features/personnel';
+	import {
+		personnelWorkspaceHydrator,
+		personnelRosterHydration,
+		groupCatalogHydration,
+		pinnedGroupsHydration
+	} from '$features/personnel';
 	import { calendarStatusHydration } from '$features/calendar';
-	import type { PersonnelWorkspaceResult } from '$features/personnel/server/personnelWorkspaceBootstrap';
+	import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 

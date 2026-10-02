@@ -13,7 +13,7 @@ Read the [UI foundation](#ui-foundation), then the section for the component bei
 - Page and shell composition: [page shell](#uipage-shell), [workspace toolbar](#uiworkspace-toolbar), [public shell](#public-marketing-shell), [workflow panel](#uiworkflow-panel).
 - Input and selection: [form controls](#shared-form-controls), [command](#uicommand), [combobox](#uicombobox), [multi-select](#uimulti-select), [date picker](#uidate-picker), [file upload](#file-upload-pattern).
 - Reports and records: [report workspace](#uireport-workspace), [charts](#uireport-chart), [data table](#uidata-table), [operational matrix](#uioperational-matrix), [bulk import](#uibulk-import-workspace).
-- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirmdialogsvelte), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#uireadiness-band).
+- Feedback and interaction: [dialogs](#uiapp-dialog), [confirmation](#uiconfirmdialogsvelte), [transient feedback](#transient-feedback), [empty states](#uiempty), [skeletons](#uiskeleton), [readiness](#uireadiness-band).
 - Shared appearance: [CSS tokens and design system](#css-design-system-appcss).
 
 ## UI Foundation
@@ -51,6 +51,10 @@ Implementation note: the current `shadcn-svelte@1.2.7` CLI generated the support
 ## `ui/command`
 
 Command input and result items must share one `Command.Root`. For server-filtered search, set `shouldFilter={false}` and supply the root `label` for the input name. `Command.Viewport` exposes the Bits viewport without a second state owner; compose it through `Command.List`'s `child` snippet with the supplied props when list and viewport share one element, so `aria-controls` targets the listbox and `aria-activedescendant` identifies its selected option. `Command.Input` preserves an explicit `aria-expanded` value for conditional popups; always-open menus retain the primitive default.
+
+## Transient feedback
+
+The Web UI Foundation's public [`toastStore`](../src/lib/stores/toast.svelte.ts) wraps Sonner for `success`, `error`, `warning`, `info` and `dismiss`. The root layout mounts the shared `ui/sonner` Toaster once. Feature views can report a failed save through this interface while keeping their draft or unsaved record visible for retry. A toast does not decide whether an operation succeeded or own saved feature state; the response and the feature's operation remain authoritative. No feature-specific message or recipient policy belongs in the shared adapter.
 
 ## Password MFA continuation
 
@@ -374,28 +378,17 @@ Shared components own:
 
 ## `ui/requirement-status-badge`
 
-`ui/requirement-status-badge` owns shared requirement status visuals for Training and Critical Tasks. Badges are for legends, summaries, and compact status chips. Training matrix and report cells should use `TrainingStatusCell` so the status color belongs to the cell background and the visible text can stay focused on the associated date or compact value.
+`ui/requirement-status-badge` owns neutral requirement status visuals. Training owns its badge and status-cell wrappers; Critical Tasks owns its status badge and translates its completion statuses to this shared visual contract. Feature-specific presentation stays with its owner.
 
 ```svelte
 <script lang="ts">
-	import { TrainingStatusBadge, TrainingStatusCell } from '$lib/components/ui/requirement-status-badge';
+	import { RequirementStatusBadge } from '$lib/components/ui/requirement-status-badge';
 </script>
 
-<TrainingStatusBadge status="current" label="Current" />
-<TrainingStatusCell status="warning-yellow" label="2026-05-10" srLabel="Expiring Soon" />
+<RequirementStatusBadge status="current" label="Current" />
 ```
 
-Public components:
-
-- `TrainingStatusBadge`: badge/chip for Training status legends and summaries.
-- `TrainingStatusCell`: compact status-colored Training cell. Props: `status`, `label`, `srLabel?`, plus normal `span` attributes.
-- `CriticalTaskStatusBadge`: badge/chip for Critical Tasks status legends and summaries.
-
-Rules:
-
-- Routes may pass status keys, visible labels, and screen-reader labels.
-- Routes must not restyle Training status colors, cell typography, radius, density, or ring treatment locally.
-- Use `TrainingStatusCell` inside `ui/operational-matrix` and Training report tables when the cell background carries the status.
+Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` and `RequirementStatus`. Routes pass status keys, visible labels and screen-reader labels through the relevant owner component. Keep shared status colors and typography in the neutral base; Training matrix/report cells retain Training's status-cell presentation.
 
 ---
 
@@ -615,6 +608,7 @@ Import validation/result state guidance:
 
 - Validation errors and warnings should be produced by feature utilities. Shared UI only renders the resulting counts/messages.
 - Use `rowStatus` for valid/warning/error/duplicate/disabled/info presentation. Use `disabledReason` for rows that must not be selected; the preview table uses it in the selection label and can render it through the status column.
+- `PreviewTable.disabledRow` disables the row's import checkbox, not its cell editors. Pass the same predicate to `useDataTableSelection` so select-all excludes invalid rows. Editable cells remain available to correct validation errors; use `rowStatus` and `disabledReason` to explain those errors.
 - Use `ResultSummary status="partial"` when some rows were saved and some failed.
 - Use `ResultSummary status="failed"` when no requested rows were saved.
 - Use `ProgressState` for parsing/importing work that blocks closing or submit actions.
@@ -1428,78 +1422,6 @@ Migration status:
 - Production DataTable routes now use `src/lib/components/ui/data-table`.
 - The old DataTable implementation under `src/lib/components/ui/data-table-old` and its tests are removed.
 - Operational matrix surfaces with sticky axes or heat-map cells remain project-specific matrix workspaces, not generic DataTable migrations.
-
----
-
-## OnboardingPacketList
-
-Source: `src/lib/components/ui/onboarding-packet-list`.
-
-Use `OnboardingPacketList` for onboarding-style packet workflows where one person packet expands at a time and the expanded packet contains task rows, progress, actions, stage indicators, and independent notes disclosure. Use it instead of raw Accordion or Collapsible whenever the route is showing onboarding packet progress or task completion state.
-
-Core API:
-
-```svelte
-<script lang="ts">
-	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list';
-</script>
-
-<OnboardingPacketList.Root value={expandedPacketId} onValueChange={setExpandedPacket}>
-	<OnboardingPacketList.Item value={packet.id}>
-		<OnboardingPacketList.Trigger>
-			<OnboardingPacketList.Summary>
-				<OnboardingPacketList.SummaryTitle title={personName} meta={[templateName, groupName, startedLabel]} />
-				{#snippet progress()}
-					<OnboardingPacketList.Progress value={completed} max={total} />
-				{/snippet}
-			</OnboardingPacketList.Summary>
-		</OnboardingPacketList.Trigger>
-
-		<OnboardingPacketList.Content>
-			<OnboardingPacketList.Actions>...</OnboardingPacketList.Actions>
-			<OnboardingPacketList.StepList>
-				<OnboardingPacketList.Step label={stepName} typeLabel="Training" tone="training" state="incomplete">
-					{#snippet status()}...{/snippet}
-					{#snippet notes()}...{/snippet}
-				</OnboardingPacketList.Step>
-			</OnboardingPacketList.StepList>
-		</OnboardingPacketList.Content>
-	</OnboardingPacketList.Item>
-</OnboardingPacketList.Root>
-```
-
-Composition:
-
-- `Root` controls single-open packet disclosure through a shadcn/Bits accordion primitive.
-- `Notes` controls independent task-note disclosure through a shadcn/Bits collapsible primitive.
-- `Progress` wraps the shared progress primitive and renders the count label.
-- `Step` owns shared task-row layout, type badge placement, inactive/deprecated state, and status/notes regions.
-- `Actions` is the shared action toolbar region for packet-level commands.
-- `StatusIcon`, `Note`, and `NoteInput` cover common completion, note display, and note entry affordances.
-
-Accessibility guidance:
-
-- Pass a stable `value` for each packet item so trigger/content relationships remain stable.
-- Packet triggers inherit accordion keyboard behavior: tab to the trigger, then Enter/Space toggles the active packet.
-- Note toggles must have a clear `label` when the default "Toggle notes" is not enough.
-- Step controls need route-supplied accessible labels, for example "Mark sponsor brief complete".
-- Do not hide status behind color alone. Use type labels, count text, status icons, and completion labels.
-
-Route usage rules:
-
-- Routes pass data, labels, handlers, permissions, disabled/loading flags, and links.
-- Routes must not pass classes that alter packet-list visuals.
-- Do not expose raw Accordion or Collapsible primitives to onboarding routes for this workflow.
-- Keep onboarding business rules in feature context/store code. The shared component should not know when a packet can be completed, cancelled, resynced, or edited.
-
-Component Catalog coverage:
-
-`docs/component-catalog.md` includes active packets, multiple packets with one open, complete/incomplete/inactive steps, checkbox/training/paperwork rows, notes open/closed, note count, empty notes, loading and disabled actions, read-only/history display, constrained layout, keyboard focus path, and dark-mode participation.
-
-Onboarding migration notes:
-
-- Active onboarding and onboarding history now consume `OnboardingPacketList`.
-- Template step editing still uses its existing modal/list markup. If that workflow needs migration, add a shared template-step editor or workflow-step authoring pattern first rather than patching the modal locally.
 
 ---
 

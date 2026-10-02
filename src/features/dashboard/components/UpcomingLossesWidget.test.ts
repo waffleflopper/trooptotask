@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import UpcomingLossesWidget from './UpcomingLossesWidget.svelte';
-import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
 
 function makeLoss(overrides: Partial<UpcomingLossRecord> = {}): UpcomingLossRecord {
 	return {

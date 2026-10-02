@@ -9,56 +9,37 @@ import { getTrainingStats } from '$features/training/utils/trainingStatus';
 import { groupsStore } from '$features/personnel';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createRosterReadModel, type PersonnelGroup, type RosterReadModelView } from '$features/personnel/contracts';
-import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import type {
+	TrainingPageAccess,
+	TrainingAffordance,
 	TrainingMatrixViewMode,
-	UserOrgPreferences,
-	UserOrgPreferencesPatch
-} from '$lib/preferences/userPreferences';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+	TrainingPagePreferences,
+	TrainingPreferencesPatch
+} from '../contracts';
+import { toast } from 'svelte-sonner';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
+import type { TrainingBatchRecord, TrainingBatchImportResult } from '../contracts';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
 
 const TRAINING_POLICY_RESOURCE = { kind: 'unscoped' } as const;
-type TrainingBatchCompletionRecord = {
-	personnelId: string;
-	trainingTypeId: string;
-	completionDate: string | null;
-	notes?: string;
-	status: 'completed';
-};
+const TRAINING_CONFIGURATION_RESOURCE = { kind: 'organization' } as const;
+type TrainingBatchCompletionRecord = TrainingBatchRecord & { status: 'completed' };
+export type TrainingRemovalRequest = (
+	orgId: string,
+	resourceType: 'personnel_training',
+	resourceId: string,
+	description: string,
+	resourceUrl: string
+) => Promise<boolean>;
 type NavigationModule = typeof import('$app/navigation');
-type DeletionRequestsModule = typeof import('$lib/utils/deletionRequests');
-type ToastStoreModule = typeof import('$lib/stores/toast.svelte');
-type UserPreferencesClientModule = typeof import('$lib/preferences/userPreferences.client');
-
 let navigationModule: Promise<NavigationModule> | undefined;
-let deletionRequestsModule: Promise<DeletionRequestsModule> | undefined;
-let toastStoreModule: Promise<ToastStoreModule> | undefined;
-let userPreferencesClientModule: Promise<UserPreferencesClientModule> | undefined;
-
 function loadNavigation() {
 	navigationModule ??= import('$app/navigation');
 	return navigationModule;
-}
-
-function loadDeletionRequests() {
-	deletionRequestsModule ??= import('$lib/utils/deletionRequests');
-	return deletionRequestsModule;
-}
-
-function loadToastStore() {
-	toastStoreModule ??= import('$lib/stores/toast.svelte');
-	return toastStoreModule;
-}
-
-function loadUserPreferencesClient() {
-	userPreferencesClientModule ??= import('$lib/preferences/userPreferences.client');
-	return userPreferencesClientModule;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +48,7 @@ function loadUserPreferencesClient() {
 export interface TrainingPageData {
 	orgId: string;
 	orgName: string;
-	userPreferences?: UserOrgPreferences;
+	userPreferences?: { training?: TrainingPagePreferences };
 	training?: {
 		data?: {
 			rankCatalog?: RankCatalogEntry[];
@@ -82,7 +63,9 @@ export class TrainingPageContext {
 	// ---- injected deps ----
 	readonly #data: TrainingPageData;
 	readonly #modals: ModalRegistry;
-	readonly #org: OrgContext;
+	readonly #org: TrainingPageAccess;
+	readonly #submitRemovalRequest: TrainingRemovalRequest;
+	readonly #savePreferences: (orgId: string, patch: TrainingPreferencesPatch) => Promise<unknown>;
 	#hydratedSelectionFingerprint: string | null = null;
 
 	// ---- mutable UI state ----
@@ -91,16 +74,31 @@ export class TrainingPageContext {
 	viewMode = $state<TrainingMatrixViewMode>('by-group');
 	collapsedGroups = $state<SvelteSet<string>>(new SvelteSet());
 
-	constructor(data: TrainingPageData, modals: ModalRegistry, org: OrgContext) {
+	constructor(
+		data: TrainingPageData,
+		modals: ModalRegistry,
+		org: TrainingPageAccess,
+		submitRemovalRequest: TrainingRemovalRequest,
+		savePreferences: (orgId: string, patch: TrainingPreferencesPatch) => Promise<unknown>
+	) {
 		this.#data = data;
 		this.#modals = modals;
 		this.#org = org;
+		this.#submitRemovalRequest = submitRemovalRequest;
+		this.#savePreferences = savePreferences;
 		this.applyUserPreferences(data.userPreferences);
 	}
 
 	// ---- permission flags ----
 	get canManageConfig(): boolean {
 		return this.trainingConfigureAffordance.visible;
+	}
+
+	get canBulkImport(): boolean {
+		return this.#org.affordanceForFeatureAction(
+			POLICY_ACTION_CATALOG.training.configureRequirements,
+			TRAINING_POLICY_RESOURCE
+		).visible;
 	}
 
 	get canViewTraining(): boolean {
@@ -111,21 +109,21 @@ export class TrainingPageContext {
 		return this.trainingRecordAffordance.allowed;
 	}
 
-	get trainingViewAffordance(): ClientAffordance {
+	get trainingViewAffordance(): TrainingAffordance {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.viewMatrix, TRAINING_POLICY_RESOURCE);
 	}
 
-	get trainingRecordAffordance(): ClientAffordance {
+	get trainingRecordAffordance(): TrainingAffordance {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.training.recordCompletions,
 			TRAINING_POLICY_RESOURCE
 		);
 	}
 
-	get trainingConfigureAffordance(): ClientAffordance {
+	get trainingConfigureAffordance(): TrainingAffordance {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.training.configureRequirements,
-			TRAINING_POLICY_RESOURCE
+			TRAINING_CONFIGURATION_RESOURCE
 		);
 	}
 
@@ -226,12 +224,14 @@ export class TrainingPageContext {
 				void loadNavigation().then(({ goto }) => goto(resolve(`/org/${this.orgUrlSegment}/training/reports`)));
 			}
 		});
-		if (this.canManageConfig) {
+		if (this.canBulkImport) {
 			items.push({
 				label: 'Bulk Import',
 				onclick: () => this.#modals.open('bulk-import'),
 				divider: true
 			});
+		}
+		if (this.canManageConfig) {
 			items.push({
 				label: 'Manage Types',
 				onclick: () => {
@@ -303,7 +303,7 @@ export class TrainingPageContext {
 			body: JSON.stringify({ records })
 		});
 
-		const data = await res.json().catch(() => ({}));
+		const data: Partial<TrainingBatchImportResult> & { message?: string } = await res.json().catch(() => ({}));
 		if (!res.ok) {
 			throw new Error(data.message ?? `HTTP ${res.status}`);
 		}
@@ -314,37 +314,19 @@ export class TrainingPageContext {
 	async handleRemoveTraining(id: string): Promise<void> {
 		const training = personnelTrainingsStore.getById(id);
 		const result = await personnelTrainingsStore.remove(id);
+		if (result === 'error') throw new Error('Could not remove training record. Try again.');
 		if (result === 'approval_required' && training) {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
 			const type = trainingTypesStore.items.find((t) => t.id === training.trainingTypeId);
 			const desc = `${type?.name ?? 'Training'} record for ${person ? `${person.rank} ${person.lastName}` : 'unknown'}`;
-			const { submitDeletionRequest } = await loadDeletionRequests();
-			await submitDeletionRequest(this.orgId, 'personnel_training', id, desc, `/org/${this.orgId}/training`);
-		}
-	}
-
-	async handleAddType(data: Omit<TrainingType, 'id'>): Promise<void> {
-		await trainingTypesStore.add(data);
-	}
-
-	async handleUpdateType(id: string, data: Partial<Omit<TrainingType, 'id'>>): Promise<void> {
-		await trainingTypesStore.update(id, data);
-	}
-
-	async handleRemoveType(id: string): Promise<void> {
-		const type = trainingTypesStore.items.find((t) => t.id === id);
-		const result = await trainingTypesStore.remove(id);
-		if (result === 'approval_required' && type) {
-			const { submitDeletionRequest } = await loadDeletionRequests();
-			await submitDeletionRequest(
+			const submitted = await this.#submitRemovalRequest(
 				this.orgId,
-				'training_type',
+				'personnel_training',
 				id,
-				`Training type: ${type.name}`,
+				desc,
 				`/org/${this.orgId}/training`
 			);
-		} else if (result === 'deleted') {
-			personnelTrainingsStore.removeByTrainingTypeLocal(id);
+			if (!submitted) throw new Error('Could not submit removal request. Try again.');
 		}
 	}
 
@@ -362,7 +344,7 @@ export class TrainingPageContext {
 		this.#modals.close('bulk-import');
 	}
 
-	private applyUserPreferences(preferences?: UserOrgPreferences): void {
+	private applyUserPreferences(preferences?: { training?: TrainingPagePreferences }): void {
 		const trainingPrefs = preferences?.training;
 		const selectedGroupId = trainingPrefs?.selectedGroupId ?? null;
 		const selectedViewId = trainingPrefs?.selectedViewId ?? null;
@@ -389,7 +371,7 @@ export class TrainingPageContext {
 		const rosterLoaded = rosterStore.orgId === this.orgId && !rosterStore.loading;
 		const viewsLoaded = trainingViewsStore.orgId === this.orgId && !trainingViewsStore.loading;
 
-		const patch: NonNullable<UserOrgPreferencesPatch['training']> = {};
+		const patch: NonNullable<TrainingPreferencesPatch['training']> = {};
 
 		if (groupsLoaded && rosterLoaded && this.selectedGroupId && !this.isValidGroupId(this.selectedGroupId)) {
 			this.selectedGroupId = '';
@@ -437,13 +419,13 @@ export class TrainingPageContext {
 		return [this.orgId, this.selectedGroupId, this.selectedViewId, groupIds, groupFilterValues, viewIds].join('|');
 	}
 
-	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {
+	private async persistPreferences(preferences: TrainingPreferencesPatch): Promise<void> {
 		try {
-			const { queueUserPreferencesPatch } = await loadUserPreferencesClient();
-			await queueUserPreferencesPatch(this.orgId, preferences);
+			await this.#savePreferences(this.orgId, preferences);
 		} catch (error) {
-			const { toastStore } = await loadToastStore();
-			toastStore.error(error instanceof Error ? error.message : 'Failed to save your training preferences');
+			toast.error(error instanceof Error ? error.message : 'Failed to save your training preferences', {
+				duration: 6000
+			});
 		}
 	}
 

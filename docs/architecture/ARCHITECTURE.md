@@ -90,12 +90,12 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
   - admin/platform utilities
   - some org layout settings fetches
   - auth, export, and organization-settings edges that have not yet been fully retired or are intentionally provider-adjacent
-- Service-role Supabase usage also exists for platform admin, audit writes, notifications, and retained cleanup jobs.
+- Service-role Supabase usage also exists for platform admin, audit writes, owned notification delivery/feedback submission, and retained cleanup jobs. D20 binds privileged clients in request/cron composition; self notifications, account dismissal preferences and Organization communications exports keep request-user clients.
 
 ### Product surface reality
 
 - `Critical Tasks` is a real feature surface with its own UI and workflow identity.
-- `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane.
+- `Rating Scheme` is active and user-visible through the Evals primary nav route and owns a dedicated permission lane. Its entry/workspace operations, mapping and consumed reverse reads/effects now live in the feature owner. Evals consumes portable, Web and Server entries; streaming, approval submission and notification binding stay in delivery. The mutable entry store and entity stay private; Dashboard receives only due facts. D16 source/native verification is recorded in the ownership receipt; final PR validation and accepted integration remain required.
 
 ## Intended Guardrails Going Forward
 

@@ -16,11 +16,10 @@
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
 import { toastStore } from '$lib/stores/toast.svelte';
-import type { DailyAssignment } from '$lib/types';
-import type { AssignmentType } from '$features/calendar/contracts';
+import type { AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 
 export type { AssignmentType } from '$features/calendar/contracts';
-export type { DailyAssignment } from '$lib/types';
+export type { DailyAssignment } from '$features/calendar/contracts';
 
 const typesStore = defineStore<AssignmentType>({
 	table: 'assignment_types',

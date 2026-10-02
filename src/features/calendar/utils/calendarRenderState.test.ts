@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { UpcomingLossRecord } from '$lib/domain/readinessSignals';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, SpecialDay, StatusType } from '$features/calendar/contracts';
+import type { UpcomingLossRecord } from '$features/personnel/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type {
+	AssignmentType,
+	AvailabilityEntry,
+	SpecialDay,
+	StatusType,
+	DailyAssignment
+} from '$features/calendar/contracts';
 import { buildCalendarRenderState, CalendarRenderStateInputError } from './calendarRenderState';
 
 const personnel: Personnel[] = [

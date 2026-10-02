@@ -2,10 +2,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
-import type { OnboardingWorkspaceResult } from '$features/onboarding/server/onboardingWorkspaceBootstrap';
-import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
-import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
-import { onboardingTemplateStore } from '$features/onboarding/stores/onboardingTemplate.svelte';
+import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
+import type { PersonnelOnboarding } from '$features/onboarding/contracts';
+import { onboardingStore, onboardingTemplateStore } from '$features/onboarding';
 import { personnelRosterHydration } from '$features/personnel';
 
 const throwRenderErrorMock = vi.fn();
@@ -13,9 +12,10 @@ const modalRegistryState = vi.hoisted(() => ({
 	startOnboardingOpen: false
 }));
 
-vi.mock('$features/onboarding/components/OnboardingModals.svelte', () => ({
-	default: VisibleStub
-}));
+vi.mock('$features/onboarding', async () => {
+	const actual = await vi.importActual<typeof import('$features/onboarding')>('$features/onboarding');
+	return { ...actual, loadOnboardingModals: async () => ({ default: VisibleStub }) };
+});
 
 vi.mock('$lib/utils/modalRegistry.svelte', () => ({
 	ModalRegistry: class {
@@ -115,7 +115,9 @@ function makeBootstrap(): OnboardingWorkspaceResult {
 			onboardings: [],
 			personnel: [],
 			groups: [],
-			trainingTypes: []
+			trainingTypes: [],
+			rankCatalogUnavailable: false,
+			rankCatalog: []
 		},
 		hydration: {
 			orgId: 'org-1',

@@ -2,8 +2,14 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import LongRangeView from './LongRangeView.svelte';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, SpecialDay, StatusType, AvailabilityEntry } from '$features/calendar/contracts';
+import type { Personnel } from '$features/personnel/contracts';
+import type {
+	AssignmentType,
+	SpecialDay,
+	StatusType,
+	AvailabilityEntry,
+	DailyAssignment
+} from '$features/calendar/contracts';
 
 type LongRangeViewProps = {
 	startDate: Date;

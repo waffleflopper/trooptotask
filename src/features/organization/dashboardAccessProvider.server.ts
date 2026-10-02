@@ -1,4 +1,4 @@
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	DashboardInvitationAcceptResult,
 	DashboardInvitationDeclineResult,

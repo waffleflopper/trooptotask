@@ -5,7 +5,7 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import { buildCriticalTasksMatrix, matchesCriticalTasksPersonnelSearch } from './criticalTasksMatrix';
 
 function person(overrides: Partial<Personnel>): Personnel {
@@ -63,6 +63,21 @@ const settings: CriticalTasksSettings = {
 };
 
 describe('buildCriticalTasksMatrix', () => {
+	it('selects the latest dated capture and uses log time to break same-date ties even beyond the display date', () => {
+		const matrix = buildCriticalTasksMatrix({
+			personnel: [person({})],
+			tasks: [task({})],
+			completions: [
+				completion({ id: 'backdated-later-log', completedAt: '2026-04-01', createdAt: '2099-01-01T12:00:00Z' }),
+				completion({ id: 'same-date-latest-log', completedAt: '2026-04-20', createdAt: '2026-04-12T12:00:00Z' }),
+				completion({ id: 'same-date-earlier-log', completedAt: '2026-04-20', createdAt: '2026-04-11T12:00:00Z' })
+			],
+			asOf: '2026-04-15'
+		});
+
+		expect(matrix.rows[0].cellsByTaskId.get('task-1')?.completion?.id).toBe('same-date-latest-log');
+	});
+
 	it('builds active personnel rows and active task columns with MOS-applicable status cells', () => {
 		const matrix = buildCriticalTasksMatrix({
 			personnel: [

@@ -4,7 +4,7 @@ import {
 	createPlatformAnnouncements,
 	type PlatformAnnouncement
 } from '$lib/server/core/useCases/platformAnnouncements';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	PlatformAnnouncementStoreCreateInput,
 	PlatformAnnouncementToggleInput,

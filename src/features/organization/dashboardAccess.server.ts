@@ -1,13 +1,7 @@
+import { fail } from '$lib/errors';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 export interface DashboardInvitationAuditPort {
 	log(event: { action: string; resourceType: string; resourceId?: string; details?: Record<string, unknown> }): void;
-}
-
-interface DashboardInvitationNotificationPort {
-	notifyAdmins(
-		organizationId: string,
-		excludeUserId: string | null,
-		notification: { type: string; title: string; message: string; link?: string | null }
-	): Promise<void>;
 }
 
 export interface DashboardOrganizationSummary {
@@ -87,7 +81,7 @@ interface DashboardOrgAccessInput {
 
 interface AcceptDashboardInvitationPorts {
 	dashboard: DashboardOrgAccessPort;
-	notifications: DashboardInvitationNotificationPort;
+	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 	audit?: DashboardInvitationAuditFactory;
 }
 
@@ -99,7 +93,7 @@ interface AcceptDashboardInvitationInput {
 
 interface DeclineDashboardInvitationPorts {
 	dashboard: DashboardOrgAccessPort;
-	notifications: DashboardInvitationNotificationPort;
+	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 	audit?: DashboardInvitationAuditFactory;
 }
 
@@ -264,12 +258,6 @@ export async function declineDashboardInvitation(
 
 function normalizeEmail(email?: string | null): string {
 	return email?.trim().toLowerCase() ?? '';
-}
-
-function fail(status: number, message: string): never {
-	const error = new Error(message);
-	Object.assign(error, { status });
-	throw error;
 }
 
 async function notifyAdminsOfAcceptedInvitation(

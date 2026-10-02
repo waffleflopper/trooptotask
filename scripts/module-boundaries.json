@@ -76,15 +76,6 @@
 				"src/lib/server/calendarLayoutServer.test.ts",
 				"src/lib/server/core/useCases/calendarPolicy.ts",
 				"src/lib/server/core/useCases/calendarScope.ts",
-				"src/lib/server/core/useCases/daily-assignment-slots/index.test.ts",
-				"src/lib/server/core/useCases/daily-assignment-slots/index.ts",
-				"src/lib/server/core/useCases/dailyAssignments.test.ts",
-				"src/lib/server/core/useCases/dailyAssignments.ts",
-				"src/lib/server/core/useCases/dailyAssignmentsBatch.test.ts",
-				"src/lib/server/core/useCases/dailyAssignmentsBatch.ts",
-				"src/lib/server/core/useCases/dailyAssignmentsPreservation.test.ts",
-				"src/lib/server/entities/dailyAssignment.test.ts",
-				"src/lib/server/entities/dailyAssignment.ts",
 				"src/lib/server/utils/calendarTiming.test.ts",
 				"src/lib/server/utils/calendarTiming.ts"
 			],
@@ -92,23 +83,7 @@
 		},
 		"critical-tasks": {
 			"roots": ["src/features/critical-tasks/"],
-			"files": [
-				"src/lib/components/ui/requirement-status-badge/critical-task-status-badge.svelte",
-				"src/lib/server/adapters/criticalTasksReadModel.ts",
-				"src/lib/server/adapters/inMemoryCriticalTasksReadModel.ts",
-				"src/lib/server/core/useCases/criticalTasksHistoryQuery.test.ts",
-				"src/lib/server/core/useCases/criticalTasksHistoryQuery.ts",
-				"src/lib/server/core/useCases/criticalTasksReportsQuery.test.ts",
-				"src/lib/server/core/useCases/criticalTasksReportsQuery.ts",
-				"src/lib/server/core/useCases/criticalTasksWorkspaceQuery.test.ts",
-				"src/lib/server/core/useCases/criticalTasksWorkspaceQuery.ts",
-				"src/lib/server/core/useCases/ictCompletionsBatch.test.ts",
-				"src/lib/server/core/useCases/ictCompletionsBatch.ts",
-				"src/lib/server/core/useCases/ictTasksBatch.test.ts",
-				"src/lib/server/core/useCases/ictTasksBatch.ts",
-				"src/lib/server/entities/ictTask.test.ts",
-				"src/lib/server/entities/ictTask.ts"
-			],
+			"files": [],
 			"packet": "08-M08"
 		},
 		"dashboard": {
@@ -124,7 +99,7 @@
 			"packet": "08-M06"
 		},
 		"data-export": {
-			"roots": ["src/lib/export/"],
+			"roots": [],
 			"files": [
 				"src/lib/server/core/useCases/dataExportLifecycle.test.ts",
 				"src/lib/server/core/useCases/dataExportLifecycle.ts",
@@ -135,13 +110,12 @@
 				"src/lib/server/core/useCases/organizationExport.test.ts",
 				"src/lib/server/core/useCases/organizationExport.ts",
 				"src/lib/server/core/useCases/organizationExportWorkbook.test.ts",
-				"src/lib/server/core/useCases/organizationExportWorkbook.ts",
-				"src/lib/utils/excelWorkbook.ts"
+				"src/lib/server/core/useCases/organizationExportWorkbook.ts"
 			],
 			"packet": "08-M14"
 		},
 		"deletion-requests": {
-			"roots": [],
+			"roots": ["src/features/deletion-requests/"],
 			"files": [
 				"src/lib/server/core/useCases/deletionRequests.test.ts",
 				"src/lib/server/core/useCases/deletionRequests.ts",
@@ -156,18 +130,18 @@
 				"src/hooks.organizationAdmission.test.ts",
 				"src/hooks.server.test.ts",
 				"src/hooks.server.ts",
+				"src/lib/personnelArchiveRequestDelivery.ts",
+				"src/lib/server/personnelArchiveBatchDelivery.ts",
+				"src/lib/server/personnelArchiveBatchDelivery.test.ts",
 				"src/hooks.signOut.test.ts",
 				"src/lib/server/adapters/buildLayoutContext.test.ts",
 				"src/lib/server/adapters/entityHandlers.test.ts",
 				"src/lib/server/adapters/handle.test.ts",
 				"src/lib/server/adapters/httpAdapter.ts",
-				"src/lib/server/adapters/leaderNoteDataSource.ts",
-				"src/lib/server/adapters/leaderNoteDataSource.test.ts",
 				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
-				"src/lib/server/core/errors.ts",
 				"src/lib/server/core/featureLaneWorkspaceLoad.ts",
 				"src/lib/server/core/ports.ts",
 				"src/lib/server/core/streamedWorkspace.test.ts",
@@ -185,13 +159,15 @@
 				"src/tests/check-governance.test.ts",
 				"src/tests/no-google-fonts.test.ts",
 				"src/tests/security-posture.test.ts",
-				"src/app.d.ts"
+				"src/app.d.ts",
+				"src/lib/server/adapters/notificationDelivery.test.ts",
+				"src/lib/server/communicationsPagination.server.test.ts"
 			],
 			"packet": "08-M15"
 		},
 		"feedback": {
-			"roots": [],
-			"files": ["src/lib/components/FeedbackModal.svelte"],
+			"roots": ["src/features/feedback/"],
+			"files": [],
 			"packet": "08-M13"
 		},
 		"identity": {
@@ -212,43 +188,13 @@
 			"packet": "08-M01"
 		},
 		"notifications": {
-			"roots": [],
-			"files": [
-				"src/lib/components/AnnouncementBanner.svelte",
-				"src/lib/components/AnnouncementBanner.test.ts",
-				"src/lib/server/adapters/supabaseAnnouncementDismissals.ts",
-				"src/lib/server/adapters/supabaseNotification.ts",
-				"src/lib/server/core/useCases/notifications.test.ts",
-				"src/lib/server/core/useCases/notifications.ts",
-				"src/lib/server/notifications.ts"
-			],
+			"roots": ["src/features/notifications/"],
+			"files": [],
 			"packet": "08-M13"
 		},
 		"onboarding": {
-			"roots": ["src/features/onboarding/", "src/lib/components/ui/onboarding-packet-list/"],
-			"files": [
-				"src/lib/server/core/useCases/onboardingLifecycle.test.ts",
-				"src/lib/server/core/useCases/onboardingLifecycle.ts",
-				"src/lib/server/core/useCases/onboardingPolicy.ts",
-				"src/lib/server/core/useCases/onboardingQuery.test.ts",
-				"src/lib/server/core/useCases/onboardingQuery.ts",
-				"src/lib/server/core/useCases/onboardingResync.test.ts",
-				"src/lib/server/core/useCases/onboardingResync.ts",
-				"src/lib/server/core/useCases/onboardingRetention.test.ts",
-				"src/lib/server/core/useCases/onboardingRetention.ts",
-				"src/lib/server/core/useCases/onboardingStepProgress.test.ts",
-				"src/lib/server/core/useCases/onboardingStepProgress.ts",
-				"src/lib/server/core/useCases/onboardingTemplateCrud.test.ts",
-				"src/lib/server/core/useCases/onboardingTemplateCrud.ts",
-				"src/lib/server/core/useCases/onboardingTemplateDuplicate.ts",
-				"src/lib/server/core/useCases/onboardingTemplatesQuery.test.ts",
-				"src/lib/server/core/useCases/onboardingTemplatesQuery.ts",
-				"src/lib/server/entities/onboardingStepProgress.ts",
-				"src/lib/server/entities/onboardingTemplate.test.ts",
-				"src/lib/server/entities/onboardingTemplate.ts",
-				"src/lib/server/entities/onboardingTemplateStep.test.ts",
-				"src/lib/server/entities/onboardingTemplateStep.ts"
-			],
+			"roots": ["src/features/onboarding/"],
+			"files": [],
 			"packet": "08-M09"
 		},
 		"organization": {
@@ -266,60 +212,32 @@
 		"personnel": {
 			"roots": ["src/features/personnel/"],
 			"files": [
-				"src/lib/domain/readinessSignals.test.ts",
-				"src/lib/domain/readinessSignals.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
 				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
-				"src/lib/server/core/useCases/personnel.test.ts",
-				"src/lib/server/core/useCases/personnel.ts",
 				"src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts",
 				"src/lib/server/core/useCases/personnelArchivedArtifacts.ts",
 				"src/lib/server/core/useCases/personnelArtifactLifecycle.test.ts",
 				"src/lib/server/core/useCases/personnelArtifactLifecycle.ts",
-				"src/lib/server/core/useCases/personnelAwardTracking.test.ts",
-				"src/lib/server/core/useCases/personnelAwardTracking.ts",
-				"src/lib/server/core/useCases/personnelBatch.test.ts",
-				"src/lib/server/core/useCases/personnelBatch.ts",
 				"src/lib/server/core/useCases/personnelCounselingRecords.test.ts",
 				"src/lib/server/core/useCases/personnelCounselingRecords.ts",
 				"src/lib/server/core/useCases/personnelDocuments.test.ts",
 				"src/lib/server/core/useCases/personnelDocuments.ts",
-				"src/lib/server/core/useCases/personnelExport.test.ts",
-				"src/lib/server/core/useCases/personnelExport.ts",
-				"src/lib/server/core/useCases/personnelExtendedInfo.test.ts",
-				"src/lib/server/core/useCases/personnelExtendedInfo.ts",
 				"src/lib/server/core/useCases/personnelFollowUps.test.ts",
 				"src/lib/server/core/useCases/personnelFollowUps.ts",
-				"src/lib/server/core/useCases/personnelMergeBatch.test.ts",
-				"src/lib/server/core/useCases/personnelMergeBatch.ts",
-				"src/lib/server/core/useCases/personnelReadinessLanes.test.ts",
-				"src/lib/server/core/useCases/personnelReadinessLanes.ts",
-				"src/lib/server/core/useCases/personnelSlug.test.ts",
-				"src/lib/server/core/useCases/personnelSlug.ts",
-				"src/lib/server/core/useCases/personnelWorkspaceQuery.test.ts",
-				"src/lib/server/core/useCases/personnelWorkspaceQuery.ts",
+				"src/lib/server/counselingRecordMapping.test.ts",
 				"src/lib/server/entities/counselingRecord.test.ts",
-				"src/lib/server/entities/counselingRecord.ts",
-				"src/lib/server/entities/personnel.test.ts",
-				"src/lib/server/entities/personnel.ts",
-				"src/lib/server/entities/personnelIctCompletion.test.ts",
-				"src/lib/server/entities/personnelIctCompletion.ts",
-				"src/lib/server/entities/personnelOnboarding.test.ts",
-				"src/lib/server/entities/personnelOnboarding.ts",
-				"src/lib/server/entities/personnelTraining.test.ts",
-				"src/lib/server/entities/personnelTraining.ts"
+				"src/lib/server/entities/counselingRecord.ts"
 			],
 			"packet": "08-M04"
 		},
 		"platform-admin": {
-			"roots": ["src/lib/components/admin/"],
+			"roots": ["src/features/platform-admin/", "src/lib/components/admin/"],
 			"files": [
 				"src/lib/server/adapters/adminAdapter.http.test.ts",
 				"src/lib/server/adapters/adminAdapter.test.ts",
 				"src/lib/server/adapters/adminAdapter.ts",
 				"src/lib/server/adapters/inMemoryPlatformAnnouncements.ts",
 				"src/lib/server/adapters/inMemoryPlatformAudit.ts",
-				"src/lib/server/adapters/inMemoryPlatformFeedback.ts",
 				"src/lib/server/adapters/inMemoryPlatformMembershipAdministration.ts",
 				"src/lib/server/adapters/inMemoryPlatformMetrics.ts",
 				"src/lib/server/adapters/inMemoryPlatformUserDirectory.ts",
@@ -332,8 +250,6 @@
 				"src/lib/server/adapters/supabasePlatformAnnouncements.ts",
 				"src/lib/server/adapters/supabasePlatformAudit.test.ts",
 				"src/lib/server/adapters/supabasePlatformAudit.ts",
-				"src/lib/server/adapters/supabasePlatformFeedback.test.ts",
-				"src/lib/server/adapters/supabasePlatformFeedback.ts",
 				"src/lib/server/adapters/supabasePlatformMembershipAdministration.test.ts",
 				"src/lib/server/adapters/supabasePlatformMembershipAdministration.ts",
 				"src/lib/server/adapters/supabasePlatformMetrics.test.ts",
@@ -358,8 +274,6 @@
 				"src/lib/server/core/useCases/platformAnnouncements.ts",
 				"src/lib/server/core/useCases/platformAudit.test.ts",
 				"src/lib/server/core/useCases/platformAudit.ts",
-				"src/lib/server/core/useCases/platformFeedback.test.ts",
-				"src/lib/server/core/useCases/platformFeedback.ts",
 				"src/lib/server/core/useCases/platformMembershipAdministration.test.ts",
 				"src/lib/server/core/useCases/platformMembershipAdministration.ts",
 				"src/lib/server/core/useCases/platformMetrics.test.ts",
@@ -397,9 +311,9 @@
 				"src/lib/server/env.ts",
 				"src/lib/server/supabase.ts",
 				"src/lib/server/supabasePagination.test.ts",
-				"src/lib/server/supabasePagination.ts",
 				"src/lib/server/validation.test.ts",
-				"src/lib/server/validation.ts"
+				"src/lib/server/validation.ts",
+				"src/lib/server/supabasePagination.server.ts"
 			],
 			"packet": "08-M15"
 		},
@@ -421,13 +335,7 @@
 		},
 		"rating-scheme": {
 			"roots": ["src/features/rating-scheme/"],
-			"files": [
-				"src/lib/server/core/useCases/ratingSchemeEntryCrud.test.ts",
-				"src/lib/server/core/useCases/ratingSchemeEntryCrud.ts",
-				"src/lib/server/entities/ratingSchemeEntry.test.ts",
-				"src/lib/server/entities/ratingSchemeEntry.ts",
-				"src/lib/server/ratingSchemeRepository.test.ts"
-			],
+			"files": [],
 			"packet": "08-M10"
 		},
 		"scheduled-maintenance": {
@@ -451,19 +359,23 @@
 				"src/lib/domain/readinessRollup.ts",
 				"src/lib/types.ts",
 				"src/lib/utils.ts",
-				"src/lib/utils/columnMapping.test.ts",
 				"src/lib/utils/columnMapping.ts",
 				"src/lib/utils/csvParser.test.ts",
 				"src/lib/utils/csvParser.ts",
 				"src/lib/utils/dates.test.ts",
 				"src/lib/utils/dates.ts",
+				"src/lib/utils/excelWorkbook.ts",
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.test.ts",
 				"src/lib/utils/featureLaneWorkspaceHydration.svelte.ts",
 				"src/lib/utils/mergeById.ts",
 				"src/lib/utils/streamedRouteData.test.ts",
 				"src/lib/utils/streamedRouteData.ts",
 				"src/lib/utils/streamedWorkspaceHydrator.test.ts",
-				"src/lib/utils/streamedWorkspaceHydrator.ts"
+				"src/lib/utils/streamedWorkspaceHydrator.ts",
+				"src/lib/utils/workbook.test.ts",
+				"src/lib/utils/workbook.ts",
+				"src/lib/errors.ts",
+				"src/lib/utils/retentionCutoff.ts"
 			],
 			"packet": "08-M16"
 		},
@@ -474,25 +386,7 @@
 		},
 		"training": {
 			"roots": ["src/features/training/"],
-			"files": [
-				"src/lib/components/ui/requirement-status-badge/training-status-badge.svelte",
-				"src/lib/components/ui/requirement-status-badge/training-status-cell.svelte",
-				"src/lib/server/core/useCases/trainingRecords.test.ts",
-				"src/lib/server/core/useCases/trainingRecords.ts",
-				"src/lib/server/core/useCases/trainingRecordsBatch.test.ts",
-				"src/lib/server/core/useCases/trainingRecordsBatch.ts",
-				"src/lib/server/core/useCases/trainingReportsQuery.test.ts",
-				"src/lib/server/core/useCases/trainingReportsQuery.ts",
-				"src/lib/server/core/useCases/trainingSummaryQuery.test.ts",
-				"src/lib/server/core/useCases/trainingSummaryQuery.ts",
-				"src/lib/server/core/useCases/trainingTypeCrud.test.ts",
-				"src/lib/server/core/useCases/trainingViewCrud.test.ts",
-				"src/lib/server/entities/trainingType.test.ts",
-				"src/lib/server/entities/trainingType.ts",
-				"src/lib/server/entities/trainingView.test.ts",
-				"src/lib/server/entities/trainingView.ts",
-				"src/lib/server/utils/trainingTiming.ts"
-			],
+			"files": [],
 			"packet": "08-M07"
 		},
 		"web-ui": {
@@ -522,13 +416,7 @@
 		}
 	},
 	"rootExclusions": {
-		"src/lib/components/ui/": [
-			"src/lib/components/ui/calendar-status-badge/",
-			"src/lib/components/ui/onboarding-packet-list/",
-			"src/lib/components/ui/requirement-status-badge/critical-task-status-badge.svelte",
-			"src/lib/components/ui/requirement-status-badge/training-status-badge.svelte",
-			"src/lib/components/ui/requirement-status-badge/training-status-cell.svelte"
-		],
+		"src/lib/components/ui/": ["src/lib/components/ui/calendar-status-badge/"],
 		"src/routes/": [
 			"src/routes/+page.server.ts",
 			"src/routes/+page.svelte",
@@ -674,8 +562,8 @@
 		"provider": ["src/lib/server/", "src/lib/storage/"]
 	},
 	"publicFiles": {
-		"shared": ["src/lib/utils.ts", "src/lib/types.ts"],
-		"provider": [],
+		"shared": ["src/lib/utils.ts", "src/lib/types.ts", "src/lib/errors.ts"],
+		"provider": ["src/lib/server/supabasePagination.server.ts"],
 		"access": [
 			"src/lib/server/permissions.ts",
 			"src/lib/server/permissionContext.ts",
@@ -691,8 +579,13 @@
 			"src/features/calendar/index.ts",
 			"src/features/calendar/index.server.ts"
 		],
-		"critical-tasks": [],
+		"critical-tasks": [
+			"src/features/critical-tasks/contracts.ts",
+			"src/features/critical-tasks/index.ts",
+			"src/features/critical-tasks/index.server.ts"
+		],
 		"dashboard": ["src/features/dashboard/index.ts"],
+		"deletion-requests": ["src/features/deletion-requests/index.ts", "src/features/deletion-requests/index.server.ts"],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",
 			"src/features/onboarding/index.ts",
@@ -703,7 +596,11 @@
 			"src/features/personnel/index.ts",
 			"src/features/personnel/index.server.ts"
 		],
-		"rating-scheme": ["src/features/rating-scheme/index.ts"],
+		"rating-scheme": [
+			"src/features/rating-scheme/contracts.ts",
+			"src/features/rating-scheme/index.ts",
+			"src/features/rating-scheme/index.server.ts"
+		],
 		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts", "src/features/sign-in-rosters/index.server.ts"],
 		"training": [
 			"src/features/training/contracts.ts",
@@ -713,6 +610,7 @@
 		"web-ui": [
 			"src/lib/components/BannerStack.svelte",
 			"src/lib/components/BrandMark.svelte",
+			"src/lib/stores/toast.svelte.ts",
 			"src/lib/utils/browserStorage.ts",
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts"
@@ -722,7 +620,19 @@
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",
 			"src/features/identity/contracts.ts"
-		]
+		],
+		"notifications": [
+			"src/features/notifications/contracts.ts",
+			"src/features/notifications/index.ts",
+			"src/features/notifications/index.server.ts",
+			"src/features/notifications/contracts.server.ts"
+		],
+		"feedback": [
+			"src/features/feedback/contracts.ts",
+			"src/features/feedback/index.ts",
+			"src/features/feedback/index.server.ts"
+		],
+		"platform-admin": ["src/features/platform-admin/index.server.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {
@@ -744,10 +654,6 @@
 		"src/lib/storage/sensitiveFiles.ts": {
 			"packet": "08-M11/08-M15",
 			"reason": "shared storage transport includes feature-specific scan path rules"
-		},
-		"src/lib/components/ui/requirement-status-badge/index.ts": {
-			"packet": "08-M07/08-M08/08-M16",
-			"reason": "shared barrel combines neutral base with Training and Critical Tasks presentations"
 		}
 	}
 }

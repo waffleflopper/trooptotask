@@ -1,10 +1,15 @@
-import { bindLeaderNoteDataSource } from '$lib/server/adapters/leaderNoteDataSource';
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import { createSupabaseAssignmentTypeRetention } from '$features/calendar/index.server';
+import {
+	createSupabasePersonnelArtifactRetentionSource,
+	createSupabasePersonnelRetentionSource
+} from '$features/personnel/index.server';
+import { createSupabaseNotificationDelivery } from '$features/notifications/index.server';
+import { createSupabaseOrganizationAdministratorRecipients } from '$features/organization/index.server';
 import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
 import { getAdminClient } from '$lib/server/supabase';
 import {
@@ -45,10 +50,17 @@ export const GET: RequestHandler = async ({ request }) => {
 	const store = createSupabaseDataStore(admin);
 	const storage = createSupabaseStorageAdapter(admin);
 	const assignmentTypes = createSupabaseAssignmentTypeRetention(admin);
-	const leaderNotes = bindLeaderNoteDataSource(store);
+	const artifacts = createSupabasePersonnelArtifactRetentionSource(admin, storage);
+	const personnel = createSupabasePersonnelRetentionSource(admin, storage);
+	const notifications = createSupabaseNotificationDelivery({
+		getAdminClient: () => admin,
+		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(() => admin),
+		failureMode: 'required'
+	});
 
 	return runArchiveRetentionCleanupEndpoint({
 		loadOrgRows: async () => admin.from('organizations').select('id, archive_retention_months'),
-		runCleanup: (configs) => cleanupArchivedRecords({ store, storage, assignmentTypes, leaderNotes }, configs)
+		runCleanup: (configs) =>
+			cleanupArchivedRecords({ store, assignmentTypes, artifacts, personnel, notifications }, configs)
 	});
 };

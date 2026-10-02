@@ -17,7 +17,7 @@
  * It is intentionally pure: no store, no fetch, no `$app`. The shared range rules stay
  * in the sibling availabilityMutation module. The interface is the test surface.
  */
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { StatusType } from '$features/calendar/contracts';
 import { parseDateString } from '$lib/utils/csvParser';
 import { validateDateRange, type AvailabilityRecord } from './availabilityMutation';

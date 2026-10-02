@@ -6,3 +6,5 @@ export { hasPendingPasswordCompletion } from './passwordCompletion';
 export { ACCESS_REQUEST_HEARD_ABOUT_OPTIONS } from './contracts';
 export { default as PasswordCompletion } from './PasswordCompletion.svelte';
 export { passwordRequirements, validatePassword } from './passwordPolicy';
+
+export { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';

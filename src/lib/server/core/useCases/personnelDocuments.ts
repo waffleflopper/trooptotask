@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { PersonnelDocument } from '$features/personnel/personnel-detail.types';
 import type { PersonnelArtifactWriter } from '$features/personnel/contracts';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import {

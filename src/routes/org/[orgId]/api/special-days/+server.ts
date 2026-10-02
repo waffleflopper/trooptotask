@@ -7,7 +7,7 @@ import {
 	resetFederalHolidays,
 	listSpecialDays
 } from '$features/calendar/index.server';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
 
 export const _getConfig = {

@@ -1,23 +1,21 @@
 <script lang="ts">
-	import type { PersonnelLookup } from '$lib/types';
+	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 	import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 	import RatingSchemeEntryModal from '$features/rating-scheme/components/RatingSchemeEntryModal.svelte';
-	import { submitDeletionRequest } from '$lib/utils/deletionRequests';
-	import type { RatingSchemePageContext } from '$features/rating-scheme/contexts/RatingSchemePageContext.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 	interface Props {
-		ctx: RatingSchemePageContext;
 		modals: ModalRegistry;
 		personnelLookup: PersonnelLookup[];
+		onRequestDeletion: (id: string, description: string) => Promise<boolean>;
 	}
 
-	let { ctx, modals, personnelLookup }: Props = $props();
+	let { modals, personnelLookup, onRequestDeletion }: Props = $props();
 
 	const ratingPayload = $derived(modals.payload<{ entry: RatingSchemeEntry | null }>('rating-modal'));
 	const editingEntry = $derived(ratingPayload?.entry ?? null);
-	const ratingSchemeResourceUrl = $derived(`/org/${ctx.orgId}/evals`);
 
 	async function handleSaveRatingEntry(entryData: Omit<RatingSchemeEntry, 'id'>) {
 		if (editingEntry) {
@@ -29,14 +27,17 @@
 		}
 	}
 
-	async function handleDeleteRatingEntry(id: string) {
+	async function handleDeleteRatingEntry(id: string): Promise<boolean> {
 		const entry = ratingSchemeStore.items.find((ratingEntry) => ratingEntry.id === id);
 		const result = await ratingSchemeStore.remove(id);
+		if (result === 'deleted') return true;
 		if (result === 'approval_required' && entry) {
 			const person = personnelLookup.find((p) => p.id === entry.ratedPersonId);
 			const desc = person ? `Rating scheme entry for ${person.rank} ${person.lastName}` : 'Rating scheme entry';
-			await submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, desc, ratingSchemeResourceUrl);
+			return onRequestDeletion(id, desc);
 		}
+		toastStore.error('Failed to delete rating entry. Try again.');
+		return false;
 	}
 </script>
 

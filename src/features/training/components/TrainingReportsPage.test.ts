@@ -7,22 +7,20 @@ import { trainingTypesStore } from '$features/training/stores/trainingTypes.svel
 import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
-import type { TrainingReportData } from '$lib/server/core/useCases/trainingReportsQuery';
+import type { TrainingReportData } from '$features/training/contracts';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
-		orgId: 'org-1',
-		orgName: 'Test Unit',
-		userId: 'user-1',
-		role: 'owner',
-		isOwner: true,
-		isAdmin: false,
-		isPrivileged: true,
-		scopeSet: { kind: 'organization' }
-	})
-}));
+const org = {
+	orgId: 'org-1',
+	orgName: 'Test Unit',
+	userId: 'user-1',
+	role: 'owner',
+	isOwner: true,
+	isAdmin: false,
+	isPrivileged: true,
+	scopeSet: { kind: 'organization' }
+} as unknown as import('../contracts').TrainingPageAccess;
 
 const groups: Group[] = [
 	{ id: 'group-1', name: 'Alpha', sortOrder: 0 },
@@ -143,6 +141,7 @@ describe('TrainingReportsPage', () => {
 	it('uses hydrated personnel and groups when route bootstrap omits them', () => {
 		render(TrainingReportsPage, {
 			props: {
+				org,
 				data: {
 					training: {
 						data: {
@@ -162,6 +161,7 @@ describe('TrainingReportsPage', () => {
 	it('renders only the server-provided report page instead of rebuilding every store row', () => {
 		render(TrainingReportsPage, {
 			props: {
+				org,
 				data: {
 					trainingReport: {
 						dashboard: {
@@ -241,6 +241,7 @@ describe('TrainingReportsPage', () => {
 
 		render(TrainingReportsPage, {
 			props: {
+				org,
 				data: {
 					trainingReport: {
 						dashboard: {
@@ -327,6 +328,7 @@ describe('TrainingReportsPage', () => {
 
 		render(TrainingReportsPage, {
 			props: {
+				org,
 				data: {
 					trainingReport: makeServerReport(personnel[1])
 				}
@@ -353,6 +355,7 @@ describe('TrainingReportsPage', () => {
 
 		render(TrainingReportsPage, {
 			props: {
+				org,
 				data: {
 					trainingReport: makeServerReport(personnel[1])
 				}
@@ -382,6 +385,7 @@ describe('TrainingReportsPage', () => {
 
 		const view = render(TrainingReportsPage, {
 			props: {
+				org,
 				data: {
 					trainingReport: makeServerReport(personnel[1])
 				}
@@ -417,6 +421,7 @@ describe('TrainingReportsPage', () => {
 
 		render(TrainingReportsPage, {
 			props: {
+				org,
 				data: {
 					trainingReport: {
 						dashboard: {

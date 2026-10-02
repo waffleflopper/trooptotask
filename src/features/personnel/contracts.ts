@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { Personnel, PersonnelLookup } from '$lib/types';
+import type { Personnel, PersonnelLookup } from './personnel.types';
+import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
+
+export type { Personnel, PersonnelLookup } from './personnel.types';
 
 /** Stable Organization Group identity and display order. */
 export interface Group {
@@ -87,6 +90,8 @@ export interface PersonnelRatingSchemeRosterPort {
 		actor: PersonnelRosterActor,
 		personnelId: string
 	): Promise<{ groupId: string | null } | null>;
+	/** Evaluators may be archived or in another Group, but must belong to this Organization. */
+	hasEvaluatorReferences(actor: PersonnelRosterActor, personnelIds: string[]): Promise<boolean>;
 }
 
 /** Narrow award acknowledgement flags visible with the Personnel roster. */
@@ -191,20 +196,7 @@ export type {
 	RosterViewOptions
 } from './rosterReadModel';
 
-/** JSON note returned by the current Personnel page, API and archive operations. */
-export interface PersonnelLeaderNote {
-	id: string;
-	personnelId: string;
-	/** Organization member label, stored author fallback, or Unknown leader. */
-	author: string;
-	/** YYYY-MM-DD, derived from createdAt. */
-	date: string;
-	text: string;
-	/** Timestamp string. */
-	createdAt: string;
-	/** Timestamp string when archived; null when active. */
-	archivedAt: string | null;
-}
+export type { PersonnelLeaderNote } from './personnelLeaderNote.types';
 
 export const personnelLeaderNoteInputSchema = z.object({
 	personnelId: z.string().min(1),
@@ -212,3 +204,134 @@ export const personnelLeaderNoteInputSchema = z.object({
 });
 
 export type PersonnelLeaderNoteInput = z.infer<typeof personnelLeaderNoteInputSchema>;
+
+export { personnelScopeResource } from './personnelScopeResource';
+
+export type {
+	PersonnelImportRecord,
+	PersonnelImportInput,
+	PersonnelImportResult,
+	PersonnelBatchMessage,
+	PersonnelBackfillRecord,
+	PersonnelBackfillInput,
+	PersonnelBackfillResult
+} from './personnelImport.types';
+
+export type { ArchivePersonnelBatchResult } from './personnelArchive.types';
+
+export const PERSONNEL_WORKSPACE_LANE_KEY = 'personnel' as const;
+
+/** Authorized Personnel workspace facts shared by Server and Web consumers. */
+export interface PersonnelWorkspaceData {
+	personnel: Personnel[];
+	personnelLookup: PersonnelLookup[];
+	groups: Group[];
+	statusTypes: PersonnelCalendarStatusSnapshot[];
+	rankCatalog: OrganizationRankCatalogEntry[];
+	pinnedGroups: string[];
+	/** Organization loss warning window in days, defaulting to 180. */
+	lossWarningWindowDays: number;
+	awardTrackingAcknowledgedPersonnelIds: string[];
+}
+
+export type PersonnelWorkspaceHydrationMode = 'replace' | 'preserve-client';
+
+export interface PersonnelWorkspaceHydrationTarget<T> {
+	mode: PersonnelWorkspaceHydrationMode;
+	deferred?: boolean;
+	snapshotKey: string;
+	items: T[] | Promise<T[]>;
+}
+
+export interface PersonnelWorkspaceHydration {
+	orgId: string;
+	personnel: PersonnelWorkspaceHydrationTarget<Personnel>;
+	groups: PersonnelWorkspaceHydrationTarget<Group>;
+	statusTypes: PersonnelWorkspaceHydrationTarget<PersonnelCalendarStatusSnapshot>;
+	pinnedGroups: PersonnelWorkspaceHydrationTarget<string>;
+}
+
+export interface PersonnelWorkspaceResult {
+	laneKey: typeof PERSONNEL_WORKSPACE_LANE_KEY;
+	data: PersonnelWorkspaceData;
+	hydration: PersonnelWorkspaceHydration;
+}
+
+export interface PersonnelWorkspaceRouteData {
+	[PERSONNEL_WORKSPACE_LANE_KEY]: { data: Promise<PersonnelWorkspaceResult> };
+}
+
+/** Detail delivery shares the parent identity and independent streamed lanes. */
+export type {
+	PersonnelDetailHeader,
+	PersonnelDetailStreams,
+	PersonnelFollowUpsPageData,
+	PersonnelCounselingsPageData,
+	PersonnelDocumentsPageData,
+	PersonnelNotesPageData,
+	PersonnelArchivedArtifactsPageData
+} from './personnel-detail.types';
+export { evaluateUpcomingLosses } from './upcomingLoss';
+export type { UpcomingLossRecord } from './upcomingLoss';
+
+/** Soldier Data Sheet fields shared by its Server read and Web editor. */
+export type { PersonnelExtendedInfo } from './personnelExtendedInfo.types';
+
+const childSchema = z.object({
+	name: z.string().trim().max(120),
+	age: z.number().int().min(0).max(120).nullable()
+});
+
+const dateInputSchema = z
+	.string()
+	.trim()
+	.refine((value) => value === '' || /^\d{4}-\d{2}-\d{2}$/.test(value), 'Use YYYY-MM-DD date format')
+	.optional()
+	.default('');
+
+const dependentsInputSchema = z
+	.preprocess((value) => {
+		if (value === '' || value == null) return null;
+		if (typeof value === 'number') return Number.isNaN(value) ? null : value;
+		if (typeof value === 'string') return Number(value);
+		return value;
+	}, z.number().int().min(0).max(99).nullable())
+	.optional()
+	.default(null);
+
+const optionalEmailInputSchema = z.string().email();
+
+export const personnelExtendedInfoInputSchema = z.object({
+	personnelId: z.string().min(1),
+	bloodType: z.string().trim().max(12).optional().default(''),
+	basd: dateInputSchema,
+	dateOfRank: dateInputSchema,
+	maritalStatus: z.string().trim().max(80).optional().default(''),
+	numberOfDependents: dependentsInputSchema,
+	children: z.array(childSchema).optional().default([]),
+	civilianEducation: z.string().trim().max(500).optional().default(''),
+	militaryEducation: z.array(z.string().trim().max(120)).optional().default([]),
+	emergencyContactName: z.string().trim().max(160).optional().default(''),
+	emergencyContactRelationship: z.string().trim().max(120).optional().default(''),
+	emergencyContactPhone: z.string().trim().max(80).optional().default(''),
+	spouseName: z.string().trim().max(160).optional().default(''),
+	spousePhone: z.string().trim().max(80).optional().default(''),
+	vehicleMakeModel: z.string().trim().max(160).optional().default(''),
+	vehiclePlate: z.string().trim().max(40).optional().default(''),
+	vehicleColor: z.string().trim().max(80).optional().default(''),
+	personalEmail: z
+		.string()
+		.trim()
+		.max(255)
+		.refine(
+			(value) => value === '' || optionalEmailInputSchema.safeParse(value).success,
+			'Enter a valid personal email'
+		)
+		.optional()
+		.default(''),
+	personalPhone: z.string().trim().max(80).optional().default(''),
+	addressStreet: z.string().trim().max(255).optional().default(''),
+	addressCity: z.string().trim().max(120).optional().default(''),
+	addressState: z.string().trim().max(80).optional().default(''),
+	addressZip: z.string().trim().max(20).optional().default('')
+});

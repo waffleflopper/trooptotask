@@ -1,3 +1,4 @@
+import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 /**
  * HTTP adapter — the bridge between SvelteKit routes and use cases.
  *
@@ -28,15 +29,31 @@ import { validateUUID } from '$lib/server/validation';
 import { getRequestInfo } from '$lib/server/auditLog';
 import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 import { createSupabaseDataStore } from './supabaseDataStore';
+import { createSupabaseCalendarAssignmentReplacementPort } from '$features/calendar/index.server';
 import { createIdentityAuthorization } from '$features/identity/index.server';
 import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
 import { createSupabaseAuditAdapter } from './supabaseAudit';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
-import { createSupabaseNotificationAdapter } from './supabaseNotification';
+import {
+	createSupabaseNotificationDelivery,
+	createSupabaseNotificationStore
+} from '$features/notifications/index.server';
+import {
+	createSupabaseOrganizationAdministratorRecipients,
+	createSupabaseFeedbackOrganizationContextPort
+} from '$features/organization/index.server';
+import {
+	createFeedbackSubmission,
+	createSupabaseFeedbackSubmissionStore,
+	createGitHubFeedbackMirror,
+	listFeedbackExportRows
+} from '$features/feedback/index.server';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
-import { createSupabaseCriticalTasksReadModelAdapter } from './criticalTasksReadModel';
+import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
+import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
 import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
+import { createSupabaseRatingSchemeDuePort } from '$features/rating-scheme/index.server';
 import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelArtifactWritePort } from '$features/personnel/index.server';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
@@ -48,12 +65,15 @@ import { createSupabasePersonnelCriticalTasksRosterPort } from '$features/person
 import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelOnboardingRosterPort } from '$features/personnel/index.server';
 import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
-import { createSupabaseOnboardingCalendarMarkersPort } from '$features/onboarding/index.server';
+import {
+	createSupabaseOnboardingCalendarMarkersPort,
+	createSupabaseOnboardingReconciliationPort
+} from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import {
 	enforceLoadAuthorization,
 	enforceRouteAuthorization,
@@ -64,6 +84,24 @@ import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 import type { LeaderNoteContext, LeaderNoteRow } from '$features/personnel/index.server';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+
+/** Bind delivery to owned Organization recipient facts without giving Notifications membership access. */
+export function createRequestNotificationDelivery() {
+	return createSupabaseNotificationDelivery({
+		getAdminClient,
+		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(getAdminClient)
+	});
+}
+
+/** Construct Feedback collaborators only after the route admits the account. */
+export function createRequestFeedbackSubmission() {
+	const context = createSupabaseFeedbackOrganizationContextPort(getAdminClient);
+	return createFeedbackSubmission({
+		store: createSupabaseFeedbackSubmissionStore(getAdminClient),
+		resolveOrganizationContext: (input) => context.resolveOrganizationContext(input),
+		mirror: createGitHubFeedbackMirror()
+	});
+}
 
 /**
  * Gets authentication context for API routes.
@@ -215,10 +253,12 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 		orgId
 	});
 
-	const notifications = createSupabaseNotificationAdapter();
+	const notifications = createRequestNotificationDelivery();
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
+	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
@@ -229,6 +269,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
+	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -243,14 +284,19 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			auth,
 			scope,
 			audit,
+			calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 			notifications,
+			notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
+			feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
 
 			storage: createSupabaseStorageAdapter(supabase),
 			sensitiveActionAuthorizer,
 			criticalTasksReadModel,
+			criticalTasksSettingsWrite,
 			personnelRatingSchemeRoster,
 			personnelAwardAcknowledgement,
+			ratingSchemeDue,
 			personnelArtifactWrites,
 			personnelOrganizationExport,
 			personnelGovernanceDeletion,
@@ -261,6 +307,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			personnelOnboardingRoster,
 			trainingOnboardingReferences,
 			onboardingCalendarMarkers,
+			onboardingReconciliation,
 			organizationInvitationSetupStateLookup,
 			rawStore: store
 		},
@@ -307,11 +354,13 @@ export async function buildLayoutContext(
 		orgId: canonicalOrgId
 	});
 
-	const notifications = createSupabaseNotificationAdapter();
+	const notifications = createRequestNotificationDelivery();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
+	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
@@ -322,6 +371,7 @@ export async function buildLayoutContext(
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
+	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -335,14 +385,19 @@ export async function buildLayoutContext(
 		auth,
 		scope,
 		audit,
+		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 		notifications,
+		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
+		feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
 
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
+		criticalTasksSettingsWrite,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
+		ratingSchemeDue,
 		personnelArtifactWrites,
 		personnelOrganizationExport,
 		personnelGovernanceDeletion,
@@ -353,6 +408,7 @@ export async function buildLayoutContext(
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,
 		onboardingCalendarMarkers,
+		onboardingReconciliation,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
@@ -387,11 +443,13 @@ export async function buildLayoutContextFromMembership(
 		scopeSet: permCtx.scopeSet
 	});
 
-	const notifications = createSupabaseNotificationAdapter();
+	const notifications = createRequestNotificationDelivery();
 	const storage = createSupabaseStorageAdapter(supabase);
 	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
+	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
 	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
+	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
@@ -402,6 +460,7 @@ export async function buildLayoutContextFromMembership(
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
+	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -415,14 +474,19 @@ export async function buildLayoutContextFromMembership(
 		auth,
 		scope,
 		audit,
+		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 
 		notifications,
+		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
+		feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
 
 		storage,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
+		criticalTasksSettingsWrite,
 		personnelRatingSchemeRoster,
 		personnelAwardAcknowledgement,
+		ratingSchemeDue,
 		personnelArtifactWrites,
 		personnelOrganizationExport,
 		personnelGovernanceDeletion,
@@ -433,6 +497,7 @@ export async function buildLayoutContextFromMembership(
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,
 		onboardingCalendarMarkers,
+		onboardingReconciliation,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
@@ -452,6 +517,10 @@ async function resolveOrganizationIdForRequest(
 	}
 
 	return identity.id;
+}
+
+export function createRequestAccountAnnouncementDismissals(locals: Pick<App.Locals, 'supabase'>, userId: string) {
+	return createSupabaseAccountAnnouncementDismissals(locals.supabase, userId);
 }
 
 export function rethrowOrWrap(err: unknown): never {

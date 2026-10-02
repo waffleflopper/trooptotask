@@ -11,6 +11,7 @@
 	import { Badge, type BadgeVariant } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Empty from '$lib/components/ui/empty';
+	import * as Alert from '$lib/components/ui/alert';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
@@ -20,11 +21,8 @@
 	import * as Select from '$lib/components/ui/select';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import {
-		createOnboardingTemplateWorkspace,
-		type OnboardingTemplateDeleteTarget
-	} from '$features/onboarding/stores/onboardingTemplate.svelte';
-	import type { OnboardingStepType } from '$features/onboarding/onboarding.types';
+	import { createOnboardingTemplateWorkspace, type OnboardingTemplateDeleteTarget } from '$features/onboarding';
+	import type { OnboardingStepType } from '$features/onboarding/contracts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -35,7 +33,7 @@
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? data.orgId ?? org.orgId);
 
 	const configureAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'unscoped' })
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'organization' })
 	);
 	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
 	const workspace = createOnboardingTemplateWorkspace({
@@ -163,6 +161,12 @@
 			</WorkspaceToolbar.Group>
 		{/if}
 	</WorkspaceToolbar.Root>
+
+	{#if model.error && !model.confirmDelete}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{model.error.message}</Alert.Description>
+		</Alert.Root>
+	{/if}
 
 	<TypeWorkspace.Layout>
 		<TypeWorkspace.List mobileHidden={model.mobileDetailOpen || model.creatingTemplate || model.editingTemplate}>
@@ -506,7 +510,13 @@
 		variant="danger"
 		onConfirm={handleConfirmDelete}
 		onCancel={() => workspace.cancelDelete()}
-	/>
+	>
+		{#if model.error}
+			<Alert.Root variant="destructive">
+				<Alert.Description>{model.error.message}</Alert.Description>
+			</Alert.Root>
+		{/if}
+	</ConfirmDialog>
 {/if}
 
 {#snippet stepForm(onSave: () => void | Promise<void>, onCancel: () => void, saveLabel: string)}

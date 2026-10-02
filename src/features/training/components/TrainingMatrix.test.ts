@@ -2,7 +2,7 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import TrainingMatrix from './TrainingMatrix.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 
 const person: Personnel = {

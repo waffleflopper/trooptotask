@@ -1,19 +1,19 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createSupabasePlatformFeedbackForSubmission } from '$lib/server/adapters/supabasePlatformFeedback';
+import { createRequestFeedbackSubmission } from '$lib/server/adapters/httpAdapter';
 
 function asFeedbackBody(body: unknown): Record<string, unknown> {
 	return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 }
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const user = locals.user;
-	if (!user) throw error(401, 'Authentication required');
+	const actor = locals.actor;
+	if (!actor) throw error(401, 'Authentication required');
 
 	const body = asFeedbackBody(await request.json());
-	const result = await createSupabasePlatformFeedbackForSubmission().submit({
-		userId: user.id,
-		userEmail: user.email,
+	const result = await createRequestFeedbackSubmission().submit({
+		userId: actor.userId,
+		userEmail: locals.user?.email,
 		category: body.category,
 		message: body.message,
 		pageUrl: body.pageUrl,

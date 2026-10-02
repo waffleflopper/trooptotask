@@ -10,104 +10,21 @@
  *
  * Notification sends are fire-and-forget — failures don't block the mutation.
  */
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import type { WritePorts, WriteWithNotificationsPorts } from '$lib/server/core/ports';
-import { reviewerDetails, subjectDetails } from '$lib/server/auditDetails';
+import { subjectDetails, reviewerDetails } from '$lib/audit/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from './governancePolicy';
 import { requireIdentityOwnedPolicy } from './identityPolicy';
-import { archivePersonnelOwnedArtifacts } from './personnelArchivedArtifacts';
-
-const TABLE = 'deletion_requests';
-const AUDIT_RESOURCE = 'deletion_request';
-
-function fireAndForgetNotification(send: () => Promise<void>): void {
-	try {
-		void send().catch(() => {});
-	} catch {
-		// Ignore notification delivery failures — mutations must still succeed.
-	}
-}
-
-export interface CreateDeletionRequestInput {
-	resourceType: string;
-	resourceId: string;
-	resourceDescription: string;
-	resourceUrl?: string | null;
-	userEmail: string;
-}
-
-export async function createDeletionRequest(
-	ctx: WriteWithNotificationsPorts,
-	input: CreateDeletionRequestInput
-): Promise<Record<string, unknown>> {
-	if (!RESOURCE_TYPE_TABLE_MAP[input.resourceType]) {
-		fail(400, `Unsupported resource type: ${input.resourceType}`);
-	}
-
-	await requireIdentityOwnedPolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
-		ctx.auth.userId,
-		AUDIT_RESOURCE,
-		undefined
-	);
-
-	// Check for existing pending request for the same resource
-	const existing = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
-		resource_type: input.resourceType,
-		resource_id: input.resourceId,
-		status: 'pending'
-	});
-
-	if (existing) {
-		fail(409, 'A pending deletion request already exists for this resource');
-	}
-
-	const row = await ctx.store.insert<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
-		requested_by: ctx.auth.userId,
-		requested_by_email: input.userEmail,
-		resource_type: input.resourceType,
-		resource_id: input.resourceId,
-		resource_description: input.resourceDescription,
-		resource_url: input.resourceUrl ?? null,
-		status: 'pending'
-	});
-
-	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.created`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: row.id as string | undefined,
-		details: subjectDetails({
-			subjectType: input.resourceType,
-			subjectId: input.resourceId,
-			subjectLabel: input.resourceDescription
-		})
-	});
-
-	// Notify admins/owners about the pending request
-	const isPersonnel = input.resourceType === 'personnel';
-	const actionWord = isPersonnel ? 'archive' : 'delete';
-
-	fireAndForgetNotification(() =>
-		ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
-			type: 'deletion_request_pending',
-			title: `${isPersonnel ? 'Archival' : 'Deletion'} Request`,
-			message: `${input.userEmail} requested to ${actionWord} "${input.resourceDescription}". Review in Organization Settings.`,
-			link: `/org/${ctx.auth.orgId}/settings`
-		})
-	);
-
-	return row;
-}
-
-const RESOURCE_TYPE_TABLE_MAP: Record<string, string> = {
-	personnel: 'personnel',
-	counseling_record: 'counseling_records',
-	personnel_training: 'personnel_trainings',
-	training_type: 'training_types',
-	rating_scheme_entry: 'rating_scheme_entries'
-};
+import {
+	TABLE,
+	AUDIT_RESOURCE,
+	fireAndForgetNotification,
+	isSupportedResourceType
+} from '$features/deletion-requests/deletionRequestSupport.server';
+import { archiveApprovedPersonnelRecord } from '$features/personnel/index.server';
+import type { ApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
+import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 async function fetchPendingRequest(ctx: WritePorts, requestId: string): Promise<Record<string, unknown>> {
 	const request = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
@@ -135,16 +52,20 @@ function notifyRequester(
 	fireAndForgetNotification(() => ctx.notifications.notifyUser(ctx.auth.orgId, requesterId, notification));
 }
 
-export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, requestId: string): Promise<void> {
+export async function approveDeletionRequest(
+	ctx: WriteWithNotificationsPorts,
+	requestId: string,
+	trainingDeletion?: ApprovedTrainingDeletionPort,
+	ratingSchemeDeletion?: ApprovedRatingSchemeDeletionPort
+): Promise<void> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
 	const request = await fetchPendingRequest(ctx, requestId);
 
 	const resourceType = request.resource_type as string;
 	const resourceId = request.resource_id as string;
-	const tableName = RESOURCE_TYPE_TABLE_MAP[resourceType];
 
-	if (!tableName) {
+	if (!isSupportedResourceType(resourceType)) {
 		fail(400, `Unsupported resource type: ${resourceType}`);
 	}
 
@@ -158,13 +79,16 @@ export async function approveDeletionRequest(ctx: WriteWithNotificationsPorts, r
 		);
 	} else {
 		if (resourceType === 'personnel') {
-			const archivedAt = new Date().toISOString();
-			await ctx.store.update(tableName, ctx.auth.orgId, resourceId, {
-				archived_at: archivedAt
-			});
-			await archivePersonnelOwnedArtifacts(ctx, [resourceId], archivedAt);
-		} else {
-			await ctx.store.delete(tableName, ctx.auth.orgId, resourceId);
+			await archiveApprovedPersonnelRecord(ctx, resourceId);
+		} else if (resourceType === 'training_type') {
+			if (!trainingDeletion) throw new Error('Training approved deletion port is required');
+			await trainingDeletion.deleteApprovedTrainingType(ctx.auth, requestId, resourceId);
+		} else if (resourceType === 'personnel_training') {
+			if (!trainingDeletion) throw new Error('Training approved deletion port is required');
+			await trainingDeletion.deleteApprovedTrainingRecord(ctx.auth, requestId, resourceId);
+		} else if (resourceType === 'rating_scheme_entry') {
+			if (!ratingSchemeDeletion) throw new Error('Rating Scheme approved deletion port is required');
+			await ratingSchemeDeletion.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, resourceId);
 		}
 
 		await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {

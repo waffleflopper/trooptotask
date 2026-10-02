@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PersonnelImportPage from './PersonnelImportPage.svelte';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '../personnel.types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 
 const { beforeNavigateMock, gotoMock, invalidateAllMock, parseFileMock } = vi.hoisted(() => ({
@@ -428,10 +428,10 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
 	});
 
-	it('allows correcting an invalid rank through an editable textbox before importing', async () => {
+	it('keeps invalid fields accessible and imports only after all corrections pass validation', async () => {
 		parseFileMock.mockResolvedValue([
-			['Rank', 'Last Name', 'First Name'],
-			['BAD', 'Smith', 'John']
+			['Rank', 'Last Name', 'First Name', 'Group', 'ETS'],
+			['BAD', 'Smith', 'John', 'Alpha Team', '2027-02-30']
 		]);
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
@@ -445,13 +445,23 @@ describe('PersonnelImportPage', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: /Preview 1 Rows/i }));
 		expect(screen.getByRole('button', { name: 'Import checked rows' })).toBeDisabled();
 		const rank = screen.getByRole('textbox', { name: 'Row 2 Rank' });
+		const ets = screen.getByRole('textbox', { name: 'Row 2 ETS' });
+		expect(rank.closest('[aria-disabled="true"]')).toBeNull();
+		expect(ets.closest('[aria-disabled="true"]')).toBeNull();
+		expect(screen.getByRole('checkbox', { name: /Select import row 1:/ })).toBeDisabled();
 		await fireEvent.change(rank, { target: { value: 'SGT' } });
 		const submit = screen.getByRole('button', { name: 'Import checked rows' });
+		expect(submit).toBeDisabled();
+		expect(screen.getByRole('checkbox', { name: /Select import row 1:/ })).toBeDisabled();
+		expect(ets.closest('[aria-disabled="true"]')).toBeNull();
+		await fireEvent.change(ets, { target: { value: '2027-02-28' } });
 		await waitFor(() => expect(submit).toBeEnabled());
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeEnabled();
+		expect(screen.getByRole('checkbox', { name: 'Select import row 1' })).toBeChecked();
 		await fireEvent.click(submit);
 		await screen.findByRole('button', { name: 'Return to Personnel' });
 		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John' }]
+			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'John', groupName: 'Alpha Team', ets: '2027-02-28' }]
 		});
 	});
 
@@ -527,6 +537,50 @@ describe('PersonnelImportPage', () => {
 		expect(screen.getByRole('button', { name: 'Review failed rows' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Upload another file' })).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Return to Personnel' })).toBeInTheDocument();
+	});
+
+	it('corrects and retries only failed rows without reselecting unchecked or acknowledged creations', async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify({
+						inserted: [{ id: 'saved-person' }],
+						errors: [{ index: 1, message: 'Group is outside scope' }]
+					}),
+					{ status: 200 }
+				)
+			)
+			.mockResolvedValueOnce(new Response(JSON.stringify({ inserted: [{ id: 'corrected-person' }], errors: [] })));
+		vi.stubGlobal('fetch', fetchMock);
+		parseFileMock.mockResolvedValue([
+			['Rank', 'Last Name', 'First Name', 'Group'],
+			['SGT', 'Unchecked', 'Alex', 'Alpha Team'],
+			['SGT', 'Saved', 'John', 'Alpha Team'],
+			['CPL', 'NeedsCorrection', 'Pat', 'Outside Group']
+		]);
+		renderPage();
+		await fireEvent.change(document.querySelector<HTMLInputElement>('#fileUpload')!, {
+			target: { files: [new File(['records'], 'personnel.csv', { type: 'text/csv' })] }
+		});
+		await fireEvent.click(await screen.findByRole('button', { name: /Preview 3 Rows/i }));
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Select import row 1' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		await screen.findByText((content) => content.includes('Row 4:') && content.includes('Group is outside scope'));
+		await fireEvent.click(screen.getByRole('button', { name: 'Review failed rows' }));
+		await fireEvent.change(screen.getByRole('textbox', { name: 'Row 4 Group' }), { target: { value: 'Alpha Team' } });
+		await fireEvent.blur(screen.getByRole('textbox', { name: 'Row 4 Group' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Import checked rows' }));
+		await screen.findByRole('button', { name: 'Return to Personnel' });
+		expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+			records: [
+				{ rank: 'SGT', lastName: 'Saved', firstName: 'John', groupName: 'Alpha Team' },
+				{ rank: 'CPL', lastName: 'NeedsCorrection', firstName: 'Pat', groupName: 'Outside Group' }
+			]
+		});
+		expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+			records: [{ rank: 'CPL', lastName: 'NeedsCorrection', firstName: 'Pat', groupName: 'Alpha Team' }]
+		});
 	});
 
 	it('invalidates refreshed personnel data when uploading another file after partial results', async () => {

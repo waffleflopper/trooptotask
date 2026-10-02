@@ -1,25 +1,3 @@
-export interface Personnel {
-	id: string;
-	slug?: string;
-	rank: string;
-	lastName: string;
-	firstName: string;
-	mos: string;
-	clinicRole: string;
-	ets?: string | null;
-	deros?: string | null;
-	groupId: string | null;
-	groupName: string;
-	archivedAt?: string | null;
-}
-
-export interface PersonnelLookup {
-	id: string;
-	rank: string;
-	lastName: string;
-	firstName: string;
-}
-
 export interface OrganizationMember {
 	id: string;
 	organizationId: string;
@@ -40,17 +18,6 @@ export interface OrganizationInvitation {
 	email: string;
 	status: 'pending' | 'accepted' | 'revoked';
 	createdAt: string;
-}
-
-// ============================================================
-// Daily assignments remain here until their D06 ownership cutover.
-// ============================================================
-
-export interface DailyAssignment {
-	id: string;
-	date: string;
-	assignmentTypeId: string;
-	assigneeId: string;
 }
 
 // ============================================================

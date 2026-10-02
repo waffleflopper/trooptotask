@@ -1,5 +1,5 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/server/core/errors';
+import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function toClient(row: Record<string, unknown>) {

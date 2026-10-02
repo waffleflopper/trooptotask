@@ -4,7 +4,7 @@
 		CalendarPersonHeaderState
 	} from '$features/calendar/utils/calendarRenderState';
 	import * as DateCell from '$lib/components/ui/date-cell/index.js';
-	import type { Personnel } from '$lib/types';
+	import type { Personnel } from '$features/personnel/contracts';
 
 	interface Props {
 		person: Personnel;

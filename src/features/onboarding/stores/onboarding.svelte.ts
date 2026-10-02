@@ -20,6 +20,9 @@ import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.
 
 interface OnboardingExtensions extends Record<string, unknown> {
 	readonly activeList: PersonnelOnboarding[];
+	readonly organizationVersion: number;
+	enterOrganization: (orgId: string) => void;
+	invalidatePendingRequests: () => void;
 	load: (onboardings: PersonnelOnboarding[], orgId: string) => void;
 	getByPersonnelId: (personnelId: string) => PersonnelOnboarding | undefined;
 	getById: (id: string) => PersonnelOnboarding | undefined;
@@ -43,6 +46,12 @@ function enhance(
 	base: Store<PersonnelOnboarding>,
 	internals: StoreInternals<PersonnelOnboarding>
 ): OnboardingExtensions {
+	let organizationVersion = 0;
+
+	function load(onboardings: PersonnelOnboarding[], orgId: string) {
+		if (orgId !== internals.orgId()) organizationVersion++;
+		base.load(onboardings, orgId);
+	}
 	function getDisplay(): PersonnelOnboarding[] {
 		return internals.snapshot();
 	}
@@ -68,9 +77,13 @@ function enhance(
 		return { onboarding, updatedSteps, mutationId };
 	}
 
-	function commitStepUpdate(onboardingId: string, updatedSteps: OnboardingStepProgress[], mutationId: string) {
+	function commitStepUpdate(
+		onboardingId: string,
+		mutationId: string,
+		update: (steps: OnboardingStepProgress[]) => OnboardingStepProgress[]
+	) {
 		internals.serverState.set(
-			internals.serverState.getSnapshot().map((o) => (o.id === onboardingId ? { ...o, steps: updatedSteps } : o))
+			internals.serverState.getSnapshot().map((o) => (o.id === onboardingId ? { ...o, steps: update(o.steps) } : o))
 		);
 		internals.log.resolve(mutationId);
 	}
@@ -91,9 +104,20 @@ function enhance(
 			return internals.replay().filter((o) => o.status === 'in_progress');
 		},
 
-		load(onboardings: PersonnelOnboarding[], orgId: string) {
-			base.load(onboardings, orgId);
+		get organizationVersion() {
+			return organizationVersion;
 		},
+
+		enterOrganization(orgId: string) {
+			if (orgId !== internals.orgId()) load([], orgId);
+		},
+
+		invalidatePendingRequests() {
+			organizationVersion++;
+			internals.log.clear();
+		},
+
+		load,
 
 		getByPersonnelId(personnelId: string) {
 			return getDisplay().find((o) => o.personnelId === personnelId && o.status === 'in_progress');
@@ -108,6 +132,7 @@ function enhance(
 			startedAt: string,
 			templateId: string | null
 		): Promise<PersonnelOnboarding | null> {
+			const version = organizationVersion;
 			try {
 				const res = await fetch(apiUrl('onboarding'), {
 					method: 'POST',
@@ -116,6 +141,7 @@ function enhance(
 				});
 				if (!res.ok) throw new Error('Failed to start onboarding');
 				const newOnboarding = await res.json();
+				if (version !== organizationVersion) return null;
 				internals.serverState.set([...internals.serverState.getSnapshot(), newOnboarding]);
 				return newOnboarding;
 			} catch {
@@ -124,6 +150,7 @@ function enhance(
 		},
 
 		async toggleCheckbox(stepId: string, completed: boolean): Promise<boolean> {
+			const version = organizationVersion;
 			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, completed }));
 			if (!mutation) return false;
 
@@ -134,15 +161,23 @@ function enhance(
 					body: JSON.stringify({ action: 'toggleCheckbox', stepId, completed })
 				});
 				if (!res.ok) throw new Error('Failed to toggle checkbox');
-				commitStepUpdate(mutation.onboarding.id, mutation.updatedSteps, mutation.mutationId);
+				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
+				if (version !== organizationVersion) return false;
+				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+					steps.map((step) =>
+						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
+					)
+				);
 				return true;
 			} catch {
+				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutation.mutationId);
 				return false;
 			}
 		},
 
 		async advanceStage(stepId: string, stageName: string): Promise<boolean> {
+			const version = organizationVersion;
 			const display = getDisplay();
 			const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
 			if (!onboarding) return false;
@@ -165,15 +200,23 @@ function enhance(
 					body: JSON.stringify({ action: 'advanceStage', stepId, stageName })
 				});
 				if (!res.ok) throw new Error('Failed to advance stage');
-				commitStepUpdate(mutation.onboarding.id, mutation.updatedSteps, mutation.mutationId);
+				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
+				if (version !== organizationVersion) return false;
+				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+					steps.map((step) =>
+						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
+					)
+				);
 				return true;
 			} catch {
+				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutation.mutationId);
 				return false;
 			}
 		},
 
 		async addNote(stepId: string, text: string): Promise<boolean> {
+			const version = organizationVersion;
 			const display = getDisplay();
 			const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
 			if (!onboarding) return false;
@@ -196,21 +239,20 @@ function enhance(
 
 				// Server returns the authoritative notes array with real userId/timestamp
 				const result = await res.json();
-				const serverSteps = mutation.updatedSteps.map((s) => (s.id === stepId ? { ...s, notes: result.notes } : s));
-				internals.serverState.set(
-					internals.serverState
-						.getSnapshot()
-						.map((o) => (o.id === mutation.onboarding.id ? { ...o, steps: serverSteps } : o))
+				if (version !== organizationVersion) return false;
+				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+					steps.map((step) => (step.id === stepId ? { ...step, notes: result.notes } : step))
 				);
-				internals.log.resolve(mutation.mutationId);
 				return true;
 			} catch {
+				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutation.mutationId);
 				return false;
 			}
 		},
 
 		async removeDeprecatedStep(stepId: string): Promise<boolean> {
+			const version = organizationVersion;
 			const display = getDisplay();
 			const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
 			if (!onboarding) return false;
@@ -231,15 +273,18 @@ function enhance(
 					body: JSON.stringify({ id: stepId })
 				});
 				if (!res.ok) throw new Error('Failed to remove step');
-				commitStepUpdate(onboarding.id, filteredSteps, mutationId);
+				if (version !== organizationVersion) return false;
+				commitStepUpdate(onboarding.id, mutationId, (steps) => steps.filter((step) => step.id !== stepId));
 				return true;
 			} catch {
+				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutationId);
 				return false;
 			}
 		},
 
 		async resync(onboardingId: string): Promise<{ success: boolean; error?: string }> {
+			const version = organizationVersion;
 			try {
 				const res = await fetch(apiUrl('onboarding-resync'), {
 					method: 'POST',
@@ -252,8 +297,11 @@ function enhance(
 				}
 
 				const result = await res.json();
+				if (version !== organizationVersion) return { success: false };
 				internals.serverState.set(
-					internals.serverState.getSnapshot().map((o) => (o.id === onboardingId ? { ...o, steps: result.steps } : o))
+					internals.serverState
+						.getSnapshot()
+						.map((o) => (o.id === onboardingId ? { ...o, templateId: result.templateId, steps: result.steps } : o))
 				);
 				return { success: true };
 			} catch {
@@ -262,6 +310,7 @@ function enhance(
 		},
 
 		async switchTemplate(onboardingId: string, newTemplateId: string): Promise<{ success: boolean; error?: string }> {
+			const version = organizationVersion;
 			try {
 				const res = await fetch(apiUrl('onboarding-resync'), {
 					method: 'POST',
@@ -274,6 +323,7 @@ function enhance(
 				}
 
 				const result = await res.json();
+				if (version !== organizationVersion) return { success: false };
 				internals.serverState.set(
 					internals.serverState
 						.getSnapshot()
@@ -286,6 +336,7 @@ function enhance(
 		},
 
 		async assignTemplate(onboardingId: string, templateId: string): Promise<{ success: boolean; error?: string }> {
+			const version = organizationVersion;
 			try {
 				const res = await fetch(apiUrl('onboarding-resync'), {
 					method: 'POST',
@@ -296,6 +347,7 @@ function enhance(
 					return { success: false, error: await parseErrorMessage(res, 'Failed to assign template') };
 				}
 				const result = await res.json();
+				if (version !== organizationVersion) return { success: false };
 				internals.serverState.set(
 					internals.serverState
 						.getSnapshot()
@@ -308,6 +360,7 @@ function enhance(
 		},
 
 		async cancelOnboarding(id: string): Promise<boolean> {
+			const version = organizationVersion;
 			const display = getDisplay();
 			const original = display.find((o) => o.id === id);
 			if (!original) return false;
@@ -327,19 +380,29 @@ function enhance(
 					body: JSON.stringify({ id, status: 'cancelled' })
 				});
 				if (!res.ok) throw new Error('Failed to cancel onboarding');
+				const result: Pick<PersonnelOnboarding, 'status' | 'cancelledAt' | 'completedAt'> = await res.json();
+				if (version !== organizationVersion) return false;
 
 				internals.serverState.set(
-					internals.serverState.getSnapshot().map((o) => (o.id === id ? { ...o, status: 'cancelled' as const } : o))
+					internals.serverState
+						.getSnapshot()
+						.map((o) =>
+							o.id === id
+								? { ...o, status: result.status, cancelledAt: result.cancelledAt, completedAt: result.completedAt }
+								: o
+						)
 				);
 				internals.log.resolve(mutationId);
 				return true;
 			} catch {
+				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutationId);
 				return false;
 			}
 		},
 
 		async completeOnboarding(id: string): Promise<boolean> {
+			const version = organizationVersion;
 			const display = getDisplay();
 			const original = display.find((o) => o.id === id);
 			if (!original) return false;
@@ -360,15 +423,22 @@ function enhance(
 					body: JSON.stringify({ id, status: 'completed', completedAt: today })
 				});
 				if (!res.ok) throw new Error('Failed to complete onboarding');
+				const result: Pick<PersonnelOnboarding, 'status' | 'cancelledAt' | 'completedAt'> = await res.json();
+				if (version !== organizationVersion) return false;
 
 				internals.serverState.set(
 					internals.serverState
 						.getSnapshot()
-						.map((o) => (o.id === id ? { ...o, status: 'completed' as const, completedAt: today } : o))
+						.map((o) =>
+							o.id === id
+								? { ...o, status: result.status, completedAt: result.completedAt, cancelledAt: result.cancelledAt }
+								: o
+						)
 				);
 				internals.log.resolve(mutationId);
 				return true;
 			} catch {
+				if (version !== organizationVersion) return false;
 				internals.log.resolve(mutationId);
 				return false;
 			}

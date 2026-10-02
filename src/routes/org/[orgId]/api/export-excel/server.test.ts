@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createClient } from '@supabase/supabase-js';
+import { createSupabaseNotificationStore } from '$features/notifications/index.server';
+import { listFeedbackExportRows } from '$features/feedback/index.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
-import { WORKBOOK_MIME_TYPE } from '$lib/export/workbook';
+import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
@@ -28,12 +31,56 @@ function readyWorkbookBuffer(result: Awaited<ReturnType<(typeof _postConfig)['fn
 	return result.artifact.buffer;
 }
 
+function createExportTestContext(overrides?: Parameters<typeof createTestContext>[0]) {
+	const ctx = createTestContext(overrides);
+	const communicationsRows: Record<'notifications' | 'beta_feedback', Record<string, unknown>[]> = {
+		notifications: [],
+		beta_feedback: []
+	};
+	const client = createClient('http://127.0.0.1:9', 'synthetic-request-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const url = new URL(String(input));
+				const table = url.pathname.split('/').at(-1)!;
+				if (!['notifications', 'beta_feedback'].includes(table) || (init?.method ?? 'GET') !== 'GET') {
+					throw new Error('Unexpected communications transport request');
+				}
+				const rows = communicationsRows[table as keyof typeof communicationsRows].filter(
+					(row) =>
+						row.user_id === ctx.auth.userId &&
+						(!url.searchParams.has('organization_id') ||
+							url.searchParams.get('organization_id') === `eq.${row.organization_id}`) &&
+						(!url.searchParams.has('user_id') || url.searchParams.get('user_id') === `eq.${row.user_id}`)
+				);
+				const offset = Number(url.searchParams.get('offset') ?? 0);
+				const limit = Number(url.searchParams.get('limit') ?? 1000);
+				const selection = url.searchParams.get('select');
+				return Response.json(
+					rows
+						.slice(offset, offset + Math.min(limit, 1000))
+						.map((row) =>
+							!selection || selection === '*'
+								? row
+								: Object.fromEntries(selection.split(',').map((column) => [column, row[column]]))
+						)
+				);
+			}
+		}
+	});
+	ctx.notificationSelf.store = createSupabaseNotificationStore(client);
+	ctx.feedbackExport = { listRows: (orgId) => listFeedbackExportRows(client, orgId) };
+	return Object.assign(ctx, { communicationsRows });
+}
+
 describe('POST /api/export-excel', () => {
 	it.each([
 		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const } },
 		{ label: 'Group-scoped member', scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] } }
 	])('rejects $label without exporting or creating lifecycle records', async ({ scopeSet }) => {
-		const ctx = createTestContext({ auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet } });
+		const ctx = createExportTestContext({
+			auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet }
+		});
 		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'member@example.com' })).rejects.toMatchObject({
 			status: 403
 		});
@@ -47,7 +94,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('downloads above former quotas and excludes another Organization', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed(
 			'data_exports',
 			Array.from({ length: 11 }, (_, i) => ({
@@ -61,15 +108,123 @@ describe('POST /api/export-excel', () => {
 			{ id: 'own-person', organization_id: ctx.auth.orgId, first_name: 'Local', last_name: 'Person', rank: 'SGT' },
 			{ id: 'foreign-person', organization_id: 'other-org', first_name: 'Private', last_name: 'Foreign', rank: 'SGT' }
 		]);
+		const evaluation = {
+			id: 'own-eval',
+			organization_id: ctx.auth.orgId,
+			rated_person_id: 'archived-person',
+			eval_type: 'OER',
+			rater_person_id: 'saved-rater',
+			rater_name: null,
+			senior_rater_person_id: null,
+			senior_rater_name: 'LTC External',
+			intermediate_rater_person_id: null,
+			intermediate_rater_name: null,
+			reviewer_person_id: 'saved-reviewer',
+			reviewer_name: null,
+			rating_period_start: '2025-09-30',
+			rating_period_end: '2026-09-29',
+			status: 'completed',
+			notes: 'Saved evaluation notes',
+			report_type: '02',
+			workflow_status: null,
+			created_at: '2025-09-30T01:02:03.654321Z',
+			updated_at: '2026-09-29T01:02:03.123456Z'
+		};
+		ctx.rawStore.seed('rating_scheme_entries', [
+			evaluation,
+			{ ...evaluation, id: 'foreign-eval', organization_id: 'other-org' }
+		]);
+		const notification = {
+			id: 'own-notification',
+			user_id: ctx.auth.userId,
+			organization_id: ctx.auth.orgId,
+			type: 'member_added',
+			title: 'Member added',
+			message: 'Saved notification',
+			link: '/org/clinic/settings',
+			read: true,
+			created_at: '2026-09-29T01:02:03.654321Z'
+		};
+		const feedback = {
+			id: 'own-feedback',
+			user_id: ctx.auth.userId,
+			user_email: 'exporter@example.test',
+			organization_id: ctx.auth.orgId,
+			organization_name: 'Saved name',
+			category: 'bug',
+			message: 'Saved feedback',
+			page_url: null,
+			status: 'reviewed',
+			admin_notes: 'Saved review notes',
+			created_at: '2026-05-01T00:00:00.123456Z',
+			updated_at: '2026-09-29T01:02:03.654321Z',
+			github_issue_number: 42,
+			github_issue_url: 'https://github.com/example/project/issues/42',
+			page_section: 'personnel'
+		};
+		for (const [table, row] of [
+			['notifications', notification],
+			['beta_feedback', feedback]
+		] as const) {
+			ctx.communicationsRows[table] = [
+				row,
+				{ ...row, id: `peer-${table}`, user_id: 'peer' },
+				{ ...row, id: `foreign-${table}`, organization_id: 'other-org' }
+			];
+		}
 		const result = await handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' });
 		const response = _postConfig.formatOutput?.(result);
 		expect(response?.status).toBe(200);
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(await response!.arrayBuffer()));
+		const rawRating = workbook.getWorksheet('Raw - Rating Scheme Entries')!;
+		const headers = rawRating.getRow(1).values as string[];
+		const savedCells = Object.fromEntries(
+			headers.slice(1).map((header, index) => [header, rawRating.getRow(2).getCell(index + 1).value ?? null])
+		);
+		expect(savedCells).toEqual({
+			Id: 'own-eval',
+			'Organization Id': ctx.auth.orgId,
+			'Rated Person Id': 'archived-person',
+			'Eval Type': 'OER',
+			'Rater Person Id': 'saved-rater',
+			'Rater Name': null,
+			'Senior Rater Person Id': null,
+			'Senior Rater Name': 'LTC External',
+			'Intermediate Rater Person Id': null,
+			'Intermediate Rater Name': null,
+			'Reviewer Person Id': 'saved-reviewer',
+			'Reviewer Name': null,
+			'Rating Period Start': '2025-09-30',
+			'Rating Period End': '2026-09-29',
+			Status: 'completed',
+			Notes: 'Saved evaluation notes',
+			'Report Type': '02',
+			'Workflow Status': null,
+			'Created At': '2025-09-30T01:02:03.654321Z',
+			'Updated At': '2026-09-29T01:02:03.123456Z'
+		});
+		expect(rawRating.rowCount).toBe(2);
 		const rowsInWorkbook = workbook.getWorksheet('Raw - Personnel')!.getSheetValues().flat(2);
 		expect(rowsInWorkbook).toContain('own-person');
 		expect(rowsInWorkbook).not.toContain('foreign-person');
+		for (const [name, row] of [
+			['Raw - Notifications', notification],
+			['Raw - Beta Feedback', feedback]
+		] as const) {
+			const sheet = workbook.getWorksheet(name)!;
+			expect(sheet.getSheetValues().flat(2)).toEqual(
+				expect.arrayContaining(Object.values(row).filter((value) => value !== null))
+			);
+			expect(sheet.getSheetValues().flat(2)).not.toContain(
+				name === 'Raw - Notifications' ? 'peer-notifications' : 'peer-beta_feedback'
+			);
+			expect(sheet.getSheetValues().flat(2)).not.toContain(
+				name === 'Raw - Notifications' ? 'foreign-notifications' : 'foreign-beta_feedback'
+			);
+		}
+
 		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 		expect(rows).toHaveLength(12);
 		expect(rows.find((row) => row.requested_by === ctx.auth.userId)).toMatchObject({ status: 'completed' });
@@ -82,7 +237,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('allows delegated member managers to export organization workbooks', async () => {
-		const ctx = createTestContext({
+		const ctx = createExportTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -115,7 +270,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('includes ETS and PCS / DEROS columns in the personnel worksheet', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',
@@ -168,7 +323,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('includes personnel detail artifact worksheets', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',
@@ -252,7 +407,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('resolves foreign keys to human-readable labels in the Excel workbook', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('groups', [{ id: 'group-1', organization_id: ctx.auth.orgId, name: 'Alpha' }]);
 		ctx.rawStore.seed('personnel', [
 			{
@@ -333,7 +488,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('exports archived personnel and retained Calendar and Sign-in Roster sheets', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-archived',
@@ -419,7 +574,7 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('still returns the workbook when the export status write fails', async () => {
-		const ctx = createTestContext();
+		const ctx = createExportTestContext();
 		ctx.rawStore.seed('personnel', [
 			{
 				id: 'p-1',

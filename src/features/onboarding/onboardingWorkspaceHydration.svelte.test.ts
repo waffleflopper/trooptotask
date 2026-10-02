@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
-import type { TrainingType } from '$features/training/training.types';
+import type { Personnel } from '$features/personnel/contracts';
+import type { TrainingType } from '$features/training/contracts';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
 	PersonnelOnboarding
 } from '$features/onboarding/onboarding.types';
-import type { OnboardingWorkspaceHydration } from './server/onboardingWorkspaceBootstrap';
+import type { OnboardingWorkspaceHydration } from './contracts';
 import {
 	createOnboardingWorkspaceHydrator,
 	type OnboardingHydrationStores

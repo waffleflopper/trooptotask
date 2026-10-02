@@ -1,6 +1,6 @@
 import { ictTasksStore } from './stores/ictTasks.svelte';
 import { personnelIctCompletionsStore } from './stores/personnelIctCompletions.svelte';
-import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from './criticalTasks.types';
+import type { IctTask, PersonnelIctCompletion } from './criticalTasks.types';
 import { groupCatalogHydration } from '$features/personnel';
 import type { Group } from '$features/personnel/contracts';
 import { personnelRosterHydration } from '$features/personnel';
@@ -8,12 +8,16 @@ import {
 	createFeatureLaneWorkspaceHydrator,
 	type FeatureLaneWorkspaceHydrationTargetDescriptor
 } from '$lib/utils/featureLaneWorkspaceHydration.svelte';
-import type { Personnel } from '$lib/types';
-import type {
-	CriticalTasksWorkspaceHydration,
-	CriticalTasksWorkspaceHydrationTarget,
-	CriticalTasksWorkspaceResult
-} from './server/criticalTasksWorkspaceBootstrap';
+import type { Personnel } from '$features/personnel/contracts';
+import type { CriticalTasksWorkspaceHydration, CriticalTasksWorkspaceHydrationTarget } from './contracts';
+
+export {
+	criticalTasksWorkspaceStatus,
+	markCriticalTasksWorkspacePending,
+	markCriticalTasksWorkspaceResolved,
+	markCriticalTasksWorkspaceRejected,
+	resetCriticalTasksWorkspaceStatus
+} from './criticalTasksWorkspaceStatus.svelte';
 
 export interface CriticalTasksHydrationLoadable<T> {
 	readonly orgId: string;
@@ -32,45 +36,6 @@ export interface CriticalTasksHydrationStores {
 export interface CriticalTasksWorkspaceHydrator {
 	hydrate(hydration?: CriticalTasksWorkspaceHydration, stores?: CriticalTasksHydrationStores): Promise<void>;
 	reset(): void;
-}
-
-export const criticalTasksWorkspaceStatus = $state<{
-	orgId: string | null;
-	settings: CriticalTasksSettings | null;
-	pending: boolean;
-	error: Error | null;
-}>({
-	orgId: null,
-	settings: null,
-	pending: false,
-	error: null
-});
-
-export function markCriticalTasksWorkspacePending(orgId: string | null | undefined): void {
-	criticalTasksWorkspaceStatus.orgId = orgId ?? null;
-	criticalTasksWorkspaceStatus.settings = null;
-	criticalTasksWorkspaceStatus.pending = true;
-	criticalTasksWorkspaceStatus.error = null;
-}
-
-export function markCriticalTasksWorkspaceResolved(workspace: CriticalTasksWorkspaceResult): void {
-	criticalTasksWorkspaceStatus.orgId = workspace.hydration.orgId;
-	criticalTasksWorkspaceStatus.settings = workspace.data.settings;
-	criticalTasksWorkspaceStatus.pending = false;
-	criticalTasksWorkspaceStatus.error = null;
-}
-
-export function markCriticalTasksWorkspaceRejected(error: Error, orgId: string | null | undefined): void {
-	criticalTasksWorkspaceStatus.orgId = orgId ?? criticalTasksWorkspaceStatus.orgId;
-	criticalTasksWorkspaceStatus.pending = false;
-	criticalTasksWorkspaceStatus.error = error;
-}
-
-export function resetCriticalTasksWorkspaceStatus(): void {
-	criticalTasksWorkspaceStatus.orgId = null;
-	criticalTasksWorkspaceStatus.settings = null;
-	criticalTasksWorkspaceStatus.pending = false;
-	criticalTasksWorkspaceStatus.error = null;
 }
 
 const defaultCriticalTasksHydrationStores: CriticalTasksHydrationStores = {

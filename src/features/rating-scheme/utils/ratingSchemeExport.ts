@@ -1,5 +1,5 @@
-import type { PersonnelLookup } from '$lib/types';
-import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/export/workbook';
+import type { PersonnelLookup } from '$features/personnel/contracts';
+import { addTableSheet, createWorkbook, downloadWorkbook, type Workbook, type WorkbookRow } from '$lib/utils/workbook';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { WORKFLOW_STATUS_OPTIONS } from '../rating-scheme.types';
 import { getRatingDueStatus, getDaysUntilDue, getReportTypeLabel } from './ratingScheme';

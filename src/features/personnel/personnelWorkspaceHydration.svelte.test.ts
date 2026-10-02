@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from './personnel.types';
 import type { PersonnelCalendarStatusSnapshot } from '$features/personnel/contracts';
 import { createPersonnelWorkspaceHydrator, type PersonnelHydrationStores } from './personnelWorkspaceHydration.svelte';
-import type { PersonnelWorkspaceHydration } from './server/personnelWorkspaceBootstrap';
+import type { PersonnelWorkspaceHydration } from './contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;

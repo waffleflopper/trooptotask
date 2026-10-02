@@ -26,6 +26,8 @@ Navigate between user pages through visible links and menus. For a fixed seeded 
 
 In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/action/after snapshots, screenshots, request status where relevant, and a second read after reload for saved changes. Save a workbook itself when validating export. Write a concise scratch run note with candidate, role, Organization, expected and observed result, artifact paths, and one of **source-mapped**, **live-verified**, **failed**, or **unreachable** for each attempted path. A path is unreachable only with the attempted route and concrete prerequisite; a visible success in another path is no substitute. Restore armed controls and grants, clean helper seeds, run owned cleanup, and confirm evidence survived.
 
+For durable publication, follow [artifact packaging](../../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts); keep generated captures out of the expanded tracked tree and link the run's archive from its acceptance record.
+
 ## Features
 
 ### Access and people
@@ -35,8 +37,30 @@ In `.verification/evidence/verify-trooptotask/<run-name>/`, preserve before/acti
 - [Invite and accept Organization members](organization-invitations.md): existing/new account paths, separate setup and invitation states, acceptance, denial and resend.
 - [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.
 - [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
+- [Personnel record lifecycle](personnel-records-lifecycle.md): create/edit, imports and ETS/DEROS backfill, archive/restore, approval, replay, scope and stable identities.
+- [Personnel artifacts](personnel-artifacts.md): counseling PDFs, documents, follow-ups and leader notes; drafts, sensitive access, archive/restore/removal, exports and retention.
 - [Manage groups](manage-groups.md): create, rename, remove, persist, and deny same/foreign Organization writes.
 - [Sign-in rosters](sign-in-rosters.md): Training entry, saved Personnel snapshot and PDF, signed scan lifecycle, scope, denial and recovery.
+- [Training catalog and views](training-catalog-views.md): requirement types, applicability, saved matrix views, scope, denial and persistence.
+- [Training completions, matrix and reports](training-completions-reports.md): saved record lifecycle, import/upsert recovery, dated status math, report downloads and scoped denial.
+
+### Communications
+
+- [Notifications, feedback and announcements](notifications-feedback.md): real recipients, own inbox persistence/deletion, scope changes, failed requests, feedback and global dismissal.
+
+### Onboarding
+
+- [Onboarding templates and configuration](onboarding-templates.md): template/step lifecycle, ordering, duplication, independent lookups, linked history, scope and failure/retry.
+- [Onboarding packets, progress and history](onboarding-packets.md): start, checkbox/paperwork/Training progress, notes, lifecycle, template reconciliation, scope and failure recovery.
+
+### Evals
+
+- [Rating Scheme and Evals](evals-rating-scheme.md): editing, evaluator relationships, due projections, filtered workbooks, dedicated permissions, scope and recovery.
+
+### Critical Tasks
+
+- [Manage the Critical Tasks library](critical-tasks-library.md): task definitions, MOS filters, import, archive/restore, settings defaults, dedicated permissions and Organization isolation.
+- [Record Critical Tasks and inspect readiness](critical-tasks-completions-readiness.md): completion/edit/import, dated status, retained history, reports/workbooks, retry, dedicated-lane scope and Organization switching.
 
 ### Calendar
 

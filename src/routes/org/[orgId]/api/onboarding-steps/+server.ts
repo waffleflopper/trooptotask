@@ -1,12 +1,7 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/server/core/errors';
-import {
-	toggleCheckbox,
-	advanceStage,
-	addNote,
-	removeInactiveStep
-} from '$lib/server/core/useCases/onboardingStepProgress';
+import { fail } from '$lib/errors';
+import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from '$features/onboarding/index.server';
 
 export const _putConfig = {
 	mutation: true,

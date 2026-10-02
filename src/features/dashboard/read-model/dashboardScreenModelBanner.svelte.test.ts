@@ -5,6 +5,7 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupsStore } from '$features/personnel';
+import type { TrainingIssue } from '$features/training/contracts';
 import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
 import type { DashboardPageData } from '../dashboard.types';
 
@@ -49,14 +50,8 @@ vi.mock('$features/calendar/stores/availability.svelte', () => ({
 vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
 }));
-vi.mock('$features/training/stores/trainingTypes.svelte', () => ({
+vi.mock('$features/training', () => ({
 	trainingTypesStore: { items: [] }
-}));
-vi.mock('$features/rating-scheme/utils/ratingScheme', () => ({
-	getRatingDueStatus: vi.fn((_end: string, status: string) => {
-		if (status === 'completed') return 'completed';
-		return 'current';
-	})
 }));
 
 // ---------------------------------------------------------------------------
@@ -239,7 +234,9 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 				notRequired: 0,
 				total: 8
 			};
-			const dataWithStats = makeData({ trainingSummary: { stats, issues: [] } });
+			const dataWithStats = makeData({
+				trainingSummary: { stats, issues: [], expiredPersonnelCount: 1, groupDelinquencies: [] }
+			});
 			const c = createDashboardScreenModel(dataWithStats);
 			expect(c.trainingStats).toEqual(stats);
 		});
@@ -251,19 +248,57 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 		});
 
 		it('returns issues from trainingSummary', () => {
-			const issues = [{ personName: 'SGT Smith', typeName: 'CPR', status: 'expired', label: 'Expired' }];
-			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: emptyTrainingStats, issues } }));
+			const issues: TrainingIssue[] = [
+				{
+					personnelId: 'smith',
+					daysUntilExpiration: -1,
+					personName: 'SGT Smith',
+					typeName: 'CPR',
+					status: 'expired',
+					label: 'Expired'
+				}
+			];
+			const c = createDashboardScreenModel(
+				makeData({
+					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
+				})
+			);
 			expect(c.topTrainingIssues).toHaveLength(1);
 			expect(c.topTrainingIssues[0].personName).toBe('SGT Smith');
 		});
 
 		it('returns multiple issues ordered as provided', () => {
-			const issues = [
-				{ personName: 'SGT Smith', typeName: 'CPR', status: 'expired', label: 'Expired' },
-				{ personName: 'PFC Jones', typeName: 'BLS', status: 'warning-orange', label: 'Expiring' },
-				{ personName: 'SPC Clark', typeName: 'SHARP', status: 'expired', label: 'Expired' }
+			const issues: TrainingIssue[] = [
+				{
+					personnelId: 'smith',
+					daysUntilExpiration: -1,
+					personName: 'SGT Smith',
+					typeName: 'CPR',
+					status: 'expired',
+					label: 'Expired'
+				},
+				{
+					personnelId: 'jones',
+					daysUntilExpiration: 15,
+					personName: 'PFC Jones',
+					typeName: 'BLS',
+					status: 'warning-orange',
+					label: 'Expiring'
+				},
+				{
+					personnelId: 'clark',
+					daysUntilExpiration: -1,
+					personName: 'SPC Clark',
+					typeName: 'SHARP',
+					status: 'expired',
+					label: 'Expired'
+				}
 			];
-			const c = createDashboardScreenModel(makeData({ trainingSummary: { stats: emptyTrainingStats, issues } }));
+			const c = createDashboardScreenModel(
+				makeData({
+					trainingSummary: { stats: emptyTrainingStats, issues, expiredPersonnelCount: 0, groupDelinquencies: [] }
+				})
+			);
 			expect(c.topTrainingIssues).toHaveLength(3);
 			expect(c.topTrainingIssues[1].typeName).toBe('BLS');
 		});
@@ -325,6 +360,7 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 	// ratingStats / ratingTotal
 	// -------------------------------------------------------------------------
 	describe('ratingStats', () => {
+		afterEach(() => vi.useRealTimers());
 		it('returns zero counts with no rating entries', () => {
 			expect(ctx.ratingStats.overdue).toBe(0);
 			expect(ctx.ratingStats['due-30']).toBe(0);
@@ -332,30 +368,23 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 			expect(ctx.ratingStats.current).toBe(0);
 		});
 
-		it('does not count completed entries', () => {
-			const entries = [{ ratingPeriodEnd: '2026-01-01', status: 'completed' }];
-			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
-			expect(c.ratingTotal).toBe(0);
-		});
-
-		it('counts non-completed entries as current (per mock)', () => {
+		it('buckets only the projected dates and record statuses using the local day', () => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-09-30T00:00:00'));
 			const entries = [
-				{ ratingPeriodEnd: '2026-06-01', status: 'pending' },
-				{ ratingPeriodEnd: '2026-07-01', status: 'pending' }
+				{ ratingPeriodEnd: '2026-09-25', status: 'active' },
+				{ ratingPeriodEnd: '2026-09-28', status: 'active' },
+				{ ratingPeriodEnd: '2026-10-20', status: 'active' },
+				{ ratingPeriodEnd: '2026-10-10', status: 'change-of-rater' },
+				{ ratingPeriodEnd: '2026-10-25', status: 'active' },
+				{ ratingPeriodEnd: '2026-10-15', status: 'active' },
+				{ ratingPeriodEnd: '2026-11-14', status: 'active' },
+				{ ratingPeriodEnd: '2026-12-29', status: 'active' },
+				{ ratingPeriodEnd: '2026-07-02', status: 'completed' }
 			];
-			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
-			expect(c.ratingTotal).toBe(2);
-			expect(c.ratingStats.current).toBe(2);
-		});
-
-		it('excludes completed entries from total but counts non-completed', () => {
-			const entries = [
-				{ ratingPeriodEnd: '2026-06-01', status: 'pending' },
-				{ ratingPeriodEnd: '2026-05-01', status: 'completed' },
-				{ ratingPeriodEnd: '2026-08-01', status: 'draft' }
-			];
-			const c = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
-			expect(c.ratingTotal).toBe(2);
+			const model = createDashboardScreenModel(makeData({}, { ratingSchemeEntries: entries }));
+			expect(model.ratingStats).toEqual({ overdue: 2, 'due-30': 4, 'due-60': 1, current: 1 });
+			expect(model.ratingTotal).toBe(8);
 		});
 	});
 

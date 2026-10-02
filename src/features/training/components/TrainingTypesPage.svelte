@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { TrainingPageAccess } from '../contracts';
 	import { ArrowDown, ArrowUp, Trash2 } from '@lucide/svelte';
 	import * as Empty from '$lib/components/ui/empty';
 	import * as Field from '$lib/components/ui/field';
@@ -11,8 +12,8 @@
 	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+	import type { Personnel } from '$features/personnel/contracts';
 	import type { RankCatalogEntry } from '$features/personnel/contracts';
 	import { rankCodesForOptions } from '$features/personnel/contracts';
 	import { createRosterReadModel } from '$features/personnel/contracts';
@@ -30,11 +31,20 @@
 	import type { ApplicabilityFields } from './ApplicabilityEditor.svelte';
 	import type { TrainingType } from '$features/training/training.types';
 
-	let { data } = $props();
+	let {
+		data,
+		org
+	}: {
+		data: {
+			[key: string]: unknown;
+			training?: { data?: Partial<import('../contracts').TrainingWorkspaceData> };
+			personnel?: Personnel[];
+		};
+		org: TrainingPageAccess;
+	} = $props();
 
-	const org = getOrgContext();
 	const configureAffordance = $derived(
-		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'unscoped' })
+		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.training.configureRequirements, { kind: 'organization' })
 	);
 	const canMutate = $derived(configureAffordance.allowed);
 	const workspaceData = $derived(data.training?.data);
@@ -43,6 +53,7 @@
 	let editing = $state(false);
 	let creating = $state(false);
 	let saving = $state(false);
+	let error = $state('');
 	let mobileDetailOpen = $state(false);
 	let confirmDelete: { id: string; name: string } | null = $state(null);
 
@@ -123,6 +134,7 @@
 
 	function startEdit() {
 		if (!selectedType || !canMutate) return;
+		error = '';
 		mobileDetailOpen = true;
 		selectedTypeId = selectedType.id;
 		editName = selectedType.name;
@@ -148,11 +160,13 @@
 		editing = false;
 		creating = false;
 		saving = false;
+		error = '';
 		if (wasCreating) mobileDetailOpen = false;
 	}
 
 	function startCreate() {
 		if (!canMutate) return;
+		error = '';
 		mobileDetailOpen = true;
 		selectedTypeId = null;
 		editName = '';
@@ -177,6 +191,7 @@
 	async function saveEdit() {
 		if (!editName.trim() || saving) return;
 		saving = true;
+		error = '';
 		try {
 			const expirationFields = toExpirationFields(
 				editExpirationMode,
@@ -205,13 +220,22 @@
 					sortOrder: orderedTypes.length,
 					exemptPersonnelIds: []
 				} as Omit<TrainingType, 'id'>);
-				if (newType) selectedTypeId = newType.id;
+				if (!newType) {
+					error = 'Failed to save training type.';
+					return;
+				}
+				selectedTypeId = newType.id;
 				creating = false;
 				mobileDetailOpen = true;
 			} else if (selectedTypeId) {
-				await trainingTypesStore.update(selectedTypeId, payload);
+				if (!(await trainingTypesStore.update(selectedTypeId, payload))) {
+					error = 'Failed to save training type.';
+					return;
+				}
 			}
 			editing = false;
+		} catch {
+			error = 'Failed to save training type.';
 		} finally {
 			saving = false;
 		}
@@ -359,6 +383,9 @@
 						<Field.Root>
 							<Field.Label for="type-name">Name</Field.Label>
 							<Input id="type-name" type="text" bind:value={editName} placeholder="e.g. First Aid" />
+							{#if error}
+								<Field.Error>{error}</Field.Error>
+							{/if}
 						</Field.Root>
 						<Field.Root>
 							<Field.Label for="type-color">Color</Field.Label>

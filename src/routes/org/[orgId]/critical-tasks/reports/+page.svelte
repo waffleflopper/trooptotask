@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import IctReportsView from '$features/critical-tasks/components/IctReportsView.svelte';
+	import { IctReportsView } from '$features/critical-tasks';
 
 	let { data } = $props();
 	const org = getOrgContext();

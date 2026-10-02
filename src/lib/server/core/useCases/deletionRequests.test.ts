@@ -1,253 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import {
-	createDeletionRequest,
 	approveDeletionRequest,
 	denyDeletionRequest,
 	cancelDeletionRequest,
 	listDeletionRequests
 } from './deletionRequests';
+import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
 	return createWriteWithNotificationsPortsContext(overrides);
 }
-
-describe('createDeletionRequest', () => {
-	const validInput = {
-		resourceType: 'counseling_record',
-		resourceId: 'rec-1',
-		resourceDescription: 'Counseling session with SGT Smith',
-		resourceUrl: '/org/test-org/personnel/p-1/counselings',
-		userEmail: 'user@example.com'
-	};
-
-	it('creates a pending deletion request and audit logs', async () => {
-		const ctx = buildContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'view',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				}
-			}
-		});
-
-		await createDeletionRequest(ctx, validInput);
-
-		// Record stored with correct fields
-		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
-		expect(stored).toHaveLength(1);
-		expect(stored[0]).toMatchObject({
-			resource_type: 'counseling_record',
-			resource_id: 'rec-1',
-			resource_description: 'Counseling session with SGT Smith',
-			resource_url: '/org/test-org/personnel/p-1/counselings',
-			requested_by: 'test-user',
-			requested_by_email: 'user@example.com',
-			status: 'pending'
-		});
-
-		// Audit logged
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'deletion_request.created',
-			resourceType: 'deletion_request',
-			details: {
-				subject_type: 'counseling_record',
-				subject_id: 'rec-1',
-				subject_label: 'Counseling session with SGT Smith'
-			}
-		});
-	});
-
-	it('creates a pending personnel archival request', async () => {
-		const ctx = buildContext();
-
-		const created = await createDeletionRequest(ctx, {
-			...validInput,
-			resourceType: 'personnel',
-			resourceId: 'p-1',
-			resourceDescription: 'Archive SGT Smith, Jane',
-			resourceUrl: '/org/test-org/personnel'
-		});
-
-		expect(created).toMatchObject({
-			resource_type: 'personnel',
-			resource_id: 'p-1',
-			status: 'pending'
-		});
-	});
-
-	it('rejects unknown resource types without creating a request', async () => {
-		const ctx = buildContext();
-
-		await expect(
-			createDeletionRequest(ctx, {
-				...validInput,
-				resourceType: 'unknown_type',
-				resourceId: 'unknown-1',
-				resourceDescription: 'Unknown thing'
-			})
-		).rejects.toMatchObject({ status: 400 });
-
-		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
-		expect(stored).toHaveLength(0);
-	});
-
-	it('allows viewer, operator, editor, and owner/admin requesters through requester-owned policy', async () => {
-		for (const auth of [
-			{
-				userId: 'viewer-user',
-				role: 'member' as const,
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'view' as const,
-					personnel: 'view' as const,
-					training: 'view' as const,
-					criticalTasks: 'view' as const,
-					onboarding: 'view' as const,
-					ratingScheme: 'view' as const
-				}
-			},
-			{
-				userId: 'operator-user',
-				role: 'member' as const,
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'operate' as const,
-					personnel: 'operate' as const,
-					training: 'operate' as const,
-					criticalTasks: 'operate' as const,
-					onboarding: 'operate' as const,
-					ratingScheme: 'operate' as const
-				}
-			},
-			{
-				userId: 'editor-user',
-				role: 'member' as const,
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'configure' as const,
-					personnel: 'configure' as const,
-					training: 'configure' as const,
-					criticalTasks: 'configure' as const,
-					onboarding: 'configure' as const,
-					ratingScheme: 'configure' as const
-				}
-			},
-			{ userId: 'owner-user', role: 'owner' as const, isPrivileged: true }
-		]) {
-			const ctx = buildContext({ auth });
-
-			await createDeletionRequest(ctx, {
-				...validInput,
-				resourceId: `${auth.userId}-resource`
-			});
-
-			const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
-			expect(stored).toHaveLength(1);
-			expect(stored[0]).toMatchObject({ requested_by: auth.userId, status: 'pending' });
-		}
-	});
-
-	it('notifies admins on create', async () => {
-		const ctx = buildContext({ auth: { userId: 'member-user' } });
-
-		await createDeletionRequest(ctx, validInput);
-
-		const notifications = ctx.notifications.notifications;
-		expect(notifications).toHaveLength(1);
-		expect(notifications[0].target).toBe('admins');
-		expect(notifications[0].excludeUserId).toBe('member-user');
-		expect(notifications[0].notification.type).toBe('deletion_request_pending');
-	});
-
-	it('does not fail creation when admin notification delivery fails', async () => {
-		const ctx = buildContext();
-		ctx.notifications.notifyAdmins = async () => {
-			throw new Error('notification failed');
-		};
-
-		await expect(createDeletionRequest(ctx, validInput)).resolves.toMatchObject({
-			resource_type: 'counseling_record'
-		});
-
-		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
-		expect(stored).toHaveLength(1);
-	});
-
-	it('rejects duplicate pending request for the same resource (409)', async () => {
-		const ctx = buildContext();
-
-		// Seed an existing pending request for the same resource
-		ctx.store.seed('deletion_requests', [
-			{
-				id: 'existing-1',
-				organization_id: 'test-org',
-				resource_type: 'counseling_record',
-				resource_id: 'rec-1',
-				status: 'pending',
-				requested_by: 'other-user'
-			}
-		]);
-
-		await expect(createDeletionRequest(ctx, validInput)).rejects.toMatchObject({ status: 409 });
-
-		// No new record created
-		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
-		expect(stored).toHaveLength(1);
-	});
-
-	it('allows Rating Scheme deletion requests through Rating Scheme policy decisions without Personnel access', async () => {
-		const ctx = buildContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				requireEdit(area: string) {
-					if (area === 'personnel') {
-						throw new Error('legacy Personnel edit should not authorize Rating Scheme deletion requests');
-					}
-				},
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'configure'
-				}
-			}
-		});
-		ctx.store.seed('rating_scheme_entries', [
-			{
-				id: 'rs-1',
-				organization_id: 'test-org',
-				rated_person_id: 'person-1',
-				eval_type: 'OER',
-				status: 'draft'
-			}
-		]);
-
-		await expect(
-			createDeletionRequest(ctx, {
-				resourceType: 'rating_scheme_entry',
-				resourceId: 'rs-1',
-				resourceDescription: 'SGT Smith OER',
-				resourceUrl: '/org/test-org/evals',
-				userEmail: 'operator@example.com'
-			})
-		).resolves.toMatchObject({
-			resource_type: 'rating_scheme_entry',
-			resource_id: 'rs-1',
-			status: 'pending'
-		});
-	});
-});
 
 function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Record<string, unknown>) {
 	ctx.store.seed('deletion_requests', [
@@ -266,7 +29,144 @@ function seedPendingRequest(ctx: ReturnType<typeof buildContext>, overrides?: Re
 	]);
 }
 
+function trainingDeletionFor(
+	ctx: ReturnType<typeof buildContext>,
+	overrides: Partial<ApprovedTrainingDeletionPort> = {}
+): ApprovedTrainingDeletionPort {
+	return {
+		deleteApprovedTrainingType: async (_actor, _requestId, id) => {
+			await ctx.store.delete('training_types', ctx.auth.orgId, id);
+		},
+		deleteApprovedTrainingRecord: async (_actor, _requestId, id) => {
+			await ctx.store.delete('personnel_trainings', ctx.auth.orgId, id);
+		},
+		...overrides
+	};
+}
+
 describe('approveDeletionRequest', () => {
+	it('retries completion approval when its status write fails after the completion was deleted', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
+		ctx.store.seed('personnel_trainings', [
+			{ id: 'completion-1', organization_id: ctx.auth.orgId },
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		// Production DELETE is idempotent; the shared in-memory delete rejects missing IDs.
+		vi.spyOn(ctx.store, 'delete').mockImplementation((table, orgId, id) => ctx.store.deleteWhere(table, orgId, { id }));
+		const update = ctx.store.update;
+		let failOnce = true;
+		vi.spyOn(ctx.store, 'update').mockImplementation(async (table, orgId, id, data, select) => {
+			if (table === 'deletion_requests' && id === 'dr-1' && data.status === 'approved' && failOnce) {
+				failOnce = false;
+				throw new Error('status write failed');
+			}
+			return update(table, orgId, id, data, select);
+		});
+
+		await expect(approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx))).rejects.toThrow('status write failed');
+		await expect(ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'completion-1' })).resolves.toBeNull();
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+
+		await expect(approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx))).resolves.toBeUndefined();
+		await expect(ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
+			{ id: 'completion-2', organization_id: ctx.auth.orgId }
+		]);
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'approved'
+		});
+		expect(ctx.notifications.notifications).toHaveLength(1);
+		expect(ctx.audit.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
+	});
+
+	it('keeps completion approval pending without success effects when Training deletion fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { resource_type: 'personnel_training', resource_id: 'completion-1' });
+		ctx.store.seed('personnel_trainings', [{ id: 'completion-1', organization_id: ctx.auth.orgId }]);
+		const trainingDeletion = trainingDeletionFor(ctx, {
+			deleteApprovedTrainingRecord: async () => {
+				throw new Error('completion delete unavailable');
+			}
+		});
+		await expect(approveDeletionRequest(ctx, 'dr-1', trainingDeletion)).rejects.toThrow(
+			'completion delete unavailable'
+		);
+		await expect(
+			ctx.store.findOne('personnel_trainings', ctx.auth.orgId, { id: 'completion-1' })
+		).resolves.not.toBeNull();
+		await expect(ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).resolves.toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.audit.events).toEqual([]);
+		expect(ctx.notifications.notifications).toEqual([]);
+	});
+
+	it('approves a Training type deletion for an Organization reviewer without Training configure', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx, { resource_type: 'training_type', resource_id: 'type-1' });
+		ctx.store.seed('training_types', [{ id: 'type-1', organization_id: ctx.auth.orgId, name: 'CPR' }]);
+		const deleteApprovedTrainingType = vi.fn(async (_actor, _requestId, typeId: string) => {
+			await ctx.store.delete('training_types', ctx.auth.orgId, typeId);
+		});
+
+		await approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx, { deleteApprovedTrainingType }));
+
+		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'dr-1', 'type-1');
+		expect(await ctx.store.findOne('training_types', ctx.auth.orgId, { id: 'type-1' })).toBeNull();
+		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+			status: 'approved'
+		});
+		expect(ctx.audit.events.map((event) => event.action)).toEqual(['deletion_request.approved']);
+		expect(ctx.notifications.notifications).toHaveLength(1);
+	});
+
+	it('leaves a Training type request pending without success side effects when the owned effect fails', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx, { resource_type: 'training_type', resource_id: 'type-1' });
+		const deleteApprovedTrainingType = vi.fn(async () => {
+			throw new Error('Training type delete blocked by foreign reference');
+		});
+
+		await expect(
+			approveDeletionRequest(ctx, 'dr-1', trainingDeletionFor(ctx, { deleteApprovedTrainingType }))
+		).rejects.toThrow('Training type delete blocked by foreign reference');
+		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.audit.events).toEqual([]);
+		expect(ctx.notifications.notifications).toEqual([]);
+	});
+
 	it('lets an Organization admin approve a Personnel archive without a Personnel capability', async () => {
 		const ctx = buildContext({
 			auth: {
@@ -290,7 +190,12 @@ describe('approveDeletionRequest', () => {
 		]);
 
 		await approveDeletionRequest(ctx, 'dr-1');
-		const person = await ctx.store.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, { id: 'person-1' });
+		if (!ctx.rawStore) throw new Error('Expected raw provider store from the in-memory test context');
+		const person = await ctx.rawStore.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
+			id: 'person-1'
+		});
+		expect(person?.archived_at).toEqual(expect.any(String));
+		await expect(ctx.store.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).resolves.toBeNull();
 		await expect(ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).resolves.toMatchObject({
 			archived_at: person?.archived_at
 		});
@@ -499,6 +404,74 @@ describe('approveDeletionRequest', () => {
 		expect(ctx.audit.events).toHaveLength(1);
 	});
 
+	it('retains the archive event when approval is retried after the status write fails', async () => {
+		const ctx = buildContext({
+			auth: {
+				role: 'admin',
+				isPrivileged: true,
+				scopeSet: { kind: 'groups', groupIds: [] },
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		seedPendingRequest(ctx);
+		ctx.store.seed('personnel', [
+			{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null, archived_at: null }
+		]);
+		ctx.store.seed('leader_notes', [
+			{ id: 'note-1', organization_id: ctx.auth.orgId, personnel_id: 'person-1', archived_at: null },
+			{
+				id: 'note-independent',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'person-1',
+				archived_at: '2026-08-01T12:00:00.000Z'
+			}
+		]);
+		const update = ctx.store.update;
+		let failStatus = true;
+		ctx.store.update = (async (table, orgId, id, data, select) => {
+			if (table === 'deletion_requests' && failStatus) {
+				failStatus = false;
+				throw new Error('approval status unavailable');
+			}
+			return update(table, orgId, id, data, select);
+		}) as typeof ctx.store.update;
+		const archivedAt = '2026-09-30T14:00:00.000Z';
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			vi.setSystemTime(new Date(archivedAt));
+			await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toThrow('approval status unavailable');
+			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+				status: 'pending'
+			});
+			expect(ctx.notifications.notifications).toEqual([]);
+			expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
+			vi.setSystemTime(new Date('2026-09-30T14:05:00.000Z'));
+			await approveDeletionRequest(ctx, 'dr-1');
+			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).toMatchObject({
+				archived_at: archivedAt
+			});
+			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+				archived_at: archivedAt
+			});
+			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+				status: 'approved'
+			});
+			expect(ctx.notifications.notifications).toHaveLength(1);
+			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-independent' })).toMatchObject({
+				archived_at: '2026-08-01T12:00:00.000Z'
+			});
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it('leaves personnel deletion requests pending when archival fails', async () => {
 		const ctx = buildContext();
 		seedPendingRequest(ctx);
@@ -545,6 +518,41 @@ describe('approveDeletionRequest', () => {
 		});
 		expect(ctx.notifications.notifications).toEqual([]);
 		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'deletion_request.approved' }));
+		const original = structuredClone(
+			await ctx.rawStore!.findOne<{ archived_at: string }>('personnel', ctx.auth.orgId, {
+				id: 'person-1'
+			})
+		);
+		ctx.store.update = update;
+		vi.useFakeTimers({ toFake: ['Date'] });
+		try {
+			vi.setSystemTime(new Date('2026-10-01T14:00:00.000Z'));
+			await approveDeletionRequest(ctx, 'dr-1');
+			expect(await ctx.rawStore!.findOne('personnel', ctx.auth.orgId, { id: 'person-1' })).toEqual(original);
+			expect(await ctx.store.findOne('leader_notes', ctx.auth.orgId, { id: 'note-1' })).toMatchObject({
+				archived_at: original!.archived_at
+			});
+			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+				status: 'approved'
+			});
+			expect(ctx.notifications.notifications).toHaveLength(1);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it('leaves a Personnel request pending when its target belongs to another Organization', async () => {
+		const ctx = buildContext();
+		seedPendingRequest(ctx);
+		const foreign = { id: 'person-1', organization_id: 'foreign-org', archived_at: null };
+		ctx.store.seed('personnel', [structuredClone(foreign)]);
+		await expect(approveDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.rawStore!.findOne('personnel', 'foreign-org', { id: 'person-1' })).toEqual(foreign);
+		expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id: 'dr-1' })).toMatchObject({
+			status: 'pending'
+		});
+		expect(ctx.notifications.notifications).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
 	it('leaves non-personnel deletion requests pending when hard delete fails', async () => {

@@ -5,8 +5,7 @@
  * special days, assignment types, daily assignments, and pinned groups for the given
  * ISO-string date window. Scoped collections are filtered from the caller's Scope Set.
  */
-import type { DailyAssignment } from '$lib/types';
-import type { AvailabilityEntry, SpecialDay, AssignmentType } from '$features/calendar/contracts';
+import type { AvailabilityEntry, SpecialDay, AssignmentType, DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 export type { CalendarBootstrap, CalendarRangeData } from './calendar.types';
 import { listAssignmentTypes } from './assignmentTypeRead.server';

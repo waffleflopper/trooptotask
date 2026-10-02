@@ -1,13 +1,18 @@
 <script lang="ts">
-	import { personnelStore } from '$features/personnel/stores/personnel.svelte';
-	import { pinnedGroupsStore } from '$features/personnel';
-	import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-	import type { PersonnelPageData } from '$features/personnel/contexts/PersonnelPageContext.svelte';
+	import {
+		PersonnelPageView,
+		rosterStore,
+		pinnedGroupsStore,
+		loadPersonnelModals,
+		PersonnelPageContext,
+		type PersonnelPageData
+	} from '$features/personnel';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
-	import PersonnelPageView from '$features/personnel/components/PersonnelPageView.svelte';
-	import type { PersonnelWorkspaceData } from '$features/personnel/server/personnelWorkspaceBootstrap';
+	import type { PersonnelWorkspaceData } from '$features/personnel/contracts';
+
+	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
 	let { data } = $props();
 
@@ -27,7 +32,7 @@
 	}
 
 	function createContext(workspaceData: PersonnelWorkspaceData): PersonnelPageContext {
-		return new PersonnelPageContext(createPageData(workspaceData), modals, org, personnelStore, pinnedGroupsStore);
+		return new PersonnelPageContext(createPageData(workspaceData), modals, org, rosterStore, pinnedGroupsStore);
 	}
 </script>
 
@@ -38,9 +43,9 @@
 	</div>
 {:then personnelWorkspace}
 	{@const ctx = createContext(personnelWorkspace.data)}
-	<PersonnelPageView {ctx} />
-	{#await import('$features/personnel/components/PersonnelModals.svelte') then { default: PersonnelModals }}
-		<PersonnelModals {ctx} {modals} />
+	<PersonnelPageView {ctx} {requestArchiveApproval} />
+	{#await loadPersonnelModals() then { default: PersonnelModals }}
+		<PersonnelModals {ctx} {modals} {requestArchiveApproval} />
 	{/await}
 {:catch error}
 	{throwRenderError(error, 'Failed to load personnel workspace')}

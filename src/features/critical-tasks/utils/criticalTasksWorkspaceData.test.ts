@@ -3,7 +3,7 @@ import {
 	markCriticalTasksWorkspaceResolved,
 	resetCriticalTasksWorkspaceStatus
 } from '$features/critical-tasks/criticalTasksWorkspaceHydration.svelte';
-import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/server/criticalTasksWorkspaceBootstrap';
+import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/contracts';
 import { criticalTasksSettingsFromWorkspaceData } from './criticalTasksWorkspaceData';
 
 function createWorkspace(orgId = 'org-1'): CriticalTasksWorkspaceResult {

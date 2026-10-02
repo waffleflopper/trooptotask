@@ -117,9 +117,11 @@ interface PersonnelRankRow {
 }
 
 interface TrainingTypeRankReferenceRow {
-	applies_to_ranks?: unknown;
-	excluded_ranks?: unknown;
+	appliesToRanks: unknown;
+	excludedRanks: unknown;
 }
+
+type ReadTrainingRankApplicabilityReferences = () => Promise<TrainingTypeRankReferenceRow[]>;
 
 interface SignInRosterRankReferenceRow {
 	filter_config?: unknown;
@@ -133,7 +135,9 @@ interface RankCatalogPorts {
 	audit: RankAudit;
 }
 
-type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore'> & {
+type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth'> & {
+	store: Pick<RankCatalogStore, 'findMany'>;
+	rawStore?: Pick<RankCatalogStore, 'findMany'>;
 	audit?: RankAudit;
 };
 
@@ -417,6 +421,7 @@ export async function bulkSetOrganizationRankCatalogState(
 export async function loadOrganizationRankCatalogReferenceSummaries(
 	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit'>,
 	input: { codes: readonly string[] },
+	readTrainingRankApplicabilityReferences: ReadTrainingRankApplicabilityReferences,
 	options: RankCatalogReadOptions = {}
 ): Promise<OrganizationRankCatalogReferenceSummary[]> {
 	await requireRankCatalogReadPolicy(ports, options.authorization ?? 'personnel-view');
@@ -432,7 +437,7 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 	const referenceStore = storeForRankCatalog(ports);
 	const [personnelRows, trainingTypeRows, signInRosterRows] = await Promise.all([
 		referenceStore.findMany<PersonnelRankRow>('personnel', ports.auth.orgId),
-		referenceStore.findMany<TrainingTypeRankReferenceRow>('training_types', ports.auth.orgId),
+		readTrainingRankApplicabilityReferences(),
 		referenceStore.findMany<SignInRosterRankReferenceRow>('sign_in_rosters', ports.auth.orgId)
 	]);
 
@@ -444,8 +449,8 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 		summary.activeReferences.trainingApplicability = trainingTypeRows.reduce((count, row) => {
 			return (
 				count +
-				countArrayReferences(row.applies_to_ranks, code, referenceMatcher) +
-				countArrayReferences(row.excluded_ranks, code, referenceMatcher)
+				countArrayReferences(row.appliesToRanks, code, referenceMatcher) +
+				countArrayReferences(row.excludedRanks, code, referenceMatcher)
 			);
 		}, 0);
 		summary.activeReferences.total =
@@ -551,7 +556,8 @@ export async function reactivateOrganizationRankCatalogEntry(
 
 export async function removeOrganizationRankCatalogEntry(
 	ports: RankCatalogPorts & { rankCatalogAdministration: RankCatalogAdministrationPort },
-	input: { code: string }
+	input: { code: string },
+	readTrainingRankApplicabilityReferences: ReadTrainingRankApplicabilityReferences
 ): Promise<void> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
 
@@ -581,6 +587,7 @@ export async function removeOrganizationRankCatalogEntry(
 		await loadOrganizationRankCatalogReferenceSummaries(
 			ports,
 			{ codes: summaryCodes },
+			readTrainingRankApplicabilityReferences,
 			{ authorization: 'organization-governance' }
 		)
 	).find((summary) => summary.code === code);
@@ -837,6 +844,6 @@ function sortCatalog(entries: OrganizationRankCatalogEntry[]): OrganizationRankC
 	return entries.toSorted((a, b) => compareRankCodes(a.code, b.code, { catalog: entries }));
 }
 
-function storeForRankCatalog(ports: Pick<RankCatalogPorts, 'rawStore' | 'store'>): RankCatalogStore {
+function storeForRankCatalog<Store>(ports: { store: Store; rawStore?: Store }): Store {
 	return ports.rawStore ?? ports.store;
 }

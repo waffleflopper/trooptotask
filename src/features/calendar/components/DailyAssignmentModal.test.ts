@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import DailyAssignmentModal from './DailyAssignmentModal.svelte';
-import type { Personnel } from '$lib/types';
+import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType } from '$features/calendar/contracts';
 
 afterEach(cleanup);

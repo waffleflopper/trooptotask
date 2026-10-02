@@ -12,9 +12,9 @@ import {
 } from '$lib/server/core/streamedWorkspace';
 import { fetchDashboardBootstrap, type DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
 import type { Group } from '$features/personnel/contracts';
-import type { DailyAssignment, Personnel } from '$lib/types';
-import type { AssignmentType, AvailabilityEntry, StatusType } from '$features/calendar/contracts';
-import type { TrainingType } from '$features/training/training.types';
+import type { Personnel } from '$features/personnel/contracts';
+import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
+import type { TrainingType } from '$features/training/contracts';
 
 export const DASHBOARD_WORKSPACE_KEY = 'dashboard' as const;
 

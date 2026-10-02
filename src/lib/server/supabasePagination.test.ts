@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { selectAllSupabaseRows } from './supabasePagination';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 
 describe('selectAllSupabaseRows', () => {
 	it('combines paged results until the final short page', async () => {

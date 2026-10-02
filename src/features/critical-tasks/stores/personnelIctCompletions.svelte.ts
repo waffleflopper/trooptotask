@@ -1,32 +1,25 @@
 import { defineStore } from '$lib/stores/core';
 import type { Store, StoreInternals } from '$lib/stores/core';
-import type { PersonnelIctCompletion } from '$features/critical-tasks/criticalTasks.types';
-import type { IctCompletionImportMappedRow } from '$features/critical-tasks/utils/ictCompletionImport';
+import type {
+	PersonnelIctCompletion,
+	PersonnelIctCompletionWrite,
+	IctCompletionBatchImportInput,
+	IctCompletionBatchImportError,
+	IctCompletionBatchImportResult
+} from '../contracts';
 
-type PersonnelIctCompletionWrite = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
 const MAX_BATCH_SIZE = 500;
-
-interface IctCompletionImportBatchError {
-	rowNumber: number;
-	personnelName: string;
-	taskCode: string;
-	message: string;
-}
-
-interface IctCompletionImportBatchResult {
-	inserted: PersonnelIctCompletion[];
-	updated: PersonnelIctCompletion[];
-	errors: IctCompletionImportBatchError[];
-}
 
 interface PersonnelIctCompletionsExtensions extends Record<string, unknown> {
 	load: (items: PersonnelIctCompletion[], orgId: string) => void;
+	startLoading: () => void;
+	invalidateImports: () => void;
 	add: (data: PersonnelIctCompletionWrite) => Promise<PersonnelIctCompletion | null>;
 	update: (id: string, data: Partial<PersonnelIctCompletionWrite>) => Promise<boolean>;
 	getByPersonnelAndTask: (personnelId: string, ictTaskId: string) => PersonnelIctCompletion[];
 	removeByPersonnelLocal: (personnelId: string) => void;
 	removeByIctTaskLocal: (ictTaskId: string) => void;
-	importBatch: (input: { records: IctCompletionImportMappedRow[] }) => Promise<IctCompletionImportBatchResult>;
+	importBatch: (input: IctCompletionBatchImportInput) => Promise<IctCompletionBatchImportResult>;
 }
 
 async function readResponseErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -51,8 +44,19 @@ function enhance(
 	base: Store<PersonnelIctCompletion>,
 	internals: StoreInternals<PersonnelIctCompletion>
 ): PersonnelIctCompletionsExtensions {
+	let workspaceVersion = 0;
 	return {
+		invalidateImports() {
+			workspaceVersion++;
+		},
+
+		startLoading() {
+			workspaceVersion++;
+			base.startLoading();
+		},
+
 		load(items: PersonnelIctCompletion[], orgId: string) {
+			workspaceVersion++;
 			base.load(items, orgId);
 		},
 
@@ -77,25 +81,37 @@ function enhance(
 		},
 
 		async importBatch(input) {
+			const importVersion = workspaceVersion;
+			const orgId = internals.orgId();
+			function requireCurrentWorkspace() {
+				if (importVersion !== workspaceVersion) {
+					throw new Error(
+						'Critical Tasks workspace changed during import. Reload it to check saved rows before retrying.'
+					);
+				}
+			}
 			const inserted: PersonnelIctCompletion[] = [];
 			const updated: PersonnelIctCompletion[] = [];
-			const errors: IctCompletionImportBatchError[] = [];
+			const errors: IctCompletionBatchImportError[] = [];
 
 			for (let index = 0; index < input.records.length; index += MAX_BATCH_SIZE) {
+				requireCurrentWorkspace();
 				const chunk = input.records.slice(index, index + MAX_BATCH_SIZE);
-				const response = await fetch(`/org/${internals.orgId()}/api/personnel-ict-completions/batch`, {
+				const response = await fetch(`/org/${orgId}/api/personnel-ict-completions/batch`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						records: chunk
 					})
 				});
+				requireCurrentWorkspace();
 
 				if (!response.ok) {
 					throw new Error(await readResponseErrorMessage(response, 'Failed to import critical task completions'));
 				}
 
-				const data = (await response.json()) as IctCompletionImportBatchResult;
+				const data = (await response.json()) as IctCompletionBatchImportResult;
+				requireCurrentWorkspace();
 				const chunkInserted = data.inserted ?? [];
 				const chunkUpdated = data.updated ?? [];
 				base.mergeBatchResults(chunkInserted, chunkUpdated);

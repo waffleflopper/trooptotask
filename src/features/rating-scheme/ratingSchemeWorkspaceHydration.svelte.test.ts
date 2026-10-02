@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RatingSchemeEntry } from './rating-scheme.types';
-import type { RatingSchemeWorkspaceHydration } from './server/ratingSchemeWorkspaceBootstrap';
+import type { RatingSchemeWorkspaceHydration } from './contracts';
 import {
 	createRatingSchemeWorkspaceHydrator,
 	type RatingSchemeHydrationStores
@@ -74,5 +74,37 @@ describe('Rating Scheme workspace hydration adapter', () => {
 
 		expect(stores.ratingSchemeStore.items).toEqual([ratingEntry]);
 		expect(stores.ratingSchemeStore.orgId).toBe('org-1');
+	});
+
+	it('clears previous rows and ignores a pending allowed response after access is restricted', async () => {
+		const stores = createStores();
+		stores.ratingSchemeStore.load([entry('previous')], 'org-1');
+		let resolve!: (rows: RatingSchemeEntry[]) => void;
+		const items = new Promise<RatingSchemeEntry[]>((done) => {
+			resolve = done;
+		});
+		const hydrator = createRatingSchemeWorkspaceHydrator();
+		const pending = hydrator.hydrate(
+			{
+				orgId: 'org-1',
+				ratingSchemeEntries: { mode: 'replace', snapshotKey: 'pending', items }
+			},
+			stores
+		);
+		expect(stores.ratingSchemeStore.loading).toBe(true);
+		hydrator.restrict('org-1', stores);
+		expect(stores.ratingSchemeStore.items).toEqual([]);
+		expect(stores.ratingSchemeStore.loading).toBe(false);
+		resolve([entry('late')]);
+		await pending;
+		expect(stores.ratingSchemeStore.items).toEqual([]);
+		await hydrator.hydrate(
+			{
+				orgId: 'org-1',
+				ratingSchemeEntries: { mode: 'replace', snapshotKey: 'fresh', items: [entry('restored')] }
+			},
+			stores
+		);
+		expect(stores.ratingSchemeStore.items.map((row) => row.id)).toEqual(['restored']);
 	});
 });

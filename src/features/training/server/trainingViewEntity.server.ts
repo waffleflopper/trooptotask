@@ -1,0 +1,29 @@
+/**
+ * Training view entity — maps `training_views` (saved column-selection presets for the matrix).
+ * `columnIds` is an array of `TrainingType` IDs defining which columns to show and their order.
+ * Views are per-org (not per-user). `createdBy` is the user ID of the creator, read-only.
+ */
+import { z } from 'zod';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { defineEntity, field } from '$lib/server/entitySchema';
+import type { TrainingView } from '../training.types';
+
+export const TrainingViewEntity = defineEntity<TrainingView>({
+	table: 'training_views',
+	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
+	groupScope: 'none',
+	audit: { resourceType: 'training_view', detailFields: ['name'] },
+	orderBy: [{ column: 'name', ascending: true }],
+	schema: {
+		id: field(z.string(), { readOnly: true }),
+		name: field(z.string().min(1).max(100)),
+		columnIds: field(z.array(z.string()), {
+			column: 'column_ids',
+			insertDefault: [],
+			nullDefault: []
+		}),
+		createdBy: field(z.string(), { column: 'created_by', readOnly: true }),
+		createdAt: field(z.string(), { column: 'created_at', readOnly: true }),
+		updatedAt: field(z.string(), { column: 'updated_at', readOnly: true })
+	}
+});

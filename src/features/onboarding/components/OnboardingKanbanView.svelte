@@ -118,16 +118,16 @@
 				</Alert.Root>
 			{/if}
 
-			{#if ctx.resyncError}
+			{#each ctx.resyncErrors as { onboardingId, error } (onboardingId)}
 				<Alert.Root variant="destructive">
 					<CircleAlert />
 					<Alert.Title>Sync Problem</Alert.Title>
-					<Alert.Description>{ctx.resyncError}</Alert.Description>
+					<Alert.Description>{error}</Alert.Description>
 					<Alert.Action>
-						<Button size="sm" variant="outline" onclick={() => (ctx.resyncError = null)}>Dismiss</Button>
+						<Button size="sm" variant="outline" onclick={() => ctx.dismissResyncError(onboardingId)}>Dismiss</Button>
 					</Alert.Action>
 				</Alert.Root>
-			{/if}
+			{/each}
 
 			{#if ctx.filteredOnboardings.length === 0}
 				{#if !ctx.hasTemplateSteps && ctx.onboardings.length === 0}

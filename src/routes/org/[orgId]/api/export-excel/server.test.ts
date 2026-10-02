@@ -74,6 +74,33 @@ function createExportTestContext(overrides?: Parameters<typeof createTestContext
 }
 
 describe('POST /api/export-excel', () => {
+	it.each(['personnel_onboardings', 'onboarding_step_progress'] as const)(
+		'rejects a failed %s read without an artifact or success effects',
+		async (failedTable) => {
+			const ctx = createExportTestContext();
+			const failure = new Error(`Saved ${failedTable} rows unavailable`);
+			const findMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+			ctx.rawStore.findMany = async (table, ...args) => {
+				if (table === failedTable) throw failure;
+				return findMany(table, ...args);
+			};
+
+			await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' })).rejects.toBe(failure);
+
+			const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+			expect(rows).toEqual([
+				expect.objectContaining({
+					requested_by: ctx.auth.userId,
+					status: 'failed',
+					completed_at: expect.any(String)
+				})
+			]);
+			expect(rows[0]).not.toHaveProperty('file_size_bytes');
+			expect(ctx.auditPort.events.filter((event) => event.action.startsWith('export.'))).toEqual([]);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+		}
+	);
+
 	it.each([
 		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const } },
 		{ label: 'Group-scoped member', scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] } }
@@ -267,6 +294,38 @@ describe('POST /api/export-excel', () => {
 		const rows = workbook.getWorksheet('Raw - Leader Notes')!.getSheetValues().flat(2);
 		expect(rows).toContain('own-note');
 		expect(rows).not.toContain('foreign-note');
+		const inventory = workbook.getWorksheet('Export Inventory')!;
+		const inventoryRows = inventory.getSheetValues();
+		expect(inventoryRows).toEqual(
+			expect.arrayContaining([
+				expect.arrayContaining(['personnel_onboardings', 'personnelOnboardings', 0]),
+				expect.arrayContaining(['onboarding_step_progress', 'onboardingStepProgress', 0])
+			])
+		);
+		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+		expect(exportRows).toEqual([
+			expect.objectContaining({
+				requested_by: ctx.auth.userId,
+				status: 'completed',
+				completed_at: expect.any(String),
+				file_size_bytes: result.artifact.buffer.byteLength
+			})
+		]);
+		expect(ctx.auditPort.events.filter((event) => event.action.startsWith('export.'))).toEqual([
+			expect.objectContaining({
+				action: 'export.excel_created',
+				resourceType: 'data_export',
+				resourceId: exportRows[0].id
+			})
+		]);
+		expect(ctx.notificationPort.notifications).toEqual([
+			expect.objectContaining({
+				target: 'admins',
+				orgId: ctx.auth.orgId,
+				excludeUserId: ctx.auth.userId,
+				notification: expect.objectContaining({ type: 'bulk_data_exported' })
+			})
+		]);
 	});
 
 	it('includes ETS and PCS / DEROS columns in the personnel worksheet', async () => {

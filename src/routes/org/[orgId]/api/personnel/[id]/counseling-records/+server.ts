@@ -1,13 +1,14 @@
+import { personnelArtifactsContext, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import {
 	createPersonnelCounselingRecord,
 	listPersonnelCounselingRecords,
 	type PersonnelCounselingRecordInput
-} from '$lib/server/core/useCases/personnelCounselingRecords';
-import type { PersonnelCounselingRecord } from '$features/personnel/personnel-detail.types';
+} from '$features/personnel/index.server';
+import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
 
 function personnelIdFromEvent(event: RequestEvent): string {
 	const personnelId = event.params.id;
@@ -21,7 +22,7 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelCounselin
 	parseInput: async (event: RequestEvent) => ({
 		personnelId: personnelIdFromEvent(event)
 	}),
-	fn: (ctx, input) => listPersonnelCounselingRecords(ctx, input.personnelId)
+	fn: (ctx, input) => listPersonnelCounselingRecords(personnelArtifactsContext(ctx), input.personnelId)
 };
 
 export const _postConfig: RouteConfig<PersonnelCounselingRecordInput, PersonnelCounselingRecord> = {
@@ -38,7 +39,7 @@ export const _postConfig: RouteConfig<PersonnelCounselingRecordInput, PersonnelC
 			file: formData.get('file') as File
 		};
 	},
-	fn: (ctx, input) => createPersonnelCounselingRecord(ctx, input)
+	fn: (ctx, input) => createPersonnelCounselingRecord(personnelArtifactsContext(ctx), input)
 };
 
 export const GET = handle(_getConfig);

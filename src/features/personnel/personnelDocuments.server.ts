@@ -1,32 +1,21 @@
 import { z } from 'zod';
-import type { PersonnelDocument } from '$features/personnel/personnel-detail.types';
+import type { PersonnelDocument } from './contracts';
 import type { PersonnelArtifactWriter } from '$features/personnel/contracts';
 import { derivePersonnelDocumentTitle } from '$features/personnel/utils/documentTitles';
 import { fail } from '$lib/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
 import { hasPdfFileSignature } from '$lib/storage/fileSignatures';
 import {
-	archiveArtifact,
-	deleteArtifact,
-	listArtifacts,
-	loadPersonnelContributorLabels,
-	mapDocumentRow,
-	PERSONNEL_DOCUMENT_SPEC,
 	personnelArtifactWriter,
-	requirePersonnelArtifactReadAccess,
-	restoreArtifact,
+	requirePersonnelArtifactAccess,
+	resolveContributorLabel,
+	type PersonnelArtifactsContext,
 	type PersonnelDocumentRow
-} from './personnelArtifactLifecycle';
+} from './personnelArtifactContext.server';
 
 export const PERSONNEL_DOCUMENTS_BUCKET = 'personnel-documents';
 export const MAX_PERSONNEL_DOCUMENT_BYTES = 10 * 1024 * 1024;
-export const DEFAULT_PERSONNEL_DOCUMENT_STORAGE_CAP_BYTES = 100 * 1024 * 1024;
 
 const ACCEPTED_DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/heic', 'image/heif']);
-
-interface OrganizationDocumentSettingsRow {
-	personnel_document_storage_cap_bytes?: number | null;
-}
 
 export interface PersonnelDocumentInput {
 	personnelId: string;
@@ -100,41 +89,31 @@ function safeFilename(filename: string): string {
 	return cleaned || fallback;
 }
 
-async function loadDocumentStorageCapBytes(ctx: UseCaseContext): Promise<number> {
-	const settings = await ctx.store.findOne<OrganizationDocumentSettingsRow>(
-		'organizations',
-		ctx.auth.orgId,
-		{ id: ctx.auth.orgId },
-		'personnel_document_storage_cap_bytes'
-	);
-	return settings?.personnel_document_storage_cap_bytes ?? DEFAULT_PERSONNEL_DOCUMENT_STORAGE_CAP_BYTES;
-}
-
 async function assertStorageCap(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	writer: PersonnelArtifactWriter,
 	nextBytes: number
 ): Promise<void> {
-	const [capBytes, currentBytes] = await Promise.all([
-		loadDocumentStorageCapBytes(ctx),
-		writer.sumActiveDocumentBytes()
-	]);
+	const [capBytes, currentBytes] = await Promise.all([ctx.documentStorageCapBytes(), writer.sumActiveDocumentBytes()]);
 	if (currentBytes + nextBytes > capBytes) {
 		fail(409, 'This Soldier has reached the document storage cap.');
 	}
 }
 
 export async function listPersonnelDocuments(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	personnelId: string,
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelDocument[]> {
-	return listArtifacts(ctx, PERSONNEL_DOCUMENT_SPEC, personnelId, { limit, archived: options.archived });
+	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
+	const rows = await ctx.persistence.listDocuments(personnelId, { archived: !!options.archived, limit });
+	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.uploaded_by ? [row.uploaded_by] : [])));
+	return rows.map((row) => mapDocumentRow(row, labels));
 }
 
 export async function createPersonnelDocument(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	rawInput: PersonnelDocumentInput
 ): Promise<PersonnelDocument> {
 	const parsed = documentInputSchema.safeParse(rawInput);
@@ -148,7 +127,7 @@ export async function createPersonnelDocument(
 	await assertStorageCap(ctx, writer, rawInput.file.size);
 
 	const filename = safeFilename(rawInput.file.name);
-	const filePath = `${ctx.auth.orgId}/personnel/${input.personnelId}/documents/${crypto.randomUUID()}-${filename}`;
+	const filePath = `${ctx.actor.orgId}/personnel/${input.personnelId}/documents/${crypto.randomUUID()}-${filename}`;
 	await writer.uploadFile('document', filePath, rawInput.file);
 
 	let row: PersonnelDocumentRow;
@@ -158,7 +137,7 @@ export async function createPersonnelDocument(
 			file_path: filePath,
 			file_size_bytes: rawInput.file.size,
 			content_type: rawInput.file.type,
-			uploaded_by: ctx.auth.userId,
+			uploaded_by: ctx.actor.userId,
 			created_at: new Date().toISOString()
 		});
 	} catch (error) {
@@ -172,52 +151,78 @@ export async function createPersonnelDocument(
 		resourceId: input.personnelId
 	});
 
-	const labels = await loadPersonnelContributorLabels(ctx, [row.uploaded_by]);
+	const labels = await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []);
 	return mapDocumentRow(row, labels);
 }
 
 export async function createPersonnelDocumentDownloadUrl(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	input: PersonnelDocumentDownloadInput
 ): Promise<{ url: string }> {
-	await requirePersonnelArtifactReadAccess(ctx, input.personnelId);
-	const document = await ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', ctx.auth.orgId, {
-		id: input.documentId,
-		personnel_id: input.personnelId
-	});
+	await requirePersonnelArtifactAccess(ctx, input.personnelId, 'read');
+	const document = await ctx.persistence.findDocument(input.personnelId, input.documentId);
 	if (!document) fail(404, 'Document not found');
 
 	return {
-		url: await ctx.storage.createSignedUrl(PERSONNEL_DOCUMENTS_BUCKET, document.file_path, 300)
+		url: await ctx.createDocumentSignedUrl(document.file_path, 300)
 	};
 }
 
+async function loadDocumentForWrite(ctx: PersonnelArtifactsContext, personnelId: string, id: string) {
+	const writer = await personnelArtifactWriter(ctx, personnelId);
+	const row = await writer.find<PersonnelDocumentRow>('personnel_documents', id);
+	if (!row) fail(404, 'Document not found');
+	return { writer, row };
+}
+
 export async function archivePersonnelDocument(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; documentId: string }
 ): Promise<PersonnelDocument> {
-	return archiveArtifact(ctx, PERSONNEL_DOCUMENT_SPEC, { personnelId: input.personnelId, id: input.documentId });
+	const { writer, row: existing } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
+	if (existing.archived_at) fail(409, 'Document is already archived');
+	const row = await writer.update<PersonnelDocumentRow>('personnel_documents', input.documentId, {
+		archived_at: new Date().toISOString()
+	});
+	ctx.audit.log({ action: 'personnel.document.archived', resourceType: 'personnel', resourceId: input.personnelId });
+	return mapDocumentRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
 }
 
 export async function restorePersonnelDocument(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; documentId: string }
 ): Promise<PersonnelDocument> {
-	return restoreArtifact(ctx, PERSONNEL_DOCUMENT_SPEC, { personnelId: input.personnelId, id: input.documentId });
+	const { writer } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
+	const row = await writer.update<PersonnelDocumentRow>('personnel_documents', input.documentId, { archived_at: null });
+	ctx.audit.log({ action: 'personnel.document.restored', resourceType: 'personnel', resourceId: input.personnelId });
+	return mapDocumentRow(row, await ctx.contributorLabels(row.uploaded_by ? [row.uploaded_by] : []));
 }
 
 export async function deletePersonnelDocument(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	input: { personnelId: string; documentId: string }
 ): Promise<void> {
-	return deleteArtifact(
-		ctx,
-		PERSONNEL_DOCUMENT_SPEC,
-		{ personnelId: input.personnelId, id: input.documentId },
-		{
-			onDeleted: async (row, writer) => {
-				await writer.removeFile('document', row.file_path);
-			}
-		}
-	);
+	const { writer, row } = await loadDocumentForWrite(ctx, input.personnelId, input.documentId);
+	if (!row.archived_at) fail(409, 'Archive documents before deleting them');
+	await writer.delete('personnel_documents', input.documentId);
+	await writer.removeFile('document', row.file_path);
+	ctx.audit.log({ action: 'personnel.document.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+}
+
+function fileNameFromPath(path: string): string {
+	return path.split(/[\\/]/).pop() ?? 'document';
+}
+
+function mapDocumentRow(row: PersonnelDocumentRow, contributorLabels = new Map<string, string>()): PersonnelDocument {
+	return {
+		id: row.id,
+		personnelId: row.personnel_id,
+		title: row.title,
+		fileName: fileNameFromPath(row.file_path),
+		fileSizeBytes: row.file_size_bytes,
+		contentType: row.content_type,
+		uploadedBy: resolveContributorLabel(contributorLabels, row.uploaded_by),
+		createdAt: row.created_at ?? new Date().toISOString(),
+		archivedAt: row.archived_at ?? null
+	};
 }

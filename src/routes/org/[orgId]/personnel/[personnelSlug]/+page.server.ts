@@ -1,24 +1,30 @@
+import {
+	personnelArtifactsContext,
+	loadWithContext,
+	personnelLeaderNoteContext
+} from '$lib/server/adapters/httpAdapter';
 import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadWithContext, personnelLeaderNoteContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
 import {
 	currentPersonnelReadinessDate,
 	loadAvailabilityReadinessLane,
 	loadLossTrackingReadinessLane,
-	loadPersonnelForLane
+	loadPersonnelForLane,
+	listPersonnelLeaderNotes,
+	readPersonnelExtendedInfo,
+	listPersonnelCounselingRecords,
+	listPersonnelDocuments,
+	listPersonnelFollowUps
 } from '$features/personnel/index.server';
 import { loadTrainingReadinessLane } from '$features/training/index.server';
 import { loadRatingSchemeReadinessLane } from '$features/rating-scheme/index.server';
 import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
-import { listPersonnelLeaderNotes, readPersonnelExtendedInfo } from '$features/personnel/index.server';
 import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
-import { listPersonnelCounselingRecords } from '$lib/server/core/useCases/personnelCounselingRecords';
-import { listPersonnelDocuments } from '$lib/server/core/useCases/personnelDocuments';
-import { listPersonnelFollowUps } from '$lib/server/core/useCases/personnelFollowUps';
 
 function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string): PersonnelDetailStreams {
+	const artifactContext = personnelArtifactsContext(ctx);
 	const extendedInfo = readPersonnelExtendedInfo(ctx, personnelId);
 	const readinessAsOf = currentPersonnelReadinessDate();
 	return {
@@ -68,14 +74,12 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 				return settings?.loss_warning_window_days;
 			})
 		},
-		// Artifact use cases keep their own authorization boundary. The shared helper caches
-		// the repeated Personnel access check per request context so these dashboard panels
-		// do not each reload the same Personnel row.
+		// The three owned artifact reads share one request-local authorization context.
 		extendedInfo,
-		counselingRecords: listPersonnelCounselingRecords(ctx, personnelId, 5),
-		documents: listPersonnelDocuments(ctx, personnelId, 5),
+		counselingRecords: listPersonnelCounselingRecords(artifactContext, personnelId, 5),
+		documents: listPersonnelDocuments(artifactContext, personnelId, 5),
 		leaderNotes: listPersonnelLeaderNotes(personnelLeaderNoteContext(ctx), personnelId, 1),
-		followUps: listPersonnelFollowUps(ctx, personnelId)
+		followUps: listPersonnelFollowUps(artifactContext, personnelId)
 	};
 }
 

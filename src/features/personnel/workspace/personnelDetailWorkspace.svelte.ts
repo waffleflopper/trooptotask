@@ -1,18 +1,21 @@
 import { goto, invalidateAll } from '$app/navigation';
 import { resolve } from '$app/paths';
-import type { PersonnelExtendedInfo, PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
+	PersonnelExtendedInfo,
+	PersonnelLeaderNote,
 	PersonnelCounselingRecord,
-	PersonnelDetailStreams,
 	PersonnelDocument,
 	PersonnelFollowUp,
+	Group
+} from '$features/personnel/contracts';
+import type {
+	PersonnelDetailStreams,
 	PersonnelReadinessLane,
 	PersonnelReadinessLaneKey,
 	PersonnelReadinessLaneTone
 } from '$features/personnel/personnel-detail.types';
 import { archivePersonnel, type RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
-import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '../personnel.types';
 import { SvelteDate } from 'svelte/reactivity';
 import { ArtifactDraft } from './artifactDraft.svelte';

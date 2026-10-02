@@ -2,13 +2,14 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
-	PersonnelDetailStreams,
 	PersonnelFollowUp,
 	PersonnelDocument,
-	PersonnelCounselingRecord
-} from '$features/personnel/personnel-detail.types';
+	PersonnelCounselingRecord,
+	PersonnelLeaderNote
+} from '$features/personnel/contracts';
+import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
-import type { PersonnelLeaderNote } from '$features/personnel/contracts';
+
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;

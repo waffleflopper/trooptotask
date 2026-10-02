@@ -82,3 +82,37 @@ export {
 
 export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';
 export { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';
+
+export type {
+	PersonnelArtifactsContext,
+	CounselingRecordRow,
+	PersonnelDocumentRow,
+	FollowUpRow
+} from './personnelArtifactContext.server';
+export {
+	listPersonnelCounselingRecords,
+	createPersonnelCounselingRecord,
+	archivePersonnelCounselingRecord,
+	restorePersonnelCounselingRecord,
+	deletePersonnelCounselingRecord
+} from './personnelCounselingRecords.server';
+export type { PersonnelCounselingRecordInput } from './personnelCounselingRecords.server';
+export {
+	listPersonnelDocuments,
+	createPersonnelDocument,
+	createPersonnelDocumentDownloadUrl,
+	archivePersonnelDocument,
+	restorePersonnelDocument,
+	deletePersonnelDocument
+} from './personnelDocuments.server';
+export type { PersonnelDocumentInput, PersonnelDocumentDownloadInput } from './personnelDocuments.server';
+export {
+	listPersonnelFollowUps,
+	createPersonnelFollowUp,
+	setPersonnelFollowUpStatus,
+	updatePersonnelFollowUp,
+	archivePersonnelFollowUp,
+	restorePersonnelFollowUp,
+	deletePersonnelFollowUp
+} from './personnelFollowUps.server';
+export { listPersonnelArchivedArtifacts } from './personnelArchivedArtifacts.server';

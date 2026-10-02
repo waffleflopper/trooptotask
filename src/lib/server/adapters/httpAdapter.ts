@@ -52,18 +52,22 @@ import {
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
-import { createSupabasePersonnelRatingSchemeRosterPort } from '$features/personnel/index.server';
+import {
+	createSupabasePersonnelRatingSchemeRosterPort,
+	createSupabasePersonnelAwardAcknowledgementPort,
+	createSupabasePersonnelArtifactWritePort,
+	createSupabasePersonnelOrganizationExportPort,
+	createSupabasePersonnelGovernanceDeletionPort,
+	createSupabaseSignInRosterPersonnelLookupPort,
+	createSupabasePersonnelTrainingRosterPort,
+	createSupabasePersonnelCriticalTasksRosterPort,
+	createSupabasePersonnelCalendarRosterPort,
+	createSupabasePersonnelOnboardingRosterPort
+} from '$features/personnel/index.server';
 import { createSupabaseRatingSchemeDuePort } from '$features/rating-scheme/index.server';
-import { createSupabasePersonnelAwardAcknowledgementPort } from '$features/personnel/index.server';
-import { createSupabasePersonnelArtifactWritePort } from '$features/personnel/index.server';
-import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
-import { createSupabasePersonnelGovernanceDeletionPort } from '$features/personnel/index.server';
+
 import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
-import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
-import { createSupabasePersonnelTrainingRosterPort } from '$features/personnel/index.server';
-import { createSupabasePersonnelCriticalTasksRosterPort } from '$features/personnel/index.server';
-import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
-import { createSupabasePersonnelOnboardingRosterPort } from '$features/personnel/index.server';
+
 import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
 import {
 	createSupabaseOnboardingCalendarMarkersPort,
@@ -82,8 +86,19 @@ import {
 } from '$lib/server/core/useCases/routeAuthorization';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
-import type { LeaderNoteContext, LeaderNoteRow } from '$features/personnel/index.server';
-import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+import type {
+	LeaderNoteContext,
+	LeaderNoteRow,
+	PersonnelArtifactsContext,
+	CounselingRecordRow,
+	PersonnelDocumentRow,
+	FollowUpRow
+} from '$features/personnel/index.server';
+import {
+	loadOrganizationMemberLabels,
+	loadPersonnelDocumentStorageCapBytes,
+	type OrganizationMemberLabelRow
+} from '$features/organization/index.server';
 
 /** Bind delivery to owned Organization recipient facts without giving Notifications membership access. */
 export function createRequestNotificationDelivery() {
@@ -121,6 +136,117 @@ function getApiContext(locals: App.Locals): { supabase: SupabaseClient; userId: 
 interface BuildContextResult {
 	ctx: UseCaseContext;
 	supabase: ReturnType<typeof getApiContext>['supabase'];
+}
+
+/** Bind the admitted request to Personnel's three retained artifact families. */
+export function personnelArtifactsContext(ctx: UseCaseContext): PersonnelArtifactsContext {
+	const orgId = ctx.auth.orgId;
+	const requestStore = ctx.rawStore ?? ctx.store;
+	return {
+		actor: ctx.auth,
+		scope: ctx.scope,
+		audit: ctx.audit,
+		persistence: {
+			async findPersonnelGroup(personnelId) {
+				const row = await requestStore.findOne<{ group_id: string | null }>(
+					'personnel',
+					orgId,
+					{ id: personnelId },
+					'id, group_id'
+				);
+				return row?.group_id;
+			},
+			listCounselingRecords: (personnelId, { archived, limit }) =>
+				ctx.store.findMany<CounselingRecordRow>(
+					'counseling_records',
+					orgId,
+					{ personnel_id: personnelId },
+					{
+						orderBy: [
+							{ column: 'date_conducted', ascending: false },
+							{ column: 'created_at', ascending: false }
+						],
+						isNull: { archived_at: !archived },
+						limit
+					}
+				),
+			listDocuments: (personnelId, { archived, limit }) =>
+				ctx.store.findMany<PersonnelDocumentRow>(
+					'personnel_documents',
+					orgId,
+					{ personnel_id: personnelId },
+					{
+						orderBy: [{ column: 'created_at', ascending: false }],
+						isNull: { archived_at: !archived },
+						limit
+					}
+				),
+			listFollowUps: (personnelId, { archived, limit }) =>
+				ctx.store.findMany<FollowUpRow>(
+					'personnel_follow_ups',
+					orgId,
+					{ personnel_id: personnelId, ...(archived ? { status: 'archived' } : {}) },
+					{
+						orderBy: [
+							{ column: 'status', ascending: false },
+							...(archived ? [{ column: 'archived_at', ascending: false }] : []),
+							{ column: 'created_at', ascending: false }
+						],
+						...(archived ? {} : { notInFilters: { status: ['archived'] } }),
+						limit
+					}
+				),
+			findDocument: (personnelId, documentId) =>
+				ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', orgId, {
+					id: documentId,
+					personnel_id: personnelId
+				})
+		},
+		writerFor(personnelId) {
+			if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
+			return ctx.personnelArtifactWrites.forPerson(ctx.auth, personnelId);
+		},
+		contributorLabels: (userIds) =>
+			loadOrganizationMemberLabels(
+				{
+					async findMembers(memberOrgId, ids) {
+						const rows: OrganizationMemberLabelRow[] = [];
+						// The full artifact list can exceed one provider page. Bound each
+						// UUID filter just as the accepted note traversal bounds label reads.
+						for (let from = 0; from < ids.length; from += 100) {
+							rows.push(
+								...(await requestStore.findMany<OrganizationMemberLabelRow>(
+									'organization_memberships',
+									memberOrgId,
+									undefined,
+									{ inFilters: { user_id: ids.slice(from, from + 100) } }
+								))
+							);
+						}
+						return rows;
+					}
+				},
+				orgId,
+				userIds
+			),
+		documentStorageCapBytes: () =>
+			loadPersonnelDocumentStorageCapBytes(
+				{
+					async findStorageCapBytes(settingOrgId) {
+						const row = await ctx.store.findOne<{ personnel_document_storage_cap_bytes?: number | null }>(
+							'organizations',
+							settingOrgId,
+							{ id: settingOrgId },
+							'personnel_document_storage_cap_bytes'
+						);
+						return row?.personnel_document_storage_cap_bytes;
+					}
+				},
+				orgId
+			),
+		createDocumentSignedUrl: (filePath, expiresInSeconds) =>
+			ctx.storage.createSignedUrl('personnel-documents', filePath, expiresInSeconds)
+	};
 }
 
 /** Bind the admitted request to Personnel's typed note collaborators. */

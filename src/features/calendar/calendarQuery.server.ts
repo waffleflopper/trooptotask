@@ -117,18 +117,16 @@ export async function fetchCalendarBootstrap(
 	const specialDays = listSpecialDaysInRange(ctx.store, orgId, specialDaysRange);
 	const dailyAssignments = listDailyAssignments(ctx, input, calendarScope);
 
-	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, orgSettingsRow] = await Promise.all([
+	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, warningWindow] = await Promise.all([
 		listAssignmentTypes(ctx.store, orgId),
 		listPinnedGroupNames(ctx),
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
 		listGroupCatalog(ctx, { groupIds: calendarScope?.groupIds }),
 		listStatusTypes(ctx.store, orgId),
-		ctx.store
-			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
-			.catch(() => null)
+		ctx.organizationSettings.findLossWarningWindowDays(orgId).catch(() => null)
 	]);
 
-	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
+	const lossWarningWindowDays = warningWindow ?? 180;
 
 	return {
 		rangeStart,

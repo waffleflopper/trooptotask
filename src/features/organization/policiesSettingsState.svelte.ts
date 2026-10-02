@@ -1,20 +1,4 @@
-type WorkspaceConstraint<Unit extends string> = {
-	min: number;
-	max: number;
-	unit: Unit;
-};
-
-export type SettingsPoliciesSectionData = {
-	archiveRetention: {
-		savedMonths: number;
-		constraints: WorkspaceConstraint<'months'>;
-	};
-	lossWarning: {
-		savedDays: number;
-		constraints: WorkspaceConstraint<'days'>;
-	};
-	canUpdateRetention: boolean;
-};
+import type { SettingsPoliciesSectionData } from './policiesSettingsTypes';
 
 export class SettingsPoliciesState {
 	readonly #getPolicies: () => SettingsPoliciesSectionData;

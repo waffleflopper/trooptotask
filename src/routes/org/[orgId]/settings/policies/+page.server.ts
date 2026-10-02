@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import { loadPoliciesSettings } from '../settingsPolicies.server';
+import { loadPoliciesSettings } from '$features/organization/index.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 
 export const load: PageServerLoad = (event) =>

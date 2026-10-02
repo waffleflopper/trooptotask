@@ -70,6 +70,49 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		expect(onboardingStore.getById('ob-1')?.steps[0].notes).toEqual([originalNote]);
 	});
 
+	it.each(['cancel', 'complete'] as const)(
+		'rolls back optimistic %s after a 409 while retaining saved work and notes',
+		async (operation) => {
+			const original = {
+				...mockOnboarding,
+				steps: [
+					{
+						...mockOnboarding.steps[0],
+						completed: true,
+						notes: [{ text: 'Saved work', timestamp: '2026-09-01T12:00:00.000Z', userId: 'author-1' }]
+					},
+					{
+						...mockOnboarding.steps[0],
+						id: 'inactive-training',
+						stepType: 'training' as const,
+						trainingTypeId: 'training-1',
+						active: false,
+						completed: true
+					}
+				]
+			};
+			onboardingStore.load([original], 'org-1');
+			let respond!: (response: Response) => void;
+			vi.stubGlobal(
+				'fetch',
+				vi.fn(
+					() =>
+						new Promise<Response>((resolve) => {
+							respond = resolve;
+						})
+				)
+			);
+
+			const pending =
+				operation === 'cancel' ? onboardingStore.cancelOnboarding('ob-1') : onboardingStore.completeOnboarding('ob-1');
+			expect(onboardingStore.getById('ob-1')?.status).toBe(operation === 'cancel' ? 'cancelled' : 'completed');
+			respond(Response.json({ message: 'Onboarding changed before persistence' }, { status: 409 }));
+
+			await expect(pending).resolves.toBe(false);
+			expect(onboardingStore.items).toEqual([original]);
+		}
+	);
+
 	it('resyncs the template and steps when another user has switched the packet', async () => {
 		onboardingStore.load([{ ...mockOnboarding, templateId: 'template-a' }], 'org-1');
 		const steps = [{ ...mockOnboarding.steps[0], templateStepId: 'template-b-step', stepName: 'Equipment' }];

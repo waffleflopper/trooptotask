@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import {
+	createTestContext,
+	createWritePortsContext,
+	createWriteWithNotificationsPortsContext
+} from '$lib/server/adapters/inMemory';
+import type { OnboardingLifecycleTransitionPort, OnboardingLifecycleTransitionResult } from '../contracts';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { startOnboarding, cancelOnboarding, reopenOnboarding, completeOnboarding } from './onboardingLifecycle.server';
 
@@ -17,6 +22,36 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 		...overrides,
 		auth: { role: 'owner', ...overrides?.auth }
 	});
+}
+
+const cancelledSaved: OnboardingLifecycleTransitionResult = {
+	id: 'ob-1',
+	status: 'cancelled',
+	cancelled_at: '2026-10-01T12:00:00.123Z',
+	completed_at: null
+};
+const completedSaved: OnboardingLifecycleTransitionResult = {
+	id: 'ob-1',
+	status: 'completed',
+	cancelled_at: null,
+	completed_at: '2026-10-01'
+};
+const reopenedSaved: OnboardingLifecycleTransitionResult = {
+	id: 'ob-1',
+	status: 'in_progress',
+	cancelled_at: null,
+	completed_at: null
+};
+
+// Controlled provider outcomes exercise orchestration, not database locking or persistence.
+function buildTransitionContext(
+	saved: OnboardingLifecycleTransitionResult | null,
+	overrides?: Parameters<typeof buildContext>[0]
+) {
+	const transition = vi.fn<OnboardingLifecycleTransitionPort['transition']>().mockResolvedValue(saved);
+	const ctx = buildContext({ ...overrides, onboardingLifecycleTransition: { transition } });
+	vi.spyOn(ctx.store, 'update').mockRejectedValue(new Error('Generic parent update must not run'));
+	return { ...ctx, transition };
 }
 
 function seedTemplateWithSteps(ctx: ReturnType<typeof buildContext>) {
@@ -337,12 +372,11 @@ describe('startOnboarding', () => {
 		const ctx = buildContext();
 		seedTemplateWithSteps(ctx);
 
-		const first = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
-		await cancelOnboarding(ctx, first.id);
+		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 		const second = await startOnboarding(ctx, { personnelId: 'p-1', templateId: 'tmpl-1' });
 
 		expect(second.status).toBe('in_progress');
-		expect(second.id).not.toBe(first.id);
+		expect(second.id).not.toBe('ob-1');
 	});
 
 	it('only queries training records for the specific soldier and training type IDs', async () => {
@@ -384,7 +418,7 @@ function seedOnboarding(ctx: ReturnType<typeof buildContext>, overrides?: Record
 
 describe('cancelOnboarding', () => {
 	it('sets status to cancelled with cancelled_at timestamp', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx);
 
 		const result = await cancelOnboarding(ctx, 'ob-1');
@@ -395,27 +429,27 @@ describe('cancelOnboarding', () => {
 	});
 
 	it('rejects when onboarding not found', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(cancelledSaved);
 
 		await expect(cancelOnboarding(ctx, 'nonexistent')).rejects.toThrow('Onboarding not found');
 	});
 
 	it('rejects cancelling a completed onboarding', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
 		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be cancelled');
 	});
 
 	it('rejects cancelling an already cancelled onboarding', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
 		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be cancelled');
 	});
 
 	it('emits audit log', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(cancelledSaved);
 		seedOnboarding(ctx);
 
 		await cancelOnboarding(ctx, 'ob-1');
@@ -430,32 +464,33 @@ describe('cancelOnboarding', () => {
 });
 
 describe('reopenOnboarding', () => {
-	it('sets status back to in_progress and clears cancelled_at', async () => {
-		const ctx = buildContext();
+	it('adopts saved in_progress status with both terminal dates cleared', async () => {
+		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
 		const result = await reopenOnboarding(ctx, 'ob-1');
 
 		expect(result.status).toBe('in_progress');
 		expect(result.cancelledAt).toBeNull();
+		expect(result.completedAt).toBeNull();
 	});
 
 	it('rejects reopening an in_progress onboarding', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx); // status: in_progress
 
 		await expect(reopenOnboarding(ctx, 'ob-1')).rejects.toThrow('Only cancelled onboardings can be reopened');
 	});
 
 	it('rejects reopening a completed onboarding', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
 		await expect(reopenOnboarding(ctx, 'ob-1')).rejects.toThrow('Only cancelled onboardings can be reopened');
 	});
 
 	it('emits audit log', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(reopenedSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
 		await reopenOnboarding(ctx, 'ob-1');
@@ -505,7 +540,7 @@ function seedSteps(ctx: ReturnType<typeof buildContext>, overrides?: Record<stri
 
 describe('completeOnboarding', () => {
 	it('sets status to completed with completed_at and returns incomplete count', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx);
 		seedSteps(ctx); // 2 incomplete (step-1, step-3), 1 complete (step-2)
 
@@ -513,12 +548,13 @@ describe('completeOnboarding', () => {
 
 		expect(result.status).toBe('completed');
 		expect(result.completedAt).toBeTruthy();
-		expect(new Date(result.completedAt!).toISOString()).toBe(result.completedAt);
+		expect(result.completedAt).toBe('2026-10-01');
+		expect(result.cancelledAt).toBeNull();
 		expect(result.incompleteCount).toBe(2);
 	});
 
 	it('returns 0 incomplete count when all active steps are complete', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx);
 		seedSteps(ctx, [
 			{
@@ -545,7 +581,7 @@ describe('completeOnboarding', () => {
 	});
 
 	it('excludes inactive steps from incomplete count', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx);
 		seedSteps(ctx, [
 			{
@@ -572,21 +608,21 @@ describe('completeOnboarding', () => {
 	});
 
 	it('rejects completing a cancelled onboarding', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx, { status: 'cancelled', cancelled_at: '2026-03-01T00:00:00Z' });
 
 		await expect(completeOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be completed');
 	});
 
 	it('rejects completing an already completed onboarding', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx, { status: 'completed', completed_at: '2026-03-01T00:00:00Z' });
 
 		await expect(completeOnboarding(ctx, 'ob-1')).rejects.toThrow('Only in-progress onboardings can be completed');
 	});
 
 	it('emits audit log with incomplete count', async () => {
-		const ctx = buildContext();
+		const ctx = buildTransitionContext(completedSaved);
 		seedOnboarding(ctx);
 		seedSteps(ctx);
 
@@ -599,5 +635,105 @@ describe('completeOnboarding', () => {
 			resourceId: 'ob-1',
 			details: { incomplete_count: 2 }
 		});
+	});
+});
+
+const transitions = [
+	{ kind: 'cancel', run: cancelOnboarding, initialStatus: 'in_progress' },
+	{ kind: 'complete', run: completeOnboarding, initialStatus: 'in_progress' },
+	{ kind: 'reopen', run: reopenOnboarding, initialStatus: 'cancelled' }
+] as const;
+
+describe.each(transitions)('$kind lifecycle persistence boundary', ({ kind, run, initialStatus }) => {
+	it('rejects a lost status expectation with 409 and no success audit or fallback write', async () => {
+		const ctx = buildTransitionContext(null);
+		seedOnboarding(ctx, { status: initialStatus });
+		seedSteps(ctx);
+
+		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 409 });
+
+		expect(ctx.transition).toHaveBeenCalledWith('test-org', 'ob-1', expect.objectContaining({ kind }));
+		expect(ctx.store.update).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it.each([Object.assign(new Error('Write denied'), { status: 403 }), new Error('Database unavailable')])(
+		'propagates %s without reporting a successful transition',
+		async (error) => {
+			const ctx = buildTransitionContext(null);
+			ctx.transition.mockRejectedValue(error);
+			seedOnboarding(ctx, { status: initialStatus });
+
+			await expect(run(ctx, 'ob-1')).rejects.toBe(error);
+
+			expect(ctx.store.update).not.toHaveBeenCalled();
+			expect(ctx.audit.events).toEqual([]);
+		}
+	);
+
+	it('preserves a sequential invalid-transition 400 before calling the provider', async () => {
+		const ctx = buildTransitionContext(null);
+		seedOnboarding(ctx, { status: 'completed' });
+
+		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 400 });
+
+		expect(ctx.transition).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it('keeps a foreign Organization packet invisible before calling the provider', async () => {
+		const ctx = buildTransitionContext(null);
+		seedOnboarding(ctx, { status: initialStatus, organization_id: 'other-org' });
+
+		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 404 });
+
+		expect(ctx.transition).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it.each(['missing capability', 'out-of-scope Person'] as const)('denies %s before persistence', async (reason) => {
+		const ctx = buildTransitionContext(null, {
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...operatorCapabilityMap, onboarding: reason === 'missing capability' ? 'view' : 'operate' },
+				scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+			}
+		});
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', group_id: reason === 'missing capability' ? 'g-1' : 'g-2', organization_id: 'test-org' }
+		]);
+		seedOnboarding(ctx, { status: initialStatus });
+
+		await expect(run(ctx, 'ob-1')).rejects.toMatchObject({ status: 403 });
+
+		expect(ctx.transition).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([expect.objectContaining({ action: 'policy.denied' })]);
+	});
+});
+
+describe('unbound lifecycle provider', () => {
+	it.each([createTestContext, createWritePortsContext, createWriteWithNotificationsPortsContext])(
+		'fails explicitly in a test context instead of emulating a database transition',
+		async (build) => {
+			const ctx = build();
+
+			await expect(
+				ctx.onboardingLifecycleTransition!.transition('test-org', 'ob-1', { kind: 'reopen' })
+			).rejects.toThrow('Bind the owned Onboarding lifecycle transition provider');
+		}
+	);
+
+	it('rejects an absent optional provider without a generic write or success audit', async () => {
+		const ctx = buildTransitionContext(null);
+		ctx.onboardingLifecycleTransition = undefined;
+		seedOnboarding(ctx);
+
+		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow(
+			'Bind the owned Onboarding lifecycle transition provider'
+		);
+
+		expect(ctx.store.update).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
 	});
 });

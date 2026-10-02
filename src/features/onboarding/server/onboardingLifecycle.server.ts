@@ -1,4 +1,4 @@
-import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
+import { listOnboardingTemplateSteps } from './onboardingTemplateRead.server';
 /**
  * Onboarding lifecycle use cases — start, cancel, and complete an onboarding record.
  *
@@ -6,17 +6,17 @@ import { listOnboardingTemplateSteps } from '$features/onboarding/index.server';
  * creating step records for each template step. Returns the created record ID.
  *
  * Lifecycle transitions (cancel, complete) enforce that the record is in the correct
- * state before proceeding. For step-level progress, see `onboardingStepProgress.ts`.
+ * state before proceeding. For step-level progress, see `onboardingStepProgress.server.ts`.
  * For expiry-based permanent deletion of terminal packets, see Onboarding-owned `cleanupExpiredOnboardings`.
  */
 import { fail } from '$lib/errors';
-import type { OnboardingTrainingPorts, OnboardingWorkflowPorts } from './onboardingPolicy';
-import { subjectDetails } from '$lib/server/auditDetails';
+import type { OnboardingTrainingPorts, OnboardingWorkflowPorts } from './onboardingPorts.server';
+import { subjectDetails } from '$lib/audit/index.server';
 import { formatToday } from '$lib/utils/dates';
 import {
 	requireOnboardingManagePolicyForOnboarding,
 	requireOnboardingManagePolicyForPersonnel
-} from './onboardingPolicy';
+} from './onboardingPolicy.server';
 
 interface StartInput {
 	personnelId: string;

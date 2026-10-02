@@ -36,6 +36,16 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 	});
 	afterEach(() => vi.unstubAllGlobals());
 
+	it('resyncs the template and steps when another user has switched the packet', async () => {
+		onboardingStore.load([{ ...mockOnboarding, templateId: 'template-a' }], 'org-1');
+		const steps = [{ ...mockOnboarding.steps[0], templateStepId: 'template-b-step', stepName: 'Equipment' }];
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ templateId: 'template-b', steps })));
+
+		await expect(onboardingStore.resync('ob-1')).resolves.toEqual({ success: true });
+
+		expect(onboardingStore.getById('ob-1')).toEqual({ ...mockOnboarding, templateId: 'template-b', steps });
+	});
+
 	it.each([
 		[
 			'start',

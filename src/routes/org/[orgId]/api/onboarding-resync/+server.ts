@@ -1,6 +1,6 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { resyncOnboarding, switchTemplate } from '$lib/server/core/useCases/onboardingResync';
+import { resyncOnboarding, switchTemplate } from '$features/onboarding/index.server';
 
 export const _postConfig = {
 	mutation: true,

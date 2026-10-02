@@ -299,7 +299,9 @@ function enhance(
 				const result = await res.json();
 				if (version !== organizationVersion) return { success: false };
 				internals.serverState.set(
-					internals.serverState.getSnapshot().map((o) => (o.id === onboardingId ? { ...o, steps: result.steps } : o))
+					internals.serverState
+						.getSnapshot()
+						.map((o) => (o.id === onboardingId ? { ...o, templateId: result.templateId, steps: result.steps } : o))
 				);
 				return { success: true };
 			} catch {

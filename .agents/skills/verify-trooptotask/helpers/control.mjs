@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
@@ -17,6 +18,11 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
+import {
+	prepareUploadOverlap,
+	inspectUploadOverlap,
+	deleteAfterUploadOverlap
+} from './organization-upload-overlap.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
@@ -763,6 +769,74 @@ async function main() {
 		return;
 	}
 	if (command === 'destruction') {
+		if (['overlap-scan', 'overlap-delete'].includes(args[0])) {
+			if (args.length !== 1) throw new Error('Overlap controls accept no target or credentials.');
+			const client = await provider();
+			const ownedState = await saved();
+			const config = await readJSON(path.join(session, 'provider.json'));
+			const owner = createClient(config.API_URL, config.ANON_KEY, {
+				auth: { persistSession: false, autoRefreshToken: false }
+			});
+			const login = await owner.auth.signInWithPassword({
+				email: fixture.actors.orgOwner.email,
+				password: fixture.actors.orgOwner.password
+			});
+			if (login.error || login.data.user?.id !== fixture.actors.orgOwner.id)
+				throw new Error('Normal owned owner provider sign-in failed.');
+			if (args[0] === 'overlap-scan') {
+				if (ownedState.uploadOverlap) throw new Error('Use a fresh worker for another overlap.');
+				const prepared = await prepareUploadOverlap(owner, {
+					orgId: org('orgA'),
+					personId: fixture.ids.personA,
+					tag: randomUUID().slice(0, 8)
+				});
+				ownedState.uploadOverlap = { ...prepared, sessionId: state.id, candidate: doctor.candidate };
+				await save(ownedState);
+				note(ownedState.uploadOverlap);
+				return;
+			}
+			const prepared = ownedState.uploadOverlap;
+			if (
+				!prepared ||
+				prepared.sessionId !== state.id ||
+				prepared.candidate !== doctor.candidate ||
+				prepared.orgId !== org('orgA') ||
+				prepared.personId !== fixture.ids.personA
+			)
+				throw new Error('No unchanged owned final scan belongs to this worker.');
+			const { row, bytes } = await inspectUploadOverlap(client, prepared);
+			const file = {
+				bucket: 'personnel-documents',
+				path: row.file_path,
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex')
+			};
+			ownedState.seeded.push({
+				kind: 'organization-upload-overlap',
+				table: 'personnel_documents',
+				organization: 'orgA',
+				ids: [row.id],
+				files: [file]
+			});
+			await save(ownedState);
+
+			const deletion = await deleteAfterUploadOverlap(owner, prepared);
+			const organizationAfter = checked(await client.from('organizations').select('id,name').eq('id', prepared.orgId));
+			const documentAfter = checked(await client.from('personnel_documents').select('*').eq('id', row.id));
+			const blob = checked(await client.storage.from(file.bucket).download(file.path));
+			const afterBytes = Buffer.from(await blob.arrayBuffer());
+			note({
+				prepared,
+				nativeDocument: row,
+				fileBefore: file,
+				deletion,
+				organizationAfter,
+				documentAfter,
+				fileAfter: { ...file, size: afterBytes.length, sha256: createHash('sha256').update(afterBytes).digest('hex') },
+				boundary: 'Ordinary provider delete after native upload; not Identity or native destruction proof.'
+			});
+			return;
+		}
 		if (['fault-on', 'fault-off', 'bytes'].includes(args[0])) {
 			let stdout;
 			try {
@@ -880,7 +954,7 @@ async function main() {
 			add('counseling-files', `${org('orgA')}/destruction-${tag}-root.pdf`, 'target-root');
 			for (const bucket of ['counseling-files', 'personnel-documents']) {
 				add(bucket, `${org('orgB')}/destruction-${tag}/foreign.pdf`, 'foreign');
-				add(bucket, `${org('orgA')}-extra/destruction-${tag}/lookalike.pdf`, 'lookalike');
+				// Invalid namespace lookalikes are historical SQL fixtures; runtime writes now require a canonical Organization.
 			}
 			const source = objects.find((file) => file.classification === 'target-lowercase');
 			const prefixRoot = {
@@ -892,21 +966,16 @@ async function main() {
 			// SDK upload trims trailing slashes; copy preserves this valid raw key.
 			// Ledger the destination before any effect and copy only after its source exists.
 			objects.push(prefixRoot);
+			for (const file of objects) file.uploadId = randomUUID();
 			const files = objects.map(({ bytes: _bytes, ...file }) => file);
 			ownedState.seeded.push({ kind, tag, table: 'organizations', organization: 'orgA', ids: [], files });
 			await save(ownedState);
 			const uploads = objects.filter((file) => !file.copyFrom);
 			for (let start = 0; start < uploads.length; start += 16)
 				await Promise.all(
-					uploads
-						.slice(start, start + 16)
-						.map(async (file) =>
-							checked(
-								await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' })
-							)
-						)
+					uploads.slice(start, start + 16).map((file) => registeredFixtureFileWrite(client, fixture, file))
 				);
-			checked(await client.storage.from(prefixRoot.bucket).copy(prefixRoot.copyFrom, prefixRoot.path));
+			await registeredFixtureFileWrite(client, fixture, prefixRoot);
 			note({ kind, tag, files, setup: 'Synthetic Storage API upload/copy; no application acceptance claim.' });
 			return;
 		}
@@ -1013,6 +1082,7 @@ async function main() {
 					}
 				}
 			}
+			for (const file of objects) file.uploadId = randomUUID();
 			const files = objects.map(({ bytes: _bytes, ...file }) => file);
 			const batches = [
 				['organization_memberships', 'orgB', [membership]],
@@ -1042,10 +1112,7 @@ async function main() {
 				});
 			await save(ownedState);
 			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
-			for (const file of objects)
-				checked(
-					await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' })
-				);
+			for (const file of objects) await registeredFixtureFileWrite(client, fixture, file);
 			note({
 				kind,
 				tag,

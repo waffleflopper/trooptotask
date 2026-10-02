@@ -7,6 +7,8 @@ import {
 } from '$lib/storage/sensitiveFiles';
 import { prepareSignInRosterSnapshot, type SignInRosterSnapshotContext } from './snapshot.server';
 import type { SignInRosterListInput, SignInRosterPersistence, SignInRosterRecord } from './rosterPersistence.server';
+import type { AuthContext } from '$lib/server/core/ports';
+import type { SignInRosterFileWritePort } from './contracts';
 
 interface RosterContext {
 	orgId: string;
@@ -105,7 +107,11 @@ function buildScanPath(orgId: string, rosterId: string, filename: string): strin
 	});
 }
 
-export async function uploadSignedScan(ctx: RosterContext, rosterId: string, file: File | null) {
+export async function uploadSignedScan(
+	ctx: RosterContext & { actor: AuthContext; fileWrites: SignInRosterFileWritePort },
+	rosterId: string,
+	file: File | null
+) {
 	if (!file) fail(400, 'No file provided');
 	const validationError = await validateSensitivePdfFile(file);
 	if (validationError) fail(400, validationError);
@@ -115,12 +121,14 @@ export async function uploadSignedScan(ctx: RosterContext, rosterId: string, fil
 	const previousSignedFilePath = roster.signed_file_path ?? null;
 	const storagePath = buildScanPath(ctx.orgId, rosterId, file.name);
 
-	await ctx.storage.upload(SENSITIVE_FILE_BUCKET, storagePath, file, { upsert: true });
+	const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
+	const upload = await files.upload(storagePath, file);
 	try {
 		await ctx.persistence.setSignedFilePath(rosterId, storagePath);
 	} catch (error) {
 		try {
-			await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [storagePath]);
+			await files.remove(storagePath);
+			await upload.complete();
 		} catch (cleanupError) {
 			console.error(
 				'[sign-in-roster-scan-upload] Failed to clean up uploaded scan after DB update failure:',
@@ -132,7 +140,7 @@ export async function uploadSignedScan(ctx: RosterContext, rosterId: string, fil
 
 	if (previousSignedFilePath && previousSignedFilePath !== storagePath) {
 		try {
-			await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [previousSignedFilePath]);
+			await files.remove(previousSignedFilePath);
 		} catch (cleanupError) {
 			try {
 				await ctx.persistence.setSignedFilePath(rosterId, previousSignedFilePath);
@@ -143,7 +151,8 @@ export async function uploadSignedScan(ctx: RosterContext, rosterId: string, fil
 				);
 			}
 			try {
-				await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [storagePath]);
+				await files.remove(storagePath);
+				await upload.complete();
 			} catch (replacementCleanupError) {
 				console.error(
 					'[sign-in-roster-scan-upload] Failed to clean up replacement scan after previous cleanup failure:',
@@ -153,6 +162,7 @@ export async function uploadSignedScan(ctx: RosterContext, rosterId: string, fil
 			throw cleanupError;
 		}
 	}
+	await upload.complete();
 
 	ctx.audit.log({
 		action: 'sign_in_roster.scan_uploaded',

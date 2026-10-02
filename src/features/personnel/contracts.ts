@@ -113,7 +113,11 @@ export interface PersonnelArtifactWriter {
 	delete(table: PersonnelArtifactTable, id: string): Promise<void>;
 	sumActiveDocumentBytes(): Promise<number>;
 	/** The server implementation accepts only a File after runtime validation. */
-	uploadFile(kind: 'counseling' | 'document', path: string, file: unknown): Promise<void>;
+	uploadFile(
+		kind: 'counseling' | 'document',
+		path: string,
+		file: unknown
+	): Promise<import('$features/organization/contracts').OrganizationFileUploadRegistration>;
 	removeFile(kind: 'counseling' | 'document', path: string): Promise<void>;
 }
 

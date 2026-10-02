@@ -41,7 +41,27 @@ for (const failure of ['insert', 'upload']) {
 					assert.ok(persisted.seeded.some((item) => item.table === table && item.organization === organization));
 			}
 		};
+		const registrations = new Set();
 		const client = {
+			async rpc(name, args) {
+				beforeEffect();
+				const owned = persisted.seeded
+					.flatMap((item) => item.files ?? [])
+					.find((file) => file.uploadId === args.p_upload_id);
+				assert.ok(owned, 'Registration must already have persisted ownership.');
+				assert.equal(owned.path, args.p_object_name);
+				assert.equal(owned.bucket, args.p_bucket_id);
+				if (name === 'register_organization_file_upload') {
+					registrations.add(args.p_upload_id);
+					return { data: args.p_upload_id, error: null };
+				}
+				assert.equal(name, 'settle_organization_file_upload');
+				assert.ok(
+					uploadedFiles.some((file) => file.uploadId === args.p_upload_id),
+					'Never settle a failed or unknown upload.'
+				);
+				return { data: registrations.delete(args.p_upload_id), error: null };
+			},
 			from(table) {
 				return {
 					async insert(rows) {
@@ -79,7 +99,7 @@ for (const failure of ['insert', 'upload']) {
 							if (failure === 'upload' && attemptedFiles.length === 2)
 								return { error: { message: 'deliberate upload failure' } };
 							uploadedFiles.push(file);
-							return { data: { path }, error: null };
+							return { data: { path, fullPath: `${bucket}/${path}` }, error: null };
 						}
 					};
 				}
@@ -99,6 +119,11 @@ for (const failure of ['insert', 'upload']) {
 			new RegExp('deliberate ' + failure + ' failure')
 		);
 		assert.deepEqual(ownedState, persisted);
+		assert.equal(
+			registrations.size,
+			failure === 'upload' ? 1 : 0,
+			'Unknown file results retain their recorded registration.'
+		);
 		assert.ok(insertedRows.length > 0, 'The test must leave genuine partial row effects.');
 		const files = persisted.seeded.flatMap((item) => item.files ?? []);
 		assert.ok(files.some((file) => file.organizationId === fixture.ids.orgB));

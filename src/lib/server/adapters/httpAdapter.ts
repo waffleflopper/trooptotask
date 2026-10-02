@@ -1,3 +1,4 @@
+import { createSupabaseSignInRosterFileWritePort } from '$features/sign-in-rosters/index.server';
 import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 /**
  * HTTP adapter — the bridge between SvelteKit routes and use cases.
@@ -389,6 +390,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
+	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
@@ -430,6 +432,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			personnelAwardAcknowledgement,
 			ratingSchemeDue,
 			personnelArtifactWrites,
+			signInRosterFileWrites,
 			personnelOrganizationExport,
 			personnelGovernanceDeletion,
 			signInRosterPersonnelLookup,
@@ -497,6 +500,7 @@ export async function buildLayoutContext(
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
+	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
@@ -537,6 +541,7 @@ export async function buildLayoutContext(
 		personnelAwardAcknowledgement,
 		ratingSchemeDue,
 		personnelArtifactWrites,
+		signInRosterFileWrites,
 		personnelOrganizationExport,
 		personnelGovernanceDeletion,
 		signInRosterPersonnelLookup,
@@ -592,6 +597,7 @@ export async function buildLayoutContextFromMembership(
 	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
 	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
+	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
 	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
@@ -632,6 +638,7 @@ export async function buildLayoutContextFromMembership(
 		personnelAwardAcknowledgement,
 		ratingSchemeDue,
 		personnelArtifactWrites,
+		signInRosterFileWrites,
 		personnelOrganizationExport,
 		personnelGovernanceDeletion,
 		signInRosterPersonnelLookup,

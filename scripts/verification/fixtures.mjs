@@ -1,3 +1,4 @@
+import { registeredFixtureFileWrite } from './registered-file-upload.mjs';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { jsPDF } from 'jspdf';
@@ -669,9 +670,9 @@ export async function seed(session) {
 	const signedScan = new jsPDF();
 	signedScan.text('Synthetic signed scan for Verification Alpha Snapshot', 20, 20);
 	const pdf = Buffer.from(signedScan.output('arraybuffer'));
-	checked(
-		await service.storage.from('counseling-files').upload(alphaScanPath, pdf, { contentType: 'application/pdf' })
-	);
+	const scan = { uploadId: randomUUID(), bucket: 'counseling-files', path: alphaScanPath, bytes: pdf };
+	await writeJSON(path.join(session, 'fixture-file-uploads.json'), [{ ...scan, bytes: undefined }]);
+	await registeredFixtureFileWrite(service, { ids, actors }, scan);
 	const dates = {
 		historical: '2026-03-11',
 		start: '2026-09-14',

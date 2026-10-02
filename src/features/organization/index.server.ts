@@ -35,3 +35,4 @@ export { createSupabaseOrganizationAdministratorRecipients } from './administrat
 export { createSupabaseFeedbackOrganizationContextPort } from './feedbackOrganizationContext.server';
 
 export { loadDangerSettings } from './dangerSettings.server';
+export { registerOrganizationFileUpload } from './fileUploadRegistration.server';

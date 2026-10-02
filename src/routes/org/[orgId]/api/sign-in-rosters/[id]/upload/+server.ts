@@ -34,17 +34,21 @@ export const _postConfig: RouteConfig<{ rosterId: string; file: File | null }, {
 		const formData = await event.request.formData();
 		return { rosterId: event.params.id as string, file: formData.get('file') as File | null };
 	},
-	fn: (ctx, input) =>
-		uploadSignedScan(
+	fn: async (ctx, input) => {
+		if (!ctx.signInRosterFileWrites) throw new Error('Roster file write port is required');
+		return uploadSignedScan(
 			{
 				orgId: ctx.auth.orgId,
+				actor: ctx.auth,
+				fileWrites: ctx.signInRosterFileWrites,
 				persistence: createSignInRosterPersistence(ctx.store, ctx.auth.orgId),
 				storage: ctx.storage,
 				audit: ctx.audit
 			},
 			input.rosterId,
 			input.file
-		),
+		);
+	},
 	formatOutput: (result) => json(result)
 };
 

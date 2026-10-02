@@ -48,6 +48,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261001000100_personnel_archive_retention.sql",
     "20261001000200_atomic_onboarding_reconciliation.sql",
     "20261002001000_organization_storage_cleanup.sql",
+    "20261002002000_organization_file_upload_registration.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -65,6 +66,7 @@ STAGED_UPGRADE_FIXTURES = (
     "rating_scheme_evaluator_before.sql",
     "onboarding_reconciliation_before.sql",
     "organization_storage_cleanup_before.sql",
+    "organization_file_upload_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -84,6 +86,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "personnel_archive_retention_after.sql",
     "onboarding_reconciliation_after.sql",
     "organization_storage_cleanup_after.sql",
+    "organization_file_upload_after.sql",
 )
 
 
@@ -315,6 +318,7 @@ def validate(repository, *, staged_upgrade=False):
             "account_setup_claim_gate.sql",
             "account_setup_staff_release.sql",
             "organization_storage_cleanup_fresh.sql",
+            "organization_file_upload_fresh.sql",
         ):
             execute([
                 "docker", "run", "--rm", "--name", runner,

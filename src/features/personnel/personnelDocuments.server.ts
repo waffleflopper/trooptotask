@@ -128,7 +128,7 @@ export async function createPersonnelDocument(
 
 	const filename = safeFilename(rawInput.file.name);
 	const filePath = `${ctx.actor.orgId}/personnel/${input.personnelId}/documents/${crypto.randomUUID()}-${filename}`;
-	await writer.uploadFile('document', filePath, rawInput.file);
+	const upload = await writer.uploadFile('document', filePath, rawInput.file);
 
 	let row: PersonnelDocumentRow;
 	try {
@@ -140,10 +140,20 @@ export async function createPersonnelDocument(
 			uploaded_by: ctx.actor.userId,
 			created_at: new Date().toISOString()
 		});
+		if (
+			!row ||
+			typeof row.id !== 'string' ||
+			!row.id ||
+			row.personnel_id !== input.personnelId ||
+			row.file_path !== filePath
+		)
+			throw new Error('Uploaded artifact attachment was not acknowledged');
 	} catch (error) {
 		await writer.removeFile('document', filePath);
+		await upload.complete();
 		throw error;
 	}
+	await upload.complete();
 
 	ctx.audit.log({
 		action: 'personnel.document.created',

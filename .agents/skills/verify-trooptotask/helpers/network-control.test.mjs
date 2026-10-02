@@ -11,6 +11,32 @@ function deferred() {
 	return { promise, resolve };
 }
 
+test('a delayed synthetic policy failure stays pending until release and never reaches the provider', async () => {
+	let ordinaryCalls = 0;
+	const page = {
+		fetch: async () => {
+			ordinaryCalls++;
+			return new Response('real');
+		}
+	};
+	installNetworkControl(page, { mode: 'hold-fail', ordinal: 1, suffix: '/org/a/api/organization/settings' });
+	assert.equal((await page.fetch('/org/b/api/organization/settings', { method: 'POST' })).status, 200);
+	assert.equal((await page.fetch('/org/a/api/organization/settings', { method: 'GET' })).status, 200);
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	let settled = false;
+	const pending = page.fetch('/org/a/api/organization/settings', { method: 'POST' });
+	pending.then(() => {
+		settled = true;
+	});
+	await new Promise(setImmediate);
+	assert.equal(settled, false);
+	assert.equal(ordinaryCalls, 2);
+	page.__mapNetwork.release();
+	assert.equal((await pending).status, 503);
+	assert.equal(ordinaryCalls, 2);
+	assert.equal((await page.fetch('/org/a/api/organization/settings', { method: 'POST' })).status, 200);
+});
+
 test('a held request is selected by arrival order when responses overlap', async () => {
 	const responses = [deferred(), deferred()];
 	let received = 0;

@@ -1,0 +1,156 @@
+// @vitest-environment happy-dom
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { tick, type ComponentProps } from 'svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import Page from './+page.svelte';
+
+const feedback = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
+vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: feedback }));
+
+function data(orgId: string, months = 36, days = 180) {
+	return {
+		orgId,
+		orgUrlSegment: `slug-${orgId}`,
+		policiesSettings: {
+			sections: {
+				policies: {
+					archiveRetention: { savedMonths: months, constraints: { min: 1, max: 120, unit: 'months' } },
+					lossWarning: { savedDays: days, constraints: { min: 1, max: 365, unit: 'days' } },
+					canUpdateRetention: true
+				}
+			}
+		}
+	} as unknown as ComponentProps<typeof Page>['data'];
+}
+
+function deferredResponse() {
+	let resolve!: (response: Response) => void;
+	const promise = new Promise<Response>((done) => (resolve = done));
+	const request = vi.fn((_url: string, _init: RequestInit) => promise);
+	vi.stubGlobal('fetch', request);
+	return { resolve, request };
+}
+
+afterEach(() => {
+	cleanup();
+	vi.unstubAllGlobals();
+	vi.clearAllMocks();
+});
+
+describe('Organization policy saves', () => {
+	it('keeps a newer A save pending when the disposed A request completes', async () => {
+		let firstDone!: (response: Response) => void;
+		let secondDone!: (response: Response) => void;
+		const first = new Promise<Response>((resolve) => (firstDone = resolve));
+		const second = new Promise<Response>((resolve) => (secondDone = resolve));
+		const request = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+		vi.stubGlobal('fetch', request);
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		await fireEvent.input(screen.getByLabelText('Retention period'), { target: { value: '48' } });
+		await fireEvent.click(within(screen.getByRole('region', { name: 'Archive Retention' })).getByRole('button'));
+		await view.rerender({ data: data('b') });
+		await view.rerender({ data: data('a', 48) });
+		await fireEvent.input(screen.getByLabelText('Retention period'), { target: { value: '49' } });
+		await fireEvent.click(within(screen.getByRole('region', { name: 'Archive Retention' })).getByRole('button'));
+		firstDone(new Response(null, { status: 200 }));
+		await first;
+		await tick();
+		expect(screen.getByRole('button', { name: /Saving/ })).toBeTruthy();
+		expect(feedback.success).not.toHaveBeenCalled();
+		secondDone(new Response(null, { status: 200 }));
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
+		expect(screen.queryByText('Unsaved changes')).toBeNull();
+	});
+
+	it.each([
+		['Retention period', 'Archive Retention', 48.6, '49'],
+		['Warning lead time', 'Loss Warning Window', 30.4, '30']
+	] as const)('acknowledges the committed whole number for %s', async (label, region, submitted, committed) => {
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+		render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		await fireEvent.input(screen.getByLabelText(label), { target: { value: String(submitted) } });
+		await fireEvent.click(within(screen.getByRole('region', { name: region })).getByRole('button'));
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
+		expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(committed);
+		expect(screen.queryByText('Unsaved changes')).toBeNull();
+	});
+	it.each([
+		['Retention period', 'Archive Retention', 200],
+		['Retention period', 'Archive Retention', 503],
+		['Warning lead time', 'Loss Warning Window', 200],
+		['Warning lead time', 'Loss Warning Window', 503]
+	] as const)('discards pending A %s feedback after switching A → B → A (%i)', async (label, region, status) => {
+		const pending = deferredResponse();
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		await fireEvent.input(screen.getByLabelText(label), { target: { value: '49' } });
+		await fireEvent.click(within(screen.getByRole('region', { name: region })).getByRole('button'));
+		expect(pending.request).toHaveBeenCalledWith('/org/slug-a/api/organization/settings', expect.any(Object));
+
+		await view.rerender({ data: data('b') });
+		const original = label === 'Retention period' ? '36' : '180';
+		expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(original);
+		expect(screen.queryByRole('button', { name: /Saving/ })).toBeNull();
+		expect(screen.queryByText('Unsaved changes')).toBeNull();
+
+		// Returning to A creates a new workspace even when defaults are equal.
+		await view.rerender({
+			data: data(
+				'a',
+				label === 'Retention period' && status === 200 ? 49 : 36,
+				label === 'Warning lead time' && status === 200 ? 49 : 180
+			)
+		});
+		pending.resolve(new Response(null, { status }));
+		await pending.request.mock.results[0].value;
+		await tick();
+		expect(screen.queryByRole('button', { name: /Saving/ })).toBeNull();
+		expect(feedback.success).not.toHaveBeenCalled();
+		expect(feedback.error).not.toHaveBeenCalled();
+		expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(status === 200 ? '49' : original);
+	});
+
+	it('resets unsaved warning drafts on a switch with equal defaults', async () => {
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		await fireEvent.input(screen.getByLabelText('Warning lead time'), { target: { value: '30' } });
+		await view.rerender({ data: data('b') });
+		expect((screen.getByLabelText('Warning lead time') as HTMLInputElement).value).toBe('180');
+		expect(screen.queryByText('Unsaved changes')).toBeNull();
+	});
+
+	it.each([
+		['Retention period', 'Archive Retention', 'archiveRetentionMonths', 48, 49],
+		['Warning lead time', 'Loss Warning Window', 'lossWarningWindowDays', 30, 31]
+	] as const)('keeps edits made during a %s save unsaved', async (label, region, field, submitted, edited) => {
+		const pending = deferredResponse();
+		render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		const input = screen.getByLabelText(label);
+		await fireEvent.input(input, { target: { value: String(submitted) } });
+		await fireEvent.click(within(screen.getByRole('region', { name: region })).getByRole('button'));
+		expect(JSON.parse(pending.request.mock.calls[0][1].body as string)).toEqual({ [field]: submitted });
+		await fireEvent.input(input, { target: { value: String(edited) } });
+		pending.resolve(new Response(null, { status: 200 }));
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
+		const section = within(screen.getByRole('region', { name: region }));
+		expect((input as HTMLInputElement).value).toBe(String(edited));
+		expect(section.getByText('Unsaved changes')).toBeTruthy();
+		expect((section.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('retains a failed draft for an explicit successful retry', async () => {
+		const request = vi
+			.fn()
+			.mockResolvedValueOnce(new Response(null, { status: 503 }))
+			.mockResolvedValueOnce(new Response(null, { status: 200 }));
+		vi.stubGlobal('fetch', request);
+		render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		await fireEvent.input(screen.getByLabelText('Retention period'), { target: { value: '48' } });
+		const section = within(screen.getByRole('region', { name: 'Archive Retention' }));
+		await fireEvent.click(section.getByRole('button', { name: 'Save' }));
+		await waitFor(() => expect(feedback.error).toHaveBeenCalledOnce());
+		expect(section.getByText('Unsaved changes')).toBeTruthy();
+		await fireEvent.click(section.getByRole('button', { name: 'Save' }));
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
+		expect(section.getByText('Saved')).toBeTruthy();
+		expect(request).toHaveBeenCalledTimes(2);
+	});
+});

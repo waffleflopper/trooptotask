@@ -75,12 +75,14 @@ export class SettingsPoliciesState {
 		this.#syncedPolicySnapshot = snapshot;
 	}
 
-	markRetentionSaved(): void {
-		this.savedRetentionMonths = this.retentionMonths;
+	markRetentionSaved(submittedMonths: number): void {
+		this.savedRetentionMonths = Math.round(submittedMonths);
+		if (this.retentionMonths === submittedMonths) this.retentionMonths = this.savedRetentionMonths;
 	}
 
-	markLossWarningSaved(): void {
-		this.savedWarningWindowDays = this.warningWindowDays;
+	markLossWarningSaved(submittedDays: number): void {
+		this.savedWarningWindowDays = Math.round(submittedDays);
+		if (this.warningWindowDays === submittedDays) this.warningWindowDays = this.savedWarningWindowDays;
 	}
 }
 

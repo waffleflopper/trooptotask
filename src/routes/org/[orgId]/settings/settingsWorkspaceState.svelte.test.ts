@@ -156,7 +156,7 @@ describe('settings workspace state', () => {
 		expect(state.isRetentionValid).toBe(false);
 
 		state.retentionMonths = 48;
-		state.markRetentionSaved();
+		state.markRetentionSaved(48);
 
 		expect(state.savedRetentionMonths).toBe(48);
 		expect(state.hasRetentionChanges).toBe(false);

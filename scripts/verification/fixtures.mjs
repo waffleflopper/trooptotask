@@ -203,6 +203,8 @@ export async function seed(session) {
 		orgOwner: { organization: 'orgA', role: 'owner', scope: 'organization' },
 		orgAdmin: { organization: 'orgA', role: 'admin', scope: 'organization' },
 		orgMember: { organization: 'orgA', role: 'member', scope: 'groups', groups: [ids.groupA] },
+		orgSettingsPeer: { organization: 'orgB', role: 'owner', scope: 'organization', personnel: 'none' },
+		orgSettingsSwitch: { organization: 'orgA', role: 'admin', scope: 'organization', personnel: 'none' },
 		orgInvitee: { organization: null },
 		orgCreator: { organization: null },
 		platformReviewer: { organization: null },
@@ -330,6 +332,7 @@ export async function seed(session) {
 				member_preset: 'viewer',
 				capability_overrides: {
 					personnel:
+						organization?.personnel ??
 						onboarding?.personnel ??
 						(criticalTasks || onboarding || ratingScheme || notification
 							? 'none'
@@ -364,6 +367,24 @@ export async function seed(session) {
 			})
 		);
 	}
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.orgSettingsSwitch.id,
+			role: 'admin',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'none',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
 	checked(
 		await service.from('organization_memberships').insert({
 			organization_id: ids.orgB,

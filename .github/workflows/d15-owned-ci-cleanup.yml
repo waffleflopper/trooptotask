@@ -1,0 +1,183 @@
+name: Inspect and dispose cancelled D15 CI project
+
+on:
+  push:
+    branches: [stabilization/1363-owned-ci-cleanup]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: d15-cancelled-ci-project-50f938p4
+  cancel-in-progress: false
+
+jobs:
+  cancelled-project:
+    name: Exact cancelled disposable project cleanup
+    runs-on: [self-hosted, Linux, ARM64, macmini-arm64]
+    timeout-minutes: 5
+    steps:
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+          github-token: ${{ github.token }}
+      - name: Inspect exact project and dispose only verified owned remnants
+        run: |
+          exec python3 -u - <<'PYTHON'
+          #!/usr/bin/env python3
+          """READ ONLY: exact cancelled CI project inventory; no services started/stopped."""
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tomllib
+          from urllib.parse import urlsplit
+          
+          PROJECT = 't2t-ci-db-50f938p4'
+          DIRECTORY = Path('/tmp') / PROJECT
+          CLI_LABEL = 'com.supabase.cli.project'
+          COMPOSE_LABEL = 'com.docker.compose.project'
+          PGPROVE = 'supabase_pgprove_' + PROJECT
+          
+          
+          def docker_environment():
+              env = {key: value for key, value in os.environ.items()
+                     if key in {'PATH', 'HOME', 'XDG_RUNTIME_DIR', 'TERM', 'DOCKER_HOST', 'DOCKER_CONTEXT'}}
+              context = env.get('DOCKER_CONTEXT')
+              endpoint = env.get('DOCKER_HOST')
+              if context or not endpoint:
+                  command = ['docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}']
+                  if context:
+                      command.append(context)
+                  endpoint = subprocess.run(command, env=env, text=True, capture_output=True,
+                                            check=True, timeout=20).stdout.strip()
+              address = urlsplit(endpoint)
+              if (address.scheme != 'unix' or address.netloc or not address.path.startswith('/')
+                      or address.query or address.fragment):
+                  raise SystemExit('REFUSED: only a local Docker Unix socket may be inspected.')
+              env.pop('DOCKER_CONTEXT', None)
+              env['DOCKER_HOST'] = endpoint
+              return env
+          
+          
+          def docker(env, *arguments):
+              return subprocess.run(['docker', *arguments], env=env, text=True, capture_output=True,
+                                    check=True, timeout=30).stdout.strip()
+          
+          
+          def inventory(env):
+              result = {'project': PROJECT, 'docker_socket': env['DOCKER_HOST'],
+                        'containers': [], 'volumes': [], 'networks': [], 'processes': []}
+              for kind, name_field in [('container', 'Names'), ('volume', 'Name'), ('network', 'Name')]:
+                  arguments = [kind, 'ls', '--format', '{{json .}}']
+                  if kind == 'container':
+                      arguments.insert(2, '--all')
+                      arguments.insert(3, '--no-trunc')
+                  for line in docker(env, *arguments).splitlines():
+                      summary = json.loads(line)
+                      name = summary[name_field]
+                      labels = dict(part.split('=', 1) for part in summary.get('Labels', '').split(',') if '=' in part)
+                      if not (name.endswith('_' + PROJECT) or name == PGPROVE
+                              or labels.get(CLI_LABEL) == PROJECT
+                              or labels.get(COMPOSE_LABEL) == PROJECT):
+                          continue
+                      if kind == 'container':
+                          fields = ['.Id', '.Name', '.Config.Image', '.Config.Labels',
+                                    '.State.Status', '.State.ExitCode', '.State.OOMKilled',
+                                    '.State.StartedAt', '.State.FinishedAt', '.Mounts']
+                          keys = ['id', 'name', 'image', 'labels', 'status', 'exit_code', 'oom_killed',
+                                  'started_at', 'finished_at', 'mounts']
+                      elif kind == 'volume':
+                          fields = ['.Name', '.Labels', '.Mountpoint']
+                          keys = ['name', 'labels', 'mountpoint']
+                      else:
+                          fields = ['.Id', '.Name', '.Labels', '.Containers']
+                          keys = ['id', 'name', 'labels', 'containers']
+                      template = '\t'.join('{{json ' + field + '}}' for field in fields)
+                      values = [json.loads(part) for part in docker(env, kind, 'inspect', '--format',
+                                                                 template, name).split('\t')]
+                      result[{'container':'containers','volume':'volumes','network':'networks'}[kind]].append(dict(zip(keys, values)))
+              if DIRECTORY.exists() or DIRECTORY.is_symlink():
+                  if DIRECTORY.is_symlink() or DIRECTORY.resolve() != DIRECTORY:
+                      raise SystemExit('REFUSED: exact CI directory is a symlink or resolves elsewhere.')
+                  config_path = DIRECTORY / 'supabase/config.toml'
+                  if config_path.is_symlink():
+                      raise SystemExit('REFUSED: config is a symlink.')
+                  config = tomllib.loads(config_path.read_text())
+                  result['directory'] = {'path': str(DIRECTORY), 'owner_uid': DIRECTORY.stat().st_uid,
+                                         'project_id': config['project_id'], 'seed': config['db']['seed']}
+              else:
+                  result['directory'] = None
+              for proc in Path('/proc').iterdir():
+                  if not proc.name.isdigit():
+                      continue
+                  try:
+                      if proc.stat().st_uid != os.geteuid():
+                          continue
+                      cwd = os.readlink(proc / 'cwd').removesuffix(' (deleted)')
+                      if cwd == str(DIRECTORY) or cwd.startswith(str(DIRECTORY) + '/'):
+                          result['processes'].append({'pid': int(proc.name), 'cwd': cwd,
+                                                     'name': (proc / 'comm').read_text().strip()})
+                  except (FileNotFoundError, ProcessLookupError):
+                      pass
+                  except PermissionError:
+                      raise SystemExit('REFUSED: unreadable process metadata for PID ' + proc.name)
+              return result
+          
+          
+          
+          import shutil
+          
+          def validate_ownership(state):
+              if state['processes']:
+                  raise SystemExit('REFUSED: a current process still owns the exact CI directory; inspect it first.')
+              if state['directory'] is not None:
+                  directory = state['directory']
+                  if (directory['owner_uid'] != os.geteuid() or directory['project_id'] != PROJECT
+                          or directory['seed'] != {'enabled': False, 'sql_paths': []}):
+                      raise SystemExit('REFUSED: exact directory ownership/project/disabled seed mismatch.')
+              for kind in ('containers', 'volumes', 'networks'):
+                  for item in state[kind]:
+                      labels = item['labels'] or {}
+                      name = item['name'].lstrip('/')
+                      if name == PGPROVE:
+                          # This run was cancelled before pg_prove was invoked; unexpected is a blocker.
+                          raise SystemExit('REFUSED: unexpected pg_prove container; inspect before removal.')
+                      if (labels.get(CLI_LABEL) != PROJECT or labels.get(COMPOSE_LABEL) != PROJECT
+                              or not name.endswith('_' + PROJECT)):
+                          raise SystemExit('REFUSED: exact project name/label mismatch.')
+                      if kind == 'networks':
+                          for container in item['containers'].values():
+                              if not container['Name'].endswith('_' + PROJECT):
+                                  raise SystemExit('REFUSED: another project is attached to this network.')
+          
+          
+          if __name__ == '__main__':
+              env = docker_environment()
+              before = inventory(env)
+              print(json.dumps({'before': before}, indent=2), flush=True)
+              validate_ownership(before)
+              if before['directory'] is None and not any(before[key] for key in ('containers', 'volumes', 'networks', 'processes')):
+                  print('Verified already absent: exact cancelled disposable CI project.')
+                  raise SystemExit(0)
+              # Explicit --project-id is supported without config by pinned Go stop source.
+              version = subprocess.run(['supabase', '--version'], env=env, text=True,
+                                       capture_output=True, check=True, timeout=20).stdout.strip()
+              if version != '2.101.0':
+                  raise SystemExit('REFUSED: use the already-pinned Supabase CLI 2.101.0.')
+              subprocess.run(['supabase', 'stop', '--project-id', PROJECT, '--no-backup'],
+                             cwd=DIRECTORY if DIRECTORY.is_dir() else Path('/tmp'), env=env,
+                             check=True, timeout=120)
+              after = inventory(env)
+              print(json.dumps({'after_stop': after}, indent=2), flush=True)
+              if any(after[key] for key in ('containers', 'volumes', 'networks', 'processes')):
+                  raise SystemExit('BLOCKED: exact resources remain; do not broaden cleanup.')
+              validate_ownership(after)
+              if after['directory'] is not None:
+                  shutil.rmtree(DIRECTORY)
+              final = inventory(env)
+              print(json.dumps({'final': final}, indent=2), flush=True)
+              if final['directory'] is not None or any(final[key] for key in ('containers','volumes','networks','processes')):
+                  raise SystemExit('BLOCKED: cleanup is incomplete.')
+              print('Verified absent: exact cancelled CI project containers, volumes, networks, processes and directory.')
+          PYTHON

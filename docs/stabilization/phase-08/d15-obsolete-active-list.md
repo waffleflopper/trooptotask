@@ -39,6 +39,8 @@ Final driver/checker corrections remain preserved. Clicking the selected date cl
 ```python
 from pathlib import Path
 import hashlib,json,tarfile,tempfile
+def require(condition,message):
+ if not condition: raise ValueError(message)
 if not hasattr(tarfile,'data_filter'):
  raise SystemExit('Python with tarfile.data_filter is required for safe extraction')
 expected={
@@ -48,23 +50,23 @@ Path('.verification/tmp').mkdir(parents=True,exist_ok=True)
 shared=[5000,64*1024*1024]
 for name,digest in expected.items():
  archive=Path('docs/stabilization/phase-08')/name
- assert hashlib.sha256(archive.read_bytes()).hexdigest()==digest
+ require(hashlib.sha256(archive.read_bytes()).hexdigest()==digest,'Archive digest mismatch: '+name)
  target=Path(tempfile.mkdtemp(prefix='d15-obsolete-ui-reader-',dir='.verification/tmp'))
  budget=[2500,32*1024*1024];seen=set()
  def bounded(handle):
   for member in handle:
-   assert member.isfile() and member.size>=0 and member.name not in seen
+   require(member.isfile() and member.size>=0 and member.name not in seen,'Expected unique regular archive members')
    seen.add(member.name)
    budget[0]-=1;budget[1]-=member.size;shared[0]-=1;shared[1]-=member.size
-   assert min(budget+shared)>=0
+   require(min(budget+shared)>=0,'Expanded archive member/byte budget exceeded')
    yield member
  with tarfile.open(archive,'r|gz') as handle:
   handle.extractall(target,members=bounded(handle),filter='data')
  inventory=json.loads((target/'inventory.json').read_text())
  actual={p.relative_to(target).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in target.rglob('*') if p.is_file() and p.relative_to(target).as_posix()!='inventory.json'}
- assert actual==inventory
- assert seen==set(inventory)|{'inventory.json'}
+ require(actual==inventory,'Expanded payload names or hashes differ from inventory')
+ require(seen==set(inventory)|{'inventory.json'},'Archive member set differs from inventory')
  print(name,'PASS',len(inventory),'payloads',target)
 ```
 
-Focused checks, exact source/helper applicability, complete independent source/expanded-artifact acceptance, proportional CodeRabbit CLI review, exact-current Actions DoD/build and completed hosted review without actionable feedback are required before authorized merge. No fresh SQL claim is made for this application-only deletion with unchanged DB inputs. Source and matching final journey pass. CodeRabbit CLI 0.8.2 completes committed base `e4ff6cc3c3ec8935437c938043542c2c9a249dd6` to head `6ce5d6ec353611aee928df5dcf1b7904731db114` with exit 0 and zero findings across all 17 readable paths; both binary archives are explicitly unsupported and require the separate expanded-artifact acceptance. The later two-path result/attribution prose update changes no application, driving input or archive. Complete independent acceptance passes at `e6013045`, plus the two corrected historical D15 metadata sentences: whole 19-path source/coverage review, 40 recomputed final observations, both fresh-expanded archive payload sets/hashes/raw bytes/credential scan, all frozen inputs/Git bindings and exact ownership/disposal. All 152 predecessor archives and D17 records remain unchanged. Numeric note-author mapping remains explicitly unestablished. The report and supporting hashes are recorded in the PR body. Exact-current hosted CI/review remain pending at this receipt snapshot; completed gates will be recorded in that body before authorized merge. Baseline preparation alone is not cutover acceptance. There is no independent live replay, production readback/deployment, general concurrency or whole-issue acceptance claim.
+Focused checks, exact source/helper applicability, complete independent source/expanded-artifact acceptance, proportional CodeRabbit CLI review, exact-current Actions DoD/build and completed hosted review without actionable feedback are required before authorized merge. No fresh SQL claim is made for this application-only deletion with unchanged DB inputs. Source and matching final journey pass. CodeRabbit CLI 0.8.2 completes committed base `e4ff6cc3c3ec8935437c938043542c2c9a249dd6` to head `6ce5d6ec353611aee928df5dcf1b7904731db114` with exit 0 and zero findings across all 17 readable paths; both binary archives are explicitly unsupported and require the separate expanded-artifact acceptance. The later two-path result/attribution prose update changes no application, driving input or archive. Complete independent acceptance passes at `e6013045`, plus the two corrected historical D15 metadata sentences: whole 19-path source/coverage review, 40 recomputed final observations, both fresh-expanded archive payload sets/hashes/raw bytes/credential scan, all frozen inputs/Git bindings and exact ownership/disposal. All 152 predecessor archives and D17 records remain unchanged. Numeric note-author mapping remains explicitly unestablished. The report and supporting hashes are recorded in the PR body. Actions `37007938697` passes at `09b6f346` (632 suites/5,822 tests, types 0/0, full DoD/build; unchanged DB selection skipped). Hosted review requests explicit reader failures because optimized Python removes asserts. That one-path example correction passes both real archives in normal, `-O` and `PYTHONOPTIMIZE=1` modes plus 18 deliberate digest/budget/inventory/duplicate/nonregular rejection runs. App, instructions and archived bytes remain unchanged. Exact-current CI and completed hosted approval for this later reader head remain pending; final gates are recorded in the PR body before authorized merge. Baseline preparation alone is not cutover acceptance. There is no independent live replay, production readback/deployment, general concurrency or whole-issue acceptance claim.

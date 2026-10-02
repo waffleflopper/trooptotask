@@ -59,6 +59,7 @@ For the actual in-flight provider boundary, run `python3 .agents/skills/verify-t
 
 ## Gotchas
 
+- Organization's owned policy provider must acknowledge the canonical ID and every submitted normalized value before success/audit. Finite installed-SDK fault tests cover missing, foreign and stale acknowledgments; an ordinary zero-row `.single()` error already failed before this repair. Native response holds and synthetic pre-provider failures establish client lifetime/retry behavior, not those provider acknowledgments. The owned portable Policies state retains the existing canonical Organization key and disposal rules.
 - General/Policies admit owner or admin roles. High feature capabilities or Group scope do not grant governance; Danger deletion remains owner-only and sensitive-action assurance supplies no additional role permission.
 - Name changes retain the Organization ID; slug changes affect bookmarks but preserve UUID access. Use exact IDs for provider readback so a changed route segment cannot silently change the tested target.
 - `network arm-fail` prevents one ordinary UI request at the browser boundary. It establishes client retry behavior and unchanged storage, not a failed provider write, concurrency or transactional rollback. Restore every armed control before another path.

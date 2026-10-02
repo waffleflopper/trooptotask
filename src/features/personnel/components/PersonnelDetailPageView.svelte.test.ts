@@ -728,13 +728,23 @@ describe('Personnel Dashboard artifact context and pickers', () => {
 		for (const family of dashboardFamilies) {
 			expect(await screen.findByText(`Refreshed ${family.name}`)).toBeTruthy();
 			expect((screen.getByLabelText(family.field) as HTMLInputElement).value).toBe(`Still editing ${family.name}`);
-			// The remounted Input sets files=undefined in happy-dom; a browser has an empty FileList.
-			// Exercise the form handler directly so this control proves the retained draft File.
-			await fireEvent.submit(screen.getByLabelText(family.field).closest('form') as HTMLFormElement);
+			if (family.fileField) {
+				expect((screen.getByLabelText(family.fileField) as HTMLInputElement).files?.[0]?.name).toBe(
+					`Still editing ${family.name}.pdf`
+				);
+			}
+			await submitDashboardArtifact(family);
 			await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(dashboardFamilies.indexOf(family) + 1));
 			if (family.fileField) {
 				const request = fetchMock.mock.calls.at(-1)?.[1] as RequestInit;
 				expect((request.body as FormData).get('file')).toMatchObject({ name: `Still editing ${family.name}.pdf` });
+			}
+		}
+		await view.rerender(dashboardProps('org-1', 'person-1', dashboardDetail('person-1', 'After upload')));
+		for (const family of dashboardFamilies) {
+			if (family.fileField) {
+				const picker = (await screen.findByLabelText(family.fileField)) as HTMLInputElement;
+				expect(picker.files?.length ?? 0).toBe(0);
 			}
 		}
 	});

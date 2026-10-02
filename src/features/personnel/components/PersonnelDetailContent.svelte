@@ -61,20 +61,24 @@
 
 	let counselingFileInput = $state<HTMLInputElement | null>(null);
 	let documentFileInput = $state<HTMLInputElement | null>(null);
+	let counselingFiles = $state<FileList | undefined>();
+	let documentFiles = $state<FileList | undefined>();
 
 	async function submitCounseling() {
 		await workspace.counselingRecords.submit();
-		if (!workspace.counselingRecords.error && counselingFileInput) {
-			counselingFileInput.value = '';
-			if (typeof DataTransfer !== 'undefined') counselingFileInput.files = new DataTransfer().files;
+		if (!workspace.counselingRecords.error) {
+			if (counselingFileInput) counselingFileInput.value = '';
+			counselingFiles =
+				typeof DataTransfer !== 'undefined' ? new DataTransfer().files : (counselingFileInput?.files ?? undefined);
 		}
 	}
 
 	async function submitDocument() {
 		await workspace.documents.submit();
-		if (!workspace.documents.error && documentFileInput) {
-			documentFileInput.value = '';
-			if (typeof DataTransfer !== 'undefined') documentFileInput.files = new DataTransfer().files;
+		if (!workspace.documents.error) {
+			if (documentFileInput) documentFileInput.value = '';
+			documentFiles =
+				typeof DataTransfer !== 'undefined' ? new DataTransfer().files : (documentFileInput?.files ?? undefined);
 		}
 	}
 </script>
@@ -248,6 +252,7 @@
 									accept="application/pdf,.pdf"
 									aria-label="Counseling PDF"
 									bind:ref={counselingFileInput}
+									bind:files={counselingFiles}
 									onchange={workspace.updateCounselingFile}
 								/>
 								<Button type="submit" size="sm" disabled={workspace.counselingRecords.saving}>
@@ -314,6 +319,7 @@
 								accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,.pdf,.jpg,.jpeg,.png,.heic"
 								aria-label="Document file"
 								bind:ref={documentFileInput}
+								bind:files={documentFiles}
 								onchange={workspace.updateDocumentFile}
 							/>
 							{#if workspace.documents.error}

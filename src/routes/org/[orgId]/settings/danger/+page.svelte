@@ -6,6 +6,7 @@
 	import { createOwnershipTransferWorkspace } from '$features/organization';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
+	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import DangerZoneSettingsSection from '../DangerZoneSettingsSection.svelte';
@@ -73,6 +74,11 @@
 				</AppDialog.Description>
 			</AppDialog.Header>
 			<AppDialog.Body>
+				{#if form?.deleteError}
+					<Alert.Root variant="destructive">
+						<Alert.Description>{form.deleteError}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				<form
 					id="delete-org-form"
 					method="POST"

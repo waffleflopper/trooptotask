@@ -16,7 +16,8 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 		).toUpperCase();
 		if (
 			parsedUrl.pathname !== control.suffix ||
-			(search !== null && (parsedUrl.search !== search || method !== 'POST'))
+			(search !== null && parsedUrl.search !== search) ||
+			((search !== null || control.mode === 'hold-fail') && method !== 'POST')
 		)
 			return original(...input);
 		const call = { method, count: 0, ids: [], notes: [], status: null };
@@ -29,15 +30,20 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 			// GET requests and non-JSON bodies have no batch record details.
 		}
 		const requestNumber = control.calls.push(call);
-		if (control.mode === 'fail' && requestNumber === control.ordinal) {
+		if (['fail', 'hold-fail'].includes(control.mode) && requestNumber === control.ordinal) {
 			call.status = 503;
 			const body = failureField
 				? { type: 'failure', status: 503, data: JSON.stringify([{ [failureField]: 1 }, 'Synthetic request failure']) }
 				: { message: 'Synthetic request failure' };
-			return new Response(JSON.stringify(body), {
+			const response = new Response(JSON.stringify(body), {
 				status: 503,
 				headers: { 'Content-Type': 'application/json' }
 			});
+			if (control.mode === 'hold-fail')
+				return new Promise((resolve) => {
+					control.release = () => resolve(response);
+				});
+			return response;
 		}
 		const response = await original(...input);
 		if (target.__mapNetwork !== control) return response;

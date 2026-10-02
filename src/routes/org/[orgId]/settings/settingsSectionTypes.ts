@@ -5,12 +5,6 @@ import type { OrganizationRankCatalogReferenceSummary } from '$features/personne
 import type { DeletionRequestRow } from './settingsRows.server';
 import type { OwnershipTransferCandidate } from '$features/organization';
 
-export type WorkspaceConstraint<Unit extends string> = {
-	min: number;
-	max: number;
-	unit: Unit;
-};
-
 export type SettingsArchivedPersonnelRow = {
 	id: string;
 	rank: string;
@@ -48,18 +42,6 @@ export type SettingsApprovalsSectionData = {
 };
 
 export type SettingsOwnershipTransferCandidate = OwnershipTransferCandidate;
-
-export type SettingsPoliciesSectionData = {
-	archiveRetention: {
-		savedMonths: number;
-		constraints: WorkspaceConstraint<'months'>;
-	};
-	lossWarning: {
-		savedDays: number;
-		constraints: WorkspaceConstraint<'days'>;
-	};
-	canUpdateRetention: boolean;
-};
 
 export type SettingsCurrentMemberData = {
 	role: MembershipRole;

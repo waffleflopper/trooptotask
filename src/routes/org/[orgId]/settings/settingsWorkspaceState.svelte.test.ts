@@ -1,16 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { createSettingsPoliciesState, type SettingsPoliciesSectionData } from './settingsPoliciesState.svelte';
 import { createSettingsMemberAccessWorkspace } from '$features/organization';
 import type { SettingsMembersSectionData } from '$features/organization/contracts';
-import type {
-	DangerSettingsData,
-	SettingsArchivesSectionData,
-	SettingsPoliciesSectionData
-} from './settingsSectionTypes';
+import type { DangerSettingsData, SettingsArchivesSectionData } from './settingsSectionTypes';
 import {
 	createSettingsArchivedPersonnelState,
 	createSettingsDangerZoneState,
-	createSettingsDataExportState,
-	createSettingsPoliciesState
+	createSettingsDataExportState
 } from './settingsWorkspaceState.svelte';
 
 const capabilityMap = {
@@ -156,7 +152,7 @@ describe('settings workspace state', () => {
 		expect(state.isRetentionValid).toBe(false);
 
 		state.retentionMonths = 48;
-		state.markRetentionSaved();
+		state.markRetentionSaved(48);
 
 		expect(state.savedRetentionMonths).toBe(48);
 		expect(state.hasRetentionChanges).toBe(false);

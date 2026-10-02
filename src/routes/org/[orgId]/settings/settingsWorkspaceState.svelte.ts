@@ -2,87 +2,8 @@ import type {
 	DangerSettingsData,
 	SettingsArchivedPersonnelRow,
 	SettingsArchivesSectionData,
-	SettingsDangerSectionData,
-	SettingsPoliciesSectionData
+	SettingsDangerSectionData
 } from './settingsSectionTypes';
-
-export class SettingsPoliciesState {
-	readonly #getPolicies: () => SettingsPoliciesSectionData;
-
-	retentionMonths = $state(0);
-	savedRetentionMonths = $state(0);
-	warningWindowDays = $state(0);
-	savedWarningWindowDays = $state(0);
-	savingRetention = $state(false);
-	savingWarningWindow = $state(false);
-	#syncedPolicySnapshot = $state('');
-
-	constructor(policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)) {
-		this.#getPolicies = typeof policies === 'function' ? policies : () => policies;
-		this.syncFromSettings();
-	}
-
-	get #policies(): SettingsPoliciesSectionData {
-		return this.#getPolicies();
-	}
-
-	get archiveRetentionConstraints() {
-		return this.#policies.archiveRetention.constraints;
-	}
-
-	get lossWarningConstraints() {
-		return this.#policies.lossWarning.constraints;
-	}
-
-	get hasRetentionChanges(): boolean {
-		return this.retentionMonths !== this.savedRetentionMonths;
-	}
-
-	get isRetentionValid(): boolean {
-		const { min, max } = this.archiveRetentionConstraints;
-		return this.retentionMonths >= min && this.retentionMonths <= max;
-	}
-
-	get hasLossWarningChanges(): boolean {
-		return this.warningWindowDays !== this.savedWarningWindowDays;
-	}
-
-	get isLossWarningValid(): boolean {
-		const { min, max } = this.lossWarningConstraints;
-		return this.warningWindowDays >= min && this.warningWindowDays <= max;
-	}
-
-	get hasUnsavedEdits(): boolean {
-		return this.hasRetentionChanges || this.hasLossWarningChanges;
-	}
-
-	get serverPolicySnapshot(): string {
-		return JSON.stringify({
-			retentionMonths: this.#policies.archiveRetention.savedMonths,
-			warningWindowDays: this.#policies.lossWarning.savedDays
-		});
-	}
-
-	syncFromSettings(): void {
-		const snapshot = this.serverPolicySnapshot;
-		if (snapshot === this.#syncedPolicySnapshot) return;
-		if (this.#syncedPolicySnapshot && this.hasUnsavedEdits) return;
-
-		this.retentionMonths = this.#policies.archiveRetention.savedMonths;
-		this.savedRetentionMonths = this.#policies.archiveRetention.savedMonths;
-		this.warningWindowDays = this.#policies.lossWarning.savedDays;
-		this.savedWarningWindowDays = this.#policies.lossWarning.savedDays;
-		this.#syncedPolicySnapshot = snapshot;
-	}
-
-	markRetentionSaved(): void {
-		this.savedRetentionMonths = this.retentionMonths;
-	}
-
-	markLossWarningSaved(): void {
-		this.savedWarningWindowDays = this.warningWindowDays;
-	}
-}
 
 export class SettingsArchivedPersonnelState {
 	readonly #getSection: () => SettingsArchivesSectionData;
@@ -193,12 +114,6 @@ export function createSettingsDangerZoneState(
 	settings: DangerSettingsData | (() => DangerSettingsData)
 ): SettingsDangerZoneState {
 	return new SettingsDangerZoneState(settings);
-}
-
-export function createSettingsPoliciesState(
-	policies: SettingsPoliciesSectionData | (() => SettingsPoliciesSectionData)
-): SettingsPoliciesState {
-	return new SettingsPoliciesState(policies);
 }
 
 export function createSettingsArchivedPersonnelState(

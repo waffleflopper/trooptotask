@@ -1232,7 +1232,7 @@ async function main() {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-observe') {
+		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-hold-fail' || action === 'arm-observe') {
 			const formActions = {
 				'settings/general/updateName': 'error',
 				'settings/general/updateSlug': 'slugError',
@@ -1306,7 +1306,16 @@ async function main() {
 				: ['feedback', 'announcements/dismiss'].includes(family)
 					? `/api/${family}`
 					: `/org/${organizationSegment}/api/${family}`;
-			const mode = action === 'arm-fail' ? 'fail' : action === 'arm-hold' ? 'hold' : 'observe';
+			if (action === 'arm-hold-fail' && family !== 'organization/settings')
+				throw new Error('Delayed synthetic failure is supported only for Organization policies.');
+			const mode =
+				action === 'arm-hold-fail'
+					? 'hold-fail'
+					: action === 'arm-fail'
+						? 'fail'
+						: action === 'arm-hold'
+							? 'hold'
+							: 'observe';
 			const search = formAction ? `?/${formAction}` : null;
 			const failureField = formAction ? formActions[family] : null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField })})`;

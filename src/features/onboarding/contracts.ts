@@ -138,3 +138,37 @@ export interface OnboardingInactiveStepRemovalPort {
 	/** Null means no row still matches the inactive-only deletion predicate. */
 	remove(organizationId: string, stepId: string): Promise<{ id: string } | null>;
 }
+
+/** Prepared catalog snapshots; fresh identities and workflow defaults belong to creation. */
+export interface OnboardingStartStepSnapshot extends Pick<
+	OnboardingReconciliationStepRow,
+	'step_name' | 'step_type' | 'training_type_id' | 'stages' | 'sort_order' | 'completed'
+> {
+	template_step_id: string;
+}
+
+export interface OnboardingPacketCreationInput {
+	personnelId: string;
+	templateId: string;
+	startedAt: string;
+	steps: OnboardingStartStepSnapshot[];
+}
+
+/** Authoritative saved parent and snapshots from one creation transaction. */
+export interface OnboardingPacketCreationResult {
+	onboarding: {
+		id: string;
+		personnel_id: string;
+		template_id: string;
+		status: OnboardingStatus;
+		started_at: string;
+		completed_at: string | null;
+		cancelled_at: string | null;
+	};
+	steps: OnboardingReconciliationStepRow[];
+}
+
+export interface OnboardingPacketCreationPort {
+	/** Save the new packet and all prepared steps together, or save neither. */
+	create(organizationId: string, input: OnboardingPacketCreationInput): Promise<OnboardingPacketCreationResult>;
+}

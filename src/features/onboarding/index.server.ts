@@ -55,3 +55,5 @@ export { resyncOnboarding, switchTemplate } from './server/onboardingResync.serv
 export { listActiveOnboardings } from './server/onboardingQuery.server';
 
 export { createSupabaseOnboardingReconciliationPort } from './server/onboardingReconciliationProvider.server';
+
+export { createSupabaseOnboardingNoteAppendPort } from './server/onboardingNoteAppendProvider.server';

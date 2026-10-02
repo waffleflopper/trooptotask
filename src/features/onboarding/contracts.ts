@@ -1,7 +1,12 @@
 import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from './onboarding.types';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding,
+	OnboardingStepNote
+} from './onboarding.types';
 export type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -93,4 +98,15 @@ export interface OnboardingReconciliationPort {
 		onboardingId: string,
 		newTemplateId: string | null
 	): Promise<OnboardingReconciliationResult>;
+}
+
+/** Authoritative saved notes after one atomic database append. */
+export interface OnboardingNoteAppendResult {
+	id: string;
+	notes: OnboardingStepNote[];
+}
+
+export interface OnboardingNoteAppendPort {
+	/** Attribution and timestamp come from the ordinary authenticated database request. */
+	append(organizationId: string, stepId: string, text: string): Promise<OnboardingNoteAppendResult>;
 }

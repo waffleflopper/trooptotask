@@ -67,9 +67,10 @@ const tableSelect = {
 	onboarding_templates: 'id,organization_id,name,description',
 	onboarding_template_steps:
 		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order',
-	personnel_onboardings: 'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status',
+	personnel_onboardings:
+		'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status,created_at',
 	onboarding_step_progress:
-		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active',
+		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active,updated_at',
 	deletion_requests: 'id,organization_id,resource_type,resource_id,status,reviewed_by,reviewed_at',
 	rating_scheme_entries:
 		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at',
@@ -319,22 +320,24 @@ async function main() {
 										? ['Archive Retention', "You don't have permission to view this page"]
 										: destination === 'settings/members'
 											? ['Access Management', "You don't have permission to view this page"]
-											: destination === 'settings/danger'
-												? ['Destructive Actions', "You don't have permission to view this page"]
-												: destination === 'dashboard'
-													? ['Pending Invitations', 'Organizations']
-													: destination === 'org/new'
-														? ['Create your first Organization', 'Confirm your email first']
-														: [
-																'Calendar',
-																'Evaluation controls',
-																'Training',
-																'Able, Synthetic',
-																'Foreign, Synthetic',
-																'No personnel on the active roster',
-																'Access restricted',
-																'Access Restricted'
-															];
+											: destination === 'settings/exports'
+												? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
+												: destination === 'settings/danger'
+													? ['Destructive Actions', "You don't have permission to view this page"]
+													: destination === 'dashboard'
+														? ['Pending Invitations', 'Organizations']
+														: destination === 'org/new'
+															? ['Create your first Organization', 'Confirm your email first']
+															: [
+																	'Calendar',
+																	'Evaluation controls',
+																	'Training',
+																	'Able, Synthetic',
+																	'Foreign, Synthetic',
+																	'No personnel on the active roster',
+																	'Access restricted',
+																	'Access Restricted'
+																];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -1306,6 +1309,29 @@ async function main() {
 		const [action, page, filename] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
+		if (action === 'request') {
+			const [, , orgKey, format] = args;
+			if (!['json', 'excel'].includes(format) || args.length !== 4)
+				throw new Error('Use export request PAGE orgA|orgB json|excel.');
+			const endpoint = `/org/${org(orgKey)}/api/${format === 'json' ? 'export' : 'export-excel'}`;
+			// Separate ordinary HTTP proof through the signed-in synthetic page, never a native download claim.
+			note(
+				await evaluate(
+					state,
+					pageId,
+					`async () => {
+					if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Use an owned app page');
+					const response = await fetch(${JSON.stringify(endpoint)}, { method: 'POST' });
+					const contentType = response.headers.get('Content-Type');
+					const body = response.ok ? null : await response.text();
+					return { request: { method: 'POST', path: ${JSON.stringify(endpoint)} },
+						status: response.status, body,
+						contentType, contentDisposition: response.headers.get('Content-Disposition') };
+				}`
+				)
+			);
+			return;
+		}
 		if (action === 'arm') {
 			note(
 				await evaluate(

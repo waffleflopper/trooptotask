@@ -34,12 +34,21 @@ Both-field late success/failure A→B→A, an old A response while a newer A sav
 
 ## Durable artifacts
 
+### Boundary correction and current proof
+
+Exact-head CI at `16eb71e7` rejects two new Web→Server type paths from the extracted child through the pre-existing mixed settings model. That failure remains archived. The correction moves only the Policies type, constraint shape, class and factory into dependency-free `settingsPoliciesState.svelte.ts`, migrates all direct callers and removes their former declarations without reexports. Independent source comparison confirms that the moved class/factory and the entire component behavior are byte-identical to the preceding candidate. Unrelated mixed models/state remain D17 debt. Local governance now reports 504 findings with no regression, down from the baseline's 506; focused 18 tests, types 0/0 and official Svelte analysis pass.
+
+A fresh production-built native confirmation freezes candidate `7c53f6375e7a584dacbebbb5afd20d45d7e03e62e6e858240977e31ab40036f0`, revision `16eb71e7` plus this boundary patch, with the same Node/npm/Chromium versions above. Session `c5eb11e6-0be0-47e2-a773-5f9391dd7d02` owns `http://127.0.0.1:46621`. Normal `orgSettingsSwitch` sign-in drives A `76c05547-f3a4-4030-9373-5eb54935cb66` and B `068b22c6-4d8b-496e-bb60-ef71d6a68418`. Native A retention 49 commits; the control records the real POST/200 held. Visible switching loads B's own idle 36/180. Release produces no policy feedback in the DOM observer, leaves B's full settings row unchanged, and reload retains 36/180. Visible return to A and ordinary Save restore 36; A's full settings row and reload match the initial values. The screenshot is inspected. Start/final doctor, seed cleanup and owned disposal all pass before packaging.
+
+The preceding final run's delayed failure, later draft/rounding, retry and modal observations remain applicable to their unchanged executable behavior, supported by the independent byte comparison and rerun component protection. This confirmation does not newly drive those variants or claim a fresh Danger journey. CLI reviews all six boundary-correction paths against `16eb71e7` with zero findings. Independent final expanded acceptance and exact published-head CI/hosted review remain required.
+
 Each archive contains an `INVENTORY.json` mapping every payload filename to its SHA-256. Payload bytes are unredacted synthetic observations; credential/token scanning has no hits. All images were inspected, including the narrow reload observation. Re-extraction into fresh ignored directories verified exact payload filename sets and every expanded hash. Later archive/prose additions change the checkout fingerprint; they do not claim another native execution.
 
-| Archive                                         | SHA-256                                                            | Payloads / expanded bytes |
-| ----------------------------------------------- | ------------------------------------------------------------------ | ------------------------- |
-| [Partial attempt](d17-settings-repair.tar.gz)   | `e9087f8fc0cdede2b9ba7586d6ca6d19d3feff402e99ef3714620ba3b62ff6f2` | 58 / 299,762              |
-| [Final proof](d17-settings-repair-final.tar.gz) | `066d8fb8e9feba11d52a2f29f2e5c0e287bc5bdf9e7ee307d0a3561e1c9b6025` | 130 / 998,657             |
+| Archive                                               | SHA-256                                                            | Payloads / expanded bytes |
+| ----------------------------------------------------- | ------------------------------------------------------------------ | ------------------------- |
+| [Partial attempt](d17-settings-repair.tar.gz)         | `e9087f8fc0cdede2b9ba7586d6ca6d19d3feff402e99ef3714620ba3b62ff6f2` | 58 / 299,762              |
+| [Final proof](d17-settings-repair-final.tar.gz)       | `066d8fb8e9feba11d52a2f29f2e5c0e287bc5bdf9e7ee307d0a3561e1c9b6025` | 130 / 998,657             |
+| [Boundary confirmation](d17-policies-boundary.tar.gz) | `8ecdc719dce3d475ed41f2945b3ab1adb2fc968b235d63f913580f9e632df188` | 48 / 228,496              |
 
 Extract with `tar -xzf docs/stabilization/phase-08/d17-settings-repair-final.tar.gz -C <fresh ignored directory>`. Parse its inventory, compare the complete file set excluding that inventory, and hash each expanded file. The final archive includes actual focused/type/control logs, the CLI review and changed executable/instruction hashes.
 

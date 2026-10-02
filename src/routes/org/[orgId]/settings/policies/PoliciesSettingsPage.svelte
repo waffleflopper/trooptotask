@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import type { SettingsPoliciesSectionData } from '../settingsSectionTypes';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import PoliciesSettingsSection from '../PoliciesSettingsSection.svelte';
-	import { createSettingsPoliciesState } from '../settingsWorkspaceState.svelte';
+	import { createSettingsPoliciesState, type SettingsPoliciesSectionData } from '../settingsPoliciesState.svelte';
 
 	let { orgUrlSegment, policies }: { orgUrlSegment: string; policies: SettingsPoliciesSectionData } = $props();
 

@@ -138,6 +138,7 @@
 				"src/lib/server/adapters/entityHandlers.test.ts",
 				"src/lib/server/adapters/handle.test.ts",
 				"src/lib/server/adapters/httpAdapter.ts",
+				"src/lib/server/adapters/personnelArtifacts.test.ts",
 				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
@@ -154,7 +155,6 @@
 				"src/lib/server/core/useCases/starterConfigurationPacks.ts",
 				"src/lib/server/organizationProvisioningDelivery.test.ts",
 				"src/lib/server/organizationProvisioningDelivery.ts",
-				"src/lib/server/entities/index.ts",
 				"src/lib/types/starterConfigurationPacks.ts",
 				"src/tests/check-governance.test.ts",
 				"src/tests/no-google-fonts.test.ts",
@@ -213,20 +213,7 @@
 			"roots": ["src/features/personnel/"],
 			"files": [
 				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
-				"src/lib/server/adapters/supabaseScopeEnforcement.ts",
-				"src/lib/server/core/useCases/personnelArchivedArtifacts.test.ts",
-				"src/lib/server/core/useCases/personnelArchivedArtifacts.ts",
-				"src/lib/server/core/useCases/personnelArtifactLifecycle.test.ts",
-				"src/lib/server/core/useCases/personnelArtifactLifecycle.ts",
-				"src/lib/server/core/useCases/personnelCounselingRecords.test.ts",
-				"src/lib/server/core/useCases/personnelCounselingRecords.ts",
-				"src/lib/server/core/useCases/personnelDocuments.test.ts",
-				"src/lib/server/core/useCases/personnelDocuments.ts",
-				"src/lib/server/core/useCases/personnelFollowUps.test.ts",
-				"src/lib/server/core/useCases/personnelFollowUps.ts",
-				"src/lib/server/counselingRecordMapping.test.ts",
-				"src/lib/server/entities/counselingRecord.test.ts",
-				"src/lib/server/entities/counselingRecord.ts"
+				"src/lib/server/adapters/supabaseScopeEnforcement.ts"
 			],
 			"packet": "08-M04"
 		},
@@ -642,10 +629,6 @@
 		"src/lib/server/core/ports.ts": {
 			"packet": "08-M15",
 			"reason": "aggregate ports for multiple product owners"
-		},
-		"src/lib/server/entities/index.ts": {
-			"packet": "08-M15",
-			"reason": "aggregate entity barrel crosses product ownership"
 		},
 		"src/lib/server/adapters/httpAdapter.ts": {
 			"packet": "08-M15",

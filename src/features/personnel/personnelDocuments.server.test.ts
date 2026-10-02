@@ -1,11 +1,14 @@
+import { testPersonnelArtifactsContext } from './personnelArtifacts.testHelper';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
+	archivePersonnelDocument,
+	deletePersonnelDocument,
+	restorePersonnelDocument,
 	createPersonnelDocument,
 	createPersonnelDocumentDownloadUrl,
-	DEFAULT_PERSONNEL_DOCUMENT_STORAGE_CAP_BYTES,
 	listPersonnelDocuments
-} from './personnelDocuments';
+} from './personnelDocuments.server';
 
 const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
 const PNG_BYTES = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -64,7 +67,7 @@ describe('personnel documents', () => {
 			}
 		]);
 		await expect(
-			createPersonnelDocument(ctx, {
+			createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',
 				file: new File([PDF_BYTES], 'over-cap.pdf', { type: 'application/pdf' })
 			})
@@ -72,12 +75,14 @@ describe('personnel documents', () => {
 		await ctx.store.update('personnel_documents', ctx.auth.orgId, 'existing', {
 			archived_at: '2026-01-01'
 		});
-		const created = await createPersonnelDocument(ctx, {
+		const created = await createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 			personnelId: 'person-1',
 			file: new File([PDF_BYTES], 'allowed.pdf', { type: 'application/pdf' })
 		});
 		expect(created.title).toBe('allowed');
-		await expect(listPersonnelDocuments(ctx, 'person-1')).rejects.toMatchObject({ status: 403 });
+		await expect(listPersonnelDocuments(testPersonnelArtifactsContext(ctx), 'person-1')).rejects.toMatchObject({
+			status: 403
+		});
 	});
 
 	it('uploads a valid document, derives a title from the filename, and lists newest first', async () => {
@@ -86,7 +91,7 @@ describe('personnel documents', () => {
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
-				personnel_document_storage_cap_bytes: DEFAULT_PERSONNEL_DOCUMENT_STORAGE_CAP_BYTES
+				personnel_document_storage_cap_bytes: 104857600
 			}
 		]);
 		ctx.store.seed('personnel_documents', [
@@ -103,11 +108,11 @@ describe('personnel documents', () => {
 			}
 		]);
 
-		const created = await createPersonnelDocument(ctx, {
+		const created = await createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 			personnelId: 'person-1',
 			file: new File([PDF_BYTES], 'inspection-worksheet_2026.pdf', { type: 'application/pdf' })
 		});
-		const records = await listPersonnelDocuments(ctx, 'person-1');
+		const records = await listPersonnelDocuments(testPersonnelArtifactsContext(ctx), 'person-1');
 
 		expect(created).toMatchObject({
 			personnelId: 'person-1',
@@ -126,7 +131,7 @@ describe('personnel documents', () => {
 		const ctx = configureContext();
 		seedPersonnel(ctx);
 
-		const created = await createPersonnelDocument(ctx, {
+		const created = await createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 			personnelId: 'person-1',
 			title: 'Updated BLS Card',
 			file: new File([PNG_BYTES], 'bls-card.png', { type: 'image/png' })
@@ -140,21 +145,21 @@ describe('personnel documents', () => {
 		seedPersonnel(ctx);
 
 		await expect(
-			createPersonnelDocument(ctx, {
+			createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',
 				file: new File(['text'], 'notes.txt', { type: 'text/plain' })
 			})
 		).rejects.toMatchObject({ status: 400 });
 
 		await expect(
-			createPersonnelDocument(ctx, {
+			createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',
 				file: new File([new Uint8Array(10 * 1024 * 1024 + 1)], 'large.pdf', { type: 'application/pdf' })
 			})
 		).rejects.toMatchObject({ status: 413 });
 
 		await expect(
-			createPersonnelDocument(ctx, {
+			createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',
 				file: new File(['not-a-pdf'], 'spoofed.pdf', { type: 'application/pdf' })
 			})
@@ -185,7 +190,7 @@ describe('personnel documents', () => {
 		]);
 
 		await expect(
-			createPersonnelDocument(ctx, {
+			createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',
 				file: new File([PDF_BYTES], 'next.pdf', { type: 'application/pdf' })
 			})
@@ -200,7 +205,7 @@ describe('personnel documents', () => {
 		};
 
 		await expect(
-			createPersonnelDocument(ctx, {
+			createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 				personnelId: 'person-1',
 				file: new File([PDF_BYTES], 'orphan.pdf', { type: 'application/pdf' })
 			})
@@ -211,12 +216,12 @@ describe('personnel documents', () => {
 	it('creates a short-lived signed URL for an uploaded document', async () => {
 		const ctx = configureContext();
 		seedPersonnel(ctx);
-		const created = await createPersonnelDocument(ctx, {
+		const created = await createPersonnelDocument(testPersonnelArtifactsContext(ctx), {
 			personnelId: 'person-1',
 			file: new File([PDF_BYTES], 'download.pdf', { type: 'application/pdf' })
 		});
 
-		const result = await createPersonnelDocumentDownloadUrl(ctx, {
+		const result = await createPersonnelDocumentDownloadUrl(testPersonnelArtifactsContext(ctx), {
 			personnelId: 'person-1',
 			documentId: created.id
 		});
@@ -240,7 +245,9 @@ describe('personnel documents', () => {
 			}
 		});
 		seedPersonnel(viewOnly);
-		await expect(listPersonnelDocuments(viewOnly, 'person-1')).rejects.toMatchObject({ status: 403 });
+		await expect(listPersonnelDocuments(testPersonnelArtifactsContext(viewOnly), 'person-1')).rejects.toMatchObject({
+			status: 403
+		});
 
 		const outOfScope = createTestContext({
 			auth: {
@@ -256,6 +263,94 @@ describe('personnel documents', () => {
 			}
 		});
 		seedPersonnel(outOfScope, 'group-1');
-		await expect(listPersonnelDocuments(outOfScope, 'person-1')).rejects.toMatchObject({ status: 403 });
+		await expect(listPersonnelDocuments(testPersonnelArtifactsContext(outOfScope), 'person-1')).rejects.toMatchObject({
+			status: 403
+		});
+	});
+
+	it.each([
+		['image/jpeg', [0xff, 0xd8, 0xff, 0x00]],
+		['image/png', [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
+		['image/heic', [0, 0, 0, 12, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63]],
+		['image/heif', [0, 0, 0, 12, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x69, 0x66, 0x31]]
+	] as const)('accepts declared %s bytes while rejecting a spoofed declaration', async (type, signature) => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const context = testPersonnelArtifactsContext(ctx);
+		const file = new File([new Uint8Array(signature)], 'image.bin', { type });
+		const created = await createPersonnelDocument(context, { personnelId: 'person-1', file });
+		expect(created).toMatchObject({ contentType: type, fileSizeBytes: file.size });
+		await expect(
+			createPersonnelDocument(context, {
+				personnelId: 'person-1',
+				file: new File(['plain text'], 'spoof.bin', { type })
+			})
+		).rejects.toMatchObject({ status: 400 });
+		expect(ctx.storagePort.files).toHaveLength(1);
+	});
+
+	it('allows restoring an active document and still rejects repeated archive', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const context = testPersonnelArtifactsContext(ctx);
+		const created = await createPersonnelDocument(context, {
+			personnelId: 'person-1',
+			file: new File([PDF_BYTES], 'signed.pdf', { type: 'application/pdf' })
+		});
+		await expect(
+			restorePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).resolves.toMatchObject({ id: created.id, archivedAt: null });
+		expect(ctx.auditPort.events.at(-1)).toMatchObject({ action: 'personnel.document.restored' });
+		await archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id });
+		await expect(
+			archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })
+		).rejects.toMatchObject({ status: 409 });
+	});
+
+	it('retains row-before-file deletion and suppresses the success audit when Storage fails', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		const context = testPersonnelArtifactsContext(ctx);
+		const created = await createPersonnelDocument(context, {
+			personnelId: 'person-1',
+			file: new File([PDF_BYTES], 'signed.pdf', { type: 'application/pdf' })
+		});
+		await archivePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id });
+		const priorEvents = [...ctx.auditPort.events];
+		ctx.storagePort.remove = async () => {
+			expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toBeNull();
+			throw new Error('Storage unavailable');
+		};
+		await expect(deletePersonnelDocument(context, { personnelId: 'person-1', documentId: created.id })).rejects.toThrow(
+			'Storage unavailable'
+		);
+		expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: created.id })).toBeNull();
+		expect(ctx.storagePort.files).toHaveLength(1);
+		expect(ctx.auditPort.events).toEqual(priorEvents);
+	});
+
+	it('does not mutate a document belonging to another Person in the same Organization', async () => {
+		const ctx = configureContext();
+		seedPersonnel(ctx);
+		await ctx.store.insert('personnel', ctx.auth.orgId, { id: 'person-2', group_id: null });
+		const context = testPersonnelArtifactsContext(ctx);
+		const other = await createPersonnelDocument(context, {
+			personnelId: 'person-2',
+			file: new File([PDF_BYTES], 'signed.pdf', { type: 'application/pdf' })
+		});
+		const priorEvents = [...ctx.auditPort.events];
+		const prior = await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: other.id });
+		await expect(
+			archivePersonnelDocument(context, { personnelId: 'person-1', documentId: other.id })
+		).rejects.toMatchObject({ status: 404 });
+		await expect(
+			restorePersonnelDocument(context, { personnelId: 'person-1', documentId: other.id })
+		).rejects.toMatchObject({ status: 404 });
+		await expect(
+			deletePersonnelDocument(context, { personnelId: 'person-1', documentId: other.id })
+		).rejects.toMatchObject({ status: 404 });
+		expect(await ctx.rawStore.findOne('personnel_documents', ctx.auth.orgId, { id: other.id })).toEqual(prior);
+		expect(ctx.storagePort.files).toHaveLength(1);
+		expect(ctx.auditPort.events).toEqual(priorEvents);
 	});
 });

@@ -335,3 +335,11 @@ export const personnelExtendedInfoInputSchema = z.object({
 	addressState: z.string().trim().max(80).optional().default(''),
 	addressZip: z.string().trim().max(20).optional().default('')
 });
+
+export type {
+	PersonnelCounselingRecord,
+	PersonnelDocument,
+	PersonnelFollowUpStatus,
+	PersonnelFollowUp,
+	PersonnelArchivedArtifact
+} from './personnelArtifact.types';

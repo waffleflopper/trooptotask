@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import type { PersonnelArchivedArtifact } from '$features/personnel/contracts';
 	import type {
-		PersonnelArchivedArtifact,
 		PersonnelArchivedArtifactsPageData,
 		PersonnelArtifactKind
 	} from '$features/personnel/personnel-detail.types';

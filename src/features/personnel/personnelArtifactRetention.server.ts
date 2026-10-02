@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { COUNSELING_RECORDS_BUCKET } from '$lib/server/core/useCases/personnelCounselingRecords';
-import { PERSONNEL_DOCUMENTS_BUCKET } from '$lib/server/core/useCases/personnelDocuments';
+import { COUNSELING_RECORDS_BUCKET } from './personnelCounselingRecords.server';
+import { PERSONNEL_DOCUMENTS_BUCKET } from './personnelDocuments.server';
 
 export interface PersonnelArtifactRetentionSource {
 	deleteExpiredFollowUps(orgId: string, cutoff: string): Promise<number>;

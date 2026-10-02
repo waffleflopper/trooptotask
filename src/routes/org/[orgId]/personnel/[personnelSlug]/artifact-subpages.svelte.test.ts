@@ -1,17 +1,17 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
-import type { PersonnelLeaderNote } from '$features/personnel/contracts';
 import type {
+	PersonnelLeaderNote,
 	PersonnelCounselingRecord,
+	PersonnelDocument,
+	PersonnelFollowUp,
 	PersonnelArchivedArtifactsPageData,
 	PersonnelCounselingsPageData,
-	PersonnelDocument,
 	PersonnelDocumentsPageData,
-	PersonnelFollowUp,
 	PersonnelFollowUpsPageData,
 	PersonnelNotesPageData
-} from '$features/personnel/personnel-detail.types';
+} from '$features/personnel/contracts';
 import FollowUpsPage from './follow-ups/+page.svelte';
 import DocumentsPage from './documents/+page.svelte';
 import CounselingsPage from './counselings/+page.svelte';

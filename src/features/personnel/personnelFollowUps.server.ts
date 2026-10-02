@@ -1,25 +1,22 @@
 import { z } from 'zod';
-import type { PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
+import type { PersonnelFollowUp } from './contracts';
 import { fail } from '$lib/errors';
-import type { UseCaseContext } from '$lib/server/core/ports';
 import {
-	deleteArtifact,
-	listArtifacts,
-	loadPersonnelContributorLabels,
-	mapFollowUpRow,
-	PERSONNEL_FOLLOW_UP_SPEC,
 	personnelArtifactWriter,
+	requirePersonnelArtifactAccess,
+	resolveContributorLabel,
+	type PersonnelArtifactsContext,
 	type FollowUpRow
-} from './personnelArtifactLifecycle';
+} from './personnelArtifactContext.server';
 
-export const personnelFollowUpInputSchema = z.object({
+const personnelFollowUpInputSchema = z.object({
 	personnelId: z.string().min(1),
 	title: z.string().trim().min(1, 'Follow-up title is required').max(200),
 	notes: z.string().trim().max(2000).optional().default(''),
 	dueDate: z.string().date().nullable().optional().default(null)
 });
 
-export const personnelFollowUpStatusSchema = z.object({
+const personnelFollowUpStatusSchema = z.object({
 	personnelId: z.string().min(1),
 	followUpId: z.string().min(1),
 	status: z.enum(['open', 'completed', 'archived'])
@@ -27,7 +24,7 @@ export const personnelFollowUpStatusSchema = z.object({
 
 const personnelFollowUpIdentitySchema = personnelFollowUpStatusSchema.omit({ status: true });
 
-export const personnelFollowUpUpdateSchema = z.object({
+const personnelFollowUpUpdateSchema = z.object({
 	personnelId: z.string().min(1),
 	followUpId: z.string().min(1),
 	title: z.string().trim().min(1, 'Follow-up title is required').max(200),
@@ -35,20 +32,22 @@ export const personnelFollowUpUpdateSchema = z.object({
 	dueDate: z.string().date().nullable().optional().default(null)
 });
 
-function requireUserId(ctx: UseCaseContext): string {
-	return ctx.auth.userId;
-}
-
 export async function listPersonnelFollowUps(
-	ctx: UseCaseContext,
+	ctx: PersonnelArtifactsContext,
 	personnelId: string,
 	limit?: number,
 	options: { archived?: boolean } = {}
 ): Promise<PersonnelFollowUp[]> {
-	return listArtifacts(ctx, PERSONNEL_FOLLOW_UP_SPEC, personnelId, { limit, archived: options.archived });
+	await requirePersonnelArtifactAccess(ctx, personnelId, 'read');
+	const rows = await ctx.persistence.listFollowUps(personnelId, { archived: !!options.archived, limit });
+	const labels = await ctx.contributorLabels(rows.flatMap((row) => (row.created_by ? [row.created_by] : [])));
+	return rows.map((row) => mapFollowUpRow(row, labels));
 }
 
-export async function createPersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+export async function createPersonnelFollowUp(
+	ctx: PersonnelArtifactsContext,
+	rawInput: unknown
+): Promise<PersonnelFollowUp> {
 	const parsed = personnelFollowUpInputSchema.safeParse(rawInput);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
@@ -63,7 +62,7 @@ export async function createPersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 		notes: input.notes,
 		due_date: input.dueDate,
 		status: 'open',
-		created_by: requireUserId(ctx),
+		created_by: ctx.actor.userId,
 		created_at: now,
 		updated_at: now
 	});
@@ -74,11 +73,14 @@ export async function createPersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 		resourceId: input.personnelId
 	});
 
-	const labels = await loadPersonnelContributorLabels(ctx, [row.created_by]);
+	const labels = await ctx.contributorLabels([row.created_by]);
 	return mapFollowUpRow(row, labels);
 }
 
-export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+export async function setPersonnelFollowUpStatus(
+	ctx: PersonnelArtifactsContext,
+	rawInput: unknown
+): Promise<PersonnelFollowUp> {
 	const parsed = personnelFollowUpStatusSchema.safeParse(rawInput);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
@@ -107,11 +109,14 @@ export async function setPersonnelFollowUpStatus(ctx: UseCaseContext, rawInput: 
 		resourceId: input.personnelId
 	});
 
-	const labels = await loadPersonnelContributorLabels(ctx, [row.created_by]);
+	const labels = await ctx.contributorLabels([row.created_by]);
 	return mapFollowUpRow(row, labels);
 }
 
-export async function updatePersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+export async function updatePersonnelFollowUp(
+	ctx: PersonnelArtifactsContext,
+	rawInput: unknown
+): Promise<PersonnelFollowUp> {
 	const parsed = personnelFollowUpUpdateSchema.safeParse(rawInput);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
@@ -139,18 +144,24 @@ export async function updatePersonnelFollowUp(ctx: UseCaseContext, rawInput: unk
 		resourceId: input.personnelId
 	});
 
-	const labels = await loadPersonnelContributorLabels(ctx, [row.created_by]);
+	const labels = await ctx.contributorLabels([row.created_by]);
 	return mapFollowUpRow(row, labels);
 }
 
-export async function archivePersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+export async function archivePersonnelFollowUp(
+	ctx: PersonnelArtifactsContext,
+	rawInput: unknown
+): Promise<PersonnelFollowUp> {
 	return setPersonnelFollowUpStatus(ctx, {
 		...(typeof rawInput === 'object' && rawInput !== null ? rawInput : {}),
 		status: 'archived'
 	});
 }
 
-export async function restorePersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<PersonnelFollowUp> {
+export async function restorePersonnelFollowUp(
+	ctx: PersonnelArtifactsContext,
+	rawInput: unknown
+): Promise<PersonnelFollowUp> {
 	const parsed = personnelFollowUpStatusSchema.safeParse({
 		...(typeof rawInput === 'object' && rawInput !== null ? rawInput : {}),
 		status: 'open'
@@ -172,15 +183,36 @@ export async function restorePersonnelFollowUp(ctx: UseCaseContext, rawInput: un
 		updated_at: new Date().toISOString()
 	});
 	ctx.audit.log({ action: 'personnel.follow_up.restored', resourceType: 'personnel', resourceId: input.personnelId });
-	const labels = await loadPersonnelContributorLabels(ctx, [row.created_by]);
+	const labels = await ctx.contributorLabels([row.created_by]);
 	return mapFollowUpRow(row, labels);
 }
 
-export async function deletePersonnelFollowUp(ctx: UseCaseContext, rawInput: unknown): Promise<void> {
+export async function deletePersonnelFollowUp(ctx: PersonnelArtifactsContext, rawInput: unknown): Promise<void> {
 	const parsed = personnelFollowUpIdentitySchema.safeParse(rawInput);
 	if (!parsed.success) {
 		fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	}
 	const input = parsed.data;
-	return deleteArtifact(ctx, PERSONNEL_FOLLOW_UP_SPEC, { personnelId: input.personnelId, id: input.followUpId });
+	const writer = await personnelArtifactWriter(ctx, input.personnelId);
+	const row = await writer.find<FollowUpRow>('personnel_follow_ups', input.followUpId);
+	if (!row) fail(404, 'Follow-up not found');
+	if (row.status !== 'archived') fail(409, 'Archive follow-ups before deleting them');
+	await writer.delete('personnel_follow_ups', input.followUpId);
+	ctx.audit.log({ action: 'personnel.follow_up.deleted', resourceType: 'personnel', resourceId: input.personnelId });
+}
+
+function mapFollowUpRow(row: FollowUpRow, contributorLabels = new Map<string, string>()): PersonnelFollowUp {
+	return {
+		id: row.id,
+		personnelId: row.personnel_id,
+		title: row.title,
+		notes: row.notes ?? '',
+		dueDate: row.due_date,
+		status: row.status,
+		createdBy: resolveContributorLabel(contributorLabels, row.created_by),
+		createdAt: row.created_at,
+		updatedAt: row.updated_at,
+		completedAt: row.completed_at,
+		archivedAt: row.archived_at ?? null
+	};
 }

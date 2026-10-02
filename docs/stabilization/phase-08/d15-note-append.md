@@ -122,7 +122,6 @@ CI uses only disposable local providers and performs no remote migration. Reposi
 
 After accepted review, green exact-head CI and the new manual gate, continue the same #1363 with the observed lifecycle repair, Add Person/Calendar/Training reverse consumers, remaining valid packet operations/access boundaries, general response ordering and integrated removal/whole-issue acceptance. Notes proof earns no lifecycle completion credit; do not advance another issue.
 
-
 ## Integrated result
 
 PR #1478 merges at `8429f758c78df5ff90eab30f1cb17d15935489a3`, with the identical tree `15b52826fcd89843cac18d455604d3a8fbd25c45` as accepted `16d415d61fb0ffdd0d86c5b279044696823b6f5c`. Final-head [application CI](https://depot.dev/orgs/rvsvvkd4rp/workflows/hlf5vbrx3g?job=73k649bg7c) and [database CI](https://depot.dev/orgs/rvsvvkd4rp/workflows/hlf5vbrx3g?job=vhcvqt4j55) pass with the same full check counts recorded above; Vercel passes. Complete independent source/expanded acceptance and final four-file prose/integration acceptance pass. CLI explicitly reviews all four changed prose files with zero findings. Hosted incremental review completes for `80c8c842` → `16d415d6`, no threads/actionable feedback and successful final-head status; original source approval remains at `80c8c842`. Its similar-change TODO skip is covered by final CLI and independent acceptance.

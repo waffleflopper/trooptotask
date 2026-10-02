@@ -25,8 +25,7 @@
 		return {
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
-			ratingSchemeEntries: workspace.data.ratingSchemeEntries,
-			lossWarningWindowDays: workspace.data.lossWarningWindowDays
+			ratingSchemeEntries: workspace.data.ratingSchemeEntries
 		};
 	}
 

@@ -9,3 +9,7 @@ export { createOwnershipTransferWorkspace } from './ownershipTransferWorkspace.s
 export { default as DangerSettingsPage } from './DangerSettingsPage.svelte';
 
 export { default as GeneralSettingsPage } from './GeneralSettingsPage.svelte';
+
+export { default as PoliciesSettingsPage } from './PoliciesSettingsPage.svelte';
+
+export { default as SettingsShell } from './SettingsShell.svelte';

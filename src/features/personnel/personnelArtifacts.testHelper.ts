@@ -80,21 +80,7 @@ export function testPersonnelArtifactsContext(ctx: ReturnType<typeof createTestC
 				orgId,
 				ids
 			),
-		documentStorageCapBytes: () =>
-			loadPersonnelDocumentStorageCapBytes(
-				{
-					async findStorageCapBytes(settingOrgId) {
-						return (
-							await ctx.store.findOne<{ personnel_document_storage_cap_bytes?: number | null }>(
-								'organizations',
-								settingOrgId,
-								{ id: settingOrgId }
-							)
-						)?.personnel_document_storage_cap_bytes;
-					}
-				},
-				orgId
-			),
+		documentStorageCapBytes: () => loadPersonnelDocumentStorageCapBytes(ctx.organizationSettings, orgId),
 		createDocumentSignedUrl: (path, expiresInSeconds) =>
 			ctx.storage.createSignedUrl('personnel-documents', path, expiresInSeconds)
 	};

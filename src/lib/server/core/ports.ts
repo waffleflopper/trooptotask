@@ -1,3 +1,4 @@
+import type { OrganizationSettingsReader, OrganizationPolicyWritePort } from '$features/organization/contracts';
 import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { NotificationStore } from '$features/notifications/contracts.server';
@@ -189,6 +190,7 @@ export interface UserWritePorts {
 
 /** Read-only query operations */
 export interface QueryPorts {
+	organizationSettings: OrganizationSettingsReader;
 	store: DataStore;
 	auth: AuthContext;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
@@ -210,6 +212,8 @@ export interface QueryWithRawStorePorts extends QueryPorts {
 
 /** Combined context for all use cases */
 export interface UseCaseContext {
+	organizationSettings: OrganizationSettingsReader;
+	organizationPolicyWrite: OrganizationPolicyWritePort;
 	notificationSelf: { auth: AuthContext; audit: AuditPort; store: NotificationStore };
 	feedbackExport: { listRows(orgId: string): Promise<FeedbackExportRow[]> };
 	store: DataStore;

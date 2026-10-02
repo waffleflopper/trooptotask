@@ -48,7 +48,6 @@ export const RATING_SCHEME_WORKSPACE_LANE_KEY = 'ratingScheme' as const;
 export interface RatingSchemeWorkspaceData {
 	personnelLookup: PersonnelLookup[];
 	ratingSchemeEntries: RatingSchemeEntry[];
-	lossWarningWindowDays: number;
 }
 
 export type RatingSchemeWorkspaceHydrationMode = 'replace' | 'preserve-client';

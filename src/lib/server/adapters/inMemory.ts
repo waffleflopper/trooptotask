@@ -1100,7 +1100,56 @@ function unavailableNotificationStore(): UseCaseContext['notificationSelf']['sto
 	};
 }
 
-/** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
+/** Test delivery binding for Organization-owned scalar facts. */
+function createInMemoryOrganizationSettingsReader(store: DataStore): UseCaseContext['organizationSettings'] {
+	async function findScalar(orgId: string, column: string) {
+		const row = await store.findOne<Record<string, number | null>>('organizations', orgId.toLowerCase(), {}, column);
+		return row?.[column];
+	}
+	return {
+		async findPolicies(orgId) {
+			const row = await store.findOne<{
+				archive_retention_months?: number | null;
+				loss_warning_window_days?: number | null;
+			}>('organizations', orgId.toLowerCase(), {}, 'archive_retention_months, loss_warning_window_days');
+			return row
+				? { archiveRetentionMonths: row.archive_retention_months, lossWarningWindowDays: row.loss_warning_window_days }
+				: null;
+		},
+		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
+		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
+		findStorageCapBytes: (orgId) => findScalar(orgId, 'personnel_document_storage_cap_bytes'),
+		async countPendingInvitations(orgId) {
+			return (
+				(
+					await store.findManyWithCount(
+						'organization_invitations',
+						orgId.toLowerCase(),
+						{ status: 'pending' },
+						{ select: 'id', limit: 0 }
+					)
+				).count ?? 0
+			);
+		}
+	};
+}
+
+function createInMemoryOrganizationPolicyWritePort(store: DataStore): UseCaseContext['organizationPolicyWrite'] {
+	return {
+		async updatePolicies(orgId, changes) {
+			const updates: Record<string, number> = {};
+			if (changes.archiveRetentionMonths !== undefined)
+				updates.archive_retention_months = changes.archiveRetentionMonths;
+			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
+			if (changes.personnelDocumentStorageCapBytes !== undefined)
+				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
+			await store.updateById('organizations', orgId, updates);
+			return null;
+		}
+	};
+}
+
+/** Convenience: build a full UseCaseContext for tests. */
 export function createTestContext(
 	overrides?: TestContextOptions & {
 		scope?: Partial<ScopeEnforcementPort>;
@@ -1131,6 +1180,8 @@ export function createTestContext(
 		scope,
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
+		organizationPolicyWrite: createInMemoryOrganizationPolicyWritePort(rawStore),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition:
@@ -1339,6 +1390,7 @@ export function createQueryPortsContext(options?: TestContextOptions): QueryPort
 	return {
 		store,
 		auth,
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
@@ -1365,6 +1417,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		store,
 		auth,
 		rawStore,
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),

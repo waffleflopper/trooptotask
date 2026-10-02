@@ -8,7 +8,6 @@ import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
 type PolicyContext = Parameters<typeof requireFeaturePolicy>[0];
 interface RatingSchemeWorkspaceContext extends PolicyContext {
 	readonly rawStore: Pick<RatingSchemeReadStore, 'findMany'>;
-	readonly store: Pick<RatingSchemeReadStore, 'findOne'>;
 	readonly personnelRatingSchemeRoster?: Pick<PersonnelRatingSchemeRosterPort, 'listActiveReferences'>;
 }
 
@@ -22,7 +21,7 @@ export async function loadRatingSchemeWorkspace(ctx: RatingSchemeWorkspaceContex
 	);
 	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster port is required');
 
-	const [personnelLookup, rows, settings] = await Promise.all([
+	const [personnelLookup, rows] = await Promise.all([
 		ctx.personnelRatingSchemeRoster.listActiveReferences(ctx.auth),
 		// Authenticated Rating RLS owns row scope. The generic scoped store requires Personnel SELECT.
 		ctx.rawStore.findMany<Record<string, unknown>>(RatingSchemeEntryEntity.table, ctx.auth.orgId, undefined, {
@@ -31,16 +30,10 @@ export async function loadRatingSchemeWorkspace(ctx: RatingSchemeWorkspaceContex
 				{ column: 'rating_period_end', ascending: true },
 				{ column: 'id', ascending: true }
 			]
-		}),
-		ctx.store
-			.findOne<{
-				loss_warning_window_days: number | null;
-			}>('organizations', ctx.auth.orgId, {}, 'loss_warning_window_days')
-			.catch(() => null)
+		})
 	]);
 	return {
 		personnelLookup,
-		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(rows),
-		lossWarningWindowDays: settings?.loss_warning_window_days ?? 180
+		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(rows)
 	};
 }

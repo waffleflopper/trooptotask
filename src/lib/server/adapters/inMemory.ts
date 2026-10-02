@@ -121,7 +121,16 @@ type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
 type TestContextOptions = {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 	criticalTasksReadModelFactory?: (rawStore: DataStore) => QueryPorts['criticalTasksReadModel'];
+	onboardingReconciliation?: UseCaseContext['onboardingReconciliation'];
 };
+
+function unavailableOnboardingReconciliation(): NonNullable<UseCaseContext['onboardingReconciliation']> {
+	return {
+		async reconcile() {
+			throw new Error('Bind the owned Onboarding reconciliation provider');
+		}
+	};
+}
 
 function unavailableCriticalTasksReadModel(): QueryPorts['criticalTasksReadModel'] {
 	return {
@@ -1051,6 +1060,7 @@ export function createTestContext(
 		scope,
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		auditPort,
 
 		notifications: notificationPort,
@@ -1163,6 +1173,7 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 		auth,
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1201,6 +1212,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		auth,
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,

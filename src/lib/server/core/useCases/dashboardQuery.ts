@@ -14,14 +14,14 @@ import type { StatusType, AvailabilityEntry, AssignmentType, DailyAssignment } f
 import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
-import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import {
 	listAssignmentTypes,
 	listAvailabilityEntries,
 	listDailyAssignments,
 	listStatusTypes
 } from '$features/calendar/index.server';
-import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
+import { listActiveOnboardings } from '$features/onboarding/index.server';
 import { listTrainingTypes } from '$features/training/index.server';
 import { formatDate } from '$lib/utils/dates';
 import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
@@ -64,16 +64,6 @@ async function loadRatingSchemeDueEntries(ctx: QueryPorts): Promise<RatingScheme
 	return ctx.ratingSchemeDue.listDueEntries(ctx.auth);
 }
 
-async function loadActiveOnboardings(ctx: QueryPorts, orgId: string) {
-	const rows = await ctx.store.findMany<Record<string, unknown>>(
-		'personnel_onboardings',
-		orgId,
-		{ status: 'in_progress' },
-		{ select: PersonnelOnboardingEntity.select }
-	);
-	return PersonnelOnboardingEntity.fromDbArray(rows);
-}
-
 export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<DashboardBootstrap> {
 	const orgId = ctx.auth.orgId;
 	const serverNow = new Date();
@@ -97,7 +87,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		listAssignmentTypes(ctx.store, orgId),
 		listPinnedGroupNames(ctx),
 		loadRatingSchemeDueEntries(ctx),
-		loadActiveOnboardings(ctx, orgId),
+		listActiveOnboardings(ctx.store, orgId),
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		listGroupCatalog(ctx),
 		listStatusTypes(ctx.store, orgId),
@@ -141,7 +131,7 @@ export async function fetchDashboardData(ctx: QueryPorts): Promise<DashboardData
 			listDailyAssignments(ctx, { rangeStart: yesterday, rangeEnd: twoWeeksOut }, null),
 			listPinnedGroupNames(ctx),
 			loadRatingSchemeDueEntries(ctx),
-			loadActiveOnboardings(ctx, orgId)
+			listActiveOnboardings(ctx.store, orgId)
 		]);
 
 	return {

@@ -3,11 +3,11 @@
  *
  * `toggleCheckbox(ctx, input)` marks a step complete or incomplete.
  *
- * For lifecycle transitions (start, cancel, complete the whole record), see `onboardingLifecycle.ts`.
+ * For lifecycle transitions (start, cancel, complete the whole record), see `onboardingLifecycle.server.ts`.
  */
 import { fail } from '$lib/errors';
-import type { OnboardingWorkflowPorts } from './onboardingPolicy';
-import { requireOnboardingManagePolicyForStep } from './onboardingPolicy';
+import type { OnboardingWorkflowPorts } from './onboardingPorts.server';
+import { requireOnboardingManagePolicyForStep } from './onboardingPolicy.server';
 
 interface ToggleCheckboxInput {
 	stepId: string;

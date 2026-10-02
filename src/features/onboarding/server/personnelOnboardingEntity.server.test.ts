@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PersonnelOnboardingEntity } from './personnelOnboarding';
-import type { PersonnelOnboarding } from '$features/onboarding/onboarding.types';
+import { PersonnelOnboardingEntity } from './personnelOnboardingEntity.server';
+import type { PersonnelOnboarding } from '../contracts';
 
 describe('PersonnelOnboardingEntity', () => {
 	it('table is personnel_onboardings', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWritePortsContext } from '$lib/server/adapters/inMemory';
-import { fetchOnboardingBootstrap } from './onboardingQuery';
+import { fetchOnboardingBootstrap } from './onboardingQuery.server';
 
 const ORG = 'test-org';
 

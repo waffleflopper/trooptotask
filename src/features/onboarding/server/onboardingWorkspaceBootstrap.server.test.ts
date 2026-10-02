@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-	OnboardingTemplate,
-	OnboardingTemplateStep,
-	PersonnelOnboarding
-} from '$features/onboarding/onboarding.types';
+import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from '../contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
@@ -21,10 +17,8 @@ const { fetchOnboardingBootstrapMock, mockCtx } = vi.hoisted(() => {
 	};
 });
 
-vi.mock('$lib/server/core/useCases/onboardingQuery', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/onboardingQuery')>(
-		'$lib/server/core/useCases/onboardingQuery'
-	);
+vi.mock('./onboardingQuery.server', async () => {
+	const actual = await vi.importActual<typeof import('./onboardingQuery.server')>('./onboardingQuery.server');
 	return {
 		...actual,
 		fetchOnboardingBootstrap: fetchOnboardingBootstrapMock

@@ -1,18 +1,9 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
-import type { DataStore, WritePorts } from '$lib/server/core/ports';
-import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
-import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
-import { policyResourceForGroup, requireFeaturePolicy } from './featurePolicy';
+import type { OnboardingPolicyPorts, OnboardingResourcePorts, OnboardingReadStore } from './onboardingPorts.server';
+import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 const UNSCOPED_ONBOARDING_RESOURCE: PolicyResource = { kind: 'unscoped' };
-
-type OnboardingPolicyPorts = Pick<WritePorts, 'auth' | 'store' | 'rawStore' | 'audit'>;
-export type OnboardingWorkflowPorts = WritePorts & { personnelOnboardingRoster: PersonnelOnboardingRosterPort };
-export type OnboardingTrainingPorts = OnboardingWorkflowPorts & {
-	trainingOnboardingReferences: TrainingOnboardingReferencesPort;
-};
-type OnboardingResourcePorts = OnboardingPolicyPorts & Pick<OnboardingWorkflowPorts, 'personnelOnboardingRoster'>;
 
 interface PersonnelBackedRow {
 	personnel_id: string;
@@ -22,7 +13,7 @@ interface StepBackedRow {
 	onboarding_id: string;
 }
 
-function policyLookupStore(ports: OnboardingPolicyPorts): DataStore {
+function policyLookupStore(ports: OnboardingResourcePorts): Pick<OnboardingReadStore, 'findOne'> {
 	return ports.rawStore ?? ports.store;
 }
 

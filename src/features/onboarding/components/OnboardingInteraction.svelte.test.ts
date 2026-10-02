@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import OnboardingPageView from './OnboardingPageView.svelte';
 import OnboardingKanbanView from './OnboardingKanbanView.svelte';
 import OnboardingModals from './OnboardingModals.svelte';
 import { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte';
@@ -43,9 +42,9 @@ const packet: PersonnelOnboarding = {
 	]
 };
 
-function mount(rankCatalog: RankCatalogEntry[] = [], rankCatalogUnavailable = false, kanban = false) {
+function mount(rankCatalog: RankCatalogEntry[] = [], rankCatalogUnavailable = false) {
 	const ctx = new OnboardingPageContext(new ModalRegistry(), createTestOrgContext({ orgId: 'org-1' }));
-	render(kanban ? OnboardingKanbanView : OnboardingPageView, { props: { ctx } });
+	render(OnboardingKanbanView, { props: { ctx } });
 	render(OnboardingModals, { props: { ctx, rankCatalog, rankCatalogUnavailable } });
 	return ctx;
 }
@@ -108,6 +107,38 @@ afterEach(() => {
 });
 
 describe('Onboarding retained interactions', () => {
+	it('disables Start when no template steps are available', () => {
+		onboardingTemplateStore.load(onboardingTemplateStore.templates, [], 'org-1');
+		mount();
+		expect((screen.getByRole('button', { name: 'Start Onboarding' }) as HTMLButtonElement).disabled).toBe(true);
+	});
+
+	it('shows inactive paperwork without a stage editor in the detail sheet', async () => {
+		onboardingStore.load(
+			[
+				{
+					...packet,
+					steps: [
+						{
+							...packet.steps[0],
+							stepName: 'Finance packet',
+							stepType: 'paperwork',
+							stages: ['Submitted', 'Review', 'Filed'],
+							currentStage: 'Review',
+							active: false
+						}
+					]
+				}
+			],
+			'org-1'
+		);
+		mount();
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		expect(await screen.findByText('Finance packet')).toBeTruthy();
+		expect(screen.getByText('Removed')).toBeTruthy();
+		expect(screen.queryByRole('group', { name: 'Finance packet paperwork stages' })).toBeNull();
+	});
+
 	it('keeps a failed start draft in the actual pipeline and retries it without reselection', async () => {
 		const created = { ...packet, id: 'packet-2', personnelId: 'person-2' };
 		const fetchMock = vi
@@ -115,7 +146,7 @@ describe('Onboarding retained interactions', () => {
 			.mockResolvedValueOnce(new Response('{}', { status: 503 }))
 			.mockResolvedValueOnce(Response.json(created, { status: 201 }));
 		vi.stubGlobal('fetch', fetchMock);
-		mount([], false, true);
+		mount();
 		await fireEvent.click(screen.getByRole('button', { name: 'Start Onboarding' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Member' }));
 		await fireEvent.click(await screen.findByRole('option', { name: 'CPL Jones, Alex' }));
@@ -153,7 +184,7 @@ describe('Onboarding retained interactions', () => {
 				.mockResolvedValueOnce(new Response('{}', { status: 503 }))
 				.mockResolvedValueOnce(Response.json({ completed: false, currentStage: 'Reviewed' }))
 		);
-		mount([], false, true);
+		mount();
 		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
 		await fireEvent.click(await screen.findByRole('button', { name: /Reviewed/ }));
 		await waitFor(() => expect(feedback).toHaveBeenCalledWith(expect.any(String)));
@@ -171,7 +202,7 @@ describe('Onboarding retained interactions', () => {
 				.mockResolvedValueOnce(new Response('{}', { status: 503 }))
 				.mockResolvedValueOnce(Response.json({ status: 'completed', completedAt: '2026-06-15', cancelledAt: null }))
 		);
-		mount([], false, true);
+		mount();
 		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
 		await fireEvent.click(await screen.findByRole('button', { name: 'Mark Complete' }));
 		const confirmation = await screen.findByRole('alertdialog', { name: 'Complete Onboarding' });
@@ -195,7 +226,7 @@ describe('Onboarding retained interactions', () => {
 				.mockResolvedValueOnce(new Response('{}', { status: 503 }))
 				.mockResolvedValueOnce(Response.json({ status: 'cancelled', completedAt: null, cancelledAt: '2026-06-15' }))
 		);
-		mount([], false, true);
+		mount();
 		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
 		await fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
 		const confirmation = await screen.findByRole('alertdialog', { name: 'Cancel Onboarding' });
@@ -296,6 +327,7 @@ describe('Onboarding retained interactions', () => {
 			within(screen.getByRole('dialog', { name: 'Start Onboarding' })).getByRole('button', { name: 'Start Onboarding' })
 		);
 		await waitFor(() => expect(onboardingStore.getById('created-packet')).toEqual(created));
+		expect(await screen.findByRole('button', { name: /VRA Nolan, Avery/ })).toBeTruthy();
 		expect(fetchMock).toHaveBeenNthCalledWith(
 			1,
 			'/org/org-1/api/personnel',
@@ -371,30 +403,63 @@ describe('Onboarding retained interactions', () => {
 	});
 
 	it('rolls back a denied checkbox toggle and shows confirmed completion after retry', async () => {
-		let respond!: (response: Response) => void;
+		let deny!: (response: Response) => void;
+		let confirm!: (response: Response) => void;
 		const fetchMock = vi
 			.fn()
 			.mockImplementationOnce(
 				() =>
 					new Promise<Response>((resolve) => {
-						respond = resolve;
+						deny = resolve;
 					})
 			)
-			.mockResolvedValueOnce(Response.json({ completed: true, currentStage: null }));
+			.mockImplementationOnce(
+				() =>
+					new Promise<Response>((resolve) => {
+						confirm = resolve;
+					})
+			);
 		vi.stubGlobal('fetch', fetchMock);
 		const ctx = mount();
-		ctx.expandedOnboardingId = 'packet-1';
-		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Mark complete' }));
-		expect(screen.getByRole('checkbox', { name: 'Mark incomplete' }).getAttribute('aria-checked')).toBe('true');
-		respond(new Response('{}', { status: 403 }));
-		await waitFor(() =>
-			expect(screen.getByRole('checkbox', { name: 'Mark complete' }).getAttribute('aria-checked')).toBe('false')
+		const toggle = vi.spyOn(ctx, 'handleToggleCheckbox');
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		await fireEvent.click(await screen.findByRole('checkbox', { name: 'Mark Verify ID card complete' }));
+		await fireEvent.click(await screen.findByRole('button', { name: /^Completed/ }));
+		expect(screen.getByRole('checkbox', { name: 'Mark Verify ID card incomplete' }).getAttribute('aria-checked')).toBe(
+			'true'
 		);
-		expect(onboardingStore.getById('packet-1')?.steps[0].completed).toBe(false);
-		await fireEvent.click(screen.getByRole('checkbox', { name: 'Mark complete' }));
-		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-		expect(screen.getByRole('checkbox', { name: 'Mark incomplete' }).getAttribute('aria-checked')).toBe('true');
-		expect(onboardingStore.getById('packet-1')?.steps[0].completed).toBe(true);
+		deny(new Response('{}', { status: 403 }));
+		await toggle.mock.results[0].value;
+		await waitFor(() =>
+			expect(screen.getByRole('checkbox', { name: 'Mark Verify ID card complete' }).getAttribute('aria-checked')).toBe(
+				'false'
+			)
+		);
+		expect(onboardingStore.getById('packet-1')).toEqual(packet);
+		await fireEvent.click(screen.getByRole('checkbox', { name: 'Mark Verify ID card complete' }));
+		expect(screen.getByRole('checkbox', { name: 'Mark Verify ID card incomplete' }).getAttribute('aria-checked')).toBe(
+			'true'
+		);
+		confirm(
+			Response.json({
+				id: 'step-1',
+				onboardingId: 'packet-1',
+				stepName: 'Verify ID card',
+				stepType: 'checkbox',
+				completed: true,
+				currentStage: null
+			})
+		);
+		await toggle.mock.results[1].value;
+		await waitFor(() =>
+			expect(
+				screen.getByRole('checkbox', { name: 'Mark Verify ID card incomplete' }).getAttribute('aria-checked')
+			).toBe('true')
+		);
+		expect(onboardingStore.getById('packet-1')).toEqual({
+			...packet,
+			steps: [{ ...packet.steps[0], completed: true }]
+		});
 		expect(fetchMock).toHaveBeenLastCalledWith(
 			'/org/org-1/api/onboarding-steps',
 			expect.objectContaining({

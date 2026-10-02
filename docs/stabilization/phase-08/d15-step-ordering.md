@@ -14,6 +14,10 @@ The store currently puts whole checklist snapshots into each shared optimistic e
 
 Required final proof repeats the exact known-persistence native sequence, preserves an independent checkbox change while a stage response is held, and verifies synthetic failed stage save, rendered error, rollback and real retry/reload. Lower checks own note/removal overlap, newer-save failure, same-Organization refresh and workspace invalidation/ABA. Existing accepted consumers, notes/lifecycle SQL and provider evidence apply to their unchanged boundaries; no native note editor or independent browser execution is claimed. This causal response-delivery check does not establish request persistence order under arbitrary backend scheduling or later independent writers. Final native proof, packaging, independent complete-diff/expanded acceptance, intended-diff bot review and exact-current Actions/build remain required.
 
+## Current-default integration
+
+Main advanced to separately owned Settings #1481 at `28405962cbaafb0ed551bad0f1f2ff773bef4b01`. The integration preserves its source, three archives and owner task/evidence records. Its application changes are isolated to Settings; Onboarding and shared store bytes are unchanged. Updated native helpers add an Organization Policies-only delayed synthetic POST failure; existing Onboarding real-response hold and immediate synthetic failure semantics are retained. Final proof will use the integrated helpers and freeze their actual bytes. Baseline inputs and observations remain tied to `9040abbd` and are not rewritten as a new live run.
+
 ## Release
 
 No migration or production operation is involved in the selected client repair. Robert authorizes merge after current CI passes and completed bot review has no actionable feedback, followed by the next deliverable for #1363 only. A newly required migration stops for his manual application. Prior reconciliation/note migration provenance and Robert's reported live application remain unchanged; no remote readback is claimed here.

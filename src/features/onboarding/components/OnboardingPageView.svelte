@@ -8,7 +8,7 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Alert from '$lib/components/ui/alert';
 	import * as Empty from '$lib/components/ui/empty';
-	import * as OnboardingPacketList from '$lib/components/ui/onboarding-packet-list';
+	import * as OnboardingPacketList from './packet-list';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';

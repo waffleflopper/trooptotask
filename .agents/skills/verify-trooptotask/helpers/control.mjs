@@ -669,6 +669,7 @@ async function main() {
 				'artifact-retention',
 				'artifact-retention-1001',
 				'onboarding-legacy',
+				'onboarding-history',
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'communications',

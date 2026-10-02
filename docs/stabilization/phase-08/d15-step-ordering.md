@@ -30,11 +30,13 @@ Main advanced to separately owned Settings #1481 at `28405962cbaafb0ed551bad0f1f
 
 The [baseline archive](d15-ordering-baseline-native.tar.gz) SHA-256 is `422d06e3a5a5176c4ca01d7a789bb2811e7a9f101f3af670109fd806419989c7`; [final archive](d15-ordering-final-native.tar.gz) SHA-256 is `d44ab1ebb6187193fad4c60d7217aa7b00eb1b2e8847a11d866895121ef057cd`. They preserve 276/538 byte-identical raw files plus one authored sanitization record each: 277/539 inventoried payloads, 278/540 members, 1,210,531/2,480,062 expanded bytes. Combined 818 members / 3,690,593 bytes stay within the shared 5,000-member/64-MiB budget and each 2,500-member/32-MiB budget. Each inventory lists every payload filename and expanded SHA-256. Credential-bearing native headers were omitted at capture; actual business bodies are retained. The only token-pattern match is the tracked deliberately incorrect credential literal, verified against each run's exact Git helper blob and prelaunch hash. No observed payload bytes were redacted or altered. All previous D15 archives remain unchanged.
 
-Both archives pass fresh bounded extraction, exact filename-set/hash checks and equality with the raw run files. From the repository root, this verified example creates fresh ignored directories on each invocation:
+Both archives pass fresh bounded extraction, exact filename-set/hash checks and equality with the raw run files. From the repository root, this verified example requires Python with `tarfile.data_filter` and creates fresh ignored directories on each invocation:
 
 ```python
 from pathlib import Path
 import hashlib,json,tarfile,tempfile
+if not hasattr(tarfile,'data_filter'):
+ raise SystemExit('Python with tarfile.data_filter is required for safe extraction')
 expected={
 'd15-ordering-baseline-native.tar.gz':'422d06e3a5a5176c4ca01d7a789bb2811e7a9f101f3af670109fd806419989c7',
 'd15-ordering-final-native.tar.gz':'d44ab1ebb6187193fad4c60d7217aa7b00eb1b2e8847a11d866895121ef057cd'}

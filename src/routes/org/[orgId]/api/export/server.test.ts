@@ -54,6 +54,33 @@ function createExportTestContext(overrides?: Parameters<typeof createTestContext
 }
 
 describe('POST /api/export', () => {
+	it.each(['personnel_onboardings', 'onboarding_step_progress'] as const)(
+		'rejects a failed %s read without an artifact or success effects',
+		async (failedTable) => {
+			const ctx = createExportTestContext();
+			const failure = new Error(`Saved ${failedTable} rows unavailable`);
+			const findMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+			ctx.rawStore.findMany = async (table, ...args) => {
+				if (table === failedTable) throw failure;
+				return findMany(table, ...args);
+			};
+
+			await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' })).rejects.toBe(failure);
+
+			const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+			expect(rows).toEqual([
+				expect.objectContaining({
+					requested_by: ctx.auth.userId,
+					status: 'failed',
+					completed_at: expect.any(String)
+				})
+			]);
+			expect(rows[0]).not.toHaveProperty('file_size_bytes');
+			expect(ctx.auditPort.events.filter((event) => event.action.startsWith('export.'))).toEqual([]);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+		}
+	);
+
 	it.each(['Notifications', 'Feedback'] as const)(
 		'fails the export when its owned %s provider has not been bound',
 		async (missingProvider) => {
@@ -258,6 +285,30 @@ describe('POST /api/export', () => {
 		const payload = JSON.parse(result.artifact.body);
 		expect(payload.leaderNotes.map((row: { id: string }) => row.id)).toEqual(['own-note']);
 		expect(payload.personnelExtendedInfo.map((row: { id: string }) => row.id)).toEqual(['own-detail']);
+		expect(payload.personnelOnboardings).toEqual([]);
+		expect(payload.onboardingStepProgress).toEqual([]);
+		expect(payload.sections.personnelOnboardings).toEqual([]);
+		expect(payload.sections.onboardingStepProgress).toEqual([]);
+		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+		expect(exportRows).toEqual([
+			expect.objectContaining({
+				requested_by: ctx.auth.userId,
+				status: 'completed',
+				completed_at: expect.any(String),
+				file_size_bytes: new TextEncoder().encode(result.artifact.body).length
+			})
+		]);
+		expect(ctx.auditPort.events.filter((event) => event.action.startsWith('export.'))).toEqual([
+			expect.objectContaining({ action: 'export.created', resourceType: 'data_export', resourceId: exportRows[0].id })
+		]);
+		expect(ctx.notificationPort.notifications).toEqual([
+			expect.objectContaining({
+				target: 'admins',
+				orgId: ctx.auth.orgId,
+				excludeUserId: ctx.auth.userId,
+				notification: expect.objectContaining({ type: 'bulk_data_exported' })
+			})
+		]);
 	});
 
 	it('includes ETS and DEROS in the organization personnel export payload', async () => {

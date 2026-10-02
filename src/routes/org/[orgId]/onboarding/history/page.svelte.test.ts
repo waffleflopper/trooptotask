@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
@@ -21,6 +21,69 @@ afterEach(() => {
 });
 
 describe('onboarding history page', () => {
+	it.each([
+		{ currentStage: 'Reviewed', selectedName: 'Step 2: Reviewed' },
+		{ currentStage: 'Archived review', selectedName: null }
+	])(
+		'identifies saved paperwork stage $currentStage without allowing edits',
+		async ({ currentStage, selectedName }) => {
+			personnelRosterHydration.load(
+				[
+					{
+						id: 'p-stage',
+						rank: 'SGT',
+						firstName: 'Sam',
+						lastName: 'Stage',
+						mos: '68W',
+						clinicRole: 'Medic',
+						groupId: 'group-alpha',
+						groupName: 'Alpha'
+					}
+				],
+				'org-1'
+			);
+			onboardingStore.load(
+				[
+					{
+						id: 'history-stage',
+						personnelId: 'p-stage',
+						startedAt: '2026-01-01',
+						completedAt: '2026-02-01',
+						cancelledAt: null,
+						status: 'completed',
+						templateId: null,
+						steps: [
+							{
+								id: 'paperwork-stage',
+								onboardingId: 'history-stage',
+								stepName: 'Saved paperwork',
+								stepType: 'paperwork',
+								trainingTypeId: null,
+								stages: ['Submitted', 'Reviewed', 'Filed'],
+								sortOrder: 0,
+								completed: false,
+								currentStage,
+								notes: [],
+								templateStepId: null,
+								active: true
+							}
+						]
+					}
+				],
+				'org-1'
+			);
+			render(Page, { props: { data: createReadyAppShellRouteData({ orgId: 'org-1' }) } });
+			await fireEvent.click(screen.getByRole('button', { name: /SGT Stage, Sam/ }));
+
+			expect(screen.getByText(`Current stage: ${currentStage}`)).toBeTruthy();
+			const stageButtons = screen.getAllByRole('button', { name: /Step \d:/ });
+			expect(stageButtons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+			expect(stageButtons.filter((button) => button.getAttribute('aria-current') === 'step')).toEqual(
+				selectedName ? [screen.getByRole('button', { name: selectedName })] : []
+			);
+		}
+	);
+
 	it('does not render redundant archived summary cards', () => {
 		onboardingStore.load([], 'org-1');
 

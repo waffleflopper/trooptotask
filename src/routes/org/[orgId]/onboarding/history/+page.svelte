@@ -51,7 +51,7 @@
 			value: stage,
 			label: stage,
 			completed: currentIndex >= 0 && index < currentIndex,
-			disabled: true
+			disabled: currentIndex < 0
 		}));
 	}
 </script>
@@ -140,18 +140,23 @@
 											{:else if step.stepType === 'paperwork'}
 												{@const stages = step.stages ?? []}
 												{@const currentStage = step.currentStage ?? stages[0] ?? ''}
-												<Stepper.Root steps={paperworkSteps(stages, currentStage)} value={currentStage}>
-													<Stepper.List aria-label={`${step.stepName} paperwork stages`}>
-														{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
-															<Stepper.Item
-																value={stage.value}
-																label={stage.label}
-																completed={stage.completed}
-																disabled
-															/>
-														{/each}
-													</Stepper.List>
-												</Stepper.Root>
+												<div class="flex flex-col gap-1">
+													{#if currentStage}
+														<p class="text-xs text-muted-foreground">Current stage: {currentStage}</p>
+													{/if}
+													<Stepper.Root steps={paperworkSteps(stages, currentStage)} value={currentStage}>
+														<Stepper.List aria-label={`${step.stepName} paperwork stages`}>
+															{#each paperworkSteps(stages, currentStage) as stage (stage.value)}
+																<Stepper.Item
+																	value={stage.value}
+																	label={stage.label}
+																	completed={stage.completed}
+																	disabled
+																/>
+															{/each}
+														</Stepper.List>
+													</Stepper.Root>
+												</div>
 											{/if}
 										{/snippet}
 

@@ -101,7 +101,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 						? fixture.ids[packet.key === 'foreign' ? 'trainingForeignType' : 'trainingRequired']
 						: null,
 				stages: step_type === 'paperwork' ? ['Submitted', 'Reviewed', 'Filed'] : null,
-				current_stage,
+				current_stage: packet.key === 'foreign' && step_type === 'paperwork' ? 'Archived review' : current_stage,
 				sort_order,
 				completed,
 				active,

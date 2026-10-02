@@ -47,10 +47,23 @@ function enhance(
 	internals: StoreInternals<PersonnelOnboarding>
 ): OnboardingExtensions {
 	let organizationVersion = 0;
+	type StepMutation = {
+		onboardingId: string;
+		stepId: string;
+		mutationId: string;
+		update: (steps: OnboardingStepProgress[]) => OnboardingStepProgress[];
+		stage: boolean;
+		superseded: boolean;
+	};
+	let pendingStepMutations: StepMutation[] = [];
 
 	function load(onboardings: PersonnelOnboarding[], orgId: string) {
-		if (orgId !== internals.orgId()) organizationVersion++;
+		if (orgId !== internals.orgId()) {
+			organizationVersion++;
+			pendingStepMutations = [];
+		}
 		base.load(onboardings, orgId);
+		rebaseStepMutations();
 	}
 	function getDisplay(): PersonnelOnboarding[] {
 		return internals.snapshot();
@@ -60,32 +73,80 @@ function enhance(
 		return `/org/${internals.orgId()}/api/${path}`;
 	}
 
-	function applyStepUpdate(stepId: string, updater: (step: OnboardingStepProgress) => OnboardingStepProgress) {
-		const display = getDisplay();
-		const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
+	function rebaseStepMutations() {
+		if (!pendingStepMutations.length) return;
+		// Rebuild existing log entries from saved state so one pending step cannot
+		// replace another step's confirmed work with an earlier checklist snapshot.
+		for (const mutation of pendingStepMutations) internals.log.resolve(mutation.mutationId);
+		const stepsByPacket = new Map(getDisplay().map((packet) => [packet.id, packet.steps]));
+		for (const mutation of pendingStepMutations) {
+			const steps = stepsByPacket.get(mutation.onboardingId);
+			const updatedSteps = steps && !mutation.superseded ? mutation.update(steps) : steps;
+			if (updatedSteps) stepsByPacket.set(mutation.onboardingId, updatedSteps);
+			internals.log.push({
+				type: 'update',
+				mutationId: mutation.mutationId,
+				targetId: mutation.onboardingId,
+				data: updatedSteps ? { steps: updatedSteps } : {}
+			});
+		}
+	}
+
+	function applyStepMutation(stepId: string, update: StepMutation['update'], stage = false) {
+		const onboarding = getDisplay().find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return null;
 
-		const updatedSteps = onboarding.steps.map((s) => (s.id === stepId ? updater(s) : s));
-		const mutationId = crypto.randomUUID();
-		internals.log.push({
-			type: 'update',
-			mutationId,
-			targetId: onboarding.id,
-			data: { steps: updatedSteps } as Partial<PersonnelOnboarding>
-		});
+		const mutation: StepMutation = {
+			onboardingId: onboarding.id,
+			stepId,
+			mutationId: crypto.randomUUID(),
+			update,
+			stage,
+			superseded: false
+		};
+		pendingStepMutations.push(mutation);
+		rebaseStepMutations();
+		return mutation;
+	}
 
-		return { onboarding, updatedSteps, mutationId };
+	function applyStepUpdate(
+		stepId: string,
+		updater: (step: OnboardingStepProgress) => OnboardingStepProgress,
+		stage = false
+	) {
+		return applyStepMutation(
+			stepId,
+			(steps) => steps.map((step) => (step.id === stepId ? updater(step) : step)),
+			stage
+		);
+	}
+
+	function resolveStepMutation(mutation: StepMutation) {
+		internals.log.resolve(mutation.mutationId);
+		pendingStepMutations = pendingStepMutations.filter((pending) => pending !== mutation);
+		rebaseStepMutations();
 	}
 
 	function commitStepUpdate(
-		onboardingId: string,
-		mutationId: string,
+		mutation: StepMutation,
 		update: (steps: OnboardingStepProgress[]) => OnboardingStepProgress[]
 	) {
-		internals.serverState.set(
-			internals.serverState.getSnapshot().map((o) => (o.id === onboardingId ? { ...o, steps: update(o.steps) } : o))
-		);
-		internals.log.resolve(mutationId);
+		if (!mutation.superseded) {
+			internals.serverState.set(
+				internals.serverState
+					.getSnapshot()
+					.map((o) => (o.id === mutation.onboardingId ? { ...o, steps: update(o.steps) } : o))
+			);
+			if (mutation.stage) {
+				// Only a confirmed newer stage supersedes older selections. Failed
+				// requests still roll back to saved state and leave a usable retry.
+				for (const pending of pendingStepMutations) {
+					if (pending === mutation) break;
+					if (pending.stage && pending.stepId === mutation.stepId) pending.superseded = true;
+				}
+			}
+		}
+		resolveStepMutation(mutation);
 	}
 
 	async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -114,6 +175,7 @@ function enhance(
 
 		invalidatePendingRequests() {
 			organizationVersion++;
+			pendingStepMutations = [];
 			internals.log.clear();
 		},
 
@@ -163,7 +225,7 @@ function enhance(
 				if (!res.ok) throw new Error('Failed to toggle checkbox');
 				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
 				if (version !== organizationVersion) return false;
-				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) =>
 						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
 					)
@@ -171,7 +233,7 @@ function enhance(
 				return true;
 			} catch {
 				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutation.mutationId);
+				resolveStepMutation(mutation);
 				return false;
 			}
 		},
@@ -186,11 +248,7 @@ function enhance(
 			const stages = step.stages ?? [];
 			const isLast = stageName === stages[stages.length - 1];
 
-			const mutation = applyStepUpdate(stepId, (s) => ({
-				...s,
-				currentStage: stageName,
-				completed: isLast
-			}));
+			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, currentStage: stageName, completed: isLast }), true);
 			if (!mutation) return false;
 
 			try {
@@ -202,7 +260,7 @@ function enhance(
 				if (!res.ok) throw new Error('Failed to advance stage');
 				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
 				if (version !== organizationVersion) return false;
-				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) =>
 						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
 					)
@@ -210,7 +268,7 @@ function enhance(
 				return true;
 			} catch {
 				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutation.mutationId);
+				resolveStepMutation(mutation);
 				return false;
 			}
 		},
@@ -240,31 +298,21 @@ function enhance(
 				// Server returns the authoritative notes array with real userId/timestamp
 				const result = await res.json();
 				if (version !== organizationVersion) return false;
-				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) => (step.id === stepId ? { ...step, notes: result.notes } : step))
 				);
 				return true;
 			} catch {
 				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutation.mutationId);
+				resolveStepMutation(mutation);
 				return false;
 			}
 		},
 
 		async removeDeprecatedStep(stepId: string): Promise<boolean> {
 			const version = organizationVersion;
-			const display = getDisplay();
-			const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
-			if (!onboarding) return false;
-
-			const filteredSteps = onboarding.steps.filter((s) => s.id !== stepId);
-			const mutationId = crypto.randomUUID();
-			internals.log.push({
-				type: 'update',
-				mutationId,
-				targetId: onboarding.id,
-				data: { steps: filteredSteps } as Partial<PersonnelOnboarding>
-			});
+			const mutation = applyStepMutation(stepId, (steps) => steps.filter((step) => step.id !== stepId));
+			if (!mutation) return false;
 
 			try {
 				const res = await fetch(apiUrl('onboarding-steps'), {
@@ -274,11 +322,11 @@ function enhance(
 				});
 				if (!res.ok) throw new Error('Failed to remove step');
 				if (version !== organizationVersion) return false;
-				commitStepUpdate(onboarding.id, mutationId, (steps) => steps.filter((step) => step.id !== stepId));
+				commitStepUpdate(mutation, (steps) => steps.filter((step) => step.id !== stepId));
 				return true;
 			} catch {
 				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutationId);
+				resolveStepMutation(mutation);
 				return false;
 			}
 		},

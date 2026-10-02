@@ -125,7 +125,16 @@ type TestContextOptions = {
 	onboardingNoteAppend?: UseCaseContext['onboardingNoteAppend'];
 	onboardingLifecycleTransition?: UseCaseContext['onboardingLifecycleTransition'];
 	onboardingInactiveStepRemoval?: UseCaseContext['onboardingInactiveStepRemoval'];
+	onboardingPacketCreation?: UseCaseContext['onboardingPacketCreation'];
 };
+
+function unavailableOnboardingPacketCreation(): NonNullable<UseCaseContext['onboardingPacketCreation']> {
+	return {
+		async create() {
+			throw new Error('Bind the owned Onboarding packet creation provider');
+		}
+	};
+}
 
 function unavailableOnboardingInactiveStepRemoval(): NonNullable<UseCaseContext['onboardingInactiveStepRemoval']> {
 	return {
@@ -1093,6 +1102,7 @@ export function createTestContext(
 			overrides?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
 		onboardingInactiveStepRemoval:
 			overrides?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
+		onboardingPacketCreation: overrides?.onboardingPacketCreation ?? unavailableOnboardingPacketCreation(),
 		auditPort,
 
 		notifications: notificationPort,
@@ -1209,6 +1219,7 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
 		onboardingInactiveStepRemoval: options?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
+		onboardingPacketCreation: options?.onboardingPacketCreation ?? unavailableOnboardingPacketCreation(),
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1251,6 +1262,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
 		onboardingInactiveStepRemoval: options?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
+		onboardingPacketCreation: options?.onboardingPacketCreation ?? unavailableOnboardingPacketCreation(),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,

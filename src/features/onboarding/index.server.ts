@@ -61,3 +61,5 @@ export { createSupabaseOnboardingNoteAppendPort } from './server/onboardingNoteA
 export { createSupabaseOnboardingLifecycleTransitionPort } from './server/onboardingLifecycleProvider.server';
 
 export { createSupabaseOnboardingInactiveStepRemovalPort } from './server/onboardingInactiveStepRemovalProvider.server';
+
+export { createSupabaseOnboardingPacketCreationPort } from './server/onboardingPacketCreationProvider.server';

@@ -47,6 +47,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20260930000100_rating_scheme_evaluator_integrity.sql",
     "20261001000100_personnel_archive_retention.sql",
     "20261001000200_atomic_onboarding_reconciliation.sql",
+    "20261002001000_organization_storage_cleanup.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -63,6 +64,7 @@ STAGED_UPGRADE_FIXTURES = (
     "personnel_group_reference_before.sql",
     "rating_scheme_evaluator_before.sql",
     "onboarding_reconciliation_before.sql",
+    "organization_storage_cleanup_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -81,6 +83,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "rating_scheme_evaluator_after.sql",
     "personnel_archive_retention_after.sql",
     "onboarding_reconciliation_after.sql",
+    "organization_storage_cleanup_after.sql",
 )
 
 
@@ -303,7 +306,7 @@ def validate(repository, *, staged_upgrade=False):
             run(["node", str(repository / "scripts/ci/personnel_retention_provider_probe.mjs"),
                  "--staged-upgrade"], workdir,
                 environment=_provider_environment(repository, workdir, execute))
-            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info and Onboarding upgrades passed.", flush=True)
+            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding and Organization Storage upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True
@@ -311,6 +314,7 @@ def validate(repository, *, staged_upgrade=False):
             "calendar_group_assignees.sql",
             "account_setup_claim_gate.sql",
             "account_setup_staff_release.sql",
+            "organization_storage_cleanup_fresh.sql",
         ):
             execute([
                 "docker", "run", "--rm", "--name", runner,

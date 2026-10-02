@@ -32,14 +32,14 @@ jobs:
           import subprocess
           import tomllib
           from urllib.parse import urlsplit
-          
+
           PROJECT = 't2t-ci-db-50f938p4'
           DIRECTORY = Path('/tmp') / PROJECT
           CLI_LABEL = 'com.supabase.cli.project'
           COMPOSE_LABEL = 'com.docker.compose.project'
           PGPROVE = 'supabase_pgprove_' + PROJECT
-          
-          
+
+
           def docker_environment():
               env = {key: value for key, value in os.environ.items()
                      if key in {'PATH', 'HOME', 'XDG_RUNTIME_DIR', 'TERM', 'DOCKER_HOST', 'DOCKER_CONTEXT'}}
@@ -58,13 +58,13 @@ jobs:
               env.pop('DOCKER_CONTEXT', None)
               env['DOCKER_HOST'] = endpoint
               return env
-          
-          
+
+
           def docker(env, *arguments):
               return subprocess.run(['docker', *arguments], env=env, text=True, capture_output=True,
                                     check=True, timeout=30).stdout.strip()
-          
-          
+
+
           def inventory(env):
               result = {'project': PROJECT, 'docker_socket': env['DOCKER_HOST'],
                         'containers': [], 'volumes': [], 'networks': [], 'processes': []}
@@ -123,11 +123,11 @@ jobs:
                   except PermissionError:
                       raise SystemExit('REFUSED: unreadable process metadata for PID ' + proc.name)
               return result
-          
-          
-          
+
+
+
           import shutil
-          
+
           def validate_ownership(state):
               if state['processes']:
                   raise SystemExit('REFUSED: a current process still owns the exact CI directory; inspect it first.')
@@ -150,8 +150,8 @@ jobs:
                           for container in item['containers'].values():
                               if not container['Name'].endswith('_' + PROJECT):
                                   raise SystemExit('REFUSED: another project is attached to this network.')
-          
-          
+
+
           if __name__ == '__main__':
               env = docker_environment()
               before = inventory(env)

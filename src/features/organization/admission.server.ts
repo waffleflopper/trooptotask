@@ -1,7 +1,6 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { validateUUID } from '$lib/server/validation';
-import { normalizeOrganizationUrlSlug } from '$lib/server/core/useCases/organizationUrlSlug';
+import { isOrganizationIdSegment, normalizeOrganizationUrlSlug } from './url';
 import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 /** Check fresh Organization status with the caller's RLS-scoped client before dispatch. */
@@ -10,8 +9,8 @@ export async function requireActiveOrganization(supabase: SupabaseClient, segmen
 		.from('organizations')
 		.select('id, suspended_at')
 		.eq(
-			validateUUID(segment) ? 'id' : 'url_slug',
-			validateUUID(segment) ? segment : normalizeOrganizationUrlSlug(segment)
+			isOrganizationIdSegment(segment) ? 'id' : 'url_slug',
+			isOrganizationIdSegment(segment) ? segment : normalizeOrganizationUrlSlug(segment)
 		)
 		.maybeSingle()
 		.then(

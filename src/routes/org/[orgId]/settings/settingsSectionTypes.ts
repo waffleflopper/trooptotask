@@ -46,15 +46,6 @@ export type SettingsCurrentMemberData = {
 	isAdmin: boolean;
 	canManageMembers: boolean;
 };
-export type SettingsOrganizationSectionData = {
-	id: string;
-	name: string | null;
-	urlSlug: string | null;
-	urlSegment: string;
-	canUpdateProfile: boolean;
-	canUpdateUrlSlug: boolean;
-};
-
 export type SettingsRankOption<Value extends string> = {
 	value: Value;
 	label: string;

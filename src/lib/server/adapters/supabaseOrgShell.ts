@@ -35,11 +35,11 @@ import {
 } from '../core/useCases/loadAppShell';
 import { getLayoutClient } from './httpAdapter';
 import { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
-import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import {
-	getPreferredOrganizationUrlSegment,
-	resolveOrganizationRouteIdentity
-} from '$lib/server/core/useCases/organizationUrlSlug';
+	resolveOrganizationRouteIdentity,
+	readOrganizationMembershipSummaries
+} from '$features/organization/index.server';
+import { getPreferredOrganizationUrlSegment } from '$features/organization/contracts';
 import { sanitizeErrorForLog } from '$lib/server/logSanitize';
 
 export interface SupabaseAppShellRequestDeps {
@@ -294,17 +294,7 @@ async function loadOrganizationSwitcherOrgs(config: {
 	userId: string;
 	userSupabase: SupabaseClient;
 }): Promise<OrganizationSwitcherOrg[]> {
-	const membershipsRes = await selectAllSupabaseRows<Record<string, unknown>>(
-		(from, to) =>
-			config.userSupabase
-				.from('organization_memberships')
-				.select('role, organizations(id, name, url_slug)')
-				.eq('user_id', config.userId)
-				.range(from, to) as unknown as Promise<{
-				data: Record<string, unknown>[] | null;
-				error: unknown;
-			}>
-	);
+	const membershipsRes = await readOrganizationMembershipSummaries(config.userSupabase, config.userId);
 
 	if (membershipsRes.error) {
 		throw new Error(
@@ -312,18 +302,5 @@ async function loadOrganizationSwitcherOrgs(config: {
 		);
 	}
 
-	return (membershipsRes.data ?? [])
-		.filter((membership) => membership.organizations)
-		.map((membership) => {
-			const org = membership.organizations as Record<string, unknown>;
-			return {
-				id: org.id as string,
-				name: org.name as string,
-				role: membership.role as string,
-				urlSegment: getPreferredOrganizationUrlSegment({
-					id: org.id as string,
-					urlSlug: org.url_slug as string | null
-				})
-			};
-		});
+	return membershipsRes.data ?? [];
 }

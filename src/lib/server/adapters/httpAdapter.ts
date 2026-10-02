@@ -79,7 +79,7 @@ import {
 	createSupabaseOnboardingPacketCreationPort
 } from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
-import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
+import { resolveOrganizationRouteIdentity } from '$features/organization/index.server';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';

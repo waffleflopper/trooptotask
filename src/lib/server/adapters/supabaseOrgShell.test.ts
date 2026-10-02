@@ -281,3 +281,37 @@ it('composes platform content and account-wide preferences in parallel across Or
 		log.mockRestore();
 	}
 });
+
+describe('Organization switcher read failure delivery', () => {
+	it('reports deferred chrome failure while Dashboard retains its empty fallback', async () => {
+		const { createClient } = await import('@supabase/supabase-js');
+		const { createSupabaseDashboardOrgAccessPort } = await import('$features/organization/index.server');
+		const { createSupabaseAppShellDeferredChromePort } = await import('./supabaseOrgShell');
+		const { loadAppShellDeferredChrome } = await import('../core/useCases/loadAppShell');
+		const client = createClient('http://switcher.invalid', 'synthetic-user-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(String(input));
+					if (url.pathname !== '/rest/v1/organization_memberships' || init?.method !== 'GET')
+						throw new Error('Unexpected provider request');
+					return Response.json({ message: 'membership read unavailable' }, { status: 500 });
+				}
+			}
+		});
+		expect(await createSupabaseDashboardOrgAccessPort({ supabase: client }).listOrganizationsForUser('user-a')).toEqual(
+			[]
+		);
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			expect(
+				await loadAppShellDeferredChrome(
+					'organization-switcher',
+					createSupabaseAppShellDeferredChromePort({ orgId: 'org-a', userId: 'user-a', userSupabase: client })
+				)
+			).toMatchObject({ part: 'organization-switcher', ok: false });
+		} finally {
+			consoleError.mockRestore();
+		}
+	});
+});

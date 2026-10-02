@@ -1,0 +1,176 @@
+// @vitest-environment happy-dom
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { tick, type ComponentProps } from 'svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import Page from './+page.svelte';
+
+const { enhancements, callbacks } = vi.hoisted(() => ({
+	enhancements: new Map<string, (input: { cancel: () => void }) => unknown>(),
+	callbacks: [] as Array<(input: unknown) => Promise<void>>
+}));
+vi.mock('$app/forms', () => ({
+	enhance: (node: HTMLFormElement, submit: (input: { cancel: () => void }) => unknown) => {
+		const action = node.getAttribute('action')!;
+		enhancements.set(action, submit);
+		const listener = (event: Event) => {
+			event.preventDefault();
+			const callback = submit({ cancel: () => {} });
+			if (typeof callback === 'function') callbacks.push(callback as (input: unknown) => Promise<void>);
+		};
+		node.addEventListener('submit', listener);
+		return { destroy: () => node.removeEventListener('submit', listener) };
+	}
+}));
+
+function data(orgId: string) {
+	return {
+		orgId,
+		generalSettings: {
+			currentMember: { role: 'owner', isOwner: true, isAdmin: false, canManageMembers: true },
+			sections: {
+				organization: {
+					id: orgId,
+					name: 'Example Organization',
+					urlSlug: 'example-unit',
+					urlSegment: 'example-unit',
+					canUpdateProfile: true,
+					canUpdateUrlSlug: true
+				}
+			}
+		}
+	} as unknown as ComponentProps<typeof Page>['data'];
+}
+
+beforeEach(() => {
+	enhancements.clear();
+	callbacks.length = 0;
+	vi.useFakeTimers();
+});
+afterEach(async () => {
+	cleanup();
+	await vi.runAllTimersAsync();
+	vi.useRealTimers();
+	vi.restoreAllMocks();
+});
+
+async function beginNameSave() {
+	await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+	enhancements.get('?/updateName')!({ cancel: () => {} });
+	await tick();
+	await fireEvent.click(screen.getByRole('button', { name: 'Update Name' }));
+	return callbacks.at(-1)!;
+}
+
+describe('General settings Organization lifetime', () => {
+	it('discards confirmations and drafts when switching between Organizations with equal profiles', async () => {
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByLabelText('Organization name'), { target: { value: 'Unsaved Alpha' } });
+		enhancements.get('?/updateName')!({ cancel: () => {} });
+		await tick();
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		await view.rerender({ data: data('b'), form: null });
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(screen.queryByLabelText('Organization name')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		expect((screen.getByLabelText('Organization name') as HTMLInputElement).value).toBe('Example Organization');
+	});
+
+	it.each(['success', 'failure', 'error', 'redirect'] as const)(
+		'ignores a disposed name response (%s) after A → B → A',
+		async (type) => {
+			const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+			const oldCallback = await beginNameSave();
+			await view.rerender({ data: data('b'), form: null });
+			await view.rerender({ data: data('a'), form: null });
+			const newCallback = await beginNameSave();
+			const update = vi.fn();
+			await oldCallback({
+				result: {
+					type,
+					status: type === 'redirect' ? 303 : 403,
+					data: { requiresStepUp: true },
+					location: '/org/a/settings/general'
+				},
+				update
+			});
+			expect(update).not.toHaveBeenCalled();
+			expect(screen.getByRole('button', { name: 'Saving...' })).toBeTruthy();
+			await newCallback({ result: { type: 'success', status: 200, data: { nameSuccess: true } }, update });
+			expect(update).toHaveBeenCalledOnce();
+			expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
+		}
+	);
+	it.each(['success', 'failure', 'error', 'redirect'] as const)(
+		'ignores a disposed slug response (%s) while a fresh A request remains pending',
+		async (type) => {
+			const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+			enhancements.get('?/updateSlug')!({ cancel: () => {} });
+			await tick();
+			await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+			const oldCallback = callbacks.at(-1)!;
+			await view.rerender({ data: data('b'), form: null });
+			await view.rerender({ data: data('a'), form: null });
+			enhancements.get('?/updateSlug')!({ cancel: () => {} });
+			await tick();
+			await fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Update URL' }));
+			const freshCallback = callbacks.at(-1)!;
+			const update = vi.fn();
+			await oldCallback({
+				result: { type, status: 303, location: '/org/changed/settings/general', data: { requiresStepUp: true } },
+				update
+			});
+			expect(update).not.toHaveBeenCalled();
+			expect(screen.getByRole('button', { name: 'Saving...' })).toBeTruthy();
+			await freshCallback({
+				result: { type: 'failure', status: 400, data: { slugError: 'Choose another URL' } },
+				update
+			});
+			expect(update).toHaveBeenCalledOnce();
+			expect(screen.getByRole('button', { name: 'Update URL' })).toBeTruthy();
+		}
+	);
+
+	it('requires a fresh reset confirmation after switching and submits the reset action after its form updates', async () => {
+		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }));
+		expect(screen.getByRole('dialog')).toBeTruthy();
+		await view.rerender({ data: data('b'), form: null });
+		expect(screen.queryByRole('dialog')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }));
+		const submittedActions: string[] = [];
+		const original = HTMLFormElement.prototype.requestSubmit;
+		vi.spyOn(HTMLFormElement.prototype, 'requestSubmit').mockImplementation(function (this: HTMLFormElement) {
+			submittedActions.push(this.getAttribute('action')!);
+			original.call(this);
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Reset URL' }));
+		expect(submittedActions).toEqual(['?/clearSlug']);
+		const callback = callbacks.at(-1)!;
+		await callback({ result: { type: 'failure', status: 400, data: { slugError: 'Retry reset' } }, update: vi.fn() });
+		await tick();
+		const slugForm = screen.getByLabelText('Custom path').closest('form')!;
+		expect(slugForm.getAttribute('action')).toBe('?/updateSlug');
+	});
+	it.each(['success', 'failure', 'error', 'redirect'] as const)(
+		'discards a disposed reset response (%s) and keeps the next Organization slug action at update',
+		async (type) => {
+			const view = render(Page, { data: data('a'), form: null, params: { orgId: 'a' } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Reset to default' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Reset URL' }));
+			const oldCallback = callbacks.at(-1)!;
+			await view.rerender({ data: data('b'), form: null });
+			const update = vi.fn();
+			await oldCallback({
+				result: { type, status: 303, location: '/org/a/settings/general', data: { requiresStepUp: true } },
+				update
+			});
+			expect(update).not.toHaveBeenCalled();
+			expect(screen.queryByRole('button', { name: 'Saving...' })).toBeNull();
+			expect(screen.getByLabelText('Custom path').closest('form')!.getAttribute('action')).toBe('?/updateSlug');
+			enhancements.get('?/updateSlug')!({ cancel: () => {} });
+			await tick();
+			expect(screen.getByRole('dialog', { name: 'Update custom URL?' })).toBeTruthy();
+		}
+	);
+});

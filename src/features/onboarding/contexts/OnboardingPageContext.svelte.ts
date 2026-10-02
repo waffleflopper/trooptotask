@@ -9,7 +9,7 @@ import { trainingTypeSource } from '$features/training';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type {
 	PersonnelOnboarding,
 	OnboardingStepProgress,
@@ -17,7 +17,7 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$features/personnel/contracts';
 import type { OverflowItem } from '$lib/components/ui/OverflowMenu.types';
-import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 
@@ -149,9 +149,19 @@ export interface AssignTemplatePayload {
 
 // ── Context class ─────────────────────────────────────────────
 
+interface OnboardingPageAccess {
+	readonly orgId: string;
+	readonly orgUrlSegment?: string;
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => { readonly allowed: boolean; readonly visible: boolean };
+}
+
 export class OnboardingPageContext {
 	// Injected dependencies
-	readonly #org: OrgContext;
+	readonly #org: OnboardingPageAccess;
 	readonly orgId: string;
 	readonly modals: ModalRegistry;
 	#disposed = false;
@@ -182,13 +192,13 @@ export class OnboardingPageContext {
 			: rosterStore.readModel().scoped(this.#org.scopeSet, { status: 'active' })
 	);
 
-	constructor(modals: ModalRegistry, org: OrgContext) {
+	constructor(modals: ModalRegistry, org: OnboardingPageAccess) {
 		this.modals = modals;
 		this.#org = org;
 		this.orgId = org.orgId;
 	}
 
-	// ── Permission flags (derived from OrgContext) ─────────────
+	// ── Permission flags (advisory feature policy) ─────────────
 
 	get canManageWorkflows(): boolean {
 		return this.#org.affordanceForFeatureAction(ONBOARDING_POLICY_ACTIONS.manageWorkflows, {

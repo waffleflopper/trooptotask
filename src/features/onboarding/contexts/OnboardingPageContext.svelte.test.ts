@@ -82,6 +82,45 @@ function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
 	});
 }
 
+describe('OnboardingPageContext Organization input', () => {
+	it('uses the canonical Organization segment for History, Templates and Training links', () => {
+		const ctx = new OnboardingPageContext({} as never, {
+			orgId: 'organization-database-id',
+			orgUrlSegment: 'alpha-unit',
+			scopeSet: { kind: 'organization' },
+			affordanceForFeatureAction: () => ({ allowed: true, visible: true })
+		});
+
+		expect(ctx.historyUrl).toBe('/org/alpha-unit/onboarding/history');
+		expect(ctx.templatesUrl).toBe('/org/alpha-unit/onboarding/templates');
+		expect(ctx.trainingPageUrl).toBe('/org/alpha-unit/training');
+	});
+
+	it('retains a note draft when the live Organization changes before its save returns', async () => {
+		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
+		let currentOrgId = 'org-1';
+		const ctx = new OnboardingPageContext({} as never, {
+			get orgId() {
+				return currentOrgId;
+			},
+			scopeSet: { kind: 'organization' },
+			affordanceForFeatureAction: () => ({ allowed: true, visible: true })
+		});
+		ctx.noteInputs['step-1'] = 'Retained draft';
+		let confirm!: (saved: boolean) => void;
+		vi.spyOn(onboardingStore, 'addNote').mockImplementation(
+			() => new Promise<boolean>((resolve) => (confirm = resolve))
+		);
+
+		const pending = ctx.handleAddNote(makeStep());
+		currentOrgId = 'org-2';
+		confirm(true);
+		await pending;
+
+		expect(ctx.noteInputs['step-1']).toBe('Retained draft');
+	});
+});
+
 describe('Onboarding Personnel creation result', () => {
 	it('keeps a failed note draft and clears it only after a confirmed retry', async () => {
 		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');

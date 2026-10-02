@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
-import { onboardingStore } from '$features/onboarding/stores/onboarding.svelte';
+import { onboardingStore } from '$features/onboarding';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import { personnelRosterHydration } from '$features/personnel';
 

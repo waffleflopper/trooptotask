@@ -193,7 +193,7 @@
 			"packet": "08-M13"
 		},
 		"onboarding": {
-			"roots": ["src/features/onboarding/", "src/lib/components/ui/onboarding-packet-list/"],
+			"roots": ["src/features/onboarding/"],
 			"files": [],
 			"packet": "08-M09"
 		},
@@ -416,10 +416,7 @@
 		}
 	},
 	"rootExclusions": {
-		"src/lib/components/ui/": [
-			"src/lib/components/ui/calendar-status-badge/",
-			"src/lib/components/ui/onboarding-packet-list/"
-		],
+		"src/lib/components/ui/": ["src/lib/components/ui/calendar-status-badge/"],
 		"src/routes/": [
 			"src/routes/+page.server.ts",
 			"src/routes/+page.svelte",

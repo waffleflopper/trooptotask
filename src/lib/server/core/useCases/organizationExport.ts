@@ -29,6 +29,14 @@ interface OrganizationTrainingExportReads {
 }
 
 interface OrganizationOnboardingExportReads {
+	listPersonnelOnboardingExportRows(
+		store: Pick<DataStore, 'findMany'>,
+		orgId: string
+	): Promise<Record<string, unknown>[]>;
+	listOnboardingStepProgressExportRows(
+		store: Pick<DataStore, 'findMany'>,
+		orgId: string
+	): Promise<Record<string, unknown>[]>;
 	listOnboardingTemplateExportRows(
 		store: Pick<DataStore, 'findMany'>,
 		orgId: string
@@ -107,6 +115,12 @@ export async function loadOrganizationExportPayload(
 					}
 					if (section.key === 'onboardingTemplateSteps') {
 						return [section.key, await onboardingExport.listOnboardingTemplateStepExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'personnelOnboardings') {
+						return [section.key, await onboardingExport.listPersonnelOnboardingExportRows(store, orgId)] as const;
+					}
+					if (section.key === 'onboardingStepProgress') {
+						return [section.key, await onboardingExport.listOnboardingStepProgressExportRows(store, orgId)] as const;
 					}
 					if (section.key === 'specialDays') {
 						return [section.key, await listSpecialDayExportRows(store, orgId)] as const;

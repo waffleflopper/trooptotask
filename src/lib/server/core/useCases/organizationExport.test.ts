@@ -1,6 +1,8 @@
 import {
 	listOnboardingTemplateExportRows,
-	listOnboardingTemplateStepExportRows
+	listOnboardingTemplateStepExportRows,
+	listPersonnelOnboardingExportRows,
+	listOnboardingStepProgressExportRows
 } from '$features/onboarding/index.server';
 import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import { describe, expect, it } from 'vitest';
@@ -62,7 +64,12 @@ describe('organization export inventory', () => {
 				listRows: (actor, table) => store.findMany(table, actor.orgId)
 			},
 			trainingExport,
-			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+			{
+				listOnboardingTemplateExportRows,
+				listOnboardingTemplateStepExportRows,
+				listPersonnelOnboardingExportRows,
+				listOnboardingStepProgressExportRows
+			},
 			{
 				listNotificationExportRows: () => store.findMany('notifications', 'org-1'),
 				listFeedbackExportRows: () => store.findMany<FeedbackExportRow>('beta_feedback', 'org-1')
@@ -178,7 +185,12 @@ function communicationsProvider(platformAdministrator = false) {
 			ctx.auth,
 			ctx.personnelOrganizationExport!,
 			trainingExport,
-			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+			{
+				listOnboardingTemplateExportRows,
+				listOnboardingTemplateStepExportRows,
+				listPersonnelOnboardingExportRows,
+				listOnboardingStepProgressExportRows
+			},
 			{
 				listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
 				listFeedbackExportRows: () => listFeedbackExportRows(client, ctx.auth.orgId)
@@ -356,6 +368,49 @@ describe('retained Organization export projection', () => {
 			sort_order: 3
 		};
 
+		const onboardingPacket = {
+			id: 'saved-packet',
+			organization_id: 'org-1',
+			personnel_id: 'person-1',
+			template_id: null,
+			status: 'cancelled',
+			started_at: '2026-05-01',
+			completed_at: null,
+			cancelled_at: '2026-09-29T01:02:03.654321Z',
+			created_at: '2026-05-01T00:00:00.123456Z',
+			updated_at: '2026-09-29T01:02:03.654321Z'
+		};
+		const savedPaperwork = {
+			id: 'saved-paperwork',
+			organization_id: 'org-1',
+			onboarding_id: 'saved-packet',
+			template_step_id: null,
+			step_name: 'Saved paperwork',
+			step_type: 'paperwork',
+			training_type_id: null,
+			stages: ['Submitted', 'Filed'],
+			current_stage: 'Retired stage',
+			sort_order: 3,
+			completed: false,
+			active: true,
+			notes: [{ text: 'Saved paperwork note', timestamp: '2026-09-29T01:02:03.654321Z', userId: 'saved-author' }],
+			created_at: '2026-05-01T00:00:00.123456Z',
+			updated_at: '2026-09-29T01:02:03.654321Z'
+		};
+		const savedTraining = {
+			...savedPaperwork,
+			id: 'inactive-training',
+			step_name: 'Saved Training work',
+			step_type: 'training',
+			training_type_id: 'training-1',
+			stages: null,
+			current_stage: null,
+			sort_order: 4,
+			completed: true,
+			active: false,
+			notes: [{ text: 'Retained Training note', timestamp: '2026-09-29T01:02:03.654321Z', userId: 'saved-author' }]
+		};
+
 		const commercialTables = new Set([
 			'organization_billing_snapshots',
 			'organization_checkout_attempts',
@@ -369,6 +424,15 @@ describe('retained Organization export projection', () => {
 			onboarding_template_steps: [
 				onboardingStep,
 				{ ...onboardingStep, id: 'foreign-step', organization_id: 'foreign-org' }
+			],
+			personnel_onboardings: [
+				onboardingPacket,
+				{ ...onboardingPacket, id: 'foreign-packet', organization_id: 'foreign-org' }
+			],
+			onboarding_step_progress: [
+				savedPaperwork,
+				savedTraining,
+				{ ...savedPaperwork, id: 'foreign-progress', organization_id: 'foreign-org', current_stage: 'Filed' }
 			],
 			training_types: [trainingType, { ...trainingType, id: 'foreign-type', organization_id: 'foreign-org' }],
 			personnel_trainings: [
@@ -472,7 +536,12 @@ describe('retained Organization export projection', () => {
 			actor,
 			createSupabasePersonnelOrganizationExportPort(() => adminClient),
 			trainingExport,
-			{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+			{
+				listOnboardingTemplateExportRows,
+				listOnboardingTemplateStepExportRows,
+				listPersonnelOnboardingExportRows,
+				listOnboardingStepProgressExportRows
+			},
 			{
 				listNotificationExportRows: () =>
 					listNotificationExportRows({
@@ -491,6 +560,17 @@ describe('retained Organization export projection', () => {
 		expect(json.onboardingTemplateSteps).toEqual([onboardingStep]);
 		expect(json.sections.onboardingTemplates).toEqual([onboardingTemplate]);
 		expect(json.sections.onboardingTemplateSteps).toEqual([onboardingStep]);
+		expect(json.personnelOnboardings).toEqual([onboardingPacket]);
+		expect(json.onboardingStepProgress).toEqual([savedPaperwork, savedTraining]);
+		expect(json.sections.personnelOnboardings).toEqual([onboardingPacket]);
+		expect(json.sections.onboardingStepProgress).toEqual([savedPaperwork, savedTraining]);
+		expect(json.sectionInventory).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ key: 'personnelOnboardings', table: 'personnel_onboardings', rowCount: 1 }),
+				expect.objectContaining({ key: 'onboardingStepProgress', table: 'onboarding_step_progress', rowCount: 2 })
+			])
+		);
+
 		expect(json.personnelTrainings).toEqual([trainingCompletion]);
 		expect(json.trainingViews).toEqual([trainingView]);
 		expect(json.sections.trainingTypes).toEqual([trainingType]);
@@ -531,7 +611,8 @@ describe('retained Organization export projection', () => {
 			['Raw - Personnel Trainings', trainingCompletion],
 			['Raw - Training Views', trainingView],
 			['Raw - Onboarding Templates', onboardingTemplate],
-			['Raw - Onboarding Template Steps', onboardingStep]
+			['Raw - Onboarding Template Steps', onboardingStep],
+			['Raw - Personnel Onboardings', onboardingPacket]
 		] as const) {
 			const sheet = workbook.getWorksheet(name)!;
 			expect(sheet.columns.map((column) => column.key)).toEqual(Object.keys(rawRow));
@@ -540,6 +621,26 @@ describe('retained Organization export projection', () => {
 				expect(sheet.getRow(2).getCell('created_at').value).toBe('2026-05-01T00:00:00.123456Z');
 			expect(sheet.rowCount).toBe(2);
 		}
+		const progressSheet = workbook.getWorksheet('Raw - Onboarding Step Progress')!;
+		expect(progressSheet.rowCount).toBe(3);
+		expect(progressSheet.getRow(2).getCell('id').value).toBe('saved-paperwork');
+		expect(progressSheet.getRow(2).getCell('current_stage').value).toBe('Retired stage');
+		expect(progressSheet.getRow(2).getCell('stages').value).toBe('["Submitted","Filed"]');
+		expect(progressSheet.getRow(2).getCell('notes').value).toBe(JSON.stringify(savedPaperwork.notes));
+		expect(String(progressSheet.getRow(2).getCell('template_step_id').value ?? '')).toBe('');
+		expect(progressSheet.getRow(3).getCell('id').value).toBe('inactive-training');
+		expect(progressSheet.getRow(3).getCell('completed').value).toBe(true);
+		expect(progressSheet.getRow(3).getCell('active').value).toBe(false);
+		expect(progressSheet.getRow(3).getCell('training_type_id').value).toBe('training-1');
+		expect(progressSheet.getRow(3).getCell('notes').value).toBe(JSON.stringify(savedTraining.notes));
+		expect(progressSheet.getRow(3).getCell('created_at').value).toBe('2026-05-01T00:00:00.123456Z');
+		expect(progressSheet.getRow(3).getCell('updated_at').value).toBe('2026-09-29T01:02:03.654321Z');
+		const readableOnboarding = workbook.getWorksheet('Onboarding Progress')!;
+		expect(readableOnboarding.getRow(2).getCell('person').value).toBe('Example, Alex');
+		expect(readableOnboarding.getRow(2).getCell('status').value).toBe('cancelled');
+		expect(readableOnboarding.getRow(2).getCell('started_at').value).toBe('2026-05-01');
+		expect(String(readableOnboarding.getRow(2).getCell('completed_at').value ?? '')).toBe('');
+		expect(readableOnboarding.getRow(2).getCell('cancelled_at').value).toBe('2026-09-29T01:02:03.654321Z');
 		const stepSheet = workbook.getWorksheet('Raw - Onboarding Template Steps')!;
 		expect(stepSheet.getRow(2).getCell('stages').value).toBe('["Submitted","Filed"]');
 		expect(stepSheet.getRow(2).getCell('sort_order').value).toBe(3);

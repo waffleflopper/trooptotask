@@ -1,6 +1,8 @@
 import {
 	listOnboardingTemplateExportRows,
-	listOnboardingTemplateStepExportRows
+	listOnboardingTemplateStepExportRows,
+	listPersonnelOnboardingExportRows,
+	listOnboardingStepProgressExportRows
 } from '$features/onboarding/index.server';
 import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import type { RequestEvent } from '@sveltejs/kit';
@@ -51,7 +53,12 @@ export const _postConfig: RouteConfig<ExcelExportInput, ExcelExportOutput> = {
 						listTrainingCompletionExportRows,
 						listTrainingViewExportRows
 					},
-					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
+					{
+						listOnboardingTemplateExportRows,
+						listOnboardingTemplateStepExportRows,
+						listPersonnelOnboardingExportRows,
+						listOnboardingStepProgressExportRows
+					},
 					{
 						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
 						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)

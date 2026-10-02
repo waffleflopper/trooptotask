@@ -43,7 +43,7 @@ Robert reports the reviewed reconciliation/note/atomic Start migrations live. Th
 
 [Final selected native campaign and supporting preparation/accounting](d15-closing-verification-final-native.tar.gz), SHA-256 `6041ca878ff0847842579339fbce88f3f52c4deb3074c422400da8c9039efe31`, contains1,440 inventoried payloads/1,441members/5,137,648expanded bytes, compressed1,350,159bytes. Inventory excludes itself; every raw byte remains exact. Fresh bounded extraction and all names/hashes pass. Packaging is integrity, not behavior. Original frozen revision/digest above are preserved; post-disposal archive/prose changes alter the checkout fingerprint and earn no new live run.
 
-Run this explicit guarded reader from the repository root with Python supporting `tarfile.data_filter`. It hashes in1MiB chunks under a2MiB compressed-size cap before extraction, enforces the unchanged per-archive2,500/32MiB and shared5,000/64MiB budgets, and checks exact payload sets/hashes afterward. Guards remain active under `python -O`.
+Run this explicit guarded reader from the repository root with Python supporting `tarfile.data_filter`. It hashes in1MiB chunks under a2MiB compressed-size cap before extraction, enforces the unchanged per-archive2,500/32MiB and shared5,000/64MiB budgets, extracts the same private verified copy, and checks exact payload sets/hashes afterward. Guards remain active under `python -O`.
 
 ```python
 from pathlib import Path, PurePosixPath
@@ -66,33 +66,36 @@ compressed_limit = 2 * 1024 * 1024
 for name, digest in expected.items():
     archive = Path('docs/stabilization/phase-08') / name
     require(archive.stat().st_size <= compressed_limit, 'Compressed archive size: ' + name)
-    hasher, total = hashlib.sha256(), 0
-    with archive.open('rb') as source:
-        while chunk := source.read(1024 * 1024):
-            total += len(chunk)
-            require(total <= compressed_limit, 'Compressed archive size: ' + name)
-            hasher.update(chunk)
-    require(hasher.hexdigest() == digest, 'Archive hash: ' + name)
-    target = Path(tempfile.mkdtemp(prefix='d15-closing-expanded-', dir='.verification/tmp'))
-    budget, seen = [2500, 32 * 1024 * 1024], set()
+    with tempfile.TemporaryFile(dir='.verification/tmp') as verified:
+        hasher, total = hashlib.sha256(), 0
+        with archive.open('rb') as source:
+            while chunk := source.read(1024 * 1024):
+                total += len(chunk)
+                require(total <= compressed_limit, 'Compressed archive size: ' + name)
+                hasher.update(chunk)
+                verified.write(chunk)
+        require(hasher.hexdigest() == digest, 'Archive hash: ' + name)
+        verified.seek(0)
+        target = Path(tempfile.mkdtemp(prefix='d15-closing-expanded-', dir='.verification/tmp'))
+        budget, seen = [2500, 32 * 1024 * 1024], set()
 
-    def bounded(handle):
-        for member in handle:
-            path = PurePosixPath(member.name)
-            require(member.isfile() and member.size >= 0, 'Regular member required')
-            require(path.parts and not path.is_absolute() and '..' not in path.parts
-                    and str(path) == member.name and '\\' not in member.name, 'Member path')
-            require(member.name not in seen, 'Duplicate member')
-            seen.add(member.name)
-            budget[0] -= 1
-            budget[1] -= member.size
-            shared[0] -= 1
-            shared[1] -= member.size
-            require(min(budget + shared) >= 0, 'Extraction budget')
-            yield member
+        def bounded(handle):
+            for member in handle:
+                path = PurePosixPath(member.name)
+                require(member.isfile() and member.size >= 0, 'Regular member required')
+                require(path.parts and not path.is_absolute() and '..' not in path.parts
+                        and str(path) == member.name and '\\' not in member.name, 'Member path')
+                require(member.name not in seen, 'Duplicate member')
+                seen.add(member.name)
+                budget[0] -= 1
+                budget[1] -= member.size
+                shared[0] -= 1
+                shared[1] -= member.size
+                require(min(budget + shared) >= 0, 'Extraction budget')
+                yield member
 
-    with tarfile.open(archive, 'r|gz') as handle:
-        handle.extractall(target, members=bounded(handle), filter='data')
+        with tarfile.open(fileobj=verified, mode='r|gz') as handle:
+            handle.extractall(target, members=bounded(handle), filter='data')
     inventory = json.loads((target / 'inventory.json').read_text())
     actual = {p.relative_to(target).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in target.rglob('*') if p.is_file() and p != target / 'inventory.json'}
@@ -114,3 +117,5 @@ Complete independent source/artifact/integration acceptance is GO for clean `b70
 CodeRabbit CLI0.8.2 completes committed review of the same base/head and all ten readable paths with exit0 and zero findings; the unsupported archive receives the separate expanded assessment above. Log SHA-256 `52e43009619f62154489f70a7d9e110547fd28ec47e823f7bf73755d97966879`. This acceptance-record update changes only three prose files. The final published head still requires applicable DoD/build, green CI, completed hosted review and authorized tree-identical merge/readback. #1492 is ready to complete #1363 through those gates; the issue and a/b are not yet integrated or closed. The earlier failed PR run and superseded full run are not current green credit: the latter's disposable database job passes and cleans up before its redundant stale application job is explicitly cancelled. A new explicit full run must validate the final head's three jobs.
 
 The three-file recording delta at `bb7ed5b4` receives bounded independent GO and completed zero-finding CLI review. Hosted review5397275355 identifies one actionable reader issue: the whole compressed file is allocated before its digest check. The example now enforces a2MiB compressed cap before reading and while hashing in1MiB chunks, with existing digest, extraction budgets and exact inventory checks preserved. Its actual optimized-reader run extracts all1,441 files; wrong digest, zero per/shared/compressed budgets and an owned archive copy growing past the compressed limit after the initial size check each reject before any extracted payload is written. The original archive and all application/helper/recipe/proof inputs remain unchanged. This is a bounded executable-reference correction, not another native campaign; its final review and current-head CI remain required.
+
+The bounded reader delta at `91ffd5b8` receives independent GO and completed zero-finding CLI review. Hosted review5397342722 identifies a separate reopen of the archive path between hashing and extraction. The reader now hashes each bounded chunk into a private temporary file, checks the digest and extracts that same file; its context closes the copy on success or failure. All existing guards remain. The seven actual optimized-reader cases pass: unchanged good extraction and all five rejection probes above, plus successful1,441-file extraction from the verified copy after replacing only the owned source-copy bytes following the digest check. No tracked archive is mutated. Final-head CI and completed review remain required; prior source/artifact/native acceptance carries without additional live or production credit.

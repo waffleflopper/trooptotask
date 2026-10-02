@@ -69,8 +69,7 @@ function makeBootstrap(): RatingSchemeWorkspaceResult {
 		laneKey: 'ratingScheme',
 		data: {
 			personnelLookup: [],
-			ratingSchemeEntries: [],
-			lossWarningWindowDays: 180
+			ratingSchemeEntries: []
 		},
 		hydration: {
 			orgId: 'org-1',

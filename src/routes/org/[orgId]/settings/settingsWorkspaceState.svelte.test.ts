@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { createSettingsPoliciesState, type SettingsPoliciesSectionData } from './settingsPoliciesState.svelte';
 import { createSettingsMemberAccessWorkspace } from '$features/organization';
 import type { SettingsMembersSectionData } from '$features/organization/contracts';
 import type { SettingsArchivesSectionData } from './settingsSectionTypes';
@@ -18,7 +17,6 @@ type SettingsStateTestData = {
 	currentMember: { isOwner: boolean };
 	sections: {
 		members: SettingsMembersSectionData;
-		policies: SettingsPoliciesSectionData;
 		archivedPersonnel: SettingsArchivesSectionData;
 	};
 };
@@ -67,17 +65,6 @@ function makeSettingsData(): SettingsStateTestData {
 				canInvite: true,
 				canManageMemberAccess: true
 			},
-			policies: {
-				archiveRetention: {
-					savedMonths: 36,
-					constraints: { min: 1, max: 120, unit: 'months' }
-				},
-				lossWarning: {
-					savedDays: 180,
-					constraints: { min: 1, max: 365, unit: 'days' }
-				},
-				canUpdateRetention: true
-			},
 			archivedPersonnel: {
 				rows: [
 					{
@@ -108,24 +95,6 @@ function makeSettingsData(): SettingsStateTestData {
 }
 
 describe('settings workspace state', () => {
-	it('owns policy dirty and validity state from Policies section data', () => {
-		const state = createSettingsPoliciesState(makeSettingsData().sections.policies);
-
-		expect(state.retentionMonths).toBe(36);
-		expect(state.hasRetentionChanges).toBe(false);
-
-		state.retentionMonths = 0;
-
-		expect(state.hasRetentionChanges).toBe(true);
-		expect(state.isRetentionValid).toBe(false);
-
-		state.retentionMonths = 48;
-		state.markRetentionSaved(48);
-
-		expect(state.savedRetentionMonths).toBe(48);
-		expect(state.hasRetentionChanges).toBe(false);
-	});
-
 	it('composes member editor state from Members section data', () => {
 		const data = makeSettingsData();
 		const state = createSettingsMemberAccessWorkspace({

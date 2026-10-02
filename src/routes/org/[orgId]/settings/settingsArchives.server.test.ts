@@ -3,6 +3,20 @@ import { createQueryWithRawStorePortsContext } from '$lib/server/adapters/inMemo
 import { loadArchivesSettings } from './settingsArchives.server';
 
 describe('loadArchivesSettings', () => {
+	it.each([0, null, 'failure'] as const)(
+		'retains retention zero/default and propagates read failures (%s)',
+		async (value) => {
+			const ctx = createQueryWithRawStorePortsContext();
+			ctx.organizationSettings.findArchiveRetentionMonths = async () => {
+				if (value === 'failure') throw new Error('Retention unavailable');
+				return value;
+			};
+			const pending = loadArchivesSettings(ctx, { isAdmin: false });
+			if (value === 'failure') await expect(pending).rejects.toThrow('Retention unavailable');
+			else expect((await pending).sections.archivedPersonnel.retention.months).toBe(value === 0 ? 0 : 36);
+		}
+	);
+
 	it('shows only in-Group archived personnel, newest first', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
 			auth: { role: 'member', scopeSet: { kind: 'groups', groupIds: ['group-a'] } }

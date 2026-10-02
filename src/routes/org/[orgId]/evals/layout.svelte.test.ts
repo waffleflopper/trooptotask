@@ -16,7 +16,7 @@ afterEach(() => {
 
 const allowed = {
 	laneKey: 'ratingScheme',
-	data: { personnelLookup: [], ratingSchemeEntries: [], lossWarningWindowDays: 180 },
+	data: { personnelLookup: [], ratingSchemeEntries: [] },
 	hydration: { orgId: 'org-1', ratingSchemeEntries: { mode: 'replace', snapshotKey: 'allowed', items: [] } }
 } as const;
 const restricted = { laneKey: 'ratingScheme', access: 'restricted' } as const;

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tick } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { enhance } from '$app/forms';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
@@ -7,83 +7,21 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
-	import type { SettingsOrganizationSectionData } from './settingsSectionTypes';
+	import type { SettingsOrganizationSectionData, GeneralSettingsActionData } from './generalSettingsTypes';
+	import { GeneralSettingsWorkspace } from './generalSettingsWorkspace.svelte';
+	import { ORGANIZATION_SLUG_MAX_LENGTH } from './url';
 
-	let {
-		organization,
-		form,
-		nameLoading = $bindable(false),
-		slugLoading = $bindable(false)
-	} = $props<{
+	let { organization, form } = $props<{
 		organization: SettingsOrganizationSectionData;
-		form: {
-			[key: string]: unknown;
-			nameSuccess?: boolean;
-			slugSuccess?: boolean;
-			error?: string;
-			slugError?: string;
-		} | null;
-		nameLoading?: boolean;
-		slugLoading?: boolean;
+		form: GeneralSettingsActionData;
 	}>();
-
-	let slugFormEl = $state<HTMLFormElement | null>(null);
-	let slugConfirmOpen = $state(false);
-	let slugConfirmed = $state(false);
-	let pendingSlugAction = $state<'update' | 'clear' | null>(null);
-	let slugFormAction = $state('?/updateSlug');
-
-	let nameEditing = $state(false);
-	let nameConfirmOpen = $state(false);
-	let nameConfirmed = $state(false);
+	const workspace = new GeneralSettingsWorkspace();
+	onDestroy(() => workspace.dispose());
 	let nameFormEl = $state<HTMLFormElement | null>(null);
-
-	function startNameEdit() {
-		nameEditing = true;
-	}
-
-	function cancelNameEdit() {
-		nameEditing = false;
-	}
-
-	function requestNameSave() {
-		nameConfirmOpen = true;
-	}
-
-	function confirmNameSave() {
-		nameConfirmed = true;
-		nameConfirmOpen = false;
-		nameFormEl?.requestSubmit();
-	}
-
-	function cancelNameSave() {
-		nameConfirmOpen = false;
-	}
-
-	function requestSlugClear() {
-		pendingSlugAction = 'clear';
-		slugConfirmOpen = true;
-	}
-
-	async function confirmSlugAction() {
-		slugConfirmed = true;
-		slugConfirmOpen = false;
-		if (pendingSlugAction === 'clear') {
-			slugFormAction = '?/clearSlug';
-			await tick();
-		}
-		slugFormEl?.requestSubmit();
-	}
-
-	function cancelSlugAction() {
-		slugConfirmOpen = false;
-		pendingSlugAction = null;
-	}
+	let slugFormEl = $state<HTMLFormElement | null>(null);
 
 	$effect(() => {
-		if (form?.nameSuccess) {
-			nameEditing = false;
-		}
+		if (form?.nameSuccess) workspace.nameEditing = false;
 	});
 </script>
 
@@ -102,19 +40,7 @@
 			bind:this={nameFormEl}
 			method="POST"
 			action="?/updateName"
-			use:enhance={(event) => {
-				if (!nameConfirmed) {
-					event.cancel();
-					requestNameSave();
-					return;
-				}
-				nameConfirmed = false;
-				nameLoading = true;
-				return async ({ update }) => {
-					nameLoading = false;
-					await update();
-				};
-			}}
+			use:enhance={({ cancel }) => workspace.submitName(cancel)}
 		>
 			{#if form?.nameSuccess}
 				<Alert.Root variant="success" class="mb-3">
@@ -126,19 +52,24 @@
 					<Alert.Description>{form.error}</Alert.Description>
 				</Alert.Root>
 			{/if}
-			{#if nameEditing}
+			{#if workspace.nameEditing}
 				<div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto]">
 					<div class="grid gap-2">
 						<Label for="name">Organization name</Label>
-						<Input id="name" name="name" type="text" value={organization.name ?? ''} required maxlength={120} />
+						<Input id="name" name="name" type="text" value={organization.name ?? ''} required maxlength={100} />
 					</div>
 					<div class="flex items-end">
-						<Button type="submit" disabled={nameLoading || !organization.canUpdateProfile}>
-							{nameLoading ? 'Saving...' : 'Save'}
+						<Button type="submit" disabled={workspace.nameLoading || !organization.canUpdateProfile}>
+							{workspace.nameLoading ? 'Saving...' : 'Save'}
 						</Button>
 					</div>
 					<div class="flex items-end">
-						<Button type="button" variant="outline" onclick={cancelNameEdit} disabled={nameLoading}>Cancel</Button>
+						<Button
+							type="button"
+							variant="outline"
+							onclick={() => workspace.cancelNameEdit()}
+							disabled={workspace.nameLoading}>Cancel</Button
+						>
 					</div>
 				</div>
 			{:else}
@@ -148,7 +79,7 @@
 						<p class="text-base font-medium">{organization.name ?? 'Unnamed organization'}</p>
 					</div>
 					{#if organization.canUpdateProfile}
-						<Button type="button" variant="outline" size="sm" onclick={startNameEdit}>Edit</Button>
+						<Button type="button" variant="outline" size="sm" onclick={() => workspace.startNameEdit()}>Edit</Button>
 					{/if}
 				</div>
 			{/if}
@@ -157,23 +88,8 @@
 		<form
 			bind:this={slugFormEl}
 			method="POST"
-			action={slugFormAction}
-			use:enhance={(event) => {
-				if (!slugConfirmed) {
-					event.cancel();
-					pendingSlugAction = 'update';
-					slugConfirmOpen = true;
-					return;
-				}
-				slugConfirmed = false;
-				pendingSlugAction = null;
-				slugLoading = true;
-				return async ({ update }) => {
-					slugLoading = false;
-					slugFormAction = '?/updateSlug';
-					await update();
-				};
-			}}
+			action={workspace.slugFormAction}
+			use:enhance={({ cancel }) => workspace.submitSlug(cancel)}
 		>
 			<div class="grid gap-3">
 				<div class="grid gap-1">
@@ -206,15 +122,15 @@
 							placeholder="1-11-bde"
 							autocomplete="off"
 							aria-describedby="url-slug-help"
-							maxlength={60}
+							maxlength={ORGANIZATION_SLUG_MAX_LENGTH}
 						/>
 						<p id="url-slug-help" class="text-sm text-muted-foreground">
 							Current app path: /org/{organization.urlSegment}
 						</p>
 					</div>
 					<div class="flex items-end">
-						<Button type="submit" disabled={slugLoading || !organization.canUpdateUrlSlug}>
-							{slugLoading ? 'Saving...' : organization.urlSlug ? 'Update URL' : 'Set URL'}
+						<Button type="submit" disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}>
+							{workspace.slugLoading ? 'Saving...' : organization.urlSlug ? 'Update URL' : 'Set URL'}
 						</Button>
 					</div>
 					{#if organization.urlSlug}
@@ -222,8 +138,8 @@
 							<Button
 								type="button"
 								variant="outline"
-								disabled={slugLoading || !organization.canUpdateUrlSlug}
-								onclick={requestSlugClear}>Reset to default</Button
+								disabled={workspace.slugLoading || !organization.canUpdateUrlSlug}
+								onclick={() => workspace.requestSlugClear()}>Reset to default</Button
 							>
 						</div>
 					{/if}
@@ -233,7 +149,7 @@
 	</section>
 </div>
 
-<AppDialog.Root bind:open={nameConfirmOpen} onClose={cancelNameSave}>
+<AppDialog.Root bind:open={workspace.nameConfirmOpen} onClose={() => workspace.cancelNameSave()}>
 	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>Update organization name?</AppDialog.Title>
@@ -243,20 +159,20 @@
 			</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Footer>
-			<Button type="button" variant="outline" onclick={cancelNameSave}>Cancel</Button>
-			<Button type="button" onclick={confirmNameSave}>Update Name</Button>
+			<Button type="button" variant="outline" onclick={() => workspace.cancelNameSave()}>Cancel</Button>
+			<Button type="button" onclick={() => workspace.confirmNameSave(nameFormEl)}>Update Name</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>
 
-<AppDialog.Root bind:open={slugConfirmOpen} onClose={cancelSlugAction}>
+<AppDialog.Root bind:open={workspace.slugConfirmOpen} onClose={() => workspace.cancelSlugAction()}>
 	<AppDialog.Content>
 		<AppDialog.Header>
 			<AppDialog.Title>
-				{pendingSlugAction === 'clear' ? 'Reset custom URL?' : 'Update custom URL?'}
+				{workspace.pendingSlugAction === 'clear' ? 'Reset custom URL?' : 'Update custom URL?'}
 			</AppDialog.Title>
 			<AppDialog.Description>
-				{#if pendingSlugAction === 'clear'}
+				{#if workspace.pendingSlugAction === 'clear'}
 					Removing the custom URL resets this organization's web address to the default. Existing bookmarks and shared
 					links using /org/{organization.urlSlug}/ will stop working.
 				{:else}
@@ -266,9 +182,9 @@
 			</AppDialog.Description>
 		</AppDialog.Header>
 		<AppDialog.Footer>
-			<Button type="button" variant="outline" onclick={cancelSlugAction}>Cancel</Button>
-			<Button type="button" onclick={confirmSlugAction}>
-				{pendingSlugAction === 'clear' ? 'Reset URL' : 'Update URL'}
+			<Button type="button" variant="outline" onclick={() => workspace.cancelSlugAction()}>Cancel</Button>
+			<Button type="button" onclick={() => workspace.confirmSlugAction(slugFormEl)}>
+				{workspace.pendingSlugAction === 'clear' ? 'Reset URL' : 'Update URL'}
 			</Button>
 		</AppDialog.Footer>
 	</AppDialog.Content>

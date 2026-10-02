@@ -1,19 +1,21 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
 import {
+	createSupabaseOrganizationProfilePort,
 	clearOrganizationUrlSlug,
 	renameOrganization,
 	updateOrganizationUrlSlug
-} from '$lib/server/core/useCases/orgSettingsAdministration';
+} from '$features/organization/index.server';
 import { toActionFailure } from '../settingsActionFailure.server';
-import { buildGeneralSettingsData } from '../settingsGeneral.server';
+import { buildGeneralSettingsData } from '$features/organization/contracts';
 import { loadSettingsPage } from '../settingsLoad.server';
 
 export const load: PageServerLoad = (event) =>
 	loadSettingsPage(event, async (ctx, { common, organization }) => ({
-		generalSettings: buildGeneralSettingsData(ctx, {
+		generalSettings: buildGeneralSettingsData({
+			currentMemberRole: ctx.auth.role,
+			canManageMembers: ctx.auth.canManageMembers,
 			isAdmin: common.isAdmin,
 			organization
 		})
@@ -34,7 +36,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+					administration: createSupabaseOrganizationProfilePort(locals)
 				},
 				{
 					name: typeof nameRaw === 'string' ? nameRaw : ''
@@ -60,7 +62,7 @@ export const actions: Actions = {
 					auth: ctx.auth,
 					audit: ctx.audit,
 
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+					administration: createSupabaseOrganizationProfilePort(locals)
 				},
 				{
 					urlSlug: typeof urlSlugRaw === 'string' ? urlSlugRaw : ''
@@ -86,7 +88,7 @@ export const actions: Actions = {
 				auth: ctx.auth,
 				audit: ctx.audit,
 
-				administration: createSupabaseOrgSettingsAdministrationPort(locals)
+				administration: createSupabaseOrganizationProfilePort(locals)
 			});
 			orgId = ctx.auth.orgId;
 		} catch (error) {

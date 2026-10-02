@@ -1,9 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-	getPreferredOrganizationUrlSegment,
-	resolveOrganizationRouteIdentity,
-	validateOrganizationUrlSlug
-} from '$lib/server/core/useCases/organizationUrlSlug';
+import { getPreferredOrganizationUrlSegment, validateOrganizationUrlSlug } from './url';
+import { resolveOrganizationRouteIdentity } from './routeIdentity.server';
 
 describe('organization URL slug helpers', () => {
 	it('normalizes valid slugs to lowercase', () => {

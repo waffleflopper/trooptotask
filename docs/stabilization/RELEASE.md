@@ -349,3 +349,7 @@ The function can remain if the application is rolled back; older application cod
 ## Phase 08 D15 Web and History
 
 The [integrated Web/history deliverable](phase-08/d15-web-history.md), #1474 at `0fc3f5d5`, moves presentation and lazy dialog loading through the existing Onboarding Web entry and repairs saved-stage display. It changes no schema, provider policy or hosted configuration and requires no manual database operation. Exact accepted head `f54a7eb3` passed full CI/build, completed review without actionable feedback and independent acceptance before its authorized merge. The earlier #1470 application-drain/operator guidance remains applicable; this deliverable does not claim remote readback or production acceptance. #1363 remains open for its following deliverables.
+
+## Phase 08 D15 packet exports
+
+The [packet/progress export candidate](phase-08/d15-packet-exports.md) uses feature-owned raw reads in the existing Organization JSON/Excel delivery. It changes no schema, provider policy, export permission or external configuration and requires no manual database operation. Matching native downloads, denied admission, client recovery and saved-row restoration pass; final independent expanded acceptance, current-head full CI/build and completed clean bot review remain required before merge. The earlier #1470 application-drain guidance and operator-report limits remain applicable. Existing production deployment configuration is uninspected; no remote readback or production acceptance is claimed.

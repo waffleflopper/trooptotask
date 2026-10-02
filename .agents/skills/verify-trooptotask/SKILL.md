@@ -56,6 +56,10 @@ Restore any armed `network` or `export` control and temporary Calendar grants, t
 
 ## Helpers
 
+Organization settings proof uses the [settings/destruction recipe](features/organization-settings-destruction.md). `actor ROLE settings/general` opens the profile entry through normal sign-in. `rows organizations orgA|orgB` reads only that synthetic Organization's ID, name, URL slug, creator, retention months, warning days, document-cap bytes and retained Critical Tasks defaults. Compare saved values and tenant sentinels before and after visible actions; this privileged readback is separate from ordinary authorization. Existing membership and feature-row readbacks establish selected cascade witnesses after deletion, while real Storage objects require their own file checks.
+
+`network` also accepts `organization/settings` and the exact A form actions `settings/general/updateName`, `settings/general/updateSlug`, `settings/general/clearSlug` and `settings/danger/deleteOrganization`. Settings controls read A's current slug from the owned provider and bind to that canonical segment (or its UUID when unset) and the exact form action query, leaving another action and Organization untouched. Restore and rearm after changing the slug. `orgSettingsPeer` is the independent B owner, and `orgSettingsSwitch` is admin in A/B with all feature lanes absent; use them for slug conflicts and settings scope changes. A failed form receives a real SvelteKit failure envelope with the appropriate error field; it never sends that request to the provider. `arm-hold` waits after the real response and can establish persisted-versus-visible ordering. These controls prove client recovery, not provider atomicity or server error handling. Restore every hook before cleanup.
+
 `npm run --silent verify:app -- --help` is the launcher reference, and `npm run --silent verify:app -- tools --worker 1` lists the native browser operations. The narrow [control helper](helpers/control.mjs) uses only the same worker's authenticated supervisor and disposable provider. Run it from the repository root, always using the worker selected at launch:
 
 ```bash

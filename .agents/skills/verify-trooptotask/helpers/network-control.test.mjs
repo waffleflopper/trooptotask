@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { installNetworkControl } from './network-control.mjs';
+import { parse } from 'devalue';
 
 function deferred() {
 	let resolve;
@@ -61,6 +62,28 @@ test('a single availability control ignores batch and another organization', asy
 	assert.equal(page.__mapNetwork.calls.length, 0);
 	assert.equal((await page.fetch('/org/a/api/availability?day=2026-09-27')).status, 503);
 	assert.equal(page.__mapNetwork.calls.length, 1);
+});
+
+test('a form failure reaches the selected action without intercepting another action or tenant', async () => {
+	const page = { fetch: async () => new Response('ordinary result', { status: 200 }) };
+	installNetworkControl(page, {
+		mode: 'fail',
+		ordinal: 1,
+		suffix: '/org/a/settings/general',
+		search: '?/updateSlug',
+		failureField: 'slugError'
+	});
+	assert.equal((await page.fetch('/org/a/settings/general?/updateName', { method: 'POST' })).status, 200);
+	assert.equal((await page.fetch('/org/b/settings/general?/updateSlug', { method: 'POST' })).status, 200);
+	assert.equal((await page.fetch('/org/a/settings/general', { method: 'GET' })).status, 200);
+	const failure = await page.fetch('/org/a/settings/general?/updateSlug', { method: 'POST' });
+	assert.equal(failure.status, 503);
+	const result = await failure.json();
+	assert.equal(result.type, 'failure');
+	assert.equal(result.status, 503);
+	assert.deepEqual(parse(result.data), { slugError: 'Synthetic request failure' });
+	assert.equal(page.__mapNetwork.calls.length, 1);
+	assert.equal((await page.fetch('/org/a/settings/general?/updateSlug', { method: 'POST' })).status, 200);
 });
 
 test('observation preserves the real download and records only public response metadata', async () => {

@@ -497,7 +497,17 @@
 		"feedback": ["organization", "provider", "shared", "web-ui"],
 		"identity": ["access", "audit", "provider", "shared", "web-ui"],
 		"notifications": ["identity", "access", "audit", "provider", "shared", "web-ui"],
-		"onboarding": ["personnel", "training", "notifications", "access", "audit", "provider", "shared", "web-ui"],
+		"onboarding": [
+			"organization",
+			"personnel",
+			"training",
+			"notifications",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui"
+		],
 		"organization": ["identity", "notifications", "access", "audit", "provider", "shared", "web-ui"],
 		"personnel": ["organization", "access", "audit", "provider", "shared", "web-ui"],
 		"platform-admin": [

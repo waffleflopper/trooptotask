@@ -33,6 +33,58 @@ test('ordinary Start submits only its recorded inputs and preserves a blocked re
 	);
 });
 
+test('ordinary Reopen preserves rejection and exact retry while blocking unrelated fields', async () => {
+	const body = { id: 'cancelled-packet', status: 'in_progress' };
+	const options = { ...input, family: 'onboarding', method: 'PUT', body };
+	const sent = [];
+	const responses = [
+		new Response('Internal server error', {
+			status: 500,
+			headers: { 'Content-Type': 'text/plain', 'Set-Cookie': 'private' }
+		}),
+		Response.json({ id: 'cancelled-packet', status: 'in_progress', cancelledAt: null, completedAt: null })
+	];
+	const page = {
+		location: { origin: input.origin },
+		fetch: async (...args) => {
+			sent.push(args);
+			return responses.shift();
+		}
+	};
+	for (const forbidden of [
+		{ ...body, personnelId: 'new-person' },
+		{ ...body, cancelledAt: '2026-10-02T12:00:00Z' },
+		{ ...body, status: { nested: 'in_progress' } }
+	])
+		await assert.rejects(requestOnboarding(page, { ...options, body: forbidden }));
+	assert.equal(sent.length, 0);
+
+	assert.deepEqual(await requestOnboarding(page, options), {
+		request: { method: 'PUT', path: '/org/synthetic-a/api/onboarding', submitted: body },
+		status: 500,
+		body: 'Internal server error',
+		contentType: 'text/plain'
+	});
+	assert.equal(sent.length, 1, 'A rejection must not trigger an automatic retry');
+	const retry = await requestOnboarding(page, options);
+	assert.equal(retry.status, 200);
+	assert.deepEqual(JSON.parse(retry.body), {
+		id: 'cancelled-packet',
+		status: 'in_progress',
+		cancelledAt: null,
+		completedAt: null
+	});
+	assert.equal(Object.hasOwn(retry, 'headers'), false);
+	assert.equal(sent.length, 2);
+	for (const [url, init] of sent) {
+		assert.equal(url, '/org/synthetic-a/api/onboarding');
+		assert.equal(init.method, 'PUT');
+		assert.equal(init.redirect, 'manual');
+		assert.deepEqual(init.headers, { 'Content-Type': 'application/json' });
+		assert.deepEqual(JSON.parse(init.body), { id: 'cancelled-packet', status: 'in_progress' });
+	}
+});
+
 test('ordinary removal records exact submitted values and real failure without credential headers', async () => {
 	let sent;
 	const page = {

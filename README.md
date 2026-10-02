@@ -159,7 +159,7 @@ npm run test         # Unit tests (Vitest)
 Follow the [verification contract](docs/architecture/DEFINITION_OF_DONE.md#verification-contract)
 for the required command sequence and acceptance evidence. `npm run gate` runs
 format checking, lint, governance, Svelte/TypeScript checks and Vitest; formatting
-writes and the production build are separate steps. [Depot CI](docs/ci.md) runs
+writes and the production build are separate steps. [GitHub Actions](docs/ci.md) runs
 candidate validation on PR updates and `main`; pushes do not run the full suite
 locally. Use focused local checks while developing, and review CI results before
 merging. Robert intentionally keeps `main` unprotected on the current GitHub

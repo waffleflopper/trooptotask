@@ -50,7 +50,7 @@ D16 moves full-entry operations/mapping, authorized workspace queries and readin
 
 ## D-09 Automatic CI validation
 
-The separately authorized [Depot CI migration](../ci.md) replaces the former manual-only GitHub validation workflow with PR/main triggers, conservative change selection, full application checks and isolated database contracts. Its current verification/activation status is recorded there; configured triggers alone do not establish a successful hosted run. F03's automation repair is owned by that change, while task **11-04** retains the separate local CSP issue.
+The separately authorized [CI workflow](../ci.md) preserves PR/main triggers, conservative change selection, full application checks and isolated database contracts. After Depot’s trial expired, #1479 moves that workflow to the dedicated ARM64 GitHub Actions runner. Its current verification/activation status is recorded there; configured triggers alone do not establish a successful hosted run. F03's automation repair is owned by that change, while task **11-04** retains the separate local CSP issue.
 
 Robert explicitly accepts an unprotected private `main` on the existing GitHub plan, with owner review of CI results before merge. Paid branch protection and rulesets are not requirements, defects or reasons for a red check. Existing source/governance, security and test controls remain required; failed validation still blocks acceptance. The module checker supplements the route/provider/permission controls and does not certify every unfinished Phase 08 boundary.
 

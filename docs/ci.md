@@ -1,54 +1,59 @@
 # Continuous integration
 
-Depot CI owns validation for this private, single-contributor repository. GitHub remains the source and PR host. Robert reviews the final candidate's checks before merging; `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
+GitHub Actions runs validation for this private, single-contributor repository on Robert’s dedicated `macmini-arm64` runner: an Ubuntu 24.04 ARM64 VM with four CPUs, 4 GB RAM and 60 GB disk. `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
 
 ## What runs
 
-[The workflow](../.depot/workflows/ci.yml) runs on PRs targeting `main`, pushes to `main`, and manual dispatch. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; main/manual runs are retained. No deployment or remote database operation is part of CI.
+[The workflow](../.github/workflows/ci.yml) runs on PRs targeting `main`, pushes to `main`, and manual dispatch. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; main/manual runs are retained. No deployment or remote database operation is part of CI.
 
 | Job                        | Scope                                                                                                                                                                                                                                                                             |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Select checks              | Uses the full PR diff or push's before/after diff, including deletions and renames. Manual/local CLI runs validate everything. Missing comparison history fails explicitly.                                                                                                       |
+| Select checks              | Uses the full PR diff or push’s before/after diff, including deletions and renames. Manual/local CLI runs validate everything. Missing comparison history fails explicitly.                                                                                                       |
 | Repository and application | Formats changed Markdown in check mode, validates local links/anchors across all tracked Markdown and checks whitespace. For executable changes: format check, lint, governance, Svelte/types, full Vitest and production build. Runs the small database-runner safety tests too. |
-| Database contracts         | Runs when Supabase, CI tooling/workflows, package manifests/lock or Node version changes, and on full manual runs. Fresh isolated migration replay, all SQL contracts and the existing Calendar Group-assignee upgrade regression.                                                |
+| Database contracts         | Runs when Supabase, CI tooling/workflows, package manifests/lock or Node version changes, and on full manual runs. Fresh isolated migration replay, all SQL contracts, populated-upgrade regressions and SDK/provider probes.                                                     |
 
 The only lightweight exemption is Markdown under `docs/` and the root README/AGENTS/CLAUDE/CONTEXT files. Unknown paths run application validation. Files such as `docs/architecture/GOVERNANCE_BASELINE.json` remain executable inputs. Database inputs also run application checks, including the test that consumes `supabase/config.toml`. Unchanged SQL is not rerun solely for a UI change.
 
-Both substantial jobs start independently after selection. Each uses the smallest x86 Depot sandbox initially, with explicit timeouts. npm downloads are cached; application dependencies use `npm ci`. Vitest keeps its complete current suite with two workers. There is no browser suite, OS matrix, sharding or coverage quota. Increase compute only with measured runtime/memory/cost evidence; a worker limit does not resolve historical unexplained worker failures.
+All three jobs require every label in `[self-hosted, Linux, ARM64, macmini-arm64]`. The two substantial jobs become eligible after selection; this single runner executes one job at a time. Existing job timeouts are retained. npm downloads are cached; application dependencies use `npm ci`. Vitest keeps its complete current suite with `VITEST_MAX_WORKERS=1` for the VM’s memory limit. There is no browser suite, OS matrix, sharding or coverage quota. Change compute or worker counts only with measured evidence; a worker limit does not resolve unexplained failures.
 
 ## Local work and acceptance
 
-Use focused checks while editing. Full validation does not run automatically before pushes; the former repository push hook and its installer are removed. `npm run gate` remains available for voluntary local validation, with the build separate. Existing custom local hooks remain intact: on Robert's workstation the maintenance hook protects the baseline tag and delegates to repository hooks only when they exist.
+Use focused checks while editing. Full validation does not run automatically before pushes; the former repository push hook and its installer are removed. `npm run gate` remains available for voluntary local validation, with the build separate. Existing custom local hooks remain intact: on Robert’s workstation the maintenance hook protects the baseline tag and delegates to repository hooks only when they exist.
 
-The [verification contract](architecture/DEFINITION_OF_DONE.md#required-commands) still defines acceptance. Format locally before submitting; hosted CI checks formatting without rewriting the candidate. Passing CI for the exact candidate may be used directly rather than repeated locally. Pending checks are pending, never a claimed pass. A later source/configuration change requires affected verification again. Browser journey and populated-upgrade evidence remain required when their task calls for them; fresh database replay alone does not prove every upgrade.
+The [verification contract](architecture/DEFINITION_OF_DONE.md#required-commands) still defines acceptance. Format locally before submitting; CI checks formatting without rewriting the candidate. Passing CI for the exact candidate may be used directly rather than repeated locally. Pending checks are pending, never a claimed pass. A later source/configuration change requires affected verification again. Browser journey and populated-upgrade evidence remain required when their task calls for them; fresh database replay alone does not prove every upgrade.
 
 The governance job needs full Git history and `origin/main`; preserve that checkout behavior. It runs the canonical regression checker, which rejects new/completed-scope findings while reporting the owned Phase 08 debt. Do not replace it with the standalone inventory report or weaken any rule to make migration pass.
 
 ## Database isolation
 
-`python3 scripts/ci/database.py` creates a unique disposable project outside the checkout, copies only the required Supabase configuration/migrations/tests/templates, disables seeds and chooses unused ports outside existing local stacks. It starts only the services needed for SQL tests and cleans up its exact project after success or failure. It never reuses the repository's local project or reads production credentials. The database job installs the locked npm dependency tree with lifecycle scripts disabled for its SDK/provider regression probes. This includes the development parser those probes require; it does not build or deploy the application.
+`python3 scripts/ci/database.py` creates a unique disposable project outside the checkout, copies only the required Supabase configuration/migrations/tests/templates, disables seeds and chooses unused ports outside existing local stacks. It starts only the services needed for SQL tests and cleans up its exact project after success or failure. It never reuses the repository’s local project or reads production credentials. The database job installs the locked npm dependency tree with lifecycle scripts disabled for its SDK/provider regression probes. This includes the development parser those probes require; it does not build or deploy the application.
 
-The pinned PostgreSQL image's known reserved-role denial crash is worked around by disabling `supautils.hint_roles` decoration only in the disposable database. This preserves grants, RLS and expected SQLSTATE denials. The Calendar migration regression runs through pg_prove with its relative migration includes intact. Failures remain failures; the existing SQL tests and historical migrations are unchanged.
+The pinned PostgreSQL image’s known reserved-role denial crash is worked around by disabling `supautils.hint_roles` decoration only in the disposable database. This preserves grants, RLS and expected SQLSTATE denials. Migration regressions run through pinned pg_prove with their relative migration includes intact. Failures remain failures; the existing SQL tests and historical migrations are unchanged. ARM64 acceptance requires these real container-backed checks to finish successfully; Docker hello-world or image-manifest inspection alone is insufficient.
 
-## Depot operation
+## Actions operation
 
-The CLI is installed at `~/.depot/bin/depot` on this workstation (version 2.102.13 at setup); use its absolute path if the terminal PATH omits it. The existing Depot Code Access app passed repository-access preflight. The validation workflow uses synthetic app/provider values and disposable database keys, with no production secrets to migrate. The unrelated Claude automation stays outside this migration.
+The runner must be online with all four target labels. Docker must work without sudo for the actions user. The workflow’s pinned `actions/setup-node` supplies Node 24; npm remains pinned to 11.12.1, Supabase CLI to 2.101.0 and pg_prove to 3.36. Existing action commit pins are preserved. The workflow uses synthetic app/provider values and disposable database keys, with no production secrets. The unrelated Claude automation stays outside this migration.
 
 ```bash
-depot ci run --workflow .depot/workflows/ci.yml
-depot ci status <run-id>
-depot ci logs <job-id>
+gh api repos/waffleflopper/trooptotask/actions/runners
+gh run list --repo waffleflopper/trooptotask --commit <head-sha>
+gh run watch <run-id> --repo waffleflopper/trooptotask --exit-status
+gh run view <run-id> --repo waffleflopper/trooptotask --log
 ```
 
-A local CLI run uploads the candidate's unpushed working-tree patch to Depot compute. With CLI 2.102.13, newly created files must first be added to Git's index (ordinary staging or `git add --intent-to-add -- <explicit paths>`); untracked files are otherwise omitted from the upload even though local job selection sees them. Review the complete `git diff` and included paths first; keep credentials in ignored local files. The CLI prints the run/job IDs needed for status and logs. Run one deliberate candidate validation rather than repeating full local and hosted suites.
+An updated PR triggers the migrated workflow. Once the workflow exists on the default branch, a full manual run can also be requested with `gh workflow run ci.yml --repo waffleflopper/trooptotask --ref <branch>`. GitHub requires the workflow on the default branch for manual dispatch. Record the run URL, exact PR head, actual job/step results and disposable cleanup; a queued or skipped database job does not establish database acceptance. Old queued Depot suites do not transfer to this runner.
 
-Automatic triggers register after the workflow is published and merged to the default branch. The obsolete GitHub validation workflow is removed to avoid duplicate compute if GitHub Actions is later re-enabled. No repository visibility, paid plan, branch-protection or deployment setting is changed. Vercel remains separate and may deploy on publication/merge; existing release prerequisites still apply.
+No repository visibility, paid plan, branch-protection or deployment setting is changed. Vercel remains separate and may deploy on publication/merge; existing release prerequisites still apply.
 
-References: [Depot quickstart](https://depot.dev/docs/ci/quickstart), [workflow compatibility](https://depot.dev/docs/ci/compatibility), [GitHub check reporting](https://depot.dev/docs/ci/observability/github-checks).
+References: [GitHub runner labels](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow), [manual workflow dispatch](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+
+## ARM64 migration acceptance
+
+The runner is registered and GitHub reports `macmini-arm64` online with labels `self-hosted`, `Linux`, `ARM64` and `macmini-arm64`. #1479 preserves its existing Onboarding lifecycle work while moving the workflow out of Depot after the trial expired. Application and real database validation on the migrated candidate are pending; runner registration alone is not a passing CI result. The PR remains open for review and is not authorized for merge under this migration request.
 
 ## Migration acceptance record
 
-Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
+This historical record covers the original Depot migration, not the current ARM64 runner. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
 
 Hosted candidate: [Depot run `56311mzhgj`](https://depot.dev/orgs/rvsvvkd4rp/workflows/m59999npzz), uploaded by `depot ci run --workflow .depot/workflows/ci.yml` against remote base `761349957d913e991339212aa610dc0887afe9db`, cache patch `patch/761349957d91/01cfa382fbbd8ea9`. Runtime/configuration diff SHA-256 is `e9f9df6fa27788b5ae4924d311b8f418328a3b08b0f2466252399c8777de8d54`, reproduced by `git diff --binary 91b8bc3c -- . ':(exclude)*.md' | sha256sum`. This identifies the uncommitted executable candidate independently of subsequent prose receipts.
 

@@ -15,24 +15,103 @@ The original note driver raised `KeyError('actors')` during postprocessing after
 
 Cleanup restores every original A/B packet/progress field including timestamps and the selected Training fields (Training timestamps are not captured). Both temporary Persons are absent, seed/grant ledgers empty and all 4,584 frozen inputs unchanged. Final doctor and exact owned container/volume/network/private-worker absence pass. No existing local or remote provider is accessed.
 
-## Repair and acceptance status
+## Repair and matching acceptance
 
-The integrated application patch replaces client-side read/array replacement with the narrow consumed `OnboardingNoteAppendPort`. The existing resource policy runs first; one ordinary authenticated database RPC appends to the current locked array and supplies the saved ID/notes. The API/store adopt that authoritative result. Successful audit remains after persistence; failures produce no success audit. Caller-supplied author/time or a replacement notes array are not admitted. Existing step actions, empty/whitespace text and supported terminal/inactive edits are retained.
+The consumed `OnboardingNoteAppendPort` replaces note-array read/replacement with one ordinary authenticated RPC. Existing resource policy runs first; the API/store adopt its authoritative saved ID/notes, including another committed addition. Success audit stays after persistence; provider failures produce no success audit. Existing action/body/result, empty/whitespace text and supported terminal/inactive edits remain. This removes the extra note-array read rather than adding a second state model.
 
-The new additive `20261002000100_atomic_onboarding_note_append.sql` migration and its actual focused/fresh/populated-upgrade proof are still being completed in an exclusive worktree. Matching final ordinary API/native proof, complete independent expanded acceptance, CodeRabbit and exact-head full CI remain gates. The already completed service-worker checks pass seven focused suites / 103 tests, types 0/0 and scoped formatting/lint; they do not establish the SQL or live concurrency boundary.
+The additive [migration](../../../supabase/migrations/20261002000100_atomic_onboarding_note_append.sql), SHA-256 `cac714d4f4f95af2209d0d85a70277121a77f4b11646bb9565e9add9b7635c35`, adds `public.append_onboarding_step_note(uuid, uuid, text) RETURNS jsonb`. It is volatile, invoker, empty search path, with an authenticated application grant and no PUBLIC/anon/service-role grant. It locks only the selected progress row explicitly, then rechecks current Operate and parent Person scope in a fresh statement after any wait. It appends to the current database array with `auth.uid()` and current UTC millisecond-Z time; all old note attributes/work remain. Missing/invisible targets use P0002, denied changes use 42501 and malformed saved arrays fail closed with 22023. The ordinary provider maps the first two to 404/403 and genuine unexpected/null outcomes to 500. A write failure rolls back. No table, policy, constraint or existing-row rewrite is added; the transaction includes the schema-reload notification.
 
-The [packet recipe](../../../.agents/skills/verify-trooptotask/features/onboarding-packets.md#ordinary-note-and-lifecycle-overlaps) distinguishes the baseline UPDATE observer from the final exact note RPC observer. Separate SQL proof must cover post-wait capability/Person scope, failure rollback and retained saved fields. One ordinary request makes one RPC transaction. A separately observed two-appends-in-one-explicit-transaction/reconciliation deadlock remains a direct-caller limitation; final SQL evidence must preserve the failed scenario and establish the actual one-RPC application boundary without changing foreign keys or weakening constraints.
+| Matching production run              | Source                                     | Candidate digest                                                   | Inputs | Origin / session                                                  |
+| ------------------------------------ | ------------------------------------------ | ------------------------------------------------------------------ | -----: | ----------------------------------------------------------------- |
+| Repaired application on `61dd0381`   | `aabaa9757b06079f65e3df544c8ad85964d1ee1a` | `843504e8760901bf82ac1bb7818706aea3b0a7707921e95b160e79a0f1b98d6a` |  4,590 | `http://127.0.0.1:40755` / `a4650fd7-50d1-4468-940e-38410221d665` |
+| Repeat on integrated main `e4080fe0` | `14198ebe3d65a14c684001e818ccba8d0f0f249d` | `2ecb5b176ed840d0956faf021bf25807c4b626a16da7638b2f7e3fc9075118b9` |  4,595 | `http://127.0.0.1:43263` / `76518b5e-a45d-49c5-979b-d093768089c9` |
+
+Both runs use the same owned production/native environment and normal-session helpers as the baseline. The final holder switches from exact progress UPDATE to the exact canonical PostgREST note RPC; all seed/session/doctor/lock/unchanged-state/rollback guards remain. Independent source preflight checks the holder and fifteen static translated-POSIX match/nonmatch examples; that is not PostgreSQL execution or an arbitrary SQL parser. Actual controlled runs establish the boundary separately.
+
+Both matching runs pass two exact RPC backend waits against unchanged committed state, holder rollback/absence and all three child exits without forced cleanup. Both requests return 200; saved notes contain the original plus exactly A and B, with the respective ordinary actor IDs and current valid UTC millisecond timestamps. Each authoritative response retains the original and its own saved addition; every returned note is present in final saved state. One returns two notes and the later writer three, without prescribing which request wins. Other full A/B packet/progress rows, untouched target fields and selected Training fields remain exact. Supported ordinary completion then native View History → Orientation notes → reload shows both additions. No native Kanban note editor is claimed.
+
+Neither matching run has a driver failure. All original full packet/progress fields including timestamps and selected Training fields are restored, the single temporary Person is absent, ledgers are empty and frozen inputs unchanged. Final doctors and exact owned disposal pass. The later main change is independently owned Personnel work: it adds separate artifact context/imports in the shared request adapter; the note provider/bindings remain. Rebase preserves that owner's source/records, and the complete matching run is repeated after integration. Later archives/general prose are packaging differences, not a new runtime observation.
+
+## Isolated SQL and source checks
+
+SQL bytes at worker `9ee0bdfc` are identical to the integrated candidate. Supabase CLI 2.101.0/PostgreSQL 17.6, disabled seeds and reserved distinct ports are recorded with actual commands, all port allocations and disposal in the SQL archive. Each passing run preserves all 246 copied SQL input hashes, which also match the root candidate.
+
+| Run               | Owned project               | API / DB      | Result                                                                                                                                                                |
+| ----------------- | --------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused           | `t2t-note-focused-s7q9sr12` | 62786 / 62075 | 161 migrations; 35 behavior/scope/rollback + 26 concurrency assertions pass                                                                                           |
+| Full fresh        | `t2t-note-fresh-2zntqutz`   | 60856 / 64593 | All 161 migrations, 52 retained SQL suites / 1,374 assertions pass                                                                                                    |
+| Populated upgrade | `t2t-note-upgrade-8z06vqhn` | 62578 / 62010 | Replay 160 predecessors, save 18 parent/progress/Person witnesses, then apply only the new migration; every field remains exact; 10 upgrade + same 61 assertions pass |
+
+The chain starts `20260413001158_remote_schema.sql`; predecessors end `20261001000200_atomic_onboarding_reconciliation.sql`; final range ends `20261002000100_atomic_onboarding_note_append.sql`. Effective attributes/grants, allowed Operate/Configure/scoped and denied View/Personnel-only/empty/foreign/other-Group cases, attribution/legacy fields, terminal/inactive/empty/whitespace/null compatibility, fault rollback/retry, two observed writers, capability loss/Person reassignment after waits, other-step nonblocking and one-RPC/reconciliation note retention pass. These are direct SQL/provider observations, separate from native interaction.
+
+Three failed focused attempts remain: catalog/default collation made a metadata comparison invalid; moving the session timezone between snapshots changed timestamp renderings; an extra two-appends-in-one-explicit-transaction interaction encountered a real FK deadlock with reconciliation. The first two are corrected test controls, not product failures. The latter remains a limitation. All six passing/failed projects are disposed with unchanged recorded inputs. Nine earlier source snapshots were reconstructed and accepted only after exact equality with their respective run-receipt hashes; they are not described as original live-copied files.
+
+One ordinary request makes one append RPC transaction. No explicit parent lock follows its progress lock. Several direct appends batched in one caller-managed transaction can recheck an existing FK against a tuple written by that transaction and conflict with reconciliation's parent-first lock. The observed failure and narrower passing interaction remain preserved; [PostgreSQL 17's FK implementation](https://raw.githubusercontent.com/postgres/postgres/REL_17_STABLE/src/backend/utils/adt/ri_triggers.c) supports that explanation. No constraint or policy is changed to conceal it. Arbitrary direct replacement writers and other mutation overlaps remain outside this guarantee.
+
+Seven focused application suites / 103 tests, types 0/0 and scoped formatting/lint pass. Tests cover authoritative concurrent notes, poisoned replacement writes, policy denial, failure without success audit, RPC transport/error mapping and client adoption/rollback. Root full local formatting changes no source. Complete exact-head Depot checks/build, existing migration regressions/SDK probes, CodeRabbit and full independent expanded acceptance remain pending before handoff; passing scoped checks do not replace them.
 
 ## Durable observations
 
-| Archive                                                | SHA-256                                                            | Payloads / members | Expanded bytes |
-| ------------------------------------------------------ | ------------------------------------------------------------------ | -----------------: | -------------: |
-| [Failed overlap baseline](d15-overlap-baseline.tar.gz) | `59c415516082440e3234888dc4cda2caad0f407e1e71375800abdf66af1ab393` |          427 / 428 |      1,997,500 |
+| Archive                                                 | SHA-256                                                            | Payloads / members | Expanded bytes |
+| ------------------------------------------------------- | ------------------------------------------------------------------ | -----------------: | -------------: |
+| [Failed baseline](d15-overlap-baseline.tar.gz)          | `59c415516082440e3234888dc4cda2caad0f407e1e71375800abdf66af1ab393` |          427 / 428 |      1,997,500 |
+| [Matching repair](d15-overlap-note-final.tar.gz)        | `ac726754328d98adcd27a69a32abd6b476f3bebafd0bbfcb18873bff121d1847` |          254 / 255 |      1,508,191 |
+| [Isolated SQL](d15-note-append-sql.tar.gz)              | `0cdbd1cb9c9b5d03584ab6525f1dc2c90a488eeccb23bbd6b2baec86676f3f06` |            31 / 32 |        492,306 |
+| [Integrated repeat](d15-overlap-note-integrated.tar.gz) | `8d329a81aeca4fc22734274c7b491f301b8e2fd2f1cc0011844d99db0fe88caa` |          248 / 249 |      1,494,655 |
 
-The archive is added only after owned cleanup. Every raw payload is retained byte-for-byte without redactions; text credential-pattern scanning passes. Its inventory excludes itself. Fresh bounded regular-file extraction using `data_filter`, a 2,500-member/32-MiB aggregate ceiling and every expanded hash passes. Packaging integrity is distinct from behavioral/independent acceptance, which remains pending for this deliverable. Final extraction instructions will cover all of this deliverable’s archives together after final/SQL proof is packaged.
+All four archives are added only after their owned cleanup. Credential-pattern scanning passes without redactions; observations remain byte-identical. The SQL worker inventory is renamed only, and all 246 input hashes match root. Each archive inventory excludes itself. Fresh extraction verifies all 960 payloads / 964 members / 5,492,652 expanded bytes under one unchanged 2,500-member/32-MiB aggregate budget. Integrity checks are distinct from source/behavior acceptance; independent review is artifact review, not independent live execution.
+
+From the repository root, this creates fresh ignored scratch space and verifies every archive and expanded payload:
+
+```python
+from pathlib import Path
+import hashlib, json, tarfile, tempfile
+
+root = Path.cwd()
+scratch = root / ".verification/tmp"
+scratch.mkdir(parents=True, exist_ok=True)
+parent = Path(tempfile.mkdtemp(prefix="d15-notes-review-", dir=scratch))
+archives = {
+    "d15-overlap-baseline.tar.gz": "59c415516082440e3234888dc4cda2caad0f407e1e71375800abdf66af1ab393",
+    "d15-overlap-note-final.tar.gz": "ac726754328d98adcd27a69a32abd6b476f3bebafd0bbfcb18873bff121d1847",
+    "d15-note-append-sql.tar.gz": "0cdbd1cb9c9b5d03584ab6525f1dc2c90a488eeccb23bbd6b2baec86676f3f06",
+    "d15-overlap-note-integrated.tar.gz": "8d329a81aeca4fc22734274c7b491f301b8e2fd2f1cc0011844d99db0fe88caa",
+}
+budget = [2500, 32 * 1024 * 1024]
+assert hasattr(tarfile, "data_filter")
+for name, expected in archives.items():
+    archive = root / "docs/stabilization/phase-08" / name
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == expected
+    dest = parent / name.removesuffix(".tar.gz")
+    dest.mkdir()
+    seen = set()
+
+    def bounded(handle):
+        for member in handle:
+            assert member.isfile() and member.size >= 0
+            assert member.name not in seen
+            seen.add(member.name)
+            budget[0] -= 1
+            budget[1] -= member.size
+            assert min(budget) >= 0
+            yield member
+
+    with tarfile.open(archive, "r|gz") as handle:
+        handle.extractall(dest, members=bounded(handle), filter="data")
+    inventory = json.loads((dest / "inventory.json").read_text())
+    actual = {
+        p.relative_to(dest).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in dest.rglob("*")
+        if p.is_file() and p != dest / "inventory.json"
+    }
+    assert actual == inventory
+print(parent, "PASS", 2500 - budget[0], "members", 32 * 1024 * 1024 - budget[1], "bytes")
+```
 
 ## Release boundary and issue remainder
 
-This deliverable contains a new migration and stops before merge for Robert’s manual application of its reviewed final bytes. His earlier #1470 confirmation does not cover this file. CI uses only disposable local providers and performs no remote migration. The new function must exist before its application consumer is released; earlier application instances still replace note arrays and must be drained before claiming safe overlapping appends. External production deployment settings are uninspected, and no remote function/ledger readback is claimed.
+This deliverable stops before merge for Robert's manual application of the reviewed migration and digest above. His earlier #1470 confirmation does not cover this new file. Apply the function before releasing its consumer: without it, addNote fails. Once the new application serves, drain earlier instances/requests that still replace arrays before claiming safe overlapping appends. The additive function can remain on application rollback; older code remains usable with its prior lost-note limitation. A failed migration transaction rolls back; no historical lost note is reconstructed automatically.
 
-After the operator gate and accepted merge, continue #1363 with the observed lifecycle repair, Add Person/Calendar/Training reverse-consumer observations, remaining valid packet operations/access boundaries, general response ordering and integrated removal/whole-issue acceptance. Do not advance another issue or credit note proof toward the unresolved lifecycle failure.
+CI uses only disposable local providers and performs no remote migration. Repository configuration runs Vercel builds and does not explicitly disable this branch; external production deployment settings remain uninspected. No remote function/ledger readback or production acceptance is claimed. The existing #1470 and separately owned D12 operator obligations remain.
+
+After accepted review, green exact-head CI and the new manual gate, continue the same #1363 with the observed lifecycle repair, Add Person/Calendar/Training reverse consumers, remaining valid packet operations/access boundaries, general response ordering and integrated removal/whole-issue acceptance. Notes proof earns no lifecycle completion credit; do not advance another issue.

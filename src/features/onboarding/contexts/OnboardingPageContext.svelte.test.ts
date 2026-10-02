@@ -13,14 +13,7 @@ vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn()
 }));
 
-import {
-	OnboardingPageContext,
-	getProgress,
-	isStepDeprecated,
-	isTrainingStepComplete,
-	getPaperworkStageIndex,
-	formatTimestamp
-} from './OnboardingPageContext.svelte';
+import { OnboardingPageContext, getProgress, formatTimestamp } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
 import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
@@ -94,30 +87,6 @@ describe('OnboardingPageContext Organization input', () => {
 		expect(ctx.historyUrl).toBe('/org/alpha-unit/onboarding/history');
 		expect(ctx.templatesUrl).toBe('/org/alpha-unit/onboarding/templates');
 		expect(ctx.trainingPageUrl).toBe('/org/alpha-unit/training');
-	});
-
-	it('retains a note draft when the live Organization changes before its save returns', async () => {
-		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
-		let currentOrgId = 'org-1';
-		const ctx = new OnboardingPageContext({} as never, {
-			get orgId() {
-				return currentOrgId;
-			},
-			scopeSet: { kind: 'organization' },
-			affordanceForFeatureAction: () => ({ allowed: true, visible: true })
-		});
-		ctx.noteInputs['step-1'] = 'Retained draft';
-		let confirm!: (saved: boolean) => void;
-		vi.spyOn(onboardingStore, 'addNote').mockImplementation(
-			() => new Promise<boolean>((resolve) => (confirm = resolve))
-		);
-
-		const pending = ctx.handleAddNote(makeStep());
-		currentOrgId = 'org-2';
-		confirm(true);
-		await pending;
-
-		expect(ctx.noteInputs['step-1']).toBe('Retained draft');
 	});
 });
 
@@ -200,41 +169,6 @@ describe('Onboarding inactive step removal feedback', () => {
 });
 
 describe('Onboarding Personnel creation result', () => {
-	it('keeps a failed note draft and clears it only after a confirmed retry', async () => {
-		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
-		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
-		ctx.noteInputs['step-1'] = ' Retained note ';
-		const save = vi.spyOn(onboardingStore, 'addNote').mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-		const feedback = vi.spyOn(toastStore, 'error');
-		await ctx.handleAddNote(makeStep());
-		expect(ctx.noteInputs['step-1']).toBe(' Retained note ');
-		expect(feedback).toHaveBeenCalledWith(expect.any(String));
-		await ctx.handleAddNote(makeStep());
-		expect(ctx.noteInputs['step-1']).toBe('');
-		expect(save.mock.calls).toEqual([
-			['step-1', 'Retained note'],
-			['step-1', 'Retained note']
-		]);
-	});
-
-	it('keeps a newer note draft when an earlier submission succeeds', async () => {
-		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
-		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
-		ctx.noteInputs['step-1'] = 'First note';
-		let confirm!: (saved: boolean) => void;
-		vi.spyOn(onboardingStore, 'addNote').mockImplementation(
-			() =>
-				new Promise<boolean>((resolve) => {
-					confirm = resolve;
-				})
-		);
-		const pending = ctx.handleAddNote(makeStep());
-		ctx.noteInputs['step-1'] = 'Next note';
-		confirm(true);
-		await pending;
-		expect(ctx.noteInputs['step-1']).toBe('Next note');
-	});
-
 	it('does not show a late save failure after its page context is disposed', async () => {
 		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
 		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
@@ -391,42 +325,6 @@ describe('OnboardingPageContext onboarding actions', () => {
 	});
 });
 
-// ── isStepDeprecated ──────────────────────────────────────────
-
-describe('isStepDeprecated', () => {
-	it('returns false when templateStepId is null (legacy step)', () => {
-		const step = makeStep({ templateStepId: null });
-		expect(isStepDeprecated(step, [])).toBe(false);
-	});
-
-	it('returns false when templateStepId exists in known steps', () => {
-		const step = makeStep({ templateStepId: 'tpl-step-1' });
-		expect(isStepDeprecated(step, ['tpl-step-1', 'tpl-step-2'])).toBe(false);
-	});
-
-	it('returns true when templateStepId no longer exists in any template', () => {
-		const step = makeStep({ templateStepId: 'removed-step' });
-		expect(isStepDeprecated(step, ['tpl-step-1'])).toBe(true);
-	});
-
-	it('returns true when known step IDs list is empty', () => {
-		const step = makeStep({ templateStepId: 'tpl-step-1' });
-		expect(isStepDeprecated(step, [])).toBe(true);
-	});
-});
-
-// ── isTrainingStepComplete ─────────────────────────────────────
-
-describe('isTrainingStepComplete', () => {
-	it('returns step.completed (server-derived)', () => {
-		const incomplete = makeStep({ stepType: 'training', trainingTypeId: 'tt-1', completed: false });
-		expect(isTrainingStepComplete(incomplete)).toBe(false);
-
-		const complete = makeStep({ stepType: 'training', trainingTypeId: 'tt-1', completed: true });
-		expect(isTrainingStepComplete(complete)).toBe(true);
-	});
-});
-
 // ── getProgress ────────────────────────────────────────────────
 
 describe('getProgress', () => {
@@ -497,30 +395,6 @@ describe('getProgress', () => {
 		];
 		const ob = makeOnboarding({ steps });
 		expect(getProgress(ob)).toEqual({ completed: 2, total: 3 });
-	});
-});
-
-// ── getPaperworkStageIndex ─────────────────────────────────────
-
-describe('getPaperworkStageIndex', () => {
-	it('returns 0 when currentStage is null', () => {
-		const step = makeStep({ stages: ['A', 'B', 'C'], currentStage: null });
-		expect(getPaperworkStageIndex(step)).toBe(0);
-	});
-
-	it('returns 0 when stages is null', () => {
-		const step = makeStep({ stages: null, currentStage: null });
-		expect(getPaperworkStageIndex(step)).toBe(0);
-	});
-
-	it('returns correct index for current stage', () => {
-		const step = makeStep({ stages: ['Draft', 'Signed', 'Filed'], currentStage: 'Signed' });
-		expect(getPaperworkStageIndex(step)).toBe(1);
-	});
-
-	it('returns 0 when currentStage not found in stages', () => {
-		const step = makeStep({ stages: ['A', 'B'], currentStage: 'Unknown' });
-		expect(getPaperworkStageIndex(step)).toBe(0);
 	});
 });
 

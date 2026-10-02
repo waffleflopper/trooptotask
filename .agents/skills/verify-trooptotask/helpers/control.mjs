@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
+import { jsPDF } from 'jspdf';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
@@ -663,6 +664,7 @@ async function main() {
 				'bulk-501',
 				'training-pages',
 				'personnel-lifecycle',
+				'personnel-artifact-context',
 				'personnel-retention',
 				'personnel-retention-1001',
 				'personnel-retention-dense',
@@ -680,6 +682,156 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'personnel-artifact-context') {
+			const actor = fixture.actors.personnelContext;
+			if (!actor || actor.organization !== 'orgA') throw new Error('The Personnel context actor is unavailable.');
+			const archivedAt = '2026-08-01T12:00:00.000Z';
+			const sharedSlug = `map-artifact-context-${tag}`;
+			const membership = {
+				id: randomUUID(),
+				organization_id: org('orgB'),
+				user_id: actor.id,
+				role: 'member',
+				member_preset: 'viewer',
+				capability_overrides: {
+					personnel: 'configure',
+					calendar: 'none',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				},
+				access_scope_kind: 'organization',
+				access_scope_group_ids: []
+			};
+			const parents = ['orgA', 'orgB'].map((organization) => ({
+				id: randomUUID(),
+				organization_id: org(organization),
+				group_id: fixture.ids[organization === 'orgA' ? 'groupA' : 'groupForeign'],
+				first_name: 'Synthetic',
+				last_name: `MapContext${organization === 'orgA' ? 'Alpha' : 'Foreign'}${tag}`,
+				rank: 'SPC',
+				mos: '68W',
+				clinic_role: 'Medic',
+				slug: sharedSlug,
+				archived_at: null
+			}));
+			const rows = {
+				leader_notes: [],
+				personnel_follow_ups: [],
+				counseling_records: [],
+				personnel_documents: []
+			};
+			const objects = [];
+			for (const parent of parents) {
+				const organization = parent.organization_id === org('orgA') ? 'orgA' : 'orgB';
+				for (const classification of ['active', 'archived']) {
+					const base = {
+						organization_id: parent.organization_id,
+						personnel_id: parent.id,
+						archived_at: classification === 'archived' ? archivedAt : null
+					};
+					const label = `${organization} ${classification} context ${tag}`;
+					rows.leader_notes.push({
+						...base,
+						id: randomUUID(),
+						author: actor.id,
+						text: `${label} note`
+					});
+					rows.personnel_follow_ups.push({
+						...base,
+						id: randomUUID(),
+						title: `${label} follow-up`,
+						notes: `${label} follow-up details`,
+						status: classification === 'archived' ? 'archived' : 'open',
+						created_by: actor.id,
+						completed_at: base.archived_at
+					});
+					for (const table of ['counseling_records', 'personnel_documents']) {
+						const id = randomUUID();
+						const title = `${label} ${table === 'personnel_documents' ? 'document' : 'counseling'}`;
+						const pdf = new jsPDF();
+						pdf.text(`Synthetic ${title} ${id}`, 10, 20);
+						const bytes = Buffer.from(pdf.output('arraybuffer'));
+						const filePath =
+							table === 'personnel_documents'
+								? `${parent.organization_id}/personnel/${parent.id}/documents/${id}-synthetic.pdf`
+								: `${parent.organization_id}/counseling-records/${parent.id}/${id}-synthetic.pdf`;
+						const record = { ...base, id, title, file_path: filePath, uploaded_by: actor.id };
+						rows[table].push(
+							table === 'personnel_documents'
+								? { ...record, file_size_bytes: bytes.length, content_type: 'application/pdf' }
+								: {
+										...record,
+										date_conducted: classification === 'archived' ? '2026-07-15' : fixture.dates.ui,
+										subject: title,
+										summary: `${label} counseling summary`,
+										notes: `${label} counseling summary`,
+										status: 'completed'
+									}
+						);
+						objects.push({
+							bucket: table === 'personnel_documents' ? 'personnel-documents' : 'counseling-files',
+							path: filePath,
+							organization,
+							organizationId: parent.organization_id,
+							personnelId: parent.id,
+							rowId: id,
+							classification,
+							size: bytes.length,
+							sha256: createHash('sha256').update(bytes).digest('hex'),
+							bytes
+						});
+					}
+				}
+			}
+			const files = objects.map(({ bytes: _bytes, ...file }) => file);
+			const batches = [
+				['organization_memberships', 'orgB', [membership]],
+				...['orgA', 'orgB'].map((organization) => [
+					'personnel',
+					organization,
+					parents.filter((parent) => parent.organization_id === org(organization))
+				]),
+				...Object.entries(rows).flatMap(([table, records]) =>
+					['orgA', 'orgB'].map((organization) => [
+						table,
+						organization,
+						records.filter((record) => record.organization_id === org(organization))
+					])
+				)
+			];
+			// Save every row and actual path before effects; attach files once so
+			// reverse cleanup deletes children and parents before the B membership.
+			for (const [table, organization, records] of batches)
+				ownedState.seeded.push({
+					kind,
+					tag,
+					table,
+					organization,
+					ids: records.map((record) => record.id),
+					...(table === 'personnel' && organization === 'orgA' ? { files } : {})
+				});
+			await save(ownedState);
+			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
+			for (const file of objects)
+				checked(
+					await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' })
+				);
+			note({
+				kind,
+				tag,
+				actor: { role: 'personnelContext', id: actor.id },
+				membership,
+				sharedSlug,
+				archivedAt,
+				parents,
+				rows,
+				files,
+				fileSetup: 'Actual synthetic PDF uploads; provider readback and native interactions remain unverified.'
+			});
+			return;
+		}
 		if (kind.startsWith('artifact-retention')) {
 			note(await seedArtifactRetention({ client, fixture, kind, tag, ownedState, save }));
 			return;

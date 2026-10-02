@@ -106,6 +106,7 @@ export async function seed(session) {
 		personnelScopedOperate: { personnel: 'operate', scope: 'groups', groups: [ids.groupA] },
 		personnelEmpty: { personnel: 'configure', scope: 'groups', groups: [] },
 		personnelSwitch: { personnel: 'configure', scope: 'organization' },
+		personnelContext: { personnel: 'configure', scope: 'organization' },
 		personnelForeign: { organization: 'orgB', personnel: 'configure', scope: 'organization' }
 	};
 	const calendarActors = {

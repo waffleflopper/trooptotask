@@ -764,16 +764,30 @@ async function main() {
 	}
 	if (command === 'destruction') {
 		if (['fault-on', 'fault-off', 'bytes'].includes(args[0])) {
-			const { stdout } = await promisify(execFile)(
-				'python3',
-				[
-					path.join(repository, '.agents/skills/verify-trooptotask/helpers/organization-destruction-provider.py'),
-					'--worker',
-					worker,
-					args[0]
-				],
-				{ maxBuffer: 8 * 1024 * 1024 }
-			);
+			let stdout;
+			try {
+				({ stdout } = await promisify(execFile)(
+					'python3',
+					[
+						path.join(repository, '.agents/skills/verify-trooptotask/helpers/organization-destruction-provider.py'),
+						'--worker',
+						worker,
+						args[0]
+					],
+					{ maxBuffer: 8 * 1024 * 1024 }
+				));
+			} catch (cause) {
+				let blocked;
+				try {
+					blocked = JSON.parse(cause.stdout);
+				} catch {
+					throw cause;
+				}
+				if (blocked?.status === 'BLOCKED' && typeof blocked.message === 'string') {
+					throw new Error(blocked.message);
+				}
+				throw cause;
+			}
 			note(JSON.parse(stdout));
 			return;
 		}

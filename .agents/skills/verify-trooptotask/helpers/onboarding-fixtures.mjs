@@ -53,6 +53,67 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			]
 		}));
 		batches.push(['personnel', [person]]);
+	} else if (kind === 'onboarding-consumers') {
+		people = [
+			{
+				id: randomUUID(),
+				organization_id: fixture.ids.orgA,
+				group_id: fixture.ids.groupA,
+				rank: 'SPC',
+				first_name: 'Synthetic',
+				last_name: 'Consumer' + tag,
+				slug: 'map-consumer-' + tag
+			}
+		];
+		packets = [
+			['alphaActive', 'orgA', people[0].id, 'in_progress'],
+			['alphaCompleted', 'orgA', people[0].id, 'completed'],
+			['bravoActive', 'orgA', fixture.ids.personB, 'in_progress'],
+			['foreignActive', 'orgB', fixture.ids.personForeign, 'in_progress']
+		].map(([key, organization, personnel_id, status]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids[organization],
+			personnel_id,
+			template_id: fixture.ids[organization === 'orgA' ? 'onboardingTemplate' : 'onboardingForeignTemplate'],
+			started_at: fixture.dates.ui,
+			status,
+			completed_at: status === 'completed' ? recentAt : null,
+			cancelled_at: null,
+			key
+		}));
+		progress = packets.flatMap((packet) => {
+			const foreign = packet.key === 'foreignActive';
+			const steps = foreign
+				? [['Foreign checkbox', 'checkbox', false, true]]
+				: [
+						['Consumer Orientation', 'checkbox', false, true],
+						['Consumer Paperwork', 'paperwork', false, true],
+						['Consumer Required Training', 'training', false, true],
+						...(packet.key === 'alphaActive' ? [['Removed Training', 'training', true, false]] : [])
+					];
+			return steps.map(([step_name, step_type, completed, active], sort_order) => ({
+				id: randomUUID(),
+				organization_id: packet.organization_id,
+				onboarding_id: packet.id,
+				template_step_id: null,
+				step_name,
+				step_type,
+				training_type_id: step_type === 'training' ? fixture.ids.trainingRequired : null,
+				stages: step_type === 'paperwork' ? ['Submitted', 'Reviewed', 'Filed'] : null,
+				current_stage: step_type === 'paperwork' ? 'Reviewed' : null,
+				sort_order,
+				completed,
+				active,
+				notes: [
+					{
+						text: 'Consumer retained ' + packet.key + ' ' + step_name + ' ' + tag,
+						timestamp: recentAt,
+						userId: fixture.actors[foreign ? 'onboardingForeign' : 'onboardingConfigure'].id
+					}
+				]
+			}));
+		});
+		batches.push(['personnel', people]);
 	} else if (kind === 'onboarding-history') {
 		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 		const examples = [
@@ -197,7 +258,8 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		tag,
 		packets: publicPackets,
 		progress,
-		...(people ? { people, training: batches[1][1] } : {}),
+		...(people ? { people } : {}),
+		...(kind === 'onboarding-history' ? { training: batches[1][1] } : {}),
 		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {})
 	};
 }

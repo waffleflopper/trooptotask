@@ -49,7 +49,7 @@ References: [GitHub runner labels](https://docs.github.com/en/actions/how-tos/ma
 
 ## ARM64 migration acceptance
 
-The runner is registered and GitHub reports `macmini-arm64` online with labels `self-hosted`, `Linux`, `ARM64` and `macmini-arm64`. #1479 preserves its existing Onboarding lifecycle work while moving the workflow out of Depot after the trial expired. Application and real database validation on the migrated candidate are pending; runner registration alone is not a passing CI result. The PR remains open for review and is not authorized for merge under this migration request.
+The runner is registered and GitHub reports `macmini-arm64` online with labels `self-hosted`, `Linux`, `ARM64` and `macmini-arm64`. Repository Actions was disabled, so the first migrated push at `5e10587c` created no run. Enabling Actions through the repository API now reads back `enabled: true`; branch protection, workflow token permissions and action pins are unchanged. #1479 preserves its existing Onboarding lifecycle work while moving the workflow out of Depot after the trial expired. Application and real database validation on the migrated candidate are pending; runner registration alone is not a passing CI result. The PR remains open for review and is not authorized for merge under this migration request.
 
 ## Migration acceptance record
 

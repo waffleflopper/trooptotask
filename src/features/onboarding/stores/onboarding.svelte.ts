@@ -2,7 +2,7 @@
  * Onboarding store — active and completed onboarding records for the org.
  *
  * Extended methods (all call server API routes):
- * - `startOnboarding(personnelId, startedAt, templateId?)` — creates a new onboarding from a template
+ * - `startOnboarding(personnelId, startedAt, templateId)` — success requires a saved configured template; unavailable selections may be sent as null and return failure
  * - `toggleCheckbox(stepId, completed)` — marks a step complete/incomplete
  * - `advanceStage(stepId, stageName)` — advances a multi-stage step (e.g., training steps)
  * - `addNote(stepId, text)` — appends a timestamped note to a step

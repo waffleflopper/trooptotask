@@ -124,7 +124,16 @@ type TestContextOptions = {
 	onboardingReconciliation?: UseCaseContext['onboardingReconciliation'];
 	onboardingNoteAppend?: UseCaseContext['onboardingNoteAppend'];
 	onboardingLifecycleTransition?: UseCaseContext['onboardingLifecycleTransition'];
+	onboardingInactiveStepRemoval?: UseCaseContext['onboardingInactiveStepRemoval'];
 };
+
+function unavailableOnboardingInactiveStepRemoval(): NonNullable<UseCaseContext['onboardingInactiveStepRemoval']> {
+	return {
+		async remove() {
+			throw new Error('Bind the owned Onboarding inactive step removal provider');
+		}
+	};
+}
 
 function unavailableOnboardingLifecycleTransition(): NonNullable<UseCaseContext['onboardingLifecycleTransition']> {
 	return {
@@ -1082,6 +1091,8 @@ export function createTestContext(
 		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition:
 			overrides?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
+		onboardingInactiveStepRemoval:
+			overrides?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
 		auditPort,
 
 		notifications: notificationPort,
@@ -1197,6 +1208,7 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
+		onboardingInactiveStepRemoval: options?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1238,6 +1250,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
+		onboardingInactiveStepRemoval: options?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,

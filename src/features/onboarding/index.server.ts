@@ -59,3 +59,5 @@ export { createSupabaseOnboardingReconciliationPort } from './server/onboardingR
 export { createSupabaseOnboardingNoteAppendPort } from './server/onboardingNoteAppendProvider.server';
 
 export { createSupabaseOnboardingLifecycleTransitionPort } from './server/onboardingLifecycleProvider.server';
+
+export { createSupabaseOnboardingInactiveStepRemovalPort } from './server/onboardingInactiveStepRemovalProvider.server';

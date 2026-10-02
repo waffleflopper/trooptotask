@@ -28,6 +28,27 @@ const mockOnboarding: PersonnelOnboarding = {
 	]
 };
 
+const paperworkOnboarding: PersonnelOnboarding = {
+	...mockOnboarding,
+	steps: [
+		{
+			...mockOnboarding.steps[0],
+			stepType: 'paperwork',
+			stages: ['Submitted', 'Reviewed', 'Filed'],
+			currentStage: 'Submitted',
+			notes: [{ text: 'Saved work', timestamp: '2026-10-01T12:00:00.000Z', userId: 'operator' }]
+		}
+	]
+};
+
+function deferredResponse() {
+	let respond!: (response: Response) => void;
+	const promise = new Promise<Response>((resolve) => {
+		respond = resolve;
+	});
+	return { promise, respond };
+}
+
 describe('onboardingStore - load during in-flight mutations (issue #113)', () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
@@ -35,6 +56,264 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 		onboardingStore.load([], 'org-1');
 	});
 	afterEach(() => vi.unstubAllGlobals());
+
+	it('retains confirmed Filed after an earlier Reviewed response arrives last', async () => {
+		const original = paperworkOnboarding;
+		onboardingStore.load([original], 'org-1');
+		let reviewedResponse!: (response: Response) => void;
+		let filedResponse!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockImplementationOnce(() => new Promise<Response>((resolve) => (reviewedResponse = resolve)))
+				.mockImplementationOnce(() => new Promise<Response>((resolve) => (filedResponse = resolve)))
+		);
+
+		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		const filed = onboardingStore.advanceStage('step-1', 'Filed');
+		const expected = { ...original, steps: [{ ...original.steps[0], currentStage: 'Filed', completed: true }] };
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+
+		filedResponse(Response.json({ currentStage: 'Filed', completed: true }));
+		await expect(filed).resolves.toBe(true);
+		expect.soft(onboardingStore.getById('ob-1')).toEqual(expected);
+
+		reviewedResponse(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(reviewed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+	});
+
+	it('keeps an earlier pending stage when the newer request fails and permits retry', async () => {
+		onboardingStore.load([paperworkOnboarding], 'org-1');
+		const reviewedResponse = deferredResponse();
+		const filedResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(reviewedResponse.promise).mockReturnValueOnce(filedResponse.promise)
+		);
+		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		const filed = onboardingStore.advanceStage('step-1', 'Filed');
+
+		filedResponse.respond(Response.json({ message: 'Save failed' }, { status: 500 }));
+		await expect(filed).resolves.toBe(false);
+		const expectedReviewed = {
+			...paperworkOnboarding,
+			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Reviewed' }]
+		};
+		expect(onboardingStore.getById('ob-1')).toEqual(expectedReviewed);
+
+		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(reviewed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expectedReviewed);
+
+		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ currentStage: 'Filed', completed: true }));
+		await expect(onboardingStore.advanceStage('step-1', 'Filed')).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual({
+			...paperworkOnboarding,
+			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Filed', completed: true }]
+		});
+	});
+
+	it('rolls back a later failed stage to the earlier confirmed selection', async () => {
+		onboardingStore.load([paperworkOnboarding], 'org-1');
+		const reviewedResponse = deferredResponse();
+		const filedResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(reviewedResponse.promise).mockReturnValueOnce(filedResponse.promise)
+		);
+		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		const filed = onboardingStore.advanceStage('step-1', 'Filed');
+
+		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(reviewed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual({
+			...paperworkOnboarding,
+			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Filed', completed: true }]
+		});
+
+		filedResponse.respond(Response.json({ message: 'Save failed' }, { status: 500 }));
+		await expect(filed).resolves.toBe(false);
+		expect(onboardingStore.getById('ob-1')).toEqual({
+			...paperworkOnboarding,
+			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Reviewed' }]
+		});
+	});
+
+	it('preserves a different pending checkbox while retiring an older stage selection', async () => {
+		const checkbox = { ...mockOnboarding.steps[0], id: 'checkbox-2', stepName: 'Orientation' };
+		onboardingStore.load([{ ...paperworkOnboarding, steps: [...paperworkOnboarding.steps, checkbox] }], 'org-1');
+		const reviewedResponse = deferredResponse();
+		const checkboxResponse = deferredResponse();
+		const filedResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockReturnValueOnce(reviewedResponse.promise)
+				.mockReturnValueOnce(checkboxResponse.promise)
+				.mockReturnValueOnce(filedResponse.promise)
+		);
+		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		const checked = onboardingStore.toggleCheckbox('checkbox-2', true);
+		const filed = onboardingStore.advanceStage('step-1', 'Filed');
+		const expected = {
+			...paperworkOnboarding,
+			steps: [
+				{ ...paperworkOnboarding.steps[0], currentStage: 'Filed', completed: true },
+				{ ...checkbox, completed: true }
+			]
+		};
+
+		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		await expect(filed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(reviewed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+		checkboxResponse.respond(Response.json({ currentStage: null, completed: true }));
+		await expect(checked).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+	});
+
+	it('adopts saved notes without bringing back a superseded pending stage', async () => {
+		onboardingStore.load([paperworkOnboarding], 'org-1');
+		const reviewedResponse = deferredResponse();
+		const noteResponse = deferredResponse();
+		const filedResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockReturnValueOnce(reviewedResponse.promise)
+				.mockReturnValueOnce(noteResponse.promise)
+				.mockReturnValueOnce(filedResponse.promise)
+		);
+		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		const noted = onboardingStore.addNote('step-1', 'Filed with clinic');
+		const filed = onboardingStore.advanceStage('step-1', 'Filed');
+
+		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		await expect(filed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')?.steps[0]).toMatchObject({
+			currentStage: 'Filed',
+			completed: true,
+			notes: [{ text: 'Filed with clinic', userId: '' }, ...paperworkOnboarding.steps[0].notes]
+		});
+
+		const notes = [
+			...paperworkOnboarding.steps[0].notes,
+			{ text: 'Another committed note', timestamp: '2026-10-02T12:00:00.001Z', userId: 'other-author' },
+			{ text: 'Filed with clinic', timestamp: '2026-10-02T12:00:00.002Z', userId: 'operator' }
+		];
+		noteResponse.respond(Response.json({ id: 'step-1', notes }));
+		await expect(noted).resolves.toBe(true);
+		const expected = {
+			...paperworkOnboarding,
+			steps: [{ ...paperworkOnboarding.steps[0], currentStage: 'Filed', completed: true, notes }]
+		};
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(reviewed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+	});
+
+	it.each([200, 500])('keeps the confirmed stage when a pending deprecated-step removal returns %s', async (status) => {
+		const deprecated = {
+			...mockOnboarding.steps[0],
+			id: 'obsolete-step',
+			stepName: 'Retired work',
+			active: false,
+			completed: true,
+			notes: [{ text: 'Keep saved history', timestamp: '2026-09-01T12:00:00.000Z', userId: 'author' }]
+		};
+		onboardingStore.load([{ ...paperworkOnboarding, steps: [...paperworkOnboarding.steps, deprecated] }], 'org-1');
+		const reviewedResponse = deferredResponse();
+		const removalResponse = deferredResponse();
+		const filedResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockReturnValueOnce(reviewedResponse.promise)
+				.mockReturnValueOnce(removalResponse.promise)
+				.mockReturnValueOnce(filedResponse.promise)
+		);
+		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		const removed = onboardingStore.removeDeprecatedStep('obsolete-step');
+		const filed = onboardingStore.advanceStage('step-1', 'Filed');
+		const savedPaperwork = { ...paperworkOnboarding.steps[0], currentStage: 'Filed', completed: true };
+
+		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		await expect(filed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual({ ...paperworkOnboarding, steps: [savedPaperwork] });
+		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(reviewed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual({ ...paperworkOnboarding, steps: [savedPaperwork] });
+
+		removalResponse.respond(Response.json({ success: status === 200 }, { status }));
+		await expect(removed).resolves.toBe(status === 200);
+		expect(onboardingStore.getById('ob-1')).toEqual({
+			...paperworkOnboarding,
+			steps: status === 200 ? [savedPaperwork] : [savedPaperwork, deprecated]
+		});
+	});
+
+	it('rebases pending stages over fresh same-organization saved work', async () => {
+		onboardingStore.load([paperworkOnboarding], 'org-1');
+		const reviewedResponse = deferredResponse();
+		const filedResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(reviewedResponse.promise).mockReturnValueOnce(filedResponse.promise)
+		);
+		const reviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		const filed = onboardingStore.advanceStage('step-1', 'Filed');
+		const refreshed = {
+			...paperworkOnboarding,
+			startedAt: '2026-03-02',
+			steps: [
+				{
+					...paperworkOnboarding.steps[0],
+					notes: [{ text: 'Fresh saved note', timestamp: '2026-10-02T12:00:00.000Z', userId: 'other-author' }]
+				},
+				{ ...mockOnboarding.steps[0], id: 'checkbox-2', completed: true }
+			]
+		};
+		onboardingStore.load([refreshed], 'org-1');
+		const expected = {
+			...refreshed,
+			steps: [{ ...refreshed.steps[0], currentStage: 'Filed', completed: true }, refreshed.steps[1]]
+		};
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+		filedResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		await expect(filed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+		reviewedResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(reviewed).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+	});
+
+	it('ignores a response after disposal without disturbing a new same-organization request', async () => {
+		onboardingStore.load([paperworkOnboarding], 'org-1');
+		const oldResponse = deferredResponse();
+		const newResponse = deferredResponse();
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+		const oldReviewed = onboardingStore.advanceStage('step-1', 'Reviewed');
+		onboardingStore.invalidatePendingRequests();
+		const refreshed = { ...paperworkOnboarding, startedAt: '2026-03-02' };
+		onboardingStore.load([refreshed], 'org-1');
+		const newFiled = onboardingStore.advanceStage('step-1', 'Filed');
+		const expected = { ...refreshed, steps: [{ ...refreshed.steps[0], currentStage: 'Filed', completed: true }] };
+
+		oldResponse.respond(Response.json({ currentStage: 'Reviewed', completed: false }));
+		await expect(oldReviewed).resolves.toBe(false);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+		newResponse.respond(Response.json({ currentStage: 'Filed', completed: true }));
+		await expect(newFiled).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expected);
+	});
 
 	it('adopts authoritative note attribution and another committed note instead of retaining its optimistic placeholder', async () => {
 		const originalNote = { text: 'Original note', timestamp: '2026-09-01T12:00:00.000Z', userId: 'original-author' };

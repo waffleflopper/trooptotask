@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import {
+	createTestContext,
+	createWritePortsContext,
+	createWriteWithNotificationsPortsContext
+} from '$lib/server/adapters/inMemory';
 import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './onboardingStepProgress.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -22,7 +26,7 @@ interface OnboardingStepFixture {
 	organization_id: string;
 }
 
-function seedStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
+function seedStep(ctx: Pick<ReturnType<typeof buildContext>, 'store'>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'step-1',
@@ -337,41 +341,137 @@ describe('addNote', () => {
 });
 
 describe('removeInactiveStep', () => {
-	it('hard-deletes a step where active is false', async () => {
-		const ctx = buildContext();
-		seedStep(ctx, { active: false });
+	it('rejects an unmet persistence predicate without claiming removal or erasing saved work', async () => {
+		const ctx = noteContext();
+		const before = await ctx.store.findOne<OnboardingStepFixture>('onboarding_step_progress', ctx.auth.orgId, {
+			id: 'step-1'
+		});
+		const reactivated = { ...before!, active: true };
+		// A controlled boundary outcome, not an in-memory conditional-delete algorithm or concurrency proof.
+		ctx.onboardingInactiveStepRemoval = {
+			async remove() {
+				await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, 'step-1', { active: true });
+				return null;
+			}
+		};
+		ctx.store.delete = async () => {
+			throw new Error('Generic deletion is unavailable');
+		};
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 409 });
+
+		await expect(ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })).resolves.toEqual(
+			reactivated
+		);
+		expect(ctx.audit.events).not.toContainEqual(
+			expect.objectContaining({ action: 'onboarding_step.inactive_removed' })
+		);
+	});
+
+	it('uses a successful owned removal and audits its identity for terminal, completed inactive work', async () => {
+		const remove = vi.fn(async () => ({ id: 'step-1' }));
+		const ctx = noteContext({ onboardingInactiveStepRemoval: { remove } });
+		await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, 'step-1', { completed: true });
+		await expect(
+			ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })
+		).resolves.toMatchObject({
+			active: false,
+			completed: true
+		});
+		await expect(ctx.store.findOne('personnel_onboardings', ctx.auth.orgId, { id: 'ob-1' })).resolves.toMatchObject({
+			status: 'completed'
+		});
+		ctx.store.delete = async () => {
+			throw new Error('Generic deletion is unavailable');
+		};
 
 		await removeInactiveStep(ctx, 'step-1');
 
-		// Verify step is gone
-		const result = await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'step-1' });
-		expect(result).toBeNull();
-	});
-
-	it('rejects removal of an active step', async () => {
-		const ctx = buildContext();
-		seedStep(ctx, { active: true });
-
-		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow('Only inactive steps can be removed');
-	});
-
-	it('rejects when step not found', async () => {
-		const ctx = buildContext();
-
-		await expect(removeInactiveStep(ctx, 'nonexistent')).rejects.toThrow('Step not found');
-	});
-
-	it('emits audit log on removal', async () => {
-		const ctx = buildContext();
-		seedStep(ctx, { active: false });
-
-		await removeInactiveStep(ctx, 'step-1');
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
+		expect(remove).toHaveBeenCalledWith('test-org', 'step-1');
+		expect(ctx.audit.events).toContainEqual({
 			action: 'onboarding_step.inactive_removed',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1'
 		});
+	});
+
+	it('rejects removal of an active step', async () => {
+		const remove = vi.fn(async () => ({ id: 'step-1' }));
+		const ctx = buildContext({ onboardingInactiveStepRemoval: { remove } });
+		seedStep(ctx, { active: true });
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 400 });
+		expect(remove).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it('rejects when step not found', async () => {
+		const remove = vi.fn(async () => ({ id: 'nonexistent' }));
+		const ctx = buildContext({ onboardingInactiveStepRemoval: { remove } });
+
+		await expect(removeInactiveStep(ctx, 'nonexistent')).rejects.toMatchObject({ status: 404 });
+		expect(remove).not.toHaveBeenCalled();
+	});
+
+	it('propagates a provider failure with saved work retained and no success audit', async () => {
+		const failure = new Error('Delete rejected by provider');
+		const ctx = noteContext({
+			onboardingInactiveStepRemoval: {
+				async remove() {
+					throw failure;
+				}
+			}
+		});
+		const before = await ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' });
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toBe(failure);
+
+		await expect(ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })).resolves.toEqual(
+			before
+		);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it.each([createTestContext, createWritePortsContext, createWriteWithNotificationsPortsContext])(
+		'fails explicitly in an unbound test context instead of deleting through the generic store',
+		async (createContext) => {
+			const ctx = createContext();
+			seedStep(ctx, { active: false });
+			await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow(
+				'Bind the owned Onboarding inactive step removal provider'
+			);
+			ctx.onboardingInactiveStepRemoval = undefined;
+			await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow(
+				'Bind the owned Onboarding inactive step removal provider'
+			);
+			await expect(
+				ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })
+			).resolves.not.toBeNull();
+		}
+	);
+
+	it.each([
+		{ onboarding: 'view' as const, groupId: 'group-alpha' },
+		{ onboarding: 'operate' as const, groupId: 'group-bravo' }
+	])('denies $onboarding/$groupId before persistence', async ({ onboarding, groupId }) => {
+		const remove = vi.fn(async () => ({ id: 'step-1' }));
+		const ctx = noteContext(
+			{
+				onboardingInactiveStepRemoval: { remove },
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: { ...operateCapabilityMap, onboarding },
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				}
+			},
+			groupId
+		);
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 403 });
+		expect(remove).not.toHaveBeenCalled();
+		expect(ctx.audit.events).not.toContainEqual(
+			expect.objectContaining({ action: 'onboarding_step.inactive_removed' })
+		);
 	});
 });

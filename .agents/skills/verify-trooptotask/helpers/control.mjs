@@ -701,6 +701,7 @@ async function main() {
 				'artifact-retention-1001',
 				'onboarding-legacy',
 				'onboarding-history',
+				'onboarding-consumers',
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'communications',

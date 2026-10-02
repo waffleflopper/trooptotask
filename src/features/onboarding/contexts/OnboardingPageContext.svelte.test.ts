@@ -121,6 +121,84 @@ describe('OnboardingPageContext Organization input', () => {
 	});
 });
 
+describe('Onboarding inactive step removal feedback', () => {
+	it('restores failed removal with an error and permits a successful retry without losing other work', async () => {
+		const target = makeStep({
+			active: false,
+			templateStepId: null,
+			stepType: 'paperwork',
+			stages: ['Submitted', 'Reviewed', 'Filed'],
+			currentStage: 'Reviewed',
+			notes: [{ text: 'Retained paperwork', timestamp: '2026-01-01T12:00:00Z', userId: 'author' }]
+		});
+		const sibling = makeStep({ id: 'other-step', completed: true });
+		onboardingStore.load([makeOnboarding({ steps: [target, sibling] })], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		let respond!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockImplementationOnce(() => new Promise<Response>((resolve) => (respond = resolve)))
+				.mockResolvedValueOnce(new Response('{"success":true}', { status: 200 }))
+		);
+		const feedback = vi.spyOn(toastStore, 'error');
+
+		const pending = ctx.handleRemoveDeprecatedStep(target.id);
+		expect(ctx.removingDeprecatedStepId).toBe(target.id);
+		expect(onboardingStore.items[0].steps).toEqual([sibling]);
+		respond(new Response('{}', { status: 503 }));
+		await pending;
+
+		expect(onboardingStore.items[0].steps).toEqual([target, sibling]);
+		expect(ctx.removingDeprecatedStepId).toBeNull();
+		expect(feedback).toHaveBeenCalledWith(expect.stringMatching(/\S/));
+		feedback.mockClear();
+		await ctx.handleRemoveDeprecatedStep(target.id);
+		expect(onboardingStore.items[0].steps).toEqual([sibling]);
+		expect(ctx.removingDeprecatedStepId).toBeNull();
+		expect(feedback).not.toHaveBeenCalled();
+	});
+
+	it.each(['disposed', 'changed-organization', 'reloaded-organization'] as const)(
+		'does not show a late removal failure for a %s context',
+		async (change) => {
+			const target = makeStep({ active: false });
+			onboardingStore.load([makeOnboarding({ steps: [target] })], 'org-1');
+			let currentOrgId = 'org-1';
+			const ctx = new OnboardingPageContext({ open: vi.fn() } as never, {
+				get orgId() {
+					return currentOrgId;
+				},
+				scopeSet: { kind: 'organization' },
+				affordanceForFeatureAction: () => ({ allowed: true, visible: true })
+			});
+			let respond!: (response: Response) => void;
+			vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => (respond = resolve)));
+			const feedback = vi.spyOn(toastStore, 'error');
+			const pending = ctx.handleRemoveDeprecatedStep(target.id);
+
+			const fresh = makeOnboarding({
+				id: 'fresh-packet',
+				steps: [makeStep({ id: 'fresh-step', onboardingId: 'fresh-packet' })]
+			});
+			if (change === 'disposed') ctx.dispose();
+			else if (change === 'changed-organization') currentOrgId = 'org-2';
+			else {
+				onboardingStore.load([], 'org-2');
+				onboardingStore.load([fresh], 'org-1');
+			}
+			respond(new Response('{}', { status: 503 }));
+			await pending;
+
+			expect(feedback).not.toHaveBeenCalled();
+			expect(onboardingStore.items).toEqual(
+				change === 'reloaded-organization' ? [fresh] : [makeOnboarding({ steps: [target] })]
+			);
+		}
+	);
+});
+
 describe('Onboarding Personnel creation result', () => {
 	it('keeps a failed note draft and clears it only after a confirmed retry', async () => {
 		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');

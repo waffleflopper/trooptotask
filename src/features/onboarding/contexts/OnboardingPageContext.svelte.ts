@@ -519,9 +519,10 @@ export class OnboardingPageContext {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
 		this.removingDeprecatedStepId = stepId;
-		await onboardingStore.removeDeprecatedStep(stepId);
+		const saved = await onboardingStore.removeDeprecatedStep(stepId);
 		if (!this.#isCurrent(version)) return;
 		this.removingDeprecatedStepId = null;
+		if (!saved) toastStore.error('Could not remove this step. Reload and try again.');
 	}
 
 	// ── Store accessors (for view) ─────────────────────────────

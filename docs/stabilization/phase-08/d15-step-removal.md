@@ -1,0 +1,87 @@
+# D15 supported step operations and inactive removal
+
+Intermediate `Refs #1363`, branched from verified main `391edcb1022b7805127d65d173733a24bc58d2f3` after [#1484](https://github.com/waffleflopper/trooptotask/pull/1484). The [maintained recipe](../../../.agents/skills/verify-trooptotask/features/onboarding-packets.md#supported-step-operations-and-inactive-removal) owns the actual drive. Application behavior was unchanged during the frozen baselines. Matching repaired native/API/provider proof now passes; current-head Actions and completed hosted review remain gates.
+
+## Selected outcome
+
+Verify supported terminal/inactive checkbox, stage and attributed-note writes; valid current-Group/unassigned/View/foreign access; ordinary completed-inactive deletion and active denial; actual Kanban incomplete-inactive Remove failure, rollback, readable feedback and retry; real provider DELETE failure and the inactive-only predicate under observed ordinary reconciliation. Preserve IDs, saved work/notes, public interfaces, existing policy/provider boundaries and unrelated A/B data. Repair only a reproduced in-scope defect, then repeat affected native/API/provider checks. No migration is planned.
+
+Frozen baseline `696875aa743fed288ce9cb4895b53e65006c3a77`, doctor candidate `a349650a6f82fc7b4f1e99fefa44a6ec8565898e5d6b203df77242f2371c07aa`, keeps application/migrations equal to `391edcb1` and reproduces both source risks. Actual native intercepted DELETE 503 and actual provider DELETE 500 restore the step without readable feedback. Separately, observed ordinary reconciliation→DELETE waits through the exact same backend to a read-only holder; after rollback/actual absence, reconciliation 200 returns the original Paperwork active/Reviewed/noted and DELETE 200 removes it. Provider and native reload confirm its loss. These are in-scope failures, not accepted behavior. Bounded independent raw-artifact review confirms both observations. No browser hold or queuing-only inference is used.
+
+Existing history and legacy helpers supply the needed cohorts without changing canonical fixtures. Completed Alpha history cannot be reopened; actual Assign Template on the already-active legacy packet reaches incomplete inactive Paperwork. The new scoped request capture uses the normal signed-in page, reports business bodies only and optionally records bounded outstanding requests without editing application state. A fixed ledger-ID-restricted provider helper is prepared for independent preflight; it may touch only its disposable verification project. Its preparation earns no live outcome.
+
+## Integrated predecessor
+
+#1484 head `cabb5dc710b9b284ebe386c81c0aaa880a3f059a`, actual tested merge `1670830bfb6de95c86ac199e2e6df3d82f95f4ed` and squash/main `391edcb1` share tree `beac9c39faa4407f49cda73b8e7dedac33c1a08a`. [Final Actions](https://github.com/waffleflopper/trooptotask/actions/runs/36985413018) passes Select checks and full Repository/application DoD/build: 632 suites / 5,816 tests, zero type diagnostics and 502 owned governance findings with no regression. Database contracts correctly skip unchanged inputs, with no fresh SQL claim. [Main Actions](https://github.com/waffleflopper/trooptotask/actions/runs/36986231532) also completes successfully. Complete independent eleven-path/expanded-artifact acceptance and proportional CLI reviews pass; hosted review `5389869368` approves the exact head with its only actionable extraction-capability finding fixed/resolved. No migration was included; #1363 remains open.
+
+Vercel preview on that head fails with “Deployment rate limited — retry in 24 hours.” It remains a separate deployment limitation under the [CI contract](../../ci.md), not passed preview/production acceptance. No plan, check, protection or deployment setting was changed. The [ordering receipt](d15-step-ordering.md) and its immutable baseline/final archives retain their tested input versions and proof limits; adoption/result-record changes do not rewrite them as another native run.
+
+## Current evidence and remainder
+
+Preparation request-helper checks pass four independently specified cases: exact real failure/body capture without credential headers, unsupported scope/input rejection before requests, two independent pending outcomes and restoration safety, bounded capture with preserved transport or unreadable-body failure. All 17 selected request/network/feedback helper checks pass after the preflight correction. The fixed provider helper's 14 offline target/ordering/cleanup guards also pass, without provider access; actual commands and proof limits are in the maintained recipe. Completed baseline observations and their failures are below. The context regression fails only on missing feedback against the unchanged handler, then passes all 63 context/store checks after the small boolean/error repair; disposed, changed-Organization and A→B→A contexts suppress late global errors. Server repair uses a consumed feature-owned ordinary authenticated DELETE constrained by Organization/ID/inactivity with affected-ID confirmation; zero rows reject 409 before success audit, retaining initial active 400/missing 404 and supported completed-inactive deletion. Matching final native/API/provider proof passes on frozen `a9660b48905882dc2caf646e6ea8acbf61eb89a6` / candidate `2474434878c14f06ac7e8bdfe65568e316870982df8f6b610dbbc5035b8635d7`. Independent source/preparation and preliminary boundary review pass; complete expanded/result-record acceptance, metadata review and exact-head Actions/build/completed hosted review remain gates. Source CodeRabbit CLI at `a9660b48` against `391edcb1` completed all 26 readable paths with zero findings; the two binary baseline archives are independently reviewed outside its scope. Root 63/worker 75 focused tests overlap and are not summed.
+
+Obsolete editable UI and meaningful test migration, broader same-checkbox/note-array/resync/lifetime order, Start compensation/retry and final retention/composition remain with #1363. Tasks `08-M09-02a/b` stay unchecked. Robert authorizes subsequent non-migration merges after green current CI and completed review without actionable feedback, followed by this same issue only. A genuinely required new migration stops for his manual remote application; the agent never operates the remote database.
+
+## Frozen baseline observations and archives
+
+Root native/API baseline passes supported terminal/inactive checkbox, stage and attributed-note writes, valid View/current-Group/unassigned/foreign denials and allowed writes, native canonical assignment with saved work retained, real native 200 retry/reload and completed-inactive ordinary deletion. Intercepted 503 has no provider-failure credit and fails readable feedback; its full four captured A/B parent/progress rowsets remain unchanged. One late preserved-body capture is explicitly incomplete, while the exact completed-inactive ordinary helper receipt/provider absence remain valid. No uncaptured terminal parent columns, inactive-note native editor/readback or broad order guarantee are credited.
+
+Independent worker 2 real fault 500 restores the prepared full selected data; fault removal proves actual function/trigger absence and real native 200 retry/full bodies/reload succeed. A fresh native-created exact-name template and ordinary assignment/switch preserve the original Paperwork ID/work/notes. The holder observes RPC2796→holder2903 then DELETE2798→the same2796→2903; after actual rollback/absence the RPC 200 returns original `1645827e…` active/Reviewed/noted, DELETE 200 reports success, and current provider/native reload lose that row (seven progress rows/two active). Other original work/notes remain. Original incomplete capture/control/tag attempts remain explicit; the fresh completed repeat does not rewrite them as passes.
+
+Root/worker 2 clean all known temporary IDs (37/30 respectively), including native-created progress/template/definitions, and independently restore all twelve full original A/B rowsets before final doctor/owned disposal. Captured five full container IDs/two volumes/network/private directory are absent for each project; root’s earlier global namespace still includes worker 2, while worker 2’s later inventory is empty. Frozen 16/20 inputs and Git blob bindings remain stable. Independent baseline artifact review is distinct from independent live execution; matching final and whole-issue acceptance are outstanding.
+
+- [Root baseline archive](d15-removal-baseline-native.tar.gz), SHA-256 `3291cce74efca023b86ddff4fc5c5aa29083edce28fc2cd18a50b9299cce12a7`: 1,004 byte-identical raw files plus sanitization/inventory, 1,006 members / 4,567,828 expanded bytes.
+- [Worker2 baseline archive](d15-removal-worker2-baseline.tar.gz), SHA-256 `cdeeb34b459c9f4fa1f773d394c0338a14b144ebb195aa4e41b8b924d692ebf9`: 1,347 byte-identical raw files plus sanitization/inventory, 1,349 members / 7,744,760 expanded bytes.
+
+Both screened archives pass fresh bounded extraction, exact filename sets, inventory hashes and raw-byte equality. Independent expanded-artifact acceptance separately recomputes all 2,351 raw-file byte matches, baseline outcomes/limits, restored data/frozen inputs/actual disposal and all 145 older archives unchanged against `696875aa`; this is artifact review, not another live run or acceptance of the current repair. Native credential headers were omitted at capture. The raw scan’s only noncredential token-pattern match is the deliberately incorrect literal in the control helper, verified against each exact frozen Git blob/prelaunch hash. Authored sanitization records repeat that literal to explain the checked exception; no observed payload was redacted or altered. All earlier D15 archives remain unchanged. The five-run cohort retains shared 5,000-member/64-MiB and per-run 2,500-member/32-MiB bounds; actual complete packages total 4,742 members /25,374,402 expanded bytes. Packaging and result-record adoption do not constitute another live run.
+
+## Matching repaired observations and limits
+
+The first root final attempt is **INCOMPLETE**. Its completed terminal/inactive writes, native History, valid denials, canonical assignment and current Bravo/null Group proof pass on the repaired application. It captures the full unchanged terminal parent and the ordinary actor-ID witness missing from the baseline. After native restoration to Alpha, a scoped Checkbox-false 200 receipt was followed by unavailable provider readback. Doctor blocked because the owned supervisor/MCP/browser were absent while the app process remained; inspected cgroup OOM counters were zero and the supervisor log empty. Cause remains unknown. Supported owned cleanup and exact container/volume/network/private-directory absence pass, as do16 frozen input bindings. No successful final doctor, original-row restoration, temporary-ID query or complete Alpha saved-row credit is inferred. Every original capture is retained; the fresh follow-up below supplies the missing selected proof without relabeling this attempt.
+
+Worker 2 final real native DELETE 500 now shows the readable error and preserves its complete prepared snapshot. The exact marked trigger/function are removed with catalog absence before real native 200 retry/full bodies/reload; all five survivor rows remain unchanged. A fresh separately ledgered matching-template cohort observes RPC2078→holder1976 and DELETE1867→the same2078→1976. Actual rollback/holder absence precede drained ordinary RPC 200/DELETE 409 bodies. Original Paperwork remains active/Reviewed/incomplete/noted; eight saved progress rows/three active and all 12 returned business fields agree with stored rows. Native reload is separate. No client response hold or queued-only ordering supplies this result. All 12 original rowsets/15 rows restore exactly; all 22 captured temporary IDs, exact provider objects/resources/private directory are absent;21 frozen inputs remain stable and final doctor/cleanup pass.
+
+Fresh root follow-up uses the same application/candidate and a new owned project. Native same-Person Alpha→Bravo→Alpha yields valid scoped 403 with all four full A/B packet/progress rowsets unchanged, then false 200/true 200 with exact full 14-column provider rows restored. First native Person save changes only Group and the canonical slug among 13 columns; return changes only Group. Native canonical Assign 200 retains the original 3 work IDs/notes inactive and adds 3 active snapshots. Native Remove interception 503 now renders “Could not remove this step. Reload and try again.” and restores the control with all four full rowsets unchanged. Restored hooks precede real native 200 retry/full bodies, target absence, all five full survivor rows unchanged and reload. Separately completed inactive Orientation deletion 200/repeat-missing 404 preserves the full in-progress parent and four full survivors. This is not live terminal-parent deletion or a native completed-step Remove affordance. All 12 original rowsets/15 rows restore without exclusions, eight captured temporary IDs are absent,17 frozen inputs match and final doctor/exact owned disposal pass. A stopped checker comparing full provider rows with abbreviated seed output is preserved; existing full before-captures provide the corrected comparison without excluding fields or changing inputs.
+
+These are matching native/API/provider observations plus independent artifact review, not independent live execution, general mutation-order or production acceptance. The two completed final sessions have verified original-row/ID cleanup; the interrupted session has only its honestly recorded owned disposal. Root network names have no full-ID provenance; worker 2 captures a full network ID. Every run keeps its actual resource namespace/time rather than borrowing later absence. Packaging/result adoption changes only evidence and records after disposal; it is not another application drive.
+
+- [Interrupted root archive](d15-removal-final-native.tar.gz), SHA-256 `159a66c47f653e2b3994047f306ce87a7bf3f6ba6e5e394140f8bdcffa8e6dcf`:783 original raw files plus sanitization/inventory,785 members /3,863,171 expanded bytes. Its RUN/receipt retain **INCOMPLETE**.
+- [Worker2 final archive](d15-removal-worker2-final.tar.gz), SHA-256 `14a060dac9cbd13b15a9e164d49e2f0b2b42272d362c4321c860db701946ee58`:994 original raw files plus sanitization/inventory,996 members /5,888,221 expanded bytes.
+- [Fresh root follow-up archive](d15-removal-followup-native.tar.gz), SHA-256 `2d3b75c6e57a5b700f51d234c8ac9b7efb4e48077d89e356f06e973b96f40e45`:604 original raw files plus sanitization/inventory,606 members /3,310,422 expanded bytes.
+
+All new packages are screened byte-identical copies of every raw file, freshly expanded with exact filename sets/inventory/hash equality, within unchanged shared/per-run bounds. Complete independent expanded/source/result-record acceptance and current-head CI/review remain required before merge. No migration is included; #1363 and 08-M09-02a/b remain open.
+
+From the repository root, this verified example requires Python with `tarfile.data_filter`, checks archive hashes before bounded extraction, and verifies every payload filename/hash in fresh ignored directories:
+
+```python
+from pathlib import Path
+import hashlib,json,tarfile,tempfile
+if not hasattr(tarfile,'data_filter'):
+ raise SystemExit('Python with tarfile.data_filter is required for safe extraction')
+expected={
+'d15-removal-baseline-native.tar.gz':'3291cce74efca023b86ddff4fc5c5aa29083edce28fc2cd18a50b9299cce12a7',
+'d15-removal-worker2-baseline.tar.gz':'cdeeb34b459c9f4fa1f773d394c0338a14b144ebb195aa4e41b8b924d692ebf9',
+'d15-removal-final-native.tar.gz':'159a66c47f653e2b3994047f306ce87a7bf3f6ba6e5e394140f8bdcffa8e6dcf',
+'d15-removal-worker2-final.tar.gz':'14a060dac9cbd13b15a9e164d49e2f0b2b42272d362c4321c860db701946ee58',
+'d15-removal-followup-native.tar.gz':'2d3b75c6e57a5b700f51d234c8ac9b7efb4e48077d89e356f06e973b96f40e45'}
+Path('.verification/tmp').mkdir(parents=True,exist_ok=True)
+shared=[5000,64*1024*1024]
+for name,digest in expected.items():
+ archive=Path('docs/stabilization/phase-08')/name
+ assert hashlib.sha256(archive.read_bytes()).hexdigest()==digest
+ target=Path(tempfile.mkdtemp(prefix='d15-removal-reader-',dir='.verification/tmp'))
+ budget=[2500,32*1024*1024];seen=set()
+ def bounded(handle):
+  for member in handle:
+   assert member.isfile() and member.size>=0 and member.name not in seen
+   seen.add(member.name)
+   budget[0]-=1;budget[1]-=member.size;shared[0]-=1;shared[1]-=member.size
+   assert min(budget+shared)>=0
+   yield member
+ with tarfile.open(archive,'r|gz') as handle:
+  handle.extractall(target,members=bounded(handle),filter='data')
+ inventory=json.loads((target/'inventory.json').read_text())
+ actual={p.relative_to(target).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in target.rglob('*') if p.is_file() and p.relative_to(target).as_posix()!='inventory.json'}
+ assert actual==inventory and seen==set(inventory)|{'inventory.json'}
+ print(name,'PASS',len(inventory),'payloads',target)
+```

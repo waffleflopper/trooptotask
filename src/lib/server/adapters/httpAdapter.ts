@@ -73,7 +73,8 @@ import {
 	createSupabaseOnboardingCalendarMarkersPort,
 	createSupabaseOnboardingReconciliationPort,
 	createSupabaseOnboardingNoteAppendPort,
-	createSupabaseOnboardingLifecycleTransitionPort
+	createSupabaseOnboardingLifecycleTransitionPort,
+	createSupabaseOnboardingInactiveStepRemovalPort
 } from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
@@ -400,6 +401,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const onboardingNoteAppend = createSupabaseOnboardingNoteAppendPort(supabase);
 	const onboardingLifecycleTransition = createSupabaseOnboardingLifecycleTransitionPort(supabase);
+	const onboardingInactiveStepRemoval = createSupabaseOnboardingInactiveStepRemovalPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -440,6 +442,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			onboardingReconciliation,
 			onboardingNoteAppend,
 			onboardingLifecycleTransition,
+			onboardingInactiveStepRemoval,
 			organizationInvitationSetupStateLookup,
 			rawStore: store
 		},
@@ -506,6 +509,7 @@ export async function buildLayoutContext(
 	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const onboardingNoteAppend = createSupabaseOnboardingNoteAppendPort(supabase);
 	const onboardingLifecycleTransition = createSupabaseOnboardingLifecycleTransitionPort(supabase);
+	const onboardingInactiveStepRemoval = createSupabaseOnboardingInactiveStepRemovalPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -545,6 +549,7 @@ export async function buildLayoutContext(
 		onboardingReconciliation,
 		onboardingNoteAppend,
 		onboardingLifecycleTransition,
+		onboardingInactiveStepRemoval,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
@@ -599,6 +604,7 @@ export async function buildLayoutContextFromMembership(
 	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const onboardingNoteAppend = createSupabaseOnboardingNoteAppendPort(supabase);
 	const onboardingLifecycleTransition = createSupabaseOnboardingLifecycleTransitionPort(supabase);
+	const onboardingInactiveStepRemoval = createSupabaseOnboardingInactiveStepRemovalPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -638,6 +644,7 @@ export async function buildLayoutContextFromMembership(
 		onboardingReconciliation,
 		onboardingNoteAppend,
 		onboardingLifecycleTransition,
+		onboardingInactiveStepRemoval,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};

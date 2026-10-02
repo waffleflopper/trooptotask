@@ -193,6 +193,56 @@ describe('Onboarding retained interactions', () => {
 		await waitFor(() => expect(onboardingStore.getById('packet-1')?.steps[0].currentStage).toBe('Reviewed'));
 	});
 
+	it('shows Re-sync failure inside its packet detail, excludes another packet, and clears it after retry', async () => {
+		onboardingStore.load(
+			[
+				packet,
+				{
+					...packet,
+					id: 'packet-2',
+					personnelId: 'person-2',
+					steps: [{ ...packet.steps[0], id: 'step-2', onboardingId: 'packet-2' }]
+				}
+			],
+			'org-1'
+		);
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ message: 'Template unavailable' }, { status: 503 }))
+				.mockResolvedValueOnce(Response.json({ templateId: packet.templateId, steps: packet.steps }))
+		);
+		const ctx = mount();
+		const resync = vi.spyOn(ctx, 'handleResync');
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		const ownDetail = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: 'Re-sync' }));
+		await resync.mock.results[0].value;
+		await waitFor(() => expect(ctx.resyncError).toBe('Template unavailable'));
+		const notice = within(ownDetail).queryByRole('alert');
+		expect.soft(notice).not.toBeNull();
+		if (notice) expect(notice.textContent).toContain('Template unavailable');
+		expect((within(ownDetail).getByRole('button', { name: 'Re-sync' }) as HTMLButtonElement).disabled).toBe(false);
+		await fireEvent.click(within(ownDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(screen.getByRole('alert').textContent).toContain('Template unavailable');
+
+		await fireEvent.click(screen.getByRole('button', { name: /CPL Jones, Alex/ }));
+		const otherDetail = await screen.findByRole('dialog', { name: 'CPL Jones, Alex' });
+		expect(within(otherDetail).queryByRole('alert')).toBeNull();
+		await fireEvent.click(within(otherDetail).getByRole('button', { name: 'Close' }));
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
+		const reopened = await screen.findByRole('dialog', { name: 'SGT Smith, Jane' });
+		expect.soft(within(reopened).queryByRole('alert')).not.toBeNull();
+		await fireEvent.click(within(reopened).getByRole('button', { name: 'Re-sync' }));
+		await resync.mock.results[1].value;
+		await waitFor(() => expect(within(reopened).queryByRole('alert')).toBeNull());
+		expect(ctx.resyncError).toBeNull();
+		expect(onboardingStore.getById(packet.id)).toEqual(packet);
+	});
+
 	it('retains the incomplete-step confirmation after a failed completion and retries successfully', async () => {
 		const feedback = vi.spyOn(toastStore, 'error');
 		vi.stubGlobal(

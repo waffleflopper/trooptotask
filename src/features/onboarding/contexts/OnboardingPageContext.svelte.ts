@@ -108,11 +108,15 @@ export class OnboardingPageContext {
 	readonly orgId: string;
 	readonly modals: ModalRegistry;
 	#disposed = false;
+	#resyncRequest = 0;
+	#assignTemplateRequest = 0;
+	#switchTemplateRequest = 0;
 
 	// UI state
 	cancellingId = $state<string | null>(null);
 	resyncingId = $state<string | null>(null);
 	resyncError = $state<string | null>(null);
+	resyncErrorOnboardingId = $state<string | null>(null);
 	assigningTemplateId = $state<string | null>(null);
 	assignTemplateSelected = $state('');
 	assigningTemplate = $state(false);
@@ -333,17 +337,22 @@ export class OnboardingPageContext {
 	async handleResync(onboardingId: string) {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
+		const request = ++this.#resyncRequest;
 		this.resyncingId = onboardingId;
 		this.resyncError = null;
+		this.resyncErrorOnboardingId = null;
 		const result = await onboardingStore.resync(onboardingId);
-		if (!this.#isCurrent(version)) return;
+		if (!this.#isCurrent(version) || request !== this.#resyncRequest) return;
 		this.resyncingId = null;
 		if (!result.success) {
 			this.resyncError = result.error ?? 'Re-sync failed';
+			this.resyncErrorOnboardingId = onboardingId;
 		}
 	}
 
 	openAssignTemplate(onboardingId: string) {
+		this.#assignTemplateRequest++;
+		this.assigningTemplate = false;
 		this.assigningTemplateId = onboardingId;
 		this.assignTemplateSelected = onboardingTemplateStore.templates[0]?.id ?? '';
 		this.assignTemplateError = '';
@@ -351,6 +360,8 @@ export class OnboardingPageContext {
 	}
 
 	closeAssignTemplate() {
+		this.#assignTemplateRequest++;
+		this.assigningTemplate = false;
 		this.assigningTemplateId = null;
 		this.assignTemplateError = '';
 		this.modals.close(MODAL_IDS.assignTemplate);
@@ -360,10 +371,11 @@ export class OnboardingPageContext {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
 		if (!this.assigningTemplateId || !this.assignTemplateSelected) return;
+		const request = ++this.#assignTemplateRequest;
 		this.assigningTemplate = true;
 		this.assignTemplateError = '';
 		const result = await onboardingStore.assignTemplate(this.assigningTemplateId, this.assignTemplateSelected);
-		if (!this.#isCurrent(version)) return;
+		if (!this.#isCurrent(version) || request !== this.#assignTemplateRequest) return;
 		this.assigningTemplate = false;
 		if (result.success) {
 			this.closeAssignTemplate();
@@ -373,12 +385,16 @@ export class OnboardingPageContext {
 	}
 
 	openSwitchTemplate(onboardingId: string) {
+		this.#switchTemplateRequest++;
+		this.switchingTemplate = false;
 		this.switchingTemplateId = onboardingId;
 		this.switchTemplateSelected = onboardingTemplateStore.templates[0]?.id ?? '';
 		this.switchTemplateError = '';
 	}
 
 	closeSwitchTemplate() {
+		this.#switchTemplateRequest++;
+		this.switchingTemplate = false;
 		this.switchingTemplateId = null;
 		this.switchTemplateError = '';
 	}
@@ -387,10 +403,11 @@ export class OnboardingPageContext {
 		const version = onboardingStore.organizationVersion;
 		if (!this.#isCurrent(version)) return;
 		if (!this.switchingTemplateId || !this.switchTemplateSelected) return;
+		const request = ++this.#switchTemplateRequest;
 		this.switchingTemplate = true;
 		this.switchTemplateError = '';
 		const result = await onboardingStore.switchTemplate(this.switchingTemplateId, this.switchTemplateSelected);
-		if (!this.#isCurrent(version)) return;
+		if (!this.#isCurrent(version) || request !== this.#switchTemplateRequest) return;
 		this.switchingTemplate = false;
 		if (result.success) {
 			this.closeSwitchTemplate();

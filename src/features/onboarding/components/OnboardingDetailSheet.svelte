@@ -4,10 +4,12 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import * as Sheet from '$lib/components/ui/sheet';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
+	import CircleAlert from '@lucide/svelte/icons/circle-alert';
 	import OnboardingStepRow from './OnboardingStepRow.svelte';
 
 	interface Props {
@@ -92,6 +94,13 @@
 
 		<div class="flex-1 overflow-y-auto px-4 py-3">
 			<div class="flex flex-col gap-2">
+				{#if ctx.resyncError && ctx.resyncErrorOnboardingId === onboarding.id}
+					<Alert.Root variant="destructive">
+						<CircleAlert />
+						<Alert.Title>Sync Problem</Alert.Title>
+						<Alert.Description>{ctx.resyncError}</Alert.Description>
+					</Alert.Root>
+				{/if}
 				{#each activeSteps as step (step.id)}
 					<OnboardingStepRow {step} mode="active" {canManage} {ctx} />
 				{/each}

@@ -84,7 +84,7 @@ export async function createPersonnelCounselingRecord(
 		recordId: input.personnelId,
 		filename: `${crypto.randomUUID()}-${filename}`
 	});
-	await writer.uploadFile('counseling', filePath, rawInput.file);
+	const upload = await writer.uploadFile('counseling', filePath, rawInput.file);
 
 	let row: CounselingRecordRow;
 	try {
@@ -99,10 +99,20 @@ export async function createPersonnelCounselingRecord(
 			status: 'completed',
 			created_at: new Date().toISOString()
 		});
+		if (
+			!row ||
+			typeof row.id !== 'string' ||
+			!row.id ||
+			row.personnel_id !== input.personnelId ||
+			row.file_path !== filePath
+		)
+			throw new Error('Uploaded artifact attachment was not acknowledged');
 	} catch (error) {
 		await writer.removeFile('counseling', filePath);
+		await upload.complete();
 		throw error;
 	}
+	await upload.complete();
 
 	ctx.audit.log({
 		action: 'personnel.counseling_record.created',

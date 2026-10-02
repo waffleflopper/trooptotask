@@ -28,6 +28,11 @@ export { loadMembersSettings } from './membersSettings.server';
 export { loadOwnershipTransferCandidates } from './ownershipTransferSettings.server';
 export { transferOrganizationOwnership } from './ownershipTransfer.server';
 export { createSupabaseOrganizationOwnershipTransferPort } from './ownershipTransferProvider.server';
+export { deleteOrganization } from './destruction.server';
+export { createSupabaseOrganizationDestructionPort } from './destructionProvider.server';
 
 export { createSupabaseOrganizationAdministratorRecipients } from './administratorRecipients.server';
 export { createSupabaseFeedbackOrganizationContextPort } from './feedbackOrganizationContext.server';
+
+export { loadDangerSettings } from './dangerSettings.server';
+export { registerOrganizationFileUpload } from './fileUploadRegistration.server';

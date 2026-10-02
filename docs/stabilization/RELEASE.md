@@ -370,4 +370,4 @@ The [consumer candidate](phase-08/d15-consumers.md) removes a private constructo
 
 ## Phase 08 D15 step response ordering
 
-The next bounded same-issue investigation targets client response delivery against known persisted Paperwork selections. No application repair, migration, deployment or manual database operation is proposed yet. Existing reconciliation/note operator guidance and its reported-application limits remain authoritative. A newly required migration would stop for Robert before an authorized merge.
+The next bounded same-issue investigation targets client response delivery against known persisted Paperwork selections. The owned native baseline reproduced a client-only display regression after successful saves; its narrow store repair and matching final acceptance are in progress. No migration, deployment or manual database operation is proposed. Existing reconciliation/note operator guidance and its reported-application limits remain authoritative. A newly required migration would stop for Robert before an authorized merge.

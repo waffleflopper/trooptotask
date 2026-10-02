@@ -6,7 +6,7 @@ import {
 	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 	LOSS_WARNING_CONSTRAINT
 } from './settingsPolicyConstraints';
-import type { SettingsPoliciesSectionData } from './settingsSectionTypes';
+import type { SettingsPoliciesSectionData } from './settingsPoliciesState.svelte';
 import type { OrganizationSettingsRow } from './settingsRows.server';
 
 export interface PoliciesSettingsData {

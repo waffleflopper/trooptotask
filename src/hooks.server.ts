@@ -6,7 +6,7 @@ import { checkRateLimit } from '$lib/server/rateLimit';
 import { auditLog } from '$lib/server/auditLog';
 import { getAuthCookieOptions } from '$features/identity/index.server';
 import { readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
-import { requireActiveOrganization } from '$lib/server/adapters/supabaseOrganizationAdmission';
+import { requireActiveOrganization } from '$features/organization/index.server';
 import '$lib/server/env'; // validate env vars on startup
 
 const impeccableLiveDevSources = import.meta.env.DEV ? ' http://localhost:8400 http://127.0.0.1:8400' : '';

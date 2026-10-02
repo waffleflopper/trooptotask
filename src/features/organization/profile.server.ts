@@ -1,22 +1,18 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { AuthContext, AuditPort } from '$lib/server/core/ports';
 import { fail } from '$lib/errors';
 import { sanitizeString } from '$lib/server/validation';
-import { requireGovernancePolicy } from './governancePolicy';
-import { isDuplicateOrganizationSlugError, validateOrganizationUrlSlug } from './organizationUrlSlug';
+import { requireGovernancePolicy } from '$lib/access/index.server';
+import { isDuplicateOrganizationSlugError, validateOrganizationUrlSlug } from './url';
 
-export interface OrganizationSettingsAdministrationPort {
+export interface OrganizationProfilePort {
 	renameOrganization(orgId: string, name: string): Promise<string | null>;
 	updateOrganizationUrlSlug(orgId: string, urlSlug: string | null): Promise<string | null>;
 	findOrganizationByUrlSlug(urlSlug: string): Promise<{ id: string } | null>;
 }
 
-interface OrganizationSettingsAdministrationPorts {
-	auth: AuthContext;
-	audit: AuditPort;
-
-	administration: OrganizationSettingsAdministrationPort;
-}
+type OrganizationProfilePorts = Parameters<typeof requireGovernancePolicy>[0] & {
+	administration: OrganizationProfilePort;
+};
 
 interface RenameOrganizationInput {
 	name: string;
@@ -27,7 +23,7 @@ interface UpdateOrganizationUrlSlugInput {
 }
 
 export async function renameOrganization(
-	ports: OrganizationSettingsAdministrationPorts,
+	ports: OrganizationProfilePorts,
 	input: RenameOrganizationInput
 ): Promise<{ nameSuccess: true }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.rename);
@@ -37,7 +33,7 @@ export async function renameOrganization(
 		fail(400, 'Organization name is required');
 	}
 
-	const errorMessage = await ports.administration.renameOrganization(ports.auth.orgId, name);
+	const errorMessage = await ports.administration.renameOrganization(ports.auth.orgId.toLowerCase(), name);
 	if (errorMessage) {
 		fail(500, errorMessage);
 	}
@@ -52,18 +48,18 @@ export async function renameOrganization(
 }
 
 export async function updateOrganizationUrlSlug(
-	ports: OrganizationSettingsAdministrationPorts,
+	ports: OrganizationProfilePorts,
 	input: UpdateOrganizationUrlSlugInput
 ): Promise<{ slugSuccess: true; orgUrlSlug: string }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.rename);
 
 	const urlSlug = validateOrganizationUrlSlug(input.urlSlug);
 	const existing = await ports.administration.findOrganizationByUrlSlug(urlSlug);
-	if (existing && existing.id !== ports.auth.orgId) {
+	if (existing && existing.id !== ports.auth.orgId.toLowerCase()) {
 		fail(400, 'Organization URL slug is already in use');
 	}
 
-	const errorMessage = await ports.administration.updateOrganizationUrlSlug(ports.auth.orgId, urlSlug);
+	const errorMessage = await ports.administration.updateOrganizationUrlSlug(ports.auth.orgId.toLowerCase(), urlSlug);
 	if (isDuplicateOrganizationSlugError(errorMessage)) {
 		fail(400, 'Organization URL slug is already in use');
 	}
@@ -81,11 +77,11 @@ export async function updateOrganizationUrlSlug(
 }
 
 export async function clearOrganizationUrlSlug(
-	ports: OrganizationSettingsAdministrationPorts
+	ports: OrganizationProfilePorts
 ): Promise<{ slugSuccess: true; orgUrlSlug: null }> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.rename);
 
-	const errorMessage = await ports.administration.updateOrganizationUrlSlug(ports.auth.orgId, null);
+	const errorMessage = await ports.administration.updateOrganizationUrlSlug(ports.auth.orgId.toLowerCase(), null);
 	if (errorMessage) {
 		fail(500, errorMessage);
 	}

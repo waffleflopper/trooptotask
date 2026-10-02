@@ -1,7 +1,10 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { validateUUID } from '$lib/server/validation';
 import { fail } from '$lib/errors';
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+
+const ORGANIZATION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isOrganizationIdSegment(segment: string): boolean {
+	return ORGANIZATION_ID_PATTERN.test(segment);
+}
 
 export const ORGANIZATION_SLUG_MIN_LENGTH = 3;
 export const ORGANIZATION_SLUG_MAX_LENGTH = 48;
@@ -30,13 +33,6 @@ const RESERVED_ORGANIZATION_SLUGS = new Set([
 	'terms',
 	'training'
 ]);
-
-export interface OrganizationRouteIdentity {
-	id: string;
-	name: string | null;
-	urlSlug: string | null;
-	suspendedAt: string | null;
-}
 
 export function getPreferredOrganizationUrlSegment(input: { id: string; urlSlug?: string | null }): string {
 	return input.urlSlug || input.id;
@@ -67,7 +63,7 @@ export function validateOrganizationUrlSlug(input: string | null | undefined): s
 		fail(400, 'Organization URL slug can only use lowercase letters, numbers, and single hyphens');
 	}
 
-	if (validateUUID(slug)) {
+	if (isOrganizationIdSegment(slug)) {
 		fail(400, 'Organization URL slug cannot be a UUID');
 	}
 
@@ -80,32 +76,4 @@ export function validateOrganizationUrlSlug(input: string | null | undefined): s
 
 export function isDuplicateOrganizationSlugError(errorMessage: string | null | undefined): boolean {
 	return /duplicate|unique|organizations_url_slug_key/i.test(errorMessage ?? '');
-}
-
-export async function resolveOrganizationRouteIdentity(
-	supabase: SupabaseClient,
-	segment: string
-): Promise<OrganizationRouteIdentity | null> {
-	const normalizedSegment = normalizeOrganizationUrlSlug(segment);
-	const isUuidSegment = validateUUID(segment);
-	const query = supabase.from('organizations').select('id, name, url_slug, suspended_at');
-	const { data, error } = isUuidSegment
-		? await query.eq('id', segment).maybeSingle()
-		: await query.eq('url_slug', normalizedSegment).maybeSingle();
-
-	if (error) {
-		console.error('[organization-url-slug] Failed to resolve organization route identity:', sanitizeErrorForLog(error));
-		fail(500, 'Internal server error');
-	}
-
-	if (!data) {
-		return null;
-	}
-
-	return {
-		id: String(data.id),
-		name: (data.name as string | null | undefined) ?? null,
-		urlSlug: (data.url_slug as string | null | undefined) ?? null,
-		suspendedAt: (data.suspended_at as string | null | undefined) ?? null
-	};
 }

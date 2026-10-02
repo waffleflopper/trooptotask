@@ -99,6 +99,78 @@ describe('/api/onboarding-steps route config', () => {
 		);
 	});
 
+	it('returns authoritative saved notes for an operator using the existing addNote action and body', async () => {
+		const saved = {
+			id: 'step-1',
+			notes: [
+				{ text: 'Another committed note', timestamp: '2026-10-01T12:00:00.001Z', userId: 'other-author' },
+				{ text: 'Sent to clinic', timestamp: '2026-10-01T12:00:00.002Z', userId: 'operator' }
+			]
+		};
+		const ctx = createTestContext({
+			auth: {
+				userId: 'operator',
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'view',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'operate',
+					ratingScheme: 'none'
+				},
+				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+			},
+			onboardingNoteAppend: {
+				async append(orgId, stepId, text) {
+					expect({ orgId, stepId, text }).toEqual({ orgId: 'test-org', stepId: 'step-1', text: 'Sent to clinic' });
+					return saved;
+				}
+			}
+		});
+		seedOnboardingStep(ctx, { active: false });
+		ctx.store.seed('personnel', [
+			{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: 'group-alpha', archived_at: null }
+		]);
+
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, {
+				action: 'addNote',
+				stepId: 'step-1',
+				text: 'Sent to clinic'
+			})
+		).resolves.toEqual(saved);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action: 'onboarding_step.note_added',
+				resourceId: 'step-1',
+				details: { note_author_user_id: 'operator' }
+			})
+		);
+	});
+
+	it('propagates a failed note append without a success audit', async () => {
+		const failure = new Error('Note append unavailable');
+		const ctx = createTestContext({
+			onboardingNoteAppend: {
+				append: async () => {
+					throw failure;
+				}
+			}
+		});
+		seedOnboardingStep(ctx);
+
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, {
+				action: 'addNote',
+				stepId: 'step-1',
+				text: 'Sent to clinic'
+			})
+		).rejects.toBe(failure);
+		expect(ctx.auditPort.events).not.toContainEqual(expect.objectContaining({ action: 'onboarding_step.note_added' }));
+	});
+
 	it('allows onboarding operators to remove inactive steps through the policy decision', async () => {
 		const ctx = createTestContext({
 			auth: {

@@ -1,7 +1,7 @@
 import type { requireFeaturePolicy } from '$lib/access/index.server';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
-import type { OnboardingReconciliationPort } from '../contracts';
+import type { OnboardingReconciliationPort, OnboardingNoteAppendPort } from '../contracts';
 
 type OnboardingActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
 type OnboardingAudit = NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
@@ -42,6 +42,11 @@ export interface OnboardingResourcePorts extends OnboardingPolicyPorts {
 export interface OnboardingReconciliationPorts extends OnboardingResourcePorts {
 	readonly audit: OnboardingAudit;
 	readonly onboardingReconciliation?: OnboardingReconciliationPort;
+}
+
+export interface OnboardingNoteAppendPorts extends OnboardingResourcePorts {
+	readonly audit: OnboardingAudit;
+	readonly onboardingNoteAppend?: OnboardingNoteAppendPort;
 }
 
 export interface OnboardingWorkflowPorts extends OnboardingResourcePorts {

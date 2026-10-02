@@ -122,7 +122,16 @@ type TestContextOptions = {
 	auth?: Parameters<typeof createTestAuthContext>[0];
 	criticalTasksReadModelFactory?: (rawStore: DataStore) => QueryPorts['criticalTasksReadModel'];
 	onboardingReconciliation?: UseCaseContext['onboardingReconciliation'];
+	onboardingNoteAppend?: UseCaseContext['onboardingNoteAppend'];
 };
+
+function unavailableOnboardingNoteAppend(): NonNullable<UseCaseContext['onboardingNoteAppend']> {
+	return {
+		async append() {
+			throw new Error('Bind the owned Onboarding note append provider');
+		}
+	};
+}
 
 function unavailableOnboardingReconciliation(): NonNullable<UseCaseContext['onboardingReconciliation']> {
 	return {
@@ -1061,6 +1070,7 @@ export function createTestContext(
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
+		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		auditPort,
 
 		notifications: notificationPort,
@@ -1174,6 +1184,7 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
+		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1213,6 +1224,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
+		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,

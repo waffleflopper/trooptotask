@@ -21,7 +21,8 @@ import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contrac
 import type {
 	OnboardingReconciliationPort,
 	OnboardingNoteAppendPort,
-	OnboardingLifecycleTransitionPort
+	OnboardingLifecycleTransitionPort,
+	OnboardingInactiveStepRemovalPort
 } from '$features/onboarding/contracts';
 import type { CriticalTasksReadModelPort, CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 
@@ -162,6 +163,7 @@ export interface WritePorts {
 	onboardingReconciliation?: OnboardingReconciliationPort;
 	onboardingNoteAppend?: OnboardingNoteAppendPort;
 	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
+	onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
 	personnelCalendarRoster?: PersonnelCalendarRosterPort;
@@ -226,6 +228,7 @@ export interface UseCaseContext {
 	onboardingReconciliation?: OnboardingReconciliationPort;
 	onboardingNoteAppend?: OnboardingNoteAppendPort;
 	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
+	onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
 	personnelOrganizationExport?: PersonnelOrganizationExportPort;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;

@@ -7,7 +7,11 @@
  */
 import { fail } from '$lib/errors';
 import type { OnboardingNoteAppendResult } from '../contracts';
-import type { OnboardingWorkflowPorts, OnboardingNoteAppendPorts } from './onboardingPorts.server';
+import type {
+	OnboardingWorkflowPorts,
+	OnboardingNoteAppendPorts,
+	OnboardingInactiveStepRemovalPorts
+} from './onboardingPorts.server';
 import { requireOnboardingManagePolicyForStep } from './onboardingPolicy.server';
 
 interface ToggleCheckboxInput {
@@ -111,7 +115,7 @@ export async function addNote(
 	return result;
 }
 
-export async function removeInactiveStep(ctx: OnboardingWorkflowPorts, stepId: string): Promise<void> {
+export async function removeInactiveStep(ctx: OnboardingInactiveStepRemovalPorts, stepId: string): Promise<void> {
 	await requireOnboardingManagePolicyForStep(ctx, stepId);
 
 	const step = await ctx.store.findOne<{ id: string; active: boolean }>('onboarding_step_progress', ctx.auth.orgId, {
@@ -126,12 +130,14 @@ export async function removeInactiveStep(ctx: OnboardingWorkflowPorts, stepId: s
 		fail(400, 'Only inactive steps can be removed');
 	}
 
-	await ctx.store.delete('onboarding_step_progress', ctx.auth.orgId, stepId);
+	if (!ctx.onboardingInactiveStepRemoval) throw new Error('Bind the owned Onboarding inactive step removal provider');
+	const removed = await ctx.onboardingInactiveStepRemoval.remove(ctx.auth.orgId, stepId);
+	if (!removed) fail(409, 'Step changed before removal; reload and try again');
 
 	ctx.audit.log({
 		action: 'onboarding_step.inactive_removed',
 		resourceType: 'onboarding_step_progress',
-		resourceId: stepId
+		resourceId: removed.id
 	});
 }
 

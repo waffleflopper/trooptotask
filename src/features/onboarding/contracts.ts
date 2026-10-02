@@ -133,3 +133,8 @@ export interface OnboardingLifecycleTransitionPort {
 		command: OnboardingLifecycleTransition
 	): Promise<OnboardingLifecycleTransitionResult | null>;
 }
+
+export interface OnboardingInactiveStepRemovalPort {
+	/** Null means no row still matches the inactive-only deletion predicate. */
+	remove(organizationId: string, stepId: string): Promise<{ id: string } | null>;
+}

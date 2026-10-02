@@ -4,7 +4,8 @@ import type { TrainingOnboardingReferencesPort } from '$features/training/contra
 import type {
 	OnboardingReconciliationPort,
 	OnboardingNoteAppendPort,
-	OnboardingLifecycleTransitionPort
+	OnboardingLifecycleTransitionPort,
+	OnboardingInactiveStepRemovalPort
 } from '../contracts';
 
 type OnboardingActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
@@ -51,6 +52,11 @@ export interface OnboardingReconciliationPorts extends OnboardingResourcePorts {
 export interface OnboardingNoteAppendPorts extends OnboardingResourcePorts {
 	readonly audit: OnboardingAudit;
 	readonly onboardingNoteAppend?: OnboardingNoteAppendPort;
+}
+
+export interface OnboardingInactiveStepRemovalPorts extends OnboardingResourcePorts {
+	readonly audit: OnboardingAudit;
+	readonly onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
 }
 
 export interface OnboardingLifecyclePorts extends OnboardingResourcePorts {

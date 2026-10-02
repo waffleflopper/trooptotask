@@ -57,6 +57,87 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 	});
 	afterEach(() => vi.unstubAllGlobals());
 
+	it.each([200, 503])(
+		'retains confirmed incomplete after an earlier checkbox completion returns %s last',
+		async (status) => {
+			onboardingStore.load([mockOnboarding], 'org-1');
+			const completeResponse = deferredResponse();
+			const incompleteResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi.fn().mockReturnValueOnce(completeResponse.promise).mockReturnValueOnce(incompleteResponse.promise)
+			);
+			const complete = onboardingStore.toggleCheckbox('step-1', true);
+			const incomplete = onboardingStore.toggleCheckbox('step-1', false);
+			expect(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
+
+			incompleteResponse.respond(Response.json({ completed: false, currentStage: null }));
+			await expect(incomplete).resolves.toBe(true);
+			expect.soft(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
+
+			completeResponse.respond(Response.json({ completed: true, currentStage: null }, { status }));
+			await expect(complete).resolves.toBe(status === 200);
+			expect(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
+		}
+	);
+
+	it('keeps an earlier pending checkbox completion when the newer reversal fails and permits retry', async () => {
+		onboardingStore.load([mockOnboarding], 'org-1');
+		const completeResponse = deferredResponse();
+		const incompleteResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(completeResponse.promise).mockReturnValueOnce(incompleteResponse.promise)
+		);
+		const complete = onboardingStore.toggleCheckbox('step-1', true);
+		const incomplete = onboardingStore.toggleCheckbox('step-1', false);
+
+		incompleteResponse.respond(Response.json({ message: 'Save failed' }, { status: 500 }));
+		await expect(incomplete).resolves.toBe(false);
+		const expectedComplete = { ...mockOnboarding, steps: [{ ...mockOnboarding.steps[0], completed: true }] };
+		expect(onboardingStore.getById('ob-1')).toEqual(expectedComplete);
+
+		completeResponse.respond(Response.json({ completed: true, currentStage: null }));
+		await expect(complete).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(expectedComplete);
+
+		vi.mocked(fetch).mockResolvedValueOnce(Response.json({ completed: false, currentStage: null }));
+		await expect(onboardingStore.toggleCheckbox('step-1', false)).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(mockOnboarding);
+	});
+
+	it('keeps refreshed saved work after a confirmed checkbox reversal while its older completion is pending', async () => {
+		onboardingStore.load([mockOnboarding], 'org-1');
+		const completeResponse = deferredResponse();
+		const incompleteResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockReturnValueOnce(completeResponse.promise).mockReturnValueOnce(incompleteResponse.promise)
+		);
+		const complete = onboardingStore.toggleCheckbox('step-1', true);
+		const incomplete = onboardingStore.toggleCheckbox('step-1', false);
+		incompleteResponse.respond(Response.json({ completed: false, currentStage: null }));
+		await expect(incomplete).resolves.toBe(true);
+
+		const refreshed = {
+			...mockOnboarding,
+			startedAt: '2026-03-02',
+			steps: [
+				{
+					...mockOnboarding.steps[0],
+					notes: [{ text: 'Fresh saved note', timestamp: '2026-10-02T12:00:00.000Z', userId: 'other-author' }]
+				},
+				{ ...mockOnboarding.steps[0], id: 'checkbox-2', completed: true }
+			]
+		};
+		onboardingStore.load([refreshed], 'org-1');
+		expect.soft(onboardingStore.getById('ob-1')).toEqual(refreshed);
+
+		completeResponse.respond(Response.json({ completed: true, currentStage: null }));
+		await expect(complete).resolves.toBe(true);
+		expect(onboardingStore.getById('ob-1')).toEqual(refreshed);
+	});
+
 	it('retains confirmed Filed after an earlier Reviewed response arrives last', async () => {
 		const original = paperworkOnboarding;
 		onboardingStore.load([original], 'org-1');

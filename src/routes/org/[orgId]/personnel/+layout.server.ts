@@ -23,15 +23,8 @@ async function streamPersonnelWorkspace(
 		fn: (ctx) =>
 			loadPersonnelWorkspace(ctx, {
 				listStatusTypes: (orgId) => listStatusTypes(ctx.store, orgId),
-				loadLossWarningWindowDays: async (orgId) => {
-					const row = await ctx.store.findOne<{ loss_warning_window_days: number | null }>(
-						'organizations',
-						orgId,
-						{},
-						'loss_warning_window_days'
-					);
-					return row?.loss_warning_window_days ?? null;
-				}
+				loadLossWarningWindowDays: async (orgId) =>
+					(await ctx.organizationSettings.findLossWarningWindowDays(orgId)) ?? null
 			})
 	});
 	return { personnel };

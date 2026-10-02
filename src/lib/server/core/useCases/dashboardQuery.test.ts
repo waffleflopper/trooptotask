@@ -276,6 +276,19 @@ describe('fetchDashboardBootstrap', () => {
 		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
 	});
 
+	it.each([0, null, 'failure'] as const)(
+		'preserves optional warning zero/default/error behavior (%s)',
+		async (value) => {
+			const ctx = buildCtx();
+			ctx.organizationSettings.findLossWarningWindowDays = async () => {
+				if (value === 'failure') throw new Error('Optional Organization settings unavailable');
+				return value;
+			};
+			const data = await fetchDashboardBootstrap(ctx);
+			expect(data.lossWarningWindowDays).toBe(value === 0 ? 0 : 180);
+		}
+	);
+
 	it('returns the configured loss warning window from the organizations row', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;

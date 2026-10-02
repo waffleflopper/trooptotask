@@ -1,0 +1,102 @@
+import { createClient } from '@supabase/supabase-js';
+import { describe, expect, it } from 'vitest';
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createSupabaseOrganizationSettingsReader } from './settingsProvider.server';
+import { loadPoliciesSettings } from './policiesSettings.server';
+import { loadPersonnelDocumentStorageCapBytes } from './personnelDocumentSettings.server';
+
+const ORG = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+const OTHER = '22222222-2222-4222-8222-222222222222';
+
+function fixture(value: number | null | 'missing' | 'failure', missingCount = false) {
+	const requests: { method: string; select: string | null }[] = [];
+	const columns = ['archive_retention_months', 'loss_warning_window_days', 'personnel_document_storage_cap_bytes'];
+	const rows: { id: string; [field: string]: unknown }[] = [
+		{ id: ORG, ...Object.fromEntries(columns.map((column) => [column, value])) },
+		{ id: OTHER, ...Object.fromEntries(columns.map((column) => [column, 99])) }
+	];
+	const invitations = [
+		...Array.from({ length: 1002 }, () => ({ organization_id: ORG, status: 'pending' })),
+		{ organization_id: ORG, status: 'accepted' },
+		{ organization_id: OTHER, status: 'pending' }
+	];
+	const supabase = createClient('http://settings.invalid', 'synthetic-request-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const url = new URL(String(input));
+				const select = url.searchParams.get('select');
+				requests.push({ method: init?.method ?? 'GET', select });
+				if (value === 'failure') return Response.json({ message: 'Settings unavailable' }, { status: 400 });
+				if (url.pathname === '/rest/v1/organization_invitations') {
+					if (init?.method !== 'HEAD' || select !== 'id')
+						throw new Error('Invitation rows must not cross the count boundary');
+					const selected = invitations.filter(
+						(row) =>
+							url.searchParams.get('organization_id') === `eq.${row.organization_id}` &&
+							url.searchParams.get('status') === `eq.${row.status}`
+					);
+					return new Response(null, { headers: missingCount ? {} : { 'content-range': `*/${selected.length}` } });
+				}
+				if (url.pathname !== '/rest/v1/organizations' || !select) throw new Error('Unexpected settings source');
+				const fields = select.split(',').map((column) => column.trim());
+				if (fields.some((field) => !columns.includes(field))) throw new Error('Unrequested Organization data');
+				const row = value === 'missing' ? null : rows.find((row) => url.searchParams.get('id') === `eq.${row.id}`);
+				return Response.json(row ? Object.fromEntries(fields.map((field) => [field, row[field]])) : null);
+			}
+		}
+	});
+	return { reader: createSupabaseOrganizationSettingsReader(supabase), requests };
+}
+
+describe('Organization runtime settings with the actual SDK', () => {
+	it('constructs lazily and reads only the requested policy/scalar facts for the canonical Organization', async () => {
+		const { reader, requests } = fixture(0);
+		expect(requests).toEqual([]);
+		expect(await reader.findPolicies(ORG.toUpperCase())).toEqual({
+			archiveRetentionMonths: 0,
+			lossWarningWindowDays: 0
+		});
+		expect(await reader.findArchiveRetentionMonths(ORG)).toBe(0);
+		expect(await reader.findLossWarningWindowDays(ORG)).toBe(0);
+		expect(await reader.findStorageCapBytes(ORG)).toBe(0);
+		expect(requests.map((request) => request.select?.split(',').map((column) => column.trim()))).toEqual([
+			['archive_retention_months', 'loss_warning_window_days'],
+			['archive_retention_months'],
+			['loss_warning_window_days'],
+			['personnel_document_storage_cap_bytes']
+		]);
+	});
+	it('counts all pending invitations without fetching rows or including another Organization or accepted invitations', async () => {
+		const { reader } = fixture(0);
+		expect(await reader.countPendingInvitations(ORG.toUpperCase())).toBe(1002);
+	});
+	it('retains the zero invitation count when the provider omits its count', async () => {
+		const { reader } = fixture(0, true);
+		expect(await reader.countPendingInvitations(ORG)).toBe(0);
+	});
+	it.each([null, 'missing'] as const)(
+		'keeps missing policy and document defaults at the owning application boundary (%s)',
+		async (value) => {
+			const { reader } = fixture(value);
+			const ctx = createTestContext({ auth: { orgId: ORG } });
+			const data = await loadPoliciesSettings({ auth: ctx.auth, organizationSettings: reader }, { isAdmin: false });
+			expect(data.sections.policies.archiveRetention.savedMonths).toBe(36);
+			expect(data.sections.policies.lossWarning.savedDays).toBe(180);
+			expect(await loadPersonnelDocumentStorageCapBytes(reader, ORG)).toBe(104857600);
+		}
+	);
+	it('propagates provider failures from each narrow read, Policies and document-cap loading', async () => {
+		const { reader } = fixture('failure');
+		const ctx = createTestContext({ auth: { orgId: ORG } });
+		await expect(reader.findPolicies(ORG)).rejects.toThrow('Settings unavailable');
+		await expect(reader.findArchiveRetentionMonths(ORG)).rejects.toThrow('Settings unavailable');
+		await expect(reader.findLossWarningWindowDays(ORG)).rejects.toThrow('Settings unavailable');
+		await expect(reader.findStorageCapBytes(ORG)).rejects.toThrow('Settings unavailable');
+		await expect(reader.countPendingInvitations(ORG)).rejects.toThrow('Settings unavailable');
+		await expect(
+			loadPoliciesSettings({ auth: ctx.auth, organizationSettings: reader }, { isAdmin: false })
+		).rejects.toThrow('Settings unavailable');
+		await expect(loadPersonnelDocumentStorageCapBytes(reader, ORG)).rejects.toThrow('Settings unavailable');
+	});
+});

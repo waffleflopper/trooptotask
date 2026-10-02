@@ -1,3 +1,4 @@
+import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contracts';
 /**
  * Dashboard query use case — fetches all data needed to render the dashboard widgets.
  *
@@ -81,7 +82,7 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		groups,
 		statusTypes,
 		trainingTypes,
-		orgSettingsRow,
+		warningWindow,
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
 		listAssignmentTypes(ctx.store, orgId),
@@ -92,14 +93,12 @@ export async function fetchDashboardBootstrap(ctx: QueryPorts): Promise<Dashboar
 		listGroupCatalog(ctx),
 		listStatusTypes(ctx.store, orgId),
 		listTrainingTypes(ctx.store, orgId),
-		ctx.store
-			.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {}, 'loss_warning_window_days')
-			.catch(() => null),
+		ctx.organizationSettings.findLossWarningWindowDays(orgId).catch(() => null),
 		ctx.personnelAwardAcknowledgement
 			? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)
 			: Promise.reject(new Error('Personnel award acknowledgement port is required'))
 	]);
-	const lossWarningWindowDays = orgSettingsRow?.loss_warning_window_days ?? 180;
+	const lossWarningWindowDays = warningWindow ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS;
 
 	return {
 		availabilityEntries,

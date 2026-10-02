@@ -9,7 +9,6 @@ export interface RatingSchemePageData {
 	orgId: string;
 	orgName: string;
 	ratingSchemeEntries: RatingSchemeEntry[];
-	lossWarningWindowDays?: number;
 	[key: string]: unknown;
 }
 

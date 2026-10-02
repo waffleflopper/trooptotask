@@ -41,6 +41,8 @@ import {
 	createSupabaseNotificationStore
 } from '$features/notifications/index.server';
 import {
+	createSupabaseOrganizationSettingsReader,
+	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationAdministratorRecipients,
 	createSupabaseFeedbackOrganizationContextPort
 } from '$features/organization/index.server';
@@ -234,21 +236,7 @@ export function personnelArtifactsContext(ctx: UseCaseContext): PersonnelArtifac
 				orgId,
 				userIds
 			),
-		documentStorageCapBytes: () =>
-			loadPersonnelDocumentStorageCapBytes(
-				{
-					async findStorageCapBytes(settingOrgId) {
-						const row = await ctx.store.findOne<{ personnel_document_storage_cap_bytes?: number | null }>(
-							'organizations',
-							settingOrgId,
-							{ id: settingOrgId },
-							'personnel_document_storage_cap_bytes'
-						);
-						return row?.personnel_document_storage_cap_bytes;
-					}
-				},
-				orgId
-			),
+		documentStorageCapBytes: () => loadPersonnelDocumentStorageCapBytes(ctx.organizationSettings, orgId),
 		createDocumentSignedUrl: (filePath, expiresInSeconds) =>
 			ctx.storage.createSignedUrl('personnel-documents', filePath, expiresInSeconds)
 	};
@@ -421,6 +409,8 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			scope,
 			audit,
 			calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
+			organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
+			organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
 
 			notifications,
 			notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
@@ -532,6 +522,8 @@ export async function buildLayoutContext(
 		scope,
 		audit,
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
+		organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
+		organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
 
 		notifications,
 		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
@@ -631,6 +623,8 @@ export async function buildLayoutContextFromMembership(
 		scope,
 		audit,
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
+		organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
+		organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
 
 		notifications,
 		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },

@@ -1,8 +1,3 @@
-export interface OrganizationSettingsRow {
-	archive_retention_months?: number | null;
-	loss_warning_window_days?: number | null;
-}
-
 export type DeletionRequestStatus = 'pending' | 'approved' | 'denied';
 
 export interface DeletionRequestRow {

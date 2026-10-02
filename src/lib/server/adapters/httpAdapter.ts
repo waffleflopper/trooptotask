@@ -65,7 +65,10 @@ import { createSupabasePersonnelCriticalTasksRosterPort } from '$features/person
 import { createSupabasePersonnelCalendarRosterPort } from '$features/personnel/index.server';
 import { createSupabasePersonnelOnboardingRosterPort } from '$features/personnel/index.server';
 import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
-import { createSupabaseOnboardingCalendarMarkersPort } from '$features/onboarding/index.server';
+import {
+	createSupabaseOnboardingCalendarMarkersPort,
+	createSupabaseOnboardingReconciliationPort
+} from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$lib/server/core/useCases/organizationUrlSlug';
 import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
@@ -266,6 +269,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
+	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -303,6 +307,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			personnelOnboardingRoster,
 			trainingOnboardingReferences,
 			onboardingCalendarMarkers,
+			onboardingReconciliation,
 			organizationInvitationSetupStateLookup,
 			rawStore: store
 		},
@@ -366,6 +371,7 @@ export async function buildLayoutContext(
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
+	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -402,6 +408,7 @@ export async function buildLayoutContext(
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,
 		onboardingCalendarMarkers,
+		onboardingReconciliation,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};
@@ -453,6 +460,7 @@ export async function buildLayoutContextFromMembership(
 	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
 	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
 	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
+	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
 	const organizationInvitationSetupStateLookup =
 		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
@@ -489,6 +497,7 @@ export async function buildLayoutContextFromMembership(
 		personnelOnboardingRoster,
 		trainingOnboardingReferences,
 		onboardingCalendarMarkers,
+		onboardingReconciliation,
 		organizationInvitationSetupStateLookup,
 		rawStore: store
 	};

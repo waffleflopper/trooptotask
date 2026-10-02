@@ -17,36 +17,6 @@ function seedResyncFixtures(ctx: ReturnType<typeof createTestContext>) {
 			organization_id: 'test-org'
 		}
 	]);
-	ctx.store.seed('onboarding_template_steps', [
-		{
-			id: 'ts-1',
-			template_id: 'tmpl-1',
-			name: 'Get ID card',
-			description: 'Visit badge office',
-			step_type: 'checkbox',
-			training_type_id: null,
-			stages: null,
-			sort_order: 0,
-			organization_id: 'test-org'
-		}
-	]);
-	ctx.store.seed('onboarding_step_progress', [
-		{
-			id: 'sp-1',
-			onboarding_id: 'ob-1',
-			template_step_id: 'ts-old',
-			step_name: 'Old step',
-			step_type: 'checkbox',
-			training_type_id: null,
-			stages: null,
-			sort_order: 0,
-			completed: false,
-			current_stage: null,
-			notes: [],
-			active: true,
-			organization_id: 'test-org'
-		}
-	]);
 }
 
 describe('/api/onboarding-resync route config', () => {
@@ -58,6 +28,31 @@ describe('/api/onboarding-resync route config', () => {
 
 	it('allows onboarding configurators to resync through the policy decision', async () => {
 		const ctx = createTestContext({
+			onboardingReconciliation: {
+				async reconcile() {
+					return {
+						onboarding_id: 'ob-1',
+						template_id: 'tmpl-1',
+						old_template_id: 'tmpl-1',
+						steps: [
+							{
+								id: 'sp-1',
+								onboarding_id: 'ob-1',
+								template_step_id: 'ts-old',
+								step_name: 'Old step',
+								step_type: 'checkbox',
+								training_type_id: null,
+								stages: null,
+								sort_order: 0,
+								completed: false,
+								current_stage: null,
+								notes: [],
+								active: false
+							}
+						]
+					};
+				}
+			},
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -79,10 +74,7 @@ describe('/api/onboarding-resync route config', () => {
 		};
 
 		expect(result.steps).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ templateStepId: 'ts-1', active: true }),
-				expect.objectContaining({ templateStepId: 'ts-old', active: false })
-			])
+			expect.arrayContaining([expect.objectContaining({ templateStepId: 'ts-old', active: false })])
 		);
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({

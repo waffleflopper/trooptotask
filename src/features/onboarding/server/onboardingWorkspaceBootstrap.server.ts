@@ -1,4 +1,4 @@
-import { fetchOnboardingBootstrap } from '$lib/server/core/useCases/onboardingQuery';
+import { fetchOnboardingBootstrap } from './onboardingQuery.server';
 import {
 	ONBOARDING_WORKSPACE_LANE_KEY,
 	type OnboardingBootstrapMode,

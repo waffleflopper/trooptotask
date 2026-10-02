@@ -18,6 +18,94 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 	return createQueryPortsContext({ auth: { orgId: ORG, userId: USER, ...overrides?.auth } });
 }
 
+describe.each([
+	['bootstrap', fetchDashboardBootstrap],
+	['refresh', fetchDashboardData]
+] as const)('Dashboard %s packet read', (_name, load) => {
+	it('preserves saved progress and attributed history with Personnel access alone', async () => {
+		const ctx = buildCtx({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					personnel: 'view',
+					calendar: 'none',
+					training: 'none',
+					onboarding: 'none',
+					criticalTasks: 'none',
+					ratingScheme: 'none'
+				}
+			}
+		});
+		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+		const note = { text: 'Retained work', timestamp: '2026-03-01T12:00:00Z', userId: 'author-1' };
+		const active = {
+			id: 'packet-active',
+			organization_id: ORG,
+			personnel_id: 'p1',
+			status: 'in_progress',
+			started_at: '2026-03-01',
+			completed_at: null,
+			cancelled_at: null,
+			template_id: 'template-1',
+			onboarding_step_progress: [
+				{
+					id: 'saved-training',
+					onboarding_id: 'packet-active',
+					template_step_id: 'definition-1',
+					step_name: 'Required training',
+					step_type: 'training',
+					training_type_id: 'training-1',
+					sort_order: 0,
+					completed: false,
+					active: true,
+					notes: []
+				},
+				{
+					id: 'saved-history',
+					onboarding_id: 'packet-active',
+					template_step_id: null,
+					step_name: 'Removed work',
+					step_type: 'checkbox',
+					sort_order: 1,
+					completed: true,
+					active: false,
+					notes: [note]
+				}
+			]
+		};
+		store.seed('personnel_onboardings', [
+			active,
+			{ ...active, id: 'packet-completed', status: 'completed' },
+			{ ...active, id: 'packet-foreign', organization_id: 'another-org' }
+		]);
+		// The Dashboard uses saved snapshots. Only Onboarding's workspace hydrates current Training facts.
+		const trainingReferences = ctx.trainingOnboardingReferences!;
+		const hydrateTraining = vi
+			.spyOn(trainingReferences, 'completedTypeIds')
+			.mockRejectedValue(new Error('Training workflow is not authorized'));
+		const result = await load(ctx);
+
+		expect(result.activeOnboardings).toHaveLength(1);
+		expect(result.activeOnboardings[0]).toMatchObject({
+			id: 'packet-active',
+			personnelId: 'p1',
+			templateId: 'template-1',
+			steps: [
+				{
+					id: 'saved-training',
+					templateStepId: 'definition-1',
+					trainingTypeId: 'training-1',
+					completed: false,
+					active: true
+				},
+				{ id: 'saved-history', templateStepId: null, completed: true, active: false, notes: [note] }
+			]
+		});
+		expect(hydrateTraining).not.toHaveBeenCalled();
+	});
+});
+
 describe('fetchDashboardData', () => {
 	it('returns all dashboard data sections via ctx.store', async () => {
 		const ctx = buildCtx();

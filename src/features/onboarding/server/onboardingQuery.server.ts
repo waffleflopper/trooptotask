@@ -1,9 +1,10 @@
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
-import { fetchOnboardingTemplatesData } from '$features/onboarding/server/onboardingTemplateRead.server';
+import { fetchOnboardingTemplatesData } from './onboardingTemplateRead.server';
 import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onboarding/contracts';
-import { PersonnelOnboardingEntity } from '$lib/server/entities/personnelOnboarding';
-import { requireOnboardingViewPolicy, type OnboardingTrainingPorts } from './onboardingPolicy';
+import { PersonnelOnboardingEntity } from './personnelOnboardingEntity.server';
+import { requireOnboardingViewPolicy } from './onboardingPolicy.server';
+import type { OnboardingQueryPorts, OnboardingReadStore } from './onboardingPorts.server';
 import { personnelScopeResource } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
@@ -13,7 +14,7 @@ export interface FetchOnboardingBootstrapOptions {
 }
 
 async function loadPersonnelCreationRanks(
-	ctx: OnboardingTrainingPorts
+	ctx: OnboardingQueryPorts
 ): Promise<Pick<OnboardingBootstrap, 'rankCatalog' | 'rankCatalogUnavailable'>> {
 	const resource = personnelScopeResource(ctx.auth.scopeSet);
 	if (resource === null) return { rankCatalog: [], rankCatalogUnavailable: false };
@@ -67,7 +68,7 @@ function collectActiveTrainingTypeIds(onboarding: PersonnelOnboarding): string[]
 }
 
 async function readCompletedTrainingTypeIdsByPersonnelId(
-	ctx: OnboardingTrainingPorts,
+	ctx: OnboardingQueryPorts,
 	trainingOnboardings: PersonnelOnboarding[]
 ): Promise<Map<string, Set<string>>> {
 	const personnelIds = [...new Set(trainingOnboardings.map((onboarding) => onboarding.personnelId))];
@@ -83,7 +84,7 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 }
 
 export async function fetchOnboardingBootstrap(
-	ctx: OnboardingTrainingPorts,
+	ctx: OnboardingQueryPorts,
 	options: FetchOnboardingBootstrapOptions = {}
 ): Promise<OnboardingBootstrap> {
 	await requireOnboardingViewPolicy(ctx);
@@ -154,4 +155,18 @@ export async function fetchOnboardingBootstrap(
 		trainingTypes,
 		...personnelCreationRanks
 	};
+}
+
+/** Saved active packets for separately authorized callers such as the Personnel dashboard. */
+export async function listActiveOnboardings(
+	store: Pick<OnboardingReadStore, 'findMany'>,
+	orgId: string
+): Promise<PersonnelOnboarding[]> {
+	const rows = await store.findMany<Record<string, unknown>>(
+		'personnel_onboardings',
+		orgId,
+		{ status: 'in_progress' },
+		{ select: PersonnelOnboardingEntity.select }
+	);
+	return PersonnelOnboardingEntity.fromDbArray(rows);
 }

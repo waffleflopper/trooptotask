@@ -6,7 +6,7 @@ import {
 	cancelOnboarding,
 	reopenOnboarding,
 	completeOnboarding
-} from '$lib/server/core/useCases/onboardingLifecycle';
+} from '$features/onboarding/index.server';
 
 export const _postConfig = {
 	mutation: true,

@@ -36,6 +36,40 @@ describe('onboardingStore - load during in-flight mutations (issue #113)', () =>
 	});
 	afterEach(() => vi.unstubAllGlobals());
 
+	it('adopts authoritative note attribution and another committed note instead of retaining its optimistic placeholder', async () => {
+		const originalNote = { text: 'Original note', timestamp: '2026-09-01T12:00:00.000Z', userId: 'original-author' };
+		onboardingStore.load(
+			[{ ...mockOnboarding, steps: [{ ...mockOnboarding.steps[0], notes: [originalNote] }] }],
+			'org-1'
+		);
+		const notes = [
+			originalNote,
+			{ text: 'Another committed note', timestamp: '2026-10-01T12:00:00.001Z', userId: 'other-author' },
+			{ text: 'Sent to clinic', timestamp: '2026-10-01T12:00:00.002Z', userId: 'operator' }
+		];
+		vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ id: 'step-1', notes })));
+
+		await expect(onboardingStore.addNote('step-1', 'Sent to clinic')).resolves.toBe(true);
+
+		expect(onboardingStore.getById('ob-1')?.steps[0].notes).toEqual(notes);
+	});
+
+	it('removes an unsuccessful optimistic note while retaining saved notes', async () => {
+		const originalNote = { text: 'Original note', timestamp: '2026-09-01T12:00:00.000Z', userId: 'original-author' };
+		onboardingStore.load(
+			[{ ...mockOnboarding, steps: [{ ...mockOnboarding.steps[0], notes: [originalNote] }] }],
+			'org-1'
+		);
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue(Response.json({ message: 'Note append failed' }, { status: 500 }))
+		);
+
+		await expect(onboardingStore.addNote('step-1', 'Uncommitted note')).resolves.toBe(false);
+
+		expect(onboardingStore.getById('ob-1')?.steps[0].notes).toEqual([originalNote]);
+	});
+
 	it('resyncs the template and steps when another user has switched the packet', async () => {
 		onboardingStore.load([{ ...mockOnboarding, templateId: 'template-a' }], 'org-1');
 		const steps = [{ ...mockOnboarding.steps[0], templateStepId: 'template-b-step', stepName: 'Equipment' }];

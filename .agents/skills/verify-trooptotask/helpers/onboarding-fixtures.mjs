@@ -11,6 +11,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 	const batches = [];
 	let packets;
 	let progress;
+	let people;
 	if (kind === 'onboarding-legacy') {
 		const person = {
 			id: randomUUID(),
@@ -52,6 +53,83 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 			]
 		}));
 		batches.push(['personnel', [person]]);
+	} else if (kind === 'onboarding-history') {
+		const startedAt = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+		const examples = [
+			['alpha', 'orgA', 'groupA', 'completed', false],
+			['archived', 'orgA', 'groupA', 'cancelled', true],
+			['bravo', 'orgA', 'groupB', 'completed', false],
+			['foreign', 'orgB', 'groupForeign', 'completed', false]
+		];
+		people = examples.map(([key, organization, group, _status, archived]) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids[organization],
+			group_id: fixture.ids[group],
+			rank: 'SPC',
+			first_name: 'Synthetic',
+			last_name: 'History' + key + tag,
+			slug: 'map-history-' + key + '-' + tag,
+			archived_at: archived ? recentAt : null
+		}));
+		packets = examples.map(([key, organization, _group, status], index) => ({
+			id: randomUUID(),
+			organization_id: fixture.ids[organization],
+			personnel_id: people[index].id,
+			template_id: fixture.ids[organization === 'orgA' ? 'onboardingTemplate' : 'onboardingForeignTemplate'],
+			started_at: startedAt,
+			completed_at: status === 'completed' ? recentAt : null,
+			cancelled_at: status === 'cancelled' ? recentAt : null,
+			status,
+			key
+		}));
+		progress = packets.flatMap((packet) =>
+			[
+				['Checkbox', 'checkbox', true, true, null],
+				['Paperwork', 'paperwork', false, true, 'Reviewed'],
+				['Training', 'training', false, true, null],
+				['Removed done', 'checkbox', true, false, null],
+				['Removed pending', 'checkbox', false, false, null]
+			].map(([label, step_type, completed, active, current_stage], sort_order) => ({
+				id: randomUUID(),
+				organization_id: packet.organization_id,
+				onboarding_id: packet.id,
+				template_step_id: null,
+				step_name: 'History ' + label + ' ' + packet.key + ' ' + tag,
+				step_type,
+				training_type_id:
+					step_type === 'training'
+						? fixture.ids[packet.key === 'foreign' ? 'trainingForeignType' : 'trainingRequired']
+						: null,
+				stages: step_type === 'paperwork' ? ['Submitted', 'Reviewed', 'Filed'] : null,
+				current_stage,
+				sort_order,
+				completed,
+				active,
+				notes: [
+					{
+						text: 'History note ' + label + ' ' + packet.key + ' ' + tag,
+						timestamp: recentAt,
+						userId: fixture.actors[packet.key === 'foreign' ? 'onboardingForeign' : 'onboardingConfigure'].id
+					}
+				]
+			}))
+		);
+		batches.push(
+			['personnel', people],
+			[
+				'personnel_trainings',
+				[
+					{
+						id: randomUUID(),
+						organization_id: fixture.ids.orgA,
+						personnel_id: people[0].id,
+						training_type_id: fixture.ids.trainingRequired,
+						completion_date: fixture.dates.trainingCompleted,
+						expiration_date: fixture.dates.trainingExpires
+					}
+				]
+			]
+		);
 	} else {
 		const completedCount = kind === 'onboarding-retention-1001' ? 1001 : 1;
 		const examples = [
@@ -119,6 +197,7 @@ export async function seedOnboarding({ client, fixture, kind, tag, ownedState, s
 		tag,
 		packets: publicPackets,
 		progress,
+		...(people ? { people, training: batches[1][1] } : {}),
 		...(kind === 'onboarding-legacy' ? { person: batches[0][1][0] } : {})
 	};
 }

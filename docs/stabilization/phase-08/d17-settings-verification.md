@@ -1,6 +1,6 @@
 # D17 settings and destruction verification preparation
 
-This intermediate `Refs #1365` deliverable adds the missing [Organization settings/destruction recipe](../../../.agents/skills/verify-trooptotask/features/organization-settings-destruction.md), positive B-owner/dual-admin fixtures, scoped setting readbacks and exact-action failure controls. It changes verification inputs, not application behavior or migrations. Its outcome is usable preparation and truthful unchanged-app observations, including failures; it does not accept the D17 cutover or unlock D18.
+This intermediate `Refs #1365` [PR #1480](https://github.com/waffleflopper/trooptotask/pull/1480) adds the missing [Organization settings/destruction recipe](../../../.agents/skills/verify-trooptotask/features/organization-settings-destruction.md), positive B-owner/dual-admin fixtures, scoped setting readbacks and exact-action failure controls. It changes verification inputs, not application behavior or migrations. Its outcome is usable preparation and truthful unchanged-app observations, including failures; it does not accept the D17 cutover or unlock D18.
 
 ## Selection and acceptance boundary
 
@@ -18,12 +18,19 @@ R1/R4/R5 and #1365 establish expected governance, retained URLs, Organization/Gr
 
 ## Frozen runs and observed results
 
-Both runs used the unchanged production-built application at `73cc63fa`, fresh synthetic Supabase providers, Chromium **152.0.7977.82** on Arch Linux, and the owned native DevTools controls. Ordinary UI/API actors used normal sign-in. Provider/catalog readbacks used only the isolated owned provider and are separate privileged observations. No existing local or remote database was reset, queried or changed.
+All four runs used the unchanged production-built application at `73cc63fa`, fresh synthetic Supabase providers, Chromium **152.0.7977.82** on Arch Linux, and the owned native DevTools controls. Ordinary UI/API actors used normal sign-in. Provider/catalog readbacks used only the isolated owned provider and are separate privileged observations. No existing local or remote database was reset, queried or changed.
 
 | Run       | Executable/instruction candidate SHA-256                           | Owned session and app origin                                     |
 | --------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
 | Baseline  | `ead59b8fbf81a43ced6bde1d432cfba7ea747e622d4d09c963bab2b696897222` | `1daa760d-c330-43cb-8eb7-5ade87a9fb5c`, `http://127.0.0.1:36329` |
 | Follow-up | `94b9f79d88895b71a6fa3f16f3ee0b4d2fab5de0f1db0a39dc9c00f4dd98438e` | `269aeba6-7a60-431d-88b8-55beadbfb4b2`, `http://127.0.0.1:35229` |
+
+Two review follow-ups use the same unchanged application tree at source revision `56fa842b`, with further verification-only changes:
+
+| Run                 | Candidate SHA-256                                                  | Owned session and origin                                         |
+| ------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Settings-request    | `a62af00c4175102872d2389172161c8cfe0737675debfdaf35d0dd87f109b83e` | `19bb4ead-725a-4867-8117-460874d14f7e`, `http://127.0.0.1:36523` |
+| Form-control review | `7fb9f80195c30bb54658ad9bfe32d2da529fd98c0a654f924d3b4633ade2b3b2` | `b8a104e0-3c28-43cb-a58d-c0c896650488`, `http://127.0.0.1:38755` |
 
 The follow-up adopted two fixture actors and corrected a preparation limitation: UUID-only controls missed settings requests after slug canonicalization. Settings controls now resolve A's current saved canonical segment and bind the exact form action; slug update/reset and delete failures, plus a held policy response, exercised this correction. Restore/rearm is required after changing a slug. No application repair occurred between runs. Later archive/prose additions change the checkout fingerprint but do not constitute a fresh live run.
 
@@ -32,6 +39,10 @@ The follow-up adopted two fixture actors and corrected a preparation limitation:
 **Ordinary denial:** A member's settled General page denies entry and valid name/slug/delete actions and policy API deny writes. Admin deletion denies owner-only authority. Admin requests targeting foreign B return hidden-target 404; B's ordinary member General access denies. SvelteKit outer HTTP 200 failures carry status 403/400; record transport and action status separately. Invalid input alone is not authority proof. D05's accepted sole-owner transfer is applicable to its unchanged operation, not live delete-after-transfer proof.
 
 **Sensitive-action assurance:** A recorded normal login at `2026-10-02T05:58:38Z` remains in the same unexpired context. The ordinary direct delete at `06:14:17.792Z` fails `denied.staleSession`, and the real native submit navigates to `/auth/login?reauth=1&next=...settings%2Fdanger` without deleting A. A separate fresh normal owner context then explicitly confirms/submits deletion and returns to `/dashboard?show=all`; reload shows no A workspace and an already-open admin route reloads 404. This proves the actual elapsed handoff and separate fresh explicit deletion; completing normal reauthentication and returning in that same page remains unrun.
+
+**Review follow-ups:** CodeRabbit CLI identified missing supported direct-request instructions. The new `settings-request` command uses the signed-in native page's normal session for five fixed JSON/form families and allowlisted scalar fields. Its privileged canonical-target lookup is separate from the ordinary request. The third run saves a slug and 11-MB cap, observes member policy 403 and four valid action-envelope 403s, owner foreign B policy/name/delete 404s, wrong saved-name 400 and mixed Critical Tasks/retention 400. Its after-denial A row differs only by the admitted slug/cap; final A/B full settings exactly match originals. Redirect action envelopes are recorded without following or replaying them in UI.
+
+Hosted review found that a matching GET action query could consume the form control's ordinal. The effective method now honors fetch init overrides, then Request.method, then GET; only POST matches a form control. The fourth run observes matching GET 200 with no control calls, then the native confirmed name POST receives the intended 503, visible error/draft and unchanged row. Restore and the same visible retry save the name; an ordinary helper request restores it, and provider/read-after-reload returns the original name. The new target-isolation recipe records the exact already-executed second-run sequence; it changes no expected result or driver action. Ten focused helper tests independently cover request transport/privacy, field/path/origin exclusions and effective Request-method precedence.
 
 **Actual destruction:** The baseline's Organization-filtered counts (119 A rows to zero; 33 B rows unchanged by ID) do **not** prove every row was deleted. The follow-up captures full before-values and then queries each recorded ID independent of its Organization foreign key: **104 recorded A rows disappear; four audit rows survive with `org_id = null`; all 37 recorded B rows retain identical full values**. This matches the effective `audit_logs` SET NULL FK and distinguishes detachment from cascade. Empty fixture tables cannot witness a cascade. A known private signed-roster PDF remains downloadable through privileged owned readback after both real deletes: baseline 3,205 bytes / SHA-256 `bd3d62d1599cb56dd832f37ce0df84c726b2311acab0133ea785eb84759a0747`; follow-up 3,205 bytes / `21f800819e91b2f91589ab4528cc4056dc93dc79a4c65ffae42ab096c13c2403`, each unchanged from its own before-file. This is one seeded actual-byte witness, not all file families, native upload or ordinary post-delete download authority.
 
@@ -54,7 +65,14 @@ Sanitized raw captures remain in separate archives; no credential redactions wer
 | [Baseline](d17-settings-baseline.tar.gz)  | 123 / 2,221,575                | `18ae923f5d72e1384c77d2b0fdfe8aed75973cc2d82679a37a1e45efb419111e` |
 | [Follow-up](d17-settings-followup.tar.gz) | 104 / 678,233                  | `f6cdd32593f501373e128c4093c8c27760ffd433e411e51c1085528fd75081aa` |
 
-Each contains `INVENTORY.json`, mapping every original relative payload filename to the SHA-256 of its expanded bytes. Both were extracted into separate fresh ignored directories and the exact payload set and every hash verified. To reproduce, create a fresh ignored directory for each archive, verify its hash above, then:
+Two further archives retain the request/control follow-ups:
+
+| Archive                                               | Payload files / expanded bytes | Archive SHA-256                                                    |
+| ----------------------------------------------------- | ------------------------------ | ------------------------------------------------------------------ |
+| [Settings-request](d17-settings-request.tar.gz)       | 27 / 16,798                    | `71db5d709d5c3de9dbc9180c13f01e29b3cfcbc9df4c56a7e6779197b9ef7996` |
+| [Form-control review](d17-form-control-review.tar.gz) | 28 / 73,226                    | `454dc28dca8fcd1542b3049b9ec4cb8f8a8983a8a4b0d4a9f7eed7e11afb93bc` |
+
+Each contains `INVENTORY.json`, mapping every original relative payload filename to the SHA-256 of its expanded bytes. All four were extracted into separate fresh ignored directories and the exact payload set and every hash verified. To reproduce, create a fresh ignored directory for each archive, verify its hash above, then:
 
 ```bash
 tar -xzf docs/stabilization/phase-08/d17-settings-followup.tar.gz -C "$D17_EXTRACT"
@@ -71,6 +89,8 @@ print('Exact payload set and every SHA-256 pass:', len(actual))
 PY
 ```
 
-Both final doctors, `clean-seeds` and exact owned `verify:app cleanup` pass. The tested application, controls and instructions remained frozen through each run. Node network-control checks pass **6 tests**, including exact action/tenant exclusion, real SvelteKit failure deserialization and retry. Existing focused administration, slug, policy API, Danger action/model and identity tests pass **6 files / 120 tests**; no General action test is invented. Database acceptance is inapplicable because this deliverable changes no schema/policy; catalog/row observations are not fresh/upgrade SQL contract credit. Full application DoD/build and complete source/expanded independent acceptance, CLI/hosted review and exact-head CI remain required before merge.
+All four final doctors, `clean-seeds` and exact owned `verify:app cleanup` pass. The tested application, controls and instructions remained frozen through each run. Node network/settings-request checks pass **10 tests**, including exact action/tenant exclusion, real SvelteKit failure deserialization and retry. Existing focused administration, slug, policy API, Danger action/model and identity tests pass **6 files / 120 tests**; no General action test is invented. Database acceptance is inapplicable because this deliverable changes no schema/policy; catalog/row observations are not fresh/upgrade SQL contract credit. Local tools were Node 24.21.0, npm 11.19.0 and CodeRabbit CLI 0.8.2. Initial [Actions `36973976438`](https://github.com/waffleflopper/trooptotask/actions/runs/36973976438) passes full DoD/build at `56fa842b`: 630 suites / 5,793 tests, Svelte/types 0/0 and governance 506/no regression; DB checks correctly skip, Vercel passes. Existing lint/build/action-runtime notices remain. This is the identified initial commit's evidence; the corrected final head needs its own complete CI result before merge.
+
+Initial CLI reviews all 10 readable files of the complete 12-path diff against `73cc63fa` and raises one valid request-control gap. Hosted review at `56fa842b` raises the separate GET-filter finding. Both are repaired and have matching bounded proof above. Independent source/expanded review accepts the preparation scope and remaining issue accounting; the initial recipe author cannot independently accept their own authorship, so CLI/hosted review supplies that file's separate review. The refreshed complete changed scope, final CLI/hosted disposition and exact-head CI remain merge gates. Archive review is separate from CodeRabbit source coverage, and artifact acceptance is not independent live execution.
 
 There are no runtime release changes or migrations. CI runs full application checks for executable verification changes; branch publication may trigger Vercel under existing external settings, which have not been inspected. No remote action is performed.

@@ -11,9 +11,15 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 		const [url, init] = input;
 		const requestUrl = typeof Request !== 'undefined' && url instanceof Request ? url.url : String(url);
 		const parsedUrl = new URL(requestUrl, target.location?.href ?? 'http://localhost/');
-		if (parsedUrl.pathname !== control.suffix || (search !== null && parsedUrl.search !== search))
+		const method = String(
+			init?.method ?? (typeof Request !== 'undefined' && url instanceof Request ? url.method : 'GET')
+		).toUpperCase();
+		if (
+			parsedUrl.pathname !== control.suffix ||
+			(search !== null && (parsedUrl.search !== search || method !== 'POST'))
+		)
 			return original(...input);
-		const call = { method: init?.method ?? 'GET', count: 0, ids: [], notes: [], status: null };
+		const call = { method, count: 0, ids: [], notes: [], status: null };
 		try {
 			const records = JSON.parse(init?.body ?? '{}').records ?? [];
 			call.count = records.length;

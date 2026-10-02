@@ -76,6 +76,7 @@ test('a form failure reaches the selected action without intercepting another ac
 	assert.equal((await page.fetch('/org/a/settings/general?/updateName', { method: 'POST' })).status, 200);
 	assert.equal((await page.fetch('/org/b/settings/general?/updateSlug', { method: 'POST' })).status, 200);
 	assert.equal((await page.fetch('/org/a/settings/general', { method: 'GET' })).status, 200);
+	assert.equal((await page.fetch('/org/a/settings/general?/updateSlug', { method: 'GET' })).status, 200);
 	const failure = await page.fetch('/org/a/settings/general?/updateSlug', { method: 'POST' });
 	assert.equal(failure.status, 503);
 	const result = await failure.json();
@@ -84,6 +85,22 @@ test('a form failure reaches the selected action without intercepting another ac
 	assert.deepEqual(parse(result.data), { slugError: 'Synthetic request failure' });
 	assert.equal(page.__mapNetwork.calls.length, 1);
 	assert.equal((await page.fetch('/org/a/settings/general?/updateSlug', { method: 'POST' })).status, 200);
+});
+
+test('form filtering uses the effective Request method, including a fetch init override', async () => {
+	const page = { fetch: async () => new Response('ordinary result') };
+	installNetworkControl(page, {
+		mode: 'fail',
+		ordinal: 1,
+		suffix: '/org/a/settings/general',
+		search: '?/updateName',
+		failureField: 'error'
+	});
+	const url = 'http://localhost/org/a/settings/general?/updateName';
+	assert.equal((await page.fetch(new Request(url, { method: 'POST' }), { method: 'GET' })).status, 200);
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	assert.equal((await page.fetch(new Request(url), { method: 'post' })).status, 503);
+	assert.equal(page.__mapNetwork.calls[0].method, 'POST');
 });
 
 test('observation preserves the real download and records only public response metadata', async () => {

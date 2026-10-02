@@ -1,3 +1,4 @@
+import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
 import { personnelArtifactsContext } from './httpAdapter';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
@@ -155,7 +156,10 @@ describe('Personnel artifact provider delivery', () => {
 					}
 				}
 			});
-			const context = personnelArtifactsContext({ ...ctx, store: createSupabaseDataStore(client) });
+			const context = personnelArtifactsContext({
+				...ctx,
+				organizationSettings: createSupabaseOrganizationSettingsReader(client)
+			});
 			const create = createPersonnelDocument(context, {
 				personnelId: PERSON,
 				file: new File(['%PDF-1.7'], 'signed.pdf', { type: 'application/pdf' })

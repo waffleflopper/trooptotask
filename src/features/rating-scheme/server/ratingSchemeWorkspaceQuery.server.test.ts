@@ -49,7 +49,6 @@ function context() {
 		findRatedPersonGroupForWrite: vi.fn(),
 		hasEvaluatorReferences: vi.fn()
 	};
-	ctx.store.seed('organizations', [{ id: orgId, loss_warning_window_days: 120 }]);
 	return ctx;
 }
 
@@ -110,7 +109,6 @@ describe('Rating-owned Evals workspace', () => {
 			workflowStatus: 'with-rater',
 			notes: 'Saved note'
 		});
-		expect(result.lossWarningWindowDays).toBe(120);
 		expect(provider.requests.map((url) => url.searchParams.get('offset'))).toEqual(['0', '1000']);
 	});
 	it('rejects a later-page failure rather than publishing a truncated workspace', async () => {
@@ -136,20 +134,15 @@ describe('Rating-owned Evals workspace', () => {
 		expect(findMany).not.toHaveBeenCalled();
 		expect(ctx.personnelRatingSchemeRoster?.listActiveReferences).not.toHaveBeenCalled();
 	});
-	it('retains the settings fallback but propagates a reference-provider failure', async () => {
+	it('propagates a reference-provider failure', async () => {
 		const ctx = context();
 		ctx.rawStore.seed('rating_scheme_entries', [row('entry-1')]);
-		const settings = { findOne: vi.fn().mockRejectedValue(new Error('Optional settings unavailable')) };
-		await expect(loadRatingSchemeWorkspace({ ...ctx, store: settings })).resolves.toMatchObject({
-			lossWarningWindowDays: 180,
-			ratingSchemeEntries: [{ id: 'entry-1' }]
-		});
 		vi.mocked(ctx.personnelRatingSchemeRoster!.listActiveReferences).mockRejectedValue(
 			new Error('References unavailable')
 		);
-		await expect(loadRatingSchemeWorkspace({ ...ctx, store: settings })).rejects.toThrow('References unavailable');
+		await expect(loadRatingSchemeWorkspace(ctx)).rejects.toThrow('References unavailable');
 	});
-	it('does not serialize the independent entry, reference and settings reads', async () => {
+	it('does not serialize the independent entry and reference reads', async () => {
 		const ctx = context();
 		const started = new Set<string>();
 		let release!: () => void;
@@ -163,13 +156,6 @@ describe('Rating-owned Evals workspace', () => {
 				return [row('entry-1')] as T[];
 			}
 		};
-		const store = {
-			findOne: async <T>() => {
-				started.add('settings');
-				await wait;
-				return { loss_warning_window_days: 120 } as T;
-			}
-		};
 		const personnelRatingSchemeRoster = {
 			listActiveReferences: async () => {
 				started.add('references');
@@ -177,9 +163,9 @@ describe('Rating-owned Evals workspace', () => {
 				return [person];
 			}
 		};
-		const pending = loadRatingSchemeWorkspace({ ...ctx, rawStore, store, personnelRatingSchemeRoster });
+		const pending = loadRatingSchemeWorkspace({ ...ctx, rawStore, personnelRatingSchemeRoster });
 		try {
-			await vi.waitFor(() => expect(started).toEqual(new Set(['entries', 'settings', 'references'])));
+			await vi.waitFor(() => expect(started).toEqual(new Set(['entries', 'references'])));
 		} finally {
 			release();
 		}

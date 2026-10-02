@@ -38,14 +38,14 @@ const entry = {
 describe('Evals workspace delivery', () => {
 	beforeEach(() => vi.clearAllMocks());
 	it('streams authorized entries and hydrates the admitted Organization', async () => {
-		loadWorkspace.mockResolvedValue({ personnelLookup: [], ratingSchemeEntries: [entry], lossWarningWindowDays: 120 });
+		loadWorkspace.mockResolvedValue({ personnelLookup: [], ratingSchemeEntries: [entry] });
 		loadWithContext.mockImplementation((_locals, _cookies, _orgId, config) => ({
 			data: config.fn({ auth: { orgId: 'admitted-org' } })
 		}));
 		const route = await _streamRatingSchemeWorkspace(context);
 		await expect(route.ratingScheme.data).resolves.toMatchObject({
 			laneKey: 'ratingScheme',
-			data: { ratingSchemeEntries: [entry], lossWarningWindowDays: 120 },
+			data: { ratingSchemeEntries: [entry] },
 			hydration: { orgId: 'admitted-org', ratingSchemeEntries: { mode: 'replace', deferred: false, items: [entry] } }
 		});
 	});

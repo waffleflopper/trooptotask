@@ -1,9 +1,8 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { loadRosterPersonnel } from '$features/personnel/index.server';
-import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from './settingsPolicyConstraints';
+import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from '$features/organization/contracts';
 import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './settingsSectionTypes';
-import type { OrganizationSettingsRow } from './settingsRows.server';
 
 export interface ArchivesSettingsData {
 	currentMember: {
@@ -23,16 +22,11 @@ export type SettingsArchivedPersonnelSourceRow = Pick<
 >;
 
 export async function loadArchivesSettings(
-	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'rawStore'>,
+	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'organizationSettings'>,
 	input: { isAdmin: boolean }
 ): Promise<ArchivesSettingsData> {
-	const [organizationSettings, archivedPersonnel] = await Promise.all([
-		ctx.rawStore.findOne<Pick<OrganizationSettingsRow, 'archive_retention_months'>>(
-			'organizations',
-			ctx.auth.orgId,
-			{},
-			'archive_retention_months'
-		),
+	const [archiveRetentionMonths, archivedPersonnel] = await Promise.all([
+		ctx.organizationSettings.findArchiveRetentionMonths(ctx.auth.orgId),
 		loadRosterPersonnel(ctx, {
 			status: 'archived',
 			order: 'archived-newest'
@@ -41,7 +35,7 @@ export async function loadArchivesSettings(
 
 	return buildArchivesSettingsData(ctx, {
 		isAdmin: input.isAdmin,
-		organizationSettings,
+		archiveRetentionMonths,
 		archivedPersonnel: archivedPersonnel.map((p) => ({
 			id: p.id,
 			rank: p.rank,
@@ -59,14 +53,13 @@ export function buildArchivesSettingsData(
 	ctx: Pick<UseCaseContext, 'auth'>,
 	input: {
 		isAdmin: boolean;
-		organizationSettings: Pick<OrganizationSettingsRow, 'archive_retention_months'> | null;
+		archiveRetentionMonths: number | null | undefined;
 		archivedPersonnel: SettingsArchivedPersonnelSourceRow[];
 	}
 ): ArchivesSettingsData {
 	const isOwner = ctx.auth.role === 'owner';
 	const canManageMembers = ctx.auth.canManageMembers;
-	const archiveRetentionMonths =
-		input.organizationSettings?.archive_retention_months ?? DEFAULT_ARCHIVE_RETENTION_MONTHS;
+	const archiveRetentionMonths = input.archiveRetentionMonths ?? DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	const rows = input.archivedPersonnel.map(shapeArchivedPersonnelRow);
 
 	return {

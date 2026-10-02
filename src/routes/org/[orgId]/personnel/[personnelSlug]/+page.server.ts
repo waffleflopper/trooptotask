@@ -64,15 +64,9 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 				loadAuthorizedPerson: () =>
 					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry')
 			}),
-			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf, async () => {
-				const settings = await ctx.store.findOne<{ loss_warning_window_days?: number | null }>(
-					'organizations',
-					ctx.auth.orgId,
-					{ id: ctx.auth.orgId },
-					'loss_warning_window_days'
-				);
-				return settings?.loss_warning_window_days;
-			})
+			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf, () =>
+				ctx.organizationSettings.findLossWarningWindowDays(ctx.auth.orgId)
+			)
 		},
 		// The three owned artifact reads share one request-local authorization context.
 		extendedInfo,

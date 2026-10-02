@@ -390,7 +390,7 @@ This bounded same-issue repair targets client response delivery against known pe
 
 ## Phase 08 D15 atomic Start
 
-[The selected Start repair](phase-08/d15-atomic-start.md) requires the new additive `supabase/migrations/20261002001100_atomic_onboarding_start.sql`. Prepare a complete reviewed candidate with repaired native proof, isolated fresh/populated SQL and provider checks, exact-current ARM64 CI and no actionable review feedback before requesting Robert's manual application. Earlier migration confirmations do not cover this file. Its exact reviewed hash and completed gates remain pending.
+[The selected Start repair](phase-08/d15-atomic-start.md) requires the new additive `supabase/migrations/20261002001100_atomic_onboarding_start.sql`. Prepare a complete reviewed candidate with repaired native proof, isolated fresh/populated SQL and provider checks, exact-current ARM64 CI and no actionable review feedback before requesting Robert's manual application. Earlier migration confirmations do not cover this file. Prepared file SHA-256 is `6e42557dd75d95a852c57dce9933064e560efe5d991664953dc525b3e270767b`; repaired native proof, final current-head ARM64 CI/reviews and complete acceptance remain pending.
 
 The migration adds `public.start_onboarding_packet(uuid, uuid, uuid, date, jsonb)` with ordinary authenticated invoker execution and a schema-reload notification. Applying it changes no existing rows, table definitions, constraints or policies. Later Start requests save one parent and its prepared checklist together; a rejected save rolls both back. Existing active-packet uniqueness and current Onboarding/Person scope remain authoritative. It does not repair previously orphaned packets automatically.
 

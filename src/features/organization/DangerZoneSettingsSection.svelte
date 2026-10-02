@@ -4,7 +4,7 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
-	import type { SettingsDangerSectionData } from './settingsSectionTypes';
+	import type { SettingsDangerSectionData } from './dangerSettingsTypes';
 
 	let {
 		orgName,
@@ -95,7 +95,8 @@
 			<div class="grid gap-1">
 				<p class="text-sm font-medium">Delete organization</p>
 				<p class="text-sm text-muted-foreground">
-					All personnel, training, calendar, and audit data is permanently destroyed. This action cannot be undone.
+					Organization records and private files are permanently deleted. Retained audit history stays for
+					accountability. This action cannot be undone.
 				</p>
 			</div>
 			<div class="grid gap-2">

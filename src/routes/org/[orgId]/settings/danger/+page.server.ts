@@ -1,14 +1,15 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
-import { deleteOrganization as deleteOrganizationUseCase } from '$lib/server/core/useCases/orgSettingsAdministration';
+import { createSupabaseAuditAdapter, getRequestInfo } from '$lib/audit/index.server';
 import {
 	createSupabaseOrganizationOwnershipTransferPort,
+	createSupabaseOrganizationDestructionPort,
+	deleteOrganization,
 	transferOrganizationOwnership
 } from '$features/organization/index.server';
 import { toActionFailure } from '../settingsActionFailure.server';
-import { loadDangerSettings } from './dangerSettings.server';
+import { loadDangerSettings } from '$features/organization/index.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 
 export const load: PageServerLoad = (event) =>
@@ -63,11 +64,12 @@ export const actions: Actions = {
 		const confirmNameRaw = formData.get('confirmName');
 		try {
 			const ctx = await buildRouteContext(event);
-			await deleteOrganizationUseCase(
+			await deleteOrganization(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
-					administration: createSupabaseOrgSettingsAdministrationPort(locals),
+					deletedAudit: createSupabaseAuditAdapter(null, getRequestInfo(event)),
+					destruction: createSupabaseOrganizationDestructionPort(locals),
 					sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
 				},
 				{

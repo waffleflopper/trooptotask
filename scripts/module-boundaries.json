@@ -538,7 +538,7 @@
 			"web-ui"
 		],
 		"shared": [],
-		"sign-in-rosters": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"sign-in-rosters": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui"],
 		"training": ["personnel", "sign-in-rosters", "access", "audit", "provider", "shared", "web-ui"],
 		"web-ui": ["shared"]
 	},
@@ -588,7 +588,11 @@
 			"src/features/rating-scheme/index.ts",
 			"src/features/rating-scheme/index.server.ts"
 		],
-		"sign-in-rosters": ["src/features/sign-in-rosters/index.ts", "src/features/sign-in-rosters/index.server.ts"],
+		"sign-in-rosters": [
+			"src/features/sign-in-rosters/index.ts",
+			"src/features/sign-in-rosters/index.server.ts",
+			"src/features/sign-in-rosters/contracts.ts"
+		],
 		"training": [
 			"src/features/training/contracts.ts",
 			"src/features/training/index.ts",

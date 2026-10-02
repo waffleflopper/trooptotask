@@ -97,13 +97,22 @@ SELECT results_eq(
   $$ SELECT * FROM upgrade_fixture.organization_storage_cleanup_before_rows ORDER BY table_name, row_id $$,
   'every denied mutation preserves every target and foreign saved value');
 
--- Adding SELECT must not prevent existing, properly scoped writes.
+-- Scoped reads and metadata edits remain; new bytes use registered server upload.
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'fa170000-0000-4000-8000-000000000003', true);
-SELECT lives_ok($$ INSERT INTO storage.objects (id, bucket_id, name) VALUES
+SELECT throws_ok($$ INSERT INTO storage.objects (id, bucket_id, name) VALUES
   ('fa170000-0000-4000-8000-000000000701', 'counseling-files', 'fa170000-0000-4000-8000-000000000101/counseling-records/fa170000-0000-4000-8000-000000000301/allowed.pdf'),
-  ('fa170000-0000-4000-8000-000000000702', 'personnel-documents', 'fa170000-0000-4000-8000-000000000101/personnel/fa170000-0000-4000-8000-000000000301/documents/allowed.pdf') $$,
-  'existing configurator can upload live-parent counseling and document files');
+  ('fa170000-0000-4000-8000-000000000702', 'personnel-documents', 'fa170000-0000-4000-8000-000000000101/personnel/fa170000-0000-4000-8000-000000000301/documents/allowed.pdf') $$, '42501', NULL,
+  'configurator cannot bypass the registered server uploader');
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '', true);
+SELECT set_config('request.jwt.claim.role', '', true);
+SELECT set_config('request.jwt.claims', '{}', true);
+INSERT INTO storage.objects (id, bucket_id, name) VALUES
+  ('fa170000-0000-4000-8000-000000000701', 'counseling-files', 'fa170000-0000-4000-8000-000000000101/counseling-records/fa170000-0000-4000-8000-000000000301/allowed.pdf'),
+  ('fa170000-0000-4000-8000-000000000702', 'personnel-documents', 'fa170000-0000-4000-8000-000000000101/personnel/fa170000-0000-4000-8000-000000000301/documents/allowed.pdf');
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'fa170000-0000-4000-8000-000000000003', true);
 WITH changed AS (UPDATE storage.objects SET metadata = '{"size":128}'
   WHERE id IN ('fa170000-0000-4000-8000-000000000701', 'fa170000-0000-4000-8000-000000000702') RETURNING id)
 SELECT is((SELECT count(*)::integer FROM changed), 2, 'existing configurator can edit both newly uploaded live-parent files');
@@ -173,9 +182,20 @@ SELECT results_eq(
   ) AS expected(id) ORDER BY id $$,
   'replacement owner removes exactly its eight admitted objects across both buckets');
 RESET ROLE;
+SELECT set_config('request.jwt.claim.sub', '', true);
+SELECT set_config('request.jwt.claim.role', '', true);
+SELECT set_config('request.jwt.claims', '{}', true);
 INSERT INTO storage.objects (id, bucket_id, name) VALUES
   ('fa170000-0000-4000-8000-000000000519', 'counseling-files', 'fa170000-0000-4000-8000-000000000101/leftover.pdf');
+SELECT throws_ok($$ DELETE FROM public.organizations WHERE id = 'fa170000-0000-4000-8000-000000000101' $$,
+  'P0001', 'Organization files must be removed before deletion', 'leftover file metadata refuses parent deletion');
+SELECT is((SELECT count(*)::integer FROM public.organizations WHERE id = 'fa170000-0000-4000-8000-000000000101'),
+  1, 'refused parent remains');
+DELETE FROM storage.objects WHERE id = 'fa170000-0000-4000-8000-000000000519';
 DELETE FROM public.organizations WHERE id = 'fa170000-0000-4000-8000-000000000101';
+-- Metadata-only historical orphan, deliberately created after the parent is gone.
+INSERT INTO storage.objects (id, bucket_id, name) VALUES
+  ('fa170000-0000-4000-8000-000000000519', 'counseling-files', 'fa170000-0000-4000-8000-000000000101/leftover.pdf');
 SET LOCAL ROLE authenticated;
 SELECT ok(NOT public.organization_storage_object_is_owner_removable('counseling-files', 'fa170000-0000-4000-8000-000000000101/leftover.pdf'),
   'deleted Organization grants no prefix access');

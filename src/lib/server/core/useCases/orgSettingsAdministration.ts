@@ -2,13 +2,6 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { AuthContext, AuditPort } from '$lib/server/core/ports';
 import { fail } from '$lib/errors';
 import { sanitizeString } from '$lib/server/validation';
-import {
-	ORGANIZATION_DELETE_ACTION,
-	type SensitiveAction,
-	type SensitiveActionAuthorizer,
-	type SensitiveActionDecision
-} from '$features/identity/contracts';
-import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
 import { requireGovernancePolicy } from './governancePolicy';
 import { isDuplicateOrganizationSlugError, validateOrganizationUrlSlug } from './organizationUrlSlug';
 
@@ -16,8 +9,6 @@ export interface OrganizationSettingsAdministrationPort {
 	renameOrganization(orgId: string, name: string): Promise<string | null>;
 	updateOrganizationUrlSlug(orgId: string, urlSlug: string | null): Promise<string | null>;
 	findOrganizationByUrlSlug(urlSlug: string): Promise<{ id: string } | null>;
-	lookupOrganization(orgId: string): Promise<{ name: string | null; errorMessage: string | null }>;
-	deleteOrganization(orgId: string): Promise<string | null>;
 }
 
 interface OrganizationSettingsAdministrationPorts {
@@ -25,14 +16,6 @@ interface OrganizationSettingsAdministrationPorts {
 	audit: AuditPort;
 
 	administration: OrganizationSettingsAdministrationPort;
-}
-
-type OrganizationSensitiveActionPorts = OrganizationSettingsAdministrationPorts & {
-	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
-};
-
-interface DeleteOrganizationInput {
-	confirmName: string;
 }
 
 interface RenameOrganizationInput {
@@ -113,78 +96,4 @@ export async function clearOrganizationUrlSlug(
 	});
 
 	return { slugSuccess: true, orgUrlSlug: null };
-}
-
-export async function deleteOrganization(
-	ports: OrganizationSensitiveActionPorts,
-	input: DeleteOrganizationInput
-): Promise<{ success: true }> {
-	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.deleteOrganization);
-
-	const organization = await ports.administration.lookupOrganization(ports.auth.orgId);
-	if (organization.errorMessage) {
-		fail(500, organization.errorMessage);
-	}
-
-	const confirmName = sanitizeString(input.confirmName, 100);
-	if (confirmName !== sanitizeString(organization.name, 100)) {
-		fail(400, 'Organization name does not match');
-	}
-
-	const sensitiveAction = await authorizeOrganizationSensitiveAction(ports, {
-		action: ORGANIZATION_DELETE_ACTION,
-		deniedAuditAction: 'org.delete_authorization_denied'
-	});
-
-	const errorMessage = await ports.administration.deleteOrganization(ports.auth.orgId);
-	if (errorMessage) {
-		fail(500, errorMessage);
-	}
-
-	ports.audit.log({
-		action: 'org.deleted',
-		resourceType: 'organization',
-		details: { sensitiveAction },
-		severity: 'critical'
-	});
-
-	return { success: true };
-}
-
-async function authorizeOrganizationSensitiveAction(
-	ports: OrganizationSensitiveActionPorts,
-	input: { action: SensitiveAction; deniedAuditAction: string; details?: Record<string, unknown> }
-): Promise<Record<string, unknown>> {
-	const target = { type: 'organization', id: ports.auth.orgId };
-	const decision = await ports.sensitiveActionAuthorizer.authorize({
-		action: input.action,
-		actorUserId: ports.auth.userId,
-		target
-	});
-	const sensitiveAction = sensitiveActionDecisionAuditDetails(decision);
-
-	if (!decision.allowed) {
-		auditDeniedSensitiveAction(ports, input.deniedAuditAction, decision, input.details);
-		throwSensitiveActionFailure(decision);
-	}
-
-	return sensitiveAction;
-}
-
-function auditDeniedSensitiveAction(
-	ports: OrganizationSettingsAdministrationPorts,
-	action: string,
-	decision: SensitiveActionDecision,
-	details: Record<string, unknown> = {}
-): void {
-	ports.audit.log({
-		action,
-		resourceType: 'organization',
-		resourceId: ports.auth.orgId,
-		details: {
-			...details,
-			sensitiveAction: sensitiveActionDecisionAuditDetails(decision)
-		},
-		severity: 'warning'
-	});
 }

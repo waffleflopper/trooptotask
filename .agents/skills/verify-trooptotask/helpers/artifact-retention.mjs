@@ -1,3 +1,4 @@
+import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
 import { createHash, randomUUID } from 'node:crypto';
 import { jsPDF } from 'jspdf';
 
@@ -135,6 +136,7 @@ export async function seedArtifactRetention({ client, fixture, kind, tag, ownedS
 		const id = randomUUID();
 		addObject(parents[0].row, table, id, 'unrelated', filePath(parents[0].row, table, id, 'unrelated.pdf'));
 	}
+	for (const file of objects) file.uploadId = randomUUID();
 	const files = objects.map(({ bytes: _bytes, ...file }) => file);
 	const batches = [
 		['personnel', parents.map((parent) => parent.row)],
@@ -159,8 +161,7 @@ export async function seedArtifactRetention({ client, fixture, kind, tag, ownedS
 		for (let offset = 0; offset < records.length; offset += 100)
 			checked(await client.from(table).insert(records.slice(offset, offset + 100)));
 	}
-	for (const file of objects)
-		checked(await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' }));
+	for (const file of objects) await registeredFixtureFileWrite(client, fixture, file);
 	return {
 		kind,
 		tag,

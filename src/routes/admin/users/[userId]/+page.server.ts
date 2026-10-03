@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { loadWithAdminContext, adminAction } from '$lib/server/adapters/adminAdapter';
-import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
+import { createSupabasePlatformAudit } from '$lib/audit/index.server';
 import {
 	checkAdminAuthEmailRateLimit,
 	createSupabasePlatformUserIdentityCommands
@@ -19,7 +19,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		if (userDetail.status === 'not_found') throw error(404, 'User not found');
 		if (userDetail.status === 'auth_error') throw error(500, 'Failed to load user identity');
 
-		const recentActivity = await createSupabasePlatformAudit(ctx).listRecentByUser({ userId, limit: 10 });
+		const recentActivity = await createSupabasePlatformAudit(ctx.adminClient).listRecentByUser({ userId, limit: 10 });
 
 		return {
 			...userDetail.detail,

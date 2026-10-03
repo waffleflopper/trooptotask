@@ -1,4 +1,4 @@
-import type { PlatformAuditRecord, PlatformAuditStore } from '$lib/server/core/useCases/platformAudit';
+import type { PlatformAuditRecord, PlatformAuditStore } from './platformAudit.server';
 
 interface InMemoryPlatformAuditOptions {
 	logs?: PlatformAuditRecord[];
@@ -19,6 +19,15 @@ export function createInMemoryPlatformAuditStore(options: InMemoryPlatformAuditO
 	const logs = (options.logs ?? []).map(cloneLog).sort(newestFirst);
 
 	return {
+		async listRecentActivity(input) {
+			return logs.slice(0, input.limit).map((log) => ({
+				id: log.id,
+				action: log.action,
+				user_id: log.userId,
+				timestamp: log.timestamp
+			}));
+		},
+
 		async listLogs(input) {
 			const filtered = logs.filter((log) => {
 				if (input.action && log.action !== input.action) return false;

@@ -1,5 +1,5 @@
 import type { AdminRole } from '$lib/server/admin';
-import type { PlatformAudit, PlatformAuditOrganizationActivity } from './platformAudit';
+import type { PlatformAudit, PlatformAuditOrganizationActivity } from '$lib/audit/contracts';
 import type { PlatformMembershipAdministration, PlatformMembershipRole } from './platformMembershipAdministration';
 import type { PlatformMetrics } from './platformMetrics';
 
@@ -50,7 +50,7 @@ export interface PlatformOrganizationDetailDependencies {
 	adminRole: AdminRole;
 	membershipAdministration: PlatformMembershipAdministration;
 	metrics: PlatformMetrics;
-	audit: PlatformAudit;
+	audit: Pick<PlatformAudit, 'listRecentByOrganization'>;
 }
 
 function errorMessage(error: unknown): string {

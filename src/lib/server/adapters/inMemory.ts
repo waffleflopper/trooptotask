@@ -19,7 +19,6 @@ import type {
 	FindOptions,
 	FindResult,
 	AuthContext,
-	AuditPort,
 	ScopeEnforcementPort,
 	StoragePort,
 	UseCaseContext,
@@ -33,6 +32,7 @@ import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 
+type AuditPort = UseCaseContext['audit'];
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
@@ -426,15 +426,6 @@ export function createInMemoryDataStore(): DataStore & {
 			const count = filtered.length;
 			const data = applyPagination<T>(applySorting(filtered, options), options);
 			return { data, count };
-		},
-
-		async listDistinctAuditActions(orgId: string, excludedActions: string[] = []): Promise<string[]> {
-			const filtered = applyFilters('audit_logs', getRows('audit_logs'), orgId, undefined, {
-				notInFilters: { action: excludedActions }
-			});
-			return [
-				...new Set(filtered.map((row) => row.action).filter((value): value is string => typeof value === 'string'))
-			].sort();
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {

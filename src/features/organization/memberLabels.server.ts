@@ -15,6 +15,15 @@ export interface OrganizationMemberLabelReader {
 	findMembers(orgId: string, userIds: string[]): Promise<OrganizationMemberLabelRow[]>;
 }
 
+interface OrganizationMemberEmailReadStore {
+	findMany<T>(
+		table: string,
+		orgId: string,
+		filters: undefined,
+		options: { select: string; inFilters: { user_id: string[] } }
+	): Promise<T[]>;
+}
+
 function compact(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : '';
 }
@@ -37,4 +46,24 @@ export async function loadOrganizationMemberLabels(
 	if (userIds.length === 0) return new Map();
 	const rows = await reader.findMembers(orgId, userIds);
 	return new Map(rows.map((row) => [row.user_id, labelForRow(row)]));
+}
+
+/** Exact membership emails for a separately authorized audit read; no display-name fallback. */
+export async function listOrganizationMemberEmailsByUserIds(
+	store: OrganizationMemberEmailReadStore,
+	orgId: string,
+	userIds: string[]
+): Promise<Map<string, string>> {
+	if (userIds.length === 0) return new Map();
+	const rows = await store.findMany<{ user_id: unknown; email: unknown }>(
+		'organization_memberships',
+		orgId,
+		undefined,
+		{ select: 'user_id, email', inFilters: { user_id: userIds } }
+	);
+	const emails = new Map<string, string>();
+	for (const { user_id: userId, email } of rows) {
+		if (typeof userId === 'string' && typeof email === 'string' && email.length > 0) emails.set(userId, email);
+	}
+	return emails;
 }

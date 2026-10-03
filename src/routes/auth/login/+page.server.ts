@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { validateEmail } from '$lib/server/validation';
-import { auditLog } from '$lib/server/auditLog';
+import { auditLog } from '$lib/audit/index.server';
 import { getAuthenticatedRedirectPath, loginIdentity } from '$features/identity/index.server';
 import { sanitizeAuthNextPath } from '$features/identity/contracts';
 

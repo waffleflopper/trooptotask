@@ -1,11 +1,7 @@
+import { assertAuditQuerySuccess } from './providerError.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AdminContext } from './adminAdapter';
-import {
-	createPlatformAudit,
-	type PlatformAudit,
-	type PlatformAuditRecord,
-	type PlatformAuditStore
-} from '$lib/server/core/useCases/platformAudit';
+import { createPlatformAudit, type PlatformAuditRecord, type PlatformAuditStore } from './platformAudit.server';
+import type { PlatformAudit, PlatformAuditDashboardActivity } from './platformContracts';
 
 type SupabaseResponse<T> = {
 	data: T | null;
@@ -31,26 +27,10 @@ type SupabaseActionRow = {
 };
 
 const DISTINCT_ACTION_LOOKBACK_LIMIT = 1000;
+const AUDIT_LOG_DASHBOARD_COLUMNS = 'id, action, user_id, timestamp';
 const AUDIT_LOG_LIST_COLUMNS =
 	'id, user_id, org_id, action, resource_type, resource_id, ip_address, details, severity, timestamp';
 const AUDIT_LOG_RECENT_COLUMNS = 'id, user_id, org_id, action, resource_type, resource_id, severity, timestamp';
-
-function formatSupabaseError(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	if (typeof error === 'string') return error;
-	if (error && typeof error === 'object') {
-		const candidate = error as { message?: unknown; code?: unknown };
-		const message = typeof candidate.message === 'string' ? candidate.message : JSON.stringify(error);
-		return typeof candidate.code === 'string' ? `${message} (${candidate.code})` : message;
-	}
-	return String(error);
-}
-
-function assertSupabaseSuccess<T>(operation: string, response: SupabaseResponse<T>): void {
-	if (response.error) {
-		throw new Error(`${operation} failed: ${formatSupabaseError(response.error)}`);
-	}
-}
 
 function mapAuditLog(row: SupabaseAuditLogRow): PlatformAuditRecord {
 	return {
@@ -69,6 +49,21 @@ function mapAuditLog(row: SupabaseAuditLogRow): PlatformAuditRecord {
 
 export function createSupabasePlatformAuditStore(supabase: SupabaseClient): PlatformAuditStore {
 	return {
+		async listRecentActivity(input) {
+			const response = (await supabase
+				.from('audit_logs')
+				.select(AUDIT_LOG_DASHBOARD_COLUMNS)
+				.order('timestamp', { ascending: false })
+				.limit(input.limit)) as SupabaseResponse<PlatformAuditDashboardActivity[]>;
+			assertAuditQuerySuccess('table audit_logs recent activity', response);
+			return (response.data ?? []).map((row) => ({
+				id: row.id,
+				action: row.action,
+				user_id: row.user_id,
+				timestamp: row.timestamp
+			}));
+		},
+
 		async listLogs(input) {
 			let query = supabase.from('audit_logs').select(AUDIT_LOG_LIST_COLUMNS, { count: 'exact' });
 			if (input.action) query = query.eq('action', input.action);
@@ -78,7 +73,7 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 			const response = (await query
 				.order('timestamp', { ascending: false })
 				.range(input.offset, input.offset + input.limit - 1)) as SupabaseResponse<SupabaseAuditLogRow[]>;
-			assertSupabaseSuccess('table audit_logs list', response);
+			assertAuditQuerySuccess('table audit_logs list', response);
 
 			return {
 				logs: ((response.data ?? []) as SupabaseAuditLogRow[]).map(mapAuditLog),
@@ -87,13 +82,13 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 		},
 
 		async listDistinctActions() {
-			const { data, error } = (await supabase
+			const response = (await supabase
 				.from('audit_logs')
 				.select('action')
 				.order('timestamp', { ascending: false })
 				.limit(DISTINCT_ACTION_LOOKBACK_LIMIT)) as SupabaseResponse<SupabaseActionRow[]>;
-			if (error) throw new Error(`table audit_logs distinct actions failed: ${formatSupabaseError(error)}`);
-			return [...new Set((data ?? []).map((row) => row.action))].sort();
+			assertAuditQuerySuccess('table audit_logs distinct actions', response);
+			return [...new Set((response.data ?? []).map((row) => row.action))].sort();
 		},
 
 		async listRecentByOrganization(input) {
@@ -103,7 +98,7 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 				.eq('org_id', input.orgId)
 				.order('timestamp', { ascending: false })
 				.limit(input.limit)) as SupabaseResponse<SupabaseAuditLogRow[]>;
-			assertSupabaseSuccess('table audit_logs recent by organization', response);
+			assertAuditQuerySuccess('table audit_logs recent by organization', response);
 			return ((response.data ?? []) as SupabaseAuditLogRow[]).map(mapAuditLog);
 		},
 
@@ -114,14 +109,14 @@ export function createSupabasePlatformAuditStore(supabase: SupabaseClient): Plat
 				.eq('user_id', input.userId)
 				.order('timestamp', { ascending: false })
 				.limit(input.limit)) as SupabaseResponse<SupabaseAuditLogRow[]>;
-			assertSupabaseSuccess('table audit_logs recent by user', response);
+			assertAuditQuerySuccess('table audit_logs recent by user', response);
 			return ((response.data ?? []) as SupabaseAuditLogRow[]).map(mapAuditLog);
 		}
 	};
 }
 
-export function createSupabasePlatformAudit(ctx: AdminContext): PlatformAudit {
+export function createSupabasePlatformAudit(supabase: SupabaseClient): PlatformAudit {
 	return createPlatformAudit({
-		store: createSupabasePlatformAuditStore(ctx.adminClient)
+		store: createSupabasePlatformAuditStore(supabase)
 	});
 }

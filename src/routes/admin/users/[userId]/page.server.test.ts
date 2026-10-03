@@ -28,7 +28,7 @@ vi.mock('$lib/server/adapters/adminAdapter', () => ({
 		config.fn(event.__ctx, event)
 }));
 
-vi.mock('$lib/server/adapters/supabasePlatformAudit', () => ({
+vi.mock('$lib/audit/index.server', () => ({
 	createSupabasePlatformAudit: () => platformAuditMock
 }));
 

@@ -69,7 +69,18 @@ function provider() {
 			case 'beta_feedback':
 				return count(params.get('status') === 'eq.new' ? 6 : 11);
 			case 'audit_logs':
-				return Response.json([{ id: 'event-1', action: 'suspend_org', user_id: 'admin-1', timestamp: '2026-06-01' }]);
+				return Response.json([
+					{
+						id: 'event-1',
+						action: 'suspend_org',
+						user_id: 'admin-1',
+						timestamp: '2026-06-01',
+						details: { actor: 'private@example.test', note: 'private note' },
+						ip_address: '203.0.113.10',
+						user_agent: 'private browser',
+						resource_id: 'private-resource'
+					}
+				]);
 		}
 		return Response.json({ message: 'Column or function unavailable', code: '42703' }, { status: 400 });
 	});
@@ -92,7 +103,7 @@ describe('admin dashboard and search requests', () => {
 	afterEach(() => vi.restoreAllMocks());
 
 	it.each(['super_admin', 'support', 'billing'])(
-		'retains the dashboard for %s without commercial data',
+		'retains the dashboard for %s and excludes sensitive Audit fields',
 		async (role) => {
 			lookupRole.mockResolvedValue(role);
 			await expect(load(pageEvent())).resolves.toEqual({

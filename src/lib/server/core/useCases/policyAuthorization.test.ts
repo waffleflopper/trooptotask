@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { AuditPort } from '$lib/server/core/ports';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { requirePolicyDecision } from './policyAuthorization';
 
 const baseCapabilityMap = {
@@ -74,7 +74,7 @@ describe('policy authorization', () => {
 	});
 });
 
-function auditSpy(): AuditPort {
+function auditSpy(): PolicyAuditSink {
 	return {
 		log: vi.fn()
 	};

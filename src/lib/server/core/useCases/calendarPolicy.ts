@@ -1,10 +1,11 @@
+import type { AuditPort } from '$lib/audit/contracts';
 import {
 	POLICY_ACTION_CATALOG,
 	type FeatureLanePolicyAction,
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext, DataStore, UseCaseContext, WritePorts } from '$lib/server/core/ports';
+import type { AuthContext, DataStore, UseCaseContext, WritePorts } from '$lib/server/core/ports';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import { requirePersonnelCalendarRoster } from './calendarScope';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';

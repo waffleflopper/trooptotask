@@ -27,6 +27,20 @@ export async function listTrainingTypeLabels(
 	return rows.map(({ id, name }) => ({ id, name }));
 }
 
+/** Resolve only referenced type names for a separately authorized audit read. */
+export async function listTrainingTypeNamesByIds(
+	store: Pick<TrainingCatalogReadStore, 'findMany'>,
+	orgId: string,
+	ids: string[]
+): Promise<Map<string, string>> {
+	if (ids.length === 0) return new Map();
+	const rows = await store.findMany<{ id: string; name: string | null }>('training_types', orgId, undefined, {
+		select: 'id, name',
+		inFilters: { id: ids }
+	});
+	return new Map(rows.map(({ id, name }) => [id, name ?? id]));
+}
+
 /** Rank catalog deletion needs only Training's active applicability references. */
 export async function listTrainingRankApplicabilityReferences(
 	store: TrainingCatalogReadStore,

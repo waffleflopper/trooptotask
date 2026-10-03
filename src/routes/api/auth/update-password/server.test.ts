@@ -8,7 +8,7 @@ const { auditLogMock, checkPasswordUpdateRateLimitMock } = vi.hoisted(() => ({
 	checkPasswordUpdateRateLimitMock: vi.fn()
 }));
 
-vi.mock('$lib/server/auditLog', () => ({
+vi.mock('$lib/audit/index.server', () => ({
 	auditLog: auditLogMock
 }));
 

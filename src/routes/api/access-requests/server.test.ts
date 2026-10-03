@@ -15,7 +15,7 @@ vi.mock('$features/identity/index.server', async (importOriginal) => ({
 	}))
 }));
 
-vi.mock('$lib/server/auditLog', () => ({
+vi.mock('$lib/audit/index.server', () => ({
 	auditLog: auditLogMock
 }));
 

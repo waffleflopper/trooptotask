@@ -1,10 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { createSupabasePlatformAudit } from '$lib/audit/index.server';
 import { countPendingFeedback } from '$features/feedback/index.server';
 import type { AdminContext } from './adminAdapter';
 import {
 	createPlatformAdministration,
 	type PlatformAdministration,
-	type PlatformAdministrationRecentActivity,
 	type PlatformAdministrationSearchOrganizationRow,
 	type PlatformAdministrationSearchUserRow,
 	type PlatformAdministrationStore,
@@ -81,16 +81,6 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 			return countPendingFeedback(supabase);
 		},
 
-		async listRecentActivity(limit: number): Promise<PlatformAdministrationRecentActivity[]> {
-			const response = await supabase
-				.from('audit_logs')
-				.select('*')
-				.order('timestamp', { ascending: false })
-				.limit(limit);
-			assertSupabaseSuccess('table audit_logs recent activity', response);
-			return (response.data as PlatformAdministrationRecentActivity[] | null) ?? [];
-		},
-
 		async searchUsersByEmail(input): Promise<PlatformAdministrationSearchUserRow[]> {
 			const response = await supabase.rpc('search_users_by_email', {
 				search_query: input.query,
@@ -161,6 +151,7 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 
 export function createSupabasePlatformAdministration(ctx: AdminContext): PlatformAdministration {
 	return createPlatformAdministration({
+		auditActivity: createSupabasePlatformAudit(ctx.adminClient),
 		store: createSupabasePlatformAdministrationStore(ctx.adminClient),
 		actorUserId: ctx.adminUser.id,
 		audit: (event) => ctx.audit(event)

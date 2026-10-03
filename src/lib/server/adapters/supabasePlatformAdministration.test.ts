@@ -100,12 +100,6 @@ describe('createSupabasePlatformAdministrationStore', () => {
 			message: 'table access_requests pending count failed: database offline (XX000)'
 		},
 		{
-			name: 'listRecentActivity',
-			create: () => createStoreWithFromResult({ data: null, error: PROVIDER_ERROR }),
-			run: (store: PlatformAdministrationStore) => store.listRecentActivity(10),
-			message: 'table audit_logs recent activity failed: database offline (XX000)'
-		},
-		{
 			name: 'countOrganizationsForUser',
 			create: () => createStoreWithFromResult({ data: null, error: PROVIDER_ERROR, count: null }),
 			run: (store: PlatformAdministrationStore) => store.countOrganizationsForUser(VALID_USER_ID),

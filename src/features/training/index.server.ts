@@ -12,6 +12,7 @@ export {
 	listTrainingTypes,
 	listTrainingViews,
 	listTrainingTypeLabels,
+	listTrainingTypeNamesByIds,
 	listTrainingRankApplicabilityReferences,
 	countTrainingTypes,
 	findTrainingTypeByName,

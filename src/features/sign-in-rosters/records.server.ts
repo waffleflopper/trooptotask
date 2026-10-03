@@ -1,4 +1,4 @@
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import {
 	buildSensitiveFilePath,
 	sanitizeSensitiveFilename,

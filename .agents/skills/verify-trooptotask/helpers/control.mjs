@@ -19,6 +19,7 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
+import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
 import {
 	prepareUploadOverlap,
@@ -232,6 +233,20 @@ async function main() {
 				state,
 				pageId,
 				`async () => (${requestDeletion.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), action, body: JSON.parse(bodyText) })})`
+			)
+		);
+		return;
+	}
+	if (command === 'audit-training-update') {
+		const [page, orgKey, bodyText] = args;
+		const pageId = Number(page);
+		if (args.length !== 3 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use audit-training-update PAGE orgA|orgB JSON.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestAuditTrainingUpdate.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), body: JSON.parse(bodyText) })})`
 			)
 		);
 		return;
@@ -1893,7 +1908,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

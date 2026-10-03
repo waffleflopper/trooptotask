@@ -7,7 +7,7 @@ import { POST } from './+server';
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
-vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
+vi.mock('$lib/audit/index.server', () => ({ auditLog: vi.fn() }));
 function fixture(flow: 'recovery' | 'invite' = 'recovery') {
 	const user = { id: 'actor', email: 'actor@example.test' };
 	const auth = {

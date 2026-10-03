@@ -1,4 +1,9 @@
-export type PlatformAuditSeverity = 'info' | 'warning' | 'critical' | string;
+import type {
+	PlatformAudit,
+	PlatformAuditDashboardActivity,
+	PlatformAuditLogEntry,
+	PlatformAuditSeverity
+} from './platformContracts';
 
 export interface PlatformAuditRecord {
 	id: string;
@@ -13,59 +18,8 @@ export interface PlatformAuditRecord {
 	timestamp: string;
 }
 
-export interface PlatformAuditLogEntry {
-	id: string;
-	userId: string | null;
-	orgId: string | null;
-	action: string;
-	resourceType: string | null;
-	resourceId: string | null;
-	ipAddress: string | null;
-	details: Record<string, unknown> | null;
-	severity: PlatformAuditSeverity;
-	createdAt: string;
-}
-
-export interface PlatformAuditOrganizationActivity {
-	id: string;
-	action: string;
-	userId: string | null;
-	timestamp: string;
-	severity: PlatformAuditSeverity;
-	resourceType: string | null;
-	resourceId: string | null;
-}
-
-export interface PlatformAuditUserActivity {
-	id: string;
-	action: string;
-	resourceType: string | null;
-	resourceId: string | null;
-	orgId: string | null;
-	timestamp: string;
-	severity: PlatformAuditSeverity;
-}
-
-export interface PlatformAuditListInput {
-	page: number;
-	limit?: number;
-	action?: string;
-	severity?: string;
-	orgId?: string;
-}
-
-export interface PlatformAuditListResult {
-	logs: PlatformAuditLogEntry[];
-	totalCount: number;
-	page: number;
-	limit: number;
-	actionFilter: string;
-	severityFilter: string;
-	orgFilter: string;
-	availableActions: string[];
-}
-
 export interface PlatformAuditStore {
+	listRecentActivity(input: { limit: number }): Promise<PlatformAuditDashboardActivity[]>;
 	listLogs(input: {
 		offset: number;
 		limit: number;
@@ -80,12 +34,6 @@ export interface PlatformAuditStore {
 
 export interface PlatformAuditDependencies {
 	store: PlatformAuditStore;
-}
-
-export interface PlatformAudit {
-	listLogs(input: PlatformAuditListInput): Promise<PlatformAuditListResult>;
-	listRecentByOrganization(input: { orgId: string; limit?: number }): Promise<PlatformAuditOrganizationActivity[]>;
-	listRecentByUser(input: { userId: string; limit?: number }): Promise<PlatformAuditUserActivity[]>;
 }
 
 function mapLog(record: PlatformAuditRecord): PlatformAuditLogEntry {
@@ -114,6 +62,10 @@ function normalizeLimit(value: number | undefined, fallback: number): number {
 
 export function createPlatformAudit(deps: PlatformAuditDependencies): PlatformAudit {
 	return {
+		listRecentActivity(input) {
+			return deps.store.listRecentActivity({ limit: normalizeLimit(input.limit, 10) });
+		},
+
 		async listLogs(input) {
 			const limit = normalizeLimit(input.limit, 50);
 			const page = Math.max(1, input.page);

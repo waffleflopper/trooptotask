@@ -16,7 +16,7 @@ vi.mock('$features/identity/index.server', async (importOriginal) => ({
 	checkAccountSetupRenewalRateLimit: checkRenewalRateLimitMock
 }));
 
-vi.mock('$lib/server/auditLog', () => ({
+vi.mock('$lib/audit/index.server', () => ({
 	auditLog: auditLogMock
 }));
 

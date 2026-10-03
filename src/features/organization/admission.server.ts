@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isOrganizationIdSegment, normalizeOrganizationUrlSlug } from './url';
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 /** Check fresh Organization status with the caller's RLS-scoped client before dispatch. */
 export async function requireActiveOrganization(supabase: SupabaseClient, segment: string): Promise<void> {

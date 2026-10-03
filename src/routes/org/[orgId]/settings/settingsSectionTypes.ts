@@ -1,6 +1,6 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
-import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
+import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
 import type { DeletionRequestRow } from './settingsRows.server';
 

@@ -40,7 +40,7 @@ import {
 	readOrganizationMembershipSummaries
 } from '$features/organization/index.server';
 import { getPreferredOrganizationUrlSegment } from '$features/organization/contracts';
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export interface SupabaseAppShellRequestDeps {
 	getLayoutClient?: typeof getLayoutClient;

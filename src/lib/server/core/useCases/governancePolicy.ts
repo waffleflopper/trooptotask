@@ -1,11 +1,12 @@
 import type { OrganizationGovernancePolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext } from '$lib/server/core/ports';
+import type { AuthContext } from '$lib/server/core/ports';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { evaluateAuthoritativePolicyDecision, NO_FEATURE_CAPABILITIES } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface GovernancePolicyPorts {
 	auth: AuthContext;
-	audit: AuditPort;
+	audit: PolicyAuditSink;
 }
 
 export async function requireGovernancePolicy(

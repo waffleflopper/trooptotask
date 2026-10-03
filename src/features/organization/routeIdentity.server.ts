@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fail } from '$lib/errors';
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import { isOrganizationIdSegment, normalizeOrganizationUrlSlug } from './url';
 import type { OrganizationRouteIdentity } from './profileTypes';
 

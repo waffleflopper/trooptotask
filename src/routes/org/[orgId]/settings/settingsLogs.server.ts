@@ -1,6 +1,11 @@
 import type { DataStore, QueryPorts } from '$lib/server/core/ports';
-import { fetchAuditLogs, type AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
+import { fetchAuditLogs, createSupabaseOrganizationAuditStore } from '$lib/audit/index.server';
+import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import { listStatusTypeNamesByIds } from '$features/calendar/index.server';
+import { listPersonnelNamesByIds } from '$features/personnel/index.server';
+import { listTrainingTypeNamesByIds } from '$features/training/index.server';
+import { listOrganizationMemberEmailsByUserIds } from '$features/organization/index.server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface LogsSettingsData {
 	sections: {
@@ -16,8 +21,23 @@ export interface BuildLogsSettingsDataInput {
 	auditLogPage: AuditLogQueryResult;
 }
 
-export async function loadLogsSettings(ctx: QueryPorts, adminStore: DataStore): Promise<LogsSettingsData> {
-	const auditLogPage = await fetchAuditLogs(ctx, adminStore, { page: 1, limit: 100 }, listStatusTypeNamesByIds);
+export async function loadLogsSettings(
+	ctx: QueryPorts,
+	adminStore: DataStore,
+	adminClient: SupabaseClient
+): Promise<LogsSettingsData> {
+	const orgId = ctx.auth.orgId;
+	const auditLogPage = await fetchAuditLogs(
+		orgId,
+		createSupabaseOrganizationAuditStore(adminClient),
+		{ page: 1, limit: 100 },
+		{
+			personnelNames: (ids) => listPersonnelNamesByIds(adminStore, orgId, ids),
+			trainingTypeNames: (ids) => listTrainingTypeNamesByIds(adminStore, orgId, ids),
+			statusTypeNames: (ids) => listStatusTypeNamesByIds(adminStore, orgId, ids),
+			actorEmails: (ids) => listOrganizationMemberEmailsByUserIds(adminStore, orgId, ids)
+		}
+	);
 
 	return buildLogsSettingsData({ auditLogPage });
 }

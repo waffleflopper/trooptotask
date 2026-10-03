@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryPlatformAuditStore } from '$lib/server/adapters/inMemoryPlatformAudit';
-import { createPlatformAudit } from './platformAudit';
+import { createInMemoryPlatformAuditStore } from './inMemoryPlatformAudit';
+import { createPlatformAudit } from './platformAudit.server';
 
 describe('PlatformAudit', () => {
 	it('returns a filtered audit log page with distinct actions', async () => {

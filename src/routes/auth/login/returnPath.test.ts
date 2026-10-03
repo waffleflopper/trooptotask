@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { isRedirect } from '@sveltejs/kit';
 import { actions, load } from './+page.server';
 
-vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
+vi.mock('$lib/audit/index.server', () => ({ auditLog: vi.fn() }));
 
 const DESTINATION = '/org/alpha/calendar?view=month&label=A%26B#today';
 

@@ -30,11 +30,12 @@ export const load: PageServerLoad = async (event) => {
 		policyAction: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
 		policyResource: { kind: 'organization' },
 		fn: async (ctx) => {
-			const adminStore = createSupabaseDataStore(getAdminClient());
+			const adminClient = getAdminClient();
+			const adminStore = createSupabaseDataStore(adminClient);
 
 			return {
 				...common,
-				logsSettings: await loadLogsSettings(ctx, adminStore)
+				logsSettings: await loadLogsSettings(ctx, adminStore, adminClient)
 			};
 		}
 	});

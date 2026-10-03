@@ -1,4 +1,4 @@
-import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
+import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import type { QueryWithRawStorePorts } from '$lib/server/core/ports';
 import type { DeletionRequestRow } from './settingsRows.server';
 import type { SettingsActivityData, SettingsApprovalsSectionData } from './settingsSectionTypes';

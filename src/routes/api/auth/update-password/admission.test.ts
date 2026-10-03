@@ -7,7 +7,7 @@ const { limit } = vi.hoisted(() => ({ limit: vi.fn() }));
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: limit
 }));
-vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
+vi.mock('$lib/audit/index.server', () => ({ auditLog: vi.fn() }));
 
 const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: proofProvider.auth }) }));

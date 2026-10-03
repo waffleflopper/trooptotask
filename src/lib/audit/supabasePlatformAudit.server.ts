@@ -1,3 +1,4 @@
+import { assertAuditQuerySuccess } from './providerError.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createPlatformAudit, type PlatformAuditRecord, type PlatformAuditStore } from './platformAudit.server';
 import type { PlatformAudit, PlatformAuditDashboardActivity } from './platformContracts';
@@ -30,10 +31,6 @@ const AUDIT_LOG_DASHBOARD_COLUMNS = 'id, action, user_id, timestamp';
 const AUDIT_LOG_LIST_COLUMNS =
 	'id, user_id, org_id, action, resource_type, resource_id, ip_address, details, severity, timestamp';
 const AUDIT_LOG_RECENT_COLUMNS = 'id, user_id, org_id, action, resource_type, resource_id, severity, timestamp';
-
-function assertAuditQuerySuccess(operation: string, response: { error: unknown }): void {
-	if (response.error) throw new Error(`${operation} failed`);
-}
 
 function mapAuditLog(row: SupabaseAuditLogRow): PlatformAuditRecord {
 	return {

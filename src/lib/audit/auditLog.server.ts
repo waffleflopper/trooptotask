@@ -1,15 +1,6 @@
-import { getAdminClient } from './supabase';
+import { getAdminClient } from '$lib/server/supabase';
 
-export type AuditSeverity = 'info' | 'warning' | 'critical';
-
-export interface AuditEvent {
-	action: string;
-	resourceType: string;
-	resourceId?: string;
-	orgId?: string;
-	details?: Record<string, unknown>;
-	severity?: AuditSeverity;
-}
+import type { AuditEvent } from './contracts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -200,7 +191,7 @@ export async function auditLog(
 		const admin = getAdminClient();
 		const details = sanitizeDetails(event, requestInfo);
 
-		await admin.from('audit_logs').insert({
+		const result = await admin.from('audit_logs').insert({
 			user_id: requestInfo.userId ?? null,
 			org_id: event.orgId ?? null,
 			action: event.action,
@@ -211,6 +202,7 @@ export async function auditLog(
 			details,
 			severity: event.severity ?? 'info'
 		});
+		if (result.error) console.error('Audit log write failed');
 	} catch {
 		console.error('Audit log write failed');
 	}

@@ -550,11 +550,11 @@ describe('server auth hook', () => {
 	describe('request throttle admission', () => {
 		const auditLog = vi.fn();
 		beforeEach(() => {
-			vi.doMock('$lib/server/auditLog', () => ({ auditLog }));
+			vi.doMock('$lib/audit/index.server', () => ({ auditLog }));
 			auditLog.mockClear();
 		});
 		afterEach(() => {
-			vi.doUnmock('$lib/server/auditLog');
+			vi.doUnmock('$lib/audit/index.server');
 			vi.unstubAllEnvs();
 		});
 

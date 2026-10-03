@@ -11,7 +11,7 @@ vi.mock('$env/static/public', () => ({
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
-vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
+vi.mock('$lib/audit/index.server', () => ({ auditLog: vi.fn() }));
 afterEach(() => vi.unstubAllGlobals());
 
 it('isolates real SDK proof, revokes only its temporary session, and changes the password through the retained AAL2 session', async () => {

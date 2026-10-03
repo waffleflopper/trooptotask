@@ -11,7 +11,7 @@ import {
 import type { OrganizationRetentionConfiguration } from '$features/organization/contracts';
 import { cleanupExpiredOnboardings, createSupabaseOnboardingRetentionSource } from '$features/onboarding/index.server';
 import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const GET: RequestHandler = async ({ request }) => {
 	assertCronEndpointAuthorized(request.headers.get('authorization'), [env.CLEANUP_SECRET, env.CRON_SECRET]);

@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createSupabaseAuditAdapter } from './supabaseAudit';
+import { createSupabaseAuditAdapter } from './supabaseAudit.server';
 
-vi.mock('$lib/server/auditLog', () => ({
+vi.mock('./auditLog.server', () => ({
 	auditLog: vi.fn()
 }));
 
-import { auditLog } from '$lib/server/auditLog';
+import { auditLog } from './auditLog.server';
 
 const mockAuditLog = vi.mocked(auditLog);
 

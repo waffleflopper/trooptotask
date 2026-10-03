@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const insert = vi.fn();
 const from = vi.fn(() => ({ insert }));
@@ -7,8 +7,9 @@ vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: vi.fn(() => ({ from }))
 }));
 
-import { auditLog } from './auditLog';
-import { createSupabaseAuditAdapter } from './adapters/supabaseAudit';
+import { auditLog } from './auditLog.server';
+import { createSupabaseAuditAdapter } from './supabaseAudit.server';
+import { getAdminClient } from '$lib/server/supabase';
 
 describe('auditLog', () => {
 	beforeEach(() => {
@@ -16,6 +17,33 @@ describe('auditLog', () => {
 		from.mockClear();
 		insert.mockResolvedValue({ error: null });
 	});
+	afterEach(() => vi.restoreAllMocks());
+
+	it.each(['resolved provider error', 'rejected insert', 'provider construction failure'])(
+		'%s remains best-effort and reports no event or provider payload',
+		async (failure) => {
+			const sensitiveError = new Error('private@example.test private personnel note');
+			const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
+			if (failure === 'resolved provider error') insert.mockResolvedValue({ error: sensitiveError });
+			if (failure === 'rejected insert') insert.mockRejectedValue(sensitiveError);
+			if (failure === 'provider construction failure') {
+				vi.mocked(getAdminClient).mockImplementationOnce(() => {
+					throw sensitiveError;
+				});
+			}
+			await expect(
+				auditLog(
+					{
+						action: 'personnel.updated',
+						resourceType: 'personnel',
+						details: { note: 'private personnel note', email: 'private@example.test' }
+					},
+					{ userId: 'actor', ip: '127.0.0.1' }
+				)
+			).resolves.toBeUndefined();
+			expect(diagnostic.mock.calls).toEqual([['Audit log write failed']]);
+		}
+	);
 
 	it('retains a deleted Organization identifier without referencing its missing parent', () => {
 		const id = '11111111-1111-4111-8111-111111111111';

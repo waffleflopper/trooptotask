@@ -55,17 +55,7 @@
 		},
 		"audit": {
 			"roots": ["src/lib/audit/"],
-			"files": [
-				"src/lib/server/adapters/supabaseAudit.test.ts",
-				"src/lib/server/adapters/supabaseAudit.ts",
-				"src/lib/server/auditDetails.ts",
-				"src/lib/server/auditLog.test.ts",
-				"src/lib/server/auditLog.ts",
-				"src/lib/server/core/useCases/auditLogQuery.test.ts",
-				"src/lib/server/core/useCases/auditLogQuery.ts",
-				"src/lib/server/logSanitize.test.ts",
-				"src/lib/server/logSanitize.ts"
-			],
+			"files": [],
 			"packet": "08-M13"
 		},
 		"calendar": {
@@ -217,7 +207,6 @@
 				"src/lib/server/adapters/adminAdapter.test.ts",
 				"src/lib/server/adapters/adminAdapter.ts",
 				"src/lib/server/adapters/inMemoryPlatformAnnouncements.ts",
-				"src/lib/server/adapters/inMemoryPlatformAudit.ts",
 				"src/lib/server/adapters/inMemoryPlatformMembershipAdministration.ts",
 				"src/lib/server/adapters/inMemoryPlatformMetrics.ts",
 				"src/lib/server/adapters/inMemoryPlatformUserDirectory.ts",
@@ -228,8 +217,6 @@
 				"src/lib/server/adapters/supabasePlatformAdministration.ts",
 				"src/lib/server/adapters/supabasePlatformAnnouncements.test.ts",
 				"src/lib/server/adapters/supabasePlatformAnnouncements.ts",
-				"src/lib/server/adapters/supabasePlatformAudit.test.ts",
-				"src/lib/server/adapters/supabasePlatformAudit.ts",
 				"src/lib/server/adapters/supabasePlatformMembershipAdministration.test.ts",
 				"src/lib/server/adapters/supabasePlatformMembershipAdministration.ts",
 				"src/lib/server/adapters/supabasePlatformMetrics.test.ts",
@@ -252,8 +239,6 @@
 				"src/lib/server/core/useCases/platformAdministration.ts",
 				"src/lib/server/core/useCases/platformAnnouncements.test.ts",
 				"src/lib/server/core/useCases/platformAnnouncements.ts",
-				"src/lib/server/core/useCases/platformAudit.test.ts",
-				"src/lib/server/core/useCases/platformAudit.ts",
 				"src/lib/server/core/useCases/platformMembershipAdministration.test.ts",
 				"src/lib/server/core/useCases/platformMembershipAdministration.ts",
 				"src/lib/server/core/useCases/platformMetrics.test.ts",
@@ -354,7 +339,9 @@
 				"src/lib/utils/workbook.test.ts",
 				"src/lib/utils/workbook.ts",
 				"src/lib/errors.ts",
-				"src/lib/utils/retentionCutoff.ts"
+				"src/lib/utils/retentionCutoff.ts",
+				"src/lib/utils/logSanitize.ts",
+				"src/lib/utils/logSanitize.test.ts"
 			],
 			"packet": "08-M16"
 		},
@@ -608,7 +595,7 @@
 			"src/lib/utils/deferToIdle.ts",
 			"src/lib/utils/modalRegistry.svelte.ts"
 		],
-		"audit": ["src/lib/audit/index.server.ts", "src/lib/server/logSanitize.ts"],
+		"audit": ["src/lib/audit/index.server.ts", "src/lib/audit/contracts.ts"],
 		"identity": [
 			"src/features/identity/index.ts",
 			"src/features/identity/index.server.ts",

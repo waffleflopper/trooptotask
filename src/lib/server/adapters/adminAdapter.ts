@@ -17,7 +17,7 @@ import { json, error, redirect, fail } from '@sveltejs/kit';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { canAccessPage, getAdminRole, type AdminRole } from '$lib/server/admin';
 import { getAdminClient } from '$lib/server/supabase';
-import { auditLog, getRequestInfo } from '$lib/server/auditLog';
+import { auditLog, getRequestInfo } from '$lib/audit/index.server';
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 
 // ---------------------------------------------------------------------------

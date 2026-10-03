@@ -5,13 +5,14 @@ import type {
 	PolicyResource
 } from '$lib/access/policyEvaluator';
 import { scopeSetResourceForGroupId } from '$lib/access/scopeSetAccess';
-import type { AuditPort, AuthContext, DataStore } from '$lib/server/core/ports';
+import type { AuthContext, DataStore } from '$lib/server/core/ports';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface FeaturePolicyPorts {
 	auth: AuthContext;
-	audit?: AuditPort;
+	audit?: PolicyAuditSink;
 }
 
 interface FeaturePolicyResourcePorts {

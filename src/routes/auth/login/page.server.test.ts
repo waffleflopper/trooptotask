@@ -4,7 +4,7 @@ const { auditLogMock } = vi.hoisted(() => ({
 	auditLogMock: vi.fn()
 }));
 
-vi.mock('$lib/server/auditLog', () => ({
+vi.mock('$lib/audit/index.server', () => ({
 	auditLog: auditLogMock
 }));
 

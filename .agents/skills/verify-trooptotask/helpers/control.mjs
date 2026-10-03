@@ -1656,14 +1656,15 @@ async function main() {
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
-				if (item.kind === 'deletion-sources')
-					checked(
-						await client
-							.from('deletion_requests')
-							.delete()
-							.eq('organization_id', org(item.organization))
-							.in('resource_id', ids)
-					);
+				if (item.kind === 'deletion-sources' || (item.kind === 'personnel-lifecycle' && item.table === 'personnel')) {
+					let requests = client
+						.from('deletion_requests')
+						.delete()
+						.eq('organization_id', org(item.organization ?? 'orgA'))
+						.in('resource_id', ids);
+					if (item.kind === 'personnel-lifecycle') requests = requests.eq('resource_type', 'personnel');
+					checked(await requests);
+				}
 				if (item.kind === 'bulk-501')
 					checked(
 						await client

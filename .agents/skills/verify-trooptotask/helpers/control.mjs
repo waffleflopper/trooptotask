@@ -389,7 +389,15 @@ async function main() {
 			![...orgDestinations, 'dashboard', 'org/new', 'admin/feedback', 'admin/audit'].includes(destination) ||
 			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
 			(destination.startsWith('admin/') &&
-				!['platformReviewer', 'platformSupport', 'viewer', 'orgOwner'].includes(role))
+				![
+					'platformReviewer',
+					'platformSupport',
+					'viewer',
+					'orgOwner',
+					'orgAdmin',
+					'orgMember',
+					'orgSettingsPeer'
+				].includes(role))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
@@ -404,7 +412,14 @@ async function main() {
 						: `/org/${org(targetOrg)}/${destination}`;
 		const readyText =
 			destination === 'admin/audit'
-				? ['Audit Log', 'Access denied', 'Forbidden', 'Not authorized', "You don't have access"]
+				? [
+						'Audit Log',
+						'Access denied',
+						'Forbidden',
+						'Not authorized',
+						"You don't have access",
+						"You don't have permission to view this page"
+					]
 				: destination === 'settings/logs'
 					? ['Audit Log', "You don't have permission to view this page"]
 					: destination === 'admin/feedback'

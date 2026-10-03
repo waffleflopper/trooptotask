@@ -16,7 +16,7 @@ The concrete split is an independent usable verification outcome before the shar
 
 ## Observations and candidate
 
-Live verification is pending. No UI/provider/security acceptance is inferred from recipes or source. The local interrupted-seed check passes: all111 IDs and A/B scopes are persisted before writes; a failed second insert is recoverable and a duplicate seed makes no provider write. Two new query cases pass with existing cases (15 tests): same-Organization referenced labels/scoped actor email with saved masking, plus foreign labels/email denial and unresolved UUID stripping through preview. The worker's temporary test-only foreign-lookup counterexample failed as expected and was removed before final verification.
+Live verification is pending. The first launch was stopped through owned cleanup before any drive to correct an independently identified denial-text wait condition; its interrupted startup and passing cleanup remain preserved, without claiming an application failure. No UI/provider/security acceptance is inferred from recipes or source. The local interrupted-seed check passes: all111 IDs and A/B scopes are persisted before writes; a failed second insert is recoverable and a duplicate seed makes no provider write. Two new query cases pass with existing cases (15 tests): same-Organization referenced labels/scoped actor email with saved masking, plus foreign labels/email denial and unresolved UUID stripping through preview. The worker's temporary test-only foreign-lookup counterexample failed as expected and was removed before final verification.
 
 ## Review and release
 

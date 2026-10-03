@@ -20,6 +20,7 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 			((search !== null ||
 				control.suffix.endsWith('/deletion-requests/review') ||
 				control.suffix.endsWith('/personnel/archive-batch') ||
+				control.suffix === '/admin/api/suspend' ||
 				['hold-fail', 'reject'].includes(control.mode)) &&
 				method !== 'POST')
 		)

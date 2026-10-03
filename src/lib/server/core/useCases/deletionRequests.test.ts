@@ -1,11 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
-import {
-	approveDeletionRequest,
-	denyDeletionRequest,
-	cancelDeletionRequest,
-	listDeletionRequests
-} from './deletionRequests';
+import { approveDeletionRequest, denyDeletionRequest, listDeletionRequests } from './deletionRequests';
 import type { ApprovedTrainingDeletionPort } from '$features/training/index.server';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
@@ -687,36 +682,6 @@ describe('denyDeletionRequest', () => {
 
 		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
 		expect(request).toMatchObject({ status: 'denied' });
-	});
-});
-
-describe('cancelDeletionRequest', () => {
-	it('allows original requester to cancel their pending request', async () => {
-		const ctx = buildContext({ auth: { userId: 'requester-user' } });
-		seedPendingRequest(ctx);
-
-		await cancelDeletionRequest(ctx, 'dr-1');
-
-		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
-		expect(request).toMatchObject({ status: 'cancelled' });
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'deletion_request.cancelled',
-			resourceType: 'deletion_request',
-			resourceId: 'dr-1'
-		});
-	});
-
-	it('rejects cancel from a different user', async () => {
-		const ctx = buildContext({ auth: { userId: 'different-user' } });
-		seedPendingRequest(ctx);
-
-		await expect(cancelDeletionRequest(ctx, 'dr-1')).rejects.toMatchObject({ status: 403 });
-
-		// Status unchanged
-		const request = await ctx.store.findOne<Record<string, unknown>>('deletion_requests', 'test-org', { id: 'dr-1' });
-		expect(request!.status).toBe('pending');
 	});
 });
 

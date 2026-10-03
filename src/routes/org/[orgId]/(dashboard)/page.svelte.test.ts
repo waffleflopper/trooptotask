@@ -100,7 +100,6 @@ describe('dashboard page', () => {
 			await view.rerender({ data: makePageData({ orgId: 'org-2', orgName: 'Second Unit' }) });
 			await waitFor(() => expect(document.title).toContain('Second Unit'));
 			expect(screen.queryByRole('alert')).toBeNull();
-			reload.mockRestore();
 		}
 	);
 });

@@ -207,13 +207,6 @@ export const POLICY_ACTION_CATALOG = {
 			accessMode: 'write',
 			requiredCapability: 'configure'
 		}),
-		manageUnits: featureAction({
-			id: 'personnel.manageUnits',
-			label: 'Manage personnel units',
-			lane: 'personnel',
-			accessMode: 'write',
-			requiredCapability: 'configure'
-		}),
 		archiveRecords: featureAction({
 			id: 'personnel.archiveRecords',
 			label: 'Archive personnel records',

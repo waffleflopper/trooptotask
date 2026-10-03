@@ -1,10 +1,15 @@
 import { json } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { handle, createRequestDeletionRequestCancellation, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { createDeletionRequest, type CreateDeletionRequestInput } from '$features/deletion-requests/index.server';
-import { listDeletionRequests, cancelDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
+import {
+	createDeletionRequest,
+	cancelDeletionRequest,
+	type CreateDeletionRequestInput,
+	type DeletionRequestCancellationPort
+} from '$features/deletion-requests/index.server';
+import { listDeletionRequests } from '$lib/server/core/useCases/deletionRequests';
 
 export const _getConfig: RouteConfig<{ status?: string }, unknown> = {
 	// This route serves self-service callers and Settings reviewers. The route
@@ -37,21 +42,26 @@ export const _postConfig: RouteConfig<CreateDeletionRequestInput, unknown> = {
 
 export const POST = handle(_postConfig);
 
-export const _deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
-	policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
-	mutation: true,
+export function _createDeleteConfig(
+	cancellation: DeletionRequestCancellationPort
+): RouteConfig<Record<string, unknown>, { success: true }> {
+	return {
+		policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
+		mutation: true,
 
-	fn: async (ctx, input) => {
-		if (!input || typeof input !== 'object' || Array.isArray(input)) {
-			fail(400, 'Missing id');
+		fn: async (ctx, input) => {
+			if (!input || typeof input !== 'object' || Array.isArray(input)) {
+				fail(400, 'Missing id');
+			}
+
+			const id = input.id;
+			if (typeof id !== 'string' || id.length === 0) fail(400, 'Missing id');
+
+			await cancelDeletionRequest({ auth: ctx.auth, audit: ctx.audit, store: ctx.store, cancellation }, id);
+			return { success: true };
 		}
+	};
+}
 
-		const id = input.id;
-		if (typeof id !== 'string' || id.length === 0) fail(400, 'Missing id');
-
-		await cancelDeletionRequest(ctx, id);
-		return { success: true };
-	}
-};
-
-export const DELETE = handle(_deleteConfig);
+export const DELETE: RequestHandler = (event) =>
+	handle(_createDeleteConfig(createRequestDeletionRequestCancellation(event.locals)))(event);

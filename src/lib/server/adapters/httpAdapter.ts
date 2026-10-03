@@ -1,5 +1,6 @@
 import { createSupabaseSignInRosterFileWritePort } from '$features/sign-in-rosters/index.server';
 import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
+import { createSupabaseDeletionRequestCancellation } from '$features/deletion-requests/index.server';
 /**
  * HTTP adapter — the bridge between SvelteKit routes and use cases.
  *
@@ -680,6 +681,10 @@ async function resolveOrganizationIdForRequest(
 
 export function createRequestAccountAnnouncementDismissals(locals: Pick<App.Locals, 'supabase'>, userId: string) {
 	return createSupabaseAccountAnnouncementDismissals(locals.supabase, userId);
+}
+
+export function createRequestDeletionRequestCancellation(locals: Pick<App.Locals, 'supabase'>) {
+	return createSupabaseDeletionRequestCancellation(locals.supabase);
 }
 
 export function rethrowOrWrap(err: unknown): never {

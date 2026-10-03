@@ -3,25 +3,19 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
 import { subjectDetails } from '$lib/audit/index.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
-import {
-	TABLE,
-	AUDIT_RESOURCE,
-	fireAndForgetNotification,
-	isSupportedResourceType
-} from './deletionRequestSupport.server';
+import type { DeletionRequest, DeletionRequestResourceType } from './contracts';
+import type { DeletionRequestStore } from './contracts.server';
+import { AUDIT_RESOURCE, fireAndForgetNotification, isSupportedResourceType } from './deletionRequestSupport.server';
 
-interface DeletionRequestCreationContext {
+export interface DeletionRequestCreationContext {
 	auth: Parameters<typeof requireIdentityOwnedPolicy>[0]['auth'] & { orgId: string };
 	audit: NonNullable<Parameters<typeof requireIdentityOwnedPolicy>[0]['audit']>;
-	store: {
-		findOne<T>(table: 'deletion_requests', orgId: string, filters: Record<string, unknown>): Promise<T | null>;
-		insert<T>(table: 'deletion_requests', orgId: string, data: Record<string, unknown>): Promise<T>;
-	};
+	store: Pick<DeletionRequestStore, 'findPendingByResource' | 'createRequest'>;
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 
 export interface CreateDeletionRequestInput {
-	resourceType: string;
+	resourceType: DeletionRequestResourceType;
 	resourceId: string;
 	resourceDescription: string;
 	resourceUrl?: string | null;
@@ -31,7 +25,7 @@ export interface CreateDeletionRequestInput {
 export async function createDeletionRequest(
 	ctx: DeletionRequestCreationContext,
 	input: CreateDeletionRequestInput
-): Promise<Record<string, unknown>> {
+): Promise<DeletionRequest> {
 	if (!isSupportedResourceType(input.resourceType)) {
 		fail(400, `Unsupported resource type: ${input.resourceType}`);
 	}
@@ -45,30 +39,25 @@ export async function createDeletionRequest(
 	);
 
 	// Check for existing pending request for the same resource
-	const existing = await ctx.store.findOne<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
-		resource_type: input.resourceType,
-		resource_id: input.resourceId,
-		status: 'pending'
-	});
+	const existing = await ctx.store.findPendingByResource(ctx.auth.orgId, input.resourceType, input.resourceId);
 
 	if (existing) {
 		fail(409, 'A pending deletion request already exists for this resource');
 	}
 
-	const row = await ctx.store.insert<Record<string, unknown>>(TABLE, ctx.auth.orgId, {
-		requested_by: ctx.auth.userId,
-		requested_by_email: input.userEmail,
-		resource_type: input.resourceType,
-		resource_id: input.resourceId,
-		resource_description: input.resourceDescription,
-		resource_url: input.resourceUrl ?? null,
-		status: 'pending'
+	const row = await ctx.store.createRequest(ctx.auth.orgId, {
+		requestedBy: ctx.auth.userId,
+		requesterEmail: input.userEmail,
+		resourceType: input.resourceType,
+		resourceId: input.resourceId,
+		description: input.resourceDescription,
+		resourceUrl: input.resourceUrl ?? null
 	});
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: row.id as string | undefined,
+		resourceId: row.id,
 		details: subjectDetails({
 			subjectType: input.resourceType,
 			subjectId: input.resourceId,

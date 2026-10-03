@@ -5,16 +5,17 @@ import type { UseCaseContext } from '$lib/server/core/ports';
 
 export async function loadSettingsShell(
 	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'organizationSettings'>,
-	organization: SettingsShellOrganizationSource
+	organization: SettingsShellOrganizationSource,
+	readPendingApprovals: () => Promise<{ count: number }>
 ): Promise<SettingsShell> {
 	const [pendingInvitationsCount, archivedPersonnelCount, pendingApprovals] = await Promise.all([
 		ctx.organizationSettings.countPendingInvitations(ctx.auth.orgId),
 		countArchivedPersonnel(ctx),
-		ctx.store.findManyWithCount('deletion_requests', ctx.auth.orgId, { status: 'pending' }, { select: 'id', limit: 0 })
+		readPendingApprovals()
 	]);
 	return buildSettingsShell(ctx.auth.role, organization, {
 		pendingInvitationsCount,
 		archivedPersonnelCount,
-		pendingApprovalsCount: pendingApprovals.count ?? 0
+		pendingApprovalsCount: pendingApprovals.count
 	});
 }

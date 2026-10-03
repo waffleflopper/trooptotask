@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
-const { loadWithContextMock } = vi.hoisted(() => ({
-	loadWithContextMock: vi.fn()
+const { loadWithContextMock, requestStoreMock } = vi.hoisted(() => ({
+	loadWithContextMock: vi.fn(),
+	requestStoreMock: vi.fn()
 }));
 
 vi.mock('$lib/server/adapters/httpAdapter', async () => {
@@ -14,7 +16,8 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 	return {
 		...actual,
-		loadWithContext: loadWithContextMock
+		loadWithContext: loadWithContextMock,
+		createRequestDeletionRequestStore: requestStoreMock
 	};
 });
 
@@ -24,6 +27,7 @@ import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 describe('settings layout server load', () => {
 	beforeEach(() => {
 		loadWithContextMock.mockReset();
+		requestStoreMock.mockReset();
 	});
 
 	it('redirects the settings index before loading the shell', async () => {
@@ -81,6 +85,7 @@ describe('settings layout server load', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
 			loadWithContextCore(ctx, config)
 		);
@@ -150,6 +155,7 @@ describe('settings layout server load', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
 			loadWithContextCore(ctx, config)
 		);
@@ -214,6 +220,7 @@ describe('settings layout server load', () => {
 			{ id: 'approval-2', organization_id: 'org-1', status: 'pending' },
 			{ id: 'approval-approved', organization_id: 'org-1', status: 'approved' }
 		]);
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
 			loadWithContextCore(ctx, config)
 		);
@@ -261,6 +268,7 @@ describe('settings layout server load', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
 			loadWithContextCore(ctx, config)
 		);

@@ -1,3 +1,4 @@
+import { listDeletionRequestExportRows, type DeletionRequestStore } from '$features/deletion-requests/index.server';
 import {
 	listOnboardingTemplateExportRows,
 	listOnboardingTemplateStepExportRows,
@@ -5,8 +6,8 @@ import {
 	listOnboardingStepProgressExportRows
 } from '$features/onboarding/index.server';
 import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { handle, createRequestDeletionRequestStore, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	executeOrganizationDataExport,
 	type OrganizationDataExportArtifact,
@@ -28,62 +29,66 @@ interface ExportInput {
 type JsonExportArtifact = Extract<OrganizationDataExportArtifact, { kind: 'json' }>;
 type ExportOutput = OrganizationDataExportExecutionResult<JsonExportArtifact>;
 
-export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
-	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.organization.exportData,
-	policyResource: { kind: 'organization' },
-	parseInput: (event: RequestEvent) => ({
-		email: event.locals.user?.email
-	}),
-	fn: async (ctx, input) => {
-		const orgId = ctx.auth.orgId;
-		return executeOrganizationDataExport(ctx, {
-			requestedByEmail: input.email,
-			auditAction: 'export.created',
-			buildArtifact: async () => {
-				if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
-				const exportData = await loadOrganizationExportPayload(
-					ctx.rawStore,
-					ctx.auth,
-					ctx.personnelOrganizationExport,
-					{
-						listTrainingTypeExportRows,
-						listTrainingCompletionExportRows,
-						listTrainingViewExportRows
-					},
-					{
-						listOnboardingTemplateExportRows,
-						listOnboardingTemplateStepExportRows,
-						listPersonnelOnboardingExportRows,
-						listOnboardingStepProgressExportRows
-					},
-					{
-						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
-						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
-					},
-					{ listRatingSchemeExportRows },
-					ctx.organizationRawExport
-				);
-				const jsonStr = JSON.stringify(exportData, null, 2);
-				const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
+export function _createPostConfig(store: DeletionRequestStore): RouteConfig<ExportInput, ExportOutput> {
+	return {
+		mutation: true,
+		policyAction: POLICY_ACTION_CATALOG.organization.exportData,
+		policyResource: { kind: 'organization' },
+		parseInput: (event: RequestEvent) => ({
+			email: event.locals.user?.email
+		}),
+		fn: async (ctx, input) => {
+			const orgId = ctx.auth.orgId;
+			return executeOrganizationDataExport(ctx, {
+				requestedByEmail: input.email,
+				auditAction: 'export.created',
+				buildArtifact: async () => {
+					if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
+					const exportData = await loadOrganizationExportPayload(
+						ctx.rawStore,
+						ctx.auth,
+						ctx.personnelOrganizationExport,
+						{
+							listTrainingTypeExportRows,
+							listTrainingCompletionExportRows,
+							listTrainingViewExportRows
+						},
+						{
+							listOnboardingTemplateExportRows,
+							listOnboardingTemplateStepExportRows,
+							listPersonnelOnboardingExportRows,
+							listOnboardingStepProgressExportRows
+						},
+						{
+							listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
+							listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
+						},
+						{ listRatingSchemeExportRows },
+						ctx.organizationRawExport,
+						{ listDeletionRequestExportRows: () => listDeletionRequestExportRows(store, orgId) }
+					);
+					const jsonStr = JSON.stringify(exportData, null, 2);
+					const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
 
-				return {
-					kind: 'json',
-					body: jsonStr,
-					filename: `org-export-${orgId}-${dateStr}.json`,
-					fileSizeBytes: new TextEncoder().encode(jsonStr).length
-				};
-			}
-		});
-	},
-	formatOutput: (result) => {
-		return new Response(result.artifact.body, {
-			headers: {
-				'Content-Type': 'application/json',
-				'Content-Disposition': `attachment; filename="${result.artifact.filename}"`
-			}
-		});
-	}
-};
+					return {
+						kind: 'json',
+						body: jsonStr,
+						filename: `org-export-${orgId}-${dateStr}.json`,
+						fileSizeBytes: new TextEncoder().encode(jsonStr).length
+					};
+				}
+			});
+		},
+		formatOutput: (result) => {
+			return new Response(result.artifact.body, {
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Disposition': `attachment; filename="${result.artifact.filename}"`
+				}
+			});
+		}
+	};
+}
 
-export const POST = handle(_postConfig);
+export const POST: RequestHandler = (event) =>
+	handle(_createPostConfig(createRequestDeletionRequestStore(event.locals)))(event);

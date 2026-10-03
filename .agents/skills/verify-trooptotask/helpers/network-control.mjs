@@ -19,6 +19,7 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 			(search !== null && parsedUrl.search !== search) ||
 			((search !== null ||
 				control.suffix.endsWith('/deletion-requests/review') ||
+				control.suffix.endsWith('/personnel/archive-batch') ||
 				control.suffix === '/admin/api/suspend' ||
 				['hold-fail', 'reject'].includes(control.mode)) &&
 				method !== 'POST')
@@ -31,6 +32,10 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 			call.count = records.length;
 			call.ids = records.map((row) => row.personnelId);
 			call.notes = [...new Set(records.map((row) => row.note))];
+			if (control.suffix.endsWith('/personnel/archive-batch') && Array.isArray(body.ids)) {
+				call.ids = body.ids.filter((id) => typeof id === 'string');
+				call.count = body.ids.length;
+			}
 			if (control.suffix.endsWith('/deletion-requests/review'))
 				call.review = {
 					id: typeof body.id === 'string' ? body.id : null,

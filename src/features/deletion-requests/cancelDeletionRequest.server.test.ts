@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { createSupabaseDeletionRequestCancellation } from './cancellationProvider.server';
 import { cancelDeletionRequest } from './cancelDeletionRequest.server';
+import { createDeletionRequestTestStore } from './testing.server';
 
 const ORG = 'd1801000-0000-4000-8000-000000000101';
 const REQUEST = 'd1801000-0000-4000-8000-000000000201';
@@ -68,13 +69,19 @@ function fixture() {
 			}
 		}
 	});
-	return { ...ctx, cancellation: createSupabaseDeletionRequestCancellation(client), state, request };
+	return {
+		...ctx,
+		requests: createDeletionRequestTestStore(ctx.store),
+		cancellation: createSupabaseDeletionRequestCancellation(client),
+		state,
+		request
+	};
 }
 
 describe('owned deletion request cancellation', () => {
 	it('cancels without source capability, retains history and source, and rejects a terminal replay', async () => {
 		const ctx = fixture();
-		await cancelDeletionRequest(ctx, REQUEST);
+		await cancelDeletionRequest({ ...ctx, store: ctx.requests }, REQUEST);
 		expect(await ctx.store.findOne('deletion_requests', ORG, { id: REQUEST })).toEqual({
 			...ctx.request,
 			status: 'cancelled'
@@ -91,19 +98,23 @@ describe('owned deletion request cancellation', () => {
 				resourceId: REQUEST
 			}
 		]);
-		await expect(cancelDeletionRequest(ctx, REQUEST)).rejects.toMatchObject({ status: 404 });
+		await expect(cancelDeletionRequest({ ...ctx, store: ctx.requests }, REQUEST)).rejects.toMatchObject({
+			status: 404
+		});
 		expect(ctx.audit.events).toHaveLength(1);
 	});
 
 	it('rejects another requester and foreign or missing requests without changing them', async () => {
 		const ctx = fixture();
 		await expect(
-			cancelDeletionRequest({ ...ctx, auth: { ...ctx.auth, userId: 'another-user' } }, REQUEST)
+			cancelDeletionRequest({ ...ctx, store: ctx.requests, auth: { ...ctx.auth, userId: 'another-user' } }, REQUEST)
 		).rejects.toMatchObject({ status: 403 });
 		await expect(
-			cancelDeletionRequest({ ...ctx, auth: { ...ctx.auth, orgId: 'foreign-org' } }, REQUEST)
+			cancelDeletionRequest({ ...ctx, store: ctx.requests, auth: { ...ctx.auth, orgId: 'foreign-org' } }, REQUEST)
 		).rejects.toMatchObject({ status: 404 });
-		await expect(cancelDeletionRequest(ctx, 'missing')).rejects.toMatchObject({ status: 404 });
+		await expect(cancelDeletionRequest({ ...ctx, store: ctx.requests }, 'missing')).rejects.toMatchObject({
+			status: 404
+		});
 		expect(await ctx.store.findOne('deletion_requests', ORG, { id: REQUEST })).toEqual(ctx.request);
 		expect(ctx.audit.events.some((event) => event.action === 'deletion_request.cancelled')).toBe(false);
 	});
@@ -117,12 +128,16 @@ describe('owned deletion request cancellation', () => {
 		async ({ code, status }) => {
 			const ctx = fixture();
 			ctx.state.response = Response.json({ code, message: 'Synthetic cancellation fault' }, { status: 400 });
-			if (status) await expect(cancelDeletionRequest(ctx, REQUEST)).rejects.toMatchObject({ status });
-			else await expect(cancelDeletionRequest(ctx, REQUEST)).rejects.toThrow('Synthetic cancellation fault');
+			if (status)
+				await expect(cancelDeletionRequest({ ...ctx, store: ctx.requests }, REQUEST)).rejects.toMatchObject({ status });
+			else
+				await expect(cancelDeletionRequest({ ...ctx, store: ctx.requests }, REQUEST)).rejects.toThrow(
+					'Synthetic cancellation fault'
+				);
 			expect(await ctx.store.findOne('deletion_requests', ORG, { id: REQUEST })).toEqual(ctx.request);
 			expect(ctx.audit.events).toEqual([]);
 			ctx.state.response = undefined;
-			await cancelDeletionRequest(ctx, REQUEST);
+			await cancelDeletionRequest({ ...ctx, store: ctx.requests }, REQUEST);
 			expect(await ctx.store.findOne('deletion_requests', ORG, { id: REQUEST })).toMatchObject({ status: 'cancelled' });
 			expect(ctx.audit.events).toHaveLength(1);
 		}
@@ -133,7 +148,7 @@ describe('owned deletion request cancellation', () => {
 		async (reply) => {
 			const ctx = fixture();
 			ctx.state.response = Response.json(reply);
-			await expect(cancelDeletionRequest(ctx, REQUEST)).rejects.toThrow('not acknowledged');
+			await expect(cancelDeletionRequest({ ...ctx, store: ctx.requests }, REQUEST)).rejects.toThrow('not acknowledged');
 			expect(ctx.audit.events).toEqual([]);
 			expect(await ctx.store.findOne('deletion_requests', ORG, { id: REQUEST })).toEqual(ctx.request);
 		}

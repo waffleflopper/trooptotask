@@ -7,13 +7,28 @@ export async function bulkArchivePersonnel(orgId: string, ids: string[]): Promis
 		body: JSON.stringify({ ids })
 	});
 
-	if (!response.ok) {
-		return {
-			archivedIds: [],
-			approvalRequestedIds: [],
-			errors: ids.map((id) => ({ id, message: 'Failed to archive personnel' }))
-		};
-	}
+	if (!response.ok) throw new Error('Archive result could not be confirmed');
 
-	return response.json();
+	const result: unknown = await response.json();
+	if (!result || typeof result !== 'object') throw new Error('Archive result could not be confirmed');
+	const { archivedIds, approvalRequestedIds, errors } = result as Partial<ArchivePersonnelBatchResult>;
+	if (
+		!Array.isArray(archivedIds) ||
+		!archivedIds.every((id) => typeof id === 'string') ||
+		!Array.isArray(approvalRequestedIds) ||
+		!approvalRequestedIds.every((id) => typeof id === 'string') ||
+		!Array.isArray(errors) ||
+		!errors.every((error) => error && typeof error.id === 'string' && typeof error.message === 'string')
+	)
+		throw new Error('Archive result could not be confirmed');
+	const reportedIds = [...archivedIds, ...approvalRequestedIds, ...errors.map((error) => error.id)];
+	const selectedIds = new Set(ids);
+	if (
+		reportedIds.length !== ids.length ||
+		new Set(reportedIds).size !== ids.length ||
+		reportedIds.some((id) => !selectedIds.has(id))
+	) {
+		throw new Error('Archive result could not be confirmed');
+	}
+	return { archivedIds, approvalRequestedIds, errors };
 }

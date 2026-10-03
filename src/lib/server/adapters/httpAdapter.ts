@@ -1,6 +1,9 @@
 import { createSupabaseSignInRosterFileWritePort } from '$features/sign-in-rosters/index.server';
 import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
-import { createSupabaseDeletionRequestCancellation } from '$features/deletion-requests/index.server';
+import {
+	createSupabaseDeletionRequestCancellation,
+	createSupabaseDeletionRequestStore
+} from '$features/deletion-requests/index.server';
 /**
  * HTTP adapter — the bridge between SvelteKit routes and use cases.
  *
@@ -62,7 +65,6 @@ import {
 	createSupabasePersonnelAwardAcknowledgementPort,
 	createSupabasePersonnelArtifactWritePort,
 	createSupabasePersonnelOrganizationExportPort,
-	createSupabasePersonnelGovernanceDeletionPort,
 	createSupabaseSignInRosterPersonnelLookupPort,
 	createSupabasePersonnelTrainingRosterPort,
 	createSupabasePersonnelCriticalTasksRosterPort,
@@ -383,7 +385,6 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
-	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -429,7 +430,6 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			personnelArtifactWrites,
 			signInRosterFileWrites,
 			personnelOrganizationExport,
-			personnelGovernanceDeletion,
 			signInRosterPersonnelLookup,
 			personnelTrainingRoster,
 			personnelCriticalTasksRoster,
@@ -498,7 +498,6 @@ export async function buildLayoutContext(
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
-	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -543,7 +542,6 @@ export async function buildLayoutContext(
 		personnelArtifactWrites,
 		signInRosterFileWrites,
 		personnelOrganizationExport,
-		personnelGovernanceDeletion,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
 		personnelCriticalTasksRoster,
@@ -600,7 +598,6 @@ export async function buildLayoutContextFromMembership(
 	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
 	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
 	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
-	const personnelGovernanceDeletion = createSupabasePersonnelGovernanceDeletionPort(getAdminClient);
 	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
 	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
 	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
@@ -645,7 +642,6 @@ export async function buildLayoutContextFromMembership(
 		personnelArtifactWrites,
 		signInRosterFileWrites,
 		personnelOrganizationExport,
-		personnelGovernanceDeletion,
 		signInRosterPersonnelLookup,
 		personnelTrainingRoster,
 		personnelCriticalTasksRoster,
@@ -681,6 +677,11 @@ async function resolveOrganizationIdForRequest(
 
 export function createRequestAccountAnnouncementDismissals(locals: Pick<App.Locals, 'supabase'>, userId: string) {
 	return createSupabaseAccountAnnouncementDismissals(locals.supabase, userId);
+}
+
+/** Bind only the ordinary authenticated request client to the owned workflow. */
+export function createRequestDeletionRequestStore(locals: Pick<App.Locals, 'supabase'>) {
+	return createSupabaseDeletionRequestStore(locals.supabase);
 }
 
 export function createRequestDeletionRequestCancellation(locals: Pick<App.Locals, 'supabase'>) {

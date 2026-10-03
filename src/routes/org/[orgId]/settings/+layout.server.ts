@@ -1,7 +1,8 @@
+import { readPendingDeletionRequestSummary } from '$features/deletion-requests/index.server';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { loadWithContext, createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsShell } from './settingsShell.server';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
@@ -25,12 +26,21 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 		policyResource: { kind: 'organization' },
 		fn: async (ctx) => ({
 			canAccessOrganizationGovernance: true,
-			settingsShell: await loadSettingsShell(ctx, {
-				id: orgId,
-				name: orgName,
-				urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
-				urlSegment: orgUrlSegment ?? params.orgId
-			})
+			settingsShell: await loadSettingsShell(
+				ctx,
+				{
+					id: orgId,
+					name: orgName,
+					urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
+					urlSegment: orgUrlSegment ?? params.orgId
+				},
+				() =>
+					readPendingDeletionRequestSummary({
+						auth: ctx.auth,
+						audit: ctx.audit,
+						store: createRequestDeletionRequestStore(locals)
+					})
+			)
 		})
 	});
 };

@@ -40,14 +40,30 @@ function provider(overrides: Record<string, unknown> = {}) {
 	const deleteEntry = vi
 		.spyOn(ctx.rawStore, 'delete')
 		.mockImplementation((table, orgId, id) => ctx.rawStore.deleteWhere(table, orgId, { id }));
-	return { ctx, deleteEntry, port: createApprovedRatingSchemeDeletionPort(ctx.rawStore) };
+	const requirePending = vi.fn(async (orgId: string, requestId: string, resourceType: string, resourceId: string) => {
+		const request = await ctx.rawStore.findOne('deletion_requests', orgId, {
+			id: requestId,
+			status: 'pending',
+			resource_type: resourceType,
+			resource_id: resourceId
+		});
+		if (!request) throw Object.assign(new Error('Pending deletion request not found'), { status: 404 });
+	});
+	return {
+		ctx,
+		deleteEntry,
+		requirePending,
+		port: createApprovedRatingSchemeDeletionPort(ctx.rawStore, requirePending)
+	};
 }
 
 describe('approved Rating Scheme deletion', () => {
 	it('lets the Organization reviewer without a Rating lane delete only the bound entry and safely retry', async () => {
-		const { ctx, port } = provider();
+		const { ctx, port, requirePending } = provider();
 		await port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1');
 		await port.deleteApprovedRatingSchemeEntry(reviewer(), 'request-1', 'entry-1');
+		expect(requirePending).toHaveBeenCalledTimes(2);
+		expect(requirePending).toHaveBeenLastCalledWith('org-1', 'request-1', 'rating_scheme_entry', 'entry-1');
 		await expect(ctx.rawStore.findMany('rating_scheme_entries', 'org-1')).resolves.toEqual([
 			{ id: 'entry-2', organization_id: 'org-1' }
 		]);
@@ -59,12 +75,13 @@ describe('approved Rating Scheme deletion', () => {
 		});
 	});
 	it('denies an ordinary member before reading or deleting despite Rating configure', async () => {
-		const { ctx, port, deleteEntry } = provider();
+		const { ctx, port, deleteEntry, requirePending } = provider();
 		const findRequest = vi.spyOn(ctx.rawStore, 'findOne');
 		await expect(
 			port.deleteApprovedRatingSchemeEntry(reviewer('member'), 'request-1', 'entry-1')
 		).rejects.toMatchObject({ status: 403 });
 		expect(findRequest).not.toHaveBeenCalled();
+		expect(requirePending).not.toHaveBeenCalled();
 		expect(deleteEntry).not.toHaveBeenCalled();
 	});
 	it.each([

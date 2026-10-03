@@ -2,16 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _createPostConfig } from './+server';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
+const configFor = (ctx: ReturnType<typeof createTestContext>) =>
+	_createPostConfig(createDeletionRequestTestStore(ctx.store));
 
 describe('POST /api/personnel/archive-batch', () => {
 	it('declares policy-first authorization for batch archive', () => {
-		expect(_postConfig).toMatchObject({
+		expect(configFor(createTestContext())).toMatchObject({
 			mutation: true,
 			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			policyResource: { kind: 'unscoped' }
 		});
-		expect('permission' in _postConfig).toBe(false);
+		expect('permission' in configFor(createTestContext())).toBe(false);
 	});
 
 	it('archives selected personnel through one route use case request', async () => {
@@ -39,7 +42,7 @@ describe('POST /api/personnel/archive-batch', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
+		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
 			ids: [firstId, secondId],
 			userEmail: 'requester@example.com'
 		});
@@ -92,7 +95,7 @@ describe('POST /api/personnel/archive-batch', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
+		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
 			ids: [firstId, secondId],
 			userEmail: 'requester@example.com'
 		});

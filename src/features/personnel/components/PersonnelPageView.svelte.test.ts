@@ -11,13 +11,16 @@ import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel'
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;
 
-const { gotoMock, invalidateAllMock, toastSuccessMock, toastInfoMock, toastErrorMock } = vi.hoisted(() => ({
-	gotoMock: vi.fn(),
-	invalidateAllMock: vi.fn(),
-	toastSuccessMock: vi.fn(),
-	toastInfoMock: vi.fn(),
-	toastErrorMock: vi.fn()
-}));
+const { gotoMock, invalidateAllMock, toastSuccessMock, toastInfoMock, toastErrorMock, toastWarningMock } = vi.hoisted(
+	() => ({
+		gotoMock: vi.fn(),
+		invalidateAllMock: vi.fn(),
+		toastSuccessMock: vi.fn(),
+		toastInfoMock: vi.fn(),
+		toastErrorMock: vi.fn(),
+		toastWarningMock: vi.fn()
+	})
+);
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
@@ -29,7 +32,7 @@ vi.mock('svelte-sonner', () => ({
 		success: toastSuccessMock,
 		info: toastInfoMock,
 		error: toastErrorMock,
-		warning: vi.fn(),
+		warning: toastWarningMock,
 		dismiss: vi.fn()
 	}
 }));
@@ -56,6 +59,43 @@ const personnel: Personnel[] = [
 async function confirmArchiveDialog(): Promise<void> {
 	const dialog = await screen.findByRole('alertdialog');
 	await fireEvent.click(within(dialog).getByRole('button', { name: 'Archive' }));
+}
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (error: Error) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+function archiveCtx(orgId = 'org-1'): PersonnelPageContext {
+	return {
+		...makeCtx(),
+		orgId,
+		canArchivePersonnelRecord: () => true,
+		personnelArchiveAffordance: () => allowedAffordance()
+	} as unknown as PersonnelPageContext;
+}
+
+function batchResponse(result: unknown) {
+	return { ok: true, json: async () => result };
+}
+
+function submittedIds(fetchMock: ReturnType<typeof vi.fn>): string[][] {
+	return fetchMock.mock.calls.map((call) => JSON.parse(String(call[1].body)).ids);
+}
+
+async function selectBulkPersonnel(labels: string[]) {
+	await fireEvent.click(screen.getByRole('button', { name: 'Archive' }));
+	for (const name of labels) await fireEvent.click(screen.getByRole('checkbox', { name }));
+}
+
+async function submitBulkSelection() {
+	await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
+	await confirmArchiveDialog();
 }
 
 function makePerson(index: number): Personnel {
@@ -193,6 +233,7 @@ describe('PersonnelPageView', () => {
 		toastSuccessMock.mockReset();
 		toastInfoMock.mockReset();
 		toastErrorMock.mockReset();
+		toastWarningMock.mockReset();
 	});
 
 	afterEach(() => {
@@ -710,16 +751,267 @@ describe('PersonnelPageView', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Confirm Archive' }));
 		await confirmArchiveDialog();
 
-		await waitFor(() =>
-			expect(toastErrorMock).toHaveBeenCalledWith('1 personnel could not be archived.', {
-				duration: 6000,
-				action: undefined
-			})
-		);
+		await waitFor(() => expect(toastErrorMock).toHaveBeenCalled());
 		expect(toastSuccessMock).not.toHaveBeenCalled();
 		expect(toastInfoMock).not.toHaveBeenCalled();
 		expect(invalidateAllMock).not.toHaveBeenCalled();
 		expect(screen.getByText('Smith, Jane')).toBeTruthy();
+	});
+
+	it.each(['response', 'transport', 'json', 'null'] as const)(
+		'retains the same selection for explicit retry after an unconfirmed %s outcome',
+		async (failure) => {
+			const fetchMock = vi.fn();
+			if (failure === 'transport') fetchMock.mockRejectedValueOnce(new Error('offline'));
+			else
+				fetchMock.mockResolvedValueOnce({
+					ok: failure !== 'response',
+					json:
+						failure === 'json'
+							? async () => {
+									throw new Error('invalid JSON');
+								}
+							: async () => null
+				});
+			fetchMock.mockResolvedValueOnce(
+				batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] })
+			);
+			vi.stubGlobal('fetch', fetchMock);
+			render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+			await submitBulkSelection();
+			await waitFor(() => expect(toastErrorMock).toHaveBeenCalledTimes(1));
+			expect(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }).getAttribute('aria-checked')).toBe(
+				'true'
+			);
+			expect(screen.getByText('Smith, Jane')).toBeTruthy();
+			expect(invalidateAllMock).not.toHaveBeenCalled();
+			expect(toastSuccessMock).not.toHaveBeenCalled();
+			expect(toastInfoMock).not.toHaveBeenCalled();
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			await submitBulkSelection();
+			await waitFor(() => expect(toastSuccessMock).toHaveBeenCalledTimes(1));
+			expect(fetchMock).toHaveBeenCalledTimes(2);
+			expect(submittedIds(fetchMock)).toEqual([['person-1'], ['person-1']]);
+		}
+	);
+
+	it.each(['archived', 'approval'] as const)(
+		'retries only the failed target after a partial %s acknowledgement and same-Organization context refresh',
+		async (outcome) => {
+			personnelStore.load([personnel[0], makePerson(2)], 'org-1');
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValueOnce(
+					batchResponse({
+						archivedIds: outcome === 'archived' ? ['person-1'] : [],
+						approvalRequestedIds: outcome === 'approval' ? ['person-1'] : [],
+						errors: [{ id: 'person-2', message: 'per-record failure' }]
+					})
+				)
+				.mockResolvedValueOnce(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-2'], errors: [] }));
+			vi.stubGlobal('fetch', fetchMock);
+			const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			invalidateAllMock.mockImplementationOnce(async () => {
+				await view.rerender({ ctx: archiveCtx(), requestArchiveApproval });
+			});
+			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
+			await submitBulkSelection();
+			await waitFor(() => expect(outcome === 'archived' ? toastSuccessMock : toastInfoMock).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+			await waitFor(() =>
+				expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
+			);
+			expect(screen.getByRole('checkbox', { name: 'Select SGT Soldier002, Test' }).getAttribute('aria-checked')).toBe(
+				'true'
+			);
+			if (outcome === 'archived') expect(screen.queryByText('Smith, Jane')).toBeNull();
+			else {
+				expect(screen.getByText('Smith, Jane')).toBeTruthy();
+				expect(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }).getAttribute('aria-checked')).toBe(
+					'false'
+				);
+			}
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			await submitBulkSelection();
+			await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+			expect(submittedIds(fetchMock)).toEqual([['person-1', 'person-2'], ['person-2']]);
+		}
+	);
+
+	it.each(['approval', 'archived'] as const)(
+		'keeps a failed ID retryable when refreshed rows omit it after another target’s %s acknowledgement',
+		async (outcome) => {
+			personnelStore.load([personnel[0], makePerson(2)], 'org-1');
+			const fetchMock = vi
+				.fn()
+				.mockResolvedValueOnce(
+					batchResponse({
+						archivedIds: outcome === 'archived' ? ['person-2'] : [],
+						approvalRequestedIds: outcome === 'approval' ? ['person-2'] : [],
+						errors: [{ id: 'person-1', message: 'source effect persisted before command failure' }]
+					})
+				)
+				.mockResolvedValueOnce(batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] }));
+			vi.stubGlobal('fetch', fetchMock);
+			const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			invalidateAllMock.mockImplementationOnce(async () => {
+				personnelStore.load(outcome === 'approval' ? [makePerson(2)] : [], 'org-1');
+				await view.rerender({ ctx: archiveCtx(), requestArchiveApproval });
+			});
+			await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
+			await submitBulkSelection();
+			await waitFor(() => expect(outcome === 'archived' ? toastSuccessMock : toastInfoMock).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+			await waitFor(() =>
+				expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
+			);
+			expect(screen.queryByText('Smith, Jane')).toBeNull();
+			if (outcome === 'approval') {
+				expect(screen.getByText('1 of 1 selected')).toBeTruthy();
+				expect(screen.getByRole('checkbox', { name: 'Select SGT Soldier002, Test' }).getAttribute('aria-checked')).toBe(
+					'false'
+				);
+			} else expect(screen.getByText(/^1 selected/)).toBeTruthy();
+			expect(fetchMock).toHaveBeenCalledTimes(1);
+			await submitBulkSelection();
+			await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+			expect(submittedIds(fetchMock)).toEqual([['person-1', 'person-2'], ['person-1']]);
+		}
+	);
+
+	it('removes acknowledged IDs before refresh and reports readback failure without repeating completed archives', async () => {
+		personnelStore.load([personnel[0], makePerson(2)], 'org-1');
+		const refresh = deferred<void>();
+		invalidateAllMock.mockReturnValueOnce(refresh.promise);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(
+				batchResponse({
+					archivedIds: ['person-1'],
+					approvalRequestedIds: [],
+					errors: [{ id: 'person-2', message: 'blocked' }]
+				})
+			)
+			.mockResolvedValueOnce(batchResponse({ archivedIds: ['person-2'], approvalRequestedIds: [], errors: [] }));
+		vi.stubGlobal('fetch', fetchMock);
+		render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		await selectBulkPersonnel(['Select SGT Smith, Jane', 'Select SGT Soldier002, Test']);
+		await submitBulkSelection();
+		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+		expect(screen.queryByText('Smith, Jane')).toBeNull();
+		const retained = screen.getByRole('checkbox', { name: 'Select SGT Soldier002, Test' });
+		expect(retained.getAttribute('aria-checked')).toBe('true');
+		expect(retained).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', true);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		refresh.reject(new Error('refresh unavailable'));
+		await waitFor(() => expect(toastWarningMock).toHaveBeenCalledTimes(1));
+		await submitBulkSelection();
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+		expect(submittedIds(fetchMock)).toEqual([['person-1', 'person-2'], ['person-2']]);
+	});
+
+	it('keeps an acknowledged approval target active and out of selection when refresh fails', async () => {
+		invalidateAllMock.mockRejectedValueOnce(new Error('readback unavailable'));
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] }));
+		vi.stubGlobal('fetch', fetchMock);
+		render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		await selectBulkPersonnel(['Select SGT Smith, Jane']);
+		await submitBulkSelection();
+		await waitFor(() => expect(toastWarningMock).toHaveBeenCalledTimes(1));
+		expect(toastInfoMock).toHaveBeenCalledTimes(1);
+		expect(toastErrorMock).not.toHaveBeenCalled();
+		expect(screen.getByText('Smith, Jane')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Confirm Archive' })).toBeNull();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it.each(['success', 'response', 'transport'] as const)(
+		'discards a held %s outcome after disposal and preserves another Organization’s pending selection',
+		async (outcome) => {
+			const oldRequest = deferred<ReturnType<typeof batchResponse>>();
+			const newRequest = deferred<ReturnType<typeof batchResponse>>();
+			const fetchMock = vi.fn().mockReturnValueOnce(oldRequest.promise).mockReturnValueOnce(newRequest.promise);
+			vi.stubGlobal('fetch', fetchMock);
+			const oldView = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+			await submitBulkSelection();
+			await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+			oldView.unmount();
+			personnelStore.load([personnel[0]], 'org-2');
+			render(PersonnelPageView, { props: { ctx: archiveCtx('org-2'), requestArchiveApproval } });
+			await selectBulkPersonnel(['Select SGT Smith, Jane']);
+			await submitBulkSelection();
+			await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+			if (outcome === 'transport') oldRequest.reject(new Error('old transport failed'));
+			else
+				oldRequest.resolve(
+					outcome === 'response'
+						? { ok: false, json: async () => null }
+						: batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] })
+				);
+			// The next event loop turn lets the held continuation finish without a timing assertion.
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(invalidateAllMock).not.toHaveBeenCalled();
+			expect(toastSuccessMock).not.toHaveBeenCalled();
+			expect(toastInfoMock).not.toHaveBeenCalled();
+			expect(toastErrorMock).not.toHaveBeenCalled();
+			expect(toastWarningMock).not.toHaveBeenCalled();
+			expect(personnelStore.getById('person-1')).toBeTruthy();
+			const currentDialog = screen.getByRole('alertdialog');
+			expect(within(currentDialog).getByRole('button', { name: /Archive/ })).toHaveProperty('disabled', true);
+			newRequest.resolve(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] }));
+			await waitFor(() => expect(toastInfoMock).toHaveBeenCalledTimes(1));
+			expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+				'/org/org-1/api/personnel/archive-batch',
+				'/org/org-2/api/personnel/archive-batch'
+			]);
+		}
+	);
+
+	it('does not report an old refresh failure after the acknowledged operation’s view is disposed', async () => {
+		const refresh = deferred<void>();
+		invalidateAllMock.mockReturnValueOnce(refresh.promise);
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(batchResponse({ archivedIds: [], approvalRequestedIds: ['person-1'], errors: [] }));
+		vi.stubGlobal('fetch', fetchMock);
+		const oldView = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		await selectBulkPersonnel(['Select SGT Smith, Jane']);
+		await submitBulkSelection();
+		await waitFor(() => expect(invalidateAllMock).toHaveBeenCalledTimes(1));
+		expect(toastInfoMock).toHaveBeenCalledTimes(1);
+		oldView.unmount();
+		personnelStore.load([personnel[0]], 'org-2');
+		render(PersonnelPageView, { props: { ctx: archiveCtx('org-2'), requestArchiveApproval } });
+		await selectBulkPersonnel(['Select SGT Smith, Jane']);
+		refresh.reject(new Error('old readback failed'));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(toastWarningMock).not.toHaveBeenCalled();
+		expect(toastErrorMock).not.toHaveBeenCalled();
+		expect(invalidateAllMock).toHaveBeenCalledTimes(1);
+		expect(screen.getByRole('checkbox', { name: 'Select SGT Smith, Jane' }).getAttribute('aria-checked')).toBe('true');
+	});
+
+	it('suppresses late feedback and mutation when the current Organization changes before a held response completes', async () => {
+		const request = deferred<ReturnType<typeof batchResponse>>();
+		const fetchMock = vi.fn().mockReturnValue(request.promise);
+		vi.stubGlobal('fetch', fetchMock);
+		const view = render(PersonnelPageView, { props: { ctx: archiveCtx(), requestArchiveApproval } });
+		await selectBulkPersonnel(['Select SGT Smith, Jane']);
+		await submitBulkSelection();
+		await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+		await view.rerender({ ctx: archiveCtx('org-2'), requestArchiveApproval });
+		request.resolve(batchResponse({ archivedIds: ['person-1'], approvalRequestedIds: [], errors: [] }));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(personnelStore.getById('person-1')).toBeTruthy();
+		expect(toastSuccessMock).not.toHaveBeenCalled();
+		expect(invalidateAllMock).not.toHaveBeenCalled();
 	});
 
 	it('keeps rating scheme controls out of the Personnel roster page', () => {

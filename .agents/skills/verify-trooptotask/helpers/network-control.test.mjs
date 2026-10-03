@@ -11,46 +11,69 @@ function deferred() {
 	return { promise, resolve };
 }
 
-for (const mode of ['fail', 'hold', 'hold-fail', 'reject', 'observe']) {
-	test(`review ${mode} preserves the selected POST after non-POST requests`, async () => {
-		let ordinaryCalls = 0;
-		const page = {
-			fetch: async () => {
-				ordinaryCalls++;
-				return new Response('ordinary');
-			}
-		};
-		const suffix = '/org/a/api/deletion-requests/review';
-		installNetworkControl(page, { mode, ordinal: 1, suffix });
-		const nonPosts = [
-			page.fetch(suffix, { method: 'GET' }),
-			page.fetch(suffix, { method: 'HEAD' }),
-			page.fetch(new Request('http://localhost' + suffix, { method: 'POST' }), { method: 'GET' })
-		];
-		await new Promise(setImmediate);
-		assert.equal(page.__mapNetwork.calls.length, 0);
-		for (const response of await Promise.all(nonPosts)) assert.equal(await response.text(), 'ordinary');
-		assert.equal(ordinaryCalls, 3);
-
-		const review = page.fetch(suffix, { method: 'post' });
-		if (mode === 'reject') {
-			await assert.rejects(review, TypeError);
-		} else {
-			let settled = false;
-			review.then(() => (settled = true));
+for (const family of ['deletion-requests/review', 'personnel/archive-batch']) {
+	for (const mode of ['fail', 'hold', 'hold-fail', 'reject', 'observe']) {
+		test(`${family} ${mode} preserves the selected POST after non-POST requests`, async () => {
+			let ordinaryCalls = 0;
+			const page = {
+				fetch: async () => {
+					ordinaryCalls++;
+					return new Response('ordinary');
+				}
+			};
+			const suffix = `/org/a/api/${family}`;
+			installNetworkControl(page, { mode, ordinal: 1, suffix });
+			const nonPosts = [
+				page.fetch(suffix, { method: 'GET' }),
+				page.fetch(suffix, { method: 'HEAD' }),
+				page.fetch(new Request('http://localhost' + suffix, { method: 'POST' }), { method: 'GET' })
+			];
 			await new Promise(setImmediate);
-			if (mode === 'hold' || mode === 'hold-fail') {
-				assert.equal(settled, false);
-				page.__mapNetwork.release();
+			assert.equal(page.__mapNetwork.calls.length, 0);
+			for (const response of await Promise.all(nonPosts)) assert.equal(await response.text(), 'ordinary');
+			assert.equal(ordinaryCalls, 3);
+
+			const review = page.fetch(suffix, { method: 'post' });
+			if (mode === 'reject') {
+				await assert.rejects(review, TypeError);
+			} else {
+				let settled = false;
+				review.then(() => (settled = true));
+				await new Promise(setImmediate);
+				if (mode === 'hold' || mode === 'hold-fail') {
+					assert.equal(settled, false);
+					page.__mapNetwork.release();
+				}
+				assert.equal((await review).status, mode === 'fail' || mode === 'hold-fail' ? 503 : 200);
 			}
-			assert.equal((await review).status, mode === 'fail' || mode === 'hold-fail' ? 503 : 200);
-		}
-		assert.equal(page.__mapNetwork.calls.length, 1);
-		assert.equal(page.__mapNetwork.calls[0].method, 'POST');
-		assert.equal((await page.fetch(suffix, { method: 'POST' })).status, 200);
-		assert.equal(ordinaryCalls, mode === 'hold' || mode === 'observe' ? 5 : 4);
-	});
+			assert.equal(page.__mapNetwork.calls.length, 1);
+			assert.equal(page.__mapNetwork.calls[0].method, 'POST');
+			assert.equal((await page.fetch(suffix, { method: 'POST' })).status, 200);
+			assert.equal(ordinaryCalls, mode === 'hold' || mode === 'observe' ? 5 : 4);
+		});
+	}
 }
+
+test('bulk observation preserves one request and its exact selected IDs', async () => {
+	const ids = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002'];
+	let received;
+	const page = {
+		fetch: async (_url, init) => {
+			received = JSON.parse(init.body);
+			return Response.json({ archivedIds: ids });
+		}
+	};
+	installNetworkControl(page, { mode: 'observe', ordinal: 1, suffix: '/org/a/api/personnel/archive-batch' });
+	const response = await page.fetch('/org/a/api/personnel/archive-batch', {
+		method: 'POST',
+		body: JSON.stringify({ ids })
+	});
+	assert.deepEqual(await response.json(), { archivedIds: ids });
+	assert.deepEqual(received, { ids });
+	assert.equal(page.__mapNetwork.calls.length, 1);
+	assert.equal(page.__mapNetwork.calls[0].count, 2);
+	assert.deepEqual(page.__mapNetwork.calls[0].ids, ids);
+});
 
 test('review transport rejection affects one exact POST without dispatch or foreign interference', async () => {
 	let ordinaryCalls = 0;

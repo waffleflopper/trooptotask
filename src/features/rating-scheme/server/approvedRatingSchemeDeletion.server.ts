@@ -21,7 +21,13 @@ export interface ApprovedRatingSchemeDeletionPort {
 
 /** Review authority and the exact pending request precede deletion under the request's Rating RLS. */
 export function createApprovedRatingSchemeDeletionPort(
-	requestStore: Pick<RatingSchemeEntryWriteContext['store'], 'findOne' | 'delete'>
+	requestStore: Pick<RatingSchemeEntryWriteContext['store'], 'delete'>,
+	requirePending: (
+		orgId: string,
+		requestId: string,
+		resourceType: 'rating_scheme_entry',
+		resourceId: string
+	) => Promise<void>
 ): ApprovedRatingSchemeDeletionPort {
 	return {
 		async deleteApprovedRatingSchemeEntry(actor, requestId, entryId) {
@@ -35,13 +41,7 @@ export function createApprovedRatingSchemeDeletionPort(
 			});
 			if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
 
-			const request = await requestStore.findOne<{ id: string }>(
-				'deletion_requests',
-				actor.orgId,
-				{ id: requestId, status: 'pending', resource_type: 'rating_scheme_entry', resource_id: entryId },
-				'id'
-			);
-			if (!request) fail(404, 'Pending deletion request not found');
+			await requirePending(actor.orgId, requestId, 'rating_scheme_entry', entryId);
 
 			await requestStore.delete('rating_scheme_entries', actor.orgId, entryId);
 			// A preceding deletion can persist when the coordinator's request-status write fails.

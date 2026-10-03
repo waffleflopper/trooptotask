@@ -1,50 +1,64 @@
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import type { RequestHandler } from '@sveltejs/kit';
+import { handle, createRequestDeletionRequestStore, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import type { UseCaseContext } from '$lib/server/core/ports';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { approveDeletionRequest, denyDeletionRequest } from '$lib/server/core/useCases/deletionRequests';
 import {
-	createApprovedRatingSchemeDeletionPort,
-	type ApprovedRatingSchemeDeletionPort
-} from '$features/rating-scheme/index.server';
+	approveDeletionRequest,
+	denyDeletionRequest,
+	requirePendingDeletionRequest,
+	type DeletionRequestStore,
+	type ApprovedDeletionEffects
+} from '$features/deletion-requests/index.server';
+import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
+import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
+import {
+	archiveApprovedPersonnelRecord,
+	createSupabasePersonnelGovernanceDeletionPort
+} from '$features/personnel/index.server';
+import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import { getAdminClient } from '$lib/server/supabase';
-import {
-	createSupabaseApprovedTrainingDeletionPort,
-	type ApprovedTrainingDeletionPort
-} from '$features/training/index.server';
 
 export function _reviewPostConfig(
-	trainingDeletion: ApprovedTrainingDeletionPort,
-	ratingSchemeDeletion?: ApprovedRatingSchemeDeletionPort
+	store: DeletionRequestStore,
+	effectsFor: (ctx: UseCaseContext) => ApprovedDeletionEffects
 ): RouteConfig<Record<string, unknown>, unknown> {
 	return {
-		// Keep the use-case governance check as defense in depth because approve/deny
-		// remain callable service functions outside this HTTP route.
 		policyAction: POLICY_ACTION_CATALOG.organization.reviewDeletionRequests,
 		mutation: true,
 		fn: async (ctx, input) => {
 			const { id, action, denialReason } = input;
-
 			if (!id || !action) fail(400, 'Missing required fields: id, action');
-			if (action !== 'approve' && action !== 'deny') {
-				fail(400, 'Action must be "approve" or "deny"');
-			}
-
-			if (action === 'approve') {
-				await approveDeletionRequest(
-					ctx,
-					id as string,
-					trainingDeletion,
-					ratingSchemeDeletion ?? createApprovedRatingSchemeDeletionPort(ctx.rawStore)
-				);
-			} else {
-				await denyDeletionRequest(ctx, id as string, denialReason as string | undefined);
-			}
-
+			if (action !== 'approve' && action !== 'deny') fail(400, 'Action must be "approve" or "deny"');
+			const review = { auth: ctx.auth, audit: ctx.audit, store, notifications: ctx.notifications };
+			if (action === 'approve') await approveDeletionRequest(review, id as string, effectsFor(ctx));
+			else await denyDeletionRequest(review, id as string, denialReason as string | undefined);
 			return { success: true };
 		}
 	};
 }
 
-export const _postConfig = _reviewPostConfig(createSupabaseApprovedTrainingDeletionPort(getAdminClient));
-
-export const POST = handle(_postConfig);
+export const POST: RequestHandler = (event) => {
+	const store = createRequestDeletionRequestStore(event.locals);
+	const requirePending = (
+		orgId: string,
+		requestId: string,
+		resourceType: DeletionRequestResourceType,
+		resourceId: string
+	) => requirePendingDeletionRequest(store, orgId, requestId, resourceType, resourceId);
+	return handle(
+		_reviewPostConfig(store, (ctx) => {
+			const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient, requirePending);
+			const rating = createApprovedRatingSchemeDeletionPort(ctx.rawStore, requirePending);
+			const counseling = createSupabasePersonnelGovernanceDeletionPort(getAdminClient, requirePending);
+			return {
+				archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
+				deleteTrainingType: (requestId, id) => training.deleteApprovedTrainingType(ctx.auth, requestId, id),
+				deleteTrainingRecord: (requestId, id) => training.deleteApprovedTrainingRecord(ctx.auth, requestId, id),
+				deleteRatingEntry: (requestId, id) => rating.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, id),
+				approveCounseling: (requestId, id, reviewedAt) =>
+					counseling.deleteApprovedCounselingRecord(ctx.auth, requestId, id, reviewedAt)
+			};
+		})
+	)(event);
+};

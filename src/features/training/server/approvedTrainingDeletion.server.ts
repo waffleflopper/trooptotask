@@ -27,7 +27,13 @@ function fail(status: number, message: string): never {
 
 /** Delete only the Training resource named by a pending, authorized Organization review. */
 export function createSupabaseApprovedTrainingDeletionPort(
-	getAdminClient: () => SupabaseClient
+	getAdminClient: () => SupabaseClient,
+	requirePending: (
+		orgId: string,
+		requestId: string,
+		resourceType: 'training_type' | 'personnel_training',
+		resourceId: string
+	) => Promise<void>
 ): ApprovedTrainingDeletionPort {
 	async function clientForPendingDeletion(
 		actor: ApprovedTrainingDeletionActor,
@@ -45,19 +51,8 @@ export function createSupabaseApprovedTrainingDeletionPort(
 		});
 		if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
 
-		const admin = getAdminClient();
-		const { data: request, error: requestError } = await admin
-			.from('deletion_requests')
-			.select('id')
-			.eq('organization_id', actor.orgId)
-			.eq('id', requestId)
-			.eq('status', 'pending')
-			.eq('resource_type', resourceType)
-			.eq('resource_id', resourceId)
-			.maybeSingle();
-		if (requestError) throw new Error(requestError.message);
-		if (!request) fail(404, 'Pending deletion request not found');
-		return admin;
+		await requirePending(actor.orgId, requestId, resourceType, resourceId);
+		return getAdminClient();
 	}
 
 	return {
@@ -71,7 +66,17 @@ export function createSupabaseApprovedTrainingDeletionPort(
 				.select('id')
 				.maybeSingle();
 			if (deleteError) throw new Error(deleteError.message);
-			if (!deleted) fail(404, 'Training type not found');
+			if (!deleted) {
+				// A prior source effect can persist when the request-status write fails.
+				// Preserve foreign-ID concealment while allowing an absent target to retry.
+				const { data: remaining, error: readError } = await admin
+					.from(TrainingTypeEntity.table)
+					.select('id')
+					.eq('id', typeId)
+					.maybeSingle();
+				if (readError) throw new Error(readError.message);
+				if (remaining) fail(404, 'Training type not found');
+			}
 		},
 		async deleteApprovedTrainingRecord(actor, requestId, recordId) {
 			const admin = await clientForPendingDeletion(actor, requestId, recordId, 'personnel_training');

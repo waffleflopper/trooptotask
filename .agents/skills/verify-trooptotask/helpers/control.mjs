@@ -19,6 +19,8 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
+import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
+import { requestPlatform } from './platform-request.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
 import {
@@ -206,6 +208,56 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'platform-audit') {
+		note(
+			await recordPlatformUserAudit({
+				client: await provider(),
+				ownedState: await saved(),
+				ids: JSON.parse(args[0] ?? 'null'),
+				save
+			})
+		);
+		return;
+	}
+	if (command === 'platform-state') {
+		note(await readPlatform({ client: await provider(), fixture, ownedState: await saved() }));
+		return;
+	}
+	if (command === 'platform-request') {
+		const [page, family, targetKey, bodyText = '{}'] = args;
+		const pageId = Number(page);
+		if (args.length < 3 || args.length > 4 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use platform-request PAGE FAMILY TARGET_KEY JSON.');
+		const seed = (await saved()).platform;
+		if (!seed) throw new Error('Seed platform-admin first.');
+		const body = JSON.parse(bodyText);
+		const access = ['approve', 'reject', 'resend'].includes(family);
+		const membership = ['makeAdmin', 'transferOwnership'].includes(family);
+		const targetId = access
+			? seed.requests[targetKey]?.id
+			: membership
+				? targetKey === 'organization'
+					? seed.organization.id
+					: null
+				: family === 'suspend' && body.type === 'org'
+					? targetKey === 'organization'
+						? seed.organization.id
+						: null
+					: ['orgCreator', 'orgInvitee', 'orgMember'].includes(targetKey)
+						? fixture.actors[targetKey].id
+						: null;
+		if (!targetId) throw new Error('Unknown recorded platform target.');
+		if (membership && body.targetUserId && !seed.memberships.some((row) => row.user_id === body.targetUserId))
+			throw new Error('Use a member of the temporary platform Organization.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestPlatform.toString()})(window, ${JSON.stringify({ origin: doctor.origin, family, targetId, body })})`
+			)
+		);
+		return;
+	}
 	if (command === 'artifact-http') {
 		note(await artifactHttp({ origin: doctor.origin, fixture, evidenceRoot, session, sessionId: state.id, args }));
 		return;
@@ -420,12 +472,23 @@ async function main() {
 		];
 		if (
 			!fixture.actors[role] ||
-			![...orgDestinations, 'dashboard', 'org/new', 'admin/feedback', 'admin/audit'].includes(destination) ||
+			![
+				...orgDestinations,
+				'dashboard',
+				'org/new',
+				'admin/feedback',
+				'admin/audit',
+				'admin/users',
+				'admin/organizations',
+				'admin/access-requests'
+			].includes(destination) ||
 			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
 			(destination.startsWith('admin/') &&
 				![
 					'platformReviewer',
 					'platformSupport',
+					'platformBilling',
+					'platformInactive',
 					'viewer',
 					'orgOwner',
 					'orgAdmin',
@@ -444,7 +507,7 @@ async function main() {
 					: destination === 'home'
 						? `/org/${org(targetOrg)}`
 						: `/org/${org(targetOrg)}/${destination}`;
-		const readyText =
+		let readyText =
 			destination === 'admin/audit'
 				? [
 						'Audit Log',
@@ -506,6 +569,8 @@ async function main() {
 																					'Access restricted',
 																					'Access Restricted'
 																				];
+		if (destination.startsWith('admin/') && !['admin/audit', 'admin/feedback'].includes(destination))
+			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -1046,6 +1111,7 @@ async function main() {
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',
+				'platform-admin',
 				'communications',
 				'organization-destruction',
 				'rating-scheme',
@@ -1056,6 +1122,10 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'platform-admin') {
+			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'audit') {
 			note(await seedAudit({ client, fixture, tag, ownedState, save }));
 			return;
@@ -1608,6 +1678,13 @@ async function main() {
 	if (command === 'clean-seeds') {
 		const client = await provider();
 		const ownedState = await saved();
+		let platformCleanup;
+		let platformError;
+		try {
+			platformCleanup = await cleanPlatform({ client, fixture, ownedState, save });
+		} catch (error) {
+			platformError = error;
+		}
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
@@ -1644,7 +1721,8 @@ async function main() {
 		ownedState.seeded = [];
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
-		note({ cleaned: true, artifactHttpSessionsCleared: true });
+		if (platformError) throw platformError;
+		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup });
 		return;
 	}
 	if (command === 'network') {
@@ -1661,6 +1739,8 @@ async function main() {
 			if (
 				![
 					'audit-page',
+					'admin-suspend',
+					'admin-search',
 					'notifications',
 					'organization/settings',
 					'rating-scheme',
@@ -1721,7 +1801,7 @@ async function main() {
 				);
 				organizationSegment = organization.url_slug || organizationSegment;
 			}
-			const suffix =
+			let suffix =
 				family === 'audit-page'
 					? `/org/${organizationSegment}/settings/logs/__data.json`
 					: formAction
@@ -1729,6 +1809,8 @@ async function main() {
 						: ['feedback', 'announcements/dismiss'].includes(family)
 							? `/api/${family}`
 							: `/org/${organizationSegment}/api/${family}`;
+			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
+			if (family === 'admin-search') suffix = '/admin/api/search';
 			if (action === 'arm-hold-fail' && !['organization/settings', 'deletion-requests/review'].includes(family))
 				throw new Error('Delayed synthetic failure is supported only for Organization policies and deletion review.');
 			if (action === 'arm-reject' && family !== 'deletion-requests/review')

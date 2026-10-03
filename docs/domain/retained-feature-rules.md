@@ -14,6 +14,17 @@ These behavior requirements were separated from CONTEXT.md during the September 
 - Non-compliance percent is rounded from its own non-compliant/applicable count, not calculated as `100 - readinessPercent`; rounding can make the figures non-complementary.
 - Currency depends on the report's as-of date and resolved expiration rules. Completion-based Training with no expiration window never expires; expiration-date-only Training uses its recorded expiration date. A null Critical Task expiration window uses the Organization default.
 
+### Briefing calculation model
+
+The pure Training briefing model is implemented for slice 1502 of issue 1433. The current report page and API still use the existing report model. Their replacement and redesigned exports remain for slices 1503 and 1504.
+
+- The caller supplies the filtered scope label, ordered selected-view types, as-of calendar date, horizon, goal and row grouping. Group and Rank filters select one value; MOS, duty role and type filters accept multiple values with OR matching and empty selections meaning all.
+- The existing Training clock owns applicability, exemption and expiration. A ready requirement lapses on its first expired calendar date, the day after expiration. Weekly buckets and the final forecast include lapses on the horizon end date.
+- All bands, ordering, drop alerts, cliff thresholds and focus selection use requirement counts before rounding. Percentages round only for display. An empty denominator yields `null` readiness and the `none` band in this model.
+- Focus selection scores recovered population requirements, suppresses at least 50% overlap with the union of already selected requirements, excludes recovery below one percentage point and returns at most three areas. Row what-if percentages use that row's denominator; wave and standing-gap percentages use the population denominator.
+- A wave's biggest-hit row uses the horizon loss among its dominant types. Its month is the most common lapse month, with the earliest month winning ties. Standing-gap eligibility uses applicable requirements for that type; its sentence percentage uses affected Soldiers across the filtered population.
+- Cell and selected-focus details are re-derived from the same input. Requirements use Person and Training Type identities, without record IDs. A valid empty cell returns an empty list; an unknown row, type or stale focus key returns `null`.
+
 ## Personnel record URLs
 
 - A Personnel Record's route slug derives from `lastName-firstName`, excluding rank, and is unique within its Organization. Name collisions receive numeric suffixes such as `smith-john-2`.

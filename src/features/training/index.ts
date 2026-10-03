@@ -18,6 +18,19 @@ export {
 export type { TrainingStatusInfo, TrainingStats, DelinquentTraining } from './utils/trainingStatus';
 export { filterPersonnel, computeReadinessDashboard, buildPivotTable } from './utils/reportCalculations';
 export type { ReportFilters, ReadinessDashboard, PivotRow, PivotCell } from './utils/reportCalculations';
+export { buildTrainingBriefing, matchBriefingRequirements } from './utils/trainingBriefing';
+export type {
+	BriefingBand,
+	BriefingFocusArea,
+	BriefingReadiness,
+	BriefingRequirement,
+	BriefingRowsBy,
+	BriefingScope,
+	FocusCandidateKey,
+	TrainingBriefing,
+	TrainingBriefingFilters,
+	TrainingBriefingInput
+} from './utils/trainingBriefing.types';
 
 // Context
 export { TrainingPageContext } from './contexts/TrainingPageContext.svelte';

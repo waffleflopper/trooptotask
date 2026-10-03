@@ -269,6 +269,15 @@ describe('filterPersonnel', () => {
 		expect(result.map((person) => person.id)).toEqual(['p-sfc']);
 	});
 
+	it('matches any selected MOS or duty role and treats an empty selection as everyone', () => {
+		const mixed = [...people, makePerson({ id: 'p-4', mos: '', clinicRole: 'NCO' })];
+
+		expect(filterPersonnel(mixed, { mos: ['11B', ''] }).map((p) => p.id)).toEqual(['p-1', 'p-3', 'p-4']);
+		expect(filterPersonnel(mixed, { role: ['Medic', 'Officer'] }).map((p) => p.id)).toEqual(['p-2', 'p-3']);
+		expect(filterPersonnel(mixed, { mos: [], role: [] })).toHaveLength(4);
+		expect(filterPersonnel(mixed, { groupId: 'g-1', mos: ['11B'], role: ['NCO'] }).map((p) => p.id)).toEqual(['p-1']);
+	});
+
 	it('combines multiple filters with AND logic', () => {
 		const result = filterPersonnel(people, { groupId: 'g-1', role: 'NCO' });
 		expect(result).toHaveLength(1);

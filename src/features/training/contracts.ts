@@ -9,6 +9,18 @@ export type { TrainingType, TrainingView, PersonnelTraining, TrainingStatus } fr
 export { isTrainingApplicable } from './utils/applicability';
 export type { TrainingStats } from './utils/trainingStatus';
 export type { ReportFilters, ReadinessDashboard, TypeBreakdown } from './utils/reportCalculations';
+export type {
+	BriefingBand,
+	BriefingFocusArea,
+	BriefingReadiness,
+	BriefingRequirement,
+	BriefingRowsBy,
+	BriefingScope,
+	FocusCandidateKey,
+	TrainingBriefing,
+	TrainingBriefingFilters,
+	TrainingBriefingInput
+} from './utils/trainingBriefing.types';
 
 export interface TrainingBatchRecord {
 	personnelId: string;

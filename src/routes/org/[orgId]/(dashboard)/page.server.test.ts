@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-	DashboardWorkspaceData,
-	DashboardWorkspaceResult
-} from '$features/dashboard/server/dashboardWorkspaceBootstrap';
+import type { DashboardWorkspaceData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 

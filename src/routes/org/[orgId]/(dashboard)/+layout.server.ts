@@ -3,10 +3,7 @@ import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/core/featureLaneWorkspaceLoad';
-import {
-	streamDashboardWorkspaceBootstrap,
-	type DashboardWorkspaceRouteData
-} from '$features/dashboard/server/dashboardWorkspaceBootstrap';
+import { streamDashboardWorkspaceBootstrap, type DashboardWorkspaceRouteData } from './dashboardWorkspace.server';
 
 export interface DashboardLayoutLoadDeps {
 	streamDashboardWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<DashboardWorkspaceRouteData>;

@@ -1,3 +1,4 @@
+import { listDashboardConfigExportRows } from '$features/dashboard/index.server';
 import type { DataStore } from '../ports';
 import { listAuditExportRows } from '$lib/audit/index.server';
 import type { FeedbackExportRow } from '$features/feedback/index.server';
@@ -154,6 +155,8 @@ export async function loadOrganizationExportPayload(
 					if (section.key === 'dailyAssignments') {
 						return [section.key, await listDailyAssignmentExportRows(store, orgId)] as const;
 					}
+					if (section.key === 'dashboardConfigs')
+						return [section.key, await listDashboardConfigExportRows(store, orgId)] as const;
 					const rows = await store.findMany<Record<string, unknown>>(section.table, orgId);
 					return [section.key, rows] as const;
 				})

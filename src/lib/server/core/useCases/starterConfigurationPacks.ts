@@ -25,7 +25,7 @@ import type {
 	StarterConfigurationPackId,
 	StarterConfigurationPackResultItem,
 	StarterConfigurationPackSupport
-} from '$lib/types/starterConfigurationPacks';
+} from '$features/dashboard/contracts';
 
 const PACK_ID: StarterConfigurationPackId = 'first-week-operations';
 const PACK_NAME = 'First Week Operations';

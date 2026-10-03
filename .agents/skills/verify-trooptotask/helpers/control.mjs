@@ -19,7 +19,7 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
-import { seedDashboard } from './dashboard-fixtures.mjs';
+import { seedDashboard, seedDashboardCurrency } from './dashboard-fixtures.mjs';
 import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
@@ -233,6 +233,25 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'server-source') {
+		const [action, table, mode, ordinal, holdMs] = args;
+		if (
+			!['arm', 'state', 'release', 'restore'].includes(action) ||
+			(action === 'arm' ? args.length < 3 || args.length > 5 : args.length !== 1)
+		)
+			throw new Error('Use server-source arm TABLE hold|fail|fail-hard [ORDINAL] [HOLD_MS], or state|release|restore.');
+		note(
+			await run(state, {
+				command: 'server-source',
+				action,
+				table,
+				mode,
+				...(ordinal === undefined ? {} : { ordinal: Number(ordinal) }),
+				...(holdMs === undefined ? {} : { holdMs: Number(holdMs) })
+			})
+		);
+		return;
+	}
 	if (command === 'deletion-review-failure') {
 		if (args.length < 1 || args.length > 2)
 			throw new Error('Use deletion-review-failure arm|restore|state [REQUEST_ID].');
@@ -978,6 +997,49 @@ async function main() {
 		note({ saved: target, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
 		return;
 	}
+	if (command === 'dashboard-access') {
+		const [role, mode] = args;
+		if (
+			args.length !== 2 ||
+			!['dashboardView', 'dashboardSwitch'].includes(role) ||
+			!['alpha', 'no-training', 'restore'].includes(mode)
+		)
+			throw new Error('Use dashboard-access dashboardView|dashboardSwitch alpha|no-training|restore.');
+		const client = await provider();
+		const rows = checked(
+			await client
+				.from('organization_memberships')
+				.select('id,capability_overrides,access_scope_kind,access_scope_group_ids')
+				.eq('organization_id', org('orgA'))
+				.eq('user_id', fixture.actors[role].id)
+		);
+		if (rows.length !== 1) throw new Error('Expected one owned Dashboard A membership.');
+		const { id, ...original } = rows[0];
+		const ownedState = await saved();
+		ownedState.dashboardAccess ??= [];
+		let snapshot = ownedState.dashboardAccess.find((item) => item.id === id);
+		if (!snapshot && mode !== 'restore') {
+			snapshot = { id, original };
+			ownedState.dashboardAccess.push(snapshot);
+			await save(ownedState);
+		}
+		if (mode === 'restore' && !snapshot) throw new Error('No owned Dashboard access change to restore.');
+		const changes =
+			mode === 'restore'
+				? snapshot.original
+				: mode === 'alpha'
+					? { access_scope_kind: 'groups', access_scope_group_ids: [fixture.ids.groupA] }
+					: { capability_overrides: { ...original.capability_overrides, training: 'none' } };
+		checked(
+			await client.from('organization_memberships').update(changes).eq('organization_id', org('orgA')).eq('id', id)
+		);
+		if (mode === 'restore') {
+			ownedState.dashboardAccess = ownedState.dashboardAccess.filter((item) => item.id !== id);
+			await save(ownedState);
+		}
+		note({ role, mode, membershipId: id, changes });
+		return;
+	}
 	if (command === 'calendar-grant') {
 		const [role, level] = args;
 		if (!fixture.actors[role] || !['none', 'view', 'operate', 'configure', 'restore'].includes(level))
@@ -1158,6 +1220,7 @@ async function main() {
 				'onboarding-retention-1001',
 				'audit',
 				'dashboard',
+				'dashboard-currency',
 				'platform-admin',
 				'communications',
 				'organization-destruction',
@@ -1179,6 +1242,10 @@ async function main() {
 		}
 		if (kind === 'dashboard') {
 			note(await seedDashboard({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'dashboard-currency') {
+			note(await seedDashboardCurrency({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'deletion-sources') {
@@ -1730,6 +1797,16 @@ async function main() {
 		await deletionReviewFailure('restore');
 		const client = await provider();
 		const ownedState = await saved();
+		for (const snapshot of ownedState.dashboardAccess ?? [])
+			checked(
+				await client
+					.from('organization_memberships')
+					.update(snapshot.original)
+					.eq('organization_id', org('orgA'))
+					.eq('id', snapshot.id)
+			);
+		ownedState.dashboardAccess = [];
+		await save(ownedState);
 		let platformCleanup;
 		let platformError;
 		try {
@@ -2070,7 +2147,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

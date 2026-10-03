@@ -19,7 +19,7 @@
 	import UserCircle from '@lucide/svelte/icons/user-circle';
 	import type { CapabilityMap } from '$lib/access/memberAccessShape';
 	import { formatDate, formatRelativeDate } from '$lib/utils/dates';
-	import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
+	import { formatDashboardDisplayDate } from '$features/dashboard/contracts';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import OrgNavIcon from './OrgNavIcon.svelte';
 	import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';

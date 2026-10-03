@@ -2,13 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AvailabilityEntry, StatusType, DailyAssignment, AssignmentType } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
+import type { PersonnelOnboarding, OnboardingStepProgress } from '$features/onboarding/contracts';
 import { createDashboardScreenModel, type DashboardStoragePort } from './dashboardScreenModel.svelte';
-import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
-import type { DashboardPageData } from '../dashboard.types';
+import type { DashboardWorkspaceResult } from '../contracts';
+import type { DashboardPageData } from '../contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackSupport
-} from '$lib/types/starterConfigurationPacks';
+} from '$features/dashboard/contracts';
 
 afterEach(() => {
 	vi.unstubAllGlobals();
@@ -638,7 +639,7 @@ describe('Dashboard Training identity attribution', () => {
 		expect(model.quickStatValue('expired-training')).toBe(2);
 	});
 
-	it('joins identically named groups by ID and counts distinct personnel IDs for the retained currency formula', () => {
+	it('uses complete Group counts, including Unassigned, when displayed issues omit a Person', () => {
 		const model = createDashboardScreenModel(
 			makeData({
 				trainingSummary: {
@@ -693,7 +694,7 @@ describe('Dashboard Training identity attribution', () => {
 			}
 		);
 
-		expect(model.trainingCurrencyPct).toBe(33);
+		expect(model.trainingCurrencyPct).toBe(0);
 		expect(new Map(model.trainingGroupDelinquencies.map((group) => [group.groupId, group]))).toEqual(
 			new Map([
 				['alpha', { groupId: 'alpha', groupName: 'Shared name', count: 1, expiredPersonnelCount: 0, pct: 100 }],
@@ -702,4 +703,86 @@ describe('Dashboard Training identity attribution', () => {
 			])
 		);
 	});
+
+	it.each([0, 1])('keeps yellow-only currency at 100%% with %i scoped People', (count) => {
+		const model = createDashboardScreenModel(
+			makeData({
+				trainingSummary: {
+					stats: {
+						current: 0,
+						expired: 0,
+						warningOrange: 0,
+						warningYellow: 1,
+						notCompleted: 1,
+						notRequired: 0,
+						total: 2
+					},
+					issues: [],
+					expiredPersonnelCount: 0,
+					groupDelinquencies: []
+				}
+			}),
+			{ sources: makeSources({ personnel: count ? [{ id: 'yellow', rank: 'SPC' }] : [] }) }
+		);
+		expect(model.trainingCurrencyPct).toBe(100);
+	});
+});
+
+describe('Dashboard Onboarding progress', () => {
+	const packet = (savedTrainingComplete: boolean): PersonnelOnboarding =>
+		({
+			id: 'packet',
+			personnelId: 'able',
+			steps: [
+				{ stepType: 'checkbox', active: true, completed: true },
+				{ stepType: 'paperwork', active: true, completed: false },
+				{ stepType: 'training', trainingTypeId: 'required', active: true, completed: savedTrainingComplete },
+				{ stepType: 'checkbox', active: false, completed: true }
+			] as OnboardingStepProgress[]
+		}) as PersonnelOnboarding;
+
+	it.each([
+		{ saved: false, authorized: true, keys: ['able-required'], complete: 2, pct: 67 },
+		{ saved: true, authorized: true, keys: [], complete: 1, pct: 33 },
+		{ saved: true, authorized: false, keys: [], complete: 2, pct: 67 }
+	])(
+		'counts active work and preserves authority: $saved / $authorized / $pct%',
+		({ saved, authorized, keys, complete, pct }) => {
+			const summary = authorized
+				? {
+						stats: {
+							current: 0,
+							expired: 0,
+							warningOrange: 0,
+							warningYellow: 0,
+							notCompleted: 0,
+							notRequired: 0,
+							total: 0
+						},
+						issues: [],
+						expiredPersonnelCount: 0,
+						groupDelinquencies: []
+					}
+				: null;
+			const model = createDashboardScreenModel(
+				makeData(
+					{ trainingSummary: summary, onboardingTrainingCompletions: keys },
+					{
+						activeOnboardings: [packet(saved), { ...packet(saved), id: 'excluded', personnelId: 'foreign' }]
+					}
+				),
+				{ sources: makeSources({ personnel: [{ id: 'able', rank: 'SPC', lastName: 'Able', firstName: 'Synthetic' }] }) }
+			);
+			expect(model.activeOnboardings).toEqual([
+				{
+					id: 'packet',
+					personnelId: 'able',
+					personName: 'SPC Able, Synthetic',
+					totalSteps: 3,
+					completedSteps: complete,
+					pct
+				}
+			]);
+		}
+	);
 });

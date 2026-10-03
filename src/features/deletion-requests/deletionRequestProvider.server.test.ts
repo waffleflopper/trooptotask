@@ -15,7 +15,18 @@ const review = {
 describe('ordinary deletion request provider', () => {
 	it('rejects creation without changing history when multiple visible pending rows already exist', async () => {
 		const ctx = createTestContext({
-			auth: { role: 'member', isPrivileged: false, capabilityMap: { personnel: 'operate' } }
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
 		});
 		const rows = ['first', 'second'].map((id) =>
 			savedRequest(id, {

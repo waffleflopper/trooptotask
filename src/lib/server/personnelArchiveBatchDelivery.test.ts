@@ -33,7 +33,18 @@ function freshCopies(store: TestDataStore): TestDataStore {
 describe('Personnel — archive batch', () => {
 	it('acknowledges an already-pending target with multiple visible rows without creating requests or archiving', async () => {
 		const ctx = createTestContext({
-			auth: { role: 'member', isPrivileged: false, capabilityMap: { personnel: 'operate' } }
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: {
+					calendar: 'none',
+					personnel: 'operate',
+					training: 'none',
+					criticalTasks: 'none',
+					onboarding: 'none',
+					ratingScheme: 'none'
+				}
+			}
 		});
 		const person = { id: 'person', organization_id: ctx.auth.orgId, group_id: null, archived_at: null };
 		ctx.store.seed('personnel', [person]);

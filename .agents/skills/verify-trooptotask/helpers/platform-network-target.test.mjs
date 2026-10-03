@@ -103,3 +103,29 @@ test('account failure control leaves other origins, Users, methods and actions u
 	assert.equal(page.__mapNetwork.calls.length, 1);
 	assert.equal(dispatched, 4);
 });
+
+test('review read failure is same-origin and leaves form posts and other routes untouched', async () => {
+	let dispatched = 0;
+	const page = {
+		location: { href: 'http://owned.test/admin/access-requests' },
+		fetch: async () => {
+			dispatched++;
+			return Response.json({ untouched: true });
+		}
+	};
+	installNetworkControl(page, {
+		...platformFormNetworkTarget('admin-access-read', fixture, seed),
+		mode: 'fail',
+		ordinal: 1
+	});
+	await page.fetch('http://other.test/admin/access-requests/__data.json');
+	await page.fetch('/admin/access-requests?/approve', { method: 'POST' });
+	await page.fetch('/admin/users/__data.json');
+	assert.equal(dispatched, 3);
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	const response = await page.fetch('/admin/access-requests/__data.json?x-sveltekit-invalidated=111');
+	assert.equal(response.status, 503);
+	assert.equal(page.__mapNetwork.calls.length, 1);
+	assert.equal(dispatched, 3);
+	assert.throws(() => platformFormNetworkTarget('admin-access-read', fixture, null));
+});

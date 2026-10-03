@@ -1888,6 +1888,8 @@ async function main() {
 				throw new Error(
 					'Delayed synthetic failure is supported only for Organization policies, deletion review and Personnel bulk archival.'
 				);
+			if (family === 'admin-access-read' && !['arm-fail', 'arm-hold', 'arm-observe'].includes(action))
+				throw new Error('Access Request read control supports failure, hold and observation only.');
 			if (action === 'arm-reject' && !['deletion-requests/review', 'personnel/archive-batch'].includes(family))
 				throw new Error(
 					'Synthetic transport rejection is supported only for deletion review and Personnel bulk archival.'
@@ -1912,7 +1914,8 @@ async function main() {
 			const failureField =
 				platformForm?.failureField ?? (family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
 			const requestTarget = platformForm?.requestTarget ?? null;
-			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget })})`;
+			const sameOrigin = platformForm?.sameOrigin ?? false;
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget, sameOrigin })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-')) {
 				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');

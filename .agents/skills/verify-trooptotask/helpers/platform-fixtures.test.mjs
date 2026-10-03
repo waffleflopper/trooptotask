@@ -112,13 +112,60 @@ test('failed deletion retains its recorded targets for a later cleanup attempt',
 	assert.deepEqual(saved, ownedState);
 });
 
-test('cleanup removes recorded activity even when Organization deletion would null its tenant reference', async () => {
+// Interpret the provider's documented logical filters independently of the helper.
+function splitFilters(value) {
+	let depth = 0,
+		start = 0;
+	const parts = [];
+	for (let i = 0; i < value.length; i++) {
+		if (value[i] === '(') depth++;
+		if (value[i] === ')') depth--;
+		if (value[i] === ',' && depth === 0) {
+			parts.push(value.slice(start, i));
+			start = i + 1;
+		}
+	}
+	return [...parts, value.slice(start)];
+}
+function matchesFilter(row, expression) {
+	const group = /^(and|or)\((.*)\)$/.exec(expression);
+	if (group) {
+		const matches = splitFilters(group[2]).map((part) => matchesFilter(row, part));
+		return group[1] === 'and' ? matches.every(Boolean) : matches.some(Boolean);
+	}
+	const match = /^(\w+)\.(eq|in)\.(.*)$/.exec(expression);
+	assert.ok(match, 'unsupported synthetic provider filter: ' + expression);
+	return match[2] === 'eq' ? row[match[1]] === match[3] : match[3].slice(1, -1).split(',').includes(row[match[1]]);
+}
+
+test('cleanup removes its activity while retaining unrelated and earlier audit history for reused Users', async () => {
 	const organization = { id: 'temporary-org' };
 	const rows = {
 		organizations: [organization],
 		audit_logs: [
 			{ id: 'run-event', org_id: organization.id, resource_id: organization.id, timestamp: '2026-10-03T00:01:00Z' },
-			{ id: 'unrelated-event', org_id: 'sentinel-org', resource_id: 'sentinel', timestamp: '2026-10-03T00:01:00Z' }
+			{ id: 'unrelated-event', org_id: 'sentinel-org', resource_id: 'sentinel', timestamp: '2026-10-03T00:01:00Z' },
+			{
+				id: 'platform-user-event',
+				org_id: null,
+				resource_id: 'user-1',
+				action: 'suspend_user',
+				timestamp: '2026-10-03T00:01:00Z'
+			},
+			{
+				id: 'user-auth-event',
+				org_id: null,
+				resource_id: 'user-1',
+				action: 'auth.password_update_rate_limited',
+				timestamp: '2026-10-03T00:01:00Z'
+			},
+			{
+				id: 'earlier-platform-event',
+				org_id: null,
+				resource_id: 'user-1',
+				action: 'suspend_user',
+				timestamp: '2026-10-02T23:59:00Z'
+			}
 		]
 	};
 	const client = {
@@ -145,8 +192,8 @@ test('cleanup removes recorded activity even when Organization deletion would nu
 					filters.push((row) => row[key] >= value);
 					return query;
 				},
-				or() {
-					filters.push((row) => row.org_id === organization.id || row.resource_id === organization.id);
+				or(expression) {
+					filters.push((row) => splitFilters(expression).some((part) => matchesFilter(row, part)));
 					return query;
 				},
 				then(resolve) {
@@ -168,15 +215,15 @@ test('cleanup removes recorded activity even when Organization deletion would nu
 			requests: { approve: { id: 'request' } },
 			invitation: { id: 'invitation' },
 			link: { id: 'link' },
-			memberships: [],
+			memberships: [{ user_id: 'user-1' }],
 			seededAt: '2026-10-03T00:00:00Z'
 		}
 	};
 	const result = await cleanPlatform({ client, fixture, ownedState, save: async () => {} });
-	assert.deepEqual(result.removedAuditIds, ['run-event']);
+	assert.deepEqual(result.removedAuditIds, ['run-event', 'platform-user-event']);
 	assert.deepEqual(
 		rows.audit_logs.map(({ id }) => id),
-		['unrelated-event']
+		['unrelated-event', 'user-auth-event', 'earlier-platform-event']
 	);
 	assert.equal(ownedState.platform, undefined);
 });

@@ -5,6 +5,13 @@ const checked = (result) => {
 	return result.data;
 };
 
+const PLATFORM_USER_AUDIT_ACTIONS = [
+	'suspend_user',
+	'unsuspend_user',
+	'admin.user.password_reset',
+	'admin.user.resend_invite'
+];
+
 // Store every target before inserting. No original Organization or access request is changed.
 export async function seedPlatform({ client, fixture, tag, ownedState, save }) {
 	if (ownedState.platform) throw new Error('Clean the existing platform seed first.');
@@ -71,6 +78,15 @@ export async function readPlatform({ client, fixture, ownedState }) {
 	const seed = ownedState.platform;
 	if (!seed) throw new Error('Seed platform-admin first.');
 	const requestIds = Object.values(seed.requests).map(({ id }) => id);
+	const userIds = seed.memberships.map(({ user_id }) => user_id);
+	// Reused fixture Users retain unrelated Identity history from the same run.
+	const auditFilters = [
+		`org_id.eq.${seed.organization.id}`,
+		`resource_id.in.(${[seed.organization.id, ...requestIds].join(',')})`,
+		...(userIds.length
+			? [`and(resource_id.in.(${userIds.join(',')}),action.in.(${PLATFORM_USER_AUDIT_ACTIONS.join(',')}))`]
+			: [])
+	];
 	const users = Object.fromEntries(
 		['orgCreator', 'orgInvitee', 'orgMember'].map((role) => [
 			role,
@@ -134,9 +150,7 @@ export async function readPlatform({ client, fixture, ownedState }) {
 			await client
 				.from('audit_logs')
 				.select('id,action,org_id,user_id,resource_id,timestamp')
-				.or(
-					`org_id.eq.${seed.organization.id},resource_id.in.(${[seed.organization.id, ...requestIds, ...seed.memberships.map(({ user_id }) => user_id)].join(',')})`
-				)
+				.or(auditFilters.join(','))
 				.gte('timestamp', seed.seededAt)
 		),
 		boundary: 'Privileged exact-target provider readback; distinct from native/ordinary HTTP proof.'

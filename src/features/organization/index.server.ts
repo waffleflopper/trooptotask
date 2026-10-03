@@ -28,6 +28,8 @@ export { loadMembersSettings } from './membersSettings.server';
 export { loadOwnershipTransferCandidates } from './ownershipTransferSettings.server';
 export { transferOrganizationOwnership } from './ownershipTransfer.server';
 export { createSupabaseOrganizationOwnershipTransferPort } from './ownershipTransferProvider.server';
+export { createOrganizationPlatformMembershipAdministration } from './platformMembership.server';
+export { createSupabaseOrganizationPlatformMembershipPort } from './platformMembershipProvider.server';
 export { deleteOrganization } from './destruction.server';
 export { createSupabaseOrganizationDestructionPort } from './destructionProvider.server';
 

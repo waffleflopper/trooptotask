@@ -38,14 +38,22 @@ function assertSupabaseSuccess<T>(operation: string, response: SupabaseResponse<
 	}
 }
 
-function assertSupabaseAffectedRow(operation: string, response: SupabaseResponse<unknown>): void {
-	assertSupabaseSuccess(operation, response);
-	if (response.count == null) {
-		throw new Error(`${operation} failed: affected row count unavailable`);
-	}
-	if (response.count < 1) {
-		throw new Error(`${operation} failed: no rows affected`);
-	}
+function assertSuspensionAcknowledgment(
+	response: SupabaseResponse<unknown>,
+	field: 'id' | 'user_id',
+	targetId: string
+): void {
+	assertSupabaseSuccess('Suspension change', response);
+	const rows = response.data;
+	if (!Array.isArray(rows) || rows.length !== 1) throw new Error('Suspension change could not be confirmed');
+	const row = rows[0];
+	if (
+		!row ||
+		typeof row !== 'object' ||
+		typeof row[field] !== 'string' ||
+		row[field].toLowerCase() !== targetId.toLowerCase()
+	)
+		throw new Error('Suspension change could not be confirmed');
 }
 
 export function createSupabasePlatformAdministrationStore(supabase: SupabaseClient): PlatformAdministrationStore {
@@ -122,29 +130,32 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 		async suspendUser(input) {
 			const response = await supabase
 				.from('user_suspensions')
-				.upsert({ user_id: input.userId, suspended_by: input.suspendedBy, reason: input.reason });
-			assertSupabaseSuccess('table user_suspensions upsert', response);
+				.upsert({ user_id: input.userId, suspended_by: input.suspendedBy, reason: input.reason })
+				.select('user_id');
+			assertSuspensionAcknowledgment(response, 'user_id', input.userId);
 		},
 
 		async unsuspendUser(userId) {
-			const response = await supabase.from('user_suspensions').delete({ count: 'exact' }).eq('user_id', userId);
-			assertSupabaseAffectedRow('table user_suspensions delete', response);
+			const response = await supabase.from('user_suspensions').delete().eq('user_id', userId).select('user_id');
+			assertSuspensionAcknowledgment(response, 'user_id', userId);
 		},
 
 		async suspendOrganization(input) {
 			const response = await supabase
 				.from('organizations')
-				.update({ suspended_at: input.suspendedAt.toISOString() }, { count: 'exact' })
-				.eq('id', input.organizationId);
-			assertSupabaseAffectedRow('table organizations suspend update', response);
+				.update({ suspended_at: input.suspendedAt.toISOString() })
+				.eq('id', input.organizationId)
+				.select('id');
+			assertSuspensionAcknowledgment(response, 'id', input.organizationId);
 		},
 
 		async unsuspendOrganization(organizationId) {
 			const response = await supabase
 				.from('organizations')
-				.update({ suspended_at: null }, { count: 'exact' })
-				.eq('id', organizationId);
-			assertSupabaseAffectedRow('table organizations unsuspend update', response);
+				.update({ suspended_at: null })
+				.eq('id', organizationId)
+				.select('id');
+			assertSuspensionAcknowledgment(response, 'id', organizationId);
 		}
 	};
 }

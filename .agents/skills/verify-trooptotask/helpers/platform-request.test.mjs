@@ -31,6 +31,7 @@ test('foreign origin, unsupported endpoints/fields and non-UUID targets never di
 	for (const patch of [
 		{ origin: 'https://example.test' },
 		{ family: 'deleteUser' },
+		{ family: 'invalidSuspension', body: { case: 'arbitrary' } },
 		{ targetId: '../users' },
 		{ body: { role: 'super_admin' } },
 		{ body: { reason: { secret: true } } }
@@ -45,4 +46,30 @@ test('foreign origin, unsupported endpoints/fields and non-UUID targets never di
 			})
 		);
 	assert.equal(sends, 0);
+});
+
+test('malformed suspension cases send only the documented invalid payload for the recorded target', async () => {
+	const expected = [
+		null,
+		{ type: 'user', action: 'suspend', targetId: id, reason: 42 },
+		{ type: 'user', action: 'suspend', targetId: [id] }
+	];
+	for (const [index, name] of ['null-body', 'non-string-reason', 'array-target'].entries()) {
+		let sends = 0;
+		const result = await requestPlatform(
+			{
+				location: { origin },
+				fetch: async (path, init) => {
+					sends++;
+					assert.equal(path, '/admin/api/suspend');
+					assert.deepEqual(JSON.parse(init.body), expected[index]);
+					return Response.json({ message: 'Invalid suspension command' }, { status: 400 });
+				}
+			},
+			{ origin, family: 'invalidSuspension', targetId: id, body: { case: name } }
+		);
+		assert.equal(sends, 1);
+		assert.equal(result.status, 400);
+		assert.deepEqual(result.request.submitted, expected[index]);
+	}
 });

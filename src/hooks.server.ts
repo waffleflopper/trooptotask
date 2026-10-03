@@ -120,9 +120,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Layouts do not protect endpoints/actions. Keep page GETs available for the
 	// suspended shell, but admit every Organization write/API request on fresh status.
 	const orgSegment = event.params?.orgId;
+	const organizationRoute = '/org/[orgId]';
+	const isOrganizationRoute =
+		event.route?.id === organizationRoute || event.route?.id?.startsWith(`${organizationRoute}/`);
 	const isOrganizationApi = event.route?.id?.startsWith('/org/[orgId]/api/');
 	const isWriteRequest = !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method);
-	if (orgSegment && (isWriteRequest || isOrganizationApi)) {
+	if (isOrganizationRoute && orgSegment && (isWriteRequest || isOrganizationApi)) {
 		await requireActiveOrganization(event.locals.supabase, orgSegment);
 	}
 

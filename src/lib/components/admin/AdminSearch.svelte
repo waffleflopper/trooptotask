@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import * as Command from '$lib/components/ui/command';
 	import { Spinner } from '$lib/components/ui/spinner';
 
@@ -9,36 +10,60 @@
 	}>({ users: [], organizations: [] });
 	let isOpen = $state(false);
 	let loading = $state(false);
-	let debounceTimer: ReturnType<typeof setTimeout>;
+	let errorMsg = $state('');
+	let focused = false;
+	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+	let blurTimer: ReturnType<typeof setTimeout> | undefined;
+	let requestController: AbortController | undefined;
 
 	const hasResults = $derived(results.users.length > 0 || results.organizations.length > 0);
 
 	function handleInput() {
 		clearTimeout(debounceTimer);
-		if (query.trim().length < 3) {
-			results = { users: [], organizations: [] };
-			isOpen = false;
-			return;
-		}
+		requestController?.abort();
+		results = { users: [], organizations: [] };
+		errorMsg = '';
+		loading = false;
+		isOpen = false;
+		const searchTerm = query.trim();
+		if (searchTerm.length < 3) return;
+		const controller = new AbortController();
+		requestController = controller;
 		debounceTimer = setTimeout(async () => {
 			loading = true;
+			isOpen = focused;
 			try {
-				const res = await fetch(`/admin/api/search?q=${encodeURIComponent(query.trim())}`);
-				if (res.ok) {
-					results = await res.json();
-					isOpen = hasResults;
-				}
+				const res = await fetch(`/admin/api/search?q=${encodeURIComponent(searchTerm)}`, { signal: controller.signal });
+				if (!res.ok) throw new Error('Search unavailable');
+				const nextResults = await res.json();
+				if (!Array.isArray(nextResults?.users) || !Array.isArray(nextResults?.organizations))
+					throw new Error('Search unavailable');
+				if (controller.signal.aborted) return;
+				results = nextResults;
+				isOpen = focused;
+			} catch {
+				if (controller.signal.aborted) return;
+				errorMsg = 'Search could not be loaded. Try typing your search again.';
+				isOpen = focused;
 			} finally {
-				loading = false;
+				if (!controller.signal.aborted) loading = false;
 			}
 		}, 250);
 	}
 
 	function close() {
-		setTimeout(() => {
+		focused = false;
+		clearTimeout(blurTimer);
+		blurTimer = setTimeout(() => {
 			isOpen = false;
 		}, 160);
 	}
+
+	onDestroy(() => {
+		clearTimeout(debounceTimer);
+		clearTimeout(blurTimer);
+		requestController?.abort();
+	});
 </script>
 
 <div class="relative w-full max-w-lg">
@@ -54,7 +79,9 @@
 			bind:value={query}
 			oninput={handleInput}
 			onfocus={() => {
-				if (hasResults) isOpen = true;
+				focused = true;
+				clearTimeout(blurTimer);
+				if (hasResults || loading || errorMsg) isOpen = true;
 			}}
 			onblur={close}
 		/>
@@ -102,7 +129,9 @@
 								</Command.Group>
 							{/if}
 
-							{#if !loading && !hasResults}
+							{#if errorMsg}
+								<Command.Empty><span role="alert">{errorMsg}</span></Command.Empty>
+							{:else if !loading && !hasResults}
 								<Command.Empty>No admin records found.</Command.Empty>
 							{/if}
 						</Command.Viewport>

@@ -1,0 +1,15 @@
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SELECT no_plan();
+SELECT ok((SELECT migration_absent AND transfer_absent AND promotion_absent FROM upgrade_fixture.platform_membership_baseline),'saved A/B rows precede the new commands and migration');
+SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations WHERE version='20261003000200'),1,'new migration is recorded after populated upgrade');
+SELECT results_eq($$SELECT * FROM upgrade_fixture.platform_membership_current_rows ORDER BY table_name,row_id$$,$$SELECT * FROM upgrade_fixture.platform_membership_before_rows ORDER BY table_name,row_id$$,'install preserves every saved account, Organization and membership field and ID');
+SELECT is((SELECT proacl FROM pg_proc WHERE oid='public.transfer_org_ownership(uuid,uuid)'::regprocedure),(SELECT ordinary_acl FROM upgrade_fixture.platform_membership_baseline),'ordinary transfer execution ACL is retained exactly');
+SET LOCAL ROLE service_role;
+SELECT is(public.platform_transfer_org_ownership('d2120000-0000-4000-8000-000000000001','d2120000-0000-4000-8000-000000000101','d2120000-0000-4000-8000-000000000003','D21 saved A')->>'status','updated','upgraded command transfers to the saved scoped member');
+RESET ROLE;
+SELECT ok((SELECT role='owner' AND member_preset='editor' AND capability_overrides='{}'::jsonb AND access_scope_kind='organization' AND cardinality(access_scope_group_ids)=0 FROM public.organization_memberships WHERE id='d2120000-0000-4000-8000-000000000202'),'upgraded recipient retains its ID with canonical owner fields');
+SELECT ok((SELECT role='admin' AND member_preset='editor' AND capability_overrides='{}'::jsonb AND access_scope_kind='organization' AND cardinality(access_scope_group_ids)=0 FROM public.organization_memberships WHERE id='d2120000-0000-4000-8000-000000000201'),'upgraded former owner retains its ID with canonical admin fields');
+SELECT results_eq($$SELECT * FROM upgrade_fixture.platform_membership_current_rows WHERE table_name<>'memberships' OR row_id NOT IN ('d2120000-0000-4000-8000-000000000201','d2120000-0000-4000-8000-000000000202') ORDER BY table_name,row_id$$,$$SELECT * FROM upgrade_fixture.platform_membership_before_rows WHERE table_name<>'memberships' OR row_id NOT IN ('d2120000-0000-4000-8000-000000000201','d2120000-0000-4000-8000-000000000202') ORDER BY table_name,row_id$$,'upgraded transfer retains every unrelated A/B field and creator provenance');
+SELECT * FROM finish();
+ROLLBACK;

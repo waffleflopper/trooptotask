@@ -1,6 +1,6 @@
 import type { AdminRole } from '$lib/server/admin';
 import type { PlatformAudit, PlatformAuditOrganizationActivity } from '$lib/audit/contracts';
-import type { PlatformMembershipAdministration, PlatformMembershipRole } from './platformMembershipAdministration';
+import type { OrganizationSupportMember, OrganizationSupportMemberReader } from '$features/organization/contracts';
 import type { PlatformMetrics } from './platformMetrics';
 
 export interface PlatformOrganizationDetailOrganizationRow {
@@ -17,7 +17,7 @@ export interface PlatformOrganizationDetailStore {
 export interface PlatformOrganizationDetailMember {
 	userId: string;
 	email: string;
-	role: PlatformMembershipRole;
+	role: OrganizationSupportMember['role'];
 }
 
 export interface PlatformOrganizationDetailOrg {
@@ -48,7 +48,7 @@ export interface PlatformOrganizationDetail {
 export interface PlatformOrganizationDetailDependencies {
 	store: PlatformOrganizationDetailStore;
 	adminRole: AdminRole;
-	membershipAdministration: PlatformMembershipAdministration;
+	membershipReader: OrganizationSupportMemberReader;
 	metrics: PlatformMetrics;
 	audit: Pick<PlatformAudit, 'listRecentByOrganization'>;
 }
@@ -72,7 +72,7 @@ export function createPlatformOrganizationDetail(
 			if (!org) return { status: 'not_found' };
 
 			try {
-				const memberships = await deps.membershipAdministration.listMembers(orgId);
+				const memberships = await deps.membershipReader.listMembers(orgId);
 				const members = memberships.map((membership) => ({
 					userId: membership.userId,
 					email: membership.email ?? '(unknown)',

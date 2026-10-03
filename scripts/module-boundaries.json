@@ -29,7 +29,7 @@
 			"packet": "08-M15"
 		},
 		"app-shell": {
-			"roots": [],
+			"roots": ["src/features/app-shell/"],
 			"files": [
 				"src/lib/components/OrgNavIcon.svelte",
 				"src/lib/components/TopHeader.svelte",
@@ -77,14 +77,7 @@
 		},
 		"dashboard": {
 			"roots": ["src/features/dashboard/"],
-			"files": [
-				"src/lib/server/core/useCases/dashboardQuery.test.ts",
-				"src/lib/server/core/useCases/dashboardQuery.ts",
-				"src/lib/server/utils/dashboardTiming.test.ts",
-				"src/lib/server/utils/dashboardTiming.ts",
-				"src/lib/utils/dashboardDate.test.ts",
-				"src/lib/utils/dashboardDate.ts"
-			],
+			"files": [],
 			"packet": "08-M06"
 		},
 		"data-export": {
@@ -140,7 +133,6 @@
 				"src/lib/server/core/useCases/starterConfigurationPacks.ts",
 				"src/lib/server/organizationProvisioningDelivery.test.ts",
 				"src/lib/server/organizationProvisioningDelivery.ts",
-				"src/lib/types/starterConfigurationPacks.ts",
 				"src/tests/check-governance.test.ts",
 				"src/tests/no-google-fonts.test.ts",
 				"src/tests/security-posture.test.ts",
@@ -370,6 +362,7 @@
 			"organization",
 			"personnel",
 			"calendar",
+			"critical-tasks",
 			"training",
 			"onboarding",
 			"rating-scheme",
@@ -519,7 +512,11 @@
 			"src/features/critical-tasks/index.ts",
 			"src/features/critical-tasks/index.server.ts"
 		],
-		"dashboard": ["src/features/dashboard/index.ts"],
+		"dashboard": [
+			"src/features/dashboard/contracts.ts",
+			"src/features/dashboard/index.ts",
+			"src/features/dashboard/index.server.ts"
+		],
 		"deletion-requests": [
 			"src/features/deletion-requests/contracts.ts",
 			"src/features/deletion-requests/index.ts",
@@ -576,7 +573,8 @@
 			"src/features/feedback/index.ts",
 			"src/features/feedback/index.server.ts"
 		],
-		"platform-admin": ["src/features/platform-admin/index.server.ts", "src/features/platform-admin/contracts.ts"]
+		"platform-admin": ["src/features/platform-admin/index.server.ts", "src/features/platform-admin/contracts.ts"],
+		"app-shell": ["src/features/app-shell/index.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

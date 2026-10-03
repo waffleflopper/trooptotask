@@ -3,7 +3,7 @@ import type { RequestEvent } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { applyStarterConfigurationPack } from '$lib/server/core/useCases/starterConfigurationPacks';
-import type { StarterConfigurationPackApplyResult } from '$lib/types/starterConfigurationPacks';
+import type { StarterConfigurationPackApplyResult } from '$features/dashboard/contracts';
 
 const applyStarterPackInput = z.object({
 	packId: z.string().trim().min(1)

@@ -1,6 +1,7 @@
 import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
+export { getProgress } from './onboardingProgress';
 import type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,

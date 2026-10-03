@@ -42,3 +42,5 @@ export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
 // $features/calendar/components/DailyAssignmentModal.svelte
 // $features/calendar/components/MonthlyAssignmentPlanner.svelte
 // $features/calendar/components/LongRangeView.svelte
+
+export { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';

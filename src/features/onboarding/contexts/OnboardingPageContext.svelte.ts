@@ -16,6 +16,8 @@ import type {
 } from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
+import { getProgress } from '../onboardingProgress';
+export { getProgress } from '../onboardingProgress';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 
@@ -28,21 +30,6 @@ export const MODAL_IDS = {
 } as const;
 
 // ── Pure exported functions (testable) ───────────────────────
-
-/**
- * Calculates completed/total progress for an onboarding.
- * Only counts active steps. All step types use `step.completed` (server-derived for training/paperwork).
- */
-export function getProgress(onboarding: PersonnelOnboarding): { completed: number; total: number } {
-	let completed = 0;
-	let total = 0;
-	for (const step of onboarding.steps) {
-		if (!step.active) continue;
-		total++;
-		if (step.completed) completed++;
-	}
-	return { completed, total };
-}
 
 /**
  * Formats an ISO timestamp string to a human-readable "Jan 15 at 2:30 PM" format.

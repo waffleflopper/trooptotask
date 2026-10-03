@@ -434,12 +434,25 @@ describe('retained Organization export projection', () => {
 			notes: [{ text: 'Retained Training note', timestamp: '2026-09-29T01:02:03.654321Z', userId: 'saved-author' }]
 		};
 
+		const dashboardConfig = {
+			id: 'dashboard-config-1',
+			org_id: 'org-1',
+			name: null,
+			config: { retainedUnknownWidget: { enabled: true, options: null } },
+			created_at: '2026-09-01T00:00:00.123456Z',
+			future_saved_field: ['preserve', null]
+		};
+
 		const commercialTables = new Set([
 			'organization_billing_snapshots',
 			'organization_checkout_attempts',
 			'organization_plan_feature_overrides'
 		]);
 		const providerRows: Record<string, Record<string, unknown>[]> = {
+			dashboard_configs: [
+				dashboardConfig,
+				{ ...dashboardConfig, id: 'foreign-dashboard-config', org_id: 'foreign-org' }
+			],
 			onboarding_templates: [
 				onboardingTemplate,
 				{ ...onboardingTemplate, id: 'foreign-template', organization_id: 'foreign-org' }
@@ -534,7 +547,8 @@ describe('retained Organization export projection', () => {
 				return Response.json({ message: 'Direct sensitive read denied' }, { status: 403 });
 			if (commercialTables.has(table) || /^(duty_|advanced_duty_)/.test(table))
 				return Response.json({ message: 'Retired storage is unavailable' }, { status: 404 });
-			const scopeColumn = table === 'organizations' ? 'id' : 'organization_id';
+			const scopeColumn =
+				table === 'organizations' ? 'id' : table === 'dashboard_configs' ? 'org_id' : 'organization_id';
 			const scope = url.searchParams.get(scopeColumn)?.replace(/^eq\./, '');
 			const rows = (providerRows[table] ?? []).filter((row) => row[scopeColumn] === scope);
 			const selection = url.searchParams.get('select');
@@ -583,6 +597,8 @@ describe('retained Organization export projection', () => {
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');
+		expect(json.dashboardConfigs).toEqual([dashboardConfig]);
+		expect(json.sections.dashboardConfigs).toEqual([dashboardConfig]);
 		expect(json.trainingTypes).toEqual([trainingType]);
 		expect(json.onboardingTemplates).toEqual([onboardingTemplate]);
 		expect(json.onboardingTemplateSteps).toEqual([onboardingStep]);

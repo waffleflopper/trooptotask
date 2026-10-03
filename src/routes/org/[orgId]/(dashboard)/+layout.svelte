@@ -1,17 +1,10 @@
 <script lang="ts">
-	import { dashboardWorkspaceHydrator } from '$features/dashboard/dashboardWorkspaceHydration.svelte';
-	import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
+	import { DashboardLoadError, dashboardWorkspaceHydrator } from '$features/dashboard';
+	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
 	let hydrationError = $state<Error | null>(null);
-	const renderHydrationError = $derived.by(() => {
-		if (hydrationError) {
-			throwRenderError(hydrationError, 'Failed to hydrate dashboard workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		hydrationError = null;
@@ -28,7 +21,7 @@
 </script>
 
 {#if hydrationError}
-	{renderHydrationError}
+	<DashboardLoadError />
 {:else}
 	{@render children()}
 {/if}

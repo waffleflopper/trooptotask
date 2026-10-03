@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
+import type { DashboardBootstrap } from '$features/dashboard/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
@@ -28,9 +28,9 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	};
 });
 
-vi.mock('$lib/server/core/useCases/dashboardQuery', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/dashboardQuery')>(
-		'$lib/server/core/useCases/dashboardQuery'
+vi.mock('$features/dashboard/index.server', async () => {
+	const actual = await vi.importActual<typeof import('$features/dashboard/index.server')>(
+		'$features/dashboard/index.server'
 	);
 	return {
 		...actual,
@@ -38,7 +38,7 @@ vi.mock('$lib/server/core/useCases/dashboardQuery', async () => {
 	};
 });
 
-import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspaceBootstrap';
+import { streamDashboardWorkspaceBootstrap } from './dashboardWorkspace.server';
 
 describe('streamDashboardWorkspaceBootstrap', () => {
 	const availabilityEntries = Promise.resolve([{ id: 'av1', personnelId: 'p1' } as AvailabilityEntry]);

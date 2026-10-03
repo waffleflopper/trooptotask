@@ -1,12 +1,12 @@
 <script lang="ts">
-	import DashboardPageView from '$features/dashboard/components/DashboardPageView.svelte';
-	import type { DashboardPageData } from '$features/dashboard/dashboard.types';
-	import { createDashboardScreenModel } from '$features/dashboard/read-model/dashboardScreenModel.svelte';
+	import { autoShowWhatsNew } from '$features/app-shell';
+	import { DashboardLoadError, DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
+	import type { DashboardPageData } from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
-	import type { DashboardPageSummaryData } from './+page.server';
-	import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
+	import type { DashboardPageSummaryData } from '$features/dashboard/contracts';
+	import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import { isPromiseLike, observeDeferred } from '$lib/utils/streamedRouteData';
 
 	type DashboardRouteData = Omit<PageData, 'summary'> & {
 		summary?: DashboardPageSummaryData | Promise<DashboardPageSummaryData>;
@@ -19,13 +19,6 @@
 	let workspaceError = $state<Error | null>(null);
 	let summaryError = $state<Error | null>(null);
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
-	const renderLoadError = $derived.by(() => {
-		const error = workspaceError ?? summaryError;
-		if (error) {
-			throwRenderError(error, 'Failed to load dashboard workspace');
-		}
-		return null;
-	});
 
 	$effect(() => {
 		let cancelled = false;
@@ -122,12 +115,12 @@
 	const hasAutoShownWhatsNew = { value: false };
 
 	$effect(() => {
-		ctx?.autoShowWhatsNew(hasAutoShownWhatsNew);
+		if (ctx) autoShowWhatsNew(shell?.user.id ?? null, hasAutoShownWhatsNew);
 	});
 </script>
 
 {#if loadError}
-	{renderLoadError}
+	<DashboardLoadError />
 {:else if pending}
 	<section class="workspace-loading" aria-busy="true" aria-live="polite" role="status">
 		<div class="workspace-loading__hero">

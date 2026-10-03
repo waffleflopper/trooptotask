@@ -1,27 +1,20 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { createInMemoryDataStore, createQueryPortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
-import type { QueryPorts } from '$lib/server/core/ports';
-import { fetchDashboardBootstrap, fetchDashboardData } from './dashboardQuery';
+import { fetchDashboardBootstrap } from './dashboardQuery.server';
 
 const ORG = 'test-org';
 const USER = 'user-1';
 
-/** Return today's date as YYYY-MM-DD string */
-function todayStr(): string {
-	const d = new Date();
-	return d.toISOString().slice(0, 10);
-}
-
-function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): QueryPorts & {
+function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): ReturnType<
+	typeof createQueryPortsContext
+> & {
 	store: ReturnType<typeof createQueryPortsContext>['store'];
 } {
 	return createQueryPortsContext({ auth: { orgId: ORG, userId: USER, ...overrides?.auth } });
 }
 
-describe.each([
-	['bootstrap', fetchDashboardBootstrap],
-	['refresh', fetchDashboardData]
-] as const)('Dashboard %s packet read', (_name, load) => {
+describe('Dashboard packet read', () => {
+	const load = fetchDashboardBootstrap;
 	it('preserves saved progress and attributed history with Personnel access alone', async () => {
 		const ctx = buildCtx({
 			auth: {
@@ -106,125 +99,34 @@ describe.each([
 	});
 });
 
-describe('fetchDashboardData', () => {
-	it('returns all dashboard data sections via ctx.store', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		const today = todayStr();
-
-		store.seed('availability_entries', [
-			{
-				id: 'ae1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				status_type_id: 'st1',
-				start_date: today,
-				end_date: today,
-				notes: null
-			}
-		]);
-		store.seed('assignment_types', [{ id: 'at1', organization_id: ORG, name: 'CQ', color: '#f00', sort_order: 0 }]);
-		store.seed('daily_assignments', [
-			{
-				id: 'da1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				assignment_type_id: 'at1',
-				date: today,
-				notes: null
-			}
-		]);
-		store.seed('user_pinned_groups', [
-			{ id: 'pg1', organization_id: ORG, user_id: USER, group_name: 'Alpha', sort_order: 0 }
-		]);
-		store.seed('rating_scheme_entries', [
-			{
-				id: 'rs1',
-				organization_id: ORG,
-				rated_person_id: 'p1',
-				eval_type: 'NCOER',
-				rater_person_id: null,
-				rater_name: null,
-				senior_rater_person_id: null,
-				senior_rater_name: null,
-				intermediate_rater_person_id: null,
-				intermediate_rater_name: null,
-				reviewer_person_id: null,
-				reviewer_name: null,
-				rating_period_start: '2025-01-01',
-				rating_period_end: '2025-12-31',
-				status: 'active',
-				notes: null,
-				report_type: null,
-				workflow_status: null
-			}
-		]);
-		store.seed('personnel_onboardings', [
-			{
-				id: 'po1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				started_at: '2026-03-01',
-				completed_at: null,
-				cancelled_at: null,
-				status: 'in_progress',
-				template_id: null,
-				onboarding_step_progress: []
-			}
-		]);
-
-		const result = await fetchDashboardData(ctx);
-
-		expect(result.availabilityEntries).toHaveLength(1);
-		expect(result.assignmentTypes).toHaveLength(1);
-		expect(result.todayAssignments).toHaveLength(1);
-		expect(result.pinnedGroups).toHaveLength(1);
-		expect(result.ratingSchemeEntries).toHaveLength(1);
-		expect(result.activeOnboardings).toHaveLength(1);
-	});
-
-	it('filters onboardings to only in_progress status', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel_onboardings', [
-			{
-				id: 'po1',
-				organization_id: ORG,
-				personnel_id: 'p1',
-				started_at: '2026-03-01',
-				completed_at: null,
-				cancelled_at: null,
-				status: 'in_progress',
-				template_id: null,
-				onboarding_step_progress: []
-			},
-			{
-				id: 'po2',
-				organization_id: ORG,
-				personnel_id: 'p2',
-				started_at: '2026-03-01',
-				completed_at: '2026-03-15',
-				cancelled_at: null,
-				status: 'completed',
-				template_id: null,
-				onboarding_step_progress: []
-			}
-		]);
-
-		const findManySpy = vi.spyOn(ctx.store, 'findMany');
-		const result = await fetchDashboardData(ctx);
-		const onboardingCalls = findManySpy.mock.calls.filter(([table]) => table === 'personnel_onboardings');
-
-		expect(onboardingCalls).toHaveLength(1);
-		expect(onboardingCalls[0][2]).toEqual({ status: 'in_progress' });
-		expect(result.activeOnboardings).toHaveLength(1);
-		expect(result.activeOnboardings[0].personnelId).toBe('p1');
-	});
-});
-
 describe('fetchDashboardBootstrap', () => {
+	it.each([
+		['availability_entries', 'availabilityEntries'],
+		['daily_assignments', 'todayAssignments']
+	] as const)(
+		'keeps an early %s failure handled while eager reads are pending, then exposes it to the consumer',
+		async (table, field) => {
+			const ctx = buildCtx();
+			let release!: (days: number) => void;
+			ctx.organizationSettings.findLossWarningWindowDays = () =>
+				new Promise<number>((resolve) => {
+					release = resolve;
+				});
+			const findMany = ctx.store.findMany.bind(ctx.store);
+			const reads: string[] = [];
+			vi.spyOn(ctx.store, 'findMany').mockImplementation((name, ...args) => {
+				reads.push(name);
+				return name === table ? Promise.reject(new Error('Deferred source unavailable')) : findMany(name, ...args);
+			});
+			const bootstrap = fetchDashboardBootstrap(ctx);
+			await new Promise<void>((resolve) => setImmediate(resolve));
+			expect(reads).toEqual(expect.arrayContaining(['availability_entries', 'daily_assignments']));
+			release(90);
+			const data = await bootstrap;
+			await expect(data[field]).rejects.toThrow('Deferred source unavailable');
+		}
+	);
+
 	it('provides ordered same-Organization Training definitions for the Dashboard summary', async () => {
 		const ctx = buildCtx();
 		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
@@ -276,18 +178,22 @@ describe('fetchDashboardBootstrap', () => {
 		expect(result.personnel.map((person) => person.id)).toEqual(['p1']);
 	});
 
-	it.each([0, null, 'failure'] as const)(
-		'preserves optional warning zero/default/error behavior (%s)',
-		async (value) => {
-			const ctx = buildCtx();
-			ctx.organizationSettings.findLossWarningWindowDays = async () => {
-				if (value === 'failure') throw new Error('Optional Organization settings unavailable');
-				return value;
-			};
-			const data = await fetchDashboardBootstrap(ctx);
-			expect(data.lossWarningWindowDays).toBe(value === 0 ? 0 : 180);
-		}
-	);
+	it.each([0, null] as const)('preserves configured zero and missing-setting defaults (%s)', async (value) => {
+		const ctx = buildCtx();
+		ctx.organizationSettings.findLossWarningWindowDays = async () => {
+			return value;
+		};
+		const data = await fetchDashboardBootstrap(ctx);
+		expect(data.lossWarningWindowDays).toBe(value === 0 ? 0 : 180);
+	});
+
+	it('preserves a loss-setting provider failure instead of inventing a warning window', async () => {
+		const ctx = buildCtx();
+		ctx.organizationSettings.findLossWarningWindowDays = async () => {
+			throw new Error('Settings unavailable');
+		};
+		await expect(fetchDashboardBootstrap(ctx)).rejects.toThrow('Settings unavailable');
+	});
 
 	it('returns the configured loss warning window from the organizations row', async () => {
 		const ctx = buildCtx();
@@ -381,7 +287,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Rating Scheme projection', (load) => {
+describe.each([fetchDashboardBootstrap])('%s Rating Scheme projection', (load) => {
 	it('keeps the Rating-only projection when generic Rating storage is unavailable', async () => {
 		const ctx = buildCtx({
 			auth: {
@@ -424,7 +330,7 @@ describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Rating Scheme p
 	});
 });
 
-describe.each([fetchDashboardBootstrap, fetchDashboardData])('%s Calendar independence', (load) => {
+describe.each([fetchDashboardBootstrap])('%s Calendar independence', (load) => {
 	it('retains scoped saved assignments without attempting duty event, slot or run reads', async () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-09-21T12:00:00'));

@@ -1,10 +1,10 @@
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
-import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
+import { withDashboardTiming } from '$features/dashboard/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
-import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
+import type { StarterConfigurationPackSupport } from '$features/dashboard/contracts';
 import { countRatingSchemeEntries } from '$features/rating-scheme/index.server';
 import { countTrainingTypes } from '$features/training/index.server';
 import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';

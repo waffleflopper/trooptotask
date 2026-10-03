@@ -19,7 +19,7 @@ import type {
 	DashboardAssignmentsWorkspaceHydrationTarget,
 	DashboardWorkspaceHydration,
 	DashboardWorkspaceHydrationTarget
-} from './server/dashboardWorkspaceBootstrap';
+} from './contracts';
 
 export interface DashboardHydrationLoadable<T> {
 	readonly orgId: string;

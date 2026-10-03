@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises';
 import path from 'node:path';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
@@ -34,6 +35,7 @@ const state = await readJSON(path.join(session, 'session.json'));
 state.supervisor = await processIdentity(process.pid);
 await writeJSON(path.join(session, 'session.json'), state);
 let app, client, transport, server, port;
+let sourceControl, sourceControlConfig;
 let ownedOrigins = [];
 let closing = false;
 let interrupted = false;
@@ -53,12 +55,31 @@ function continuing() {
 	if (interrupted) throw new Blocked('INTERRUPTED', 'Launch interrupted; owned cleanup attempted.');
 }
 const ignoredBuildPaths = ['node_modules', '.svelte-kit', '.vercel'];
+async function serverSource(action, options = {}) {
+	if (!sourceControl) throw new Blocked('SOURCE_CONTROL', 'Owned server source control is unavailable; restart.');
+	const response = await fetch(`http://127.0.0.1:${sourceControl.port}`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${sourceControlConfig.token}`, 'Content-Type': 'application/json' },
+		body: JSON.stringify({ ...options, action }),
+		signal: AbortSignal.timeout(5000)
+	});
+	if (!response.ok || response.headers.get('X-T2T-Session') !== state.id)
+		throw new Blocked('SOURCE_CONTROL', 'Owned server source control did not authenticate.');
+	return response.json();
+}
 async function cleanup() {
 	if (closing) throw new Blocked('CLEANUP_PENDING', 'Cleanup is already in progress; wait and inspect info.');
 	closing = true;
 	try {
 		await port?.release();
 		port = undefined;
+		if (sourceControl && app?.exitCode === null && !app.signalCode) {
+			try {
+				await serverSource('restore');
+			} catch {
+				// The owned app is stopped below; its preload also releases waits on SIGTERM.
+			}
+		}
 		const results = await Promise.allSettled([
 			(async () => {
 				const mcpProcess = state.mcpProcess ?? (transport?.pid && (await processIdentity(transport.pid)));
@@ -130,6 +151,16 @@ try {
 	const provider = await readJSON(path.join(session, 'provider.json'));
 	ownedOrigins = [new URL(state.origin).origin, new URL(provider.API_URL).origin];
 	const fixture = await seed(session);
+	sourceControlConfig = {
+		sessionId: state.id,
+		providerUrl: provider.API_URL,
+		orgId: fixture.ids.orgA,
+		token: randomBytes(32).toString('hex')
+	};
+	const sourceConfigPath = path.join(session, 'server-source-control.json');
+	await writeJSON(sourceConfigPath, sourceControlConfig);
+	const sourcePreload = pathToFileURL(path.join(copy, 'scripts/verification/server-source-control.mjs'));
+	sourcePreload.searchParams.set('config', sourceConfigPath);
 	const cleanupSecret = randomBytes(32).toString('hex');
 	await writeJSON(path.join(session, 'archive-cleanup.json'), { secret: cleanupSecret });
 	const env = {
@@ -164,6 +195,8 @@ try {
 	app = await runLogged(
 		process.execPath,
 		[
+			'--import',
+			sourcePreload.href,
 			path.join(copy, 'node_modules/vite/bin/vite.js'),
 			'preview',
 			'--host',
@@ -189,6 +222,10 @@ try {
 		}
 		await sleep(200);
 	}
+	sourceControl = await readJSON(path.join(session, 'server-source-control-ready.json'));
+	if (sourceControl.sessionId !== state.id || !Number.isInteger(sourceControl.port))
+		throw new Blocked('SOURCE_CONTROL', 'Server source control does not belong to this verification session.');
+	await serverSource('state');
 	client = new Client({ name: 'trooptotask-verification', version: '1.0.0' });
 	transport = new StdioClientTransport({
 		command: process.execPath,
@@ -281,6 +318,14 @@ try {
 									break;
 								case 'login':
 									result = await drive.login(input.role);
+									break;
+								case 'server-source':
+									result = await serverSource(input.action, {
+										table: input.table,
+										mode: input.mode,
+										ordinal: input.ordinal,
+										holdMs: input.holdMs
+									});
 									break;
 								default:
 									throw new Blocked('COMMAND', 'Unknown command. Run --help.');

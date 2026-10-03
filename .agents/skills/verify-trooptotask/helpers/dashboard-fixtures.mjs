@@ -144,9 +144,9 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 					template_step_id: ids.onboardingTraining,
 					step_name: 'Dashboard Training',
 					step_type: 'training',
-					training_type_id: ids.trainingRequired,
+					training_type_id: ids.trainingTargeted,
 					sort_order: 2,
-					completed: false,
+					completed: true,
 					active: true
 				},
 				{
@@ -217,6 +217,73 @@ export async function seedDashboard({ client, fixture, tag, ownedState, save }) 
 		loss,
 		archived,
 		packet,
+		batches: batches.map(([table, organization, rows]) => ({ table, organization, rows })),
+		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
+	};
+}
+
+/** Add capped-detail and yellow-only source facts without expanding the roster. */
+export async function seedDashboardCurrency({ client, fixture, tag, ownedState, save }) {
+	if (ownedState.seeded.some((item) => item.kind === 'dashboard-currency'))
+		throw new Error('Clean the existing Dashboard currency seed before preparing another cohort.');
+	const loss = ownedState.seeded.find((item) => item.kind === 'dashboard' && item.table === 'personnel')?.ids[0];
+	if (!loss) throw new Error('Prepare the combined Dashboard seed first.');
+	const { ids, dates } = fixture;
+	const date = (offset) => {
+		const value = new Date(dates.ui + 'T12:00:00');
+		value.setDate(value.getDate() + offset);
+		return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+	};
+	const types = Array.from({ length: 12 }, (_, index) => ({
+		id: randomUUID(),
+		organization_id: ids.orgA,
+		name: `Dashboard Currency ${String(index + 1).padStart(2, '0')} ${tag}`,
+		expiration_date_only: true,
+		warning_days_yellow: 60,
+		warning_days_orange: 30,
+		sort_order: 100 + index
+	}));
+	const yellowType = {
+		id: randomUUID(),
+		organization_id: ids.orgB,
+		name: `Dashboard Yellow ${tag}`,
+		expiration_date_only: true,
+		warning_days_yellow: 60,
+		warning_days_orange: 30,
+		sort_order: 100
+	};
+	const completion = (organizationId, personnelId, trainingTypeId, offset) => ({
+		id: randomUUID(),
+		organization_id: organizationId,
+		personnel_id: personnelId,
+		training_type_id: trainingTypeId,
+		completion_date: date(-400),
+		expiration_date: date(offset)
+	});
+	const batches = [
+		['training_types', 'orgA', types],
+		[
+			'personnel_trainings',
+			'orgA',
+			[
+				...types.map((type) => completion(ids.orgA, ids.personA, type.id, -20)),
+				...types.slice(0, 11).map((type) => completion(ids.orgA, ids.personB, type.id, -20)),
+				completion(ids.orgA, loss, types[0].id, 45)
+			]
+		],
+		['training_types', 'orgB', [yellowType]],
+		['personnel_trainings', 'orgB', [completion(ids.orgB, ids.personForeign, yellowType.id, 45)]]
+	];
+	for (const [table, organization, rows] of batches)
+		ownedState.seeded.push({ kind: 'dashboard-currency', table, organization, tag, ids: rows.map(({ id }) => id) });
+	await save(ownedState);
+	for (const [table, , rows] of batches) {
+		const result = await client.from(table).insert(rows);
+		if (result.error) throw new Error('Owned Dashboard currency setup failed: ' + result.error.message);
+	}
+	return {
+		tag,
+		today: dates.ui,
 		batches: batches.map(([table, organization, rows]) => ({ table, organization, rows })),
 		boundary: 'Privileged disposable setup; native UI and ordinary authorization observations remain separate.'
 	};

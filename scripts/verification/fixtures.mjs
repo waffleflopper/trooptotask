@@ -231,6 +231,14 @@ export async function seed(session) {
 		orgAdmin: ids.orgAdminMembership,
 		orgMember: ids.orgMemberMembership
 	};
+	const dashboardActors = {
+		dashboardView: { level: 'view', scope: 'organization' },
+		dashboardScoped: { level: 'view', scope: 'groups', groups: [ids.groupA] },
+		dashboardEmpty: { level: 'view', scope: 'groups', groups: [] },
+		dashboardNone: { level: 'none', scope: 'organization' },
+		dashboardSwitch: { level: 'view', scope: 'organization' },
+		dashboardForeign: { level: 'view', scope: 'organization', organization: 'orgB' }
+	};
 	for (const role of [
 		'manager',
 		'viewer',
@@ -244,7 +252,8 @@ export async function seed(session) {
 		...Object.keys(ratingSchemeActors),
 		...Object.keys(organizationActors),
 		...Object.keys(notificationActors),
-		...Object.keys(deletionActors)
+		...Object.keys(deletionActors),
+		...Object.keys(dashboardActors)
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
 		const { user } = checked(await service.auth.admin.createUser({ email, password, email_confirm: true }));
@@ -262,6 +271,7 @@ export async function seed(session) {
 					ratingSchemeActors[role]?.organization ??
 					notificationActors[role]?.organization ??
 					deletionActors[role]?.organization ??
+					dashboardActors[role]?.organization ??
 					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
 	}
@@ -337,6 +347,7 @@ export async function seed(session) {
 		const organization = organizationActors[role];
 		const notification = notificationActors[role];
 		const deletion = deletionActors[role];
+		const dashboard = dashboardActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
 				...(organizationMembershipIds[role] ? { id: organizationMembershipIds[role] } : {}),
@@ -347,6 +358,7 @@ export async function seed(session) {
 				member_preset: 'viewer',
 				capability_overrides: {
 					personnel:
+						dashboard?.level ??
 						organization?.personnel ??
 						deletion?.level ??
 						onboarding?.personnel ??
@@ -356,13 +368,14 @@ export async function seed(session) {
 								calendar?.personnel ??
 								training?.personnel ??
 								(role === 'manager' ? 'configure' : 'view'))),
-					calendar: calendar?.calendar ?? 'none',
-					training: training?.training ?? deletion?.level ?? 'none',
-					criticalTasks: criticalTasks?.criticalTasks ?? 'none',
-					onboarding: onboarding?.onboarding ?? training?.onboarding ?? 'none',
-					ratingScheme: ratingScheme?.ratingScheme ?? deletion?.level ?? 'none'
+					calendar: dashboard?.level ?? calendar?.calendar ?? 'none',
+					training: dashboard?.level ?? training?.training ?? deletion?.level ?? 'none',
+					criticalTasks: dashboard?.level ?? criticalTasks?.criticalTasks ?? 'none',
+					onboarding: dashboard?.level ?? onboarding?.onboarding ?? training?.onboarding ?? 'none',
+					ratingScheme: dashboard?.level ?? ratingScheme?.ratingScheme ?? deletion?.level ?? 'none'
 				},
 				access_scope_kind:
+					dashboard?.scope ??
 					organization?.scope ??
 					deletion?.scope ??
 					personnel?.scope ??
@@ -373,6 +386,7 @@ export async function seed(session) {
 					ratingScheme?.scope ??
 					(role === 'scoped' ? 'groups' : 'organization'),
 				access_scope_group_ids:
+					dashboard?.groups ??
 					organization?.groups ??
 					deletion?.groups ??
 					personnel?.groups ??
@@ -385,6 +399,22 @@ export async function seed(session) {
 			})
 		);
 	}
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.dashboardSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: Object.fromEntries(
+				['personnel', 'calendar', 'training', 'criticalTasks', 'onboarding', 'ratingScheme'].map((lane) => [
+					lane,
+					'view'
+				])
+			),
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
 	checked(
 		await service.from('organization_memberships').insert({
 			organization_id: ids.orgB,

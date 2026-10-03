@@ -2,7 +2,7 @@ import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
 import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
-import type { DeletionRequestRow } from './settingsRows.server';
+import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 
 export type SettingsArchivedPersonnelRow = {
 	id: string;
@@ -32,7 +32,7 @@ export type SettingsArchivesSectionData = {
 
 export type SettingsActivityData = {
 	pendingApprovalsCount: number;
-	approvalRequests: DeletionRequestRow[];
+	approvalRequests: DeletionRequestApproval[];
 	auditLog: AuditLogQueryResult;
 };
 

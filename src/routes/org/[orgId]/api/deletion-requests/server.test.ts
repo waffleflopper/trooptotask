@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { _createDeleteConfig } from './+server';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 
-const _deleteConfig = _createDeleteConfig({
+const _deleteConfig = _createDeleteConfig(createDeletionRequestTestStore(createTestContext().store), {
 	async cancelPendingRequest() {
 		throw new Error('Unexpected cancellation');
 	}

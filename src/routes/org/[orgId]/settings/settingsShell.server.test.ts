@@ -22,9 +22,13 @@ describe('mixed settings shell delivery', () => {
 			await held;
 			return { data: [], count: table === 'personnel' ? 3 : 4 };
 		};
-		const pending = loadSettingsShell(ctx, organization);
+		const pending = loadSettingsShell(ctx, organization, async () => {
+			started.add('approvals');
+			await held;
+			return { count: 4 };
+		});
 		try {
-			await vi.waitFor(() => expect(started).toEqual(new Set(['invitations', 'personnel', 'deletion_requests'])));
+			await vi.waitFor(() => expect(started).toEqual(new Set(['invitations', 'personnel', 'approvals'])));
 		} finally {
 			release();
 		}
@@ -34,7 +38,7 @@ describe('mixed settings shell delivery', () => {
 			pendingApprovalsCount: 4
 		});
 	});
-	it.each(['invitations', 'personnel', 'deletion_requests'])(
+	it.each(['invitations', 'personnel', 'approvals'])(
 		'keeps the shell failure boundary when a count cannot be read (%s)',
 		async (source) => {
 			const ctx = createTestContext({ auth: { orgId: 'org-a' } });
@@ -46,7 +50,12 @@ describe('mixed settings shell delivery', () => {
 				if (table === source) throw new Error('Count unavailable');
 				return { data: [], count: 3 };
 			};
-			await expect(loadSettingsShell(ctx, organization)).rejects.toThrow('Count unavailable');
+			await expect(
+				loadSettingsShell(ctx, organization, async () => {
+					if (source === 'approvals') throw new Error('Count unavailable');
+					return { count: 4 };
+				})
+			).rejects.toThrow('Count unavailable');
 		}
 	);
 });

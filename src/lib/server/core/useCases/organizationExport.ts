@@ -53,6 +53,10 @@ interface OrganizationRatingSchemeExportReads {
 	listRatingSchemeExportRows(store: Pick<DataStore, 'findMany'>, orgId: string): Promise<Record<string, unknown>[]>;
 }
 
+interface OrganizationDeletionRequestExportReads {
+	listDeletionRequestExportRows(): Promise<Record<string, unknown>[]>;
+}
+
 interface OrganizationCommunicationsExportReads {
 	listNotificationExportRows(): Promise<Record<string, unknown>[]>;
 	listFeedbackExportRows(): Promise<FeedbackExportRow[]>;
@@ -82,7 +86,8 @@ export async function loadOrganizationExportPayload(
 	onboardingExport: OrganizationOnboardingExportReads,
 	communicationsExport: OrganizationCommunicationsExportReads,
 	ratingSchemeExport: OrganizationRatingSchemeExportReads,
-	organizationExport: OrganizationRawExportReader
+	organizationExport: OrganizationRawExportReader,
+	deletionRequestExport: OrganizationDeletionRequestExportReads
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const orgId = actor.orgId;
@@ -92,6 +97,9 @@ export async function loadOrganizationExportPayload(
 		entries.push(
 			...(await Promise.all(
 				batch.map(async (section) => {
+					if (section.key === 'deletionRequests') {
+						return [section.key, await deletionRequestExport.listDeletionRequestExportRows()] as const;
+					}
 					if (section.key === 'auditLogs') {
 						return [section.key, await listAuditExportRows(store, orgId)] as const;
 					}

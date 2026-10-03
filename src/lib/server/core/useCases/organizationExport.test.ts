@@ -1,4 +1,9 @@
 import {
+	createSupabaseDeletionRequestStore,
+	listDeletionRequestExportRows
+} from '$features/deletion-requests/index.server';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
+import {
 	listOnboardingTemplateExportRows,
 	listOnboardingTemplateStepExportRows,
 	listPersonnelOnboardingExportRows,
@@ -76,7 +81,8 @@ describe('organization export inventory', () => {
 				listFeedbackExportRows: () => store.findMany<FeedbackExportRow>('beta_feedback', 'org-1')
 			},
 			{ listRatingSchemeExportRows },
-			{ listRows: (orgId, table) => store.findMany(table, orgId) }
+			{ listRows: (orgId, table) => store.findMany(table, orgId) },
+			{ listDeletionRequestExportRows: () => store.findMany('deletion_requests', 'org-1') }
 		);
 
 		for (const table of [
@@ -208,7 +214,11 @@ function communicationsProvider(platformAdministrator = false) {
 				listFeedbackExportRows: () => listFeedbackExportRows(client, ctx.auth.orgId)
 			},
 			{ listRatingSchemeExportRows },
-			ctx.organizationRawExport
+			ctx.organizationRawExport,
+			{
+				listDeletionRequestExportRows: () =>
+					listDeletionRequestExportRows(createDeletionRequestTestStore(ctx.rawStore), ctx.auth.orgId)
+			}
 		);
 	return { state, load, notifications, feedbackRows };
 }
@@ -565,7 +575,11 @@ describe('retained Organization export projection', () => {
 				listFeedbackExportRows: () => listFeedbackExportRows(client, actor.orgId)
 			},
 			{ listRatingSchemeExportRows },
-			createSupabaseOrganizationRawExportReader(client)
+			createSupabaseOrganizationRawExportReader(client),
+			{
+				listDeletionRequestExportRows: () =>
+					listDeletionRequestExportRows(createSupabaseDeletionRequestStore(client), actor.orgId)
+			}
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');

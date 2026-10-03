@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { restorePersonnelRecord } from '$features/personnel/index.server';
-import { archivePersonnelBatch } from './personnelArchiveBatchDelivery';
+import { archivePersonnelBatch as deliverArchivePersonnelBatch } from './personnelArchiveBatchDelivery';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
+
+const archivePersonnelBatch = (
+	ctx: Parameters<typeof deliverArchivePersonnelBatch>[0],
+	input: Parameters<typeof deliverArchivePersonnelBatch>[1]
+) => deliverArchivePersonnelBatch(ctx, input, createDeletionRequestTestStore(ctx.store));
 type TestDataStore = ReturnType<typeof createTestContext>['store'];
 
 function freshCopies(store: TestDataStore): TestDataStore {

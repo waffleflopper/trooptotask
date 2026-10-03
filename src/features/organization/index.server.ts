@@ -1,4 +1,4 @@
-export { loadOrganizationMemberLabels } from './memberLabels.server';
+export { listOrganizationMemberEmailsByUserIds, loadOrganizationMemberLabels } from './memberLabels.server';
 export { loadPersonnelDocumentStorageCapBytes } from './personnelDocumentSettings.server';
 export type { OrganizationPersonnelDocumentSettingsReader } from './personnelDocumentSettings.server';
 export type { OrganizationMemberLabelReader, OrganizationMemberLabelRow } from './memberLabels.server';

@@ -1,3 +1,4 @@
+import type { PlatformAudit, PlatformAuditDashboardActivity } from '$lib/audit/contracts';
 import { fail } from '$lib/errors';
 import { sanitizeString, validateUUID } from '$lib/server/validation';
 
@@ -11,21 +12,13 @@ export interface PlatformAdministrationSignupTrendPoint {
 	count: number;
 }
 
-export interface PlatformAdministrationRecentActivity {
-	id: string;
-	action: string;
-	user_id: string | null;
-	timestamp: string;
-	[key: string]: unknown;
-}
-
 export interface PlatformAdministrationDashboard {
 	userStats: PlatformAdministrationUserStats;
 	signupTrend: PlatformAdministrationSignupTrendPoint[];
 	totalOrganizations: number;
 	pendingAccessRequests: number;
 	pendingFeedback: number;
-	recentActivity: PlatformAdministrationRecentActivity[];
+	recentActivity: PlatformAuditDashboardActivity[];
 }
 
 export interface PlatformAdministrationSearchUserRow {
@@ -77,7 +70,6 @@ export interface PlatformAdministrationStore {
 	countOrganizations(): Promise<number | null>;
 	countPendingAccessRequests(): Promise<number | null>;
 	countPendingFeedback(): Promise<number | null>;
-	listRecentActivity(limit: number): Promise<PlatformAdministrationRecentActivity[]>;
 	searchUsersByEmail(input: { query: string; maxResults: number }): Promise<PlatformAdministrationSearchUserRow[]>;
 	countOrganizationsForUser(userId: string): Promise<number | null>;
 	searchOrganizationsByName(input: {
@@ -92,6 +84,7 @@ export interface PlatformAdministrationStore {
 }
 
 export interface PlatformAdministrationDependencies {
+	auditActivity: Pick<PlatformAudit, 'listRecentActivity'>;
 	store: PlatformAdministrationStore;
 	actorUserId: string;
 	audit(event: PlatformAdministrationAuditEvent): void;
@@ -150,7 +143,7 @@ export function createPlatformAdministration(deps: PlatformAdministrationDepende
 					deps.store.countOrganizations(),
 					deps.store.countPendingAccessRequests(),
 					deps.store.countPendingFeedback(),
-					deps.store.listRecentActivity(RECENT_ACTIVITY_LIMIT)
+					deps.auditActivity.listRecentActivity({ limit: RECENT_ACTIVITY_LIMIT })
 				]);
 
 			return {

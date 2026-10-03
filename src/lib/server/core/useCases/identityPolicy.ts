@@ -1,11 +1,12 @@
 import type { IdentityOwnedPolicyAction, PolicyReasonCode } from '$lib/access/policyEvaluator';
-import type { AuditPort, AuthContext } from '$lib/server/core/ports';
+import type { AuthContext } from '$lib/server/core/ports';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
 
 interface IdentityPolicyPorts {
 	auth: Pick<AuthContext, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'>;
-	audit: AuditPort;
+	audit: PolicyAuditSink;
 }
 
 export async function requireIdentityOwnedPolicy(

@@ -1,4 +1,5 @@
 import type { DataStore } from '../ports';
+import { listAuditExportRows } from '$lib/audit/index.server';
 import type { FeedbackExportRow } from '$features/feedback/index.server';
 import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from '$features/personnel/contracts';
 import { isPersonnelOrganizationExportTable } from '$features/personnel/contracts';
@@ -91,6 +92,9 @@ export async function loadOrganizationExportPayload(
 		entries.push(
 			...(await Promise.all(
 				batch.map(async (section) => {
+					if (section.key === 'auditLogs') {
+						return [section.key, await listAuditExportRows(store, orgId)] as const;
+					}
 					if (isOrganizationRawExportTable(section.table)) {
 						return [section.key, await organizationExport.listRows(orgId, section.table)] as const;
 					}

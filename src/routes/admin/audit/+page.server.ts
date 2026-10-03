@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
-import { createSupabasePlatformAudit } from '$lib/server/adapters/supabasePlatformAudit';
+import { createSupabasePlatformAudit } from '$lib/audit/index.server';
 
 export const load: PageServerLoad = loadWithAdminContext({
 	page: 'audit',
@@ -14,7 +14,7 @@ export const load: PageServerLoad = loadWithAdminContext({
 		const orgId = url.searchParams.get('org') || '';
 		const limit = 50;
 
-		return createSupabasePlatformAudit(ctx).listLogs({
+		return createSupabasePlatformAudit(ctx.adminClient).listLogs({
 			page,
 			limit,
 			action,

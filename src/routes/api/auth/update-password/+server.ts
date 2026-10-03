@@ -5,7 +5,7 @@ import {
 } from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { auditLog } from '$lib/server/auditLog';
+import { auditLog } from '$lib/audit/index.server';
 
 export const POST: RequestHandler = async ({ request, locals, cookies, getClientAddress }) => {
 	const result = await updateIdentityPassword(

@@ -1,6 +1,6 @@
 import type { PolicyDecision, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import type { AuditPort } from '$lib/server/core/ports';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 
 export type PolicyDenialStatus = 401 | 403;
 
@@ -22,7 +22,7 @@ export interface PolicyDenialAuditDetailsOptions {
 }
 
 export interface LogPolicyDenialInput {
-	audit?: AuditPort;
+	audit?: PolicyAuditSink;
 	decision: PolicyDecision;
 	resourceType: string;
 	resourceId?: string;

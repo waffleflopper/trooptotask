@@ -9,7 +9,7 @@ vi.mock('$lib/server/supabase', () => ({
 			name === 'password_change_attempt' ? attemptStore.rpc(name, args) : rpc(name, args)
 	})
 }));
-vi.mock('$lib/server/auditLog', () => ({ auditLog }));
+vi.mock('$lib/audit/index.server', () => ({ auditLog }));
 
 const proofProvider = vi.hoisted(() => ({ auth: {} as Record<string, unknown> }));
 vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: proofProvider.auth }) }));

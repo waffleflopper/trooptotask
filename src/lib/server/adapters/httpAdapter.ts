@@ -28,13 +28,13 @@ import {
 } from '$lib/server/permissionContext';
 import { cacheRequestMembership, getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
 import { validateUUID } from '$lib/server/validation';
-import { getRequestInfo } from '$lib/server/auditLog';
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import { getRequestInfo } from '$lib/audit/index.server';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseCalendarAssignmentReplacementPort } from '$features/calendar/index.server';
 import { createIdentityAuthorization } from '$features/identity/index.server';
 import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
-import { createSupabaseAuditAdapter } from './supabaseAudit';
+import { createSupabaseAuditAdapter } from '$lib/audit/index.server';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 import {

@@ -6,7 +6,7 @@ import {
 	checkAccessRequestSubmissionRateLimit,
 	createPublicAccessRequestSetupDeliveryService
 } from '$features/identity/index.server';
-import { auditLog } from '$lib/server/auditLog';
+import { auditLog } from '$lib/audit/index.server';
 import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 

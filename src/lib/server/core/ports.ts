@@ -1,3 +1,4 @@
+import type { AuditPort } from '$lib/audit/contracts';
 import type {
 	OrganizationSettingsReader,
 	OrganizationPolicyWritePort,
@@ -115,8 +116,6 @@ export interface DataStore {
 		filters?: Record<string, unknown>,
 		options?: FindOptions
 	): Promise<FindResult<T>>;
-
-	listDistinctAuditActions(orgId: string, excludedActions?: string[]): Promise<string[]>;
 }
 
 /** Abstracts permission enforcement — no SupabaseClient parameter needed */
@@ -135,18 +134,6 @@ export interface ScopeEnforcementPort {
 	requireGroupAccess(personnelId: string): Promise<void>;
 	requireGroupAccessBatch(personnelIds: string[]): Promise<void>;
 	requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void>;
-}
-
-/** Fire-and-forget audit logging */
-export interface AuditPort {
-	log(event: {
-		action: string;
-		resourceType: string;
-		resourceId?: string;
-		orgId?: string;
-		details?: Record<string, unknown>;
-		severity?: 'info' | 'warning' | 'critical';
-	}): void;
 }
 
 /** Abstracts file storage operations — business logic never imports Supabase storage */

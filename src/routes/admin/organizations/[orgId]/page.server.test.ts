@@ -20,8 +20,8 @@ vi.mock('$lib/server/admin', async (importOriginal) => ({
 	getAdminRole: lookupRole
 }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({}) }));
-vi.mock('$lib/server/auditLog', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/auditLog')>()),
+vi.mock('$lib/audit/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/audit/index.server')>()),
 	auditLog: audit
 }));
 vi.mock('$lib/server/adapters/supabasePlatformMembershipAdministration', async () => {

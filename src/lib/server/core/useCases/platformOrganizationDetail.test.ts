@@ -43,7 +43,6 @@ function makeDependencies(): PlatformOrganizationDetailDependencies {
 			getOrganizationMetrics: vi.fn()
 		},
 		audit: {
-			listLogs: vi.fn(),
 			listRecentByOrganization: vi.fn(async ({ orgId }) => [
 				{
 					id: orgId === ORG_ID ? 'audit-1' : 'other-audit',
@@ -54,8 +53,7 @@ function makeDependencies(): PlatformOrganizationDetailDependencies {
 					resourceType: 'organization',
 					resourceId: orgId
 				}
-			]),
-			listRecentByUser: vi.fn()
+			])
 		}
 	};
 }

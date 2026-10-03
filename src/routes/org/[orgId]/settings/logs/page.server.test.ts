@@ -181,8 +181,12 @@ describe('logs settings page server', () => {
 		});
 		expect(getAdminClientMock).toHaveBeenCalledOnce();
 		expect(createSupabaseDataStoreMock).toHaveBeenCalledWith({ admin: true });
-		expect(loadLogsSettingsMock).toHaveBeenCalledWith(expect.objectContaining({ auth: ctx.auth }), {
-			store: 'admin-store'
-		});
+		expect(loadLogsSettingsMock).toHaveBeenCalledWith(
+			expect.objectContaining({ auth: ctx.auth }),
+			{
+				store: 'admin-store'
+			},
+			{ admin: true }
+		);
 	});
 });

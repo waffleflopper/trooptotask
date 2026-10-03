@@ -20,7 +20,7 @@ import {
 	type ArchiveRetentionCleanupResult,
 	type ArchiveRetentionOrgConfig
 } from '$lib/server/core/useCases/archiveRetention';
-import { sanitizeErrorForLog } from '$lib/server/logSanitize';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 interface ArchiveRetentionEndpointInput {
 	loadOrgConfigs: () => Promise<ArchiveRetentionOrgConfig[]>;

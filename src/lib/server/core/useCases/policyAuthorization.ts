@@ -1,12 +1,12 @@
 import type { PolicyAction, PolicyDecision, PolicyResource } from '$lib/access/policyEvaluator';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { AuditPort } from '$lib/server/core/ports';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { evaluateAuthoritativePolicyDecision, type PolicyAdapterPorts } from './policyAdapter';
 import { denyPolicyDecision, policyDenialAuditDetails, type PolicyDenialAuditDetailsOptions } from './policyDenial';
 
 interface PolicyPorts {
 	auth: PolicyAdapterPorts['auth'];
-	audit: AuditPort;
+	audit: PolicyAuditSink;
 }
 
 type ServerPolicyAction = PolicyAction;

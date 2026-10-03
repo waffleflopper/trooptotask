@@ -21,6 +21,8 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 }));
 
 import Page from './+page.svelte';
+import PageWithLayoutBoundary from './PersonnelRouteTestBoundary.svelte';
+import { personnelWorkspaceHydrator } from '$features/personnel/personnelWorkspaceHydration.svelte';
 
 const alpha = person('alpha', 'Alpha');
 const bravo = person('bravo', 'Bravo');
@@ -108,6 +110,7 @@ async function settle(promise: Promise<unknown>) {
 }
 
 beforeEach(() => {
+	personnelWorkspaceHydrator.reset();
 	navigation.invalidateAll.mockResolvedValue(undefined);
 });
 afterEach(() => {
@@ -246,6 +249,72 @@ describe('Personnel route archive retry lifetime', () => {
 				'/org/a/api/personnel/archive-batch',
 				'/org/b/api/personnel/archive-batch'
 			]);
+		}
+	);
+	it('retains failed-only retry through a real layout refresh rejection after invalidation has returned', async () => {
+		const initialWorkspace = deferred<PersonnelWorkspaceResult>();
+		const refreshWorkspace = deferred<PersonnelWorkspaceResult>();
+		const send = vi
+			.fn()
+			.mockResolvedValueOnce(
+				Response.json({
+					archivedIds: [],
+					approvalRequestedIds: ['bravo'],
+					errors: [{ id: 'alpha', message: 'source write failed' }]
+				})
+			)
+			.mockResolvedValueOnce(Response.json({ archivedIds: ['alpha'], approvalRequestedIds: [], errors: [] }));
+		vi.stubGlobal('fetch', send);
+		const view = render(PageWithLayoutBoundary, { data: routeData('a', initialWorkspace.promise) });
+		initialWorkspace.resolve(workspace('a', [alpha, bravo]));
+		await settle(initialWorkspace.promise);
+		await screen.findByText('Alpha, Test');
+		expect(personnelStore.getById('bravo')).toBeTruthy();
+		navigation.invalidateAll.mockImplementationOnce(async () => {
+			await view.rerender({ data: routeData('a', refreshWorkspace.promise) });
+		});
+		await select(['Select SGT Alpha, Test', 'Select SGT Bravo, Test']);
+		await submit();
+		// The invalidation returns with a new pending stream; a later rejection is
+		// handled by the real Layout/Page, outside the bulk caller's awaited refresh.
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: 'Confirm Archive' })).toHaveProperty('disabled', false)
+		);
+		expect(navigation.invalidateAll).toHaveBeenCalledOnce();
+		expect(feedback.info).toHaveBeenCalledOnce();
+		refreshWorkspace.reject(new Error('readback connection failed'));
+		const alert = await screen.findByRole('alert');
+		expect(alert.textContent).toMatch(/refresh/i);
+		expect(screen.getByText('Alpha, Test')).toBeTruthy();
+		expect(screen.getByText('Bravo, Test')).toBeTruthy();
+		expect(screen.getByRole('checkbox', { name: 'Select SGT Alpha, Test' }).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getByRole('checkbox', { name: 'Select SGT Bravo, Test' }).getAttribute('aria-checked')).toBe('false');
+		expect(send).toHaveBeenCalledOnce();
+		await submit();
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
+		expect(submittedIds(send)).toEqual([['alpha', 'bravo'], ['alpha']]);
+		expect(personnelStore.getById('bravo')).toBeTruthy();
+	});
+
+	it.each(['initial', 'new-Organization'] as const)(
+		'keeps an actual layout/page %s load rejection fatal when there is no saved workspace for that Organization',
+		async (phase) => {
+			const pending = deferred<PersonnelWorkspaceResult>();
+			const initialWorkspace = deferred<PersonnelWorkspaceResult>();
+			const view = render(PageWithLayoutBoundary, {
+				data: routeData('a', phase === 'initial' ? pending.promise : initialWorkspace.promise)
+			});
+			if (phase === 'new-Organization') {
+				initialWorkspace.resolve(workspace('a', [alpha]));
+				await settle(initialWorkspace.promise);
+				await screen.findByText('Alpha, Test');
+				await view.rerender({ data: routeData('b', pending.promise) });
+			}
+			pending.reject(new Error(`${phase} workspace unavailable`));
+			const alert = await screen.findByRole('alert');
+			expect(alert.textContent).toContain(`${phase} workspace unavailable`);
+			expect(screen.queryByText('Alpha, Test')).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Archive' })).toBeNull();
 		}
 	);
 });

@@ -203,6 +203,56 @@ describe('fetchAuditLogs', () => {
 		expect(result.logs[0].actor).toBe('override@example.com');
 	});
 
+	it('enriches same-Organization labels while preserving safe and masked stored details', async () => {
+		const ctx = createQueryPortsContext();
+		const adminStore = createInMemoryDataStore();
+		const personnelId = '11111111-1111-4111-8111-111111111111';
+		const trainingTypeId = '22222222-2222-4222-8222-222222222222';
+		const statusTypeId = '33333333-3333-4333-8333-333333333333';
+
+		adminStore.seed('personnel', [
+			{ id: personnelId, organization_id: ORG, rank: 'SPC', last_name: 'Vale', first_name: 'Rowan' }
+		]);
+		adminStore.seed('training_types', [{ id: trainingTypeId, organization_id: ORG, name: 'Combat lifesaver' }]);
+		adminStore.seed('status_types', [{ id: statusTypeId, organization_id: ORG, name: 'Available' }]);
+		adminStore.seed('organization_memberships', [
+			{ id: 'm1', organization_id: ORG, user_id: 'u1', email: 'same-org@example.com' },
+			{ id: 'm2', organization_id: 'other-org', user_id: 'u1', email: 'other-org@example.com' }
+		]);
+		adminStore.seed('audit_logs', [
+			auditLog({
+				details: {
+					personnel_id: personnelId,
+					training_type_id: trainingTypeId,
+					status_type_id: statusTypeId,
+					date: '2026-03-23',
+					email: 'r***@example.com',
+					notes: '[redacted]',
+					redacted_fields: ['notes'],
+					completed: true,
+					count: 2,
+					previous_value: null
+				}
+			})
+		]);
+
+		const result = await fetchAuditLogs(ctx, adminStore, { page: 1 });
+
+		expect(result.logs[0].actor).toBe('same-org@example.com');
+		expect(result.logs[0].details).toEqual({
+			personnel: 'SPC Vale Rowan',
+			training_type: 'Combat lifesaver',
+			status_type: 'Available',
+			date: '2026-03-23',
+			email: 'r***@example.com',
+			notes: '[redacted]',
+			redacted_fields: ['notes'],
+			completed: true,
+			count: 2,
+			previous_value: null
+		});
+	});
+
 	it('paginates rows at the data-store boundary without hydrating all audit rows', async () => {
 		const ctx = createQueryPortsContext();
 		const adminStore = createInMemoryDataStore();
@@ -382,6 +432,63 @@ describe('fetchAuditLogs', () => {
 });
 
 describe('fetchAuditLogPreview', () => {
+	it('conceals foreign labels and membership emails while stripping unresolved detail UUIDs', async () => {
+		const ctx = createQueryPortsContext();
+		const adminStore = createInMemoryDataStore();
+		const personnelId = '44444444-4444-4444-8444-444444444444';
+		const trainingTypeId = '55555555-5555-4555-8555-555555555555';
+		const statusTypeId = '66666666-6666-4666-8666-666666666666';
+		const resourceId = '77777777-7777-4777-8777-777777777777';
+
+		adminStore.seed('personnel', [
+			{ id: personnelId, organization_id: 'other-org', rank: 'SFC', last_name: 'Foreign', first_name: 'Person' }
+		]);
+		adminStore.seed('training_types', [{ id: trainingTypeId, organization_id: 'other-org', name: 'Foreign training' }]);
+		adminStore.seed('status_types', [{ id: statusTypeId, organization_id: 'other-org', name: 'Foreign status' }]);
+		adminStore.seed('organization_memberships', [
+			{ id: 'foreign-membership', organization_id: 'other-org', user_id: 'u2', email: 'foreign@example.com' }
+		]);
+		adminStore.seed('audit_logs', [
+			{
+				id: 'org-log',
+				org_id: ORG,
+				user_id: 'u2',
+				action: 'training.update',
+				resource_type: 'training_record',
+				resource_id: resourceId,
+				details: {
+					personnel_id: personnelId,
+					training_type_id: trainingTypeId,
+					status_type_id: statusTypeId,
+					legacy_link_id: 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA',
+					subject_label: 'Historical subject',
+					actor_identifier: 'f***@example.com'
+				},
+				timestamp: '2026-03-23T10:00:00Z'
+			},
+			{
+				id: 'foreign-log',
+				org_id: 'other-org',
+				user_id: 'u2',
+				action: 'training.update',
+				details: { subject_label: 'Foreign audit subject' },
+				timestamp: '2026-03-23T10:01:00Z'
+			}
+		]);
+
+		const result = await fetchAuditLogPreview(ctx, adminStore, { limit: 2 });
+
+		expect(result.logs).toEqual([
+			expect.objectContaining({
+				id: 'org-log',
+				actor: null,
+				resourceId,
+				details: { subject_label: 'Historical subject', actor_identifier: 'f***@example.com' }
+			})
+		]);
+		expect(result.totalCount).toBe(1);
+	});
+
 	it('returns a bounded settings rail preview without hydrating filter actions', async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date('2026-04-27T12:00:00Z'));

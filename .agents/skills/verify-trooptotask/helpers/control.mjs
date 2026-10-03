@@ -12,6 +12,7 @@ import { jsPDF } from 'jspdf';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { requestSettings } from './settings-request.mjs';
+import { seedDeletionSources, requestDeletion } from './deletion-requests.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
@@ -85,7 +86,8 @@ const tableSelect = {
 		'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status,created_at',
 	onboarding_step_progress:
 		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active,updated_at',
-	deletion_requests: 'id,organization_id,resource_type,resource_id,status,reviewed_by,reviewed_at',
+	deletion_requests:
+		'id,organization_id,requested_by,requested_by_email,resource_type,resource_id,resource_description,resource_url,status,denial_reason,reviewed_by,reviewed_at,created_at',
 	rating_scheme_entries:
 		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at',
 	organization_invitations:
@@ -117,7 +119,9 @@ const filters = new Set([
 	'template_id',
 	'onboarding_id',
 	'template_step_id',
-	'rated_person_id'
+	'rated_person_id',
+	'resource_id',
+	'requested_by'
 ]);
 
 async function owned() {
@@ -216,6 +220,20 @@ async function main() {
 			),
 			roles: Object.keys(fixture.actors)
 		});
+		return;
+	}
+	if (command === 'deletion-request') {
+		const [page, orgKey, action, bodyText = '{}'] = args;
+		const pageId = Number(page);
+		if (args.length < 3 || args.length > 4 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use deletion-request PAGE orgA|orgB list|submit|cancel|review JSON.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestDeletion.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), action, body: JSON.parse(bodyText) })})`
+			)
+		);
 		return;
 	}
 	if (command === 'settings-request') {
@@ -380,6 +398,7 @@ async function main() {
 			'settings/policies',
 			'settings/general',
 			'settings/archives',
+			'settings/approvals',
 			'settings/members',
 			'settings/exports',
 			'settings/danger'
@@ -446,30 +465,32 @@ async function main() {
 										? ['Critical Tasks', 'Access restricted']
 										: destination === 'settings/archives'
 											? ['Archived Records', "You don't have permission to view this page"]
-											: destination === 'settings/policies'
-												? ['Archive Retention', "You don't have permission to view this page"]
-												: destination === 'settings/general'
-													? ['Organization Profile', "You don't have permission to view this page"]
-													: destination === 'settings/members'
-														? ['Access Management', "You don't have permission to view this page"]
-														: destination === 'settings/exports'
-															? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
-															: destination === 'settings/danger'
-																? ['Destructive Actions', "You don't have permission to view this page"]
-																: destination === 'dashboard'
-																	? ['Pending Invitations', 'Organizations']
-																	: destination === 'org/new'
-																		? ['Create your first Organization', 'Confirm your email first']
-																		: [
-																				'Calendar',
-																				'Evaluation controls',
-																				'Training',
-																				'Able, Synthetic',
-																				'Foreign, Synthetic',
-																				'No personnel on the active roster',
-																				'Access restricted',
-																				'Access Restricted'
-																			];
+											: destination === 'settings/approvals'
+												? ['Approval Requests', "You don't have permission to view this page"]
+												: destination === 'settings/policies'
+													? ['Archive Retention', "You don't have permission to view this page"]
+													: destination === 'settings/general'
+														? ['Organization Profile', "You don't have permission to view this page"]
+														: destination === 'settings/members'
+															? ['Access Management', "You don't have permission to view this page"]
+															: destination === 'settings/exports'
+																? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
+																: destination === 'settings/danger'
+																	? ['Destructive Actions', "You don't have permission to view this page"]
+																	: destination === 'dashboard'
+																		? ['Pending Invitations', 'Organizations']
+																		: destination === 'org/new'
+																			? ['Create your first Organization', 'Confirm your email first']
+																			: [
+																					'Calendar',
+																					'Evaluation controls',
+																					'Training',
+																					'Able, Synthetic',
+																					'Foreign, Synthetic',
+																					'No personnel on the active roster',
+																					'Access restricted',
+																					'Access Restricted'
+																				];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -1012,7 +1033,8 @@ async function main() {
 				'audit',
 				'communications',
 				'organization-destruction',
-				'rating-scheme'
+				'rating-scheme',
+				'deletion-sources'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
@@ -1021,6 +1043,10 @@ async function main() {
 		const tag = randomUUID().slice(0, 8);
 		if (kind === 'audit') {
 			note(await seedAudit({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'deletion-sources') {
+			note(await seedDeletionSources({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'organization-destruction') {
@@ -1570,6 +1596,14 @@ async function main() {
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
+				if (item.kind === 'deletion-sources')
+					checked(
+						await client
+							.from('deletion_requests')
+							.delete()
+							.eq('organization_id', org(item.organization))
+							.in('resource_id', ids)
+					);
 				if (item.kind === 'bulk-501')
 					checked(
 						await client

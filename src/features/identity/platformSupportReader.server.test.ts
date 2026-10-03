@@ -148,6 +148,52 @@ describe('Identity platform account facts', () => {
 			new Map([[USER, { email: 'leader@example.test', firstName: null, lastName: null }]])
 		);
 	});
+
+	it('loads every inviter label within Auth concurrency and profile filter budgets', async () => {
+		const ids = Array.from({ length: 401 }, (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`);
+		const expected = new Map(
+			ids.map((id, index) => [
+				id,
+				{ email: `inviter-${index}@example.test`, firstName: 'Inviter', lastName: String(index) }
+			])
+		);
+		let activeAccounts = 0;
+		let peakAccounts = 0;
+		const reader = createIdentityPlatformSupportReader(
+			client(async (input) => {
+				const url = new URL(input.toString());
+				if (url.pathname.startsWith('/auth/v1/admin/users/')) {
+					activeAccounts++;
+					peakAccounts = Math.max(peakAccounts, activeAccounts);
+					const withinBudget = activeAccounts <= 10;
+					await Promise.resolve();
+					activeAccounts--;
+					if (!withinBudget) return Response.json({ message: 'Account request limit' }, { status: 429 });
+					const id = url.pathname.split('/').at(-1)!;
+					return Response.json({ id, email: expected.get(id)!.email, created_at: '2026-06-01' });
+				}
+				expect(url.pathname).toBe('/rest/v1/user_profiles');
+				const requested = url.searchParams.get('user_id')!.slice(4, -1).split(',');
+				if (requested.length > 200) return Response.json({ message: 'Filter too large' }, { status: 414 });
+				return Response.json(
+					requested.map((user_id) => ({
+						user_id,
+						first_name: 'Inviter',
+						last_name: expected.get(user_id)!.lastName
+					}))
+				);
+			})
+		);
+		await expect(reader.loadUserLabels([...ids, ids[0]])).resolves.toEqual(expected);
+		expect(peakAccounts).toBeLessThanOrEqual(10);
+	});
+
+	it('returns no inviter labels without contacting the provider for empty input', async () => {
+		const fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValue(new Error('No provider request is needed'));
+		const reader = createIdentityPlatformSupportReader(client(fetch));
+		await expect(reader.loadUserLabels([])).resolves.toEqual(new Map());
+		expect(fetch).not.toHaveBeenCalled();
+	});
 });
 
 describe('Identity platform suspension facts and effects', () => {

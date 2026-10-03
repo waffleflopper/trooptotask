@@ -9,6 +9,7 @@ const userId = '20000000-0000-4000-8000-000000000001';
 const orgId = '30000000-0000-4000-8000-000000000001';
 let role: string | null;
 let countUnavailable: boolean;
+let noMatches: boolean;
 let reads: URL[];
 let bodies: Map<string, Record<string, unknown>>;
 function event(query = 'Able', authenticated = true): Parameters<typeof GET>[0] {
@@ -24,6 +25,7 @@ function event(query = 'Able', authenticated = true): Parameters<typeof GET>[0] 
 beforeEach(() => {
 	role = 'support';
 	countUnavailable = false;
+	noMatches = false;
 	reads = [];
 	bodies = new Map();
 	getAdminClient.mockReturnValue(
@@ -41,9 +43,9 @@ beforeEach(() => {
 							expect(url.searchParams.get('is_active')).toBe('eq.true');
 							return Response.json(role ? { role } : null);
 						case 'search_users_by_email':
-							return Response.json([{ id: userId, email: 'able@example.test' }]);
+							return Response.json(noMatches ? [] : [{ id: userId, email: 'able@example.test' }]);
 						case 'organizations':
-							return Response.json([{ id: orgId, name: 'Able Clinic' }]);
+							return Response.json(noMatches ? [] : [{ id: orgId, name: 'Able Clinic' }]);
 						case 'organization_memberships':
 							expect(url.searchParams.get('user_id')).toContain(userId);
 							return Response.json([{ user_id: userId }, { user_id: userId }]);
@@ -65,6 +67,7 @@ describe('admitted support search source composition', () => {
 		async (currentRole) => {
 			role = currentRole;
 			const response = await GET(event('Able'));
+			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({
 				users: [{ id: userId, email: 'able@example.test', orgCount: 2 }],
 				organizations: [{ id: orgId, name: 'Able Clinic', personnelCount: 3 }]
@@ -78,6 +81,12 @@ describe('admitted support search source composition', () => {
 		const response = await GET(event('Ab'));
 		expect(await response.json()).toEqual({ users: [], organizations: [] });
 		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_admins']);
+	});
+	it('returns empty search results when neither source has a match', async () => {
+		noMatches = true;
+		const response = await GET(event('Absent'));
+		expect(response.status).toBe(200);
+		expect(await response.json()).toEqual({ users: [], organizations: [] });
 	});
 	it.each([null, 'billing'])('denies current role %s before even an empty search', async (currentRole) => {
 		role = currentRole;

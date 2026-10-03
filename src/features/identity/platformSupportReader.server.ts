@@ -164,37 +164,41 @@ export function createIdentityPlatformSupportReader(client: SupabaseClient): Ide
 			const ids = [...new Set(userIds)];
 			if (ids.length === 0) return new Map();
 			const labels = new Map<string, IdentitySupportUserLabel>();
-			await Promise.all(
-				ids.map(async (userId) => {
-					const account = await reader.getAuthUser(userId);
-					labels.set(userId, {
-						email: account.status === 'ok' ? account.user.email : null,
-						firstName: null,
-						lastName: null
-					});
-				})
-			);
+			for (let offset = 0; offset < ids.length; offset += 10) {
+				await Promise.all(
+					ids.slice(offset, offset + 10).map(async (userId) => {
+						const account = await reader.getAuthUser(userId);
+						labels.set(userId, {
+							email: account.status === 'ok' ? account.user.email : null,
+							firstName: null,
+							lastName: null
+						});
+					})
+				);
+			}
 			// These are optional review labels. A profile outage retains the known account
 			// email (or unknown-inviter context); it never changes review authorization.
 			try {
-				const { data, error } = await selectAllSupabaseRows<{
-					user_id: string;
-					first_name: string | null;
-					last_name: string | null;
-				}>(async (from, to) =>
-					client
-						.from('user_profiles')
-						.select('user_id, first_name, last_name')
-						.in('user_id', ids)
-						.order('user_id')
-						.range(from, to)
-				);
-				if (!error) {
-					for (const profile of data ?? []) {
-						const label = labels.get(profile.user_id);
-						if (label) {
-							label.firstName = typeof profile.first_name === 'string' ? profile.first_name : null;
-							label.lastName = typeof profile.last_name === 'string' ? profile.last_name : null;
+				for (let offset = 0; offset < ids.length; offset += 200) {
+					const { data, error } = await selectAllSupabaseRows<{
+						user_id: string;
+						first_name: string | null;
+						last_name: string | null;
+					}>(async (from, to) =>
+						client
+							.from('user_profiles')
+							.select('user_id, first_name, last_name')
+							.in('user_id', ids.slice(offset, offset + 200))
+							.order('user_id')
+							.range(from, to)
+					);
+					if (!error) {
+						for (const profile of data ?? []) {
+							const label = labels.get(profile.user_id);
+							if (label) {
+								label.firstName = typeof profile.first_name === 'string' ? profile.first_name : null;
+								label.lastName = typeof profile.last_name === 'string' ? profile.last_name : null;
+							}
 						}
 					}
 				}

@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { PersonnelSupportReader } from './supportReadTypes';
 
-function readCount(value: number | string | null): number {
-	const count = typeof value === 'number' ? value : Number(value);
-	if (value === null || (typeof value === 'string' && value.trim() === '') || !Number.isSafeInteger(count) || count < 0)
+function readCount(value: unknown): number {
+	if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value)))
 		throw new Error('Active personnel count was unavailable');
+	const count = Number(value);
+	if (!Number.isSafeInteger(count) || count < 0) throw new Error('Active personnel count was unavailable');
 	return count;
 }
 
@@ -19,12 +20,17 @@ export function createPersonnelSupportReader(client: SupabaseClient): PersonnelS
 				error: unknown;
 			};
 			if (error) throw error;
-			const requested = new Set(ids);
-			return new Map(
-				(data ?? [])
-					.filter((row) => requested.has(row.organization_id))
-					.map((row) => [row.organization_id, readCount(row.personnel_count)])
-			);
+			if (!Array.isArray(data)) throw new Error('Active personnel count was unavailable');
+			const requested = new Map(ids.map((value) => [value.toLowerCase(), value]));
+			const counts = new Map<string, number>();
+			for (const value of data) {
+				if (!value || typeof value !== 'object' || Array.isArray(value) || typeof value.organization_id !== 'string')
+					throw new Error('Active personnel count was unavailable');
+				const organizationId = requested.get(value.organization_id.toLowerCase());
+				if (!organizationId || counts.has(organizationId)) throw new Error('Active personnel count was unavailable');
+				counts.set(organizationId, readCount(value.personnel_count));
+			}
+			return counts;
 		},
 		async countActivePersonnelForOrganization(organizationId) {
 			const { count, error } = await client

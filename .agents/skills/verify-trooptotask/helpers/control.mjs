@@ -1636,7 +1636,7 @@ async function main() {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-hold-fail' || action === 'arm-observe') {
+		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe'].includes(action)) {
 			const formActions = {
 				'settings/general/updateName': 'error',
 				'settings/general/updateSlug': 'slugError',
@@ -1700,7 +1700,7 @@ async function main() {
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
 			const formAction = Object.hasOwn(formActions, family) ? family.split('/').at(-1) : null;
 			let organizationSegment = org('orgA');
-			if (formAction || family === 'organization/settings' || family === 'audit-page') {
+			if (formAction || ['organization/settings', 'audit-page', 'deletion-requests/review'].includes(family)) {
 				const organization = checked(
 					await (await provider()).from('organizations').select('url_slug').eq('id', org('orgA')).single()
 				);
@@ -1714,8 +1714,10 @@ async function main() {
 						: ['feedback', 'announcements/dismiss'].includes(family)
 							? `/api/${family}`
 							: `/org/${organizationSegment}/api/${family}`;
-			if (action === 'arm-hold-fail' && family !== 'organization/settings')
-				throw new Error('Delayed synthetic failure is supported only for Organization policies.');
+			if (action === 'arm-hold-fail' && !['organization/settings', 'deletion-requests/review'].includes(family))
+				throw new Error('Delayed synthetic failure is supported only for Organization policies and deletion review.');
+			if (action === 'arm-reject' && family !== 'deletion-requests/review')
+				throw new Error('Synthetic transport rejection is supported only for deletion review.');
 			const mode =
 				action === 'arm-hold-fail'
 					? 'hold-fail'
@@ -1723,7 +1725,9 @@ async function main() {
 						? 'fail'
 						: action === 'arm-hold'
 							? 'hold'
-							: 'observe';
+							: action === 'arm-reject'
+								? 'reject'
+								: 'observe';
 			const search = formAction ? `?/${formAction}` : null;
 			const failureField = formAction ? formActions[family] : null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField })})`;

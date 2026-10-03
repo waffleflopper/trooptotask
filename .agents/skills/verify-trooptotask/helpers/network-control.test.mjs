@@ -11,6 +11,27 @@ function deferred() {
 	return { promise, resolve };
 }
 
+test('review transport rejection affects one exact POST without dispatch or foreign interference', async () => {
+	let ordinaryCalls = 0;
+	const page = {
+		fetch: async () => {
+			ordinaryCalls++;
+			return new Response('ordinary');
+		}
+	};
+	installNetworkControl(page, { mode: 'reject', ordinal: 1, suffix: '/org/a/api/deletion-requests/review' });
+	await page.fetch('/org/b/api/deletion-requests/review', { method: 'POST' });
+	await page.fetch('/org/a/api/deletion-requests/review', { method: 'GET' });
+	await page.fetch('/org/a/api/deletion-requests', { method: 'POST' });
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	await assert.rejects(page.fetch('/org/a/api/deletion-requests/review', { method: 'POST' }), TypeError);
+	assert.equal(ordinaryCalls, 3);
+	assert.equal(page.__mapNetwork.calls[0].failure, 'transport');
+	assert.equal(page.__mapNetwork.calls[0].status, null);
+	assert.equal((await page.fetch('/org/a/api/deletion-requests/review', { method: 'POST' })).status, 200);
+	assert.equal(ordinaryCalls, 4);
+});
+
 test('a delayed synthetic policy failure stays pending until release and never reaches the provider', async () => {
 	let ordinaryCalls = 0;
 	const page = {

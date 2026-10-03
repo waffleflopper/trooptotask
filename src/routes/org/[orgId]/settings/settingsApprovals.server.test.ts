@@ -16,7 +16,7 @@ function makeDeletionRequest(id: string, status: 'pending' | 'approved', created
 		id,
 		status,
 		created_at: createdAt,
-		requester_email: null,
+		requested_by_email: null,
 		resource_description: null,
 		resource_type: 'personnel',
 		resource_url: null,

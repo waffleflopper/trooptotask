@@ -1,16 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryPlatformMetricsStore } from '$lib/server/adapters/inMemoryPlatformMetrics';
-import { createInMemoryPlatformUserDirectoryStore } from '$lib/server/adapters/inMemoryPlatformUserDirectory';
-import { createPlatformMetrics } from './platformMetrics';
-import { createPlatformUserDirectory } from './platformUserDirectory';
+import { createInMemoryPlatformMetricsStore } from './inMemoryMetrics.test-support';
+import { createInMemoryPlatformUserDirectorySources } from './inMemoryUserDirectory.test-support';
+import { createPlatformUserDirectory } from './userDirectory.server';
 
 function createSubject(
-	options: Parameters<typeof createInMemoryPlatformUserDirectoryStore>[0],
+	options: Parameters<typeof createInMemoryPlatformUserDirectorySources>[0],
 	metricsSeed: Parameters<typeof createInMemoryPlatformMetricsStore>[0] = {}
 ) {
 	return createPlatformUserDirectory({
-		store: createInMemoryPlatformUserDirectoryStore(options),
-		metrics: createPlatformMetrics({ store: createInMemoryPlatformMetricsStore(metricsSeed) })
+		...createInMemoryPlatformUserDirectorySources(options),
+		personnel: createInMemoryPlatformMetricsStore(metricsSeed)
 	});
 }
 
@@ -86,6 +85,13 @@ describe('PlatformUserDirectory', () => {
 			limit: 1,
 			search: 'bravo',
 			authError: null
+		});
+		await expect(directory.listUsers({ search: 'BRAVO', page: 2, limit: 1 })).resolves.toMatchObject({
+			totalCount: 2,
+			page: 2,
+			limit: 1,
+			authError: null,
+			users: [{ id: 'user-suspended', organizationCount: 1, isSuspended: true, emailConfirmationStatus: 'pending' }]
 		});
 	});
 
@@ -262,7 +268,7 @@ describe('PlatformUserDirectory', () => {
 		'does not convert a failed %s suspension read to an unsuspended account',
 		async (surface) => {
 			const providerError = new Error('Synthetic suspension lookup unavailable');
-			const baseStore = createInMemoryPlatformUserDirectoryStore({
+			const baseSources = createInMemoryPlatformUserDirectorySources({
 				authUsers: [
 					{
 						id: 'user-1',
@@ -274,8 +280,9 @@ describe('PlatformUserDirectory', () => {
 				]
 			});
 			const directory = createPlatformUserDirectory({
-				store: {
-					...baseStore,
+				...baseSources,
+				identity: {
+					...baseSources.identity,
 					getSuspensionForUser: async () => {
 						throw providerError;
 					},
@@ -283,7 +290,7 @@ describe('PlatformUserDirectory', () => {
 						throw providerError;
 					}
 				},
-				metrics: createPlatformMetrics({ store: createInMemoryPlatformMetricsStore({}) })
+				personnel: createInMemoryPlatformMetricsStore({})
 			});
 			const result =
 				surface === 'detail'

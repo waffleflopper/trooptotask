@@ -47,4 +47,22 @@ Use B, except P1 contained `Closes #X` and the issue is closed. A dependent issu
 - CodeRabbit has no completed review for the candidate. Its installed CLI reports a service outage twice with no actionable recovery; no other runner is available.
 - Publication remains authorized. The user has not waived CodeRabbit review.
 
+## H — Related response-ordering defects
+
+- The selected issue owns Onboarding packet steps, Re-sync and History. Approved behavior requires the newest saved step state to remain visible and persisted when requests complete out of order.
+- Baseline observations reproduce older responses replacing newer work in Paperwork stages, checkbox selections and Re-sync. The paths share request/state handling and the same packet and History consumers; compatible delay controls and fixtures can verify all three.
+- No PR is open. All three repairs are authorized, fit a reviewable diff and need no migration or separate release sequence. The issue also has an unrelated retention-reader cutover remaining.
+
+## I — Related defect discovered in an open PR
+
+- P3 is open with `Refs #X`, declaring that rapid edits to a packet checklist preserve the newest saved state across Paperwork and checkbox steps. Other issue requirements remain afterward.
+- Paperwork verification passes for head H. Before merge, delayed checkbox responses reproduce the same older-response overwrite through the shared request/state handling. That case has no passing behavioral evidence.
+- CI and CodeRabbit review pass for H. Repairing the checkbox path fits the declared outcome and reviewable diff, requires no migration and is authorized. No merge is authorized.
+
+## J — Concrete reasons to split
+
+- The selected issue owns a packet/checklist creation repair and the associated caller cutover. Approved release instructions require a migration to land and Robert to apply it remotely before the application cutover can merge; each part has independent acceptance criteria.
+- A separately requested CI runner repair is also authorized for publication. It has independent files, acceptance and release behavior, with no shared failure mechanism or verification dependencies with the packet repair.
+- No PR is open. Publication is authorized, while merge, remote migration, deployment and tracker writes are not. Return the PR boundaries and dependency handoffs as well as the next actions. Do not infer that every migration or CI finding needs a separate PR.
+
 These synthetic issue/candidate identifiers authorize no live changes.

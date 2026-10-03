@@ -1667,7 +1667,13 @@ async function main() {
 	if (command === 'clean-seeds') {
 		const client = await provider();
 		const ownedState = await saved();
-		const platformCleanup = await cleanPlatform({ client, fixture, ownedState, save });
+		let platformCleanup;
+		let platformError;
+		try {
+			platformCleanup = await cleanPlatform({ client, fixture, ownedState, save });
+		} catch (error) {
+			platformError = error;
+		}
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
@@ -1704,6 +1710,7 @@ async function main() {
 		ownedState.seeded = [];
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
+		if (platformError) throw platformError;
 		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup });
 		return;
 	}

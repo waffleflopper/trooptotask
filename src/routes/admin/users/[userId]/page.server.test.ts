@@ -1,312 +1,115 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-	platformAuditMock,
-	platformUserDirectoryMock,
-	platformUserIdentityCommandsMock,
-	checkAdminAuthEmailRateLimitMock
-} = vi.hoisted(() => ({
-	checkAdminAuthEmailRateLimitMock: vi.fn(),
-	platformAuditMock: {
-		listLogs: vi.fn(),
-		listRecentByOrganization: vi.fn(),
-		listRecentByUser: vi.fn()
-	},
-	platformUserDirectoryMock: {
-		getUserDetail: vi.fn()
-	},
-	platformUserIdentityCommandsMock: {
+const { accountOperations, createOperations } = vi.hoisted(() => ({
+	accountOperations: {
+		adminRole: 'support',
+		getUserDetail: vi.fn(),
 		sendPasswordReset: vi.fn(),
 		resendInvite: vi.fn()
-	}
+	},
+	createOperations: vi.fn()
 }));
-
-vi.mock('$lib/server/adapters/adminAdapter', () => ({
-	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event),
-	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event)
-}));
-
-vi.mock('$lib/audit/index.server', () => ({
-	createSupabasePlatformAudit: () => platformAuditMock
-}));
-
-vi.mock('$lib/server/adapters/supabasePlatformUserDirectory', () => ({
-	createSupabasePlatformUserDirectory: () => platformUserDirectoryMock
-}));
-
-vi.mock('$lib/server/adapters/supabasePlatformUserIdentityCommands', () => ({
-	createSupabasePlatformUserIdentityCommands: () => platformUserIdentityCommandsMock,
-	checkAdminAuthEmailRateLimit: checkAdminAuthEmailRateLimitMock
-}));
+vi.mock('$features/platform-admin/index.server', () => ({ createPlatformAccountOperations: createOperations }));
 
 import { actions, load } from './+page.server';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
-
-function makeUserDetailLoadClient() {
-	return {
-		auth: {
-			admin: {
-				getUserById: vi.fn(() => {
-					throw new Error('route must use PlatformUserDirectory for user detail shaping');
-				})
-			}
-		},
-		from: vi.fn((table: string) => {
-			if (table === 'audit_logs') throw new Error('route must use PlatformAudit for recent user activity');
-			throw new Error(`route must not shape ${table} rows directly`);
-		})
-	};
+const detail = {
+	user: { id: USER_ID, email: 'soldier@example.test', emailConfirmationStatus: 'confirmed' },
+	organizations: [{ id: 'org-a', name: 'Able Clinic', role: 'member', personnelCount: 3 }],
+	suspension: null,
+	isSuspended: false,
+	recentActivity: [{ id: 'audit-a', action: 'view_personnel', severity: 'info' }]
+};
+function event(userId = USER_ID) {
+	return { params: { userId }, url: new URL(`/admin/users/${userId}`, 'https://app.example.test') };
 }
 
-function makeIdentityCommandActionClient() {
-	return {
-		get auth() {
-			throw new Error('route must use PlatformUserIdentityCommands for identity email commands');
-		},
-		from: vi.fn((table: string) => {
-			throw new Error(`route must not issue ${table} provider commands directly`);
-		})
-	};
-}
-
-describe('admin user auth email actions', () => {
-	const audit = vi.fn();
-
+describe('User detail HTTP delivery', () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
-		vi.unstubAllEnvs();
-		checkAdminAuthEmailRateLimitMock.mockResolvedValue(false);
-
-		platformUserIdentityCommandsMock.sendPasswordReset.mockResolvedValue({
-			status: 'sent',
-			email: 'soldier@example.mil',
-			message: 'Password reset email sent'
-		});
-		platformUserIdentityCommandsMock.resendInvite.mockResolvedValue({
-			status: 'sent',
-			email: 'soldier@example.mil',
-			message: 'Invite email resent'
-		});
-		platformUserDirectoryMock.getUserDetail.mockResolvedValue({
-			status: 'found',
-			detail: {
-				user: {
-					id: USER_ID,
-					email: 'soldier@example.mil',
-					createdAt: '2026-06-01T00:00:00.000Z',
-					lastSignInAt: '2026-06-08T00:00:00.000Z',
-					emailConfirmedAt: '2026-06-01T00:05:00.000Z',
-					emailConfirmationStatus: 'confirmed'
-				},
-				organizations: [
-					{
-						id: 'org-1',
-						name: 'Able Company',
-						role: 'owner',
-						personnelCount: 5
-					}
-				],
-				suspension: null,
-				isSuspended: false
-			}
-		});
-		platformAuditMock.listRecentByUser.mockResolvedValue([
-			{
-				id: 'audit-1',
-				action: 'admin.user.resend_invite',
-				resourceType: 'user',
-				resourceId: USER_ID,
-				orgId: 'org-1',
-				timestamp: '2026-06-08T15:00:00.000Z',
-				severity: 'warning'
-			}
-		]);
+		vi.resetAllMocks();
+		createOperations.mockResolvedValue(accountOperations);
+		accountOperations.getUserDetail.mockResolvedValue({ status: 'found', detail });
+		accountOperations.sendPasswordReset.mockResolvedValue({ status: 'sent', message: 'Password reset email sent' });
+		accountOperations.resendInvite.mockResolvedValue({ status: 'sent', message: 'Invite email resent' });
 	});
 
-	it('loads recent user activity through PlatformAudit', async () => {
-		const result = await load({
-			__ctx: {
-				adminClient: makeUserDetailLoadClient(),
-				adminUser: { id: 'admin-1', role: 'super_admin' },
-				audit
-			},
-			params: { userId: USER_ID }
-		} as unknown as Parameters<typeof load>[0]);
+	it('returns the safe detail including activity and the current admitted role', async () => {
+		const request = event();
+		await expect(load(request as never)).resolves.toEqual({ ...detail, adminRole: 'support' });
+		expect(createOperations).toHaveBeenCalledWith(request);
+		expect(accountOperations.getUserDetail).toHaveBeenCalledWith(USER_ID);
+	});
 
-		expect(platformUserDirectoryMock.getUserDetail).toHaveBeenCalledWith(USER_ID);
-		expect(platformAuditMock.listRecentByUser).toHaveBeenCalledWith({ userId: USER_ID, limit: 10 });
-		expect(result).toMatchObject({
-			user: {
-				id: USER_ID,
-				email: 'soldier@example.mil',
-				createdAt: '2026-06-01T00:00:00.000Z',
-				lastSignInAt: '2026-06-08T00:00:00.000Z',
-				emailConfirmedAt: '2026-06-01T00:05:00.000Z',
-				emailConfirmationStatus: 'confirmed'
-			},
-			organizations: [
-				{
-					id: 'org-1',
-					name: 'Able Company',
-					role: 'owner',
-					personnelCount: 5
+	it.each([
+		{ result: { status: 'not_found' }, status: 404, message: 'User not found' },
+		{
+			result: { status: 'auth_error', message: 'private provider detail' },
+			status: 500,
+			message: 'Failed to load user identity'
+		}
+	])('maps $result.status to a safe detail response', async ({ result, status, message }) => {
+		accountOperations.getUserDetail.mockResolvedValueOnce(result);
+		await expect(load(event() as never)).rejects.toMatchObject({ status, body: { message } });
+	});
+
+	it('rejects malformed IDs before reading detail or issuing email commands', async () => {
+		await expect(load(event('invalid') as never)).rejects.toMatchObject({ status: 400 });
+		for (const action of [actions.resetPassword, actions.resendInvite])
+			await expect(action(event('invalid') as never)).resolves.toEqual({
+				status: 400,
+				data: { error: 'Invalid user ID' }
+			});
+		expect(accountOperations.getUserDetail).not.toHaveBeenCalled();
+		expect(accountOperations.sendPasswordReset).not.toHaveBeenCalled();
+		expect(accountOperations.resendInvite).not.toHaveBeenCalled();
+	});
+
+	it.each(['load', 'resetPassword', 'resendInvite'] as const)(
+		'admits the request before %s reads route parameters',
+		async (handler) => {
+			createOperations.mockRejectedValueOnce({ status: 403 });
+			const paramsRead = vi.fn(() => ({ userId: 'invalid' }));
+			const request = {
+				get params() {
+					return paramsRead();
 				}
-			],
-			suspension: null,
-			isSuspended: false,
-			recentActivity: [
-				{
-					id: 'audit-1',
-					action: 'admin.user.resend_invite',
-					resourceType: 'user',
-					resourceId: USER_ID,
-					orgId: 'org-1',
-					timestamp: '2026-06-08T15:00:00.000Z',
-					severity: 'warning'
-				}
-			]
+			};
+			const run = handler === 'load' ? load : actions[handler];
+			await expect(run(request as never)).rejects.toMatchObject({ status: 403 });
+			expect(paramsRead).not.toHaveBeenCalled();
+		}
+	);
+
+	for (const [action, command, message, error] of [
+		['resetPassword', 'sendPasswordReset', 'Password reset email sent', 'Failed to send password reset'],
+		['resendInvite', 'resendInvite', 'Invite email resent', 'Failed to resend invite']
+	] as const) {
+		it(`${action} sends only the decoded target and returns success`, async () => {
+			await expect(actions[action](event() as never)).resolves.toEqual({ success: true, message });
+			expect(accountOperations[command]).toHaveBeenCalledWith({ userId: USER_ID });
 		});
-	});
-
-	it('reports auth-provider user detail failures as server errors', async () => {
-		platformUserDirectoryMock.getUserDetail.mockResolvedValueOnce({
-			status: 'auth_error',
-			message: 'identity provider unavailable'
+		it(`${action} maps missing targets to 404`, async () => {
+			accountOperations[command].mockResolvedValueOnce({ status: 'not_found' });
+			await expect(actions[action](event() as never)).resolves.toEqual({
+				status: 404,
+				data: { error: 'User not found' }
+			});
 		});
-
-		await expect(
-			load({
-				__ctx: {
-					adminClient: makeUserDetailLoadClient(),
-					adminUser: { id: 'admin-1', role: 'super_admin' },
-					audit
-				},
-				params: { userId: USER_ID }
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({ status: 500 });
-		expect(platformAuditMock.listRecentByUser).not.toHaveBeenCalled();
-	});
-
-	it('rejects malformed user IDs before reading user details', async () => {
-		await expect(
-			load({
-				__ctx: {
-					adminClient: makeUserDetailLoadClient(),
-					adminUser: { id: 'admin-1', role: 'super_admin' },
-					audit
-				},
-				params: { userId: 'not-a-uuid' }
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({ status: 400 });
-
-		expect(platformUserDirectoryMock.getUserDetail).not.toHaveBeenCalled();
-		expect(platformAuditMock.listRecentByUser).not.toHaveBeenCalled();
-	});
-
-	it('rejects malformed user IDs before calling identity commands', async () => {
-		const resetResult = await actions.resetPassword({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: 'not-a-uuid' },
-			url: new URL('http://localhost:4173/admin/users/not-a-uuid')
-		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
-		const inviteResult = await actions.resendInvite({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: 'not-a-uuid' },
-			url: new URL('http://localhost:4173/admin/users/not-a-uuid')
-		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
-
-		expect(resetResult).toEqual({ status: 400, data: { error: 'Invalid user ID' } });
-		expect(inviteResult).toEqual({ status: 400, data: { error: 'Invalid user ID' } });
-		expect(platformUserIdentityCommandsMock.sendPasswordReset).not.toHaveBeenCalled();
-		expect(platformUserIdentityCommandsMock.resendInvite).not.toHaveBeenCalled();
-	});
-
-	it('maps identity command not-found results to the current 404 response', async () => {
-		platformUserIdentityCommandsMock.sendPasswordReset.mockResolvedValueOnce({ status: 'not_found' });
-		platformUserIdentityCommandsMock.resendInvite.mockResolvedValueOnce({ status: 'not_found' });
-
-		const resetResult = await actions.resetPassword({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
-		const inviteResult = await actions.resendInvite({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
-
-		expect(resetResult).toEqual({ status: 404, data: { error: 'User not found' } });
-		expect(inviteResult).toEqual({ status: 404, data: { error: 'User not found' } });
-	});
-
-	it('maps provider failures to the current password reset error response', async () => {
-		platformUserIdentityCommandsMock.sendPasswordReset.mockResolvedValueOnce({
-			status: 'provider_error',
-			message: 'sanitized'
+		it(`${action} keeps provider errors safe`, async () => {
+			accountOperations[command].mockResolvedValueOnce({
+				status: 'provider_error',
+				message: 'private provider detail'
+			});
+			await expect(actions[action](event() as never)).resolves.toEqual({ status: 500, data: { error } });
 		});
-
-		const result = await actions.resetPassword({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		} as unknown as Parameters<(typeof actions)['resetPassword']>[0]);
-
-		expect(result).toEqual({ status: 500, data: { error: 'Failed to send password reset' } });
-	});
-
-	it('maps provider failures to the current invite error response', async () => {
-		platformUserIdentityCommandsMock.resendInvite.mockResolvedValueOnce({
-			status: 'provider_error',
-			message: 'sanitized'
+		it(`${action} maps the existing per-target email limiter to 429`, async () => {
+			const message =
+				action === 'resetPassword'
+					? 'Too many password reset emails. Please try again later.'
+					: 'Too many invite emails. Please try again later.';
+			accountOperations[command].mockResolvedValueOnce({ status: 'rate_limited', message });
+			await expect(actions[action](event() as never)).resolves.toEqual({ status: 429, data: { error: message } });
 		});
-
-		const result = await actions.resendInvite({
-			__ctx: {
-				adminClient: makeIdentityCommandActionClient(),
-				audit
-			},
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		} as unknown as Parameters<(typeof actions)['resendInvite']>[0]);
-
-		expect(result).toEqual({ status: 500, data: { error: 'Failed to resend invite' } });
-	});
-
-	it('stops repeated admin email requests before replacing another provider token', async () => {
-		checkAdminAuthEmailRateLimitMock.mockResolvedValue(true);
-		const event = {
-			__ctx: { adminClient: makeIdentityCommandActionClient(), audit },
-			params: { userId: USER_ID },
-			url: new URL(`http://localhost:4173/admin/users/${USER_ID}`)
-		};
-		await expect(actions.resetPassword(event as never)).resolves.toEqual({
-			status: 429,
-			data: { error: 'Too many password reset emails. Please try again later.' }
-		});
-		await expect(actions.resendInvite(event as never)).resolves.toEqual({
-			status: 429,
-			data: { error: 'Too many invite emails. Please try again later.' }
-		});
-		expect(platformUserIdentityCommandsMock.sendPasswordReset).not.toHaveBeenCalled();
-		expect(platformUserIdentityCommandsMock.resendInvite).not.toHaveBeenCalled();
-	});
+	}
 });

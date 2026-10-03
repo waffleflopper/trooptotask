@@ -1,29 +1,5 @@
-import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from './accountSetupLinks.server';
-import type { AuthEmailOutboxStatus } from './authEmailOutbox.server';
-import type { AccessRequestSetupState } from './contracts';
-
-export interface AccessRequestSetupLink {
-	id: string;
-	created_at: string;
-	expires_at: string;
-	claimed_at: string | null;
-	failed_at: string | null;
-	failure_reason: AccountSetupLinkFailureReason | null;
-	used_at: string | null;
-	revoked_at: string | null;
-	revocation_reason: AccountSetupLinkRevocationReason | null;
-}
-
-export interface AccessRequestAuthEmailOutbox {
-	id: string;
-	setup_link_id: string;
-	status: AuthEmailOutboxStatus;
-	attempt_count: number;
-	last_error: string | null;
-	created_at: string;
-	updated_at: string;
-	sent_at: string | null;
-}
+import type { AccessRequestSetupLink, AccessRequestAuthEmailOutbox, AccessRequestSetupState } from './contracts';
+export type { AccessRequestSetupLink, AccessRequestAuthEmailOutbox } from './contracts';
 
 /**
  * The label on the invitation email's recovery link to `/auth/renew-invite`.

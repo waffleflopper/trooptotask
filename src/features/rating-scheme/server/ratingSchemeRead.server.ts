@@ -32,11 +32,3 @@ export async function countRatingSchemeEntries({
 	});
 	return result.count ?? 0;
 }
-
-/** Rating Scheme chooses its owned setup source for an already-authorized platform scan. */
-export function countRatingSchemeEntriesByOrganization(
-	organizationIds: string[],
-	countRows: (table: 'rating_scheme_entries', organizationIds: string[]) => Promise<Map<string, number>>
-): Promise<Map<string, number>> {
-	return countRows('rating_scheme_entries', organizationIds);
-}

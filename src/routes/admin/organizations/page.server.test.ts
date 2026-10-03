@@ -1,230 +1,133 @@
-import { isHttpError, isRedirect } from '@sveltejs/kit';
+import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PageData } from './$types';
-
-const {
-	organizationLedgerMock,
-	createOrganizationLedgerMock,
-	activationHealthMock,
-	createActivationHealthMock,
-	lookupRole
-} = vi.hoisted(() => ({
-	organizationLedgerMock: {
-		listOrganizations: vi.fn()
-	},
-	createOrganizationLedgerMock: vi.fn(),
-	activationHealthMock: {
-		summarize: vi.fn()
-	},
-	createActivationHealthMock: vi.fn(),
-	lookupRole: vi.fn()
-}));
-
-vi.mock('$lib/server/admin', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/admin')>()),
-	getAdminRole: lookupRole
-}));
-vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({}) }));
-
-vi.mock('$lib/server/adapters/supabasePlatformOrganizationLedger', () => ({
-	createSupabasePlatformOrganizationLedger: createOrganizationLedgerMock
-}));
-
-vi.mock('$lib/server/adapters/supabasePlatformActivationHealth', () => ({
-	createSupabasePlatformActivationHealth: createActivationHealthMock
-}));
-
 import { load } from './+page.server';
 
-function event(path = '/admin/organizations', authenticated = true) {
-	const url = new URL(path, 'http://localhost');
+const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
+const actorId = '10000000-0000-4000-8000-000000000001';
+const orgId = '20000000-0000-4000-8000-000000000001';
+const organization = { id: orgId, name: 'Able Clinic', suspended_at: null, created_at: '2026-06-01T00:00:00.000Z' };
+let role: string | null;
+let count: number;
+let candidates: boolean;
+let failingSource: 'ledger' | 'activation' | null;
+let reads: URL[];
+
+function event(path = '/admin/organizations', authenticated = true): Parameters<typeof load>[0] {
+	const url = new URL(path, 'http://localhost:9');
 	return {
-		locals: {
-			actor: authenticated ? { userId: 'admin-1' } : null,
-			user: authenticated ? { id: 'admin-1' } : null,
-			supabase: {},
-			session: null
-		},
+		locals: { actor: authenticated ? { userId: actorId } : null, user: { id: 'untrusted-other-user' } },
 		url,
 		request: new Request(url),
 		getClientAddress: () => '127.0.0.1'
 	} as unknown as Parameters<typeof load>[0];
 }
 
-async function expectSanitizedServerError(loadResult: unknown, message: string) {
-	try {
-		await loadResult;
-		expect.unreachable('Expected load to throw');
-	} catch (err) {
-		expect(isHttpError(err)).toBe(true);
-		if (!isHttpError(err)) {
-			throw err;
-		}
-		expect(err.status).toBe(500);
-
-		const errorMessage = err.body.message;
-		expect(errorMessage).toBe(message);
-		expect(errorMessage).not.toContain('database offline');
-	}
-}
-
-describe('admin organizations route load', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		lookupRole.mockResolvedValue('super_admin');
-		vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		createOrganizationLedgerMock.mockReturnValue(organizationLedgerMock);
-		createActivationHealthMock.mockReturnValue(activationHealthMock);
-		organizationLedgerMock.listOrganizations.mockResolvedValue({
-			organizations: [],
-			pagination: {
-				page: 1,
-				pageSize: 25,
-				totalCount: 0,
-				totalPages: 1,
-				q: ''
+beforeEach(() => {
+	role = 'super_admin';
+	count = 0;
+	candidates = false;
+	failingSource = null;
+	reads = [];
+	getAdminClient.mockReturnValue(
+		createClient('http://localhost:9', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					reads.push(url);
+					const table = url.pathname.split('/').at(-1);
+					if (table === 'platform_admins') {
+						expect(url.searchParams.get('user_id')).toBe(`eq.${actorId}`);
+						expect(url.searchParams.get('is_active')).toBe('eq.true');
+						return Response.json(role ? { role } : null);
+					}
+					if (table === 'organizations') {
+						const isLedger = url.searchParams.has('offset');
+						if ((isLedger && failingSource === 'ledger') || (!isLedger && failingSource === 'activation'))
+							return Response.json({ message: 'private provider detail' }, { status: 500 });
+						return Response.json((isLedger ? count > 0 : candidates) ? [organization] : [], {
+							headers: { 'Content-Range': `0-0/${count}` }
+						});
+					}
+					if (table === 'count_personnel_by_organization')
+						return Response.json([{ organization_id: orgId, personnel_count: 3 }]);
+					if (table === 'count_memberships_by_organization')
+						return Response.json([{ organization_id: orgId, membership_count: 1 }]);
+					if (table === 'list_platform_owner_membership_metrics')
+						return Response.json([{ organization_id: orgId, owner_count: 0, owner_user_id: null, owner_email: null }]);
+					if (table === 'rating_scheme_entries') {
+						expect(url.searchParams.get('organization_id')).toContain(orgId);
+						return Response.json([
+							{ id: 'eval-1', organization_id: orgId },
+							{ id: 'eval-2', organization_id: orgId }
+						]);
+					}
+					return Response.json([]);
+				}
 			}
+		})
+	);
+	vi.spyOn(console, 'error').mockImplementation(() => undefined);
+});
+afterEach(() => vi.restoreAllMocks());
+
+describe('Organization index admitted source composition', () => {
+	it('loads the requested retained page and filters without commercial columns', async () => {
+		count = 101;
+		const result = await load(event('/admin/organizations?page=3&pageSize=50&q=Able&tier=team&status=active'));
+		expect(result).toMatchObject({
+			pagination: { page: 3, pageSize: 50, totalCount: 101, totalPages: 3, q: 'Able', status: 'active' },
+			organizations: [{ id: orgId, memberCount: 1, personnelCount: 3 }],
+			activationHealth: { overallState: 'no_candidates' }
 		});
-		activationHealthMock.summarize.mockResolvedValue({
-			generatedAt: '2026-06-28T12:00:00.000Z',
-			overallState: 'no_candidates',
-			candidateLimit: 100,
-			counts: {
-				candidateOrganizations: 0,
-				activatedOrganizations: 0,
-				meaningfulRosters: 0,
-				acceptedLeaders: 0,
-				setupStarted: 0,
-				inProgressOrganizations: 0
-			},
-			organizations: [],
-			diagnosticsError: false
-		});
+		const query = reads.find((url) => url.pathname.endsWith('/organizations') && url.searchParams.has('offset'))!;
+		expect(query.searchParams.get('offset')).toBe('100');
+		expect(query.searchParams.get('limit')).toBe('50');
+		expect(query.searchParams.get('name')).toBe('ilike.%Able%');
+		expect(query.searchParams.get('suspended_at')).toBe('is.null');
+		expect(query.searchParams.get('select')).not.toMatch(/\b(tier|gift_tier)\b/);
 	});
-
-	afterEach(() => {
-		vi.restoreAllMocks();
-	});
-
-	it('passes page, page size, search, and filter params into the Platform Organization Ledger', async () => {
-		organizationLedgerMock.listOrganizations.mockResolvedValueOnce({
-			organizations: [{ id: 'org-1', name: 'Able Company' }],
-			pagination: {
-				page: 3,
-				pageSize: 50,
-				totalCount: 101,
-				totalPages: 3,
-				q: 'Able',
-				status: 'active'
-			}
-		});
-
-		const result = (await load(
-			event('/admin/organizations?page=3&pageSize=50&q=Able&tier=team&status=active')
-		)) as PageData;
-
-		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
-		);
-		expect(organizationLedgerMock.listOrganizations).toHaveBeenCalledWith({
-			page: '3',
-			pageSize: '50',
-			q: 'Able',
-			status: 'active'
-		});
-		expect(activationHealthMock.summarize).toHaveBeenCalledWith();
-		expect(result.pagination).toMatchObject({
-			page: 3,
-			pageSize: 50,
-			totalCount: 101,
-			q: 'Able',
-			status: 'active'
-		});
-		expect(result.activationHealth).toMatchObject({ overallState: 'no_candidates' });
-	});
-
-	it('includes the Rating-owned setup count in platform activation through delivery composition', async () => {
-		createActivationHealthMock.mockImplementationOnce((_ctx, _countCalendar, countRating) => ({
-			summarize: async () => {
-				const rows = [
-					{ id: 'eval-1', organization_id: 'org-1' },
-					{ id: 'eval-2', organization_id: 'org-1' },
-					{ id: 'outside', organization_id: 'org-2' }
-				];
-				const rating = await countRating(['org-1'], async (table: string, ids: string[]) => {
-					if (table !== 'rating_scheme_entries') throw new Error('Unexpected setup source');
-					return new Map(ids.map((id) => [id, rows.filter((row) => row.organization_id === id).length]));
-				});
-				return {
-					counts: { setupStarted: (rating.get('org-1') ?? 0) > 0 ? 1 : 0 },
-					organizations: [{ supportBundle: { activation: { ratingSchemeEntries: rating.get('org-1') ?? 0 } } }]
-				};
-			}
-		}));
-		const result = (await load(event())) as PageData;
-		expect(result.activationHealth.counts.setupStarted).toBe(1);
-		expect(result.activationHealth.organizations[0].supportBundle.activation.ratingSchemeEntries).toBe(2);
-	});
-
-	it.each([null, 'billing'])('denies Organization listing for role %s before any protected read', async (role) => {
-		lookupRole.mockResolvedValue(role);
-		const caught = await Promise.resolve(load(event())).catch((error: unknown) => error);
-		expect(isHttpError(caught, 403)).toBe(true);
-		expect(createOrganizationLedgerMock).not.toHaveBeenCalled();
-		expect(createActivationHealthMock).not.toHaveBeenCalled();
-	});
-
-	it('redirects an anonymous request before any protected read', async () => {
-		const caught = await Promise.resolve(load(event('/admin/organizations', false))).catch((error: unknown) => error);
-		expect(isRedirect(caught)).toBe(true);
-		expect(caught).toMatchObject({ status: 303, location: '/auth/login' });
-		expect(createOrganizationLedgerMock).not.toHaveBeenCalled();
-		expect(createActivationHealthMock).not.toHaveBeenCalled();
-	});
-
-	it('allows support to read the Organization index', async () => {
-		lookupRole.mockResolvedValue('support');
+	it('includes saved Rating configuration through the actual owning reader', async () => {
+		count = 1;
+		candidates = true;
 		const result = await load(event());
-		expect(result).toMatchObject({ organizations: [], pagination: { totalCount: 0 } });
-		expect(createOrganizationLedgerMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'support' } })
-		);
-	});
-
-	it('throws a sanitized load error when the primary organization ledger cannot load', async () => {
-		organizationLedgerMock.listOrganizations.mockRejectedValueOnce(new Error('database offline'));
-
-		await expectSanitizedServerError(load(event()), 'Unable to load platform organizations.');
-	});
-
-	it('keeps the organization ledger available when activation health unexpectedly fails', async () => {
-		organizationLedgerMock.listOrganizations.mockResolvedValueOnce({
-			organizations: [{ id: 'org-1', name: 'Able Company' }],
-			pagination: {
-				page: 1,
-				pageSize: 25,
-				totalCount: 1,
-				totalPages: 1,
-				q: ''
+		expect(result).toMatchObject({
+			activationHealth: {
+				counts: { setupStarted: 1 },
+				organizations: [{ supportBundle: { activation: { ratingSchemeEntries: 2 } } }]
 			}
 		});
-		activationHealthMock.summarize.mockRejectedValueOnce(new Error('activation diagnostics offline'));
-
-		const result = (await load(event())) as PageData;
-
-		expect(result.organizations).toEqual([{ id: 'org-1', name: 'Able Company' }]);
-		expect(result.activationHealth).toMatchObject({
-			overallState: 'diagnostics_unavailable',
-			diagnosticsError: true,
-			counts: {
-				candidateOrganizations: 0,
-				inProgressOrganizations: 0
-			},
-			organizations: []
+	});
+	it.each([null, 'billing'])('denies current role %s before protected reads', async (currentRole) => {
+		role = currentRole;
+		await expect(load(event())).rejects.toMatchObject({ status: 403 });
+		expect(reads.map((url) => url.pathname)).toEqual(['/rest/v1/platform_admins']);
+	});
+	it('redirects a missing verified actor before any provider read', async () => {
+		await expect(load(event('/admin/organizations', false))).rejects.toMatchObject({
+			status: 303,
+			location: '/auth/login'
 		});
-		expect(console.error).toHaveBeenCalledWith(
-			'Admin organizations activation health query failed:',
-			expect.any(Error)
-		);
+		expect(reads).toEqual([]);
+	});
+	it('allows current Support to read the index', async () => {
+		role = 'support';
+		await expect(load(event())).resolves.toMatchObject({ organizations: [], pagination: { totalCount: 0 } });
+	});
+	it('sanitizes an unavailable primary ledger', async () => {
+		failingSource = 'ledger';
+		await expect(load(event())).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Unable to load platform organizations.' }
+		});
+	});
+	it('keeps the ledger available while reporting unavailable activation diagnostics', async () => {
+		count = 1;
+		failingSource = 'activation';
+		await expect(load(event())).resolves.toMatchObject({
+			organizations: [{ id: orgId }],
+			activationHealth: { overallState: 'diagnostics_unavailable', diagnosticsError: true }
+		});
 	});
 });

@@ -97,3 +97,5 @@ export interface RatingSchemeDuePort {
 }
 
 export { getRatingDueStatus } from './utils/ratingScheme';
+
+export type { RatingSchemeSupportReader } from './supportReadTypes';

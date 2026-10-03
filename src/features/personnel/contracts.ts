@@ -344,3 +344,5 @@ export type {
 	PersonnelFollowUp,
 	PersonnelArchivedArtifact
 } from './personnelArtifact.types';
+
+export type { PersonnelSupportReader } from './supportReadTypes';

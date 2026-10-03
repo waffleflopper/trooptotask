@@ -16,6 +16,7 @@ import {
 	archiveApprovedPersonnelRecord,
 	createSupabasePersonnelGovernanceDeletionPort
 } from '$features/personnel/index.server';
+import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import { getAdminClient } from '$lib/server/supabase';
 
 export function _reviewPostConfig(
@@ -39,8 +40,12 @@ export function _reviewPostConfig(
 
 export const POST: RequestHandler = (event) => {
 	const store = createRequestDeletionRequestStore(event.locals);
-	const requirePending = (orgId: string, requestId: string, resourceType: string, resourceId: string) =>
-		requirePendingDeletionRequest(store, orgId, requestId, resourceType, resourceId);
+	const requirePending = (
+		orgId: string,
+		requestId: string,
+		resourceType: DeletionRequestResourceType,
+		resourceId: string
+	) => requirePendingDeletionRequest(store, orgId, requestId, resourceType, resourceId);
 	return handle(
 		_reviewPostConfig(store, (ctx) => {
 			const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient, requirePending);

@@ -343,7 +343,7 @@ describe('POST /api/deletion-requests/review', () => {
 				status: 'pending'
 			}
 		]);
-		const deleteApprovedTrainingType = vi.fn(async () => {});
+		const deleteApprovedTrainingType = vi.fn(async (_actor: unknown, _requestId: string, _typeId: string) => {});
 
 		await expect(
 			handleUseCaseRequest(

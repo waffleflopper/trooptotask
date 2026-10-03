@@ -22,7 +22,7 @@
 	const workspace = $derived(
 		!isPromiseLike(streamedWorkspace)
 			? streamedWorkspace
-			: resolvedSnapshot?.orgId === data.shell.org.id
+			: resolvedSnapshot && resolvedSnapshot.orgId === data.shell.org.id
 				? resolvedSnapshot.workspace
 				: null
 	);
@@ -32,7 +32,10 @@
 		const pending = streamedWorkspace;
 		let cancelled = false;
 		loadError = null;
-		if (!isPromiseLike(pending)) return;
+		if (!isPromiseLike(pending)) {
+			resolvedSnapshot = { orgId, workspace: pending };
+			return;
+		}
 		void observeDeferred(pending, {
 			fallbackMessage: 'Failed to load personnel workspace',
 			onResolve: (workspace) => {
@@ -69,7 +72,7 @@
 </script>
 
 {#key data.shell.org.id}
-	{#if loadError?.orgId === data.shell.org.id}
+	{#if loadError && loadError.orgId === data.shell.org.id}
 		{throwRenderError(loadError.error, 'Failed to load personnel workspace')}
 	{:else if workspace}
 		{@const ctx = createContext(workspace.data)}

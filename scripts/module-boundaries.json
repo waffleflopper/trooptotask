@@ -106,11 +106,7 @@
 		},
 		"deletion-requests": {
 			"roots": ["src/features/deletion-requests/"],
-			"files": [
-				"src/lib/server/core/useCases/deletionRequests.test.ts",
-				"src/lib/server/core/useCases/deletionRequests.ts",
-				"src/lib/utils/deletionRequests.ts"
-			],
+			"files": [],
 			"packet": "08-M02"
 		},
 		"delivery": {
@@ -561,7 +557,12 @@
 			"src/features/critical-tasks/index.server.ts"
 		],
 		"dashboard": ["src/features/dashboard/index.ts"],
-		"deletion-requests": ["src/features/deletion-requests/index.ts", "src/features/deletion-requests/index.server.ts"],
+		"deletion-requests": [
+			"src/features/deletion-requests/contracts.ts",
+			"src/features/deletion-requests/index.ts",
+			"src/features/deletion-requests/index.server.ts",
+			"src/features/deletion-requests/testing.server.ts"
+		],
 		"onboarding": [
 			"src/features/onboarding/contracts.ts",
 			"src/features/onboarding/index.ts",

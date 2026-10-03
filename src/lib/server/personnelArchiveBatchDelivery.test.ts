@@ -5,7 +5,7 @@ import { archivePersonnelBatch as deliverArchivePersonnelBatch } from './personn
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 
 const archivePersonnelBatch = (
-	ctx: Parameters<typeof deliverArchivePersonnelBatch>[0],
+	ctx: ReturnType<typeof createTestContext>,
 	input: Parameters<typeof deliverArchivePersonnelBatch>[1]
 ) => deliverArchivePersonnelBatch(ctx, input, createDeletionRequestTestStore(ctx.store));
 type TestDataStore = ReturnType<typeof createTestContext>['store'];

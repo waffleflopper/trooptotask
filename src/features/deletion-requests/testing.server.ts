@@ -1,11 +1,20 @@
-import type { DataStore } from '$lib/server/core/ports';
 import type { DeletionRequest } from './contracts';
 import type { DeletionRequestStore } from './contracts.server';
 
+interface SyntheticRequestRows {
+	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
+	findMany<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: { orderBy?: Array<{ column: string; ascending: boolean }> }
+	): Promise<T[]>;
+	insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T>;
+	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
+}
+
 /** Test-only named adapter over a caller's existing synthetic rows; no policy or production composition. */
-export function createDeletionRequestTestStore(
-	backing: Pick<DataStore, 'findOne' | 'findMany' | 'insert' | 'update'>
-): DeletionRequestStore {
+export function createDeletionRequestTestStore(backing: SyntheticRequestRows): DeletionRequestStore {
 	const table = 'deletion_requests';
 	return {
 		findPendingById(orgId, requestId, target) {

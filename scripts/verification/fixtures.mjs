@@ -209,7 +209,9 @@ export async function seed(session) {
 		orgInvitee: { organization: null },
 		orgCreator: { organization: null },
 		platformReviewer: { organization: null },
-		platformSupport: { organization: null }
+		platformSupport: { organization: null },
+		platformBilling: { organization: null },
+		platformInactive: { organization: null }
 	};
 	const deletionActors = {
 		deletionRequester: { organization: 'orgA', role: 'member', scope: 'organization', level: 'operate' },
@@ -270,7 +272,9 @@ export async function seed(session) {
 	checked(
 		await service.from('platform_admins').insert([
 			{ user_id: actors.platformReviewer.id, role: 'super_admin', is_active: true },
-			{ user_id: actors.platformSupport.id, role: 'support', is_active: true }
+			{ user_id: actors.platformSupport.id, role: 'support', is_active: true },
+			{ user_id: actors.platformBilling.id, role: 'billing', is_active: true },
+			{ user_id: actors.platformInactive.id, role: 'super_admin', is_active: false }
 		])
 	);
 	checked(

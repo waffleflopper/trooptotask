@@ -2,17 +2,18 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import VisibleStub from '$lib/test-stubs/VisibleStub.svelte';
-import { personnelRosterHydration, personnelStore } from '$features/personnel/stores/personnel.svelte';
-import { pinnedGroupsHydration } from '$features/personnel/stores/pinnedGroups.svelte';
-import type { Personnel } from '$features/personnel/personnel.types';
-import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
+import {
+	personnelRosterHydration,
+	personnelStore,
+	pinnedGroupsHydration,
+	personnelWorkspaceHydrator
+} from '$features/personnel';
+import type { Personnel, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
 const navigation = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }));
 const feedback = vi.hoisted(() => ({ success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('svelte-sonner', () => ({ toast: { ...feedback, dismiss: vi.fn() } }));
-vi.mock('$features/personnel/components/PersonnelModals.svelte', () => ({ default: VisibleStub }));
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({
 		scopeSet: { kind: 'organization' },
@@ -22,7 +23,6 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 
 import Page from './+page.svelte';
 import PageWithLayoutBoundary from './PersonnelRouteTestBoundary.svelte';
-import { personnelWorkspaceHydrator } from '$features/personnel/personnelWorkspaceHydration.svelte';
 
 const alpha = person('alpha', 'Alpha');
 const bravo = person('bravo', 'Bravo');

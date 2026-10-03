@@ -48,6 +48,8 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 
 ### Communications
 
+- [Audit capture and safe projections](audit-capture-projections.md): owner summaries, privileged details, paging, source labels, masking, producer events and denied access.
+
 - [Notifications, feedback and announcements](notifications-feedback.md): real recipients, own inbox persistence/deletion, scope changes, failed requests, feedback and global dismissal.
 
 ### Onboarding

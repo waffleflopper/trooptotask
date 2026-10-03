@@ -14,6 +14,8 @@ Make the app feel responsive. Consider request waterfalls, repeated work, data v
 
 Carry authorized work through its acceptance criteria, affected consumers and verification. Resolve routine choices using these defaults and existing authorization. Ask when a missing decision materially changes product behavior, scope or a protected boundary. Current user instructions supersede repository and skill guidance within system/developer constraints. The database protections above and explicit security/release gates are firm boundaries. See [operating rules](docs/agents/operating-rules.md) for execution and communication.
 
+Prefer cohesive deliverables that repair related defects together; before splitting a stabilization issue into another PR, apply [t2t-stabilize's grouping rule](.agents/skills/t2t-stabilize/SKILL.md#bound-the-pr-without-shrinking-the-issue) and explain the concrete reason for the split in the PR body.
+
 ## Current priority
 
 The active work is stabilization and user-reported bug fixes: restore a maintainable, workable baseline by removing Billing and Duty Roster and repairing repository structure, architectural boundaries, and shared component usage. Billing and Duty Roster accumulated tightly coupled implementations and unnecessary compatibility layers. Remove them through their owning cleanup tasks while preserving the retained product and data contracts.

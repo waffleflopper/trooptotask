@@ -30,6 +30,8 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 
 ## Features
 
+- [Dashboard composition and freshness](dashboard.md): combined source counts, readiness/due, active packet progress, losses, admission, reload, source consumers and delayed navigation.
+
 ### Access and people
 
 - [Platform access, accounts and Organizations](platform-administration.md): platform admission, reviewed access, directories, suspension, role/ownership support and recovery.

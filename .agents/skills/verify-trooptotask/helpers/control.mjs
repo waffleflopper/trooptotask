@@ -19,6 +19,7 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
+import { seedDashboard } from './dashboard-fixtures.mjs';
 import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
@@ -1156,6 +1157,7 @@ async function main() {
 				'onboarding-retention',
 				'onboarding-retention-1001',
 				'audit',
+				'dashboard',
 				'platform-admin',
 				'communications',
 				'organization-destruction',
@@ -1173,6 +1175,10 @@ async function main() {
 		}
 		if (kind === 'audit') {
 			note(await seedAudit({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'dashboard') {
+			note(await seedDashboard({ client, fixture, tag, ownedState, save }));
 			return;
 		}
 		if (kind === 'deletion-sources') {
@@ -1786,6 +1792,7 @@ async function main() {
 			if (
 				![
 					'audit-page',
+					'dashboard-page',
 					'admin-suspend',
 					'admin-search',
 					'admin-transfer',
@@ -1843,20 +1850,25 @@ async function main() {
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
 			const formAction = Object.hasOwn(formActions, family) ? family.split('/').at(-1) : null;
 			let organizationSegment = org('orgA');
-			if (formAction || ['organization/settings', 'audit-page', 'deletion-requests/review'].includes(family)) {
+			if (
+				formAction ||
+				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family)
+			) {
 				const organization = checked(
 					await (await provider()).from('organizations').select('url_slug').eq('id', org('orgA')).single()
 				);
 				organizationSegment = organization.url_slug || organizationSegment;
 			}
 			let suffix =
-				family === 'audit-page'
-					? `/org/${organizationSegment}/settings/logs/__data.json`
-					: formAction
-						? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
-						: ['feedback', 'announcements/dismiss'].includes(family)
-							? `/api/${family}`
-							: `/org/${organizationSegment}/api/${family}`;
+				family === 'dashboard-page'
+					? `/org/${organizationSegment}/__data.json`
+					: family === 'audit-page'
+						? `/org/${organizationSegment}/settings/logs/__data.json`
+						: formAction
+							? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
+							: ['feedback', 'announcements/dismiss'].includes(family)
+								? `/api/${family}`
+								: `/org/${organizationSegment}/api/${family}`;
 			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
 			if (family === 'admin-search') suffix = '/admin/api/search';
 			if (family === 'admin-transfer') {

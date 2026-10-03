@@ -5,8 +5,6 @@ import type { AdminContext } from './adminAdapter';
 import {
 	createPlatformAdministration,
 	type PlatformAdministration,
-	type PlatformAdministrationSearchOrganizationRow,
-	type PlatformAdministrationSearchUserRow,
 	type PlatformAdministrationStore,
 	type PlatformAdministrationUserStats
 } from '$lib/server/core/useCases/platformAdministration';
@@ -18,8 +16,6 @@ type SupabaseResponse<T> = {
 	status?: number;
 	statusText?: string;
 };
-
-type SupabaseQueryResult<T> = Promise<SupabaseResponse<T>>;
 
 function formatSupabaseError(error: unknown): string {
 	if (error instanceof Error) return error.message;
@@ -36,24 +32,6 @@ function assertSupabaseSuccess<T>(operation: string, response: SupabaseResponse<
 	if (response.error) {
 		throw new Error(`${operation} failed: ${formatSupabaseError(response.error)}`);
 	}
-}
-
-function assertSuspensionAcknowledgment(
-	response: SupabaseResponse<unknown>,
-	field: 'id' | 'user_id',
-	targetId: string
-): void {
-	assertSupabaseSuccess('Suspension change', response);
-	const rows = response.data;
-	if (!Array.isArray(rows) || rows.length !== 1) throw new Error('Suspension change could not be confirmed');
-	const row = rows[0];
-	if (
-		!row ||
-		typeof row !== 'object' ||
-		typeof row[field] !== 'string' ||
-		row[field].toLowerCase() !== targetId.toLowerCase()
-	)
-		throw new Error('Suspension change could not be confirmed');
 }
 
 export function createSupabasePlatformAdministrationStore(supabase: SupabaseClient): PlatformAdministrationStore {
@@ -87,75 +65,6 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 
 		countPendingFeedback() {
 			return countPendingFeedback(supabase);
-		},
-
-		async searchUsersByEmail(input): Promise<PlatformAdministrationSearchUserRow[]> {
-			const response = await supabase.rpc('search_users_by_email', {
-				search_query: input.query,
-				max_results: input.maxResults
-			});
-			assertSupabaseSuccess('rpc search_users_by_email', response);
-			return (response.data as PlatformAdministrationSearchUserRow[] | null) ?? [];
-		},
-
-		async countOrganizationsForUser(userId: string) {
-			const response = await supabase
-				.from('organization_memberships')
-				.select('*', { count: 'exact', head: true })
-				.eq('user_id', userId);
-			assertSupabaseSuccess('table organization_memberships user count', response);
-			return response.count ?? null;
-		},
-
-		async searchOrganizationsByName(input): Promise<PlatformAdministrationSearchOrganizationRow[]> {
-			const response = (await supabase
-				.from('organizations')
-				.select('id, name')
-				.ilike('name', `%${input.query}%`)
-				.limit(input.maxResults)) as Awaited<SupabaseQueryResult<PlatformAdministrationSearchOrganizationRow[]>>;
-			assertSupabaseSuccess('table organizations search', response);
-			return (response.data as PlatformAdministrationSearchOrganizationRow[] | null) ?? [];
-		},
-
-		async countActivePersonnelForOrganization(organizationId: string) {
-			const response = await supabase
-				.from('personnel')
-				.select('*', { count: 'exact', head: true })
-				.eq('organization_id', organizationId)
-				.is('archived_at', null);
-			assertSupabaseSuccess('table personnel active count', response);
-			return response.count ?? null;
-		},
-
-		async suspendUser(input) {
-			const response = await supabase
-				.from('user_suspensions')
-				.upsert({ user_id: input.userId, suspended_by: input.suspendedBy, reason: input.reason })
-				.select('user_id');
-			assertSuspensionAcknowledgment(response, 'user_id', input.userId);
-		},
-
-		async unsuspendUser(userId) {
-			const response = await supabase.from('user_suspensions').delete().eq('user_id', userId).select('user_id');
-			assertSuspensionAcknowledgment(response, 'user_id', userId);
-		},
-
-		async suspendOrganization(input) {
-			const response = await supabase
-				.from('organizations')
-				.update({ suspended_at: input.suspendedAt.toISOString() })
-				.eq('id', input.organizationId)
-				.select('id');
-			assertSuspensionAcknowledgment(response, 'id', input.organizationId);
-		},
-
-		async unsuspendOrganization(organizationId) {
-			const response = await supabase
-				.from('organizations')
-				.update({ suspended_at: null })
-				.eq('id', organizationId)
-				.select('id');
-			assertSuspensionAcknowledgment(response, 'id', organizationId);
 		}
 	};
 }
@@ -163,8 +72,6 @@ export function createSupabasePlatformAdministrationStore(supabase: SupabaseClie
 export function createSupabasePlatformAdministration(ctx: AdminContext): PlatformAdministration {
 	return createPlatformAdministration({
 		auditActivity: createSupabasePlatformAudit(ctx.adminClient),
-		store: createSupabasePlatformAdministrationStore(ctx.adminClient),
-		actorUserId: ctx.adminUser.id,
-		audit: (event) => ctx.audit(event)
+		store: createSupabasePlatformAdministrationStore(ctx.adminClient)
 	});
 }

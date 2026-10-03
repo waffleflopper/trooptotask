@@ -1,12 +1,17 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
 
 const { invalidateAll, beforeNavigate } = vi.hoisted(() => ({ invalidateAll: vi.fn(), beforeNavigate: vi.fn() }));
 vi.mock('$app/navigation', () => ({ invalidateAll, beforeNavigate }));
 
+const { forms } = vi.hoisted(() => ({ forms: new Map<string, SubmitFunction>() }));
 vi.mock('$app/forms', () => ({
-	enhance: () => {}
+	enhance: (form: HTMLFormElement, submit: SubmitFunction) => {
+		forms.set(form.getAttribute('action')!, submit);
+		return { destroy: () => forms.delete(form.getAttribute('action')!) };
+	}
 }));
 
 import Page from './+page.svelte';
@@ -46,7 +51,76 @@ async function finishAcknowledgement(finish: (response: Response) => void) {
 	await act();
 }
 
+async function submitAccountEmail(name: string) {
+	await act();
+	const form = screen.getByRole('button', { name }).closest('form')!;
+	const input = {
+		formElement: form,
+		formData: new FormData(form),
+		action: new URL(form.action),
+		controller: new AbortController(),
+		submitter: null,
+		cancel: vi.fn()
+	};
+	const callback = await forms.get(form.getAttribute('action')!)!(input);
+	await act();
+	if (!callback) throw new Error('Form did not provide its response callback');
+	return (result: ActionResult, update: () => Promise<void>) => callback({ ...input, result, update });
+}
+
 describe('admin user detail page', () => {
+	it.each(['Send Password Reset', 'Resend Invite'])(
+		'ignores a delayed %s result after leaving and reopening the account',
+		async (name) => {
+			const view = render(Page, { props: { data: makePageData(), form: null } });
+			const finish = await submitAccountEmail(name);
+			view.unmount();
+			const reopened = render(Page, { props: { data: makePageData(), form: null } });
+			const update = vi.fn(async () => {
+				await reopened.rerender({ data: makePageData(), form: { error: 'Old account failure' } });
+			});
+			await act(() => finish({ type: 'failure', status: 503, data: { error: 'Old account failure' } }, update));
+			expect(screen.queryByRole('alert')).toBeNull();
+			expect(update).not.toHaveBeenCalled();
+		}
+	);
+
+	it('keeps a new account email submission busy when an older result arrives after A to B to A', async () => {
+		const data = makePageData();
+		const view = render(Page, { props: { data, form: null } });
+		const old = await submitAccountEmail('Send Password Reset');
+		const navigate = beforeNavigate.mock.calls[0][0];
+		navigate();
+		await view.rerender({ data: makePageData({ user: { ...data.user, id: 'other-user' } }), form: null });
+		navigate();
+		await view.rerender({ data, form: null });
+		const current = await submitAccountEmail('Send Password Reset');
+		const staleUpdate = vi.fn(async () => {});
+		await act(() => old({ type: 'failure', status: 500, data: { error: 'Old failure' } }, staleUpdate));
+		expect((screen.getByRole('button', { name: /Send Password Reset/ }) as HTMLButtonElement).disabled).toBe(true);
+		expect(staleUpdate).not.toHaveBeenCalled();
+		await act(() => current({ type: 'failure', status: 500, data: { error: 'Current failure' } }, async () => {}));
+		expect((screen.getByRole('button', { name: 'Send Password Reset' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it.each(['Send Password Reset', 'Resend Invite'])(
+		'releases %s after the acknowledged response cannot refresh account details',
+		async (name) => {
+			const view = render(Page, { props: { data: makePageData(), form: null } });
+			const finish = await submitAccountEmail(name);
+			invalidateAll.mockRejectedValueOnce(new Error('read unavailable'));
+			await act(() =>
+				finish({ type: 'success', status: 200, data: { success: true } }, async () => {
+					await view.rerender({ data: makePageData(), form: { success: true, message: 'Synthetic email sent' } });
+				})
+			);
+			expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(false);
+			expect(screen.getByRole('alert').textContent).toMatch(/refresh/i);
+			expect(screen.queryByText('Synthetic email sent')).toBeNull();
+			expect(invalidateAll).toHaveBeenCalledOnce();
+		}
+	);
+
 	it('keeps support account assistance while hiding super-admin suspension controls', () => {
 		render(Page, { props: { data: makePageData({ adminRole: 'support' }), form: null } });
 		expect(screen.getByRole('button', { name: 'Send Password Reset' })).toBeTruthy();

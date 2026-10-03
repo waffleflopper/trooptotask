@@ -43,3 +43,5 @@ export {
 	listTrainingViewExportRows,
 	listPersonnelTrainingExportRows
 } from './server/trainingExportRead.server';
+
+export { createTrainingSupportReader } from './server/supportReadProvider.server';

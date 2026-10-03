@@ -1,11 +1,11 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { adminAction, loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
-import { createSupabasePlatformAccessRequestAdministration } from '$lib/server/adapters/supabasePlatformAccessRequestAdministration';
+import { createPlatformAccessRequestOperations } from '$features/platform-admin/index.server';
+import { validateUUID } from '$lib/server/validation';
 import type {
 	PlatformAccessRequestAdminRejectResult,
 	PlatformAccessRequestAdminSendResult
-} from '$lib/server/core/useCases/platformAccessRequestAdministration';
+} from '$features/platform-admin/contracts';
 
 function requestIdFromForm(formData: FormData): string | null {
 	const requestId = formData.get('requestId');
@@ -77,59 +77,39 @@ function mapRejectResult(result: PlatformAccessRequestAdminRejectResult) {
 	}
 }
 
-export const load: PageServerLoad = loadWithAdminContext({
-	page: 'access-requests',
-	fn: async (ctx) => createSupabasePlatformAccessRequestAdministration(ctx).list()
-});
+export const load: PageServerLoad = async (event) => {
+	const operations = await createPlatformAccessRequestOperations(event);
+	return operations.list();
+};
 
 export const actions: Actions = {
-	approve: adminAction({
-		page: 'access-requests',
-		fn: async (ctx, event) => {
-			const formData = await event.request.formData();
-			const requestId = requestIdFromForm(formData);
-			if (!requestId) return fail(400, { error: 'Missing request ID' });
+	approve: async (event) => {
+		const operations = await createPlatformAccessRequestOperations(event);
+		const formData = await event.request.formData();
+		const requestId = requestIdFromForm(formData);
+		if (!requestId) return fail(400, { error: 'Missing request ID' });
+		if (!validateUUID(requestId)) return fail(400, { error: 'Invalid request ID' });
 
-			const result = await createSupabasePlatformAccessRequestAdministration(ctx).approve({
-				accessRequestId: requestId,
-				actorUserId: ctx.adminUser.id,
-				publicOrigin: event.url.origin
-			});
+		return mapSetupSendResult('approve', await operations.approve(requestId));
+	},
 
-			return mapSetupSendResult('approve', result);
-		}
-	}),
+	reject: async (event) => {
+		const operations = await createPlatformAccessRequestOperations(event);
+		const formData = await event.request.formData();
+		const requestId = requestIdFromForm(formData);
+		if (!requestId) return fail(400, { error: 'Missing request ID' });
+		if (!validateUUID(requestId)) return fail(400, { error: 'Invalid request ID' });
 
-	reject: adminAction({
-		page: 'access-requests',
-		fn: async (ctx, event) => {
-			const formData = await event.request.formData();
-			const requestId = requestIdFromForm(formData);
-			if (!requestId) return fail(400, { error: 'Missing request ID' });
+		return mapRejectResult(await operations.reject(requestId));
+	},
 
-			const result = await createSupabasePlatformAccessRequestAdministration(ctx).reject({
-				accessRequestId: requestId,
-				actorUserId: ctx.adminUser.id
-			});
+	resend: async (event) => {
+		const operations = await createPlatformAccessRequestOperations(event);
+		const formData = await event.request.formData();
+		const requestId = requestIdFromForm(formData);
+		if (!requestId) return fail(400, { error: 'Missing request ID' });
+		if (!validateUUID(requestId)) return fail(400, { error: 'Invalid request ID' });
 
-			return mapRejectResult(result);
-		}
-	}),
-
-	resend: adminAction({
-		page: 'access-requests',
-		fn: async (ctx, event) => {
-			const formData = await event.request.formData();
-			const requestId = requestIdFromForm(formData);
-			if (!requestId) return fail(400, { error: 'Missing request ID' });
-
-			const result = await createSupabasePlatformAccessRequestAdministration(ctx).resendSetup({
-				accessRequestId: requestId,
-				actorUserId: ctx.adminUser.id,
-				publicOrigin: event.url.origin
-			});
-
-			return mapSetupSendResult('resend', result);
-		}
-	})
+		return mapSetupSendResult('resend', await operations.resendSetup(requestId));
+	}
 };

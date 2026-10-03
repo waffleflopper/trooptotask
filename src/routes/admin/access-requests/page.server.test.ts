@@ -1,273 +1,175 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PageData } from './$types';
 
-const { administrationMock, createAdministrationMock } = vi.hoisted(() => {
-	const administration = {
-		list: vi.fn(),
-		approve: vi.fn(),
-		resendSetup: vi.fn(),
-		reject: vi.fn()
-	};
-
-	return {
-		administrationMock: administration,
-		createAdministrationMock: vi.fn(() => administration)
-	};
-});
-
-vi.mock('$lib/server/adapters/adminAdapter', () => ({
-	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event),
-	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event)
+const { operations, createOperations } = vi.hoisted(() => ({
+	operations: { list: vi.fn(), approve: vi.fn(), reject: vi.fn(), resendSetup: vi.fn() },
+	createOperations: vi.fn()
 }));
-
-vi.mock('$lib/server/adapters/supabasePlatformAccessRequestAdministration', () => ({
-	createSupabasePlatformAccessRequestAdministration: createAdministrationMock
-}));
-
+vi.mock('$features/platform-admin/index.server', () => ({ createPlatformAccessRequestOperations: createOperations }));
 import { actions, load } from './+page.server';
 
-function makeRequest(form: Record<string, string>): Request {
-	return new Request('http://localhost/admin/access-requests', {
-		method: 'POST',
-		body: new URLSearchParams(form)
-	});
-}
-
-function makeContext() {
+const REQUEST_ID = '11111111-1111-4111-8111-111111111111';
+function event(requestId: string | null = REQUEST_ID) {
 	return {
-		adminUser: { id: 'admin-1', role: 'super_admin' },
-		adminClient: {},
-		sessionClient: {},
-		session: null,
-		audit: vi.fn()
+		request: new Request('https://app.example.test/admin/access-requests', {
+			method: 'POST',
+			body: new URLSearchParams(requestId === null ? {} : { requestId })
+		})
 	};
 }
+const stepUpFailure = {
+	error: 'Please confirm your identity before continuing.',
+	reason: 'denied.staleSession',
+	requiresStepUp: true,
+	stepUpPath: '/auth/mfa-verify'
+};
 
-describe('admin access request route shell', () => {
+describe('Access Request HTTP delivery', () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
-		administrationMock.list.mockResolvedValue({ pending: [], reviewed: [] });
-		administrationMock.approve.mockResolvedValue({ status: 'sent', setupDeliveryStatus: 'sent' });
-		administrationMock.resendSetup.mockResolvedValue({ status: 'sent', setupDeliveryStatus: 'sent' });
-		administrationMock.reject.mockResolvedValue({ status: 'rejected' });
+		vi.resetAllMocks();
+		createOperations.mockResolvedValue(operations);
+		operations.list.mockResolvedValue({ pending: [], reviewed: [] });
+		operations.approve.mockResolvedValue({ status: 'sent', setupDeliveryStatus: 'sent' });
+		operations.resendSetup.mockResolvedValue({ status: 'sent', setupDeliveryStatus: 'sent' });
+		operations.reject.mockResolvedValue({ status: 'rejected' });
 	});
 
-	it('load returns the Platform Access Request Administration list model', async () => {
-		administrationMock.list.mockResolvedValueOnce({
-			pending: [{ id: 'pending-1' }],
-			reviewed: [{ id: 'reviewed-1' }]
-		});
-
-		const result = (await load({
-			__ctx: makeContext()
-		} as unknown as Parameters<typeof load>[0])) as PageData;
-
-		expect(result).toEqual({
-			pending: [{ id: 'pending-1' }],
-			reviewed: [{ id: 'reviewed-1' }]
-		});
-		expect(createAdministrationMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
-		);
+	it('returns the review list supplied by the admitted operations', async () => {
+		const page = { pending: [{ id: REQUEST_ID }], reviewed: [{ id: 'reviewed-a', setup_delivery_status: 'failed' }] };
+		operations.list.mockResolvedValueOnce(page);
+		const request = event();
+		await expect(load(request as never)).resolves.toEqual(page);
+		expect(createOperations).toHaveBeenCalledWith(request);
 	});
 
-	it('propagates Platform Access Request Administration list failures from load', async () => {
-		administrationMock.list.mockRejectedValueOnce(new Error('boom'));
-
-		await expect(
-			load({
-				__ctx: makeContext()
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toThrow('boom');
-		expect(createAdministrationMock).toHaveBeenCalledWith(
-			expect.objectContaining({ adminUser: { id: 'admin-1', role: 'super_admin' } })
-		);
+	it('propagates a review read failure instead of returning a false empty list', async () => {
+		operations.list.mockRejectedValueOnce(new Error('Review read unavailable'));
+		await expect(load(event() as never)).rejects.toThrow('Review read unavailable');
 	});
 
-	it('parses approve form data and maps a sent result to the current success shape', async () => {
-		const result = await actions.approve({
-			__ctx: makeContext(),
-			request: makeRequest({ requestId: 'request-1' }),
-			url: new URL('https://admin.trooptotask.org/admin/access-requests')
-		} as unknown as Parameters<(typeof actions)['approve']>[0]);
-
-		expect(administrationMock.approve).toHaveBeenCalledWith({
-			accessRequestId: 'request-1',
-			actorUserId: 'admin-1',
-			publicOrigin: 'https://admin.trooptotask.org'
+	for (const [action, command] of [
+		['approve', 'approve'],
+		['reject', 'reject'],
+		['resend', 'resendSetup']
+	] as const) {
+		it(`${action} passes only the validated request ID`, async () => {
+			await expect(actions[action](event() as never)).resolves.toEqual(
+				action === 'reject' ? { success: true, action } : { success: true, action, setupDeliveryStatus: 'sent' }
+			);
+			expect(operations[command]).toHaveBeenCalledWith(REQUEST_ID);
 		});
-		expect(result).toEqual({ success: true, action: 'approve', setupDeliveryStatus: 'sent' });
-	});
-
-	it('parses resend form data and maps delivery failure to a completed action with failed delivery status', async () => {
-		administrationMock.resendSetup.mockResolvedValueOnce({
-			status: 'delivery_failed',
-			setupDeliveryStatus: 'failed'
+		it.each([
+			{ id: null, message: 'Missing request ID' },
+			{ id: '', message: 'Missing request ID' },
+			{ id: 'not-a-uuid', message: 'Invalid request ID' }
+		])(`${action} rejects invalid request IDs before commands`, async ({ id, message }) => {
+			await expect(actions[action](event(id) as never)).resolves.toEqual({ status: 400, data: { error: message } });
+			expect(operations[command]).not.toHaveBeenCalled();
 		});
-
-		const result = await actions.resend({
-			__ctx: makeContext(),
-			request: makeRequest({ requestId: 'request-1' }),
-			url: new URL('http://localhost/admin/access-requests')
-		} as unknown as Parameters<(typeof actions)['resend']>[0]);
-
-		expect(administrationMock.resendSetup).toHaveBeenCalledWith({
-			accessRequestId: 'request-1',
-			actorUserId: 'admin-1',
-			publicOrigin: 'http://localhost'
+		it(`${action} verifies admission before decoding form data`, async () => {
+			createOperations.mockRejectedValueOnce({ status: 403 });
+			const formData = vi.fn();
+			await expect(actions[action]({ request: { formData } } as never)).rejects.toMatchObject({ status: 403 });
+			expect(formData).not.toHaveBeenCalled();
+			expect(operations[command]).not.toHaveBeenCalled();
 		});
-		expect(result).toEqual({ success: true, action: 'resend', setupDeliveryStatus: 'failed' });
-	});
-
-	it('parses reject form data and maps rejection success', async () => {
-		const result = await actions.reject({
-			__ctx: makeContext(),
-			request: makeRequest({ requestId: 'request-1' })
-		} as unknown as Parameters<(typeof actions)['reject']>[0]);
-
-		expect(administrationMock.reject).toHaveBeenCalledWith({
-			accessRequestId: 'request-1',
-			actorUserId: 'admin-1'
+		it(`${action} preserves the sensitive-action step-up response`, async () => {
+			const { error: message, ...failure } = stepUpFailure;
+			operations[command].mockResolvedValueOnce({ status: 'authorization_denied', message, failure });
+			await expect(actions[action](event() as never)).resolves.toEqual({ status: 403, data: stepUpFailure });
 		});
-		expect(result).toEqual({ success: true, action: 'reject' });
-	});
-
-	it('preserves current user-facing failure shapes for command results', async () => {
-		administrationMock.approve.mockResolvedValueOnce({ status: 'already_reviewed' });
-		administrationMock.resendSetup.mockResolvedValueOnce({
-			status: 'authorization_denied',
-			message: 'Please confirm your identity before continuing.',
-			failure: {
-				reason: 'denied.staleSession',
-				requiresStepUp: true,
-				stepUpPath: '/auth/mfa-verify'
-			}
+		it(`${action} reports a safe command failure`, async () => {
+			operations[command].mockResolvedValueOnce({ status: 'failed' });
+			const error =
+				action === 'approve'
+					? 'Failed to approve request'
+					: action === 'reject'
+						? 'Failed to reject request'
+						: 'Failed to resend setup email';
+			await expect(actions[action](event() as never)).resolves.toEqual({ status: 500, data: { error } });
 		});
-		administrationMock.reject.mockResolvedValueOnce({ status: 'failed' });
+	}
 
-		await expect(
-			actions.approve({
-				__ctx: makeContext(),
-				request: makeRequest({ requestId: 'request-1' }),
-				url: new URL('http://localhost/admin/access-requests')
-			} as unknown as Parameters<(typeof actions)['approve']>[0])
-		).resolves.toEqual({ status: 404, data: { error: 'Request not found or already reviewed' } });
-
-		await expect(
-			actions.resend({
-				__ctx: makeContext(),
-				request: makeRequest({ requestId: 'request-1' }),
-				url: new URL('http://localhost/admin/access-requests')
-			} as unknown as Parameters<(typeof actions)['resend']>[0])
-		).resolves.toEqual({
-			status: 403,
-			data: {
-				error: 'Please confirm your identity before continuing.',
-				reason: 'denied.staleSession',
-				requiresStepUp: true,
-				stepUpPath: '/auth/mfa-verify'
-			}
-		});
-
-		await expect(
-			actions.reject({
-				__ctx: makeContext(),
-				request: makeRequest({ requestId: 'request-1' })
-			} as unknown as Parameters<(typeof actions)['reject']>[0])
-		).resolves.toEqual({ status: 500, data: { error: 'Failed to reject request' } });
-
-		administrationMock.reject.mockResolvedValueOnce({
-			status: 'authorization_denied',
-			message: 'Please confirm your identity before continuing.',
-			failure: {
-				reason: 'denied.staleSession',
-				requiresStepUp: true,
-				stepUpPath: '/auth/mfa-verify'
-			}
-		});
-
-		await expect(
-			actions.reject({
-				__ctx: makeContext(),
-				request: makeRequest({ requestId: 'request-1' })
-			} as unknown as Parameters<(typeof actions)['reject']>[0])
-		).resolves.toEqual({
-			status: 403,
-			data: {
-				error: 'Please confirm your identity before continuing.',
-				reason: 'denied.staleSession',
-				requiresStepUp: true,
-				stepUpPath: '/auth/mfa-verify'
-			}
-		});
-	});
-
-	it('maps route-only setup command states to their HTTP failure shapes', async () => {
-		const cases = [
-			{
-				name: 'rate_limited',
-				mock: administrationMock.approve,
-				result: {
-					status: 'rate_limited' as const,
-					message: 'Too many setup email attempts. Try again in 60 seconds.',
-					retryAfterSeconds: 60
-				},
-				run: () =>
-					actions.approve({
-						__ctx: makeContext(),
-						request: makeRequest({ requestId: 'request-1' }),
-						url: new URL('http://localhost/admin/access-requests')
-					} as unknown as Parameters<(typeof actions)['approve']>[0]),
-				expected: {
-					status: 429,
-					data: {
-						error: 'Too many setup email attempts. Try again in 60 seconds.',
-						retryAfterSeconds: 60
-					}
-				}
-			},
-			{
-				name: 'setup_completed',
-				mock: administrationMock.resendSetup,
-				result: { status: 'setup_completed' as const },
-				run: () =>
-					actions.resend({
-						__ctx: makeContext(),
-						request: makeRequest({ requestId: 'request-1' }),
-						url: new URL('http://localhost/admin/access-requests')
-					} as unknown as Parameters<(typeof actions)['resend']>[0]),
-				expected: {
-					status: 400,
-					data: {
-						error: 'This user has already completed account setup. They can sign in or use reset password if needed.'
-					}
-				}
-			},
-			{
-				name: 'concurrent_create',
-				mock: administrationMock.approve,
-				result: { status: 'concurrent_create' as const },
-				run: () =>
-					actions.approve({
-						__ctx: makeContext(),
-						request: makeRequest({ requestId: 'request-1' }),
-						url: new URL('http://localhost/admin/access-requests')
-					} as unknown as Parameters<(typeof actions)['approve']>[0]),
-				expected: {
-					status: 409,
-					data: {
-						error:
-							'Another setup link is being created for this request. Refresh and try again if a fresh link does not appear.'
-					}
-				}
-			}
-		];
-
-		for (const testCase of cases) {
-			testCase.mock.mockResolvedValueOnce(testCase.result);
-			await expect(testCase.run(), testCase.name).resolves.toEqual(testCase.expected);
+	it.each(['approve', 'resend'] as const)(
+		'keeps %s successful when the approval/setup write completed but email delivery failed',
+		async (action) => {
+			const command = action === 'approve' ? operations.approve : operations.resendSetup;
+			command.mockResolvedValueOnce({ status: 'delivery_failed', setupDeliveryStatus: 'failed' });
+			await expect(actions[action](event() as never)).resolves.toEqual({
+				success: true,
+				action,
+				setupDeliveryStatus: 'failed'
+			});
 		}
+	);
+
+	it.each([
+		{
+			action: 'approve',
+			command: 'approve',
+			result: { status: 'already_reviewed' },
+			status: 404,
+			data: { error: 'Request not found or already reviewed' }
+		},
+		{
+			action: 'reject',
+			command: 'reject',
+			result: { status: 'already_reviewed' },
+			status: 404,
+			data: { error: 'Request not found or already reviewed' }
+		},
+		{
+			action: 'resend',
+			command: 'resendSetup',
+			result: { status: 'not_found' },
+			status: 404,
+			data: { error: 'Approved request not found' }
+		},
+		{
+			action: 'resend',
+			command: 'resendSetup',
+			result: { status: 'not_approved' },
+			status: 404,
+			data: { error: 'Approved request not found' }
+		},
+		{
+			action: 'approve',
+			command: 'approve',
+			result: { status: 'not_approved' },
+			status: 400,
+			data: { error: 'Access request must be approved before setup can be sent.' }
+		},
+		{
+			action: 'resend',
+			command: 'resendSetup',
+			result: { status: 'setup_completed' },
+			status: 400,
+			data: {
+				error: 'This user has already completed account setup. They can sign in or use reset password if needed.'
+			}
+		},
+		{
+			action: 'approve',
+			command: 'approve',
+			result: { status: 'concurrent_create' },
+			status: 409,
+			data: {
+				error:
+					'Another setup link is being created for this request. Refresh and try again if a fresh link does not appear.'
+			}
+		},
+		{
+			action: 'approve',
+			command: 'approve',
+			result: {
+				status: 'rate_limited',
+				message: 'Too many setup email attempts. Try again in 60 seconds.',
+				retryAfterSeconds: 60
+			},
+			status: 429,
+			data: { error: 'Too many setup email attempts. Try again in 60 seconds.', retryAfterSeconds: 60 }
+		}
+	] as const)('preserves $action $result.status protections', async ({ action, command, result, status, data }) => {
+		operations[command].mockResolvedValueOnce(result);
+		await expect(actions[action](event() as never)).resolves.toEqual({ status, data });
 	});
 });

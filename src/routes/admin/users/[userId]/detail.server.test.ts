@@ -1,20 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { lookupRole, getAdminClient } = vi.hoisted(() => ({
-	lookupRole: vi.fn(),
-	getAdminClient: vi.fn()
-}));
-vi.mock('$lib/server/admin', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/admin')>()),
-	getAdminRole: lookupRole
-}));
+const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 
 import { load, actions } from './+page.server';
 
 const userId = 'a406f000-0000-4000-8000-000000000001';
 const createdAt = '2026-06-01T00:00:00.000Z';
+let currentRole: string | null = 'super_admin';
 
 function event(authenticated = true) {
 	const url = new URL(`/admin/users/${userId}`, 'http://localhost');
@@ -46,13 +40,27 @@ function provider() {
 				email_confirmed_at: createdAt
 			});
 		switch (url.pathname) {
+			case '/rest/v1/platform_admins':
+				expect(params.get('user_id')).toBe('eq.admin-1');
+				expect(params.get('is_active')).toBe('eq.true');
+				return Response.json(currentRole ? { role: currentRole } : null);
 			case '/rest/v1/organization_memberships':
 				if (params.get('select')?.match(/\b(tier|gift_tier)\b/)) break;
 				return Response.json(
 					params.get('user_id') === `eq.${userId}`
 						? [
-								{ role: 'owner', organizations: { id: 'org-a', name: 'Able Clinic' } },
-								{ role: 'member', organizations: [{ id: 'org-b', name: 'Bravo Clinic' }] }
+								{
+									user_id: userId,
+									organization_id: 'org-a',
+									role: 'owner',
+									organizations: { id: 'org-a', name: 'Able Clinic' }
+								},
+								{
+									user_id: userId,
+									organization_id: 'org-b',
+									role: 'member',
+									organizations: [{ id: 'org-b', name: 'Bravo Clinic' }]
+								}
 							]
 						: []
 				);
@@ -103,7 +111,7 @@ describe('user detail request admission and retained projections', () => {
 	let fetchProvider: ReturnType<typeof provider>;
 	beforeEach(() => {
 		vi.clearAllMocks();
-		lookupRole.mockResolvedValue('super_admin');
+		currentRole = 'super_admin';
 		fetchProvider = provider();
 		getAdminClient.mockReturnValue(
 			createClient('http://localhost:9', 'synthetic-service-key', {
@@ -118,8 +126,9 @@ describe('user detail request admission and retained projections', () => {
 	it.each(['super_admin', 'support'])(
 		'loads identity, memberships, suspension and activity for %s without commercial data',
 		async (role) => {
-			lookupRole.mockResolvedValue(role);
+			currentRole = role;
 			await expect(load(event())).resolves.toEqual({
+				adminRole: role,
 				user: {
 					id: userId,
 					email: 'soldier@example.test',
@@ -152,23 +161,56 @@ describe('user detail request admission and retained projections', () => {
 	it.each([
 		{ role: 'billing', authenticated: true, status: 403 },
 		{ role: null, authenticated: true, status: 403 },
-		{ role: null, authenticated: false, status: 303 }
+		{ role: null, authenticated: false, status: 303 },
+		{ role: 'unrecognized-role', authenticated: true, status: 503 }
 	])(
 		'denies detail and identity actions for $role (authenticated=$authenticated)',
 		async ({ role, authenticated, status }) => {
-			lookupRole.mockResolvedValue(role);
+			currentRole = role;
 			const request = event(authenticated);
 			await expect(load(request)).rejects.toMatchObject({ status });
 			for (const action of [actions.resetPassword, actions.resendInvite]) {
 				await expect(action(request as unknown as Parameters<typeof action>[0])).rejects.toMatchObject({ status });
 			}
-			expect(fetchProvider).not.toHaveBeenCalled();
+			const paths = fetchProvider.mock.calls.map(([input]) => new URL(String(input)).pathname);
+			expect(paths.every((path) => path === '/rest/v1/platform_admins')).toBe(true);
+			if (!authenticated) expect(fetchProvider).not.toHaveBeenCalled();
 		}
 	);
 
-	it('reports a sanitized identity-provider failure', async () => {
+	it('requires the hook actor even when an unverified user object is present', async () => {
+		const request = event(false);
+		request.locals.user = { id: 'admin-1', email: 'unverified@example.test' } as never;
+		await expect(load(request)).rejects.toMatchObject({ status: 303 });
+		expect(fetchProvider).not.toHaveBeenCalled();
+	});
+
+	it('does not let a user object confer a role or replace the hook actor', async () => {
+		currentRole = 'billing';
+		const request = event();
+		request.locals.user = { id: 'forged-user', email: 'unverified@example.test', role: 'super_admin' } as never;
+		await expect(load(request)).rejects.toMatchObject({ status: 403 });
+		expect(
+			fetchProvider.mock.calls.every(([input]) => new URL(String(input)).pathname === '/rest/v1/platform_admins')
+		).toBe(true);
+	});
+
+	it('reports unavailable authority as 503 without reading the target account', async () => {
 		fetchProvider.mockImplementation(async () =>
-			Response.json({ message: 'private provider failure' }, { status: 503 })
+			Response.json({ message: 'private authority failure' }, { status: 500 })
+		);
+		await expect(load(event())).rejects.toMatchObject({ status: 503 });
+		expect(
+			fetchProvider.mock.calls.every(([input]) => new URL(String(input)).pathname === '/rest/v1/platform_admins')
+		).toBe(true);
+	});
+
+	it('reports a sanitized identity-provider failure', async () => {
+		const standardProvider = fetchProvider.getMockImplementation()!;
+		fetchProvider.mockImplementation(async (input, init) =>
+			new URL(String(input)).pathname.startsWith('/auth/v1/')
+				? Response.json({ message: 'private provider failure' }, { status: 500 })
+				: standardProvider(input, init)
 		);
 		await expect(load(event())).rejects.toMatchObject({
 			status: 500,

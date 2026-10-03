@@ -54,3 +54,5 @@ export type SavedAssignment = DailyAssignment & { organization_id?: string; crea
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
 }
+
+export type { CalendarSupportReader } from './supportReadTypes';

@@ -1,24 +1,23 @@
 import { error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
 import { validateUUID } from '$lib/server/validation';
-import { createPlatformOrganizationMembershipCommands } from '$features/platform-admin/index.server';
+import {
+	createPlatformOrganizationMembershipCommands,
+	createPlatformOrganizationOperations
+} from '$features/platform-admin/index.server';
 import type { SensitiveActionFailureFields } from '$features/identity/contracts';
-import { createSupabasePlatformOrganizationDetail } from '$lib/server/adapters/supabasePlatformOrganizationDetail';
 
-export const load: PageServerLoad = loadWithAdminContext({
-	page: 'organizations',
-	fn: async (ctx, event) => {
-		const orgId = event.params.orgId as string;
-		if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
+export const load: PageServerLoad = async (event) => {
+	const operations = await createPlatformOrganizationOperations(event);
+	const orgId = event.params.orgId as string;
+	if (!validateUUID(orgId)) throw error(400, 'Invalid organization ID');
 
-		const result = await createSupabasePlatformOrganizationDetail(ctx).getOrganizationDetail(orgId);
-		if (result.status === 'not_found') throw error(404, 'Organization not found');
-		if (result.status === 'provider_error') throw error(500, 'Failed to load organization detail');
+	const result = await operations.getOrganizationDetail(orgId);
+	if (result.status === 'not_found') throw error(404, 'Organization not found');
+	if (result.status === 'provider_error') throw error(500, 'Failed to load organization detail');
 
-		return result.detail;
-	}
-});
+	return result.detail;
+};
 
 function commandFailure(cause: unknown, message: string) {
 	if (cause instanceof Error) {

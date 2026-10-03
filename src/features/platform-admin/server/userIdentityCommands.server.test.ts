@@ -1,15 +1,13 @@
+import type { IdentityPlatformAccountEmailPort } from '$features/identity/contracts';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getAuthConfirmRedirectTo } from '$features/identity/index.server';
-import {
-	createPlatformUserIdentityCommands,
-	type PlatformUserIdentityCommandStore
-} from './platformUserIdentityCommands';
+import { createPlatformUserIdentityCommands } from './userIdentityCommands.server';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 
-function makeCommands(options: Partial<PlatformUserIdentityCommandStore> = {}) {
+function makeCommands(options: Partial<IdentityPlatformAccountEmailPort> = {}) {
 	const audit = vi.fn();
-	const store: PlatformUserIdentityCommandStore = {
+	const store: IdentityPlatformAccountEmailPort = {
 		getUserEmailById: vi.fn().mockResolvedValue({ status: 'found', email: 'soldier@example.mil' }),
 		sendPasswordResetEmail: vi.fn().mockResolvedValue({ ok: true }),
 		sendInviteEmail: vi.fn().mockResolvedValue({ ok: true }),
@@ -21,6 +19,7 @@ function makeCommands(options: Partial<PlatformUserIdentityCommandStore> = {}) {
 		store,
 		commands: createPlatformUserIdentityCommands({
 			store,
+			checkRateLimit: async () => false,
 			audit: { log: audit },
 			confirmationUrl: getAuthConfirmRedirectTo
 		})
@@ -33,19 +32,41 @@ describe('PlatformUserIdentityCommands', () => {
 		vi.unstubAllEnvs();
 	});
 
+	it.each(['sendPasswordReset', 'resendInvite'] as const)(
+		'rate-limits %s before another identity lookup or OTP replacement',
+		async (action) => {
+			const store = { getUserEmailById: vi.fn(), sendPasswordResetEmail: vi.fn(), sendInviteEmail: vi.fn() };
+			const audit = vi.fn();
+			const commands = createPlatformUserIdentityCommands({
+				store,
+				audit: { log: audit },
+				confirmationUrl: getAuthConfirmRedirectTo,
+				checkRateLimit: async () => true
+			});
+			await expect(
+				commands[action]({ userId: USER_ID, inboundOrigin: 'https://app.example.test' })
+			).resolves.toMatchObject({ status: 'rate_limited' });
+			expect(store.getUserEmailById).not.toHaveBeenCalled();
+			expect(store.sendPasswordResetEmail).not.toHaveBeenCalled();
+			expect(store.sendInviteEmail).not.toHaveBeenCalled();
+			expect(audit).not.toHaveBeenCalled();
+		}
+	);
+
 	it('sends password reset with the app-owned recovery redirect and audits after the provider send succeeds', async () => {
 		const audit = vi.fn();
 		const sendPasswordResetEmail = vi.fn(async () => {
 			expect(audit).not.toHaveBeenCalled();
 			return { ok: true } as const;
 		});
-		const store: PlatformUserIdentityCommandStore = {
+		const store: IdentityPlatformAccountEmailPort = {
 			getUserEmailById: vi.fn().mockResolvedValue({ status: 'found', email: 'soldier@example.mil' }),
 			sendPasswordResetEmail,
 			sendInviteEmail: vi.fn().mockResolvedValue({ ok: true })
 		};
 		const commands = createPlatformUserIdentityCommands({
 			store,
+			checkRateLimit: async () => false,
 			audit: { log: audit },
 			confirmationUrl: getAuthConfirmRedirectTo
 		});

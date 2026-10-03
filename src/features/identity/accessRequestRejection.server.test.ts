@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { rejectAccessRequestAndBlockLinkedInvitations } from './accessRequestInvitationBlocking';
+import { rejectAccessRequestAndBlockLinkedInvitations } from './accessRequestRejection.server';
 
 describe('access request invitation blocking', () => {
 	it('rejects an access request and returns linked invitations blocked by the database transition', async () => {
@@ -138,7 +138,7 @@ describe('access request invitation blocking', () => {
 			})
 		).resolves.toEqual({
 			status: 'failed',
-			message: 'rpc unavailable',
+			message: 'Access request could not be rejected',
 			blockedInvitations: []
 		});
 	});

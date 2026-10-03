@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 const { getAdminClientMock } = vi.hoisted(() => ({ getAdminClientMock: vi.fn() }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));
 
-import { sendAuthEmail, sendPlatformAuthEmail, sendPublicRecoveryEmail } from './authEmailDelivery.server';
+import { sendAuthEmail, sendPublicRecoveryEmail } from './authEmailDelivery.server';
 
 const USER_ID = '11111111-1111-4111-8111-111111111111';
 const CONFIRM_ORIGIN = 'https://trooptotask.org/auth/confirm';
@@ -47,34 +47,18 @@ describe('sendAuthEmail', () => {
 		getAdminClientMock.mockReset();
 	});
 
-	it('uses the server-only admin client for narrow public and platform operations', async () => {
+	it('uses the server-only admin client for public recovery delivery', async () => {
 		const recoveryClient = makeClient('recovery');
-		const inviteClient = makeClient('invite');
-		getAdminClientMock.mockReturnValueOnce(recoveryClient).mockReturnValueOnce(inviteClient);
+		getAdminClientMock.mockReturnValue(recoveryClient);
 		const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200 });
 		vi.stubGlobal('fetch', fetchImpl);
 		const recoveryRedirect = `${CONFIRM_ORIGIN}?type=recovery&next=%2Fauth%2Freset-password`;
-		const inviteRedirect = `${CONFIRM_ORIGIN}?type=invite&next=%2Fauth%2Faccept-invite`;
 		await expect(sendPublicRecoveryEmail('soldier@example.mil', recoveryRedirect)).resolves.toBe('sent');
-		await expect(
-			sendPlatformAuthEmail({
-				type: 'invite',
-				userId: USER_ID,
-				email: 'soldier@example.mil',
-				redirectTo: inviteRedirect
-			})
-		).resolves.toBe('sent');
 		expect(recoveryClient.auth.admin.generateLink).toHaveBeenCalledWith({
 			type: 'recovery',
 			email: 'soldier@example.mil',
 			options: { redirectTo: recoveryRedirect }
 		});
-		expect(inviteClient.auth.admin.generateLink).toHaveBeenCalledWith({
-			type: 'invite',
-			email: 'soldier@example.mil',
-			options: { redirectTo: inviteRedirect }
-		});
-		expect(fetchImpl).toHaveBeenCalledTimes(2);
 	});
 
 	it.each(['recovery', 'invite'] as const)('sends a %s app confirmation link through Resend', async (type) => {

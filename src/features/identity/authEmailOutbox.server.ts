@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import type { AuthEmailOutboxStatus } from './contracts';
+export type { AuthEmailOutboxStatus } from './contracts';
+
 export type AuthEmailPurpose = 'account_setup';
-export type AuthEmailOutboxStatus = 'pending' | 'sent' | 'failed';
 
 export interface AuthEmailOutboxRecord {
 	id: string;

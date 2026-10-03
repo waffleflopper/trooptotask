@@ -1,16 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export interface BlockedOrganizationInvitation {
-	id: string;
-	organizationId: string;
-	email: string;
-	blockedAt: string;
-}
-
-export type RejectAccessRequestAndBlockInvitationsResult =
-	| { status: 'rejected'; blockedInvitations: BlockedOrganizationInvitation[] }
-	| { status: 'not_found'; blockedInvitations: [] }
-	| { status: 'failed'; message: string; blockedInvitations: [] };
+import type { RejectAccessRequestAndBlockInvitationsResult } from './contracts';
 
 interface RejectAccessRequestAndBlockInvitationsRpcRow {
 	reject_status: 'rejected' | 'not_found' | null;
@@ -45,7 +35,7 @@ export async function rejectAccessRequestAndBlockLinkedInvitations(
 	if (error) {
 		return {
 			status: 'failed',
-			message: error.message ?? 'Access request could not be rejected',
+			message: 'Access request could not be rejected',
 			blockedInvitations: []
 		};
 	}

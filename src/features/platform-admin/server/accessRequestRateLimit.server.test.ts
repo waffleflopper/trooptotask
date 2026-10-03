@@ -5,7 +5,7 @@ import {
 	platformAccessRequestRateLimitAuditDetails,
 	platformAccessRequestRateLimitMessage,
 	type PlatformAccessRequestRateLimitStore
-} from './platformAccessRequestRateLimit';
+} from './accessRequestRateLimit.server';
 
 function makeStore(): PlatformAccessRequestRateLimitStore & { keys: string[] } {
 	const buckets = new Map<string, { count: number; resetAt: number }>();

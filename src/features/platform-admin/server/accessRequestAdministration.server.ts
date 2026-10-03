@@ -1,20 +1,13 @@
 import { getAccessRequestHeardAboutLabel } from '$features/identity/contracts';
-import type { AccountSetupLinkFailureReason, AccountSetupLinkRevocationReason } from '$features/identity/index.server';
-import type { AuthEmailOutboxStatus } from '$features/identity/index.server';
 import {
 	classifyAccessRequestSetupState,
 	findLatestAccessRequestSetupDelivery,
 	normalizeAccessRequestSetupDeliveries,
 	normalizeAccessRequestSetupLinks,
-	type AccessRequestAuthEmailOutbox,
 	type AccessRequestSetupLink,
 	type AccessRequestSetupState
 } from '$features/identity/index.server';
-import type {
-	BlockedOrganizationInvitation,
-	RejectAccessRequestAndBlockInvitationsResult
-} from '$lib/server/accessRequestInvitationBlocking';
-import type { AccessRequestInvitationOrigin } from '$lib/server/accessRequestInvitationOrigin';
+import type { BlockedOrganizationInvitation } from '$features/identity/contracts';
 import {
 	createAccountSetupLinkIssuance,
 	redactProviderError,
@@ -28,8 +21,7 @@ import {
 	PLATFORM_ACCESS_REQUEST_APPROVE_ACTION,
 	PLATFORM_ACCESS_REQUEST_REJECT_ACTION,
 	PLATFORM_ACCESS_REQUEST_RESEND_SETUP_ACTION,
-	type SensitiveActionAuthorizer,
-	type SensitiveActionFailureFields
+	type SensitiveActionAuthorizer
 } from '$features/identity/contracts';
 import {
 	sensitiveActionDecisionAuditDetails,
@@ -41,129 +33,19 @@ import {
 	platformAccessRequestRateLimitMessage,
 	type PlatformAccessRequestRateLimitDecision,
 	type PlatformAccessRequestSetupAction
-} from '$lib/server/platformAccessRequestRateLimit';
+} from './accessRequestRateLimit.server';
 
-export type { AccessRequestAuthEmailOutbox, AccessRequestSetupLink, AccessRequestSetupState };
-
-export interface PlatformAccessRequestAdminRow {
-	id: string;
-	name: string;
-	email: string;
-	reason: string | null;
-	heard_about: string | null;
-	heard_about_details: string | null;
-	status: 'pending' | 'approved' | 'rejected';
-	created_at: string;
-	reviewed_at: string | null;
-	reviewed_by: string | null;
-	setup_completed_at: string | null;
-	account_setup_links: AccessRequestSetupLink | AccessRequestSetupLink[] | null;
-	auth_email_outbox: AccessRequestAuthEmailOutbox | AccessRequestAuthEmailOutbox[] | null;
-	invitation_origins: AccessRequestInvitationOrigin[];
-}
-
-export interface PlatformAccessRequestAdminItem {
-	id: string;
-	name: string;
-	email: string;
-	reason: string | null;
-	heard_about: string | null;
-	heard_about_label: string | null;
-	heard_about_details: string | null;
-	status: 'pending' | 'approved' | 'rejected';
-	created_at: string;
-	reviewed_at: string | null;
-	setup_completed_at: string | null;
-	setup_state: AccessRequestSetupState;
-	setup_state_label: string;
-	setup_state_detail: string;
-	held_setup_claim: { accessRequestId: string; linkId: string; claimedAt: string } | null;
-	setup_completed_at_display: string | null;
-	setup_link_id: string | null;
-	setup_link_created_at: string | null;
-	setup_link_expires_at: string | null;
-	setup_link_claimed_at: string | null;
-	setup_link_failed_at: string | null;
-	setup_link_failure_reason: AccountSetupLinkFailureReason | null;
-	setup_link_replaced_at: string | null;
-	setup_link_revocation_reason: AccountSetupLinkRevocationReason | null;
-	has_replaced_setup_link: boolean;
-	setup_delivery_id: string | null;
-	setup_delivery_status: AuthEmailOutboxStatus | null;
-	setup_delivery_attempt_count: number;
-	setup_delivery_last_error: string | null;
-	setup_delivery_updated_at: string | null;
-	setup_delivery_sent_at: string | null;
-	invitation_origins: AccessRequestInvitationOrigin[];
-	auto_approved: boolean;
-	auto_approval_detail: string | null;
-}
-
-export interface PlatformAccessRequestAdminList {
-	pending: PlatformAccessRequestAdminItem[];
-	reviewed: PlatformAccessRequestAdminItem[];
-}
-
-export interface PlatformAccessRequestAdminCommandRow {
-	id: string;
-	email: string;
-	status: 'pending' | 'approved' | 'rejected';
-	setup_completed_at: string | null;
-}
-
-export interface PlatformAccessRequestAdminCommand {
-	accessRequestId: string;
-	actorUserId: string;
-	publicOrigin: string;
-}
-
-export interface PlatformAccessRequestAdminRejectCommand {
-	accessRequestId: string;
-	actorUserId: string;
-}
-
-export type PlatformAccessRequestAdminSendResult =
-	| { status: 'sent'; setupDeliveryStatus: 'sent' }
-	| { status: 'delivery_failed'; setupDeliveryStatus: 'failed' }
-	| { status: 'not_found' | 'already_reviewed' | 'not_approved' | 'setup_completed' | 'concurrent_create' }
-	| { status: 'authorization_denied'; message: string; failure: SensitiveActionFailureFields }
-	| { status: 'rate_limited'; message: string; retryAfterSeconds: number }
-	| { status: 'failed' };
-
-export type PlatformAccessRequestAdminRejectResult =
-	| { status: 'rejected' }
-	| { status: 'authorization_denied'; message: string; failure: SensitiveActionFailureFields }
-	| { status: 'not_found' | 'already_reviewed' | 'failed' };
-
-export interface PlatformAccessRequestAdministration {
-	list(input?: { now?: Date }): Promise<PlatformAccessRequestAdminList>;
-	approve(input: PlatformAccessRequestAdminCommand): Promise<PlatformAccessRequestAdminSendResult>;
-	resendSetup(input: PlatformAccessRequestAdminCommand): Promise<PlatformAccessRequestAdminSendResult>;
-	reject(input: PlatformAccessRequestAdminRejectCommand): Promise<PlatformAccessRequestAdminRejectResult>;
-}
-
-export interface PlatformAccessRequestAdministrationStore {
-	listAccessRequests(): Promise<PlatformAccessRequestAdminRow[]>;
-	getPendingAccessRequestForApproval(accessRequestId: string): Promise<PlatformAccessRequestAdminCommandRow | null>;
-	markPendingRequestApproved(input: {
-		accessRequestId: string;
-		reviewerId: string;
-		reviewedAt: Date;
-	}): Promise<'approved' | 'not_found'>;
-	getApprovedAccessRequestForResend(accessRequestId: string): Promise<PlatformAccessRequestAdminCommandRow | null>;
-	rejectPendingAccessRequestAndBlockLinkedInvitations(
-		input: PlatformAccessRequestAdminRejectCommand
-	): Promise<RejectAccessRequestAndBlockInvitationsResult>;
-}
-
-export interface PlatformAccessRequestAdministrationAuditEvent {
-	action: string;
-	resourceType: string;
-	resourceId?: string;
-	orgId?: string;
-	details?: Record<string, unknown>;
-	severity?: 'info' | 'warning' | 'critical';
-}
+import type {
+	AccessRequestInvitationOrigin,
+	PlatformAccessRequestAdminRow,
+	PlatformAccessRequestAdminItem,
+	PlatformAccessRequestAdminSendResult,
+	PlatformAccessRequestAdminRejectResult,
+	PlatformAccessRequestAdministration,
+	PlatformAccessRequestAdministrationStore,
+	PlatformAccessRequestAdministrationAuditEvent
+} from '../accessRequestTypes';
+export type * from '../accessRequestTypes';
 
 interface PlatformAccessRequestGovernorNotifier {
 	notifyInvitationBlocked(input: { organizationId: string; adminUserId: string; email: string }): Promise<void>;

@@ -5,7 +5,7 @@ import {
 	durableRateLimitAuditDetails,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from './durableRateLimit';
+} from '$lib/access/index.server';
 
 export const PLATFORM_ACCESS_REQUEST_APPROVAL_RATE_LIMIT_MESSAGE =
 	'Too many approval setup sends for this Access Request. Please wait before trying again.';

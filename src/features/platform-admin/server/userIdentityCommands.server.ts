@@ -1,30 +1,7 @@
-export type PlatformUserIdentityCommandResult =
-	| { status: 'sent'; email: string; message: string }
-	| { status: 'not_found' }
-	| { status: 'provider_error'; message: string };
+import type { IdentityPlatformAccountEmailPort } from '$features/identity/contracts';
 
-export interface PlatformUserIdentityCommands {
-	sendPasswordReset(input: { userId: string; inboundOrigin: string }): Promise<PlatformUserIdentityCommandResult>;
-	resendInvite(input: { userId: string; inboundOrigin: string }): Promise<PlatformUserIdentityCommandResult>;
-}
-
-export interface PlatformUserIdentityCommandStore {
-	getUserEmailById(
-		userId: string
-	): Promise<
-		{ status: 'found'; email: string } | { status: 'not_found' } | { status: 'provider_error'; message: string }
-	>;
-	sendPasswordResetEmail(input: {
-		userId: string;
-		email: string;
-		redirectTo: string;
-	}): Promise<{ ok: true } | { ok: false; message: string }>;
-	sendInviteEmail(input: {
-		userId: string;
-		email: string;
-		redirectTo: string;
-	}): Promise<{ ok: true } | { ok: false; message: string }>;
-}
+import type { PlatformUserIdentityCommands } from '../userIdentityTypes';
+export type { PlatformUserIdentityCommands, PlatformUserIdentityCommandResult } from '../userIdentityTypes';
 
 export interface PlatformUserIdentityCommandAuditEvent {
 	action: string;
@@ -35,7 +12,8 @@ export interface PlatformUserIdentityCommandAuditEvent {
 }
 
 export interface PlatformUserIdentityCommandDependencies {
-	store: PlatformUserIdentityCommandStore;
+	store: IdentityPlatformAccountEmailPort;
+	checkRateLimit: (userId: string, type: 'recovery' | 'invite') => Promise<boolean>;
 	audit: { log(event: PlatformUserIdentityCommandAuditEvent): void };
 	confirmationUrl: (inboundOrigin: string, type: 'recovery' | 'invite') => string;
 }
@@ -45,6 +23,8 @@ export function createPlatformUserIdentityCommands(
 ): PlatformUserIdentityCommands {
 	return {
 		async sendPasswordReset(input) {
+			if (await deps.checkRateLimit(input.userId, 'recovery'))
+				return { status: 'rate_limited', message: 'Too many password reset emails. Please try again later.' };
 			const userEmail = await deps.store.getUserEmailById(input.userId);
 			if (userEmail.status === 'not_found') return { status: 'not_found' };
 			if (userEmail.status === 'provider_error') {
@@ -74,6 +54,8 @@ export function createPlatformUserIdentityCommands(
 		},
 
 		async resendInvite(input) {
+			if (await deps.checkRateLimit(input.userId, 'invite'))
+				return { status: 'rate_limited', message: 'Too many invite emails. Please try again later.' };
 			const userEmail = await deps.store.getUserEmailById(input.userId);
 			if (userEmail.status === 'not_found') return { status: 'not_found' };
 			if (userEmail.status === 'provider_error') {

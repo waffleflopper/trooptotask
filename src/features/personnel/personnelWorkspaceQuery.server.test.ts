@@ -12,10 +12,8 @@ function sourcesFor(ctx: ReturnType<typeof createQueryWithRawStorePortsContext>)
 						{ id: 'st2', name: 'TDY', color: '#111111', textColor: '#eeeeee' }
 					]
 				: [{ id: 'foreign-status', name: 'Foreign', color: '#000000', textColor: '#ffffff' }],
-		loadLossWarningWindowDays: async (orgId) => {
-			const row = await ctx.store.findOne<{ loss_warning_window_days: number | null }>('organizations', orgId, {});
-			return row?.loss_warning_window_days ?? null;
-		}
+		loadLossWarningWindowDays: async (orgId) =>
+			(await ctx.organizationSettings.findLossWarningWindowDays(orgId)) ?? null
 	};
 }
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import PoliciesSettingsPage from './PoliciesSettingsPage.svelte';
+	import { PoliciesSettingsPage } from '$features/organization';
 
 	let { data }: PageProps = $props();
 </script>

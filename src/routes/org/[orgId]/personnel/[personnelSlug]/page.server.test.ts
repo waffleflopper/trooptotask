@@ -1,3 +1,4 @@
+import { createTestContext } from '$lib/server/adapters/inMemory';
 import { describe, expect, it, vi } from 'vitest';
 import { _createPersonnelDetailPageLoad } from './+page.server';
 
@@ -20,6 +21,51 @@ const operateScope = {
 };
 
 describe('personnel detail page server load', () => {
+	it.each([0, null, 'failure', 'no-ets'] as const)(
+		'uses the owned warning scalar lazily with the retained detail fallback (%s)',
+		async (value) => {
+			vi.useFakeTimers({ toFake: ['Date'] });
+			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
+			try {
+				const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+				ctx.store.seed('personnel', [
+					{
+						id: 'person-1',
+						organization_id: 'org-1',
+						group_id: null,
+						ets: value === 'no-ets' ? null : '2026-05-15',
+						archived_at: null
+					}
+				]);
+				const window = vi.fn(async () => {
+					if (value === 'failure') throw new Error('Optional settings unavailable');
+					return value === 'no-ets' ? 30 : value;
+				});
+				ctx.organizationSettings.findLossWarningWindowDays = window;
+				const load = _createPersonnelDetailPageLoad({
+					loadWithContext: async (_locals, _cookies, _orgId, config) => config.fn(ctx)
+				});
+				const result = await load({
+					params: { orgId: 'org-1', personnelSlug: 'person-1' },
+					locals: {},
+					cookies: {},
+					depends: vi.fn(),
+					parent: async () => ({ personnelDetailHeader: { person: { id: 'person-1' } } })
+				} as never);
+				const lanes = result.personnelDetail.readinessLanes;
+				const settled = Promise.allSettled(Object.values(lanes));
+				await expect(lanes.lossTracking).resolves.toMatchObject({
+					value: value === 'no-ets' ? 'Missing ETS' : value === 0 ? 'No loss risk' : 'Action needed',
+					tone: value === 'no-ets' ? 'bad' : value === 0 ? 'good' : 'watch'
+				});
+				if (value === 'no-ets') expect(window).not.toHaveBeenCalled();
+				await settled;
+			} finally {
+				vi.useRealTimers();
+			}
+		}
+	);
+
 	it('denies Training readiness before reading its catalog when Training access is absent', async () => {
 		const ctx = {
 			store: {

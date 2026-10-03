@@ -1,13 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createDashboardScreenModel, type DashboardScreenModel } from './dashboardScreenModel.svelte';
 import { rosterStore } from '$features/personnel';
-import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
-import { availabilityStore } from '$features/calendar/stores/availability.svelte';
-import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
+import {
+	calendarStatusSource as statusTypesStore,
+	calendarAvailabilitySource as availabilityStore,
+	calendarAssignmentsSource as dailyAssignmentsStore
+} from '$features/calendar';
 import { groupsStore } from '$features/personnel';
 import type { TrainingIssue } from '$features/training/contracts';
-import type { DashboardWorkspaceResult } from '../server/dashboardWorkspaceBootstrap';
-import type { DashboardPageData } from '../dashboard.types';
+import type { DashboardWorkspaceResult } from '../contracts';
+import type { DashboardPageData } from '../contracts';
 
 const mutableRosterStore = rosterStore as unknown as { items: Array<Record<string, unknown>> };
 const mutableStatusTypesStore = statusTypesStore as unknown as { items: Array<Record<string, unknown>> };
@@ -32,8 +34,6 @@ const emptyTrainingStats = {
 // ---------------------------------------------------------------------------
 
 vi.mock('$app/environment', () => ({ browser: false }));
-vi.mock('$lib/data/changelog', () => ({ changelog: [] }));
-vi.mock('$lib/stores/whatsNew.svelte', () => ({ whatsNewStore: { show: vi.fn(), close: vi.fn() } }));
 
 // Stub all stores — each returns a minimal reactive-compatible object
 vi.mock('$features/personnel', () => ({
@@ -41,14 +41,10 @@ vi.mock('$features/personnel', () => ({
 	groupsStore: { items: [], loading: false },
 	pinnedGroupsStore: { list: [], load: vi.fn() }
 }));
-vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
-	statusTypesStore: { items: [] }
-}));
-vi.mock('$features/calendar/stores/availability.svelte', () => ({
-	availabilityStore: { items: [], loading: false, load: vi.fn() }
-}));
-vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
-	dailyAssignmentsStore: { assignments: [], types: [], loading: false, load: vi.fn() }
+vi.mock('$features/calendar', () => ({
+	calendarStatusSource: { items: [] },
+	calendarAvailabilitySource: { items: [], loading: false },
+	calendarAssignmentsSource: { assignments: [], types: [], loading: false }
 }));
 vi.mock('$features/training', () => ({
 	trainingTypesStore: { items: [] }
@@ -400,16 +396,6 @@ describe('DashboardScreenModel (migrated context coverage)', () => {
 	describe('activeOnboardings', () => {
 		it('returns empty array when none in data', () => {
 			expect(ctx.activeOnboardings).toHaveLength(0);
-		});
-
-		it('processes onboardings from data (may filter based on personnel store)', () => {
-			const onboardings = [
-				{ personnelId: 'p1', steps: [{ completed: true }, { completed: false }], id: 'ob1' },
-				{ personnelId: 'p2', steps: [], id: 'ob2' }
-			];
-			const c = createDashboardScreenModel(makeData({}, { activeOnboardings: onboardings }));
-			// Returns an array (may be empty if personnel store has no matching records)
-			expect(Array.isArray(c.activeOnboardings)).toBe(true);
 		});
 	});
 

@@ -2,7 +2,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Progress } from '$lib/components/ui/progress';
 	import { Separator } from '$lib/components/ui/separator';
-	import { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+	import { CalendarStatusBadge } from '$features/calendar';
 	import * as Card from '$lib/components/ui/card';
 	import type { DashboardScreenModel } from '../../read-model/dashboardScreenModel.svelte';
 
@@ -71,7 +71,7 @@
 			items.push({
 				severity: 'warning',
 				message: `${stats.warningOrange} training items expiring soon`,
-				detail: 'Within 30-day warning window',
+				detail: 'Within the configured Training warning window',
 				count: stats.warningOrange
 			});
 		}
@@ -253,20 +253,25 @@
 					</div>
 				{/if}
 
-				{#if ctx.groupBreakdown.length > 0}
+				{#if ctx.trainingStats && ctx.groupBreakdown.length > 0}
 					<Separator class="my-3" />
 					<div class="grid gap-1.5">
 						{#each ctx.groupBreakdown as g (g.id)}
 							{@const delinquency = trainingGroupDelinquencies.find((d) => d.groupId === g.id)}
+							{@const currencyPct =
+								g.total > 0 ? Math.max(0, Math.round(((g.total - (delinquency?.count ?? 0)) / g.total) * 100)) : 100}
 							<div class="flex items-center gap-2">
 								<span class="w-14 truncate font-mono text-[0.625rem] font-semibold uppercase text-muted-foreground">
 									{g.name}
 								</span>
 								<div class="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-									<div class="h-full rounded-full bg-primary" style:width="{g.pct}%"></div>
+									<div class="h-full rounded-full bg-primary" style:width="{currencyPct}%"></div>
 								</div>
-								<span class="w-8 text-right font-mono text-[0.625rem]" style:color={view.availabilityColor(g.pct)}>
-									{g.pct}%
+								<span
+									class="w-8 text-right font-mono text-[0.625rem]"
+									style:color={view.availabilityColor(currencyPct)}
+								>
+									{currencyPct}%
 								</span>
 								{#if delinquency && delinquency.count > 0}
 									<span class="w-4 text-right font-mono text-[0.625rem] text-destructive">

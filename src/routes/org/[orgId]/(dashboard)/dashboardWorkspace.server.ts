@@ -6,55 +6,22 @@ import {
 	createWorkspaceValueHydrationTarget,
 	isPromiseLike,
 	type DeferredData,
-	type HydrationItems,
-	type WorkspaceHydrationTarget,
-	type WorkspaceValueHydrationTarget
+	type HydrationItems
 } from '$lib/server/core/streamedWorkspace';
-import { fetchDashboardBootstrap, type DashboardBootstrap } from '$lib/server/core/useCases/dashboardQuery';
-import type { Group } from '$features/personnel/contracts';
-import type { Personnel } from '$features/personnel/contracts';
-import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import type { TrainingType } from '$features/training/contracts';
+import { fetchDashboardBootstrap } from '$features/dashboard/index.server';
 
-export const DASHBOARD_WORKSPACE_KEY = 'dashboard' as const;
-
+import {
+	DASHBOARD_WORKSPACE_KEY,
+	type DashboardWorkspaceData,
+	type DashboardWorkspaceResult,
+	type DashboardWorkspaceHydration,
+	type DashboardWorkspaceHydrationTarget,
+	type DashboardAssignmentsWorkspaceHydrationTarget
+} from '$features/dashboard/contracts';
 export interface DashboardWorkspaceRequestContext {
 	locals: App.Locals;
 	cookies: Cookies;
 	orgId: string;
-}
-
-export type DashboardWorkspaceData = DashboardBootstrap;
-
-export type DashboardWorkspaceHydrationMode = 'replace' | 'preserve-client';
-
-export type DashboardWorkspaceHydrationTarget<T> = WorkspaceHydrationTarget<T, DashboardWorkspaceHydrationMode>;
-
-export interface DashboardAssignmentsHydrationItems {
-	types: AssignmentType[];
-	assignments: DailyAssignment[];
-}
-
-export type DashboardAssignmentsWorkspaceHydrationTarget = WorkspaceValueHydrationTarget<
-	DashboardAssignmentsHydrationItems,
-	DashboardWorkspaceHydrationMode
->;
-
-export interface DashboardWorkspaceHydration {
-	orgId: string;
-	personnel: DashboardWorkspaceHydrationTarget<Personnel>;
-	groups: DashboardWorkspaceHydrationTarget<Group>;
-	statusTypes: DashboardWorkspaceHydrationTarget<StatusType>;
-	availabilityEntries: DashboardWorkspaceHydrationTarget<AvailabilityEntry>;
-	calendarAssignments: DashboardAssignmentsWorkspaceHydrationTarget;
-	trainingTypes: DashboardWorkspaceHydrationTarget<TrainingType>;
-	pinnedGroups: DashboardWorkspaceHydrationTarget<string>;
-}
-
-export interface DashboardWorkspaceResult {
-	workspaceKey: typeof DASHBOARD_WORKSPACE_KEY;
-	data: DashboardWorkspaceData;
-	hydration: DashboardWorkspaceHydration;
 }
 
 export interface DashboardWorkspaceRouteData {

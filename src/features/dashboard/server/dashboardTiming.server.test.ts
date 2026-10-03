@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { withDashboardTiming } from './dashboardTiming';
+import { withDashboardTiming } from './dashboardTiming.server';
 
 describe('withDashboardTiming', () => {
 	it('logs successful dashboard phases and returns the callback result', async () => {

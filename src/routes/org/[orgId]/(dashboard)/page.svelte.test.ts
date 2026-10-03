@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
 
 import Page from './+page.svelte';
@@ -8,6 +8,7 @@ import Page from './+page.svelte';
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+	vi.restoreAllMocks();
 });
 
 function makePageData(overrides: Record<string, unknown> = {}) {
@@ -79,4 +80,26 @@ describe('dashboard page', () => {
 		expect(screen.queryByRole('progressbar', { name: 'Workspace setup progress' })).toBeNull();
 		expect(screen.queryByRole('button', { name: 'Retry checklist' })).toBeNull();
 	});
+	it.each(['workspace', 'summary'])(
+		'shows a retry after a rejected %s and clears the error on Organization navigation',
+		async (source) => {
+			const reload = vi.spyOn(window.location, 'reload').mockImplementation(() => {});
+			let reject!: (reason: Error) => void;
+			const pending = new Promise((_, rejectPromise) => {
+				reject = rejectPromise;
+			});
+			const view = render(Page, {
+				props: { data: makePageData(source === 'workspace' ? { dashboard: { data: pending } } : { summary: pending }) }
+			});
+			reject(new Error('Source unavailable'));
+			await screen.findByRole('alert');
+			expect(screen.queryByRole('status')).toBeNull();
+			await fireEvent.click(screen.getByRole('button', { name: 'Retry Dashboard' }));
+			expect(reload).toHaveBeenCalledOnce();
+
+			await view.rerender({ data: makePageData({ orgId: 'org-2', orgName: 'Second Unit' }) });
+			await waitFor(() => expect(document.title).toContain('Second Unit'));
+			expect(screen.queryByRole('alert')).toBeNull();
+		}
+	);
 });

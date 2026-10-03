@@ -169,28 +169,6 @@ export async function denyDeletionRequest(
 	});
 }
 
-export async function cancelDeletionRequest(ctx: WritePorts, requestId: string): Promise<void> {
-	const request = await fetchPendingRequest(ctx, requestId);
-
-	await requireIdentityOwnedPolicy(
-		ctx,
-		POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
-		typeof request.requested_by === 'string' ? request.requested_by : null,
-		AUDIT_RESOURCE,
-		requestId
-	);
-
-	await ctx.store.update(TABLE, ctx.auth.orgId, requestId, {
-		status: 'cancelled'
-	});
-
-	ctx.audit.log({
-		action: `${AUDIT_RESOURCE}.cancelled`,
-		resourceType: AUDIT_RESOURCE,
-		resourceId: requestId
-	});
-}
-
 export interface ListDeletionRequestsOptions {
 	status?: string;
 }

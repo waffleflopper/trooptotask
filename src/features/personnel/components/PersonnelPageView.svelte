@@ -20,6 +20,8 @@
 	import type { Personnel } from '../personnel.types';
 	import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { onDestroy } from 'svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 
 	interface Props {
 		ctx: PersonnelPageContext;
@@ -28,6 +30,10 @@
 
 	let { ctx, requestArchiveApproval }: Props = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const ROSTER_PAGE_SIZE = 75;
 	const GROUPED_ROSTER_RENDER_LIMIT = 250;
@@ -124,11 +130,6 @@
 	const shouldGateGroupedRoster = $derived(
 		ctx.viewMode === 'by-group' && !rosterSearch.trim() && groupedTable.totalRows > GROUPED_ROSTER_RENDER_LIMIT
 	);
-	const selectedArchivePersonnel = $derived(
-		visibleAllActivePersonnel.filter(
-			(person) => selectedArchiveIds.has(person.id) && ctx.canArchivePersonnelRecord(person)
-		)
-	);
 
 	const handleRowClick = $derived.by(() => (person: Personnel) => {
 		if (bulkArchiveMode) {
@@ -161,17 +162,20 @@
 	}
 
 	function toggleArchiveMode(): void {
+		if (bulkArchiveSubmitting) return;
 		bulkArchiveMode = !bulkArchiveMode;
 		selectedArchiveIds.clear();
 	}
 
 	function cancelArchiveMode(): void {
+		if (bulkArchiveSubmitting) return;
 		bulkArchiveMode = false;
 		selectedArchiveIds.clear();
 		showBulkArchiveConfirm = false;
 	}
 
 	function toggleArchiveSelection(id: string): void {
+		if (bulkArchiveSubmitting) return;
 		const person = ctx.getPersonnelById(id);
 		if (!person || !ctx.canArchivePersonnelRecord(person)) return;
 
@@ -183,6 +187,7 @@
 	}
 
 	function selectVisibleArchiveRows(): void {
+		if (bulkArchiveSubmitting) return;
 		const table = ctx.viewMode === 'alphabetical' ? azTable : groupedTable;
 		for (const person of table.rows) {
 			if (ctx.canArchivePersonnelRecord(person)) selectedArchiveIds.add(person.id);
@@ -190,6 +195,7 @@
 	}
 
 	function clearArchiveSelection(): void {
+		if (bulkArchiveSubmitting) return;
 		selectedArchiveIds.clear();
 	}
 
@@ -210,40 +216,52 @@
 	}
 
 	async function confirmBulkArchive(): Promise<void> {
-		if (selectedArchiveIds.size === 0 || bulkArchiveSubmitting) return;
+		const orgId = ctx.orgId;
+		const ids = [...selectedArchiveIds];
+		if (ids.length === 0 || bulkArchiveSubmitting || !active) return;
+		const isCurrent = () => active && ctx.orgId === orgId;
 		bulkArchiveSubmitting = true;
 		try {
-			const [{ bulkArchivePersonnel }, { toastStore }] = await Promise.all([
-				import('$features/personnel/utils/bulkArchivePersonnel'),
-				import('$lib/stores/toast.svelte')
-			]);
-			const result = await bulkArchivePersonnel(
-				ctx.orgId,
-				selectedArchivePersonnel.map((person) => person.id)
-			);
+			const { bulkArchivePersonnel } = await import('$features/personnel/utils/bulkArchivePersonnel');
+			if (!isCurrent()) return;
+			const result = await bulkArchivePersonnel(orgId, ids);
+			if (!isCurrent()) return;
 
 			for (const id of result.archivedIds) {
 				locallyArchivedIds.add(id);
 				personnelStore.removeLocal(id);
+				selectedArchiveIds.delete(id);
 			}
+			for (const id of result.approvalRequestedIds) selectedArchiveIds.delete(id);
+			showBulkArchiveConfirm = false;
+			bulkArchiveMode = selectedArchiveIds.size > 0;
 
-			if (result.archivedIds.length > 0) {
-				toastStore.success(`${result.archivedIds.length} personnel archived`);
-			}
+			if (result.archivedIds.length > 0) toastStore.success(`${result.archivedIds.length} personnel archived`);
 			if (result.approvalRequestedIds.length > 0) {
 				toastStore.info(`${result.approvalRequestedIds.length} archival requests submitted for admin approval.`);
 			}
 			if (result.errors.length > 0) {
-				toastStore.error(`${result.errors.length} personnel could not be archived.`);
+				toastStore.error(`${result.errors.length} personnel could not be archived. Retry the selected personnel.`);
 			}
 			if (result.archivedIds.length > 0 || result.approvalRequestedIds.length > 0) {
-				await invalidateAll();
+				try {
+					await invalidateAll();
+				} catch {
+					if (isCurrent())
+						toastStore.warning(
+							'Archive results were saved, but the roster could not be refreshed. Refresh to check the latest roster.'
+						);
+				}
 			}
-			selectedArchiveIds.clear();
-			showBulkArchiveConfirm = false;
-			bulkArchiveMode = false;
+		} catch {
+			if (isCurrent()) {
+				showBulkArchiveConfirm = false;
+				toastStore.error(
+					'Archive results could not be confirmed. Refresh to check the roster, then retry the selected personnel if needed.'
+				);
+			}
 		} finally {
-			bulkArchiveSubmitting = false;
+			if (isCurrent()) bulkArchiveSubmitting = false;
 		}
 	}
 </script>
@@ -299,7 +317,11 @@
 							</Button>
 						{/if}
 						{#if canBulkArchivePersonnel}
-							<Button variant={bulkArchiveMode ? 'secondary' : 'outline'} onclick={toggleArchiveMode}>
+							<Button
+								variant={bulkArchiveMode ? 'secondary' : 'outline'}
+								disabled={bulkArchiveSubmitting}
+								onclick={toggleArchiveMode}
+							>
 								<ArchiveIcon aria-hidden="true" />
 								Archive
 							</Button>
@@ -313,6 +335,28 @@
 					</WorkspaceToolbar.Group>
 				{/if}
 			</WorkspaceToolbar.Root>
+
+			{#if bulkArchiveMode && selectedArchiveIds.size > 0 && visibleAllActivePersonnel.length === 0}
+				<div class="flex flex-wrap items-center justify-between gap-2">
+					<p class="text-sm text-muted-foreground">{selectedArchiveIds.size} selected for retry</p>
+					<div class="flex flex-wrap gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={bulkArchiveSubmitting}
+							onclick={cancelArchiveMode}>Cancel</Button
+						>
+						<Button
+							type="button"
+							variant="destructive"
+							size="sm"
+							disabled={bulkArchiveSubmitting}
+							onclick={() => (showBulkArchiveConfirm = true)}>Confirm Archive</Button
+						>
+					</div>
+				</div>
+			{/if}
 
 			{#if visibleAllActivePersonnel.length === 0}
 				<Empty.Root class="border-border bg-card">
@@ -374,18 +418,34 @@
 							{#if bulkArchiveMode}
 								<div class="flex flex-wrap items-center justify-between gap-2">
 									<DataTable.BulkActions selectedCount={selectedArchiveIds.size} totalCount={tbl.totalRows}>
-										<Button type="button" variant="outline" size="sm" onclick={selectVisibleArchiveRows}
-											>Select shown</Button
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={bulkArchiveSubmitting}
+											onclick={selectVisibleArchiveRows}>Select shown</Button
 										>
-										<Button type="button" variant="outline" size="sm" onclick={clearArchiveSelection}>Clear</Button>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={bulkArchiveSubmitting}
+											onclick={clearArchiveSelection}>Clear</Button
+										>
 									</DataTable.BulkActions>
 									<div class="flex flex-wrap gap-2">
-										<Button type="button" variant="outline" size="sm" onclick={cancelArchiveMode}>Cancel</Button>
+										<Button
+											type="button"
+											variant="outline"
+											size="sm"
+											disabled={bulkArchiveSubmitting}
+											onclick={cancelArchiveMode}>Cancel</Button
+										>
 										<Button
 											type="button"
 											variant="destructive"
 											size="sm"
-											disabled={selectedArchiveIds.size === 0}
+											disabled={selectedArchiveIds.size === 0 || bulkArchiveSubmitting}
 											onclick={() => (showBulkArchiveConfirm = true)}
 										>
 											Confirm Archive
@@ -400,7 +460,7 @@
 								{@const canArchive = ctx.canArchivePersonnelRecord(row)}
 								<DataTable.SelectionCheckbox
 									checked={canArchive && selectedArchiveIds.has(row.id)}
-									disabled={!canArchive}
+									disabled={!canArchive || bulkArchiveSubmitting}
 									ariaLabel={canArchive
 										? `Select ${row.rank} ${row.lastName}, ${row.firstName}`
 										: `${row.rank} ${row.lastName}, ${row.firstName} cannot be archived`}

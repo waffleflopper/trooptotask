@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { tick } from 'svelte';
 
 import SettingsActivityRail from './SettingsActivityRail.svelte';
-import type { DeletionRequestRow } from './settingsRows.server';
+import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 
 const navigation = vi.hoisted(() => ({ invalidateAll: vi.fn() }));
 const feedback = vi.hoisted(() => ({ error: vi.fn(), warning: vi.fn(), success: vi.fn() }));
@@ -23,7 +23,7 @@ afterEach(() => {
 	vi.resetAllMocks();
 });
 
-function request(id: string, description: string): DeletionRequestRow {
+function request(id: string, description: string): DeletionRequestApproval {
 	return {
 		id,
 		status: 'pending',

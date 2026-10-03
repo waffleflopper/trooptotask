@@ -12,7 +12,7 @@ import { jsPDF } from 'jspdf';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
 import { requestSettings } from './settings-request.mjs';
-import { seedDeletionSources, requestDeletion } from './deletion-requests.mjs';
+import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
@@ -201,6 +201,30 @@ async function save(value) {
 	await fs.writeFile(scratch, JSON.stringify(value, null, 2), { mode: 0o600 });
 }
 
+async function deletionReviewFailure(action, requestId) {
+	if (!['arm', 'restore', 'state'].includes(action) || (action === 'arm' && !requestId))
+		throw new Error('Use deletion-review-failure arm|restore|state [REQUEST_ID].');
+	let stdout;
+	try {
+		({ stdout } = await promisify(execFile)(
+			'python3',
+			[
+				path.join(repository, 'scripts/verification/environment.py'),
+				'deletion-review-failure',
+				session,
+				action,
+				...(requestId ? [requestId] : [])
+			],
+			{ maxBuffer: 1024 * 1024 }
+		));
+	} catch {
+		throw new Error('Owned deletion review failure control blocked; inspect its sanitized state command.');
+	}
+	const result = JSON.parse(stdout);
+	if (result.status !== 'PASS') throw new Error('Owned deletion review failure control did not pass.');
+	return result;
+}
+
 async function main() {
 	const { state, doctor } = await owned();
 	const fixture = await readJSON(path.join(session, 'fixtures.json'));
@@ -208,6 +232,12 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'deletion-review-failure') {
+		if (args.length < 1 || args.length > 2)
+			throw new Error('Use deletion-review-failure arm|restore|state [REQUEST_ID].');
+		note(await deletionReviewFailure(...args));
+		return;
+	}
 	if (command === 'platform-audit') {
 		note(
 			await recordPlatformUserAudit({
@@ -285,6 +315,20 @@ async function main() {
 				state,
 				pageId,
 				`async () => (${requestDeletion.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), action, body: JSON.parse(bodyText) })})`
+			)
+		);
+		return;
+	}
+	if (command === 'personnel-archive-batch') {
+		const [page, orgKey, idsText] = args;
+		const pageId = Number(page);
+		if (args.length !== 3 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use personnel-archive-batch PAGE orgA|orgB JSON_UUID_ARRAY.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestPersonnelArchiveBatch.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), ids: JSON.parse(idsText) })})`
 			)
 		);
 		return;
@@ -1676,6 +1720,7 @@ async function main() {
 		return;
 	}
 	if (command === 'clean-seeds') {
+		await deletionReviewFailure('restore');
 		const client = await provider();
 		const ownedState = await saved();
 		let platformCleanup;
@@ -1688,14 +1733,15 @@ async function main() {
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
-				if (item.kind === 'deletion-sources')
-					checked(
-						await client
-							.from('deletion_requests')
-							.delete()
-							.eq('organization_id', org(item.organization))
-							.in('resource_id', ids)
-					);
+				if (item.kind === 'deletion-sources' || (item.kind === 'personnel-lifecycle' && item.table === 'personnel')) {
+					let requests = client
+						.from('deletion_requests')
+						.delete()
+						.eq('organization_id', org(item.organization ?? 'orgA'))
+						.in('resource_id', ids);
+					if (item.kind === 'personnel-lifecycle') requests = requests.eq('resource_type', 'personnel');
+					checked(await requests);
+				}
 				if (item.kind === 'bulk-501')
 					checked(
 						await client
@@ -1811,10 +1857,17 @@ async function main() {
 							: `/org/${organizationSegment}/api/${family}`;
 			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
 			if (family === 'admin-search') suffix = '/admin/api/search';
-			if (action === 'arm-hold-fail' && !['organization/settings', 'deletion-requests/review'].includes(family))
-				throw new Error('Delayed synthetic failure is supported only for Organization policies and deletion review.');
-			if (action === 'arm-reject' && family !== 'deletion-requests/review')
-				throw new Error('Synthetic transport rejection is supported only for deletion review.');
+			if (
+				action === 'arm-hold-fail' &&
+				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch'].includes(family)
+			)
+				throw new Error(
+					'Delayed synthetic failure is supported only for Organization policies, deletion review and Personnel bulk archival.'
+				);
+			if (action === 'arm-reject' && !['deletion-requests/review', 'personnel/archive-batch'].includes(family))
+				throw new Error(
+					'Synthetic transport rejection is supported only for deletion review and Personnel bulk archival.'
+				);
 			const mode =
 				action === 'arm-hold-fail'
 					? 'hold-fail'
@@ -1994,7 +2047,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

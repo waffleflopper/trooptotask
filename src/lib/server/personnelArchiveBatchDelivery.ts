@@ -3,7 +3,7 @@ import { preparePersonnelArchiveBatch } from '$features/personnel/index.server';
 import { createDeletionRequest } from '$features/deletion-requests/index.server';
 
 type PersonnelArchiveBatchDeliveryContext = Parameters<typeof preparePersonnelArchiveBatch>[0] &
-	Parameters<typeof createDeletionRequest>[0];
+	Omit<Parameters<typeof createDeletionRequest>[0], 'store'>;
 
 function errorStatus(error: unknown): number | undefined {
 	return typeof error === 'object' && error !== null && 'status' in error
@@ -14,7 +14,8 @@ function errorStatus(error: unknown): number | undefined {
 /** Compose authorized Personnel archive outcomes with the retained approval workflow. */
 export async function archivePersonnelBatch(
 	ctx: PersonnelArchiveBatchDeliveryContext,
-	input: { ids: string[]; userEmail: string }
+	input: { ids: string[]; userEmail: string },
+	requestStore: Parameters<typeof createDeletionRequest>[0]['store']
 ): Promise<ArchivePersonnelBatchResult> {
 	const batch = await preparePersonnelArchiveBatch(ctx, input.ids);
 	const result: ArchivePersonnelBatchResult = { archivedIds: [], approvalRequestedIds: [], errors: [] };
@@ -26,13 +27,16 @@ export async function archivePersonnelBatch(
 			result.errors.push({ id, message: outcome.message });
 		} else {
 			try {
-				await createDeletionRequest(ctx, {
-					resourceType: 'personnel',
-					resourceId: id,
-					resourceDescription: outcome.resourceDescription,
-					resourceUrl: `/org/${ctx.auth.orgId}/personnel`,
-					userEmail: input.userEmail
-				});
+				await createDeletionRequest(
+					{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, store: requestStore },
+					{
+						resourceType: 'personnel',
+						resourceId: id,
+						resourceDescription: outcome.resourceDescription,
+						resourceUrl: `/org/${ctx.auth.orgId}/personnel`,
+						userEmail: input.userEmail
+					}
+				);
 				result.approvalRequestedIds.push(id);
 			} catch (error) {
 				if (errorStatus(error) === 409) {

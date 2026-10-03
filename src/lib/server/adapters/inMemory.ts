@@ -87,60 +87,6 @@ function createInMemoryPersonnelOrganizationExportPort(
 	};
 }
 
-function createInMemoryPersonnelGovernanceDeletionPort(
-	rawStore: DataStore,
-	storage: StoragePort
-): NonNullable<UseCaseContext['personnelGovernanceDeletion']> {
-	return {
-		async deleteApprovedCounselingRecord(actor, requestId, recordId, reviewedAt) {
-			if (actor.role !== 'owner' && actor.role !== 'admin') {
-				throw Object.assign(new Error('Deletion review access denied'), { status: 403 });
-			}
-			const request = await rawStore.findOne<Record<string, unknown>>('deletion_requests', actor.orgId, {
-				id: requestId,
-				status: 'pending',
-				resource_type: 'counseling_record',
-				resource_id: recordId
-			});
-			if (!request) throw Object.assign(new Error('Pending deletion request not found'), { status: 404 });
-			const row = await rawStore.findOne<{ personnel_id?: string; file_path?: string | null }>(
-				'counseling_records',
-				actor.orgId,
-				{ id: recordId }
-			);
-			if (!row) throw Object.assign(new Error('Counseling record not found'), { status: 404 });
-			if (row.file_path) {
-				const prefix = `${actor.orgId}/counseling-records/${row.personnel_id}/`;
-				if (!row.file_path.startsWith(prefix) || row.file_path.length === prefix.length) {
-					throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
-				}
-				await storage.remove('counseling-files', [row.file_path]);
-			}
-			if (request.status !== 'pending') {
-				throw Object.assign(new Error('Pending deletion request not found'), { status: 404 });
-			}
-			const priorReview = {
-				status: request.status,
-				reviewed_by: request.reviewed_by,
-				reviewed_at: request.reviewed_at,
-				denial_reason: request.denial_reason
-			};
-			await rawStore.update('deletion_requests', actor.orgId, requestId, {
-				status: 'approved',
-				reviewed_by: actor.userId,
-				reviewed_at: reviewedAt,
-				denial_reason: null
-			});
-			try {
-				await rawStore.delete('counseling_records', actor.orgId, recordId);
-			} catch (error) {
-				Object.assign(request, priorReview);
-				throw error;
-			}
-		}
-	};
-}
-
 const FULL_CAPABILITY_MAP: CapabilityMap = {
 	calendar: 'configure',
 	personnel: 'configure',
@@ -1198,7 +1144,6 @@ export function createTestContext(
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		signInRosterFileWrites: createInMemorySignInRosterFileWritePort(storagePort),
-		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
 		organizationRawExport: { listRows: (orgId, table) => rawStore.findMany(table, orgId) },
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
@@ -1302,7 +1247,6 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
-		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
@@ -1346,7 +1290,6 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
-		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),

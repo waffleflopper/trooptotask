@@ -29,7 +29,7 @@ import {
 export interface LoadMembersSettingsInput {
 	isAdmin: boolean;
 	groups: Promise<Array<{ id: string; name: string }>>;
-	approvalRequests: Promise<ApprovalRequestSummarySource[]>;
+	pendingApprovalSummary: Promise<PendingApprovalSummary>;
 }
 
 export interface MembersSettingsData {
@@ -68,7 +68,6 @@ export interface BuildMembersSettingsDataInput {
 	/** Platform Account Setup state per invitation id. Absent entries mean no Access Request exists. */
 	invitationSetupStates?: Map<string, AccessRequestSetupState>;
 	pendingApprovalSummary?: PendingApprovalSummary;
-	approvalRequests?: ApprovalRequestSummarySource[];
 	groups: Array<{ id: string; name: string }>;
 	now?: Date;
 }
@@ -77,12 +76,6 @@ export interface PendingApprovalSummary {
 	count: number;
 	oldestCreatedAt: string | null;
 }
-
-type ApprovalRequestSummarySource = {
-	id?: string;
-	status: 'pending' | 'approved' | 'denied';
-	created_at: string;
-};
 
 export interface SettingsInvitationDeliverySourceRow {
 	id: string;
@@ -115,7 +108,7 @@ export async function loadMembersSettings(
 	ctx: MembersSettingsLoadContext,
 	input: LoadMembersSettingsInput
 ): Promise<MembersSettingsData> {
-	const [membershipRows, invitationRows, invitationDeliveryRows, groups, approvalRequests] = await Promise.all([
+	const [membershipRows, invitationRows, invitationDeliveryRows, groups, pendingApprovalSummary] = await Promise.all([
 		ctx.store.findMany<SettingsAccessSourceRow>('organization_memberships', ctx.auth.orgId, undefined, {
 			select:
 				'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
@@ -135,7 +128,7 @@ export async function loadMembersSettings(
 			}
 		),
 		input.groups,
-		input.approvalRequests
+		input.pendingApprovalSummary
 	]);
 
 	return buildMembersSettingsData({
@@ -146,7 +139,7 @@ export async function loadMembersSettings(
 		invitations: invitationRows,
 		invitationDeliveries: invitationDeliveryRows,
 		invitationSetupStates: await loadInvitationSetupStates(ctx, invitationRows),
-		approvalRequests,
+		pendingApprovalSummary,
 		groups
 	});
 }
@@ -225,10 +218,7 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 		},
 		{ owner: 0, admin: 0, member: 0 }
 	);
-	const pendingApprovalSummary =
-		input.approvalRequests === undefined
-			? (input.pendingApprovalSummary ?? { count: 0, oldestCreatedAt: null })
-			: buildPendingApprovalSummary(input.approvalRequests);
+	const pendingApprovalSummary = input.pendingApprovalSummary ?? { count: 0, oldestCreatedAt: null };
 
 	return {
 		rows: members,
@@ -242,19 +232,6 @@ export function buildMembersSettingsSection(input: BuildMembersSettingsDataInput
 		capabilityOptions: SETTINGS_CAPABILITY_OPTIONS,
 		canInvite: canManageMembers,
 		canManageMemberAccess: canManageMembers
-	};
-}
-
-export function buildPendingApprovalSummary(approvalRequests: ApprovalRequestSummarySource[]): PendingApprovalSummary {
-	const pendingCreatedDates = approvalRequests
-		.filter((request) => request.status === 'pending')
-		.map((request) => request.created_at)
-		.filter(Boolean)
-		.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-	return {
-		count: pendingCreatedDates.length,
-		oldestCreatedAt: pendingCreatedDates[0] ?? null
 	};
 }
 

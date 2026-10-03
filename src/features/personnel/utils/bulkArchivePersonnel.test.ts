@@ -27,4 +27,15 @@ describe('bulkArchivePersonnel', () => {
 		});
 		expect(result.archivedIds).toEqual(['p-1', 'p-2']);
 	});
+	it.each([
+		['a null result', null],
+		['an unconfirmed target', { archivedIds: ['p-1'], approvalRequestedIds: [], errors: [] }],
+		['an unselected target', { archivedIds: ['foreign', 'p-2'], approvalRequestedIds: [], errors: [] }],
+		['contradictory acknowledgements', { archivedIds: ['p-1'], approvalRequestedIds: ['p-1'], errors: [] }]
+	])('rejects %s before callers can apply local acknowledgements', async (_reason, result) => {
+		const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => result });
+		vi.stubGlobal('fetch', fetchMock);
+		await expect(bulkArchivePersonnel('org-1', ['p-1', 'p-2'])).rejects.toThrow();
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
 });

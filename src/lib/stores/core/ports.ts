@@ -1,4 +1,4 @@
-import type { DeleteResult } from '$lib/utils/deletionRequests';
+export type DeleteResult = 'deleted' | 'approval_required' | 'error';
 
 export interface ApiAdapter<T extends { id: string }> {
 	create(data: Omit<T, 'id'>): Promise<T>;

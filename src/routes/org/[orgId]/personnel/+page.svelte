@@ -9,12 +9,47 @@
 	} from '$features/personnel';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 	import { getOrgContext } from '$lib/stores/orgContext.svelte';
-	import { throwRenderError } from '$lib/utils/streamedRouteData';
-	import type { PersonnelWorkspaceData } from '$features/personnel/contracts';
+	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
+	import type { PersonnelWorkspaceData, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
 	import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
 
 	let { data } = $props();
+
+	let resolvedSnapshot = $state<{ orgId: string; workspace: PersonnelWorkspaceResult } | null>(null);
+	let loadError = $state<{ orgId: string; error: Error } | null>(null);
+	const streamedWorkspace = $derived(data.personnel.data);
+	const workspace = $derived(
+		!isPromiseLike(streamedWorkspace)
+			? streamedWorkspace
+			: resolvedSnapshot && resolvedSnapshot.orgId === data.shell.org.id
+				? resolvedSnapshot.workspace
+				: null
+	);
+
+	$effect(() => {
+		const orgId = data.shell.org.id;
+		const pending = streamedWorkspace;
+		let cancelled = false;
+		loadError = null;
+		if (!isPromiseLike(pending)) {
+			resolvedSnapshot = { orgId, workspace: pending };
+			return;
+		}
+		void observeDeferred(pending, {
+			fallbackMessage: 'Failed to load personnel workspace',
+			onResolve: (workspace) => {
+				resolvedSnapshot = { orgId, workspace };
+			},
+			onReject: (error) => {
+				loadError = { orgId, error };
+			},
+			isCancelled: () => cancelled
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
@@ -36,17 +71,19 @@
 	}
 </script>
 
-{#await data.personnel.data}
-	<div class="px-6 py-8">
-		<div class="h-8 w-48 animate-pulse rounded bg-muted"></div>
-		<div class="mt-6 h-80 animate-pulse rounded border bg-muted/40"></div>
-	</div>
-{:then personnelWorkspace}
-	{@const ctx = createContext(personnelWorkspace.data)}
-	<PersonnelPageView {ctx} {requestArchiveApproval} />
-	{#await loadPersonnelModals() then { default: PersonnelModals }}
-		<PersonnelModals {ctx} {modals} {requestArchiveApproval} />
-	{/await}
-{:catch error}
-	{throwRenderError(error, 'Failed to load personnel workspace')}
-{/await}
+{#key data.shell.org.id}
+	{#if loadError && loadError.orgId === data.shell.org.id && !workspace}
+		{throwRenderError(loadError.error, 'Failed to load personnel workspace')}
+	{:else if workspace}
+		{@const ctx = createContext(workspace.data)}
+		<PersonnelPageView {ctx} {requestArchiveApproval} />
+		{#await loadPersonnelModals() then { default: PersonnelModals }}
+			<PersonnelModals {ctx} {modals} {requestArchiveApproval} />
+		{/await}
+	{:else}
+		<div class="px-6 py-8">
+			<div class="h-8 w-48 animate-pulse rounded bg-muted"></div>
+			<div class="mt-6 h-80 animate-pulse rounded border bg-muted/40"></div>
+		</div>
+	{/if}
+{/key}

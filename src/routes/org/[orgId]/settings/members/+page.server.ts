@@ -1,7 +1,8 @@
+import { readPendingDeletionRequestSummary } from '$features/deletion-requests/index.server';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
-import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
+import { buildRouteContext, createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
 import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { listGroupCatalog } from '$features/personnel/index.server';
@@ -24,12 +25,11 @@ export const load: PageServerLoad = (event) =>
 		membersSettings: await loadMembersSettings(ctx, {
 			isAdmin: common.isAdmin,
 			groups: listGroupCatalog(ctx),
-			approvalRequests: ctx.store.findMany<{ status: 'pending' | 'approved' | 'denied'; created_at: string }>(
-				'deletion_requests',
-				ctx.auth.orgId,
-				undefined,
-				{ orderBy: [{ column: 'created_at', ascending: false }] }
-			)
+			pendingApprovalSummary: readPendingDeletionRequestSummary({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: createRequestDeletionRequestStore(event.locals)
+			})
 		})
 	}));
 

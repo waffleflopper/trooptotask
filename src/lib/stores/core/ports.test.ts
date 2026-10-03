@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createRestAdapter } from './ports';
-import type { DeleteResult } from '$lib/utils/deletionRequests';
+import type { DeleteResult } from './ports';
 
 interface TestItem {
 	id: string;

@@ -11,7 +11,8 @@
 	import { hydrateStreamedWorkspace } from '$lib/utils/streamedWorkspaceHydrator';
 
 	let { children, data } = $props();
-	let hydrationError = $state<Error | null>(null);
+	let hydrationError = $state<{ orgId: string; error: Error } | null>(null);
+	let hydratedOrgId = $state<string | null>(null);
 	const hydrationStores = {
 		personnelStore: personnelRosterHydration,
 		groupsStore: groupCatalogHydration,
@@ -19,28 +20,42 @@
 		pinnedGroupsStore: pinnedGroupsHydration
 	};
 	const renderHydrationError = $derived.by(() => {
-		if (hydrationError) {
-			throwRenderError(hydrationError, 'Failed to hydrate personnel workspace');
+		if (hydrationError && hydrationError.orgId === data.shell.org.id && hydratedOrgId !== data.shell.org.id) {
+			throwRenderError(hydrationError.error, 'Failed to hydrate personnel workspace');
 		}
 		return null;
 	});
 
 	$effect(() => {
+		const orgId = data.shell.org.id;
+		let cancelled = false;
 		hydrationError = null;
 
-		return hydrateStreamedWorkspace<PersonnelWorkspaceResult>({
+		const stop = hydrateStreamedWorkspace<PersonnelWorkspaceResult>({
 			streamedWorkspace: data.personnel,
 			fallbackMessage: 'Failed to hydrate personnel workspace',
-			hydrate: (personnel) => personnelWorkspaceHydrator.hydrate(personnel.hydration, hydrationStores),
+			hydrate: async (personnel) => {
+				await personnelWorkspaceHydrator.hydrate(personnel.hydration, hydrationStores);
+				if (!cancelled) hydratedOrgId = orgId;
+			},
 			onReject: (error) => {
-				hydrationError = error;
+				hydrationError = { orgId, error };
 			}
 		});
+		return () => {
+			cancelled = true;
+			stop();
+		};
 	});
 </script>
 
-{#if hydrationError}
+{#if hydrationError && hydrationError.orgId === data.shell.org.id && hydratedOrgId !== data.shell.org.id}
 	{renderHydrationError}
 {:else}
+	{#if hydrationError && hydrationError.orgId === data.shell.org.id}
+		<div role="alert" class="border-b border-border bg-muted px-6 py-3 text-sm">
+			The roster could not be refreshed. Showing the last loaded roster; refresh to check the latest records.
+		</div>
+	{/if}
 	{@render children()}
 {/if}

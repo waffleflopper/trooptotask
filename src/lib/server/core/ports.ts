@@ -20,7 +20,6 @@ import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contra
 import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
 import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
 import type { PersonnelArtifactWritePort } from '$features/personnel/contracts';
-import type { PersonnelGovernanceDeletionPort } from '$features/personnel/contracts';
 import type { PersonnelOrganizationExportPort } from '$features/personnel/contracts';
 import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
@@ -153,7 +152,6 @@ export interface WritePorts {
 
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
-	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
 	onboardingReconciliation?: OnboardingReconciliationPort;
 	onboardingNoteAppend?: OnboardingNoteAppendPort;
 	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
@@ -222,7 +220,6 @@ export interface UseCaseContext {
 	ratingSchemeDue?: RatingSchemeDuePort;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 	personnelArtifactWrites?: PersonnelArtifactWritePort;
-	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
 	onboardingReconciliation?: OnboardingReconciliationPort;
 	onboardingNoteAppend?: OnboardingNoteAppendPort;
 	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;

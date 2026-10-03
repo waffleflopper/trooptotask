@@ -1,4 +1,4 @@
-import type { PlatformMetricsStore, PlatformOwnerMembershipMetric } from '$lib/server/core/useCases/platformMetrics';
+import type { PlatformMetricsStore, PlatformOwnerMembershipMetric } from '../organizationSupportTypes';
 
 export interface InMemoryPlatformMetricsMembership {
 	organizationId: string;

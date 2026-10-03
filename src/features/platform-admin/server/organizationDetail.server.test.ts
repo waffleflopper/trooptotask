@@ -1,9 +1,9 @@
+import type {
+	PlatformOrganizationDetailDependencies,
+	PlatformOrganizationDetailOrganizationRow
+} from '../organizationSupportTypes';
 import { describe, expect, it, vi } from 'vitest';
-import {
-	createPlatformOrganizationDetail,
-	type PlatformOrganizationDetailDependencies,
-	type PlatformOrganizationDetailOrganizationRow
-} from './platformOrganizationDetail';
+import { createPlatformOrganizationDetail } from './organizationDetail.server';
 
 const ORG_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -34,11 +34,7 @@ function makeDependencies(): PlatformOrganizationDetailDependencies {
 			)
 		},
 		metrics: {
-			countMembershipsByOrganization: vi.fn(),
-			countActivePersonnelByOrganization: vi.fn(),
-			countActivePersonnelForOrganization: vi.fn(async (orgId) => (orgId === ORG_ID ? 7 : 12)),
-			getOwnerMembershipsByOrganization: vi.fn(),
-			getOrganizationMetrics: vi.fn()
+			countActivePersonnelForOrganization: vi.fn(async (orgId) => (orgId === ORG_ID ? 7 : 12))
 		},
 		audit: {
 			listRecentByOrganization: vi.fn(async ({ orgId }) => [

@@ -1,71 +1,15 @@
-import type { PlatformMetrics } from './platformMetrics';
-import { displayOwnerMembership } from './platformMetrics';
+import type {
+	PlatformOrganizationLedgerInput,
+	PlatformOrganizationLedgerQuery,
+	PlatformOrganizationLedgerPageMetadata,
+	PlatformOrganizationLedgerDependencies,
+	PlatformOrganizationLedger
+} from '../organizationSupportTypes';
+import { displayOwnerMembership } from './metrics.server';
 
 export const DEFAULT_PLATFORM_LEDGER_PAGE_SIZE = 25;
 export const MAX_PLATFORM_LEDGER_PAGE_SIZE = 100;
 const ORGANIZATION_STATUS_FILTERS = new Set(['active', 'suspended']);
-
-export interface PlatformOrganizationLedgerInput {
-	page?: number | string | null;
-	pageSize?: number | string | null;
-	q?: string | null;
-	status?: string | null;
-}
-
-export interface PlatformOrganizationLedgerQuery {
-	page: number;
-	pageSize: number;
-	q: string;
-	status: string;
-	from: number;
-	to: number;
-}
-
-export interface PlatformOrganizationLedgerPageMetadata {
-	page: number;
-	pageSize: number;
-	totalCount: number;
-	totalPages: number;
-	q: string;
-	status: string;
-}
-
-export interface PlatformOrganizationLedgerBaseRow {
-	id: string;
-	name: string;
-	suspended_at: string | null;
-	created_at: string;
-}
-
-export interface PlatformOrganizationLedgerPage {
-	organizations: PlatformOrganizationLedgerBaseRow[];
-	totalCount: number;
-}
-
-export interface PlatformOrganizationLedgerStore {
-	listOrganizationsPage(query: PlatformOrganizationLedgerQuery): Promise<PlatformOrganizationLedgerPage>;
-}
-
-export interface PlatformOrganizationLedgerOrganizationRow extends PlatformOrganizationLedgerBaseRow {
-	memberCount: number;
-	personnelCount: number;
-	ownerEmail: string;
-	isSuspended: boolean;
-}
-
-export interface PlatformOrganizationLedgerListResult {
-	organizations: PlatformOrganizationLedgerOrganizationRow[];
-	pagination: PlatformOrganizationLedgerPageMetadata;
-}
-
-export interface PlatformOrganizationLedgerDependencies {
-	store: PlatformOrganizationLedgerStore;
-	metrics: PlatformMetrics;
-}
-
-export interface PlatformOrganizationLedger {
-	listOrganizations(input?: PlatformOrganizationLedgerInput): Promise<PlatformOrganizationLedgerListResult>;
-}
 
 function readPositiveInteger(value: number | string | null | undefined): number | null {
 	if (value === null || value === undefined || value === '') return null;

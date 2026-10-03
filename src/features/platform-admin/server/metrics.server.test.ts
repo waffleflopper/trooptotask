@@ -1,6 +1,7 @@
+import type { PlatformMetricsStore } from '../organizationSupportTypes';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createInMemoryPlatformMetricsStore } from '$lib/server/adapters/inMemoryPlatformMetrics';
-import { createPlatformMetrics, displayOwnerMembership, type PlatformMetricsStore } from './platformMetrics';
+import { createInMemoryPlatformMetricsStore } from './inMemoryMetrics.test-support';
+import { createPlatformMetrics, displayOwnerMembership } from './metrics.server';
 
 function makeMetrics() {
 	const store = createInMemoryPlatformMetricsStore({
@@ -90,33 +91,34 @@ describe('PlatformMetrics', () => {
 		await expect(metrics.countActivePersonnelForOrganization('missing-org')).resolves.toBe(0);
 	});
 
-	it('uses empty fallbacks when store metric reads fail', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+	it.each([
+		'countMembershipsByOrganization',
+		'countActivePersonnelByOrganization',
+		'getOwnerMembershipsByOrganization',
+		'countActivePersonnelForOrganization'
+	] as const)('propagates a failed %s read instead of false zero/no-owner data', async (method) => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		const failed = async () => {
+			throw new Error('metrics unavailable');
+		};
 		const store: PlatformMetricsStore = {
-			countMembershipsByOrganization: async () => {
-				throw new Error('membership read failed');
-			},
-			countActivePersonnelByOrganization: async () => {
-				throw new Error('personnel read failed');
-			},
-			countActivePersonnelForOrganization: async () => {
-				throw new Error('single personnel read failed');
-			},
-			listOwnerMembershipMetricsByOrganization: async () => {
-				throw new Error('owner read failed');
-			}
+			countMembershipsByOrganization: failed,
+			countActivePersonnelByOrganization: failed,
+			countActivePersonnelForOrganization: failed,
+			listOwnerMembershipMetricsByOrganization: failed
 		};
 		const metrics = createPlatformMetrics({ store });
-
-		const result = await metrics.getOrganizationMetrics(['org-1']);
-
-		expect(result.memberCounts.size).toBe(0);
-		expect(result.activePersonnelCounts.size).toBe(0);
-		expect(result.ownerMemberships.size).toBe(0);
-		await expect(metrics.countActivePersonnelForOrganization('org-1')).resolves.toBe(0);
-		expect(consoleError).toHaveBeenCalledWith('[admin] Failed to batch membership counts:', expect.any(Error));
-		expect(consoleError).toHaveBeenCalledWith('[admin] Failed to batch personnel counts:', expect.any(Error));
-		expect(consoleError).toHaveBeenCalledWith('[admin] Failed to batch owner memberships:', expect.any(Error));
-		expect(consoleError).toHaveBeenCalledWith('[admin] Failed to read personnel count:', expect.any(Error));
+		const read =
+			method === 'countActivePersonnelForOrganization' ? metrics[method]('org-1') : metrics[method](['org-1']);
+		await expect(read).rejects.toThrow('metrics unavailable');
+	});
+	it('does not describe an unidentified single-owner metric as no owner', async () => {
+		const store = createInMemoryPlatformMetricsStore();
+		store.listOwnerMembershipMetricsByOrganization = async () => [
+			{ organizationId: 'org-1', ownerCount: 1, singleOwner: null }
+		];
+		await expect(createPlatformMetrics({ store }).getOwnerMembershipsByOrganization(['org-1'])).rejects.toThrow(
+			'Owner membership could not be identified'
+		);
 	});
 });

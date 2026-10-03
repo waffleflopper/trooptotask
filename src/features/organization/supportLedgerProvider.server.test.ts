@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { normalizePlatformOrganizationLedgerQuery } from '$lib/server/core/useCases/platformOrganizationLedger';
-import { createSupabasePlatformOrganizationLedgerStore } from './supabasePlatformOrganizationLedger';
+import { createOrganizationSupportReader } from './supportReadProvider.server';
 
 function storeWithFetch(fetch: typeof globalThis.fetch) {
-	return createSupabasePlatformOrganizationLedgerStore(
+	return createOrganizationSupportReader(
 		createClient('http://localhost:9', 'synthetic-service-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: { fetch }
@@ -63,9 +62,7 @@ function organizationStore() {
 describe('Platform Organization Ledger provider boundary', () => {
 	it('searches names case-insensitively, orders newest first, and counts matches before pagination without commercial columns', async () => {
 		const store = organizationStore();
-		const page = await store.listOrganizationsPage(
-			normalizePlatformOrganizationLedgerQuery({ q: 'aBlE', page: 2, pageSize: 1 })
-		);
+		const page = await store.listOrganizationsPage({ q: 'aBlE', status: 'all', from: 1, to: 1 });
 		expect(page).toEqual({
 			organizations: [{ id: 'suspended', name: 'Able Support', suspended_at: '2026-09-01', created_at: '2026-08-01' }],
 			totalCount: 3
@@ -76,9 +73,7 @@ describe('Platform Organization Ledger provider boundary', () => {
 		['active', ['new-active', 'old-active']],
 		['suspended', ['suspended']]
 	])('filters %s organizations using suspension state', async (status, expectedIds) => {
-		const page = await organizationStore().listOrganizationsPage(
-			normalizePlatformOrganizationLedgerQuery({ q: 'Able', status })
-		);
+		const page = await organizationStore().listOrganizationsPage({ q: 'Able', status, from: 0, to: 24 });
 		expect(page.organizations.map((row) => row.id)).toEqual(expectedIds);
 		expect(page.totalCount).toBe(expectedIds.length);
 	});
@@ -87,7 +82,7 @@ describe('Platform Organization Ledger provider boundary', () => {
 		const store = storeWithFetch(async () =>
 			Response.json({ message: 'Directory denied', code: '42501' }, { status: 403 })
 		);
-		await expect(store.listOrganizationsPage(normalizePlatformOrganizationLedgerQuery())).rejects.toMatchObject({
+		await expect(store.listOrganizationsPage({ q: '', status: 'all', from: 0, to: 24 })).rejects.toMatchObject({
 			code: '42501'
 		});
 	});

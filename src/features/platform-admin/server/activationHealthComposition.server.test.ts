@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
-import { createSupabasePlatformActivationHealthStore } from './supabasePlatformActivationHealth';
+import { createPlatformActivationHealthStore } from './activationHealth.server';
+import { createOrganizationSupportReader } from '$features/organization/index.server';
+import { createPersonnelSupportReader } from '$features/personnel/index.server';
+import { createCalendarSupportReader } from '$features/calendar/index.server';
+import { createOnboardingSupportReader } from '$features/onboarding/index.server';
+import { createTrainingSupportReader } from '$features/training/index.server';
+import { createRatingSchemeSupportReader } from '$features/rating-scheme/index.server';
 
 type Row = Record<string, string | number | null>;
 const countTables = [
@@ -13,20 +19,18 @@ const countTables = [
 ];
 
 function storeWithFetch(fetch: typeof globalThis.fetch) {
-	return createSupabasePlatformActivationHealthStore(
-		createClient('http://localhost:9', 'synthetic-service-key', {
-			auth: { persistSession: false, autoRefreshToken: false },
-			global: { fetch }
-		}),
-		async (organizationIds, countRows) => {
-			const [statusTypes, assignmentTypes] = await Promise.all([
-				countRows('status_types', organizationIds),
-				countRows('assignment_types', organizationIds)
-			]);
-			return { statusTypes, assignmentTypes };
-		},
-		(organizationIds, countRows) => countRows('rating_scheme_entries', organizationIds)
-	);
+	const client = createClient('http://localhost:9', 'synthetic-service-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: { fetch }
+	});
+	return createPlatformActivationHealthStore({
+		organizations: createOrganizationSupportReader(client),
+		personnel: createPersonnelSupportReader(client),
+		calendar: createCalendarSupportReader(client),
+		onboarding: createOnboardingSupportReader(client),
+		training: createTrainingSupportReader(client),
+		ratingScheme: createRatingSchemeSupportReader(client)
+	});
 }
 
 function organization(id: string, created_at = '2026-09-01'): Row {
@@ -167,22 +171,26 @@ describe('noncommercial activation provider boundary', () => {
 		]);
 	});
 
-	it('counts setup rows beyond the provider page cap without counting another Organization', async () => {
+	it.each([
+		['organization_memberships', 'leaderMembers'],
+		['status_types', 'statusTypes'],
+		['assignment_types', 'assignmentTypes'],
+		['onboarding_template_steps', 'onboardingTemplateSteps'],
+		['training_types', 'trainingTypes'],
+		['rating_scheme_entries', 'ratingSchemeEntries']
+	] as const)('finishes %s pages without counting another Organization', async (table, field) => {
 		const rows = [
 			...Array.from({ length: 1005 }, (_, index) => ({
 				id: `setup-${String(index).padStart(4, '0')}`,
-				organization_id: 'large'
+				organization_id: 'large',
+				role: 'admin'
 			})),
-			{ id: 'outside', organization_id: 'outside' }
+			{ id: 'outside', organization_id: 'outside', role: 'admin' },
+			...(table === 'organization_memberships' ? [{ id: 'nonleader', organization_id: 'large', role: 'member' }] : [])
 		].reverse();
-		const store = providerStore({
-			organizations: [organization('large')],
-			training_types: rows,
-			rating_scheme_entries: rows
-		});
+		const store = providerStore({ organizations: [organization('large')], [table]: rows });
 		const facts = await store.listActivationOrganizationFacts({ limit: 1 });
-		expect(facts[0].counts.trainingTypes).toBe(1005);
-		expect(facts[0].counts.ratingSchemeEntries).toBe(1005);
+		expect(facts[0].counts[field]).toBe(1005);
 	});
 
 	it('returns an empty scan without attempting aggregate reads when no Organizations exist', async () => {
@@ -192,6 +200,10 @@ describe('noncommercial activation provider boundary', () => {
 
 	it.each([
 		'organizations',
+		'organization_memberships',
+		'status_types',
+		'assignment_types',
+		'onboarding_template_steps',
 		'training_types',
 		'rating_scheme_entries',
 		'rpc/count_personnel_by_organization',

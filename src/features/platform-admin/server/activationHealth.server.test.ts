@@ -1,9 +1,7 @@
+import { createPlatformActivationHealth } from './activationHealth.server';
+import type { PlatformActivationOrganizationFacts } from '../activationHealthTypes';
 import { describe, expect, it, vi } from 'vitest';
-import {
-	createPlatformActivationHealth,
-	mapActivationHealthSummary,
-	type PlatformActivationOrganizationFacts
-} from './platformActivationHealth';
+import { mapActivationHealthSummary } from '../activationHealth';
 
 function facts(
 	counts: Partial<PlatformActivationOrganizationFacts['counts']> = {},

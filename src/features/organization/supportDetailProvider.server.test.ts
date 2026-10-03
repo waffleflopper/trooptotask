@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createSupabasePlatformOrganizationDetailStore } from './supabasePlatformOrganizationDetail';
+import { createOrganizationSupportReader } from './supportReadProvider.server';
 
 const ORGANIZATIONS = [
 	{
@@ -51,9 +51,9 @@ function retainedOrganizationClient(): SupabaseClient {
 	} as unknown as SupabaseClient;
 }
 
-describe('createSupabasePlatformOrganizationDetailStore', () => {
+describe('createOrganizationSupportReader', () => {
 	it('loads the selected organization using only retained data, without crossing organization IDs', async () => {
-		const store = createSupabasePlatformOrganizationDetailStore(retainedOrganizationClient());
+		const store = createOrganizationSupportReader(retainedOrganizationClient());
 
 		await expect(store.getOrganizationById('22222222-2222-4222-8222-222222222222')).resolves.toEqual({
 			id: '22222222-2222-4222-8222-222222222222',
@@ -75,7 +75,7 @@ describe('createSupabasePlatformOrganizationDetailStore', () => {
 		query.eq.mockReturnValue(query);
 
 		await expect(
-			createSupabasePlatformOrganizationDetailStore({
+			createOrganizationSupportReader({
 				from: () => query
 			} as unknown as SupabaseClient).getOrganizationById('11111111-1111-4111-8111-111111111111')
 		).rejects.toBe(providerError);

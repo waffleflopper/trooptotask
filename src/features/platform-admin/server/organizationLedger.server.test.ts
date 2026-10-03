@@ -1,11 +1,14 @@
+import type { PlatformOrganizationLedgerBaseRow } from '../organizationSupportTypes';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	createPlatformOrganizationLedger,
-	normalizePlatformOrganizationLedgerQuery,
-	type PlatformOrganizationLedgerBaseRow,
-	type PlatformOrganizationLedgerStore
-} from './platformOrganizationLedger';
-import type { PlatformMetrics, PlatformOrganizationMetrics } from './platformMetrics';
+	normalizePlatformOrganizationLedgerQuery
+} from './organizationLedger.server';
+import type {
+	PlatformMetrics,
+	PlatformOrganizationMetrics,
+	PlatformOrganizationLedgerStore
+} from '../organizationSupportTypes';
 
 function organization(overrides: Partial<PlatformOrganizationLedgerBaseRow> = {}): PlatformOrganizationLedgerBaseRow {
 	return {
@@ -140,5 +143,17 @@ describe('createPlatformOrganizationLedger', () => {
 			organizations: [],
 			pagination: { page: 1, pageSize: 25, totalCount: 0, totalPages: 1, q: 'missing', status: 'active' }
 		});
+	});
+	it('does not publish rows with false metrics when the admitted source read fails', async () => {
+		const ledger = createPlatformOrganizationLedger({
+			store: { listOrganizationsPage: async () => ({ organizations: [organization()], totalCount: 1 }) },
+			metrics: {
+				...metrics(),
+				getOrganizationMetrics: async () => {
+					throw new Error('metrics unavailable');
+				}
+			}
+		});
+		await expect(ledger.listOrganizations()).rejects.toThrow('metrics unavailable');
 	});
 });

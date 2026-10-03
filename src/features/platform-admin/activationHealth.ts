@@ -1,93 +1,14 @@
+import type {
+	PlatformActivationOrganizationFacts,
+	PlatformActivationMilestoneId,
+	PlatformActivationMilestone,
+	PlatformActivationHealthState,
+	PlatformActivationSupportBundle,
+	PlatformActivationOrganizationHealth,
+	PlatformActivationHealthSummary
+} from './activationHealthTypes';
+
 export const MEANINGFUL_ROSTER_THRESHOLD = 5;
-
-export type PlatformActivationHealthState = 'activated' | 'in_progress' | 'no_candidates' | 'diagnostics_unavailable';
-
-export type PlatformActivationMilestoneId =
-	| 'signup_submitted'
-	| 'email_confirmed'
-	| 'organization_created'
-	| 'meaningful_roster'
-	| 'leader_accepted'
-	| 'defaults_present'
-	| 'setup_started';
-
-export type PlatformActivationMilestoneState = 'complete' | 'incomplete' | 'deferred';
-
-export interface PlatformActivationSetupCounts {
-	activePersonnel: number;
-	members: number;
-	leaderMembers: number;
-	statusTypes: number;
-	assignmentTypes: number;
-	onboardingTemplateSteps: number;
-	trainingTypes: number;
-	ratingSchemeEntries: number;
-}
-
-export interface PlatformActivationOrganizationFacts {
-	organizationId: string;
-	organizationName: string | null;
-	organizationCreatedAt: string | null;
-	counts: PlatformActivationSetupCounts;
-}
-
-export interface PlatformActivationMilestone {
-	id: PlatformActivationMilestoneId;
-	label: string;
-	state: PlatformActivationMilestoneState;
-	detail: string;
-}
-
-export interface PlatformActivationSupportBundle {
-	organizationId: string;
-	organizationName: string | null;
-	acquisition: {
-		organizationCreatedAt: string | null;
-	};
-	activation: PlatformActivationSetupCounts & {
-		meaningfulRosterThreshold: number;
-	};
-	nextSteps: string[];
-}
-
-export interface PlatformActivationOrganizationHealth {
-	id: string;
-	organization: { id: string; name: string | null };
-	state: PlatformActivationHealthState;
-	score: number;
-	milestones: PlatformActivationMilestone[];
-	nextSteps: string[];
-	supportBundle: PlatformActivationSupportBundle;
-}
-
-export interface PlatformActivationHealthSummary {
-	generatedAt: string;
-	overallState: PlatformActivationHealthState;
-	candidateLimit: number;
-	counts: {
-		candidateOrganizations: number;
-		activatedOrganizations: number;
-		meaningfulRosters: number;
-		acceptedLeaders: number;
-		setupStarted: number;
-		inProgressOrganizations: number;
-	};
-	organizations: PlatformActivationOrganizationHealth[];
-	diagnosticsError: boolean;
-}
-
-export interface PlatformActivationHealthStore {
-	listActivationOrganizationFacts(input: { limit: number }): Promise<PlatformActivationOrganizationFacts[]>;
-}
-
-export interface PlatformActivationHealth {
-	summarize(input?: { now?: Date }): Promise<PlatformActivationHealthSummary>;
-}
-
-export interface PlatformActivationHealthDependencies {
-	store: PlatformActivationHealthStore;
-	now?: () => Date;
-}
 
 const ACTIVATION_ORGANIZATION_LIMIT = 100;
 const VISIBLE_ORGANIZATION_LIMIT = 12;
@@ -315,22 +236,5 @@ export function mapActivationHealthSummary(input: {
 		counts,
 		organizations: sortOrganizations(organizations).slice(0, VISIBLE_ORGANIZATION_LIMIT),
 		diagnosticsError: false
-	};
-}
-
-export function createPlatformActivationHealth(deps: PlatformActivationHealthDependencies): PlatformActivationHealth {
-	return {
-		async summarize(input = {}) {
-			const now = input.now ?? deps.now?.() ?? new Date();
-			try {
-				return mapActivationHealthSummary({
-					facts: await deps.store.listActivationOrganizationFacts({ limit: ACTIVATION_ORGANIZATION_LIMIT }),
-					now
-				});
-			} catch (err) {
-				console.error('Admin activation health query failed:', err);
-				return degradedActivationHealthSummary(now);
-			}
-		}
 	};
 }

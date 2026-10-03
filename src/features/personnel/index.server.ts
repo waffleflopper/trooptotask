@@ -116,3 +116,5 @@ export {
 	deletePersonnelFollowUp
 } from './personnelFollowUps.server';
 export { listPersonnelArchivedArtifacts } from './personnelArchivedArtifacts.server';
+
+export { createPersonnelSupportReader } from './supportReadProvider.server';

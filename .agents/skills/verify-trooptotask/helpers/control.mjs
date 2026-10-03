@@ -17,6 +17,7 @@ import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
+import { seedAudit } from './audit-fixtures.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
 import {
 	prepareUploadOverlap,
@@ -107,6 +108,7 @@ const filters = new Set([
 	'personnel_id',
 	'user_id',
 	'type',
+	'action',
 	'email',
 	'status',
 	'invitation_id',
@@ -374,6 +376,7 @@ async function main() {
 			'onboarding',
 			'onboarding/templates',
 			'onboarding/history',
+			'settings/logs',
 			'settings/policies',
 			'settings/general',
 			'settings/archives',
@@ -383,71 +386,75 @@ async function main() {
 		];
 		if (
 			!fixture.actors[role] ||
-			![...orgDestinations, 'dashboard', 'org/new', 'admin/feedback'].includes(destination) ||
+			![...orgDestinations, 'dashboard', 'org/new', 'admin/feedback', 'admin/audit'].includes(destination) ||
 			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
-			(destination === 'admin/feedback' && !['platformReviewer', 'platformSupport'].includes(role))
+			(destination.startsWith('admin/') &&
+				!['platformReviewer', 'platformSupport', 'viewer', 'orgOwner'].includes(role))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
-		const destinationPath =
-			destination === 'admin/feedback'
-				? '/admin/feedback'
-				: destination === 'dashboard'
-					? '/dashboard?show=all'
-					: destination === 'org/new'
-						? '/org/new'
-						: destination === 'home'
-							? `/org/${org(targetOrg)}`
-							: `/org/${org(targetOrg)}/${destination}`;
-		const readyText =
-			destination === 'admin/feedback'
-				? ['Beta Feedback', 'Access denied', 'Forbidden']
-				: destination.startsWith('onboarding')
-					? [
-							'STEPS',
-							'No templates yet.',
-							'Onboarding Pipeline',
-							'Onboarding History',
-							'Access restricted',
-							"You don't have permission to view this page"
-						]
+		const destinationPath = destination.startsWith('admin/')
+			? `/${destination}`
+			: destination === 'dashboard'
+				? '/dashboard?show=all'
+				: destination === 'org/new'
+					? '/org/new'
 					: destination === 'home'
-						? ['Verification Organization A', 'Verification Organization B']
-						: destination === 'critical-tasks/library'
+						? `/org/${org(targetOrg)}`
+						: `/org/${org(targetOrg)}/${destination}`;
+		const readyText =
+			destination === 'admin/audit'
+				? ['Audit Log', 'Access denied', 'Forbidden', 'Not authorized', "You don't have access"]
+				: destination === 'settings/logs'
+					? ['Audit Log', "You don't have permission to view this page"]
+					: destination === 'admin/feedback'
+						? ['Beta Feedback', 'Access denied', 'Forbidden']
+						: destination.startsWith('onboarding')
 							? [
-									'ICT task library controls',
-									'Access Restricted',
+									'STEPS',
+									'No templates yet.',
+									'Onboarding Pipeline',
+									'Onboarding History',
 									'Access restricted',
 									"You don't have permission to view this page"
 								]
-							: destination === 'critical-tasks'
-								? ['Critical Tasks', 'Access restricted']
-								: destination === 'settings/archives'
-									? ['Archived Records', "You don't have permission to view this page"]
-									: destination === 'settings/policies'
-										? ['Archive Retention', "You don't have permission to view this page"]
-										: destination === 'settings/general'
-											? ['Organization Profile', "You don't have permission to view this page"]
-											: destination === 'settings/members'
-												? ['Access Management', "You don't have permission to view this page"]
-												: destination === 'settings/exports'
-													? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
-													: destination === 'settings/danger'
-														? ['Destructive Actions', "You don't have permission to view this page"]
-														: destination === 'dashboard'
-															? ['Pending Invitations', 'Organizations']
-															: destination === 'org/new'
-																? ['Create your first Organization', 'Confirm your email first']
-																: [
-																		'Calendar',
-																		'Evaluation controls',
-																		'Training',
-																		'Able, Synthetic',
-																		'Foreign, Synthetic',
-																		'No personnel on the active roster',
-																		'Access restricted',
-																		'Access Restricted'
-																	];
+							: destination === 'home'
+								? ['Verification Organization A', 'Verification Organization B']
+								: destination === 'critical-tasks/library'
+									? [
+											'ICT task library controls',
+											'Access Restricted',
+											'Access restricted',
+											"You don't have permission to view this page"
+										]
+									: destination === 'critical-tasks'
+										? ['Critical Tasks', 'Access restricted']
+										: destination === 'settings/archives'
+											? ['Archived Records', "You don't have permission to view this page"]
+											: destination === 'settings/policies'
+												? ['Archive Retention', "You don't have permission to view this page"]
+												: destination === 'settings/general'
+													? ['Organization Profile', "You don't have permission to view this page"]
+													: destination === 'settings/members'
+														? ['Access Management', "You don't have permission to view this page"]
+														: destination === 'settings/exports'
+															? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
+															: destination === 'settings/danger'
+																? ['Destructive Actions', "You don't have permission to view this page"]
+																: destination === 'dashboard'
+																	? ['Pending Invitations', 'Organizations']
+																	: destination === 'org/new'
+																		? ['Create your first Organization', 'Confirm your email first']
+																		: [
+																				'Calendar',
+																				'Evaluation controls',
+																				'Training',
+																				'Able, Synthetic',
+																				'Foreign, Synthetic',
+																				'No personnel on the active roster',
+																				'Access restricted',
+																				'Access Restricted'
+																			];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -987,6 +994,7 @@ async function main() {
 				'onboarding-consumers',
 				'onboarding-retention',
 				'onboarding-retention-1001',
+				'audit',
 				'communications',
 				'organization-destruction',
 				'rating-scheme'
@@ -996,6 +1004,10 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'audit') {
+			note(await seedAudit({ client, fixture, tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'organization-destruction') {
 			if (ownedState.seeded.some((item) => item.kind === kind))
 				throw new Error('Restore and clean the existing destruction seed first.');
@@ -1553,7 +1565,10 @@ async function main() {
 					);
 				let query = client.from(item.table).delete().in('id', ids);
 				if (item.kind !== 'communications' || item.table !== 'platform_announcements')
-					query = query.eq('organization_id', org(item.organization ?? 'orgA'));
+					query = query.eq(
+						item.table === 'audit_logs' ? 'org_id' : 'organization_id',
+						org(item.organization ?? 'orgA')
+					);
 				checked(await query);
 			}
 			for (const bucket of ['personnel-documents', 'counseling-files']) {
@@ -1581,6 +1596,7 @@ async function main() {
 			};
 			if (
 				![
+					'audit-page',
 					'notifications',
 					'organization/settings',
 					'rating-scheme',
@@ -1635,17 +1651,20 @@ async function main() {
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
 			const formAction = Object.hasOwn(formActions, family) ? family.split('/').at(-1) : null;
 			let organizationSegment = org('orgA');
-			if (formAction || family === 'organization/settings') {
+			if (formAction || family === 'organization/settings' || family === 'audit-page') {
 				const organization = checked(
 					await (await provider()).from('organizations').select('url_slug').eq('id', org('orgA')).single()
 				);
 				organizationSegment = organization.url_slug || organizationSegment;
 			}
-			const suffix = formAction
-				? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
-				: ['feedback', 'announcements/dismiss'].includes(family)
-					? `/api/${family}`
-					: `/org/${organizationSegment}/api/${family}`;
+			const suffix =
+				family === 'audit-page'
+					? `/org/${organizationSegment}/settings/logs/__data.json`
+					: formAction
+						? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
+						: ['feedback', 'announcements/dismiss'].includes(family)
+							? `/api/${family}`
+							: `/org/${organizationSegment}/api/${family}`;
 			if (action === 'arm-hold-fail' && family !== 'organization/settings')
 				throw new Error('Delayed synthetic failure is supported only for Organization policies.');
 			const mode =

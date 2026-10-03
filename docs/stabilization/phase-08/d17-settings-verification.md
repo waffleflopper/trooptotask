@@ -1,5 +1,7 @@
 # D17 settings and destruction verification preparation
 
+Final disposition: the preparation failures and unrun scope below remain historical observations. [The completion receipt](d17-organization-completion.md) maps them to the later accepted feedback, policy lifetime, profile, destruction/file-registration, export/retention and Units deliverables, with their exact proof and remaining production limits. This file supplies baseline provenance, not the current issue-completion state.
+
 This intermediate `Refs #1365` [PR #1480](https://github.com/waffleflopper/trooptotask/pull/1480) adds the missing [Organization settings/destruction recipe](../../../.agents/skills/verify-trooptotask/features/organization-settings-destruction.md), positive B-owner/dual-admin fixtures, scoped setting readbacks and exact-action failure controls. It changes verification inputs, not application behavior or migrations. Its outcome is usable preparation and truthful unchanged-app observations, including failures; it does not accept the D17 cutover or unlock D18.
 
 ## Selection and acceptance boundary

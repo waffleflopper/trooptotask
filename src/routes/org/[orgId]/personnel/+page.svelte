@@ -72,7 +72,7 @@
 </script>
 
 {#key data.shell.org.id}
-	{#if loadError && loadError.orgId === data.shell.org.id}
+	{#if loadError && loadError.orgId === data.shell.org.id && !workspace}
 		{throwRenderError(loadError.error, 'Failed to load personnel workspace')}
 	{:else if workspace}
 		{@const ctx = createContext(workspace.data)}

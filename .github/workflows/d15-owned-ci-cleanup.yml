@@ -1,4 +1,4 @@
-name: Read pinned ARM64 CI image architecture
+name: Prove generated-name disposable CI cleanup on ARM64
 
 on:
   push:
@@ -8,58 +8,298 @@ permissions:
   contents: read
 
 concurrency:
-  group: d15-owned-ci-readback
+  group: d15-generated-name-cleanup-proof
   cancel-in-progress: false
 
 jobs:
-  pinned-images:
-    name: Read pinned local CI image architecture
+  generated-name-fixture:
+    name: Preserve old name rejection and prove owned generated-container cleanup
+    if: ${{ github.ref == 'refs/heads/stabilization/1363-owned-ci-cleanup' && github.event_name == 'push' }}
     runs-on: [self-hosted, Linux, ARM64, macmini-arm64]
     timeout-minutes: 5
     steps:
-      - name: Inspect only cached tags used by the verified disposable CI projects
+      - id: checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
+        with:
+          version: 2.101.0
+          github-token: ${{ github.token }}
+      - id: fixture
+        name: Create only a fresh labelled network and automatically named pinned sleeper
         run: |
-          exec python3 -u - <<'PYTHON'
+          proof_script="$RUNNER_TEMP/t2t-generated-cleanup-proof-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}.py"
+          test ! -e "$proof_script" && test ! -L "$proof_script"
+          umask 077
+          cat > "$proof_script" <<'PYTHON'
           #!/usr/bin/env python3
-          """READ ONLY: exact cancelled CI project inventory; no services started/stopped."""
+          """Fixed disposable ARM64 generated-name fixture; no database is started."""
+
+          import argparse
+          from functools import partial
+          import hashlib
+          import importlib.util
           import json
           import os
           from pathlib import Path
+          import re
+          import shutil
+          import signal
+          import stat
           import subprocess
+          import sys
+          import tempfile
           import tomllib
           from urllib.parse import urlsplit
 
-
-          def docker_environment():
-              env = {key: value for key, value in os.environ.items()
-                     if key in {'PATH', 'HOME', 'XDG_RUNTIME_DIR', 'TERM', 'DOCKER_HOST', 'DOCKER_CONTEXT'}}
-              context = env.get('DOCKER_CONTEXT')
-              endpoint = env.get('DOCKER_HOST')
-              if context or not endpoint:
-                  command = ['docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}']
-                  if context:
-                      command.append(context)
-                  endpoint = subprocess.run(command, env=env, text=True, capture_output=True,
-                                            check=True, timeout=20).stdout.strip()
-              address = urlsplit(endpoint)
-              if (address.scheme != 'unix' or address.netloc or not address.path.startswith('/')
-                      or address.query or address.fragment):
-                  raise SystemExit('REFUSED: only a local Docker Unix socket may be inspected.')
-              env.pop('DOCKER_CONTEXT', None)
-              env['DOCKER_HOST'] = endpoint
-              return env
+          BASELINE = '329a9581e0a066aaff52c2479e63d55ed193cde9'
+          BASELINE_SOURCE_SHA = '382119ad232fef53240ef7ac78b53d2ad9fd214b93a75c97eb3e2eb0ba4a09d4'
+          CANDIDATE = '9c1f3be14a44595a842cf549be5d3999f3f38f9e'
+          CANDIDATE_SOURCE_SHA = '5caf45962e026c0a3b30b61dad1808e9fe337d8d30309b0b17fdc4bb0a1bbf7a'
+          IMAGE = 'public.ecr.aws/supabase/pg_prove:3.36'
+          IMAGE_ID = 'sha256:eda7c5e68719e9c8287e78c017118407b48df904a51c935f5ab6098b8c0bc6bc'
+          LABELS = ('com.supabase.cli.project', 'com.docker.compose.project')
+          repository = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          runner_temp = Path(os.environ['RUNNER_TEMP']).resolve()
+          identity = '-'.join(os.environ[key] for key in ('GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB'))
+          receipt_path = runner_temp / ('t2t-ci-db-' + identity + '.json')
+          proof_path = runner_temp / ('t2t-generated-proof-' + identity + '.json')
+          spec = importlib.util.spec_from_file_location('database', repository / 'scripts/ci/database.py')
+          db = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(db)
 
 
-          env = docker_environment()
-          images = ['public.ecr.aws/supabase/postgrest:v14.10', 'public.ecr.aws/supabase/gotrue:v2.188.1', 'public.ecr.aws/supabase/kong:2.8.1', 'public.ecr.aws/supabase/postgres:17.6.1.106', 'public.ecr.aws/supabase/pg_prove:3.36']
-          results = []
-          for image in images:
-              raw = subprocess.run(['docker', 'image', 'inspect', image], env=env, text=True,
-                                   capture_output=True, check=True, timeout=20).stdout
-              meta = json.loads(raw)[0]
-              results.append({'tag': image, 'image_id': meta['Id'], 'os': meta['Os'],
-                              'architecture': meta['Architecture'], 'variant': meta.get('Variant'),
-                              'repo_digests': meta.get('RepoDigests')})
-          print(json.dumps({'host_machine': os.uname().machine, 'docker_socket': env['DOCKER_HOST'],
-                            'pinned_cached_image_metadata': results}, indent=2), flush=True)
+          def interrupted(signum, _frame):
+              # Match database.main: defer only while an owned command/receipt is being registered.
+              db._interrupt_signal = signum
+              if db._spawning:
+                  db._deferred_signal = signum
+              else:
+                  raise SystemExit(128 + signum)
+
+
+          for sig in (signal.SIGINT, signal.SIGTERM):
+              signal.signal(sig, interrupted)
+
+
+          def require(condition, message):
+              if not condition:
+                  raise RuntimeError(message)
+
+
+          def private_save(value):
+              with tempfile.NamedTemporaryFile(mode='w', dir=runner_temp, delete=False) as stream:
+                  json.dump(value, stream)
+                  stream.flush()
+                  os.fsync(stream.fileno())
+                  temporary = Path(stream.name)
+              try:
+                  os.replace(temporary, proof_path)
+              finally:
+                  temporary.unlink(missing_ok=True)
+
+
+          def saved_proof():
+              info = proof_path.lstat()
+              require(stat.S_ISREG(info.st_mode) and info.st_uid == os.getuid()
+                      and not info.st_mode & 0o077, 'Proof is not private to the runner user')
+              proof = json.loads(proof_path.read_text())
+              require(proof['receipt'] == str(receipt_path) and proof['uid'] == os.getuid()
+                      and proof['head'] == os.environ['GITHUB_SHA'], 'Proof belongs to another job/head')
+              require(proof['candidateAncestor'] == CANDIDATE and proof['candidateSourceSha256'] == CANDIDATE_SOURCE_SHA
+                      and hashlib.sha256((repository / 'scripts/ci/database.py').read_bytes()).hexdigest() == CANDIDATE_SOURCE_SHA,
+                      'Proof no longer has the accepted cleanup source')
+              head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=repository,
+                                    text=True, capture_output=True, check=True).stdout.strip()
+              require(head == proof['head'], 'Proof checkout changed after fixture creation')
+              require(re.fullmatch(r't2t-ci-db-[a-z0-9_]{8}', proof['project'])
+                      and Path(proof['workdir']) == Path(tempfile.gettempdir()).resolve() / proof['project'],
+                      'Proof does not identify the fresh disposable directory')
+              address = urlsplit(proof['docker'])
+              require(address.scheme == 'unix' and not address.netloc and address.path.startswith('/')
+                      and not address.query and not address.fragment, 'Proof Docker endpoint is not local')
+              return proof
+
+
+          def inspection(execute, workdir, project, container_id, network_id):
+              container = json.loads(execute(['docker', 'container', 'inspect', container_id], workdir, quiet=True).stdout)[0]
+              network = json.loads(execute(['docker', 'network', 'inspect', network_id], workdir, quiet=True).stdout)[0]
+              name = container['Name'].lstrip('/')
+              require(re.fullmatch(r'[0-9a-f]{64}', container['Id']) and container['Id'] == container_id,
+                      'Container identity changed')
+              require(not (name.startswith('supabase_') and name.endswith('_' + project)),
+                      'Fixture unexpectedly received a canonical Supabase name')
+              require(container['Config']['Image'] == IMAGE and container['Image'] == IMAGE_ID,
+                      'Fixture is not the exact previously read-back pinned image')
+              require(all(container['Config']['Labels'].get(key) == project for key in LABELS)
+                      and all(network['Labels'].get(key) == project for key in LABELS), 'Fixture labels changed')
+              require(network['Name'] == 'supabase_network_' + project and network['Id'] == network_id,
+                      'Fixture network identity changed')
+              require(set(network.get('Containers', {})) == {container_id}, 'Fixture network has another attachment')
+              require(set(container['NetworkSettings']['Networks']) == {network['Name']}, 'Fixture has another network')
+              require(not container['Mounts'] and container['State']['Running']
+                      and not container['State']['OOMKilled'], 'Fixture is not an isolated running sleeper')
+              return {'container': {'id': container_id, 'name': name, 'image': IMAGE,
+                                    'imageId': container['Image'], 'labels': container['Config']['Labels'],
+                                    'network': network['Name'], 'running': container['State']['Running'],
+                                    'startedAt': container['State']['StartedAt'], 'mounts': container['Mounts']},
+                      'network': {'id': network_id, 'name': network['Name'], 'labels': network['Labels'],
+                                  'attachments': network['Containers']}}
+
+
+          def fixture():
+              require(os.uname().machine == 'aarch64', 'Fixture requires the ARM64 VM')
+              head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=repository,
+                                    text=True, capture_output=True, check=True).stdout.strip()
+              candidate_sha = hashlib.sha256((repository / 'scripts/ci/database.py').read_bytes()).hexdigest()
+              require(head == os.environ['GITHUB_SHA'] and candidate_sha == CANDIDATE_SOURCE_SHA,
+                      'Fixture checkout is not the exact Actions head and accepted cleanup source')
+              subprocess.run(['git', 'merge-base', '--is-ancestor', CANDIDATE, 'HEAD'], cwd=repository, check=True)
+              require(db.PG_PROVE_IMAGE == IMAGE, 'Candidate changed the existing pinned image')
+              require(not proof_path.exists() and not proof_path.is_symlink(), 'An earlier proof exists for this job')
+              environment = db.local_docker_environment(repository)
+              execute = partial(db.run, environment=environment)
+              require(execute(['supabase', '--version'], repository, quiet=True).stdout.strip() == '2.101.0',
+                      'Fixture requires pinned Supabase CLI 2.101.0')
+              image = json.loads(execute(['docker', 'image', 'inspect', IMAGE], repository, quiet=True).stdout)[0]
+              require(image['Id'] == IMAGE_ID and image['Os'] == 'linux' and image['Architecture'] == 'arm64'
+                      and not image['Config'].get('Volumes'), 'Cached pinned image is not the verified native volume-free image')
+              receipt = db.JobReceipt(receipt_path, create=True, endpoint=environment['DOCKER_HOST'])
+              db._receipt = receipt
+              config = tomllib.loads((repository / 'supabase/config.toml').read_text())
+              ports = db.reserve_ports(len(list(db.port_fields(config))))
+              workdir = Path(tempfile.mkdtemp(prefix='t2t-ci-db-'))
+              registered = False
+              try:
+                  require(workdir.stat().st_uid == os.getuid() and not workdir.is_symlink(), 'Invalid fixture directory')
+                  prepared = db.prepare_project(repository, workdir, workdir.name, [sock.getsockname()[1] for sock in ports])
+                  db._spawning = True
+                  try:
+                      receipt.add(workdir)
+                      registered = True
+                  finally:
+                      db._spawning = False
+                  pending = db._deferred_signal
+                  db._deferred_signal = None
+                  if pending:
+                      raise SystemExit(128 + pending)
+                  project = workdir.name
+                  proof = {'receipt': str(receipt_path), 'project': project, 'workdir': str(workdir),
+                           'docker': environment['DOCKER_HOST'], 'uid': os.getuid(),
+                           'seed': prepared['db']['seed'], 'configSha256': receipt.data['projects'][0]['config'],
+                           'head': head, 'candidateAncestor': CANDIDATE, 'candidateSourceSha256': candidate_sha,
+                           'nativePinnedImage': {'id': image['Id'], 'os': image['Os'], 'architecture': image['Architecture']}}
+                  private_save(proof)
+                  require(not any(db.owned_resources(execute, workdir, project).values()), 'Fresh fixture project already has resources')
+                  labels = [part for key in LABELS for part in ('--label', key + '=' + project)]
+                  network_id = execute(['docker', 'network', 'create', *labels, 'supabase_network_' + project],
+                                       workdir, quiet=True).stdout.strip()
+                  container_id = execute(['docker', 'run', '--detach', '--pull=never', *labels,
+                                         '--network', 'supabase_network_' + project, '--entrypoint', 'sh',
+                                         IMAGE, '-c', 'sleep 300'], workdir, quiet=True).stdout.strip()
+                  proof.update({'containerId': container_id, 'networkId': network_id,
+                                'fixture': inspection(execute, workdir, project, container_id, network_id),
+                                'receiptSha256': hashlib.sha256(receipt_path.read_bytes()).hexdigest()})
+                  private_save(proof)
+                  print(json.dumps({'fixture': proof, 'hostMachine': os.uname().machine}, indent=2), flush=True)
+                  with Path(os.environ['GITHUB_OUTPUT']).open('a') as stream:
+                      stream.write('project=' + project + '\n')
+              finally:
+                  for sock in ports:
+                      sock.close()
+                  if not registered:
+                      # No Docker command can run before registration; this directory was just created here.
+                      shutil.rmtree(workdir)
+              # This producer and its Docker command processes exit before another step finalizes.
+
+
+          def baseline():
+              proof = saved_proof()
+              receipt = db.JobReceipt(receipt_path)
+              workdir = Path(proof['workdir'])
+              execute = partial(db.run, environment=receipt.environment())
+              before = inspection(execute, workdir, proof['project'], proof['containerId'], proof['networkId'])
+              require(before == proof['fixture'], 'Fixture changed before the baseline check')
+              original_receipt = receipt_path.read_bytes()
+              old_source = subprocess.run(['git', 'show', BASELINE + ':scripts/ci/database.py'], cwd=repository,
+                                          capture_output=True, check=True).stdout
+              require(hashlib.sha256(old_source).hexdigest() == BASELINE_SOURCE_SHA, 'Historical baseline source changed')
+              with tempfile.TemporaryDirectory(prefix='t2t-generated-baseline-', dir=runner_temp) as directory:
+                  old_path = Path(directory) / 'scripts/ci/database.py'
+                  old_path.parent.mkdir(parents=True)
+                  old_path.write_bytes(old_source)
+                  require(db._receipt is None, 'Historical cleanup must not replace the fixture producer/command receipt')
+                  result = db.run([sys.executable, str(old_path), '--cleanup', str(receipt_path)],
+                                  repository, quiet=True, check=False, environment=receipt.environment())
+              require(result.returncode == 1 and result.stderr is None
+                      and result.stdout.rstrip().endswith('Database validation failed: Docker resource does not match the exact owned project')
+                      and '+ supabase stop ' not in result.stdout and '+ docker rm ' not in result.stdout,
+                      'Historical cleanup did not fail at the expected name guard before mutation')
+              after = inspection(execute, workdir, proof['project'], proof['containerId'], proof['networkId'])
+              require(after == before and receipt_path.read_bytes() == original_receipt,
+                      'Historical name rejection changed the fixture or receipt')
+              proof['baseline'] = {'commit': BASELINE, 'sourceSha256': BASELINE_SOURCE_SHA,
+                                   'exitCode': result.returncode, 'combinedOutput': result.stdout,
+                                   'unchangedFixtureAndReceipt': True}
+              private_save(proof)
+              print(json.dumps({'baseline': proof['baseline']}, indent=2), flush=True)
+
+
+          def readback():
+              proof = saved_proof()
+              require(proof.get('baseline', {}).get('unchangedFixtureAndReceipt') is True,
+                      'Baseline name-guard failure was not preserved')
+              require(not receipt_path.exists() and not receipt_path.is_symlink(), 'Job receipt remains')
+              workdir = Path(proof['workdir'])
+              require(not workdir.exists() and not workdir.is_symlink(), 'Owned fixture directory remains')
+              environment = db.clean_environment()
+              for key in ('DOCKER_CONTEXT', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH'):
+                  environment.pop(key, None)
+              environment['DOCKER_HOST'] = proof['docker']
+              # Reuse the original local endpoint, which JobReceipt validated before mutation.
+              execute = partial(db.run, environment=environment)
+              resources = db.owned_resources(execute, repository, proof['project'])
+              require(not any(resources.values()), 'Generated-name fixture resources remain')
+              for command in (['docker', 'ps', '-a', '--no-trunc', '--filter', 'id=' + proof['containerId'], '--format', '{{.ID}}'],
+                              ['docker', 'network', 'ls', '--no-trunc', '--filter', 'id=' + proof['networkId'], '--format', '{{.ID}}']):
+                  require(not execute(command, repository, quiet=True).stdout.strip(),
+                          'Fixture identity absence was not independently confirmed')
+              require(not list(db.live_processes(workdir)), 'Fixture producer still owns the deleted directory')
+              historical = {}
+              for project in ('t2t-ci-db-50f938p4', 't2t-ci-db-i766q85o'):
+                  directory = Path('/tmp') / project
+                  remaining = db.owned_resources(execute, repository, project)
+                  require(not any(remaining.values()) and not directory.exists() and not directory.is_symlink(),
+                          'A previously cleaned disposable project reappeared')
+                  historical[project] = {'resources': remaining, 'directoryAbsent': True}
+              print(json.dumps({'final': {'project': proof['project'], 'resources': resources,
+                                        'containerIdAbsent': True, 'networkIdAbsent': True,
+                                        'directoryAbsent': True, 'receiptAbsent': True,
+                                        'producerCwdAbsent': True}, 'historical': historical}, indent=2), flush=True)
+
+
+          parser = argparse.ArgumentParser(description=__doc__)
+          parser.add_argument('phase', choices=('fixture', 'baseline', 'readback'))
+          phase = parser.parse_args().phase
+          require(os.environ['GITHUB_REF'] == 'refs/heads/stabilization/1363-owned-ci-cleanup', 'Wrong isolated proof branch')
+          require(os.environ['GITHUB_EVENT_NAME'] == 'push', 'Proof must use the existing isolated branch push trigger')
+          {'fixture': fixture, 'baseline': baseline, 'readback': readback}[phase]()
           PYTHON
+          exec python3 -u "$proof_script" fixture
+      - name: Preserve exact old-source rejection with unchanged fixture and receipt
+        run: exec python3 -u "$RUNNER_TEMP/t2t-generated-cleanup-proof-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}.py" baseline
+      - name: Always finalize only this job's guarded disposable project with the integrated candidate
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        run: exec python3 scripts/ci/database.py --cleanup "$RUNNER_TEMP/t2t-ci-db-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}.json"
+      - name: Read back fixture absence and both previously cleaned disposable projects
+        if: ${{ always() && steps.checkout.outcome == 'success' && steps.fixture.outcome == 'success' }}
+        run: exec python3 -u "$RUNNER_TEMP/t2t-generated-cleanup-proof-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}.py" readback
+      - name: Run Robert's four exact read-only cancelled-project commands
+        if: ${{ always() && steps.checkout.outcome == 'success' && steps.fixture.outcome == 'success' }}
+        run: |
+          docker ps -a --filter 'name=t2t-ci-db-50f938p4' --format '{{.Names}} {{.Status}}'
+          docker volume ls --filter 'name=t2t-ci-db-50f938p4' --format '{{.Name}}'
+          docker network ls --filter 'name=t2t-ci-db-50f938p4' --format '{{.Name}}'
+          if test -d /tmp/t2t-ci-db-50f938p4; then printf 'Disposable project directory remains\n'; fi

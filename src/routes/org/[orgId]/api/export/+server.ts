@@ -61,7 +61,8 @@ export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
 						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
 						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
 					},
-					{ listRatingSchemeExportRows }
+					{ listRatingSchemeExportRows },
+					ctx.organizationRawExport
 				);
 				const jsonStr = JSON.stringify(exportData, null, 2);
 				const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];

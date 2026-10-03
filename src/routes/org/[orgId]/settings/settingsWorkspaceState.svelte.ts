@@ -40,43 +40,8 @@ export class SettingsArchivedPersonnelState {
 	}
 }
 
-export class SettingsDataExportState {
-	exportingOrgJson = $state(false);
-	exportingOrgExcel = $state(false);
-	exportError = $state('');
-	exportSuccess = $state(false);
-
-	get isExporting(): boolean {
-		return this.exportingOrgJson || this.exportingOrgExcel;
-	}
-
-	beginExport(format: 'json' | 'excel'): void {
-		this.exportError = '';
-		this.exportSuccess = false;
-		this.exportingOrgJson = format === 'json';
-		this.exportingOrgExcel = format === 'excel';
-	}
-
-	markExportFailed(message: string): void {
-		this.exportError = message;
-	}
-
-	markExportSucceeded(): void {
-		this.exportSuccess = true;
-	}
-
-	finishExport(): void {
-		this.exportingOrgJson = false;
-		this.exportingOrgExcel = false;
-	}
-}
-
 export function createSettingsArchivedPersonnelState(
 	section: SettingsArchivesSectionData | (() => SettingsArchivesSectionData)
 ): SettingsArchivedPersonnelState {
 	return new SettingsArchivedPersonnelState(section);
-}
-
-export function createSettingsDataExportState(): SettingsDataExportState {
-	return new SettingsDataExportState();
 }

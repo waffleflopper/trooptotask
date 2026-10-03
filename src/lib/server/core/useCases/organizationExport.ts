@@ -2,6 +2,7 @@ import type { DataStore } from '../ports';
 import type { FeedbackExportRow } from '$features/feedback/index.server';
 import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from '$features/personnel/contracts';
 import { isPersonnelOrganizationExportTable } from '$features/personnel/contracts';
+import { isOrganizationRawExportTable, type OrganizationRawExportReader } from '$features/organization/contracts';
 import {
 	listAssignmentTypeExportRows,
 	listAvailabilityExportRows,
@@ -79,7 +80,8 @@ export async function loadOrganizationExportPayload(
 	trainingExport: OrganizationTrainingExportReads,
 	onboardingExport: OrganizationOnboardingExportReads,
 	communicationsExport: OrganizationCommunicationsExportReads,
-	ratingSchemeExport: OrganizationRatingSchemeExportReads
+	ratingSchemeExport: OrganizationRatingSchemeExportReads,
+	organizationExport: OrganizationRawExportReader
 ): Promise<OrganizationExportPayload> {
 	assertOrganizationDataExportManifestIsSafe();
 	const orgId = actor.orgId;
@@ -89,6 +91,9 @@ export async function loadOrganizationExportPayload(
 		entries.push(
 			...(await Promise.all(
 				batch.map(async (section) => {
+					if (isOrganizationRawExportTable(section.table)) {
+						return [section.key, await organizationExport.listRows(orgId, section.table)] as const;
+					}
 					if (section.key === 'notifications') {
 						return [section.key, await communicationsExport.listNotificationExportRows()] as const;
 					}
@@ -137,17 +142,7 @@ export async function loadOrganizationExportPayload(
 					if (section.key === 'dailyAssignments') {
 						return [section.key, await listDailyAssignmentExportRows(store, orgId)] as const;
 					}
-					const rows = await store.findMany<Record<string, unknown>>(
-						section.table,
-						orgId,
-						undefined,
-						section.table === 'organizations'
-							? {
-									select:
-										'id,name,created_by,created_at,url_slug,archive_retention_months,suspended_at,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,loss_warning_window_days,personnel_document_storage_cap_bytes'
-								}
-							: undefined
-					);
+					const rows = await store.findMany<Record<string, unknown>>(section.table, orgId);
 					return [section.key, rows] as const;
 				})
 			))

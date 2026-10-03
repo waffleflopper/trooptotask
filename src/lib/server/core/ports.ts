@@ -1,4 +1,8 @@
-import type { OrganizationSettingsReader, OrganizationPolicyWritePort } from '$features/organization/contracts';
+import type {
+	OrganizationSettingsReader,
+	OrganizationPolicyWritePort,
+	OrganizationRawExportReader
+} from '$features/organization/contracts';
 import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { NotificationStore } from '$features/notifications/contracts.server';
@@ -238,6 +242,7 @@ export interface UseCaseContext {
 	onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
 	onboardingPacketCreation?: OnboardingPacketCreationPort;
 	personnelOrganizationExport?: PersonnelOrganizationExportPort;
+	organizationRawExport: OrganizationRawExportReader;
 	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
 	signInRosterFileWrites?: SignInRosterFileWritePort;
 	personnelTrainingRoster: PersonnelTrainingRosterPort;

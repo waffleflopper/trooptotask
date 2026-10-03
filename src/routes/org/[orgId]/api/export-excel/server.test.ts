@@ -74,7 +74,7 @@ function createExportTestContext(overrides?: Parameters<typeof createTestContext
 }
 
 describe('POST /api/export-excel', () => {
-	it.each(['personnel_onboardings', 'onboarding_step_progress'] as const)(
+	it.each(['organizations', 'organization_memberships', 'personnel_onboardings', 'onboarding_step_progress'] as const)(
 		'rejects a failed %s read without an artifact or success effects',
 		async (failedTable) => {
 			const ctx = createExportTestContext();

@@ -3,8 +3,8 @@ import type { NotificationDeliveryPort } from '$features/notifications/contracts
 import type { PersonnelArtifactRetentionSource, PersonnelRetentionSource } from '$features/personnel/index.server';
 import { cleanupExpiredAssignmentTypes, type AssignmentTypeRetentionPort } from '$features/calendar/index.server';
 import { retentionCutoff } from '$lib/utils/retentionCutoff';
+import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from '$features/organization/contracts';
 
-export const DEFAULT_ARCHIVE_RETENTION_MONTHS = 36;
 const MIN_ARCHIVE_RETENTION_MONTHS = 1;
 
 export interface ArchiveRetentionOrgConfig {

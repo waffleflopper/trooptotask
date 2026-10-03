@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createSettingsMemberAccessWorkspace } from '$features/organization';
 import type { SettingsMembersSectionData } from '$features/organization/contracts';
 import type { SettingsArchivesSectionData } from './settingsSectionTypes';
-import { createSettingsArchivedPersonnelState, createSettingsDataExportState } from './settingsWorkspaceState.svelte';
+import { createSettingsArchivedPersonnelState } from './settingsWorkspaceState.svelte';
 
 const capabilityMap = {
 	calendar: 'configure',
@@ -131,22 +131,6 @@ describe('settings workspace state', () => {
 
 		expect(state.confirmPermanentDelete).toBeNull();
 		expect(state.permanentDeleteConfirmText).toBe('');
-	});
-
-	it('tracks export progress, success and failure', () => {
-		const state = createSettingsDataExportState();
-
-		state.beginExport('json');
-
-		expect(state.exportingOrgJson).toBe(true);
-		expect(state.exportingOrgExcel).toBe(false);
-		expect(state.exportSuccess).toBe(false);
-
-		state.markExportSucceeded();
-		state.finishExport();
-
-		expect(state.exportingOrgJson).toBe(false);
-		expect(state.exportSuccess).toBe(true);
 	});
 
 	it('owns member capability edits while the editor is open', () => {

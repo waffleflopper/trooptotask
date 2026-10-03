@@ -56,6 +56,24 @@ function createExportTestContext(overrides?: Parameters<typeof createTestContext
 	return Object.assign(ctx, { communicationsRows });
 }
 
+function savedDeletionHistory(orgId: string) {
+	return (['pending', 'approved', 'denied', 'cancelled'] as const).map((status) => ({
+		id: `history-${status}`,
+		organization_id: orgId,
+		requested_by: 'saved-requester',
+		requested_by_email: 'saved-requester@example.test',
+		resource_type: 'training_type',
+		resource_id: `removed-type-${status}`,
+		resource_description: 'Saved removed-source description',
+		resource_url: '/org/saved/training',
+		status,
+		reviewed_by: status === 'approved' || status === 'denied' ? 'saved-reviewer' : null,
+		reviewed_at: status === 'approved' || status === 'denied' ? '2026-09-29T01:02:03.123456Z' : null,
+		denial_reason: status === 'denied' ? 'Retain the saved reason' : null,
+		created_at: '2026-05-01T00:00:00.654321Z'
+	}));
+}
+
 describe('POST /api/export', () => {
 	it.each(['organizations', 'organization_memberships', 'personnel_onboardings', 'onboarding_step_progress'] as const)(
 		'rejects a failed %s read without an artifact or success effects',
@@ -124,6 +142,11 @@ describe('POST /api/export', () => {
 
 	it('downloads above former quotas and excludes another Organization', async () => {
 		const ctx = createExportTestContext();
+		const history = savedDeletionHistory(ctx.auth.orgId);
+		ctx.rawStore.seed('deletion_requests', [
+			...history,
+			{ ...history[0], id: 'foreign-request', organization_id: 'other-org' }
+		]);
 		ctx.rawStore.seed(
 			'data_exports',
 			Array.from({ length: 11 }, (_, i) => ({
@@ -226,6 +249,8 @@ describe('POST /api/export', () => {
 		expect(response?.status).toBe(200);
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
 		const payload = await response!.json();
+		expect(payload.deletionRequests).toEqual(history);
+		expect(payload.sections.deletionRequests).toEqual(history);
 		expect(payload.personnel.map((person: { id: string }) => person.id)).toEqual(['own-person']);
 		expect(payload.ratingSchemeEntries).toEqual([evaluation]);
 		expect(payload.sections.ratingSchemeEntries).toEqual([evaluation]);

@@ -45,6 +45,7 @@ export async function approveDeletionRequest(
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
 	const request = await fetchPendingRequest(ctx, requestId);
+	const boundRequestId = request.id;
 
 	const resourceType = request.resource_type;
 	const resourceId = request.resource_id;
@@ -55,16 +56,16 @@ export async function approveDeletionRequest(
 
 	if (resourceType === 'counseling_record') {
 		// The source-owned 012 transaction acknowledges its row and request status together.
-		await effects.approveCounseling(requestId, resourceId, new Date().toISOString());
+		await effects.approveCounseling(boundRequestId, resourceId, new Date().toISOString());
 	} else {
 		if (resourceType === 'personnel') await effects.archivePersonnel(resourceId);
-		else if (resourceType === 'training_type') await effects.deleteTrainingType(requestId, resourceId);
-		else if (resourceType === 'personnel_training') await effects.deleteTrainingRecord(requestId, resourceId);
-		else if (resourceType === 'rating_scheme_entry') await effects.deleteRatingEntry(requestId, resourceId);
+		else if (resourceType === 'training_type') await effects.deleteTrainingType(boundRequestId, resourceId);
+		else if (resourceType === 'personnel_training') await effects.deleteTrainingRecord(boundRequestId, resourceId);
+		else if (resourceType === 'rating_scheme_entry') await effects.deleteRatingEntry(boundRequestId, resourceId);
 		// Effects can persist even if another terminal writer wins this status transition.
 		const completed = await ctx.store.completePendingReview(
 			ctx.auth.orgId,
-			requestId,
+			boundRequestId,
 			{ resourceType, resourceId },
 			{ status: 'approved', reviewedBy: ctx.auth.userId, reviewedAt: new Date().toISOString(), denialReason: null }
 		);
@@ -85,7 +86,7 @@ export async function approveDeletionRequest(
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.approved`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: requestId,
+		resourceId: boundRequestId,
 		details: {
 			...reviewerDetails(ctx.auth.userId),
 			...subjectDetails({
@@ -105,10 +106,11 @@ export async function denyDeletionRequest(
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
 
 	const request = await fetchPendingRequest(ctx, requestId);
+	const boundRequestId = request.id;
 
 	const completed = await ctx.store.completePendingReview(
 		ctx.auth.orgId,
-		requestId,
+		boundRequestId,
 		{ resourceType: request.resource_type, resourceId: request.resource_id },
 		{
 			status: 'denied',
@@ -134,7 +136,7 @@ export async function denyDeletionRequest(
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.denied`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: requestId,
+		resourceId: boundRequestId,
 		details: {
 			...reviewerDetails(ctx.auth.userId),
 			...subjectDetails({

@@ -76,6 +76,24 @@ function createExportTestContext(overrides?: Parameters<typeof createTestContext
 	return Object.assign(ctx, { communicationsRows });
 }
 
+function savedDeletionHistory(orgId: string) {
+	return (['pending', 'approved', 'denied', 'cancelled'] as const).map((status) => ({
+		id: `history-${status}`,
+		organization_id: orgId,
+		requested_by: 'saved-requester',
+		requested_by_email: 'saved-requester@example.test',
+		resource_type: 'training_type',
+		resource_id: `removed-type-${status}`,
+		resource_description: 'Saved removed-source description',
+		resource_url: '/org/saved/training',
+		status,
+		reviewed_by: status === 'approved' || status === 'denied' ? 'saved-reviewer' : null,
+		reviewed_at: status === 'approved' || status === 'denied' ? '2026-09-29T01:02:03.123456Z' : null,
+		denial_reason: status === 'denied' ? 'Retain the saved reason' : null,
+		created_at: '2026-05-01T00:00:00.654321Z'
+	}));
+}
+
 describe('POST /api/export-excel', () => {
 	it.each(['organizations', 'organization_memberships', 'personnel_onboardings', 'onboarding_step_progress'] as const)(
 		'rejects a failed %s read without an artifact or success effects',
@@ -125,6 +143,11 @@ describe('POST /api/export-excel', () => {
 
 	it('downloads above former quotas and excludes another Organization', async () => {
 		const ctx = createExportTestContext();
+		const history = savedDeletionHistory(ctx.auth.orgId);
+		ctx.rawStore.seed('deletion_requests', [
+			...history,
+			{ ...history[0], id: 'foreign-request', organization_id: 'other-org' }
+		]);
 		ctx.rawStore.seed(
 			'data_exports',
 			Array.from({ length: 11 }, (_, i) => ({
@@ -208,6 +231,44 @@ describe('POST /api/export-excel', () => {
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(await response!.arrayBuffer()));
+		const rawRequests = workbook.getWorksheet('Raw - Deletion Requests')!;
+		const requestFields = [
+			'id',
+			'organization_id',
+			'requested_by',
+			'requested_by_email',
+			'resource_type',
+			'resource_id',
+			'resource_description',
+			'resource_url',
+			'status',
+			'reviewed_by',
+			'reviewed_at',
+			'denial_reason',
+			'created_at'
+		] as const;
+		const requestHeaders = [
+			'Id',
+			'Organization Id',
+			'Requested By',
+			'Requested By Email',
+			'Resource Type',
+			'Resource Id',
+			'Resource Description',
+			'Resource Url',
+			'Status',
+			'Reviewed By',
+			'Reviewed At',
+			'Denial Reason',
+			'Created At'
+		];
+		expect((rawRequests.getRow(1).values as string[]).slice(1)).toEqual(requestHeaders);
+		const savedRequests = Array.from({ length: rawRequests.rowCount - 1 }, (_, index) =>
+			Object.fromEntries(
+				requestFields.map((field, column) => [field, rawRequests.getRow(index + 2).getCell(column + 1).value ?? null])
+			)
+		);
+		expect(savedRequests).toEqual(history);
 		const rawRating = workbook.getWorksheet('Raw - Rating Scheme Entries')!;
 		const headers = rawRating.getRow(1).values as string[];
 		const savedCells = Object.fromEntries(

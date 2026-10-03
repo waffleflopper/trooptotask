@@ -899,3 +899,35 @@ describe('review persistence failure', () => {
 		}
 	);
 });
+
+describe('canonical saved request identity', () => {
+	it.each(['approve', 'deny'] as const)(
+		'acknowledges %s using the canonical saved ID for an alternate UUID spelling',
+		async (action) => {
+			const ctx = buildContext();
+			const id = 'abcdef12-3456-4789-abcd-123456789abc';
+			seedPendingRequest(ctx, { id, resource_type: 'training_type', resource_id: 'type-1' });
+			const row = await ctx.requests.findPendingById(ctx.auth.orgId, id);
+			vi.spyOn(ctx.requests, 'findPendingById').mockResolvedValue(row);
+			const effects = effectsFor(ctx);
+			const deleteTrainingType = vi.fn().mockResolvedValue(undefined);
+			if (action === 'approve')
+				await approveDeletionRequest({ ...ctx, store: ctx.requests }, id.toUpperCase(), {
+					...effects,
+					deleteTrainingType
+				});
+			else await denyDeletionRequest({ ...ctx, store: ctx.requests }, id.toUpperCase(), 'Saved reason');
+			expect(await ctx.store.findOne('deletion_requests', ctx.auth.orgId, { id })).toMatchObject({
+				status: action === 'approve' ? 'approved' : 'denied'
+			});
+			if (action === 'approve') expect(deleteTrainingType).toHaveBeenCalledWith(id, 'type-1');
+			expect(ctx.audit.events).toContainEqual(
+				expect.objectContaining({
+					resourceId: id,
+					action: action === 'approve' ? 'deletion_request.approved' : 'deletion_request.denied'
+				})
+			);
+			expect(ctx.notifications.notifications).toHaveLength(1);
+		}
+	);
+});

@@ -94,7 +94,8 @@ jobs:
     runs-on: [self-hosted, Linux, ARM64, macmini-arm64]
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - id: checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -109,4 +110,7 @@ jobs:
           version: 2.101.0
           github-token: ${{ github.token }}
       - name: Replay migrations and test isolated SQL contracts
-        run: python3 scripts/ci/database.py
+        run: exec python3 scripts/ci/database.py --receipt "$RUNNER_TEMP/t2t-ci-db-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}.json"
+      - name: Clean up this job's disposable database projects
+        if: ${{ always() && steps.checkout.outcome == 'success' }}
+        run: exec python3 scripts/ci/database.py --cleanup "$RUNNER_TEMP/t2t-ci-db-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_JOB}.json"

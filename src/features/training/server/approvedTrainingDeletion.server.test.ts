@@ -5,7 +5,7 @@ import { createSupabaseApprovedTrainingDeletionPort } from './approvedTrainingDe
 
 type Row = Record<string, unknown>;
 
-function provider(requests: Row[], types: Row[], deleteError?: string, completions: Row[] = []) {
+function provider(requests: Row[], types: Row[], deleteError?: string, completions: Row[] = [], readError?: string) {
 	const from = vi.fn((table: string) => {
 		let deleting = false;
 		const filters: Record<string, unknown> = {};
@@ -20,11 +20,12 @@ function provider(requests: Row[], types: Row[], deleteError?: string, completio
 				return query;
 			},
 			maybeSingle: async () => {
-				const rows = table === 'deletion_requests' ? requests : table === 'training_types' ? types : completions;
+				const rows = table === 'training_types' ? types : completions;
 				const index = rows.findIndex((row) =>
 					Object.entries(filters).every(([column, value]) => row[column] === value)
 				);
 				if (deleting && deleteError) return { data: null, error: { message: deleteError } };
+				if (!deleting && readError) return { data: null, error: { message: readError } };
 				const data = index >= 0 ? rows[index] : null;
 				if (deleting && index >= 0) rows.splice(index, 1);
 				return { data, error: null };
@@ -33,7 +34,26 @@ function provider(requests: Row[], types: Row[], deleteError?: string, completio
 		return query;
 	});
 	const getAdminClient = vi.fn(() => ({ from }) as unknown as SupabaseClient);
-	return { from, getAdminClient, port: createSupabaseApprovedTrainingDeletionPort(getAdminClient) };
+	const requirePending = vi.fn(async (orgId: string, requestId: string, resourceType: string, resourceId: string) => {
+		if (
+			!requests.some(
+				(row) =>
+					row.organization_id === orgId &&
+					row.id === requestId &&
+					row.status === 'pending' &&
+					row.resource_type === resourceType &&
+					row.resource_id === resourceId
+			)
+		) {
+			throw Object.assign(new Error('Pending deletion request not found'), { status: 404 });
+		}
+	});
+	return {
+		from,
+		getAdminClient,
+		requirePending,
+		port: createSupabaseApprovedTrainingDeletionPort(getAdminClient, requirePending)
+	};
 }
 
 function reviewer(role: 'admin' | 'member' = 'admin') {
@@ -76,11 +96,12 @@ describe('approved Training type deletion provider', () => {
 	});
 
 	it('denies a member before opening the admin client even with Training configure', async () => {
-		const { port, getAdminClient } = provider([], []);
+		const { port, getAdminClient, requirePending } = provider([], []);
 		await expect(port.deleteApprovedTrainingType(reviewer('member'), 'request-1', 'type-1')).rejects.toMatchObject({
 			status: 403
 		});
 		expect(getAdminClient).not.toHaveBeenCalled();
+		expect(requirePending).not.toHaveBeenCalled();
 	});
 
 	it('requires a pending request bound to the same Organization and type before deletion', async () => {
@@ -101,6 +122,56 @@ describe('approved Training type deletion provider', () => {
 			status: 404
 		});
 		expect(types).toHaveLength(1);
+	});
+
+	it('rechecks pending authority on an absent-type retry without re-reading a successful target', async () => {
+		const requests = [
+			{
+				id: 'request-1',
+				organization_id: 'org-1',
+				status: 'pending',
+				resource_type: 'training_type',
+				resource_id: 'type-1'
+			}
+		];
+		const types = [{ id: 'type-1', organization_id: 'org-1' }];
+		const { port, from, requirePending } = provider(requests, types);
+		await port.deleteApprovedTrainingType(reviewer(), 'request-1', 'type-1');
+		expect(from).toHaveBeenCalledTimes(1);
+		await port.deleteApprovedTrainingType(reviewer(), 'request-1', 'type-1');
+		expect(types).toEqual([]);
+		expect(requirePending).toHaveBeenCalledTimes(2);
+		expect(requirePending).toHaveBeenLastCalledWith('org-1', 'request-1', 'training_type', 'type-1');
+		requests[0].status = 'cancelled';
+		await expect(port.deleteApprovedTrainingType(reviewer(), 'request-1', 'type-1')).rejects.toMatchObject({
+			status: 404
+		});
+		expect(from).toHaveBeenCalledTimes(3);
+	});
+
+	it('propagates a failed pending guard before privileged access and a failed missing-target lookup', async () => {
+		const requests = [
+			{
+				id: 'request-1',
+				organization_id: 'org-1',
+				status: 'pending',
+				resource_type: 'training_type',
+				resource_id: 'type-1'
+			}
+		];
+		const unavailable = provider(requests, []);
+		unavailable.requirePending.mockRejectedValueOnce(new Error('request unavailable'));
+		await expect(unavailable.port.deleteApprovedTrainingType(reviewer(), 'request-1', 'type-1')).rejects.toThrow(
+			'request unavailable'
+		);
+		expect(unavailable.getAdminClient).not.toHaveBeenCalled();
+		await expect(
+			provider(requests, [], undefined, [], 'lookup unavailable').port.deleteApprovedTrainingType(
+				reviewer(),
+				'request-1',
+				'type-1'
+			)
+		).rejects.toThrow('lookup unavailable');
 	});
 
 	it('keeps a foreign target or failed database delete unchanged', async () => {
@@ -162,11 +233,12 @@ describe('approved Training completion deletion provider', () => {
 	});
 
 	it('denies a member before opening the privileged client even with Training configure', async () => {
-		const { port, getAdminClient } = provider([pendingRequest()], []);
+		const { port, getAdminClient, requirePending } = provider([pendingRequest()], []);
 		await expect(
 			port.deleteApprovedTrainingRecord(reviewer('member'), 'request-1', 'completion-1')
 		).rejects.toMatchObject({ status: 403 });
 		expect(getAdminClient).not.toHaveBeenCalled();
+		expect(requirePending).not.toHaveBeenCalled();
 	});
 
 	it.each([

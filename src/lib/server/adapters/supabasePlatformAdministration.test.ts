@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabasePlatformAdministrationStore } from './supabasePlatformAdministration';
 import type { PlatformAdministrationStore } from '$lib/server/core/useCases/platformAdministration';
@@ -129,41 +130,82 @@ describe('createSupabasePlatformAdministrationStore', () => {
 		await expect(store.countPendingFeedback()).rejects.toMatchObject({ cause: PROVIDER_ERROR });
 	});
 
-	it.each([
+	const writes = [
+		{
+			name: 'suspendUser',
+			method: 'POST',
+			table: 'user_suspensions',
+			field: 'user_id',
+			id: VALID_USER_ID,
+			run: (store: PlatformAdministrationStore) =>
+				store.suspendUser({ userId: VALID_USER_ID, suspendedBy: VALID_ORG_ID, reason: 'Synthetic reason' })
+		},
 		{
 			name: 'unsuspendUser',
-			run: (store: PlatformAdministrationStore) => store.unsuspendUser(VALID_USER_ID),
+			method: 'DELETE',
 			table: 'user_suspensions',
-			method: 'delete',
-			args: [{ count: 'exact' }],
-			message: 'table user_suspensions delete failed: no rows affected'
+			field: 'user_id',
+			id: VALID_USER_ID,
+			run: (store: PlatformAdministrationStore) => store.unsuspendUser(VALID_USER_ID)
 		},
 		{
 			name: 'suspendOrganization',
-			run: (store: PlatformAdministrationStore) =>
-				store.suspendOrganization({
-					organizationId: VALID_ORG_ID,
-					suspendedAt: new Date('2026-06-01T12:00:00.000Z')
-				}),
+			method: 'PATCH',
 			table: 'organizations',
-			method: 'update',
-			args: [{ suspended_at: '2026-06-01T12:00:00.000Z' }, { count: 'exact' }],
-			message: 'table organizations suspend update failed: no rows affected'
+			field: 'id',
+			id: VALID_ORG_ID,
+			run: (store: PlatformAdministrationStore) =>
+				store.suspendOrganization({ organizationId: VALID_ORG_ID, suspendedAt: new Date('2026-06-01T12:00:00.000Z') })
 		},
 		{
 			name: 'unsuspendOrganization',
-			run: (store: PlatformAdministrationStore) => store.unsuspendOrganization(VALID_ORG_ID),
+			method: 'PATCH',
 			table: 'organizations',
-			method: 'update',
-			args: [{ suspended_at: null }, { count: 'exact' }],
-			message: 'table organizations unsuspend update failed: no rows affected'
+			field: 'id',
+			id: VALID_ORG_ID,
+			run: (store: PlatformAdministrationStore) => store.unsuspendOrganization(VALID_ORG_ID)
 		}
-	])('rejects $name when Supabase affects no rows', async ({ run, table, method, args, message }) => {
-		const { store, from, calls } = createStoreWithFromResult({ data: null, error: null, count: 0 });
+	];
 
-		await expect(run(store)).rejects.toThrow(message);
+	describe.each(writes)('$name response acknowledgment', ({ method, table, field, id, run }) => {
+		function storeWithResponse(body: unknown, status = 200, inspect?: (request: Request) => void) {
+			return createSupabasePlatformAdministrationStore(
+				createClient('http://127.0.0.1:9', 'synthetic-service', {
+					auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+					global: {
+						fetch: async (input, init) => {
+							inspect?.(new Request(input, init));
+							return Response.json(body, { status });
+						}
+					}
+				})
+			);
+		}
 
-		expect(from).toHaveBeenCalledWith(table);
-		expect(calls).toContainEqual({ method, args });
+		it('requests a selected representation for only the intended target and accepts its exact identity', async () => {
+			let requests = 0;
+			const store = storeWithResponse([{ [field]: id }], 200, (request) => {
+				requests++;
+				const url = new URL(request.url);
+				expect(request.method).toBe(method);
+				expect(url.pathname).toBe(`/rest/v1/${table}`);
+				expect(url.searchParams.get('select')).toBe(field);
+				expect(request.headers.get('prefer')).toContain('return=representation');
+				if (method !== 'POST') expect(url.searchParams.get(field)).toBe(`eq.${id}`);
+			});
+			await expect(run(store)).resolves.toBeUndefined();
+			expect(requests).toBe(1);
+		});
+
+		it.each([
+			{ name: 'absent representation', body: null },
+			{ name: 'no saved row', body: [] },
+			{ name: 'wrong target', body: [{ [field]: '33333333-3333-3333-3333-333333333333' }] },
+			{ name: 'multiple saved rows', body: [{ [field]: id }, { [field]: id }] },
+			{ name: 'malformed saved identity', body: [{ [field]: [id] }] },
+			{ name: 'provider failure', body: PROVIDER_ERROR, status: 503 }
+		])('rejects $name instead of acknowledging the mutation', async ({ body, status }) => {
+			await expect(run(storeWithResponse(body, status))).rejects.toThrow();
+		});
 	});
 });

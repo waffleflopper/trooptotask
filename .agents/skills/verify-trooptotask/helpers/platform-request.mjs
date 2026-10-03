@@ -4,6 +4,7 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 	if (target.location.origin !== origin) throw new Error('Use an owned app page');
 	const fields = {
 		suspend: ['type', 'action', 'reason'],
+		invalidSuspension: ['case'],
 		approve: [],
 		reject: [],
 		resend: [],
@@ -21,7 +22,7 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 	}
 	const access = ['approve', 'reject', 'resend'].includes(family);
 	const membership = ['makeAdmin', 'transferOwnership'].includes(family);
-	const json = family === 'suspend';
+	const json = family === 'suspend' || family === 'invalidSuspension';
 	const path = json
 		? '/admin/api/suspend'
 		: access
@@ -29,7 +30,21 @@ export async function requestPlatform(target, { origin, family, targetId, body }
 			: membership
 				? `/admin/organizations/${targetId}?/${family}`
 				: `/admin/users/${targetId}?/${family}`;
-	const submitted = json ? { ...body, targetId } : access ? { requestId: targetId } : body;
+	const invalidCases = {
+		'null-body': null,
+		'non-string-reason': { type: 'user', action: 'suspend', targetId, reason: 42 },
+		'array-target': { type: 'user', action: 'suspend', targetId: [targetId] }
+	};
+	if (family === 'invalidSuspension' && !Object.hasOwn(invalidCases, body.case))
+		throw new Error('Use a documented malformed suspension case');
+	const submitted =
+		family === 'invalidSuspension'
+			? invalidCases[body.case]
+			: json
+				? { ...body, targetId }
+				: access
+					? { requestId: targetId }
+					: body;
 	const response = await target.fetch(path, {
 		method: 'POST',
 		redirect: 'manual',

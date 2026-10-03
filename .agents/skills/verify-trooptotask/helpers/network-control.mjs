@@ -21,7 +21,7 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 				control.suffix.endsWith('/deletion-requests/review') ||
 				control.suffix.endsWith('/personnel/archive-batch') ||
 				control.suffix === '/admin/api/suspend' ||
-				['hold-fail', 'reject'].includes(control.mode)) &&
+				['hold-fail', 'reject', 'drop-response'].includes(control.mode)) &&
 				method !== 'POST')
 		)
 			return original(...input);
@@ -70,6 +70,10 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 		call.status = response.status;
 		call.contentDisposition = response.headers?.get('Content-Disposition') ?? null;
 		call.contentType = response.headers?.get('Content-Type') ?? null;
+		if (control.mode === 'drop-response' && requestNumber === control.ordinal) {
+			call.failure = 'response';
+			throw new TypeError('Synthetic response lost after real dispatch');
+		}
 		if (control.mode === 'hold' && requestNumber === control.ordinal)
 			return new Promise((resolve) => {
 				control.release = () => resolve(response);

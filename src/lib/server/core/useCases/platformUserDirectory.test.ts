@@ -257,4 +257,39 @@ describe('PlatformUserDirectory', () => {
 			message: 'identity provider unavailable'
 		});
 	});
+
+	it.each(['detail', 'directory'] as const)(
+		'does not convert a failed %s suspension read to an unsuspended account',
+		async (surface) => {
+			const providerError = new Error('Synthetic suspension lookup unavailable');
+			const baseStore = createInMemoryPlatformUserDirectoryStore({
+				authUsers: [
+					{
+						id: 'user-1',
+						email: 'account@example.test',
+						createdAt: '2026-06-01T00:00:00.000Z',
+						lastSignInAt: null,
+						emailConfirmedAt: null
+					}
+				]
+			});
+			const directory = createPlatformUserDirectory({
+				store: {
+					...baseStore,
+					getSuspensionForUser: async () => {
+						throw providerError;
+					},
+					listSuspendedUserIds: async () => {
+						throw providerError;
+					}
+				},
+				metrics: createPlatformMetrics({ store: createInMemoryPlatformMetricsStore({}) })
+			});
+			const result =
+				surface === 'detail'
+					? directory.getUserDetail('user-1')
+					: directory.listUsers({ search: '', page: 1, limit: 20 });
+			await expect(result).rejects.toBe(providerError);
+		}
+	);
 });

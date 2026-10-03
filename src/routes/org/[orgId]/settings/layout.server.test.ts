@@ -49,21 +49,34 @@ describe('settings layout server load', () => {
 		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});
 
-	it('redirects suspended organizations before loading the shell', async () => {
+	it.each([
+		{
+			name: 'canonical slug from the Settings index',
+			routeId: '/org/[orgId]/settings',
+			orgUrlSegment: 'test-org',
+			location: '/org/test-org'
+		},
+		{
+			name: 'UUID fallback from nested Settings',
+			routeId: '/org/[orgId]/settings/general',
+			orgUrlSegment: '11111111-1111-4111-8111-111111111111',
+			location: '/org/11111111-1111-4111-8111-111111111111'
+		}
+	])('redirects a suspended Organization to its existing root: $name', async ({ routeId, orgUrlSegment, location }) => {
 		await expect(
 			load({
-				params: { orgId: 'org-1' },
+				params: { orgId: '11111111-1111-4111-8111-111111111111' },
 				locals: {},
 				cookies: {},
-				route: { id: '/org/[orgId]/settings' },
+				route: { id: routeId },
 				parent: async () =>
 					createSuspendedAppShellRouteData({
-						orgId: 'org-1',
+						orgId: '11111111-1111-4111-8111-111111111111',
 						orgName: 'Test Org',
-						orgUrlSegment: 'test-org'
+						orgUrlSegment
 					})
 			} as never)
-		).rejects.toMatchObject({ status: 303, location: '/org/test-org/suspended' });
+		).rejects.toMatchObject({ status: 303, location });
 
 		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});

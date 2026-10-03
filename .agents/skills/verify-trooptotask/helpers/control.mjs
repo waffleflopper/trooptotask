@@ -615,6 +615,7 @@ async function main() {
 																				];
 		if (destination.startsWith('admin/') && !['admin/audit', 'admin/feedback'].includes(destination))
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
+		readyText = [...readyText, 'Account Suspended'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -1775,7 +1776,7 @@ async function main() {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe'].includes(action)) {
+		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)) {
 			const formActions = {
 				'settings/general/updateName': 'error',
 				'settings/general/updateSlug': 'slugError',
@@ -1787,6 +1788,7 @@ async function main() {
 					'audit-page',
 					'admin-suspend',
 					'admin-search',
+					'admin-transfer',
 					'notifications',
 					'organization/settings',
 					'rating-scheme',
@@ -1857,6 +1859,11 @@ async function main() {
 							: `/org/${organizationSegment}/api/${family}`;
 			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
 			if (family === 'admin-search') suffix = '/admin/api/search';
+			if (family === 'admin-transfer') {
+				const seed = (await saved()).platform;
+				if (!seed) throw new Error('Seed platform-admin first.');
+				suffix = `/admin/organizations/${seed.organization.id}`;
+			}
 			if (
 				action === 'arm-hold-fail' &&
 				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch'].includes(family)
@@ -1868,6 +1875,8 @@ async function main() {
 				throw new Error(
 					'Synthetic transport rejection is supported only for deletion review and Personnel bulk archival.'
 				);
+			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
+				throw new Error('Lost-response proof is supported only for platform mutation controls.');
 			const mode =
 				action === 'arm-hold-fail'
 					? 'hold-fail'
@@ -1877,9 +1886,11 @@ async function main() {
 							? 'hold'
 							: action === 'arm-reject'
 								? 'reject'
-								: 'observe';
-			const search = formAction ? `?/${formAction}` : null;
-			const failureField = formAction ? formActions[family] : null;
+								: action === 'arm-drop'
+									? 'drop-response'
+									: 'observe';
+			const search = family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null;
+			const failureField = family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-')) {

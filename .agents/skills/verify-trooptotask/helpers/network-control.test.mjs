@@ -11,6 +11,47 @@ function deferred() {
 	return { promise, resolve };
 }
 
+for (const mode of ['fail', 'hold', 'hold-fail', 'reject', 'observe']) {
+	test(`review ${mode} preserves the selected POST after non-POST requests`, async () => {
+		let ordinaryCalls = 0;
+		const page = {
+			fetch: async () => {
+				ordinaryCalls++;
+				return new Response('ordinary');
+			}
+		};
+		const suffix = '/org/a/api/deletion-requests/review';
+		installNetworkControl(page, { mode, ordinal: 1, suffix });
+		const nonPosts = [
+			page.fetch(suffix, { method: 'GET' }),
+			page.fetch(suffix, { method: 'HEAD' }),
+			page.fetch(new Request('http://localhost' + suffix, { method: 'POST' }), { method: 'GET' })
+		];
+		await new Promise(setImmediate);
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		for (const response of await Promise.all(nonPosts)) assert.equal(await response.text(), 'ordinary');
+		assert.equal(ordinaryCalls, 3);
+
+		const review = page.fetch(suffix, { method: 'post' });
+		if (mode === 'reject') {
+			await assert.rejects(review, TypeError);
+		} else {
+			let settled = false;
+			review.then(() => (settled = true));
+			await new Promise(setImmediate);
+			if (mode === 'hold' || mode === 'hold-fail') {
+				assert.equal(settled, false);
+				page.__mapNetwork.release();
+			}
+			assert.equal((await review).status, mode === 'fail' || mode === 'hold-fail' ? 503 : 200);
+		}
+		assert.equal(page.__mapNetwork.calls.length, 1);
+		assert.equal(page.__mapNetwork.calls[0].method, 'POST');
+		assert.equal((await page.fetch(suffix, { method: 'POST' })).status, 200);
+		assert.equal(ordinaryCalls, mode === 'hold' || mode === 'observe' ? 5 : 4);
+	});
+}
+
 test('review transport rejection affects one exact POST without dispatch or foreign interference', async () => {
 	let ordinaryCalls = 0;
 	const page = {

@@ -17,7 +17,10 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 		if (
 			parsedUrl.pathname !== control.suffix ||
 			(search !== null && parsedUrl.search !== search) ||
-			((search !== null || ['hold-fail', 'reject'].includes(control.mode)) && method !== 'POST')
+			((search !== null ||
+				control.suffix.endsWith('/deletion-requests/review') ||
+				['hold-fail', 'reject'].includes(control.mode)) &&
+				method !== 'POST')
 		)
 			return original(...input);
 		const call = { method, count: 0, ids: [], notes: [], status: null };

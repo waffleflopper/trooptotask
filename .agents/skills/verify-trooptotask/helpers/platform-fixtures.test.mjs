@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { seedPlatform, cleanPlatform } from './platform-fixtures.mjs';
+import { seedPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 
 const fixture = {
 	actors: Object.fromEntries(
@@ -153,6 +153,13 @@ test('cleanup removes its activity while retaining unrelated and earlier audit h
 				timestamp: '2026-10-03T00:01:00Z'
 			},
 			{
+				id: 'untracked-platform-event',
+				org_id: null,
+				resource_id: 'user-1',
+				action: 'suspend_user',
+				timestamp: '2026-10-03T00:02:00Z'
+			},
+			{
 				id: 'user-auth-event',
 				org_id: null,
 				resource_id: 'user-1',
@@ -216,14 +223,50 @@ test('cleanup removes its activity while retaining unrelated and earlier audit h
 			invitation: { id: 'invitation' },
 			link: { id: 'link' },
 			memberships: [{ user_id: 'user-1' }],
+			userAuditIds: ['platform-user-event'],
 			seededAt: '2026-10-03T00:00:00Z'
 		}
 	};
 	const result = await cleanPlatform({ client, fixture, ownedState, save: async () => {} });
-	assert.deepEqual(result.removedAuditIds, ['run-event', 'platform-user-event']);
+	assert.deepEqual(new Set(result.removedAuditIds), new Set(['run-event', 'platform-user-event']));
 	assert.deepEqual(
 		rows.audit_logs.map(({ id }) => id),
-		['unrelated-event', 'user-auth-event', 'earlier-platform-event']
+		['unrelated-event', 'untracked-platform-event', 'user-auth-event', 'earlier-platform-event']
 	);
 	assert.equal(ownedState.platform, undefined);
+});
+
+test('recording User audit IDs persists only the explicit observed event, not other matching history', async () => {
+	const observedId = '11111111-1111-4111-8111-111111111111';
+	const ownedState = { platform: { memberships: [{ user_id: 'user-1' }], seededAt: '2026-10-03T00:00:00Z' } };
+	let saved;
+	const query = { select: () => query, in: () => query, gte: async () => ({ data: [{ id: observedId }] }) };
+	await recordPlatformUserAudit({
+		client: { from: () => query },
+		ownedState,
+		ids: [observedId, observedId],
+		save: async (state) => {
+			saved = structuredClone(state);
+		}
+	});
+	assert.deepEqual(saved.platform.userAuditIds, [observedId]);
+});
+
+test('missing or out-of-scope audit acknowledgements cannot grant cleanup authority', async () => {
+	const ownedState = { platform: { memberships: [{ user_id: 'user-1' }], seededAt: '2026-10-03T00:00:00Z' } };
+	const query = { select: () => query, in: () => query, gte: async () => ({ data: [] }) };
+	let writes = 0;
+	await assert.rejects(
+		recordPlatformUserAudit({
+			client: { from: () => query },
+			ownedState,
+			ids: ['11111111-1111-4111-8111-111111111111'],
+			save: async () => {
+				writes++;
+			}
+		}),
+		/Every recorded/
+	);
+	assert.equal(writes, 0);
+	assert.equal(ownedState.platform.userAuditIds, undefined);
 });

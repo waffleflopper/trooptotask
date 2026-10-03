@@ -157,6 +157,41 @@ export async function readPlatform({ client, fixture, ownedState }) {
 	};
 }
 
+// Explicitly record observed User operation events; ambient history grants no deletion authority.
+export async function recordPlatformUserAudit({ client, ownedState, ids, save }) {
+	const seed = ownedState.platform;
+	if (!seed) throw new Error('Seed platform-admin first.');
+	if (
+		!Array.isArray(ids) ||
+		!ids.length ||
+		ids.some(
+			(id) => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+		)
+	)
+		throw new Error('Use exact observed audit UUIDs.');
+	const selectedIds = [...new Set(ids)];
+	const rows = checked(
+		await client
+			.from('audit_logs')
+			.select('id,action,resource_id,timestamp')
+			.in('id', selectedIds)
+			.in(
+				'resource_id',
+				seed.memberships.map(({ user_id }) => user_id)
+			)
+			.in('action', PLATFORM_USER_AUDIT_ACTIONS)
+			.gte('timestamp', seed.seededAt)
+	);
+	if (rows.length !== selectedIds.length || rows.some((row) => !selectedIds.includes(row.id)))
+		throw new Error('Every recorded event must be a current Platform operation on a seeded User.');
+	seed.userAuditIds = [...new Set([...(seed.userAuditIds ?? []), ...selectedIds])];
+	await save(ownedState);
+	return {
+		recordedUserAuditIds: selectedIds,
+		boundary: 'Explicitly observed operation IDs; no ambient User history is owned.'
+	};
+}
+
 export async function cleanPlatform({ client, fixture, ownedState, save }) {
 	const seed = ownedState.platform;
 	if (!seed) return;
@@ -172,7 +207,16 @@ export async function cleanPlatform({ client, fixture, ownedState, save }) {
 	);
 	if (suspended.length) throw new Error('Restore platform seed User suspensions before cleanup.');
 	const before = await readPlatform({ client, fixture, ownedState });
-	seed.auditIds = [...new Set([...(seed.auditIds ?? []), ...before.audit.map(({ id }) => id)])];
+	const ownedResources = [seed.organization.id, ...Object.values(seed.requests).map(({ id }) => id)];
+	seed.auditIds = [
+		...new Set([
+			...(seed.auditIds ?? []),
+			...(seed.userAuditIds ?? []),
+			...before.audit
+				.filter((row) => row.org_id === seed.organization.id || ownedResources.includes(row.resource_id))
+				.map(({ id }) => id)
+		])
+	];
 	await save(ownedState);
 	if (seed.auditIds.length) checked(await client.from('audit_logs').delete().in('id', seed.auditIds));
 	checked(
@@ -189,10 +233,15 @@ export async function cleanPlatform({ client, fixture, ownedState, save }) {
 	const retainedAudit = seed.auditIds.length
 		? checked(await client.from('audit_logs').select('id,org_id').in('id', seed.auditIds))
 		: [];
-	if (retainedAudit.length) throw new Error('Platform seed cleanup left recorded audit rows.');
-	after.removedAuditIds = seed.auditIds;
 	if (
-		['organization', 'memberships', 'requests', 'setupLinks', 'deliveries', 'invitations', 'links', 'audit'].some(
+		retainedAudit.length ||
+		after.audit.some((row) => row.org_id === seed.organization.id || ownedResources.includes(row.resource_id))
+	)
+		throw new Error('Platform seed cleanup left recorded audit rows.');
+	after.removedAuditIds = seed.auditIds;
+	after.retainedUserAuditIds = after.audit.map(({ id }) => id);
+	if (
+		['organization', 'memberships', 'requests', 'setupLinks', 'deliveries', 'invitations', 'links'].some(
 			(key) => after[key].length
 		)
 	)

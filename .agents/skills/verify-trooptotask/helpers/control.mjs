@@ -19,7 +19,7 @@ import { seedPersonnelRetention, readRetentionFiles } from './personnel-retentio
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
-import { seedPlatform, readPlatform, cleanPlatform } from './platform-fixtures.mjs';
+import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
@@ -208,6 +208,17 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'platform-audit') {
+		note(
+			await recordPlatformUserAudit({
+				client: await provider(),
+				ownedState: await saved(),
+				ids: JSON.parse(args[0] ?? 'null'),
+				save
+			})
+		);
+		return;
+	}
 	if (command === 'platform-state') {
 		note(await readPlatform({ client: await provider(), fixture, ownedState: await saved() }));
 		return;

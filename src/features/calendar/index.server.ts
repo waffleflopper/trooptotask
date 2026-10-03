@@ -38,7 +38,7 @@ export {
 	createSupabaseAssignmentTypeRetention,
 	type AssignmentTypeRetentionPort
 } from './assignmentTypeRetention.server';
-export { countCalendarCatalogsByOrganization } from './platformCatalogCounts.server';
+export { createCalendarSupportReader } from './platformCatalogCounts.server';
 export { listDailyAssignments, listDailyAssignmentExportRows } from './dailyAssignmentRead.server';
 export { createSupabaseCalendarAssignmentReplacementPort } from './dailyAssignmentPersistence.server';
 export {

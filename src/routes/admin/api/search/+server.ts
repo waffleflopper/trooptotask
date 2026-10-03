@@ -1,16 +1,12 @@
 import type { RequestHandler } from './$types';
-import { adminHandle, type AdminRouteConfig } from '$lib/server/adapters/adminAdapter';
-import { createSupabasePlatformAdministration } from '$lib/server/adapters/supabasePlatformAdministration';
-import type { PlatformAdministrationSearchResult } from '$lib/server/core/useCases/platformAdministration';
+import { error, json } from '@sveltejs/kit';
+import { createPlatformSearchOperations } from '$features/platform-admin/index.server';
 
-export const _getConfig: AdminRouteConfig<string, PlatformAdministrationSearchResult> = {
-	requiredRole: ['super_admin', 'support'],
-	parseInput: (event) => {
-		return event.url.searchParams.get('q') ?? '';
-	},
-	fn: async (ctx, rawQuery) => {
-		return createSupabasePlatformAdministration(ctx).search({ query: rawQuery });
+export const GET: RequestHandler = async (event) => {
+	const operations = await createPlatformSearchOperations(event);
+	try {
+		return json(await operations.search({ query: event.url.searchParams.get('q') ?? '' }));
+	} catch {
+		error(500, 'Unable to search platform records');
 	}
 };
-
-export const GET: RequestHandler = adminHandle(_getConfig);

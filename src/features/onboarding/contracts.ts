@@ -173,3 +173,5 @@ export interface OnboardingPacketCreationPort {
 	/** Save the new packet and all prepared steps together, or save neither. */
 	create(organizationId: string, input: OnboardingPacketCreationInput): Promise<OnboardingPacketCreationResult>;
 }
+
+export type { OnboardingSupportReader } from './supportReadTypes';

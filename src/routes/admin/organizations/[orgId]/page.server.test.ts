@@ -1,16 +1,11 @@
 import { isHttpError, type RequestEvent } from '@sveltejs/kit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { lookupRole, audit, getOrganizationDetail, command, authority } = vi.hoisted(() => ({
-	lookupRole: vi.fn(),
+const { audit, readOrganization, command, authority } = vi.hoisted(() => ({
 	audit: vi.fn(),
-	getOrganizationDetail: vi.fn(),
+	readOrganization: vi.fn(),
 	command: vi.fn(),
 	authority: { role: 'super_admin' as string | null, error: null as unknown }
-}));
-vi.mock('$lib/server/admin', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/admin')>()),
-	getAdminRole: lookupRole
 }));
 vi.mock('$lib/server/supabase', () => ({
 	getAdminClient: () => ({
@@ -27,10 +22,25 @@ vi.mock('$lib/server/supabase', () => ({
 }));
 vi.mock('$lib/audit/index.server', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/audit/index.server')>()),
-	auditLog: audit
+	auditLog: audit,
+	createSupabasePlatformAudit: () => ({ listRecentByOrganization: async () => detail().auditEvents })
 }));
-vi.mock('$lib/server/adapters/supabasePlatformOrganizationDetail', () => ({
-	createSupabasePlatformOrganizationDetail: () => ({ getOrganizationDetail })
+vi.mock('$features/organization/index.server', async (importOriginal) => {
+	const original = await importOriginal<typeof import('$features/organization/index.server')>();
+	return {
+		...original,
+		createOrganizationSupportReader: () => ({ getOrganizationById: readOrganization }),
+		createSupabaseOrganizationPlatformMembershipPort: (
+			...args: Parameters<typeof original.createSupabaseOrganizationPlatformMembershipPort>
+		) => ({
+			...original.createSupabaseOrganizationPlatformMembershipPort(...args),
+			listMembers: async () => detail().members
+		})
+	};
+});
+vi.mock('$features/personnel/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/personnel/index.server')>()),
+	createPersonnelSupportReader: () => ({ countActivePersonnelForOrganization: async () => 3 })
 }));
 import { actions, load } from './+page.server';
 const orgId = '11111111-1111-4111-8111-111111111111';
@@ -96,8 +106,12 @@ beforeEach(() => {
 	vi.resetAllMocks();
 	authority.role = 'super_admin';
 	authority.error = null;
-	lookupRole.mockResolvedValue('super_admin');
-	getOrganizationDetail.mockResolvedValue({ status: 'found', detail: detail() });
+	readOrganization.mockResolvedValue({
+		id: orgId,
+		name: 'Able Company',
+		suspended_at: null,
+		created_at: detail().org.createdAt
+	});
 	command.mockImplementation(async (name: string) => ({
 		error: null,
 		data:
@@ -115,34 +129,40 @@ beforeEach(() => {
 describe('admin organization detail load', () => {
 	it('rejects malformed organization IDs before reading detail', async () => {
 		await expect(loadDetail(event({}, 'not-a-uuid'))).rejects.toMatchObject({ status: 400 });
-		expect(getOrganizationDetail).not.toHaveBeenCalled();
+		expect(readOrganization).not.toHaveBeenCalled();
 	});
 
 	it('allows support to read retained identity, membership, suspension and audit data', async () => {
-		lookupRole.mockResolvedValue('support');
+		authority.role = 'support';
 		const suspended = detail();
 		suspended.org.suspendedAt = '2026-06-02T00:00:00.000Z';
 		suspended.org.isSuspended = true;
-		getOrganizationDetail.mockResolvedValue({ status: 'found', detail: suspended });
+		suspended.adminRole = 'support';
+		readOrganization.mockResolvedValue({
+			id: orgId,
+			name: suspended.org.name,
+			suspended_at: suspended.org.suspendedAt,
+			created_at: suspended.org.createdAt
+		});
 		expect(await loadDetail()).toEqual(suspended);
 	});
 
 	it('maps missing organization detail results to 404', async () => {
-		getOrganizationDetail.mockResolvedValue({ status: 'not_found' });
+		readOrganization.mockResolvedValue(null);
 		await expect(loadDetail()).rejects.toMatchObject({ status: 404 });
 	});
 
 	it('maps provider failures to a sanitized 500', async () => {
-		getOrganizationDetail.mockResolvedValue({ status: 'provider_error', message: 'database offline' });
+		readOrganization.mockRejectedValue(new Error('private database offline'));
 		const caught = await Promise.resolve(loadDetail()).catch((error: unknown) => error);
 		expect(isHttpError(caught, 500)).toBe(true);
 		expect(caught).toMatchObject({ body: { message: 'Failed to load organization detail' } });
 	});
 
 	it.each([null, 'billing'])('denies detail access for role %s before reading protected data', async (role) => {
-		lookupRole.mockResolvedValue(role);
+		authority.role = role;
 		await expect(loadDetail()).rejects.toMatchObject({ status: 403 });
-		expect(getOrganizationDetail).not.toHaveBeenCalled();
+		expect(readOrganization).not.toHaveBeenCalled();
 	});
 });
 

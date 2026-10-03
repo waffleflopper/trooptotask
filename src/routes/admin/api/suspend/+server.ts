@@ -1,16 +1,21 @@
 import type { RequestHandler } from './$types';
-import { error } from '@sveltejs/kit';
-import { adminHandle } from '$lib/server/adapters/adminAdapter';
-import { createSupabasePlatformAdministration } from '$lib/server/adapters/supabasePlatformAdministration';
+import { error, json } from '@sveltejs/kit';
+import { createPlatformSuspensionOperations } from '$features/platform-admin/index.server';
 
-export const POST: RequestHandler = adminHandle({
-	requiredRole: 'super_admin',
-	fn: async (ctx, body) => {
-		try {
-			return await createSupabasePlatformAdministration(ctx).updateSuspension(body);
-		} catch (cause) {
-			if (cause instanceof Error && 'status' in cause && cause.status === 400) error(400, cause.message);
-			throw cause;
-		}
+export const POST: RequestHandler = async (event) => {
+	const operations = await createPlatformSuspensionOperations(event);
+	let body: unknown;
+	try {
+		body = await event.request.json();
+	} catch {
+		error(400, 'Invalid JSON in request body');
 	}
-});
+	let result;
+	try {
+		result = await operations.updateSuspension(body);
+	} catch {
+		error(500, 'Could not confirm the suspension change. Reload details before trying again.');
+	}
+	if (result.status === 'invalid_input') error(400, result.message);
+	return json({ success: true });
+};

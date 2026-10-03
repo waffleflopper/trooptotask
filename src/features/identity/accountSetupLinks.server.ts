@@ -3,21 +3,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 import { addUtcDays } from './accountSetupDates';
 import { getAdminClient } from '$lib/server/supabase';
+import type { AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
+export type { AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
 
 export const ACCOUNT_SETUP_LINK_EXPIRY_DAYS = 14;
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
 const SETUP_LINK_SELECT =
 	'id, access_request_id, token_hash, expires_at, created_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason';
-
-export type AccountSetupLinkRevocationReason = 'manual' | 'replaced' | 'cleanup';
-export type AccountSetupLinkFailureReason =
-	| 'access-request-missing'
-	| 'access-request-completed'
-	| 'access-request-not-approved'
-	| 'account-create-failed'
-	| 'completion-tracking-failed'
-	| 'reconciled-no-write'
-	| 'operator-released';
 
 type AutomaticAccountSetupLinkFailureReason = Exclude<AccountSetupLinkFailureReason, 'operator-released'>;
 

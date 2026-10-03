@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import signal
 import subprocess
+import tempfile
 import tomllib
 from urllib.parse import urlsplit
 import uuid
@@ -44,12 +45,12 @@ def load_database(repository):
     return module
 
 
-def execute(command, directory, environment):
+def execute(command, directory, environment, *, suppress_diagnostic=False):
     result = subprocess.run(command, cwd=directory, env=environment, capture_output=True, text=True)
     if result.returncode:
         # The controlled psql command contains no provider tokens. Other outputs
         # (especially Supabase startup and Docker inspect) may contain credentials.
-        diagnostic = result.stderr[-4000:] if command[:2] == ["docker", "exec"] else "Credential-bearing provider output suppressed."
+        diagnostic = result.stderr[-4000:] if command[:2] == ["docker", "exec"] and not suppress_diagnostic else "Credential-bearing provider output suppressed."
         save(directory / "last-error.json", {"operation": command[:2], "exit": result.returncode, "diagnostic": diagnostic})
         raise Blocked(f"{command[0]} {command[1]} failed (exit {result.returncode}); inspect private provider/last-error.json, then retry cleanup.")
     return result.stdout
@@ -135,6 +136,248 @@ def status(session):
     return {"status": "PASS", "project": state["project"], "phase": "running", "ports": state["ports"]}
 
 
+REVIEW_FAILURE_PREFIX = "t2t_verify_review_fail_"
+REVIEW_FAILURE_FILE = "deletion-review-failure.json"
+REVIEW_SOURCE_TABLES = {
+    "personnel": "personnel", "training_type": "training_types",
+    "personnel_training": "personnel_trainings", "counseling_record": "counseling_records",
+    "rating_scheme_entry": "rating_scheme_entries",
+}
+
+
+def save_review_failure_receipt(session, control):
+    """Keep the previous complete ownership witness until its replacement is durable."""
+    descriptor, filename = tempfile.mkstemp(prefix=".deletion-review-failure-", suffix=".tmp", dir=session)
+    temporary = Path(filename)
+    try:
+        with os.fdopen(descriptor, "w") as output:
+            json.dump(control, output)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, session / REVIEW_FAILURE_FILE)
+        directory = os.open(session, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def canonical_uuid(value):
+    try:
+        if not isinstance(value, str) or str(uuid.UUID(value)) != value:
+            raise ValueError()
+    except ValueError:
+        raise Blocked("Use a canonical lowercase UUID for the synthetic request and target.") from None
+    return value
+
+
+def private_json(path):
+    if path.is_symlink() or path.resolve() != path:
+        raise Blocked("Verification control ownership file was replaced by a symlink.")
+    info = path.stat()
+    if not path.is_file() or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise Blocked("Verification control ownership files must be private and owned by you.")
+    return json.loads(path.read_text())
+
+
+def review_failure_definition(control):
+    return f"CHECK (((id <> '{control['request_id']}'::uuid) OR (status <> 'approved'::text))) NOT VALID"
+
+
+def review_failure_comment(control):
+    return f"{control['project']}:{control['nonce']}:{control['request_id']}"
+
+
+class ReviewFailureDatabase:
+    """Fixed operations on the verified disposable database; no caller SQL or DSN."""
+
+    def __init__(self, session):
+        status(session)
+        self.state, self.workdir, self.environment = owned(session)
+        records = containers(self.state, self.workdir, self.environment)
+        expected = f"/supabase_db_{self.state['project']}"
+        database = [item for item in records if item["Name"] == expected and item["State"]["Running"]]
+        if len(database) != 1 or database[0]["Id"] not in self.state.get("container_ids", []):
+            raise Blocked("The original owned database container is unavailable; refusing this control.")
+        self.container_id = database[0]["Id"]
+        self.project = self.state["project"]
+
+    def _execute(self, sql):
+        return execute(["docker", "exec", "-e", "PGPASSWORD=postgres", self.container_id,
+                        "psql", "-X", "-qAt", "-h", "127.0.0.1", "-p", "5432",
+                        "-U", "supabase_admin", "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-c", sql],
+                       self.workdir, self.environment, suppress_diagnostic=True)
+
+    def snapshot(self, request_id=None):
+        target = f"id = '{request_id}'::uuid" if request_id else "false"
+        output = self._execute(f"""
+            SET statement_timeout = '10s';
+            SELECT json_build_object(
+              'request', (SELECT row_to_json(request) FROM
+                (SELECT id, organization_id, resource_type, resource_id, status
+                 FROM public.deletion_requests WHERE {target}) AS request),
+              'constraints', (SELECT COALESCE(json_agg(row_to_json(control) ORDER BY control.name), '[]'::json)
+                FROM (SELECT conname AS name, contype AS type, convalidated AS validated,
+                             pg_get_constraintdef(oid, false) AS definition,
+                             obj_description(oid, 'pg_constraint') AS comment
+                      FROM pg_constraint WHERE conrelid = 'public.deletion_requests'::regclass
+                        AND left(conname, {len(REVIEW_FAILURE_PREFIX)}) = '{REVIEW_FAILURE_PREFIX}') AS control));
+        """)
+        return json.loads(output)
+
+    def arm(self, control):
+        # The lock repeats admission at the mutation boundary, closing the preflight race.
+        self._execute(f"""
+            BEGIN;
+            SET LOCAL lock_timeout = '5s';
+            SET LOCAL statement_timeout = '10s';
+            LOCK TABLE public.deletion_requests IN ACCESS EXCLUSIVE MODE;
+            DO $verification$ BEGIN
+              IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.deletion_requests'::regclass
+                         AND left(conname, {len(REVIEW_FAILURE_PREFIX)}) = '{REVIEW_FAILURE_PREFIX}') THEN
+                RAISE EXCEPTION 'A verification constraint already exists';
+              END IF;
+              IF NOT EXISTS (SELECT 1 FROM public.deletion_requests
+                WHERE id = '{control['request_id']}'::uuid AND organization_id = '{control['organization_id']}'::uuid
+                  AND resource_type = '{control['resource_type']}' AND resource_id = '{control['resource_id']}'::uuid
+                  AND status = 'pending') THEN
+                RAISE EXCEPTION 'The owned pending verification request changed';
+              END IF;
+            END $verification$;
+            ALTER TABLE public.deletion_requests ADD CONSTRAINT {control['constraint']}
+              CHECK (id <> '{control['request_id']}'::uuid OR status <> 'approved'::text) NOT VALID;
+            COMMENT ON CONSTRAINT {control['constraint']} ON public.deletion_requests
+              IS '{review_failure_comment(control)}';
+            COMMIT;
+        """)
+
+    def restore(self, control):
+        self._execute(f"""
+            BEGIN;
+            SET LOCAL lock_timeout = '5s';
+            SET LOCAL statement_timeout = '10s';
+            LOCK TABLE public.deletion_requests IN ACCESS EXCLUSIVE MODE;
+            DO $verification$ BEGIN
+              IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.deletion_requests'::regclass
+                         AND left(conname, {len(REVIEW_FAILURE_PREFIX)}) = '{REVIEW_FAILURE_PREFIX}'
+                         AND conname <> '{control['constraint']}') OR NOT EXISTS (
+                SELECT 1 FROM pg_constraint WHERE conrelid = 'public.deletion_requests'::regclass
+                  AND conname = '{control['constraint']}' AND contype = 'c' AND NOT convalidated
+                  AND pg_get_constraintdef(oid, false) = $definition${review_failure_definition(control)}$definition$
+                  AND obj_description(oid, 'pg_constraint') = '{review_failure_comment(control)}') THEN
+                RAISE EXCEPTION 'Verification constraint ownership changed';
+              END IF;
+            END $verification$;
+            ALTER TABLE public.deletion_requests DROP CONSTRAINT {control['constraint']};
+            COMMIT;
+        """)
+
+
+def review_failure_receipt(session, database):
+    path = session / REVIEW_FAILURE_FILE
+    if not path.exists() and not path.is_symlink():
+        return None
+    control = private_json(path)
+    if (control.get("version") != 1 or control.get("session") != str(session)
+            or control.get("project") != database.project or control.get("container_id") != database.container_id
+            or not isinstance(control.get("nonce"), str) or not re.fullmatch(r"[0-9a-f]{32}", control["nonce"])
+            or control.get("constraint") != REVIEW_FAILURE_PREFIX + control["nonce"]
+            or control.get("resource_type") not in REVIEW_SOURCE_TABLES
+            or control.get("phase") not in ("arming", "armed", "restoring")):
+        raise Blocked("Missing or foreign review-failure ownership; refusing to adopt or remove a constraint.")
+    for field in ("request_id", "organization_id", "resource_id"):
+        canonical_uuid(control.get(field))
+    return control
+
+
+def check_review_failure_constraints(snapshot, control):
+    constraints = snapshot["constraints"]
+    if not constraints:
+        return False
+    if (not control or len(constraints) != 1 or constraints[0].get("name") != control["constraint"]
+            or constraints[0].get("type") != "c" or constraints[0].get("validated") is not False
+            or constraints[0].get("definition") != review_failure_definition(control)
+            or constraints[0].get("comment") != review_failure_comment(control)):
+        raise Blocked("A foreign or changed verification constraint exists; refusing to adopt or remove it.")
+    return True
+
+
+def admit_review_failure_request(session, request):
+    if not request or request.get("status") != "pending":
+        raise Blocked("Use an existing pending request for a helper-owned deletion source.")
+    resource_type = request.get("resource_type")
+    if resource_type not in REVIEW_SOURCE_TABLES:
+        raise Blocked("The request has an unsupported verification source.")
+    canonical_uuid(request.get("resource_id"))
+    fixtures = private_json(session / "fixtures.json")
+    ledger = private_json(session / "verify-trooptotask-owned.json")
+    organizations = {canonical_uuid(fixtures["ids"][key]): key for key in ("orgA", "orgB")}
+    organization = organizations.get(request.get("organization_id"))
+    if not organization or not any(
+        isinstance(item, dict) and item.get("kind") == "deletion-sources" and item.get("organization") == organization
+        and item.get("table") == REVIEW_SOURCE_TABLES[resource_type] and isinstance(item.get("ids"), list)
+        and request["resource_id"] in item["ids"]
+        for item in ledger.get("seeded", [])
+    ):
+        raise Blocked("The request target is not a saved helper-owned deletion source in fixture A or B.")
+
+
+def deletion_review_failure(session, action, request_id=None):
+    if action not in ("arm", "restore", "state"):
+        raise Blocked("Use deletion-review-failure arm, restore or state.")
+    if request_id is not None:
+        canonical_uuid(request_id)
+    if action == "arm" and request_id is None:
+        raise Blocked("Arming requires the exact synthetic pending request UUID.")
+    database = ReviewFailureDatabase(session)
+    control = review_failure_receipt(session, database)
+    if control and request_id is not None and request_id != control["request_id"]:
+        raise Blocked("Restore the saved review-failure control before targeting another request.")
+    snapshot = database.snapshot(control["request_id"] if control else request_id)
+    armed = check_review_failure_constraints(snapshot, control)
+    restored = False
+    if action == "arm":
+        request = snapshot["request"]
+        if not request or request.get("id") != request_id:
+            raise Blocked("The exact synthetic pending request was not returned; refusing this target.")
+        admit_review_failure_request(session, request)
+        if control and any(request[field] != control[field] for field in ("organization_id", "resource_type", "resource_id")):
+            raise Blocked("The saved review-failure target changed; restore the control first.")
+        if not control:
+            nonce = uuid.uuid4().hex
+            control = {"version": 1, "session": str(session), "project": database.project,
+                       "container_id": database.container_id, "nonce": nonce,
+                       "constraint": REVIEW_FAILURE_PREFIX + nonce, "request_id": request_id,
+                       "organization_id": request["organization_id"], "resource_type": request["resource_type"],
+                       "resource_id": request["resource_id"], "phase": "arming"}
+        # Retain the receipt if installation or its readback is interrupted.
+        control["phase"] = "arming"
+        save_review_failure_receipt(session, control)
+        if not armed:
+            database.arm(control)
+        armed = check_review_failure_constraints(database.snapshot(control["request_id"]), control)
+        if not armed:
+            raise Blocked("Review-failure installation was not confirmed; restore this session's control.")
+        control["phase"] = "armed"
+        save_review_failure_receipt(session, control)
+    elif action == "restore" and control:
+        control["phase"] = "restoring"
+        save_review_failure_receipt(session, control)
+        if armed:
+            database.restore(control)
+            restored = True
+        if check_review_failure_constraints(database.snapshot(control["request_id"]), control):
+            raise Blocked("The owned review-failure constraint remains; retry restoration.")
+        (session / REVIEW_FAILURE_FILE).unlink()
+        armed = False
+    return {"status": "PASS", "armed": armed, "restored": restored,
+            "phase": control["phase"] if control and action != "restore" else "clear",
+            "target": {key: control[key] for key in ("request_id", "organization_id", "resource_type", "resource_id")}
+            if control else None}
+
+
 def create(session, repository, origin):
     if (session / "environment.json").exists() or (session / "provider").exists():
         raise Blocked("This session already has provider state; use status or cleanup, never adopt it.")
@@ -218,10 +461,17 @@ def main():
     new.add_argument("origin")
     for command in ("status", "cleanup"):
         subcommands.add_parser(command).add_argument("session")
+    failure = subcommands.add_parser("deletion-review-failure", help="Control one helper-owned synthetic review status failure")
+    failure.add_argument("session")
+    failure.add_argument("action", choices=("arm", "restore", "state"))
+    failure.add_argument("request_id", nargs="?")
     args = parser.parse_args()
     try:
         session = private_session(args.session)
-        result = create(session, args.repository, args.origin) if args.command == "create" else globals()[args.command](session)
+        if args.command == "deletion-review-failure":
+            result = deletion_review_failure(session, args.action, args.request_id)
+        else:
+            result = create(session, args.repository, args.origin) if args.command == "create" else globals()[args.command](session)
         print(json.dumps(result))
     except Exception as error:
         message = str(error) if isinstance(error, Blocked) else "Provider prerequisite or ownership check failed; check local tooling and the private session marker, then retry cleanup."

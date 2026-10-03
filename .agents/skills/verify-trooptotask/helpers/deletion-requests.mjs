@@ -149,3 +149,25 @@ export async function requestDeletion(target, { origin, orgId, action, body }) {
 	});
 	return { request: { method, path, submitted: body }, status: response.status, body: await response.text() };
 }
+
+// Separate ordinary HTTP proof for the existing Personnel bulk delivery endpoint.
+export async function requestPersonnelArchiveBatch(target, { origin, orgId, ids }) {
+	if (target.location.origin !== origin) throw new Error('Use an owned app page');
+	const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+	if (
+		!uuid.test(orgId) ||
+		!Array.isArray(ids) ||
+		ids.length === 0 ||
+		ids.some((id) => typeof id !== 'string' || !uuid.test(id))
+	)
+		throw new Error('Use a fixture Organization and a nonempty array of Personnel UUIDs');
+	const path = `/org/${orgId}/api/personnel/archive-batch`;
+	const body = { ids };
+	const response = await target.fetch(path, {
+		method: 'POST',
+		redirect: 'manual',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body)
+	});
+	return { request: { method: 'POST', path, submitted: body }, status: response.status, body: await response.text() };
+}

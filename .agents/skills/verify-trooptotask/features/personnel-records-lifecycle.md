@@ -23,7 +23,7 @@ Choose `Personnel` in the Organization navigation. Use `Add Person`, a named row
 
 ## Driving it with verify:app
 
-Preparation status: **source-mapped**. These instructions specify expected outcomes; they do not establish that any path passed. Keep actual baseline, failed, final and unrun observations separate in the run evidence.
+Preparation status: **source-mapped**. These instructions specify expected outcomes; they do not establish that any path passed. Keep actual baseline, failed, final and unrun observations separate in the run evidence. The [Deletion Requests recipe](deletion-requests.md#driving-it-with-verifyapp) owns D18's cross-feature bulk failure/partial/retry and late Organization-switch proof: unconfirmed batches retain selected recovery work, acknowledged archival/approval IDs are not resent, and failed IDs remain available for explicit retry. Configure archival and operator approval-required batches remain separate outcomes; late cascade/provider failures still fail the whole command for deliberate replay.
 
 Preconditions: owned launch and `doctor` pass for this checkout; use the index's `WORKER`, `V`, fresh snapshots and evidence directory. `$V fixture` identifies Organizations A/B, Alpha/Bravo, original Person IDs and current dates. Run `$V seed personnel-lifecycle` once and preserve its output: `tag`, `name` (`MapLifecycle<tag>`), `duplicateName` (`MapDuplicate<tag>`), `ids`, and `archivedAt` (`2026-08-01T12:00:00.000Z`). Its `person` is active Alpha/SPC/Synthetic/68W/Medic; duplicateAlpha and duplicateBravo share rank/name in different Groups, while archivedDuplicate has the same name and is already archived. All start with null ETS/DEROS. Do not rename these match fixtures before the backfill scenario.
 

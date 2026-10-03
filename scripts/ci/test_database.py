@@ -96,6 +96,83 @@ with tempfile.TemporaryDirectory() as directory:
                 self.assertTrue(receipt.path.exists())
                 self.assertTrue(workdir.exists())
 
+    def test_generated_cli_test_runner_cleanup_preserves_unowned_resources(self):
+        cases = (
+            ('ecr', 'public.ecr.aws/supabase/pg_prove:3.36', None, True),
+            ('setup-cli mirror', 'ghcr.io/supabase/pg_prove:3.36', None, True),
+            ('other version', 'public.ecr.aws/supabase/pg_prove:3.37', None, False),
+            ('other registry', 'registry.invalid/supabase/pg_prove:3.36', None, False),
+            ('other owner', 'public.ecr.aws/supabase/pg_prove:3.36', 'label', False),
+            ('unowned attachment', 'public.ecr.aws/supabase/pg_prove:3.36', 'attachment', False),
+        )
+        for case, image, mismatch, allowed in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                environment = {'RUNNER_TEMP': str(root), 'GITHUB_RUN_ID': '123', 'GITHUB_RUN_ATTEMPT': '1',
+                               'GITHUB_JOB': 'database', 'GITHUB_REPOSITORY': 'example/synthetic'}
+                view = root / 'processes'
+                view.mkdir()
+                with patch.dict(os.environ, environment), patch.object(database, 'PROC_ROOT', view):
+                    workdir, receipt = self.make_receipt(root)
+                    labels = {'com.supabase.cli.project': workdir.name, 'com.docker.compose.project': workdir.name}
+                    runner_labels = {**labels, 'com.docker.compose.project': 'existing-local'} if mismatch == 'label' else labels
+                    db_id, test_id, sentinel_id = 'a' * 64, 'b' * 64, 'c' * 64
+                    resources = {
+                        'container': [
+                            {'Id': db_id, 'Name': '/supabase_db_' + workdir.name, 'Config': {'Labels': labels}},
+                            {'Id': test_id, 'Name': '/relaxed_archimedes', 'Config': {'Labels': runner_labels, 'Image': image}},
+                            {'Id': sentinel_id, 'Name': '/supabase_db_existing-local', 'Config': {'Labels': {'com.supabase.cli.project': 'existing-local'}}},
+                        ],
+                        'volume': [{'Name': 'supabase_db_' + workdir.name, 'Labels': labels}],
+                        'network': [{'Name': 'supabase_network_' + workdir.name, 'Labels': labels,
+                                     'Containers': {db_id: {'Name': 'supabase_db_' + workdir.name},
+                                                    test_id: {'Name': 'relaxed_archimedes'},
+                                                    **({sentinel_id: {'Name': 'supabase_db_existing-local'}} if mismatch == 'attachment' else {})}}],
+                    }
+                    saved = json.loads(json.dumps(resources))
+
+                    def docker_model(command, _cwd, **_kwargs):
+                        if '--filter' in command:
+                            kind = 'container' if command[1] == 'ps' else command[1]
+                            key, value = command[command.index('--filter') + 1].split('=', 1)
+                            selected = [x for x in resources[kind] if (value in x['Name'] if key == 'name'
+                                        else (x['Config']['Labels'] if kind == 'container' else x['Labels']).get(value.split('=', 1)[0]) == value.split('=', 1)[1])]
+                            stdout = '\n'.join(x['Id'] if kind == 'container' else x['Name'] for x in selected)
+                        elif command[:1] == ['docker'] and command[2] == 'inspect':
+                            kind = command[1]
+                            stdout = json.dumps([x for x in resources[kind] if (x['Id'] if kind == 'container' else x['Name']) in command[3:]])
+                        elif command[:3] == ['docker', 'rm', '--force']:
+                            resources['container'][:] = [x for x in resources['container'] if x['Id'] not in command[3:]]
+                            for network in resources['network']:
+                                for identity in command[3:]:
+                                    network['Containers'].pop(identity, None)
+                            stdout = ''
+                        elif command[:2] == ['supabase', 'stop']:
+                            self.assertTrue(any(x['Id'] == db_id for x in resources['container']), 'Database must reach its scoped graceful stop')
+                            if any(x['Id'] == test_id for x in resources['container']):
+                                raise RuntimeError('Test runner was not removed by its discovered identity')
+                            for kind in resources:
+                                resources[kind][:] = [x for x in resources[kind] if (x['Config']['Labels'] if kind == 'container' else x['Labels']).get('com.supabase.cli.project') != workdir.name]
+                            stdout = ''
+                        else:
+                            self.fail(str(command))
+                        return subprocess.CompletedProcess(command, 0, stdout=stdout)
+
+                    with patch.object(database, 'run', docker_model):
+                        if allowed:
+                            database.cleanup_owned_projects(receipt, producer_may_run=True)
+                        else:
+                            with self.assertRaises(ValueError):
+                                database.cleanup_owned_projects(receipt, producer_may_run=True)
+                    if allowed:
+                        self.assertEqual(resources, {'container': [saved['container'][2]], 'volume': [], 'network': []})
+                        self.assertFalse(receipt.path.exists())
+                        self.assertFalse(workdir.exists())
+                    else:
+                        self.assertEqual(resources, saved)
+                        self.assertTrue(receipt.path.exists())
+                        self.assertTrue(workdir.exists())
+
     def test_interrupted_directory_removal_resumes_after_deleted_cwd_writer_stops(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

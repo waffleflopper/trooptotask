@@ -28,6 +28,8 @@ EXCLUDED_SERVICES = (
 # Matches Supabase CLI 2.101.0's pgTAP runner. Unlike `test db <file>`,
 # mounting the copied tree lets migration tests resolve relative psql includes.
 PG_PROVE_IMAGE = "public.ecr.aws/supabase/pg_prove:3.36"
+# Pinned setup-cli also supports the same image through its GHCR mirror.
+PG_PROVE_IMAGES = (PG_PROVE_IMAGE, "ghcr.io/" + PG_PROVE_IMAGE.split('/', 1)[1])
 ACCOUNT_SETUP_UPGRADE_MIGRATIONS = (
     "20260923000100_guard_account_setup_claims.sql",
     "20260923000200_release_account_setup_claim_for_staff.sql",
@@ -215,7 +217,7 @@ class JobReceipt:
 
 
 def owned_resources(execute, workdir, project_id):
-    resources = {}
+    resources = {'testContainer': []}
     for kind, command in (('container', ['docker', 'ps', '-a', '--no-trunc']),
                           ('volume', ['docker', 'volume', 'ls']),
                           ('network', ['docker', 'network', 'ls'])):
@@ -236,18 +238,21 @@ def owned_resources(execute, workdir, project_id):
             if identity not in ids:
                 raise ValueError('Docker inspection returned another resource')
             labels = item.get('Config', {}).get('Labels', {}) if kind == 'container' else item.get('Labels', {})
-            if (not name.startswith('supabase_') or not name.endswith('_' + project_id)
+            canonical_name = name.startswith('supabase_') and name.endswith('_' + project_id)
+            test_runner = kind == 'container' and item.get('Config', {}).get('Image') in PG_PROVE_IMAGES
+            if ((not canonical_name and not test_runner)
                     or labels.get('com.supabase.cli.project') != project_id
                     or labels.get('com.docker.compose.project') != project_id):
                 raise ValueError('Docker resource does not match the exact owned project')
+            if test_runner:
+                resources['testContainer'].append(identity)
             if kind == 'container':
                 print(json.dumps({'project': project_id, 'container': name,
                                   'imageId': item.get('Image'), 'image': item.get('Config', {}).get('Image'),
                                   'hostMachine': os.uname().machine}), flush=True)
             if kind == 'network':
-                for identity, attachment in item.get('Containers', {}).items():
-                    if (identity not in resources['container'] or not attachment['Name'].startswith('supabase_')
-                            or not attachment['Name'].endswith('_' + project_id)):
+                for identity in item.get('Containers', {}):
+                    if identity not in resources['container']:
                         raise ValueError('Owned network contains an unrelated container')
     return resources
 
@@ -286,9 +291,8 @@ def cleanup_owned_projects(receipt, *, producer_may_run=False):
             if any(resources.values()):
                 raise RuntimeError('Docker resources reappeared after verified cleanup')
         else:
-            runner = f"supabase_pgprove_{project['id']}"
-            if resources['container']:
-                execute(['docker', 'rm', '--force', runner], workdir, quiet=True, check=False)
+            for identity in resources['testContainer']:
+                execute(['docker', 'rm', '--force', identity], workdir, quiet=True, check=False)
             if any(resources.values()):
                 execute(['supabase', 'stop', '--project-id', project['id'], '--no-backup'], workdir)
             if any(owned_resources(execute, workdir, project['id']).values()):

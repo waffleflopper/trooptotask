@@ -1209,6 +1209,7 @@ export function createTestContext(
 		signInRosterFileWrites: createInMemorySignInRosterFileWritePort(storagePort),
 		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
+		organizationRawExport: { listRows: (orgId, table) => rawStore.findMany(table, orgId) },
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),

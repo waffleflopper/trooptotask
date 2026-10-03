@@ -42,6 +42,7 @@ import {
 } from '$features/notifications/index.server';
 import {
 	createSupabaseOrganizationSettingsReader,
+	createSupabaseOrganizationRawExportReader,
 	createSupabaseOrganizationPolicyWritePort,
 	createSupabaseOrganizationAdministratorRecipients,
 	createSupabaseFeedbackOrganizationContextPort
@@ -410,6 +411,7 @@ async function buildContextInternal(event: RequestEvent): Promise<BuildContextRe
 			audit,
 			calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 			organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
+			organizationRawExport: createSupabaseOrganizationRawExportReader(supabase),
 			organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
 
 			notifications,
@@ -523,6 +525,7 @@ export async function buildLayoutContext(
 		audit,
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 		organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
+		organizationRawExport: createSupabaseOrganizationRawExportReader(supabase),
 		organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
 
 		notifications,
@@ -624,6 +627,7 @@ export async function buildLayoutContextFromMembership(
 		audit,
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
 		organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
+		organizationRawExport: createSupabaseOrganizationRawExportReader(supabase),
 		organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
 
 		notifications,

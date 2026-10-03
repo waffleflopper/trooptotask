@@ -28,3 +28,13 @@ export interface OrganizationSettingsInput {
 	lossWarningWindowDays?: number;
 	personnelDocumentStorageCapMb?: number;
 }
+
+export interface OrganizationRetentionConfiguration {
+	id: string;
+	retentionMonths?: number | null;
+}
+
+/** Separate maintenance authority; ordinary settings readers cannot enumerate Organizations. */
+export interface OrganizationRetentionSettingsReader {
+	listConfigurations(): Promise<OrganizationRetentionConfiguration[]>;
+}

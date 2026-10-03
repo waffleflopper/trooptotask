@@ -7,6 +7,7 @@
 import type { OnboardingRetentionStore } from './onboardingRetentionPorts.server';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { retentionCutoff } from '$lib/utils/retentionCutoff';
+import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from '$features/organization/contracts';
 
 interface OnboardingRetentionPorts {
 	store: OnboardingRetentionStore;
@@ -21,7 +22,6 @@ interface OnboardingRow {
 	cancelled_at: string | null;
 }
 
-const DEFAULT_ONBOARDING_RETENTION_MONTHS = 36;
 const MIN_ONBOARDING_RETENTION_MONTHS = 1;
 
 export interface OnboardingRetentionOrgConfig {
@@ -46,7 +46,7 @@ function chunksOf<T>(items: T[], size: number): T[][] {
 
 function normalizeRetentionMonths(retentionMonths: number | null | undefined): number {
 	if (retentionMonths == null || !Number.isFinite(retentionMonths) || retentionMonths <= 0) {
-		return DEFAULT_ONBOARDING_RETENTION_MONTHS;
+		return DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	}
 	return Math.max(MIN_ONBOARDING_RETENTION_MONTHS, retentionMonths);
 }

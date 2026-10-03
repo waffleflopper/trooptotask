@@ -10,6 +10,7 @@ import type { DataStore } from '../ports';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createTestAuthContext, createTestContext } from '$lib/server/adapters/inMemory';
+import { createSupabaseOrganizationRawExportReader } from '$features/organization/index.server';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
 import { createSupabaseNotificationStore, listNotificationExportRows } from '$features/notifications/index.server';
 import type { Notification } from '$features/notifications/contracts';
@@ -21,11 +22,7 @@ import {
 	listTrainingViewExportRows
 } from '$features/training/index.server';
 
-import {
-	loadOrganizationExportPayload,
-	ORGANIZATION_EXPORT_QUERY_BATCH_SIZE,
-	ORGANIZATION_EXPORT_SECTIONS
-} from './organizationExport';
+import { loadOrganizationExportPayload, ORGANIZATION_EXPORT_SECTIONS } from './organizationExport';
 
 const trainingExport = {
 	listTrainingTypeExportRows,
@@ -42,22 +39,26 @@ describe('organization export inventory', () => {
 		expect(keys.filter((key) => reservedPayloadKeys.has(key))).toEqual([]);
 	});
 
-	it('caps concurrent organization table reads while building the export payload', async () => {
+	it('starts Organization reads with their batch siblings and caps concurrent reads at twelve', async () => {
 		let activeReads = 0;
 		let maxActiveReads = 0;
-		let calls = 0;
+		const started = new Set<string>();
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
 		const store = {
 			async findMany(table: string) {
-				calls += 1;
+				started.add(table);
 				activeReads += 1;
 				maxActiveReads = Math.max(maxActiveReads, activeReads);
-				await new Promise((resolve) => setTimeout(resolve, 0));
+				await gate;
 				activeReads -= 1;
 				return [{ table }];
 			}
 		} as Pick<DataStore, 'findMany'> as DataStore;
 
-		const payload = await loadOrganizationExportPayload(
+		const pending = loadOrganizationExportPayload(
 			store,
 			createTestAuthContext({ orgId: 'org-1' }),
 			{
@@ -74,14 +75,25 @@ describe('organization export inventory', () => {
 				listNotificationExportRows: () => store.findMany('notifications', 'org-1'),
 				listFeedbackExportRows: () => store.findMany<FeedbackExportRow>('beta_feedback', 'org-1')
 			},
-			{ listRatingSchemeExportRows }
+			{ listRatingSchemeExportRows },
+			{ listRows: (orgId, table) => store.findMany(table, orgId) }
 		);
 
-		expect(calls).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
-		expect(maxActiveReads).toBeLessThanOrEqual(ORGANIZATION_EXPORT_QUERY_BATCH_SIZE);
-		expect(payload.sectionInventory.length).toBe(ORGANIZATION_EXPORT_SECTIONS.length);
-		expect(payload.sectionInventory[0]).toHaveProperty('areaKey');
-		expect(typeof payload.sectionInventory[0]?.areaKey).toBe('string');
+		for (const table of [
+			'organizations',
+			'organization_memberships',
+			'organization_invitations',
+			'organization_invitation_email_outbox',
+			'access_request_organization_invitation_links',
+			'notifications'
+		])
+			expect(started.has(table)).toBe(true);
+		expect(activeReads).toBe(12);
+		release();
+		const payload = await pending;
+		expect(maxActiveReads).toBeLessThanOrEqual(12);
+		expect(payload.organizationProfile).toEqual([{ table: 'organizations' }]);
+		expect(payload.memberships).toEqual([{ table: 'organization_memberships' }]);
 	});
 });
 
@@ -195,7 +207,8 @@ function communicationsProvider(platformAdministrator = false) {
 				listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
 				listFeedbackExportRows: () => listFeedbackExportRows(client, ctx.auth.orgId)
 			},
-			{ listRatingSchemeExportRows }
+			{ listRatingSchemeExportRows },
+			ctx.organizationRawExport
 		);
 	return { state, load, notifications, feedbackRows };
 }
@@ -551,7 +564,8 @@ describe('retained Organization export projection', () => {
 					}),
 				listFeedbackExportRows: () => listFeedbackExportRows(client, actor.orgId)
 			},
-			{ listRatingSchemeExportRows }
+			{ listRatingSchemeExportRows },
+			createSupabaseOrganizationRawExportReader(client)
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');

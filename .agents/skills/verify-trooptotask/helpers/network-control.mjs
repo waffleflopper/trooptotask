@@ -17,19 +17,33 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 		if (
 			parsedUrl.pathname !== control.suffix ||
 			(search !== null && parsedUrl.search !== search) ||
-			((search !== null || control.mode === 'hold-fail') && method !== 'POST')
+			((search !== null ||
+				control.suffix.endsWith('/deletion-requests/review') ||
+				['hold-fail', 'reject'].includes(control.mode)) &&
+				method !== 'POST')
 		)
 			return original(...input);
 		const call = { method, count: 0, ids: [], notes: [], status: null };
 		try {
-			const records = JSON.parse(init?.body ?? '{}').records ?? [];
+			const body = JSON.parse(init?.body ?? '{}');
+			const records = body.records ?? [];
 			call.count = records.length;
 			call.ids = records.map((row) => row.personnelId);
 			call.notes = [...new Set(records.map((row) => row.note))];
+			if (control.suffix.endsWith('/deletion-requests/review'))
+				call.review = {
+					id: typeof body.id === 'string' ? body.id : null,
+					action: typeof body.action === 'string' ? body.action : null,
+					denialReason: typeof body.denialReason === 'string' ? body.denialReason : null
+				};
 		} catch {
 			// GET requests and non-JSON bodies have no batch record details.
 		}
 		const requestNumber = control.calls.push(call);
+		if (control.mode === 'reject' && requestNumber === control.ordinal) {
+			call.failure = 'transport';
+			throw new TypeError('Synthetic network rejection');
+		}
 		if (['fail', 'hold-fail'].includes(control.mode) && requestNumber === control.ordinal) {
 			call.status = 503;
 			const body = failureField

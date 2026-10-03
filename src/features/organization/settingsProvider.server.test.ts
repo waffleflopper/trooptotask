@@ -10,7 +10,12 @@ const OTHER = '22222222-2222-4222-8222-222222222222';
 
 function fixture(value: number | null | 'missing' | 'failure', missingCount = false) {
 	const requests: { method: string; select: string | null }[] = [];
-	const columns = ['archive_retention_months', 'loss_warning_window_days', 'personnel_document_storage_cap_bytes'];
+	const columns = [
+		'archive_retention_months',
+		'loss_warning_window_days',
+		'training_readiness_goal_percent',
+		'personnel_document_storage_cap_bytes'
+	];
 	const rows: { id: string; [field: string]: unknown }[] = [
 		{ id: ORG, ...Object.fromEntries(columns.map((column) => [column, value])) },
 		{ id: OTHER, ...Object.fromEntries(columns.map((column) => [column, 99])) }
@@ -55,13 +60,14 @@ describe('Organization runtime settings with the actual SDK', () => {
 		expect(requests).toEqual([]);
 		expect(await reader.findPolicies(ORG.toUpperCase())).toEqual({
 			archiveRetentionMonths: 0,
-			lossWarningWindowDays: 0
+			lossWarningWindowDays: 0,
+			trainingReadinessGoalPercent: 0
 		});
 		expect(await reader.findArchiveRetentionMonths(ORG)).toBe(0);
 		expect(await reader.findLossWarningWindowDays(ORG)).toBe(0);
 		expect(await reader.findStorageCapBytes(ORG)).toBe(0);
 		expect(requests.map((request) => request.select?.split(',').map((column) => column.trim()))).toEqual([
-			['archive_retention_months', 'loss_warning_window_days'],
+			['archive_retention_months', 'loss_warning_window_days', 'training_readiness_goal_percent'],
 			['archive_retention_months'],
 			['loss_warning_window_days'],
 			['personnel_document_storage_cap_bytes']
@@ -83,6 +89,7 @@ describe('Organization runtime settings with the actual SDK', () => {
 			const data = await loadPoliciesSettings({ auth: ctx.auth, organizationSettings: reader }, { isAdmin: false });
 			expect(data.sections.policies.archiveRetention.savedMonths).toBe(36);
 			expect(data.sections.policies.lossWarning.savedDays).toBe(180);
+			expect(data.sections.policies.trainingReadinessGoal.savedPercent).toBe(90);
 			expect(await loadPersonnelDocumentStorageCapBytes(reader, ORG)).toBe(104857600);
 		}
 	);

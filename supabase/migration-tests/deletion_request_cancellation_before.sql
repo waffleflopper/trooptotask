@@ -76,7 +76,7 @@ FROM (VALUES
 CREATE VIEW upgrade_fixture.deletion_request_cancellation_current_rows AS
 SELECT 'auth.users'::text table_name,id::text row_id,to_jsonb(r) row_data
   FROM auth.users r WHERE id::text LIKE 'd1803000-%'
-UNION ALL SELECT 'organizations',id::text,to_jsonb(r) FROM public.organizations r WHERE id::text LIKE 'd1803000-%'
+UNION ALL SELECT 'organizations',id::text,to_jsonb(r) - 'training_readiness_goal_percent' FROM public.organizations r WHERE id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE organization_id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'personnel',id::text,to_jsonb(r) FROM public.personnel r WHERE id::text LIKE 'd1803000-%'
 UNION ALL SELECT 'counseling_records',id::text,to_jsonb(r) FROM public.counseling_records r WHERE id::text LIKE 'd1803000-%'

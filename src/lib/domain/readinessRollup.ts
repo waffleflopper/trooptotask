@@ -35,8 +35,9 @@
  *     denominator; the ICT MOS×category matrix reports null ("not
  *     applicable"). The type parameter `Z` propagates this, so callers
  *     configured with `0` get `percent: number` and never null-check.
- *   - `readyStates` — Training ready = current ONLY; ICT ready = current OR
- *     expiring-soon.
+ *   - `readyStates` — no longer a divergence: Training (current, warning-yellow,
+ *     warning-orange) and ICT (current, expiring-soon) both count current and
+ *     expiring as ready. Each feature still names its own opaque states.
  *   - `inapplicableStates` — counted in stateCounts, excluded from applicable
  *     and ready. Keep disjoint from readyStates; on overlap, inapplicable wins.
  *

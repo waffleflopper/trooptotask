@@ -677,7 +677,7 @@ describe('dated report filtering and workbook contract', () => {
 		};
 		const report = await fetchTrainingReportPage(ctx, input);
 
-		expect(report.dashboard.readinessPercent).toBe(25);
+		expect(report.dashboard.readinessPercent).toBe(50);
 		expect(report.dashboard.statusCounts).toEqual({
 			current: 1,
 			warningYellow: 0,

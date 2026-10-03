@@ -82,13 +82,13 @@ function buildTrainingMap(trainings: PersonnelTraining[]): Map<string, Personnel
 }
 
 /**
- * Training's Readiness Rollup convention: ready = current ONLY (warning states
- * are applicable but not ready), exempt/not-required cells stay visible in
+ * Training's Readiness Rollup convention: current and warning states are ready.
+ * Exempt/not-required cells stay visible in
  * stateCounts without entering the denominator, and an empty denominator
  * reports 0% (the ICT matrix diverges to null — see CONTEXT.md).
  */
 const TRAINING_ROLLUP: ReadinessTallyConfig<TrainingStatus, 0> = {
-	readyStates: ['current'],
+	readyStates: ['current', 'warning-yellow', 'warning-orange'],
 	inapplicableStates: ['not-required', 'exempt'],
 	zeroApplicablePercent: 0
 };
@@ -97,7 +97,7 @@ const TRAINING_ROLLUP: ReadinessTallyConfig<TrainingStatus, 0> = {
 // never 100 − compliance: rounding makes the two figures non-complementary.
 const TRAINING_NON_COMPLIANCE: ReadinessTallyConfig<TrainingStatus, 0> = {
 	...TRAINING_ROLLUP,
-	readyStates: ['warning-yellow', 'warning-orange', 'expired', 'not-completed']
+	readyStates: ['expired', 'not-completed']
 };
 
 /** Required (non-optional) Training Report Matrix cells as Readiness Rollup facts. */

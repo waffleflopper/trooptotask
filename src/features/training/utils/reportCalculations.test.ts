@@ -402,7 +402,7 @@ describe('filters control both dashboard and detail table', () => {
 });
 
 describe('dated required-cell readiness contract', () => {
-	it('uses current cells only and excludes optional and inapplicable cells from all denominators', () => {
+	it('counts current and expiring cells as ready and excludes optional and inapplicable cells from all denominators', () => {
 		const personnel = [
 			makePerson({ id: 'able', groupId: 'alpha', groupName: 'Alpha', mos: '68W' }),
 			makePerson({ id: 'baker', groupId: 'bravo', groupName: 'Bravo', mos: '11B' }),
@@ -451,9 +451,9 @@ describe('dated required-cell readiness contract', () => {
 			expired: 1,
 			notCompleted: 1
 		});
-		expect(dashboard.readinessPercent).toBe(25);
+		expect(dashboard.readinessPercent).toBe(50);
 		expect(dashboard.groupComparison).toEqual([
-			{ groupId: 'alpha', groupName: 'Alpha', readinessPercent: 50 },
+			{ groupId: 'alpha', groupName: 'Alpha', readinessPercent: 100 },
 			{ groupId: 'bravo', groupName: 'Bravo', readinessPercent: 0 },
 			{ groupId: 'unassigned', groupName: 'Unassigned', readinessPercent: 0 }
 		]);
@@ -469,11 +469,60 @@ describe('dated required-cell readiness contract', () => {
 			}))
 		).toEqual([
 			{ id: 'required', current: 1, expired: 1, warningOrange: 0, notCompleted: 1, applicable: 3, complianceRate: 33 },
-			{ id: 'targeted', current: 0, expired: 0, warningOrange: 1, notCompleted: 0, applicable: 1, complianceRate: 0 }
+			{ id: 'targeted', current: 0, expired: 0, warningOrange: 1, notCompleted: 0, applicable: 1, complianceRate: 100 }
 		]);
 		const rows = buildPivotTableFromMatrix(matrix);
 		expect(rows[0].cells.get('optional')?.status).toBe('expired');
 		expect(rows[0].cells.get('targeted')?.date).toBe('2026-10-14');
 		expect(rows[1].cells.get('targeted')?.status).toBe('not-required');
+	});
+
+	it('treats both warning states as ready and only expired or missing required cells as not ready', () => {
+		const person = makePerson({ id: 'able', mos: '68W' });
+		const types = [
+			makeType({ id: 'current', name: 'Current' }),
+			makeType({ id: 'yellow', name: 'Yellow' }),
+			makeType({ id: 'orange', name: 'Orange' }),
+			makeType({ id: 'expired', name: 'Expired' }),
+			makeType({ id: 'missing', name: 'Missing' }),
+			makeType({ id: 'exempt', name: 'Exempt', canBeExempted: true, exemptPersonnelIds: ['able'] }),
+			makeType({ id: 'other-mos', name: 'Other MOS', appliesToMos: ['11B'] }),
+			makeType({ id: 'optional', name: 'Optional', isOptional: true })
+		];
+		const record = (trainingTypeId: string, expirationDate: string) =>
+			makeTraining({
+				id: trainingTypeId,
+				personnelId: 'able',
+				trainingTypeId,
+				completionDate: '2025-09-29',
+				expirationDate
+			});
+		const trainings = [
+			record('current', '2027-09-22'),
+			record('yellow', '2026-11-13'),
+			record('orange', '2026-10-14'),
+			record('expired', '2026-09-28')
+		];
+
+		const dashboard = computeReadinessDashboard([person], types, trainings);
+
+		expect(dashboard.statusCounts).toEqual({
+			current: 1,
+			warningYellow: 1,
+			warningOrange: 1,
+			expired: 1,
+			notCompleted: 1
+		});
+		expect(dashboard.readinessPercent).toBe(60);
+		expect(dashboard.worstTypes.map((type) => type.typeId)).toEqual(['expired', 'missing']);
+		expect(dashboard.typeBreakdown.map((type) => [type.typeId, type.applicable, type.complianceRate])).toEqual([
+			['current', 1, 100],
+			['yellow', 1, 100],
+			['orange', 1, 100],
+			['expired', 1, 0],
+			['missing', 1, 0],
+			['exempt', 0, 0],
+			['other-mos', 0, 0]
+		]);
 	});
 });

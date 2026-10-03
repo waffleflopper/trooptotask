@@ -187,8 +187,16 @@ Whether a dated requirement is current, expiring, expired, or not recorded as of
 _Avoid_: Readiness, compliance
 
 **Readiness**:
-The proportion of applicable requirements counted as ready: Training counts `current`; Critical Tasks counts `current` and `expiring-soon`. Optional Training Types are excluded from readiness even when selected for report detail.
+The proportion of applicable requirements counted as ready. Both Training and Critical Tasks count current and expiring requirements as ready: Training counts `current`, `warning-yellow` and `warning-orange`; Critical Tasks counts `current` and `expiring-soon`. Optional Training Types are excluded from readiness even when selected for report detail.
 _Avoid_: Currency Status
+
+**Readiness goal**:
+An Organization's target Training readiness, a whole-number percent from 1 to 100 that defaults to 90. The planned Training Reports forecast will use it for goal lines and heat-map bands. Current reports do not consume the goal.
+_Avoid_: Readiness threshold, which names the separate Critical Tasks constant
+
+**Lapse**:
+The date a ready requirement becomes expired; the first day it is no longer ready.
+_Avoid_: Expiration date
 
 **Onboarding**:
 The feature for template-driven in-processing workflows and progress tracking.

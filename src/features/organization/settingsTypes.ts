@@ -1,6 +1,7 @@
 export interface OrganizationPolicySettings {
 	archiveRetentionMonths?: number | null;
 	lossWarningWindowDays?: number | null;
+	trainingReadinessGoalPercent: number;
 }
 
 /** Organization-owned facts; construction never reads the provider. */
@@ -15,6 +16,7 @@ export interface OrganizationSettingsReader {
 export interface OrganizationPolicyChanges {
 	archiveRetentionMonths?: number;
 	lossWarningWindowDays?: number;
+	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapBytes?: number;
 }
 
@@ -26,6 +28,7 @@ export interface OrganizationPolicyWritePort {
 export interface OrganizationSettingsInput {
 	archiveRetentionMonths?: number;
 	lossWarningWindowDays?: number;
+	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapMb?: number;
 }
 

@@ -6,6 +6,7 @@ describe('Organization policy state', () => {
 		const state = createSettingsPoliciesState({
 			archiveRetention: { savedMonths: 36, constraints: { min: 1, max: 120, unit: 'months' } },
 			lossWarning: { savedDays: 180, constraints: { min: 1, max: 365, unit: 'days' } },
+			trainingReadinessGoal: { savedPercent: 90, constraints: { min: 1, max: 100, unit: 'percent' } },
 			canUpdateRetention: true
 		});
 

@@ -1,4 +1,4 @@
-import type { DeleteResult } from '$lib/utils/deletionRequests';
+import type { DeleteResult } from './ports';
 import { createReactiveCollection, createReactiveValue } from './reactiveState.svelte';
 import { createMutationLog } from './mutationLog.svelte';
 import type { MutationLog } from './mutationLog.svelte';

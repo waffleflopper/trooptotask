@@ -1,2 +1,8 @@
-// Delivery composes source-feature deletion with the existing request workflow.
-export { submitDeletionRequest } from '$lib/utils/deletionRequests';
+export { submitDeletionRequest } from './submitDeletionRequest';
+export type {
+	DeletionRequest,
+	DeletionRequestApproval,
+	DeletionRequestStatus,
+	DeletionRequestResourceType,
+	PendingDeletionRequestSummary
+} from './contracts';

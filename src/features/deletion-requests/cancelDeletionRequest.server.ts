@@ -1,27 +1,23 @@
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
-import { TABLE, AUDIT_RESOURCE } from './deletionRequestSupport.server';
+import { AUDIT_RESOURCE } from './deletionRequestSupport.server';
+import type { DeletionRequestStore } from './contracts.server';
 
 export interface DeletionRequestCancellationPort {
 	cancelPendingRequest(organizationId: string, requestId: string): Promise<void>;
 }
 
-interface CancellationContext {
+export interface DeletionRequestCancellationContext {
 	auth: Parameters<typeof requireIdentityOwnedPolicy>[0]['auth'] & { orgId: string };
 	audit: NonNullable<Parameters<typeof requireIdentityOwnedPolicy>[0]['audit']>;
-	store: {
-		findOne<T>(table: 'deletion_requests', orgId: string, filters: Record<string, unknown>): Promise<T | null>;
-	};
+	store: Pick<DeletionRequestStore, 'findPendingById'>;
 	cancellation: DeletionRequestCancellationPort;
 }
 
 /** Keep request history; cancellation never applies the requested source effect. */
-export async function cancelDeletionRequest(ctx: CancellationContext, requestId: string): Promise<void> {
-	const request = await ctx.store.findOne<{ requested_by: string | null }>(TABLE, ctx.auth.orgId, {
-		id: requestId,
-		status: 'pending'
-	});
+export async function cancelDeletionRequest(ctx: DeletionRequestCancellationContext, requestId: string): Promise<void> {
+	const request = await ctx.store.findPendingById(ctx.auth.orgId, requestId);
 	if (!request) fail(404, 'Pending deletion request not found');
 
 	await requireIdentityOwnedPolicy(

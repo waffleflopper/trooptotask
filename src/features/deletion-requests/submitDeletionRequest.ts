@@ -1,7 +1,5 @@
 import { toastStore } from '$lib/stores/toast.svelte';
 
-export type DeleteResult = 'deleted' | 'approval_required' | 'error';
-
 /**
  * After a store's remove() returns 'approval_required', call this to
  * create the deletion request on the server and show a toast.
@@ -44,26 +42,4 @@ export async function submitDeletionRequest(
 		toastStore.error(`Failed to submit ${action} request.`);
 		return false;
 	}
-}
-
-export async function loadPendingDeletions(orgId: string): Promise<Set<string>> {
-	try {
-		const response = await fetch(`/org/${orgId}/api/deletion-requests?status=pending`);
-		if (response.ok) {
-			const requests = await response.json();
-			return new Set(requests.map((r: { resource_id: string }) => r.resource_id));
-		}
-	} catch {
-		// Ignore errors
-	}
-	return new Set();
-}
-
-export async function cancelDeletionRequest(orgId: string, requestId: string): Promise<boolean> {
-	const response = await fetch(`/org/${orgId}/api/deletion-requests`, {
-		method: 'DELETE',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ id: requestId })
-	});
-	return response.ok;
 }

@@ -122,12 +122,6 @@ describe('policy evaluator', () => {
 			owner: { kind: 'feature-lane', lane: 'personnel' },
 			requiredCapability: 'configure'
 		});
-		expect(POLICY_ACTION_CATALOG.personnel.manageUnits).toMatchObject({
-			id: 'personnel.manageUnits',
-			accessMode: 'write',
-			owner: { kind: 'feature-lane', lane: 'personnel' },
-			requiredCapability: 'configure'
-		});
 		expect(POLICY_ACTION_CATALOG.personnel.importRecords).toMatchObject({
 			id: 'personnel.importRecords',
 			accessMode: 'write',

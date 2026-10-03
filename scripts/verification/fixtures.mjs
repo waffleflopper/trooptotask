@@ -211,6 +211,13 @@ export async function seed(session) {
 		platformReviewer: { organization: null },
 		platformSupport: { organization: null }
 	};
+	const deletionActors = {
+		deletionRequester: { organization: 'orgA', role: 'member', scope: 'organization', level: 'operate' },
+		deletionPeer: { organization: 'orgA', role: 'member', scope: 'organization', level: 'view' },
+		deletionScoped: { organization: 'orgA', role: 'member', scope: 'groups', groups: [ids.groupA], level: 'operate' },
+		deletionReviewer: { organization: 'orgA', role: 'admin', scope: 'organization', level: 'none' },
+		deletionForeign: { organization: 'orgB', role: 'admin', scope: 'organization', level: 'none' }
+	};
 	const notificationActors = {
 		notificationMember: { organization: 'orgA' },
 		notificationOther: { organization: 'orgA' },
@@ -234,7 +241,8 @@ export async function seed(session) {
 		...Object.keys(onboardingActors),
 		...Object.keys(ratingSchemeActors),
 		...Object.keys(organizationActors),
-		...Object.keys(notificationActors)
+		...Object.keys(notificationActors),
+		...Object.keys(deletionActors)
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
 		const { user } = checked(await service.auth.admin.createUser({ email, password, email_confirm: true }));
@@ -251,6 +259,7 @@ export async function seed(session) {
 					onboardingActors[role]?.organization ??
 					ratingSchemeActors[role]?.organization ??
 					notificationActors[role]?.organization ??
+					deletionActors[role]?.organization ??
 					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
 	}
@@ -323,17 +332,19 @@ export async function seed(session) {
 		const ratingScheme = ratingSchemeActors[role];
 		const organization = organizationActors[role];
 		const notification = notificationActors[role];
+		const deletion = deletionActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
 				...(organizationMembershipIds[role] ? { id: organizationMembershipIds[role] } : {}),
 				organization_id: ids[actor.organization],
 				user_id: actor.id,
 				...(organization ? { email: actor.email } : {}),
-				role: organization?.role ?? calendar?.role ?? 'member',
+				role: organization?.role ?? calendar?.role ?? deletion?.role ?? 'member',
 				member_preset: 'viewer',
 				capability_overrides: {
 					personnel:
 						organization?.personnel ??
+						deletion?.level ??
 						onboarding?.personnel ??
 						(criticalTasks || onboarding || ratingScheme || notification
 							? 'none'
@@ -342,13 +353,14 @@ export async function seed(session) {
 								training?.personnel ??
 								(role === 'manager' ? 'configure' : 'view'))),
 					calendar: calendar?.calendar ?? 'none',
-					training: training?.training ?? 'none',
+					training: training?.training ?? deletion?.level ?? 'none',
 					criticalTasks: criticalTasks?.criticalTasks ?? 'none',
 					onboarding: onboarding?.onboarding ?? training?.onboarding ?? 'none',
-					ratingScheme: ratingScheme?.ratingScheme ?? 'none'
+					ratingScheme: ratingScheme?.ratingScheme ?? deletion?.level ?? 'none'
 				},
 				access_scope_kind:
 					organization?.scope ??
+					deletion?.scope ??
 					personnel?.scope ??
 					calendar?.scope ??
 					training?.scope ??
@@ -358,6 +370,7 @@ export async function seed(session) {
 					(role === 'scoped' ? 'groups' : 'organization'),
 				access_scope_group_ids:
 					organization?.groups ??
+					deletion?.groups ??
 					personnel?.groups ??
 					calendar?.groups ??
 					training?.groups ??
@@ -1154,7 +1167,8 @@ export async function seed(session) {
 		onboardingActors,
 		ratingSchemeActors,
 		organizationActors,
-		notificationActors
+		notificationActors,
+		deletionActors
 	};
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;

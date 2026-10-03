@@ -22,6 +22,7 @@ import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard } from './dashboard-fixtures.mjs';
 import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
+import { platformFormNetworkTarget } from './platform-network-target.mjs';
 import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
 import {
@@ -1783,6 +1784,7 @@ async function main() {
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
 		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)) {
+			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
 			const formActions = {
 				'settings/general/updateName': 'error',
 				'settings/general/updateSlug': 'slugError',
@@ -1834,6 +1836,7 @@ async function main() {
 					'critical-tasks/matrix/export'
 				].includes(family) &&
 				!Object.hasOwn(formActions, family) &&
+				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
@@ -1876,9 +1879,11 @@ async function main() {
 				if (!seed) throw new Error('Seed platform-admin first.');
 				suffix = `/admin/organizations/${seed.organization.id}`;
 			}
+			if (platformForm) suffix = platformForm.suffix;
 			if (
 				action === 'arm-hold-fail' &&
-				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch'].includes(family)
+				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch'].includes(family) &&
+				!platformForm
 			)
 				throw new Error(
 					'Delayed synthetic failure is supported only for Organization policies, deletion review and Personnel bulk archival.'
@@ -1901,9 +1906,13 @@ async function main() {
 								: action === 'arm-drop'
 									? 'drop-response'
 									: 'observe';
-			const search = family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null;
-			const failureField = family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null;
-			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField })})`;
+			const search =
+				platformForm?.search ??
+				(family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null);
+			const failureField =
+				platformForm?.failureField ?? (family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
+			const requestTarget = platformForm?.requestTarget ?? null;
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-')) {
 				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');

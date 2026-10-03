@@ -1,6 +1,9 @@
 // This function runs in the owned browser page. Keep it self-contained so
 // control.mjs can inject it through the native DevTools evaluation tool.
-export function installNetworkControl(target, { mode, ordinal, suffix, search = null, failureField = null }) {
+export function installNetworkControl(
+	target,
+	{ mode, ordinal, suffix, search = null, failureField = null, requestTarget = null, sameOrigin = false }
+) {
 	if (target.__mapNetwork) throw new Error('Restore the existing map network control first');
 	const original = target.fetch;
 	const control = { original, calls: [], release: null, mode, ordinal, suffix };
@@ -25,7 +28,18 @@ export function installNetworkControl(target, { mode, ordinal, suffix, search = 
 				method !== 'POST')
 		)
 			return original(...input);
+		if ((sameOrigin || requestTarget) && parsedUrl.origin !== new URL(target.location.href).origin)
+			return original(...input);
+		if (requestTarget) {
+			let body = init?.body;
+			if (body === undefined && typeof Request !== 'undefined' && url instanceof Request)
+				body = await url.clone().formData();
+			const fields = typeof body === 'string' ? new URLSearchParams(body) : body;
+			if (!fields || typeof fields.get !== 'function' || fields.get(requestTarget.field) !== requestTarget.value)
+				return original(...input);
+		}
 		const call = { method, count: 0, ids: [], notes: [], status: null };
+		if (requestTarget) call.formTarget = requestTarget.value;
 		try {
 			const body = JSON.parse(init?.body ?? '{}');
 			const records = body.records ?? [];

@@ -1,6 +1,6 @@
 import type { PlatformMetricsStore } from '../organizationSupportTypes';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createInMemoryPlatformMetricsStore } from './inMemoryMetrics.test-support';
+import { createInMemoryPlatformMetricsStore } from './inMemoryMetrics.test-support.server';
 import { createPlatformMetrics, displayOwnerMembership } from './metrics.server';
 
 function makeMetrics() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryPlatformMetricsStore } from './inMemoryMetrics.test-support';
-import { createInMemoryPlatformUserDirectorySources } from './inMemoryUserDirectory.test-support';
+import { createInMemoryPlatformMetricsStore } from './inMemoryMetrics.test-support.server';
+import { createInMemoryPlatformUserDirectorySources } from './inMemoryUserDirectory.test-support.server';
 import { createPlatformUserDirectory } from './userDirectory.server';
 
 function createSubject(
@@ -93,6 +93,29 @@ describe('PlatformUserDirectory', () => {
 			authError: null,
 			users: [{ id: 'user-suspended', organizationCount: 1, isSuspended: true, emailConfirmationStatus: 'pending' }]
 		});
+	});
+
+	it('keeps distinct stable pages when tied accounts arrive in different provider orders', async () => {
+		const accounts = ['user-a', 'user-z', 'user-m'].map((id) => ({
+			id,
+			email: `${id}@example.test`,
+			createdAt: '2026-06-01T00:00:00.000Z',
+			lastSignInAt: null,
+			emailConfirmedAt: null
+		}));
+		const sources = createInMemoryPlatformUserDirectorySources({ authUsers: accounts });
+		let read = 0;
+		sources.identity.listAuthUsers = async () => ({
+			status: 'ok',
+			users: read++ === 0 ? accounts : [...accounts].reverse()
+		});
+		const directory = createPlatformUserDirectory({ ...sources, personnel: createInMemoryPlatformMetricsStore({}) });
+		const first = await directory.listUsers({ search: '', page: 1, limit: 2 });
+		const second = await directory.listUsers({ search: '', page: 2, limit: 2 });
+		expect(first.users.map((user) => user.id)).toEqual(['user-z', 'user-m']);
+		expect(second.users.map((user) => user.id)).toEqual(['user-a']);
+		expect(first.totalCount).toBe(3);
+		expect(second.totalCount).toBe(3);
 	});
 
 	it('surfaces auth-provider list failures without shaping stale rows', async () => {

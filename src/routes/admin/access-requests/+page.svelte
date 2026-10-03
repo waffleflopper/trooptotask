@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { beforeNavigate, invalidateAll } from '$app/navigation';
+	import { onDestroy } from 'svelte';
 	import type { SubmitFunction } from '@sveltejs/kit';
 	import { redirectToSensitiveActionStepUp } from '$features/identity';
 	import { Badge } from '$lib/components/ui/badge';
@@ -20,14 +22,72 @@
 	let { data, form } = $props();
 	let activeTab = $state<'pending' | 'reviewed'>('pending');
 	let loadingId = $state<string | null>(null);
+	let lifetime = $state(0);
+	let needsReload = $state(false);
+	let refreshing = $state(false);
+	let reloadError = $state<string | null>(null);
+	let reviewError = $state<string | null>(null);
+	const writesDisabled = $derived(loadingId !== null || needsReload || refreshing);
+
+	beforeNavigate(() => {
+		lifetime += 1;
+		loadingId = null;
+		needsReload = false;
+		refreshing = false;
+		reloadError = null;
+		reviewError = null;
+	});
+	onDestroy(() => {
+		lifetime += 1;
+	});
+
+	async function reloadRequests(expectedLifetime = lifetime, actorId = data.adminUserId) {
+		const isCurrent = () => lifetime === expectedLifetime && data.adminUserId === actorId;
+		if (!isCurrent()) return;
+		refreshing = true;
+		try {
+			await invalidateAll();
+			if (!isCurrent()) return;
+			if (!Array.isArray(data.pending) || !Array.isArray(data.reviewed)) throw new Error('Request state unavailable');
+			needsReload = false;
+			reloadError = null;
+		} catch {
+			if (isCurrent()) {
+				needsReload = true;
+				reloadError = 'Current requests could not be refreshed. Reload them before another review.';
+			}
+		} finally {
+			if (isCurrent()) refreshing = false;
+		}
+	}
 
 	const stepUpEnhance = (id: string): SubmitFunction => {
 		return () => {
+			const expectedLifetime = lifetime;
+			const actorId = data.adminUserId;
+			const isCurrent = () => lifetime === expectedLifetime && data.adminUserId === actorId;
 			loadingId = id;
+			reviewError = null;
 			return async ({ result, update }) => {
-				loadingId = null;
-				if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
-				await update();
+				if (!isCurrent()) return;
+				try {
+					if (result.type === 'failure' && redirectToSensitiveActionStepUp(result.data)) return;
+					needsReload = true;
+					if (result.type === 'error') {
+						reviewError = 'The review result could not be confirmed. Check current requests before trying again.';
+					} else {
+						await update({ invalidateAll: false });
+					}
+					if (!isCurrent() || result.type === 'redirect') return;
+					await reloadRequests(expectedLifetime, actorId);
+				} catch {
+					if (isCurrent()) {
+						needsReload = true;
+						reloadError = 'Current requests could not be refreshed. Reload them before another review.';
+					}
+				} finally {
+					if (isCurrent()) loadingId = null;
+				}
 			};
 		};
 	};
@@ -116,9 +176,18 @@
 		<PageShell.Metric label="Reviewed" value={data.reviewed.length} detail="Requests already processed and logged." />
 	</PageShell.FactGrid>
 
-	{#if form?.error}
+	{#if form?.error || reviewError}
 		<Alert.Root variant="destructive">
-			<Alert.Description>{form.error}</Alert.Description>
+			<Alert.Description>{reviewError ?? form?.error}</Alert.Description>
+		</Alert.Root>
+	{/if}
+	{#if needsReload}
+		<Alert.Root variant="destructive">
+			<Alert.Description>{reloadError ?? 'Check current requests before another review.'}</Alert.Description>
+			<Button variant="outline" disabled={refreshing || loadingId !== null} onclick={() => reloadRequests()}>
+				{#if refreshing}<Spinner />{/if}
+				Reload requests
+			</Button>
 		</Alert.Root>
 	{/if}
 
@@ -166,14 +235,14 @@
 							<div class="flex flex-wrap gap-2 md:justify-end">
 								<form method="POST" action="?/approve" use:enhance={stepUpEnhance(`${req.id}-approve`)}>
 									<input type="hidden" name="requestId" value={req.id} />
-									<Button type="submit" disabled={loadingId !== null}>
+									<Button type="submit" disabled={writesDisabled}>
 										{#if loadingId === `${req.id}-approve`}<Spinner />{/if}
 										Approve
 									</Button>
 								</form>
 								<form method="POST" action="?/reject" use:enhance={stepUpEnhance(`${req.id}-reject`)}>
 									<input type="hidden" name="requestId" value={req.id} />
-									<Button type="submit" variant="destructive" disabled={loadingId !== null}>
+									<Button type="submit" variant="destructive" disabled={writesDisabled}>
 										{#if loadingId === `${req.id}-reject`}<Spinner />{/if}
 										Reject
 									</Button>
@@ -276,7 +345,7 @@
 							{#if req.status === 'approved' && canSendSetup(req)}
 								<form method="POST" action="?/resend" use:enhance={stepUpEnhance(`${req.id}-resend`)}>
 									<input type="hidden" name="requestId" value={req.id} />
-									<Button type="submit" variant="outline" disabled={loadingId !== null}>
+									<Button type="submit" variant="outline" disabled={writesDisabled}>
 										{#if loadingId === `${req.id}-resend`}<Spinner />{/if}
 										{setupActionLabel(req.setup_state)}
 									</Button>

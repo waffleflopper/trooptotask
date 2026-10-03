@@ -11,13 +11,14 @@ function storeWithFetch(fetch: typeof globalThis.fetch) {
 	);
 }
 
-function organizationStore() {
-	const rows = [
+function organizationStore(
+	rows = [
 		{ id: 'old-active', name: 'Able Clinic', suspended_at: null, created_at: '2026-06-01' },
 		{ id: 'suspended', name: 'Able Support', suspended_at: '2026-09-01', created_at: '2026-08-01' },
 		{ id: 'new-active', name: 'Able Company', suspended_at: null, created_at: '2026-09-01' },
 		{ id: 'other', name: 'Baker Company', suspended_at: null, created_at: '2026-09-02' }
-	];
+	]
+) {
 	return storeWithFetch(async (input, init) => {
 		const request = new Request(input, init);
 		const url = new URL(request.url);
@@ -41,9 +42,15 @@ function organizationStore() {
 				(!suspension || (suspension === 'is.null' ? row.suspended_at === null : row.suspended_at !== null))
 			);
 		});
-		if (query.get('order') === 'created_at.desc') {
-			selected = selected.sort((a, b) => b.created_at.localeCompare(a.created_at));
-		}
+		const orders = (query.get('order') ?? '').split(',').filter(Boolean);
+		selected = selected.sort((a, b) => {
+			for (const order of orders) {
+				const [column, direction] = order.split('.');
+				const comparison = String(a[column as keyof typeof a]).localeCompare(String(b[column as keyof typeof b]));
+				if (comparison) return direction === 'desc' ? -comparison : comparison;
+			}
+			return 0;
+		});
 		const totalCount = selected.length;
 		const offset = Number(query.get('offset') ?? 0);
 		const limit = Number(query.get('limit') ?? selected.length);
@@ -60,6 +67,19 @@ function organizationStore() {
 }
 
 describe('Platform Organization Ledger provider boundary', () => {
+	it('keeps equally dated Organizations on distinct ordered pages', async () => {
+		const store = organizationStore([
+			{ id: 'a', name: 'First inserted', suspended_at: null, created_at: '2026-10-01' },
+			{ id: 'z', name: 'Highest ID', suspended_at: null, created_at: '2026-10-01' },
+			{ id: 'm', name: 'Middle ID', suspended_at: null, created_at: '2026-10-01' }
+		]);
+		const first = await store.listOrganizationsPage({ q: '', status: 'all', from: 0, to: 1 });
+		const second = await store.listOrganizationsPage({ q: '', status: 'all', from: 2, to: 3 });
+		expect(first.organizations.map((row) => row.id)).toEqual(['z', 'm']);
+		expect(second.organizations.map((row) => row.id)).toEqual(['a']);
+		expect(first.totalCount).toBe(3);
+		expect(second.totalCount).toBe(3);
+	});
 	it('searches names case-insensitively, orders newest first, and counts matches before pagination without commercial columns', async () => {
 		const store = organizationStore();
 		const page = await store.listOrganizationsPage({ q: 'aBlE', status: 'all', from: 1, to: 1 });

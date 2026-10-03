@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkPlatformAccessRequestSetupRateLimit } from './platformAccessRequestRateLimit';
-import { createSupabaseDurableRateLimitStore, type DurableRateLimitStore } from './durableRateLimit';
+import { checkPlatformAccessRequestSetupRateLimit } from './accessRequestRateLimit.server';
+import { createSupabaseDurableRateLimitStore, type DurableRateLimitStore } from '$lib/access/index.server';
 
 const now = new Date('2026-09-17T12:00:00Z');
 type Policy = {

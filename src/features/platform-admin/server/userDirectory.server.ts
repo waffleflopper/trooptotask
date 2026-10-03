@@ -37,7 +37,7 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 				? authUsersResult.users.filter((user) => user.email?.toLowerCase().includes(lowerSearch))
 				: authUsersResult.users;
 			const sortedUsers = [...filteredUsers].sort(
-				(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+				(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() || b.id.localeCompare(a.id)
 			);
 
 			const totalCount = sortedUsers.length;

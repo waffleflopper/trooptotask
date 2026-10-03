@@ -114,7 +114,8 @@ export function createOrganizationSupportReader(client: SupabaseClient): Organiz
 			let builder = client
 				.from('organizations')
 				.select(ORGANIZATION_COLUMNS, { count: 'exact' })
-				.order('created_at', { ascending: false });
+				.order('created_at', { ascending: false })
+				.order('id', { ascending: false });
 			if (query.q) builder = builder.ilike('name', `%${query.q}%`);
 			if (query.status === 'active') builder = builder.is('suspended_at', null);
 			else if (query.status === 'suspended') builder = builder.not('suspended_at', 'is', null);

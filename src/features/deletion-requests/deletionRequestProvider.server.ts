@@ -27,6 +27,7 @@ export function createSupabaseDeletionRequestStore(supabase: SupabaseClient): De
 				.eq('resource_type', resourceType)
 				.eq('resource_id', resourceId)
 				.eq('status', 'pending')
+				.limit(1)
 				.maybeSingle();
 			if (error) throw new Error(error.message);
 			return data as { id: string } | null;

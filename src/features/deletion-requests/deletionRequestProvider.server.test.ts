@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createDeletionRequest } from './createDeletionRequest.server';
 import { createSupabaseDeletionRequestStore } from './deletionRequestProvider.server';
 import { deletionRequestTestProvider, savedRequest } from './deletionRequestTestProvider.server';
 
@@ -11,6 +13,57 @@ const review = {
 };
 
 describe('ordinary deletion request provider', () => {
+	it('rejects creation without changing history when multiple visible pending rows already exist', async () => {
+		const ctx = createTestContext({
+			auth: { role: 'member', isPrivileged: false, capabilityMap: { personnel: 'operate' } }
+		});
+		const rows = ['first', 'second'].map((id) =>
+			savedRequest(id, {
+				organization_id: ctx.auth.orgId,
+				requested_by: ctx.auth.userId,
+				resource_type: 'personnel',
+				resource_id: 'person'
+			})
+		);
+		const provider = deletionRequestTestProvider(rows, ctx.auth.userId);
+		const store = createSupabaseDeletionRequestStore(provider.client);
+		await expect(
+			createDeletionRequest(
+				{ ...ctx, store },
+				{
+					resourceType: 'personnel',
+					resourceId: 'person',
+					resourceDescription: 'Saved person',
+					userEmail: 'member@example.test'
+				}
+			)
+		).rejects.toMatchObject({ status: 409 });
+		expect(provider.state.rows).toEqual(rows);
+		expect(provider.state.calls.every((request) => request.method === 'GET')).toBe(true);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
+	it('propagates a pending-existence provider failure without inserting or reporting success', async () => {
+		const ctx = createTestContext();
+		const provider = deletionRequestTestProvider();
+		provider.state.failure = { method: 'GET', message: 'pending lookup unavailable' };
+		await expect(
+			createDeletionRequest(
+				{ ...ctx, store: createSupabaseDeletionRequestStore(provider.client) },
+				{
+					resourceType: 'personnel',
+					resourceId: 'person',
+					resourceDescription: 'Saved person',
+					userEmail: 'member@example.test'
+				}
+			)
+		).rejects.toThrow('pending lookup unavailable');
+		expect(provider.state.rows).toEqual([]);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
 	it('returns only an exact matching pending tuple, retaining concealed/foreign/terminal rows', async () => {
 		const provider = deletionRequestTestProvider(
 			[

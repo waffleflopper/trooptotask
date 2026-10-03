@@ -2,7 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { restorePersonnelRecord } from '$features/personnel/index.server';
 import { archivePersonnelBatch as deliverArchivePersonnelBatch } from './personnelArchiveBatchDelivery';
-import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
+import { createSupabaseDeletionRequestStore } from '$features/deletion-requests/index.server';
+import {
+	createDeletionRequestTestStore,
+	deletionRequestTestProvider,
+	savedRequest
+} from '$features/deletion-requests/testing.server';
 
 const archivePersonnelBatch = (
 	ctx: ReturnType<typeof createTestContext>,
@@ -26,6 +31,35 @@ function freshCopies(store: TestDataStore): TestDataStore {
 }
 
 describe('Personnel — archive batch', () => {
+	it('acknowledges an already-pending target with multiple visible rows without creating requests or archiving', async () => {
+		const ctx = createTestContext({
+			auth: { role: 'member', isPrivileged: false, capabilityMap: { personnel: 'operate' } }
+		});
+		const person = { id: 'person', organization_id: ctx.auth.orgId, group_id: null, archived_at: null };
+		ctx.store.seed('personnel', [person]);
+		const rows = ['first', 'second'].map((id) =>
+			savedRequest(id, {
+				organization_id: ctx.auth.orgId,
+				requested_by: ctx.auth.userId,
+				resource_type: 'personnel',
+				resource_id: person.id
+			})
+		);
+		const provider = deletionRequestTestProvider(rows, ctx.auth.userId);
+		await expect(
+			deliverArchivePersonnelBatch(
+				ctx,
+				{ ids: [person.id], userEmail: 'member@example.test' },
+				createSupabaseDeletionRequestStore(provider.client)
+			)
+		).resolves.toEqual({ archivedIds: [], approvalRequestedIds: [person.id], errors: [] });
+		expect(provider.state.rows).toEqual(rows);
+		expect(provider.state.calls.every((request) => request.method === 'GET')).toBe(true);
+		expect(await ctx.store.findOne('personnel', ctx.auth.orgId, { id: person.id })).toEqual(person);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+	});
+
 	it('acknowledges an empty batch without reading candidates or producing effects', async () => {
 		const ctx = createTestContext();
 		ctx.store = {

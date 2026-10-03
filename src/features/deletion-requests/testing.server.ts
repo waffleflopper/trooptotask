@@ -1,6 +1,8 @@
 import type { DeletionRequest } from './contracts';
 import type { DeletionRequestStore } from './contracts.server';
 
+export { deletionRequestTestProvider, savedRequest } from './deletionRequestTestProvider.server';
+
 interface SyntheticRequestRows {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
 	findMany<T>(

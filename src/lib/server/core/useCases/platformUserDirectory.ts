@@ -132,20 +132,6 @@ async function readArrayOrEmpty<T>(
 	}
 }
 
-async function readNullableOrNull<T>(
-	context: string,
-	label: string,
-	logError: (message: string, error: unknown) => void,
-	read: () => Promise<T | null>
-) {
-	try {
-		return await read();
-	} catch (error) {
-		logError(`${context} Failed to read ${label}:`, error);
-		return null;
-	}
-}
-
 export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependencies): PlatformUserDirectory {
 	const logError = deps.logError ?? ((message, error) => console.error(message, error));
 	const logContext = '[admin/users]';
@@ -180,7 +166,7 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 				readArrayOrEmpty(logContext, 'organization membership counts', logError, () =>
 					deps.store.listMembershipUserIds(userIds)
 				),
-				readArrayOrEmpty(logContext, 'user suspension states', logError, () => deps.store.listSuspendedUserIds(userIds))
+				deps.store.listSuspendedUserIds(userIds)
 			]);
 			const membershipCounts = countMembershipsByUserId(membershipUserIds);
 			const suspendedUserIdSet = new Set(suspendedUserIds);
@@ -212,7 +198,7 @@ export function createPlatformUserDirectory(deps: PlatformUserDirectoryDependenc
 				readArrayOrEmpty(logContext, 'user organization memberships', logError, () =>
 					deps.store.listMembershipsForUser(userId)
 				),
-				readNullableOrNull(logContext, 'user suspension state', logError, () => deps.store.getSuspensionForUser(userId))
+				deps.store.getSuspensionForUser(userId)
 			]);
 			const organizationIds = memberships
 				.map((membership) => membership.organization?.id)

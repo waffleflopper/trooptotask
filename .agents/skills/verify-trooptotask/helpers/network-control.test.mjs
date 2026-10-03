@@ -263,3 +263,28 @@ test('restoring while a provider response is pending leaves no held request', as
 	assert.equal(await response.text(), 'saved provider result');
 	assert.equal(control.release, null);
 });
+
+test('lost response preserves real dispatch while isolating the exact platform action and requiring no automatic retry', async () => {
+	let writes = 0;
+	const suffix = '/admin/organizations/11111111-1111-4111-8111-111111111111';
+	const page = {
+		fetch: async (url, init) => {
+			if (String(url) === `${suffix}?/transferOwnership` && init?.method === 'POST') writes++;
+			return Response.json({ success: true }, { headers: { 'Set-Cookie': 'private-session' } });
+		}
+	};
+	installNetworkControl(page, { mode: 'drop-response', ordinal: 1, suffix, search: '?/transferOwnership' });
+	await page.fetch(`${suffix}?/makeAdmin`, { method: 'POST' });
+	await page.fetch('/admin/organizations/22222222-2222-4222-8222-222222222222?/transferOwnership', { method: 'POST' });
+	await page.fetch(`${suffix}?/transferOwnership`, { method: 'GET' });
+	assert.equal(writes, 0);
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	await assert.rejects(page.fetch(`${suffix}?/transferOwnership`, { method: 'POST' }), TypeError);
+	assert.equal(writes, 1);
+	assert.equal(page.__mapNetwork.calls.length, 1);
+	assert.equal(page.__mapNetwork.calls[0].status, 200);
+	assert.equal(page.__mapNetwork.calls[0].failure, 'response');
+	assert.ok(!JSON.stringify(page.__mapNetwork.calls).includes('private-session'));
+	assert.equal((await page.fetch(`${suffix}?/transferOwnership`, { method: 'POST' })).status, 200);
+	assert.equal(writes, 2);
+});

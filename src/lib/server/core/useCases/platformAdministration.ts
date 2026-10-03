@@ -48,13 +48,6 @@ export interface PlatformAdministrationSearchResult {
 	organizations: PlatformAdministrationOrganizationSearchResult[];
 }
 
-export interface PlatformAdministrationSuspensionCommand {
-	type: string;
-	targetId: string;
-	action: string;
-	reason?: string;
-}
-
 export interface PlatformAdministrationAuditEvent {
 	action: string;
 	resourceType: string;
@@ -94,7 +87,7 @@ export interface PlatformAdministrationDependencies {
 export interface PlatformAdministration {
 	dashboard(): Promise<PlatformAdministrationDashboard>;
 	search(input: { query: string }): Promise<PlatformAdministrationSearchResult>;
-	updateSuspension(input: PlatformAdministrationSuspensionCommand): Promise<{ success: true }>;
+	updateSuspension(input: unknown): Promise<{ success: true }>;
 }
 
 const SEARCH_MAX_RESULTS = 5;
@@ -107,27 +100,30 @@ function normalizePlatformAdministrationSearchQuery(query: string): string | nul
 	return sanitized;
 }
 
-function parseSuspensionCommand(input: PlatformAdministrationSuspensionCommand): {
+function parseSuspensionCommand(input: unknown): {
 	type: 'user' | 'org';
 	targetId: string;
 	action: 'suspend' | 'unsuspend';
 	reason?: string;
 } {
-	if (!['user', 'org'].includes(input.type)) {
+	if (!input || typeof input !== 'object' || Array.isArray(input)) fail(400, 'Invalid suspension command');
+	const command = input as Record<string, unknown>;
+	if (command.type !== 'user' && command.type !== 'org') {
 		fail(400, 'Invalid type');
 	}
-	if (!validateUUID(input.targetId)) {
+	if (typeof command.targetId !== 'string' || !validateUUID(command.targetId)) {
 		fail(400, 'Invalid target ID');
 	}
-	if (!['suspend', 'unsuspend'].includes(input.action)) {
+	if (command.action !== 'suspend' && command.action !== 'unsuspend') {
 		fail(400, 'Invalid action');
 	}
+	if (command.reason !== undefined && typeof command.reason !== 'string') fail(400, 'Invalid reason');
 
 	return {
-		type: input.type as 'user' | 'org',
-		targetId: input.targetId,
-		action: input.action as 'suspend' | 'unsuspend',
-		reason: input.reason?.trim() || undefined
+		type: command.type,
+		targetId: command.targetId,
+		action: command.action,
+		reason: command.reason?.trim() || undefined
 	};
 }
 

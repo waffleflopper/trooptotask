@@ -190,4 +190,33 @@ describe('Platform Administration', () => {
 		expect(store.suspendUser).not.toHaveBeenCalled();
 		expect(store.suspendOrganization).not.toHaveBeenCalled();
 	});
+
+	it.each([null, 12, {}, []])('rejects non-string suspension reasons without writes or audit: %j', async (reason) => {
+		const { admin, store, deps } = makeDeps();
+		await expect(
+			admin.updateSuspension({ type: 'user', targetId: VALID_USER_ID, action: 'suspend', reason })
+		).rejects.toMatchObject({ status: 400 });
+		expect(store.suspendUser).not.toHaveBeenCalled();
+		expect(store.unsuspendUser).not.toHaveBeenCalled();
+		expect(store.suspendOrganization).not.toHaveBeenCalled();
+		expect(store.unsuspendOrganization).not.toHaveBeenCalled();
+		expect(deps.audit).not.toHaveBeenCalled();
+	});
+
+	it('rejects a null suspension body without writes or audit', async () => {
+		const { admin, store, deps } = makeDeps();
+		await expect(admin.updateSuspension(null)).rejects.toMatchObject({ status: 400 });
+		expect(store.suspendUser).not.toHaveBeenCalled();
+		expect(store.suspendOrganization).not.toHaveBeenCalled();
+		expect(deps.audit).not.toHaveBeenCalled();
+	});
+
+	it('rejects a UUID array instead of coercing it into a target', async () => {
+		const { admin, store, deps } = makeDeps();
+		await expect(
+			admin.updateSuspension({ type: 'org', targetId: [VALID_ORG_ID], action: 'suspend' })
+		).rejects.toMatchObject({ status: 400 });
+		expect(store.suspendOrganization).not.toHaveBeenCalled();
+		expect(deps.audit).not.toHaveBeenCalled();
+	});
 });

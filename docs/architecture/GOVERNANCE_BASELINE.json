@@ -60,7 +60,7 @@
 		{
 			"path": "src/routes/admin/organizations/[orgId]/+page.server.ts",
 			"classification": "platform-admin-edge",
-			"reason": "Platform Administration organization detail actions still build service-role Supabase adapters and stores from the admin context client."
+			"reason": "Platform Organization detail load still composes service-role detail and metrics adapters from the admin context. Membership commands now use a narrow Platform server operation and Organization-owned atomic commands."
 		},
 		{
 			"path": "src/routes/admin/users/+page.server.ts",

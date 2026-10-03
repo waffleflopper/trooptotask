@@ -23,7 +23,7 @@ function makeDependencies(): PlatformOrganizationDetailDependencies {
 			getOrganizationById: vi.fn(async (orgId) => (orgId === ORG_ID ? organization() : null))
 		},
 		adminRole: 'super_admin',
-		membershipAdministration: {
+		membershipReader: {
 			listMembers: vi.fn(async (orgId) =>
 				orgId === ORG_ID
 					? [
@@ -31,9 +31,7 @@ function makeDependencies(): PlatformOrganizationDetailDependencies {
 							{ userId: 'member-1', email: null, role: 'member' as const }
 						]
 					: [{ userId: 'other-owner', email: 'other@example.com', role: 'owner' as const }]
-			),
-			makeAdmin: vi.fn(),
-			transferOwnership: vi.fn()
+			)
 		},
 		metrics: {
 			countMembershipsByOrganization: vi.fn(),
@@ -121,7 +119,7 @@ describe('createPlatformOrganizationDetail', () => {
 			const deps = makeDependencies();
 			const readers = {
 				organization: deps.store.getOrganizationById,
-				membership: deps.membershipAdministration.listMembers,
+				membership: deps.membershipReader.listMembers,
 				personnel: deps.metrics.countActivePersonnelForOrganization,
 				audit: deps.audit.listRecentByOrganization
 			};

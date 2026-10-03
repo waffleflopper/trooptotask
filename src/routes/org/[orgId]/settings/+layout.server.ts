@@ -9,7 +9,7 @@ import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route }) => {
 	const parentData = await parent();
 	if (parentData.shell.kind === 'suspended') {
-		redirect(303, `/org/${parentData.shell.org.urlSegment}/suspended`);
+		redirect(303, `/org/${parentData.shell.org.urlSegment}`);
 	}
 
 	const shell = requireReadyAppShell(parentData);

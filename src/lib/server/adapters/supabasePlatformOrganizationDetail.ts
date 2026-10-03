@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AdminContext } from './adminAdapter';
 import { createSupabasePlatformAudit } from '$lib/audit/index.server';
-import { createSupabasePlatformMembershipAdministration } from './supabasePlatformMembershipAdministration';
+import { createSupabaseOrganizationPlatformMembershipPort } from '$features/organization/index.server';
 import { createSupabasePlatformMetrics } from './supabasePlatformMetrics';
 import {
 	createPlatformOrganizationDetail,
@@ -42,7 +42,7 @@ export function createSupabasePlatformOrganizationDetail(ctx: AdminContext): Pla
 	return createPlatformOrganizationDetail({
 		store: createSupabasePlatformOrganizationDetailStore(ctx.adminClient),
 		adminRole: ctx.adminUser.role,
-		membershipAdministration: createSupabasePlatformMembershipAdministration(ctx),
+		membershipReader: createSupabaseOrganizationPlatformMembershipPort(ctx.adminClient),
 		metrics: createSupabasePlatformMetrics(ctx),
 		audit: createSupabasePlatformAudit(ctx.adminClient)
 	});

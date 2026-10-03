@@ -86,6 +86,7 @@ export interface OrganizationInvitationResendLookupResult {
 export interface OrganizationMembershipUpdateInput {
 	organizationId: string;
 	membershipId: string;
+	expectedRole: EditableMembershipRole;
 	role: 'admin' | 'member';
 	memberPreset: StoredMemberPreset;
 	capabilityOverrides: CapabilityOverrideMap;
@@ -129,7 +130,7 @@ export interface OrganizationSettingsMemberManagementPort {
 	}): Promise<{ status: 'blocked' } | { status: 'failed'; message: string }>;
 	revokeInvitation(orgId: string, inviteId: string): Promise<OrganizationInvitationRevokeResult>;
 	findMembershipById(orgId: string, membershipId: string): Promise<OrganizationMembershipRecord | null>;
-	removeMembership(orgId: string, membershipId: string): Promise<string | null>;
+	removeMembership(orgId: string, membershipId: string, expectedRole: EditableMembershipRole): Promise<string | null>;
 	updateMembership(input: OrganizationMembershipUpdateInput): Promise<string | null>;
 	getOrganizationName(orgId: string): Promise<string | null>;
 }
@@ -697,6 +698,9 @@ export async function removeOrganizationMember(
 
 	const actorUserId = requireActorUserId(ports.auth);
 	const membership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
+	if (!membership) {
+		fail(404, 'Membership not found');
+	}
 
 	if (membership?.userId === actorUserId) {
 		fail(400, 'You cannot remove yourself from the organization');
@@ -705,6 +709,7 @@ export async function removeOrganizationMember(
 	if (membership?.role === 'owner') {
 		fail(400, 'Cannot remove the organization owner');
 	}
+	const expectedRole = requireEditableMembershipRole(membership.role);
 	const removesHighPrivilegeMember = isHighPrivilegeAccess(membership?.role, membership?.canManageMembers);
 	const sensitiveAction = removesHighPrivilegeMember
 		? await authorizeMemberManagementSensitiveAction(ports, {
@@ -720,7 +725,7 @@ export async function removeOrganizationMember(
 			})
 		: null;
 
-	const errorMessage = await ports.settings.removeMembership(ports.auth.orgId, input.membershipId);
+	const errorMessage = await ports.settings.removeMembership(ports.auth.orgId, input.membershipId, expectedRole);
 	if (errorMessage) {
 		fail(500, errorMessage);
 	}
@@ -774,8 +779,9 @@ export async function leaveOrganization(
 	if (membership?.role === 'owner') {
 		fail(400, 'Organization owners must transfer ownership before leaving the organization');
 	}
+	const expectedRole = requireEditableMembershipRole(membership?.role);
 
-	const errorMessage = await ports.settings.removeMembership(ports.auth.orgId, input.membershipId);
+	const errorMessage = await ports.settings.removeMembership(ports.auth.orgId, input.membershipId, expectedRole);
 	if (errorMessage) {
 		fail(500, errorMessage);
 	}
@@ -815,6 +821,7 @@ export async function updateOrganizationMemberAccess(
 	if (targetMembership?.role === 'owner') {
 		fail(400, 'Cannot modify owner access');
 	}
+	const expectedRole = requireEditableMembershipRole(targetMembership.role);
 
 	const updatesAdminRole = input.membershipRole === 'admin' || targetMembership?.role === 'admin';
 	if (updatesAdminRole) {
@@ -849,6 +856,7 @@ export async function updateOrganizationMemberAccess(
 	const errorMessage = await ports.settings.updateMembership({
 		organizationId: ports.auth.orgId,
 		membershipId: input.membershipId,
+		expectedRole,
 		role: accessCommand.role,
 		memberPreset: accessCommand.memberPreset,
 		capabilityOverrides: accessCommand.capabilityOverrides,
@@ -894,6 +902,13 @@ export async function updateOrganizationMemberAccess(
 	}
 
 	return { accessSuccess: true };
+}
+
+function requireEditableMembershipRole(role: unknown): EditableMembershipRole {
+	if (role !== 'member' && role !== 'admin') {
+		fail(500, 'Membership role could not be verified');
+	}
+	return role;
 }
 
 async function authorizeMemberManagementSensitiveAction(

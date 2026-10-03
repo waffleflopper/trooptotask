@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { enhance } from '$app/forms';
+	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
@@ -20,8 +22,41 @@
 	let sendingInvite = $state(false);
 	let toastMessage = $state<string | null>(null);
 	let toastError = $state<string | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	let navigationLifetime = $state(0);
+	const canSuspend = $derived(data.adminRole === 'super_admin');
+
+	beforeNavigate(() => {
+		navigationLifetime += 1;
+		clearTimeout(toastTimer);
+		showSuspendModal = false;
+		toastMessage = null;
+		toastError = null;
+	});
+	onDestroy(() => {
+		navigationLifetime += 1;
+		clearTimeout(toastTimer);
+	});
+
+	async function reloadSuspension(lifetime: number, targetId: string): Promise<boolean> {
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) throw new Error('User is no longer current');
+		await invalidateAll();
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) throw new Error('User is no longer current');
+		if (typeof data.isSuspended !== 'boolean') throw new Error('User state could not be refreshed');
+		return data.isSuspended;
+	}
+
+	async function handleSuspendComplete(lifetime: number, targetId: string, isSuspended: boolean) {
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) return;
+		if ((await reloadSuspension(lifetime, targetId)) !== isSuspended)
+			throw new Error('User state could not be refreshed');
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) return;
+		showSuspendModal = false;
+		showToast(isSuspended ? 'User suspended' : 'User unsuspended');
+	}
 
 	function showToast(message: string, isError = false) {
+		clearTimeout(toastTimer);
 		if (isError) {
 			toastError = message;
 			toastMessage = null;
@@ -29,7 +64,7 @@
 			toastMessage = message;
 			toastError = null;
 		}
-		setTimeout(() => {
+		toastTimer = setTimeout(() => {
 			toastMessage = null;
 			toastError = null;
 		}, 4000);
@@ -136,9 +171,11 @@
 			</form>
 		{/if}
 
-		<Button variant={data.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
-			{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}
-		</Button>
+		{#if canSuspend}
+			<Button variant={data.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
+				{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}
+			</Button>
+		{/if}
 	</div>
 
 	<div class="grid gap-4 xl:grid-cols-2">
@@ -229,16 +266,14 @@
 	</div>
 </PageShell.Root>
 
-{#if showSuspendModal}
+{#if canSuspend && showSuspendModal}
 	<SuspendModal
 		type="user"
 		targetId={data.user.id}
 		targetName={data.user.email}
 		isSuspended={data.isSuspended}
 		onClose={() => (showSuspendModal = false)}
-		onComplete={() => {
-			showSuspendModal = false;
-			showToast(data.isSuspended ? 'User unsuspended' : 'User suspended');
-		}}
+		onComplete={handleSuspendComplete.bind(null, navigationLifetime)}
+		onReload={reloadSuspension.bind(null, navigationLifetime)}
 	/>
 {/if}

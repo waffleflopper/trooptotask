@@ -104,7 +104,9 @@ export async function readPlatform({ client, fixture, ownedState }) {
 		memberships: checked(
 			await client
 				.from('organization_memberships')
-				.select('id,organization_id,user_id,email,role')
+				.select(
+					'id,organization_id,user_id,email,role,member_preset,capability_overrides,access_scope_kind,access_scope_group_ids'
+				)
 				.eq('organization_id', seed.organization.id)
 		),
 		requests: checked(

@@ -110,6 +110,7 @@ describe('server auth hook', () => {
 			lastSignInAt?: string;
 			sessionStartedAt?: string;
 			authMethod?: 'password' | 'otp';
+			organizationResult?: { data: { id: string; suspended_at: string | null } | null; error: unknown };
 		} = {}
 	) {
 		const now = new Date();
@@ -224,9 +225,18 @@ describe('server auth hook', () => {
 		const sessionLookup = vi
 			.fn()
 			.mockResolvedValue({ data: options.sessionStartedAt ?? now.toISOString(), error: null });
+		const organizationLookup = vi
+			.fn()
+			.mockResolvedValue(options.organizationResult ?? { data: { id: 'org-a', suspended_at: null }, error: null });
+		const organizationQuery = {
+			select: () => organizationQuery,
+			eq: () => organizationQuery,
+			maybeSingle: organizationLookup
+		};
 		const createServerClient = vi.fn((_url: string, _key: string, options: TestServerClientOptions) => {
 			serverClientOptions = options;
 			return {
+				from: () => organizationQuery,
 				auth: {
 					signOut,
 					admin: { signOut },
@@ -300,6 +310,7 @@ describe('server auth hook', () => {
 			createEvent,
 			resolve,
 			rpc,
+			organizationLookup,
 			sessionLookup,
 			createServerClient,
 			getSession,
@@ -317,6 +328,61 @@ describe('server auth hook', () => {
 			}
 		};
 	}
+
+	describe('Organization admission uses the matched ordinary route', () => {
+		it('admits a platform Organization POST without requiring ordinary membership', async () => {
+			const harness = await createAuthenticatedHookHarness(
+				{ data: false, error: null },
+				{
+					organizationResult: { data: null, error: null }
+				}
+			);
+			const request = harness.createEvent('/admin/organizations/org-a');
+			request.params = { orgId: 'org-a' };
+			request.route = { id: '/admin/organizations/[orgId]' };
+			await expect(harness.handle({ event: request, resolve: harness.resolve })).resolves.toBeInstanceOf(Response);
+			expect(harness.organizationLookup).not.toHaveBeenCalled();
+			expect(harness.resolve).toHaveBeenCalledOnce();
+		});
+
+		it.each([
+			['POST', '/org/[orgId]/settings/members', { data: null, error: null }, 404],
+			[
+				'POST',
+				'/org/[orgId]/settings/members',
+				{ data: { id: 'org-a', suspended_at: '2026-09-01' }, error: null },
+				403
+			],
+			['GET', '/org/[orgId]/api/personnel', { data: { id: 'org-a', suspended_at: '2026-09-01' }, error: null }, 403],
+			['POST', '/org/[orgId]/settings/members', { data: null, error: { message: 'provider unavailable' } }, 503]
+		] as const)(
+			'blocks ordinary %s %s before dispatch on status %s',
+			async (method, route, organizationResult, status) => {
+				const harness = await createAuthenticatedHookHarness({ data: false, error: null }, { organizationResult });
+				const request = harness.createEvent('/org/org-a/settings/members');
+				request.request = new Request(request.url, { method });
+				request.params = { orgId: 'org-a' };
+				request.route = { id: route };
+				await expect(harness.handle({ event: request, resolve: harness.resolve })).rejects.toMatchObject({ status });
+				expect(harness.resolve).not.toHaveBeenCalled();
+			}
+		);
+
+		it('keeps a suspended ordinary page GET available to its restricted shell', async () => {
+			const harness = await createAuthenticatedHookHarness(
+				{ data: false, error: null },
+				{
+					organizationResult: { data: { id: 'org-a', suspended_at: '2026-09-01' }, error: null }
+				}
+			);
+			const request = harness.createEvent('/org/org-a');
+			request.request = new Request(request.url);
+			request.params = { orgId: 'org-a' };
+			request.route = { id: '/org/[orgId]' };
+			await expect(harness.handle({ event: request, resolve: harness.resolve })).resolves.toBeInstanceOf(Response);
+			expect(harness.resolve).toHaveBeenCalledOnce();
+		});
+	});
 
 	describe('invite finalization admission through the request hook', () => {
 		const accept = vi.fn();

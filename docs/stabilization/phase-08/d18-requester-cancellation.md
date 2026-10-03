@@ -34,10 +34,16 @@ Five focused suites/53 tests, type checking0errors/0warnings and governance pass
 
 | Run                                            | Archive                                                | SHA-256                                                            | Payloads / members / expanded payload bytes |
 | ---------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------- |
-| Final owned application                        | [Runtime](d18-requester-cancellation-runtime.tar.gz)   | `cffb2a9d23f17713ed95fba7938cbb00e4893832dbc11e8d229b00ddb601f89d` | 143 / 144 / 456,786                         |
+| Final owned application                        | [Runtime](d18-requester-cancellation-runtime.tar.gz)   | `2732b413c92f99a23c467cef7162ea3960848052d2b4f9594d424918c552fa22` | 143 / 144 / 456,945                         |
 | Fresh and populated isolated database contract | [Database](d18-requester-cancellation-database.tar.gz) | `1d932d58a0d0c0169f645e77d0e5fcd277300395b8984dfc9fd1a3d4a0ded2ea` | 10 / 11 / 684,694                           |
 
 Each archive contains `SHA256SUMS` for every other payload. Extract into a fresh ignored scratch directory, compare the exact payload file set with the inventory and run `sha256sum -c SHA256SUMS` there. The coordinator verified both expanded sets and every hash from fresh extraction. Inspect `run-notes.md`, ordinary request/status bodies, source/request/file pairs, native before/action/reload snapshots/screenshots and final doctor/cleanup, separately from database test summaries/numbered populated assertions. Captures contain synthetic data; scans find no credential or signed-token patterns, and no observed result is redacted. The database log's public `postgres` password belongs only to the disposed local project.
+
+## Upstream integration checkpoint
+
+PR #1499 subsequently integrated `3a1cd508`: Audit verification adds to the shared actor/readback/seed/network/cleanup helper and maintained skill; no production application or database source changed. Rebase preserves that independently owned work and both progress sections. The final candidate needs a separate owned follow-up drive for adopted controls; the original frozen application/SQL observations remain bound to their historical revision.
+
+Independent artifact review found the original runtime narrative incorrectly claimed executed missing-target SQL proof. Actual captures are unchanged; the corrected runtime archive records that gap. A supplementary fresh SQL test now includes an owned pending request with an independently confirmed absent Personnel target and exact status-only preservation. The follow-up live run will establish cancellation after a temporary Training Type was actually removed. These checks must pass before final acceptance; no source inspection earns execution credit.
 
 ## Release and remaining acceptance
 

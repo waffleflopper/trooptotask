@@ -76,7 +76,9 @@ FROM (VALUES
 ('d1803000-0000-4000-8000-000000000822','d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000001','counseling_record','d1803000-0000-4000-8000-000000000401','pending'),
 ('d1803000-0000-4000-8000-000000000823','d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000001','training_type','d1803000-0000-4000-8000-000000000501','pending'),
 ('d1803000-0000-4000-8000-000000000824','d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000001','personnel_training','d1803000-0000-4000-8000-000000000601','pending'),
-('d1803000-0000-4000-8000-000000000825','d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000001','rating_scheme_entry','d1803000-0000-4000-8000-000000000701','pending')
+('d1803000-0000-4000-8000-000000000825','d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000001','rating_scheme_entry','d1803000-0000-4000-8000-000000000701','pending'),
+-- Retained history can outlive its source; Personnel 399 was never inserted.
+('d1803000-0000-4000-8000-000000000826','d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000001','personnel','d1803000-0000-4000-8000-000000000399','pending')
 ) rows(id,organization_id,requested_by,resource_type,resource_id,status);
 CREATE VIEW upgrade_fixture.deletion_request_cancellation_current_rows AS
 SELECT 'auth.users'::text table_name,id::text row_id,to_jsonb(r) row_data
@@ -188,6 +190,9 @@ RESET ROLE;
 SELECT is((SELECT count FROM raw_updates),0,
   'the narrow RPC does not grant arbitrary status, actor or description UPDATE');
 
+SELECT is((SELECT count(*) FROM public.personnel WHERE id='d1803000-0000-4000-8000-000000000399'),0::bigint,
+  'the saved missing-source request has no exact Personnel target even under privileged readback');
+
 -- Force an actual database write failure, rather than mock a response.
 CREATE FUNCTION pg_temp.fail_cancel_write() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'Cancellation status write failed' USING ERRCODE='P0001'; END; $$;
@@ -214,6 +219,8 @@ SELECT is(public.cancel_own_deletion_request('d1803000-0000-4000-8000-0000000001
 SELECT is(public.cancel_own_deletion_request('d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000823'),true,'Training type request cancellation is acknowledged');
 SELECT is(public.cancel_own_deletion_request('d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000824'),true,'Completion request cancellation is acknowledged');
 SELECT is(public.cancel_own_deletion_request('d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000825'),true,'Rating request cancellation is acknowledged');
+SELECT is(public.cancel_own_deletion_request('d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000826'),true,
+  'current requester can cancel saved pending history whose exact Personnel source never existed');
 SELECT throws_ok($$ SELECT public.cancel_own_deletion_request('d1803000-0000-4000-8000-000000000101','d1803000-0000-4000-8000-000000000801') $$,
   'P0002','Pending deletion request not found','duplicate cancellation cannot acknowledge a second transition');
 SELECT set_config('request.jwt.claim.sub','d1803000-0000-4000-8000-000000000003',true);
@@ -223,7 +230,7 @@ RESET ROLE;
 SELECT results_eq(
   $$ SELECT row_id,row_data FROM upgrade_fixture.deletion_request_cancellation_current_rows
     WHERE table_name='deletion_requests' ORDER BY row_id $$,
-  $$ SELECT row_id,CASE WHEN row_id IN ('d1803000-0000-4000-8000-000000000801','d1803000-0000-4000-8000-000000000806','d1803000-0000-4000-8000-000000000821','d1803000-0000-4000-8000-000000000822','d1803000-0000-4000-8000-000000000823','d1803000-0000-4000-8000-000000000824','d1803000-0000-4000-8000-000000000825')
+  $$ SELECT row_id,CASE WHEN row_id IN ('d1803000-0000-4000-8000-000000000801','d1803000-0000-4000-8000-000000000806','d1803000-0000-4000-8000-000000000821','d1803000-0000-4000-8000-000000000822','d1803000-0000-4000-8000-000000000823','d1803000-0000-4000-8000-000000000824','d1803000-0000-4000-8000-000000000825','d1803000-0000-4000-8000-000000000826')
       THEN row_data||'{"status":"cancelled"}'::jsonb ELSE row_data END
     FROM upgrade_fixture.deletion_request_cancellation_before_rows
     WHERE table_name='deletion_requests' ORDER BY row_id $$,

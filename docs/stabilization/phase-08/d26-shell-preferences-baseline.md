@@ -12,6 +12,8 @@ Preparation's default Node 26 launch failed the Vercel adapter's supported-versi
 
 After final doctor and cleanup, the recipe's source mapping was corrected to name Calendar's actual **More Calendar actions** menu and its two visible toggles. Onboarding highlighting persists but has no visible toggle. The archived native actions already used those controls; no executed driving step, application, fixture or executable control changed. Later receipt/archive additions change the checkout fingerprint and are packaging, not a fresh live run.
 
+D24 #1517 integrated during the frozen run as `ad63659aa69b6db046bae94878d9ec55d8b23132`. After cleanup this branch rebased onto it, preserving D24's shared helper and record changes. Its application changes affect Data Export ownership and an Onboarding test cleanup; the shell, Training, Calendar, preference and Getting Started application paths exercised here are unchanged. Its shared-helper delta changes export-oriented table readback declarations, leaving the preference/chrome control paths unchanged. The baseline remains applicable to those unchanged paths, not proof of D24 exports. Current-base helper and focused shell checks again pass 26 and 61 tests. No new live run is claimed by the rebase.
+
 ## Actual observations
 
 `fixture.json` identifies all synthetic Organizations, users, Groups, Views and dates. `trainingSwitch` has A/B Training access, `dashboardSwitch` has Calendar and Training in A/B, `trainingOperate` is an independent A user, and `trainingForeign` belongs only to B. Provider readbacks are privileged persistence observations, separately labeled from native interaction and authenticated HTTP admission.
@@ -44,6 +46,8 @@ Required afterward: owned App Shell/Identity portable, web, server and provider 
 ## Checks and review
 
 Node 24 helper checks pass **26 tests**, preserving existing network-control behavior plus method/origin/Organization/query and real-dispatch/synthetic-failure boundaries (`network-control-tests.txt`). Existing shell/model/use-case/adapter/client/Header/Getting Started checks pass **8 suites / 61 tests** (`focused-node24.txt`); these cover their actual lower-level contracts and do not erase the live failures. The successful owned launch builds the production app. Local formatting, documentation/link/whitespace validation, complete-diff independent expanded-artifact acceptance and CodeRabbit disposition are recorded here before publication. Exact-published-head full CI and completed clean hosted bot review remain required before authorized integration.
+
+Local `npm run format` passes with no unrelated changes. Explicit touched-Markdown formatting/check and `node scripts/ci/changes.mjs --documents` pass: six changed Markdown files formatted and 204 documents checked for local links/anchors. `git diff --check` passes. Hosted CI supplies the complete final-candidate read-only command sequence; focused local checks are not presented as that full result.
 
 No deployment or remote database action is performed. Publication configuration includes PR/main CI and Vercel configuration, with no in-repository remote migration operation for this change. External deployment settings are not available from this checkout. Robert authorizes non-migration merge only after green exact-head CI and completed bot review without actionable feedback; #1374 and #1281 stay open.
 

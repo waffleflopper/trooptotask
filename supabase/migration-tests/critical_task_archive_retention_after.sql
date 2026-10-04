@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SELECT no_plan();
 
 SELECT ok((SELECT migration_absent AND rpc_absent AND composite_fk_absent FROM upgrade_fixture.critical_task_archive_retention_baseline),'saved CT witnesses precede both the task-reference guard and retention RPC');
-SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations WHERE version='20261003000300'),1,'the CT retention migration is recorded by the upgrade');
+SELECT is((SELECT count(*)::integer FROM supabase_migrations.schema_migrations WHERE version='20261004000200'),1,'the CT retention migration is recorded by the upgrade');
 SELECT results_eq($$ SELECT * FROM upgrade_fixture.critical_task_archive_retention_current_rows ORDER BY table_name,row_id $$,
   $$ SELECT * FROM upgrade_fixture.critical_task_archive_retention_before_rows ORDER BY table_name,row_id $$,'the additive upgrade preserves every saved actor, Organization, Personnel, task and completion field');
 SELECT is((SELECT convalidated FROM pg_constraint WHERE conname='personnel_ict_completions_org_task_fkey'),false,'the composite task FK still preserves historical mismatches');

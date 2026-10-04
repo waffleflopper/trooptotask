@@ -7,7 +7,7 @@ SELECT set_config('request.jwt.claims','{}',true);
 SELECT set_config('request.jwt','',true);
 
 CREATE TABLE upgrade_fixture.critical_task_archive_retention_baseline AS SELECT
-  NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261003000300') AS migration_absent,
+  NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261004000200') AS migration_absent,
   to_regprocedure('public.delete_expired_unreferenced_critical_tasks(uuid,timestamptz)') IS NULL AS rpc_absent,
   NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='personnel_ict_completions_org_task_fkey') AS composite_fk_absent;
 DO $$

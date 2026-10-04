@@ -109,11 +109,11 @@ function makeStore(accessRequest: AccountSetupLinkAccessRequest): AccountSetupCo
 			link.failureReason = failureReason;
 			return link;
 		},
-		async listCleanupEligible() {
-			return [];
+		async countCleanupHistory() {
+			return { staleRevokedCount: 0, completedSetupHistoryCount: 0, failedSetupHistoryCount: 0 };
 		},
 		async revokeExpiredUnusedLinks() {
-			return [];
+			return 0;
 		},
 		async countActiveLinks() {
 			return 0;

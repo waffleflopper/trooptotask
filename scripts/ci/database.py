@@ -59,6 +59,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261002001100_atomic_onboarding_start.sql",
     "20261003000100_cancel_own_deletion_request.sql",
     "20261003000200_platform_organization_membership_commands.sql",
+    "20261003000300_critical_task_archive_retention.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -80,6 +81,7 @@ STAGED_UPGRADE_FIXTURES = (
     "onboarding_start_before.sql",
     "deletion_request_cancellation_before.sql",
     "platform_membership_before.sql",
+    "critical_task_archive_retention_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -103,6 +105,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "onboarding_start_after.sql",
     "deletion_request_cancellation_after.sql",
     "platform_membership_after.sql",
+    "critical_task_archive_retention_after.sql",
 )
 
 _receipt = None

@@ -2,7 +2,6 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { env } from '$env/dynamic/private';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseNotificationDelivery } from '$features/notifications/index.server';
 import {
 	createSupabaseOrganizationAdministratorRecipients,
@@ -10,7 +9,7 @@ import {
 } from '$features/organization/index.server';
 import type { OrganizationRetentionConfiguration } from '$features/organization/contracts';
 import { cleanupExpiredOnboardings, createSupabaseOnboardingRetentionSource } from '$features/onboarding/index.server';
-import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
+import { assertCronEndpointAuthorized } from '$features/scheduled-maintenance/index.server';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 export const GET: RequestHandler = async ({ request }) => {
@@ -26,7 +25,6 @@ export const GET: RequestHandler = async ({ request }) => {
 		);
 		throw error(500, 'Internal server error');
 	}
-	const store = createSupabaseDataStore(admin);
 	const notifications = createSupabaseNotificationDelivery({
 		getAdminClient: () => admin,
 		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(() => admin),
@@ -34,7 +32,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	});
 	return json(
 		await cleanupExpiredOnboardings(
-			{ store: { findMany: store.findMany, ...createSupabaseOnboardingRetentionSource(admin) }, notifications },
+			{ store: createSupabaseOnboardingRetentionSource(admin), notifications },
 			orgConfigs
 		)
 	);

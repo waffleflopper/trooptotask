@@ -96,24 +96,29 @@ function makeStore(accessRequests: AccountSetupLinkAccessRequest[] = []): Accoun
 			link.failureReason = failureReason;
 			return link;
 		},
-		async listCleanupEligible(cutoff) {
-			return links.filter((link) => {
+		async countCleanupHistory(cutoff) {
+			const eligible = links.filter((link) => {
 				if (link.usedAt && link.usedAt <= cutoff) return true;
 				if (link.revokedAt && link.revokedAt <= cutoff) return true;
 				if (link.failedAt && link.failedAt <= cutoff) return true;
 				return link.expiresAt <= cutoff;
 			});
+			return {
+				staleRevokedCount: eligible.filter((link) => link.revokedAt).length,
+				completedSetupHistoryCount: eligible.filter((link) => link.usedAt).length,
+				failedSetupHistoryCount: eligible.filter((link) => link.failedAt).length
+			};
 		},
 		async revokeExpiredUnusedLinks(cutoff, revokedAt) {
-			const revoked: AccountSetupLinkRecord[] = [];
+			let revokedCount = 0;
 			for (const link of links) {
 				if (link.expiresAt <= cutoff && !link.claimedAt && !link.usedAt && !link.revokedAt) {
 					link.revokedAt = revokedAt;
 					link.revocationReason = 'cleanup';
-					revoked.push(link);
+					revokedCount += 1;
 				}
 			}
-			return revoked;
+			return revokedCount;
 		},
 		async countActiveLinks(referenceTime) {
 			return links.filter(
@@ -335,8 +340,15 @@ describe('Account Setup Links', () => {
 		expect(store.links[0].claimedAt).toEqual(new Date('2026-05-18T12:00:00.000Z'));
 		expect(store.links[0].usedAt).toEqual(new Date('2026-05-18T12:00:00.000Z'));
 
-		const cleanupEligible = await store.listCleanupEligible(new Date('2026-05-19T12:00:00.000Z'));
-		expect(cleanupEligible.map((link) => link.id)).toEqual(['link-1']);
+		expect(await service.cleanupStaleLinks({ olderThan: new Date('2026-05-19T12:00:00.000Z') })).toEqual({
+			revokedExpiredUnusedCount: 0,
+			staleRevokedCount: 0,
+			completedSetupHistoryCount: 1,
+			failedSetupHistoryCount: 0,
+			activeLinkCount: 0,
+			deletedAccessRequestCount: 0,
+			deletedUserAccountCount: 0
+		});
 	});
 
 	it('releases a previously claimed and revoked link after a definite no-write rejection', async () => {

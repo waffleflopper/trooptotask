@@ -1,16 +1,12 @@
-import type { DataStore } from '$lib/server/core/ports';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { PersonnelArtifactRetentionSource, PersonnelRetentionSource } from '$features/personnel/index.server';
-import { cleanupExpiredAssignmentTypes, type AssignmentTypeRetentionPort } from '$features/calendar/index.server';
+import type { AssignmentTypeRetentionSource } from '$features/calendar/index.server';
+import type { CriticalTaskRetentionSource } from '$features/critical-tasks/index.server';
+import type { OrganizationRetentionConfiguration } from '$features/organization/contracts';
 import { retentionCutoff } from '$lib/utils/retentionCutoff';
 import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from '$features/organization/contracts';
 
 const MIN_ARCHIVE_RETENTION_MONTHS = 1;
-
-export interface ArchiveRetentionOrgConfig {
-	id: string;
-	retentionMonths?: number | null;
-}
 
 export interface ArchiveRetentionFamilyResult {
 	key: string;
@@ -26,10 +22,10 @@ export interface ArchiveRetentionCleanupResult {
 }
 
 interface ArchiveRetentionPorts {
-	store: DataStore;
+	criticalTasks: CriticalTaskRetentionSource;
 	artifacts: PersonnelArtifactRetentionSource;
 	personnel: PersonnelRetentionSource;
-	assignmentTypes: AssignmentTypeRetentionPort;
+	assignmentTypes: AssignmentTypeRetentionSource;
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 
@@ -75,13 +71,13 @@ const ARCHIVE_RETENTION_FAMILIES: CleanupFamily[] = [
 		key: 'critical-tasks',
 		table: 'ict_tasks',
 		label: 'Critical Tasks library',
-		cleanup: cleanupExpiredCriticalTasks
+		cleanup: (ports, orgId, cutoff) => ports.criticalTasks.deleteExpired(orgId, cutoff)
 	},
 	{
 		key: 'assignment-types',
 		table: 'assignment_types',
 		label: 'Assignment Types',
-		cleanup: (ports, orgId, cutoff) => cleanupExpiredAssignmentTypes(ports.store, ports.assignmentTypes, orgId, cutoff)
+		cleanup: (ports, orgId, cutoff) => ports.assignmentTypes.deleteExpired(orgId, cutoff)
 	}
 ];
 
@@ -90,35 +86,6 @@ function normalizeRetentionMonths(retentionMonths: number | null | undefined): n
 		return DEFAULT_ARCHIVE_RETENTION_MONTHS;
 	}
 	return Math.max(MIN_ARCHIVE_RETENTION_MONTHS, retentionMonths);
-}
-
-async function cleanupExpiredCriticalTasks(
-	ports: ArchiveRetentionPorts,
-	orgId: string,
-	cutoff: string
-): Promise<number> {
-	const rows = await ports.store.findMany<{ id: string }>('ict_tasks', orgId, undefined, {
-		select: 'id',
-		rangeFilters: [{ column: 'archived_at', op: 'lt', value: cutoff }],
-		isNull: { archived_at: false }
-	});
-	if (rows.length === 0) return 0;
-
-	const completions = await ports.store.findMany<{ ict_task_id: string }>(
-		'personnel_ict_completions',
-		orgId,
-		undefined,
-		{
-			select: 'ict_task_id',
-			inFilters: { ict_task_id: rows.map((row) => row.id) }
-		}
-	);
-	const referencedIds = new Set(completions.map((row) => row.ict_task_id));
-	return ports.store.deleteManyByIds(
-		'ict_tasks',
-		orgId,
-		rows.filter((row) => !referencedIds.has(row.id)).map((row) => row.id)
-	);
 }
 
 function notificationMessage(families: ArchiveRetentionFamilyResult[]): string {
@@ -130,7 +97,7 @@ function notificationMessage(families: ArchiveRetentionFamilyResult[]): string {
 
 export async function cleanupArchivedRecords(
 	ports: ArchiveRetentionPorts,
-	orgConfigs: ArchiveRetentionOrgConfig[],
+	orgConfigs: OrganizationRetentionConfiguration[],
 	options: { now?: Date } = {}
 ): Promise<ArchiveRetentionCleanupResult> {
 	const familyTotals = new Map<string, ArchiveRetentionFamilyResult>(

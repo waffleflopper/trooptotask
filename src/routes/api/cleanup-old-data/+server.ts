@@ -2,7 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAdminClient } from '$lib/server/supabase';
 import { env } from '$env/dynamic/private';
-import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
+import { assertCronEndpointAuthorized } from '$features/scheduled-maintenance/index.server';
 import { cleanupAuditLogs } from '$lib/audit/index.server';
 
 export const GET: RequestHandler = async ({ request }) => {

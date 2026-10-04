@@ -7,7 +7,7 @@ import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import type { CalendarRangeData } from '$features/calendar/index';
 import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 
 const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
 	vi.hoisted(() => ({

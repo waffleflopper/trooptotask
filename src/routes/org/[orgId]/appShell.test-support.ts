@@ -1,4 +1,4 @@
-import type { AppShellRouteData, ReadyAppShell } from '$lib/server/core/orgShell';
+import type { AppShellRouteData, ReadyAppShell } from '$features/app-shell/contracts';
 
 export function createReadyAppShellRouteData(
 	overrides: {

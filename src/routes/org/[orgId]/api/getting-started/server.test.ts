@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
+import { countOrganizationMembers } from '$features/organization/index.server';
 import type { UseCaseContext } from '$lib/server/core/ports';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -11,9 +12,14 @@ vi.mock('$features/identity/index.server', async (importOriginal) => ({
 	loadGettingStartedDismissed: vi.fn(),
 	setGettingStartedDismissed: vi.fn()
 }));
+vi.mock('$features/organization/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/organization/index.server')>()),
+	countOrganizationMembers: vi.fn()
+}));
 const supabase = {} as SupabaseClient;
 const { get: _getConfig, post: _postConfig, delete: _deleteConfig } = _createConfigs({ supabase });
 beforeEach(() => {
+	vi.mocked(countOrganizationMembers).mockReset().mockResolvedValue(2);
 	vi.mocked(loadGettingStartedDismissed).mockReset().mockResolvedValue(false);
 	vi.mocked(setGettingStartedDismissed).mockReset().mockResolvedValue();
 });
@@ -21,6 +27,34 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('GET /api/getting-started', () => {
+	it('starts personal progress while Dashboard support is still pending', async () => {
+		let release!: (count: number) => void;
+		let started!: () => void;
+		const memberStarted = new Promise<void>((resolve) => {
+			started = resolve;
+		});
+		vi.mocked(countOrganizationMembers).mockImplementation(() => {
+			started();
+			return new Promise<number>((resolve) => {
+				release = resolve;
+			});
+		});
+		const pending = handleUseCaseRequest(_getConfig, createTestContext(), undefined);
+		await memberStarted;
+		try {
+			expect(loadGettingStartedDismissed).toHaveBeenCalled();
+		} finally {
+			release(2);
+		}
+		await expect(pending).resolves.toMatchObject({ orgMemberCount: 2, gettingStartedDismissed: false });
+	});
+
+	it('fails the complete GET when Organization support cannot be read', async () => {
+		vi.mocked(countOrganizationMembers).mockRejectedValue(new Error('Membership count unavailable'));
+		await expect(handleUseCaseRequest(_getConfig, createTestContext(), undefined)).rejects.toThrow(
+			'Membership count unavailable'
+		);
+	});
 	it.each([
 		['GET', (ctx: UseCaseContext) => handleUseCaseRequest(_getConfig, ctx, undefined)],
 		['POST', (ctx: UseCaseContext) => handleUseCaseRequest(_postConfig, ctx, undefined)],
@@ -36,6 +70,7 @@ describe('GET /api/getting-started', () => {
 		expect(reads).not.toHaveBeenCalled();
 		expect(preferences).not.toHaveBeenCalled();
 		expect(loadGettingStartedDismissed).not.toHaveBeenCalled();
+		expect(countOrganizationMembers).not.toHaveBeenCalled();
 		expect(setGettingStartedDismissed).not.toHaveBeenCalled();
 	});
 
@@ -83,6 +118,7 @@ describe('GET /api/getting-started', () => {
 		expect(setGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase, auth: ctx.auth, audit: ctx.audit }, false);
 		await handleUseCaseRequest(_getConfig, ctx, undefined);
 		expect(loadGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase }, ctx.auth);
+		expect(countOrganizationMembers).toHaveBeenLastCalledWith(supabase, ctx.auth.orgId);
 	});
 
 	it('does not report dismissal success when its owner cannot confirm the save', async () => {
@@ -137,10 +173,6 @@ describe('GET /api/getting-started', () => {
 		]);
 		ctx.store.seed('rating_scheme_entries', [
 			{ id: 'rating-1', organization_id: ctx.auth.orgId, rated_person_id: 'p1', rating_period_end: '2026-01-01' }
-		]);
-		ctx.store.seed('organization_memberships', [
-			{ id: 'member-1', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, role: 'owner' },
-			{ id: 'member-2', organization_id: ctx.auth.orgId, user_id: 'user-2', role: 'member' }
 		]);
 		vi.mocked(loadGettingStartedDismissed).mockResolvedValue(true);
 

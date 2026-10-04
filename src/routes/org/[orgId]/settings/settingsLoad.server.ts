@@ -2,7 +2,7 @@ import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { UseCaseContext } from '$lib/server/core/ports';
-import type { AppShellRouteData } from '$lib/server/core/orgShell';
+import type { AppShellRouteData } from '$features/app-shell/contracts';
 
 export type SettingsSubrouteParentData = AppShellRouteData;
 

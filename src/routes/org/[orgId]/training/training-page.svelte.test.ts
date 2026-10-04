@@ -10,7 +10,7 @@ import { personnelTrainingsStore } from '$features/training';
 import { groupCatalogHydration } from '$features/personnel';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({
 	getOrgContext: () => ({

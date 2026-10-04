@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
 vi.mock('$lib/server/adapters/httpAdapter', async () => ({

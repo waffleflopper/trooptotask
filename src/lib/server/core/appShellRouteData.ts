@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import type { AppShellRouteData, ReadyAppShell } from './orgShell';
+import type { AppShellRouteData, ReadyAppShell } from '$features/app-shell/contracts';
 
 export function requireReadyAppShell(data: AppShellRouteData): ReadyAppShell {
 	if (data.shell.kind !== 'ready') {

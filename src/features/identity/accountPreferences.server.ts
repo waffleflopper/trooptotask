@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -15,9 +17,9 @@ interface AccountPreferenceScope {
 	readonly userId: string;
 }
 
-type IdentityPolicyPorts = Parameters<typeof requireIdentityOwnedPolicy>[0];
-interface AccountPreferenceWritePorts extends IdentityPolicyPorts {
-	auth: IdentityPolicyPorts['auth'] & AccountPreferenceScope;
+interface AccountPreferenceWritePorts {
+	auth: Pick<OrganizationAccessGrant, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'> & AccountPreferenceScope;
+	audit: PolicyAuditSink;
 	/** Ordinary request-user client: personal choices never use a service-role bypass. */
 	supabase: SupabaseClient;
 }

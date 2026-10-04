@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
@@ -12,8 +14,8 @@ interface PersonnelDetailReadStore {
 }
 
 interface PersonnelDetailContext {
-	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
-	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	store: PersonnelDetailReadStore;
 	rawStore?: PersonnelDetailReadStore;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };

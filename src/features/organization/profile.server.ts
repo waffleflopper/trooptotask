@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { sanitizeString } from '$lib/server/validation';
@@ -10,7 +12,9 @@ export interface OrganizationProfilePort {
 	findOrganizationByUrlSlug(urlSlug: string): Promise<{ id: string } | null>;
 }
 
-type OrganizationProfilePorts = Parameters<typeof requireGovernancePolicy>[0] & {
+type OrganizationProfilePorts = {
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	administration: OrganizationProfilePort;
 };
 

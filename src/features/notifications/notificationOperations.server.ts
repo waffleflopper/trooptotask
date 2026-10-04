@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
@@ -5,11 +7,9 @@ import type { Notification } from './contracts';
 
 import type { NotificationStore } from './contracts.server';
 
-type IdentityPolicyPorts = Parameters<typeof requireIdentityOwnedPolicy>[0];
-
 export interface NotificationSelfPorts {
-	auth: IdentityPolicyPorts['auth'] & { readonly orgId: string };
-	audit: IdentityPolicyPorts['audit'];
+	auth: Pick<OrganizationAccessGrant, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'> & { readonly orgId: string };
+	audit: PolicyAuditSink;
 	store: NotificationStore;
 }
 

@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
 	BUILT_IN_RANK_CATALOG,
 	compareRankCodes,
@@ -19,9 +21,6 @@ import type {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
-
-type RankActor = Parameters<typeof requireGovernancePolicy>[0]['auth'];
-type RankAudit = Parameters<typeof requireGovernancePolicy>[0]['audit'];
 
 interface RankCatalogStore {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
@@ -129,16 +128,16 @@ interface SignInRosterRankReferenceRow {
 }
 
 interface RankCatalogPorts {
-	auth: RankActor;
+	auth: OrganizationAccessGrant;
 	store: RankCatalogStore;
 	rawStore?: RankCatalogStore;
-	audit: RankAudit;
+	audit: PolicyAuditSink;
 }
 
 type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth'> & {
 	store: Pick<RankCatalogStore, 'findMany'>;
 	rawStore?: Pick<RankCatalogStore, 'findMany'>;
-	audit?: RankAudit;
+	audit?: PolicyAuditSink;
 };
 
 type RankCatalogReadAuthorization =
@@ -152,7 +151,7 @@ interface RankCatalogReadOptions {
 	authorization?: RankCatalogReadAuthorization;
 }
 
-const NOOP_AUDIT_PORT: RankAudit = { log() {} };
+const NOOP_AUDIT_PORT: PolicyAuditSink = { log() {} };
 
 async function requireRankCatalogReadPolicy(
 	ports: RankCatalogReadPorts,

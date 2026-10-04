@@ -1,9 +1,3 @@
-/**
- * AuthContext adapter implementations for SvelteKit routes.
- *
- * Wraps the real PermissionContext built from the user's membership row.
- * Exposes authorization data used by policy evaluation.
- */
 import type { AdmittedActor } from './contracts';
 import type { PermissionContext } from '$lib/server/permissionContext';
 

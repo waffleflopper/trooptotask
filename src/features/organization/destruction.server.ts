@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireGovernancePolicy } from '$lib/access/index.server';
@@ -19,9 +21,11 @@ export interface OrganizationDestructionPort {
 	deleteConfirmedTarget(orgId: string, persistedName: string): Promise<boolean>;
 }
 
-type DestructionPorts = Parameters<typeof requireGovernancePolicy>[0] & {
+type DestructionPorts = {
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	destruction: OrganizationDestructionPort;
-	deletedAudit: Parameters<typeof requireGovernancePolicy>[0]['audit'];
+	deletedAudit: PolicyAuditSink;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
 };
 

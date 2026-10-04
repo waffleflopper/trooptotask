@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
-import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
-import { denyPolicyDecision, logPolicyDenial, policyDenialAuditDetails } from './policyDenial';
+import { evaluateAuthoritativePolicyDecision } from './serverPolicy.server';
+import { denyPolicyDecision, policyDenialAuditDetails } from './serverPolicy.server';
 
 const baseCapabilityMap = {
 	calendar: 'none',
@@ -89,12 +89,15 @@ describe('policy denial', () => {
 			{ kind: 'organization' }
 		);
 
-		logPolicyDenial({
-			audit,
-			decision,
-			resourceType: 'calendar',
-			details: policyDenialAuditDetails(decision)
-		});
+		expect(() =>
+			denyPolicyDecision({
+				audit,
+				decision,
+				resourceType: 'calendar',
+				details: policyDenialAuditDetails(decision),
+				message: 'Calendar access denied'
+			})
+		).toThrow('Calendar access denied');
 
 		expect(audit.log).toHaveBeenCalledWith({
 			action: 'policy.denied',
@@ -121,12 +124,15 @@ describe('policy denial', () => {
 			{ kind: 'organization' }
 		);
 
-		logPolicyDenial({
-			audit,
-			decision,
-			resourceType: 'calendar',
-			details: policyDenialAuditDetails(decision)
-		});
+		expect(() =>
+			denyPolicyDecision({
+				audit,
+				decision,
+				resourceType: 'calendar',
+				details: policyDenialAuditDetails(decision),
+				message: 'Calendar access denied'
+			})
+		).toThrow('Calendar access denied');
 
 		expect(audit.log).not.toHaveBeenCalled();
 	});

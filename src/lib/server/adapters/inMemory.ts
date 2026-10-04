@@ -18,7 +18,6 @@ import type {
 	DataStore,
 	FindOptions,
 	FindResult,
-	AuthContext,
 	ScopeEnforcementPort,
 	StoragePort,
 	UseCaseContext,
@@ -28,7 +27,7 @@ import type {
 	QueryPorts,
 	QueryWithRawStorePorts
 } from '../core/ports';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 
@@ -96,7 +95,7 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 	ratingScheme: 'configure'
 };
 
-type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
+type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string, unknown>;
 
 type TestContextOptions = {
 	auth?: Parameters<typeof createTestAuthContext>[0];
@@ -497,8 +496,8 @@ export function createInMemoryDataStore(): DataStore & {
 	};
 }
 
-export function createTestAuthContext(overrides?: TestAuthContextOverrides): AuthContext {
-	const defaults: AuthContext = {
+export function createTestAuthContext(overrides?: TestAuthContextOverrides): OrganizationAccessGrant {
+	const defaults: OrganizationAccessGrant = {
 		userId: 'test-user',
 		orgId: 'test-org',
 		role: 'owner',
@@ -571,7 +570,10 @@ export function createTestNotificationPort(): UseCaseContext['notifications'] & 
 	};
 }
 
-function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; rawStore: InMemoryDataStore } {
+function createScopedTestStores(auth: OrganizationAccessGrant): {
+	store: InMemoryDataStore;
+	rawStore: InMemoryDataStore;
+} {
 	const rawStore = createInMemoryDataStore();
 	if (auth.scopeSet.kind === 'organization') {
 		return { store: rawStore, rawStore };
@@ -595,7 +597,7 @@ function createInMemoryCalendarAssignmentReplacementPort(
 
 async function inMemoryPersonnelRows(
 	rawStore: DataStore,
-	actor: AuthContext,
+	actor: OrganizationAccessGrant,
 	status: 'active' | 'all',
 	ids?: string[]
 ) {
@@ -835,7 +837,7 @@ function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): UseCa
 }
 
 function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): UseCaseContext['personnelTrainingRoster'] {
-	const listActive = async (actor: AuthContext) =>
+	const listActive = async (actor: OrganizationAccessGrant) =>
 		(await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
 	return {
 		listActiveForWorkspace: listActive,
@@ -990,7 +992,7 @@ function createInMemoryTrainingOnboardingReferencesPort(
 
 function createInMemoryOnboardingCalendarMarkersPort(
 	rawStore: DataStore,
-	auth: AuthContext
+	auth: OrganizationAccessGrant
 ): UseCaseContext['onboardingCalendarMarkers'] {
 	return {
 		async listActivePersonnelIds(orgId) {

@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	addTableSheet,
@@ -14,8 +16,8 @@ import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.
 import { listGroupCatalog } from './groupCatalog.server';
 
 interface PersonnelExportContext {
-	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
-	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	rawStore: {
 		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
 		findMany<T>(

@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireIdentityOwnedPolicy } from '$lib/access/index.server';
@@ -9,8 +11,8 @@ export interface DeletionRequestCancellationPort {
 }
 
 export interface DeletionRequestCancellationContext {
-	auth: Parameters<typeof requireIdentityOwnedPolicy>[0]['auth'] & { orgId: string };
-	audit: NonNullable<Parameters<typeof requireIdentityOwnedPolicy>[0]['audit']>;
+	auth: Pick<OrganizationAccessGrant, 'userId' | 'role' | 'capabilityMap' | 'scopeSet'> & { orgId: string };
+	audit: PolicyAuditSink;
 	store: Pick<DeletionRequestStore, 'findPendingById'>;
 	cancellation: DeletionRequestCancellationPort;
 }

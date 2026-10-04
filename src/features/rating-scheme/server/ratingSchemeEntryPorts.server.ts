@@ -1,8 +1,6 @@
-import type { requireFeaturePolicy } from '$lib/access/index.server';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
-
-type RatingSchemeEntryActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
-type RatingSchemeEntryAudit = NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
 
 interface RatingSchemeEntryReadStore {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
@@ -15,8 +13,8 @@ interface RatingSchemeEntryWriteStore extends RatingSchemeEntryReadStore {
 }
 
 export interface RatingSchemeEntryWriteContext {
-	readonly auth: RatingSchemeEntryActor;
-	readonly audit: RatingSchemeEntryAudit;
+	readonly auth: OrganizationAccessGrant;
+	readonly audit: PolicyAuditSink;
 	readonly store: RatingSchemeEntryWriteStore;
 	/** The request's authenticated store retains Rating Scheme RLS independently of Personnel reads. */
 	readonly rawStore?: RatingSchemeEntryReadStore;

@@ -2,7 +2,16 @@
 // control.mjs can inject it through the native DevTools evaluation tool.
 export function installNetworkControl(
 	target,
-	{ mode, ordinal, suffix, search = null, failureField = null, requestTarget = null, sameOrigin = false }
+	{
+		mode,
+		ordinal,
+		suffix,
+		search = null,
+		failureField = null,
+		requestTarget = null,
+		sameOrigin = false,
+		requestMethod = null
+	}
 ) {
 	if (target.__mapNetwork) throw new Error('Restore the existing map network control first');
 	const original = target.fetch;
@@ -17,15 +26,19 @@ export function installNetworkControl(
 		const method = String(
 			init?.method ?? (typeof Request !== 'undefined' && url instanceof Request ? url.method : 'GET')
 		).toUpperCase();
+		const requiredMethod =
+			requestMethod ??
+			(search !== null ||
+			control.suffix.endsWith('/deletion-requests/review') ||
+			control.suffix.endsWith('/personnel/archive-batch') ||
+			control.suffix === '/admin/api/suspend' ||
+			['hold-fail', 'reject', 'drop-response'].includes(control.mode)
+				? 'POST'
+				: null);
 		if (
 			parsedUrl.pathname !== control.suffix ||
 			(search !== null && parsedUrl.search !== search) ||
-			((search !== null ||
-				control.suffix.endsWith('/deletion-requests/review') ||
-				control.suffix.endsWith('/personnel/archive-batch') ||
-				control.suffix === '/admin/api/suspend' ||
-				['hold-fail', 'reject', 'drop-response'].includes(control.mode)) &&
-				method !== 'POST')
+			(requiredMethod !== null && method !== requiredMethod)
 		)
 			return original(...input);
 		if ((sameOrigin || requestTarget) && parsedUrl.origin !== new URL(target.location.href).origin)
@@ -43,6 +56,21 @@ export function installNetworkControl(
 		try {
 			const body = JSON.parse(init?.body ?? '{}');
 			const records = body.records ?? [];
+			if (control.suffix.endsWith('/user-preferences')) {
+				call.preferencePatch = Object.fromEntries(
+					Object.entries({
+						calendar: ['showStatusText', 'showPersonnelRoles', 'highlightOnboarding'],
+						training: ['selectedGroupId', 'selectedViewId', 'matrixViewMode']
+					})
+						.filter(([family]) => body[family] && typeof body[family] === 'object')
+						.map(([family, keys]) => [
+							family,
+							Object.fromEntries(
+								keys.filter((key) => Object.hasOwn(body[family], key)).map((key) => [key, body[family][key]])
+							)
+						])
+				);
+			}
 			call.count = records.length;
 			call.ids = records.map((row) => row.personnelId);
 			call.notes = [...new Set(records.map((row) => row.note))];

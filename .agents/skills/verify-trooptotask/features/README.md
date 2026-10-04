@@ -34,6 +34,8 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 
 ### Access and people
 
+- [Trusted access and request isolation](access-context.md): shared admission, Organization/Group and empty scope, denied writes, authority injection, changed grants and concurrent request targets.
+
 - [Platform access, accounts and Organizations](platform-administration.md): platform admission, reviewed access, directories, suspension, role/ownership support and recovery.
 - [Platform announcements, Feedback and Audit support](platform-support-content.md): admin content lifecycle, reduced Dashboard activity, paging, denial, persisted effects and recovery.
 - [Sign in and sign out](sign-in.md): public gate, member session, account menu, sign-out and form failure.

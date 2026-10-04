@@ -1,0 +1,37 @@
+# Trusted access and request isolation
+
+An authenticated member's current Organization membership supplies role, feature capabilities and Group scope. The requested route supplies the resource target. Browser fields never supply authority.
+
+## Sub-features
+
+- `allowed-scope`: Organization readers receive their own Alpha, Bravo and unassigned records. Alpha readers receive only Alpha. An explicit empty Group scope receives no people or saved availability.
+- `denied-write`: absent or insufficient capability, another Group, an unassigned Person and another Organization cannot authorize a mutation.
+- `authority-injection`: actor, role, capability and scope fields in a request cannot elevate a denied caller or retarget the command.
+- `fresh-grant`: a request made after narrowing an open page's Calendar grant uses current membership. Reload settles without retaining protected records or an indefinite loading state.
+- `request-isolation`: overlapping requests to different Organizations keep their own target and grant, including requests made by the same account.
+- `admission`: a visitor's protected request does not disclose saved records. Normal sign-in and sign-out retain their visible entry and exit paths.
+
+## How to get to it (user POV)
+
+Use Personnel and Calendar from Organization navigation. Use the Organization switcher for an account with A and B memberships. Feature buttons reflect advisory access; an authenticated request to a known target independently checks the server boundary.
+
+## Driving it with verify:app
+
+Read [Calendar access](calendar-access.md), [find Personnel](find-personnel.md), [Organization switching](organization-switching.md) and [sign-in](sign-in.md) before driving. Use their existing synthetic actors and ordinary sign-in form. Record doctor, fixture IDs, actor, Organization, request method/path/status, expected IDs and observed body. Capture visible interaction separately from authenticated HTTP probes and privileged fixture readback.
+
+1. Follow Calendar access's Organization, Alpha and empty-scope read comparisons with `calendarLane`, `calendarScoped` and `calendarEmpty`. Compare exact fixture IDs in both rendered rows and authenticated September 14–16 range responses. A successful empty response needs a nonempty Organization positive control.
+2. Follow find Personnel's Organization and Alpha comparisons with `viewer` and `scoped`. Compare exact page-data Person IDs and visible rows. Preserve the no-Personnel Calendar actor's allowed Calendar read as the independent-lane witness.
+3. Follow Calendar access's paired single/batch denied writes and exact A/B marker absence. With `calendarView`, repeat the denied Able/A write after adding the known synthetic owner's `userId` and `actorUserId`, `role: 'owner'`, `isPrivileged: true`, all six lane capabilities set to `configure`, and `scopeSet: { kind: 'organization' }`. Also send those values as `X-Actor-Id` and `X-Role` headers. The server may reject unknown input with 400 before policy or deny with 403/404; it must never save the marker. Preserve the original denied request as a control. Header claims do not replace normal session authentication.
+4. Follow Organization switching's fresh-grant scenario with `calendarSwitch`. Save the original rows and grant before narrowing, the ordinary denied range request, the reloaded visible state and grant restoration. A denied HTTP response and a permanently busy UI are distinct outcomes.
+5. As `calendarLane`, issue paired A and B September range requests with `Promise.all` from the signed-in page, then repeat with reversed order. A must return 200 with exactly the known A availability IDs. B must deny with 403/404 and disclose none of B's private IDs or labels. As `calendarSwitch`, issue the same overlap in both orders. Both must return 200 with only their respective known fixture IDs. Keep every response with its requested Organization; do not infer isolation from completion order. These are real concurrent authenticated HTTP requests, not independent simultaneous browser interaction or a deterministic provider-delay race.
+6. Exercise the visible Organization switch with `calendarSwitch`, capture A and B separately and reload B. Follow sign-in's sign-out path, then repeat a protected read. Preserve the redirect/denial and absence of known protected IDs. A restored authenticated page from browser cache is not an authoritative protected read.
+
+Restore every changed grant and armed control. Delete only UI-created or helper-recorded rows through their owning cleanup. Save final doctor and owned cleanup before packaging captures.
+
+## Gotchas
+
+These journeys establish the common request-admission and scope contract through Personnel and Calendar. They do not establish every feature's mutation, private-file, governance, export, job or SQL behavior. When D27 changes a consumer, select its existing feature recipe and repeat its affected allowed/denied, persistence and failure paths. Keep one feature map rather than copying every lane's journey here.
+
+Existing lower-level checks cover membership projection, the six-lane evaluator, empty/out-of-Group matching, identity-owned and governance decisions, request-local membership reuse and rejected-load retry. Read the actual checks before selecting them. Current pointers include `src/lib/access/{memberAccessProjection,memberAccessShape,policyEvaluator,scopeSetAccess}.test.ts`, `src/lib/server/{permissionContext,membershipContextCache}.test.ts`, `src/lib/server/core/useCases/{policyAdapter,policyAuthorization,routeAuthorization}.test.ts` and `src/lib/server/adapters/{buildLayoutContext,loadWithContext}.test.ts`. Current SQL suites separately protect membership grants, sensitive RPC privileges, tenant/Group row policies and lane independence. Source inspection and passing mocks cannot establish the live database boundary.
+
+Classify throttling from its actual owner and storage. The hook's `rateLimit.ts` Map is process-local and does not provide cross-process durability. Identity acquisition, setup, recovery and password flows consume the separate durable limiter; preserve their database-window and fail-closed contracts. This recipe adds no rate-limit infrastructure or claim of production multi-instance enforcement.

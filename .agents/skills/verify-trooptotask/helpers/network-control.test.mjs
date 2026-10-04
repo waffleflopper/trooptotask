@@ -3,6 +3,66 @@ import { test } from 'node:test';
 import { installNetworkControl } from './network-control.mjs';
 import { parse } from 'devalue';
 
+for (const mode of ['hold', 'hold-fail', 'fail', 'observe']) {
+	test(`preference ${mode} selects only the owned PATCH and preserves unrelated traffic`, async () => {
+		const dispatched = [];
+		const page = {
+			location: { href: 'http://localhost/org/a/training' },
+			fetch: async (url, init) => {
+				dispatched.push({ url, body: init?.body });
+				return Response.json({ training: { selectedGroupId: 'alpha' } });
+			}
+		};
+		const suffix = '/org/a/api/user-preferences';
+		installNetworkControl(page, { mode, ordinal: 1, suffix, requestMethod: 'PATCH', sameOrigin: true });
+		await page.fetch(suffix);
+		await page.fetch('/org/b/api/user-preferences', { method: 'PATCH' });
+		await page.fetch('http://foreign.test' + suffix, { method: 'PATCH' });
+		await page.fetch(suffix, { method: 'POST' });
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		const patch = { training: { selectedGroupId: 'alpha' }, ignoredSecret: 'private' };
+		let settled = false;
+		const saved = page.fetch(suffix, { method: 'PATCH', body: JSON.stringify(patch) });
+		saved.then(() => (settled = true));
+		await new Promise(setImmediate);
+		assert.equal(dispatched.length, mode === 'hold' || mode === 'observe' ? 5 : 4);
+		if (mode.startsWith('hold')) {
+			assert.equal(settled, false);
+			page.__mapNetwork.release();
+		}
+		assert.equal((await saved).status, mode === 'fail' || mode === 'hold-fail' ? 503 : 200);
+		assert.deepEqual(page.__mapNetwork.calls[0].preferencePatch, { training: { selectedGroupId: 'alpha' } });
+		assert.ok(!JSON.stringify(page.__mapNetwork.calls).includes('private'));
+		assert.equal((await page.fetch(suffix, { method: 'PATCH' })).status, 200);
+	});
+}
+
+test('optional shell failure isolates the selected GET part, origin and Organization', async () => {
+	const page = {
+		location: { href: 'http://localhost/org/a/training' },
+		fetch: async () => Response.json({ ok: true, organizations: [{ id: 'b' }] })
+	};
+	const suffix = '/org/a/api/app-shell-chrome';
+	installNetworkControl(page, {
+		mode: 'fail',
+		ordinal: 1,
+		suffix,
+		search: '?part=notification-count',
+		requestMethod: 'GET',
+		sameOrigin: true
+	});
+	for (const [url, init] of [
+		[suffix + '?part=organization-switcher'],
+		['/org/b/api/app-shell-chrome?part=notification-count'],
+		['http://foreign.test' + suffix + '?part=notification-count'],
+		[suffix + '?part=notification-count', { method: 'POST' }]
+	])
+		assert.equal((await page.fetch(url, init)).status, 200);
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	assert.equal((await page.fetch(suffix + '?part=notification-count')).status, 503);
+	assert.equal((await page.fetch(suffix + '?part=notification-count')).status, 200);
+});
+
 function deferred() {
 	let resolve;
 	const promise = new Promise((done) => {

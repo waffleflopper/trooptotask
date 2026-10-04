@@ -37,6 +37,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Platform access, accounts and Organizations](platform-administration.md): platform admission, reviewed access, directories, suspension, role/ownership support and recovery.
 - [Platform announcements, Feedback and Audit support](platform-support-content.md): admin content lifecycle, reduced Dashboard activity, paging, denial, persisted effects and recovery.
 - [Sign in and sign out](sign-in.md): public gate, member session, account menu, sign-out and form failure.
+- [App shell and saved preferences](shell-preferences.md): optional chrome, Training/Calendar persistence, pending saves, failures and user/Organization/session lifetime.
 - [Create an Organization](organization-creation.md): confirmed-account gate, owner creation, initial configuration and retry boundaries.
 - [Invite and accept Organization members](organization-invitations.md): existing/new account paths, separate setup and invitation states, acceptance, denial and resend.
 - [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.

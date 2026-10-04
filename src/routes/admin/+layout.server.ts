@@ -1,6 +1,5 @@
 import type { LayoutServerLoad } from './$types';
-import { getAccessiblePages } from '$lib/server/admin';
-import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
+import { loadPlatformAdminNavigation } from '$features/platform-admin/index.server';
 
 const NAV_GROUPS = [
 	{ label: null, items: [{ label: 'Dashboard', href: '/admin', page: 'dashboard' }] },
@@ -20,24 +19,13 @@ const NAV_GROUPS = [
 			{ label: 'Announcements', href: '/admin/announcements', page: 'announcements' }
 		]
 	}
-];
+] as const;
 
-export const load: LayoutServerLoad = loadWithAdminContext({
-	fn: async (ctx, event) => {
-		const { adminUser } = ctx;
-		const accessiblePages = getAccessiblePages(adminUser.role);
-
-		const visibleNavGroups = NAV_GROUPS.map((group) => ({
-			...group,
-			items: group.items.filter((item) => accessiblePages.includes(item.page))
-		})).filter((group) => group.items.length > 0);
-
-		return {
-			adminUserId: adminUser.id,
-			adminEmail: event.locals.user?.email,
-			adminRole: adminUser.role,
-			accessiblePages,
-			visibleNavGroups
-		};
-	}
-});
+export const load: LayoutServerLoad = async (event) => {
+	const navigation = await loadPlatformAdminNavigation(event);
+	const visibleNavGroups = NAV_GROUPS.map((group) => ({
+		...group,
+		items: group.items.filter((item) => navigation.accessiblePages.includes(item.page))
+	})).filter((group) => group.items.length > 0);
+	return { ...navigation, visibleNavGroups };
+};

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { isHttpError } from '@sveltejs/kit';
 import type { PageData } from './$types';
 
 const { announcementsMock, createAnnouncementsMock } = vi.hoisted(() => {
@@ -15,15 +16,9 @@ const { announcementsMock, createAnnouncementsMock } = vi.hoisted(() => {
 	};
 });
 
-vi.mock('$lib/server/adapters/adminAdapter', () => ({
-	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event),
-	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event)
-}));
-
-vi.mock('$lib/server/adapters/supabasePlatformAnnouncements', () => ({
-	createSupabasePlatformAnnouncements: createAnnouncementsMock
+vi.mock('$features/platform-admin/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/platform-admin/index.server')>()),
+	createPlatformAnnouncementOperations: createAnnouncementsMock
 }));
 
 import { actions, load } from './+page.server';
@@ -35,16 +30,6 @@ function makeRequest(form: Record<string, string>): Request {
 		method: 'POST',
 		body: new URLSearchParams(form)
 	});
-}
-
-function makeContext() {
-	return {
-		adminUser: { id: 'admin-1', role: 'super_admin' },
-		adminClient: {},
-		sessionClient: {},
-		session: null,
-		audit: vi.fn()
-	};
 }
 
 describe('admin announcements route shell', () => {
@@ -77,9 +62,7 @@ describe('admin announcements route shell', () => {
 			}
 		]);
 
-		const result = (await load({
-			__ctx: makeContext()
-		} as unknown as Parameters<typeof load>[0])) as PageData;
+		const result = (await load({} as unknown as Parameters<typeof load>[0])) as PageData;
 
 		expect(result).toEqual({
 			announcements: [
@@ -98,7 +81,6 @@ describe('admin announcements route shell', () => {
 
 	it('preserves validation failures before calling the announcement use case', async () => {
 		const result = await actions.create({
-			__ctx: makeContext(),
 			request: makeRequest({ title: '', message: 'Missing title', type: 'info' })
 		} as unknown as Parameters<(typeof actions)['create']>[0]);
 
@@ -111,7 +93,6 @@ describe('admin announcements route shell', () => {
 		announcementsMock.create.mockRejectedValueOnce(new Error('insert failed'));
 
 		const result = await actions.create({
-			__ctx: makeContext(),
 			request: makeRequest({ title: 'Readiness update', message: 'Brief at 0900', type: 'info' })
 		} as unknown as Parameters<(typeof actions)['create']>[0]);
 
@@ -122,7 +103,6 @@ describe('admin announcements route shell', () => {
 
 	it('rejects invalid toggle IDs before calling the announcement use case', async () => {
 		const result = await actions.toggle({
-			__ctx: makeContext(),
 			request: makeRequest({ id: 'not-a-uuid' })
 		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
 
@@ -134,7 +114,6 @@ describe('admin announcements route shell', () => {
 		announcementsMock.toggleActive.mockResolvedValueOnce({ status: 'not_found' });
 
 		const result = await actions.toggle({
-			__ctx: makeContext(),
 			request: makeRequest({ id: ANNOUNCEMENT_ID })
 		} as unknown as Parameters<(typeof actions)['toggle']>[0]);
 
@@ -143,7 +122,6 @@ describe('admin announcements route shell', () => {
 
 	it('rejects invalid delete IDs before calling the announcement use case', async () => {
 		const result = await actions.delete({
-			__ctx: makeContext(),
 			request: makeRequest({ id: 'not-a-uuid' })
 		} as unknown as Parameters<(typeof actions)['delete']>[0]);
 
@@ -155,11 +133,24 @@ describe('admin announcements route shell', () => {
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 		announcementsMock.delete.mockRejectedValueOnce(new Error('delete failed'));
 		const failure = await actions.delete({
-			__ctx: makeContext(),
 			request: makeRequest({ id: ANNOUNCEMENT_ID })
 		} as unknown as Parameters<(typeof actions)['delete']>[0]);
 		expect(failure).toEqual({ status: 500, data: { error: 'Failed to delete announcement' } });
 		expect(consoleError).toHaveBeenCalledWith('Failed to delete announcement', expect.any(Error));
 		consoleError.mockRestore();
+	});
+	it('reports a failed collection read without disclosing provider details', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		announcementsMock.list.mockRejectedValueOnce(new Error('private provider failure'));
+		try {
+			await load({} as Parameters<typeof load>[0]);
+			expect.unreachable('Expected failed collection load');
+		} catch (cause) {
+			expect(isHttpError(cause, 500)).toBe(true);
+			if (!isHttpError(cause)) throw cause;
+			expect(cause.body.message).not.toContain('private provider');
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 });

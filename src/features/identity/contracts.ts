@@ -280,3 +280,9 @@ export interface IdentityPlatformAccessRequestStore {
 		actorUserId: string;
 	}): Promise<RejectAccessRequestAndBlockInvitationsResult>;
 }
+
+export type {
+	IdentityPlatformAccountStatistics,
+	IdentityPlatformSignupPoint,
+	IdentityPlatformDashboardReader
+} from './platformDashboardTypes';

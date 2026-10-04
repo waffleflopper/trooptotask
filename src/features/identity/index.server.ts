@@ -108,3 +108,4 @@ export { createIdentityPlatformAccountEmailPort } from './platformAccountEmail.s
 export { createIdentityPlatformAccessRequestStore } from './platformAccessRequests.server';
 
 export { listGettingStartedProgressExportRows, listUserOrgPreferenceExportRows } from './organizationExportRead.server';
+export { createIdentityPlatformDashboardReader } from './platformDashboardReader.server';

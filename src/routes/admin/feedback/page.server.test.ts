@@ -1,28 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { isHttpError } from '@sveltejs/kit';
 import type { PageData } from './$types';
 
-const { feedbackMock, createStoreMock } = vi.hoisted(() => {
+const { feedbackMock, createOperationsMock } = vi.hoisted(() => {
 	const feedback = {
-		listFeedback: vi.fn(),
-		updateFeedback: vi.fn()
+		list: vi.fn(),
+		update: vi.fn()
 	};
 
 	return {
 		feedbackMock: feedback,
-		createStoreMock: vi.fn(() => feedback)
+		createOperationsMock: vi.fn(() => feedback)
 	};
 });
 
-vi.mock('$lib/server/adapters/adminAdapter', () => ({
-	adminAction: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event),
-	loadWithAdminContext: (config: { fn: (ctx: unknown, event: unknown) => unknown }) => (event: { __ctx: unknown }) =>
-		config.fn(event.__ctx, event)
-}));
-
-vi.mock('$features/feedback/index.server', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$features/feedback/index.server')>()),
-	createSupabaseFeedbackReviewStore: createStoreMock
+vi.mock('$features/platform-admin/index.server', () => ({
+	createPlatformFeedbackOperations: createOperationsMock
 }));
 
 import { actions, load } from './+page.server';
@@ -36,29 +29,15 @@ function makeRequest(form: Record<string, string>): Request {
 	});
 }
 
-function makeContext() {
-	return {
-		adminUser: { id: 'admin-1', role: 'support' },
-		adminClient: {
-			from: vi.fn(() => {
-				throw new Error('route must use Feedback owner');
-			})
-		},
-		sessionClient: {},
-		session: null,
-		audit: vi.fn()
-	};
-}
-
 describe('admin feedback route shell', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		feedbackMock.listFeedback.mockResolvedValue([]);
-		feedbackMock.updateFeedback.mockResolvedValue({ id: FEEDBACK_ID });
+		feedbackMock.list.mockResolvedValue([]);
+		feedbackMock.update.mockResolvedValue({ status: 'updated', id: FEEDBACK_ID });
 	});
 
 	it('groups feedback by saved status in the existing page shape', async () => {
-		feedbackMock.listFeedback.mockResolvedValueOnce([
+		feedbackMock.list.mockResolvedValueOnce([
 			{
 				id: FEEDBACK_ID,
 				userEmail: 'tester@example.com',
@@ -83,7 +62,7 @@ describe('admin feedback route shell', () => {
 			}
 		]);
 
-		const result = (await load({ __ctx: makeContext() } as unknown as Parameters<typeof load>[0])) as PageData;
+		const result = (await load({} as unknown as Parameters<typeof load>[0])) as PageData;
 
 		expect(result).toEqual({
 			newItems: [
@@ -118,31 +97,28 @@ describe('admin feedback route shell', () => {
 
 	it('preserves validation failures before calling the use case', async () => {
 		const missing = await actions.update({
-			__ctx: makeContext(),
 			request: makeRequest({ status: 'reviewed' })
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 		expect(missing).toEqual({ status: 400, data: { error: 'Missing feedback ID' } });
 
 		const invalidStatus = await actions.update({
-			__ctx: makeContext(),
 			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'ignored' })
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 		expect(invalidStatus).toEqual({ status: 400, data: { error: 'Invalid status' } });
-		expect(feedbackMock.updateFeedback).not.toHaveBeenCalled();
+		expect(feedbackMock.update).not.toHaveBeenCalled();
 	});
 
 	it('saves the chosen review status and clears notes through the owned operation', async () => {
 		const saved = { status: 'reviewed', adminNotes: 'Needs investigation' };
-		feedbackMock.updateFeedback.mockImplementationOnce(
+		feedbackMock.update.mockImplementationOnce(
 			async (input: { id: string; status?: string; adminNotes?: string | null }) => {
 				if (input.status !== undefined) saved.status = input.status;
 				if (input.adminNotes !== undefined) saved.adminNotes = input.adminNotes ?? '';
-				return { id: input.id };
+				return { status: 'updated', id: input.id };
 			}
 		);
 
 		const result = await actions.update({
-			__ctx: makeContext(),
 			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'resolved', adminNotes: '' })
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 
@@ -151,21 +127,33 @@ describe('admin feedback route shell', () => {
 	});
 
 	it('maps missing feedback and store failures to user-facing failure shapes', async () => {
-		feedbackMock.updateFeedback.mockResolvedValueOnce(null);
+		feedbackMock.update.mockResolvedValueOnce({ status: 'not_found' });
 		const missing = await actions.update({
-			__ctx: makeContext(),
 			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'reviewed' })
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 		expect(missing).toEqual({ status: 404, data: { error: 'Feedback not found' } });
 
 		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		feedbackMock.updateFeedback.mockRejectedValueOnce(new Error('update failed'));
+		feedbackMock.update.mockRejectedValueOnce(new Error('update failed'));
 		const failure = await actions.update({
-			__ctx: makeContext(),
 			request: makeRequest({ feedbackId: FEEDBACK_ID, status: 'reviewed' })
 		} as unknown as Parameters<(typeof actions)['update']>[0]);
 		expect(failure).toEqual({ status: 500, data: { error: 'Failed to update feedback' } });
 		expect(consoleError).toHaveBeenCalledWith('Failed to update feedback:', expect.any(Error));
 		consoleError.mockRestore();
+	});
+	it('reports a failed collection read without disclosing provider details', async () => {
+		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+		feedbackMock.list.mockRejectedValueOnce(new Error('private provider failure'));
+		try {
+			await load({} as Parameters<typeof load>[0]);
+			expect.unreachable('Expected failed collection load');
+		} catch (cause) {
+			expect(isHttpError(cause, 500)).toBe(true);
+			if (!isHttpError(cause)) throw cause;
+			expect(cause.body.message).not.toContain('private provider');
+		} finally {
+			consoleError.mockRestore();
+		}
 	});
 });

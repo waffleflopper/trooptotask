@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createInMemoryPlatformAnnouncementsStore } from '$lib/server/adapters/inMemoryPlatformAnnouncements';
-import { createPlatformAnnouncements, type PlatformAnnouncementsAuditEvent } from './platformAnnouncements';
+import { createInMemoryPlatformAnnouncementsStore } from './inMemoryAnnouncements.test-support.server';
+import type { AuditEvent } from '$lib/audit/contracts';
+import { createPlatformAnnouncements } from './announcements.server';
 
 const FIRST_ID = '11111111-1111-1111-1111-111111111111';
 const SECOND_ID = '22222222-2222-2222-2222-222222222222';
 const MISSING_ID = '33333333-3333-3333-3333-333333333333';
 
 function makeAnnouncements() {
-	const audit = vi.fn<(event: PlatformAnnouncementsAuditEvent) => void>();
+	const audit = vi.fn<(event: AuditEvent) => void>();
 	const store = createInMemoryPlatformAnnouncementsStore({
 		announcements: [
 			{
@@ -134,7 +135,7 @@ describe('PlatformAnnouncements', () => {
 	});
 
 	it('does not audit failed create operations', async () => {
-		const audit = vi.fn<(event: PlatformAnnouncementsAuditEvent) => void>();
+		const audit = vi.fn<(event: AuditEvent) => void>();
 		const store = createInMemoryPlatformAnnouncementsStore({
 			announcements: [],
 			createError: new Error('insert failed')

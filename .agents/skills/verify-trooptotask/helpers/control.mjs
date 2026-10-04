@@ -541,6 +541,8 @@ async function main() {
 				...orgDestinations,
 				'dashboard',
 				'org/new',
+				'admin',
+				'admin/announcements',
 				'admin/feedback',
 				'admin/audit',
 				'admin/users',
@@ -548,7 +550,7 @@ async function main() {
 				'admin/access-requests'
 			].includes(destination) ||
 			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
-			(destination.startsWith('admin/') &&
+			((destination === 'admin' || destination.startsWith('admin/')) &&
 				![
 					'platformReviewer',
 					'platformSupport',
@@ -563,15 +565,16 @@ async function main() {
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
-		const destinationPath = destination.startsWith('admin/')
-			? `/${destination}`
-			: destination === 'dashboard'
-				? '/dashboard?show=all'
-				: destination === 'org/new'
-					? '/org/new'
-					: destination === 'home'
-						? `/org/${org(targetOrg)}`
-						: `/org/${org(targetOrg)}/${destination}`;
+		const destinationPath =
+			destination === 'admin' || destination.startsWith('admin/')
+				? `/${destination}`
+				: destination === 'dashboard'
+					? '/dashboard?show=all'
+					: destination === 'org/new'
+						? '/org/new'
+						: destination === 'home'
+							? `/org/${org(targetOrg)}`
+							: `/org/${org(targetOrg)}/${destination}`;
 		let readyText =
 			destination === 'admin/audit'
 				? [
@@ -634,7 +637,12 @@ async function main() {
 																					'Access restricted',
 																					'Access Restricted'
 																				];
-		if (destination.startsWith('admin/') && !['admin/audit', 'admin/feedback'].includes(destination))
+		if (destination === 'admin') readyText = ['Admin Dashboard', 'Total Users', 'Forbidden', 'Access denied', '403'];
+		if (destination === 'admin/announcements') readyText = ['Announcements', 'Forbidden', 'Access denied', '403'];
+		if (
+			destination.startsWith('admin/') &&
+			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
+		)
 			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
 		readyText = [...readyText, 'Account Suspended'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
@@ -717,6 +725,30 @@ async function main() {
 			)
 		);
 		note({ role, userId, dismissals, feedback });
+		return;
+	}
+	if (command === 'platform-content') {
+		if (args.length) throw new Error('Platform content readback accepts no external targets.');
+		const client = await provider();
+		const ownedState = await saved();
+		const seedIds = ownedState.seeded
+			.filter((item) => item.kind === 'communications' && item.table === 'platform_announcements')
+			.flatMap((item) => item.ids);
+		const select = 'id,title,message,type,is_active,expires_at,created_by,created_at';
+		const announcements = checked(
+			await selectAllSupabaseRows((from, to) =>
+				client
+					.from('platform_announcements')
+					.select(select)
+					.eq('created_by', fixture.actors.platformReviewer.id)
+					.order('id')
+					.range(from, to)
+			)
+		);
+		const seededAnnouncements = seedIds.length
+			? checked(await client.from('platform_announcements').select(select).in('id', seedIds))
+			: [];
+		note({ announcements, seededAnnouncements });
 		return;
 	}
 	if (command === 'rows') {
@@ -1965,8 +1997,11 @@ async function main() {
 				throw new Error(
 					'Delayed synthetic failure is supported only for Organization policies, deletion review and Personnel bulk archival.'
 				);
-			if (family === 'admin-access-read' && !['arm-fail', 'arm-hold', 'arm-observe'].includes(action))
-				throw new Error('Access Request read control supports failure, hold and observation only.');
+			if (
+				['admin-access-read', 'admin-audit-read', 'admin-dashboard-read'].includes(family) &&
+				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
+			)
+				throw new Error('Platform read controls support failure, hold and observation only.');
 			if (action === 'arm-reject' && !['deletion-requests/review', 'personnel/archive-batch'].includes(family))
 				throw new Error(
 					'Synthetic transport rejection is supported only for deletion review and Personnel bulk archival.'

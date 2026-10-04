@@ -107,4 +107,5 @@ export { createIdentityPlatformSuspensionCommands } from './platformSuspensionCo
 export { createIdentityPlatformAccountEmailPort } from './platformAccountEmail.server';
 export { createIdentityPlatformAccessRequestStore } from './platformAccessRequests.server';
 
+export { listGettingStartedProgressExportRows, listUserOrgPreferenceExportRows } from './organizationExportRead.server';
 export { createIdentityPlatformDashboardReader } from './platformDashboardReader.server';

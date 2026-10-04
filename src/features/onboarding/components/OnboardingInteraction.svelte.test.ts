@@ -96,8 +96,9 @@ beforeEach(() => {
 	onboardingStore.load([packet], 'org-1');
 });
 
-afterEach(() => {
+afterEach(async () => {
 	cleanup();
+	await waitFor(() => expect(document.body.style.overflow).not.toBe('hidden'));
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();

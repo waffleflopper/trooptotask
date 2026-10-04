@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 
 const downloads = vi.hoisted(() => ({ save: vi.fn() }));
-vi.mock('../settingsDownloads', () => ({ downloadBlob: downloads.save }));
+vi.mock('$lib/utils/downloadBlob', () => ({ downloadBlob: downloads.save }));
 
 function data(orgId: string) {
 	return { orgId } as ComponentProps<typeof Page>['data'];

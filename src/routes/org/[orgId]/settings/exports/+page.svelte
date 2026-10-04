@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PageProps } from './$types';
-	import SettingsDataExportWorkspace from './SettingsDataExportWorkspace.svelte';
+	import { SettingsDataExportWorkspace } from '$features/data-export/index.web';
 
 	let { data }: PageProps = $props();
 </script>

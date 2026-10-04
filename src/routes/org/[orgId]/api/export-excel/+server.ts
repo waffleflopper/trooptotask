@@ -1,28 +1,16 @@
-import { listDeletionRequestExportRows, type DeletionRequestStore } from '$features/deletion-requests/index.server';
-import {
-	listOnboardingTemplateExportRows,
-	listOnboardingTemplateStepExportRows,
-	listPersonnelOnboardingExportRows,
-	listOnboardingStepProgressExportRows
-} from '$features/onboarding/index.server';
-import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
+import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { handle, createRequestDeletionRequestStore, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	executeOrganizationDataExport,
+	loadOrganizationExportPayload,
 	type OrganizationDataExportArtifact,
 	type OrganizationDataExportExecutionResult
-} from '$lib/server/core/useCases/organizationDataExportExecution';
-import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
-import { listNotificationExportRows } from '$features/notifications/index.server';
-import { buildOrganizationDataExportWorkbook } from '$lib/server/core/useCases/organizationExportWorkbook';
-import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/utils/workbook';
+} from '$features/data-export/index.server';
+import { createOrganizationDataExportReads } from '../organizationDataExportDelivery.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import {
-	listTrainingTypeExportRows,
-	listTrainingCompletionExportRows,
-	listTrainingViewExportRows
-} from '$features/training/index.server';
+import { buildOrganizationDataExportWorkbook } from '$features/data-export/index.server';
+import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/utils/workbook';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -45,30 +33,7 @@ export function _createPostConfig(store: DeletionRequestStore): RouteConfig<Exce
 				requestedByEmail: input.email,
 				auditAction: 'export.excel_created',
 				buildArtifact: async () => {
-					if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
-					const exportData = await loadOrganizationExportPayload(
-						ctx.rawStore,
-						ctx.auth,
-						ctx.personnelOrganizationExport,
-						{
-							listTrainingTypeExportRows,
-							listTrainingCompletionExportRows,
-							listTrainingViewExportRows
-						},
-						{
-							listOnboardingTemplateExportRows,
-							listOnboardingTemplateStepExportRows,
-							listPersonnelOnboardingExportRows,
-							listOnboardingStepProgressExportRows
-						},
-						{
-							listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
-							listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
-						},
-						{ listRatingSchemeExportRows },
-						ctx.organizationRawExport,
-						{ listDeletionRequestExportRows: () => listDeletionRequestExportRows(store, orgId) }
-					);
+					const exportData = await loadOrganizationExportPayload(orgId, createOrganizationDataExportReads(ctx, store));
 					const exportWorkbook = await buildOrganizationDataExportWorkbook({ payload: exportData });
 					const buffer = await writeWorkbookBuffer(exportWorkbook.workbook);
 

@@ -17,7 +17,8 @@ import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import { assertNormalizedMembershipRow, type MembershipRow } from '$lib/server/permissionContext';
-import { getDefaultUserOrgPreferences, normalizeUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { loadUserOrgPreferences } from '$features/identity/index.server';
 import type {
 	AppShellDeferredChromePort,
 	AppShellFirstPaintChrome,
@@ -224,11 +225,7 @@ export function createSupabaseAppShellFirstPaintChromePort(config: {
 					userSupabase: config.userSupabase,
 					supabase: config.supabase
 				}),
-				loadUserOrgPreferences({
-					orgId: config.orgId,
-					userId: config.userId,
-					userSupabase: config.userSupabase
-				})
+				loadFirstPaintPreferences(config)
 			]);
 
 			return { announcements, preferences };
@@ -274,20 +271,13 @@ async function loadActiveAnnouncements(config: {
 	}
 }
 
-async function loadUserOrgPreferences(config: { orgId: string; userId: string; userSupabase: SupabaseClient }) {
-	const { data, error: preferencesError } = await config.userSupabase
-		.from('user_org_preferences')
-		.select('preferences')
-		.eq('organization_id', config.orgId)
-		.eq('user_id', config.userId)
-		.maybeSingle();
-
-	if (preferencesError) {
-		console.error('[app-shell] Failed to load user preferences:', preferencesError);
+async function loadFirstPaintPreferences(config: { orgId: string; userId: string; userSupabase: SupabaseClient }) {
+	try {
+		return await loadUserOrgPreferences({ supabase: config.userSupabase }, config);
+	} catch (cause) {
+		console.error('[app-shell] Failed to load user preferences:', sanitizeErrorForLog(cause));
 		return getDefaultUserOrgPreferences();
 	}
-
-	return data ? normalizeUserOrgPreferences(data.preferences) : getDefaultUserOrgPreferences();
 }
 
 async function loadOrganizationSwitcherOrgs(config: {

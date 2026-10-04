@@ -1,5 +1,13 @@
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/errors';
+import { json, type RequestEvent } from '@sveltejs/kit';
+import {
+	buildRouteContext,
+	createRequestAccountPreferencesProvider,
+	handleUseCaseRequest,
+	rethrowOrWrap,
+	type RouteConfig
+} from '$lib/server/adapters/httpAdapter';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
 import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
 import { withDashboardTiming } from '$features/dashboard/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -33,99 +41,65 @@ async function countRows(
 	return result.count ?? 0;
 }
 
-async function fetchGettingStartedSupport(ctx: UseCaseContext) {
+async function fetchGettingStartedSupport(ctx: UseCaseContext, provider: { supabase: SupabaseClient }) {
 	const [
 		trainingTypeCount,
 		onboardingTemplateStepCount,
 		ratingSchemeEntryCount,
 		orgMemberCount,
-		gettingStartedRows,
+		gettingStartedDismissed,
 		starterConfigurationPacks
 	] = await Promise.all([
 		countTrainingTypes(ctx.store, ctx.auth.orgId),
 		countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
 		countRatingSchemeEntries({ store: ctx.rawStore, actor: ctx.auth }),
 		countRows(ctx, 'organization_memberships'),
-		ctx.auth.userId
-			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
-					user_id: ctx.auth.userId
-				})
-			: Promise.resolve([]),
+		loadGettingStartedDismissed(provider, ctx.auth),
 		listStarterConfigurationPacks(ctx)
 	]);
-
-	const gettingStartedData = gettingStartedRows.length > 0 ? gettingStartedRows[0] : null;
 
 	return {
 		trainingTypeCount,
 		onboardingTemplateStepCount,
 		ratingSchemeEntryCount,
 		orgMemberCount,
-		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null,
+		gettingStartedDismissed,
 		starterConfigurationPacks
 	} satisfies GettingStartedSupportData;
 }
 
-export const _getConfig: RouteConfig<void, GettingStartedSupportData> = {
-	// Getting-started supports the signed-in user's dashboard checklist, so it follows the identity-owned dashboard boundary.
-	policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-	fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx))
-};
-
-export const GET = handle(_getConfig);
-
-export const _postConfig: RouteConfig<void, unknown> = {
-	mutation: true,
-
-	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-	parseInput: () => undefined,
-	fn: async (ctx) => {
-		const userId = ctx.auth.userId;
-		if (!userId) fail(401, 'Unauthorized');
-
-		const existing = await ctx.store.findOne('getting_started_progress', ctx.auth.orgId, { user_id: userId });
-
-		if (existing) {
-			await ctx.store.update(
-				'getting_started_progress',
-				ctx.auth.orgId,
-				(existing as Record<string, unknown>).id as string,
-				{ dismissed_at: new Date().toISOString() }
-			);
-		} else {
-			await ctx.store.insert('getting_started_progress', ctx.auth.orgId, {
-				user_id: userId,
-				dismissed_at: new Date().toISOString()
-			});
+/** Per-request composition: Identity owns personal progress, delivery retains setup support. */
+export function _createConfigs(provider: { supabase: SupabaseClient }) {
+	const get: RouteConfig<void, GettingStartedSupportData> = {
+		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+		fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx, provider))
+	};
+	const progress = (dismissed: boolean): RouteConfig<void, { success: true }> => ({
+		mutation: true,
+		policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+		parseInput: () => undefined,
+		fn: async (ctx) => {
+			await setGettingStartedDismissed({ supabase: provider.supabase, auth: ctx.auth, audit: ctx.audit }, dismissed);
+			return { success: true };
 		}
+	});
+	return { get, post: progress(true), delete: progress(false) };
+}
 
-		return { success: true };
+async function request(event: RequestEvent, method: 'get' | 'post' | 'delete') {
+	try {
+		const ctx = await buildRouteContext(event);
+		const configs = _createConfigs(createRequestAccountPreferencesProvider(event.locals));
+		const result =
+			method === 'get'
+				? await handleUseCaseRequest(configs.get, ctx, undefined)
+				: await handleUseCaseRequest(configs[method], ctx, undefined);
+		return json(result);
+	} catch (cause) {
+		rethrowOrWrap(cause);
 	}
-};
+}
 
-export const POST = handle(_postConfig);
-
-export const _deleteConfig: RouteConfig<void, unknown> = {
-	mutation: true,
-
-	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-	parseInput: () => undefined,
-	fn: async (ctx) => {
-		const userId = ctx.auth.userId;
-		if (!userId) fail(401, 'Unauthorized');
-
-		const existing = await ctx.store.findOne<{ id: string }>('getting_started_progress', ctx.auth.orgId, {
-			user_id: userId
-		});
-
-		if (existing) {
-			await ctx.store.update('getting_started_progress', ctx.auth.orgId, existing.id, {
-				dismissed_at: null
-			});
-		}
-
-		return { success: true };
-	}
-};
-
-export const DELETE = handle(_deleteConfig);
+export const GET = (event: RequestEvent) => request(event, 'get');
+export const POST = (event: RequestEvent) => request(event, 'post');
+export const DELETE = (event: RequestEvent) => request(event, 'delete');

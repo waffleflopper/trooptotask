@@ -1,8 +1,15 @@
-import type { AuthContext, DataStore } from '$lib/server/core/ports';
+interface DataExportWriteStore {
+	insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T>;
+	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
+}
 
-interface DataExportLifecyclePorts {
-	auth: Pick<AuthContext, 'orgId'>;
-	store: DataStore;
+interface DataExportReadStore {
+	findMany<T>(table: string, orgId: string): Promise<T[]>;
+}
+
+export interface DataExportLifecyclePorts {
+	auth: { readonly orgId: string };
+	store: DataExportWriteStore;
 }
 
 interface DataExportRow {
@@ -57,4 +64,8 @@ export async function failDataExport(ports: DataExportLifecyclePorts, input: { e
 		},
 		statusLabel: 'failed'
 	});
+}
+
+export function listDataExportRows(store: DataExportReadStore, orgId: string): Promise<Record<string, unknown>[]> {
+	return store.findMany<Record<string, unknown>>('data_exports', orgId);
 }

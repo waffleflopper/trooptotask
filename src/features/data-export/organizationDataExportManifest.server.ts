@@ -14,8 +14,8 @@ export type OrganizationDataExportAreaKey = (typeof ORGANIZATION_DATA_EXPORT_ARE
 
 export type OrganizationDataExportSections = Record<string, Record<string, unknown>[]>;
 
-export interface OrganizationDataExportSection {
-	key: string;
+export interface OrganizationDataExportSection<TKey extends string = string> {
+	key: TKey;
 	title: string;
 	table: string;
 	areaKey: OrganizationDataExportAreaKey;
@@ -46,13 +46,13 @@ const ORGANIZATION_DATA_EXPORT_RESERVED_PAYLOAD_KEYS = new Set([
 	'sections'
 ]);
 
-function section(
-	key: string,
+function section<TKey extends string>(
+	key: TKey,
 	title: string,
 	table: string,
 	areaKey: OrganizationDataExportAreaKey,
 	areaLabel: string
-): OrganizationDataExportSection {
+): OrganizationDataExportSection<TKey> {
 	return { key, title, table, areaKey, areaLabel };
 }
 
@@ -120,6 +120,8 @@ export const ORGANIZATION_DATA_EXPORT_SECTIONS = [
 	section('onboardingStepProgress', 'Onboarding Step Progress', 'onboarding_step_progress', 'onboarding', 'Onboarding'),
 	section('ratingSchemeEntries', 'Rating Scheme Entries', 'rating_scheme_entries', 'rating-scheme', 'Evals')
 ] as const;
+
+export type OrganizationDataExportSectionKey = (typeof ORGANIZATION_DATA_EXPORT_SECTIONS)[number]['key'];
 
 export const ORGANIZATION_DATA_EXPORT_READABLE_SHEETS: OrganizationDataExportReadableSheetDefinition[] = [
 	{

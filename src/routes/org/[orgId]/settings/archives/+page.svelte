@@ -8,7 +8,7 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import ArchivedPersonnelSettingsSection from '../ArchivedPersonnelSettingsSection.svelte';
-	import { downloadBlob } from '../settingsDownloads';
+	import { downloadBlob } from '$lib/utils/downloadBlob';
 	import { createSettingsArchivedPersonnelState } from '../settingsWorkspaceState.svelte';
 
 	let { data }: PageProps = $props();

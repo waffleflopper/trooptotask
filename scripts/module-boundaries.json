@@ -81,19 +81,8 @@
 			"packet": "08-M06"
 		},
 		"data-export": {
-			"roots": [],
-			"files": [
-				"src/lib/server/core/useCases/dataExportLifecycle.test.ts",
-				"src/lib/server/core/useCases/dataExportLifecycle.ts",
-				"src/lib/server/core/useCases/organizationDataExportExecution.test.ts",
-				"src/lib/server/core/useCases/organizationDataExportExecution.ts",
-				"src/lib/server/core/useCases/organizationDataExportManifest.test.ts",
-				"src/lib/server/core/useCases/organizationDataExportManifest.ts",
-				"src/lib/server/core/useCases/organizationExport.test.ts",
-				"src/lib/server/core/useCases/organizationExport.ts",
-				"src/lib/server/core/useCases/organizationExportWorkbook.test.ts",
-				"src/lib/server/core/useCases/organizationExportWorkbook.ts"
-			],
+			"roots": ["src/features/data-export/"],
+			"files": [],
 			"packet": "08-M14"
 		},
 		"deletion-requests": {
@@ -288,7 +277,8 @@
 				"src/lib/errors.ts",
 				"src/lib/utils/retentionCutoff.ts",
 				"src/lib/utils/logSanitize.ts",
-				"src/lib/utils/logSanitize.test.ts"
+				"src/lib/utils/logSanitize.test.ts",
+				"src/lib/utils/downloadBlob.ts"
 			],
 			"packet": "08-M16"
 		},
@@ -574,7 +564,8 @@
 			"src/features/feedback/index.server.ts"
 		],
 		"platform-admin": ["src/features/platform-admin/index.server.ts", "src/features/platform-admin/contracts.ts"],
-		"app-shell": ["src/features/app-shell/index.ts"]
+		"app-shell": ["src/features/app-shell/index.ts"],
+		"data-export": ["src/features/data-export/index.server.ts", "src/features/data-export/index.web.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

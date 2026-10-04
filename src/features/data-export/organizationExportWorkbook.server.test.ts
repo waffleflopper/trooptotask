@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { OrganizationExportPayload } from './organizationExport';
+import type { OrganizationExportPayload } from './organizationExport.server';
 import {
 	buildOrganizationDataExportWorkbook,
 	buildOrganizationDataExportWorkbookPlan
-} from './organizationExportWorkbook';
+} from './organizationExportWorkbook.server';
 
 function payload(overrides: Partial<OrganizationExportPayload['sections']> = {}): OrganizationExportPayload {
 	return {

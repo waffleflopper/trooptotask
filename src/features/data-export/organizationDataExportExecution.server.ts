@@ -1,5 +1,11 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { completeDataExport, failDataExport, startDataExport } from './dataExportLifecycle';
+import type { AuditPort } from '$lib/audit/contracts';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
+import {
+	completeDataExport,
+	failDataExport,
+	startDataExport,
+	type DataExportLifecyclePorts
+} from './dataExportLifecycle.server';
 
 export type OrganizationDataExportArtifact =
 	| {
@@ -19,6 +25,13 @@ export type OrganizationDataExportExecutionResult<
 	TArtifact extends OrganizationDataExportArtifact = OrganizationDataExportArtifact
 > = { status: 'ready'; artifact: TArtifact };
 
+interface OrganizationDataExportExecutionPorts {
+	auth: { readonly orgId: string; readonly userId: string };
+	rawStore: DataExportLifecyclePorts['store'];
+	audit: AuditPort;
+	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
+}
+
 interface ExecuteOrganizationDataExportOptions<TArtifact extends OrganizationDataExportArtifact> {
 	requestedByEmail: string | undefined;
 	auditAction: string;
@@ -26,7 +39,7 @@ interface ExecuteOrganizationDataExportOptions<TArtifact extends OrganizationDat
 }
 
 export async function executeOrganizationDataExport<TArtifact extends OrganizationDataExportArtifact>(
-	ctx: UseCaseContext,
+	ctx: OrganizationDataExportExecutionPorts,
 	options: ExecuteOrganizationDataExportOptions<TArtifact>
 ): Promise<OrganizationDataExportExecutionResult<TArtifact>> {
 	const orgId = ctx.auth.orgId;

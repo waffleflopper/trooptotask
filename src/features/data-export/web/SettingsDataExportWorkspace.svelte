@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import DataExportSettingsSection from '../DataExportSettingsSection.svelte';
-	import { downloadBlob } from '../settingsDownloads';
+	import DataExportSettingsSection from './DataExportSettingsSection.svelte';
+	import { downloadBlob } from '$lib/utils/downloadBlob';
 
 	let { orgId }: { orgId: string } = $props();
 

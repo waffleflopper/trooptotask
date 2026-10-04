@@ -1,39 +1,21 @@
-import {
-	createSupabaseDeletionRequestStore,
-	listDeletionRequestExportRows
-} from '$features/deletion-requests/index.server';
+import { createSupabaseDeletionRequestStore } from '$features/deletion-requests/index.server';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
-import {
-	listOnboardingTemplateExportRows,
-	listOnboardingTemplateStepExportRows,
-	listPersonnelOnboardingExportRows,
-	listOnboardingStepProgressExportRows
-} from '$features/onboarding/index.server';
-import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import { describe, expect, it } from 'vitest';
-import type { DataStore } from '../ports';
+import type { DataStore } from '$lib/server/core/ports';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createTestAuthContext, createTestContext } from '$lib/server/adapters/inMemory';
 import { createSupabaseOrganizationRawExportReader } from '$features/organization/index.server';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
-import { createSupabaseNotificationStore, listNotificationExportRows } from '$features/notifications/index.server';
+import { createSupabaseNotificationStore } from '$features/notifications/index.server';
 import type { Notification } from '$features/notifications/contracts';
 import { listFeedbackExportRows, type FeedbackExportRow } from '$features/feedback/index.server';
-import { buildOrganizationDataExportWorkbook } from './organizationExportWorkbook';
 import {
-	listTrainingTypeExportRows,
-	listTrainingCompletionExportRows,
-	listTrainingViewExportRows
-} from '$features/training/index.server';
-
-import { loadOrganizationExportPayload, ORGANIZATION_EXPORT_SECTIONS } from './organizationExport';
-
-const trainingExport = {
-	listTrainingTypeExportRows,
-	listTrainingCompletionExportRows,
-	listTrainingViewExportRows
-};
+	buildOrganizationDataExportWorkbook,
+	loadOrganizationExportPayload,
+	ORGANIZATION_EXPORT_SECTIONS
+} from '$features/data-export/index.server';
+import { createOrganizationDataExportReads } from './organizationDataExportDelivery.server';
 
 describe('organization export inventory', () => {
 	it('keeps section keys unique and separate from export metadata keys', () => {
@@ -48,6 +30,10 @@ describe('organization export inventory', () => {
 		let activeReads = 0;
 		let maxActiveReads = 0;
 		const started = new Set<string>();
+		let batchStarted!: () => void;
+		const firstBatchStarted = new Promise<void>((resolve) => {
+			batchStarted = resolve;
+		});
 		let release!: () => void;
 		const gate = new Promise<void>((resolve) => {
 			release = resolve;
@@ -57,34 +43,33 @@ describe('organization export inventory', () => {
 				started.add(table);
 				activeReads += 1;
 				maxActiveReads = Math.max(maxActiveReads, activeReads);
+				if (activeReads === 12) batchStarted();
 				await gate;
 				activeReads -= 1;
 				return [{ table }];
 			}
 		} as Pick<DataStore, 'findMany'> as DataStore;
 
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
 		const pending = loadOrganizationExportPayload(
-			store,
-			createTestAuthContext({ orgId: 'org-1' }),
-			{
-				listRows: (actor, table) => store.findMany(table, actor.orgId)
-			},
-			trainingExport,
-			{
-				listOnboardingTemplateExportRows,
-				listOnboardingTemplateStepExportRows,
-				listPersonnelOnboardingExportRows,
-				listOnboardingStepProgressExportRows
-			},
-			{
-				listNotificationExportRows: () => store.findMany('notifications', 'org-1'),
-				listFeedbackExportRows: () => store.findMany<FeedbackExportRow>('beta_feedback', 'org-1')
-			},
-			{ listRatingSchemeExportRows },
-			{ listRows: (orgId, table) => store.findMany(table, orgId) },
-			{ listDeletionRequestExportRows: () => store.findMany('deletion_requests', 'org-1') }
+			'org-1',
+			createOrganizationDataExportReads(
+				{
+					...ctx,
+					rawStore: store,
+					organizationRawExport: { listRows: (orgId, table) => store.findMany(table, orgId) },
+					personnelOrganizationExport: { listRows: (actor, table) => store.findMany(table, actor.orgId) },
+					notificationSelf: {
+						...ctx.notificationSelf,
+						store: { ...ctx.notificationSelf.store, listOwnExportRows: () => store.findMany('notifications', 'org-1') }
+					},
+					feedbackExport: { listRows: (orgId) => store.findMany<FeedbackExportRow>('beta_feedback', orgId) }
+				},
+				createDeletionRequestTestStore(store)
+			)
 		);
 
+		await firstBatchStarted;
 		for (const table of [
 			'organizations',
 			'organization_memberships',
@@ -199,26 +184,14 @@ function communicationsProvider(platformAdministrator = false) {
 	};
 	const load = () =>
 		loadOrganizationExportPayload(
-			ctx.rawStore,
-			ctx.auth,
-			ctx.personnelOrganizationExport!,
-			trainingExport,
-			{
-				listOnboardingTemplateExportRows,
-				listOnboardingTemplateStepExportRows,
-				listPersonnelOnboardingExportRows,
-				listOnboardingStepProgressExportRows
-			},
-			{
-				listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
-				listFeedbackExportRows: () => listFeedbackExportRows(client, ctx.auth.orgId)
-			},
-			{ listRatingSchemeExportRows },
-			ctx.organizationRawExport,
-			{
-				listDeletionRequestExportRows: () =>
-					listDeletionRequestExportRows(createDeletionRequestTestStore(ctx.rawStore), ctx.auth.orgId)
-			}
+			ctx.auth.orgId,
+			createOrganizationDataExportReads(
+				{
+					...ctx,
+					feedbackExport: { listRows: (orgId) => listFeedbackExportRows(client, orgId) }
+				},
+				createDeletionRequestTestStore(ctx.rawStore)
+			)
 		);
 	return { state, load, notifications, feedbackRows };
 }
@@ -278,7 +251,6 @@ describe('owned communications in Organization exports', () => {
 	);
 });
 
-// These provider rows specify retained export data independently of the manifest.
 describe('retained Organization export projection', () => {
 	it.each(['legacy', 'retired'] as const)('exports retained identities with a %s commercial schema', async (schema) => {
 		const profile = {
@@ -443,6 +415,227 @@ describe('retained Organization export projection', () => {
 			future_saved_field: ['preserve', null]
 		};
 
+		const additionalSources = [
+			{
+				key: 'invitations',
+				table: 'organization_invitations',
+				sheet: 'Raw - Organization Invitations',
+				row: {
+					id: 'invitation-saved',
+					organization_id: 'org-1',
+					email: 'invitee@example.test',
+					role: 'member',
+					invited_by: 'owner-1',
+					expires_at: '2026-10-01T00:00:00.123456Z',
+					created_at: '2026-09-01T00:00:00.123456Z',
+					accepted_at: null
+				}
+			},
+			{
+				key: 'invitationEmailOutbox',
+				table: 'organization_invitation_email_outbox',
+				sheet: 'Raw - Organization Invitation E',
+				row: {
+					id: 'outbox-saved',
+					organization_id: 'org-1',
+					invitation_id: 'invitation-saved',
+					status: 'sent',
+					attempt_count: 2,
+					last_error: null,
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'invitationAccessRequestLinks',
+				table: 'access_request_organization_invitation_links',
+				sheet: 'Raw - Organization Invitation A',
+				row: {
+					id: 'link-saved',
+					organization_id: 'org-1',
+					invitation_id: 'invitation-saved',
+					access_request_id: 'access-request-saved',
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'organizationRankCatalog',
+				table: 'organization_rank_catalog',
+				sheet: 'Raw - Organization Rank Catalog',
+				row: {
+					id: 'rank-saved',
+					organization_id: 'org-1',
+					rank: 'SGT',
+					pay_grade: 'E-5',
+					created_at: '2026-09-01T00:00:00.123456Z',
+					updated_at: '2026-09-02T00:00:00.654321Z'
+				}
+			},
+			{
+				key: 'gettingStartedProgress',
+				table: 'getting_started_progress',
+				sheet: 'Raw - Getting Started Progress',
+				row: {
+					id: 'progress-saved',
+					organization_id: 'org-1',
+					user_id: 'owner-1',
+					completed_steps: ['organization', 'personnel'],
+					dismissed: false,
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'userOrgPreferences',
+				table: 'user_org_preferences',
+				sheet: 'Raw - User Organization Prefere',
+				row: {
+					id: 'preferences-saved',
+					organization_id: 'org-1',
+					user_id: 'owner-1',
+					preferences: { density: 'compact', retained: null },
+					updated_at: '2026-09-02T00:00:00.654321Z'
+				}
+			},
+			{
+				key: 'userPinnedGroups',
+				table: 'user_pinned_groups',
+				sheet: 'Raw - User Pinned Groups',
+				row: {
+					id: 'pin-saved',
+					organization_id: 'org-1',
+					user_id: 'owner-1',
+					group_id: 'group-1',
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'auditLogs',
+				table: 'audit_logs',
+				sheet: 'Raw - Audit Logs',
+				row: {
+					id: 'audit-saved',
+					org_id: 'org-1',
+					user_id: 'owner-1',
+					action: 'personnel.updated',
+					resource_id: 'person-1',
+					details: { previous: null, retained: true },
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'dataExports',
+				table: 'data_exports',
+				sheet: 'Raw - Data Export Records',
+				row: {
+					id: 'export-saved',
+					org_id: 'org-1',
+					requested_by: 'owner-1',
+					status: 'completed',
+					file_size_bytes: 1234,
+					created_at: '2026-09-01T00:00:00.123456Z',
+					completed_at: '2026-09-01T00:00:01.654321Z'
+				}
+			},
+			{
+				key: 'deletionRequests',
+				table: 'deletion_requests',
+				sheet: 'Raw - Deletion Requests',
+				row: {
+					id: 'deletion-saved',
+					organization_id: 'org-1',
+					requested_by: 'owner-1',
+					resource_type: 'personnel',
+					resource_id: 'person-1',
+					status: 'denied',
+					denial_reason: 'Retain record',
+					reviewed_at: '2026-09-02T00:00:00.654321Z'
+				}
+			},
+			{
+				key: 'counselingRecords',
+				table: 'counseling_records',
+				sheet: 'Raw - Counseling Records',
+				row: {
+					id: 'counseling-saved',
+					organization_id: 'org-1',
+					personnel_id: 'person-1',
+					counseling_type: 'performance',
+					notes: 'Saved sensitive counseling',
+					archived: true,
+					file_path: 'org-1/person-1/counseling.pdf',
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'personnelFollowUps',
+				table: 'personnel_follow_ups',
+				sheet: 'Raw - Personnel Follow-ups',
+				row: {
+					id: 'follow-up-saved',
+					organization_id: 'org-1',
+					personnel_id: 'person-1',
+					note: 'Saved follow-up',
+					completed: false,
+					archived: true,
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'personnelDocuments',
+				table: 'personnel_documents',
+				sheet: 'Raw - Personnel Documents',
+				row: {
+					id: 'document-saved',
+					organization_id: 'org-1',
+					personnel_id: 'person-1',
+					title: 'Saved order',
+					file_path: 'org-1/person-1/orders.pdf',
+					archived: true,
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'ictTasks',
+				table: 'ict_tasks',
+				sheet: 'Raw - Critical Tasks',
+				row: {
+					id: 'task-saved',
+					organization_id: 'org-1',
+					title: 'Saved critical task',
+					description: 'Keep saved meaning',
+					archived: true,
+					expiration_months: 6,
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'personnelIctCompletions',
+				table: 'personnel_ict_completions',
+				sheet: 'Raw - Critical Task Completions',
+				row: {
+					id: 'completion-saved',
+					organization_id: 'org-1',
+					personnel_id: 'person-1',
+					ict_task_id: 'task-saved',
+					completion_date: '2026-09-01',
+					notes: ['saved'],
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			},
+			{
+				key: 'ratingSchemeEntries',
+				table: 'rating_scheme_entries',
+				sheet: 'Raw - Rating Scheme Entries',
+				row: {
+					id: 'rating-saved',
+					organization_id: 'org-1',
+					personnel_id: 'person-1',
+					status: 'approved',
+					rater_name: 'Saved rater',
+					created_at: '2026-09-01T00:00:00.123456Z'
+				}
+			}
+		];
+
 		const commercialTables = new Set([
 			'organization_billing_snapshots',
 			'organization_checkout_attempts',
@@ -531,6 +724,17 @@ describe('retained Organization export projection', () => {
 				{ id: 'person-1', organization_id: 'org-1', first_name: 'Alex', last_name: 'Example', clinic_role: 'Therapist' }
 			]
 		};
+		for (const { table, row } of additionalSources) {
+			const scopeColumn = ['data_exports', 'audit_logs'].includes(table) ? 'org_id' : 'organization_id';
+			providerRows[table] = [row, { ...row, id: 'foreign-' + row.id, [scopeColumn]: 'foreign-org' }];
+		}
+		for (const [table, rows] of Object.entries(providerRows)) {
+			if (table === 'organizations' || rows.some((row) => String(row.id).startsWith('foreign-'))) continue;
+			const scopeColumn = ['data_exports', 'audit_logs', 'dashboard_configs'].includes(table)
+				? 'org_id'
+				: 'organization_id';
+			rows.push({ ...rows[0], id: 'foreign-' + table, [scopeColumn]: 'foreign-org' });
+		}
 		const fetchRows = async (input: RequestInfo | URL, denySensitive: boolean) => {
 			const url = new URL(String(input));
 			const table = url.pathname.split('/').at(-1)!;
@@ -548,7 +752,11 @@ describe('retained Organization export projection', () => {
 			if (commercialTables.has(table) || /^(duty_|advanced_duty_)/.test(table))
 				return Response.json({ message: 'Retired storage is unavailable' }, { status: 404 });
 			const scopeColumn =
-				table === 'organizations' ? 'id' : table === 'dashboard_configs' ? 'org_id' : 'organization_id';
+				table === 'organizations'
+					? 'id'
+					: ['dashboard_configs', 'data_exports', 'audit_logs'].includes(table)
+						? 'org_id'
+						: 'organization_id';
 			const scope = url.searchParams.get(scopeColumn)?.replace(/^eq\./, '');
 			const rows = (providerRows[table] ?? []).filter((row) => row[scopeColumn] === scope);
 			const selection = url.searchParams.get('select');
@@ -569,34 +777,26 @@ describe('retained Organization export projection', () => {
 		const store = createSupabaseDataStore(client);
 		const actor = createTestAuthContext({ orgId: 'org-1' });
 		const result = await loadOrganizationExportPayload(
-			store,
-			actor,
-			createSupabasePersonnelOrganizationExportPort(() => adminClient),
-			trainingExport,
-			{
-				listOnboardingTemplateExportRows,
-				listOnboardingTemplateStepExportRows,
-				listPersonnelOnboardingExportRows,
-				listOnboardingStepProgressExportRows
-			},
-			{
-				listNotificationExportRows: () =>
-					listNotificationExportRows({
-						auth: actor,
-						audit: { log() {} },
-						store: createSupabaseNotificationStore(client)
-					}),
-				listFeedbackExportRows: () => listFeedbackExportRows(client, actor.orgId)
-			},
-			{ listRatingSchemeExportRows },
-			createSupabaseOrganizationRawExportReader(client),
-			{
-				listDeletionRequestExportRows: () =>
-					listDeletionRequestExportRows(createSupabaseDeletionRequestStore(client), actor.orgId)
-			}
+			actor.orgId,
+			createOrganizationDataExportReads(
+				{
+					auth: actor,
+					rawStore: store,
+					personnelOrganizationExport: createSupabasePersonnelOrganizationExportPort(() => adminClient),
+					organizationRawExport: createSupabaseOrganizationRawExportReader(client),
+					notificationSelf: { auth: actor, audit: { log() {} }, store: createSupabaseNotificationStore(client) },
+					feedbackExport: { listRows: (orgId) => listFeedbackExportRows(client, orgId) }
+				},
+				createSupabaseDeletionRequestStore(client)
+			)
 		);
 		const json = JSON.parse(JSON.stringify(result));
 		expect(json.organizationId).toBe('org-1');
+		for (const { key, row } of additionalSources) {
+			expect(json[key]).toEqual([row]);
+			expect(json.sections[key]).toEqual([row]);
+		}
+
 		expect(json.dashboardConfigs).toEqual([dashboardConfig]);
 		expect(json.sections.dashboardConfigs).toEqual([dashboardConfig]);
 		expect(json.trainingTypes).toEqual([trainingType]);
@@ -638,9 +838,23 @@ describe('retained Organization export projection', () => {
 		expect(json.statusTypes).toEqual([statusType]);
 		expect(json.specialDays).toEqual([specialDay]);
 		expect(json.sections.specialDays).toEqual([specialDay]);
-		expect(json.signInRosters).toEqual(providerRows.sign_in_rosters);
-		expect(json.availabilityEntries).toEqual(providerRows.availability_entries);
-		expect(json.memberships).toEqual(providerRows.organization_memberships);
+		expect(json.signInRosters).toEqual([{ id: 'roster-1', organization_id: 'org-1', name: 'Clinic training' }]);
+		expect(json.availabilityEntries).toEqual([
+			{
+				id: 'availability-1',
+				organization_id: 'org-1',
+				personnel_id: 'person-1',
+				status_type_id: 'status-1',
+				start_date: '2026-09-20',
+				end_date: '2026-09-21'
+			}
+		]);
+		expect(json.memberships).toEqual([
+			{ id: 'membership-1', organization_id: 'org-1', user_id: 'owner-1', role: 'owner' }
+		]);
+		for (const rows of Object.values(json.sections) as Array<Array<Record<string, unknown>>>) {
+			expect(rows.filter((row) => String(row.id).startsWith('foreign-'))).toEqual([]);
+		}
 		expect(json.sectionInventory.some((section: { areaKey: string }) => section.areaKey === 'duty-rosters')).toBe(
 			false
 		);
@@ -650,6 +864,18 @@ describe('retained Organization export projection', () => {
 			expect(json.sectionInventory.map((section: { key: string }) => section.key)).not.toContain(key);
 		}
 		const { workbook } = await buildOrganizationDataExportWorkbook({ payload: result });
+		for (const { sheet: name, row } of additionalSources) {
+			const sheet = workbook.getWorksheet(name)!;
+			expect(sheet, name).toBeDefined();
+			expect(sheet.rowCount, name).toBe(2);
+			for (const [key, value] of Object.entries(row)) {
+				const cell = sheet.getRow(2).getCell(key).value;
+				expect(cell, name + '.' + key).toEqual(
+					value !== null && typeof value === 'object' ? JSON.stringify(value) : value
+				);
+			}
+		}
+
 		for (const [name, rawRow] of [
 			['Raw - Training Types', trainingType],
 			['Raw - Personnel Trainings', trainingCompletion],

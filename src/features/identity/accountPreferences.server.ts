@@ -36,7 +36,7 @@ export async function loadUserOrgPreferences(
 
 	if (error !== null || data === undefined) throw new Error('Unable to load your preferences');
 	if (data === null) return getDefaultUserOrgPreferences();
-	if (data.user_id !== scope.userId || data.organization_id !== scope.orgId)
+	if (data.user_id !== scope.userId || data.organization_id !== scope.orgId || data.preferences === undefined)
 		throw new Error('Invalid preference response');
 	return normalizeUserOrgPreferences(data.preferences);
 }

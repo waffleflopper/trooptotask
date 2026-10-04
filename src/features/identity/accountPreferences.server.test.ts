@@ -24,7 +24,8 @@ function provider(rows: SavedRow[] = []) {
 		rows: structuredClone(rows),
 		methods: [] as string[],
 		failure: null as string | null,
-		acknowledgment: undefined as unknown
+		acknowledgment: undefined as unknown,
+		readAcknowledgment: undefined as unknown
 	};
 	const supabase = createClient('http://127.0.0.1:9', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false },
@@ -58,6 +59,8 @@ function provider(rows: SavedRow[] = []) {
 					const patch = (await request.json()) as Partial<SavedRow>;
 					selected.forEach((row) => Object.assign(row, patch));
 				}
+				if (request.method === 'GET' && state.readAcknowledgment !== undefined)
+					return Response.json(state.readAcknowledgment);
 				if (request.method !== 'GET' && state.acknowledgment !== undefined) return Response.json(state.acknowledgment);
 				if (request.headers.get('accept')?.includes('vnd.pgrst.object')) {
 					if (selected.length !== 1) return Response.json({ code: 'PGRST116', message: 'No row' }, { status: 406 });
@@ -105,6 +108,22 @@ describe('Identity account/Organization preferences', () => {
 		).rejects.toThrow('Unable to load');
 		expect(legacy.state.methods).not.toContain('POST');
 		expect(legacy.state.rows[0].preferences).toEqual({ calendar: { showStatusText: true, dutyStartDayOnly: false } });
+	});
+
+	it('rejects a bound provider row with omitted preferences before dispatching any save', async () => {
+		const saved = row({
+			preferences: { calendar: { showStatusText: true }, training: { selectedViewId: 'retained-view' } }
+		});
+		const p = provider([saved]);
+		p.state.readAcknowledgment = [{ user_id: scope.userId, organization_id: scope.orgId }];
+		const ports = writer(p.supabase);
+		await expect(loadUserOrgPreferences(p, scope)).rejects.toThrow('Invalid preference response');
+		await expect(patchUserOrgPreferences(ports, { training: { selectedGroupId: 'new-group' } })).rejects.toThrow(
+			'Invalid preference response'
+		);
+		expect(p.state.methods).not.toContain('POST');
+		expect(p.state.rows).toEqual([saved]);
+		expect(ports.audit.log).not.toHaveBeenCalled();
 	});
 
 	it('inserts personal defaults once, then preserves identity and unrelated fields on partial saves', async () => {

@@ -43,6 +43,25 @@ describe('module boundary declaration', () => {
 		expect(checkModuleBoundaries(graph, manifest)).toEqual([]);
 	});
 
+	it.each([false, true])('keeps test support unavailable to production imports (test source=%s)', (isTest) => {
+		const { graph, manifest } = fixture(
+			[
+				{
+					path: `src/features/alpha/consumer${isTest ? '.test' : ''}.ts`,
+					content: "import { fake } from '$features/beta/fixture';"
+				},
+				{ path: 'src/features/beta/fixture.ts', content: 'export const fake = {};' },
+				{ path: 'src/features/alpha/index.ts', content: 'export {};' },
+				{ path: 'src/features/beta/index.ts', content: 'export {};' }
+			],
+			{ alpha: [], beta: [] }
+		);
+		manifest.testSupportFiles = ['src/features/beta/fixture.ts'];
+		const violations = checkModuleBoundaries(graph, manifest);
+		if (isTest) expect(violations).toEqual([]);
+		else expect(violations).toMatchObject([{ kind: 'test-support', file: 'src/features/alpha/consumer.ts' }]);
+	});
+
 	it('enforces public and declared ownership for root-relative imports', () => {
 		const sources = [
 			{ path: 'src/features/alpha/index.ts', content: "export { value } from '/src/features/beta/index.ts';" },

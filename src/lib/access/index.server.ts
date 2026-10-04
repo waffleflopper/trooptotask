@@ -21,5 +21,5 @@ export {
 	normalizeRateLimitEmail,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from '$lib/server/durableRateLimit';
-export { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
+} from './durableRateLimit.server';
+export { getOrLoadRequestMembership } from './requestMembershipCache.server';

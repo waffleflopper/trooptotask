@@ -5,6 +5,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext, createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsShell } from './settingsShell.server';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
+import { createSettingsShellContext } from './settingsRequestContexts.server';
 
 export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route }) => {
 	const parentData = await parent();
@@ -22,6 +23,7 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 	}
 
 	return loadWithContext(locals, cookies, orgId, {
+		context: createSettingsShellContext,
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
 		policyResource: { kind: 'organization' },
 		fn: async (ctx) => ({

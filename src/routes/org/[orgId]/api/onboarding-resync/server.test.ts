@@ -69,7 +69,7 @@ describe('/api/onboarding-resync route config', () => {
 		});
 		seedResyncFixtures(ctx);
 
-		const result = (await handleUseCaseRequest(_postConfig, ctx, { onboardingId: 'ob-1' })) as {
+		const result = (await handleUseCaseRequest(_postConfig, ctx, { onboardingId: 'ob-1' }, () => ctx)) as {
 			steps: Array<{ templateStepId: string; active: boolean }>;
 		};
 
@@ -101,7 +101,7 @@ describe('/api/onboarding-resync route config', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { onboardingId: 'ob-1' })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_postConfig, ctx, { onboardingId: 'ob-1' }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 		expect(ctx.auditPort.events).toEqual([

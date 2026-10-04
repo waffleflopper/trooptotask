@@ -1,3 +1,4 @@
+import { createRequestIctCompletionContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { fail } from '$lib/errors';
 import { validateUUID } from '$lib/server/validation';
 import {
@@ -15,17 +16,32 @@ const admission = {
 	policyResource: { kind: 'unscoped' as const }
 };
 
-export const _postConfig: RouteConfig<Record<string, unknown>, PersonnelIctCompletion> = {
+export const _postConfig: RouteConfig<
+	Record<string, unknown>,
+	PersonnelIctCompletion,
+	ReturnType<typeof createRequestIctCompletionContext>
+> = {
+	context: createRequestIctCompletionContext,
 	...admission,
 	fn: createPersonnelIctCompletion
 };
 
-export const _putConfig: RouteConfig<Record<string, unknown>, PersonnelIctCompletion> = {
+export const _putConfig: RouteConfig<
+	Record<string, unknown>,
+	PersonnelIctCompletion,
+	ReturnType<typeof createRequestIctCompletionContext>
+> = {
+	context: createRequestIctCompletionContext,
 	...admission,
 	fn: updatePersonnelIctCompletion
 };
 
-export const _deleteConfig: RouteConfig<Record<string, unknown>, { success: true }> = {
+export const _deleteConfig: RouteConfig<
+	Record<string, unknown>,
+	{ success: true },
+	ReturnType<typeof createRequestIctCompletionContext>
+> = {
+	context: createRequestIctCompletionContext,
 	...admission,
 	fn: async (ctx, input) => {
 		const id = input?.id;

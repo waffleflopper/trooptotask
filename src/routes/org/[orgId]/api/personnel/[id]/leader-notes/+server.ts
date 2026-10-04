@@ -1,9 +1,10 @@
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle, personnelLeaderNoteContext, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import type { PersonnelLeaderNote, PersonnelLeaderNoteInput } from '$features/personnel/contracts';
+import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { createPersonnelLeaderNote, listPersonnelLeaderNotes } from '$features/personnel/index.server';
-import type { PersonnelLeaderNote, PersonnelLeaderNoteInput } from '$features/personnel/contracts';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelLeaderNoteContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent } from '@sveltejs/kit';
 
 function personnelIdFromEvent(event: RequestEvent): string {
 	const personnelId = event.params.id;
@@ -11,16 +12,26 @@ function personnelIdFromEvent(event: RequestEvent): string {
 	return personnelId;
 }
 
-export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelLeaderNote[]> = {
+export const _getConfig: RouteConfig<
+	{ personnelId: string },
+	PersonnelLeaderNote[],
+	ReturnType<typeof createRequestPersonnelLeaderNoteContext>
+> = {
+	context: createRequestPersonnelLeaderNoteContext,
 	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => ({
 		personnelId: personnelIdFromEvent(event)
 	}),
-	fn: (ctx, input) => listPersonnelLeaderNotes(personnelLeaderNoteContext(ctx), input.personnelId)
+	fn: (ctx, input) => listPersonnelLeaderNotes(ctx, input.personnelId)
 };
 
-export const _postConfig: RouteConfig<PersonnelLeaderNoteInput, PersonnelLeaderNote> = {
+export const _postConfig: RouteConfig<
+	PersonnelLeaderNoteInput,
+	PersonnelLeaderNote,
+	ReturnType<typeof createRequestPersonnelLeaderNoteContext>
+> = {
+	context: createRequestPersonnelLeaderNoteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
@@ -35,7 +46,7 @@ export const _postConfig: RouteConfig<PersonnelLeaderNoteInput, PersonnelLeaderN
 			text: typeof body.text === 'string' ? body.text : ''
 		};
 	},
-	fn: (ctx, input) => createPersonnelLeaderNote(personnelLeaderNoteContext(ctx), input)
+	fn: (ctx, input) => createPersonnelLeaderNote(ctx, input)
 };
 
 export const GET = handle(_getConfig);

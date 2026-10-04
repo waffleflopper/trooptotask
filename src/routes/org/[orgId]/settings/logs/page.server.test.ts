@@ -93,7 +93,7 @@ describe('logs settings page server', () => {
 			}
 		});
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({ auth: ctx.auth }))
 		);
 
 		await expect(
@@ -144,7 +144,7 @@ describe('logs settings page server', () => {
 			}
 		});
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({ auth: ctx.auth }))
 		);
 
 		const result = await load({

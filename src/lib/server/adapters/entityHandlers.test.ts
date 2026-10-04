@@ -1,3 +1,4 @@
+import { createRequestDataContext } from '$lib/server/adapters/requestContexts.server';
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { field, defineEntity } from '$lib/server/entitySchema';
@@ -26,12 +27,17 @@ describe('entityHandlers()', () => {
 	describe('POST creates a record', () => {
 		it('validates input, inserts into store, and audits', async () => {
 			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 			const ctx = createTestContext();
 
-			await handleUseCaseRequest(handlers._configs.POST!, ctx, {
-				name: 'Sprocket'
-			});
+			await handleUseCaseRequest(
+				handlers._configs.POST!,
+				ctx,
+				{
+					name: 'Sprocket'
+				},
+				() => ctx
+			);
 
 			const rows = await ctx.store.findMany('widgets', 'test-org');
 			expect(rows).toHaveLength(1);
@@ -45,10 +51,10 @@ describe('entityHandlers()', () => {
 
 		it('returns a 400 when entity schema validation fails', async () => {
 			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 			const ctx = createTestContext();
 
-			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, {})).rejects.toMatchObject({
+			await expect(handleUseCaseRequest(handlers._configs.POST!, ctx, {}, () => ctx)).rejects.toMatchObject({
 				status: 400
 			});
 		});
@@ -57,7 +63,7 @@ describe('entityHandlers()', () => {
 	describe('PUT updates a record', () => {
 		it('validates input, updates the store, and audits', async () => {
 			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 			const ctx = createTestContext();
 
 			// Seed a record
@@ -66,10 +72,15 @@ describe('entityHandlers()', () => {
 				color: 'red'
 			});
 
-			await handleUseCaseRequest(handlers._configs.PUT!, ctx, {
-				id: inserted.id,
-				name: 'NewName'
-			});
+			await handleUseCaseRequest(
+				handlers._configs.PUT!,
+				ctx,
+				{
+					id: inserted.id,
+					name: 'NewName'
+				},
+				() => ctx
+			);
 
 			const updated = await ctx.store.findOne<Record<string, unknown>>('widgets', 'test-org', {
 				id: inserted.id
@@ -82,10 +93,10 @@ describe('entityHandlers()', () => {
 
 		it('returns a 400 when update payload validation fails', async () => {
 			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 			const ctx = createTestContext();
 
-			await expect(handleUseCaseRequest(handlers._configs.PUT!, ctx, {})).rejects.toMatchObject({
+			await expect(handleUseCaseRequest(handlers._configs.PUT!, ctx, {}, () => ctx)).rejects.toMatchObject({
 				status: 400
 			});
 		});
@@ -94,7 +105,7 @@ describe('entityHandlers()', () => {
 	describe('DELETE removes a record', () => {
 		it('deletes from store and audits', async () => {
 			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 			const ctx = createTestContext();
 
 			const inserted = await ctx.store.insert<{ id: string }>('widgets', 'test-org', {
@@ -102,9 +113,14 @@ describe('entityHandlers()', () => {
 				color: 'black'
 			});
 
-			await handleUseCaseRequest(handlers._configs.DELETE!, ctx, {
-				id: inserted.id
-			});
+			await handleUseCaseRequest(
+				handlers._configs.DELETE!,
+				ctx,
+				{
+					id: inserted.id
+				},
+				() => ctx
+			);
 
 			const rows = await ctx.store.findMany('widgets', 'test-org');
 			expect(rows).toHaveLength(0);
@@ -117,7 +133,7 @@ describe('entityHandlers()', () => {
 	describe('method awareness', () => {
 		it('only returns handlers for declared methods', () => {
 			const entity = createTestEntity({ methods: ['POST'] });
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 
 			expect(handlers.POST).toBeDefined();
 			expect(handlers._configs.POST).toBeDefined();
@@ -139,7 +155,7 @@ describe('entityHandlers()', () => {
 				color: 'green'
 			});
 
-			const handlers = entityHandlers(entity, {
+			const handlers = entityHandlers(entity, createRequestDataContext, {
 				async beforeDelete(_ctx, id) {
 					// Record should still exist at this point
 					const row = await _ctx.store.findOne('widgets', 'test-org', { id });
@@ -147,7 +163,7 @@ describe('entityHandlers()', () => {
 				}
 			});
 
-			await handleUseCaseRequest(handlers._configs.DELETE!, ctx, { id: inserted.id });
+			await handleUseCaseRequest(handlers._configs.DELETE!, ctx, { id: inserted.id }, () => ctx);
 
 			expect(callOrder).toEqual(['beforeDelete:exists']);
 			// Record should be gone after
@@ -165,7 +181,7 @@ describe('entityHandlers()', () => {
 				color: 'green'
 			});
 
-			const handlers = entityHandlers(entity, {
+			const handlers = entityHandlers(entity, createRequestDataContext, {
 				async afterDelete(_ctx, id) {
 					// Record should be gone at this point
 					const row = await _ctx.store.findOne('widgets', 'test-org', { id });
@@ -173,7 +189,7 @@ describe('entityHandlers()', () => {
 				}
 			});
 
-			await handleUseCaseRequest(handlers._configs.DELETE!, ctx, { id: inserted.id });
+			await handleUseCaseRequest(handlers._configs.DELETE!, ctx, { id: inserted.id }, () => ctx);
 
 			expect(callOrder).toEqual(['afterDelete:gone']);
 		});
@@ -191,7 +207,9 @@ describe('entityHandlers()', () => {
 				audit: 'legacy_widget'
 			});
 
-			expect(() => entityHandlers(entity)).toThrow('entityHandlers: entity "legacy_widgets" must define policyAction');
+			expect(() => entityHandlers(entity, createRequestDataContext)).toThrow(
+				'entityHandlers: entity "legacy_widgets" must define policyAction'
+			);
 		});
 
 		it.each([
@@ -200,7 +218,7 @@ describe('entityHandlers()', () => {
 			['DELETE', { id: crypto.randomUUID() }]
 		] as const)('rejects %s when auth lacks the declared policy capability', async (method, input) => {
 			const entity = createTestEntity();
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 			const ctx = createTestContext({
 				auth: {
 					role: 'member',
@@ -216,7 +234,7 @@ describe('entityHandlers()', () => {
 				}
 			});
 
-			await expect(handleUseCaseRequest(handlers._configs[method]!, ctx, input)).rejects.toMatchObject({
+			await expect(handleUseCaseRequest(handlers._configs[method]!, ctx, input, () => ctx)).rejects.toMatchObject({
 				status: 403
 			});
 		});
@@ -234,10 +252,10 @@ describe('entityHandlers()', () => {
 				policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 				audit: { resourceType: 'gadget', action: 'custom' }
 			});
-			const handlers = entityHandlers(entity);
+			const handlers = entityHandlers(entity, createRequestDataContext);
 			const ctx = createTestContext();
 
-			await handleUseCaseRequest(handlers._configs.POST!, ctx, { name: 'Gizmo' });
+			await handleUseCaseRequest(handlers._configs.POST!, ctx, { name: 'Gizmo' }, () => ctx);
 
 			expect(ctx.auditPort.events[0].resourceType).toBe('gadget');
 		});

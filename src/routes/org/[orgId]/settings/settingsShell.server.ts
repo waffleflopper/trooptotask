@@ -1,10 +1,14 @@
 import { countArchivedPersonnel } from '$features/personnel/index.server';
 import { buildSettingsShell } from '$features/organization/contracts';
 import type { SettingsShellOrganizationSource, SettingsShell } from '$features/organization/contracts';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
 
 export async function loadSettingsShell(
-	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'organizationSettings'>,
+	ctx: Parameters<typeof countArchivedPersonnel>[0] & {
+		auth: Pick<OrganizationAccessGrant, 'orgId' | 'role'>;
+		organizationSettings: Pick<OrganizationSettingsReader, 'countPendingInvitations'>;
+	},
 	organization: SettingsShellOrganizationSource,
 	readPendingApprovals: () => Promise<{ count: number }>
 ): Promise<SettingsShell> {

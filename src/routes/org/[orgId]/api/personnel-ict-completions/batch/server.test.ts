@@ -51,23 +51,28 @@ describe('personnel ICT completions batch API', () => {
 		const personnelBefore = await ctx.store.findMany('personnel', ctx.auth.orgId);
 		const tasksBefore = await ctx.store.findMany('ict_tasks', ctx.auth.orgId);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			records: [
-				{
-					rowNumber: 2,
-					values: {
-						rank: 'SGT',
-						lastName: 'Smith',
-						firstName: 'Jane',
-						taskCode: '181-105-1001',
-						completedAt: '2026-04-15',
-						title: 'Attempted overwrite',
-						mos: '11B',
-						groupId: 'group-bravo'
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [
+					{
+						rowNumber: 2,
+						values: {
+							rank: 'SGT',
+							lastName: 'Smith',
+							firstName: 'Jane',
+							taskCode: '181-105-1001',
+							completedAt: '2026-04-15',
+							title: 'Attempted overwrite',
+							mos: '11B',
+							groupId: 'group-bravo'
+						}
 					}
-				}
-			]
-		});
+				]
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			inserted: [
@@ -93,22 +98,27 @@ describe('personnel ICT completions batch API', () => {
 		const personnelBefore = await ctx.store.findMany('personnel', ctx.auth.orgId);
 		const tasksBefore = await ctx.store.findMany('ict_tasks', ctx.auth.orgId);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			records: [
-				{
-					rowNumber: 2,
-					values: {
-						rank: 'SSG',
-						lastName: 'Unknown',
-						firstName: 'Pat',
-						taskCode: 'BAD-TASK',
-						completedAt: '2026-04-15',
-						title: 'New task title',
-						mos: '68W'
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [
+					{
+						rowNumber: 2,
+						values: {
+							rank: 'SSG',
+							lastName: 'Unknown',
+							firstName: 'Pat',
+							taskCode: 'BAD-TASK',
+							completedAt: '2026-04-15',
+							title: 'New task title',
+							mos: '68W'
+						}
 					}
-				}
-			]
-		});
+				]
+			},
+			() => ctx
+		);
 
 		expect(result).toEqual({
 			inserted: [],
@@ -148,11 +158,19 @@ describe('personnel ICT completions batch API', () => {
 			}
 		});
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				records: [
-					{ rowNumber: 2, values: { firstName: 'Jane', lastName: 'Smith', taskCode: 'T-1', completedAt: '2026-04-15' } }
-				]
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					records: [
+						{
+							rowNumber: 2,
+							values: { firstName: 'Jane', lastName: 'Smith', taskCode: 'T-1', completedAt: '2026-04-15' }
+						}
+					]
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([]);
 	});

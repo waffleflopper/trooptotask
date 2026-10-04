@@ -1,7 +1,7 @@
+import { createRequestCriticalTasksHistoryContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { PageServerLoadEvent } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchCriticalTasksPersonnelHistory } from '$features/critical-tasks/index.server';
-import type { UseCaseContext } from '$lib/server/core/ports';
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
@@ -9,7 +9,10 @@ type LoadWithContext = typeof loadWithContext;
 
 export interface CriticalTasksPersonnelHistoryPageLoadDeps {
 	loadWithContext?: LoadWithContext;
-	fetchHistory?: (ctx: UseCaseContext, personnelId: string) => Promise<CriticalTasksPersonnelHistoryData>;
+	fetchHistory?: (
+		ctx: Parameters<typeof fetchCriticalTasksPersonnelHistory>[0],
+		personnelId: string
+	) => Promise<CriticalTasksPersonnelHistoryData>;
 }
 
 export function _createCriticalTasksPersonnelHistoryPageLoad(deps: CriticalTasksPersonnelHistoryPageLoadDeps = {}) {
@@ -20,6 +23,7 @@ export function _createCriticalTasksPersonnelHistoryPageLoad(deps: CriticalTasks
 		depends('app:critical-tasks-personnel-history');
 		const { orgId, personnelId } = params;
 		const criticalTasksPersonnelHistory = await loadWithContextFn(locals, cookies, orgId, {
+			context: createRequestCriticalTasksHistoryContext,
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 			policyResource: { kind: 'unscoped' },
 			fn: (ctx) => fetchHistoryFn(ctx, personnelId)

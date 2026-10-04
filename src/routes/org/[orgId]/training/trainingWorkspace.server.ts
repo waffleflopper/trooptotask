@@ -1,3 +1,4 @@
+import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -48,6 +49,7 @@ export async function streamTrainingWorkspaceBootstrap(
 	context: TrainingWorkspaceRequestContext
 ): Promise<TrainingWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		context: createRequestTrainingRosterContext,
 		policyAction: POLICY_ACTION_CATALOG.training.viewMatrix,
 		policyResource: { kind: 'unscoped' },
 		defer: true,

@@ -4,6 +4,7 @@ import {
 	type CapabilityMap,
 	type CapabilityOverrideMap,
 	type MemberPreset,
+	type OrganizationAccessGrant,
 	type ScopeSet
 } from './memberAccessShape';
 
@@ -14,6 +15,10 @@ export interface MemberAccessProjectionRow {
 	capability_overrides?: unknown;
 	access_scope_kind?: unknown;
 	access_scope_group_ids?: unknown;
+}
+
+export interface OrganizationMembershipFacts extends MemberAccessProjectionRow {
+	id?: string;
 }
 
 export interface MemberAccessInvitationProjectionRow {
@@ -64,6 +69,23 @@ export function projectEffectiveMemberAccess(row: MemberAccessProjectionRow): Ef
 		memberPreset: accessShape.memberPreset,
 		capabilityMap: accessShape.capabilityMap,
 		scopeSet: accessShape.scopeSet
+	};
+}
+
+export function projectOrganizationAccessGrant(
+	membership: MemberAccessProjectionRow,
+	userId: string,
+	orgId: string
+): OrganizationAccessGrant {
+	const access = projectEffectiveMemberAccess(membership);
+	return {
+		userId,
+		orgId,
+		role: access.role,
+		isPrivileged: access.isPrivileged,
+		canManageMembers: access.canManageMembers,
+		capabilityMap: access.capabilityMap,
+		scopeSet: access.scopeSet
 	};
 }
 

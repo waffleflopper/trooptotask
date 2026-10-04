@@ -1,3 +1,7 @@
+import {
+	createRequestOnboardingStartContext,
+	createRequestOnboardingLifecycleContext
+} from '$lib/server/adapters/featureRequestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
@@ -9,6 +13,7 @@ import {
 } from '$features/onboarding/index.server';
 
 export const _postConfig = {
+	context: createRequestOnboardingStartContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
 	policyResource: { kind: 'unscoped' },
@@ -18,9 +23,10 @@ export const _postConfig = {
 			templateId: input.templateId as string,
 			startedAt: input.startedAt as string | undefined
 		})
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestOnboardingStartContext>>;
 
 export const _putConfig = {
+	context: createRequestOnboardingLifecycleContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
 	policyResource: { kind: 'unscoped' },
@@ -34,7 +40,7 @@ export const _putConfig = {
 
 		fail(400, `Invalid status: ${status}`);
 	}
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestOnboardingLifecycleContext>>;
 
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);

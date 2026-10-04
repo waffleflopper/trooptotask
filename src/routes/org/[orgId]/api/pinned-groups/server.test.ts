@@ -29,7 +29,7 @@ describe('/api/pinned-groups route config', () => {
 			}
 		});
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, { groupName: 'Alpha', sortOrder: 0 });
+		const result = await handleUseCaseRequest(_postConfig, ctx, { groupName: 'Alpha', sortOrder: 0 }, () => ctx);
 
 		const stored = await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId);
 		expect(stored).toMatchObject([{ user_id: 'user-1', group_name: 'Alpha', sort_order: 0 }]);
@@ -68,7 +68,7 @@ describe('/api/pinned-groups route config', () => {
 			{ id: 'other-org', organization_id: 'other-org', user_id: 'user-1', group_name: 'Alpha', sort_order: 0 }
 		]);
 
-		const result = await handleUseCaseRequest(_deleteConfig, ctx, { groupName: 'Alpha' });
+		const result = await handleUseCaseRequest(_deleteConfig, ctx, { groupName: 'Alpha' }, () => ctx);
 
 		const stored = await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId);
 		expect(result).toEqual({ success: true });
@@ -89,10 +89,15 @@ describe('/api/pinned-groups route config', () => {
 			{ id: 'other-org', organization_id: 'other-org', user_id: 'user-1', group_name: 'Remote', sort_order: 0 }
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			action: 'replace',
-			groups: ['Bravo', 'Alpha']
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				action: 'replace',
+				groups: ['Bravo', 'Alpha']
+			},
+			() => ctx
+		);
 
 		expect(result).toEqual({ success: true, groups: ['Bravo', 'Alpha'] });
 		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId, { user_id: 'user-1' })).toMatchObject([
@@ -113,7 +118,7 @@ describe('/api/pinned-groups route config', () => {
 	it('denies a preference write without an authenticated user', async () => {
 		const ctx = createTestContext({ auth: { userId: '' } });
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { groupName: 'Alpha' })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_postConfig, ctx, { groupName: 'Alpha' }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 		expect(await ctx.store.findMany('user_pinned_groups', ctx.auth.orgId)).toEqual([]);

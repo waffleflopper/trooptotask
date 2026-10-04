@@ -13,7 +13,7 @@ vi.mock('$lib/server/adapters/httpAdapter', async (importOriginal) => {
 			_cookies: unknown,
 			_orgId: string,
 			config: Parameters<typeof handleUseCaseRequest>[0]
-		) => handleUseCaseRequest(config, state.ctx!, undefined)
+		) => handleUseCaseRequest(config, state.ctx!, undefined, () => state.ctx!)
 	};
 });
 import { load } from './+page.server';

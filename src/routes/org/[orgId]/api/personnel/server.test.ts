@@ -76,14 +76,19 @@ describe('/api/personnel route authorization', () => {
 		});
 		seedRankCatalog(ctx);
 
-		const result = (await handleUseCaseRequest(_postConfig, ctx, {
-			rank: 'SGT',
-			lastName: 'Smith',
-			firstName: 'Jamie',
-			mos: '11B',
-			clinicRole: 'Team Leader',
-			groupId: null
-		})) as Record<string, unknown>;
+		const result = (await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				rank: 'SGT',
+				lastName: 'Smith',
+				firstName: 'Jamie',
+				mos: '11B',
+				clinicRole: 'Team Leader',
+				groupId: null
+			},
+			() => ctx
+		)) as Record<string, unknown>;
 
 		expect(result).toMatchObject({ rank: 'SGT', lastName: 'Smith' });
 	});
@@ -119,10 +124,15 @@ describe('/api/personnel route authorization', () => {
 			}
 		]);
 
-		const result = (await handleUseCaseRequest(_putConfig, ctx, {
-			id: '11111111-1111-4111-8111-111111111111',
-			rank: 'SSG'
-		})) as Record<string, unknown>;
+		const result = (await handleUseCaseRequest(
+			_putConfig,
+			ctx,
+			{
+				id: '11111111-1111-4111-8111-111111111111',
+				rank: 'SSG'
+			},
+			() => ctx
+		)) as Record<string, unknown>;
 
 		expect(result).toMatchObject({ id: '11111111-1111-4111-8111-111111111111', rank: 'SSG' });
 	});
@@ -157,7 +167,12 @@ describe('/api/personnel route authorization', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_deleteConfig, ctx, { id: '11111111-1111-4111-8111-111111111111' });
+		const result = await handleUseCaseRequest(
+			_deleteConfig,
+			ctx,
+			{ id: '11111111-1111-4111-8111-111111111111' },
+			() => ctx
+		);
 
 		expect(result).toEqual({ success: true });
 	});
@@ -192,7 +207,12 @@ describe('/api/personnel route authorization', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_deleteConfig, ctx, { id: '11111111-1111-4111-8111-111111111111' });
+		const result = await handleUseCaseRequest(
+			_deleteConfig,
+			ctx,
+			{ id: '11111111-1111-4111-8111-111111111111' },
+			() => ctx
+		);
 
 		expect(result).toEqual({ requiresApproval: true });
 		const stored = (await ctx.store.findOne('personnel', ctx.auth.orgId, {
@@ -235,10 +255,15 @@ describe('/api/personnel route authorization', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_patchConfig, ctx, {
-			action: 'restore',
-			id: '11111111-1111-4111-8111-111111111111'
-		});
+		const result = await handleUseCaseRequest(
+			_patchConfig,
+			ctx,
+			{
+				action: 'restore',
+				id: '11111111-1111-4111-8111-111111111111'
+			},
+			() => ctx
+		);
 
 		expect(result).toEqual({ success: true });
 	});
@@ -301,7 +326,7 @@ describe('Personnel route denied-write safety', () => {
 
 	it('updates a record in the second assigned Group and preserves its Organization', async () => {
 		const { ctx, row } = fixture();
-		await handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Updated duty role' });
+		await handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Updated duty role' }, () => ctx);
 		expect(await ctx.rawStore.findMany('personnel', ctx.auth.orgId)).toEqual([
 			{ ...row, clinic_role: 'Updated duty role' }
 		]);
@@ -311,21 +336,27 @@ describe('Personnel route denied-write safety', () => {
 		{
 			name: 'POST',
 			run: (ctx: ReturnType<typeof createTestContext>) =>
-				handleUseCaseRequest(_postConfig, ctx, { rank: 'SGT', lastName: 'New', firstName: 'Person', groupId: bravo })
+				handleUseCaseRequest(
+					_postConfig,
+					ctx,
+					{ rank: 'SGT', lastName: 'New', firstName: 'Person', groupId: bravo },
+					() => ctx
+				)
 		},
 		{
 			name: 'PUT',
 			run: (ctx: ReturnType<typeof createTestContext>) =>
-				handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Changed' })
+				handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Changed' }, () => ctx)
 		},
 		{
 			name: 'DELETE',
-			run: (ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_deleteConfig, ctx, { id: personId })
+			run: (ctx: ReturnType<typeof createTestContext>) =>
+				handleUseCaseRequest(_deleteConfig, ctx, { id: personId }, () => ctx)
 		},
 		{
 			name: 'PATCH',
 			run: (ctx: ReturnType<typeof createTestContext>) =>
-				handleUseCaseRequest(_patchConfig, ctx, { id: personId, action: 'restore' })
+				handleUseCaseRequest(_patchConfig, ctx, { id: personId, action: 'restore' }, () => ctx)
 		}
 	])('rejects $name for a viewer without changing records or creating approval requests', async ({ run }) => {
 		const { ctx, row } = fixture({
@@ -355,7 +386,9 @@ describe('Personnel route denied-write safety', () => {
 		{ name: 'ungrouped personnel', groupId: null }
 	])('rejects updates to $name without changing stored data', async ({ groupId }) => {
 		const { ctx, row: outside } = fixture({}, { group_id: groupId });
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Changed' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: personId, clinicRole: 'Changed' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 		await expectUnchanged(ctx, [outside]);
@@ -367,7 +400,7 @@ describe('Personnel route denied-write safety', () => {
 	])('rejects moving an accessible record to $name before mutation', async ({ groupId }) => {
 		const { ctx, row } = fixture();
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: personId, groupId, clinicRole: 'Changed' })
+			handleUseCaseRequest(_putConfig, ctx, { id: personId, groupId, clinicRole: 'Changed' }, () => ctx)
 		).rejects.toMatchObject({ status: 403 });
 		await expectUnchanged(ctx, [row]);
 		expect(ctx.auditPort.events).toEqual([
@@ -383,7 +416,9 @@ describe('Personnel route denied-write safety', () => {
 			{ auth: { role: 'owner', isPrivileged: true, scopeSet: { kind: 'organization' } } },
 			{ organization_id: otherOrg, archived_at: '2026-01-01T00:00:00Z' }
 		);
-		await expect(handleUseCaseRequest(_patchConfig, ctx, { id: personId, action: 'restore' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_patchConfig, ctx, { id: personId, action: 'restore' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 404
 		});
 		await expectUnchanged(ctx, [foreign]);

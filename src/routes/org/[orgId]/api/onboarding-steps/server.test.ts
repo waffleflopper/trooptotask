@@ -81,11 +81,16 @@ describe('/api/onboarding-steps route config', () => {
 		});
 		seedOnboardingStep(ctx);
 
-		const result = await handleUseCaseRequest(_putConfig, ctx, {
-			action: 'toggleCheckbox',
-			stepId: 'step-1',
-			completed: true
-		});
+		const result = await handleUseCaseRequest(
+			_putConfig,
+			ctx,
+			{
+				action: 'toggleCheckbox',
+				stepId: 'step-1',
+				completed: true
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			id: 'step-1',
@@ -135,11 +140,16 @@ describe('/api/onboarding-steps route config', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				action: 'addNote',
-				stepId: 'step-1',
-				text: 'Sent to clinic'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					action: 'addNote',
+					stepId: 'step-1',
+					text: 'Sent to clinic'
+				},
+				() => ctx
+			)
 		).resolves.toEqual(saved);
 		expect(ctx.auditPort.events).toContainEqual(
 			expect.objectContaining({
@@ -162,11 +172,16 @@ describe('/api/onboarding-steps route config', () => {
 		seedOnboardingStep(ctx);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				action: 'addNote',
-				stepId: 'step-1',
-				text: 'Sent to clinic'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					action: 'addNote',
+					stepId: 'step-1',
+					text: 'Sent to clinic'
+				},
+				() => ctx
+			)
 		).rejects.toBe(failure);
 		expect(ctx.auditPort.events).not.toContainEqual(expect.objectContaining({ action: 'onboarding_step.note_added' }));
 	});
@@ -200,7 +215,7 @@ describe('/api/onboarding-steps route config', () => {
 		]);
 		await ctx.store.update('personnel_onboardings', ctx.auth.orgId, 'ob-1', { status: 'completed' });
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'inactive-step-1' })).resolves.toEqual({
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'inactive-step-1' }, () => ctx)).resolves.toEqual({
 			success: true
 		});
 		await expect(
@@ -233,7 +248,9 @@ describe('/api/onboarding-steps route config', () => {
 			notes
 		});
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'step-1' })).rejects.toMatchObject({ status: 409 });
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'step-1' }, () => ctx)).rejects.toMatchObject({
+			status: 409
+		});
 
 		await expect(
 			ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })
@@ -265,7 +282,7 @@ describe('/api/onboarding-steps route config', () => {
 		});
 		const before = await ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' });
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'step-1' })).rejects.toBe(failure);
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'step-1' }, () => ctx)).rejects.toBe(failure);
 
 		await expect(ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })).resolves.toEqual(
 			before
@@ -295,7 +312,9 @@ describe('/api/onboarding-steps route config', () => {
 		});
 		seedOnboardingStep(ctx, { active: false });
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'step-1' })).rejects.toMatchObject({ status: 403 });
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'step-1' }, () => ctx)).rejects.toMatchObject({
+			status: 403
+		});
 		expect(remove).not.toHaveBeenCalled();
 		await expect(
 			ctx.rawStore.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })
@@ -308,7 +327,7 @@ describe('/api/onboarding-steps route config', () => {
 		seedOnboardingStep(ctx, { id: 'foreign-step', active: false, organization_id: 'foreign-org' });
 		const before = await ctx.rawStore.findOne('onboarding_step_progress', 'foreign-org', { id: 'foreign-step' });
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'foreign-step' })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'foreign-step' }, () => ctx)).rejects.toMatchObject({
 			status: 404
 		});
 		expect(remove).not.toHaveBeenCalled();
@@ -338,11 +357,16 @@ describe('/api/onboarding-steps route config', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				action: 'toggleCheckbox',
-				stepId: 'step-1',
-				completed: true
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					action: 'toggleCheckbox',
+					stepId: 'step-1',
+					completed: true
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({

@@ -58,10 +58,15 @@ describe('GET /api/training-reports/export', () => {
 		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
 		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			sortColumn: 'name',
-			sortDirection: 'asc'
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				sortColumn: 'name',
+				sortDirection: 'asc'
+			},
+			() => ctx
+		);
 		const response = _getConfig.formatOutput?.(result);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(result.buffer));

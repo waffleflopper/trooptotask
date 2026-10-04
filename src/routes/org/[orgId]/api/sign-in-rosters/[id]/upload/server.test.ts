@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { selectRosterContext, selectRosterUploadContext } from '../../rosterTestContexts';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
 import { _deleteConfig, _getConfig, _postConfig } from './+server';
@@ -78,23 +78,92 @@ function createScopedRosterUploadContext(signedFilePath: string | null = MIXED_S
 }
 
 describe('/api/sign-in-rosters/[id]/upload route config', () => {
-	it('uses policy-first configs for uploaded sign-in roster scans', () => {
-		expect('permission' in _getConfig).toBe(false);
-		expect('permission' in _postConfig).toBe(false);
-		expect('permission' in _deleteConfig).toBe(false);
-		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.manageSignInRosters);
-		expect(_deleteConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.manageSignInRosters);
-	});
+	it.each(['replace', 'unlink'] as const)(
+		'denies scan %s to a Training viewer before changing files or paths',
+		async (operation) => {
+			const ctx = createRosterUploadContext(OLD_SCAN_PATH);
+			ctx.auth = {
+				...ctx.auth,
+				role: 'member',
+				isPrivileged: false,
+				canManageMembers: false,
+				capabilityMap: { ...ctx.auth.capabilityMap, training: 'view' }
+			};
+			await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+			const result =
+				operation === 'replace'
+					? handleUseCaseRequest(
+							_postConfig,
+							ctx,
+							{
+								rosterId: 'roster-1',
+								file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+							},
+							() => selectRosterUploadContext(ctx)
+						)
+					: handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx));
+			await expect(result).rejects.toMatchObject({ status: 403 });
+			expect(ctx.storagePort.files.map((file) => file.path)).toEqual([OLD_SCAN_PATH]);
+			await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toMatchObject({
+				signed_file_path: OLD_SCAN_PATH
+			});
+			expect(ctx.auditPort.events).toEqual([expect.objectContaining({ action: 'policy.denied' })]);
+		}
+	);
+
+	it.each(['read', 'replace', 'unlink'] as const)(
+		'denies a foreign roster scan %s before any file access',
+		async (operation) => {
+			const ctx = createRosterUploadContext();
+			ctx.rawStore.seed('sign_in_rosters', [
+				{ id: 'foreign-roster', organization_id: 'foreign-org', title: 'Foreign', signed_file_path: OLD_SCAN_PATH }
+			]);
+			await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
+			const forRoster = vi.spyOn(ctx.signInRosterFileWrites, 'forRoster');
+			const signedUrl = vi.spyOn(ctx.storage, 'createSignedUrl');
+			const result =
+				operation === 'replace'
+					? handleUseCaseRequest(
+							_postConfig,
+							ctx,
+							{
+								rosterId: 'foreign-roster',
+								file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+							},
+							() => selectRosterUploadContext(ctx)
+						)
+					: operation === 'read'
+						? handleUseCaseRequest(_getConfig, ctx, { rosterId: 'foreign-roster' }, () => selectRosterContext(ctx))
+						: handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'foreign-roster' }, () => selectRosterContext(ctx));
+			await expect(result).rejects.toMatchObject({
+				status: 404,
+				message: operation === 'read' ? 'No signed file found' : 'Roster not found'
+			});
+			expect(forRoster).not.toHaveBeenCalled();
+			expect(signedUrl).not.toHaveBeenCalled();
+			expect(ctx.storagePort.files.map((file) => file.path)).toEqual([OLD_SCAN_PATH]);
+			await expect(
+				ctx.rawStore.findOne('sign_in_rosters', 'foreign-org', { id: 'foreign-roster' })
+			).resolves.toMatchObject({
+				signed_file_path: OLD_SCAN_PATH
+			});
+			expect(ctx.auditPort.events).toEqual([]);
+		}
+	);
 
 	it('rejects spoofed PDF uploads before writing to storage', async () => {
 		const ctx = createRosterUploadContext();
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				rosterId: 'roster-1',
-				file: new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' })
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					rosterId: 'roster-1',
+					file: new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' })
+				},
+				() => selectRosterUploadContext(ctx)
+			)
 		).rejects.toMatchObject({ status: 400, message: 'Only PDF files are allowed.' });
 
 		expect(ctx.storagePort.files).toHaveLength(0);
@@ -103,10 +172,15 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 	it('uploads sign-in roster scans when PDF bytes match the declared file type', async () => {
 		const ctx = createRosterUploadContext();
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			rosterId: 'roster-1',
-			file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				rosterId: 'roster-1',
+				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+			},
+			() => selectRosterUploadContext(ctx)
+		);
 
 		expect(result).toEqual({
 			filePath: expect.stringMatching(/^test-org\/sign-in-rosters\/roster-1\/[0-9a-f-]{36}-signed-roster\.pdf$/)
@@ -127,7 +201,9 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		const ctx = createScopedRosterUploadContext(MIXED_SCAN_PATH);
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, MIXED_SCAN_PATH, new File([PDF_BYTES], 'mixed-scan.pdf'));
 
-		await expect(handleUseCaseRequest(_getConfig, ctx, { rosterId: 'roster-mixed' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_getConfig, ctx, { rosterId: 'roster-mixed' }, () => selectRosterContext(ctx))
+		).rejects.toMatchObject({
 			status: 404,
 			message: 'No signed file found'
 		});
@@ -138,10 +214,15 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, MIXED_SCAN_PATH, new File([PDF_BYTES], 'mixed-scan.pdf'));
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				rosterId: 'roster-mixed',
-				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					rosterId: 'roster-mixed',
+					file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+				},
+				() => selectRosterUploadContext(ctx)
+			)
 		).rejects.toMatchObject({ status: 404, message: 'Roster not found' });
 
 		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([MIXED_SCAN_PATH]);
@@ -150,14 +231,24 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 	it('uses a unique storage path and removes the previous scan after replacement succeeds', async () => {
 		const ctx = createRosterUploadContext();
 
-		const first = await handleUseCaseRequest(_postConfig, ctx, {
-			rosterId: 'roster-1',
-			file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
-		});
-		const second = await handleUseCaseRequest(_postConfig, ctx, {
-			rosterId: 'roster-1',
-			file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
-		});
+		const first = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				rosterId: 'roster-1',
+				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+			},
+			() => selectRosterUploadContext(ctx)
+		);
+		const second = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				rosterId: 'roster-1',
+				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+			},
+			() => selectRosterUploadContext(ctx)
+		);
 
 		expect(first.filePath).not.toBe(second.filePath);
 		expect(ctx.storagePort.files.map((file) => file.path)).toEqual([second.filePath]);
@@ -179,10 +270,15 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		};
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				rosterId: 'roster-1',
-				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					rosterId: 'roster-1',
+					file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+				},
+				() => selectRosterUploadContext(ctx)
+			)
 		).rejects.toBe(cleanupError);
 
 		const roster = await ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, {
@@ -203,10 +299,15 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		};
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				rosterId: 'roster-1',
-				file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					rosterId: 'roster-1',
+					file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+				},
+				() => selectRosterUploadContext(ctx)
+			)
 		).rejects.toThrow('update failed');
 
 		expect(ctx.storagePort.files).toHaveLength(1);
@@ -237,10 +338,15 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 
 		try {
 			await expect(
-				handleUseCaseRequest(_postConfig, ctx, {
-					rosterId: 'roster-1',
-					file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
-				})
+				handleUseCaseRequest(
+					_postConfig,
+					ctx,
+					{
+						rosterId: 'roster-1',
+						file: new File([PDF_BYTES], 'signed-roster.pdf', { type: 'application/pdf' })
+					},
+					() => selectRosterUploadContext(ctx)
+				)
 			).rejects.toBe(dbError);
 
 			expect(consoleError).toHaveBeenCalledWith(
@@ -274,9 +380,9 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 			throw new Error('storage cleanup failed');
 		};
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow(
-			'storage cleanup failed'
-		);
+		await expect(
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+		).rejects.toThrow('storage cleanup failed');
 
 		expect(updateCalls).toEqual([]);
 		expect(ctx.storagePort.files).toEqual([
@@ -303,7 +409,9 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 			return update(table, orgId, id, data);
 		};
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).rejects.toThrow('update failed');
+		await expect(
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+		).rejects.toThrow('update failed');
 
 		expect(removeCalls).toEqual([[OLD_SCAN_PATH]]);
 		expect(ctx.storagePort.files).toEqual([]);
@@ -317,7 +425,9 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		const ctx = createRosterUploadContext(OLD_SCAN_PATH);
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' })).resolves.toEqual({
+		await expect(
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+		).resolves.toEqual({
 			success: true
 		});
 
@@ -332,7 +442,9 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		const ctx = createScopedRosterUploadContext(MIXED_SCAN_PATH);
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, MIXED_SCAN_PATH, new File([PDF_BYTES], 'mixed-scan.pdf'));
 
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' }, () => selectRosterContext(ctx))
+		).rejects.toMatchObject({
 			status: 404,
 			message: 'Roster not found'
 		});

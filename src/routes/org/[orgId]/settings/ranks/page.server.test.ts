@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
 	addOrganizationRankServicePackMock,
 	bulkSetOrganizationRankCatalogStateMock,
-	buildRouteContextMock,
+	buildRouteRequestMock,
 	createSupabaseRankCatalogAdministrationPortMock,
 	loadRanksSettingsMock,
 	loadSettingsPageMock,
@@ -14,7 +14,7 @@ const {
 } = vi.hoisted(() => ({
 	addOrganizationRankServicePackMock: vi.fn(),
 	bulkSetOrganizationRankCatalogStateMock: vi.fn(),
-	buildRouteContextMock: vi.fn(),
+	buildRouteRequestMock: vi.fn(),
 	createSupabaseRankCatalogAdministrationPortMock: vi.fn(),
 	loadRanksSettingsMock: vi.fn(),
 	loadSettingsPageMock: vi.fn(),
@@ -24,14 +24,14 @@ const {
 	saveOrganizationRankCatalogEntryMock: vi.fn()
 }));
 
-vi.mock('$lib/server/adapters/httpAdapter', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
-		'$lib/server/adapters/httpAdapter'
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
 	);
 
 	return {
 		...actual,
-		buildRouteContext: buildRouteContextMock
+		buildRouteRequest: buildRouteRequestMock
 	};
 });
 
@@ -95,10 +95,10 @@ function actionEvent(
 describe('rank settings page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		buildRouteContextMock.mockResolvedValue(routeContext);
+		buildRouteRequestMock.mockResolvedValue(routeContext);
 		createSupabaseRankCatalogAdministrationPortMock.mockReturnValue({ kind: 'rank-admin-port' });
 		loadRanksSettingsMock.mockResolvedValue({ sections: { ranks: { commands: { canManageCatalog: true } } } });
-		loadSettingsPageMock.mockImplementation(async (event, loader) => loader(routeContext, event));
+		loadSettingsPageMock.mockImplementation(async (event, _context, loader) => loader(routeContext, event));
 		addOrganizationRankServicePackMock.mockImplementation(async (_ctx: unknown, input: { service: string }) => ({
 			addedCount: input.service === 'navy' ? 7 : 0,
 			skippedExistingCount: input.service === 'navy' ? 0 : 1

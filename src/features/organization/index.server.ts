@@ -60,4 +60,8 @@ export {
 } from './supportReadProvider.server';
 export { createOrganizationPlatformInvitationReader } from './invitationSupportReader.server';
 
-export { readOrganizationMembershipAccess, countOrganizationMembers } from './organizationMembershipRead.server';
+export {
+	readOrganizationMembershipAccess,
+	readOrganizationMembershipForRequest,
+	countOrganizationMembers
+} from './organizationMembershipRead.server';

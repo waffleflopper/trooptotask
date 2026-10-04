@@ -54,9 +54,14 @@ describe('/api/personnel-trainings/batch route config', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-01', status: 'completed' }]
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-01', status: 'completed' }]
+			},
+			() => ctx
+		);
 
 		expect(legacyEditCalled).toBe(false);
 		expect(result).toMatchObject({ errors: [] });
@@ -80,9 +85,14 @@ describe('/api/personnel-trainings/batch route config', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-01', status: 'completed' }]
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-01-01', status: 'completed' }]
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({

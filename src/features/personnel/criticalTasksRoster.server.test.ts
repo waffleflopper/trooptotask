@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
-import { createPermissionContextFromMembership } from '$lib/server/permissionContext';
+import { projectOrganizationAccessGrant } from '$lib/access/memberAccessProjection';
 import { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 
 function actor(criticalTasks: 'none' | 'view' | 'operate' = 'view', groupIds: string[] | null = ['group-1']) {
@@ -130,13 +130,17 @@ describe('Personnel Critical Tasks roster', () => {
 	it('keeps stored empty Group membership restricted through readiness, history and completion references', async () => {
 		const getAdminClient = vi.fn();
 		const port = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient as () => SupabaseClient);
-		const context = createPermissionContextFromMembership({
-			role: 'member',
-			member_preset: 'viewer',
-			capability_overrides: { criticalTasks: 'operate', personnel: 'none', training: 'none' },
-			access_scope_kind: 'groups',
-			access_scope_group_ids: []
-		});
+		const context = projectOrganizationAccessGrant(
+			{
+				role: 'member',
+				member_preset: 'viewer',
+				capability_overrides: { criticalTasks: 'operate', personnel: 'none', training: 'none' },
+				access_scope_kind: 'groups',
+				access_scope_group_ids: []
+			},
+			'test-user',
+			'org-1'
+		);
 		const storedActor = createTestAuthContext({ ...context, orgId: 'org-1' });
 		await expect(port.listActiveForReadiness(storedActor)).resolves.toEqual([]);
 		await expect(port.findForHistory(storedActor, 'active-alpha')).resolves.toBeNull();

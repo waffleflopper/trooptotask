@@ -1,3 +1,4 @@
+import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { TrainingReportWorkbookExport } from '$features/training/contracts';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -11,7 +12,12 @@ import {
 	type TrainingReportRouteInput
 } from '../reportInput';
 
-export const _getConfig: RouteConfig<TrainingReportRouteInput, TrainingReportWorkbookExport> = {
+export const _getConfig: RouteConfig<
+	TrainingReportRouteInput,
+	TrainingReportWorkbookExport,
+	ReturnType<typeof createRequestTrainingRosterContext>
+> = {
+	context: createRequestTrainingRosterContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
 	input: trainingReportInput,

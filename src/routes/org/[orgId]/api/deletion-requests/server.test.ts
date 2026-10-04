@@ -13,13 +13,17 @@ const _deleteConfig = _createDeleteConfig(createDeletionRequestTestStore(createT
 describe('/api/deletion-requests route config', () => {
 	it('rejects missing identity before looking up a request', async () => {
 		const ctx = createTestContext({ auth: { userId: '' } });
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'unavailable-request' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_deleteConfig, ctx, { id: 'unavailable-request' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 	});
 
 	it('rejects null DELETE payloads with a 400 instead of throwing a type error', async () => {
-		await expect(handleUseCaseRequest(_deleteConfig, createTestContext(), null)).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_deleteConfig, createTestContext(), null, () => createTestContext())
+		).rejects.toMatchObject({
 			status: 400
 		});
 	});

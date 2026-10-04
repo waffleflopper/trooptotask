@@ -1,28 +1,38 @@
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createGroup, deleteGroup, updateGroup } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
-import { createGroup, deleteGroup, updateGroup } from '$features/personnel/index.server';
 
 const groupManagement = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageGroups,
 	policyResource: { kind: 'unscoped' as const }
 };
 
-export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _postConfig: RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestWriteContext>
+> = {
 	...groupManagement,
 	fn: createGroup
 };
 export const POST = handle(_postConfig);
 
-export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _putConfig: RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>> = {
 	...groupManagement,
 	fn: updateGroup
 };
 export const PUT = handle(_putConfig);
 
-export const _deleteConfig: RouteConfig<Record<string, unknown>, { success: true }> = {
+export const _deleteConfig: RouteConfig<
+	Record<string, unknown>,
+	{ success: true },
+	ReturnType<typeof createRequestWriteContext>
+> = {
 	...groupManagement,
 	fn: async (ctx, input) => {
 		const id = input?.id;

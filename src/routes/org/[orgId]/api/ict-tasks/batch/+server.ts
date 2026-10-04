@@ -1,3 +1,4 @@
+import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { importIctTasksBatch } from '$features/critical-tasks/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -9,6 +10,7 @@ const batchInput = z.object({
 });
 
 export const _postConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.configureLibrary,
 	input: batchInput,
@@ -17,6 +19,6 @@ export const _postConfig = {
 			mode: input.mode,
 			records: input.records
 		})
-} satisfies RouteConfig<z.infer<typeof batchInput>, unknown>;
+} satisfies RouteConfig<z.infer<typeof batchInput>, unknown, ReturnType<typeof createRequestWriteContext>>;
 
 export const POST = handle(_postConfig);

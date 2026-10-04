@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
-import type { MembershipRow } from '$lib/server/permissionContext';
+import type { OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import {
 	GET as listDocuments,
 	POST as uploadDocument
@@ -27,7 +27,7 @@ vi.mock('$lib/server/supabase', async (original) => ({
 const ORG = '11111111-1111-4111-8111-111111111111';
 const FOREIGN_ORG = '22222222-2222-4222-8222-222222222222';
 const USER = '33333333-3333-4333-8333-333333333333';
-const membership: MembershipRow = {
+const membership: OrganizationMembershipFacts = {
 	role: 'member',
 	member_preset: 'operator',
 	capability_overrides: { personnel: 'configure', training: 'operate' },
@@ -36,7 +36,7 @@ const membership: MembershipRow = {
 };
 type Row = Record<string, unknown>;
 
-function fixture(member: MembershipRow = membership) {
+function fixture(member: OrganizationMembershipFacts = membership) {
 	const tables: Record<string, Row[]> = {
 		organization_memberships: [{ ...member, user_id: USER, organization_id: ORG }],
 		personnel: [

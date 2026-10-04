@@ -1,3 +1,4 @@
+import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
@@ -6,20 +7,23 @@ import { createTrainingView, updateTrainingView, deleteTrainingView } from '$fea
 import type { TrainingView } from '$features/training/contracts';
 
 export const _postConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => createTrainingView(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, TrainingView>;
+} satisfies RouteConfig<Record<string, unknown>, TrainingView, ReturnType<typeof createRequestWriteContext>>;
 
 export const _putConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => updateTrainingView(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, TrainingView>;
+} satisfies RouteConfig<Record<string, unknown>, TrainingView, ReturnType<typeof createRequestWriteContext>>;
 
 export const _deleteConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
@@ -30,7 +34,7 @@ export const _deleteConfig = {
 		await deleteTrainingView(ctx, id);
 		return { success: true };
 	}
-} satisfies RouteConfig<Record<string, unknown>, { success: true }>;
+} satisfies RouteConfig<Record<string, unknown>, { success: true }, ReturnType<typeof createRequestWriteContext>>;
 
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);

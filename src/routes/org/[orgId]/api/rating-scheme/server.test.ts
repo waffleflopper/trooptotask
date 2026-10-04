@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -24,7 +24,9 @@ describe('POST /api/rating-scheme', () => {
 
 	it('rejects an unsupported status before a database mutation', async () => {
 		const ctx = createTestContext();
-		await expect(handleUseCaseRequest(_postConfig, ctx, { ...validInput, status: 'draft' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { ...validInput, status: 'draft' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 400
 		});
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toEqual([]);
@@ -59,7 +61,7 @@ describe('POST /api/rating-scheme', () => {
 			}
 		]);
 
-		const result = (await handleUseCaseRequest(_postConfig, ctx, validInput)) as Record<string, unknown>;
+		const result = (await handleUseCaseRequest(_postConfig, ctx, validInput, () => ctx)) as Record<string, unknown>;
 
 		expect(result).toMatchObject({
 			ratedPersonId: 'person-1',
@@ -83,28 +85,36 @@ describe('POST /api/rating-scheme', () => {
 				}
 			}
 		});
+		const selected = { ...ctx, notifyRatingSchemeEntryDeleted: vi.fn(async () => {}) };
 		ctx.store.seed('personnel', [
 			{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: 'group-alpha' },
 			{ id: 'person-2', organization_id: ctx.auth.orgId, group_id: 'group-bravo' },
 			{ id: 'person-3', organization_id: ctx.auth.orgId, group_id: null }
 		]);
 
-		const created = (await handleUseCaseRequest(_postConfig, ctx, validInput)) as { id: string; ratedPersonId: string };
+		const created = (await handleUseCaseRequest(_postConfig, ctx, validInput, () => ctx)) as {
+			id: string;
+			ratedPersonId: string;
+		};
 		expect(created.ratedPersonId).toBe('person-1');
 		for (const ratedPersonId of ['person-2', 'person-3']) {
-			await expect(handleUseCaseRequest(_postConfig, ctx, { ...validInput, ratedPersonId })).rejects.toMatchObject({
+			await expect(
+				handleUseCaseRequest(_postConfig, ctx, { ...validInput, ratedPersonId }, () => ctx)
+			).rejects.toMatchObject({
 				status: 403
 			});
-			await expect(handleUseCaseRequest(_putConfig, ctx, { id: created.id, ratedPersonId })).rejects.toMatchObject({
+			await expect(
+				handleUseCaseRequest(_putConfig, ctx, { id: created.id, ratedPersonId }, () => ctx)
+			).rejects.toMatchObject({
 				status: 403
 			});
 		}
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: created.id, status: 'completed' })).resolves.toMatchObject(
-			{
-				status: 'completed'
-			}
-		);
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: created.id })).resolves.toEqual({
+		await expect(
+			handleUseCaseRequest(_putConfig, ctx, { id: created.id, status: 'completed' }, () => ctx)
+		).resolves.toMatchObject({
+			status: 'completed'
+		});
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: created.id }, () => selected)).resolves.toEqual({
 			requiresApproval: true
 		});
 		expect(await ctx.store.findMany('rating_scheme_entries', ctx.auth.orgId)).toHaveLength(1);

@@ -55,11 +55,16 @@ describe('/api/onboarding route config', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'p-1',
-			templateId: 'template-1',
-			startedAt: '2026-03-15'
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'p-1',
+				templateId: 'template-1',
+				startedAt: '2026-03-15'
+			},
+			() => ctx
+		);
 
 		expect(result).toEqual({
 			id: 'saved-packet',
@@ -95,7 +100,9 @@ describe('/api/onboarding route config', () => {
 		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
 		const training = vi.spyOn(ctx.trainingOnboardingReferences, 'completedTypeIds');
 		const reads = vi.spyOn(ctx.store, 'findMany');
-		await expect(handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', ...body })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', ...body }, () => ctx)
+		).rejects.toMatchObject({
 			status: 400
 		});
 		expect(reads.mock.calls.filter(([table]) => table === 'onboarding_template_steps')).toEqual([]);
@@ -116,7 +123,7 @@ describe('/api/onboarding route config', () => {
 				.spyOn(ctx.store, 'delete')
 				.mockRejectedValue(new Error('Compensation delete must not run'));
 			await expect(
-				handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', templateId: 'template-1' })
+				handleUseCaseRequest(_postConfig, ctx, { personnelId: 'p-1', templateId: 'template-1' }, () => ctx)
 			).rejects.toBe(failure);
 			expect(insert).not.toHaveBeenCalled();
 			expect(deleteParent).not.toHaveBeenCalled();
@@ -144,12 +151,17 @@ describe('/api/onboarding route config', () => {
 			});
 
 			await expect(
-				handleUseCaseRequest(config, ctx, {
-					personnelId: 'p-1',
-					templateId: 'template-1',
-					id: 'ob-1',
-					status: 'cancelled'
-				})
+				handleUseCaseRequest(
+					config,
+					ctx,
+					{
+						personnelId: 'p-1',
+						templateId: 'template-1',
+						id: 'ob-1',
+						status: 'cancelled'
+					},
+					() => ctx
+				)
 			).rejects.toMatchObject({ status: 403 });
 			expect(ctx.auditPort.events).toEqual([
 				expect.objectContaining({
@@ -230,7 +242,7 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 		const ctx = lifecycleContext(initialStatus, saved);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status, completedAt: '2099-12-31' })
+			handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status, completedAt: '2099-12-31' }, () => ctx)
 		).resolves.toEqual(response);
 
 		expect(ctx.auditPort.events).toEqual([expect.objectContaining({ resourceId: 'ob-1' })]);
@@ -239,7 +251,9 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 	it('propagates expectation loss as 409 without a success audit', async () => {
 		const ctx = lifecycleContext(initialStatus, null);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status })).rejects.toMatchObject({ status: 409 });
+		await expect(handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status }, () => ctx)).rejects.toMatchObject({
+			status: 409
+		});
 
 		expect(ctx.auditPort.events).toEqual([]);
 		expect(ctx.store.update).not.toHaveBeenCalled();
@@ -248,7 +262,9 @@ describe.each(lifecycleRequests)('/api/onboarding PUT $status', ({ status, initi
 	it('keeps the existing sequential invalid-transition 400', async () => {
 		const ctx = lifecycleContext('completed', null);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status })).rejects.toMatchObject({ status: 400 });
+		await expect(handleUseCaseRequest(_putConfig, ctx, { id: 'ob-1', status }, () => ctx)).rejects.toMatchObject({
+			status: 400
+		});
 
 		expect(ctx.onboardingLifecycleTransition!.transition).not.toHaveBeenCalled();
 		expect(ctx.auditPort.events).toEqual([]);

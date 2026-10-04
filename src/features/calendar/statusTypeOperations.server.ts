@@ -2,8 +2,8 @@ import { error } from '@sveltejs/kit';
 import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPolicy,
-	type CalendarWritePorts,
-	type CalendarWriteWithNotificationsPorts
+	type CalendarCatalogPorts,
+	type CalendarCatalogDeletionPorts
 } from '$lib/server/core/useCases/calendarPolicy';
 import { StatusTypeEntity } from './statusTypeEntity.server';
 
@@ -11,7 +11,7 @@ const entity = StatusTypeEntity;
 const action = CALENDAR_POLICY_ACTIONS.configureStatusTypes;
 const resource = { kind: 'organization' } as const;
 
-export async function createStatusType(ctx: CalendarWritePorts, input: Record<string, unknown>) {
+export async function createStatusType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
 	const parsed = entity.createSchema.safeParse(input);
 	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	await requireCalendarPolicy(ctx, action, resource);
@@ -29,7 +29,7 @@ export async function createStatusType(ctx: CalendarWritePorts, input: Record<st
 	return entity.fromDb(row);
 }
 
-export async function updateStatusType(ctx: CalendarWritePorts, input: Record<string, unknown>) {
+export async function updateStatusType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
 	const parsed = entity.updateSchema.safeParse(input);
 	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	const id = parsed.data.id as string;
@@ -45,7 +45,7 @@ export async function updateStatusType(ctx: CalendarWritePorts, input: Record<st
 	return entity.fromDb(row);
 }
 
-export async function deleteStatusType(ctx: CalendarWriteWithNotificationsPorts, id: string): Promise<void> {
+export async function deleteStatusType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, action, resource);
 	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
 	ctx.audit.log({ action: 'status_type.deleted', resourceType: 'status_type', resourceId: id });

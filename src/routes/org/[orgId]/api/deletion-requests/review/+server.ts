@@ -1,29 +1,30 @@
-import type { RequestHandler } from '@sveltejs/kit';
-import { handle, createRequestDeletionRequestStore, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/errors';
+import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
 import {
 	approveDeletionRequest,
 	denyDeletionRequest,
 	requirePendingDeletionRequest,
-	type DeletionRequestStore,
-	type ApprovedDeletionEffects
+	type ApprovedDeletionEffects,
+	type DeletionRequestStore
 } from '$features/deletion-requests/index.server';
-import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
-import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
 import {
 	archiveApprovedPersonnelRecord,
 	createSupabasePersonnelGovernanceDeletionPort
 } from '$features/personnel/index.server';
-import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
+import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
+import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/errors';
+import { createRequestDeletionRequestStore, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestDeletionReviewContext } from '$lib/server/adapters/requestContexts.server';
 import { getAdminClient } from '$lib/server/supabase';
+import type { RequestHandler } from '@sveltejs/kit';
 
 export function _reviewPostConfig(
 	store: DeletionRequestStore,
-	effectsFor: (ctx: UseCaseContext) => ApprovedDeletionEffects
-): RouteConfig<Record<string, unknown>, unknown> {
+	effectsFor: (ctx: ReturnType<typeof createRequestDeletionReviewContext>) => ApprovedDeletionEffects
+): RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestDeletionReviewContext>> {
 	return {
+		context: createRequestDeletionReviewContext,
 		policyAction: POLICY_ACTION_CATALOG.organization.reviewDeletionRequests,
 		mutation: true,
 		fn: async (ctx, input) => {

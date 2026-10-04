@@ -27,10 +27,15 @@ describe('GET /api/calendar-reports/status-days', () => {
 			}
 		});
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			startDate: '2026-03-01',
-			endDate: '2026-03-31'
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				startDate: '2026-03-01',
+				endDate: '2026-03-31'
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			entries: [],
@@ -54,10 +59,15 @@ describe('GET /api/calendar-reports/status-days', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, {
-				startDate: '2026-03-01',
-				endDate: '2026-03-31'
-			})
+			handleUseCaseRequest(
+				_getConfig,
+				ctx,
+				{
+					startDate: '2026-03-01',
+					endDate: '2026-03-31'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 403,
 			message:

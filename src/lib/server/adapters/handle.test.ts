@@ -1,58 +1,26 @@
 import { describe, it, expect, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 import { z } from 'zod';
-import {
-	createTestContext,
-	createInMemoryDataStore,
-	createTestAuthContext,
-	createTestScopeEnforcementPort,
-	createTestAuditPort
-} from './inMemory';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { handleUseCaseRequest, rethrowOrWrap, type RouteConfig } from './httpAdapter';
+import { createTestContext, createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
+import { handleUseCaseRequest, rethrowOrWrap } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createPersonnelRecord, archivePersonnelRecord } from '$features/personnel/index.server';
 
-type TestContext = {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	auth: ReturnType<typeof createTestAuthContext>;
-	scope: ReturnType<typeof createTestScopeEnforcementPort>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-};
+type OperationConfig<TInput = void, TOutput = unknown, TContext = undefined> = Parameters<
+	typeof handleUseCaseRequest<TInput, TOutput, TContext>
+>[0];
 
-function buildTestCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }): TestContext {
-	const store = createInMemoryDataStore();
-	const auth = createTestAuthContext(overrides?.auth);
-	const scope = createTestScopeEnforcementPort();
-	const auditPort = createTestAuditPort();
-	return { store, auth, scope, auditPort };
-}
-
-function toUseCaseCtx(t: TestContext): UseCaseContext {
-	const ctx = createTestContext({
-		auth: {
-			orgId: t.auth.orgId,
-			userId: t.auth.userId,
-			role: t.auth.role,
-			isPrivileged: t.auth.isPrivileged,
-			capabilityMap: t.auth.capabilityMap,
-			scopeSet: t.auth.scopeSet
-		}
-	});
+function buildTestRequest(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
 	return {
-		...ctx,
-		store: t.store,
-		rawStore: t.store,
-		auth: t.auth,
-		scope: t.scope,
-		audit: t.auditPort
+		auth: createTestAuthContext(overrides?.auth),
+		audit: createTestAuditPort()
 	};
 }
 
 describe('handleUseCaseRequest', () => {
 	describe('permission enforcement', () => {
 		it('uses policy decisions when a policy action is declared', async () => {
-			const t = buildTestCtx({
+			const t = buildTestRequest({
 				auth: {
 					role: 'member',
 					isPrivileged: false,
@@ -68,19 +36,19 @@ describe('handleUseCaseRequest', () => {
 				}
 			});
 
-			const config: RouteConfig<void, string> = {
+			const config: OperationConfig<void, string> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 				policyResource: { kind: 'group', groupId: 'group-bravo' },
 				fn: async () => 'ok'
 			};
 
-			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
+			const result = await handleUseCaseRequest(config, t, undefined, () => undefined);
 			expect(result).toBe('ok');
 		});
 
 		it('executes policy-first routes without legacy permission declarations', async () => {
-			const t = buildTestCtx({
+			const t = buildTestRequest({
 				auth: {
 					role: 'member',
 					isPrivileged: false,
@@ -96,19 +64,19 @@ describe('handleUseCaseRequest', () => {
 				}
 			});
 
-			const config: RouteConfig<void, string> = {
+			const config: OperationConfig<void, string> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 				policyResource: { kind: 'organization' },
 				fn: async () => 'ok'
 			};
 
-			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
+			const result = await handleUseCaseRequest(config, t, undefined, () => undefined);
 			expect(result).toBe('ok');
 		});
 
 		it('audits denied policy writes before rejecting the request', async () => {
-			const t = buildTestCtx({
+			const t = buildTestRequest({
 				auth: {
 					role: 'member',
 					isPrivileged: false,
@@ -124,17 +92,19 @@ describe('handleUseCaseRequest', () => {
 				}
 			});
 
-			const config: RouteConfig<void, string> = {
+			const config: OperationConfig<void, string> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 				policyResource: { kind: 'organization' },
 				fn: async () => 'unreachable'
 			};
 
-			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toMatchObject({
+			const selectContext = vi.fn(() => undefined);
+			await expect(handleUseCaseRequest(config, t, undefined, selectContext)).rejects.toMatchObject({
 				status: 403
 			});
-			expect(t.auditPort.events).toEqual([
+			expect(selectContext).not.toHaveBeenCalled();
+			expect(t.audit.events).toEqual([
 				expect.objectContaining({
 					action: 'policy.denied',
 					resourceType: 'criticalTasks.recordCompletion',
@@ -150,40 +120,48 @@ describe('handleUseCaseRequest', () => {
 
 	describe('Zod input validation', () => {
 		it('validates and passes parsed input to fn', async () => {
-			const t = buildTestCtx();
+			const t = buildTestRequest();
 
-			const config: RouteConfig<{ name: string }, string> = {
+			const config: OperationConfig<{ name: string }, string> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 				policyResource: { kind: 'organization' },
-				input: z.object({ name: z.string().min(1) }),
+				input: z.object({ name: z.string().trim().min(1) }),
 				fn: async (_ctx, input) => `hello ${input.name}`
 			};
 
-			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), { name: 'Alice' });
+			const result = await handleUseCaseRequest(config, t, { name: '  Alice  ' }, () => undefined);
 			expect(result).toBe('hello Alice');
 		});
 
 		it('rejects invalid input with 400', async () => {
-			const t = buildTestCtx();
+			const t = buildTestRequest();
+			const selectContext = vi.fn(() => undefined);
+			const operation = vi.fn(async (_ctx: undefined, input: { name: string }) => `hello ${input.name}`);
 
-			const config: RouteConfig<{ name: string }, string> = {
+			const config: OperationConfig<{ name: string }, string> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 				policyResource: { kind: 'organization' },
 				input: z.object({ name: z.string().min(1) }),
-				fn: async (_ctx, input) => `hello ${input.name}`
+				fn: operation,
+				audit: { action: 'person.updated', resourceType: 'person' }
 			};
 
-			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), { name: '' })).rejects.toThrow();
+			await expect(handleUseCaseRequest(config, t, { name: '' }, selectContext)).rejects.toMatchObject({
+				status: 400
+			});
+			expect(selectContext).not.toHaveBeenCalled();
+			expect(operation).not.toHaveBeenCalled();
+			expect(t.audit.events).toEqual([]);
 		});
 	});
 
 	describe('declarative audit', () => {
 		it('logs audit event after successful execution', async () => {
-			const t = buildTestCtx();
+			const t = buildTestRequest();
 
-			const config: RouteConfig<void, { id: string }> = {
+			const config: OperationConfig<void, { id: string }> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 				policyResource: { kind: 'organization' },
@@ -195,10 +173,10 @@ describe('handleUseCaseRequest', () => {
 				}
 			};
 
-			await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
+			await handleUseCaseRequest(config, t, undefined, () => undefined);
 
-			expect(t.auditPort.events).toHaveLength(1);
-			expect(t.auditPort.events[0]).toEqual({
+			expect(t.audit.events).toHaveLength(1);
+			expect(t.audit.events[0]).toEqual({
 				action: 'person.created',
 				resourceType: 'person',
 				resourceId: 'new-1'
@@ -206,9 +184,9 @@ describe('handleUseCaseRequest', () => {
 		});
 
 		it('does not log audit on failure', async () => {
-			const t = buildTestCtx();
+			const t = buildTestRequest();
 
-			const config: RouteConfig<void, string> = {
+			const config: OperationConfig<void, string> = {
 				mutation: true,
 				policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 				policyResource: { kind: 'organization' },
@@ -221,24 +199,29 @@ describe('handleUseCaseRequest', () => {
 				}
 			};
 
-			await expect(handleUseCaseRequest(config, toUseCaseCtx(t), undefined)).rejects.toThrow('boom');
-			expect(t.auditPort.events).toHaveLength(0);
+			await expect(handleUseCaseRequest(config, t, undefined, () => undefined)).rejects.toThrow('boom');
+			expect(t.audit.events).toHaveLength(0);
 		});
 	});
 
 	describe('fn execution', () => {
-		it('passes ctx and input to fn and returns result', async () => {
-			const t = buildTestCtx();
-			t.store.seed('items', [{ id: '1', organization_id: 'test-org', name: 'thing' }]);
+		it('passes the selected collaborators and input to fn and returns its result', async () => {
+			const t = buildTestRequest();
+			const store = createInMemoryDataStore();
+			store.seed('items', [
+				{ id: '1', organization_id: 'test-org', name: 'thing' },
+				{ id: '2', organization_id: 'test-org', name: 'other' }
+			]);
+			const selected = { store, orgId: t.auth.orgId };
 
-			const config: RouteConfig<void, unknown[]> = {
+			const config: OperationConfig<{ name: string }, unknown[], typeof selected> = {
 				policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
 				policyResource: { kind: 'organization' },
-				fn: async (ctx) => ctx.store.findMany('items', ctx.auth.orgId)
+				fn: async (ctx, input) => ctx.store.findMany('items', ctx.orgId, { name: input.name })
 			};
 
-			const result = await handleUseCaseRequest(config, toUseCaseCtx(t), undefined);
-			expect(result).toHaveLength(1);
+			const result = await handleUseCaseRequest(config, t, { name: 'thing' }, () => selected);
+			expect(result).toEqual([{ id: '1', organization_id: 'test-org', name: 'thing' }]);
 		});
 	});
 });
@@ -274,7 +257,7 @@ describe('policy dispatch write safety', () => {
 	} as const;
 
 	function fixture(auth: Parameters<typeof createTestAuthContext>[0] = {}) {
-		const ctx = createTestContext({
+		const request = buildTestRequest({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -283,10 +266,12 @@ describe('policy dispatch write safety', () => {
 				...auth
 			}
 		});
-		const before = { id: 'record-1', organization_id: ctx.auth.orgId, value: 'original' };
-		ctx.store.seed('dispatch_records', [structuredClone(before)]);
+		const store = createInMemoryDataStore();
+		const before = { id: 'record-1', organization_id: request.auth.orgId, value: 'original' };
+		store.seed('dispatch_records', [structuredClone(before)]);
+		const selectContext = vi.fn(() => ({ auth: request.auth, store }));
 		let calls = 0;
-		const config: RouteConfig<void, void> = {
+		const config: OperationConfig<void, void, ReturnType<typeof selectContext>> = {
 			mutation: true,
 			policyAction: POLICY_ACTION_CATALOG.criticalTasks.recordCompletion,
 			policyResource: { kind: 'group', groupId: 'group-bravo' },
@@ -296,20 +281,21 @@ describe('policy dispatch write safety', () => {
 			},
 			audit: { action: 'record.updated', resourceType: 'dispatch_records' }
 		};
-		return { ctx, before, config, calls: () => calls };
+		return { request, store, before, config, selectContext, calls: () => calls };
 	}
 
 	async function expectDenied(f: ReturnType<typeof fixture>, reasonCode: string) {
 		// Assert state before checking the response so a controlled guard fault proves
 		// detection of the unauthorized effect, not just an error-message mismatch.
-		const outcome = await handleUseCaseRequest(f.config, f.ctx, undefined).then(
+		const outcome = await handleUseCaseRequest(f.config, f.request, undefined, f.selectContext).then(
 			() => ({ status: 200 }),
 			(error: unknown) => error
 		);
-		expect(await f.ctx.store.findMany('dispatch_records', f.ctx.auth.orgId)).toEqual([f.before]);
+		expect(await f.store.findMany('dispatch_records', f.request.auth.orgId)).toEqual([f.before]);
 		expect(f.calls()).toBe(0);
+		expect(f.selectContext).not.toHaveBeenCalled();
 		expect(outcome).toMatchObject({ status: 403 });
-		expect(f.ctx.auditPort.events).toEqual([
+		expect(f.request.audit.events).toEqual([
 			expect.objectContaining({
 				action: 'policy.denied',
 				details: expect.objectContaining({ reasonCode, policyAction: f.config.policyAction.id })
@@ -326,12 +312,12 @@ describe('policy dispatch write safety', () => {
 			scopeSet: { kind: 'groups', groupIds: ['group-alpha', 'group-bravo'] }
 		});
 		f.config.policyAction = action;
-		await handleUseCaseRequest(f.config, f.ctx, undefined);
+		await handleUseCaseRequest(f.config, f.request, undefined, f.selectContext);
 		expect(f.calls()).toBe(1);
-		expect(await f.ctx.store.findMany('dispatch_records', f.ctx.auth.orgId)).toEqual([
+		expect(await f.store.findMany('dispatch_records', f.request.auth.orgId)).toEqual([
 			{ ...f.before, value: 'changed' }
 		]);
-		expect(f.ctx.auditPort.events).toEqual([
+		expect(f.request.audit.events).toEqual([
 			{ action: 'record.updated', resourceType: 'dispatch_records', resourceId: undefined }
 		]);
 	});
@@ -363,9 +349,9 @@ describe('policy dispatch write safety', () => {
 			const f = fixture({ role, isPrivileged: true });
 			f.config.policyAction = POLICY_ACTION_CATALOG.organization.rename;
 			f.config.policyResource = { kind: 'organization' };
-			await handleUseCaseRequest(f.config, f.ctx, undefined);
+			await handleUseCaseRequest(f.config, f.request, undefined, f.selectContext);
 			expect(f.calls()).toBe(1);
-			expect(await f.ctx.store.findMany('dispatch_records', f.ctx.auth.orgId)).toEqual([
+			expect(await f.store.findMany('dispatch_records', f.request.auth.orgId)).toEqual([
 				{ ...f.before, value: 'changed' }
 			]);
 		}
@@ -460,8 +446,9 @@ describe('Personnel writes without commercial enforcement', () => {
 				policyResource: { kind: 'organization' },
 				fn: createPersonnelRecord
 			},
-			ctx,
-			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan', clinicRole: 'Team Leader', groupId: null }
+			{ auth: ctx.auth, audit: ctx.audit },
+			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan', clinicRole: 'Team Leader', groupId: null },
+			() => ({ auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore })
 		)) as { id: string };
 		await handleUseCaseRequest(
 			{
@@ -470,8 +457,15 @@ describe('Personnel writes without commercial enforcement', () => {
 				policyResource: { kind: 'organization' },
 				fn: archivePersonnelRecord
 			},
-			ctx,
-			created.id
+			{ auth: ctx.auth, audit: ctx.audit },
+			created.id,
+			() => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				rawStore: ctx.rawStore,
+				personnelArtifactWrites: ctx.personnelArtifactWrites
+			})
 		);
 
 		expect(await ctx.rawStore.findOne('personnel', 'test-org', { id: created.id })).toMatchObject({

@@ -42,7 +42,7 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 	it('applies the starter pack through the route config', async () => {
 		const ctx = createTestContext();
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' });
+		const result = await handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx);
 
 		expect(result.failed).toEqual([]);
 		expect(result.created).toContainEqual({ family: 'training-types', name: 'Unit Orientation' });
@@ -59,7 +59,7 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 			}
 		});
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' });
+		const result = await handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx);
 
 		expect(result.failed).toEqual([]);
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
@@ -77,7 +77,9 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 		});
 		const insertSpy = vi.spyOn(ctx.store, 'insert');
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 
@@ -94,7 +96,9 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 		});
 		const insertSpy = vi.spyOn(ctx.store, 'insert');
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 

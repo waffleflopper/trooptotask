@@ -14,8 +14,8 @@ const navigation = vi.hoisted(() => ({ goto: vi.fn(), invalidateAll: vi.fn() }))
 const feedback = vi.hoisted(() => ({ success: vi.fn(), info: vi.fn(), error: vi.fn(), warning: vi.fn() }));
 vi.mock('$app/navigation', () => navigation);
 vi.mock('svelte-sonner', () => ({ toast: { ...feedback, dismiss: vi.fn() } }));
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		scopeSet: { kind: 'organization' },
 		affordanceForFeatureAction: () => ({ allowed: true, visible: true, disabled: false, reason: 'allowed:capability' })
 	})

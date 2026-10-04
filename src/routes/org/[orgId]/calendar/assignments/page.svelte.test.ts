@@ -7,9 +7,9 @@ import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 
-vi.mock('$lib/stores/orgContext.svelte', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/stores/orgContext.svelte')>()),
-	getOrgContext: () => createTestOrgContext({ orgId: 'org-1', userId: 'user-1', userRole: 'owner' })
+vi.mock('$features/app-shell', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/app-shell')>()),
+	getAppShellContext: () => createTestOrgContext({ orgId: 'org-1', userId: 'user-1', userRole: 'owner' })
 }));
 
 afterEach(() => {

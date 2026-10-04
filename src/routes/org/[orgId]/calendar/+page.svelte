@@ -4,7 +4,7 @@
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import type { CalendarPageData } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { buildCalendarAnchorCookie } from '$features/calendar/utils/calendarAnchorDate';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
@@ -15,7 +15,7 @@
 
 	let { data } = $props();
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	const preferences = getAccountPreferencesContext();
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
@@ -144,9 +144,7 @@
 		const calendarPreferences = preferences.value.calendar;
 		untrack(() => ctx.syncUserPreferences(calendarPreferences));
 	});
-	$effect(() => {
-		ctx.markCalendarVisited();
-	});
+	$effect(() => {});
 </script>
 
 {#if loadError}

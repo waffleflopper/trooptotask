@@ -8,7 +8,7 @@
 		type PersonnelPageData
 	} from '$features/personnel';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 	import type { PersonnelWorkspaceData, PersonnelWorkspaceResult } from '$features/personnel/contracts';
 
@@ -51,7 +51,7 @@
 		};
 	});
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	const modals = new ModalRegistry();
 
 	function createPageData(workspaceData: PersonnelWorkspaceData): PersonnelPageData {

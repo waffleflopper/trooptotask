@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { OnboardingHistoryPage } from '$features/onboarding';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 
 	let { data } = $props();
-	const org = getOrgContext();
+	const org = getAppShellContext();
 </script>
 
 <OnboardingHistoryPage orgUrlSegment={data.shell.org.urlSegment} orgId={org.orgId} scopeSet={org.scopeSet} />

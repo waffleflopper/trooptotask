@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { autoShowWhatsNew } from '$features/app-shell';
+	import { getAppShellContext } from '$features/app-shell';
 	import { DashboardLoadError, DashboardPageView, createDashboardScreenModel } from '$features/dashboard';
 	import type { DashboardPageData } from '$features/dashboard/contracts';
 	import type { PageData } from './$types';
@@ -112,10 +112,10 @@
 	);
 
 	// Track whether we've auto-shown What's New (must persist across re-renders)
-	const hasAutoShownWhatsNew = { value: false };
+	const shellUI = getAppShellContext();
 
 	$effect(() => {
-		if (ctx) autoShowWhatsNew(shell?.user.id ?? null, hasAutoShownWhatsNew);
+		if (ctx) shellUI.autoShowWhatsNew();
 	});
 </script>
 

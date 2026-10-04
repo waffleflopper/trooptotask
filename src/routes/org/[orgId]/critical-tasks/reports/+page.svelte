@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { IctReportsView } from '$features/critical-tasks';
 
 	let { data } = $props();
-	const org = getOrgContext();
+	const org = getAppShellContext();
 </script>
 
 <svelte:head>

@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
-import TopHeader from './TopHeader.svelte';
+import AppShellHeader from './AppShellHeader.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { tick } from 'svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
@@ -37,7 +37,7 @@ const { goto } = vi.hoisted(() => {
 });
 
 vi.mock('$app/navigation', () => {
-	return { goto };
+	return { goto, afterNavigate: vi.fn() };
 });
 
 vi.mock('$app/stores', () => {
@@ -94,10 +94,11 @@ beforeEach(() => {
 	);
 });
 
-function renderHeader(overrides: Partial<ComponentProps<typeof TopHeader>> = {}) {
-	return render(TopHeader, {
+function renderHeader(overrides: Partial<ComponentProps<typeof AppShellHeader>> = {}) {
+	return render(AppShellHeader, {
 		props: {
 			orgId: 'org-1',
+			userId: 'account-1',
 			orgName: 'Test Org',
 			userRole: 'admin',
 			membershipId: 'membership-1',
@@ -265,7 +266,7 @@ describe('notification recovery', () => {
 	});
 });
 
-describe('TopHeader', () => {
+describe('AppShellHeader', () => {
 	it('renders a feedback utility button when a feedback handler is provided', async () => {
 		const onFeedback = vi.fn();
 

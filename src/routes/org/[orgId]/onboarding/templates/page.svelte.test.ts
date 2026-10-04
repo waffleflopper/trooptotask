@@ -9,9 +9,9 @@ import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboa
 let canConfigure = true;
 let scopeSet: ScopeSet = { kind: 'organization' };
 
-vi.mock('$lib/stores/orgContext.svelte', async (importOriginal) => ({
+vi.mock('$features/app-shell', async (importOriginal) => ({
 	...(await importOriginal<Record<string, unknown>>()),
-	getOrgContext: () =>
+	getAppShellContext: () =>
 		createTestOrgContext({
 			orgId: 'org-1',
 			userRole: 'member',

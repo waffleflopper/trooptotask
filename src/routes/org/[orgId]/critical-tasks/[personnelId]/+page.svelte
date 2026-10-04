@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { ictTasksStore, personnelIctCompletionsStore, IctPersonnelDetailPage } from '$features/critical-tasks';
 
 	let { data } = $props();
-	const org = getOrgContext();
+	const org = getAppShellContext();
 
 	const storesHydratedForOrg = $derived(
 		ictTasksStore.orgId === org.orgId && personnelIctCompletionsStore.orgId === org.orgId
@@ -23,5 +23,5 @@
 		<p>Loading critical task record...</p>
 	</section>
 {:else}
-	<IctPersonnelDetailPage {data} />
+	<IctPersonnelDetailPage {org} {data} />
 {/if}

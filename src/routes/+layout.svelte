@@ -4,7 +4,6 @@
 	import { onMount } from 'svelte';
 	import { deferToIdle } from '$lib/utils/deferToIdle';
 	import { Toaster } from '$lib/components/ui/sonner';
-	import HelpPanel from '$lib/components/ui/HelpPanel.svelte';
 
 	let { children } = $props();
 
@@ -32,7 +31,6 @@
 	{@render children()}
 </div>
 <Toaster />
-<HelpPanel />
 
 <style>
 	.app {

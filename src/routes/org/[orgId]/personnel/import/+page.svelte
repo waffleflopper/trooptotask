@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 	import { PersonnelImportPage } from '$features/personnel';
 
 	let { data } = $props();
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 </script>
 
 {#await data.personnel.data}

@@ -3,12 +3,12 @@
 	import { trainingViewsStore } from '$features/training';
 	import { TrainingViewsPage } from '$features/training';
 	import { Spinner } from '$lib/components/ui/spinner';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import type { TrainingWorkspaceResult } from '$features/training/contracts';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	let trainingBootstrap = $state<TrainingWorkspaceResult | null>(null);
 	let loadError = $state<Error | null>(null);
 

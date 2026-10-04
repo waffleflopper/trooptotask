@@ -9,6 +9,7 @@ export { loginIdentity } from './login.server';
 
 export { readIdentityAdmission } from './admission.server';
 export {
+	getIdentitySessionScope,
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
 	getPublicPageUser,

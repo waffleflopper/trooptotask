@@ -1,86 +1,9 @@
 <script lang="ts">
-	import { invalidate } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
-	import { themeStore } from '$lib/stores/theme.svelte';
-	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
-	import { AccountPreferencesProvider } from '$features/identity';
-	import { AnnouncementBanner } from '$features/notifications/index';
-	import BannerStack from '$lib/components/BannerStack.svelte';
-	import TopHeader from '$lib/components/TopHeader.svelte';
+	import { AppShell } from '$features/app-shell';
 	import { Button } from '$lib/components/ui/button';
-	import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
-	import { changelog } from '$lib/data/changelog';
-	import { browser } from '$app/environment';
-
 	let { children, data } = $props();
-
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	const suspendedShell = $derived(data.shell.kind === 'suspended' ? data.shell : null);
-
-	// Set OrgContext so child pages can call getOrgContext()
-	setOrgContext(
-		createOrgContext(() => ({
-			orgId: readyShell?.org.id ?? suspendedShell?.org.id ?? '',
-			orgUrlSegment: readyShell?.org.urlSegment ?? suspendedShell?.org.urlSegment ?? '',
-			orgName: readyShell?.org.name ?? suspendedShell?.org.name ?? '',
-			userId: readyShell?.user.id ?? null,
-			userRole: readyShell?.member.role ?? 'member',
-			capabilityMap: readyShell?.member.capabilityMap,
-			scopeSet: readyShell?.member.scopeSet
-		}))
-	);
-
-	let showFeedback = $state(false);
-
-	function closeWhatsNew() {
-		whatsNewStore.close();
-		if (browser && changelog.length > 0 && readyShell?.user.id) {
-			localStorage.setItem(`changelog-last-seen-${readyShell.user.id}`, changelog[0].id);
-		}
-	}
-
-	const FOCUS_REFRESH_AWAY_MS = 60_000;
-	const FOCUS_REFRESH_COOLDOWN_MS = 90_000;
-
-	// Re-fetch shared data only after a meaningful absence. This still catches
-	// idle tabs and cross-user changes, but avoids refreshing every time someone
-	// alt-tabs to Excel or email for a few seconds.
-	onMount(() => {
-		let blurredAt = 0;
-		let lastRefreshAt = Date.now();
-		let debounceTimer: ReturnType<typeof setTimeout>;
-
-		const handleBlur = () => {
-			blurredAt = Date.now();
-			clearTimeout(debounceTimer);
-		};
-
-		const handleFocus = () => {
-			if (!blurredAt) return;
-
-			const now = Date.now();
-			const awayMs = now - blurredAt;
-			blurredAt = 0;
-
-			if (awayMs < FOCUS_REFRESH_AWAY_MS) return;
-			if (now - lastRefreshAt < FOCUS_REFRESH_COOLDOWN_MS) return;
-
-			clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(() => {
-				lastRefreshAt = Date.now();
-				void invalidate('app:org-core');
-			}, 750);
-		};
-
-		window.addEventListener('blur', handleBlur);
-		window.addEventListener('focus', handleFocus);
-		return () => {
-			clearTimeout(debounceTimer);
-			window.removeEventListener('blur', handleBlur);
-			window.removeEventListener('focus', handleFocus);
-		};
-	});
 </script>
 
 {#if suspendedShell}
@@ -99,50 +22,16 @@
 			<Button href="/dashboard?show=all" variant="outline">Back to Dashboard</Button>
 		</div>
 	</div>
+{:else if readyShell && data.identitySessionScope?.userId === readyShell.user.id}
+	{#key `${readyShell.user.id}:${readyShell.org.id}:${data.identitySessionScope.sessionId}`}
+		<AppShell shell={readyShell} {children}>
+			{#snippet feedback(props)}
+				{#await import('$features/feedback') then { FeedbackModal }}
+					<FeedbackModal {...props} />
+				{/await}
+			{/snippet}
+		</AppShell>
+	{/key}
 {:else if readyShell}
-	<BannerStack>
-		{#if readyShell.announcements.length}
-			<AnnouncementBanner accountId={readyShell.user.id} announcements={readyShell.announcements} />
-		{/if}
-	</BannerStack>
-
-	<TopHeader
-		orgId={readyShell.org.id}
-		orgUrlSegment={readyShell.org.urlSegment}
-		orgName={readyShell.org.name}
-		userRole={readyShell.member.role}
-		membershipId={readyShell.member.membershipId}
-		capabilityMap={readyShell.member.capabilityMap}
-		onToggleTheme={() => themeStore.toggle()}
-		isDarkTheme={themeStore.isDark}
-		onFeedback={() => (showFeedback = true)}
-		onWhatsNew={() => whatsNewStore.show()}
-	>
-		{#key `${readyShell.user.id}:${readyShell.org.id}`}
-			<AccountPreferencesProvider
-				userId={readyShell.user.id}
-				orgId={readyShell.org.id}
-				preferences={readyShell.preferences}
-			>
-				{@render children()}
-			</AccountPreferencesProvider>
-		{/key}
-	</TopHeader>
-
-	{#if showFeedback}
-		{#await import('$features/feedback/index') then { FeedbackModal }}
-			<FeedbackModal
-				onClose={() => (showFeedback = false)}
-				orgId={readyShell.org.id}
-				orgName={readyShell.org.name}
-				pageUrl={$page.url.pathname}
-			/>
-		{/await}
-	{/if}
-
-	{#if whatsNewStore.open}
-		{#await import('$lib/components/WhatsNewModal.svelte') then { default: WhatsNewModal }}
-			<WhatsNewModal onClose={closeWhatsNew} />
-		{/await}
-	{/if}
+	<p role="alert">Workspace session unavailable. Refresh or sign in again.</p>
 {/if}

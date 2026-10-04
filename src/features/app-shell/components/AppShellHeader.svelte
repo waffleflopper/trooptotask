@@ -4,7 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
-	import { onMount, untrack } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import BadgeCheck from '@lucide/svelte/icons/badge-check';
 	import Bell from '@lucide/svelte/icons/bell';
@@ -22,8 +22,8 @@
 	import { formatDate, formatRelativeDate } from '$lib/utils/dates';
 	import { formatDashboardDisplayDate } from '$features/dashboard/contracts';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import OrgNavIcon from './OrgNavIcon.svelte';
-	import { getOrgBreadcrumbs, getOrgNavigation, isOrgNavItemActive } from './orgNavigation';
+	import AppShellNavigation from './AppShellNavigation.svelte';
+	import { getOrgBreadcrumbs, getOrgNavigation } from './orgNavigation';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -36,6 +36,7 @@
 
 	interface Props {
 		orgId: string;
+		userId: string;
 		orgUrlSegment?: string;
 		orgName: string;
 		userRole: string;
@@ -50,6 +51,7 @@
 
 	let {
 		orgId,
+		userId,
 		orgUrlSegment = orgId,
 		orgName,
 		userRole,
@@ -67,7 +69,12 @@
 	let orgSwitcherOrgs = $state<OrganizationSwitcherOrg[]>([]);
 	let orgSwitcherLoaded = $state(false);
 	let orgSwitcherLoading = $state(false);
-	let orgSwitcherLoadAttempted = $state(false);
+	let orgSwitcherLoadFailed = $state(false);
+	let orgSwitcherGeneration = 0;
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 	let notificationsOpen = $state(false);
 	let notifications = $state<Notification[]>([]);
 	let notificationsLoaded = $state(false);
@@ -80,8 +87,7 @@
 	let showLeaveOrganizationDialog = $state(false);
 	let leaveOrganizationConfirmText = $state('');
 	let localUnreadCount = $state(0);
-	let lastOrgUrlSegment = $state<string | null>(null);
-	const notificationScope = $derived(`${orgId}/${orgUrlSegment}/${membershipId ?? ''}`);
+	const notificationScope = $derived(`${userId}/${orgId}/${orgUrlSegment}/${membershipId ?? ''}`);
 	const pathname = $derived($page.url.pathname);
 	const dashboardPath = $derived(`/org/${orgUrlSegment}`);
 	const isDashboardRoot = $derived(pathname === dashboardPath);
@@ -151,27 +157,31 @@
 		void goto(resolve(`/org/${targetOrgUrlSegment}${suffix}`));
 	}
 
-	async function loadOrgSwitcherOrgs(segment = orgUrlSegment) {
-		if (orgSwitcherLoaded || orgSwitcherLoading || orgSwitcherLoadAttempted) return;
-
-		orgSwitcherLoadAttempted = true;
+	async function loadOrgSwitcherOrgs() {
+		if (orgSwitcherLoaded || orgSwitcherLoading) return;
+		const scope = notificationScope;
+		const generation = orgSwitcherGeneration;
+		const segment = orgUrlSegment;
+		const isCurrent = () => active && scope === notificationScope && generation === orgSwitcherGeneration;
 		orgSwitcherLoading = true;
+		orgSwitcherLoadFailed = false;
 		try {
 			const response = await fetch(`/org/${segment}/api/app-shell-chrome?part=organization-switcher`);
-			if (!response.ok) return;
-
+			if (!response.ok) throw new Error('Could not load organizations');
 			const result = await response.json();
-			if (segment === orgUrlSegment && result.ok && Array.isArray(result.organizations)) {
-				orgSwitcherOrgs = result.organizations;
-				orgSwitcherLoaded = true;
-			}
+			if (!isCurrent()) return;
+			if (!result?.ok || !Array.isArray(result.organizations)) throw new Error('Could not load organizations');
+			orgSwitcherOrgs = result.organizations;
+			orgSwitcherLoaded = true;
+		} catch {
+			if (isCurrent()) orgSwitcherLoadFailed = true;
 		} finally {
-			orgSwitcherLoading = false;
+			if (isCurrent()) orgSwitcherLoading = false;
 		}
 	}
 
 	function isCurrentNotificationRequest(scope: string, generation: number) {
-		return scope === notificationScope && generation === notificationGeneration;
+		return active && scope === notificationScope && generation === notificationGeneration;
 	}
 
 	async function loadUnreadNotificationCount(segment: string, scope: string, generation: number) {
@@ -195,7 +205,8 @@
 				localUnreadCount = 0;
 			}
 		} finally {
-			if (request === notificationCountRequest) notificationCountLoading = false;
+			if (isCurrentNotificationRequest(scope, generation) && request === notificationCountRequest)
+				notificationCountLoading = false;
 		}
 	}
 
@@ -289,14 +300,17 @@
 	}
 
 	$effect(() => {
-		const segment = orgUrlSegment;
-		if (lastOrgUrlSegment === segment) return;
-
-		lastOrgUrlSegment = segment;
+		const scope = notificationScope;
+		++orgSwitcherGeneration;
 		orgSwitcherOrgs = [];
 		orgSwitcherLoaded = false;
 		orgSwitcherLoading = false;
-		orgSwitcherLoadAttempted = false;
+		orgSwitcherLoadFailed = false;
+		orgSwitcherOpen = false;
+		closeLeaveOrganizationDialog();
+		return () => {
+			++orgSwitcherGeneration;
+		};
 	});
 
 	$effect(() => {
@@ -316,9 +330,10 @@
 	});
 
 	$effect(() => {
-		if (orgSwitcherOpen && !orgSwitcherLoadAttempted) {
-			void loadOrgSwitcherOrgs(orgUrlSegment);
-		}
+		if (orgSwitcherOpen)
+			untrack(() => {
+				void loadOrgSwitcherOrgs();
+			});
 	});
 
 	$effect(() => {
@@ -383,6 +398,9 @@
 											{/if}
 										</DropdownMenu.Item>
 									{/each}
+									{#if orgSwitcherLoadFailed}
+										<DropdownMenu.Item disabled>Could not load organizations. Reopen to retry.</DropdownMenu.Item>
+									{/if}
 									{#if orgSwitcherOpen && orgSwitcherLoading}
 										<DropdownMenu.Item disabled>Loading organizations...</DropdownMenu.Item>
 									{/if}
@@ -413,27 +431,7 @@
 				<Sidebar.Group>
 					<Sidebar.GroupLabel>Navigation</Sidebar.GroupLabel>
 					<Sidebar.GroupContent>
-						<Sidebar.Menu>
-							{#each navItems as item (item.href)}
-								<Sidebar.MenuItem>
-									<Sidebar.MenuButton isActive={isOrgNavItemActive(pathname, item)} tooltipContent={item.label}>
-										{#snippet child({ props })}
-											<a
-												{...props}
-												href={resolve(item.href as `/org/${string}`)}
-												aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
-											>
-												<OrgNavIcon icon={item.icon} />
-												<span>{item.compactLabel ?? item.label}</span>
-												{#if item.badgeLabel}
-													<Sidebar.MenuBadge>{item.badgeLabel}</Sidebar.MenuBadge>
-												{/if}
-											</a>
-										{/snippet}
-									</Sidebar.MenuButton>
-								</Sidebar.MenuItem>
-							{/each}
-						</Sidebar.Menu>
+						<AppShellNavigation {navItems} {pathname} />
 					</Sidebar.GroupContent>
 				</Sidebar.Group>
 			</Sidebar.Content>

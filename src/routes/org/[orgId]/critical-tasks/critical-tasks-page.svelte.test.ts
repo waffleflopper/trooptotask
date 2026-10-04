@@ -45,8 +45,8 @@ const { mockOrgContext, parseFileMock } = vi.hoisted(() => ({
 	parseFileMock: vi.fn()
 }));
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => mockOrgContext
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => mockOrgContext
 }));
 
 vi.mock('$lib/utils/csvParser', async (importOriginal) => {

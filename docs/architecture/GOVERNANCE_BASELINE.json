@@ -18,26 +18,6 @@
 	],
 	"routeAdminProviderAllowlist": [
 		{
-			"path": "src/routes/admin/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration dashboard still builds a service-role platform administration adapter from the admin context."
-		},
-		{
-			"path": "src/routes/admin/announcements/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration announcement management still builds a service-role announcement adapter from the admin context."
-		},
-		{
-			"path": "src/routes/admin/audit/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration audit log browsing still builds a service-role audit adapter from the admin context."
-		},
-		{
-			"path": "src/routes/admin/feedback/+page.server.ts",
-			"classification": "platform-admin-edge",
-			"reason": "Platform Administration feedback moderation still builds a service-role feedback adapter from the admin context."
-		},
-		{
 			"path": "src/routes/api/cleanup-archived-records/+server.ts",
 			"classification": "cron-edge",
 			"reason": "Cron archive-retention cleanup still creates service-role data and storage adapters in the route."

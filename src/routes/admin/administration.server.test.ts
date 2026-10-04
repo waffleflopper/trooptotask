@@ -2,14 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isHttpError } from '@sveltejs/kit';
 
-const { lookupRole, getAdminClient } = vi.hoisted(() => ({
-	lookupRole: vi.fn(),
-	getAdminClient: vi.fn()
-}));
-vi.mock('$lib/server/admin', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/admin')>()),
-	getAdminRole: lookupRole
-}));
+const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 
 import { load } from './+page.server';
@@ -35,13 +28,15 @@ function pageEvent(authenticated = true) {
 
 // The provider exposes retained support data only. HTTP requests are serialized
 // by the real SDK; commercial RPCs/columns fail as they would after retirement.
-function provider() {
+function provider(role: () => string | null) {
 	return vi.fn<typeof fetch>(async (input, init) => {
 		const url = new URL(String(input));
 		const resource = url.pathname.replace('/rest/v1/', '');
 		const params = url.searchParams;
 		const count = (value: number) => new Response(null, { headers: { 'content-range': `*/${value}` } });
 		switch (resource) {
+			case 'platform_admins':
+				return Response.json(role() ? [{ role: role() }] : []);
 			case 'rpc/count_platform_users':
 				return Response.json({ total: 12, last_30_days: 3 });
 			case 'rpc/daily_signups_last_30_days':
@@ -73,10 +68,11 @@ function provider() {
 
 describe('admin dashboard requests', () => {
 	let fetchProvider: ReturnType<typeof provider>;
+	let activeRole: string | null;
 	beforeEach(() => {
 		vi.clearAllMocks();
-		lookupRole.mockResolvedValue('super_admin');
-		fetchProvider = provider();
+		activeRole = 'super_admin';
+		fetchProvider = provider(() => activeRole);
 		getAdminClient.mockReturnValue(
 			createClient('http://localhost:9', 'synthetic-service-key', {
 				auth: { persistSession: false, autoRefreshToken: false },
@@ -90,7 +86,7 @@ describe('admin dashboard requests', () => {
 	it.each(['super_admin', 'support', 'billing'])(
 		'retains the dashboard for %s and excludes sensitive Audit fields',
 		async (role) => {
-			lookupRole.mockResolvedValue(role);
+			activeRole = role;
 			await expect(load(pageEvent())).resolves.toEqual({
 				userStats: { total: 12, last_30_days: 3 },
 				signupTrend: [{ date: '2026-06-01', count: 3 }],
@@ -108,15 +104,18 @@ describe('admin dashboard requests', () => {
 	])(
 		'denies $path for role $role (authenticated=$authenticated) before support reads',
 		async ({ role, authenticated, status }) => {
-			lookupRole.mockResolvedValue(role);
+			activeRole = role;
 			await expect(load(pageEvent(authenticated))).rejects.toMatchObject({ status });
-			expect(fetchProvider).not.toHaveBeenCalled();
+			const requestedResources = fetchProvider.mock.calls.map(([input]) => new URL(String(input)).pathname);
+			expect(requestedResources).toEqual(authenticated ? ['/rest/v1/platform_admins'] : []);
 		}
 	);
 
 	it('reports sanitized dashboard failure instead of empty success', async () => {
-		fetchProvider.mockImplementation(async () =>
-			Response.json({ message: 'private database failure' }, { status: 500 })
+		fetchProvider.mockImplementation(async (input) =>
+			new URL(String(input)).pathname === '/rest/v1/platform_admins'
+				? Response.json([{ role: 'super_admin' }])
+				: Response.json({ message: 'private database failure' }, { status: 400 })
 		);
 		try {
 			await load(pageEvent());

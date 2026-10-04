@@ -1,19 +1,10 @@
-export interface PlatformAnnouncement {
-	id: string;
-	title: string;
-	message: string;
-	type: string;
-	isActive: boolean;
-	createdAt: string;
-	expiresAt: string | null;
-}
-
-export interface PlatformAnnouncementCreateInput {
-	title: string;
-	message: string;
-	type: string;
-	expiresAt?: string | null;
-}
+import type { AuditEvent } from '$lib/audit/contracts';
+import type {
+	PlatformAnnouncement,
+	PlatformAnnouncementCreateInput,
+	PlatformAnnouncementToggleResult,
+	PlatformAnnouncementValidation
+} from '../announcementTypes';
 
 export interface PlatformAnnouncementStoreCreateInput extends PlatformAnnouncementCreateInput {
 	isActive: boolean;
@@ -37,23 +28,11 @@ export interface PlatformAnnouncementsStore {
 	deleteAnnouncement(id: string): Promise<void>;
 }
 
-export interface PlatformAnnouncementsAuditEvent {
-	action: string;
-	resourceType: string;
-	resourceId?: string;
-	details?: Record<string, unknown>;
-	severity?: 'info' | 'warning' | 'critical';
-}
-
 export interface PlatformAnnouncementsDependencies {
 	store: PlatformAnnouncementsStore;
 	actorUserId: string;
-	audit(event: PlatformAnnouncementsAuditEvent): void;
+	audit(event: AuditEvent): void;
 }
-
-export type PlatformAnnouncementToggleResult =
-	| { status: 'updated'; id: string; isActive: boolean }
-	| { status: 'not_found' };
 
 export interface PlatformAnnouncements {
 	list(): Promise<PlatformAnnouncement[]>;
@@ -64,14 +43,7 @@ export interface PlatformAnnouncements {
 
 export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependencies): PlatformAnnouncements {
 	return {
-		async list() {
-			try {
-				return await deps.store.listAnnouncements();
-			} catch (error) {
-				console.error('Failed to load announcements', error);
-				return [];
-			}
-		},
+		list: () => deps.store.listAnnouncements(),
 
 		async create(input) {
 			const announcement = await deps.store.createAnnouncement({
@@ -126,4 +98,21 @@ export function createPlatformAnnouncements(deps: PlatformAnnouncementsDependenc
 			return { success: true };
 		}
 	};
+}
+
+export function validatePlatformAnnouncement(input: {
+	title: string;
+	message: string;
+	type: string;
+	expiresAt?: string;
+}): PlatformAnnouncementValidation {
+	const title = input.title.trim();
+	const message = input.message.trim();
+	if (!title) return { valid: false, error: 'Title is required' };
+	if (title.length > 200) return { valid: false, error: 'Title must be 200 characters or less' };
+	if (!message) return { valid: false, error: 'Message is required' };
+	if (message.length > 1000) return { valid: false, error: 'Message must be 1000 characters or less' };
+	if (input.type !== 'info' && input.type !== 'warning' && input.type !== 'maintenance')
+		return { valid: false, error: 'Invalid announcement type' };
+	return { valid: true, title, message, type: input.type, expiresAt: input.expiresAt || undefined };
 }

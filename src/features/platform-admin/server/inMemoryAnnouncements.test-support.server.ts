@@ -1,10 +1,10 @@
+import type { PlatformAnnouncement } from '../announcementTypes';
 import type {
-	PlatformAnnouncement,
 	PlatformAnnouncementStoreCreateInput,
 	PlatformAnnouncementToggleInput,
 	PlatformAnnouncementToggleUpdate,
 	PlatformAnnouncementsStore
-} from '$lib/server/core/useCases/platformAnnouncements';
+} from './announcements.server';
 
 interface InMemoryPlatformAnnouncementsOptions {
 	announcements?: PlatformAnnouncement[];
@@ -31,7 +31,7 @@ export function createInMemoryPlatformAnnouncementsStore(
 		async listAnnouncements() {
 			return Array.from(announcements.values())
 				.map(cloneAnnouncement)
-				.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+				.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
 		},
 
 		async createAnnouncement(input: PlatformAnnouncementStoreCreateInput) {

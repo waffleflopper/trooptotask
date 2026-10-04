@@ -1,25 +1,21 @@
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { loadWithAdminContext } from '$lib/server/adapters/adminAdapter';
-import { createSupabasePlatformAudit } from '$lib/audit/index.server';
+import { createPlatformAuditOperations } from '$features/platform-admin/index.server';
 
-export const load: PageServerLoad = loadWithAdminContext({
-	page: 'audit',
-	fn: async (ctx, event) => {
-		const { url } = event;
-
-		const parsedPage = parseInt(url.searchParams.get('page') || '1');
-		const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
-		const action = url.searchParams.get('action') || '';
-		const severity = url.searchParams.get('severity') || '';
-		const orgId = url.searchParams.get('org') || '';
-		const limit = 50;
-
-		return createSupabasePlatformAudit(ctx.adminClient).listLogs({
+export const load: PageServerLoad = async (event) => {
+	const operations = await createPlatformAuditOperations(event);
+	const parsedPage = parseInt(event.url.searchParams.get('page') || '1');
+	const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+	try {
+		return await operations.listLogs({
 			page,
-			limit,
-			action,
-			severity,
-			orgId
+			limit: 50,
+			action: event.url.searchParams.get('action') || '',
+			severity: event.url.searchParams.get('severity') || '',
+			orgId: event.url.searchParams.get('org') || ''
 		});
+	} catch (cause) {
+		console.error('Failed to load platform Audit', cause);
+		error(500, 'Internal server error');
 	}
-});
+};

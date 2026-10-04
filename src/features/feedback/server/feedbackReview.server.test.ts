@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createInMemoryFeedbackStore } from './inMemoryFeedback.server';
 import { createFeedbackReview } from './feedbackReview.server';
 
@@ -99,17 +99,9 @@ describe('Feedback review', () => {
 		await expect(feedback.update({ id: MISSING_ID, status: 'reviewed' })).resolves.toEqual({ status: 'not_found' });
 	});
 
-	it('returns an empty list when the store list fails', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const feedback = createFeedbackReview(
-			createInMemoryFeedbackStore({
-				listError: new Error('list failed')
-			})
-		);
-
-		await expect(feedback.list()).resolves.toEqual([]);
-		expect(consoleError).toHaveBeenCalledWith('Failed to fetch feedback:', expect.any(Error));
-		consoleError.mockRestore();
+	it('propagates a failed review list instead of reporting an empty queue', async () => {
+		const feedback = createFeedbackReview(createInMemoryFeedbackStore({ listError: new Error('list failed') }));
+		await expect(feedback.list()).rejects.toThrow('list failed');
 	});
 
 	it('propagates store failures while updating feedback', async () => {

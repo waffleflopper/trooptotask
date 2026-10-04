@@ -233,6 +233,7 @@ try {
 		args: [
 			path.join(repository, 'node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js'),
 			'--headless',
+			'--experimentalStructuredContent',
 			'--chrome-arg=--remote-debugging-port=0',
 			`--executablePath=${state.browser.executable}`,
 			`--userDataDir=${path.join(session, 'chrome-profile')}`,

@@ -304,6 +304,37 @@ describe('Training Reports briefing page', () => {
 		expect(screen.getByRole('button', { name: /^Total, CPR: 67% ready today.*, selected$/ })).toBeTruthy();
 	});
 
+	it('keeps the loaded affected soldiers after a failed page and returns focus to them on retry', async () => {
+		const scope: BriefingScope = { kind: 'cell', rowKey: null, typeId: 'cpr' };
+		const firstPage = Array.from({ length: 25 }, (_, index) => `p${index + 1}`);
+		const fetchImpl = vi
+			.fn<typeof fetch>()
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 1, firstPage, 30)))
+			.mockResolvedValueOnce(new Response(null, { status: 503 }))
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 2, ['p26', 'p27', 'p28', 'p29', 'p30'], 30)));
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Total, CPR: 67% ready today/ }));
+		const section = await screen.findByRole('region', { name: 'Affected soldiers' });
+		expect(await within(section).findByText('Rows 1–25 of 30')).toBeTruthy();
+
+		await fireEvent.click(within(section).getByRole('button', { name: 'Next' }));
+		const alert = await within(section).findByRole('alert');
+		expect(within(section).getByText('Rows 1–25 of 30')).toBeTruthy();
+
+		const retry = within(alert).getByRole('button', { name: 'Retry' });
+		retry.focus();
+		await fireEvent.click(retry);
+
+		expect(fetchImpl).toHaveBeenLastCalledWith(
+			'/org/org-1/api/training-reports/detail?scope=cell&type=cpr&page=2',
+			expect.anything()
+		);
+		await waitFor(() => expect(document.activeElement).toBe(section));
+		expect(await within(section).findByText('Rows 26–30 of 30')).toBeTruthy();
+		expect(within(section).queryByRole('alert')).toBeNull();
+	});
+
 	it('prints the brief from the browser with the displayed filters stated', async () => {
 		const print = vi.fn();
 		vi.stubGlobal('print', print);

@@ -170,10 +170,19 @@
 		return `${row?.label ?? 'Total'}, ${column?.name ?? ''}`;
 	}
 
-	async function openDetail(scope: BriefingScope): Promise<void> {
-		session.requestDetail(scope);
+	async function focusDetail(): Promise<void> {
 		await tick();
 		document.getElementById(DETAIL_ID)?.focus();
+	}
+
+	function openDetail(scope: BriefingScope): void {
+		session.requestDetail(scope);
+		void focusDetail();
+	}
+
+	function retryDetail(): void {
+		session.retryDetail();
+		void focusDetail();
 	}
 
 	function update(changes: Partial<TrainingBriefingReportInput>): void {
@@ -570,7 +579,7 @@
 						{scopeLabel}
 						onPage={(page) => session.showDetailPage(page)}
 						onPageSize={(pageSize) => session.setDetailPageSize(pageSize)}
-						onRetry={() => session.retryDetail()}
+						onRetry={retryDetail}
 					/>
 				{/if}
 			</div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertCronEndpointAuthorized } from './cronEndpointAuth';
+import { assertCronEndpointAuthorized } from './cronEndpointAuth.server';
 
 function captureThrownError(run: () => void): unknown {
 	try {

@@ -12,9 +12,10 @@ const PUBLIC_ROUTE_PREFIXES = [
 ];
 
 const PUBLIC_EXACT_ROUTES = new Set([
+	'/api/cleanup-old-data',
 	'/api/cleanup-archived-records',
-	'/api/cleanup-archived-personnel',
-	'/api/cleanup-expired-onboardings'
+	'/api/cleanup-expired-onboardings',
+	'/api/cleanup-account-setup-links'
 ]);
 
 export function isPublicRoute(pathname: string): boolean {

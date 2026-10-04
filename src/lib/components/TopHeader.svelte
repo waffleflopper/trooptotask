@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { OrganizationSwitcherOrg } from '$features/app-shell/contracts';
 	import type { Notification } from '$features/notifications/contracts';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -33,13 +34,6 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as Tooltip from '$lib/components/ui/tooltip/index.js';
 
-	interface OrgInfo {
-		id: string;
-		name: string;
-		role: string;
-		urlSegment?: string;
-	}
-
 	interface Props {
 		orgId: string;
 		orgUrlSegment?: string;
@@ -70,7 +64,7 @@
 
 	let clientDashboardDateLabel = $state<string | null>(null);
 	let orgSwitcherOpen = $state(false);
-	let orgSwitcherOrgs = $state<OrgInfo[]>([]);
+	let orgSwitcherOrgs = $state<OrganizationSwitcherOrg[]>([]);
 	let orgSwitcherLoaded = $state(false);
 	let orgSwitcherLoading = $state(false);
 	let orgSwitcherLoadAttempted = $state(false);

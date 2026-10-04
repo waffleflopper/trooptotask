@@ -2,7 +2,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';

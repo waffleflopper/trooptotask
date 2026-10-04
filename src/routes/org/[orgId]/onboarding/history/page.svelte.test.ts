@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { onboardingStore } from '$features/onboarding';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import { personnelRosterHydration } from '$features/personnel';
 
 vi.mock('$lib/stores/orgContext.svelte', () => ({

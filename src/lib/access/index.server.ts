@@ -16,3 +16,4 @@ export {
 } from '$lib/server/durableRateLimit';
 export { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
 export { requireIdentityOwnedPolicy } from '$lib/server/core/useCases/identityPolicy';
+export { getOrLoadRequestMembership } from '$lib/server/membershipContextCache';

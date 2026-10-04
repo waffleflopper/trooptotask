@@ -1,11 +1,3 @@
-/**
- * App shell type contracts and port interfaces for the org shell split (RFC #415).
- *
- * `AppShellRouteData` — first-paint identity, access, org state, preferences, and announcements.
- * Port interfaces (`OrgAccessPort`, `AppShellFirstPaintChromePort`, `AppShellDeferredChromePort`)
- * define the internal composition boundary. SvelteKit adapter implementations live in
- * src/lib/server/adapters/; in-memory test implementations live in inMemoryOrgShell.ts.
- */
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
 import type { UserOrgPreferences } from '$features/identity/contracts';
 

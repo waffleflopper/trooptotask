@@ -10,7 +10,7 @@ vi.mock('$lib/server/adapters/httpAdapter', () => ({
 }));
 
 import { buildCommonSettingsPageData, buildSettingsPageOrganization, loadSettingsPage } from './settingsLoad.server';
-import type { AppShellRouteData } from '$lib/server/core/orgShell';
+import type { AppShellRouteData } from '$features/app-shell/contracts';
 
 function readyParent(overrides: Partial<AppShellRouteData['shell']> = {}): AppShellRouteData {
 	return {

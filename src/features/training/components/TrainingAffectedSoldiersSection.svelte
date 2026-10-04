@@ -123,10 +123,12 @@
 			<ToggleGroup.Root
 				type="single"
 				size="sm"
-				value={String(detail.request.pageSize)}
-				onValueChange={(value: string) => {
-					if (value) onPageSize(Number(value));
-				}}
+				bind:value={
+					() => String(detail.request.pageSize),
+					(value) => {
+						if (value) onPageSize(Number(value));
+					}
+				}
 				aria-label="Rows per page"
 			>
 				{#each PAGE_SIZES as size (size)}

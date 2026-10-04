@@ -320,10 +320,12 @@
 			<ToggleGroup.Root
 				type="single"
 				size="sm"
-				value={String(selected.horizonDays)}
-				onValueChange={(value: string) => {
-					if (value) update({ horizonDays: Number(value) as TrainingBriefingHorizon });
-				}}
+				bind:value={
+					() => String(selected.horizonDays),
+					(value) => {
+						if (value) update({ horizonDays: Number(value) as TrainingBriefingHorizon });
+					}
+				}
 				aria-label="Forecast horizon"
 			>
 				{#each TRAINING_BRIEFING_HORIZONS as days (days)}
@@ -455,10 +457,12 @@
 							<ToggleGroup.Root
 								type="single"
 								size="sm"
-								value={selected.rowsBy}
-								onValueChange={(value: string) => {
-									if (value) update({ rowsBy: value as BriefingRowsBy });
-								}}
+								bind:value={
+									() => selected.rowsBy,
+									(value) => {
+										if (value) update({ rowsBy: value as BriefingRowsBy });
+									}
+								}
 								aria-label="Rows by"
 							>
 								{#each Object.entries(ROWS_BY_LABEL) as [value, label] (value)}

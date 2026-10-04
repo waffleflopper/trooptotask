@@ -304,6 +304,74 @@ describe('Training Reports briefing page', () => {
 		expect(screen.getByRole('button', { name: /^Total, CPR: 67% ready today.*, selected$/ })).toBeTruthy();
 	});
 
+	it('keeps the rows per page choice selected when it is chosen again', async () => {
+		const scope: BriefingScope = { kind: 'cell', rowKey: null, typeId: 'cpr' };
+		const thirty = Array.from({ length: 30 }, (_, index) => `p${index + 1}`);
+		const fetchImpl = vi
+			.fn<typeof fetch>()
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 1, thirty.slice(0, 25), 30)))
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 1, thirty, 30, 100)));
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Total, CPR: 67% ready today/ }));
+		const section = await screen.findByRole('region', { name: 'Affected soldiers' });
+		expect(await within(section).findByText('Rows 1–25 of 30')).toBeTruthy();
+		const twentyFive = within(section).getByRole('radio', { name: '25 rows per page' });
+		const hundred = within(section).getByRole('radio', { name: '100 rows per page' });
+
+		for (let activation = 0; activation < 2; activation++) {
+			await fireEvent.click(twentyFive);
+			expect(twentyFive.getAttribute('aria-checked')).toBe('true');
+			expect(hundred.getAttribute('aria-checked')).toBe('false');
+		}
+		expect(within(section).getByText('Rows 1–25 of 30')).toBeTruthy();
+		expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+		await fireEvent.click(hundred);
+
+		expect(fetchImpl).toHaveBeenLastCalledWith(
+			'/org/org-1/api/training-reports/detail?scope=cell&type=cpr&pageSize=100',
+			expect.anything()
+		);
+		expect(await within(section).findByText('Rows 1–30 of 30')).toBeTruthy();
+		expect(hundred.getAttribute('aria-checked')).toBe('true');
+		expect(twentyFive.getAttribute('aria-checked')).toBe('false');
+	});
+
+	it('keeps the horizon and rows by choices selected when they are chosen again', async () => {
+		const fetchImpl = vi
+			.fn<typeof fetch>()
+			.mockResolvedValueOnce(Response.json(reportFor({ horizonDays: 30 })))
+			.mockResolvedValueOnce(Response.json(reportFor({ horizonDays: 30, rowsBy: 'mos' })));
+		renderPage(fetchImpl);
+		const ninetyDays = screen.getByRole('radio', { name: '90 days' });
+		const group = screen.getByRole('radio', { name: 'Group' });
+
+		for (let activation = 0; activation < 2; activation++) {
+			await fireEvent.click(ninetyDays);
+			await fireEvent.click(group);
+			expect(ninetyDays.getAttribute('aria-checked')).toBe('true');
+			expect(group.getAttribute('aria-checked')).toBe('true');
+		}
+		expect(screen.getByText('Forecast · next 90 days')).toBeTruthy();
+		expect(fetchImpl).not.toHaveBeenCalled();
+		expect(replaceState).not.toHaveBeenCalled();
+
+		await fireEvent.click(screen.getByRole('radio', { name: '30 days' }));
+		expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('radio', { name: 'MOS' }));
+		expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
+
+		expect(replaceState).toHaveBeenLastCalledWith(
+			'/org/org-1/training/reports?horizon=30&rowsBy=mos',
+			expect.anything()
+		);
+		expect(screen.getByRole('radio', { name: '30 days' }).getAttribute('aria-checked')).toBe('true');
+		expect(screen.getByRole('radio', { name: 'MOS' }).getAttribute('aria-checked')).toBe('true');
+		expect(ninetyDays.getAttribute('aria-checked')).toBe('false');
+		expect(group.getAttribute('aria-checked')).toBe('false');
+	});
+
 	it('keeps the loaded affected soldiers after a failed page and returns focus to them on retry', async () => {
 		const scope: BriefingScope = { kind: 'cell', rowKey: null, typeId: 'cpr' };
 		const firstPage = Array.from({ length: 25 }, (_, index) => `p${index + 1}`);

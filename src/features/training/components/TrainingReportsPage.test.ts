@@ -54,14 +54,14 @@ function completion(personnelId: string, expirationDate: string): PersonnelTrain
 	};
 }
 
-function reportFor(input: Partial<TrainingBriefingReportInput> = {}): TrainingBriefingReportData {
+function reportFor(input: Partial<TrainingBriefingReportInput> = {}, types = [CPR]): TrainingBriefingReportData {
 	const canonical = { ...DEFAULT_TRAINING_BRIEFING_INPUT, ...input };
 	return {
 		input: canonical,
 		organizationName: 'Test Company',
 		briefing: buildTrainingBriefing({
 			personnel: [soldier('a1', 'alpha', 'Alpha'), soldier('a2', 'alpha', 'Alpha'), soldier('b1', 'bravo', 'Bravo')],
-			types: [CPR],
+			types,
 			records: [completion('a1', '2026-10-20'), completion('a2', '2030-01-01')],
 			filters: {},
 			horizonDays: canonical.horizonDays,
@@ -262,6 +262,63 @@ describe('Training Reports briefing page', () => {
 		respond(Response.json(reportFor({ rowsBy: 'mos' })));
 		expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
 		expect(document.activeElement).toBe(thirtyDays);
+	});
+
+	it.each([
+		{
+			control: 'toolbar',
+			container: { role: 'group', name: 'Training report actions' },
+			initialReport: reportFor({ groupId: 'alpha' })
+		},
+		{
+			control: 'no-requirements panel',
+			container: { role: 'region', name: 'Training readiness briefing' },
+			initialReport: reportFor({ groupId: 'alpha' }, [{ ...CPR, isOptional: true }])
+		}
+	])(
+		'moves focus to the briefing when the $control Clear filters removes itself',
+		async ({ container, initialReport }) => {
+			const pending: Array<(response: Response) => void> = [];
+			renderPage(
+				vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond))),
+				initialReport
+			);
+			const briefing = screen.getByRole('region', { name: 'Training readiness briefing' });
+			const clear = within(screen.getByRole(container.role, { name: container.name })).getByRole('button', {
+				name: 'Clear filters'
+			});
+
+			clear.focus();
+			await fireEvent.click(clear);
+
+			expect(clear.isConnected).toBe(false);
+			await waitFor(() => expect(document.activeElement).toBe(briefing));
+			pending[0](Response.json(reportFor()));
+			expect(await screen.findByRole('table', { name: 'Group by training type readiness' })).toBeTruthy();
+			expect(document.activeElement).toBe(briefing);
+		}
+	);
+
+	it('moves focus to the briefing when a failed export is retried and keeps it there once the workbook downloads', async () => {
+		vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
+		const pending: Array<(response: Response) => void> = [];
+		const fetchImpl = vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond)));
+		renderPage(fetchImpl);
+		const briefing = screen.getByRole('region', { name: 'Training readiness briefing' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+		pending[0](new Response(null, { status: 500 }));
+		const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' });
+		retry.focus();
+		await fireEvent.click(retry);
+
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+		expect(retry.isConnected).toBe(false);
+		await waitFor(() => expect(document.activeElement).toBe(briefing));
+		pending[1](new Response(new Blob(['xlsx'])));
+		await waitFor(() => expect(screen.getByRole('button', { name: 'Export Excel' })).toBeTruthy());
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(document.activeElement).toBe(briefing);
 	});
 
 	it('clears the selected cell when the horizon change closes its affected soldiers', async () => {

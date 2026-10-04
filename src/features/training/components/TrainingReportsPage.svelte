@@ -197,6 +197,7 @@
 
 	function clearFilters(): void {
 		session.select(DEFAULT_TRAINING_BRIEFING_INPUT);
+		void focusSection(BRIEFING_ID);
 	}
 
 	function tone(readiness: BriefingReadiness): string {
@@ -216,6 +217,11 @@
 		if (cell.today.percent === null) return `${row.label}, ${typeName}: no applicable requirements`;
 		const drop = cell.dropAlert ? `, drops ${cell.drop} points by ${horizonEndLabel}` : '';
 		return `${row.label}, ${typeName}: ${cell.today.percent}% ready today${drop}${selected ? ', selected' : ''}`;
+	}
+
+	function retryExport(): void {
+		void exportExcel();
+		void focusSection(BRIEFING_ID);
 	}
 
 	async function exportExcel(): Promise<void> {
@@ -356,7 +362,7 @@
 			title="Unable to export the workbook"
 			description={exportError}
 			role="alert"
-			onRetry={exportExcel}
+			onRetry={retryExport}
 		/>
 	{/if}
 

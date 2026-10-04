@@ -42,6 +42,7 @@
 							<Button
 								variant="link"
 								href={`#${detailId}`}
+								data-sveltekit-preload-data="off"
 								class="h-auto p-0 font-serif text-sm font-medium text-foreground underline print:hidden"
 								aria-describedby={`${uid}-${index}`}
 								aria-current={openKey === area.key ? 'true' : undefined}

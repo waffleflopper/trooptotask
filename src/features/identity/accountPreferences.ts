@@ -22,6 +22,20 @@ export interface UserOrgPreferencesPatch {
 	training?: Partial<UserOrgPreferences['training']>;
 }
 
+/** A save acknowledgment must contain every retained preference, without normalization. */
+export const UserOrgPreferencesSchema = z.object({
+	calendar: z.object({
+		showStatusText: z.boolean(),
+		showPersonnelRoles: z.boolean(),
+		highlightOnboarding: z.boolean()
+	}),
+	training: z.object({
+		selectedGroupId: z.string().nullable(),
+		selectedViewId: z.string().nullable(),
+		matrixViewMode: TrainingMatrixViewModeSchema
+	})
+});
+
 export const UserOrgPreferencesPatchSchema = z.object({
 	calendar: z
 		.object({

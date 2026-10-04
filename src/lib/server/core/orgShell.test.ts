@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import { createReadyAppShell } from './orgShell';
 import type { AppShellFirstPaintChrome, MembershipInfo, OrgState } from './orgShell';
 

@@ -7,7 +7,7 @@
  * src/lib/server/adapters/; in-memory test implementations live in inMemoryOrgShell.ts.
  */
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { UserOrgPreferences } from '$lib/preferences/userPreferences';
+import type { UserOrgPreferences } from '$features/identity/contracts';
 
 import type { Announcement } from '$features/notifications/contracts';
 // ---------------------------------------------------------------------------

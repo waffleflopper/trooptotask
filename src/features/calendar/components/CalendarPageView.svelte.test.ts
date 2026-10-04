@@ -86,6 +86,13 @@ const filterPersonnel: Personnel[] = [
 	}
 ];
 
+function makeContext(
+	data: ConstructorParameters<typeof CalendarPageContext>[0],
+	org: ConstructorParameters<typeof CalendarPageContext>[1]
+) {
+	return new CalendarPageContext(data, org, vi.fn());
+}
+
 function makeMockOrg(
 	overrides: {
 		userRole?: 'owner' | 'admin' | 'member';
@@ -112,7 +119,7 @@ describe('CalendarPageView', () => {
 		mutableStatusTypesStore.loading = false;
 		mutableGroupsStore.loading = false;
 
-		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		const ctx = makeContext(mockData, makeMockOrg());
 
 		render(CalendarPageView, {
 			props: {
@@ -133,10 +140,7 @@ describe('CalendarPageView', () => {
 	it('moves forward across the year boundary and back through the month controls', async () => {
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);
-		const ctx = new CalendarPageContext(
-			{ ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel },
-			makeMockOrg()
-		);
+		const ctx = makeContext({ ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel }, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
@@ -151,7 +155,7 @@ describe('CalendarPageView', () => {
 		vi.setSystemTime(new Date(2026, 8, 22, 12));
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);
-		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
@@ -164,7 +168,7 @@ describe('CalendarPageView', () => {
 	it('keeps quarter arrows and picker on the Calendar-owned month across a year boundary', async () => {
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);
-		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
@@ -195,7 +199,7 @@ describe('CalendarPageView', () => {
 			personnel: filterPersonnel,
 			allPersonnel: filterPersonnel
 		};
-		const ctx = new CalendarPageContext(data, makeMockOrg());
+		const ctx = makeContext(data, makeMockOrg());
 
 		render(CalendarPageView, {
 			props: {

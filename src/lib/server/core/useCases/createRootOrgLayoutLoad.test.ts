@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { AppShellFirstPaintChromePort, OrgAccessPort } from '$lib/server/core/orgShell';
 import { createRootOrgLayoutLoad } from './createRootOrgLayoutLoad';
 
@@ -159,7 +159,7 @@ describe('createRootOrgLayoutLoad', () => {
 		expect(result).not.toHaveProperty('orgId');
 		expect(result).not.toHaveProperty('allOrgs');
 		expect(result).not.toHaveProperty('unreadNotificationCount');
-		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:org-preferences');
+		expect(depends).toHaveBeenCalledWith('app:org-core');
 		expect(createOrgAccessPort).toHaveBeenCalledWith(
 			expect.objectContaining({
 				orgId: 'org-1',

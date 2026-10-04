@@ -50,7 +50,7 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 		depends: (...deps: string[]) => void;
 		url: URL;
 	}) => {
-		depends('app:org-core', 'app:org-preferences');
+		depends('app:org-core');
 		return createAppShellRequest({ locals, cookies, orgSegment: params.orgId, url }).loadFirstPaint();
 	};
 }

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { getAccountPreferencesContext } from '$features/identity';
 	import { TrainingPageContext } from '$features/training';
 	import type { TrainingPageData } from '$features/training';
 	import { submitDeletionRequest } from '$features/deletion-requests';
@@ -8,22 +10,21 @@
 	import { TrainingModals } from '$features/training';
 
 	let { data } = $props();
-	const savePreferences: ConstructorParameters<typeof TrainingPageContext>[4] = async (orgId, patch) => {
-		const { queueUserPreferencesPatch } = await import('$features/identity');
-		return queueUserPreferencesPatch(orgId, patch);
-	};
+	const preferences = getAccountPreferencesContext();
 
 	const org = getOrgContext();
 	const modals = new ModalRegistry();
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
-	const ctx = $derived.by<TrainingPageContext | null>(() => {
+	const ctx = untrack((): TrainingPageContext | null => {
 		if (!shell) return null;
 		const pageData: TrainingPageData = {
 			orgId: shell.org.id,
-			orgName: shell.org.name,
-			userPreferences: shell.preferences
+			get orgName() {
+				return data.shell.org.name;
+			},
+			userPreferences: preferences.value
 		};
-		return new TrainingPageContext(pageData, modals, org, submitDeletionRequest, savePreferences);
+		return new TrainingPageContext(pageData, modals, org, submitDeletionRequest, (patch) => preferences.patch(patch));
 	});
 </script>
 

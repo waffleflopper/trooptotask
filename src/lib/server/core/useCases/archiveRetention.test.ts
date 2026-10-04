@@ -297,6 +297,59 @@ describe('cleanupArchivedRecords', () => {
 		await expect(idsFor(ports, 'ict_tasks')).resolves.toEqual(['task-referenced']);
 	});
 
+	it('retains rows exactly at the cutoff and makes a zero-effect replay without another notification', async () => {
+		const ports = buildPorts();
+		for (const table of ['ict_tasks', 'assignment_types']) {
+			ports.store.seed(table, [
+				{ id: `${table}-before`, organization_id: 'org-1', archived_at: '2025-05-30T11:59:59.999Z' },
+				{ id: `${table}-equal`, organization_id: 'org-1', archived_at: '2025-05-30T12:00:00.000Z' },
+				{ id: `${table}-after`, organization_id: 'org-1', archived_at: '2025-05-30T12:00:00.001Z' },
+				{ id: `${table}-active`, organization_id: 'org-1', archived_at: null }
+			]);
+		}
+		const configs = [{ id: 'org-1', retentionMonths: 12 }];
+
+		const result = await cleanupArchivedRecords(ports, configs, { now: NOW });
+
+		expect(result).toMatchObject({ deletedCount: 2, orgsAffected: 1 });
+		for (const table of ['ict_tasks', 'assignment_types']) {
+			await expect(idsFor(ports, table)).resolves.toEqual([`${table}-active`, `${table}-after`, `${table}-equal`]);
+		}
+		expect(ports.notifications.notifyAdmins).toHaveBeenCalledTimes(1);
+
+		const repeated = await cleanupArchivedRecords(ports, configs, { now: NOW });
+
+		expect(repeated).toMatchObject({ deletedCount: 0, orgsAffected: 0 });
+		expect(repeated.families.every((family) => family.deletedCount === 0)).toBe(true);
+		for (const table of ['ict_tasks', 'assignment_types']) {
+			await expect(idsFor(ports, table)).resolves.toEqual([`${table}-active`, `${table}-after`, `${table}-equal`]);
+		}
+		expect(ports.notifications.notifyAdmins).toHaveBeenCalledTimes(1);
+	});
+
+	it('retains Critical Tasks when completion references cannot be read and stops later family effects', async () => {
+		const ports = buildPorts();
+		ports.store.seed('ict_tasks', [
+			{ id: 'possibly-referenced', organization_id: 'org-1', archived_at: isoMonthsAgo(13) }
+		]);
+		ports.store.seed('assignment_types', [
+			{ id: 'later-expired-type', organization_id: 'org-1', archived_at: isoMonthsAgo(13) }
+		]);
+		const findMany = ports.store.findMany.bind(ports.store);
+		vi.spyOn(ports.store, 'findMany').mockImplementation((table, orgId, filters, options) => {
+			if (table === 'personnel_ict_completions') throw new Error('Critical Tasks reference check unavailable');
+			return findMany(table, orgId, filters, options);
+		});
+
+		await expect(cleanupArchivedRecords(ports, [{ id: 'org-1', retentionMonths: 12 }], { now: NOW })).rejects.toThrow(
+			'Critical Tasks reference check unavailable'
+		);
+
+		await expect(idsFor(ports, 'ict_tasks')).resolves.toEqual(['possibly-referenced']);
+		await expect(idsFor(ports, 'assignment_types')).resolves.toEqual(['later-expired-type']);
+		expect(ports.notifications.notifyAdmins).not.toHaveBeenCalled();
+	});
+
 	it('passes the default cutoff to the owner for invalid retention settings', async () => {
 		const ports = buildPorts();
 

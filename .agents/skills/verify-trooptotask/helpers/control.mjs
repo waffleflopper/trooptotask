@@ -17,6 +17,7 @@ import { requestOnboarding, readOnboardingRequests } from './onboarding-request.
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
+import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency } from './dashboard-fixtures.mjs';
@@ -505,6 +506,10 @@ async function main() {
 		return;
 	}
 	if (command === 'retention') {
+		if (args[0] === 'maintenance') {
+			note(await readMaintenance({ client: await provider(), fixture, ownedState: await saved() }));
+			return;
+		}
 		if (args[0] === 'settings') {
 			const client = await provider();
 			note({
@@ -524,17 +529,18 @@ async function main() {
 		if (
 			args[0] !== 'cron' ||
 			!['missing', 'wrong', 'run'].includes(args[1]) ||
-			(args[2] && !['records', 'personnel', 'onboarding'].includes(args[2]))
+			(args[2] && !['records', 'personnel', 'onboarding', 'audit', 'setup-links'].includes(args[2]))
 		)
 			throw new Error(
-				'Use retention settings, retention files or retention cron missing|wrong|run [records|personnel|onboarding].'
+				'Use retention settings|files|maintenance or retention cron missing|wrong|run [records|personnel|onboarding|audit|setup-links].'
 			);
-		const endpoint =
-			args[2] === 'onboarding'
-				? '/api/cleanup-expired-onboardings'
-				: args[2] === 'personnel'
-					? '/api/cleanup-archived-personnel'
-					: '/api/cleanup-archived-records';
+		const endpoint = {
+			records: '/api/cleanup-archived-records',
+			personnel: '/api/cleanup-archived-personnel',
+			onboarding: '/api/cleanup-expired-onboardings',
+			audit: '/api/cleanup-old-data',
+			'setup-links': '/api/cleanup-account-setup-links'
+		}[args[2] ?? 'records'];
 		const headers = {};
 		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
 		if (args[1] === 'run') {
@@ -543,11 +549,11 @@ async function main() {
 		}
 		const response = await fetch(new URL(endpoint, state.origin), {
 			headers,
-			redirect: 'error',
+			redirect: 'manual',
 			signal: AbortSignal.timeout(180000)
 		});
 		const body = await response.text();
-		note({ mode: args[1], endpoint, status: response.status, body });
+		note({ mode: args[1], endpoint, status: response.status, location: response.headers.get('location'), body });
 		return;
 	}
 	if (command === 'actor') {
@@ -1287,6 +1293,8 @@ async function main() {
 				'personnel-retention-dense',
 				'artifact-retention',
 				'artifact-retention-1001',
+				'maintenance-retention',
+				'maintenance-retention-1001',
 				'onboarding-legacy',
 				'onboarding-start',
 				'onboarding-history',
@@ -1530,6 +1538,10 @@ async function main() {
 				files,
 				fileSetup: 'Actual synthetic PDF uploads; provider readback and native interactions remain unverified.'
 			});
+			return;
+		}
+		if (kind.startsWith('maintenance-retention')) {
+			note(await seedMaintenance({ client, fixture, kind, tag, ownedState, save }));
 			return;
 		}
 		if (kind.startsWith('artifact-retention')) {
@@ -1910,7 +1922,13 @@ async function main() {
 							.in('personnel_id', ids)
 					);
 				let query = client.from(item.table).delete().in('id', ids);
-				if (item.kind !== 'communications' || item.table !== 'platform_announcements')
+				if (
+					!(
+						item.kind.startsWith('maintenance-retention') &&
+						['access_requests', 'account_setup_links'].includes(item.table)
+					) &&
+					(item.kind !== 'communications' || item.table !== 'platform_announcements')
+				)
 					query = query.eq(
 						item.table === 'audit_logs' ? 'org_id' : 'organization_id',
 						org(item.organization ?? 'orgA')

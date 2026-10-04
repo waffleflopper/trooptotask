@@ -10,6 +10,69 @@ const other = '20000000-0000-4000-8000-000000000002';
 const fixture = { actors: { orgInvitee: { id: invitee } } };
 const seed = { requests: { approve: { id: selected }, reject: { id: other } } };
 
+for (const [family, route, action] of [
+	['admin-announcements/create', '/admin/announcements', 'create'],
+	['admin-announcements/toggle', '/admin/announcements', 'toggle'],
+	['admin-announcements/delete', '/admin/announcements', 'delete'],
+	['admin-feedback/update', '/admin/feedback', 'update']
+]) {
+	test(`${family} fails only the selected same-origin form action and permits retry`, async () => {
+		const dispatched = [];
+		const page = {
+			location: { href: `http://owned.test${route}` },
+			fetch: async (url) => {
+				dispatched.push(url);
+				return Response.json({ untouched: true });
+			}
+		};
+		installNetworkControl(page, {
+			...platformFormNetworkTarget(family, fixture, null),
+			mode: 'fail',
+			ordinal: 1
+		});
+		await page.fetch(`http://other.test${route}?/${action}`, { method: 'POST' });
+		await page.fetch(`${route}?/${action}`);
+		await page.fetch(`${route}?/other`, { method: 'POST' });
+		assert.equal(dispatched.length, 3);
+		const response = await page.fetch(`${route}?/${action}`, { method: 'POST' });
+		assert.equal(response.status, 503);
+		const envelope = await response.json();
+		assert.deepEqual(parse(envelope.data), { error: 'Synthetic request failure' });
+		assert.equal(dispatched.length, 3);
+		const retry = await page.fetch(`${route}?/${action}`, { method: 'POST' });
+		assert.equal(retry.status, 200);
+		assert.equal(dispatched.length, 4);
+	});
+}
+
+for (const [family, route] of [
+	['admin-audit-read', '/admin/audit/__data.json'],
+	['admin-dashboard-read', '/admin/__data.json']
+]) {
+	test(`${family} leaves foreign origins, other admin pages and form writes untouched`, async () => {
+		let dispatched = 0;
+		const page = {
+			location: { href: 'http://owned.test/admin' },
+			fetch: async () => {
+				dispatched++;
+				return Response.json({ untouched: true });
+			}
+		};
+		installNetworkControl(page, {
+			...platformFormNetworkTarget(family, fixture, null),
+			mode: 'fail',
+			ordinal: 1
+		});
+		await page.fetch(`http://other.test${route}`);
+		await page.fetch('/admin/feedback?/update', { method: 'POST' });
+		await page.fetch('/admin/users/__data.json');
+		assert.equal(dispatched, 3);
+		assert.equal(page.__mapNetwork.calls.length, 0);
+		assert.equal((await page.fetch(`${route}?page=2`)).status, 503);
+		assert.equal(dispatched, 3);
+	});
+}
+
 test('account control resolves only a named fixture and exact support action', () => {
 	assert.deepEqual(platformFormNetworkTarget('admin-account/orgInvitee/resetPassword', fixture, seed), {
 		suffix: `/admin/users/${invitee}`,

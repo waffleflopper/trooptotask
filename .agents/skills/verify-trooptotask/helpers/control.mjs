@@ -368,6 +368,29 @@ async function main() {
 		});
 		return;
 	}
+	if (command === 'preferences') {
+		const [role, orgKey] = args;
+		if (args.length !== 2 || !fixture.actors[role]) throw new Error('Use a known synthetic role and Organization.');
+		const userId = fixture.actors[role].id;
+		const organizationId = org(orgKey);
+		const client = await provider();
+		const preferences = checked(
+			await client
+				.from('user_org_preferences')
+				.select('id,user_id,organization_id,preferences')
+				.eq('user_id', userId)
+				.eq('organization_id', organizationId)
+		);
+		const progress = checked(
+			await client
+				.from('getting_started_progress')
+				.select('*')
+				.eq('user_id', userId)
+				.eq('organization_id', organizationId)
+		);
+		note({ role, userId, organization: orgKey, organizationId, preferences, progress });
+		return;
+	}
 	if (command === 'deletion-request') {
 		const [page, orgKey, action, bodyText = '{}'] = args;
 		const pageId = Number(page);
@@ -1936,6 +1959,10 @@ async function main() {
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
 		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)) {
 			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
+			const shellPart = {
+				'shell-notification-count': 'notification-count',
+				'shell-organization-switcher': 'organization-switcher'
+			}[family];
 			const formActions = {
 				'settings/general/updateName': 'error',
 				'settings/general/updateSlug': 'slugError',
@@ -1946,6 +1973,9 @@ async function main() {
 				![
 					'audit-page',
 					'dashboard-page',
+					'user-preferences',
+					'shell-notification-count',
+					'shell-organization-switcher',
 					'admin-suspend',
 					'admin-search',
 					'admin-transfer',
@@ -2006,7 +2036,8 @@ async function main() {
 			let organizationSegment = org('orgA');
 			if (
 				formAction ||
-				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family)
+				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
+				shellPart
 			) {
 				const organization = checked(
 					await (await provider()).from('organizations').select('url_slug').eq('id', org('orgA')).single()
@@ -2031,16 +2062,19 @@ async function main() {
 				suffix = `/admin/organizations/${seed.organization.id}`;
 			}
 			if (platformForm) suffix = platformForm.suffix;
+			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
-				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch'].includes(family) &&
+				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch', 'user-preferences'].includes(
+					family
+				) &&
 				!platformForm
 			)
 				throw new Error(
 					'Delayed synthetic failure is supported only for Organization policies, deletion review and Personnel bulk archival.'
 				);
 			if (
-				['admin-access-read', 'admin-audit-read', 'admin-dashboard-read'].includes(family) &&
+				(['admin-access-read', 'admin-audit-read', 'admin-dashboard-read'].includes(family) || shellPart) &&
 				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
 			)
 				throw new Error('Platform read controls support failure, hold and observation only.');
@@ -2065,15 +2099,16 @@ async function main() {
 									? 'drop-response'
 									: 'observe';
 			const search =
-				platformForm?.search ??
+				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
 				(family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null);
 			const failureField =
 				platformForm?.failureField ?? (family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
 			const requestTarget = platformForm?.requestTarget ?? null;
-			const sameOrigin = platformForm?.sameOrigin ?? false;
-			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget, sameOrigin })})`;
+			const sameOrigin = family === 'user-preferences' || !!shellPart || (platformForm?.sameOrigin ?? false);
+			const requestMethod = family === 'user-preferences' ? 'PATCH' : shellPart ? 'GET' : null;
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
-			if (family.startsWith('onboarding-')) {
+			if (family.startsWith('onboarding-') || shellPart) {
 				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');
 				if (armed) throw new Error('Restore the existing map network control first');
 				await tool(state, 'navigate_page', { pageId, type: 'reload', initScript: install });
@@ -2081,7 +2116,7 @@ async function main() {
 			const result = await evaluate(
 				state,
 				pageId,
-				family.startsWith('onboarding-')
+				family.startsWith('onboarding-') || shellPart
 					? '() => ({ armed: !!window.__mapNetwork, mode: window.__mapNetwork?.mode, suffix: window.__mapNetwork?.suffix, ordinal: window.__mapNetwork?.ordinal, reloaded: true })'
 					: `() => ${install}`
 			);

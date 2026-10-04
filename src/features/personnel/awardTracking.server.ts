@@ -1,10 +1,12 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 
 interface PersonnelAwardTrackingContext {
-	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
-	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 	rawStore: {
 		findOne<T>(

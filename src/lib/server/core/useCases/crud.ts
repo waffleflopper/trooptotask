@@ -13,7 +13,7 @@ import type { DataStore, WritePorts } from '$lib/server/core/ports';
 import type { EntityDefinition } from '$lib/server/entitySchema';
 import type { z } from 'zod';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
-import { requireFeaturePolicy } from './featurePolicy';
+import { requireFeaturePolicy } from '$lib/access/index.server';
 import { requireCalendarPolicy } from './calendarPolicy';
 
 export interface CrudConfig<C extends WritePorts = WritePorts> {

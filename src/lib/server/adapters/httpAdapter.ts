@@ -1,3 +1,4 @@
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { createSupabaseSignInRosterFileWritePort } from '$features/sign-in-rosters/index.server';
 import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 import {
@@ -86,7 +87,7 @@ import {
 } from '$features/onboarding/index.server';
 import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
 import { resolveOrganizationRouteIdentity } from '$features/organization/index.server';
-import type { UseCaseContext, AuthContext } from '$lib/server/core/ports';
+import type { UseCaseContext } from '$lib/server/core/ports';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import {
@@ -94,7 +95,7 @@ import {
 	enforceRouteAuthorization,
 	type LoadAuthorizationConfig,
 	type RouteAuthorizationConfig
-} from '$lib/server/core/useCases/routeAuthorization';
+} from '$lib/access/index.server';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 import type {
@@ -333,7 +334,7 @@ export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteConte
 	};
 }
 
-function policyScopeGroupIds(auth: AuthContext): string[] | string | null {
+function policyScopeGroupIds(auth: OrganizationAccessGrant): string[] | string | null {
 	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null;
 }
 

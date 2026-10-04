@@ -15,7 +15,7 @@ export interface PersonnelPageAccess {
 
 import type { OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 
@@ -69,16 +69,7 @@ export interface SignInRosterPersonnelLookupPort {
 	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
 }
 
-/** Trusted request authorization facts; structurally matches the shared AuthContext. */
-export interface PersonnelRosterActor {
-	readonly userId: string;
-	readonly orgId: string;
-	readonly role: 'owner' | 'admin' | 'member';
-	readonly isPrivileged: boolean;
-	readonly canManageMembers: boolean;
-	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
-}
+export type PersonnelRosterActor = OrganizationAccessGrant;
 
 export interface PersonnelCalendarRosterPort {
 	listActive(actor: PersonnelRosterActor): Promise<Personnel[]>;

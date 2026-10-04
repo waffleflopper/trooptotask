@@ -1,11 +1,10 @@
-import type { requireFeaturePolicy } from '$lib/access/index.server';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 
-type CompletionPolicyContext = Parameters<typeof requireFeaturePolicy>[0];
-
 interface CompletionPolicyPorts {
-	readonly auth: CompletionPolicyContext['auth'];
-	readonly audit: NonNullable<CompletionPolicyContext['audit']>;
+	readonly auth: OrganizationAccessGrant;
+	readonly audit: PolicyAuditSink;
 }
 
 interface CompletionWriteStore {

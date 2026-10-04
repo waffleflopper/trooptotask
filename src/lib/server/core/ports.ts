@@ -8,7 +8,7 @@ import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contra
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import type { NotificationStore } from '$features/notifications/contracts.server';
 import type { FeedbackExportRow } from '$features/feedback/index.server';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
 import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
@@ -117,17 +117,6 @@ export interface DataStore {
 	): Promise<FindResult<T>>;
 }
 
-/** Abstracts permission enforcement — no SupabaseClient parameter needed */
-export interface AuthContext {
-	readonly userId: string;
-	readonly orgId: string;
-	readonly role: 'owner' | 'admin' | 'member';
-	readonly isPrivileged: boolean;
-	readonly canManageMembers: boolean;
-	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
-}
-
 /** Enforces resource-level Group scope checks for scoped personnel data. */
 export interface ScopeEnforcementPort {
 	requireGroupAccess(personnelId: string): Promise<void>;
@@ -142,11 +131,10 @@ export interface StoragePort {
 	createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
 }
 
-/** The 4 ports every standard write operation needs */
 export interface WritePorts {
 	store: DataStore;
 	rawStore?: DataStore;
-	auth: AuthContext;
+	auth: OrganizationAccessGrant;
 	audit: AuditPort;
 	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
 
@@ -173,7 +161,7 @@ export interface WriteWithNotificationsPorts extends WritePorts {
 /** User-scoped operations that aren't org-level writes (e.g., pinned groups) */
 export interface UserWritePorts {
 	store: DataStore;
-	auth: AuthContext;
+	auth: OrganizationAccessGrant;
 	audit: AuditPort;
 }
 
@@ -181,7 +169,7 @@ export interface UserWritePorts {
 export interface QueryPorts {
 	organizationSettings: OrganizationSettingsReader;
 	store: DataStore;
-	auth: AuthContext;
+	auth: OrganizationAccessGrant;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	personnelTrainingRoster?: PersonnelTrainingRosterPort;
 	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
@@ -203,10 +191,10 @@ export interface QueryWithRawStorePorts extends QueryPorts {
 export interface UseCaseContext {
 	organizationSettings: OrganizationSettingsReader;
 	organizationPolicyWrite: OrganizationPolicyWritePort;
-	notificationSelf: { auth: AuthContext; audit: AuditPort; store: NotificationStore };
+	notificationSelf: { auth: OrganizationAccessGrant; audit: AuditPort; store: NotificationStore };
 	feedbackExport: { listRows(orgId: string): Promise<FeedbackExportRow[]> };
 	store: DataStore;
-	auth: AuthContext;
+	auth: OrganizationAccessGrant;
 	scope: ScopeEnforcementPort;
 	audit: AuditPort;
 	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;

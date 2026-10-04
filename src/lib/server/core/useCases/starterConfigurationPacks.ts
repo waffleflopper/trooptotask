@@ -1,6 +1,6 @@
 import { POLICY_ACTION_CATALOG, type PolicyAction } from '$lib/access/policyEvaluator';
-import { evaluateAuthoritativePolicyDecision } from '$lib/server/core/useCases/policyAdapter';
-import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
+import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
+import { requirePolicyDecision } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
 import {

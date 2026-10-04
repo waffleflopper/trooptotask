@@ -1,13 +1,11 @@
-import type { requireFeaturePolicy } from '$lib/access/index.server';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
 import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
 
-type TrainingCompletionActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
-type TrainingCompletionAudit = NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
-
 export interface TrainingCompletionReadContext {
-	readonly auth: TrainingCompletionActor;
-	readonly audit?: TrainingCompletionAudit;
+	readonly auth: OrganizationAccessGrant;
+	readonly audit?: PolicyAuditSink;
 	readonly store: Pick<TrainingCatalogReadStore, 'findMany'>;
 }
 
@@ -24,7 +22,7 @@ interface TrainingCompletionWriteStore extends Pick<TrainingCatalogReadStore, 'f
 }
 
 export interface TrainingCompletionWriteContext extends TrainingCompletionReadContext {
-	readonly audit: TrainingCompletionAudit;
+	readonly audit: PolicyAuditSink;
 	readonly store: TrainingCompletionWriteStore;
 	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'findGroupIdsForWrites'>;
 }

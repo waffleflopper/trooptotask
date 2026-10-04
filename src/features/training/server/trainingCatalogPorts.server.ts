@@ -1,7 +1,5 @@
-import type { requireFeaturePolicy } from '$lib/access/index.server';
-
-type TrainingCatalogActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
-type TrainingCatalogAudit = NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 
 export interface TrainingCatalogReadStore {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
@@ -35,8 +33,8 @@ interface TrainingCatalogWriteStore extends TrainingCatalogReadStore {
 }
 
 export interface TrainingCatalogWriteContext {
-	readonly auth: TrainingCatalogActor;
-	readonly audit: TrainingCatalogAudit;
+	readonly auth: OrganizationAccessGrant;
+	readonly audit: PolicyAuditSink;
 	readonly store: TrainingCatalogWriteStore;
 }
 

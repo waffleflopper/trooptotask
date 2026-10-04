@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
@@ -44,9 +46,9 @@ export interface FollowUpRow {
 }
 
 export interface PersonnelArtifactsContext {
-	actor: Parameters<typeof requireFeaturePolicy>[0]['auth'] & { userId: string; orgId: string };
+	actor: OrganizationAccessGrant;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
-	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	audit: PolicyAuditSink;
 	persistence: {
 		findPersonnelGroup(personnelId: string): Promise<string | null | undefined>;
 		listCounselingRecords(

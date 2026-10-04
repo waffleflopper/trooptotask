@@ -4,25 +4,12 @@
 			"roots": ["src/lib/access/"],
 			"files": [
 				"src/lib/server/adapters/scopeRules.ts",
-				"src/lib/server/core/useCases/featurePolicy.ts",
-				"src/lib/server/core/useCases/governancePolicy.ts",
-				"src/lib/server/core/useCases/identityPolicy.ts",
-				"src/lib/server/core/useCases/policyAdapter.test.ts",
-				"src/lib/server/core/useCases/policyAdapter.ts",
-				"src/lib/server/core/useCases/policyAuthorization.test.ts",
-				"src/lib/server/core/useCases/policyAuthorization.ts",
-				"src/lib/server/core/useCases/policyDenial.test.ts",
-				"src/lib/server/core/useCases/policyDenial.ts",
-				"src/lib/server/core/useCases/routeAuthorization.test.ts",
-				"src/lib/server/core/useCases/routeAuthorization.ts",
 				"src/lib/server/durableRateLimit.test.ts",
 				"src/lib/server/durableRateLimit.ts",
 				"src/lib/server/membershipContextCache.test.ts",
 				"src/lib/server/membershipContextCache.ts",
 				"src/lib/server/permissionContext.test.ts",
 				"src/lib/server/permissionContext.ts",
-				"src/lib/server/permissions.test.ts",
-				"src/lib/server/permissions.ts",
 				"src/lib/server/rateLimit.test.ts",
 				"src/lib/server/rateLimit.ts"
 			],
@@ -439,11 +426,7 @@
 	"publicFiles": {
 		"shared": ["src/lib/utils.ts", "src/lib/types.ts", "src/lib/errors.ts"],
 		"provider": ["src/lib/server/supabasePagination.server.ts"],
-		"access": [
-			"src/lib/server/permissions.ts",
-			"src/lib/server/permissionContext.ts",
-			"src/lib/access/index.server.ts"
-		],
+		"access": ["src/lib/server/permissionContext.ts", "src/lib/access/index.server.ts"],
 		"organization": [
 			"src/features/organization/contracts.ts",
 			"src/features/organization/index.ts",

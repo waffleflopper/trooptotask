@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -10,8 +12,6 @@ import {
 } from '$features/identity/contracts';
 import { sensitiveActionDecisionAuditDetails, throwSensitiveActionFailure } from '$features/identity/index.server';
 
-type GovernancePorts = Parameters<typeof requireGovernancePolicy>[0];
-
 export interface OrganizationOwnershipTransferPort {
 	findOwnershipTransferTarget(
 		orgId: string,
@@ -21,7 +21,9 @@ export interface OrganizationOwnershipTransferPort {
 	lookupOrganization(orgId: string): Promise<{ name: string | null; errorMessage: string | null }>;
 }
 
-interface OwnershipTransferPorts extends GovernancePorts {
+interface OwnershipTransferPorts {
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	notifications: Pick<NotificationDeliveryPort, 'notifyUser'>;
 	administration: OrganizationOwnershipTransferPort;
 	sensitiveActionAuthorizer: SensitiveActionAuthorizer;

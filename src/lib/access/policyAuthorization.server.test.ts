@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
-import { requirePolicyDecision } from './policyAuthorization';
+import { requirePolicyDecision } from './serverPolicy.server';
 
 const baseCapabilityMap = {
 	calendar: 'none',

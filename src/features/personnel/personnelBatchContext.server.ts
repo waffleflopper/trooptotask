@@ -1,9 +1,10 @@
-import type { requireFeaturePolicy } from '$lib/access/index.server';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 
 /** Shared request reads for both CSV commands; each command adds only its own write. */
 export interface PersonnelBatchContext {
-	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
-	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	store: {
 		findMany<T>(
 			table: string,

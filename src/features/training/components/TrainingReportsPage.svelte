@@ -12,6 +12,7 @@
 	};
 
 	const TOTAL_ROW_ID = 'total';
+	const BRIEFING_ID = 'training-briefing';
 	const DETAIL_ID = 'training-affected-soldiers';
 </script>
 
@@ -153,7 +154,7 @@
 	);
 	const openScope = $derived(session.detail.status === 'idle' ? null : session.detail.request.scope);
 	const selectedCell = $derived.by(() => {
-		if (openScope?.kind !== 'cell') return undefined;
+		if (openScope?.kind !== 'cell') return null;
 		return { rowId: openScope.rowKey === null ? TOTAL_ROW_ID : `row:${openScope.rowKey}`, columnId: openScope.typeId };
 	});
 	const filterLine = $derived(
@@ -170,19 +171,24 @@
 		return `${row?.label ?? 'Total'}, ${column?.name ?? ''}`;
 	}
 
-	async function focusDetail(): Promise<void> {
+	async function focusSection(id: string): Promise<void> {
 		await tick();
-		document.getElementById(DETAIL_ID)?.focus();
+		document.getElementById(id)?.focus();
 	}
 
 	function openDetail(scope: BriefingScope): void {
 		session.requestDetail(scope);
-		void focusDetail();
+		void focusSection(DETAIL_ID);
 	}
 
 	function retryDetail(): void {
 		session.retryDetail();
-		void focusDetail();
+		void focusSection(DETAIL_ID);
+	}
+
+	function retryBriefing(): void {
+		session.retry();
+		void focusSection(BRIEFING_ID);
 	}
 
 	function update(changes: Partial<TrainingBriefingReportInput>): void {
@@ -341,7 +347,7 @@
 			title="Unable to update the briefing"
 			description={`${session.request.message} Showing the last briefing that loaded.`}
 			role="alert"
-			onRetry={() => session.retry()}
+			onRetry={retryBriefing}
 		/>
 	{/if}
 	{#if exportError}
@@ -354,28 +360,34 @@
 		/>
 	{/if}
 
-	{#if options.types.length === 0}
-		<ReportWorkspace.State
-			state="no-data"
-			title={report.input.viewId ? 'This view has no required training types.' : 'No training types configured.'}
-			description={report.input.viewId ? 'Choose another view.' : 'Create training types first.'}
-		/>
-	{:else if bottomLine.today.percent === null}
-		<ReportWorkspace.State
-			state="no-data"
-			title={activeFilterCount > 0 ? 'No applicable requirements for these filters.' : 'No applicable requirements.'}
-			description={activeFilterCount > 0
-				? 'No soldier in this selection is required to hold the selected training.'
-				: 'No soldier is required to hold the configured training.'}
-		>
-			{#if hasNonDefault}
-				<Button type="button" variant="secondary" size="sm" class="print:hidden" onclick={clearFilters}>
-					Clear filters
-				</Button>
-			{/if}
-		</ReportWorkspace.State>
-	{:else}
-		<ReportWorkspace.Root ariaLabel="Training readiness briefing" aria-busy={loading}>
+	<ReportWorkspace.Root
+		id={BRIEFING_ID}
+		tabindex={-1}
+		ariaLabel="Training readiness briefing"
+		aria-busy={loading}
+		class="outline-none"
+	>
+		{#if options.types.length === 0}
+			<ReportWorkspace.State
+				state="no-data"
+				title={report.input.viewId ? 'This view has no required training types.' : 'No training types configured.'}
+				description={report.input.viewId ? 'Choose another view.' : 'Create training types first.'}
+			/>
+		{:else if bottomLine.today.percent === null}
+			<ReportWorkspace.State
+				state="no-data"
+				title={activeFilterCount > 0 ? 'No applicable requirements for these filters.' : 'No applicable requirements.'}
+				description={activeFilterCount > 0
+					? 'No soldier in this selection is required to hold the selected training.'
+					: 'No soldier is required to hold the configured training.'}
+			>
+				{#if hasNonDefault}
+					<Button type="button" variant="secondary" size="sm" class="print:hidden" onclick={clearFilters}>
+						Clear filters
+					</Button>
+				{/if}
+			</ReportWorkspace.State>
+		{:else}
 			<div class="flex flex-col gap-10">
 				<div class="grid gap-12 lg:grid-cols-[21.25rem_minmax(0,1fr)]">
 					<ReportWorkspace.Section variant="briefing" title="Bottom line" data-print-section>
@@ -587,6 +599,6 @@
 					/>
 				{/if}
 			</div>
-		</ReportWorkspace.Root>
-	{/if}
+		{/if}
+	</ReportWorkspace.Root>
 </div>

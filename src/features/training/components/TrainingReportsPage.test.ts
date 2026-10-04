@@ -215,6 +215,105 @@ describe('Training Reports briefing page', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
+	async function failRowsByRefresh(): Promise<{ retry: HTMLElement; respond: (response: Response) => void }> {
+		const pending: Array<(response: Response) => void> = [];
+		const fetchImpl = vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond)));
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('radio', { name: 'MOS' }));
+		pending[0](new Response(null, { status: 503 }));
+		const retry = within(await screen.findByRole('alert')).getByRole('button', { name: 'Retry' });
+		retry.focus();
+		await fireEvent.click(retry);
+		expect(fetchImpl).toHaveBeenCalledTimes(2);
+		return { retry, respond: pending[1] };
+	}
+
+	it('moves focus to the briefing when a failed refresh is retried and keeps it there once the refresh arrives', async () => {
+		const { retry, respond } = await failRowsByRefresh();
+		const briefing = screen.getByRole('region', { name: 'Training readiness briefing' });
+
+		expect(retry.isConnected).toBe(false);
+		await waitFor(() => expect(document.activeElement).toBe(briefing));
+		expect(briefing.getAttribute('aria-busy')).toBe('true');
+
+		respond(Response.json(reportFor({ rowsBy: 'mos' })));
+		expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
+		expect(briefing.getAttribute('aria-busy')).toBe('false');
+		expect(document.activeElement).toBe(briefing);
+	});
+
+	it('keeps focus on the briefing when a retried refresh comes back with no training types', async () => {
+		const { respond } = await failRowsByRefresh();
+		const briefing = screen.getByRole('region', { name: 'Training readiness briefing' });
+
+		respond(
+			Response.json({ ...reportFor({ rowsBy: 'mos' }), filterOptions: { ...reportFor().filterOptions, types: [] } })
+		);
+		expect(await screen.findByText('No training types configured.')).toBeTruthy();
+		expect(document.activeElement).toBe(briefing);
+	});
+
+	it('leaves focus where the user moved it while a retried refresh is loading', async () => {
+		const { respond } = await failRowsByRefresh();
+		const thirtyDays = screen.getByRole('radio', { name: '30 days' });
+		thirtyDays.focus();
+
+		respond(Response.json(reportFor({ rowsBy: 'mos' })));
+		expect(await screen.findByRole('table', { name: 'MOS by training type readiness' })).toBeTruthy();
+		expect(document.activeElement).toBe(thirtyDays);
+	});
+
+	it('clears the selected cell when the horizon change closes its affected soldiers', async () => {
+		const fetchImpl = vi.fn<typeof fetch>(async (url) =>
+			String(url).includes('/detail?')
+				? Response.json(detailPage({ kind: 'cell', rowKey: 'alpha', typeId: 'cpr' }, 1, ['a1']))
+				: Response.json(reportFor({ horizonDays: 30 }))
+		);
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Alpha, CPR: 100% ready today/ }));
+		await screen.findByRole('region', { name: 'Affected soldiers' });
+		const selected = screen.getByRole('button', {
+			name: 'Alpha, CPR: 100% ready today, drops 50 points by 28 Dec, selected'
+		});
+		expect(selected.closest('td')?.getAttribute('data-selected')).toBe('true');
+
+		await fireEvent.click(screen.getByRole('radio', { name: '30 days' }));
+		expect(await screen.findByText('Forecast · next 30 days')).toBeTruthy();
+
+		expect(screen.queryByRole('region', { name: 'Affected soldiers' })).toBeNull();
+		const cell = screen.getByRole('button', { name: /^Alpha, CPR: 100% ready today/ });
+		expect(cell.getAttribute('aria-label')).not.toContain('selected');
+		expect(cell.closest('td')?.hasAttribute('data-selected')).toBe(false);
+		expect(document.querySelectorAll('[data-selected]')).toHaveLength(0);
+	});
+
+	it('moves the selection from a cell to a focus area when the focus area is opened', async () => {
+		const fetchImpl = vi.fn<typeof fetch>(async (url) =>
+			Response.json(
+				String(url).includes('scope=focus')
+					? detailPage({ kind: 'focus', key: 'gap:cpr' }, 1, ['b1', 'a1'])
+					: detailPage({ kind: 'cell', rowKey: 'alpha', typeId: 'cpr' }, 1, ['a1'])
+			)
+		);
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Alpha, CPR: 100% ready today/ }));
+		expect(await screen.findByText('Alpha, CPR: 1 requirement not ready or lapsing by 28 Dec.')).toBeTruthy();
+
+		const area = screen.getByRole('heading', { level: 3, name: 'CPR — the standing gap' }).closest('li')!;
+		const link = within(area).getByRole('link', { name: 'View 2 soldiers' });
+		await fireEvent.click(link);
+		expect(
+			await screen.findByText('CPR — the standing gap: 2 requirements not ready or lapsing by 28 Dec.')
+		).toBeTruthy();
+
+		expect(link.getAttribute('aria-current')).toBe('true');
+		expect(document.querySelectorAll('[data-selected]')).toHaveLength(0);
+		expect(screen.queryByRole('button', { name: /, selected$/ })).toBeNull();
+	});
+
 	it('exports the workbook for the filters of the briefing on screen', async () => {
 		vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
 		const fetchImpl = vi.fn<typeof fetch>(async () => new Response(new Blob(['xlsx'])));

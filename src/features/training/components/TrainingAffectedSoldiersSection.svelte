@@ -116,6 +116,7 @@
 	title="Affected soldiers"
 	class="outline-none"
 	aria-busy={detail.status === 'loading'}
+	data-print-section
 >
 	{#snippet actions()}
 		<div class="flex items-center gap-2 print:hidden">

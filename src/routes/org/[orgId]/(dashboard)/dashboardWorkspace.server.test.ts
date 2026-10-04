@@ -7,9 +7,17 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import type { TrainingType } from '$features/training/contracts';
 
-const { fetchDashboardBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted(() => ({
+const {
+	fetchDashboardBootstrapMock,
+	loadWithContextMock,
+	createRequestDashboardWorkspaceContextMock,
+	mockRequest,
+	mockCtx
+} = vi.hoisted(() => ({
 	fetchDashboardBootstrapMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
+	createRequestDashboardWorkspaceContextMock: vi.fn(),
+	mockRequest: { auth: { orgId: '11111111-1111-1111-1111-111111111111' } },
 	mockCtx: {
 		auth: {
 			userId: 'user-1',
@@ -17,6 +25,13 @@ const { fetchDashboardBootstrapMock, loadWithContextMock, mockCtx } = vi.hoisted
 		}
 	}
 }));
+
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
+	);
+	return { ...actual, createRequestDashboardWorkspaceContext: createRequestDashboardWorkspaceContextMock };
+});
 
 vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
@@ -61,8 +76,9 @@ describe('streamDashboardWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		fetchDashboardBootstrapMock.mockResolvedValue(dashboardData);
+		createRequestDashboardWorkspaceContextMock.mockReturnValue(mockCtx);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
-			const data = Promise.resolve(config.fn(mockCtx as never));
+			const data = Promise.resolve().then(() => config.fn(config.context(mockRequest)));
 			return config.defer ? Promise.resolve({ data }) : data;
 		});
 	});

@@ -22,14 +22,24 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 			}
 		]);
 
-		const acknowledged = await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'person-1',
-			acknowledged: true
-		});
-		const cleared = await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'person-1',
-			acknowledged: false
-		});
+		const acknowledged = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				acknowledged: true
+			},
+			() => ctx
+		);
+		const cleared = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				acknowledged: false
+			},
+			() => ctx
+		);
 
 		expect(acknowledged).toEqual({
 			personnelId: 'person-1',
@@ -63,10 +73,15 @@ describe('POST /api/personnel/[id]/award-tracking', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'person-1',
-				acknowledged: true
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'person-1',
+					acknowledged: true
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 	});
 

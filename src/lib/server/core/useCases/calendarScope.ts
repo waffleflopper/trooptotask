@@ -1,4 +1,5 @@
-import type { FindOptions, QueryPorts } from '$lib/server/core/ports';
+import type { FindOptions } from '$lib/server/core/ports';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 
 export interface CalendarGroupScope {
@@ -11,12 +12,14 @@ export interface CalendarAssigneeScope extends CalendarGroupScope {
 
 type InFilterOptions = Pick<FindOptions, 'inFilters'>;
 
-export function requirePersonnelCalendarRoster(ctx: { personnelCalendarRoster?: PersonnelCalendarRosterPort }) {
+export function requirePersonnelCalendarRoster<Methods extends keyof PersonnelCalendarRosterPort>(ctx: {
+	personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, Methods>;
+}) {
 	if (!ctx.personnelCalendarRoster) throw new Error('Personnel Calendar roster provider unavailable');
 	return ctx.personnelCalendarRoster;
 }
 
-export function resolveCalendarGroupScope(ctx: Pick<QueryPorts, 'auth'>): CalendarGroupScope | null {
+export function resolveCalendarGroupScope(ctx: { auth: OrganizationAccessGrant }): CalendarGroupScope | null {
 	if (ctx.auth.scopeSet.kind !== 'groups') {
 		return null;
 	}
@@ -26,7 +29,10 @@ export function resolveCalendarGroupScope(ctx: Pick<QueryPorts, 'auth'>): Calend
 	};
 }
 
-export async function resolveCalendarAssigneeScope(ctx: QueryPorts): Promise<CalendarAssigneeScope | null> {
+export async function resolveCalendarAssigneeScope(ctx: {
+	auth: OrganizationAccessGrant;
+	personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, 'listAssigneeIds'>;
+}): Promise<CalendarAssigneeScope | null> {
 	const groupScope = resolveCalendarGroupScope(ctx);
 	if (!groupScope) {
 		return null;

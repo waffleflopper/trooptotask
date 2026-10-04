@@ -1,31 +1,31 @@
-import {
-	personnelArtifactsContext,
-	loadWithContext,
-	personnelLeaderNoteContext
-} from '$lib/server/adapters/httpAdapter';
-import type { PageServerLoadEvent } from './$types';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
+import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
 import type { PersonnelDetailHeader, PersonnelDetailStreams } from '$features/personnel/contracts';
 import {
 	currentPersonnelReadinessDate,
+	listPersonnelCounselingRecords,
+	listPersonnelDocuments,
+	listPersonnelFollowUps,
+	listPersonnelLeaderNotes,
 	loadAvailabilityReadinessLane,
 	loadLossTrackingReadinessLane,
 	loadPersonnelForLane,
-	listPersonnelLeaderNotes,
-	readPersonnelExtendedInfo,
-	listPersonnelCounselingRecords,
-	listPersonnelDocuments,
-	listPersonnelFollowUps
+	readPersonnelExtendedInfo
 } from '$features/personnel/index.server';
-import { loadTrainingReadinessLane } from '$features/training/index.server';
 import { loadRatingSchemeReadinessLane } from '$features/rating-scheme/index.server';
-import { loadCriticalTasksReadinessLane } from '$features/critical-tasks/index.server';
-import { listAvailabilityEntries, listStatusTypes } from '$features/calendar/index.server';
+import { loadTrainingReadinessLane } from '$features/training/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelDetailStreamsContext } from '$lib/server/adapters/requestContexts.server';
+import type { PageServerLoadEvent } from './$types';
 
-function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string): PersonnelDetailStreams {
-	const artifactContext = personnelArtifactsContext(ctx);
-	const extendedInfo = readPersonnelExtendedInfo(ctx, personnelId);
+function createPersonnelDetailStreams(
+	contexts: ReturnType<typeof createRequestPersonnelDetailStreamsContext>,
+	personnelId: string
+): PersonnelDetailStreams {
+	const ctx = contexts.detail;
+	const artifactContext = contexts.artifacts;
+	const extendedInfo = readPersonnelExtendedInfo(contexts.extendedInfo, personnelId);
 	const readinessAsOf = currentPersonnelReadinessDate();
 	return {
 		readinessLanes: {
@@ -65,14 +65,14 @@ function createPersonnelDetailStreams(ctx: UseCaseContext, personnelId: string):
 					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry')
 			}),
 			lossTracking: loadLossTrackingReadinessLane(ctx, personnelId, readinessAsOf, () =>
-				ctx.organizationSettings.findLossWarningWindowDays(ctx.auth.orgId)
+				contexts.loadLossWarningWindowDays()
 			)
 		},
 		// The three owned artifact reads share one request-local authorization context.
 		extendedInfo,
 		counselingRecords: listPersonnelCounselingRecords(artifactContext, personnelId, 5),
 		documents: listPersonnelDocuments(artifactContext, personnelId, 5),
-		leaderNotes: listPersonnelLeaderNotes(personnelLeaderNoteContext(ctx), personnelId, 1),
+		leaderNotes: listPersonnelLeaderNotes(contexts.leaderNotes, personnelId, 1),
 		followUps: listPersonnelFollowUps(artifactContext, personnelId)
 	};
 }
@@ -97,6 +97,7 @@ export function _createPersonnelDetailPageLoad(deps: PersonnelDetailPageLoadDeps
 		const personnelId = parentData.personnelDetailHeader.person.id;
 
 		const personnelDetail = await loadWithContextFn(locals, cookies, orgId, {
+			context: createRequestPersonnelDetailStreamsContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
 			fn: async (ctx) => createPersonnelDetailStreams(ctx, personnelId)

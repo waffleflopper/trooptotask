@@ -5,8 +5,7 @@ import {
 } from '$features/notifications/index.server';
 import { listActiveAnnouncementContent } from '$features/platform-admin/index.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
-import type { MembershipRow } from '$lib/server/permissionContext';
+import { projectEffectiveMemberAccess, type OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import { loadUserOrgPreferences } from '$features/identity/index.server';
 import type {
@@ -31,7 +30,9 @@ export function createSupabaseOrgAccessPort(config: {
 	userSupabase: SupabaseClient;
 	/** Pre-fetched org name (org row is already loaded before membership in the layout). */
 	orgName: string;
-	wrapMembershipLoad?: (loadMembershipRow: () => Promise<MembershipRow>) => Promise<MembershipRow>;
+	wrapMembershipLoad?: (
+		loadMembershipRow: () => Promise<OrganizationMembershipFacts>
+	) => Promise<OrganizationMembershipFacts>;
 }): OrgAccessPort {
 	return {
 		async getMembership(): Promise<MembershipInfo> {

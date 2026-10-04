@@ -1,5 +1,5 @@
 import { error, redirect, type Cookies } from '@sveltejs/kit';
-import { getLayoutClient } from '$lib/server/adapters/httpAdapter';
+import { getAdmittedRequestClient } from '$lib/server/adapters/requestContexts.server';
 import { getOrLoadRequestMembership } from '$lib/access/index.server';
 import { resolveOrganizationRouteIdentity } from '$features/organization/index.server';
 import { getPreferredOrganizationUrlSegment } from '$features/organization/contracts';
@@ -14,7 +14,7 @@ import {
 } from '$features/app-shell/index.server';
 
 export interface AppShellRequestDeps {
-	getLayoutClient?: typeof getLayoutClient;
+	getAdmittedRequestClient?: typeof getAdmittedRequestClient;
 	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
 	createFirstPaintChromePort?: typeof createSupabaseAppShellFirstPaintChromePort;
 	createDeferredChromePort?: typeof createSupabaseAppShellDeferredChromePort;
@@ -29,13 +29,13 @@ export function createAppShellRequest(
 	},
 	deps: AppShellRequestDeps = {}
 ): AppShellRequest {
-	const getLayoutClientFn = deps.getLayoutClient ?? getLayoutClient;
+	const getAdmittedRequestClientFn = deps.getAdmittedRequestClient ?? getAdmittedRequestClient;
 	const createOrgAccessPortFn = deps.createOrgAccessPort ?? createSupabaseOrgAccessPort;
 	const createFirstPaintChromePortFn = deps.createFirstPaintChromePort ?? createSupabaseAppShellFirstPaintChromePort;
 	const createDeferredChromePortFn = deps.createDeferredChromePort ?? createSupabaseAppShellDeferredChromePort;
 
 	async function resolveOrgRoute() {
-		const { supabase } = getLayoutClientFn(config.locals, config.cookies, config.orgSegment);
+		const { supabase } = getAdmittedRequestClientFn(config.locals);
 		const org = await resolveOrganizationRouteIdentity(supabase, config.orgSegment);
 
 		if (!org) {

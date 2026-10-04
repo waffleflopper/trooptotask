@@ -9,12 +9,17 @@ describe('assignment-type route', () => {
 	it('returns saved rows and deletion result through Calendar operations', async () => {
 		const ctx = createTestContext();
 		const notifyAdmins = vi.spyOn(ctx.notifications, 'notifyAdmins');
-		const created = await handleUseCaseRequest(_postConfig, ctx, {
-			name: 'Group Duty',
-			shortName: 'GD',
-			assignTo: 'group',
-			color: '#123456'
-		});
+		const created = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				name: 'Group Duty',
+				shortName: 'GD',
+				assignTo: 'group',
+				color: '#123456'
+			},
+			() => ctx
+		);
 		expect(created).toMatchObject({ name: 'Group Duty', shortName: 'GD', assignTo: 'group' });
 		ctx.store.seed('assignment_types', [
 			{
@@ -28,15 +33,17 @@ describe('assignment-type route', () => {
 				exempt_personnel_ids: ['person-1']
 			}
 		]);
-		const updated = await handleUseCaseRequest(_putConfig, ctx, { id: ID, name: 'New' });
+		const updated = await handleUseCaseRequest(_putConfig, ctx, { id: ID, name: 'New' }, () => ctx);
 		expect(updated).toMatchObject({ id: ID, name: 'New', sortOrder: 4, exemptPersonnelIds: ['person-1'] });
-		expect(await handleUseCaseRequest(_deleteConfig, ctx, { id: ID })).toEqual({ success: true });
+		expect(await handleUseCaseRequest(_deleteConfig, ctx, { id: ID }, () => ctx)).toEqual({ success: true });
 		expect(await ctx.store.findOne('assignment_types', ctx.auth.orgId, { id: ID })).toBeNull();
 		expect(notifyAdmins).toHaveBeenCalledOnce();
 	});
 
 	it('rejects malformed deletion and a Calendar operator configuration write', async () => {
-		await expect(handleUseCaseRequest(_deleteConfig, createTestContext(), { id: 'bad' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_deleteConfig, createTestContext(), { id: 'bad' }, () => createTestContext())
+		).rejects.toMatchObject({
 			status: 400
 		});
 		const ctx = createTestContext({
@@ -52,7 +59,7 @@ describe('assignment-type route', () => {
 			}
 		});
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { name: 'Duty', shortName: 'D', assignTo: 'group' })
+			handleUseCaseRequest(_postConfig, ctx, { name: 'Duty', shortName: 'D', assignTo: 'group' }, () => ctx)
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.store.findMany('assignment_types', ctx.auth.orgId)).toEqual([]);
 	});

@@ -86,7 +86,9 @@ describe('POST /api/export', () => {
 				return findMany(table, ...args);
 			};
 
-			await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' })).rejects.toBe(failure);
+			await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx)).rejects.toBe(
+				failure
+			);
 
 			const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 			expect(rows).toEqual([
@@ -110,9 +112,9 @@ describe('POST /api/export', () => {
 			if (missingProvider === 'Notifications') ctx.notificationSelf.store = unbound.notificationSelf.store;
 			else ctx.feedbackExport = unbound.feedbackExport;
 
-			await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' })).rejects.toThrow(
-				missingProvider
-			);
+			await expect(
+				handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx)
+			).rejects.toThrow(missingProvider);
 
 			await expect(ctx.rawStore.findMany('data_exports', ctx.auth.orgId)).resolves.toEqual([
 				expect.objectContaining({ status: 'failed' })
@@ -128,7 +130,9 @@ describe('POST /api/export', () => {
 		const ctx = createExportTestContext({
 			auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet }
 		});
-		await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'member@example.com' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(configFor(ctx), ctx, { email: 'member@example.com' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(await ctx.rawStore.findMany('data_exports', ctx.auth.orgId)).toEqual([]);
@@ -244,7 +248,7 @@ describe('POST /api/export', () => {
 				{ ...row, id: `foreign-${table}`, organization_id: 'other-org' }
 			];
 		}
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' });
+		const result = await handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx);
 		const response = configFor(ctx).formatOutput?.(result);
 		expect(response?.status).toBe(200);
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
@@ -304,9 +308,14 @@ describe('POST /api/export', () => {
 			{ id: 'own-detail', organization_id: ctx.auth.orgId, personnel_id: 'p-1' }
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'member-manager@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'member-manager@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result.status).toBe('ready');
 		if (result.status !== 'ready') throw new Error('Expected export to be ready');
@@ -357,9 +366,14 @@ describe('POST /api/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 		const response = configFor(ctx).formatOutput?.(result);
 
 		expect(result.status).toBe('ready');
@@ -427,9 +441,14 @@ describe('POST /api/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result.status).toBe('ready');
 		if (result.status !== 'ready') throw new Error('Expected export to be ready');
@@ -480,9 +499,14 @@ describe('POST /api/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result.status).toBe('ready');
 		if (result.status !== 'ready') throw new Error('Expected export to be ready');
@@ -532,9 +556,14 @@ describe('POST /api/export', () => {
 			return originalUpdate(...args);
 		};
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result.status).toBe('ready');
 		if (result.status !== 'ready') throw new Error('Expected export to be ready');

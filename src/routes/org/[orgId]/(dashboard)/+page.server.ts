@@ -1,39 +1,44 @@
+import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
+import { fetchDashboardSummary, withDashboardTiming } from '$features/dashboard/index.server';
+import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContextCore, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
+import {
+	buildLayoutRequest,
+	buildRouteRequest,
+	createRequestDashboardSummaryContext,
+	createRequestNotificationContext
+} from '$lib/server/adapters/requestContexts.server';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import {
-	buildLayoutContext,
-	buildRouteContext,
-	loadWithContextCore,
-	rethrowOrWrap
-} from '$lib/server/adapters/httpAdapter';
-import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
-import { fetchDashboardSummary, withDashboardTiming } from '$features/dashboard/index.server';
-import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
 
-export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
+export const load = async ({ params, locals, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	depends('app:dashboard-data');
 	const { orgId } = params;
 	const parentData = await parent();
-	const ctx = await buildLayoutContext(locals, cookies, orgId);
-	const { data: summary } = loadWithContextCore(ctx, {
-		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-		defer: true,
-		fn: async () =>
-			withDashboardTiming(orgId, 'summary', async () => {
-				const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
-				const workspaceData = (await workspaceBootstrap).data;
-				const canViewCriticalTasks =
-					parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
-				const canViewTraining =
-					parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
-				return fetchDashboardSummary(ctx, workspaceData, {
-					training: canViewTraining,
-					criticalTasks: canViewCriticalTasks
-				});
-			})
-	});
+	const ctx = await buildLayoutRequest(locals, orgId);
+	const { data: summary } = loadWithContextCore(
+		ctx,
+		{
+			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+			defer: true,
+			fn: async (ctx) =>
+				withDashboardTiming(orgId, 'summary', async () => {
+					const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
+					const workspaceData = (await workspaceBootstrap).data;
+					const canViewCriticalTasks =
+						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
+					const canViewTraining =
+						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
+					return fetchDashboardSummary(ctx, workspaceData, {
+						training: canViewTraining,
+						criticalTasks: canViewCriticalTasks
+					});
+				})
+		},
+		() => createRequestDashboardSummaryContext(ctx)
+	);
 
 	return {
 		summary
@@ -47,7 +52,7 @@ export const actions: Actions = {
 
 		const formData = await event.request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await createRequestNotificationContext(await buildRouteRequest(event));
 			await leaveOrganization(
 				{
 					auth: ctx.auth,

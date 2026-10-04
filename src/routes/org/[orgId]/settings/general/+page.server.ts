@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
+import { buildRouteRequest, createRequestActorContext } from '$lib/server/adapters/requestContexts.server';
 import {
 	createSupabaseOrganizationProfilePort,
 	clearOrganizationUrlSlug,
@@ -12,7 +12,7 @@ import { buildGeneralSettingsData } from '$features/organization/contracts';
 import { loadSettingsPage } from '../settingsLoad.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, async (ctx, { common, organization }) => ({
+	loadSettingsPage(event, createRequestActorContext, async (ctx, { common, organization }) => ({
 		generalSettings: buildGeneralSettingsData({
 			currentMemberRole: ctx.auth.role,
 			canManageMembers: ctx.auth.canManageMembers,
@@ -30,7 +30,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const nameRaw = formData.get('name');
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await buildRouteRequest(event);
 			return await renameOrganization(
 				{
 					auth: ctx.auth,
@@ -56,7 +56,7 @@ export const actions: Actions = {
 		const urlSlugRaw = formData.get('urlSlug');
 		let orgUrlSlug: string;
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await buildRouteRequest(event);
 			const result = await updateOrganizationUrlSlug(
 				{
 					auth: ctx.auth,
@@ -83,7 +83,7 @@ export const actions: Actions = {
 
 		let orgId: string;
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await buildRouteRequest(event);
 			await clearOrganizationUrlSlug({
 				auth: ctx.auth,
 				audit: ctx.audit,

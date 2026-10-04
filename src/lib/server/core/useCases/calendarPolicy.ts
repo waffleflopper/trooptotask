@@ -6,8 +6,10 @@ import {
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { DataStore, UseCaseContext, WritePorts } from '$lib/server/core/ports';
+import type { DataStore } from '$lib/server/core/ports';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
+import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { requirePersonnelCalendarRoster } from './calendarScope';
 import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
 import { denyPolicyDecision, policyDenialAuditDetails } from '$lib/access/index.server';
@@ -15,17 +17,29 @@ import { denyPolicyDecision, policyDenialAuditDetails } from '$lib/access/index.
 interface CalendarPolicyPorts {
 	auth: OrganizationAccessGrant;
 	audit?: AuditPort;
-
-	store?: DataStore;
-	personnelCalendarRoster?: PersonnelCalendarRosterPort;
 }
 
-export type CalendarPersonnelPolicyPorts = CalendarPolicyPorts & {
+export interface CalendarPersonnelPolicyPorts extends CalendarPolicyPorts {
+	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'findGroupIds'>;
+}
+
+export interface CalendarCatalogPorts extends CalendarPolicyPorts {
+	audit: AuditPort;
 	store: DataStore;
-	personnelCalendarRoster: PersonnelCalendarRosterPort;
-};
-export type CalendarWritePorts = WritePorts & Pick<UseCaseContext, 'personnelCalendarRoster'>;
-export type CalendarWriteWithNotificationsPorts = CalendarWritePorts & Pick<UseCaseContext, 'notifications'>;
+}
+
+export interface CalendarCatalogDeletionPorts extends CalendarCatalogPorts {
+	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
+}
+
+export interface CalendarAvailabilityPorts extends CalendarCatalogPorts {
+	rawStore?: DataStore;
+	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'findGroupIds'>;
+}
+
+export interface CalendarWritePorts extends CalendarAvailabilityPorts {
+	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
+}
 
 export const CALENDAR_POLICY_ACTIONS = POLICY_ACTION_CATALOG.calendar;
 

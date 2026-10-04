@@ -105,21 +105,36 @@ describe('personnel ICT completions API', () => {
 			}
 		]);
 
-		const created = await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'person-1',
-			ictTaskId: 'task-active',
-			completedAt: '2026-04-15',
-			validationMethod: 'Lecture'
-		});
+		const created = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				ictTaskId: 'task-active',
+				completedAt: '2026-04-15',
+				validationMethod: 'Lecture'
+			},
+			() => ctx
+		);
 
-		await handleUseCaseRequest(_putConfig, ctx, {
-			id: (created as { id: string }).id,
-			notes: 'Corrected entry'
-		});
+		await handleUseCaseRequest(
+			_putConfig,
+			ctx,
+			{
+				id: (created as { id: string }).id,
+				notes: 'Corrected entry'
+			},
+			() => ctx
+		);
 
-		await handleUseCaseRequest(_deleteConfig, ctx, {
-			id: (created as { id: string }).id
-		});
+		await handleUseCaseRequest(
+			_deleteConfig,
+			ctx,
+			{
+				id: (created as { id: string }).id
+			},
+			() => ctx
+		);
 
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
@@ -171,12 +186,17 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'person-1',
-				ictTaskId: 'task-archived',
-				completedAt: '2026-04-15',
-				validationMethod: 'Lecture'
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'person-1',
+					ictTaskId: 'task-archived',
+					completedAt: '2026-04-15',
+					validationMethod: 'Lecture'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived critical tasks cannot receive new completion entries'
@@ -216,12 +236,17 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'person-archived',
-				ictTaskId: 'task-active',
-				completedAt: '2026-04-15',
-				validationMethod: 'Lecture'
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'person-archived',
+					ictTaskId: 'task-active',
+					completedAt: '2026-04-15',
+					validationMethod: 'Lecture'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived personnel cannot receive new completion entries'
@@ -262,10 +287,15 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				id: 'completion-1',
-				notes: 'Updated note'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					id: 'completion-1',
+					notes: 'Updated note'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived critical task history cannot be edited'
@@ -322,10 +352,15 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				id: 'completion-archived-person',
-				notes: 'Updated note'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					id: 'completion-archived-person',
+					notes: 'Updated note'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived personnel completion history cannot be edited'
@@ -382,11 +417,16 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				id: 'completion-archived-task',
-				personnelId: 'person-active',
-				notes: 'Updated note'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					id: 'completion-archived-task',
+					personnelId: 'person-active',
+					notes: 'Updated note'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived critical task history cannot be edited'
@@ -438,11 +478,16 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				id: 'completion-archived-person',
-				ictTaskId: 'task-active',
-				notes: 'Updated note'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					id: 'completion-archived-person',
+					ictTaskId: 'task-active',
+					notes: 'Updated note'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived personnel completion history cannot be edited'
@@ -481,9 +526,14 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, {
-				id: 'completion-1'
-			})
+			handleUseCaseRequest(
+				_deleteConfig,
+				ctx,
+				{
+					id: 'completion-1'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived critical task history cannot be deleted'
@@ -540,9 +590,14 @@ describe('personnel ICT completions API', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, {
-				id: 'completion-archived-person'
-			})
+			handleUseCaseRequest(
+				_deleteConfig,
+				ctx,
+				{
+					id: 'completion-archived-person'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived personnel completion history cannot be deleted'
@@ -559,19 +614,29 @@ describe('personnel ICT completions API', () => {
 		seedCompletionReferences(ctx);
 		blockRequestPersonnelLookup(ctx);
 
-		const created = (await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'person-alpha',
-			ictTaskId: 'task-active',
-			completedAt: '2026-04-15',
-			validationMethod: 'Lecture'
-		})) as { id: string };
-		const updated = await handleUseCaseRequest(_putConfig, ctx, {
-			id: created.id,
-			personnelId: 'person-alpha-2',
-			notes: 'Corrected entry'
-		});
+		const created = (await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'person-alpha',
+				ictTaskId: 'task-active',
+				completedAt: '2026-04-15',
+				validationMethod: 'Lecture'
+			},
+			() => ctx
+		)) as { id: string };
+		const updated = await handleUseCaseRequest(
+			_putConfig,
+			ctx,
+			{
+				id: created.id,
+				personnelId: 'person-alpha-2',
+				notes: 'Corrected entry'
+			},
+			() => ctx
+		);
 		expect(updated).toMatchObject({ personnelId: 'person-alpha-2', notes: 'Corrected entry' });
-		await handleUseCaseRequest(_deleteConfig, ctx, { id: created.id });
+		await handleUseCaseRequest(_deleteConfig, ctx, { id: created.id }, () => ctx);
 
 		expect(await ctx.store.findOne('personnel_ict_completions', ctx.auth.orgId, { id: created.id })).toBeNull();
 		expect(ctx.auditPort.events.map((event) => event.action)).toEqual([
@@ -588,11 +653,16 @@ describe('personnel ICT completions API', () => {
 		blockRequestPersonnelLookup(ctx);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				id: 'completion-1',
-				personnelId: 'person-bravo',
-				notes: 'Unauthorized move'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					id: 'completion-1',
+					personnelId: 'person-bravo',
+					notes: 'Unauthorized move'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.store.findOne('personnel_ict_completions', ctx.auth.orgId, { id: 'completion-1' })).toMatchObject({
 			personnel_id: 'person-alpha',
@@ -610,11 +680,16 @@ describe('personnel ICT completions API', () => {
 		blockRequestPersonnelLookup(ctx);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				id: 'completion-1',
-				personnelId: 'person-alpha',
-				notes: 'Unauthorized move'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					id: 'completion-1',
+					personnelId: 'person-alpha',
+					notes: 'Unauthorized move'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(
 			await ctx.rawStore.findOne('personnel_ict_completions', ctx.auth.orgId, { id: 'completion-1' })
@@ -631,13 +706,18 @@ describe('personnel ICT completions API', () => {
 		blockRequestPersonnelLookup(ctx);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, {
-				id: 'completion-1',
-				personnelId: 'person-alpha',
-				notes: 'Bypass attempt'
-			})
+			handleUseCaseRequest(
+				_putConfig,
+				ctx,
+				{
+					id: 'completion-1',
+					personnelId: 'person-alpha',
+					notes: 'Bypass attempt'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 400, message: 'Archived personnel completion history cannot be edited' });
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'completion-1' })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'completion-1' }, () => ctx)).rejects.toMatchObject({
 			status: 400,
 			message: 'Archived personnel completion history cannot be deleted'
 		});
@@ -665,9 +745,9 @@ describe('personnel ICT completions API', () => {
 		blockRequestPersonnelLookup(ctx);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: 'completion-1', notes: 'Changed note' })
+			handleUseCaseRequest(_putConfig, ctx, { id: 'completion-1', notes: 'Changed note' }, () => ctx)
 		).rejects.toMatchObject({ status: 400, message: 'Critical task not found' });
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'completion-1' })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: 'completion-1' }, () => ctx)).rejects.toMatchObject({
 			status: 400,
 			message: 'Critical task not found'
 		});
@@ -685,24 +765,34 @@ describe('personnel ICT completions API', () => {
 		blockRequestPersonnelLookup(ctx);
 		for (const personnelId of ['person-missing', 'person-foreign']) {
 			await expect(
-				handleUseCaseRequest(_postConfig, ctx, {
-					personnelId,
-					ictTaskId: 'task-active',
-					completedAt: '2026-04-15',
-					validationMethod: 'Lecture'
-				})
+				handleUseCaseRequest(
+					_postConfig,
+					ctx,
+					{
+						personnelId,
+						ictTaskId: 'task-active',
+						completedAt: '2026-04-15',
+						validationMethod: 'Lecture'
+					},
+					() => ctx
+				)
 			).rejects.toMatchObject({ status: 400, message: 'Personnel record not found' });
 		}
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'person-archived',
-				ictTaskId: 'task-active',
-				completedAt: '2026-04-15',
-				validationMethod: 'Lecture'
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'person-archived',
+					ictTaskId: 'task-active',
+					completedAt: '2026-04-15',
+					validationMethod: 'Lecture'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 400, message: 'Archived personnel cannot receive new completion entries' });
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: 'completion-1', personnelId: 'person-archived' })
+			handleUseCaseRequest(_putConfig, ctx, { id: 'completion-1', personnelId: 'person-archived' }, () => ctx)
 		).rejects.toMatchObject({ status: 400, message: 'Archived personnel cannot receive new completion entries' });
 		expect(await ctx.store.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([
 			expect.objectContaining({ id: 'completion-1', personnel_id: 'person-alpha', notes: 'Original note' })
@@ -714,12 +804,17 @@ describe('personnel ICT completions API', () => {
 		seedCompletionReferences(ctx);
 		blockRequestPersonnelLookup(ctx);
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'person-alpha',
-				ictTaskId: 'task-active',
-				completedAt: '2026-04-15',
-				validationMethod: 'Lecture'
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'person-alpha',
+					ictTaskId: 'task-active',
+					completedAt: '2026-04-15',
+					validationMethod: 'Lecture'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(await ctx.rawStore.findMany('personnel_ict_completions', ctx.auth.orgId)).toEqual([]);
 	});

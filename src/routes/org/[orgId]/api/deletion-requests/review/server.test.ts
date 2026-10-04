@@ -60,7 +60,7 @@ describe('POST /api/deletion-requests/review', () => {
 			.mockImplementation((table, orgId, id) => ctx.rawStore.deleteWhere(table, orgId, { id }))
 			.mockRejectedValueOnce(new Error('Rating deletion unavailable'));
 		const config = configFor(ctx);
-		const approve = () => handleUseCaseRequest(config, ctx, { id: 'rating-request', action: 'approve' });
+		const approve = () => handleUseCaseRequest(config, ctx, { id: 'rating-request', action: 'approve' }, () => ctx);
 		await expect(approve()).rejects.toThrow('Rating deletion unavailable');
 		await expect(
 			ctx.rawStore.findOne('rating_scheme_entries', ctx.auth.orgId, { id: 'entry-1' })
@@ -126,7 +126,7 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(configFor(ctx), ctx, { id: 'rating-request', action: 'approve' })
+			handleUseCaseRequest(configFor(ctx), ctx, { id: 'rating-request', action: 'approve' }, () => ctx)
 		).rejects.toMatchObject({ status: 404 });
 		await expect(ctx.rawStore.findOne('rating_scheme_entries', ctx.auth.orgId, { id: 'entry-1' })).resolves.toEqual({
 			id: 'entry-1',
@@ -165,7 +165,9 @@ describe('POST /api/deletion-requests/review', () => {
 		]);
 		const deleteApprovedRatingSchemeEntry = vi.fn();
 		const config = configFor(ctx, { deleteRatingEntry: deleteApprovedRatingSchemeEntry });
-		await expect(handleUseCaseRequest(config, ctx, { id: 'request', action: 'approve' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(config, ctx, { id: 'request', action: 'approve' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(deleteApprovedRatingSchemeEntry).not.toHaveBeenCalled();
@@ -214,7 +216,8 @@ describe('POST /api/deletion-requests/review', () => {
 						trainingDeletion.deleteApprovedTrainingRecord(ctx.auth, requestId, id)
 				}),
 				ctx,
-				{ id: 'request-1', action: 'approve' }
+				{ id: 'request-1', action: 'approve' },
+				() => ctx
 			)
 		).resolves.toEqual({ success: true });
 		await expect(ctx.rawStore.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
@@ -265,7 +268,12 @@ describe('POST /api/deletion-requests/review', () => {
 			);
 		};
 		await expect(
-			handleUseCaseRequest(configFor(ctx, { approveCounseling }), ctx, { id: 'request-1', action: 'approve' })
+			handleUseCaseRequest(
+				configFor(ctx, { approveCounseling }),
+				ctx,
+				{ id: 'request-1', action: 'approve' },
+				() => ctx
+			)
 		).resolves.toEqual({
 			success: true
 		});
@@ -312,7 +320,8 @@ describe('POST /api/deletion-requests/review', () => {
 				{
 					id: 'request-1',
 					action: 'approve'
-				}
+				},
+				() => ctx
 			)
 		).resolves.toEqual({ success: true });
 		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'request-1', 'type-1');
@@ -352,7 +361,8 @@ describe('POST /api/deletion-requests/review', () => {
 				{
 					id: 'request-1',
 					action: 'approve'
-				}
+				},
+				() => ctx
 			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(deleteApprovedTrainingType).not.toHaveBeenCalled();

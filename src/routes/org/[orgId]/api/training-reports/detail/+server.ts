@@ -1,3 +1,4 @@
+import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { TrainingReportDetail } from '$features/training/contracts';
 import { json } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -11,7 +12,12 @@ import {
 	type TrainingReportRouteInput
 } from '../reportInput';
 
-export const _getDetailConfig: RouteConfig<TrainingReportRouteInput, TrainingReportDetail> = {
+export const _getDetailConfig: RouteConfig<
+	TrainingReportRouteInput,
+	TrainingReportDetail,
+	ReturnType<typeof createRequestTrainingRosterContext>
+> = {
+	context: createRequestTrainingRosterContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
 	input: trainingReportInput,

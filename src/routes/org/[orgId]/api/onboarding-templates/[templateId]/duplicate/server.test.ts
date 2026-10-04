@@ -40,7 +40,7 @@ describe('POST /api/onboarding-templates/[templateId]/duplicate', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, { templateId: TEMPLATE_ID });
+		const result = await handleUseCaseRequest(_postConfig, ctx, { templateId: TEMPLATE_ID }, () => ctx);
 
 		expect(result).toMatchObject({
 			template: { name: 'Standard Arrival Copy' },
@@ -65,7 +65,7 @@ describe('POST /api/onboarding-templates/[templateId]/duplicate', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { templateId: TEMPLATE_ID })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_postConfig, ctx, { templateId: TEMPLATE_ID }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 	});

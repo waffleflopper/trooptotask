@@ -16,7 +16,6 @@ export {
 	setCompletedAuthFlowCookie,
 	setPendingAuthFlowCookie
 } from './mfaGate.server';
-export { createIdentityAuthorization } from './authorization.server';
 export { readIdentityMfaStatus, verifyIdentityMfa } from './mfa.server';
 export {
 	enrollIdentityMfa,

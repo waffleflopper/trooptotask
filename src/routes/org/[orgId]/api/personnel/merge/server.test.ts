@@ -121,14 +121,19 @@ describe('POST /api/personnel/merge', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			records: [
-				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' },
-				{ rank: 'SSG', lastName: 'Jones', firstName: 'Pat', ets: '2027-05-01' },
-				{ rank: 'CPT', lastName: 'Taylor', firstName: 'Alex', deros: '2026-11-30' },
-				{ rank: 'PFC', lastName: 'Brown', firstName: 'Jordan', ets: '2028-01-01' }
-			]
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [
+					{ rank: 'SGT', lastName: 'Smith', firstName: 'Jamie', ets: '2027-05-01' },
+					{ rank: 'SSG', lastName: 'Jones', firstName: 'Pat', ets: '2027-05-01' },
+					{ rank: 'CPT', lastName: 'Taylor', firstName: 'Alex', deros: '2026-11-30' },
+					{ rank: 'PFC', lastName: 'Brown', firstName: 'Jordan', ets: '2028-01-01' }
+				]
+			},
+			() => ctx
+		);
 
 		expect(result.matched).toHaveLength(2);
 		expect(result.updated).toEqual([

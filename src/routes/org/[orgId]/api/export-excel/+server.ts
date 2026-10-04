@@ -1,16 +1,17 @@
-import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
-import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
-import { handle, createRequestDeletionRequestStore, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
+	buildOrganizationDataExportWorkbook,
 	executeOrganizationDataExport,
 	loadOrganizationExportPayload,
 	type OrganizationDataExportArtifact,
 	type OrganizationDataExportExecutionResult
 } from '$features/data-export/index.server';
-import { createOrganizationDataExportReads } from '../organizationDataExportDelivery.server';
+import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { buildOrganizationDataExportWorkbook } from '$features/data-export/index.server';
+import { createRequestDeletionRequestStore, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestOrganizationExportContext } from '$lib/server/adapters/requestContexts.server';
 import { workbookBufferResponse, writeWorkbookBuffer } from '$lib/utils/workbook';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { createOrganizationDataExportReads } from '../organizationDataExportDelivery.server';
 
 interface ExcelExportInput {
 	email: string | undefined;
@@ -19,8 +20,11 @@ interface ExcelExportInput {
 type WorkbookExportArtifact = Extract<OrganizationDataExportArtifact, { kind: 'workbook' }>;
 type ExcelExportOutput = OrganizationDataExportExecutionResult<WorkbookExportArtifact>;
 
-export function _createPostConfig(store: DeletionRequestStore): RouteConfig<ExcelExportInput, ExcelExportOutput> {
+export function _createPostConfig(
+	store: DeletionRequestStore
+): RouteConfig<ExcelExportInput, ExcelExportOutput, ReturnType<typeof createRequestOrganizationExportContext>> {
 	return {
+		context: createRequestOrganizationExportContext,
 		mutation: true,
 		policyAction: POLICY_ACTION_CATALOG.organization.exportData,
 		policyResource: { kind: 'organization' },

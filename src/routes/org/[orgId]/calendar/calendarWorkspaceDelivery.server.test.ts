@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { error } from '@sveltejs/kit';
 import type { Cookies } from '@sveltejs/kit';
-import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
+import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/index.server';
 import type { Personnel } from '$features/personnel/contracts';
 import type {
 	AssignmentType,
@@ -11,13 +11,26 @@ import type {
 	DailyAssignment
 } from '$features/calendar/contracts';
 import type { Group } from '$features/personnel/contracts';
-import type { CalendarBootstrap } from '$features/calendar/calendar.types';
+import type { CalendarBootstrap } from '$features/calendar/index.server';
 
-const { loadWithContextMock, fetchCalendarBootstrapMock, getActiveOnboardingPersonnelIdsMock } = vi.hoisted(() => ({
+const {
+	loadWithContextMock,
+	fetchCalendarBootstrapMock,
+	getActiveOnboardingPersonnelIdsMock,
+	createRequestCalendarWorkspaceContextMock
+} = vi.hoisted(() => ({
 	loadWithContextMock: vi.fn(),
 	fetchCalendarBootstrapMock: vi.fn(),
-	getActiveOnboardingPersonnelIdsMock: vi.fn()
+	getActiveOnboardingPersonnelIdsMock: vi.fn(),
+	createRequestCalendarWorkspaceContextMock: vi.fn()
 }));
+
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
+	);
+	return { ...actual, createRequestCalendarWorkspaceContext: createRequestCalendarWorkspaceContextMock };
+});
 
 vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
@@ -40,7 +53,7 @@ vi.mock('$features/calendar/index.server', async () => {
 	};
 });
 
-import { streamCalendarWorkspaceBootstrap } from './calendarWorkspaceBootstrap';
+import { streamCalendarWorkspaceBootstrap } from './calendarWorkspaceDelivery.server';
 
 function makeHttpError(status: number, message: string): unknown {
 	try {
@@ -79,8 +92,9 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		vi.clearAllMocks();
 		fetchCalendarBootstrapMock.mockResolvedValue(calendarBootstrap);
 		getActiveOnboardingPersonnelIdsMock.mockResolvedValue(['p1']);
+		createRequestCalendarWorkspaceContextMock.mockReturnValue({ auth: { orgId } });
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
-			const data = Promise.resolve(config.fn({ auth: { orgId } } as never));
+			const data = Promise.resolve().then(() => config.fn(config.context({ auth: { orgId } })));
 			return config.defer ? Promise.resolve({ data }) : data;
 		});
 	});

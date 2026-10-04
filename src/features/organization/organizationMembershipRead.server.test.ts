@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
-import { countOrganizationMembers, readOrganizationMembershipAccess } from './organizationMembershipRead.server';
+import {
+	countOrganizationMembers,
+	readOrganizationMembershipAccess,
+	readOrganizationMembershipForRequest
+} from './organizationMembershipRead.server';
 
 function provider(rows: Array<Record<string, unknown>>) {
 	const state = { fail: false, includeCount: true };
@@ -38,6 +42,11 @@ function provider(rows: Array<Record<string, unknown>>) {
 				const responseHeaders = new Headers();
 				if (state.includeCount && headers.get('prefer')?.includes('count='))
 					responseHeaders.set('content-range', `${selected.length ? '0-0' : '*'}/${selected.length}`);
+				if (headers.get('accept')?.includes('vnd.pgrst.object')) {
+					if (page.length !== 1)
+						return Response.json({ code: 'PGRST116', message: 'Expected one membership row' }, { status: 406 });
+					return Response.json(page[0], { headers: responseHeaders });
+				}
 				return Response.json(page, { headers: responseHeaders });
 			}
 		}
@@ -47,7 +56,12 @@ function provider(rows: Array<Record<string, unknown>>) {
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('Organization membership access read', () => {
+const membershipReaders = [
+	{ name: 'shell access', read: readOrganizationMembershipAccess },
+	{ name: 'request admission', read: readOrganizationMembershipForRequest }
+];
+
+describe.each(membershipReaders)('$name membership read', ({ read }) => {
 	it('uses only the requested account and Organization, preserving normalized access for the request cache', async () => {
 		const { client } = provider([
 			{ id: 'peer-owner', user_id: 'peer', organization_id: 'alpha', role: 'owner' },
@@ -64,7 +78,7 @@ describe('Organization membership access read', () => {
 				access_scope_group_ids: ['clinic', 'clinic', 'aid-station']
 			}
 		]);
-		const row = await readOrganizationMembershipAccess(client, 'actor', 'alpha');
+		const row = await read(client, 'actor', 'alpha');
 		expect(row).toEqual({
 			id: 'actor-alpha',
 			role: 'member',
@@ -82,15 +96,42 @@ describe('Organization membership access read', () => {
 		});
 	});
 
-	it('denies an absent membership instead of using a peer or a foreign Organization grant', async () => {
+	it.each([undefined, null, 'custom'])('rejects an invalid member preset %s before granting access', async (preset) => {
+		const { client } = provider([
+			{ user_id: 'actor', organization_id: 'alpha', role: 'member', member_preset: preset }
+		]);
+		await expect(read(client, 'actor', 'alpha')).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Membership row is missing normalized member access storage' }
+		});
+	});
+
+	it.each(['owner', 'admin'] as const)('retains %s access without requiring a member preset', async (role) => {
+		const { client } = provider([{ id: 'privileged', user_id: 'actor', organization_id: 'alpha', role }]);
+		const row = await read(client, 'actor', 'alpha');
+		expect(projectEffectiveMemberAccess(row)).toMatchObject({
+			role,
+			isPrivileged: true,
+			canManageMembers: true,
+			scopeSet: { kind: 'organization' },
+			capabilityMap: { training: 'configure', calendar: 'configure', personnel: 'configure' }
+		});
+	});
+});
+
+describe('Organization membership failure delivery', () => {
+	it.each([
+		{ read: readOrganizationMembershipAccess, message: 'You are not a member of this organization' },
+		{ read: readOrganizationMembershipForRequest, message: 'Not a member of this organization' }
+	])('denies an absent membership with its existing copy: $message', async ({ read, message }) => {
 		const { client } = provider([
 			{ user_id: 'peer', organization_id: 'alpha', role: 'owner' },
 			{ user_id: 'actor', organization_id: 'bravo', role: 'admin' }
 		]);
-		await expect(readOrganizationMembershipAccess(client, 'actor', 'alpha')).rejects.toMatchObject({ status: 403 });
+		await expect(read(client, 'actor', 'alpha')).rejects.toMatchObject({ status: 403, body: { message } });
 	});
 
-	it('reports provider failure as 500, distinct from an absent membership', async () => {
+	it('reports a shell provider failure as 500, distinct from an absent membership', async () => {
 		vi.spyOn(console, 'error').mockImplementation(() => {});
 		const { client, state } = provider([]);
 		state.fail = true;
@@ -100,20 +141,12 @@ describe('Organization membership access read', () => {
 		});
 	});
 
-	it('rejects members whose replacement access preset is missing', async () => {
-		const { client } = provider([{ user_id: 'actor', organization_id: 'alpha', role: 'member', member_preset: null }]);
-		await expect(readOrganizationMembershipAccess(client, 'actor', 'alpha')).rejects.toMatchObject({ status: 500 });
-	});
-
-	it.each(['owner', 'admin'] as const)('retains %s access without requiring a member preset', async (role) => {
-		const { client } = provider([{ id: 'privileged', user_id: 'actor', organization_id: 'alpha', role }]);
-		const row = await readOrganizationMembershipAccess(client, 'actor', 'alpha');
-		expect(projectEffectiveMemberAccess(row)).toMatchObject({
-			role,
-			isPrivileged: true,
-			canManageMembers: true,
-			scopeSet: { kind: 'organization' },
-			capabilityMap: { training: 'configure', calendar: 'configure', personnel: 'configure' }
+	it('retains the request-admission 403 response when the provider returns an error without data', async () => {
+		const { client, state } = provider([]);
+		state.fail = true;
+		await expect(readOrganizationMembershipForRequest(client, 'actor', 'alpha')).rejects.toMatchObject({
+			status: 403,
+			body: { message: 'Not a member of this organization' }
 		});
 	});
 });

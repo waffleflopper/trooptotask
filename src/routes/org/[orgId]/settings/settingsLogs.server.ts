@@ -1,4 +1,5 @@
-import type { DataStore, QueryPorts } from '$lib/server/core/ports';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { DataStore } from '$lib/server/core/ports';
 import { fetchAuditLogs, createSupabaseOrganizationAuditStore } from '$lib/audit/index.server';
 import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import { listStatusTypeNamesByIds } from '$features/calendar/index.server';
@@ -22,7 +23,7 @@ export interface BuildLogsSettingsDataInput {
 }
 
 export async function loadLogsSettings(
-	ctx: QueryPorts,
+	ctx: { auth: Pick<OrganizationAccessGrant, 'orgId'> },
 	adminStore: DataStore,
 	adminClient: SupabaseClient
 ): Promise<LogsSettingsData> {

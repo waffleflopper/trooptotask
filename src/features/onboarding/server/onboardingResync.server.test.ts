@@ -63,10 +63,10 @@ function context(options?: Parameters<typeof createWritePortsContext>[0], groupI
 }
 
 const operations = [
-	{ name: 'resync', run: (ctx: ReturnType<typeof context>) => resyncOnboarding(ctx, 'ob-1') },
+	{ name: 'resync', run: (ctx: Parameters<typeof resyncOnboarding>[0]) => resyncOnboarding(ctx, 'ob-1') },
 	{
 		name: 'switch',
-		run: (ctx: ReturnType<typeof context>) =>
+		run: (ctx: Parameters<typeof resyncOnboarding>[0]) =>
 			switchTemplate(ctx, { onboardingId: 'ob-1', newTemplateId: 'template-current' })
 	}
 ];
@@ -209,8 +209,8 @@ describe('Onboarding reconciliation application boundary', () => {
 	it.each(operations)('fails explicitly for $name without a bound owned provider', async ({ run }) => {
 		const ctx = context();
 		await expect(run(ctx)).rejects.toThrow('Bind the owned Onboarding reconciliation provider');
-		ctx.onboardingReconciliation = undefined;
-		await expect(run(ctx)).rejects.toThrow('Bind the owned Onboarding reconciliation provider');
+		const missingContext = { ...ctx, onboardingReconciliation: undefined };
+		await expect(run(missingContext)).rejects.toThrow('Bind the owned Onboarding reconciliation provider');
 		expect(ctx.audit.events).toEqual([]);
 	});
 });

@@ -23,7 +23,9 @@ describe('settings commercial isolation', () => {
 	it('keeps organization profile settings available when commercial storage is unavailable', async () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-1', role: 'admin', isPrivileged: true } });
 		const commercialRead = vi.spyOn(ctx.rawStore, 'findOne').mockRejectedValue(new Error('Billing unavailable'));
-		loadWithContextMock.mockImplementationOnce((_locals, _cookies, _orgId, config) => loadWithContextCore(ctx, config));
+		loadWithContextMock.mockImplementationOnce((_locals, _cookies, _orgId, config) =>
+			loadWithContextCore(ctx, config, () => ({ auth: ctx.auth }))
+		);
 
 		const result = await loadGeneral(event as never);
 

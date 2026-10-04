@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestActorContext } from '$lib/server/adapters/requestContexts.server';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { getAdminClient } from '$lib/server/supabase';
 import { loadLogsSettings, type LogsSettingsData } from '../settingsLogs.server';
@@ -26,17 +27,23 @@ export const load: PageServerLoad = async (event) => {
 		orgName: organization.name
 	};
 
-	return loadWithContext<LogsPageData>(event.locals, event.cookies, common.orgId, {
-		policyAction: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
-		policyResource: { kind: 'organization' },
-		fn: async (ctx) => {
-			const adminClient = getAdminClient();
-			const adminStore = createSupabaseDataStore(adminClient);
+	return loadWithContext<LogsPageData, ReturnType<typeof createRequestActorContext>>(
+		event.locals,
+		event.cookies,
+		common.orgId,
+		{
+			context: createRequestActorContext,
+			policyAction: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
+			policyResource: { kind: 'organization' },
+			fn: async (ctx) => {
+				const adminClient = getAdminClient();
+				const adminStore = createSupabaseDataStore(adminClient);
 
-			return {
-				...common,
-				logsSettings: await loadLogsSettings(ctx, adminStore, adminClient)
-			};
+				return {
+					...common,
+					logsSettings: await loadLogsSettings(ctx, adminStore, adminClient)
+				};
+			}
 		}
-	});
+	);
 };

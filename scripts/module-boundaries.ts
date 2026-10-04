@@ -13,6 +13,7 @@ type Manifest = {
 	publicRoots: Record<string, string[]>;
 	publicFiles: Record<string, string[]>;
 	mixedFiles: Record<string, { packet: string; reason: string }>;
+	testSupportFiles?: string[];
 };
 type Edge = { from: string; to?: string; classification: string; specifier: string };
 type Graph = {
@@ -50,6 +51,7 @@ const WEB_PACKAGES = [
 	'jspdf',
 	'jspdf-autotable'
 ];
+const TEST_FILE = /\.test\.[cm]?[jt]sx?$/;
 const STYLESHEET = /\.(?:css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:[?#].*)?$/;
 // These existing cross-runtime parsing/encoding APIs supplement the ECMAScript library.
 const PORTABLE_WEB_GLOBALS = new Set([
@@ -141,9 +143,28 @@ function checkModuleBoundaries(graph: Graph, manifest: Manifest): Violation[] {
 			}
 		}
 	}
+	for (const file of manifest.testSupportFiles ?? []) {
+		if (!knownFiles.has(file)) add('manifest', file, 'Test support file is absent from source inventory', '08-M15');
+	}
+
 	const actualDependencies: { from: string; to: string }[] = [];
 	for (const edge of graph.edges) {
 		if (edge.classification !== 'local' || !edge.to) continue;
+		if (manifest.testSupportFiles?.includes(edge.to)) {
+			if (
+				!TEST_FILE.test(edge.from) &&
+				!edge.from.includes('/test-support/') &&
+				!manifest.testSupportFiles.includes(edge.from)
+			) {
+				add(
+					'test-support',
+					edge.from,
+					`Production source imports test support: ${edge.specifier} (${edge.to})`,
+					manifest.owners[sourceOwners.get(edge.from) ?? '']?.packet ?? '08-M15'
+				);
+			}
+			continue;
+		}
 		const from = sourceOwners.get(edge.from);
 		const to = targetOwners.get(edge.to);
 		if (!from || !to || from === to) continue;
@@ -398,7 +419,7 @@ function checkPrivilegeBoundaries(
 }
 
 function isPublic(file: string, owner: string, manifest: Manifest): boolean {
-	if (/\.test\.[cm]?[jt]sx?$/.test(file)) return false;
+	if (TEST_FILE.test(file)) return false;
 	return (
 		(manifest.publicFiles[owner] ?? []).includes(file) ||
 		(manifest.publicRoots[owner] ?? []).some((root) => file.startsWith(root))

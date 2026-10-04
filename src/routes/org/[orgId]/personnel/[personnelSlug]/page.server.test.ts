@@ -1,10 +1,17 @@
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import {
+	createPersonnelArtifactDeliveryContext,
+	createPersonnelLeaderNoteDeliveryContext,
+	type createRequestPersonnelDetailStreamsContext
+} from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it, vi } from 'vitest';
 import { _createPersonnelDetailPageLoad } from './+page.server';
 
 const operateAuth = {
 	orgId: 'org-1',
 	role: 'member',
+	isPrivileged: false,
+	canManageMembers: false,
 	capabilityMap: {
 		calendar: 'view',
 		personnel: 'configure',
@@ -14,11 +21,37 @@ const operateAuth = {
 		ratingScheme: 'view'
 	},
 	scopeSet: { kind: 'organization' }
-};
+} satisfies Parameters<typeof createTestAuthContext>[0];
 
-const operateScope = {
-	requireGroupAccess: vi.fn(async () => {})
-};
+function detailTestContext(personnelId = 'person-1', auth: Parameters<typeof createTestAuthContext>[0] = {}) {
+	const ctx = createTestContext({ auth: { ...operateAuth, ...auth } });
+	ctx.rawStore.seed('personnel', [
+		{
+			id: personnelId,
+			organization_id: 'org-1',
+			group_id: null,
+			ets: null,
+			archived_at: null
+		}
+	]);
+	return ctx;
+}
+
+function selectedContexts(
+	ctx: ReturnType<typeof createTestContext>
+): ReturnType<typeof createRequestPersonnelDetailStreamsContext> {
+	return {
+		detail: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore, scope: ctx.scope },
+		extendedInfo: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, scope: ctx.scope },
+		artifacts: createPersonnelArtifactDeliveryContext(ctx),
+		leaderNotes: createPersonnelLeaderNoteDeliveryContext(ctx),
+		loadLossWarningWindowDays: () => ctx.organizationSettings.findLossWarningWindowDays(ctx.auth.orgId)
+	};
+}
+
+function loadWithSelectedContexts(ctx: ReturnType<typeof createTestContext>) {
+	return vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(selectedContexts(ctx)));
+}
 
 describe('personnel detail page server load', () => {
 	it.each([0, null, 'failure', 'no-ets'] as const)(
@@ -43,7 +76,7 @@ describe('personnel detail page server load', () => {
 				});
 				ctx.organizationSettings.findLossWarningWindowDays = window;
 				const load = _createPersonnelDetailPageLoad({
-					loadWithContext: async (_locals, _cookies, _orgId, config) => config.fn(ctx)
+					loadWithContext: loadWithSelectedContexts(ctx)
 				});
 				const result = await load({
 					params: { orgId: 'org-1', personnelSlug: 'person-1' },
@@ -67,24 +100,12 @@ describe('personnel detail page server load', () => {
 	);
 
 	it('denies Training readiness before reading its catalog when Training access is absent', async () => {
-		const ctx = {
-			store: {
-				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
-				findMany: vi.fn(async (_table: string) => [])
-			},
-			get rawStore() {
-				return this.store;
-			},
-			auth: {
-				...operateAuth,
-				capabilityMap: { ...operateAuth.capabilityMap, training: 'none' }
-			},
-			scope: {
-				requireGroupAccess: vi.fn(async () => {})
-			},
-			audit: { log: vi.fn() }
-		};
-		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		const ctx = detailTestContext('person-1', {
+			capabilityMap: { ...operateAuth.capabilityMap, training: 'none' }
+		});
+		vi.spyOn(ctx.scope, 'requireGroupAccess');
+		const findMany = vi.spyOn(ctx.store, 'findMany');
+		const loadWithContext = loadWithSelectedContexts(ctx);
 		const load = _createPersonnelDetailPageLoad({ loadWithContext });
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'person-1' },
@@ -98,32 +119,21 @@ describe('personnel detail page server load', () => {
 		const [trainingOutcome] = await Promise.allSettled([readinessLanes.training, ...Object.values(readinessLanes)]);
 		expect(trainingOutcome).toMatchObject({ status: 'rejected', reason: { status: 403 } });
 		expect(ctx.scope.requireGroupAccess).toHaveBeenCalledWith('person-1');
-		const trainingReads = ctx.store.findMany.mock.calls.filter(([table]) =>
+		const trainingReads = findMany.mock.calls.filter(([table]) =>
 			['training_types', 'personnel_trainings'].includes(table)
 		);
 		expect(trainingReads).toEqual([]);
 	});
 
 	it('loads retained detail streams with Duty storage unavailable for the layout-resolved personnel id', async () => {
-		const ctx = {
-			store: {
-				findOne: vi.fn(async (_table: string, _orgId: string, filters: Record<string, unknown>) => {
-					if (filters.id === 'person-1') return { id: 'person-1', group_id: null };
-					return null;
-				}),
-				findMany: vi.fn(async (table: string) => {
-					if (table.startsWith('duty_')) throw new Error('Duty storage is unavailable');
-					return [];
-				})
-			},
-			get rawStore() {
-				return this.store;
-			},
-			auth: { ...operateAuth },
-			scope: { ...operateScope },
-			audit: { log: vi.fn() }
-		};
-		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		const ctx = detailTestContext();
+		const read = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findOne');
+		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
+			if (table.startsWith('duty_')) throw new Error('Duty storage is unavailable');
+			return read(table, ...args);
+		});
+		const loadWithContext = loadWithSelectedContexts(ctx);
 		const load = _createPersonnelDetailPageLoad({ loadWithContext });
 		const depends = vi.fn();
 
@@ -152,53 +162,38 @@ describe('personnel detail page server load', () => {
 	});
 
 	it('streams expanded Soldier Data Sheet fields for the resolved Personnel Slug', async () => {
-		const ctx = {
-			store: {
-				findOne: vi.fn(async (_table: string, _orgId: string, filters: Record<string, unknown>) => {
-					if (filters.id === 'person-1') return { id: 'person-1', group_id: null };
-					return null;
-				}),
-				findMany: vi.fn(async (table: string) => {
-					if (table !== 'personnel_extended_info') return [];
-					return [
-						{
-							id: 'info-1',
-							personnel_id: 'person-1',
-							blood_type: 'O+',
-							basd: '2020-01-15',
-							date_of_rank: '2024-06-01',
-							marital_status: 'Married',
-							number_of_dependents: 2,
-							children: [{ name: 'Avery', age: 7 }],
-							civilian_education: 'BSN',
-							military_education: ['BLC'],
-							emergency_contact_name: 'Jamie Rivera',
-							emergency_contact_relationship: 'Spouse',
-							emergency_contact_phone: '907-555-0100',
-							spouse_name: 'Jamie Rivera',
-							spouse_phone: '907-555-0101',
-							vehicle_make_model: 'Toyota Tacoma',
-							vehicle_plate: 'JBER482',
-							vehicle_color: 'Gray',
-							personal_email: 'rivera@example.com',
-							personal_phone: '907-555-0102',
-							address_street: '1128 Arctic Valley Rd',
-							address_city: 'Anchorage',
-							address_state: 'AK',
-							address_zip: '99505',
-							leader_notes: 'Strong performer'
-						}
-					];
-				})
-			},
-			get rawStore() {
-				return this.store;
-			},
-			auth: { ...operateAuth },
-			scope: { ...operateScope },
-			audit: { log: vi.fn() }
-		};
-		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		const ctx = detailTestContext();
+		ctx.store.seed('personnel_extended_info', [
+			{
+				id: 'info-1',
+				organization_id: 'org-1',
+				personnel_id: 'person-1',
+				blood_type: 'O+',
+				basd: '2020-01-15',
+				date_of_rank: '2024-06-01',
+				marital_status: 'Married',
+				number_of_dependents: 2,
+				children: [{ name: 'Avery', age: 7 }],
+				civilian_education: 'BSN',
+				military_education: ['BLC'],
+				emergency_contact_name: 'Jamie Rivera',
+				emergency_contact_relationship: 'Spouse',
+				emergency_contact_phone: '907-555-0100',
+				spouse_name: 'Jamie Rivera',
+				spouse_phone: '907-555-0101',
+				vehicle_make_model: 'Toyota Tacoma',
+				vehicle_plate: 'JBER482',
+				vehicle_color: 'Gray',
+				personal_email: 'rivera@example.com',
+				personal_phone: '907-555-0102',
+				address_street: '1128 Arctic Valley Rd',
+				address_city: 'Anchorage',
+				address_state: 'AK',
+				address_zip: '99505',
+				leader_notes: 'Strong performer'
+			}
+		]);
+		const loadWithContext = loadWithSelectedContexts(ctx);
 		const load = _createPersonnelDetailPageLoad({ loadWithContext });
 
 		const result = await load({
@@ -226,19 +221,9 @@ describe('personnel detail page server load', () => {
 	});
 
 	it('uses the parent personnel id for all dashboard streams', async () => {
-		const ctx = {
-			store: {
-				findOne: vi.fn(async () => ({ id: 'person-9', group_id: null })),
-				findMany: vi.fn(async () => [])
-			},
-			get rawStore() {
-				return this.store;
-			},
-			auth: { ...operateAuth },
-			scope: { ...operateScope },
-			audit: { log: vi.fn() }
-		};
-		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		const ctx = detailTestContext('person-9');
+		vi.spyOn(ctx.store, 'findMany');
+		const loadWithContext = loadWithSelectedContexts(ctx);
 		const load = _createPersonnelDetailPageLoad({ loadWithContext });
 		const parent = vi.fn(async () => ({
 			personnelDetailHeader: {
@@ -266,25 +251,14 @@ describe('personnel detail page server load', () => {
 
 	it('preserves independently settled lanes when the request-bound Calendar read fails', async () => {
 		const failure = new Error('Calendar read failed');
-		const ctx = {
-			store: {
-				findOne: vi.fn(async (_table: string, _orgId: string, filters: Record<string, unknown>) =>
-					filters.id === 'person-1' ? { id: 'person-1', group_id: null, ets: null } : null
-				),
-				findMany: vi.fn(async (table: string) => {
-					if (table === 'availability_entries') throw failure;
-					return [];
-				})
-			},
-			get rawStore() {
-				return this.store;
-			},
-			auth: { ...operateAuth },
-			scope: { ...operateScope },
-			audit: { log: vi.fn() }
-		};
+		const ctx = detailTestContext();
+		const read = ctx.store.findMany.bind(ctx.store);
+		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
+			if (table === 'availability_entries') throw failure;
+			return read(table, ...args);
+		});
 		const load = _createPersonnelDetailPageLoad({
-			loadWithContext: vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx))
+			loadWithContext: loadWithSelectedContexts(ctx)
 		});
 		const result = await load({
 			params: { orgId: 'org-1', personnelSlug: 'rivera-monica' },

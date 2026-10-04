@@ -1,7 +1,8 @@
-import type { LayoutServerLoadEvent } from './$types';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadPersonnelDetailHeader } from '$features/personnel/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelDetailContext } from '$lib/server/adapters/requestContexts.server';
+import type { LayoutServerLoadEvent } from './$types';
 
 type LoadWithContext = typeof loadWithContext;
 
@@ -17,6 +18,7 @@ export function _createPersonnelDetailLayoutLoad(deps: PersonnelDetailLayoutLoad
 		const { orgId, personnelSlug } = params;
 
 		const personnelDetailHeader = await loadWithContextFn(locals, cookies, orgId, {
+			context: createRequestPersonnelDetailContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 			policyResource: { kind: 'unscoped' },
 			fn: (ctx) => loadPersonnelDetailHeader(ctx, personnelSlug)

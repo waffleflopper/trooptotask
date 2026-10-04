@@ -1,14 +1,11 @@
-import { error, json } from '@sveltejs/kit';
-import {
-	buildRouteContext,
-	createRequestAccountPreferencesProvider,
-	rethrowOrWrap
-} from '$lib/server/adapters/httpAdapter';
 import { patchUserOrgPreferences } from '$features/identity/index.server';
+import { createRequestAccountPreferencesProvider, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
+import { buildRouteRequest } from '$lib/server/adapters/requestContexts.server';
+import { error, json } from '@sveltejs/kit';
 
 export const PATCH = async (event) => {
 	try {
-		const ctx = await buildRouteContext(event);
+		const ctx = await buildRouteRequest(event);
 
 		let rawInput: unknown;
 		try {

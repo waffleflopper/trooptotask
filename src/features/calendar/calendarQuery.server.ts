@@ -18,7 +18,20 @@ import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
 import { requirePersonnelCalendarRoster, resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
 
-type CalendarQueryPorts = Parameters<typeof resolveCalendarAssigneeScope>[0];
+import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
+type DataStore = CalendarWritePorts['store'];
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
+import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
+import type { AuditPort } from '$lib/audit/contracts';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+
+interface CalendarQueryPorts {
+	auth: OrganizationAccessGrant;
+	audit?: AuditPort;
+	store: DataStore;
+	personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, 'listAssigneeIds'>;
+}
 
 export interface CalendarDateRange {
 	rangeStart: string;
@@ -39,7 +52,11 @@ export interface CalendarData {
 	pinnedGroups: string[];
 }
 
-export async function getActiveOnboardingPersonnelIds(ctx: CalendarQueryPorts): Promise<string[]> {
+export async function getActiveOnboardingPersonnelIds(ctx: {
+	auth: OrganizationAccessGrant;
+	audit?: AuditPort;
+	onboardingCalendarMarkers?: OnboardingCalendarMarkersPort;
+}): Promise<string[]> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);
 	if (!ctx.onboardingCalendarMarkers) throw new Error('Onboarding Calendar marker lookup is unavailable');
 	return ctx.onboardingCalendarMarkers.listActivePersonnelIds(ctx.auth.orgId);
@@ -100,7 +117,10 @@ export async function fetchCalendarRangeData(
 }
 
 export async function fetchCalendarBootstrap(
-	ctx: CalendarQueryPorts,
+	ctx: CalendarQueryPorts & {
+		personnelCalendarRoster?: Pick<PersonnelCalendarRosterPort, 'listAssigneeIds' | 'listActive'>;
+		organizationSettings: Pick<OrganizationSettingsReader, 'findLossWarningWindowDays'>;
+	},
 	input: CalendarBootstrapQueryInput
 ): Promise<Omit<CalendarBootstrap, 'activeOnboardingPersonnelIds'>> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewAvailability);

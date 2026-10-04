@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createSupabaseOrgAccessPort } from './appShellProvider.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { MembershipRow } from '$lib/server/permissionContext';
+import type { OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 
 type Call = { method: string; args: unknown[] };
 
@@ -44,10 +44,12 @@ describe('createSupabaseOrgAccessPort', () => {
 			capability_overrides: { personnel: 'configure', training: 'none', criticalTasks: 'none' },
 			access_scope_kind: 'groups',
 			access_scope_group_ids: ['group-123']
-		} satisfies MembershipRow;
+		} satisfies OrganizationMembershipFacts;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const userSupabase = createMockSupabase(builder);
-		const wrapMembershipLoad = vi.fn(async (loadMembershipRow: () => Promise<MembershipRow>) => loadMembershipRow());
+		const wrapMembershipLoad = vi.fn(async (loadMembershipRow: () => Promise<OrganizationMembershipFacts>) =>
+			loadMembershipRow()
+		);
 		const port = createSupabaseOrgAccessPort({
 			orgId: 'org-1',
 			userId: 'user-1',
@@ -84,7 +86,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			capability_overrides: { training: 'operate', criticalTasks: 'configure' },
 			access_scope_kind: 'groups',
 			access_scope_group_ids: ['group-alpha', 'group-bravo']
-		} satisfies MembershipRow;
+		} satisfies OrganizationMembershipFacts;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const userSupabase = createMockSupabase(builder);
 		const port = createSupabaseOrgAccessPort({
@@ -108,7 +110,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			capability_overrides: {},
 			access_scope_kind: 'groups',
 			access_scope_group_ids: ['ignored-for-admin']
-		} satisfies MembershipRow;
+		} satisfies OrganizationMembershipFacts;
 		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const port = createSupabaseOrgAccessPort({
 			orgId: 'org-1',
@@ -128,6 +130,20 @@ describe('createSupabaseOrgAccessPort', () => {
 			ratingScheme: 'configure'
 		});
 		expect(result.scopeSet).toEqual({ kind: 'organization' });
+	});
+
+	it('rejects malformed access facts supplied by a request cache instead of exposing member capabilities', async () => {
+		const port = createSupabaseOrgAccessPort({
+			orgId: 'org-1',
+			userId: 'user-1',
+			userSupabase: createMockSupabase(createMembershipQueryBuilder(null).builder),
+			orgName: 'Test Org',
+			wrapMembershipLoad: async () => ({ role: 'member', member_preset: null })
+		});
+
+		await expect(port.getMembership()).rejects.toThrow(
+			'Member access projection requires normalized replacement storage'
+		);
 	});
 });
 

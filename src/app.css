@@ -389,15 +389,20 @@ input[type='checkbox']:focus-visible {
 		display: none !important;
 	}
 
+	html:root:has([data-print-report='training']),
+	body:has([data-print-report='training']),
+	body:has([data-print-report='training']) :has([data-print-report='training']) {
+		height: auto !important;
+		min-height: 0 !important;
+		max-height: none !important;
+		overflow: visible !important;
+	}
+
 	body:has([data-print-report='training']) [data-slot='sidebar-wrapper'],
 	body:has([data-print-report='training']) [data-slot='sidebar-inset'],
 	body:has([data-print-report='training']) #main-content {
 		display: block !important;
-		height: auto !important;
-		min-height: 0 !important;
-		max-height: none !important;
 		margin-top: 0 !important;
-		overflow: visible !important;
 	}
 
 	[data-print-report='training'] {

@@ -335,6 +335,41 @@ describe('Training Reports briefing page', () => {
 		expect(within(section).queryByRole('alert')).toBeNull();
 	});
 
+	it('keeps keyboard focus in the affected soldiers when paging reaches the first or last page', async () => {
+		const scope: BriefingScope = { kind: 'cell', rowKey: null, typeId: 'cpr' };
+		const names = (from: number) => Array.from({ length: 25 }, (_, index) => `p${from + index}`);
+		const fetchImpl = vi
+			.fn<typeof fetch>()
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 1, names(1), 60)))
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 2, names(26), 60)))
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 3, names(51).slice(0, 10), 60)))
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 2, names(26), 60)))
+			.mockResolvedValueOnce(Response.json(detailPage(scope, 1, names(1), 60)));
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Total, CPR: 67% ready today/ }));
+		const section = await screen.findByRole('region', { name: 'Affected soldiers' });
+		expect(await within(section).findByText('Rows 1–25 of 60')).toBeTruthy();
+
+		async function page(name: 'Next' | 'Previous', range: string): Promise<HTMLElement> {
+			const button = within(section).getByRole('button', { name });
+			button.focus();
+			await fireEvent.click(button);
+			expect(await within(section).findByText(range)).toBeTruthy();
+			return button;
+		}
+
+		const next = await page('Next', 'Rows 26–50 of 60');
+		expect(document.activeElement).toBe(next);
+		await page('Next', 'Rows 51–60 of 60');
+		await waitFor(() => expect(document.activeElement).toBe(section));
+
+		const previous = await page('Previous', 'Rows 26–50 of 60');
+		expect(document.activeElement).toBe(previous);
+		await page('Previous', 'Rows 1–25 of 60');
+		await waitFor(() => expect(document.activeElement).toBe(section));
+	});
+
 	it('prints the brief from the browser with the displayed filters stated', async () => {
 		const print = vi.fn();
 		vi.stubGlobal('print', print);

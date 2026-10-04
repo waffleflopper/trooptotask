@@ -48,6 +48,20 @@
 	let { id, detail, horizonEndLabel, scopeLabel, onPage, onPageSize, onRetry }: Props = $props();
 
 	const shown = $derived(detail.detail);
+
+	let pager: HTMLButtonElement | null = null;
+
+	function showPage(page: number): void {
+		pager = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+		onPage(page);
+	}
+
+	$effect(() => {
+		if (!shown || !pager) return;
+		const active = document.activeElement;
+		if (pager.disabled && (active === pager || active === document.body)) document.getElementById(id)?.focus();
+		pager = null;
+	});
 	const summary = $derived.by(() => {
 		if (!shown) return null;
 		const count = shown.totalRows;
@@ -82,7 +96,7 @@
 			setSearch: () => {},
 			page: shown?.page ?? detail.request.page,
 			pageSize: shown?.pageSize ?? detail.request.pageSize,
-			setPage: onPage,
+			setPage: showPage,
 			setPageSize: onPageSize,
 			toggleGroup: () => {},
 			expandAll: () => {},

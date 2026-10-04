@@ -139,8 +139,6 @@
 		"identity": {
 			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/", "src/lib/preferences/"],
 			"files": [
-				"src/lib/server/core/useCases/userPreferences.test.ts",
-				"src/lib/server/core/useCases/userPreferences.ts",
 				"src/lib/server/publicAppOrigin.test.ts",
 				"src/lib/server/publicAppOrigin.ts",
 				"src/lib/server/userEmailIdentities.ts",

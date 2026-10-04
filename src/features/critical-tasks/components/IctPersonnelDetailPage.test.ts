@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctPersonnelDetailPage from './IctPersonnelDetailPage.svelte';
@@ -10,52 +12,8 @@ import type {
 	PersonnelIctCompletion
 } from '$features/critical-tasks/criticalTasks.types';
 
-const { mockOrgContext } = vi.hoisted(() => ({
-	mockOrgContext: {
-		orgId: 'org-1',
-		orgName: 'Test Unit',
-		userId: 'user-1',
-		role: 'owner',
-		isOwner: true,
-		isAdmin: false,
-		isPrivileged: true,
-		capabilityMap: {
-			calendar: 'configure',
-			personnel: 'configure',
-			training: 'configure',
-			criticalTasks: 'configure',
-			onboarding: 'configure',
-			ratingScheme: 'configure'
-		},
-		scopeSet: { kind: 'organization' } as { kind: 'organization' } | { kind: 'groups'; groupIds: string[] },
-		affordanceForFeatureAction(
-			action: { owner: { lane: string }; requiredCapability: string },
-			resource: { kind: 'organization' } | { kind: 'group'; groupId: string } | { kind: 'unscoped' } = {
-				kind: 'organization'
-			}
-		) {
-			const levels = ['none', 'view', 'operate', 'configure'];
-			const actual = this.capabilityMap[action.owner.lane as keyof typeof this.capabilityMap] ?? 'none';
-			const hasCapability = levels.indexOf(actual) >= levels.indexOf(action.requiredCapability);
-			const inScope =
-				this.scopeSet.kind === 'organization' ||
-				resource.kind !== 'group' ||
-				this.scopeSet.groupIds.includes(resource.groupId);
-			return {
-				allowed: hasCapability && inScope,
-				visible: hasCapability && inScope,
-				disabled: !(hasCapability && inScope),
-				reason: hasCapability && inScope ? 'allowed:capability' : 'denied:missing-capability',
-				explanation: '',
-				decision: {}
-			};
-		}
-	}
-}));
-
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => mockOrgContext
-}));
+let accessFacts: ClientAccessFacts = { membershipRole: 'owner', capabilityMap: createCapabilityMap('configure') };
+const org = createClientAccess(() => accessFacts);
 
 const criticalTasksLayoutData = {
 	data: {
@@ -174,8 +132,7 @@ describe('IctPersonnelDetailPage', () => {
 	beforeEach(() => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-05-01T12:00:00.000Z'));
-		mockOrgContext.capabilityMap.criticalTasks = 'configure';
-		mockOrgContext.scopeSet = { kind: 'organization' };
+		accessFacts = { membershipRole: 'owner', capabilityMap: createCapabilityMap('configure') };
 		ictTasksStore.load([], 'org-1');
 		personnelIctCompletionsStore.load([], 'org-1');
 	});
@@ -195,6 +152,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -230,6 +188,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -262,6 +221,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -292,6 +252,7 @@ describe('IctPersonnelDetailPage', () => {
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
 		const { rerender } = render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -303,6 +264,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByRole('dialog', { name: 'Edit ICT Completion' })).toBeTruthy();
 
 		await rerender({
+			org,
 			data: {
 				orgId: 'org-1',
 				criticalTasks: criticalTasksLayoutData,
@@ -316,6 +278,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.queryByRole('dialog', { name: 'Edit ICT Completion' })).toBeNull();
 
 		await rerender({
+			org,
 			data: {
 				orgId: 'org-1',
 				criticalTasks: criticalTasksLayoutData,
@@ -333,6 +296,7 @@ describe('IctPersonnelDetailPage', () => {
 		personnelIctCompletionsStore.load([], 'org-1');
 		const { rerender } = render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -344,6 +308,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.getByRole('dialog')).toBeTruthy();
 
 		await rerender({
+			org,
 			data: {
 				orgId: 'org-1',
 				criticalTasks: criticalTasksLayoutData,
@@ -356,6 +321,7 @@ describe('IctPersonnelDetailPage', () => {
 		expect(screen.queryByRole('dialog')).toBeNull();
 
 		await rerender({
+			org,
 			data: {
 				orgId: 'org-1',
 				criticalTasks: criticalTasksLayoutData,
@@ -374,6 +340,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -390,12 +357,13 @@ describe('IctPersonnelDetailPage', () => {
 	});
 
 	it('keeps the page read-only for members without Critical Tasks edit access', () => {
-		mockOrgContext.capabilityMap.criticalTasks = 'view';
+		accessFacts.capabilityMap!.criticalTasks = 'view';
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -413,13 +381,14 @@ describe('IctPersonnelDetailPage', () => {
 	});
 
 	it('shows completion actions from Critical Tasks record-completion Policy Decisions, not legacy edit flags', () => {
-		mockOrgContext.capabilityMap.criticalTasks = 'operate';
-		mockOrgContext.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
+		accessFacts.capabilityMap!.criticalTasks = 'operate';
+		accessFacts.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -441,13 +410,14 @@ describe('IctPersonnelDetailPage', () => {
 	});
 
 	it('hides completion actions when the personnel record is outside the advisory Scope Set', () => {
-		mockOrgContext.capabilityMap.criticalTasks = 'operate';
-		mockOrgContext.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
+		accessFacts.capabilityMap!.criticalTasks = 'operate';
+		accessFacts.scopeSet = { kind: 'groups', groupIds: ['group-alpha'] };
 		ictTasksStore.load([activeTask, secondaryActiveTask], 'org-1');
 		personnelIctCompletionsStore.load([activeCompletion], 'org-1');
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -477,6 +447,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					session: {
@@ -568,6 +539,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -645,6 +617,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,
@@ -712,6 +685,7 @@ describe('IctPersonnelDetailPage', () => {
 	it('renders archived ICT task completions in the personnel history view', () => {
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasksPersonnelHistory: history
@@ -733,6 +707,7 @@ describe('IctPersonnelDetailPage', () => {
 
 		render(IctPersonnelDetailPage, {
 			props: {
+				org,
 				data: {
 					orgId: 'org-1',
 					criticalTasks: criticalTasksLayoutData,

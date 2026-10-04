@@ -12,8 +12,8 @@ import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
 import { createReadyAppShellRouteData } from '../appShell.test-support';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',

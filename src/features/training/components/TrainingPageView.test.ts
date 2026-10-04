@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingPageView from './TrainingPageView.svelte';
@@ -13,7 +15,6 @@ import type { Group } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 import TrainingModals from './TrainingModals.svelte';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 vi.mock('$app/navigation', () => ({
@@ -194,7 +195,11 @@ describe('TrainingPageView', () => {
 		const ctx = new TrainingPageContext(
 			{ orgId: 'org-1', orgName: 'Test Org' },
 			modals,
-			createTestOrgContext({ orgId: 'org-1' }),
+			{
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				...createClientAccess({ membershipRole: 'owner', capabilityMap: createCapabilityMap('configure') })
+			},
 			vi.fn().mockResolvedValue(true),
 			vi.fn().mockResolvedValue(undefined)
 		);
@@ -242,12 +247,15 @@ describe('TrainingPageView', () => {
 	});
 
 	it('offers Group-scoped configurators bulk import but no catalog management', () => {
-		const org = createTestOrgContext({
+		const org = {
 			orgId: 'org-1',
-			userRole: 'member',
-			capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
-			scopeSet: { kind: 'groups', groupIds: ['group-1'] }
-		});
+			orgUrlSegment: 'org-1',
+			...createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), training: 'configure' },
+				scopeSet: { kind: 'groups', groupIds: ['group-1'] }
+			})
+		};
 		const ctx = new TrainingPageContext(
 			{ orgId: 'org-1', orgName: 'Test Org' },
 			new ModalRegistry(),

@@ -1,20 +1,3 @@
-/**
- * OrgContext — per-org runtime identity and permission state for the current user.
- *
- * Passed through Svelte's component context tree (not a global singleton) so that
- * multiple orgs can render independently. Set once in the org layout component via
- * `setOrgContext(createOrgContext(layoutData))` and retrieved anywhere below via
- * `getOrgContext()`.
- *
- * OrgContext is the client-side complement to UseCaseContext on the server. It drives
- * UI permission checks (show/hide buttons, enable/disable forms). For actual data-access
- * enforcement, always rely on the server-side AuthContext.
- *
- * Capability Map and Scope Set are advisory client data only. They can hide,
- * disable, or explain controls, but server-side Policy Decisions remain the
- * authoritative enforcement boundary.
- */
-import { setContext, getContext } from 'svelte';
 import {
 	capabilityMeets,
 	createCapabilityMap,
@@ -33,13 +16,7 @@ import {
 } from '$lib/access/policyEvaluator';
 import { explainPolicyReasonCode } from '$lib/access/policyDecisionExplanations';
 
-const ORG_CONTEXT_KEY = Symbol('org-context');
-
-export interface OrgContext {
-	readonly orgId: string;
-	readonly orgUrlSegment: string;
-	readonly orgName: string;
-	readonly userId: string | null;
+export interface ClientAccess {
 	readonly role: 'owner' | 'admin' | 'member';
 	readonly isOwner: boolean;
 	readonly isAdmin: boolean;
@@ -55,12 +32,8 @@ export interface OrgContext {
 	readonly isResourceInScope: (resource?: PolicyResource) => boolean;
 }
 
-export interface CreateOrgContextInput {
-	orgId: string;
-	orgUrlSegment?: string;
-	orgName: string;
-	userId: string | null;
-	userRole: 'owner' | 'admin' | 'member';
+export interface ClientAccessFacts {
+	membershipRole: 'owner' | 'admin' | 'member';
 	capabilityMap?: CapabilityMap;
 	scopeSet?: ScopeSet;
 }
@@ -74,53 +47,38 @@ export interface ClientAffordance {
 	readonly decision: PolicyDecision;
 }
 
-type OrgContextInputAccessor = () => CreateOrgContextInput;
+type ClientAccessInputAccessor = () => ClientAccessFacts;
 
-function toInputAccessor(input: CreateOrgContextInput | OrgContextInputAccessor): OrgContextInputAccessor {
+function toInputAccessor(input: ClientAccessFacts | ClientAccessInputAccessor): ClientAccessInputAccessor {
 	return typeof input === 'function' ? input : () => input;
 }
 
-/**
- * Builds an OrgContext from layout data, deriving computed fields
- * (isOwner, isAdmin, isPrivileged).
- */
-export function createOrgContext(input: CreateOrgContextInput | OrgContextInputAccessor): OrgContext {
+/** Live advisory access for controls. Server policy remains authoritative. */
+export function createClientAccess(input: ClientAccessFacts | ClientAccessInputAccessor): ClientAccess {
 	const getInput = toInputAccessor(input);
 	const getAccessShape = () => {
 		const current = getInput();
 		return {
 			capabilityMap:
 				current.capabilityMap ??
-				(current.userRole === 'owner' || current.userRole === 'admin'
+				(current.membershipRole === 'owner' || current.membershipRole === 'admin'
 					? createCapabilityMap('configure')
 					: createCapabilityMap('none')),
 			scopeSet: current.scopeSet ?? { kind: 'organization' }
 		};
 	};
 	return {
-		get orgId() {
-			return getInput().orgId;
-		},
-		get orgUrlSegment() {
-			return getInput().orgUrlSegment ?? getInput().orgId;
-		},
-		get orgName() {
-			return getInput().orgName;
-		},
-		get userId() {
-			return getInput().userId;
-		},
 		get role() {
-			return getInput().userRole;
+			return getInput().membershipRole;
 		},
 		get isOwner() {
-			return getInput().userRole === 'owner';
+			return getInput().membershipRole === 'owner';
 		},
 		get isAdmin() {
-			return getInput().userRole === 'admin';
+			return getInput().membershipRole === 'admin';
 		},
 		get isPrivileged() {
-			const role = getInput().userRole;
+			const role = getInput().membershipRole;
 			return role === 'owner' || role === 'admin';
 		},
 		get capabilityMap() {
@@ -152,14 +110,14 @@ function isResourceAllowedByScope(scopeSet: ScopeSet, resource: PolicyResource):
 }
 
 function evaluateClientAffordance(
-	input: CreateOrgContextInput,
+	input: ClientAccessFacts,
 	accessShape: { capabilityMap: CapabilityMap; scopeSet: ScopeSet },
 	action: PolicyAction,
 	resource: PolicyResource
 ): ClientAffordance {
 	const decision = policyEvaluator.evaluate({
 		decisionKind: 'client-advisory',
-		actor: { membershipRole: input.userRole },
+		actor: { membershipRole: input.membershipRole },
 		action,
 		capabilityMap: accessShape.capabilityMap,
 		scopeSet: accessShape.scopeSet,
@@ -175,27 +133,4 @@ function evaluateClientAffordance(
 		explanation: explainPolicyReasonCode(decision.reasonCode),
 		decision
 	};
-}
-
-/**
- * Stores the OrgContext in Svelte's component context.
- * Must be called during component initialization.
- */
-export function setOrgContext(ctx: OrgContext): void {
-	setContext(ORG_CONTEXT_KEY, ctx);
-}
-
-/**
- * Retrieves the OrgContext from Svelte's component context.
- * Must be called during component initialization.
- * Throws if context has not been set.
- */
-export function getOrgContext(): OrgContext {
-	const ctx = getContext<OrgContext | undefined>(ORG_CONTEXT_KEY);
-	if (!ctx) {
-		throw new Error(
-			'OrgContext not found. Ensure setOrgContext() is called in a parent layout or component before using getOrgContext().'
-		);
-	}
-	return ctx;
 }

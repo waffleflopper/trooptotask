@@ -76,7 +76,7 @@
 	{/if}
 {/snippet}
 
-{#if !tooltipContent}
+{#if !tooltipContent || sidebar.state !== 'collapsed' || sidebar.isMobile}
 	{@render Button({})}
 {:else}
 	<Tooltip.Root>
@@ -85,12 +85,7 @@
 				{@render Button({ props })}
 			{/snippet}
 		</Tooltip.Trigger>
-		<Tooltip.Content
-			side="right"
-			align="center"
-			hidden={sidebar.state !== 'collapsed' || sidebar.isMobile}
-			{...tooltipContentProps}
-		>
+		<Tooltip.Content side="right" align="center" {...tooltipContentProps}>
 			{#if typeof tooltipContent === 'string'}
 				{tooltipContent}
 			{:else if tooltipContent}

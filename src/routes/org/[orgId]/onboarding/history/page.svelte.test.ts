@@ -6,8 +6,8 @@ import { onboardingStore } from '$features/onboarding';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
 import { personnelRosterHydration } from '$features/personnel';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgUrlSegment: 'org-1',
 		scopeSet: { kind: 'organization' }

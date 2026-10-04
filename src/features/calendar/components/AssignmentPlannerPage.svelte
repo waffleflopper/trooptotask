@@ -4,7 +4,7 @@
 	import { createVisibleCalendarRange, getCalendarRangeGaps } from '../utils/calendarRange';
 	import { buildCalendarAnchorCookie } from '../utils/calendarAnchorDate';
 	import MonthlyAssignmentPlanner from './MonthlyAssignmentPlanner.svelte';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import type { CalendarOperationsPageAccess } from '../contracts';
 	import { pinnedGroupsStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
@@ -15,6 +15,7 @@
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 	interface Props {
+		org: CalendarOperationsPageAccess;
 		data: {
 			orgId: string;
 			orgName?: string;
@@ -26,10 +27,9 @@
 		};
 	}
 
-	let { data }: Props = $props();
+	let { data, org }: Props = $props();
 
-	const org = getOrgContext();
-	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
+	const orgUrlSegment = $derived(org.orgUrlSegment);
 	const assignmentAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAssignments, { kind: 'unscoped' })
 	);

@@ -1,14 +1,11 @@
 // @vitest-environment happy-dom
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
-import {
-	createTestOrgContext,
-	FULL_TEST_CAPABILITY_MAP,
-	VIEW_TEST_CAPABILITY_MAP
-} from '$lib/test-support/orgContextBuilder';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -102,13 +99,15 @@ function makeMockOrg(
 ) {
 	const role = overrides.userRole ?? 'member';
 	const isPrivileged = role === 'owner' || role === 'admin';
-	return createTestOrgContext({
-		orgId: 'org1',
+	return {
 		userId: 'user1',
-		userRole: role,
-		capabilityMap: overrides.capabilityMap ?? (isPrivileged ? FULL_TEST_CAPABILITY_MAP : VIEW_TEST_CAPABILITY_MAP),
-		scopeSet: overrides.scopeSet
-	});
+		...createClientAccess({
+			membershipRole: role,
+			capabilityMap:
+				overrides.capabilityMap ?? (isPrivileged ? createCapabilityMap('configure') : createCapabilityMap('view')),
+			scopeSet: overrides.scopeSet
+		})
+	};
 }
 
 describe('CalendarPageView', () => {

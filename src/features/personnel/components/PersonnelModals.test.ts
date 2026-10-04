@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groupCatalogHydration, groupsStore } from '$features/personnel';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import type { Personnel } from '../personnel.types';
 import { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import PersonnelModals from './PersonnelModals.svelte';
@@ -121,10 +122,9 @@ describe('scoped Personnel creation', () => {
 				]
 			},
 			modals,
-			createTestOrgContext({
-				orgId: 'org-a',
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, personnel: 'configure' },
+			createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
 				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
 			})
 		);

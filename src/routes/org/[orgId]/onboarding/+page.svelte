@@ -3,13 +3,13 @@
 	import type { OnboardingWorkspaceResult } from '$features/onboarding/contracts';
 	import { untrack } from 'svelte';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	const modals = new ModalRegistry();
 	let modalOrgId = org.orgId;
 	$effect(() => {

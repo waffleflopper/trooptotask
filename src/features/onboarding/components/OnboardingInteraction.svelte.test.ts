@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import OnboardingKanbanView from './OnboardingKanbanView.svelte';
@@ -7,9 +9,7 @@ import { OnboardingPageContext } from '../contexts/OnboardingPageContext.svelte'
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
 import { personnelRosterHydration } from '$features/personnel';
-import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { PersonnelOnboarding } from '../onboarding.types';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
@@ -43,7 +43,11 @@ const packet: PersonnelOnboarding = {
 };
 
 function mount(rankCatalog: RankCatalogEntry[] = [], rankCatalogUnavailable = false) {
-	const ctx = new OnboardingPageContext(new ModalRegistry(), createTestOrgContext({ orgId: 'org-1' }));
+	const ctx = new OnboardingPageContext(new ModalRegistry(), {
+		orgId: 'org-1',
+		orgUrlSegment: 'org-1',
+		...createClientAccess({ membershipRole: 'owner', capabilityMap: createCapabilityMap('configure') })
+	});
 	render(OnboardingKanbanView, { props: { ctx } });
 	render(OnboardingModals, { props: { ctx, rankCatalog, rankCatalogUnavailable } });
 	return ctx;
@@ -401,15 +405,15 @@ describe('Onboarding retained interactions', () => {
 				],
 				'org-1'
 			);
-			const ctx = new OnboardingPageContext(
-				new ModalRegistry(),
-				createTestOrgContext({
-					orgId: 'org-1',
-					userRole: 'member',
-					capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: access },
+			const ctx = new OnboardingPageContext(new ModalRegistry(), {
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), onboarding: access },
 					scopeSet: { kind: 'groups', groupIds: ['alpha'] }
 				})
-			);
+			});
 			render(OnboardingKanbanView, { props: { ctx } });
 			await fireEvent.click(screen.getByRole('button', { name: /SGT Smith, Jane/ }));
 			expect(await screen.findByRole('button', { name: 'Mark Complete' })).toBeTruthy();

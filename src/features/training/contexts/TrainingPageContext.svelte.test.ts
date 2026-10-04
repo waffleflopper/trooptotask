@@ -1,3 +1,5 @@
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 const getDefaultUserOrgPreferences = () => ({
@@ -6,7 +8,6 @@ const getDefaultUserOrgPreferences = () => ({
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
@@ -52,7 +53,11 @@ vi.mock('$app/navigation', () => ({
 // ---------------------------------------------------------------------------
 
 function makeOrg() {
-	return createTestOrgContext({ userRole: 'member' });
+	return {
+		orgId: 'test-org',
+		orgUrlSegment: 'test-org',
+		...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('configure') })
+	};
 }
 
 function makeModals() {
@@ -60,10 +65,14 @@ function makeModals() {
 }
 
 function makePolicyOrg(options: { training: CapabilityMap['training'] }) {
-	return createTestOrgContext({
-		userRole: 'member',
-		capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: options.training }
-	});
+	return {
+		orgId: 'test-org',
+		orgUrlSegment: 'test-org',
+		...createClientAccess({
+			membershipRole: 'member',
+			capabilityMap: { ...createCapabilityMap('none'), training: options.training }
+		})
+	};
 }
 
 const mockPerson: Personnel = {
@@ -188,11 +197,15 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('keeps Group-scoped configurators in the matrix without Organization-wide controls', () => {
-			const org = createTestOrgContext({
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
-				scopeSet: { kind: 'groups', groupIds: ['g-1'] }
-			});
+			const org = {
+				orgId: 'test-org',
+				orgUrlSegment: 'test-org',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), training: 'configure' },
+					scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+				})
+			};
 			const ctx = makeContext(makeData(), modals, org);
 
 			expect(ctx.canViewTraining).toBe(true);

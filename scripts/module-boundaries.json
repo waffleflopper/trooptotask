@@ -30,19 +30,7 @@
 		},
 		"app-shell": {
 			"roots": ["src/features/app-shell/"],
-			"files": [
-				"src/lib/components/OrgNavIcon.svelte",
-				"src/lib/components/TopHeader.svelte",
-				"src/lib/components/TopHeader.test.ts",
-				"src/lib/components/WhatsNewModal.svelte",
-				"src/lib/components/orgNavigation.test.ts",
-				"src/lib/components/orgNavigation.ts",
-				"src/lib/data/changelog.ts",
-				"src/lib/stores/help.svelte.ts",
-				"src/lib/stores/orgContext.svelte.test.ts",
-				"src/lib/stores/orgContext.svelte.ts",
-				"src/lib/stores/whatsNew.svelte.ts"
-			],
+			"files": [],
 			"packet": "08-M03"
 		},
 		"audit": {

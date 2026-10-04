@@ -1,12 +1,9 @@
+import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RatingSchemeEntry } from '$features/rating-scheme/rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { RatingSchemePageContext, type RatingSchemePageData } from './RatingSchemePageContext.svelte';
-import {
-	createTestOrgContext,
-	VIEW_TEST_CAPABILITY_MAP,
-	NONE_TEST_CAPABILITY_MAP
-} from '$lib/test-support/orgContextBuilder';
 
 const entries: RatingSchemeEntry[] = [
 	{
@@ -68,12 +65,8 @@ const entries: RatingSchemeEntry[] = [
 	}
 ];
 
-function makeOrg(overrides: Partial<Parameters<typeof createTestOrgContext>[0]> = {}) {
-	return createTestOrgContext({
-		userRole: 'member',
-		capabilityMap: VIEW_TEST_CAPABILITY_MAP,
-		...overrides
-	});
+function makeOrg(overrides: Partial<ClientAccessFacts> = {}) {
+	return createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('view'), ...overrides });
 }
 
 function makeData(overrides: Partial<RatingSchemePageData> = {}): RatingSchemePageData {
@@ -124,7 +117,7 @@ describe('RatingSchemePageContext', () => {
 			makeData(),
 			new ModalRegistry(),
 			makeOrg({
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, ratingScheme: 'operate' }
+				capabilityMap: { ...createCapabilityMap('none'), ratingScheme: 'operate' }
 			}),
 			entries
 		);
@@ -139,7 +132,7 @@ describe('RatingSchemePageContext', () => {
 			makeData(),
 			new ModalRegistry(),
 			makeOrg({
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, personnel: 'configure' }
+				capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' }
 			}),
 			entries
 		);

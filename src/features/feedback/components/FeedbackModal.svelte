@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
 	import { Button } from '$lib/components/ui/button';
@@ -19,6 +20,10 @@
 	let category = $state('general');
 	let message = $state('');
 	let submitting = $state(false);
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const canSubmit = $derived(message.trim().length > 0);
 	const categoryLabel = $derived(
@@ -26,7 +31,7 @@
 	);
 
 	async function handleSubmit() {
-		if (!canSubmit || submitting) return;
+		if (!active || !canSubmit || submitting) return;
 		submitting = true;
 		try {
 			const res = await fetch('/api/feedback', {
@@ -40,6 +45,7 @@
 					organizationName: orgName
 				})
 			});
+			if (!active) return;
 
 			if (!res.ok) {
 				const data = await res.json().catch(() => null);
@@ -47,11 +53,11 @@
 			}
 
 			toastStore.success('Feedback submitted — thank you!');
-			onClose();
+			if (active) onClose();
 		} catch (err) {
-			toastStore.error(err instanceof Error ? err.message : 'Failed to submit feedback');
+			if (active) toastStore.error(err instanceof Error ? err.message : 'Failed to submit feedback');
 		} finally {
-			submitting = false;
+			if (active) submitting = false;
 		}
 	}
 </script>

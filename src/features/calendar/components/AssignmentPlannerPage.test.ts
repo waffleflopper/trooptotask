@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { fireEvent, render, screen, cleanup, waitFor, act } from '@testing-library/svelte';
 import AssignmentPlannerPage from './AssignmentPlannerPage.svelte';
@@ -6,21 +8,18 @@ import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { groupCatalogHydration } from '$features/personnel';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { CalendarOperationsPageAccess } from '../contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType } from '$features/calendar/contracts';
-import { createTestOrgContext, type CreateOrgContextInput } from '$lib/test-support/orgContextBuilder';
 
-function makeOrg(overrides: Partial<CreateOrgContextInput> = {}) {
-	return createTestOrgContext({ orgId: 'org-1', userId: 'user-1', userRole: 'member', ...overrides });
+function makeOrg(overrides: Partial<ClientAccessFacts> = {}) {
+	return {
+		orgUrlSegment: 'org-1',
+		...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('configure'), ...overrides })
+	};
 }
 
-let mockOrg: OrgContext = makeOrg();
-
-vi.mock('$lib/stores/orgContext.svelte', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/stores/orgContext.svelte')>()),
-	getOrgContext: () => mockOrg
-}));
+let mockOrg: CalendarOperationsPageAccess = makeOrg();
 
 const assignmentTypes: AssignmentType[] = [
 	{
@@ -83,6 +82,7 @@ function renderPage(
 ) {
 	return render(AssignmentPlannerPage, {
 		props: {
+			org: mockOrg,
 			data: {
 				...data,
 				calendar: data.calendar ?? {
@@ -376,6 +376,7 @@ describe('planner visible-month loading', () => {
 		await waitFor(() => expect(resolve).toBeTypeOf('function'));
 		dailyAssignmentsStore.load(assignmentTypes, [{ ...saved, id: 'other-org', assigneeId: 'person-2' }], 'org-2');
 		await view.rerender({
+			org: mockOrg,
 			data: { orgId: 'org-2', calendar: { data: { personnel, rangeStart: '2026-09-01', rangeEnd: '2026-09-30' } } }
 		});
 		await act(async () => {

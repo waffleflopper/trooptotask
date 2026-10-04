@@ -8,14 +8,14 @@ import { groupsStore } from '$features/personnel';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { OnboardingPageAccess } from '../contracts';
 import type {
 	PersonnelOnboarding,
 	OnboardingStepProgress,
 	OnboardingTemplate
 } from '$features/onboarding/onboarding.types';
 import type { Personnel } from '$features/personnel/contracts';
-import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
+import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { getProgress } from '../onboardingProgress';
 export { getProgress } from '../onboardingProgress';
 
@@ -78,16 +78,6 @@ export const STEP_TYPE_LABELS: Record<string, string> = {
 };
 
 // ── Context class ─────────────────────────────────────────────
-
-interface OnboardingPageAccess {
-	readonly orgId: string;
-	readonly orgUrlSegment?: string;
-	readonly scopeSet: ScopeSet;
-	readonly affordanceForFeatureAction: (
-		action: FeatureLanePolicyAction,
-		resource?: PolicyResource
-	) => { readonly allowed: boolean; readonly visible: boolean };
-}
 
 export class OnboardingPageContext {
 	// Injected dependencies

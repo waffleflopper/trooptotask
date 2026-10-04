@@ -1,3 +1,18 @@
+import type { ClientAffordance } from '$lib/access/clientAccess';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+
+export type PersonnelAffordance = Pick<ClientAffordance, 'allowed'>;
+
+/** Personnel consumes routing, scope and live advisory decisions from Delivery. */
+export interface PersonnelPageAccess {
+	readonly orgUrlSegment?: string;
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => PersonnelAffordance;
+}
+
 import type { OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
 import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';

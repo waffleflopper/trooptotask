@@ -6,7 +6,7 @@ import { pinnedGroupsHydration } from '$features/personnel';
 import type { Personnel } from '../personnel.types';
 import type { PersonnelPageContext } from '$features/personnel/contexts/PersonnelPageContext.svelte';
 import type { UpcomingLossRecord } from '$features/personnel/contracts';
-import type { ClientAffordance } from '$lib/stores/orgContext.svelte';
+import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { RequestPersonnelArchiveApproval } from '../utils/archivePersonnel';
 
 const requestArchiveApproval: RequestPersonnelArchiveApproval = async () => false;

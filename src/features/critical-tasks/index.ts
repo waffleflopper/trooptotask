@@ -24,3 +24,5 @@ export {
 	markCriticalTasksWorkspaceResolved
 } from './criticalTasksWorkspaceHydration.svelte';
 export type { IctTask, PersonnelIctCompletion } from './criticalTasks.types';
+
+export type { CriticalTasksPageAccess } from './contracts';

@@ -35,3 +35,5 @@ export { default as OnboardingHistoryPage } from './components/OnboardingHistory
 export function loadOnboardingModals() {
 	return import('./components/OnboardingModals.svelte');
 }
+
+export type { OnboardingPageAccess } from './contracts';

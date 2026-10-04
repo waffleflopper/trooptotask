@@ -1,4 +1,6 @@
 // @vitest-environment happy-dom
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import RatingSchemePageView from './RatingSchemePageView.svelte';
@@ -6,7 +8,6 @@ import { RatingSchemePageContext, type RatingSchemePageData } from '../contexts/
 import { ratingSchemeStore } from '../stores/ratingScheme.svelte';
 import type { RatingSchemeEntry } from '../rating-scheme.types';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 
 const { exportRatingSchemeMock } = vi.hoisted(() => ({
 	exportRatingSchemeMock: vi.fn(async () => undefined)
@@ -58,9 +59,9 @@ const entries: RatingSchemeEntry[] = [
 ];
 
 function makeOrg() {
-	return createTestOrgContext({
-		userRole: 'member',
-		capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, ratingScheme: 'operate' }
+	return createClientAccess({
+		membershipRole: 'member',
+		capabilityMap: { ...createCapabilityMap('none'), ratingScheme: 'operate' }
 	});
 }
 

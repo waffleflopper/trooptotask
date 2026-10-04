@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte';
@@ -9,7 +10,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import type { CriticalTasksPageAccess } from '../contracts';
 	import IctTaskBulkImport from '$features/critical-tasks/components/IctTaskBulkImport.svelte';
 	import CriticalTasksDefaults from '$features/critical-tasks/components/CriticalTasksDefaults.svelte';
 	import { criticalTasksSettingsFromWorkspaceData } from '$features/critical-tasks/utils/criticalTasksWorkspaceData';
@@ -27,16 +28,16 @@
 	} from '$features/critical-tasks/utils/ictTaskLibrary';
 
 	interface Props {
-		data?: {
-			orgId?: string;
+		org: CriticalTasksPageAccess;
+		data: {
+			orgId: string;
 			[key: string]: unknown;
 		};
 	}
 
-	let { data = {} }: Props = $props();
+	let { data, org }: Props = $props();
 
-	const org = getOrgContext();
-	const orgId = $derived(data.orgId ?? org.orgId);
+	const orgId = $derived(data.orgId);
 	const settings = $derived(criticalTasksSettingsFromWorkspaceData(data, orgId));
 	const configureLibraryAffordance = $derived(criticalTasksConfigureLibraryAffordance(org));
 	const canViewLibrary = $derived(configureLibraryAffordance.visible);
@@ -64,6 +65,15 @@
 	let formExpirationMonths = $state('');
 	let formSortOrder = $state('0');
 	let lastOrgId = $state('');
+	let active = true;
+	let scopeGeneration = 0;
+	onDestroy(() => {
+		active = false;
+		scopeGeneration += 1;
+	});
+	function isCurrentRequest(requestOrgId: string, generation: number): boolean {
+		return active && orgId === requestOrgId && scopeGeneration === generation;
+	}
 
 	const activeTasks = $derived(getActiveIctTasksForLibrary(ictTasksStore.items));
 	const archivedTasks = $derived(getArchivedIctTasksForLibrary(ictTasksStore.items));
@@ -154,6 +164,7 @@
 		}
 		if (lastOrgId === orgId) return;
 		lastOrgId = orgId;
+		scopeGeneration += 1;
 		selectedTaskId = null;
 		creating = false;
 		editing = false;
@@ -296,6 +307,7 @@
 		if (!canManage || saving || !formTaskCode.trim() || !formTitle.trim()) return;
 
 		const requestOrgId = orgId;
+		const generation = scopeGeneration;
 		formError = '';
 		saving = true;
 		try {
@@ -312,36 +324,42 @@
 
 			if (creating) {
 				const created = await ictTasksStore.add(payload as Omit<IctTask, 'id'>);
-				if (orgId !== requestOrgId) return;
+				if (!isCurrentRequest(requestOrgId, generation)) return;
 				if (created) selectedTaskId = created.id;
 				creating = false;
 			} else if (selectedTaskId) {
 				const updated = await ictTasksStore.update(selectedTaskId, payload);
-				if (orgId !== requestOrgId) return;
+				if (!isCurrentRequest(requestOrgId, generation)) return;
 				if (!updated) {
 					throw new Error('Could not save task changes');
 				}
 			}
 			editing = false;
 		} catch (error) {
-			if (orgId === requestOrgId) {
+			if (isCurrentRequest(requestOrgId, generation)) {
 				formError = error instanceof Error ? error.message : 'Could not save task';
 			}
 		} finally {
-			if (orgId === requestOrgId) saving = false;
+			if (isCurrentRequest(requestOrgId, generation)) saving = false;
 		}
 	}
 
 	async function archiveTask(taskId: string) {
 		if (!canManage) return;
+		const requestOrgId = orgId;
+		const generation = scopeGeneration;
 		await ictTasksStore.update(taskId, { archivedAt: new Date().toISOString() });
+		if (!isCurrentRequest(requestOrgId, generation)) return;
 		if (selectedTaskId === taskId) selectedTaskId = null;
 		confirmArchive = null;
 	}
 
 	async function restoreTask(taskId: string) {
 		if (!canManage) return;
+		const requestOrgId = orgId;
+		const generation = scopeGeneration;
 		await ictTasksStore.update(taskId, { archivedAt: null });
+		if (!isCurrentRequest(requestOrgId, generation)) return;
 		taskStatusFilter = 'active';
 		selectedTaskId = taskId;
 	}

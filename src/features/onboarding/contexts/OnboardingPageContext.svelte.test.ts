@@ -1,3 +1,5 @@
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
@@ -17,7 +19,6 @@ import { OnboardingPageContext, getProgress, formatTimestamp } from './Onboardin
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
 import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 afterEach(() => {
@@ -62,18 +63,17 @@ function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): Personnel
 }
 
 const baseCapabilityMap: CapabilityMap = {
-	...NONE_TEST_CAPABILITY_MAP,
+	...createCapabilityMap('none'),
 	personnel: 'view',
 	onboarding: 'operate'
 };
 
 function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
-	return createTestOrgContext({
+	return {
 		orgId: 'org-1',
-		userRole: 'member',
-		capabilityMap,
-		scopeSet: { kind: 'groups', groupIds: ['g-1'] }
-	});
+		orgUrlSegment: 'org-1',
+		...createClientAccess({ membershipRole: 'member', capabilityMap, scopeSet: { kind: 'groups', groupIds: ['g-1'] } })
+	};
 }
 
 function deferredResponse() {
@@ -423,7 +423,11 @@ describe('Onboarding Personnel creation result', () => {
 			finishRequest = resolve;
 		});
 		vi.stubGlobal('fetch', () => response);
-		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, createTestOrgContext({ orgId: 'org-a' }));
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, {
+			orgId: 'org-a',
+			orgUrlSegment: 'org-a',
+			...createClientAccess({ membershipRole: 'owner', capabilityMap: createCapabilityMap('configure') })
+		});
 		const data = {
 			rank: 'SPC',
 			lastName: 'Synthetic',
@@ -446,32 +450,33 @@ describe('OnboardingPageContext policy affordances', () => {
 	it('allows an Onboarding-only operator to start workflows without offering Personnel creation', () => {
 		const onboardingOnly = new OnboardingPageContext(
 			{ open: vi.fn() } as never,
-			makeOrgContext({ ...NONE_TEST_CAPABILITY_MAP, onboarding: 'operate' })
+			makeOrgContext({ ...createCapabilityMap('none'), onboarding: 'operate' })
 		);
 		expect(onboardingOnly.canManageWorkflows).toBe(true);
 		expect(onboardingOnly.canAddPerson).toBe(false);
 
-		const personnelAdmin = new OnboardingPageContext(
-			{ open: vi.fn() } as never,
-			createTestOrgContext({
-				orgId: 'org-1',
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'operate', personnel: 'configure' },
+		const personnelAdmin = new OnboardingPageContext({ open: vi.fn() } as never, {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			...createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'operate', personnel: 'configure' },
 				scopeSet: { kind: 'organization' }
 			})
-		);
+		});
 		expect(personnelAdmin.canAddPerson).toBe(true);
 	});
 
 	it('offers the shared creation form to an Alpha Personnel configurator', () => {
-		const ctx = new OnboardingPageContext(
-			{ open: vi.fn() } as never,
-			createTestOrgContext({
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure', personnel: 'configure' },
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, {
+			orgId: 'test-org',
+			orgUrlSegment: 'test-org',
+			...createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure', personnel: 'configure' },
 				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
 			})
-		);
+		});
 		expect(ctx.canAddPerson).toBe(true);
 	});
 
@@ -489,15 +494,15 @@ describe('OnboardingPageContext policy affordances', () => {
 			{ kind: 'groups', groupIds: ['g-1'] },
 			{ kind: 'groups', groupIds: [] }
 		] satisfies ScopeSet[]) {
-			const context = new OnboardingPageContext(
-				{ open: vi.fn() } as never,
-				createTestOrgContext({
-					orgId: 'org-1',
-					userRole: 'member',
-					capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure' },
+			const context = new OnboardingPageContext({ open: vi.fn() } as never, {
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure' },
 					scopeSet
 				})
-			);
+			});
 			expect(context.canManageConfig).toBe(scopeSet.kind === 'organization');
 			expect(context.canViewOnboarding).toBe(true);
 		}

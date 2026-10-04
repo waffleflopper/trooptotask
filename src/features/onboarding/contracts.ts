@@ -1,3 +1,17 @@
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+
+/** Live routing, scope and advisory decisions supplied by Delivery. */
+export interface OnboardingPageAccess {
+	readonly orgId: string;
+	readonly orgUrlSegment?: string;
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => { readonly allowed: boolean; readonly visible: boolean };
+}
+
 import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';

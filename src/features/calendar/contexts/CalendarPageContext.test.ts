@@ -1,3 +1,5 @@
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
 	CalendarPageContext,
@@ -13,11 +15,6 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import type { Personnel } from '$features/personnel/contracts';
-import {
-	createTestOrgContext,
-	FULL_TEST_CAPABILITY_MAP,
-	VIEW_TEST_CAPABILITY_MAP
-} from '$lib/test-support/orgContextBuilder';
 
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
@@ -94,13 +91,15 @@ function makeMockOrg(
 ) {
 	const role = overrides.userRole ?? 'member';
 	const isPrivileged = role === 'owner' || role === 'admin';
-	return createTestOrgContext({
-		orgId: 'org1',
+	return {
 		userId: 'user1',
-		userRole: role,
-		capabilityMap: overrides.capabilityMap ?? (isPrivileged ? FULL_TEST_CAPABILITY_MAP : VIEW_TEST_CAPABILITY_MAP),
-		scopeSet: overrides.scopeSet
-	});
+		...createClientAccess({
+			membershipRole: role,
+			capabilityMap:
+				overrides.capabilityMap ?? (isPrivileged ? createCapabilityMap('configure') : createCapabilityMap('view')),
+			scopeSet: overrides.scopeSet
+		})
+	};
 }
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,3 @@
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
 import type { AppShellRouteData, ReadyAppShell } from '$lib/server/core/orgShell';
 
 export function createReadyAppShellRouteData(
@@ -39,7 +38,10 @@ export function createReadyAppShellRouteData(
 			user: { id: overrides.userId ?? 'user-1' },
 			member,
 			state: { orgSuspended: false },
-			preferences: getDefaultUserOrgPreferences(),
+			preferences: {
+				calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
+				training: { selectedGroupId: null, selectedViewId: null, matrixViewMode: 'by-group' }
+			},
 			announcements: []
 		}
 	};

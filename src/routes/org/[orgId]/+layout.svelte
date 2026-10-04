@@ -4,6 +4,7 @@
 	import { onMount } from 'svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { createOrgContext, setOrgContext } from '$lib/stores/orgContext.svelte';
+	import { AccountPreferencesProvider } from '$features/identity';
 	import { AnnouncementBanner } from '$features/notifications/index';
 	import BannerStack from '$lib/components/BannerStack.svelte';
 	import TopHeader from '$lib/components/TopHeader.svelte';
@@ -117,7 +118,15 @@
 		onFeedback={() => (showFeedback = true)}
 		onWhatsNew={() => whatsNewStore.show()}
 	>
-		{@render children()}
+		{#key `${readyShell.user.id}:${readyShell.org.id}`}
+			<AccountPreferencesProvider
+				userId={readyShell.user.id}
+				orgId={readyShell.org.id}
+				preferences={readyShell.preferences}
+			>
+				{@render children()}
+			</AccountPreferencesProvider>
+		{/key}
 	</TopHeader>
 
 	{#if showFeedback}

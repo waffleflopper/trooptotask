@@ -8,7 +8,7 @@ import {
 	normalizeUserOrgPreferences,
 	UserOrgPreferencesPatchSchema,
 	type UserOrgPreferences
-} from '$lib/preferences/userPreferences';
+} from './accountPreferences';
 
 interface AccountPreferenceScope {
 	readonly orgId: string;

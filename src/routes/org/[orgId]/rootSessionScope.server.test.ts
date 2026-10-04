@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { passwordSessionToken } from '../../../tests/fixtures/passwordSession';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from './appShell.test-support';
 
 const { loadShell } = vi.hoisted(() => ({ loadShell: vi.fn() }));
@@ -9,8 +8,10 @@ import { load } from './+layout.server';
 type Event = Parameters<typeof load>[0];
 function event(userId = 'user-1', sessionId = '00000000-0000-4000-8000-000000000001'): Event {
 	const user = { id: userId };
+	// Admission is already established by loadShell; these are unsigned synthetic metadata claims.
+	const claims = Buffer.from(JSON.stringify({ sub: userId, session_id: sessionId })).toString('base64url');
 	return {
-		locals: { user, session: { user, access_token: passwordSessionToken(userId, 'admitted', sessionId) } }
+		locals: { user, session: { user, access_token: `synthetic.${claims}.unsigned` } }
 	} as Event;
 }
 

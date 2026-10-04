@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { passwordSessionToken } from '../../tests/fixtures/passwordSession';
 import {
+	getIdentitySessionScope,
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
 	getPublicPageUser,
@@ -107,5 +108,34 @@ describe('mfaGate', () => {
 		expect(shouldRedirectIncompleteAuthSession('/dashboard', true, false, 'invite')).toBe(true);
 		expect(shouldRedirectIncompleteAuthSession('/dashboard', true, false, null)).toBe(false);
 		expect(shouldRedirectIncompleteAuthSession('/dashboard', false, true, 'recovery')).toBe(false);
+	});
+});
+
+describe('admitted session lifetime metadata', () => {
+	it('stays stable on refresh but changes for a new sign-in session', () => {
+		const initial = getIdentitySessionScope(session, user);
+		const refreshed = { user, access_token: passwordSessionToken(user.id, 'refreshed') };
+		expect(getIdentitySessionScope(refreshed, user)).toEqual(initial);
+		const newSession = {
+			user,
+			access_token: passwordSessionToken(user.id, 'new-sign-in', '00000000-0000-4000-8000-000000000002')
+		};
+		expect(getIdentitySessionScope(newSession, user)).toEqual({
+			userId: user.id,
+			sessionId: '00000000-0000-4000-8000-000000000002'
+		});
+		expect(initial).toEqual({ userId: user.id, sessionId: '00000000-0000-4000-8000-000000000001' });
+	});
+	it.each([
+		null,
+		{ user, access_token: 'broken' },
+		{ user: { id: 'other' }, access_token: passwordSessionToken(user.id) },
+		{ user, access_token: passwordSessionToken('other') },
+		{ user, access_token: passwordSessionToken(user.id, 'bad-id', 'not-a-session') }
+	])('does not invent scope for absent or inconsistent binding %#', (candidate) => {
+		expect(getIdentitySessionScope(candidate, user)).toBeNull();
+	});
+	it('does not expose session metadata without an admitted user', () => {
+		expect(getIdentitySessionScope(session, null)).toBeNull();
 	});
 });

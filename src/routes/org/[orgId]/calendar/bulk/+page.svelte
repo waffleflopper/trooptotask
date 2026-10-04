@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getAppShellContext } from '$features/app-shell';
+	const org = getAppShellContext();
 	import BulkStatusPage from '$features/calendar/components/BulkStatusPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
@@ -78,5 +80,5 @@
 		<p class="m-0">Loading bulk status operations...</p>
 	</section>
 {:else}
-	<BulkStatusPage data={pageData} />
+	<BulkStatusPage {org} data={pageData} />
 {/if}

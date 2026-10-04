@@ -12,8 +12,8 @@ vi.mock('$features/rating-scheme/components/RatingSchemeModals.svelte', () => ({
 	default: VisibleStub
 }));
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',

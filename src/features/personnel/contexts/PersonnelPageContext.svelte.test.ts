@@ -1,10 +1,11 @@
+import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect } from 'vitest';
 import { PersonnelPageContext } from './PersonnelPageContext.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { PersonnelPageAccess } from '../contracts';
 import type { Personnel } from '../personnel.types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
 
 // ---------------------------------------------------------------------------
 // Minimal fixtures
@@ -40,8 +41,12 @@ function makeModals(): ModalRegistry {
 	return new ModalRegistry();
 }
 
-function makeOrg(overrides: Partial<OrgContext> = {}): OrgContext {
-	return Object.assign({}, createTestOrgContext({ userRole: 'member' }), overrides);
+function makeOrg(overrides: Partial<PersonnelPageAccess> = {}): PersonnelPageAccess {
+	return Object.assign(
+		{},
+		createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('configure') }),
+		overrides
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -84,8 +89,8 @@ describe('PersonnelPageContext', () => {
 		});
 
 		it('lets scoped personnel operators view the roster and request archive only within their groups', () => {
-			const org = createTestOrgContext({
-				userRole: 'member',
+			const org = createClientAccess({
+				membershipRole: 'member',
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'operate',
@@ -180,8 +185,8 @@ describe('PersonnelPageContext', () => {
 		});
 
 		it('allows personnel configuration and archive actions with organization scope', () => {
-			const org = createTestOrgContext({
-				userRole: 'member',
+			const org = createClientAccess({
+				membershipRole: 'member',
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'configure',
@@ -200,8 +205,8 @@ describe('PersonnelPageContext', () => {
 		});
 
 		it('allows personnel managers to start archive approval requests', () => {
-			const org = createTestOrgContext({
-				userRole: 'member',
+			const org = createClientAccess({
+				membershipRole: 'member',
 				capabilityMap: {
 					calendar: 'view',
 					personnel: 'operate',
@@ -226,8 +231,8 @@ describe('PersonnelPageContext', () => {
 		const ctx = new PersonnelPageContext(
 			makeData(),
 			makeModals(),
-			createTestOrgContext({
-				userRole: 'member',
+			createClientAccess({
+				membershipRole: 'member',
 				capabilityMap: {
 					calendar: 'none',
 					personnel,
@@ -251,8 +256,8 @@ describe('PersonnelPageContext', () => {
 		const ctx = new PersonnelPageContext(
 			makeData(),
 			makeModals(),
-			createTestOrgContext({
-				userRole: 'member',
+			createClientAccess({
+				membershipRole: 'member',
 				capabilityMap: {
 					calendar: 'none',
 					personnel,
@@ -266,6 +271,27 @@ describe('PersonnelPageContext', () => {
 		);
 		expect(ctx.canImportPersonnel).toBe(allowed);
 		if (personnel === 'operate') expect(ctx.canAddPersonnel).toBe(false);
+	});
+
+	it('uses refreshed Personnel grants and Group scope in the existing context', () => {
+		let facts: ClientAccessFacts = {
+			membershipRole: 'member',
+			capabilityMap: { ...createCapabilityMap('none'), personnel: 'configure' },
+			scopeSet: { kind: 'groups', groupIds: ['alpha'] }
+		};
+		const access = createClientAccess(() => facts);
+		const ctx = new PersonnelPageContext(makeData(), makeModals(), access);
+		expect(ctx.canAddPersonnel).toBe(true);
+		expect(ctx.allowUnassignedPersonnel).toBe(false);
+		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'alpha' }))).toBe(true);
+		facts = { ...facts, scopeSet: { kind: 'groups', groupIds: ['bravo'] } };
+		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'alpha' }))).toBe(false);
+		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'bravo' }))).toBe(true);
+		facts = { ...facts, capabilityMap: { ...createCapabilityMap('none'), personnel: 'view' } };
+		expect(ctx.canViewRoster).toBe(true);
+		expect(ctx.canAddPersonnel).toBe(false);
+		expect(ctx.canImportPersonnel).toBe(false);
+		expect(ctx.canManagePersonnelRecord(makePerson({ groupId: 'bravo' }))).toBe(false);
 	});
 
 	describe('filtered personnel (search)', () => {

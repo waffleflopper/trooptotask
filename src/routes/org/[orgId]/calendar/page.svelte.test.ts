@@ -22,8 +22,8 @@ vi.mock('$features/calendar/utils/calendarExport', () => ({
 	printMonthCalendar: printMonthCalendarMock
 }));
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',

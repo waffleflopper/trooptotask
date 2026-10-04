@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { changelog } from '$lib/data/changelog';
+	import { changelog } from '../changelog';
 	import * as AppDialog from '$lib/components/ui/app-dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { formatDisplayDate } from '$lib/utils/dates';

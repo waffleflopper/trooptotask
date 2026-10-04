@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { trainingTypesStore } from '$features/training';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
 	import { TrainingTypesPage } from '$features/training';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -8,7 +8,7 @@
 	import { isPromiseLike, materializeWorkspaceData, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
-	const org = getOrgContext();
+	const org = getAppShellContext();
 
 	const streamedTraining = $derived(data.training?.data);
 	const immediateTrainingBootstrap = $derived.by(() =>

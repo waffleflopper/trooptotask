@@ -8,7 +8,7 @@ import type { TrainingWorkspaceResult } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 
-vi.mock('$lib/stores/orgContext.svelte', () => {
+vi.mock('$features/app-shell', () => {
 	const capabilityRank = ['none', 'view', 'operate', 'configure'];
 	const capabilityMap = {
 		calendar: 'configure',
@@ -29,7 +29,7 @@ vi.mock('$lib/stores/orgContext.svelte', () => {
 	};
 
 	return {
-		getOrgContext: () => ({
+		getAppShellContext: () => ({
 			orgId: 'org-1',
 			orgName: 'Test Unit',
 			userId: 'user-1',

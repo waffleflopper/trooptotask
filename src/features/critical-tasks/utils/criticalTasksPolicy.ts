@@ -1,21 +1,21 @@
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
-import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
+import type { CriticalTasksAffordance, CriticalTasksPageAccess } from '../contracts';
 
 export function criticalTasksPolicyResourceForGroup(groupId: string | null | undefined): PolicyResource {
 	return groupId ? { kind: 'group', groupId } : { kind: 'organization' };
 }
 
-export function criticalTasksViewReadinessAffordance(org: OrgContext): ClientAffordance {
+export function criticalTasksViewReadinessAffordance(org: CriticalTasksPageAccess): CriticalTasksAffordance {
 	return org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.criticalTasks.viewReadiness, { kind: 'unscoped' });
 }
 
 export function criticalTasksRecordCompletionAffordance(
-	org: OrgContext,
+	org: CriticalTasksPageAccess,
 	resource: PolicyResource = { kind: 'unscoped' }
-): ClientAffordance {
+): CriticalTasksAffordance {
 	return org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.criticalTasks.recordCompletion, resource);
 }
 
-export function criticalTasksConfigureLibraryAffordance(org: OrgContext): ClientAffordance {
+export function criticalTasksConfigureLibraryAffordance(org: CriticalTasksPageAccess): CriticalTasksAffordance {
 	return org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.criticalTasks.configureLibrary);
 }

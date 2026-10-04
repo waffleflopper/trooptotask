@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import BulkStatusAdd from './BulkStatusAdd.svelte';
 	import BulkStatusRemove from './BulkStatusRemove.svelte';
 	import BulkStatusImport from './BulkStatusImport.svelte';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import type { CalendarOperationsPageAccess } from '../contracts';
 	import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 	import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 	import { pinnedGroupsStore } from '$features/personnel';
@@ -21,6 +22,7 @@
 	import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 
 	interface Props {
+		org: CalendarOperationsPageAccess;
 		data: {
 			orgId: string;
 			orgName?: string;
@@ -32,10 +34,9 @@
 		};
 	}
 
-	let { data }: Props = $props();
+	let { data, org }: Props = $props();
 
-	const org = getOrgContext();
-	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
+	const orgUrlSegment = $derived(org.orgUrlSegment);
 	const availabilityAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, { kind: 'unscoped' })
 	);
@@ -75,6 +76,12 @@
 	const allPersonnelFlat = $derived(rosterView.flatPersonnel);
 	const relatedLinks = $derived([{ label: 'Calendar', href: `/org/${orgUrlSegment}/calendar` }]);
 
+	// Each mounted scope owns its pending range loads, even after A → B → A.
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
+
 	// ---- Callbacks for child components ----
 	async function handleBulkApply(
 		personnelIds: string[],
@@ -97,9 +104,9 @@
 		rangeStart: string;
 		rangeEnd: string;
 	}): Promise<AvailabilityEntry[]> {
-		const orgId = org.orgId;
+		const orgId = data.orgId;
 		const rangeData = await loadCalendarRange(orgId, range);
-		if (org.orgId !== orgId) {
+		if (!active || data.orgId !== orgId) {
 			throw new Error('Organization changed while loading availability range');
 		}
 		mergeCalendarRangeIntoStores(orgId, rangeData);

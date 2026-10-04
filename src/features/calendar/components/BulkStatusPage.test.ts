@@ -1,24 +1,31 @@
 // @vitest-environment happy-dom
+import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, waitFor, act } from '@testing-library/svelte';
 import BulkStatusPage from './BulkStatusPage.svelte';
 
-const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, orgContextMock, pageMock } = vi.hoisted(
-	() => ({
-		gotoMock: vi.fn(),
-		loadCalendarRangeMock: vi.fn(),
-		mergeCalendarRangeIntoStoresMock: vi.fn(),
-		orgContextMock: {
-			orgId: 'org-1',
-			orgUrlSegment: 'org-1',
-			isPrivileged: true,
-			affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
-		},
-		pageMock: {
-			url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add')
-		}
-	})
-);
+const { gotoMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, pageMock } = vi.hoisted(() => ({
+	gotoMock: vi.fn(),
+	loadCalendarRangeMock: vi.fn(),
+	mergeCalendarRangeIntoStoresMock: vi.fn(),
+	pageMock: {
+		url: new URL('http://localhost/org/org-1/calendar/bulk?tab=add')
+	}
+}));
+
+let accessFacts: ClientAccessFacts = { membershipRole: 'owner' };
+let orgUrlSegment = 'org-1';
+const access = createClientAccess(() => accessFacts);
+const org = {
+	get orgUrlSegment() {
+		return orgUrlSegment;
+	},
+	get scopeSet() {
+		return access.scopeSet;
+	},
+	affordanceForFeatureAction: access.affordanceForFeatureAction
+};
 
 vi.mock('$app/navigation', () => ({
 	goto: gotoMock,
@@ -28,10 +35,6 @@ vi.mock('$app/navigation', () => ({
 
 vi.mock('$app/state', () => ({
 	page: pageMock
-}));
-
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => orgContextMock
 }));
 
 vi.mock('./BulkStatusAdd.svelte', async () => ({
@@ -64,11 +67,12 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 	pinnedGroupsStore: { list: [] }
 }));
 
-function renderPage() {
+function renderPage(orgId = 'org-1') {
 	return render(BulkStatusPage, {
 		props: {
+			org,
 			data: {
-				orgId: 'org-1',
+				orgId,
 				orgName: 'Test Unit',
 				personnel: [],
 				allPersonnel: []
@@ -91,18 +95,12 @@ describe('BulkStatusPage', () => {
 		});
 		mergeCalendarRangeIntoStoresMock.mockReset();
 		pageMock.url = new URL('http://localhost/org/org-1/calendar/bulk?tab=add');
-		orgContextMock.orgId = 'org-1';
-		orgContextMock.orgUrlSegment = 'org-1';
-		orgContextMock.isPrivileged = true;
-		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
+		orgUrlSegment = 'org-1';
+		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 	});
 
 	it('preserves the permission gate when availability operation is denied', () => {
-		orgContextMock.affordanceForFeatureAction.mockReturnValue({
-			allowed: false,
-			visible: false,
-			disabled: false
-		});
+		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('view') };
 
 		renderPage();
 
@@ -112,8 +110,7 @@ describe('BulkStatusPage', () => {
 	});
 
 	it('allows Calendar operators to use bulk status', () => {
-		orgContextMock.isPrivileged = false;
-		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
+		accessFacts = { membershipRole: 'member', capabilityMap: { ...createCapabilityMap('none'), calendar: 'operate' } };
 
 		renderPage();
 
@@ -123,10 +120,9 @@ describe('BulkStatusPage', () => {
 
 	it('loads Remove review ranges with the canonical organization id', async () => {
 		pageMock.url = new URL('http://localhost/org/local-dev-test/calendar/bulk?tab=remove');
-		orgContextMock.orgId = 'canonical-org-id';
-		orgContextMock.orgUrlSegment = 'local-dev-test';
+		orgUrlSegment = 'local-dev-test';
 
-		renderPage();
+		renderPage('canonical-org-id');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Load Remove Range' }));
 
@@ -151,10 +147,9 @@ describe('BulkStatusPage', () => {
 				})
 		);
 		pageMock.url = new URL('http://localhost/org/org-a/calendar/bulk?tab=remove');
-		orgContextMock.orgId = 'org-a';
-		orgContextMock.orgUrlSegment = 'org-a';
+		orgUrlSegment = 'org-a';
 
-		renderPage();
+		const view = renderPage('org-a');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Load Remove Range' }));
 
@@ -164,7 +159,7 @@ describe('BulkStatusPage', () => {
 				rangeEnd: '2026-01-31'
 			});
 		});
-		orgContextMock.orgId = 'org-b';
+		await view.rerender({ org, data: { orgId: 'org-b' } });
 		resolveRange?.({
 			rangeStart: '2026-01-01',
 			rangeEnd: '2026-01-31',
@@ -178,4 +173,36 @@ describe('BulkStatusPage', () => {
 		});
 		expect(mergeCalendarRangeIntoStoresMock).not.toHaveBeenCalled();
 	});
+	it.each(['unmounted', 'returned-to-A'])(
+		'discards a held Remove range after its instance is %s',
+		async (retirement) => {
+			let release!: (value: unknown) => void;
+			const pending = new Promise((resolve) => {
+				release = resolve;
+			});
+			loadCalendarRangeMock.mockReturnValueOnce(pending);
+			pageMock.url = new URL('http://localhost/org/org-a/calendar/bulk?tab=remove');
+			const old = renderPage('org-a');
+			await fireEvent.click(screen.getByRole('button', { name: 'Load Remove Range' }));
+			old.unmount();
+			if (retirement === 'returned-to-A') {
+				const peer = renderPage('org-b');
+				peer.unmount();
+				renderPage('org-a');
+				await fireEvent.click(screen.getByRole('button', { name: 'Load Remove Range' }));
+				await waitFor(() => expect(mergeCalendarRangeIntoStoresMock).toHaveBeenCalledOnce());
+			}
+			await act(async () => {
+				release({
+					rangeStart: '2026-01-01',
+					rangeEnd: '2026-01-31',
+					availabilityEntries: [],
+					specialDays: [],
+					dailyAssignments: []
+				});
+				await pending;
+			});
+			expect(mergeCalendarRangeIntoStoresMock).toHaveBeenCalledTimes(retirement === 'returned-to-A' ? 1 : 0);
+		}
+	);
 });

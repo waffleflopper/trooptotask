@@ -1,3 +1,16 @@
+import type { ClientAffordance } from '$lib/access/clientAccess';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+
+export type CriticalTasksAffordance = Pick<ClientAffordance, 'allowed' | 'visible'>;
+
+/** Live advisory decisions supplied by Delivery; server operations enforce policy. */
+export interface CriticalTasksPageAccess {
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => CriticalTasksAffordance;
+}
+
 import type { IctReportDashboard, IctReportFilters, IctReportScope } from './utils/ictReports';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';

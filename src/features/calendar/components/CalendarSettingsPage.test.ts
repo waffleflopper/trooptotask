@@ -1,17 +1,14 @@
 // @vitest-environment happy-dom
+import { createClientAccess, type ClientAccessFacts } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import CalendarSettingsPage from './CalendarSettingsPage.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { AssignmentType, SpecialDay, StatusType } from '$features/calendar/contracts';
 
-const { orgContextMock, statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, specialDaysStoreMock } =
-	vi.hoisted(() => ({
-		orgContextMock: {
-			orgId: 'org-1',
-			isPrivileged: true,
-			affordanceForFeatureAction: vi.fn(() => ({ allowed: true, visible: true, disabled: false }))
-		},
+const { statusTypesStoreMock, availabilityStoreMock, assignmentTypesStoreMock, specialDaysStoreMock } = vi.hoisted(
+	() => ({
 		statusTypesStoreMock: {
 			items: [] as StatusType[],
 			add: vi.fn(),
@@ -34,11 +31,21 @@ const { orgContextMock, statusTypesStoreMock, availabilityStoreMock, assignmentT
 			remove: vi.fn(),
 			resetFederalHolidays: vi.fn()
 		}
-	}));
+	})
+);
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => orgContextMock
-}));
+let accessFacts: ClientAccessFacts = { membershipRole: 'owner' };
+const orgUrlSegment = 'org-1';
+const access = createClientAccess(() => accessFacts);
+const org = {
+	get orgUrlSegment() {
+		return orgUrlSegment;
+	},
+	get scopeSet() {
+		return access.scopeSet;
+	},
+	affordanceForFeatureAction: access.affordanceForFeatureAction
+};
 
 vi.mock('$features/calendar/stores/statusTypes.svelte', () => ({
 	statusTypesStore: statusTypesStoreMock
@@ -59,8 +66,7 @@ vi.mock('$features/calendar/stores/dailyAssignments.svelte', () => ({
 describe('CalendarSettingsPage', () => {
 	beforeEach(() => {
 		cleanup();
-		orgContextMock.isPrivileged = true;
-		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
+		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 		statusTypesStoreMock.items = [];
 		statusTypesStoreMock.add.mockReset();
 		statusTypesStoreMock.update.mockReset();
@@ -109,27 +115,25 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('preserves the restricted settings state for non-managers', () => {
-		orgContextMock.isPrivileged = false;
-		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: false, visible: false, disabled: false });
+		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('view') };
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		expect(screen.getByText('Access restricted.')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'View calendar' }).getAttribute('href')).toBe('/org/org-1/calendar');
 	});
 
 	it('allows Calendar configure capability', () => {
-		orgContextMock.isPrivileged = false;
-		orgContextMock.affordanceForFeatureAction.mockReturnValue({ allowed: true, visible: true, disabled: false });
+		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		expect(screen.getByRole('navigation', { name: 'Calendar settings controls' })).toBeTruthy();
 		expect(screen.queryByText('Access restricted.')).toBeNull();
 	});
 
 	it('creates an ordinary Calendar status and closes the successful form', async () => {
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const dialog = screen.getByRole('dialog', { name: 'Add Status Type' });
 		await fireEvent.input(within(dialog).getByLabelText('Status name'), { target: { value: ' Detail ' } });
@@ -143,7 +147,7 @@ describe('CalendarSettingsPage', () => {
 	});
 
 	it('blocks accidental close affordances once an add-status form is dirty but keeps Cancel explicit', async () => {
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 
@@ -169,7 +173,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.add.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
 		const dialog = screen.getByRole('dialog', { name: 'Add Status Type' });
@@ -192,7 +196,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.update.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit status type' }));
 		const dialog = screen.getByRole('dialog', { name: 'Edit Status Type' });
@@ -215,7 +219,7 @@ describe('CalendarSettingsPage', () => {
 		statusTypesStoreMock.remove.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete status type' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Delete Status Type' });
@@ -230,7 +234,7 @@ describe('CalendarSettingsPage', () => {
 		assignmentTypesStoreMock.addType.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
@@ -258,7 +262,7 @@ describe('CalendarSettingsPage', () => {
 		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit assignment type' }));
@@ -285,7 +289,7 @@ describe('CalendarSettingsPage', () => {
 		assignmentTypesStoreMock.removeType.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete assignment type' }));
@@ -320,7 +324,7 @@ describe('CalendarSettingsPage', () => {
 		assignmentTypesStoreMock.updateType.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
 		await fireEvent.click(screen.getByRole('radio', { name: 'Show Staff Duty in date header' }));
@@ -352,7 +356,7 @@ describe('CalendarSettingsPage', () => {
 			}
 		];
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Assignment Types/i }));
 
@@ -367,7 +371,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.add.mockResolvedValueOnce(null);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
@@ -391,7 +395,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.update.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit closure' }));
@@ -415,7 +419,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.remove.mockResolvedValueOnce(false);
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete closure' }));
@@ -430,7 +434,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('failed');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
@@ -445,7 +449,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('refresh-failed');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
@@ -461,7 +465,7 @@ describe('CalendarSettingsPage', () => {
 		specialDaysStoreMock.resetFederalHolidays.mockResolvedValueOnce('stale');
 		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'toast-id');
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Reset Federal Holidays' }));
 		const dialog = screen.getByRole('alertdialog', { name: 'Reset Federal Holidays' });
@@ -481,7 +485,7 @@ describe('CalendarSettingsPage', () => {
 			}
 		];
 
-		render(CalendarSettingsPage);
+		render(CalendarSettingsPage, { props: { org } });
 
 		await fireEvent.click(screen.getByRole('button', { name: /Closures/i }));
 

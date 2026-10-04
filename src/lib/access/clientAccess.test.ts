@@ -1,111 +1,52 @@
 import { describe, it, expect } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createOrgContext } from './orgContext.svelte';
+import { createClientAccess, type ClientAccessFacts } from './clientAccess';
 
-function makeInput(overrides: Record<string, unknown> = {}) {
-	return {
-		orgId: 'org-1',
-		orgName: 'Test Org',
-		userId: 'user-1',
-		userRole: 'member' as const,
-		...overrides
-	};
+function makeInput(overrides: Partial<ClientAccessFacts> = {}): ClientAccessFacts {
+	return { membershipRole: 'member', ...overrides };
 }
 
-describe('createOrgContext', () => {
-	it('sets isOwner=true when role is owner', () => {
-		const ctx = createOrgContext(makeInput({ userRole: 'owner' }));
-		expect(ctx.isOwner).toBe(true);
-		expect(ctx.role).toBe('owner');
-	});
-
-	it('sets isOwner=false when role is not owner', () => {
-		const ctx = createOrgContext(makeInput({ userRole: 'admin' }));
-		expect(ctx.isOwner).toBe(false);
-	});
-
-	it('sets isAdmin=true when role is admin', () => {
-		const ctx = createOrgContext(makeInput({ userRole: 'admin' }));
-		expect(ctx.isAdmin).toBe(true);
-		expect(ctx.role).toBe('admin');
-	});
-
-	it('sets isAdmin=false when role is not admin', () => {
-		const ctx = createOrgContext(makeInput({ userRole: 'member' }));
-		expect(ctx.isAdmin).toBe(false);
-	});
-
-	it('sets isPrivileged=true for owner', () => {
-		const ctx = createOrgContext(makeInput({ userRole: 'owner' }));
-		expect(ctx.isPrivileged).toBe(true);
-	});
-
-	it('sets isPrivileged=true for admin', () => {
-		const ctx = createOrgContext(makeInput({ userRole: 'admin' }));
-		expect(ctx.isPrivileged).toBe(true);
-	});
-
-	it('sets isPrivileged=false for member', () => {
-		const ctx = createOrgContext(makeInput({ userRole: 'member' }));
-		expect(ctx.isPrivileged).toBe(false);
-	});
-
-	it('preserves orgId, orgName, and userId', () => {
-		const ctx = createOrgContext(makeInput({ orgId: 'org-abc', orgName: 'Alpha Co', userId: 'user-xyz' }));
-		expect(ctx.orgId).toBe('org-abc');
-		expect(ctx.orgName).toBe('Alpha Co');
-		expect(ctx.userId).toBe('user-xyz');
-	});
-
-	it('can reflect updated layout data through an accessor input', () => {
-		let input = makeInput({
-			orgId: 'org-1',
-			orgName: 'Alpha Co',
-			userRole: 'member',
-			capabilityMap: {
-				calendar: 'view',
-				personnel: 'none',
-				training: 'none',
-				criticalTasks: 'none',
-				onboarding: 'none',
-				ratingScheme: 'none'
-			}
+describe('client advisory access', () => {
+	it('falls back for missing maps while explicit grants and empty scopes win', () => {
+		const owner = createClientAccess({ membershipRole: 'owner' });
+		const member = createClientAccess({ membershipRole: 'member' });
+		expect(owner.hasCapability('calendar', 'configure')).toBe(true);
+		expect(member.hasCapability('calendar', 'view')).toBe(false);
+		const explicit = createClientAccess({
+			membershipRole: 'owner',
+			capabilityMap: member.capabilityMap,
+			scopeSet: { kind: 'groups', groupIds: [] }
 		});
-
-		const ctx = createOrgContext(() => input);
-
-		expect(ctx.orgId).toBe('org-1');
-		expect(ctx.orgName).toBe('Alpha Co');
-		expect(ctx.isAdmin).toBe(false);
-		expect(ctx.hasCapability('calendar', 'operate')).toBe(false);
-
-		input = makeInput({
-			orgId: 'org-2',
-			orgName: 'Bravo Co',
-			userRole: 'admin',
-			capabilityMap: {
-				calendar: 'operate',
-				personnel: 'none',
-				training: 'none',
-				criticalTasks: 'none',
-				onboarding: 'none',
-				ratingScheme: 'none'
-			}
-		});
-
-		expect(ctx.orgId).toBe('org-2');
-		expect(ctx.orgName).toBe('Bravo Co');
-		expect(ctx.isAdmin).toBe(true);
-		expect(ctx.hasCapability('calendar', 'operate')).toBe(true);
+		expect(explicit.hasCapability('calendar', 'view')).toBe(false);
+		expect(explicit.isResourceInScope({ kind: 'organization' })).toBe(false);
+		expect(explicit.isResourceInScope({ kind: 'unscoped' })).toBe(true);
 	});
-
-	it('handles null userId', () => {
-		const ctx = createOrgContext(makeInput({ userId: null }));
-		expect(ctx.userId).toBeNull();
+	it('reevaluates same-instance grant refreshes without freezing permissions', () => {
+		let facts: ClientAccessFacts = { membershipRole: 'member' };
+		const access = createClientAccess(() => facts);
+		expect(access.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability).allowed).toBe(false);
+		facts = { membershipRole: 'admin' };
+		expect(access.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability).allowed).toBe(true);
+		facts = {
+			membershipRole: 'member',
+			capabilityMap: access.capabilityMap,
+			scopeSet: { kind: 'groups', groupIds: ['a'] }
+		};
+		expect(
+			access.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, {
+				kind: 'group',
+				groupId: 'a'
+			}).allowed
+		).toBe(true);
+		expect(
+			access.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.manageAvailability, {
+				kind: 'group',
+				groupId: 'b'
+			}).allowed
+		).toBe(false);
 	});
-
 	it('uses Capability Map for viewer, operator, and editor feature affordances', () => {
-		const ctx = createOrgContext(
+		const ctx = createClientAccess(
 			makeInput({
 				capabilityMap: {
 					calendar: 'view',
@@ -130,9 +71,9 @@ describe('createOrgContext', () => {
 	});
 
 	it('uses governance role for organization affordances instead of member feature capabilities', () => {
-		const owner = createOrgContext(
+		const owner = createClientAccess(
 			makeInput({
-				userRole: 'owner',
+				membershipRole: 'owner',
 				capabilityMap: {
 					calendar: 'none',
 					personnel: 'none',
@@ -144,8 +85,8 @@ describe('createOrgContext', () => {
 				scopeSet: { kind: 'organization' }
 			})
 		);
-		const admin = createOrgContext(makeInput({ userRole: 'admin', capabilityMap: owner.capabilityMap }));
-		const member = createOrgContext(makeInput({ userRole: 'member', capabilityMap: owner.capabilityMap }));
+		const admin = createClientAccess(makeInput({ membershipRole: 'admin', capabilityMap: owner.capabilityMap }));
+		const member = createClientAccess(makeInput({ membershipRole: 'member', capabilityMap: owner.capabilityMap }));
 
 		expect(owner.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessAuditLogs).allowed).toBe(true);
 		expect(admin.affordanceForGovernanceAction(POLICY_ACTION_CATALOG.organization.accessGovernance).allowed).toBe(true);
@@ -158,7 +99,7 @@ describe('createOrgContext', () => {
 	});
 
 	it('explains in-scope and out-of-scope client affordance states', () => {
-		const ctx = createOrgContext(
+		const ctx = createClientAccess(
 			makeInput({
 				capabilityMap: {
 					calendar: 'operate',
@@ -201,7 +142,7 @@ describe('createOrgContext', () => {
 	});
 
 	it('checks Scope Set membership independently from feature capability', () => {
-		const ctx = createOrgContext(
+		const ctx = createClientAccess(
 			makeInput({
 				capabilityMap: {
 					calendar: 'none',

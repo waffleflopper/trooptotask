@@ -2,7 +2,7 @@
 	import { personnelTrainingsStore } from '$features/training';
 	import { trainingTypesStore } from '$features/training';
 	import { groupsStore } from '$features/personnel';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
 	import { TrainingReportsPage } from '$features/training';
 	import { Spinner } from '$lib/components/ui/spinner';
@@ -10,7 +10,7 @@
 	import { isPromiseLike, materializeWorkspaceData, throwRenderError } from '$lib/utils/streamedRouteData';
 
 	let { data } = $props();
-	const org = getOrgContext();
+	const org = getAppShellContext();
 
 	const hasServerReport = $derived(!!data.trainingReport);
 	const streamedTraining = $derived(data.training?.data);

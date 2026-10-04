@@ -8,11 +8,9 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
-import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import { mergeById } from '$lib/utils/mergeById';
-import { browser } from '$app/environment';
 import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
 import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
@@ -252,18 +250,6 @@ export class CalendarPageContext {
 		this.showStatusText = preferences.showStatusText;
 		this.showPersonnelRoles = preferences.showPersonnelRoles;
 		this.highlightOnboarding = preferences.highlightOnboarding;
-	}
-
-	/** Mark calendar as explored for Getting Started checklist. */
-	markCalendarVisited(): void {
-		const storage = getBrowserLocalStorage();
-		if (!browser || !storage) return;
-
-		try {
-			storage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
-		} catch {
-			// Non-critical getting-started persistence should not block the calendar.
-		}
 	}
 
 	// ---- handlers ----------------------------------------------------------

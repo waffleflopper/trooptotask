@@ -7,7 +7,7 @@ import {
 	type PersonnelGroup,
 	type RosterReadModelView
 } from '$features/personnel/rosterReadModel';
-import type { ClientAffordance, OrgContext } from '$lib/stores/orgContext.svelte';
+import type { PersonnelAffordance, PersonnelPageAccess } from '../contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
@@ -52,7 +52,7 @@ export class PersonnelPageContext {
 	// ---- Injected deps ----
 	readonly #data: PersonnelPageData;
 	readonly #modals: ModalRegistry;
-	readonly #org: OrgContext;
+	readonly #org: PersonnelPageAccess;
 	readonly #personnelStore: PersonnelStoreAccessor;
 	readonly #pinnedGroupsStore: PinnedGroupsAccessor;
 	/**
@@ -65,7 +65,7 @@ export class PersonnelPageContext {
 	constructor(
 		data: PersonnelPageData,
 		modals: ModalRegistry,
-		org: OrgContext,
+		org: PersonnelPageAccess,
 		personnelStore: PersonnelStoreAccessor | Personnel[] = [],
 		pinnedGroupsStore: PinnedGroupsAccessor | string[] = [],
 		today?: string
@@ -142,7 +142,7 @@ export class PersonnelPageContext {
 		return this.#org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.personnel.archiveRecords).allowed;
 	}
 
-	personnelRecordAffordance(person: Personnel): ClientAffordance {
+	personnelRecordAffordance(person: Personnel): PersonnelAffordance {
 		return this.#org.affordanceForFeatureAction(
 			POLICY_ACTION_CATALOG.personnel.manageRecords,
 			person.groupId ? { kind: 'group', groupId: person.groupId } : { kind: 'organization' }
@@ -153,7 +153,7 @@ export class PersonnelPageContext {
 		return this.personnelRecordAffordance(person).allowed;
 	}
 
-	personnelArchiveAffordance(person: Personnel): ClientAffordance {
+	personnelArchiveAffordance(person: Personnel): PersonnelAffordance {
 		return this.personnelRecordAffordance(person);
 	}
 

@@ -40,8 +40,8 @@ const { mockOrgContext } = vi.hoisted(() => ({
 	}
 }));
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => mockOrgContext
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => mockOrgContext
 }));
 
 const criticalTasksLayoutData = {

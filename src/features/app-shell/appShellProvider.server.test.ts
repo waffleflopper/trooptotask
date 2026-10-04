@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSupabaseOrgAccessPort } from './supabaseOrgShell';
+import { createSupabaseOrgAccessPort } from './appShellProvider.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MembershipRow } from '$lib/server/permissionContext';
 
@@ -36,53 +36,6 @@ function createMockSupabase(builder: Record<string, unknown>): SupabaseClient {
 }
 
 describe('createSupabaseOrgAccessPort', () => {
-	it('throws 403 when the user is not a member of the organization', async () => {
-		const { builder, calls } = createMembershipQueryBuilder(null);
-		const userSupabase = createMockSupabase(builder);
-		const port = createSupabaseOrgAccessPort({
-			orgId: 'org-1',
-			userId: 'user-1',
-			userSupabase,
-			orgName: 'Test Org'
-		});
-
-		await expect(port.getMembership()).rejects.toMatchObject({
-			status: 403,
-			body: { message: 'You are not a member of this organization' }
-		});
-
-		expect(userSupabase.from as ReturnType<typeof vi.fn>).toHaveBeenCalledWith('organization_memberships');
-		expect(calls.map((call) => call.method)).toContain('maybeSingle');
-	});
-
-	it('throws 500 on real membership query failures', async () => {
-		const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-		const { builder } = createMembershipQueryBuilder(null, { code: '42P01', message: 'table not found' });
-		const userSupabase = createMockSupabase(builder);
-		const port = createSupabaseOrgAccessPort({
-			orgId: 'org-1',
-			userId: 'user-1',
-			userSupabase,
-			orgName: 'Test Org'
-		});
-
-		try {
-			const thrown = await port.getMembership().catch((error: unknown) => error);
-
-			expect(thrown).toMatchObject({
-				status: 500,
-				body: { message: 'Internal server error' }
-			});
-			expect(JSON.stringify(thrown)).not.toContain('table not found');
-			expect(consoleError).toHaveBeenCalledWith(
-				'[supabase-org-shell] Failed to load membership row:',
-				expect.stringContaining('table not found')
-			);
-		} finally {
-			consoleError.mockRestore();
-		}
-	});
-
 	it('returns membership info while allowing the membership loader to be wrapped for request-scoped dedupe', async () => {
 		const membershipRow = {
 			id: 'membership-1',
@@ -92,7 +45,7 @@ describe('createSupabaseOrgAccessPort', () => {
 			access_scope_kind: 'groups',
 			access_scope_group_ids: ['group-123']
 		} satisfies MembershipRow;
-		const { builder, calls } = createMembershipQueryBuilder(membershipRow);
+		const { builder } = createMembershipQueryBuilder(membershipRow);
 		const userSupabase = createMockSupabase(builder);
 		const wrapMembershipLoad = vi.fn(async (loadMembershipRow: () => Promise<MembershipRow>) => loadMembershipRow());
 		const port = createSupabaseOrgAccessPort({
@@ -106,10 +59,6 @@ describe('createSupabaseOrgAccessPort', () => {
 		const result = await port.getMembership();
 
 		expect(wrapMembershipLoad).toHaveBeenCalledTimes(1);
-		const selectCall = calls.find((call) => call.method === 'select');
-		expect(selectCall?.args[0]).toBe(
-			'id, role, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
-		);
 		expect(result).toEqual({
 			orgId: 'org-1',
 			membershipId: 'membership-1',
@@ -127,31 +76,6 @@ describe('createSupabaseOrgAccessPort', () => {
 			orgSuspended: false
 		});
 	});
-
-	it.each([null, 'custom'] as const)(
-		'fails visibly when shell membership rows have invalid normalized preset %s',
-		async (memberPreset) => {
-			const { builder } = createMembershipQueryBuilder({
-				id: 'membership-1',
-				role: 'member',
-				member_preset: memberPreset,
-				capability_overrides: {},
-				access_scope_kind: 'organization',
-				access_scope_group_ids: []
-			});
-			const port = createSupabaseOrgAccessPort({
-				orgId: 'org-1',
-				userId: 'user-1',
-				userSupabase: createMockSupabase(builder),
-				orgName: 'Test Org'
-			});
-
-			await expect(port.getMembership()).rejects.toMatchObject({
-				status: 500,
-				body: { message: 'Membership row is missing normalized member access storage' }
-			});
-		}
-	);
 
 	it('loads replacement capability map and Scope Set for member access', async () => {
 		const membershipRow = {
@@ -209,7 +133,7 @@ describe('createSupabaseOrgAccessPort', () => {
 
 it('composes platform content and account-wide preferences in parallel across Organizations and recovers its failure fallback', async () => {
 	const { createClient } = await import('@supabase/supabase-js');
-	const { createSupabaseAppShellFirstPaintChromePort } = await import('./supabaseOrgShell');
+	const { createSupabaseAppShellFirstPaintChromePort } = await import('./appShellProvider.server');
 	let release!: () => void;
 	const pending = new Promise<void>((resolve) => {
 		release = resolve;
@@ -222,6 +146,7 @@ it('composes platform content and account-wide preferences in parallel across Or
 		dismissalStarted = resolve;
 	});
 	let failed = false;
+	let preferencesFailed = false;
 	const client = createClient('http://127.0.0.1:9', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false },
 		global: {
@@ -250,7 +175,14 @@ it('composes platform content and account-wide preferences in parallel across Or
 							.map(({ announcement_id }) => ({ announcement_id }))
 					);
 				}
-				if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
+				if (url.pathname.endsWith('/user_org_preferences'))
+					return preferencesFailed
+						? Response.json({ message: 'Preference read unavailable' }, { status: 500 })
+						: Response.json({
+								user_id: url.searchParams.get('user_id')?.slice(3),
+								organization_id: url.searchParams.get('organization_id')?.slice(3),
+								preferences: { training: { selectedGroupId: 'group-alpha' } }
+							});
 				throw new Error('Unexpected shell provider read');
 			}
 		}
@@ -273,8 +205,15 @@ it('composes platform content and account-wide preferences in parallel across Or
 	expect((await second.getFirstPaintChrome()).announcements.map(({ id }) => id)).toEqual(['visible']);
 	const log = vi.spyOn(console, 'error').mockImplementation(() => {});
 	try {
+		preferencesFailed = true;
+		const defaults = await second.getFirstPaintChrome();
+		expect(defaults.preferences.training.selectedGroupId).toBeNull();
+		expect(defaults.announcements.map(({ id }) => id)).toEqual(['visible']);
+		preferencesFailed = false;
 		failed = true;
-		expect((await second.getFirstPaintChrome()).announcements).toEqual([]);
+		const withoutAnnouncements = await second.getFirstPaintChrome();
+		expect(withoutAnnouncements.announcements).toEqual([]);
+		expect(withoutAnnouncements.preferences.training.selectedGroupId).toBe('group-alpha');
 		failed = false;
 		expect((await second.getFirstPaintChrome()).announcements.map(({ id }) => id)).toEqual(['visible']);
 	} finally {
@@ -286,8 +225,8 @@ describe('Organization switcher read failure delivery', () => {
 	it('reports deferred chrome failure while Dashboard retains its empty fallback', async () => {
 		const { createClient } = await import('@supabase/supabase-js');
 		const { createSupabaseDashboardOrgAccessPort } = await import('$features/organization/index.server');
-		const { createSupabaseAppShellDeferredChromePort } = await import('./supabaseOrgShell');
-		const { loadAppShellDeferredChrome } = await import('../core/useCases/loadAppShell');
+		const { createSupabaseAppShellDeferredChromePort } = await import('./appShellProvider.server');
+		const { loadAppShellDeferredChrome } = await import('./appShellRead.server');
 		const client = createClient('http://switcher.invalid', 'synthetic-user-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
 
 const { requests, acquiredContexts } = vi.hoisted(() => ({

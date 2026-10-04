@@ -1,7 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createSupabaseAppShellRequest } from '$lib/server/adapters/supabaseOrgShell';
-import type { DeferredChromePart } from '$lib/server/core/orgShell';
+import { createAppShellRequest } from '$lib/server/adapters/appShellRequestDelivery';
+import type { DeferredChromePart } from '$features/app-shell/contracts';
 
 const PARTS = new Set<DeferredChromePart>(['notification-count', 'organization-switcher']);
 
@@ -12,7 +12,7 @@ export const GET: RequestHandler = async ({ locals, cookies, params, url }) => {
 		throw error(400, 'Unknown app shell chrome part');
 	}
 
-	const appShell = createSupabaseAppShellRequest({
+	const appShell = createAppShellRequest({
 		locals,
 		cookies,
 		orgSegment: params.orgId,

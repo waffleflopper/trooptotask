@@ -5,8 +5,8 @@ import type {
 	AppShellRouteData,
 	DeferredChromePart,
 	OrgAccessPort
-} from '../orgShell';
-import { createReadyAppShell } from '../orgShell';
+} from './contracts';
+import { createReadyAppShell } from './contracts';
 
 export type AppShellFirstPaintRequest =
 	| {

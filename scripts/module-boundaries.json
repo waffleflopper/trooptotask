@@ -38,13 +38,6 @@
 				"src/lib/components/orgNavigation.test.ts",
 				"src/lib/components/orgNavigation.ts",
 				"src/lib/data/changelog.ts",
-				"src/lib/server/adapters/inMemoryOrgShell.ts",
-				"src/lib/server/adapters/supabaseOrgShell.test.ts",
-				"src/lib/server/adapters/supabaseOrgShell.ts",
-				"src/lib/server/core/orgShell.test.ts",
-				"src/lib/server/core/orgShell.ts",
-				"src/lib/server/core/useCases/loadAppShell.test.ts",
-				"src/lib/server/core/useCases/loadAppShell.ts",
 				"src/lib/stores/help.svelte.ts",
 				"src/lib/stores/orgContext.svelte.test.ts",
 				"src/lib/stores/orgContext.svelte.ts",
@@ -101,6 +94,8 @@
 				"src/lib/server/personnelArchiveBatchDelivery.ts",
 				"src/lib/server/personnelArchiveBatchDelivery.test.ts",
 				"src/hooks.signOut.test.ts",
+				"src/lib/server/adapters/appShellRequestDelivery.ts",
+				"src/lib/server/adapters/appShellRequestDelivery.test.ts",
 				"src/lib/server/adapters/buildLayoutContext.test.ts",
 				"src/lib/server/adapters/entityHandlers.test.ts",
 				"src/lib/server/adapters/handle.test.ts",
@@ -538,7 +533,11 @@
 			"src/features/feedback/index.server.ts"
 		],
 		"platform-admin": ["src/features/platform-admin/index.server.ts", "src/features/platform-admin/contracts.ts"],
-		"app-shell": ["src/features/app-shell/index.ts"],
+		"app-shell": [
+			"src/features/app-shell/contracts.ts",
+			"src/features/app-shell/index.ts",
+			"src/features/app-shell/index.server.ts"
+		],
 		"data-export": ["src/features/data-export/index.server.ts", "src/features/data-export/index.web.ts"],
 		"scheduled-maintenance": ["src/features/scheduled-maintenance/index.server.ts"]
 	},

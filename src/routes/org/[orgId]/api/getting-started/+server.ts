@@ -8,67 +8,35 @@ import {
 } from '$lib/server/adapters/httpAdapter';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
-import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
-import { withDashboardTiming } from '$features/dashboard/index.server';
+import type { UseCaseContext } from '$lib/server/core/ports';
+import { fetchDashboardSetupSupport, withDashboardTiming } from '$features/dashboard/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
-import type { StarterConfigurationPackSupport } from '$features/dashboard/contracts';
+import type { DashboardSetupSupport } from '$features/dashboard/contracts';
 import { countRatingSchemeEntries } from '$features/rating-scheme/index.server';
 import { countTrainingTypes } from '$features/training/index.server';
 import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';
+import { countOrganizationMembers } from '$features/organization/index.server';
 
-interface GettingStartedSupportData {
-	trainingTypeCount: number;
-	onboardingTemplateStepCount: number;
-	ratingSchemeEntryCount: number;
-	orgMemberCount: number;
+interface GettingStartedSupportData extends DashboardSetupSupport {
 	gettingStartedDismissed: boolean;
-	starterConfigurationPacks: StarterConfigurationPackSupport[];
-}
-
-async function countRows(
-	ctx: UseCaseContext,
-	table: string,
-	filters?: Record<string, unknown>,
-	options: FindOptions = {}
-): Promise<number> {
-	const result = await ctx.store.findManyWithCount<{ id: string }>(table, ctx.auth.orgId, filters, {
-		...options,
-		select: options.select ?? 'id',
-		range: { from: 0, to: 0 },
-		count: options.count ?? 'estimated'
-	});
-	return result.count ?? 0;
 }
 
 async function fetchGettingStartedSupport(ctx: UseCaseContext, provider: { supabase: SupabaseClient }) {
-	const [
-		trainingTypeCount,
-		onboardingTemplateStepCount,
-		ratingSchemeEntryCount,
-		orgMemberCount,
-		gettingStartedDismissed,
-		starterConfigurationPacks
-	] = await Promise.all([
-		countTrainingTypes(ctx.store, ctx.auth.orgId),
-		countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
-		countRatingSchemeEntries({ store: ctx.rawStore, actor: ctx.auth }),
-		countRows(ctx, 'organization_memberships'),
-		loadGettingStartedDismissed(provider, ctx.auth),
-		listStarterConfigurationPacks(ctx)
+	const [support, gettingStartedDismissed] = await Promise.all([
+		fetchDashboardSetupSupport({
+			countTrainingTypes: () => countTrainingTypes(ctx.store, ctx.auth.orgId),
+			countOnboardingTemplateSteps: () => countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
+			countRatingSchemeEntries: () => countRatingSchemeEntries({ store: ctx.rawStore, actor: ctx.auth }),
+			countOrganizationMembers: () => countOrganizationMembers(provider.supabase, ctx.auth.orgId),
+			listStarterConfigurationPacks: () => listStarterConfigurationPacks(ctx)
+		}),
+		loadGettingStartedDismissed(provider, ctx.auth)
 	]);
-
-	return {
-		trainingTypeCount,
-		onboardingTemplateStepCount,
-		ratingSchemeEntryCount,
-		orgMemberCount,
-		gettingStartedDismissed,
-		starterConfigurationPacks
-	} satisfies GettingStartedSupportData;
+	return { ...support, gettingStartedDismissed } satisfies GettingStartedSupportData;
 }
 
-/** Per-request composition: Identity owns personal progress, delivery retains setup support. */
+/** Per-request composition: Delivery binds Dashboard support and Identity personal progress independently. */
 export function _createConfigs(provider: { supabase: SupabaseClient }) {
 	const get: RouteConfig<void, GettingStartedSupportData> = {
 		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,

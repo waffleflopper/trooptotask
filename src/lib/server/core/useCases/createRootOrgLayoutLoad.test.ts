@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
-import type { AppShellFirstPaintChromePort, OrgAccessPort } from '$lib/server/core/orgShell';
+import type { AppShellFirstPaintChromePort, OrgAccessPort } from '$features/app-shell/contracts';
 import { createRootOrgLayoutLoad } from './createRootOrgLayoutLoad';
 
 function createOrganizationQuery(row: Record<string, unknown>) {

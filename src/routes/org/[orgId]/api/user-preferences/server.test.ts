@@ -16,10 +16,12 @@ const preferences = {
 };
 let readError: null | { message: string };
 let writes: number;
+let conflicts: boolean;
 beforeEach(() => {
 	vi.mocked(buildRouteContext).mockReset().mockResolvedValue(createTestContext());
 	readError = null;
 	writes = 0;
+	conflicts = false;
 	const query = {
 		select: () => query,
 		eq: () => query,
@@ -28,7 +30,11 @@ beforeEach(() => {
 			writes++;
 			return query;
 		},
-		single: async () => ({ data: { user_id: 'test-user', organization_id: 'test-org', preferences }, error: null })
+		then: (resolve: (value: unknown) => unknown) =>
+			Promise.resolve({
+				data: conflicts ? [] : [{ user_id: 'test-user', organization_id: 'test-org', preferences }],
+				error: null
+			}).then(resolve)
 	};
 	vi.mocked(createRequestAccountPreferencesProvider)
 		.mockReset()
@@ -67,6 +73,14 @@ describe('PATCH preference HTTP delivery', () => {
 			log.mockRestore();
 		}
 	});
+	it('returns a retryable HTTP 409 when repeated concurrent saves prevent confirmation', async () => {
+		conflicts = true;
+		await expect(PATCH(event('{}'))).rejects.toMatchObject({
+			status: 409,
+			body: { message: 'Your preferences changed while saving. Try again.' }
+		});
+	});
+
 	it('converts anonymous owner denial to HTTP 401 before any write', async () => {
 		vi.mocked(buildRouteContext).mockResolvedValue(createTestContext({ auth: { userId: '' } }));
 		await expect(PATCH(event('{}'))).rejects.toMatchObject({ status: 401 });

@@ -11,7 +11,7 @@ import { PATCH as updateLeaderNote } from './routes/org/[orgId]/api/personnel/[i
 import { createRootOrgLayoutLoad } from '$lib/server/core/useCases/createRootOrgLayoutLoad';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 import { buildLayoutContext } from '$lib/server/adapters/httpAdapter';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 
 const { serverClient, adminClient } = vi.hoisted(() => ({ serverClient: vi.fn(), adminClient: vi.fn() }));
 vi.mock('@supabase/ssr', () => ({ createServerClient: serverClient }));

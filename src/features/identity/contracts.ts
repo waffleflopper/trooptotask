@@ -5,6 +5,18 @@ export interface AdmittedActor {
 
 export type PendingAuthFlow = 'recovery' | 'invite' | null;
 
+export {
+	getDefaultUserOrgPreferences,
+	mergeUserOrgPreferences,
+	normalizeUserOrgPreferences,
+	TrainingMatrixViewModeSchema,
+	UserOrgPreferencesPatchSchema,
+	UserOrgPreferencesSchema,
+	type TrainingMatrixViewMode,
+	type UserOrgPreferences,
+	type UserOrgPreferencesPatch
+} from './accountPreferences';
+
 export const ACCESS_REQUEST_SETUP_RENEWAL_DAYS = 90;
 export { addUtcDays } from './accountSetupDates';
 

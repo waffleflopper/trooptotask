@@ -17,7 +17,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { projectEffectiveMemberAccess } from '$lib/access/memberAccessProjection';
 import { assertNormalizedMembershipRow, type MembershipRow } from '$lib/server/permissionContext';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import { loadUserOrgPreferences } from '$features/identity/index.server';
 import type {
 	AppShellDeferredChromePort,

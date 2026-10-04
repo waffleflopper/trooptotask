@@ -17,10 +17,10 @@ import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 
-const { gotoMock, invalidateMock, queueUserPreferencesPatchMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock, savePreferencesMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
 	invalidateMock: vi.fn(),
-	queueUserPreferencesPatchMock: vi.fn()
+	savePreferencesMock: vi.fn()
 }));
 
 async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
@@ -155,7 +155,7 @@ function makeData(overrides: Record<string, unknown> = {}) {
 const submitRemovalRequest = vi.fn().mockResolvedValue(true);
 type ContextArgs = ConstructorParameters<typeof TrainingPageContext>;
 function makeContext(data: ContextArgs[0], modals: ContextArgs[1], org: ContextArgs[2]) {
-	return new TrainingPageContext(data, modals, org, submitRemovalRequest, queueUserPreferencesPatchMock);
+	return new TrainingPageContext(data, modals, org, submitRemovalRequest, savePreferencesMock);
 }
 
 describe('TrainingPageContext', () => {
@@ -166,8 +166,7 @@ describe('TrainingPageContext', () => {
 		submitRemovalRequest.mockReset().mockResolvedValue(true);
 		vi.unstubAllGlobals();
 		modals = makeModals();
-		queueUserPreferencesPatchMock.mockReset();
-		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
+		savePreferencesMock.mockReset();
 		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
 		groupCatalogHydration.load(mockGroups, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
@@ -277,7 +276,7 @@ describe('TrainingPageContext', () => {
 
 			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-unassigned']);
 			await waitForAsyncSideEffect(() => {
-				expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+				expect(savePreferencesMock).toHaveBeenCalledWith({
 					training: { selectedGroupId: 'name:Unassigned' }
 				});
 			});
@@ -302,7 +301,7 @@ describe('TrainingPageContext', () => {
 			expect(ctx.groupFilterOptions).toContainEqual({ value: 'g-empty', label: 'Charlie' });
 			expect(ctx.filteredPersonnel).toEqual([]);
 			expect(ctx.selectedGroupId).toBe('g-empty');
-			expect(queueUserPreferencesPatchMock).not.toHaveBeenCalled();
+			expect(savePreferencesMock).not.toHaveBeenCalled();
 		});
 	});
 
@@ -591,8 +590,8 @@ describe('TrainingPageContext', () => {
 			void ctx.filteredPersonnel;
 
 			await waitForAsyncSideEffect(() => {
-				expect(queueUserPreferencesPatchMock).toHaveBeenCalledTimes(1);
-				expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+				expect(savePreferencesMock).toHaveBeenCalledTimes(1);
+				expect(savePreferencesMock).toHaveBeenCalledWith({
 					training: {
 						selectedGroupId: null,
 						selectedViewId: null

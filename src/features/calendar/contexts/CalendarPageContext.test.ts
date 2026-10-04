@@ -1,15 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CalendarPageContext, type CalendarPageData } from './CalendarPageContext.svelte';
+import {
+	CalendarPageContext,
+	type CalendarPageData,
+	type CalendarPageAccess,
+	type CalendarDisplayPreferences
+} from './CalendarPageContext.svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { groupsStore } from '$features/personnel';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
-import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import {
 	createTestOrgContext,
@@ -17,9 +19,6 @@ import {
 	VIEW_TEST_CAPABILITY_MAP
 } from '$lib/test-support/orgContextBuilder';
 
-vi.mock('$lib/preferences/userPreferences.client', () => ({
-	queueUserPreferencesPatch: vi.fn()
-}));
 vi.mock('$features/calendar/utils/calendarRangeLoader', () => ({
 	loadCalendarRange: vi.fn()
 }));
@@ -39,6 +38,11 @@ vi.mock('$features/personnel', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/personnel')>()),
 	groupsStore: { items: [], loading: false }
 }));
+
+const savePreferences = vi.fn<(patch: Partial<CalendarDisplayPreferences>) => void>();
+function makeContext(data: CalendarPageData | (() => CalendarPageData), org: CalendarPageAccess, today?: string) {
+	return new CalendarPageContext(data, org, savePreferences, today);
+}
 
 // ---------------------------------------------------------------------------
 // Minimal mock data
@@ -105,7 +109,7 @@ function makeMockOrg(
 
 describe('CalendarPageContext', () => {
 	let ctx: CalendarPageContext;
-	let org: OrgContext;
+	let org: CalendarPageAccess;
 
 	beforeEach(() => {
 		org = makeMockOrg();
@@ -114,11 +118,11 @@ describe('CalendarPageContext', () => {
 		mutableSpecialDaysStore.loading = false;
 		mutableStatusTypesStore.loading = false;
 		mutableGroupsStore.loading = false;
-		vi.mocked(queueUserPreferencesPatch).mockClear();
+		savePreferences.mockClear();
 		vi.mocked(loadCalendarRange).mockReset();
 		vi.mocked(availabilityStore.load).mockReset();
 		vi.mocked(availabilityStore.update).mockReset();
-		ctx = new CalendarPageContext(mockData, org);
+		ctx = makeContext(mockData, org);
 	});
 
 	// ---- Derived permission flags ------------------------------------------
@@ -129,17 +133,17 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('canManageConfig is true for owner', () => {
-			const ownerCtx = new CalendarPageContext(mockData, makeMockOrg({ userRole: 'owner' }));
+			const ownerCtx = makeContext(mockData, makeMockOrg({ userRole: 'owner' }));
 			expect(ownerCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for admin', () => {
-			const adminCtx = new CalendarPageContext(mockData, makeMockOrg({ userRole: 'admin' }));
+			const adminCtx = makeContext(mockData, makeMockOrg({ userRole: 'admin' }));
 			expect(adminCtx.canManageConfig).toBe(true);
 		});
 
 		it('canManageConfig is true for Calendar configure capability', () => {
-			const editorCtx = new CalendarPageContext(
+			const editorCtx = makeContext(
 				mockData,
 				makeMockOrg({
 					capabilityMap: {
@@ -156,7 +160,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('allows Calendar operate affordances', () => {
-			const operatorCtx = new CalendarPageContext(
+			const operatorCtx = makeContext(
 				mockData,
 				makeMockOrg({
 					capabilityMap: {
@@ -175,7 +179,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('allows group-scoped Calendar managers to view and manage the scoped workspace', () => {
-			const scopedManagerCtx = new CalendarPageContext(
+			const scopedManagerCtx = makeContext(
 				mockData,
 				makeMockOrg({
 					capabilityMap: {
@@ -203,7 +207,7 @@ describe('CalendarPageContext', () => {
 
 		it('is true while any composite store is still loading', () => {
 			mutableSpecialDaysStore.loading = true;
-			expect(new CalendarPageContext(mockData, org).isHydrating).toBe(true);
+			expect(makeContext(mockData, org).isHydrating).toBe(true);
 		});
 	});
 
@@ -211,15 +215,12 @@ describe('CalendarPageContext', () => {
 
 	describe('syncUserPreferences', () => {
 		it('honors a saved personnel role display preference', () => {
-			ctx.syncUserPreferences({
-				...getDefaultUserOrgPreferences(),
-				calendar: {
-					...getDefaultUserOrgPreferences().calendar,
-					showPersonnelRoles: false
-				}
-			});
+			ctx.syncUserPreferences({ showStatusText: true, showPersonnelRoles: true, highlightOnboarding: false });
 
-			expect(ctx.showPersonnelRoles).toBe(false);
+			expect(ctx.showStatusText).toBe(true);
+			expect(ctx.showPersonnelRoles).toBe(true);
+			expect(ctx.highlightOnboarding).toBe(false);
+			expect(savePreferences).not.toHaveBeenCalled();
 		});
 	});
 
@@ -266,7 +267,7 @@ describe('CalendarPageContext', () => {
 
 	describe('handleCellClick', () => {
 		it('sets selectedPerson and selectedDate when Calendar operate policy allows availability changes', () => {
-			const operatorCtx = new CalendarPageContext(
+			const operatorCtx = makeContext(
 				mockData,
 				makeMockOrg({
 					capabilityMap: {
@@ -286,13 +287,13 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('does nothing when Calendar operate policy denies availability changes', () => {
-			const noEditCtx = new CalendarPageContext(mockData, makeMockOrg());
+			const noEditCtx = makeContext(mockData, makeMockOrg());
 			noEditCtx.handleCellClick(mockPersonnel[0], new Date());
 			expect(noEditCtx.selectedPerson).toBeNull();
 		});
 
 		it('does nothing when person is outside the shared Scope Set', () => {
-			const scopedCtx = new CalendarPageContext(
+			const scopedCtx = makeContext(
 				mockData,
 				makeMockOrg({
 					capabilityMap: {
@@ -315,7 +316,7 @@ describe('CalendarPageContext', () => {
 
 	describe('handlePersonClick', () => {
 		it('sets selectedPerson and selectedDate to today when Calendar operate policy allows availability changes', () => {
-			const operatorCtx = new CalendarPageContext(
+			const operatorCtx = makeContext(
 				mockData,
 				makeMockOrg({
 					capabilityMap: {
@@ -338,7 +339,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('does nothing when Calendar operate policy denies availability changes', () => {
-			const noEditCtx = new CalendarPageContext(mockData, makeMockOrg());
+			const noEditCtx = makeContext(mockData, makeMockOrg());
 			noEditCtx.handlePersonClick(mockPersonnel[0]);
 			expect(noEditCtx.selectedPerson).toBeNull();
 		});
@@ -359,7 +360,7 @@ describe('CalendarPageContext', () => {
 		let currentData = mockData;
 		let resolveUpdate!: (saved: boolean) => void;
 		vi.mocked(availabilityStore.update).mockImplementation(() => new Promise((resolve) => (resolveUpdate = resolve)));
-		const navigatedCtx = new CalendarPageContext(() => currentData, org);
+		const navigatedCtx = makeContext(() => currentData, org);
 		const pending = navigatedCtx.handleUpdateAvailability('entry-1', {
 			statusTypeId: 'leave',
 			startDate: '2026-04-07',
@@ -413,7 +414,7 @@ describe('CalendarPageContext', () => {
 
 		it('does not reload availability for an old Organization after navigation', async () => {
 			const currentData = { ...mockData, orgId: 'org2' };
-			const navigatedCtx = new CalendarPageContext(() => currentData, org);
+			const navigatedCtx = makeContext(() => currentData, org);
 			const result = await navigatedCtx.reconcileAvailability(['2026-04-07'], 'org1');
 
 			expect(result).toBeNull();
@@ -425,7 +426,7 @@ describe('CalendarPageContext', () => {
 			let currentData = mockData;
 			let resolveRange!: (value: Awaited<ReturnType<typeof loadCalendarRange>>) => void;
 			vi.mocked(loadCalendarRange).mockImplementation(() => new Promise((resolve) => (resolveRange = resolve)));
-			const navigatedCtx = new CalendarPageContext(() => currentData, org);
+			const navigatedCtx = makeContext(() => currentData, org);
 			const pending = navigatedCtx.reconcileAvailability(['2026-04-07'], 'org1');
 			currentData = { ...mockData, orgId: 'org2' };
 			resolveRange({
@@ -444,7 +445,7 @@ describe('CalendarPageContext', () => {
 			let currentData = mockData;
 			let rejectRange!: (error: Error) => void;
 			vi.mocked(loadCalendarRange).mockImplementation(() => new Promise((_, reject) => (rejectRange = reject)));
-			const navigatedCtx = new CalendarPageContext(() => currentData, org);
+			const navigatedCtx = makeContext(() => currentData, org);
 			const pending = navigatedCtx.reconcileAvailability(['2026-04-07'], 'org1');
 			currentData = { ...mockData, orgId: 'org2' };
 			rejectRange(new Error('Old range unavailable'));
@@ -468,7 +469,7 @@ describe('CalendarPageContext', () => {
 					return Reflect.get(access, property);
 				}
 			});
-			const scopedCtx = new CalendarPageContext(mockData, mutableOrg);
+			const scopedCtx = makeContext(mockData, mutableOrg);
 			const pending = scopedCtx.reconcileAvailability(['2026-04-07'], 'org1');
 			access = makeMockOrg({ scopeSet: { kind: 'groups', groupIds: [] } });
 			resolveRange({
@@ -529,11 +530,7 @@ describe('CalendarPageContext', () => {
 			ctx.toggleShowPersonnelRoles();
 
 			expect(ctx.showPersonnelRoles).toBe(true);
-			expect(queueUserPreferencesPatch).toHaveBeenCalledWith('org1', {
-				calendar: {
-					showPersonnelRoles: true
-				}
-			});
+			expect(savePreferences).toHaveBeenCalledWith({ showPersonnelRoles: true });
 		});
 	});
 
@@ -542,7 +539,7 @@ describe('CalendarPageContext', () => {
 	describe('calendarPersonnel', () => {
 		it('uses workspace personnel when the route data is nested under calendar.data', () => {
 			const workspacePerson = { ...mockPersonnel[0], id: 'workspace-person', lastName: 'Workspace' };
-			const nestedCtx = new CalendarPageContext(
+			const nestedCtx = makeContext(
 				{
 					...mockData,
 					personnel: [],
@@ -563,7 +560,7 @@ describe('CalendarPageContext', () => {
 		});
 
 		it('falls back to personnel when allPersonnel is absent', () => {
-			const ctx2 = new CalendarPageContext({ ...mockData, allPersonnel: undefined }, makeMockOrg());
+			const ctx2 = makeContext({ ...mockData, allPersonnel: undefined }, makeMockOrg());
 			expect(ctx2.calendarPersonnel).toEqual(mockPersonnel);
 		});
 
@@ -650,13 +647,13 @@ describe('CalendarPageContext', () => {
 		}
 
 		it('returns an empty map when no personnel have tracked dates', () => {
-			const ctxLoss = new CalendarPageContext(mockData, org, TODAY);
+			const ctxLoss = makeContext(mockData, org, TODAY);
 			expect(ctxLoss.upcomingLossMap.size).toBe(0);
 		});
 
 		it('includes a person whose ETS falls within the warning window', () => {
 			const personnel = [makePersonWithEts('p1', IN_WINDOW)];
-			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			const ctxLoss = makeContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
 			const record = ctxLoss.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('ETS');
@@ -664,7 +661,7 @@ describe('CalendarPageContext', () => {
 
 		it('includes a person whose DEROS falls within the warning window', () => {
 			const personnel = [makePersonWithDeros('p1', IN_WINDOW)];
-			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			const ctxLoss = makeContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
 			const record = ctxLoss.upcomingLossMap.get('p1');
 			expect(record).toBeDefined();
 			expect(record?.triggerType).toBe('PCS / DEROS');
@@ -672,19 +669,19 @@ describe('CalendarPageContext', () => {
 
 		it('excludes a person whose ETS falls outside the warning window', () => {
 			const personnel = [makePersonWithEts('p1', OUT_OF_WINDOW)];
-			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			const ctxLoss = makeContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
 			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(false);
 		});
 
 		it('returns an empty map when the personnel list is empty', () => {
-			const ctxLoss = new CalendarPageContext({ ...mockData, personnel: [], allPersonnel: [] }, org, TODAY);
+			const ctxLoss = makeContext({ ...mockData, personnel: [], allPersonnel: [] }, org, TODAY);
 			expect(ctxLoss.upcomingLossMap.size).toBe(0);
 		});
 
 		it('respects a custom lossWarningWindowDays from workspace data (too narrow)', () => {
 			// ETS 17 days from today — inside 180d default but outside a 10-day window
 			const personnel = [makePersonWithEts('p1', '2026-05-01')];
-			const ctxLoss = new CalendarPageContext(
+			const ctxLoss = makeContext(
 				{
 					...mockData,
 					personnel,
@@ -700,7 +697,7 @@ describe('CalendarPageContext', () => {
 		it('respects a custom lossWarningWindowDays from workspace data (wide enough)', () => {
 			// ETS 17 days from today — inside a 30-day window
 			const personnel = [makePersonWithEts('p1', '2026-05-01')];
-			const ctxLoss = new CalendarPageContext(
+			const ctxLoss = makeContext(
 				{
 					...mockData,
 					personnel,
@@ -716,7 +713,7 @@ describe('CalendarPageContext', () => {
 		it('defaults to a 180-day window when lossWarningWindowDays is absent', () => {
 			// ETS 120 days from today — inside the 180-day default
 			const personnel = [makePersonWithEts('p1', '2026-08-12')];
-			const ctxLoss = new CalendarPageContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
+			const ctxLoss = makeContext({ ...mockData, personnel, allPersonnel: personnel }, org, TODAY);
 			expect(ctxLoss.upcomingLossMap.has('p1')).toBe(true);
 		});
 	});

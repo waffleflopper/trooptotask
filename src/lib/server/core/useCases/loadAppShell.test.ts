@@ -4,7 +4,7 @@ import {
 	createInMemoryAppShellFirstPaintChromePort,
 	createInMemoryOrgAccessPort
 } from '$lib/server/adapters/inMemoryOrgShell';
-import { getDefaultUserOrgPreferences } from '$lib/preferences/userPreferences';
+import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { MembershipInfo, OrgState } from '../orgShell';
 import { loadAppShellDeferredChrome, loadAppShellFirstPaint } from './loadAppShell';
 

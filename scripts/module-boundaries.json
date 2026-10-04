@@ -137,7 +137,7 @@
 			"packet": "08-M13"
 		},
 		"identity": {
-			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/", "src/lib/preferences/"],
+			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/"],
 			"files": [
 				"src/lib/server/publicAppOrigin.test.ts",
 				"src/lib/server/publicAppOrigin.ts",

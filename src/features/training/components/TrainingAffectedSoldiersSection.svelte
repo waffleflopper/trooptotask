@@ -59,7 +59,8 @@
 	$effect(() => {
 		if (!shown || !pager) return;
 		const active = document.activeElement;
-		if (pager.disabled && (active === pager || active === document.body)) document.getElementById(id)?.focus();
+		if ((pager.disabled || !pager.isConnected) && (active === pager || active === document.body))
+			document.getElementById(id)?.focus();
 		pager = null;
 	});
 	const summary = $derived.by(() => {

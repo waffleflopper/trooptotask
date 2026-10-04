@@ -370,6 +370,60 @@ describe('Training Reports briefing page', () => {
 		await waitFor(() => expect(document.activeElement).toBe(section));
 	});
 
+	async function pageIntoShrunkDetail(beforeResponse: (section: HTMLElement) => void): Promise<HTMLElement> {
+		const scope: BriefingScope = { kind: 'cell', rowKey: null, typeId: 'cpr' };
+		const pending: Array<(response: Response) => void> = [];
+		const fetchImpl = vi.fn<typeof fetch>(() => new Promise<Response>((respond) => pending.push(respond)));
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Total, CPR: 67% ready today/ }));
+		pending[0](
+			Response.json(
+				detailPage(
+					scope,
+					1,
+					Array.from({ length: 25 }, (_, index) => `p${index + 1}`),
+					30
+				)
+			)
+		);
+		const section = await screen.findByRole('region', { name: 'Affected soldiers' });
+		expect(await within(section).findByText('Rows 1–25 of 30')).toBeTruthy();
+
+		const next = within(section).getByRole('button', { name: 'Next' });
+		next.focus();
+		await fireEvent.click(next);
+		beforeResponse(section);
+		pending[1](
+			Response.json(
+				detailPage(
+					scope,
+					1,
+					Array.from({ length: 20 }, (_, index) => `p${index + 1}`),
+					20
+				)
+			)
+		);
+		expect(await within(section).findByText('Rows 1–20 of 20')).toBeTruthy();
+		expect(within(section).queryByRole('button', { name: 'Next' })).toBeNull();
+		return section;
+	}
+
+	it('keeps keyboard focus in the affected soldiers when a requested page comes back as the only page', async () => {
+		const section = await pageIntoShrunkDetail(() => {});
+		await waitFor(() => expect(document.activeElement).toBe(section));
+	});
+
+	it('leaves focus where the user moved it while a requested page comes back as the only page', async () => {
+		let pageSize: HTMLElement | null = null;
+		await pageIntoShrunkDetail((section) => {
+			pageSize = within(section).getByRole('radio', { name: '100 rows per page' });
+			pageSize.focus();
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(document.activeElement).toBe(pageSize);
+	});
+
 	it('prints the brief from the browser with the displayed filters stated', async () => {
 		const print = vi.fn();
 		vi.stubGlobal('print', print);

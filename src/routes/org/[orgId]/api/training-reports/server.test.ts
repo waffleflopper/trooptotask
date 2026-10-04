@@ -137,10 +137,21 @@ describe('GET /api/training-reports/export', () => {
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(result.buffer as WorkbookLoadBuffer);
 
-		expect(workbook.getWorksheet('Training Report')!.getSheetValues().slice(1)).toEqual([
-			[undefined, 'Name', 'Rank', 'MOS', 'Duty Role', 'Group', 'CPR'],
-			[undefined, 'Baker, Pat', 'SGT', '11B', 'Medic', 'Alpha', 'Not Done']
+		expect(workbook.getWorksheet('Requirements')!.getSheetValues().slice(1)).toEqual([
+			[
+				undefined,
+				'Rank',
+				'Name',
+				'Group',
+				'Training type',
+				'Status today',
+				'Expiration date',
+				'Lapse date',
+				'Lapses in horizon'
+			],
+			[undefined, 'SGT', 'Baker, Pat', 'Alpha', 'CPR', 'Not Done', undefined, undefined, 'No']
 		]);
+		expect(workbook.getWorksheet('Summary')!.getRow(20).values).toEqual([undefined, 'Filter: MOS', '11B']);
 		expect(response.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
 		expect(response.headers.get('Content-Disposition')).toMatch(/attachment; filename="training-report-.*\.xlsx"/);
 		expect(response.headers.get('Cache-Control')).toBe('private, no-store');

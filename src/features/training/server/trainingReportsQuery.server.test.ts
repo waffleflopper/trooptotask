@@ -320,21 +320,184 @@ describe('Training briefing detail', () => {
 	});
 });
 
+async function exportedWorkbook(ctx: ReturnType<typeof unitContext>, request: TrainingBriefingReportInput) {
+	const exported = await generateTrainingReportWorkbookExport(ctx, request);
+	const workbook = new ExcelJS.Workbook();
+	await workbook.xlsx.load(exported.buffer as WorkbookLoadBuffer);
+	return { exported, workbook };
+}
+
+function sheetRows(workbook: ExcelJS.Workbook, name: string): unknown[][] {
+	return workbook
+		.getWorksheet(name)!
+		.getSheetValues()
+		.slice(1)
+		.map((row) => (row as unknown[]).slice(1));
+}
+
 describe('Training report workbook', () => {
-	it('exports exactly the filtered population and view columns the briefing shows', async () => {
-		const exported = await generateTrainingReportWorkbookExport(
-			unitContext(),
-			input({ viewId: 'medical', groupId: 'alpha', typeIds: [] })
-		);
-		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(exported.buffer as WorkbookLoadBuffer);
-		const sheet = workbook.getWorksheet('Training Report')!;
+	it('exports the briefing on screen as five sheets with every affected requirement in drill-down order', async () => {
+		const { exported, workbook } = await exportedWorkbook(unitContext(), input());
 
 		expect(exported.filename).toBe('training-report-2026-09-29.xlsx');
-		expect(sheet.getSheetValues().slice(1)).toEqual([
-			[undefined, 'Name', 'Rank', 'MOS', 'Duty Role', 'Group', 'BLS', 'CPR'],
-			[undefined, 'Able, Pat', 'SGT', '68W', 'Medic', 'Alpha', '11d left (2026-10-10)', 'Current (2027-06-01)'],
-			[undefined, 'Cole, Pat', 'SPC', '68W', 'Line', 'Alpha', 'Current (2027-06-01)', '47d left (2026-11-15)']
+		expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
+			'Summary',
+			'Forecast',
+			'Hot spots',
+			'Focus',
+			'Requirements'
 		]);
+		expect(sheetRows(workbook, 'Summary')).toEqual([
+			['Item', 'Value'],
+			['Organization', 'Test Company'],
+			['Scope', 'Test Company'],
+			['Soldiers', 3],
+			['As of', '2026-09-29'],
+			['Horizon end', '2026-12-28'],
+			['Readiness goal (%)', 80],
+			['Ready today (%)', 67],
+			['Ready by 28 Dec (%)', 33],
+			['Drop (points)', 33],
+			['Ready', 4],
+			['Applicable requirements', 6],
+			['Not ready, expired', 1],
+			['Not ready, not recorded', 1],
+			['Lapse by 28 Dec', 2],
+			['Bottom line', 'If no one renews, Test Company loses 33 points in 90 days.'],
+			['Filter: View', 'All training'],
+			['Filter: Group', 'All groups'],
+			['Filter: Rank', 'All ranks'],
+			['Filter: MOS', 'All'],
+			['Filter: Duty role', 'All'],
+			['Filter: Types', 'All required (2)'],
+			['Filter: Horizon', '90 days'],
+			['Filter: Rows by', 'Group']
+		]);
+
+		const forecast = sheetRows(workbook, 'Forecast');
+		expect(forecast).toHaveLength(15);
+		expect(forecast.slice(0, 4)).toEqual([
+			['Date', 'Ready', 'Ready (%)', 'Week', 'Lapses', 'Cliff window'],
+			['2026-09-29', 4, 67],
+			['2026-10-06', 4, 67, '30 Sep – 6 Oct', 0, 'No'],
+			['2026-10-13', 3, 50, '7 Oct – 13 Oct', 1, 'No']
+		]);
+		expect(forecast[8]).toEqual(['2026-11-17', 2, 33, '11 Nov – 17 Nov', 1, 'No']);
+		expect(forecast[14]).toEqual(['2026-12-28', 2, 33, '23 Dec – 28 Dec', 0, 'No']);
+
+		expect(sheetRows(workbook, 'Hot spots')).toEqual([
+			[
+				'Group',
+				'Soldiers',
+				'CPR today (%)',
+				'CPR drop',
+				'BLS today (%)',
+				'BLS drop',
+				'Today (%)',
+				'28 Dec (%)',
+				'Drop'
+			],
+			['Bravo', 1, 0, 0, 0, 0, 0, 0, 0],
+			['Alpha', 2, 100, 50, 100, 50, 100, 50, 50],
+			['Total', 3, 67, 33, 67, 33, 67, 33, 33]
+		]);
+
+		expect(sheetRows(workbook, 'Focus')).toEqual([
+			[
+				'#',
+				'Title',
+				'Body',
+				'What if',
+				'Forecast before (%)',
+				'Forecast after (%)',
+				'Soldiers',
+				'Requirements',
+				'First lapse'
+			],
+			[
+				1,
+				'BLS — the standing gap',
+				'1 soldier is already not ready, 33% of Test Company. Bravo holds more than half of them.',
+				'ALL RENEWED · 28 Dec forecast 33% → 67%',
+				33,
+				67,
+				2,
+				2
+			],
+			[
+				2,
+				'CPR — the standing gap',
+				'1 soldier is already not ready, 33% of Test Company. Bravo holds more than half of them.',
+				'ALL RENEWED · 28 Dec forecast 33% → 67%',
+				33,
+				67,
+				2,
+				2
+			]
+		]);
+
+		expect(sheetRows(workbook, 'Requirements')).toEqual([
+			['Rank', 'Name', 'Group', 'Training type', 'Status today', 'Expiration date', 'Lapse date', 'Lapses in horizon'],
+			['SPC', 'Baker, Pat', 'Bravo', 'BLS', 'Not Done', undefined, undefined, 'No'],
+			['SPC', 'Baker, Pat', 'Bravo', 'CPR', 'Expired 271d ago', '2026-01-01', undefined, 'No'],
+			['SGT', 'Able, Pat', 'Alpha', 'BLS', '11d left', '2026-10-10', '2026-10-11', 'Yes'],
+			['SPC', 'Cole, Pat', 'Alpha', 'CPR', '47d left', '2026-11-15', '2026-11-16', 'Yes']
+		]);
+	});
+
+	it('narrows every sheet to the filters but never to the drill-down on screen', async () => {
+		const ctx = unitContext();
+		const alpha = input({ groupId: 'alpha' });
+		const drillDown = await fetchTrainingBriefingDetail(ctx, {
+			report: alpha,
+			scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
+			page: 1,
+			pageSize: 25
+		});
+		const { workbook } = await exportedWorkbook(ctx, alpha);
+
+		expect(drillDown.rows.map((row) => row.name)).toEqual(['Cole, Pat']);
+		expect(sheetRows(workbook, 'Summary')).toEqual(
+			expect.arrayContaining([
+				['Scope', 'Alpha'],
+				['Applicable requirements', 4],
+				['Filter: Group', 'Alpha']
+			])
+		);
+		expect(
+			sheetRows(workbook, 'Requirements')
+				.slice(1)
+				.map((row) => [row[1], row[3]])
+		).toEqual([
+			['Able, Pat', 'BLS'],
+			['Cole, Pat', 'CPR']
+		]);
+	});
+
+	it('lists more affected requirements than one detail page holds', async () => {
+		const ctx = unitContext();
+		(ctx.store as Store).seed(
+			'personnel',
+			Array.from({ length: 13 }, (_, index) => person(`p-new-${index}`, `New${index}`, 'PVT', '11B', 'Line', 'bravo'))
+		);
+		const { workbook } = await exportedWorkbook(ctx, input());
+		const requirements = sheetRows(workbook, 'Requirements').slice(1);
+
+		expect(requirements).toHaveLength(30);
+		expect(requirements.slice(-2).map((row) => [row[1], row[3]])).toEqual([
+			['Able, Pat', 'BLS'],
+			['Cole, Pat', 'CPR']
+		]);
+	});
+
+	it('keeps user-defined names that look like formulas as text', async () => {
+		const ctx = unitContext();
+		(ctx.store as Store).seed('training_types', [trainingType('formula', '=HYPERLINK("http://x","CPR")', 3)]);
+		const { workbook } = await exportedWorkbook(ctx, input({ typeIds: ['formula'] }));
+		const typeCell = workbook.getWorksheet('Requirements')!.getCell('D2');
+
+		expect(typeCell.type).toBe(ExcelJS.ValueType.String);
+		expect(typeCell.value).toBe('=HYPERLINK("http://x","CPR")');
+		expect(sheetRows(workbook, 'Summary')).toContainEqual(['Filter: Types', '=HYPERLINK("http://x","CPR")']);
 	});
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
-import { buildTrainingBriefing, matchBriefingRequirements } from './trainingBriefing';
+import { affectedBriefingRequirements, buildTrainingBriefing, matchBriefingRequirements } from './trainingBriefing';
 import type { TrainingBriefingInput } from './trainingBriefing.types';
 import { getTrainingStatus } from './trainingStatus';
 
@@ -253,6 +253,17 @@ describe('buildTrainingBriefing readiness ledger', () => {
 		]);
 		expect(matchBriefingRequirements(input, { kind: 'cell', rowKey: null, typeId: 'exemptable' })).toEqual([]);
 		expect(matchBriefingRequirements(input, { kind: 'cell', rowKey: null, typeId: 'optional' })).toBeNull();
+	});
+
+	it('lists every affected requirement across the page, leaving out quiet, optional, exempt and inapplicable ones', () => {
+		expect(
+			affectedBriefingRequirements(statusFixture()).map((r) => [r.personId, r.typeId, r.status, r.expirationDate])
+		).toEqual([
+			['baker', 'bls', 'not-completed', null],
+			['able', 'targeted', 'expired', '2026-09-28'],
+			['able', 'bls', 'warning-orange', '2026-10-10'],
+			['able', 'cpr', 'current', '2026-12-27']
+		]);
 	});
 
 	it('produces an empty briefing with null percentages when nothing applies', () => {
@@ -965,7 +976,7 @@ describe('buildTrainingBriefing focus areas', () => {
 		expect(briefing.typeRisk).toEqual([{ typeId: 'cert', name: 'Cert', applicable: 4, notReady: 1, lapsing: 0 }]);
 		expect(briefing.focus.areas.map((area) => [area.body, area.whatIf.chip])).toEqual([
 			[
-				'1 soldiers are already not ready, 10% of Test Company. Alpha hold more than half of them.',
+				'1 soldier is already not ready, 10% of Test Company. Alpha holds more than half of them.',
 				'ALL RENEWED · 28 Dec forecast 75% → 100%'
 			]
 		]);
@@ -1015,7 +1026,7 @@ describe('buildTrainingBriefing focus areas', () => {
 				whatIf: { chip: 'ALL RENEWED · Alpha 28 Dec forecast 90% → 100%', before: 90, after: 100 },
 				requirementCount: 1,
 				soldierCount: 1,
-				linkLabel: 'View 1 soldiers',
+				linkLabel: 'View 1 soldier',
 				rowKey: 'alpha',
 				typeIds: ['cpr']
 			}
@@ -1060,7 +1071,7 @@ describe('buildTrainingBriefing focus areas', () => {
 				kind: 'row',
 				key: 'row:role:Medic: Night',
 				title: 'Medic: Night — CPR and BLS',
-				body: 'Medic: Night falls from 100% to 67% by 28 Dec. 1 soldiers are due for both.',
+				body: 'Medic: Night falls from 100% to 67% by 28 Dec. 1 soldier is due for both.',
 				whatIf: { chip: 'ALL RENEWED · Medic: Night 28 Dec forecast 67% → 93%', before: 67, after: 93 },
 				requirementCount: 4,
 				soldierCount: 3,
@@ -1109,7 +1120,7 @@ describe('buildTrainingBriefing focus areas', () => {
 			['row:group:bravo', 5]
 		]);
 		expect(briefing.focus.areas[1].body).toBe(
-			'5 soldiers are already not ready, 33% of Test Company. Charlie hold more than half of them.'
+			'5 soldiers are already not ready, 33% of Test Company. Charlie holds more than half of them.'
 		);
 	});
 

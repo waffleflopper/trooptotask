@@ -306,18 +306,26 @@ export async function capturePrint(
 		partial = path.join(pinned, `.${path.basename(request.target)}.${randomUUID()}.part`);
 		await fs.writeFile(partial, bytes, { flag: 'wx', mode: 0o600, signal: clock.signal });
 		clock.check();
-		const currentParent = await fs.stat(directory);
 		const originalParent = await parent.stat();
-		if (
-			(await fs.realpath(directory)) !== directory ||
-			currentParent.ino !== originalParent.ino ||
-			currentParent.dev !== originalParent.dev
-		)
-			fail('PRINT_PATH', 'PDF output directory changed during capture.');
+		const checkOutputParent = async () => {
+			const currentParent = await fs.stat(directory);
+			if (
+				(await fs.realpath(directory)) !== directory ||
+				currentParent.ino !== originalParent.ino ||
+				currentParent.dev !== originalParent.dev
+			)
+				fail('PRINT_PATH', 'PDF output directory changed during capture.');
+		};
 		await checkDocument();
+		await checkOutputParent();
 		clock.check();
 		published = path.join(pinned, path.basename(request.target));
 		await fs.link(partial, published);
+		await checkOutputParent();
+		const output = await fs.lstat(request.target);
+		const temporary = await fs.stat(partial);
+		if (!output.isFile() || output.ino !== temporary.ino || output.dev !== temporary.dev)
+			fail('PRINT_PATH', 'PDF output changed during publication.');
 		clock.check();
 		succeeded = true;
 		return {

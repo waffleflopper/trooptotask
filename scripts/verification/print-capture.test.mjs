@@ -284,6 +284,53 @@ test('document change after temporary output creation removes its partial file',
 	await noOutput(f);
 });
 
+test('moving the output directory during final document observation rejects publication and preserves its replacement', async (t) => {
+	const f = await fixture(t);
+	const relocation = await fs.mkdtemp(path.join(repository, '.verification/print-race-test-'));
+	t.after(() => fs.rm(relocation, { recursive: true, force: true }));
+	const moved = path.join(relocation, 'moved');
+	const witness = Buffer.from('Replacement directory witness');
+	const evaluate = f.page.evaluate;
+	let replaced = false;
+	f.page.evaluate = async (fn) => {
+		if (!replaced && (await fs.readdir(f.directory)).some((name) => name.endsWith('.part'))) {
+			replaced = true;
+			await fs.rename(f.directory, moved);
+			await fs.mkdir(f.directory);
+			await fs.writeFile(path.join(f.directory, 'witness.txt'), witness);
+		}
+		return evaluate(fn);
+	};
+	await assert.rejects(capturePrint(f.request, f.options), { code: 'PRINT_PATH' });
+	assert.equal(replaced, true);
+	assert.deepEqual(await fs.readdir(moved), []);
+	assert.deepEqual(await fs.readdir(f.directory), ['witness.txt']);
+	assert.deepEqual(await fs.readFile(path.join(f.directory, 'witness.txt')), witness);
+	assert.equal(f.resources.disconnected, true);
+	assert.equal(f.page.listenerCount('close'), 0);
+	assert.equal(f.page.listenerCount('framenavigated'), 0);
+});
+
+test('moving the directory as publication settles removes only the unaccepted PDF from its pinned directory', async (t) => {
+	const f = await fixture(t);
+	const relocation = await fs.mkdtemp(path.join(repository, '.verification/print-race-test-'));
+	t.after(() => fs.rm(relocation, { recursive: true, force: true }));
+	const moved = path.join(relocation, 'moved');
+	const witness = Buffer.from('Existing replacement PDF');
+	const link = fs.link;
+	t.mock.method(fs, 'link', async (...args) => {
+		await link(...args);
+		await fs.rename(f.directory, moved);
+		await fs.mkdir(f.directory);
+		await fs.writeFile(f.target, witness);
+	});
+	await assert.rejects(capturePrint(f.request, f.options), { code: 'PRINT_PATH' });
+	assert.deepEqual(await fs.readdir(moved), []);
+	assert.deepEqual(await fs.readdir(f.directory), ['brief.pdf']);
+	assert.deepEqual(await fs.readFile(f.target), witness);
+	assert.equal(f.resources.disconnected, true);
+});
+
 test('private endpoint requires current identities, exact profile and owned loopback listener', async (t) => {
 	const f = await fixture(t);
 	const profile = path.join(f.directory, 'chrome-profile');

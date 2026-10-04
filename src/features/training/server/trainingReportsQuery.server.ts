@@ -8,20 +8,24 @@ import type { Personnel, PersonnelTrainingRosterPort } from '$features/personnel
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
 import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type {
+	BriefingRequirement,
 	TrainingBriefingDetail,
 	TrainingBriefingDetailInput,
+	TrainingBriefingDetailRow,
 	TrainingBriefingFilterOptions,
 	TrainingBriefingReportData,
 	TrainingBriefingReportInput,
-	TrainingReportWorkbookExport,
-	TrainingType
+	TrainingReportWorkbookExport
 } from '../contracts';
 import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { listTrainingCompletions } from './trainingCompletionRead.server';
 import { listTrainingTypes, listTrainingViews } from './trainingCatalogRead.server';
-import { buildPivotTableFromMatrix, buildTrainingReportMatrix, filterPersonnel } from '../utils/reportCalculations';
-import { buildTrainingBriefing, matchBriefingRequirements } from '../utils/trainingBriefing';
+import {
+	affectedBriefingRequirements,
+	buildTrainingBriefing,
+	matchBriefingRequirements
+} from '../utils/trainingBriefing';
 import type { TrainingBriefingInput } from '../utils/trainingBriefing.types';
 import { buildTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
 import { filterColumnsByView } from '../utils/viewFiltering';
@@ -119,17 +123,7 @@ async function loadBriefingSource(
 	};
 }
 
-function selectedColumns(source: BriefingSource): TrainingType[] {
-	const { types, filters } = source.briefingInput;
-	const selected = filters.trainingTypeIds ?? [];
-	return selected.length === 0 ? types : types.filter((type) => selected.includes(type.id));
-}
-
-export async function fetchTrainingBriefingReport(
-	ctx: TrainingReportReadContext,
-	request: TrainingBriefingReportInput
-): Promise<TrainingBriefingReportData> {
-	const source = await loadBriefingSource(ctx, request);
+function reportData(source: BriefingSource): TrainingBriefingReportData {
 	return {
 		input: source.input,
 		organizationName: source.organizationName,
@@ -138,21 +132,10 @@ export async function fetchTrainingBriefingReport(
 	};
 }
 
-/** The affected requirements behind one grid cell or focus area, re-derived from the same filters. */
-export async function fetchTrainingBriefingDetail(
-	ctx: TrainingReportReadContext,
-	request: TrainingBriefingDetailInput
-): Promise<TrainingBriefingDetail> {
-	const source = await loadBriefingSource(ctx, request.report);
-	const requirements = matchBriefingRequirements(source.briefingInput, request.scope);
-	if (!requirements) fail(404, 'Training report scope not found');
-
-	const totalPages = Math.max(1, Math.ceil(requirements.length / request.pageSize));
-	const page = Math.min(request.page, totalPages);
-	const start = (page - 1) * request.pageSize;
+function detailRows(source: BriefingSource, requirements: BriefingRequirement[]): TrainingBriefingDetailRow[] {
 	const people = new Map(source.briefingInput.personnel.map((person) => [person.id, person]));
 	const typeNames = new Map(source.briefingInput.types.map((type) => [type.id, type.name]));
-	const rows = requirements.slice(start, start + request.pageSize).map((requirement) => {
+	return requirements.map((requirement) => {
 		const person = people.get(requirement.personId) as Personnel;
 		return {
 			personId: person.id,
@@ -168,24 +151,42 @@ export async function fetchTrainingBriefingDetail(
 			lapsesInHorizon: requirement.lapsesInHorizon
 		};
 	});
+}
+
+export async function fetchTrainingBriefingReport(
+	ctx: TrainingReportReadContext,
+	request: TrainingBriefingReportInput
+): Promise<TrainingBriefingReportData> {
+	return reportData(await loadBriefingSource(ctx, request));
+}
+
+/** The affected requirements behind one grid cell or focus area, re-derived from the same filters. */
+export async function fetchTrainingBriefingDetail(
+	ctx: TrainingReportReadContext,
+	request: TrainingBriefingDetailInput
+): Promise<TrainingBriefingDetail> {
+	const source = await loadBriefingSource(ctx, request.report);
+	const requirements = matchBriefingRequirements(source.briefingInput, request.scope);
+	if (!requirements) fail(404, 'Training report scope not found');
+
+	const totalPages = Math.max(1, Math.ceil(requirements.length / request.pageSize));
+	const page = Math.min(request.page, totalPages);
+	const start = (page - 1) * request.pageSize;
+	const rows = detailRows(source, requirements.slice(start, start + request.pageSize));
 
 	return { scope: request.scope, rows, totalRows: requirements.length, page, pageSize: request.pageSize, totalPages };
 }
 
-/** The retained per-soldier status workbook for exactly the population and columns the briefing shows. */
+/** The displayed briefing as a workbook, with every affected requirement of the filtered page. */
 export async function generateTrainingReportWorkbookExport(
 	ctx: TrainingReportReadContext,
 	request: TrainingBriefingReportInput
 ): Promise<TrainingReportWorkbookExport> {
 	const source = await loadBriefingSource(ctx, request);
-	const { personnel, filters, records } = source.briefingInput;
-	const columns = selectedColumns(source);
-	const pivotRows = buildPivotTableFromMatrix(
-		buildTrainingReportMatrix(filterPersonnel(personnel, filters), columns, records)
-	).sort(
-		(a, b) => a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName)
-	);
-	const workbook = await buildTrainingReportWorkbook(pivotRows, columns);
+	const workbook = await buildTrainingReportWorkbook({
+		report: reportData(source),
+		requirements: detailRows(source, affectedBriefingRequirements(source.briefingInput))
+	});
 	return {
 		buffer: await writeWorkbookBuffer(workbook),
 		filename: `training-report-${source.briefingInput.asOf}.xlsx`

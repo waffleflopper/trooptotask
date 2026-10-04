@@ -174,7 +174,11 @@ describe('Training briefing session', () => {
 		expect(calls[0].url).toBe('/org/org-1/api/training-reports/detail?scope=cell&type=cpr');
 		calls[0].respond(Response.json(detail));
 		await flush();
-		expect(session.detail).toEqual({ status: 'loaded', scope: detail.scope, detail });
+		expect(session.detail).toEqual({
+			status: 'loaded',
+			request: { scope: detail.scope, page: 1, pageSize: 25 },
+			detail
+		});
 
 		session.requestDetail({ kind: 'cell', rowKey: 'alpha', typeId: 'cpr' });
 		session.select({ ...DEFAULT_TRAINING_BRIEFING_INPUT, rowsBy: 'mos' });
@@ -193,9 +197,72 @@ describe('Training briefing session', () => {
 		session.requestDetail({ kind: 'cell', rowKey: 'alpha', typeId: 'cpr' });
 		calls[0].respond(new Response(null, { status: 404 }));
 		await flush();
-		expect(session.detail).toMatchObject({ status: 'error', scope: { rowKey: 'alpha' } });
+		expect(session.detail).toMatchObject({ status: 'error', request: { scope: { rowKey: 'alpha' } }, detail: null });
 
 		session.retryDetail();
 		expect(calls[1].url).toBe('/org/org-1/api/training-reports/detail?scope=cell&row=alpha&type=cpr');
 	});
+
+	it('keeps the page on screen while another page of the same scope loads or fails, then retries the attempted page', async () => {
+		const { session, calls } = setup();
+		const scope = { kind: 'focus' as const, key: 'wave' };
+		const firstPage = detailPage(scope, 1, 25);
+
+		session.requestDetail(scope);
+		calls[0].respond(Response.json(firstPage));
+		await flush();
+		session.showDetailPage(2);
+
+		expect(calls[1].url).toBe('/org/org-1/api/training-reports/detail?scope=focus&focus=wave&page=2');
+		expect(session.detail).toEqual({
+			status: 'loading',
+			request: { scope, page: 2, pageSize: 25 },
+			detail: firstPage
+		});
+
+		calls[1].respond(new Response(null, { status: 503 }));
+		await flush();
+		expect(session.detail).toMatchObject({ status: 'error', request: { page: 2 }, detail: { page: 1 } });
+
+		session.retryDetail();
+		expect(calls[2].url).toBe('/org/org-1/api/training-reports/detail?scope=focus&focus=wave&page=2');
+		calls[2].respond(Response.json(detailPage(scope, 2, 25)));
+		await flush();
+		expect(session.detail).toMatchObject({ status: 'loaded', detail: { page: 2 } });
+	});
+
+	it('returns to the first page when the page size changes and keeps that size for the next scope', () => {
+		const { session, calls } = setup();
+
+		session.requestDetail({ kind: 'cell', rowKey: null, typeId: 'cpr' });
+		session.showDetailPage(3);
+		session.setDetailPageSize(100);
+		session.requestDetail({ kind: 'cell', rowKey: 'alpha', typeId: 'bls' });
+
+		expect(calls.map((call) => call.url)).toEqual([
+			'/org/org-1/api/training-reports/detail?scope=cell&type=cpr',
+			'/org/org-1/api/training-reports/detail?scope=cell&type=cpr&page=3',
+			'/org/org-1/api/training-reports/detail?scope=cell&type=cpr&pageSize=100',
+			'/org/org-1/api/training-reports/detail?scope=cell&row=alpha&type=bls&pageSize=100'
+		]);
+		expect(calls.slice(0, 3).every((call) => call.signal.aborted)).toBe(true);
+	});
+
+	it('ignores a late answer for a page the user has moved past', async () => {
+		const { session, calls } = setup();
+		const scope = { kind: 'cell' as const, rowKey: null, typeId: 'cpr' };
+
+		session.requestDetail(scope);
+		session.showDetailPage(2);
+		calls[1].respond(Response.json(detailPage(scope, 2, 25)));
+		await flush();
+		calls[0].respond(Response.json(detailPage(scope, 1, 25)));
+		await flush();
+
+		expect(session.detail).toMatchObject({ status: 'loaded', request: { page: 2 }, detail: { page: 2 } });
+	});
 });
+
+function detailPage(scope: TrainingBriefingDetail['scope'], page: number, pageSize: number): TrainingBriefingDetail {
+	return { scope, rows: [], totalRows: 60, page, pageSize, totalPages: 3 };
+}

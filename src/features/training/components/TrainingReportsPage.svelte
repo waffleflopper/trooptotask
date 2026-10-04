@@ -11,13 +11,14 @@
 		none: 'not-applicable'
 	};
 
-	const ROWS_BY_LABEL: Record<BriefingRowsBy, string> = { group: 'Group', mos: 'MOS', role: 'Duty role' };
 	const TOTAL_ROW_ID = 'total';
+	const DETAIL_ID = 'training-affected-soldiers';
 </script>
 
 <script lang="ts">
 	import Download from '@lucide/svelte/icons/download';
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import Printer from '@lucide/svelte/icons/printer';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -43,6 +44,10 @@
 		type TrainingBriefingReportInput
 	} from '../contracts';
 	import { TrainingBriefingSession } from '../read-model/trainingBriefingSession.svelte';
+	import { BRIEFING_ROWS_BY_LABELS as ROWS_BY_LABEL, briefingFilterLabels } from '../utils/briefingFilterLabels';
+	import TrainingAffectedSoldiersSection from './TrainingAffectedSoldiersSection.svelte';
+	import TrainingFocusSection from './TrainingFocusSection.svelte';
+	import TrainingTypeRiskSection from './TrainingTypeRiskSection.svelte';
 
 	interface Props {
 		orgId: string;
@@ -146,21 +151,30 @@
 	const matrixColumns = $derived<MatrixColumn[]>(
 		grid.columns.map((column) => ({ id: column.typeId, label: column.name, typeId: column.typeId }))
 	);
+	const openScope = $derived(session.detail.status === 'idle' ? null : session.detail.request.scope);
 	const selectedCell = $derived.by(() => {
-		const detail = session.detail;
-		if (detail.status === 'idle' || detail.scope.kind !== 'cell') return undefined;
-		const scope = detail.scope;
-		return { rowId: scope.rowKey === null ? TOTAL_ROW_ID : `row:${scope.rowKey}`, columnId: scope.typeId };
+		if (openScope?.kind !== 'cell') return undefined;
+		return { rowId: openScope.rowKey === null ? TOTAL_ROW_ID : `row:${openScope.rowKey}`, columnId: openScope.typeId };
 	});
-	const detailSummary = $derived.by(() => {
-		const detail = session.detail;
-		if (detail.status !== 'loaded' || detail.scope.kind !== 'cell') return null;
-		const scope = detail.scope;
+	const filterLine = $derived(
+		briefingFilterLabels(report.input, options)
+			.map(({ label, value }) => `${label}: ${value}`)
+			.join(' · ')
+	);
+
+	function scopeLabel(scope: BriefingScope): string {
+		if (scope.kind === 'focus')
+			return briefing.focus.areas.find((area) => area.key === scope.key)?.title ?? 'Focus area';
 		const row = matrixRows.find((candidate) => candidate.source.key === scope.rowKey);
 		const column = grid.columns.find((candidate) => candidate.typeId === scope.typeId);
-		const count = detail.detail.totalRows;
-		return `${row?.label ?? 'Total'}, ${column?.name ?? ''}: ${count} ${count === 1 ? 'requirement' : 'requirements'} not ready or lapsing by ${horizonEndLabel}.`;
-	});
+		return `${row?.label ?? 'Total'}, ${column?.name ?? ''}`;
+	}
+
+	async function openDetail(scope: BriefingScope): Promise<void> {
+		session.requestDetail(scope);
+		await tick();
+		document.getElementById(DETAIL_ID)?.focus();
+	}
 
 	function update(changes: Partial<TrainingBriefingReportInput>): void {
 		session.select({ ...selected, ...changes });
@@ -182,16 +196,11 @@
 		return readiness.percent === null ? '—' : `${readiness.percent}%`;
 	}
 
-	function cellLabel(row: BriefingGridRow, typeName: string, index: number): string {
+	function cellLabel(row: BriefingGridRow, typeName: string, index: number, selected: boolean): string {
 		const cell = row.cells[index];
 		if (cell.today.percent === null) return `${row.label}, ${typeName}: no applicable requirements`;
 		const drop = cell.dropAlert ? `, drops ${cell.drop} points by ${horizonEndLabel}` : '';
-		return `${row.label}, ${typeName}: ${cell.today.percent}% ready today${drop}`;
-	}
-
-	function selectCell(row: BriefingGridRow, typeId: string): void {
-		const scope: BriefingScope = { kind: 'cell', rowKey: row.key, typeId };
-		session.requestDetail(scope);
+		return `${row.label}, ${typeName}: ${cell.today.percent}% ready today${drop}${selected ? ', selected' : ''}`;
 	}
 
 	async function exportExcel(): Promise<void> {
@@ -213,28 +222,45 @@
 	}
 </script>
 
-<div class="flex flex-col gap-6 p-4 md:p-6">
+<div class="flex flex-col gap-6 p-4 md:p-6 print:p-0" data-print-report="training">
 	<PageShell.Header
 		title="Training Reports"
 		subtitle={`${report.organizationName} · ${soldierLabel(bottomLine.soldierCount)} · as of ${bottomLine.asOfLabel}`}
 	>
 		{#snippet actions()}
-			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Training report actions">
+			<div class="flex flex-wrap items-center gap-2 print:hidden" role="group" aria-label="Training report actions">
 				<span class="min-w-30 text-right text-sm text-muted-foreground" role="status" aria-live="polite">
 					{loading ? 'Updating briefing' : ''}
 				</span>
 				{#if hasNonDefault}
 					<Button type="button" variant="secondary" size="sm" onclick={clearFilters}>Clear filters</Button>
 				{/if}
-				<Button type="button" size="sm" onclick={exportExcel} disabled={exporting || bottomLine.soldierCount === 0}>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onclick={exportExcel}
+					disabled={exporting || bottomLine.soldierCount === 0}
+				>
 					<Download aria-hidden="true" />
 					{exporting ? 'Exporting...' : 'Export Excel'}
+				</Button>
+				<Button type="button" size="sm" onclick={() => window.print()}>
+					<Printer aria-hidden="true" />
+					Print brief
 				</Button>
 			</div>
 		{/snippet}
 	</PageShell.Header>
+	<p class="-mt-4 hidden font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground print:block">
+		Filters · {filterLine}
+	</p>
 
-	<WorkspaceToolbar.Root ariaLabel="Training report controls" wrap class="[&_[data-slot=toggle-group]]:shrink-0">
+	<WorkspaceToolbar.Root
+		ariaLabel="Training report controls"
+		wrap
+		class="print:hidden [&_[data-slot=toggle-group]]:shrink-0"
+	>
 		<WorkspaceToolbar.Group
 			label="Training report filters"
 			activeCount={activeFilterCount}
@@ -332,14 +358,16 @@
 				: 'No soldier is required to hold the configured training.'}
 		>
 			{#if hasNonDefault}
-				<Button type="button" variant="secondary" size="sm" onclick={clearFilters}>Clear filters</Button>
+				<Button type="button" variant="secondary" size="sm" class="print:hidden" onclick={clearFilters}>
+					Clear filters
+				</Button>
 			{/if}
 		</ReportWorkspace.State>
 	{:else}
 		<ReportWorkspace.Root ariaLabel="Training readiness briefing" aria-busy={loading}>
 			<div class="flex flex-col gap-10">
 				<div class="grid gap-12 lg:grid-cols-[21.25rem_minmax(0,1fr)]">
-					<ReportWorkspace.Section variant="briefing" title="Bottom line">
+					<ReportWorkspace.Section variant="briefing" title="Bottom line" data-print-section>
 						<div class="flex flex-wrap items-end gap-x-5 gap-y-3">
 							<div>
 								<p class="font-heading text-[104px] leading-[88px] font-extrabold tracking-[-0.02em]">
@@ -389,6 +417,7 @@
 						variant="briefing"
 						eyebrow={`Forecast · next ${report.input.horizonDays} days`}
 						title={`${bottomLine.scopeName} readiness if no one renews`}
+						data-print-section
 					>
 						<div data-testid="training-briefing-forecast">
 							<ReportForecastChart
@@ -409,9 +438,10 @@
 					eyebrow="Where · hot spots"
 					title={`${ROWS_BY_LABEL[grid.rowsBy]} by training type`}
 					description={`% ready today. Color shows distance from the ${briefing.forecast.goalPercent}% goal. ▼ marks a drop of ${grid.dropAlertPoints}+ points by ${horizonEndLabel}.`}
+					data-print-section
 				>
 					{#snippet actions()}
-						<div class="flex items-center gap-2">
+						<div class="flex items-center gap-2 print:hidden">
 							<span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Rows by</span>
 							<ToggleGroup.Root
 								type="single"
@@ -436,32 +466,32 @@
 					{/snippet}
 
 					<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} {selectedCell}>
-						<OperationalMatrix.Viewport ariaLabel="Hot-spot grid">
+						<OperationalMatrix.Viewport ariaLabel="Hot-spot grid" class="print:overflow-visible">
 							<OperationalMatrix.Table
 								ariaLabel={`${ROWS_BY_LABEL[grid.rowsBy]} by training type readiness`}
-								class="min-w-max border-separate border-spacing-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:block [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:rounded-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:outline-none [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:relative [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:z-20 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-foreground [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-4 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-background [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-offset-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-dashed [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-foreground"
+								class="min-w-max border-separate border-spacing-[2px] print:min-w-0 print:table-fixed [&_[data-slot=operational-matrix-cell-trigger]]:block [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:rounded-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:outline-none [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:relative [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:z-20 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-foreground [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-4 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-background [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-offset-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-dashed [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-foreground"
 							>
 								<OperationalMatrix.Header>
 									<OperationalMatrix.HeaderRow>
 										<OperationalMatrix.CornerCell
-											class="w-[170px] pb-2 text-left font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
+											class="w-[170px] pb-2 text-left font-mono print:w-32 text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
 										>
 											{ROWS_BY_LABEL[grid.rowsBy]}
 										</OperationalMatrix.CornerCell>
 										{#each matrixColumns as column (column.id)}
 											<OperationalMatrix.ColumnHeader
 												{column}
-												class="min-w-24 px-1 pb-2 text-center font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
+												class="min-w-24 px-1 pb-2 text-center font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:min-w-0 print:[overflow-wrap:anywhere]"
 											/>
 										{/each}
 										<th
 											scope="col"
-											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
+											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:w-16"
 											>Today</th
 										>
 										<th
 											scope="col"
-											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
+											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:w-16"
 											>{horizonEndLabel}</th
 										>
 									</OperationalMatrix.HeaderRow>
@@ -476,7 +506,7 @@
 											<OperationalMatrix.RowHeader
 												{row}
 												sticky
-												class="sticky left-0 z-10 bg-background pr-3 text-left align-middle"
+												class="sticky left-0 z-10 bg-background pr-3 text-left align-middle print:static"
 											>
 												<span class="block font-serif text-[15px] font-medium">{row.label}</span>
 												<span class="block font-mono text-[11px] text-muted-foreground">
@@ -489,8 +519,13 @@
 													{row}
 													{column}
 													readOnly={cell.today.applicable === 0}
-													ariaLabel={cellLabel(row.source, column.label, index)}
-													onSelect={() => selectCell(row.source, column.typeId)}
+													ariaLabel={cellLabel(
+														row.source,
+														column.label,
+														index,
+														selectedCell?.rowId === row.id && selectedCell.columnId === column.id
+													)}
+													onSelect={() => openDetail({ kind: 'cell', rowKey: row.source.key, typeId: column.typeId })}
 													class="p-0"
 												>
 													<ReadinessBand.Cell
@@ -503,10 +538,10 @@
 													/>
 												</OperationalMatrix.Cell>
 											{/each}
-											<td class="text-right align-middle font-heading text-2xl font-bold">
+											<td class="text-right align-middle font-heading text-2xl font-bold print:text-xl">
 												{percentLabel(row.source.today)}
 											</td>
-											<td class="text-right align-middle font-heading text-2xl font-bold">
+											<td class="text-right align-middle font-heading text-2xl font-bold print:text-xl">
 												<span class={tone(row.source.horizon)}>{percentLabel(row.source.horizon)}</span>
 											</td>
 										</OperationalMatrix.Row>
@@ -515,24 +550,29 @@
 							</OperationalMatrix.Table>
 						</OperationalMatrix.Viewport>
 					</OperationalMatrix.Root>
-
-					<div class="mt-3 min-h-5 text-sm" role="status" aria-live="polite">
-						{#if session.detail.status === 'loading'}
-							<span class="text-muted-foreground">Loading affected soldiers</span>
-						{:else if detailSummary}
-							{detailSummary}
-						{/if}
-					</div>
-					{#if session.detail.status === 'error'}
-						<ReportWorkspace.State
-							state="error"
-							title="Unable to load affected soldiers"
-							description={session.detail.message}
-							role="alert"
-							onRetry={() => session.retryDetail()}
-						/>
-					{/if}
 				</ReportWorkspace.Section>
+
+				<div class="grid gap-14 xl:grid-cols-[minmax(0,1fr)_30rem]">
+					<TrainingTypeRiskSection risks={briefing.typeRisk} {horizonEndLabel} />
+					<TrainingFocusSection
+						focus={briefing.focus}
+						detailId={DETAIL_ID}
+						openKey={openScope?.kind === 'focus' ? openScope.key : null}
+						onOpen={(key) => openDetail({ kind: 'focus', key })}
+					/>
+				</div>
+
+				{#if session.detail.status !== 'idle'}
+					<TrainingAffectedSoldiersSection
+						id={DETAIL_ID}
+						detail={session.detail}
+						{horizonEndLabel}
+						{scopeLabel}
+						onPage={(page) => session.showDetailPage(page)}
+						onPageSize={(pageSize) => session.setDetailPageSize(pageSize)}
+						onRetry={() => session.retryDetail()}
+					/>
+				{/if}
 			</div>
 		</ReportWorkspace.Root>
 	{/if}

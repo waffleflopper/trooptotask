@@ -14,11 +14,18 @@ export type BriefingRequestState =
 	| { status: 'loading'; input: TrainingBriefingReportInput }
 	| { status: 'error'; input: TrainingBriefingReportInput; message: string };
 
+export interface BriefingDetailRequest {
+	scope: BriefingScope;
+	page: number;
+	pageSize: number;
+}
+
+/** `request` names the page last asked for; `detail` is the page on screen, kept for the same scope while another page loads or fails. */
 export type BriefingDetailState =
 	| { status: 'idle' }
-	| { status: 'loading'; scope: BriefingScope }
-	| { status: 'loaded'; scope: BriefingScope; detail: TrainingBriefingDetail }
-	| { status: 'error'; scope: BriefingScope; message: string };
+	| { status: 'loading'; request: BriefingDetailRequest; detail: TrainingBriefingDetail | null }
+	| { status: 'loaded'; request: BriefingDetailRequest; detail: TrainingBriefingDetail }
+	| { status: 'error'; request: BriefingDetailRequest; detail: TrainingBriefingDetail | null; message: string };
 
 export interface TrainingBriefingSessionOptions {
 	orgId: string;
@@ -30,6 +37,10 @@ export interface TrainingBriefingSessionOptions {
 
 function queryFor(input: TrainingBriefingReportInput): string {
 	return serializeTrainingBriefingReportInput(input).toString();
+}
+
+function sameScope(a: BriefingScope, b: BriefingScope): boolean {
+	return JSON.stringify(a) === JSON.stringify(b);
 }
 
 /** Filter, refetch and drill-down lifecycle for one Organization's Training Reports page. */
@@ -98,19 +109,34 @@ export class TrainingBriefingSession {
 		if (this.request.status === 'error') this.select(this.request.input);
 	}
 
+	/** Opens a cell or focus area at its first page, keeping the page size already chosen. */
 	requestDetail(scope: BriefingScope): void {
+		const pageSize = this.detail.status === 'idle' ? DEFAULT_BRIEFING_DETAIL_PAGE_SIZE : this.detail.request.pageSize;
+		this.#loadDetail({ scope, page: 1, pageSize });
+	}
+
+	showDetailPage(page: number): void {
+		if (this.detail.status !== 'idle') this.#loadDetail({ ...this.detail.request, page });
+	}
+
+	setDetailPageSize(pageSize: number): void {
+		if (this.detail.status !== 'idle') this.#loadDetail({ ...this.detail.request, page: 1, pageSize });
+	}
+
+	retryDetail(): void {
+		if (this.detail.status === 'error') this.#loadDetail(this.detail.request);
+	}
+
+	#loadDetail(request: BriefingDetailRequest): void {
 		this.#cancel(this.#detailRequest);
-		this.detail = { status: 'loading', scope };
+		const shown = this.detail.status === 'idle' ? null : this.detail.detail;
+		const retained = shown && sameScope(shown.scope, request.scope) ? shown : null;
+		this.detail = { status: 'loading', request, detail: retained };
 		const id = ++this.#detailRequest.id;
 		const controller = new AbortController();
 		this.#detailRequest.controller = controller;
 		const current = () => id === this.#detailRequest.id;
-		const query = serializeTrainingBriefingDetailInput({
-			report: this.report.input,
-			scope,
-			page: 1,
-			pageSize: DEFAULT_BRIEFING_DETAIL_PAGE_SIZE
-		}).toString();
+		const query = serializeTrainingBriefingDetailInput({ report: this.report.input, ...request }).toString();
 
 		void this.#options
 			.fetch(`${this.apiBase}/detail?${query}`, { signal: controller.signal })
@@ -120,21 +146,18 @@ export class TrainingBriefingSession {
 			})
 			.then(
 				(detail) => {
-					if (current()) this.detail = { status: 'loaded', scope, detail };
+					if (current()) this.detail = { status: 'loaded', request, detail };
 				},
 				(error: unknown) => {
 					if (!current()) return;
 					this.detail = {
 						status: 'error',
-						scope,
+						request,
+						detail: retained,
 						message: error instanceof Error ? error.message : 'The affected soldiers could not be loaded.'
 					};
 				}
 			);
-	}
-
-	retryDetail(): void {
-		if (this.detail.status === 'error') this.requestDetail(this.detail.scope);
 	}
 
 	/** Abandons every request so no late response can write into a page that has gone away. */

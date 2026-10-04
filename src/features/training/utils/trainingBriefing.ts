@@ -161,6 +161,10 @@ function joinNames(names: string[]): string {
 	return names.join(' and ');
 }
 
+function soldiers(count: number): string {
+	return `${count} ${count === 1 ? 'soldier' : 'soldiers'}`;
+}
+
 function rowIdentity(person: Personnel, rowsBy: BriefingRowsBy): { key: string; label: string } {
 	if (rowsBy === 'group') return { key: person.groupId ?? 'unassigned', label: person.groupName || 'Unassigned' };
 	if (rowsBy === 'mos') return { key: person.mos, label: person.mos || 'No MOS' };
@@ -437,7 +441,7 @@ function concentratedRows(analysis: Analysis, entries: Entry[]): string[] {
 
 function focusBase(key: FocusCandidateKey, entries: Entry[]) {
 	const soldierCount = distinctPeople(entries);
-	return { key, requirementCount: entries.length, soldierCount, linkLabel: `View ${soldierCount} soldiers` };
+	return { key, requirementCount: entries.length, soldierCount, linkLabel: `View ${soldiers(soldierCount)}` };
 }
 
 function waveCandidate(analysis: Analysis, baseline: number): Candidate | null {
@@ -510,12 +514,14 @@ function gapCandidates(analysis: Analysis, baseline: number): Candidate[] {
 		const notReady = typeEntries.filter((entry) => !entry.requirement.readyToday);
 		if (notReady.length === 0 || notReady.length * 5 < typeEntries.length) return [];
 		const entries = typeEntries.filter(isAffected);
-		const soldiers = distinctPeople(notReady);
+		const notReadySoldiers = distinctPeople(notReady);
 		const sentences = [
-			`${soldiers} soldiers are already not ready, ${percent(soldiers, population.length)}% of ${input.scopeName}.`
+			`${soldiers(notReadySoldiers)} ${notReadySoldiers === 1 ? 'is' : 'are'} already not ready, ${percent(notReadySoldiers, population.length)}% of ${input.scopeName}.`
 		];
 		const holders = concentratedRows(analysis, notReady);
-		if (holders.length > 0) sentences.push(`${joinNames(holders)} hold more than half of them.`);
+		if (holders.length > 0) {
+			sentences.push(`${joinNames(holders)} ${holders.length === 1 ? 'holds' : 'hold'} more than half of them.`);
+		}
 		const before = percent(baseline, allEntries.length);
 		const after = percent(baseline + entries.length, allEntries.length);
 		const key: FocusCandidateKey = `gap:${type.id}`;
@@ -557,7 +563,7 @@ function rowCandidates(analysis: Analysis): Candidate[] {
 				(column) => new Set(entries.filter((entry) => entry.column === column).map((entry) => entry.person.id))
 			);
 			const dueForBoth = [...peopleByColumn[0]].filter((personId) => peopleByColumn[1].has(personId)).length;
-			if (dueForBoth > 0) sentences.push(`${dueForBoth} soldiers are due for both.`);
+			if (dueForBoth > 0) sentences.push(`${soldiers(dueForBoth)} ${dueForBoth === 1 ? 'is' : 'are'} due for both.`);
 		}
 		const before = summary.horizon.percent;
 		const after = percent(summary.horizon.ready + entries.length, row.entries.length);
@@ -671,6 +677,14 @@ function compareAffected(a: Entry, b: Entry): number {
 		compareText(a.person.id, b.person.id) ||
 		a.column - b.column
 	);
+}
+
+/** Every requirement the filtered briefing marks not ready today or lapsing in the horizon, in drill-down order. */
+export function affectedBriefingRequirements(input: TrainingBriefingInput): BriefingRequirement[] {
+	return analyze(input)
+		.entries.filter(isAffected)
+		.sort(compareAffected)
+		.map((entry) => entry.requirement);
 }
 
 /**

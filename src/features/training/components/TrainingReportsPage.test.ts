@@ -5,6 +5,9 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import {
 	DEFAULT_TRAINING_BRIEFING_INPUT,
+	type BriefingScope,
+	type TrainingBriefingDetail,
+	type TrainingBriefingDetailRow,
 	type TrainingBriefingReportData,
 	type TrainingBriefingReportInput
 } from '../contracts';
@@ -84,6 +87,35 @@ function reportFor(input: Partial<TrainingBriefingReportInput> = {}): TrainingBr
 function renderPage(fetchImpl = vi.fn<typeof fetch>(), initialReport = reportFor()) {
 	render(TrainingReportsPage, { props: { orgId: 'org-1', initialReport, fetch: fetchImpl } });
 	return fetchImpl;
+}
+
+function detailRow(name: string, overrides: Partial<TrainingBriefingDetailRow> = {}): TrainingBriefingDetailRow {
+	return {
+		personId: name,
+		rank: 'SGT',
+		name: `${name}, Pat`,
+		groupName: 'Alpha',
+		typeId: 'cpr',
+		typeName: 'CPR',
+		status: 'warning-yellow',
+		label: '21d left',
+		expirationDate: '2026-10-20',
+		lapseDate: '2026-10-21',
+		lapsesInHorizon: true,
+		...overrides
+	};
+}
+
+function detailPage(scope: BriefingScope, page: number, names: string[], totalRows = names.length, pageSize = 25) {
+	const detail: TrainingBriefingDetail = {
+		scope,
+		rows: names.map((name) => detailRow(name)),
+		totalRows,
+		page,
+		pageSize,
+		totalPages: Math.ceil(totalRows / pageSize)
+	};
+	return detail;
 }
 
 afterEach(() => {
@@ -193,5 +225,109 @@ describe('Training Reports briefing page', () => {
 		await waitFor(() =>
 			expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports/export?group=alpha&horizon=60')
 		);
+	});
+
+	it('opens the affected soldiers of a focus area from its link and moves focus to them', async () => {
+		const scope: BriefingScope = { kind: 'focus', key: 'gap:cpr' };
+		const fetchImpl = vi.fn<typeof fetch>(async () =>
+			Response.json({
+				...detailPage(scope, 1, []),
+				rows: [
+					detailRow('b1', {
+						groupName: 'Bravo',
+						status: 'not-completed',
+						label: 'Not Done',
+						expirationDate: null,
+						lapseDate: null,
+						lapsesInHorizon: false
+					}),
+					detailRow('a1')
+				],
+				totalRows: 2
+			})
+		);
+		renderPage(fetchImpl);
+
+		const area = screen.getByRole('heading', { level: 3, name: 'CPR — the standing gap' }).closest('li')!;
+		const link = within(area).getByRole('link', { name: 'View 2 soldiers' });
+		await fireEvent.click(link);
+
+		expect(fetchImpl).toHaveBeenCalledWith(
+			'/org/org-1/api/training-reports/detail?scope=focus&focus=gap%3Acpr',
+			expect.anything()
+		);
+		const section = await screen.findByRole('region', { name: 'Affected soldiers' });
+		await waitFor(() => expect(document.activeElement).toBe(section));
+		expect(link.getAttribute('aria-current')).toBe('true');
+		const table = await within(section).findByRole('table', { name: 'Affected soldiers' });
+		const missing = within(table).getByRole('row', { name: /b1, Pat/ });
+		expect(within(missing).getByText('Not Done')).toBeTruthy();
+		expect(
+			within(missing)
+				.getAllByRole('cell')
+				.map((cell) => cell.textContent?.trim())
+		).toEqual(['SGT', 'b1, Pat', 'Bravo', 'CPR', 'Not Done', '-', 'No']);
+	});
+
+	it('pages the affected soldiers on the server, keeping the loaded page until the next one arrives', async () => {
+		const scope: BriefingScope = { kind: 'cell', rowKey: null, typeId: 'cpr' };
+		const pending: Array<{ url: string; respond: (response: Response) => void }> = [];
+		const fetchImpl = vi.fn<typeof fetch>(
+			(url) => new Promise<Response>((respond) => pending.push({ url: String(url), respond }))
+		);
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Total, CPR: 67% ready today/ }));
+		pending[0].respond(
+			Response.json(
+				detailPage(
+					scope,
+					1,
+					Array.from({ length: 25 }, (_, index) => `p${index + 1}`),
+					30
+				)
+			)
+		);
+		const section = await screen.findByRole('region', { name: 'Affected soldiers' });
+		expect(await within(section).findByText('Rows 1–25 of 30')).toBeTruthy();
+
+		await fireEvent.click(within(section).getByRole('button', { name: 'Next' }));
+		expect(pending[1].url).toBe('/org/org-1/api/training-reports/detail?scope=cell&type=cpr&page=2');
+		expect(within(section).getByText('Rows 1–25 of 30')).toBeTruthy();
+		expect(within(section).getByRole('row', { name: /p1, Pat/ })).toBeTruthy();
+
+		pending[1].respond(Response.json(detailPage(scope, 2, ['p26', 'p27', 'p28', 'p29', 'p30'], 30)));
+		expect(await within(section).findByText('Rows 26–30 of 30')).toBeTruthy();
+
+		await fireEvent.click(within(section).getByRole('radio', { name: '100 rows per page' }));
+		expect(pending[2].url).toBe('/org/org-1/api/training-reports/detail?scope=cell&type=cpr&pageSize=100');
+		expect(screen.getByRole('button', { name: /^Total, CPR: 67% ready today.*, selected$/ })).toBeTruthy();
+	});
+
+	it('prints the brief from the browser with the displayed filters stated', async () => {
+		const print = vi.fn();
+		vi.stubGlobal('print', print);
+		renderPage(vi.fn<typeof fetch>(), reportFor({ groupId: 'alpha', horizonDays: 60 }));
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Print brief' }));
+
+		expect(print).toHaveBeenCalledOnce();
+		expect(screen.getByText(/^Filters · View: All training · Group: Alpha · .* · Horizon: 60 days/)).toBeTruthy();
+	});
+
+	it('exports the whole filtered briefing even while one cell is drilled into', async () => {
+		vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:report', revokeObjectURL: () => {} }));
+		const fetchImpl = vi.fn<typeof fetch>(async (url) =>
+			String(url).includes('/detail?')
+				? Response.json(detailPage({ kind: 'cell', rowKey: null, typeId: 'cpr' }, 1, ['a1', 'b1']))
+				: new Response(new Blob(['xlsx']))
+		);
+		renderPage(fetchImpl);
+
+		await fireEvent.click(screen.getByRole('button', { name: /^Total, CPR: 67% ready today/ }));
+		await screen.findByRole('table', { name: 'Affected soldiers' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+
+		await waitFor(() => expect(fetchImpl).toHaveBeenCalledWith('/org/org-1/api/training-reports/export'));
 	});
 });

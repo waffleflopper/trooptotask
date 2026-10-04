@@ -346,3 +346,95 @@ input[type='checkbox']:focus-visible {
 		scroll-behavior: auto !important;
 	}
 }
+
+@page training-brief {
+	size: landscape;
+	margin: 12mm;
+}
+
+@media print {
+	/* Paper is light in either app theme: the light :root tokens, on white. */
+	html:root:has([data-print-report='training']) {
+		color-scheme: light;
+		background: oklch(100% 0 0);
+		color: oklch(14.7% 0.004 49.25);
+
+		--background: oklch(100% 0 0);
+		--foreground: oklch(14.7% 0.004 49.25);
+		--card: oklch(100% 0 0);
+		--card-foreground: oklch(14.7% 0.004 49.25);
+		--popover: oklch(100% 0 0);
+		--popover-foreground: oklch(14.7% 0.004 49.25);
+		--primary: oklch(14.7% 0.004 49.25);
+		--primary-foreground: oklch(98.5% 0.001 106.423);
+		--secondary: oklch(97% 0.001 106.424);
+		--secondary-foreground: oklch(21.6% 0.006 56.043);
+		--muted: oklch(97% 0.001 106.424);
+		--muted-foreground: oklch(44.4% 0.011 73.639);
+		--accent: oklch(66.6% 0.179 58.318);
+		--accent-foreground: oklch(14.7% 0.004 49.25);
+		--destructive: oklch(57.7% 0.245 27.325);
+		--destructive-foreground: oklch(98.5% 0.001 106.423);
+		--border: oklch(92.3% 0.003 48.717);
+		--input: oklch(92.3% 0.003 48.717);
+		--ring: oklch(66.6% 0.179 58.318);
+		--chart-1: oklch(66.6% 0.179 58.318);
+		--chart-2: oklch(62.7% 0.194 149.214);
+		--chart-3: oklch(58.8% 0.158 241.966);
+		--chart-4: oklch(57.7% 0.245 27.325);
+		--chart-5: oklch(55.3% 0.013 58.071);
+	}
+
+	body:has([data-print-report='training']) [data-print-chrome],
+	body:has([data-print-report='training']) [data-slot='sidebar'] {
+		display: none !important;
+	}
+
+	body:has([data-print-report='training']) [data-slot='sidebar-wrapper'],
+	body:has([data-print-report='training']) [data-slot='sidebar-inset'],
+	body:has([data-print-report='training']) #main-content {
+		display: block !important;
+		height: auto !important;
+		min-height: 0 !important;
+		max-height: none !important;
+		margin-top: 0 !important;
+		overflow: visible !important;
+	}
+
+	[data-print-report='training'] {
+		page: training-brief;
+		print-color-adjust: exact;
+	}
+
+	[data-print-report='training'] [data-print-section],
+	[data-print-report='training'] tr {
+		break-inside: avoid;
+	}
+
+	[data-print-report='training'] [data-slot='training-status-cell'] > span {
+		white-space: normal;
+	}
+
+	[data-print-report='training'] [data-slot='training-status-cell'][data-status='warning-orange'] {
+		color: var(--color-orange-700);
+	}
+
+	[data-print-report='training'] [data-slot='data-table'],
+	[data-print-report='training'] [data-slot='table-container'] {
+		max-height: none;
+		overflow: visible;
+	}
+
+	[data-print-report='training'] [data-slot='data-table-pagination'] {
+		display: none;
+	}
+
+	/* Error notices print as text; Retry is a screen action. */
+	[data-print-report='training'] [data-slot='alert-action'] {
+		display: none;
+	}
+
+	[data-print-report='training'] [data-slot='alert']:has(> [data-slot='alert-action']) {
+		padding-right: calc(var(--spacing) * 2.5);
+	}
+}

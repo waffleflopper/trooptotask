@@ -279,18 +279,18 @@ Migration guidance:
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 </script>
 
-<ReportWorkspace.Root ariaLabel="Training report workspace">
+<ReportWorkspace.Root ariaLabel="Readiness report workspace">
 	<ReportWorkspace.Header
-		title="Training report"
-		description="Training completion by group and date range."
+		title="Readiness report"
+		description="Completion by group and date range."
 		meta={[{ label: 'Window', value: '30 days' }]}
 	/>
 
-	<ReportWorkspace.Toolbar ariaLabel="Training report controls">
-		<WorkspaceToolbar.Group label="Training report filters" activeCount={activeFilterCount}>
+	<ReportWorkspace.Toolbar ariaLabel="Readiness report controls">
+		<WorkspaceToolbar.Group label="Readiness report filters" activeCount={activeFilterCount}>
 			<!-- route-owned filter controls -->
 		</WorkspaceToolbar.Group>
-		<WorkspaceToolbar.Group label="Training report exports" zone="actions">
+		<WorkspaceToolbar.Group label="Readiness report exports" zone="actions">
 			<ReportWorkspace.ExportActions>
 				<ReportWorkspace.ExportAction
 					label="Export workbook"
@@ -313,7 +313,7 @@ Migration guidance:
 		<ReportWorkspace.Chart title="Readiness trend" ariaLabel="Readiness trend chart">
 			<!-- feature-owned chart content -->
 		</ReportWorkspace.Chart>
-		<ReportWorkspace.Table title="Detail rows" data={rows} {columns} ariaLabel="Training detail rows">
+		<ReportWorkspace.Table title="Detail rows" data={rows} {columns} ariaLabel="Readiness detail rows">
 			{#snippet summary()}
 				<ReportWorkspace.SummaryStrip
 					topRisk="Alpha · 68% ready"
@@ -371,7 +371,7 @@ Migration notes:
 
 - Calendar reports should migrate first because they already have multiple report subtypes and date-oriented filters.
 - Critical Tasks reports should follow because they already use the shared toolbar but still carry route-local report grids, states, and chart/table shells.
-- Training Reports uses a wrapping toolbar for filters and the forecast horizon, page-header export actions, `State`, and the `briefing` section variant; its drill-down table and export redesign follow in issue 1504.
+- Training Reports uses a wrapping toolbar for filters and the forecast horizon, page-header actions (secondary Export Excel, primary Print brief), `State`, and `briefing` sections throughout. Its Affected soldiers drill-down puts `DataTable` with a server-backed `table` state (rows, page, page size and total pages from the detail API; sorting off) inside a briefing section, so the table's own Previous/Next pagination drives server pages without client sorting or a scroll box. Type risk renders stacked HTML bars in a semantic table rather than a chart primitive. Its print stylesheet in `src/app.css` applies only while the page is mounted (`data-print-report="training"`): it hides `data-print-chrome` shell parts and the sidebar, releases the shell's fixed height and overflow, avoids breaking `data-print-section` sections and hides table pagination; page controls use `print:hidden`.
 - Personnel report-like flows should migrate after bulk import/merge surfaces are separated from the current combined manager.
 
 ---

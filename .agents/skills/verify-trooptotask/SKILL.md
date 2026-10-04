@@ -109,10 +109,18 @@ $V export arm 2                         # capture the next workbook Blob
 $V export state 2                       # captured Blob size, MIME type and download filename
 $V export save 2 .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
 $V export restore 2
+$V print arm 2                          # observe real beforeprint/afterprint events
+$V print state 2                        # save AFTER native Print brief click, BEFORE print save
+$V print save 2 'EXACT_LOADED_REPORT_URL' .verification/evidence/verify-trooptotask/RUN/brief.pdf
+$V print restore 2
 $V signed-download orgA ROSTER_ID .verification/evidence/verify-trooptotask/RUN/signed.pdf
 $V workbook .verification/evidence/verify-trooptotask/RUN/status-days.xlsx
 $V workbook .verification/evidence/verify-trooptotask/RUN/assignment-load.xlsx 'Assignment Coverage'
 ```
+
+For print evidence, use a freshly launched owned worker and its already loaded Training Reports page. Arm `print arm PAGE`, click the visible **Print brief** with native controls, then save `print state PAGE` before `print save`. The observer counts real `beforeprint` and `afterprint` events without replacing `window.print`. PDF capture also produces print events, so counts read after capture cannot establish that the button invoked print. Restore the observer afterward; reload or navigation discards it.
+
+`print save PAGE EXACT_REPORT_URL FILE.pdf` renders that document with Chromium's print stylesheet, backgrounds and CSS page size. Quote the full current URL, including filters. It admits only this worker's `/org/ORG/training/reports` path, the existing report query keys and a new `.pdf` beneath `.verification/evidence/verify-trooptotask/`. It rejects mismatched native page IDs, duplicate exact URLs, changed documents, stale ownership, symlinks and existing files. Capture has a 20-second deadline, a 20 MiB limit and at most two seconds for temporary protocol cleanup. It never navigates or closes the native page/browser. Preserve the native click receipt and pre-capture event state separately from the PDF. A PDF establishes print rendering, not a system dialog, physical printing or feature permission. Run `node --test scripts/verification/print-capture.test.mjs .agents/skills/verify-trooptotask/helpers/print-observation.test.mjs` for the fixed control boundaries.
 
 `rows TABLE orgA|orgB [id|name|title|note|personnel_id|user_id|type VALUE]` reads only allowlisted synthetic tables in the owned provider; compare known fixture IDs and explicit submitted values. For `daily_assignments`, the filter also accepts `date`, `assignee_id`, and `assignment_type_id`. `roster-files` checks only the named synthetic roster's private Storage path. `signed-download` saves the PDF page opened by a visible scan button without printing its token-bearing URL; use native `upload_file` on the visible `Signed Scan` input. `calendar-grant` changes only the named synthetic member's Organization A Calendar capability and records its original value for restoration. `seed` creates only the named temporary fixture, and `clean-seeds` deletes only its recorded IDs and dependent availability; run it before worker cleanup. A network control matches only an allowlisted Organization A endpoint, records request statuses, and lasts until `restore`; arm one at a time on the actual page. `export save` writes only under this skill's durable evidence directory and accepts `.xlsx`, `.pdf` or `.json`. The helper does not provide a journey or verdict; drive visible controls with native DevTools and record the observation yourself.
 

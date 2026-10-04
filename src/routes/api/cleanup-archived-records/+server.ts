@@ -1,8 +1,9 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
+import { createSupabaseCriticalTaskRetentionSource } from '$features/critical-tasks/index.server';
+import type { OrganizationRetentionConfiguration } from '$features/organization/contracts';
 import { createSupabaseAssignmentTypeRetention } from '$features/calendar/index.server';
 import {
 	createSupabasePersonnelArtifactRetentionSource,
@@ -13,22 +14,21 @@ import {
 	createSupabaseOrganizationAdministratorRecipients,
 	createSupabaseOrganizationRetentionSettingsReader
 } from '$features/organization/index.server';
-import { assertCronEndpointAuthorized } from '$lib/server/cronEndpointAuth';
+import { assertCronEndpointAuthorized } from '$features/scheduled-maintenance/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import {
 	cleanupArchivedRecords,
-	type ArchiveRetentionCleanupResult,
-	type ArchiveRetentionOrgConfig
-} from '$lib/server/core/useCases/archiveRetention';
+	type ArchiveRetentionCleanupResult
+} from '$features/scheduled-maintenance/index.server';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 
 interface ArchiveRetentionEndpointInput {
-	loadOrgConfigs: () => Promise<ArchiveRetentionOrgConfig[]>;
-	runCleanup: (orgConfigs: ArchiveRetentionOrgConfig[]) => Promise<ArchiveRetentionCleanupResult>;
+	loadOrgConfigs: () => Promise<OrganizationRetentionConfiguration[]>;
+	runCleanup: (orgConfigs: OrganizationRetentionConfiguration[]) => Promise<ArchiveRetentionCleanupResult>;
 }
 
 async function runArchiveRetentionCleanupEndpoint(input: ArchiveRetentionEndpointInput): Promise<Response> {
-	let orgConfigs: ArchiveRetentionOrgConfig[];
+	let orgConfigs: OrganizationRetentionConfiguration[];
 	try {
 		orgConfigs = await input.loadOrgConfigs();
 	} catch (orgError) {
@@ -46,7 +46,7 @@ export const GET: RequestHandler = async ({ request }) => {
 	assertCronEndpointAuthorized(request.headers.get('authorization'), [env.CLEANUP_SECRET, env.CRON_SECRET]);
 	const admin = getAdminClient();
 	const settings = createSupabaseOrganizationRetentionSettingsReader(admin);
-	const store = createSupabaseDataStore(admin);
+	const criticalTasks = createSupabaseCriticalTaskRetentionSource(admin);
 	const storage = createSupabaseStorageAdapter(admin);
 	const assignmentTypes = createSupabaseAssignmentTypeRetention(admin);
 	const artifacts = createSupabasePersonnelArtifactRetentionSource(admin, storage);
@@ -60,6 +60,6 @@ export const GET: RequestHandler = async ({ request }) => {
 	return runArchiveRetentionCleanupEndpoint({
 		loadOrgConfigs: () => settings.listConfigurations(),
 		runCleanup: (configs) =>
-			cleanupArchivedRecords({ store, assignmentTypes, artifacts, personnel, notifications }, configs)
+			cleanupArchivedRecords({ criticalTasks, assignmentTypes, artifacts, personnel, notifications }, configs)
 	});
 };

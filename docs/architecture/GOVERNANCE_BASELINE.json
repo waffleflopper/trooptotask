@@ -20,17 +20,17 @@
 		{
 			"path": "src/routes/api/cleanup-archived-records/+server.ts",
 			"classification": "cron-edge",
-			"reason": "Cron archive-retention cleanup still creates service-role data and storage adapters in the route."
+			"reason": "Admitted cron delivery binds service-role owner retention sources and Storage transport in the route."
 		},
 		{
 			"path": "src/routes/api/cleanup-expired-onboardings/+server.ts",
 			"classification": "cron-edge",
-			"reason": "Cron onboarding-retention cleanup still reads organization settings and creates its service-role data store in the route."
+			"reason": "Admitted cron delivery binds service-role Organization settings and Onboarding retention sources in the route."
 		},
 		{
 			"path": "src/routes/api/cleanup-old-data/+server.ts",
 			"classification": "cron-edge",
-			"reason": "Cron old-data cleanup still invokes service-role cleanup RPCs directly from the route."
+			"reason": "Admitted cron delivery supplies a service-role client to Audit's public retention operation."
 		},
 		{
 			"path": "src/routes/org/[orgId]/settings/logs/+page.server.ts",

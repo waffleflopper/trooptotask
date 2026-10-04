@@ -14,14 +14,6 @@ interface OnboardingRetentionPorts {
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 
-interface OnboardingRow {
-	id: string;
-	organization_id: string;
-	status: string;
-	completed_at: string | null;
-	cancelled_at: string | null;
-}
-
 const MIN_ONBOARDING_RETENTION_MONTHS = 1;
 
 export interface OnboardingRetentionOrgConfig {
@@ -66,26 +58,8 @@ export async function cleanupExpiredOnboardings(
 
 	for (const org of orgConfigs) {
 		const cutoff = retentionCutoff(now, normalizeRetentionMonths(org.retentionMonths));
-		const completed = await store.findMany<OnboardingRow>(
-			'personnel_onboardings',
-			org.id,
-			{ status: 'completed' },
-			{
-				select: 'id, status, completed_at, cancelled_at',
-				rangeFilters: [{ column: 'completed_at', op: 'lt', value: cutoff }],
-				isNull: { completed_at: false }
-			}
-		);
-		const cancelled = await store.findMany<OnboardingRow>(
-			'personnel_onboardings',
-			org.id,
-			{ status: 'cancelled' },
-			{
-				select: 'id, status, completed_at, cancelled_at',
-				rangeFilters: [{ column: 'cancelled_at', op: 'lt', value: cutoff }],
-				isNull: { cancelled_at: false }
-			}
-		);
+		const completed = await store.listExpired(org.id, 'completed', cutoff);
+		const cancelled = await store.listExpired(org.id, 'cancelled', cutoff);
 
 		let deletedCount = 0;
 		for (const [status, rows] of [

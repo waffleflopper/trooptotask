@@ -41,6 +41,7 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.
 - [Archival and deletion requests](deletion-requests.md): cross-feature submission, review, denial/cancellation, partial failures, source effects and scope.
 - [Organization settings and destruction](organization-settings-destruction.md): name and URL changes, retained settings, confirmation, step-up, denial and disposable-Organization deletion.
+- [Organization data exports](organization-exports.md): JSON and workbook contents, sensitive raw records, lifecycle, failed generation, download recovery, governance denial, and Organization switching.
 - [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
 - [Personnel record lifecycle](personnel-records-lifecycle.md): create/edit, imports and ETS/DEROS backfill, archive/restore, approval, replay, scope and stable identities.
 - [Personnel artifacts](personnel-artifacts.md): counseling PDFs, documents, follow-ups and leader notes; drafts, sensitive access, archive/restore/removal, exports and retention.

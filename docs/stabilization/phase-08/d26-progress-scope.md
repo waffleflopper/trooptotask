@@ -36,6 +36,8 @@ Runner safety checks initially fail one existing SIGINT cancellation subcase dur
 
 Local `npm run format`, touched-document format/link checks and `git diff --check` pass without unrelated changes. Expanded-artifact independent acceptance, complete intended-diff CodeRabbit review and exact-published-head full application/database CI remain pending. Local proof does not replace current-head CI. The prior [native/HTTP baseline](d26-shell-preferences-baseline.md) remains applicable to unchanged routes and UI, including own-member dismissal/reset and foreign-Organization denial; this SQL-only change introduces no visible user journey. It does not supersede that baseline's unresolved application failures.
 
+**Updated-base applicability.** The branch rebases onto fetched main `988efcc03259c92157716c1cd6a77b7dba8a8b20` after D25's separate verification #1519 integrates. That change adds maintenance verification controls/records and existing-path tests, without changing production application or these SQL/runner inputs. All five tested executable hashes still match; all 167 migration bytes and the canonical runner are unchanged by the base update. Its shared TODO/EVIDENCE additions are preserved. This is evidence reuse, not a fresh run; exact-published-head CI still validates the combined candidate.
+
 ## Release gate
 
 The [release instructions](../RELEASE.md#phase-08-d26-getting-started-progress-scope) identify the exact forward migration and manual ordering. Stop before merge for Robert's remote step; no agent remote database operation is authorized or performed. Hosted policy state remains unverified. After this prerequisite integrates, continue #1374's grouped application cutover, never another issue.

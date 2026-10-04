@@ -4,11 +4,12 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { createRawSnippet, getAllContexts, mount, unmount } from 'svelte';
 import { toast } from 'svelte-sonner';
 import { toastStore } from '$lib/stores/toast.svelte';
-import { getDefaultUserOrgPreferences } from '$features/identity/accountPreferences';
+import { getDefaultUserOrgPreferences } from '$features/identity/contracts';
 import type { ReadyAppShell } from '$features/app-shell/contracts';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import Layout from './+layout.svelte';
 import PreferenceProbe from './PreferenceProbe.svelte';
+import type { LayoutData } from './$types';
 
 const { pageStore, invalidate } = vi.hoisted(() => {
 	let current = { url: new URL('https://example.test/org/alpha'), data: {} };
@@ -74,7 +75,7 @@ function workspace(userId = 'user-a', orgId = 'org-a', sessionId = 'session-1') 
 		preferences: getDefaultUserOrgPreferences(),
 		announcements: []
 	};
-	return { shell, identitySessionScope: { userId, sessionId } };
+	return { session: null, shell, identitySessionScope: { userId, sessionId } } satisfies LayoutData;
 }
 function statusCheckbox() {
 	return screen.getByRole('checkbox', { name: 'Show status text' }) as HTMLInputElement;
@@ -327,12 +328,14 @@ describe('organization layout suspended contact', () => {
 		render(Layout, {
 			children,
 			data: {
+				session: null,
+				identitySessionScope: null,
 				shell: {
 					kind: 'suspended',
 					org: { id: 'org-1', name: 'Demo Org', urlSegment: 'demo-org' },
 					state: { orgSuspended: true }
 				}
-			}
+			} satisfies LayoutData
 		});
 		expect(screen.getByText('support@trooptotask.org')).toBeTruthy();
 		expect(screen.queryByText('Org child')).toBeNull();

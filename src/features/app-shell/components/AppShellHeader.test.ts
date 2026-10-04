@@ -283,6 +283,21 @@ describe('responsive sidebar interaction', () => {
 		await waitFor(() => expect(screen.queryByText('Dashboard')).toBeNull());
 		expect(home.getAttribute('href')).toBe('/org/org-1');
 	});
+
+	it('closes the collapsed desktop tooltip when the current Home link is clicked', async () => {
+		setWindowSize(1024, 768);
+		pageStore.setPath('/org/org-1');
+		renderHeader();
+		await fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' }));
+		const home = screen.getByRole('link', { name: 'Home' });
+		const breadcrumbs = screen.getByLabelText('Current section');
+		const tooltipCaption = () => screen.queryAllByText('Dashboard').find((element) => !breadcrumbs.contains(element));
+		await fireEvent.pointerEnter(home, { pointerType: 'mouse' });
+		await fireEvent.pointerMove(home, { pointerType: 'mouse' });
+		await waitFor(() => expect(tooltipCaption()).toBeTruthy());
+		await fireEvent.click(home);
+		await waitFor(() => expect(tooltipCaption()).toBeUndefined());
+	});
 });
 
 describe('notification recovery', () => {

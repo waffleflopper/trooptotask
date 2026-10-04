@@ -57,6 +57,14 @@ export interface DashboardIctlSummary {
 	atRiskSoldiers: DashboardIctlAtRiskSoldier[];
 }
 
+export interface DashboardSetupSupport {
+	trainingTypeCount: number;
+	onboardingTemplateStepCount: number;
+	ratingSchemeEntryCount: number;
+	orgMemberCount: number;
+	starterConfigurationPacks: StarterConfigurationPackSupport[];
+}
+
 // Shape of page data from (dashboard)/+layout.server.ts + +page.server.ts
 export interface DashboardPageData {
 	orgId: string;

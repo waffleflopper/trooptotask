@@ -365,3 +365,21 @@ test('the actual Node preloader authenticates its control endpoint and restores 
 	assert.equal(diagnostic, '');
 	assert.equal(JSON.stringify(ready).includes(config.token), false);
 });
+
+test('personal preference/progress failures target only an A read and leave saving and B reads dispatchable', async () => {
+	for (const table of ['user_org_preferences', 'getting_started_progress']) {
+		const dispatched = [];
+		const control = controller(async (...args) => {
+			dispatched.push(args);
+			return new Response('stored personal choice');
+		});
+		const own = `${providerUrl}/rest/v1/${table}?organization_id=eq.${orgA}&user_id=eq.synthetic-user`;
+		control.command('arm', { table, mode: 'fail-hard' });
+		assert.equal(await (await control.fetch(own.replace(orgA, orgB))).text(), 'stored personal choice');
+		assert.equal(await (await control.fetch(own, { method: 'PATCH' })).text(), 'stored personal choice');
+		assert.equal((await control.fetch(own)).status, 500);
+		assert.equal(dispatched.length, 2);
+		assert.equal(await (await control.fetch(own)).text(), 'stored personal choice');
+		control.command('restore');
+	}
+});

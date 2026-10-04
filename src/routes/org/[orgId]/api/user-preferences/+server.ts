@@ -1,14 +1,10 @@
 import { error, json } from '@sveltejs/kit';
-import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
-import { patchUserOrgPreferences } from '$lib/server/core/useCases/userPreferences';
-import { UserOrgPreferencesPatchSchema } from '$lib/preferences/userPreferences';
-
-function rethrowOrWrap(err: unknown): never {
-	if (err && typeof err === 'object' && 'status' in err) {
-		throw err;
-	}
-	throw error(500, 'Internal server error');
-}
+import {
+	buildRouteContext,
+	createRequestAccountPreferencesProvider,
+	rethrowOrWrap
+} from '$lib/server/adapters/httpAdapter';
+import { patchUserOrgPreferences } from '$features/identity/index.server';
 
 export const PATCH = async (event) => {
 	try {
@@ -21,18 +17,13 @@ export const PATCH = async (event) => {
 			throw error(400, 'Invalid JSON in request body');
 		}
 
-		const parsed = UserOrgPreferencesPatchSchema.safeParse(rawInput);
-		if (!parsed.success) {
-			throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
-		}
-
 		const result = await patchUserOrgPreferences(
 			{
-				store: ctx.store,
+				...createRequestAccountPreferencesProvider(event.locals),
 				auth: ctx.auth,
 				audit: ctx.audit
 			},
-			parsed.data
+			rawInput
 		);
 
 		return json(result);

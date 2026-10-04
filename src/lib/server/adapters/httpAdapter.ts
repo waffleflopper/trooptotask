@@ -459,6 +459,12 @@ export function getLayoutClient(locals: App.Locals, _cookies: Cookies, _orgId: s
 	return getApiContext(locals);
 }
 
+/** Bind Identity's personal preferences to the admitted ordinary request client. */
+export function createRequestAccountPreferencesProvider(locals: App.Locals) {
+	const { supabase } = getApiContext(locals);
+	return { supabase };
+}
+
 export async function buildRouteContext(event: RequestEvent): Promise<UseCaseContext> {
 	const { ctx } = await buildContextInternal(event);
 	return ctx;

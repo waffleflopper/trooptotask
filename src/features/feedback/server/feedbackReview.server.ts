@@ -1,6 +1,5 @@
 import type { FeedbackReview, FeedbackReviewStore } from './feedbackPorts.server';
 
-/** Platform admission remains with delivery; this owner retains saved-row review behavior. */
 export function createFeedbackReview(store: FeedbackReviewStore): FeedbackReview {
 	return {
 		list: () => store.listFeedback(),

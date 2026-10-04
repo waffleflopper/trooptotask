@@ -32,6 +32,14 @@
 			color: REPORT_CHART_SERIES[1].color
 		}
 	];
+	const quickActions = $derived(
+		[
+			{ page: 'users', href: '/admin/users', label: 'Search Users' },
+			{ page: 'organizations', href: '/admin/organizations', label: 'Inspect Orgs' },
+			{ page: 'access-requests', href: '/admin/access-requests', label: 'Access Queue' },
+			{ page: 'feedback', href: '/admin/feedback', label: 'Feedback Queue' }
+		].filter((link) => data.accessiblePages.some((page) => page === link.page))
+	);
 </script>
 
 <svelte:head>
@@ -41,8 +49,8 @@
 <PageShell.Root width="wide">
 	<PageShell.Header title="Admin Dashboard" subtitle="Track platform growth and the trust queue from one place.">
 		{#snippet actions()}
-			<Button href="/admin/audit" variant="outline">Audit Log</Button>
-			<Button href="/admin/users">Inspect Users</Button>
+			{#if data.accessiblePages.includes('audit')}<Button href="/admin/audit" variant="outline">Audit Log</Button>{/if}
+			{#if data.accessiblePages.includes('users')}<Button href="/admin/users">Inspect Users</Button>{/if}
 		{/snippet}
 	</PageShell.Header>
 
@@ -52,9 +60,11 @@
 				<Alert.Root variant="warning">
 					<Alert.Title>Access Requests</Alert.Title>
 					<Alert.Description>{data.pendingAccessRequests} pending review.</Alert.Description>
-					<Alert.Action>
-						<Button href="/admin/access-requests" size="sm" variant="outline">Open Queue</Button>
-					</Alert.Action>
+					{#if data.accessiblePages.includes('access-requests')}
+						<Alert.Action>
+							<Button href="/admin/access-requests" size="sm" variant="outline">Open Queue</Button>
+						</Alert.Action>
+					{/if}
 				</Alert.Root>
 			{/if}
 			{#if data.pendingFeedback > 0}
@@ -63,9 +73,11 @@
 					<Alert.Description>
 						{data.pendingFeedback} unread item{data.pendingFeedback === 1 ? '' : 's'}.
 					</Alert.Description>
-					<Alert.Action>
-						<Button href="/admin/feedback" size="sm" variant="outline">Review Notes</Button>
-					</Alert.Action>
+					{#if data.accessiblePages.includes('feedback')}
+						<Alert.Action>
+							<Button href="/admin/feedback" size="sm" variant="outline">Review Notes</Button>
+						</Alert.Action>
+					{/if}
 				</Alert.Root>
 			{/if}
 		</div>
@@ -137,7 +149,9 @@
 					<Card.Title>Recent Activity</Card.Title>
 					<Card.Description>Most recent audit events entering the platform trail.</Card.Description>
 				</div>
-				<Button href="/admin/audit" variant="outline" size="sm">View Full Log</Button>
+				{#if data.accessiblePages.includes('audit')}
+					<Button href="/admin/audit" variant="outline" size="sm">View Full Log</Button>
+				{/if}
 			</Card.Header>
 			<Card.Content>
 				{#if data.recentActivity.length > 0}
@@ -174,11 +188,15 @@
 				<Card.Description>Fast paths into the highest-traffic admin workflows.</Card.Description>
 			</Card.Header>
 			<Card.Content class="grid gap-2">
-				{#each [{ href: '/admin/users', label: 'Search Users' }, { href: '/admin/organizations', label: 'Inspect Orgs' }, { href: '/admin/access-requests', label: 'Access Queue' }, { href: '/admin/feedback', label: 'Feedback Queue' }] as link (link.href)}
+				{#each quickActions as link (link.href)}
 					<Button href={link.href} variant="outline" class="justify-start">{link.label}</Button>
+				{:else}
+					<p class="text-sm text-muted-foreground">Your assigned workspace is the Dashboard.</p>
 				{/each}
-				<Separator class="my-1" />
-				<p class="text-xs text-muted-foreground">Use global admin search for direct user and organization lookup.</p>
+				{#if data.accessiblePages.includes('users') && data.accessiblePages.includes('organizations')}
+					<Separator class="my-1" />
+					<p class="text-xs text-muted-foreground">Use global admin search for direct user and organization lookup.</p>
+				{/if}
 			</Card.Content>
 		</Card.Root>
 	</div>

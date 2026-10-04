@@ -73,3 +73,61 @@ test('malformed suspension cases send only the documented invalid payload for th
 		assert.deepEqual(result.request.submitted, expected[index]);
 	}
 });
+
+test('content requests bind the known row and preserve denied envelopes without UI application', async () => {
+	for (const [family, path, body, expected] of [
+		[
+			'announcementCreate',
+			'/admin/announcements?/create',
+			{ title: 'Denied', message: 'Must not save', type: 'info' },
+			{ title: 'Denied', message: 'Must not save', type: 'info' }
+		],
+		['announcementToggle', '/admin/announcements?/toggle', {}, { id }],
+		['announcementDelete', '/admin/announcements?/delete', {}, { id }],
+		[
+			'feedbackUpdate',
+			'/admin/feedback?/update',
+			{ status: 'resolved', adminNotes: 'Denied change' },
+			{ feedbackId: id, status: 'resolved', adminNotes: 'Denied change' }
+		]
+	]) {
+		let sends = 0;
+		const result = await requestPlatform(
+			{
+				location: { origin },
+				fetch: async (url, init) => {
+					sends++;
+					assert.equal(url, path);
+					assert.equal(init.method, 'POST');
+					assert.equal(init.redirect, 'manual');
+					assert.deepEqual(Object.fromEntries(new URLSearchParams(init.body)), expected);
+					return new Response('{"type":"error","status":403}', { status: 403 });
+				}
+			},
+			{ origin, family, targetId: id, body }
+		);
+		assert.equal(sends, 1);
+		assert.equal(result.status, 403);
+		assert.equal(result.body, '{"type":"error","status":403}');
+	}
+});
+
+test('content target identifiers cannot be overridden or changed into arbitrary commands', async () => {
+	let sends = 0;
+	const target = {
+		location: { origin },
+		fetch: async () => {
+			sends++;
+			return new Response('');
+		}
+	};
+	for (const [family, body] of [
+		['announcementCreate', { created_by: id }],
+		['announcementToggle', { id }],
+		['announcementDelete', { id }],
+		['feedbackUpdate', { feedbackId: id }],
+		['feedbackUpdate', { status: ['resolved'] }]
+	])
+		await assert.rejects(requestPlatform(target, { origin, family, targetId: id, body }));
+	assert.equal(sends, 0);
+});

@@ -274,6 +274,41 @@ async function main() {
 		note(await readPlatform({ client: await provider(), fixture, ownedState: await saved() }));
 		return;
 	}
+	if (command === 'content-request') {
+		const [page, family, targetId, bodyText = '{}'] = args;
+		const pageId = Number(page);
+		if (
+			args.length < 3 ||
+			args.length > 4 ||
+			!Number.isInteger(pageId) ||
+			pageId < 1 ||
+			!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId ?? '')
+		)
+			throw new Error('Use content-request PAGE FAMILY RECORDED_UUID JSON.');
+		const client = await provider();
+		if (['announcementCreate', 'announcementToggle', 'announcementDelete'].includes(family)) {
+			const seedIds = (await saved()).seeded
+				.filter((item) => item.kind === 'communications' && item.table === 'platform_announcements')
+				.flatMap((item) => item.ids);
+			const row = checked(
+				await client.from('platform_announcements').select('id,created_by').eq('id', targetId).maybeSingle()
+			);
+			if (!row || (!seedIds.includes(targetId) && row.created_by !== fixture.actors.platformReviewer.id))
+				throw new Error('Use a saved announcement owned by this verification worker.');
+		} else if (family === 'feedbackUpdate') {
+			const row = checked(await client.from('beta_feedback').select('id,user_id').eq('id', targetId).maybeSingle());
+			if (!row || !Object.values(fixture.actors).some((actor) => actor.id === row.user_id))
+				throw new Error("Use Feedback submitted by this worker's synthetic account.");
+		} else throw new Error('Unsupported content request family.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestPlatform.toString()})(window, ${JSON.stringify({ origin: doctor.origin, family, targetId, body: JSON.parse(bodyText) })})`
+			)
+		);
+		return;
+	}
 	if (command === 'platform-request') {
 		const [page, family, targetKey, bodyText = '{}'] = args;
 		const pageId = Number(page);
@@ -734,7 +769,7 @@ async function main() {
 		const seedIds = ownedState.seeded
 			.filter((item) => item.kind === 'communications' && item.table === 'platform_announcements')
 			.flatMap((item) => item.ids);
-		const select = 'id,title,message,type,is_active,expires_at,created_by,created_at';
+		const select = 'id,title,message,type,is_active,expires_at,created_by,updated_by,created_at';
 		const announcements = checked(
 			await selectAllSupabaseRows((from, to) =>
 				client
@@ -2002,10 +2037,12 @@ async function main() {
 				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
 			)
 				throw new Error('Platform read controls support failure, hold and observation only.');
-			if (action === 'arm-reject' && !['deletion-requests/review', 'personnel/archive-batch'].includes(family))
-				throw new Error(
-					'Synthetic transport rejection is supported only for deletion review and Personnel bulk archival.'
-				);
+			if (
+				action === 'arm-reject' &&
+				!['deletion-requests/review', 'personnel/archive-batch'].includes(family) &&
+				!platformForm?.failureField
+			)
+				throw new Error('Synthetic transport rejection requires a documented mutation family.');
 			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
 				throw new Error('Lost-response proof is supported only for platform mutation controls.');
 			const mode =

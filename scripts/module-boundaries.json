@@ -185,26 +185,7 @@
 		},
 		"platform-admin": {
 			"roots": ["src/features/platform-admin/", "src/lib/components/admin/"],
-			"files": [
-				"src/lib/server/adapters/adminAdapter.http.test.ts",
-				"src/lib/server/adapters/adminAdapter.test.ts",
-				"src/lib/server/adapters/adminAdapter.ts",
-				"src/lib/server/adapters/inMemoryPlatformAnnouncements.ts",
-				"src/lib/server/adapters/supabasePlatformAdministration.test.ts",
-				"src/lib/server/adapters/supabasePlatformAdministration.ts",
-				"src/lib/server/adapters/supabasePlatformAnnouncements.test.ts",
-				"src/lib/server/adapters/supabasePlatformAnnouncements.ts",
-				"src/lib/server/admin.test.ts",
-				"src/lib/server/admin.ts",
-				"src/lib/server/core/useCases/platformAdministration.test.ts",
-				"src/lib/server/core/useCases/platformAdministration.ts",
-				"src/lib/server/core/useCases/platformAnnouncements.test.ts",
-				"src/lib/server/core/useCases/platformAnnouncements.ts",
-				"src/tests/admin/admin-helpers.test.ts",
-				"src/tests/admin/announcements.test.ts",
-				"src/tests/admin/search.test.ts",
-				"src/tests/admin/suspension.test.ts"
-			],
+			"files": [],
 			"packet": "08-M12"
 		},
 		"provider": {

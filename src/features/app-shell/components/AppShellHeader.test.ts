@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import AppShellHeader from './AppShellHeader.svelte';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
@@ -64,6 +64,7 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
 	pageStore.setPath('/org/org-1/personnel');
+	setWindowSize(1024, 768);
 });
 
 beforeEach(() => {
@@ -117,6 +118,172 @@ function notificationResponse(body: unknown, ok = true): Response {
 function notification(id: string, title: string, link: string | null = null) {
 	return { id, title, message: null, link, read: false, created_at: '2026-09-30T10:00:00Z' };
 }
+
+function deferred<T>() {
+	let resolve!: (value: T) => void;
+	let reject!: (reason: unknown) => void;
+	const promise = new Promise<T>((res, rej) => {
+		resolve = res;
+		reject = rej;
+	});
+	return { promise, resolve, reject };
+}
+
+function setWindowSize(width: number, height: number) {
+	(
+		window as unknown as { happyDOM: { setWindowSize(size: { width: number; height: number }): void } }
+	).happyDOM.setWindowSize({ width, height });
+}
+
+describe('organization switcher lifetime and recovery', () => {
+	it.each(['success', 'rejection'])(
+		'keeps a new A request pending when retired A finishes with %s after A–B–A',
+		async (result) => {
+			const old = deferred<Response>();
+			const current = deferred<Response>();
+			let requests = 0;
+			vi.mocked(fetch).mockImplementation(async (input) => {
+				if (String(input).includes('organization-switcher')) return ++requests === 1 ? old.promise : current.promise;
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			});
+			const view = renderHeader();
+			await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+			await screen.findByRole('menuitem', { name: /Loading organizations/ });
+			await view.rerender({ orgId: 'org-2', orgUrlSegment: 'bravo', orgName: 'Bravo', membershipId: 'membership-2' });
+			await view.rerender({
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				orgName: 'Test Org',
+				membershipId: 'membership-1'
+			});
+			await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+			await screen.findByRole('menuitem', { name: /Loading organizations/ });
+			await act(async () => {
+				if (result === 'rejection') old.reject(new Error('Retired switcher failed'));
+				else
+					old.resolve(
+						notificationResponse({
+							ok: true,
+							organizations: [{ id: 'retired-org', name: 'Retired private org', role: 'member' }]
+						})
+					);
+				await old.promise.catch(() => undefined);
+			});
+			expect(screen.queryByRole('menuitem', { name: /Retired private org/ })).toBeNull();
+			expect(screen.getByRole('menuitem', { name: /Loading organizations/ })).toBeTruthy();
+			await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+			await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+			expect(requests).toBe(2);
+			current.resolve(
+				notificationResponse({
+					ok: true,
+					organizations: [{ id: 'current-org', name: 'Current admitted org', role: 'member' }]
+				})
+			);
+			await screen.findByRole('menuitem', { name: /Current admitted org/ });
+			expect(screen.queryByRole('menuitem', { name: /Retired private org/ })).toBeNull();
+		}
+	);
+
+	it.each(['HTTP', 'transport', 'JSON'])(
+		'offers explicit reopen retry after an active %s failure without looping',
+		async (failure) => {
+			let requests = 0;
+			vi.mocked(fetch).mockImplementation(async (input) => {
+				if (!String(input).includes('organization-switcher'))
+					return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+				if (++requests === 1) {
+					if (failure === 'transport') throw new Error('Connection failed');
+					if (failure === 'JSON') return new Response('invalid-json', { status: 200 });
+					return notificationResponse(null, false);
+				}
+				return notificationResponse({
+					ok: true,
+					organizations: [{ id: 'retry-org', name: 'Recovered organization', role: 'member' }]
+				});
+			});
+			renderHeader();
+			await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+			await screen.findByRole('menuitem', { name: /Could not load organizations/ });
+			await tick();
+			expect(requests).toBe(1);
+			await fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+			await fireEvent.click(screen.getByRole('button', { name: 'Switch organization' }));
+			await screen.findByRole('menuitem', { name: /Recovered organization/ });
+			expect(requests).toBe(2);
+		}
+	);
+});
+
+describe('disposed notification writes', () => {
+	it.each([true, false])('does not navigate or report a retired linked read after unmount (success=%s)', async (ok) => {
+		const write = deferred<Response>();
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('error-toast');
+		vi.mocked(fetch).mockImplementation(async (input, init) => {
+			if (String(input).includes('notification-count'))
+				return notificationResponse({ ok: true, unreadNotificationCount: 2 });
+			if (init?.method === 'PUT') return write.promise;
+			return notificationResponse([notification('old-link', 'Retired linked notification', '/org/org-1/settings')]);
+		});
+		const old = renderHeader();
+		await fireEvent.click(await screen.findByRole('button', { name: '2 unread notifications' }));
+		await fireEvent.click(await screen.findByRole('menuitem', { name: /Retired linked notification/ }));
+		old.unmount();
+		renderHeader();
+		await screen.findByRole('button', { name: '2 unread notifications' });
+		await act(async () => {
+			write.resolve(notificationResponse({}, ok));
+			await write.promise;
+		});
+		expect(goto).not.toHaveBeenCalled();
+		expect(error).not.toHaveBeenCalled();
+		expect(screen.getByRole('button', { name: '2 unread notifications' })).toBeTruthy();
+	});
+});
+
+describe('responsive sidebar interaction', () => {
+	it('closes the mobile drawer with Escape from Home focus, restores focus, and closes same-path navigation', async () => {
+		setWindowSize(390, 844);
+		pageStore.setPath('/org/org-1');
+		renderHeader();
+		const trigger = within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' });
+		trigger.focus();
+		await fireEvent.click(trigger);
+		const drawer = await screen.findByRole('dialog', { name: 'Sidebar' });
+		const home = within(drawer).getByRole('link', { name: 'Home' });
+		home.focus();
+		await fireEvent.keyDown(home, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Sidebar' })).toBeNull());
+		await waitFor(() => expect(document.activeElement).toBe(trigger));
+		await fireEvent.click(trigger);
+		await fireEvent.click(
+			within(await screen.findByRole('dialog', { name: 'Sidebar' })).getByRole('link', { name: 'Home' })
+		);
+		await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Sidebar' })).toBeNull());
+	});
+
+	it('keeps the mobile drawer open for modified navigation to a new tab', async () => {
+		setWindowSize(390, 844);
+		renderHeader();
+		await fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' }));
+		const drawer = await screen.findByRole('dialog', { name: 'Sidebar' });
+		await fireEvent.click(within(drawer).getByRole('link', { name: 'Home' }), { ctrlKey: true });
+		expect(screen.getByRole('dialog', { name: 'Sidebar' })).toBeTruthy();
+	});
+
+	it('opens and dismisses the Dashboard tooltip on desktop Home hover', async () => {
+		setWindowSize(1024, 768);
+		renderHeader();
+		await fireEvent.click(within(screen.getByRole('banner')).getByRole('button', { name: 'Toggle Sidebar' }));
+		const home = screen.getByRole('link', { name: 'Home' });
+		await fireEvent.pointerEnter(home, { pointerType: 'mouse' });
+		await fireEvent.pointerMove(home, { pointerType: 'mouse' });
+		await screen.findByText('Dashboard');
+		await fireEvent.keyDown(home, { key: 'Escape' });
+		await waitFor(() => expect(screen.queryByText('Dashboard')).toBeNull());
+		expect(home.getAttribute('href')).toBe('/org/org-1');
+	});
+});
 
 describe('notification recovery', () => {
 	it('waits for successful list recovery before bulk read so a retry cannot restore unread rows', async () => {

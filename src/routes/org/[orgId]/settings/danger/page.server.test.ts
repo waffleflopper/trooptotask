@@ -3,7 +3,7 @@ import { createReadyAppShellRouteData } from '../../appShell.test-support';
 
 const {
 	buildRouteRequestMock,
-	createRequestNotificationContextMock,
+	createSettingsSensitiveNotificationContextMock,
 	createRequestSensitiveActionContextMock,
 	createSupabaseOrganizationDestructionPortMock,
 	createSupabaseOrganizationOwnershipTransferPortMock,
@@ -12,7 +12,7 @@ const {
 	transferOrganizationOwnershipMock
 } = vi.hoisted(() => ({
 	buildRouteRequestMock: vi.fn(),
-	createRequestNotificationContextMock: vi.fn(),
+	createSettingsSensitiveNotificationContextMock: vi.fn(),
 	createRequestSensitiveActionContextMock: vi.fn(),
 	createSupabaseOrganizationDestructionPortMock: vi.fn(),
 	createSupabaseOrganizationOwnershipTransferPortMock: vi.fn(),
@@ -39,8 +39,17 @@ vi.mock('$lib/server/adapters/requestContexts.server', async () => {
 	return {
 		...actual,
 		buildRouteRequest: buildRouteRequestMock,
-		createRequestNotificationContext: createRequestNotificationContextMock,
 		createRequestSensitiveActionContext: createRequestSensitiveActionContextMock
+	};
+});
+
+vi.mock('../settingsRequestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('../settingsRequestContexts.server')>(
+		'../settingsRequestContexts.server'
+	);
+	return {
+		...actual,
+		createSettingsSensitiveNotificationContext: createSettingsSensitiveNotificationContextMock
 	};
 });
 
@@ -89,11 +98,7 @@ describe('danger settings page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		buildRouteRequestMock.mockResolvedValue(authContext);
-		createRequestNotificationContextMock.mockReturnValue({
-			auth: authContext.auth,
-			audit: authContext.audit,
-			notifications: authContext.notifications
-		});
+		createSettingsSensitiveNotificationContextMock.mockReturnValue(authContext);
 		createRequestSensitiveActionContextMock.mockReturnValue({
 			auth: authContext.auth,
 			audit: authContext.audit,

@@ -9,8 +9,8 @@ import {
 	ORGANIZATION_DATA_EXPORT_READABLE_SHEETS,
 	ORGANIZATION_DATA_EXPORT_SECTIONS,
 	type OrganizationDataExportLabels
-} from './organizationDataExportManifest';
-import { type OrganizationExportPayload } from './organizationExport';
+} from './organizationDataExportManifest.server';
+import { type OrganizationExportPayload } from './organizationExport.server';
 
 export interface OrganizationDataExportWorkbookInput {
 	payload: OrganizationExportPayload;

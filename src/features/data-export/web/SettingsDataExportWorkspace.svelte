@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import DataExportSettingsSection from '../DataExportSettingsSection.svelte';
-	import { downloadBlob } from '../settingsDownloads';
+	import DataExportSettingsSection from './DataExportSettingsSection.svelte';
+	import { downloadBlob } from '$lib/utils/downloadBlob';
 
 	let { orgId }: { orgId: string } = $props();
 
@@ -41,7 +41,6 @@
 			const disposition = res.headers.get('Content-Disposition');
 			const filenameMatch = disposition?.match(/filename="(.+)"/);
 			const filename = filenameMatch?.[1] ?? fallbackName;
-			// An intentionally requested download may finish after leaving this Organization.
 			downloadBlob(blob, filename);
 			if (active) exportSuccess = true;
 		} catch {

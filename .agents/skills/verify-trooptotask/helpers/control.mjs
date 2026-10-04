@@ -60,6 +60,12 @@ const tableColumns = {
 	organization_memberships: 'organization_id',
 	organization_invitations: 'organization_id',
 	organization_invitation_email_outbox: 'organization_id',
+	access_request_organization_invitation_links: 'organization_id',
+	dashboard_configs: 'org_id',
+	getting_started_progress: 'organization_id',
+	user_org_preferences: 'organization_id',
+	user_pinned_groups: 'organization_id',
+	beta_feedback: 'organization_id',
 	sign_in_rosters: 'organization_id',
 	training_types: 'organization_id',
 	training_views: 'organization_id',
@@ -78,15 +84,16 @@ const tableSelect = {
 		'id,name,url_slug,created_by,created_at,suspended_at,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days',
 	personnel_extended_info:
 		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at',
-	organization_rank_catalog: 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order',
+	organization_rank_catalog:
+		'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order,created_at,updated_at',
 	training_types:
-		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional',
+		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional,created_at',
 	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
 	personnel_trainings:
-		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url',
-	onboarding_templates: 'id,organization_id,name,description',
+		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url,created_at,updated_at',
+	onboarding_templates: 'id,organization_id,name,description,created_at',
 	onboarding_template_steps:
-		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order',
+		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order,created_at',
 	personnel_onboardings:
 		'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status,created_at',
 	onboarding_step_progress:

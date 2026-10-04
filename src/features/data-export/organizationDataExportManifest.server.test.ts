@@ -3,7 +3,7 @@ import {
 	assertOrganizationDataExportManifestIsSafe,
 	ORGANIZATION_DATA_EXPORT_AREA_KEYS,
 	ORGANIZATION_DATA_EXPORT_SECTIONS
-} from './organizationDataExportManifest';
+} from './organizationDataExportManifest.server';
 
 describe('Organization Data Export manifest', () => {
 	it('keeps section keys safe and unique', () => {

@@ -110,7 +110,7 @@ describe('BulkStatusPage', () => {
 	});
 
 	it('allows Calendar operators to use bulk status', () => {
-		accessFacts = { membershipRole: 'member', capabilityMap: createCapabilityMap('configure') };
+		accessFacts = { membershipRole: 'member', capabilityMap: { ...createCapabilityMap('none'), calendar: 'operate' } };
 
 		renderPage();
 

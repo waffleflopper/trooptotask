@@ -144,7 +144,6 @@
 		const calendarPreferences = preferences.value.calendar;
 		untrack(() => ctx.syncUserPreferences(calendarPreferences));
 	});
-	$effect(() => {});
 </script>
 
 {#if loadError}

@@ -6,4 +6,4 @@
 	let { data } = $props();
 </script>
 
-<IctTaskLibraryPage {org} {data} />
+<IctTaskLibraryPage {org} data={{ ...data, orgId: data.shell.org.id }} />

@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 	import { onMount, type Snippet } from 'svelte';
 	import { browser } from '$app/environment';
-	import { themeStore } from '$lib/stores/theme.svelte';
 	import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 	import { AccountPreferencesProvider } from '$features/identity';
 	import { AnnouncementBanner } from '$features/notifications';
@@ -16,9 +15,13 @@
 	let {
 		shell,
 		children,
-		feedback
+		feedback,
+		onToggleTheme,
+		isDarkTheme
 	}: {
 		shell: ReadyAppShell;
+		onToggleTheme: () => void;
+		isDarkTheme: boolean;
 		children: Snippet;
 		feedback: Snippet<[{ onClose: () => void; orgId: string; orgName: string; pageUrl: string }]>;
 	} = $props();
@@ -106,8 +109,8 @@
 	userRole={shell.member.role}
 	membershipId={shell.member.membershipId}
 	capabilityMap={shell.member.capabilityMap}
-	onToggleTheme={() => themeStore.toggle()}
-	isDarkTheme={themeStore.isDark}
+	{onToggleTheme}
+	{isDarkTheme}
 	onFeedback={() => {
 		feedbackPageUrl = $page.url.pathname;
 		showFeedback = true;

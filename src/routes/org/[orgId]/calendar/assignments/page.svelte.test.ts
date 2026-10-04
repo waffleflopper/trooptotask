@@ -3,13 +3,13 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/svelte';
 import Page from './+page.svelte';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
-import { createTestOrgContext } from '$lib/test-support/orgContextBuilder';
+import { createClientAccess } from '$lib/access/clientAccess';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 
 vi.mock('$features/app-shell', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/app-shell')>()),
-	getAppShellContext: () => createTestOrgContext({ orgId: 'org-1', userId: 'user-1', userRole: 'owner' })
+	getAppShellContext: () => ({ ...createClientAccess({ membershipRole: 'owner' }), orgUrlSegment: 'org-1' })
 }));
 
 afterEach(() => {

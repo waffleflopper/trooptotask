@@ -300,7 +300,8 @@
 	}
 
 	$effect(() => {
-		const scope = notificationScope;
+		// Retire requests whenever the complete admitted actor scope changes.
+		void notificationScope;
 		++orgSwitcherGeneration;
 		orgSwitcherOrgs = [];
 		orgSwitcherLoaded = false;

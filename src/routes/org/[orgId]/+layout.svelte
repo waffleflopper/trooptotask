@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { AppShell } from '$features/app-shell';
+	import { themeStore } from '$lib/stores/theme.svelte';
 	import { Button } from '$lib/components/ui/button';
 	let { children, data } = $props();
 	const readyShell = $derived(data.shell.kind === 'ready' ? data.shell : null);
@@ -24,7 +25,7 @@
 	</div>
 {:else if readyShell && data.identitySessionScope?.userId === readyShell.user.id}
 	{#key `${readyShell.user.id}:${readyShell.org.id}:${data.identitySessionScope.sessionId}`}
-		<AppShell shell={readyShell} {children}>
+		<AppShell shell={readyShell} {children} onToggleTheme={() => themeStore.toggle()} isDarkTheme={themeStore.isDark}>
 			{#snippet feedback(props)}
 				{#await import('$features/feedback') then { FeedbackModal }}
 					<FeedbackModal {...props} />

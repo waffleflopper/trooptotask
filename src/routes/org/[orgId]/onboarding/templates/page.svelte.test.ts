@@ -2,7 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import Page from './+page.svelte';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/contracts';
 
@@ -11,13 +12,15 @@ let scopeSet: ScopeSet = { kind: 'organization' };
 
 vi.mock('$features/app-shell', async (importOriginal) => ({
 	...(await importOriginal<Record<string, unknown>>()),
-	getAppShellContext: () =>
-		createTestOrgContext({
-			orgId: 'org-1',
-			userRole: 'member',
-			capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: canConfigure ? 'configure' : 'view' },
+	getAppShellContext: () => ({
+		orgId: 'org-1',
+		orgUrlSegment: 'org-1',
+		...createClientAccess({
+			membershipRole: 'member',
+			capabilityMap: { ...createCapabilityMap('none'), onboarding: canConfigure ? 'configure' : 'view' },
 			scopeSet
 		})
+	})
 }));
 
 afterEach(() => {

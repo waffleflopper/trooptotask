@@ -11,6 +11,8 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
+vi.mock('$features/app-shell', () => ({ getAppShellContext: () => ({ autoShowWhatsNew: vi.fn() }) }));
+
 function makePageData(overrides: Record<string, unknown> = {}) {
 	const orgId = typeof overrides.orgId === 'string' ? overrides.orgId : 'org-1';
 	const orgName = typeof overrides.orgName === 'string' ? overrides.orgName : 'Test Unit';

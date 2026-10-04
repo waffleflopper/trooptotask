@@ -28,6 +28,8 @@ The forward [Organization Storage cleanup prerequisite](../../supabase/migration
 
 **Phase 07 target.** Existing operations should receive only the verified actor identifier, explicit requested Organization/resource and narrow collaborators needed for their policy and effect. Identity resolves provider admission; Organization owns membership and invitation transitions; each feature owns its action and resource policy; provider adapters and SQL retain their real security and transaction guarantees. D01 documents this boundary, while D03's leader-note pilot and Phase 08 implement the remaining cutovers. Future authentication-provider or native-client work does not alter today's admission, membership, identifiers or SQL guarantees.
 
+The local [Getting Started progress-scope repair](../../supabase/migrations/20261004000100_scope_getting_started_progress.sql) aligns its existing ALL policy with preferences: reads and mutations require both the caller's own user ID and current Organization membership, including the new row values on INSERT/UPDATE. Removal of membership hides historical rows without deleting them. Organization administrator status supplies no authority over another user's choices. The existing membership helper, table grants, preference policies and fresh HTTP user/Organization suspension admission are unchanged; membership-only RLS does not establish direct-provider suspension denial. [D26 release guidance](../stabilization/RELEASE.md#phase-08-d26-getting-started-progress-scope) retains Robert's manual migration gate and unverified hosted state.
+
 ### Authentication boundary
 
 - Supabase Auth is the current authentication provider.

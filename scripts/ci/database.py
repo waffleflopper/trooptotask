@@ -59,7 +59,8 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261002001100_atomic_onboarding_start.sql",
     "20261003000100_cancel_own_deletion_request.sql",
     "20261003000200_platform_organization_membership_commands.sql",
-    "20261003000300_critical_task_archive_retention.sql",
+    "20261004000200_critical_task_archive_retention.sql",
+    "20261004000100_scope_getting_started_progress.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -82,6 +83,7 @@ STAGED_UPGRADE_FIXTURES = (
     "deletion_request_cancellation_before.sql",
     "platform_membership_before.sql",
     "critical_task_archive_retention_before.sql",
+    "account_preferences_scope_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -106,6 +108,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "deletion_request_cancellation_after.sql",
     "platform_membership_after.sql",
     "critical_task_archive_retention_after.sql",
+    "account_preferences_scope_after.sql",
 )
 
 _receipt = None
@@ -584,7 +587,7 @@ def validate(repository, *, staged_upgrade=False):
                 environment=_provider_environment(repository, workdir, execute))
             run(["node", str(repository / "scripts/ci/onboarding_start_provider_probe.mjs")],
                 workdir, environment=_provider_environment(repository, workdir, execute))
-            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding and Organization Storage upgrades passed.", flush=True)
+            print("Populated account setup, Training, Critical Tasks, Calendar, Personnel, counseling file, Rating Scheme, extended info, Onboarding, Organization Storage and account preference scope upgrades passed.", flush=True)
             return
         execute(["npm", "run", "db:test"], workdir)
         runner_started = True

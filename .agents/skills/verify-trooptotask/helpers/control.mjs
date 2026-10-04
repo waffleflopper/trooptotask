@@ -2036,13 +2036,7 @@ async function main() {
 			let organizationSegment = org('orgA');
 			if (
 				formAction ||
-				[
-					'organization/settings',
-					'audit-page',
-					'dashboard-page',
-					'deletion-requests/review',
-					'user-preferences'
-				].includes(family) ||
+				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
 				shellPart
 			) {
 				const organization = checked(

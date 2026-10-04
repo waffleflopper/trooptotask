@@ -2,7 +2,6 @@ import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RequestEvent } from './$types';
 import { GET } from './+server';
-import { GET as cleanupLegacyPersonnel } from '../cleanup-archived-personnel/+server';
 import { GET as cleanupOnboardings } from '../cleanup-expired-onboardings/+server';
 
 const { getAdminClient, env } = vi.hoisted(() => ({
@@ -22,7 +21,6 @@ function request(authorization?: string) {
 
 describe.each([
 	{ name: 'main archive endpoint', run: GET },
-	{ name: 'legacy Personnel endpoint', run: cleanupLegacyPersonnel },
 	{
 		name: 'Onboarding endpoint',
 		run: (event: RequestEvent) =>
@@ -121,6 +119,7 @@ function retentionProvider(table: 'leader_notes' | 'personnel_onboardings' | 'pe
 					return new Response(null, { status: 204 });
 				}
 				if (method === 'GET') return Response.json([]);
+				if (resource === 'delete_expired_unreferenced_critical_tasks' && method === 'POST') return Response.json(0);
 				throw new Error(`Unexpected synthetic provider request: ${method} ${resource}`);
 			}
 		}
@@ -179,15 +178,12 @@ describe.each([
 	);
 });
 
-describe.each([
-	{ name: 'main archive endpoint', run: GET },
-	{ name: 'legacy Personnel endpoint', run: cleanupLegacyPersonnel }
-])('$name Personnel source delivery', ({ run }) => {
+describe('main archive endpoint Personnel source delivery', () => {
 	it('deletes through the owned parent source and delivers its count-only summary', async () => {
 		const provider = retentionProvider('personnel');
 		getAdminClient.mockReturnValue(provider.client);
 
-		const response = await run(request('Bearer synthetic-retention-secret'));
+		const response = await GET(request('Bearer synthetic-retention-secret'));
 
 		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({
@@ -208,7 +204,6 @@ const discoveryTables = new Set([
 	'personnel_documents',
 	'leader_notes',
 	'personnel',
-	'ict_tasks',
 	'assignment_types',
 	'personnel_onboardings'
 ]);
@@ -238,6 +233,7 @@ function organizationEnumerationProvider(count: number) {
 		holdFrom: null as number | null,
 		organizationReads: [] as Array<Record<string, unknown>>,
 		resourceReads: [] as Array<{ table: string; organizationId: string; query: string }>,
+		criticalTaskOrganizations: [] as string[],
 		unexpectedEffects: [] as Array<{ method: string; path: string }>
 	};
 	const client = createClient('http://127.0.0.1:9', 'synthetic-service-key', {
@@ -247,6 +243,12 @@ function organizationEnumerationProvider(count: number) {
 				const url = new URL(String(input));
 				const table = url.pathname.split('/').at(-1)!;
 				const method = init?.method ?? 'GET';
+				if (table === 'delete_expired_unreferenced_critical_tasks' && method === 'POST') {
+					const { p_org_id } = JSON.parse(String(init?.body)) as { p_org_id: string };
+					if (!expectedIds.has(p_org_id)) throw new Error('Critical Task cleanup requires a known Organization');
+					state.criticalTaskOrganizations.push(p_org_id);
+					return Response.json(0);
+				}
 				if (method !== 'GET' || !url.pathname.startsWith('/rest/v1/')) {
 					state.unexpectedEffects.push({ method, path: url.pathname });
 					throw new Error('Empty discovery fixture must not mutate rows or invoke Storage');
@@ -294,7 +296,7 @@ describe.each([
 		label: 'onboarding',
 		run: (input: Request) => cleanupOnboardings({ request: input } as Parameters<typeof cleanupOnboardings>[0])
 	}
-])('$label complete Organization settings dispatch', ({ run }) => {
+])('$label complete Organization settings dispatch', ({ label, run }) => {
 	it.each([0, 1000, 1001])('discovers resources for every one of %s Organizations', async (count) => {
 		const provider = organizationEnumerationProvider(count);
 		getAdminClient.mockReturnValue(provider.client);
@@ -303,6 +305,8 @@ describe.each([
 		expect(response.status).toBe(200);
 		expect(await response.json()).toMatchObject({ deletedCount: 0, orgsAffected: 0 });
 		expect(provider.organizations.filter(({ id }) => !dispatched.has(id)).map(({ id }) => id)).toEqual([]);
+		if (label === 'records')
+			expect(provider.state.criticalTaskOrganizations).toEqual(provider.organizations.map(({ id }) => id));
 		expect(provider.state.unexpectedEffects).toEqual([]);
 	});
 

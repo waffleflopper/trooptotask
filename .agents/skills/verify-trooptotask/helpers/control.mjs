@@ -552,14 +552,13 @@ async function main() {
 		if (
 			args[0] !== 'cron' ||
 			!['missing', 'wrong', 'run'].includes(args[1]) ||
-			(args[2] && !['records', 'personnel', 'onboarding', 'audit', 'setup-links'].includes(args[2]))
+			(args[2] && !['records', 'onboarding', 'audit', 'setup-links'].includes(args[2]))
 		)
 			throw new Error(
-				'Use retention settings|files|maintenance or retention cron missing|wrong|run [records|personnel|onboarding|audit|setup-links].'
+				'Use retention settings|files|maintenance or retention cron missing|wrong|run [records|onboarding|audit|setup-links].'
 			);
 		const endpoint = {
 			records: '/api/cleanup-archived-records',
-			personnel: '/api/cleanup-archived-personnel',
 			onboarding: '/api/cleanup-expired-onboardings',
 			audit: '/api/cleanup-old-data',
 			'setup-links': '/api/cleanup-account-setup-links'

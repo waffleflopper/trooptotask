@@ -1,34 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 
-export interface AssignmentTypeRetentionPort {
-	deleteExpiredUnreferenced(orgId: string, ids: string[], cutoff: string): Promise<number>;
+export interface AssignmentTypeRetentionSource {
+	deleteExpired(orgId: string, cutoff: string): Promise<number>;
 }
 
-/** Retain every type with a saved assignment, including archived historical types. */
-export async function cleanupExpiredAssignmentTypes(
-	store: CalendarWritePorts['store'],
-	retention: AssignmentTypeRetentionPort,
-	orgId: string,
-	cutoff: string
-): Promise<number> {
-	const candidates = await store.findMany<{ id: string }>('assignment_types', orgId, undefined, {
-		select: 'id',
-		rangeFilters: [{ column: 'archived_at', op: 'lt', value: cutoff }],
-		isNull: { archived_at: false }
-	});
-	if (candidates.length === 0) return 0;
-	return retention.deleteExpiredUnreferenced(
-		orgId,
-		candidates.map((row) => row.id),
-		cutoff
-	);
-}
-
-/** The database locks each type before checking Calendar references and deleting it. */
-export function createSupabaseAssignmentTypeRetention(client: SupabaseClient) {
+export function createSupabaseAssignmentTypeRetention(client: SupabaseClient): AssignmentTypeRetentionSource {
 	return {
-		async deleteExpiredUnreferenced(orgId: string, ids: string[], cutoff: string): Promise<number> {
+		async deleteExpired(orgId, cutoff) {
+			const result = await selectAllSupabaseRows<{ id: string }>(async (from, to) => {
+				const { data, error } = await client
+					.from('assignment_types')
+					.select('id')
+					.eq('organization_id', orgId)
+					.not('archived_at', 'is', null)
+					.lt('archived_at', cutoff)
+					.order('id', { ascending: true })
+					.range(from, to);
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message: string }).message);
+			const ids = (result.data ?? []).map((row) => row.id);
 			if (ids.length === 0) return 0;
 			const { data, error } = await client.rpc('delete_expired_unreferenced_assignment_types', {
 				p_org_id: orgId,
@@ -36,7 +28,8 @@ export function createSupabaseAssignmentTypeRetention(client: SupabaseClient) {
 				p_cutoff: cutoff
 			});
 			if (error) throw new Error(error.message);
-			if (typeof data !== 'number') throw new Error('Assignment type retention returned no deletion count');
+			if (typeof data !== 'number' || !Number.isSafeInteger(data) || data < 0)
+				throw new Error('Assignment type retention returned no deletion count');
 			return data;
 		}
 	};

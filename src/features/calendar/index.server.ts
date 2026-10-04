@@ -34,9 +34,8 @@ export {
 } from './assignmentTypeRead.server';
 export { seedDefaultAssignmentTypes } from './assignmentTypeSeed.server';
 export {
-	cleanupExpiredAssignmentTypes,
 	createSupabaseAssignmentTypeRetention,
-	type AssignmentTypeRetentionPort
+	type AssignmentTypeRetentionSource
 } from './assignmentTypeRetention.server';
 export { createCalendarSupportReader } from './platformCatalogCounts.server';
 export { listDailyAssignments, listDailyAssignmentExportRows } from './dailyAssignmentRead.server';

@@ -219,13 +219,8 @@
 			"packet": "08-M10"
 		},
 		"scheduled-maintenance": {
-			"roots": [],
-			"files": [
-				"src/lib/server/core/useCases/archiveRetention.test.ts",
-				"src/lib/server/core/useCases/archiveRetention.ts",
-				"src/lib/server/cronEndpointAuth.test.ts",
-				"src/lib/server/cronEndpointAuth.ts"
-			],
+			"roots": ["src/features/scheduled-maintenance/"],
+			"files": [],
 			"packet": "08-M14"
 		},
 		"shared": {
@@ -544,7 +539,8 @@
 		],
 		"platform-admin": ["src/features/platform-admin/index.server.ts", "src/features/platform-admin/contracts.ts"],
 		"app-shell": ["src/features/app-shell/index.ts"],
-		"data-export": ["src/features/data-export/index.server.ts", "src/features/data-export/index.web.ts"]
+		"data-export": ["src/features/data-export/index.server.ts", "src/features/data-export/index.web.ts"],
+		"scheduled-maintenance": ["src/features/scheduled-maintenance/index.server.ts"]
 	},
 	"mixedFiles": {
 		"src/lib/types.ts": {

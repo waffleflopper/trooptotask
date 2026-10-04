@@ -353,7 +353,6 @@ input[type='checkbox']:focus-visible {
 }
 
 @media print {
-	/* Paper is light in either app theme: the light :root tokens, on white. */
 	html:root:has([data-print-report='training']) {
 		color-scheme: light;
 		background: oklch(100% 0 0);
@@ -429,7 +428,6 @@ input[type='checkbox']:focus-visible {
 		display: none;
 	}
 
-	/* Error notices print as text; Retry is a screen action. */
 	[data-print-report='training'] [data-slot='alert-action'] {
 		display: none;
 	}

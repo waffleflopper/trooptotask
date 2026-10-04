@@ -115,11 +115,16 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 
 		expect('permission' in _getConfig).toBe(false);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			gapsOnly: true,
-			search: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				gapsOnly: true,
+				search: undefined
+			},
+			() => ctx
+		);
 		const response = _getConfig.formatOutput?.(result);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(result.buffer as WorkbookLoadBuffer);

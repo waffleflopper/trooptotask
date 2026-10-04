@@ -1,7 +1,7 @@
-import type { MembershipRole } from '$lib/access/memberAccessShape';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { MembershipRole, OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { loadRosterPersonnel } from '$features/personnel/index.server';
 import { DEFAULT_ARCHIVE_RETENTION_MONTHS } from '$features/organization/contracts';
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { SettingsArchivedPersonnelRow, SettingsArchivesSectionData } from './settingsSectionTypes';
 
 export interface ArchivesSettingsData {
@@ -22,7 +22,10 @@ export type SettingsArchivedPersonnelSourceRow = Pick<
 >;
 
 export async function loadArchivesSettings(
-	ctx: Pick<UseCaseContext, 'auth' | 'store' | 'organizationSettings'>,
+	ctx: Parameters<typeof loadRosterPersonnel>[0] & {
+		auth: Pick<OrganizationAccessGrant, 'orgId' | 'role' | 'canManageMembers'>;
+		organizationSettings: Pick<OrganizationSettingsReader, 'findArchiveRetentionMonths'>;
+	},
 	input: { isAdmin: boolean }
 ): Promise<ArchivesSettingsData> {
 	const [archiveRetentionMonths, archivedPersonnel] = await Promise.all([
@@ -50,7 +53,7 @@ export async function loadArchivesSettings(
 }
 
 export function buildArchivesSettingsData(
-	ctx: Pick<UseCaseContext, 'auth'>,
+	ctx: Pick<Parameters<typeof loadArchivesSettings>[0], 'auth'>,
 	input: {
 		isAdmin: boolean;
 		archiveRetentionMonths: number | null | undefined;

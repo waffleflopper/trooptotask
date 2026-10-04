@@ -42,10 +42,15 @@ describe('POST /api/personnel/archive-batch', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			ids: [firstId, secondId],
-			userEmail: 'requester@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				ids: [firstId, secondId],
+				userEmail: 'requester@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result).toEqual({
 			archivedIds: [firstId, secondId],
@@ -95,10 +100,15 @@ describe('POST /api/personnel/archive-batch', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			ids: [firstId, secondId],
-			userEmail: 'requester@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				ids: [firstId, secondId],
+				userEmail: 'requester@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result).toEqual({
 			archivedIds: [],

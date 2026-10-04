@@ -11,7 +11,7 @@ import { AvailabilityEntryEntity } from './availabilityEntity.server';
 import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPersonnelPolicy,
-	type CalendarWritePorts
+	type CalendarAvailabilityPorts
 } from '$lib/server/core/useCases/calendarPolicy';
 
 const entity = AvailabilityEntryEntity;
@@ -29,7 +29,7 @@ interface CreateAvailabilityBatchInput {
 }
 
 export async function createAvailabilityBatch(
-	ctx: CalendarWritePorts,
+	ctx: CalendarAvailabilityPorts,
 	input: CreateAvailabilityBatchInput
 ): Promise<{ inserted: unknown[] }> {
 	const { records } = input;
@@ -70,7 +70,7 @@ interface DeleteAvailabilityBatchInput {
 }
 
 export async function deleteAvailabilityBatch(
-	ctx: CalendarWritePorts,
+	ctx: CalendarAvailabilityPorts,
 	input: DeleteAvailabilityBatchInput
 ): Promise<{ deleted: number }> {
 	const { ids } = input;

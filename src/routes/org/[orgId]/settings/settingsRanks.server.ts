@@ -5,7 +5,6 @@ import {
 	type RankService,
 	type RankState
 } from '$features/personnel/contracts';
-import type { UseCaseContext } from '$lib/server/core/ports';
 import {
 	loadOrganizationRankCatalog,
 	loadOrganizationRankCatalogReferenceSummaries
@@ -106,7 +105,11 @@ export interface BuildRanksSettingsDataInput {
 	canManageCatalog: boolean;
 }
 
-export async function loadRanksSettings(ctx: UseCaseContext): Promise<RanksSettingsData> {
+export async function loadRanksSettings(
+	ctx: Parameters<typeof loadOrganizationRankCatalogReferenceSummaries>[0] & {
+		rawStore: Parameters<typeof listTrainingRankApplicabilityReferences>[0];
+	}
+): Promise<RanksSettingsData> {
 	const catalog = await loadOrganizationRankCatalog(ctx, { authorization: 'organization-governance' });
 	const referenceSummaries = await loadOrganizationRankCatalogReferenceSummaries(
 		ctx,

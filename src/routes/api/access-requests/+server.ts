@@ -7,7 +7,7 @@ import {
 	createPublicAccessRequestSetupDeliveryService
 } from '$features/identity/index.server';
 import { auditLog } from '$lib/audit/index.server';
-import { durableRateLimitAuditDetails } from '$lib/server/durableRateLimit';
+import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 import { sanitizeString, validateEmail } from '$lib/server/validation';
 
 export const POST: RequestHandler = async ({ getClientAddress, request }) => {

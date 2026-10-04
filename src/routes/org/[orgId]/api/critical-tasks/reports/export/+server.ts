@@ -1,3 +1,4 @@
+import { createRequestCriticalTasksReadContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { CriticalTasksWorkbookExport } from '$features/critical-tasks/contracts';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { generateCriticalTasksReportWorkbookExport } from '$features/critical-tasks/index.server';
@@ -11,7 +12,12 @@ import {
 	type CriticalTasksReportRouteInput
 } from '../../reportInput';
 
-export const _getConfig: RouteConfig<CriticalTasksReportRouteInput, CriticalTasksWorkbookExport> = {
+export const _getConfig: RouteConfig<
+	CriticalTasksReportRouteInput,
+	CriticalTasksWorkbookExport,
+	ReturnType<typeof createRequestCriticalTasksReadContext>
+> = {
+	context: createRequestCriticalTasksReadContext,
 	policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 	policyResource: { kind: 'unscoped' },
 	input: criticalTasksReportInput,

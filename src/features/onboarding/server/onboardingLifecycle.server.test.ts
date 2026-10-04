@@ -847,10 +847,10 @@ describe('unbound lifecycle provider', () => {
 
 	it('rejects an absent optional provider without a generic write or success audit', async () => {
 		const ctx = buildTransitionContext(null);
-		ctx.onboardingLifecycleTransition = undefined;
+		const missingContext = { ...ctx, onboardingLifecycleTransition: undefined };
 		seedOnboarding(ctx);
 
-		await expect(cancelOnboarding(ctx, 'ob-1')).rejects.toThrow(
+		await expect(cancelOnboarding(missingContext, 'ob-1')).rejects.toThrow(
 			'Bind the owned Onboarding lifecycle transition provider'
 		);
 

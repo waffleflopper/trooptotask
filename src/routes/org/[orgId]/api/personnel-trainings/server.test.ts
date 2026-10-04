@@ -30,7 +30,7 @@ describe('/api/personnel-trainings route config', () => {
 		};
 		ctx.store.seed('personnel_trainings', [record]);
 
-		const result = await handleUseCaseRequest(_deleteConfig, ctx, { id });
+		const result = await handleUseCaseRequest(_deleteConfig, ctx, { id }, () => ctx);
 		const response = _deleteConfig.formatOutput!(result);
 		expect(response.status).toBe(training === 'operate' ? 202 : 200);
 		expect(await response.json()).toEqual(training === 'operate' ? { requiresApproval: true } : { success: true });
@@ -80,13 +80,18 @@ describe('/api/personnel-trainings route config', () => {
 			}
 		]);
 
-		await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'p-1',
-			trainingTypeId: 'tt-1',
-			completionDate: '2026-01-01',
-			notes: null,
-			certificateUrl: null
-		});
+		await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'p-1',
+				trainingTypeId: 'tt-1',
+				completionDate: '2026-01-01',
+				notes: null,
+				certificateUrl: null
+			},
+			() => ctx
+		);
 
 		expect(legacyEditCalled).toBe(false);
 		const stored = await ctx.store.findMany('personnel_trainings', ctx.auth.orgId);
@@ -111,13 +116,18 @@ describe('/api/personnel-trainings route config', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'p-1',
-				trainingTypeId: 'tt-1',
-				completionDate: '2026-01-01',
-				notes: null,
-				certificateUrl: null
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'p-1',
+					trainingTypeId: 'tt-1',
+					completionDate: '2026-01-01',
+					notes: null,
+					certificateUrl: null
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({

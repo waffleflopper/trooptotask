@@ -1,13 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { ScopeEnforcementPort } from '$lib/server/core/ports';
-import { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from '$features/personnel/index.server';
+import { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from './personnelGroupAccess.server';
 
 export function createSupabaseScopeEnforcementAdapter(config: {
 	supabase: SupabaseClient;
 	orgId: string;
 	scopeSet: ScopeSet;
-}): ScopeEnforcementPort {
+}) {
 	return {
 		async requireGroupAccess(personnelId: string): Promise<void> {
 			await requirePersonnelGroupAccess(config.supabase, config.orgId, config.scopeSet, personnelId);

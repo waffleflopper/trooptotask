@@ -296,8 +296,8 @@ describe('addNote', () => {
 		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toThrow(
 			'Bind the owned Onboarding note append provider'
 		);
-		ctx.onboardingNoteAppend = undefined;
-		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toThrow(
+		const missingContext = { ...ctx, onboardingNoteAppend: undefined };
+		await expect(addNote(missingContext, { stepId: 'step-1', text: 'Saved text' })).rejects.toThrow(
 			'Bind the owned Onboarding note append provider'
 		);
 		expect(ctx.audit.events).toEqual([]);
@@ -440,8 +440,8 @@ describe('removeInactiveStep', () => {
 			await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow(
 				'Bind the owned Onboarding inactive step removal provider'
 			);
-			ctx.onboardingInactiveStepRemoval = undefined;
-			await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow(
+			const missingContext = { ...ctx, onboardingInactiveStepRemoval: undefined };
+			await expect(removeInactiveStep(missingContext, 'step-1')).rejects.toThrow(
 				'Bind the owned Onboarding inactive step removal provider'
 			);
 			await expect(

@@ -86,9 +86,14 @@ describe('POST /api/personnel/batch', () => {
 		});
 		seedRankCatalog(ctx);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }]
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }]
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			errors: [],
@@ -100,9 +105,14 @@ describe('POST /api/personnel/batch', () => {
 		const ctx = createTestContext();
 		seedRankCatalog(ctx);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }]
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }]
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			inserted: [expect.objectContaining({ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' })],
@@ -114,12 +124,17 @@ describe('POST /api/personnel/batch', () => {
 		const ctx = createTestContext();
 		seedRankCatalog(ctx);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			records: [
-				{ lastName: 'Missing', firstName: 'Rank' },
-				{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }
-			]
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				records: [
+					{ lastName: 'Missing', firstName: 'Rank' },
+					{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan' }
+				]
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			errors: [{ index: 0, message: 'Rank, Last Name, and First Name are required' }],

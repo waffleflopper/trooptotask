@@ -1,8 +1,9 @@
-import type { PageServerLoadEvent } from './$types';
 import type { PersonnelDetailHeader } from '$features/personnel/contracts';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadWithContext, personnelLeaderNoteContext } from '$lib/server/adapters/httpAdapter';
 import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelLeaderNoteContext } from '$lib/server/adapters/requestContexts.server';
+import type { PageServerLoadEvent } from './$types';
 
 type LoadWithContext = typeof loadWithContext;
 
@@ -22,9 +23,10 @@ export function _createPersonnelNotesPageLoad(deps: PersonnelNotesPageLoadDeps =
 		const parentData = (await parent()) as PersonnelDetailParentData;
 		const personnelId = parentData.personnelDetailHeader.person.id;
 		const notes = await loadWithContextFn(locals, cookies, params.orgId, {
+			context: createRequestPersonnelLeaderNoteContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: (ctx) => listPersonnelLeaderNotes(personnelLeaderNoteContext(ctx), personnelId)
+			fn: (ctx) => listPersonnelLeaderNotes(ctx, personnelId)
 		});
 
 		return {

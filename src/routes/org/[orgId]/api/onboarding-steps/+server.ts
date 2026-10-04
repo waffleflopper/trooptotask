@@ -1,9 +1,14 @@
+import {
+	createRequestOnboardingStepProgressContext,
+	createRequestOnboardingInactiveStepContext
+} from '$lib/server/adapters/featureRequestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
 import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from '$features/onboarding/index.server';
 
 export const _putConfig = {
+	context: createRequestOnboardingStepProgressContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
 	policyResource: { kind: 'unscoped' },
@@ -36,9 +41,14 @@ export const _putConfig = {
 
 		fail(400, `Unknown action: ${action}`);
 	}
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestOnboardingStepProgressContext>
+>;
 
 export const _deleteConfig = {
+	context: createRequestOnboardingInactiveStepContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.manageWorkflows,
 	policyResource: { kind: 'unscoped' },
@@ -49,7 +59,11 @@ export const _deleteConfig = {
 		await removeInactiveStep(ctx, stepId);
 		return { success: true };
 	}
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestOnboardingInactiveStepContext>
+>;
 
 export const PUT = handle(_putConfig);
 export const DELETE = handle(_deleteConfig);

@@ -1,3 +1,5 @@
+import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestTrainingTypeDeletionContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
@@ -6,20 +8,23 @@ import { createTrainingType, updateTrainingType, deleteTrainingType } from '$fea
 import type { TrainingType } from '$features/training/contracts';
 
 export const _postConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => createTrainingType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, TrainingType>;
+} satisfies RouteConfig<Record<string, unknown>, TrainingType, ReturnType<typeof createRequestWriteContext>>;
 
 export const _putConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => updateTrainingType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, TrainingType>;
+} satisfies RouteConfig<Record<string, unknown>, TrainingType, ReturnType<typeof createRequestWriteContext>>;
 
 export const _deleteConfig = {
+	context: createRequestTrainingTypeDeletionContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
@@ -27,21 +32,14 @@ export const _deleteConfig = {
 		const id = input?.id;
 		if (!id || typeof id !== 'string') fail(400, 'Missing id');
 		if (!validateUUID(id)) fail(400, 'Invalid resource ID');
-		await deleteTrainingType(
-			{
-				...ctx,
-				notifyTrainingTypeDeleted: () =>
-					ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
-						type: 'config_type_deleted',
-						title: 'Training Type Deleted',
-						message: 'A training type was deleted.'
-					})
-			},
-			id
-		);
+		await deleteTrainingType(ctx, id);
 		return { success: true };
 	}
-} satisfies RouteConfig<Record<string, unknown>, { success: true }>;
+} satisfies RouteConfig<
+	Record<string, unknown>,
+	{ success: true },
+	ReturnType<typeof createRequestTrainingTypeDeletionContext>
+>;
 
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);

@@ -1,3 +1,4 @@
+import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
 import { z } from 'zod';
 import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
@@ -11,13 +12,18 @@ function parseDuplicateTemplateInput(event: RequestEvent): z.infer<typeof duplic
 }
 
 const duplicateTemplateConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
 	policyResource: { kind: 'organization' },
 	input: duplicateTemplateInput,
 	parseInput: parseDuplicateTemplateInput,
 	fn: (ctx, input) => duplicateOnboardingTemplate(ctx, input.templateId)
-} satisfies RouteConfig<z.infer<typeof duplicateTemplateInput>, DuplicateOnboardingTemplateResult>;
+} satisfies RouteConfig<
+	z.infer<typeof duplicateTemplateInput>,
+	DuplicateOnboardingTemplateResult,
+	ReturnType<typeof createRequestWriteContext>
+>;
 
 export const POST = handle(duplicateTemplateConfig);
 export const _postConfig = duplicateTemplateConfig;

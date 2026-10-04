@@ -1,15 +1,22 @@
-import { json, type RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	createSignInRoster,
-	createSignInRosterPersistence,
 	listSignInRosters,
 	type SignInRosterListInput
 } from '$features/sign-in-rosters/index.server';
-import { findGroupNamesByIds, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import {
+	createRequestSignInRosterContext,
+	createRequestSignInRosterCreationContext
+} from '$lib/server/adapters/requestContexts.server';
+import { json, type RequestEvent } from '@sveltejs/kit';
 
-export const _getConfig: RouteConfig<SignInRosterListInput, unknown> = {
+export const _getConfig: RouteConfig<
+	SignInRosterListInput,
+	unknown,
+	ReturnType<typeof createRequestSignInRosterContext>
+> = {
+	context: createRequestSignInRosterContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({
@@ -19,40 +26,21 @@ export const _getConfig: RouteConfig<SignInRosterListInput, unknown> = {
 		limit: Math.min(parseInt(event.url.searchParams.get('limit') || '20'), 100),
 		offset: parseInt(event.url.searchParams.get('offset') || '0')
 	}),
-	fn: (ctx, input) =>
-		listSignInRosters(
-			{
-				orgId: ctx.auth.orgId,
-				persistence: createSignInRosterPersistence(ctx.store, ctx.auth.orgId),
-				storage: ctx.storage,
-				audit: ctx.audit
-			},
-			input
-		)
+	fn: (ctx, input) => listSignInRosters(ctx, input)
 };
 
 export const GET = handle(_getConfig);
 
-export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _postConfig: RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestSignInRosterCreationContext>
+> = {
+	context: createRequestSignInRosterCreationContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },
-	fn: (ctx, input) =>
-		createSignInRoster(
-			{
-				orgId: ctx.auth.orgId,
-				userId: ctx.auth.userId,
-				scopeSet: ctx.auth.scopeSet,
-				persistence: createSignInRosterPersistence(ctx.store, ctx.auth.orgId),
-				storage: ctx.storage,
-				audit: ctx.audit,
-				personnelLookup: ctx.signInRosterPersonnelLookup,
-				findGroupNamesByIds: (groupIds) => findGroupNamesByIds({ auth: ctx.auth, store: ctx.rawStore }, groupIds),
-				loadRankCatalog: () =>
-					loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.rawStore }, { authorization: 'training-records' })
-			},
-			input
-		),
+	fn: (ctx, input) => createSignInRoster(ctx, input),
 	formatOutput: (result) => json(result)
 };
 

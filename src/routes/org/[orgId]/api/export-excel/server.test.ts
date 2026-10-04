@@ -106,7 +106,9 @@ describe('POST /api/export-excel', () => {
 				return findMany(table, ...args);
 			};
 
-			await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' })).rejects.toBe(failure);
+			await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx)).rejects.toBe(
+				failure
+			);
 
 			const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
 			expect(rows).toEqual([
@@ -129,7 +131,9 @@ describe('POST /api/export-excel', () => {
 		const ctx = createExportTestContext({
 			auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet }
 		});
-		await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'member@example.com' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(configFor(ctx), ctx, { email: 'member@example.com' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(await ctx.rawStore.findMany('data_exports', ctx.auth.orgId)).toEqual([]);
@@ -225,7 +229,7 @@ describe('POST /api/export-excel', () => {
 				{ ...row, id: `foreign-${table}`, organization_id: 'other-org' }
 			];
 		}
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' });
+		const result = await handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx);
 		const response = configFor(ctx).formatOutput?.(result);
 		expect(response?.status).toBe(200);
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
@@ -348,9 +352,14 @@ describe('POST /api/export-excel', () => {
 			{ id: 'foreign-note', organization_id: 'other-org', personnel_id: 'p-2', text: 'Foreign' }
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'member-manager@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'member-manager@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result.status).toBe('ready');
 		const workbook = new ExcelJS.Workbook();
@@ -410,9 +419,14 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 		const response = configFor(ctx).formatOutput?.(result);
 
 		const workbook = new ExcelJS.Workbook();
@@ -502,9 +516,14 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
@@ -581,9 +600,14 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
@@ -661,9 +685,14 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
@@ -724,9 +753,14 @@ describe('POST /api/export-excel', () => {
 			return originalUpdate(...args);
 		};
 
-		const result = await handleUseCaseRequest(configFor(ctx), ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));

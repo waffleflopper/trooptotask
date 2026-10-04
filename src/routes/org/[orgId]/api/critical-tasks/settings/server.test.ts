@@ -21,10 +21,15 @@ describe('/api/critical-tasks/settings', () => {
 			}
 		});
 		const saveDefaults = vi.fn().mockResolvedValue(undefined);
-		ctx.criticalTasksSettingsWrite = { saveDefaults };
+		const selected = { ...ctx, criticalTasksSettingsWrite: { saveDefaults } };
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { defaultExpirationMonths: 18, expiringSoonWarningDays: 45 })
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{ defaultExpirationMonths: 18, expiringSoonWarningDays: 45 },
+				() => selected
+			)
 		).resolves.toEqual({ success: true });
 		expect(saveDefaults).toHaveBeenCalledWith(ctx.auth.orgId, {
 			defaultExpirationMonths: 18,
@@ -49,10 +54,15 @@ describe('/api/critical-tasks/settings', () => {
 			}
 		});
 		const saveDefaults = vi.fn();
-		ctx.criticalTasksSettingsWrite = { saveDefaults };
+		const selected = { ...ctx, criticalTasksSettingsWrite: { saveDefaults } };
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { defaultExpirationMonths: 18, expiringSoonWarningDays: 45 })
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{ defaultExpirationMonths: 18, expiringSoonWarningDays: 45 },
+				() => selected
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(saveDefaults).not.toHaveBeenCalled();
 	});

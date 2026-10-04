@@ -1,6 +1,7 @@
-import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestEmptyContext } from '$lib/server/adapters/requestContexts.server';
+import type { PageServerLoadEvent } from './$types';
 
 type LoadWithContext = typeof loadWithContext;
 
@@ -17,6 +18,7 @@ export function _createPersonnelImportPageLoad(deps: PersonnelImportPageLoadDeps
 
 		return {
 			personnelImport: await loadWithContextFn(locals, cookies, orgId, {
+				context: createRequestEmptyContext,
 				policyAction: POLICY_ACTION_CATALOG.personnel.importRecords,
 				policyResource: { kind: 'unscoped' },
 				fn: async () => ({})

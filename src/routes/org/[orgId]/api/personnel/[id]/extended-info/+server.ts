@@ -1,10 +1,16 @@
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { updatePersonnelExtendedInfo } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { updatePersonnelExtendedInfo } from '$features/personnel/index.server';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelExtendedInfoContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _putConfig: RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestPersonnelExtendedInfoContext>
+> = {
+	context: createRequestPersonnelExtendedInfoContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },

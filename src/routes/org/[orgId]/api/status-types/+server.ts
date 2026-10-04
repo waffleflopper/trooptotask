@@ -1,24 +1,31 @@
+import { createStatusType, deleteStatusType, updateStatusType } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fail } from '$lib/errors';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import {
+	createRequestCalendarCatalogDeletionContext,
+	createRequestWriteContext
+} from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
-import { createStatusType, updateStatusType, deleteStatusType } from '$features/calendar/index.server';
 
 export const _postConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureStatusTypes,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => createStatusType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>;
 
 export const _putConfig = {
+	context: createRequestWriteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureStatusTypes,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => updateStatusType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>;
 
 export const _deleteConfig = {
+	context: createRequestCalendarCatalogDeletionContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureStatusTypes,
 	policyResource: { kind: 'unscoped' },
@@ -29,7 +36,11 @@ export const _deleteConfig = {
 		await deleteStatusType(ctx, id);
 		return { success: true };
 	}
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestCalendarCatalogDeletionContext>
+>;
 
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);

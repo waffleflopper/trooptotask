@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
 import { countOrganizationMembers } from '$features/organization/index.server';
-import type { UseCaseContext } from '$lib/server/core/ports';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _createConfigs } from './+server';
@@ -39,7 +38,7 @@ describe('GET /api/getting-started', () => {
 				release = resolve;
 			});
 		});
-		const pending = handleUseCaseRequest(_getConfig, createTestContext(), undefined);
+		const pending = handleUseCaseRequest(_getConfig, createTestContext(), undefined, () => createTestContext());
 		await memberStarted;
 		try {
 			expect(loadGettingStartedDismissed).toHaveBeenCalled();
@@ -51,14 +50,20 @@ describe('GET /api/getting-started', () => {
 
 	it('fails the complete GET when Organization support cannot be read', async () => {
 		vi.mocked(countOrganizationMembers).mockRejectedValue(new Error('Membership count unavailable'));
-		await expect(handleUseCaseRequest(_getConfig, createTestContext(), undefined)).rejects.toThrow(
-			'Membership count unavailable'
-		);
+		await expect(
+			handleUseCaseRequest(_getConfig, createTestContext(), undefined, () => createTestContext())
+		).rejects.toThrow('Membership count unavailable');
 	});
 	it.each([
-		['GET', (ctx: UseCaseContext) => handleUseCaseRequest(_getConfig, ctx, undefined)],
-		['POST', (ctx: UseCaseContext) => handleUseCaseRequest(_postConfig, ctx, undefined)],
-		['DELETE', (ctx: UseCaseContext) => handleUseCaseRequest(_deleteConfig, ctx, undefined)]
+		['GET', (ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)],
+		[
+			'POST',
+			(ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_postConfig, ctx, undefined, () => ctx)
+		],
+		[
+			'DELETE',
+			(ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_deleteConfig, ctx, undefined, () => ctx)
+		]
 	] as const)('%s rejects anonymous access before reading or writing support data', async (_method, request) => {
 		const ctx = createTestContext({ auth: { userId: '' } });
 		const reads = vi.spyOn(ctx.store, 'findManyWithCount');
@@ -104,7 +109,7 @@ describe('GET /api/getting-started', () => {
 					return scopedStore.findManyWithCount(table, ...args);
 				}
 			};
-			await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+			await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).resolves.toMatchObject({
 				ratingSchemeEntryCount: ratingScheme === 'view' ? 1 : 0
 			});
 		}
@@ -112,20 +117,20 @@ describe('GET /api/getting-started', () => {
 
 	it('binds personal progress to the admitted account, Organization and ordinary request client', async () => {
 		const ctx = createTestContext();
-		await handleUseCaseRequest(_postConfig, ctx, undefined);
+		await handleUseCaseRequest(_postConfig, ctx, undefined, () => ctx);
 		expect(setGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase, auth: ctx.auth, audit: ctx.audit }, true);
-		await handleUseCaseRequest(_deleteConfig, ctx, undefined);
+		await handleUseCaseRequest(_deleteConfig, ctx, undefined, () => ctx);
 		expect(setGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase, auth: ctx.auth, audit: ctx.audit }, false);
-		await handleUseCaseRequest(_getConfig, ctx, undefined);
+		await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx);
 		expect(loadGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase }, ctx.auth);
 		expect(countOrganizationMembers).toHaveBeenLastCalledWith(supabase, ctx.auth.orgId);
 	});
 
 	it('does not report dismissal success when its owner cannot confirm the save', async () => {
 		vi.mocked(setGettingStartedDismissed).mockRejectedValue(new Error('Unable to confirm Getting Started save'));
-		await expect(handleUseCaseRequest(_postConfig, createTestContext(), undefined)).rejects.toThrow(
-			'Unable to confirm'
-		);
+		await expect(
+			handleUseCaseRequest(_postConfig, createTestContext(), undefined, () => createTestContext())
+		).rejects.toThrow('Unable to confirm');
 	});
 
 	it('returns retained scoped support with retired Duty storage unavailable', async () => {
@@ -176,7 +181,7 @@ describe('GET /api/getting-started', () => {
 		]);
 		vi.mocked(loadGettingStartedDismissed).mockResolvedValue(true);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, undefined);
+		const result = await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx);
 
 		expect(result).toEqual({
 			trainingTypeCount: 2,
@@ -227,7 +232,7 @@ describe('GET /api/getting-started', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).resolves.toMatchObject({
 			gettingStartedDismissed: false,
 			starterConfigurationPacks: [
 				expect.objectContaining({

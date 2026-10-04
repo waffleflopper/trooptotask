@@ -1,3 +1,4 @@
+import { createPersonnelLeaderNoteDeliveryContext } from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -31,11 +32,18 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		});
 		seedPersonnel(ctx);
 
-		await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'person-1',
-			text: 'Won the monthly Soldier board.'
-		});
-		const notes = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' });
+		await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				text: 'Won the monthly Soldier board.'
+			},
+			() => createPersonnelLeaderNoteDeliveryContext(ctx)
+		);
+		const notes = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+			createPersonnelLeaderNoteDeliveryContext(ctx)
+		);
 
 		expect(notes).toHaveLength(1);
 		expect(notes[0]).toMatchObject({
@@ -82,7 +90,11 @@ describe('/api/personnel/[id]/leader-notes', () => {
 		});
 		seedPersonnel(ctx);
 
-		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+				createPersonnelLeaderNoteDeliveryContext(ctx)
+			)
+		).rejects.toMatchObject({
 			status: 403
 		});
 	});
@@ -114,24 +126,39 @@ describe('/api/personnel/[id]/leader-notes', () => {
 			}
 		]);
 
-		const archived = (await handleUseCaseRequest(_patchConfig, ctx, {
-			personnelId: 'person-1',
-			noteId: 'note-1',
-			action: 'archive'
-		})) as { archivedAt: string | null };
-		expect(archived.archivedAt).toBeTruthy();
-		const restored = (await handleUseCaseRequest(_patchConfig, ctx, {
-			personnelId: 'person-1',
-			noteId: 'note-1',
-			action: 'restore'
-		})) as { archivedAt: string | null };
-		expect(restored.archivedAt).toBeNull();
-		await expect(
-			handleUseCaseRequest(_patchConfig, ctx, {
+		const archived = (await handleUseCaseRequest(
+			_patchConfig,
+			ctx,
+			{
 				personnelId: 'person-1',
 				noteId: 'note-1',
-				action: 'publish'
-			})
+				action: 'archive'
+			},
+			() => createPersonnelLeaderNoteDeliveryContext(ctx)
+		)) as { archivedAt: string | null };
+		expect(archived.archivedAt).toBeTruthy();
+		const restored = (await handleUseCaseRequest(
+			_patchConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				noteId: 'note-1',
+				action: 'restore'
+			},
+			() => createPersonnelLeaderNoteDeliveryContext(ctx)
+		)) as { archivedAt: string | null };
+		expect(restored.archivedAt).toBeNull();
+		await expect(
+			handleUseCaseRequest(
+				_patchConfig,
+				ctx,
+				{
+					personnelId: 'person-1',
+					noteId: 'note-1',
+					action: 'publish'
+				},
+				() => createPersonnelLeaderNoteDeliveryContext(ctx)
+			)
 		).rejects.toMatchObject({ status: 400 });
 	});
 });

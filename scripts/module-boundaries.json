@@ -2,17 +2,7 @@
 	"owners": {
 		"access": {
 			"roots": ["src/lib/access/"],
-			"files": [
-				"src/lib/server/adapters/scopeRules.ts",
-				"src/lib/server/durableRateLimit.test.ts",
-				"src/lib/server/durableRateLimit.ts",
-				"src/lib/server/membershipContextCache.test.ts",
-				"src/lib/server/membershipContextCache.ts",
-				"src/lib/server/permissionContext.test.ts",
-				"src/lib/server/permissionContext.ts",
-				"src/lib/server/rateLimit.test.ts",
-				"src/lib/server/rateLimit.ts"
-			],
+			"files": ["src/lib/server/adapters/scopeRules.ts"],
 			"packet": "08-M15"
 		},
 		"app-shell": {
@@ -62,23 +52,26 @@
 			"roots": ["src/routes/"],
 			"files": [
 				"scripts/check-governance.mjs",
+				"src/app.d.ts",
 				"src/hooks.organizationAdmission.test.ts",
 				"src/hooks.server.test.ts",
 				"src/hooks.server.ts",
-				"src/lib/personnelArchiveRequestDelivery.ts",
-				"src/lib/server/personnelArchiveBatchDelivery.ts",
-				"src/lib/server/personnelArchiveBatchDelivery.test.ts",
 				"src/hooks.signOut.test.ts",
-				"src/lib/server/adapters/appShellRequestDelivery.ts",
+				"src/lib/personnelArchiveRequestDelivery.ts",
 				"src/lib/server/adapters/appShellRequestDelivery.test.ts",
-				"src/lib/server/adapters/buildLayoutContext.test.ts",
+				"src/lib/server/adapters/appShellRequestDelivery.ts",
 				"src/lib/server/adapters/entityHandlers.test.ts",
+				"src/lib/server/adapters/featureRequestContexts.server.ts",
 				"src/lib/server/adapters/handle.test.ts",
 				"src/lib/server/adapters/httpAdapter.ts",
-				"src/lib/server/adapters/personnelArtifacts.test.ts",
-				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/loadWithContext.test.ts",
 				"src/lib/server/adapters/membershipAdmission.test.ts",
+				"src/lib/server/adapters/notificationDelivery.test.ts",
+				"src/lib/server/adapters/personnelArtifacts.test.ts",
+				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
+				"src/lib/server/adapters/requestContexts.server.test.ts",
+				"src/lib/server/adapters/requestContexts.server.ts",
+				"src/lib/server/communicationsPagination.server.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
 				"src/lib/server/core/featureLaneWorkspaceLoad.ts",
 				"src/lib/server/core/ports.ts",
@@ -92,12 +85,13 @@
 				"src/lib/server/core/useCases/starterConfigurationPacks.ts",
 				"src/lib/server/organizationProvisioningDelivery.test.ts",
 				"src/lib/server/organizationProvisioningDelivery.ts",
+				"src/lib/server/personnelArchiveBatchDelivery.test.ts",
+				"src/lib/server/personnelArchiveBatchDelivery.ts",
 				"src/tests/check-governance.test.ts",
 				"src/tests/no-google-fonts.test.ts",
 				"src/tests/security-posture.test.ts",
-				"src/app.d.ts",
-				"src/lib/server/adapters/notificationDelivery.test.ts",
-				"src/lib/server/communicationsPagination.server.test.ts"
+				"src/lib/server/adapters/inMemory.ts",
+				"src/lib/server/adapters/privateResources.test.ts"
 			],
 			"packet": "08-M15"
 		},
@@ -134,10 +128,7 @@
 		},
 		"personnel": {
 			"roots": ["src/features/personnel/"],
-			"files": [
-				"src/lib/server/adapters/supabaseScopeEnforcement.test.ts",
-				"src/lib/server/adapters/supabaseScopeEnforcement.ts"
-			],
+			"files": [],
 			"packet": "08-M04"
 		},
 		"platform-admin": {
@@ -148,8 +139,6 @@
 		"provider": {
 			"roots": ["src/lib/storage/"],
 			"files": [
-				"src/lib/server/adapters/inMemory.ts",
-				"src/lib/server/adapters/privateResources.test.ts",
 				"src/lib/server/adapters/scopedDataStore.test.ts",
 				"src/lib/server/adapters/scopedDataStore.ts",
 				"src/lib/server/adapters/supabaseDataStore.test.ts",
@@ -290,7 +279,17 @@
 			"web-ui"
 		],
 		"audit": ["access", "provider", "shared"],
-		"calendar": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
+		"calendar": [
+			"personnel",
+			"access",
+			"audit",
+			"provider",
+			"shared",
+			"web-ui",
+			"organization",
+			"onboarding",
+			"notifications"
+		],
 		"critical-tasks": ["personnel", "access", "audit", "provider", "shared", "web-ui"],
 		"dashboard": [
 			"organization",
@@ -426,7 +425,7 @@
 	"publicFiles": {
 		"shared": ["src/lib/utils.ts", "src/lib/types.ts", "src/lib/errors.ts"],
 		"provider": ["src/lib/server/supabasePagination.server.ts"],
-		"access": ["src/lib/server/permissionContext.ts", "src/lib/access/index.server.ts"],
+		"access": ["src/lib/access/index.server.ts", "src/lib/server/adapters/scopeRules.ts"],
 		"organization": [
 			"src/features/organization/contracts.ts",
 			"src/features/organization/index.ts",
@@ -517,17 +516,19 @@
 			"packet": "08-M15/08-M16",
 			"reason": "aggregate types from multiple product owners"
 		},
-		"src/lib/server/core/ports.ts": {
-			"packet": "08-M15",
-			"reason": "aggregate ports for multiple product owners"
-		},
-		"src/lib/server/adapters/httpAdapter.ts": {
-			"packet": "08-M15",
-			"reason": "aggregate delivery adapter exposes multiple owners"
-		},
 		"src/lib/storage/sensitiveFiles.ts": {
 			"packet": "08-M11/08-M15",
 			"reason": "shared storage transport includes feature-specific scan path rules"
+		},
+		"src/lib/server/core/ports.ts": {
+			"packet": "08-M15",
+			"reason": "aggregate ports for multiple product owners"
 		}
-	}
+	},
+	"testSupportFiles": [
+		"src/lib/server/adapters/inMemory.ts",
+		"src/features/personnel/leaderNotes.testHelper.ts",
+		"src/features/personnel/personnelArtifacts.testHelper.ts",
+		"src/routes/org/[orgId]/api/sign-in-rosters/rosterTestContexts.ts"
+	]
 }

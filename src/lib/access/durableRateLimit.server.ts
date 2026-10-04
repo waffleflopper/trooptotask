@@ -45,7 +45,6 @@ export function createSupabaseDurableRateLimitStore(
 				throw error;
 			}
 
-			// The RPC returns one decision. Missing or ambiguous data cannot authorize a request.
 			const row: unknown = Array.isArray(data) ? (data.length === 1 ? data[0] : null) : data;
 			if (
 				error !== null ||

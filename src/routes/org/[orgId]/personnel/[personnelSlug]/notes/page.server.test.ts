@@ -1,43 +1,27 @@
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createPersonnelLeaderNoteDeliveryContext } from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it, vi } from 'vitest';
 import { _createPersonnelNotesPageLoad } from './+page.server';
 
 describe('personnel notes page server load', () => {
 	it('loads the full leader note journal for the layout-resolved Soldier', async () => {
-		const ctx = {
-			rawStore: {
-				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
-				findMany: vi.fn(async () => [])
-			},
-			store: {
-				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
-				findMany: vi.fn(async () => [
-					{
-						id: 'note-1',
-						personnel_id: 'person-1',
-						author: 'test-user',
-						text: 'Recent observation',
-						created_at: '2026-05-14T10:00:00Z'
-					}
-				])
-			},
-			auth: {
-				orgId: 'org-1',
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'configure',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' }
-			},
-			scope: {
-				requireGroupAccess: vi.fn(async () => {})
-			},
-			audit: { log: vi.fn() }
-		};
-		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'org-1', group_id: null }]);
+		ctx.store.seed(
+			'leader_notes',
+			[
+				{
+					id: 'note-1',
+					personnel_id: 'person-1',
+					author: 'test-user',
+					text: 'Recent observation',
+					created_at: '2026-05-14T10:00:00Z'
+				}
+			].map((row) => ({ ...row, organization_id: 'org-1', archived_at: null }))
+		);
+		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) =>
+			config.fn(createPersonnelLeaderNoteDeliveryContext(ctx))
+		);
 		const load = _createPersonnelNotesPageLoad({ loadWithContext });
 		const depends = vi.fn();
 

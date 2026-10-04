@@ -92,12 +92,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 		const sheet = await loadReportSheet(result.buffer);
 
 		expect(sheet.getRow(1).values).toEqual([undefined, 'Section', 'Metric', 'Value', 'Subtitle']);
@@ -226,12 +231,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 
 		expect('permission' in _getConfig).toBe(false);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 		const response = _getConfig.formatOutput?.(result);
 		const sheet = await loadReportSheet(result.buffer);
 
@@ -329,12 +339,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: undefined,
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: undefined,
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 
 		const sheet = await loadReportSheet(result.buffer);
 		expect(columnValues(sheet, 2)).toContain('Overall Readiness');
@@ -508,12 +523,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 
 		const sheet = await loadReportSheet(result.buffer);
 

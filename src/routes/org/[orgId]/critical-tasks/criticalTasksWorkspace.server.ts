@@ -1,3 +1,4 @@
+import { createRequestCriticalTasksReadContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
@@ -47,6 +48,7 @@ export async function streamCriticalTasksWorkspaceBootstrap(
 	context: CriticalTasksWorkspaceRequestContext
 ): Promise<CriticalTasksWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		context: createRequestCriticalTasksReadContext,
 		policyAction: POLICY_ACTION_CATALOG.criticalTasks.viewReadiness,
 		policyResource: { kind: 'unscoped' },
 		defer: true,

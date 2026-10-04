@@ -1,10 +1,10 @@
+import type { CalendarWorkspaceRouteData } from '$features/calendar/index.server';
 import type { LayoutServerLoad } from './$types';
 import { streamReadyFeatureLaneWorkspace } from '$lib/server/core/featureLaneWorkspaceLoad';
 import {
 	streamCalendarWorkspaceBootstrap,
-	type CalendarWorkspaceRequestContext,
-	type CalendarWorkspaceRouteData
-} from '$features/calendar/server/calendarWorkspaceBootstrap';
+	type CalendarWorkspaceRequestContext
+} from './calendarWorkspaceDelivery.server';
 import type { CalendarDateRange } from '$features/calendar/index.server';
 import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
 

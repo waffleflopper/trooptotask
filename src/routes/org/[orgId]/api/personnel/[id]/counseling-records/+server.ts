@@ -1,14 +1,15 @@
-import { personnelArtifactsContext, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
 
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/errors';
+import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
 import {
 	createPersonnelCounselingRecord,
 	listPersonnelCounselingRecords,
 	type PersonnelCounselingRecordInput
 } from '$features/personnel/index.server';
-import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/errors';
 
 function personnelIdFromEvent(event: RequestEvent): string {
 	const personnelId = event.params.id;
@@ -16,16 +17,26 @@ function personnelIdFromEvent(event: RequestEvent): string {
 	return personnelId;
 }
 
-export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelCounselingRecord[]> = {
+export const _getConfig: RouteConfig<
+	{ personnelId: string },
+	PersonnelCounselingRecord[],
+	ReturnType<typeof createRequestPersonnelArtifactsContext>
+> = {
+	context: createRequestPersonnelArtifactsContext,
 	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => ({
 		personnelId: personnelIdFromEvent(event)
 	}),
-	fn: (ctx, input) => listPersonnelCounselingRecords(personnelArtifactsContext(ctx), input.personnelId)
+	fn: (ctx, input) => listPersonnelCounselingRecords(ctx, input.personnelId)
 };
 
-export const _postConfig: RouteConfig<PersonnelCounselingRecordInput, PersonnelCounselingRecord> = {
+export const _postConfig: RouteConfig<
+	PersonnelCounselingRecordInput,
+	PersonnelCounselingRecord,
+	ReturnType<typeof createRequestPersonnelArtifactsContext>
+> = {
+	context: createRequestPersonnelArtifactsContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
@@ -39,7 +50,7 @@ export const _postConfig: RouteConfig<PersonnelCounselingRecordInput, PersonnelC
 			file: formData.get('file') as File
 		};
 	},
-	fn: (ctx, input) => createPersonnelCounselingRecord(personnelArtifactsContext(ctx), input)
+	fn: (ctx, input) => createPersonnelCounselingRecord(ctx, input)
 };
 
 export const GET = handle(_getConfig);

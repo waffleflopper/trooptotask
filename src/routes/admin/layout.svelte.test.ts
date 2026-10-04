@@ -19,6 +19,7 @@ vi.mock('$lib/components/admin/AdminSearch.svelte', () => ({
 }));
 
 import Layout from './+layout.svelte';
+import type { LayoutData } from './$types';
 
 afterEach(() => {
 	cleanup();
@@ -28,7 +29,7 @@ const children = createRawSnippet(() => ({
 	render: () => '<section>Admin child</section>'
 }));
 
-function renderLayout(accessiblePages: string[]) {
+function renderLayout(accessiblePages: LayoutData['accessiblePages']) {
 	return render(Layout, {
 		props: {
 			children,

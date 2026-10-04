@@ -37,10 +37,11 @@ export function createSupabaseFeedbackReviewStore(client: SupabaseClient): Feedb
 			const { data, error } = await selectAllSupabaseRows<FeedbackReviewRow>(async (from, to) => {
 				const response = await client
 					.from('beta_feedback')
-					.select('*')
+					.select('id, user_email, category, message, created_at, organization_name, page_url, status, admin_notes')
 					.order('created_at', { ascending: false })
 					.order('id', { ascending: true })
 					.range(from, to);
+				if (!response.error && !Array.isArray(response.data)) throw new Error('Feedback list was unavailable');
 				return { data: response.data as FeedbackReviewRow[] | null, error: response.error };
 			});
 			if (error) throw new Error('Failed to list feedback', { cause: error });
@@ -84,13 +85,15 @@ export function createSupabaseFeedbackSubmissionStore(getClient: () => SupabaseC
 }
 
 /** Platform's existing dashboard composes this count after its admin admission. */
-export async function countPendingFeedback(client: SupabaseClient): Promise<number | null> {
+export async function countPendingFeedback(client: SupabaseClient): Promise<number> {
 	const { count, error } = await client
 		.from('beta_feedback')
-		.select('*', { count: 'exact', head: true })
+		.select('id', { count: 'exact', head: true })
 		.eq('status', 'new');
 	if (error) throw new Error('Failed to count pending feedback', { cause: error });
-	return count ?? null;
+	if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0)
+		throw new Error('Pending Feedback count was unavailable');
+	return count;
 }
 
 /** Already-authorized Organization exports keep the caller's request client and its row-level access. */

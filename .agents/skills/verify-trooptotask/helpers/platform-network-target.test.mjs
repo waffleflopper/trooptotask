@@ -10,6 +10,30 @@ const other = '20000000-0000-4000-8000-000000000002';
 const fixture = { actors: { orgInvitee: { id: invitee } } };
 const seed = { requests: { approve: { id: selected }, reject: { id: other } } };
 
+test('content transport rejection consumes only its selected action and permits an explicit retry', async () => {
+	let dispatched = 0;
+	const page = {
+		location: { href: 'http://owned.test/admin/feedback' },
+		fetch: async () => {
+			dispatched++;
+			return Response.json({ untouched: true });
+		}
+	};
+	installNetworkControl(page, {
+		...platformFormNetworkTarget('admin-feedback/update', fixture, null),
+		mode: 'reject',
+		ordinal: 1
+	});
+	await page.fetch('http://other.test/admin/feedback?/update', { method: 'POST' });
+	await page.fetch('/admin/feedback?/update');
+	await page.fetch('/admin/feedback?/other', { method: 'POST' });
+	assert.equal(dispatched, 3);
+	await assert.rejects(page.fetch('/admin/feedback?/update', { method: 'POST' }), TypeError);
+	assert.equal(dispatched, 3);
+	assert.equal((await page.fetch('/admin/feedback?/update', { method: 'POST' })).status, 200);
+	assert.equal(dispatched, 4);
+});
+
 for (const [family, route, action] of [
 	['admin-announcements/create', '/admin/announcements', 'create'],
 	['admin-announcements/toggle', '/admin/announcements', 'toggle'],

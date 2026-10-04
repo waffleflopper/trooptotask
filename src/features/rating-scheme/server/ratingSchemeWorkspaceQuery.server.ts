@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
@@ -5,8 +7,9 @@ import type { RatingSchemeWorkspaceData } from '../contracts';
 import { RatingSchemeEntryEntity } from './ratingSchemeEntryEntity.server';
 import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
 
-type PolicyContext = Parameters<typeof requireFeaturePolicy>[0];
-interface RatingSchemeWorkspaceContext extends PolicyContext {
+interface RatingSchemeWorkspaceContext {
+	auth: OrganizationAccessGrant;
+	audit?: PolicyAuditSink;
 	readonly rawStore: Pick<RatingSchemeReadStore, 'findMany'>;
 	readonly personnelRatingSchemeRoster?: Pick<PersonnelRatingSchemeRosterPort, 'listActiveReferences'>;
 }

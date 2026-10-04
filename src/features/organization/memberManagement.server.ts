@@ -1,3 +1,4 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import { fail } from '$lib/errors';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -7,7 +8,11 @@ import {
 	type TargetMemberAccessCommand,
 	type MemberAccessStorageCommand
 } from '$lib/access/memberAccessCommands';
-import { type CapabilityOverrideMap, type StoredMemberPreset } from '$lib/access/memberAccessShape';
+import {
+	type CapabilityOverrideMap,
+	type OrganizationAccessGrant,
+	type StoredMemberPreset
+} from '$lib/access/memberAccessShape';
 import {
 	denyPolicyDecision,
 	evaluateAuthoritativePolicyDecision,
@@ -37,10 +42,6 @@ import {
 	type OrganizationInvitationRateLimiter
 } from './invitationRateLimit.server';
 import { validateEmail, validateUUID } from '$lib/server/validation';
-
-type GovernancePorts = Parameters<typeof requireGovernancePolicy>[0];
-type AuthContext = GovernancePorts['auth'];
-type AuditPort = GovernancePorts['audit'];
 
 export interface OrganizationInvitationCreateInput {
 	organizationId: string;
@@ -149,8 +150,8 @@ export interface OrganizationInvitationDeliveryPort {
 }
 
 interface OrganizationSettingsMemberManagementPorts {
-	auth: AuthContext;
-	audit: AuditPort;
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	notifications: NotificationDeliveryPort;
 
 	settings: OrganizationSettingsMemberManagementPort;
@@ -774,7 +775,7 @@ export async function leaveOrganization(
 	const actorUserId = requireActorUserId(ports.auth);
 	const membership = await ports.settings.findMembershipById(ports.auth.orgId, input.membershipId);
 
-	await requireIdentityPolicy(ports, actorUserId, membership?.userId ?? null);
+	await requireIdentityPolicy(ports, membership?.userId ?? null);
 
 	if (membership?.role === 'owner') {
 		fail(400, 'Organization owners must transfer ownership before leaving the organization');
@@ -961,7 +962,7 @@ function isHighPrivilegeAccess(role: string | null | undefined, canManageMembers
 	return role === 'owner' || role === 'admin' || canManageMembers === true;
 }
 
-function requireActorUserId(auth: AuthContext): string {
+function requireActorUserId(auth: OrganizationAccessGrant): string {
 	return auth.userId;
 }
 
@@ -1049,14 +1050,12 @@ async function notifyAdminsOfExpiredInvitation(
 
 async function requireIdentityPolicy(
 	ports: OrganizationSettingsMemberManagementPorts,
-	actorUserId: string,
 	resourceUserId: string | null
 ): Promise<void> {
 	const decision = await evaluateAuthoritativePolicyDecision(
 		ports,
 		POLICY_ACTION_CATALOG.identity.leaveOrganization,
-		resourceUserId ? { kind: 'user', userId: resourceUserId } : { kind: 'unscoped' },
-		{ actorUserId }
+		resourceUserId ? { kind: 'user', userId: resourceUserId } : { kind: 'unscoped' }
 	);
 
 	if (decision.allowed) {

@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { requireGovernancePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
@@ -8,7 +10,9 @@ import type {
 	OrganizationSettingsInput
 } from './settingsTypes';
 
-type PolicyPorts = Parameters<typeof requireGovernancePolicy>[0] & {
+type PolicyPorts = {
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	organizationPolicyWrite: OrganizationPolicyWritePort;
 };
 

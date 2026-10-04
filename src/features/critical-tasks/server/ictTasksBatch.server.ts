@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import {
 	reviewMappedIctTaskImportRows,
@@ -11,11 +13,10 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 const MAX_BATCH_SIZE = 500;
 
-type TaskBatchPolicyContext = Parameters<typeof requirePolicyDecision>[0];
-
 interface IctTaskBatchContext {
-	auth: TaskBatchPolicyContext['auth'] & { orgId: string };
-	audit: TaskBatchPolicyContext['audit'];
+	auth: Pick<OrganizationAccessGrant, 'orgId' | 'role' | 'capabilityMap' | 'scopeSet'> &
+		Partial<Pick<OrganizationAccessGrant, 'userId' | 'canManageMembers'>>;
+	audit: PolicyAuditSink;
 	store: {
 		findMany<T>(table: string, orgId: string, filters?: Record<string, unknown>): Promise<T[]>;
 		insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;

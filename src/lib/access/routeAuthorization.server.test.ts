@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { enforceLoadAuthorization, enforceLayoutPolicy, enforceRouteAuthorization } from './routeAuthorization';
+import { enforceLoadAuthorization, enforceRouteAuthorization } from './serverPolicy.server';
 
 const NO_CAPABILITIES = {
 	calendar: 'none',
@@ -76,7 +76,7 @@ describe('route authorization', () => {
 		});
 	});
 
-	it('provides a layout-level helper for settings and governance policy checks', async () => {
+	it('authorizes governance loads for an admin without feature grants', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'admin',
@@ -86,12 +86,12 @@ describe('route authorization', () => {
 			}
 		});
 
-		await enforceLayoutPolicy(ctx, {
+		await enforceLoadAuthorization(ctx, {
 			policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
 		});
 	});
 
-	it('denies layout policy helper access for non-governance members', async () => {
+	it('denies governance loads for a member', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'member',
@@ -102,7 +102,7 @@ describe('route authorization', () => {
 		});
 
 		await expect(
-			enforceLayoutPolicy(ctx, {
+			enforceLoadAuthorization(ctx, {
 				policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance
 			})
 		).rejects.toMatchObject({ status: 403 });

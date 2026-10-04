@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { requireGovernancePolicy, requireIdentityOwnedPolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
@@ -5,10 +7,9 @@ import type { DeletionRequest, DeletionRequestResourceType, PendingDeletionReque
 import type { DeletionRequestStore } from './contracts.server';
 import { AUDIT_RESOURCE } from './deletionRequestSupport.server';
 
-type GovernancePorts = Parameters<typeof requireGovernancePolicy>[0];
 export interface DeletionRequestReadContext {
-	auth: GovernancePorts['auth'];
-	audit: GovernancePorts['audit'];
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	store: Pick<DeletionRequestStore, 'listRequests' | 'readPendingSummary'>;
 }
 

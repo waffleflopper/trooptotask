@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
@@ -11,8 +13,8 @@ import { PersonnelEntity } from './personnelEntity.server';
 import { archivePersonnelOwnedArtifacts, restorePersonnelOwnedArtifacts } from './personnelArchiveCascade.server';
 
 interface PersonnelLifecycleContext {
-	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
-	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	store: {
 		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
 		findMany<T>(

@@ -1,3 +1,4 @@
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AuditPort } from '$lib/audit/contracts';
 import {
 	POLICY_ACTION_CATALOG,
@@ -5,14 +6,14 @@ import {
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { AuthContext, DataStore, UseCaseContext, WritePorts } from '$lib/server/core/ports';
+import type { DataStore, UseCaseContext, WritePorts } from '$lib/server/core/ports';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
 import { requirePersonnelCalendarRoster } from './calendarScope';
-import { evaluateAuthoritativePolicyDecision } from './policyAdapter';
-import { denyPolicyDecision, policyDenialAuditDetails } from './policyDenial';
+import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
+import { denyPolicyDecision, policyDenialAuditDetails } from '$lib/access/index.server';
 
 interface CalendarPolicyPorts {
-	auth: AuthContext;
+	auth: OrganizationAccessGrant;
 	audit?: AuditPort;
 
 	store?: DataStore;

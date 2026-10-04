@@ -2,7 +2,7 @@
 
 This first [#1373](https://github.com/waffleflopper/trooptotask/issues/1373) deliverable makes the configured jobs reproducible on an owned synthetic service. It adds small and 1,001-row maintenance cohorts, exact-target readback, explicit redirect observations, interrupted-setup protection and missing cutoff/replay/provider-failure tests. Application implementation, schema and schedules are unchanged.
 
-The split has an independent outcome. Reviewers can reproduce admission and library-size failures before the cohesive source-owner cutover. That next deliverable must repair these related defects together. This PR uses `Refs #1373`; neither the issue nor its dependents are complete.
+The split delivers reusable fixture/control/test coverage while leaving all production jobs inactive or active exactly as before. Admission repairs belong with eligibility, count and atomicity repairs so enabling a previously blocked job cannot expose an unsafe intermediate state. The source-owner cutover may also require an independently verified SQL migration and Robert's manual release step. That next deliverable must repair these related defects together. This PR uses `Refs #1373`; neither the issue nor its dependents are complete.
 
 ## Selection and coverage
 
@@ -42,7 +42,7 @@ Audit cleanup source and route/tests match D19 `6af243fe` exactly. Its [acceptan
 
 The separate preparation archive preserves the failed Node 26 adapter build, two Node 24 browser-start failures, successful short-directory native prerequisite probe, and interrupted first seed. The live schema rejected a nonexistent `daily_assignments.note` fixture column before jobs ran. The ownership ledger survived, exact recorded seed cleanup passed, doctor passed and that owned session was disposed. The corrected fixture then completed the distinct baseline above. Browser failures are observations; no proven desktop-flags diagnosis is claimed.
 
-After final doctor/disposal, independent comment review identified two narration comments. Both were removed. The frozen source copies and `publication-delta.json` preserve these comment-only differences. Helper behavior and application implementation remain unchanged; focused checks were repeated. Later record/archive additions do not relabel the frozen live digest.
+After final doctor/disposal, independent comment review identified two narration comments. Both were removed. The frozen source copies and `publication-delta.json` preserve these comment-only differences. Helper behavior and application implementation remain unchanged; focused checks were repeated. Later record/archive additions and the corrected older helper instructions do not relabel the frozen live digest. Those instruction edits describe the existing controls; no driving step or executable behavior changed.
 
 ## Durable artifacts
 
@@ -78,8 +78,18 @@ done
 
 ## Checks and issue remainder
 
-Four focused archive/cron suites pass 60 tests on the publication source. Two helper tests pass, including interruption ownership and complete 1,006-link readback without token hashes. Touched ESLint, formatting, skill metadata validation and whitespace pass. Full exact-published-head CI/build, CodeRabbit and complete independent source/expanded-artifact acceptance remain publication/merge gates.
+Four focused archive/cron suites pass 60 tests on the publication source. Two helper tests pass, including interruption ownership and complete 1,006-link readback without token hashes. Touched ESLint, formatting, skill metadata validation and whitespace pass. Full exact-published-head CI/build and completed clean hosted review remain merge gates.
 
 Next is the cohesive source-owner cutover and related admission/size/count/safety repairs. Scheduled Maintenance must stop discovering/deleting foreign tables; CT, Calendar and Onboarding providers must own their operations. Preserve all seven archive-family counts, cutoffs, order, partial-failure semantics, summaries and four configured jobs. Reconcile every direct/reverse consumer, manifest, provider boundary and governance finding. Remove the archived-Personnel alias after its caller census. `retentionSupport` is already deleted by D17; do not claim a fresh cycle removal. Reverify admitted Audit/setup effects, provider-sized counts, exact eligibility/concurrency and affected SQL guarantees. External schedules remain uninspected.
 
 Robert authorizes same-issue non-migration merges only after green exact-head CI and completed bots without actionable feedback. Any migration-containing deliverable stops before merge for his manual remote operation. No other issue advances.
+
+## Independent review and attention
+
+PR [#1519](https://github.com/waffleflopper/trooptotask/pull/1519) first publishes head `5de7d239` against `ad63659a`. The complete diff has eleven paths, nine text files and two archives. CodeRabbit CLI 0.8.2 completes all nine text files with zero findings against that base and the identical uncommitted publication patch. Archives receive expanded acceptance separately. The unavailable `deslop` skill is covered by direct cleanup checks for duplicate/dead code, unnecessary abstractions, scope drift and narration; independent comment review removes two narration comments and finds no new correctness suppressions.
+
+Independent Claude Opus 5.5 source/artifact acceptance reviews all eleven paths and all 218 expanded payloads, recomputing 19 HTTP responses, ten small collections, all 4,028 large recorded rows, ten notifications and twelve restored collections/19 original rows. It validates thirteen historical/current source comparisons and the two comment-only publication differences. Its conditional GO identifies one actionable instruction mismatch in older helper paragraphs. Those paragraphs now describe configured selectors, the unconfigured alias and redirect output correctly. The same independent reviewer gives the corrected three-file prose delta GO with F1 resolved and no actionable finding; this remains artifact review, not independent live execution.
+
+The distinct reviewer model pair is GPT-6.1-sol and Claude Opus 5.5. Its attention flags remain visible. Admitted Audit/setup effects and large-library behavior still fail. Preparation's successful launch stdout is empty, with same-session doctor as its running witness. Interrupted and global-table cleanup have success/disposal receipts without exact post-clean target absence. Denied Onboarding effects are inferred from subsequent exact cleanup; current notification recipients were not compared with the admitted administrator set, and notifications were not read after the large 500. Audit cutoff SQL and large Onboarding retain their stated source/historical proof limits. No additional success credit is assigned.
+
+The final preparation decision row's `../d25-baseline-fixed/` pointers name payloads in the separately packaged baseline archive. Extracting preparation as `d25-baseline` and baseline as `d25-baseline-fixed` beneath one fresh directory resolves those original relative pointers; archive hashes and inventories above protect both. Earlier neighboring D24 checkpoint prose remains another owner's historical record; the actual #1517 prerequisite integration was verified for this selection. Exact-head CI/hosted review are still pending. The hash-check loop independently validates each package; the paired extraction layout serves the separate cross-archive pointer check, which also passes.

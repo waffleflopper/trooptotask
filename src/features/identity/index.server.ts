@@ -106,3 +106,5 @@ export { createIdentityPlatformSupportReader } from './platformSupportReader.ser
 export { createIdentityPlatformSuspensionCommands } from './platformSuspensionCommands.server';
 export { createIdentityPlatformAccountEmailPort } from './platformAccountEmail.server';
 export { createIdentityPlatformAccessRequestStore } from './platformAccessRequests.server';
+
+export { createIdentityPlatformDashboardReader } from './platformDashboardReader.server';

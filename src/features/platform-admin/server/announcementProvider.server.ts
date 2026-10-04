@@ -1,23 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { AdminContext } from './adminAdapter';
-import {
-	createPlatformAnnouncements,
-	type PlatformAnnouncement
-} from '$lib/server/core/useCases/platformAnnouncements';
+import type { PlatformAnnouncement } from '../announcementTypes';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type {
 	PlatformAnnouncementStoreCreateInput,
 	PlatformAnnouncementToggleInput,
 	PlatformAnnouncementToggleUpdate,
-	PlatformAnnouncements,
 	PlatformAnnouncementsStore
-} from '$lib/server/core/useCases/platformAnnouncements';
+} from './announcements.server';
 
 interface AnnouncementRow {
 	id: string;
 	title: string;
 	message: string;
-	type: string;
+	type: PlatformAnnouncement['type'];
 	is_active: boolean;
 	created_at: string;
 	expires_at: string | null;
@@ -60,14 +55,16 @@ function mapAnnouncement(row: AnnouncementRow): PlatformAnnouncement {
 export function createSupabasePlatformAnnouncementsStore(supabase: SupabaseClient): PlatformAnnouncementsStore {
 	return {
 		async listAnnouncements() {
-			const { data, error } = await selectAllSupabaseRows<AnnouncementRow>(
-				(from, to) =>
-					supabase
-						.from('platform_announcements')
-						.select('*')
-						.order('created_at', { ascending: false })
-						.range(from, to) as unknown as Promise<SupabaseResponse<AnnouncementRow[]>>
-			);
+			const { data, error } = await selectAllSupabaseRows<AnnouncementRow>(async (from, to) => {
+				const result = await supabase
+					.from('platform_announcements')
+					.select('id, title, message, type, is_active, created_at, expires_at')
+					.order('created_at', { ascending: false })
+					.order('id', { ascending: true })
+					.range(from, to);
+				if (!result.error && !Array.isArray(result.data)) throw new Error('Announcement list was unavailable');
+				return result as SupabaseResponse<AnnouncementRow[]>;
+			});
 			if (error) throw new Error(`table platform_announcements list failed: ${formatSupabaseError(error)}`);
 			return (data ?? []).map(mapAnnouncement);
 		},
@@ -83,7 +80,7 @@ export function createSupabasePlatformAnnouncementsStore(supabase: SupabaseClien
 					expires_at: input.expiresAt ?? null,
 					created_by: input.createdBy
 				})
-				.select()
+				.select('id, title, message, type, is_active, created_at, expires_at')
 				.single()) as SupabaseResponse<AnnouncementRow>;
 			assertSupabaseSuccess('table platform_announcements insert', response);
 			if (!response.data) throw new Error('table platform_announcements insert failed: missing row');
@@ -121,12 +118,4 @@ export function createSupabasePlatformAnnouncementsStore(supabase: SupabaseClien
 			assertSupabaseSuccess('table platform_announcements delete', response);
 		}
 	};
-}
-
-export function createSupabasePlatformAnnouncements(ctx: AdminContext): PlatformAnnouncements {
-	return createPlatformAnnouncements({
-		store: createSupabasePlatformAnnouncementsStore(ctx.adminClient),
-		actorUserId: ctx.adminUser.id,
-		audit: (event) => ctx.audit(event)
-	});
 }

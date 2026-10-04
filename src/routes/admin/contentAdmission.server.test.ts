@@ -108,7 +108,7 @@ function provider(actor: ActorCase) {
 				actor.role &&
 				url.searchParams.get('user_id') === `eq.${ACTOR_ID}` &&
 				url.searchParams.get('is_active') === 'eq.true';
-			return Response.json(admitted ? { role: actor.role } : null);
+			return Response.json(admitted ? [{ role: actor.role }] : []);
 		}
 		if (method === 'GET' || method === 'HEAD' || resource.startsWith('rpc/')) contentReads.push(resource);
 		else writes.push(resource);

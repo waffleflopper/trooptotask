@@ -4,3 +4,12 @@ export { createPlatformOrganizationOperations } from './server/organizationOpera
 export { createPlatformAccountOperations } from './server/accountOperations.server';
 export { createPlatformAccessRequestOperations } from './server/accessRequestOperations.server';
 export { createPlatformSearchOperations, createPlatformSuspensionOperations } from './server/supportOperations.server';
+
+export { loadPlatformAdminNavigation } from './server/navigation.server';
+export { createPlatformDashboardOperations } from './server/dashboardOperations.server';
+export { createPlatformAnnouncementOperations } from './server/announcementOperations.server';
+export { validatePlatformAnnouncement } from './server/announcements.server';
+export {
+	createPlatformFeedbackOperations,
+	createPlatformAuditOperations
+} from './server/contentReviewOperations.server';

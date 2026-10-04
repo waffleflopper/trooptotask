@@ -23,4 +23,4 @@ UNION ALL SELECT 'organizations',id::text,to_jsonb(r) - 'training_readiness_goal
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE organization_id::text LIKE 'f1501000-%';
 CREATE TABLE upgrade_fixture.training_readiness_goal_before_rows AS SELECT * FROM upgrade_fixture.training_readiness_goal_current_rows;
 CREATE TABLE upgrade_fixture.training_readiness_goal_baseline AS
-SELECT NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261004000100') migration_absent;
+SELECT NOT EXISTS (SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20261004100618') migration_absent;

@@ -4,6 +4,22 @@ import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry, Group } from '$features/personnel/contracts';
 import type { TrainingStats } from './utils/trainingStatus';
 import type { ReadinessDashboard, ReportFilters } from './utils/reportCalculations';
+import type { BriefingScope, TrainingBriefing } from './utils/trainingBriefing.types';
+export {
+	DEFAULT_BRIEFING_DETAIL_PAGE_SIZE,
+	DEFAULT_TRAINING_BRIEFING_INPUT,
+	MAX_BRIEFING_DETAIL_PAGE_SIZE,
+	TRAINING_BRIEFING_HORIZONS,
+	parseTrainingBriefingReportInput,
+	serializeTrainingBriefingDetailInput,
+	serializeTrainingBriefingReportInput
+} from './utils/briefingReportInput';
+export type {
+	TrainingBriefingDetailInput,
+	TrainingBriefingHorizon,
+	TrainingBriefingReportInput
+} from './utils/briefingReportInput';
+import type { TrainingBriefingReportInput } from './utils/briefingReportInput';
 
 export type { TrainingType, TrainingView, PersonnelTraining, TrainingStatus } from './training.types';
 export { isTrainingApplicable } from './utils/applicability';
@@ -12,6 +28,7 @@ export type { ReportFilters, ReadinessDashboard, TypeBreakdown } from './utils/r
 export type {
 	BriefingBand,
 	BriefingFocusArea,
+	BriefingGridRow,
 	BriefingReadiness,
 	BriefingRequirement,
 	BriefingRowsBy,
@@ -154,6 +171,52 @@ export interface TrainingReportData {
 		roles: string[];
 		ranks: string[];
 	};
+}
+
+export interface TrainingBriefingOption {
+	id: string;
+	name: string;
+}
+
+/** Choices drawn from the caller's authorized roster and catalog; `types` are the selected view's required columns. */
+export interface TrainingBriefingFilterOptions {
+	views: TrainingBriefingOption[];
+	groups: TrainingBriefingOption[];
+	ranks: string[];
+	mos: string[];
+	roles: string[];
+	types: TrainingBriefingOption[];
+}
+
+export interface TrainingBriefingReportData {
+	/** The request after catalog normalization; the page and its URL mirror this value. */
+	input: TrainingBriefingReportInput;
+	organizationName: string;
+	briefing: TrainingBriefing;
+	filterOptions: TrainingBriefingFilterOptions;
+}
+
+export interface TrainingBriefingDetailRow {
+	personId: string;
+	rank: string;
+	name: string;
+	groupName: string;
+	typeId: string;
+	typeName: string;
+	status: TrainingStatus;
+	label: string;
+	expirationDate: string | null;
+	lapseDate: string | null;
+	lapsesInHorizon: boolean;
+}
+
+export interface TrainingBriefingDetail {
+	scope: BriefingScope;
+	rows: TrainingBriefingDetailRow[];
+	totalRows: number;
+	page: number;
+	pageSize: number;
+	totalPages: number;
 }
 
 export interface TrainingReportWorkbookExport {

@@ -211,8 +211,9 @@ Props: `id?: string`, `value?: string` (bindable ISO `YYYY-MM-DD`), `placeholder
 
 Public components:
 
-- `WorkspaceToolbar.Root`: the shared one-row shell. Props: `ariaLabel: string`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`, fixed row height, `flex-nowrap`, and horizontal overflow as a last resort. It does not wrap into a second toolbar row.
-- `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label.
+- `WorkspaceToolbar.Root`: the shared toolbar shell. Props: `ariaLabel: string`, `wrap?: boolean`, `children?: Snippet`, plus normal `div` attributes. The shell renders `role="toolbar"`. By default it is one fixed-height `flex-nowrap` row with hidden horizontal overflow as a last resort. `wrap` lets groups and their controls flow onto further rows when the container is too narrow, so no control is ever scrolled out of view; use it for filter-heavy report toolbars whose controls cannot fit one row at medium widths.
+- `WorkspaceToolbar.Group`: the labeled control/action boundary. Props: `label: string`, `activeCount?: number`, `zone?: 'controls' | 'actions' | 'meta'`, `children?: Snippet`, plus normal `div` attributes. `activeCount` is included in the accessible group label. The `actions` zone aligns to the toolbar's right edge.
+- `WorkspaceToolbar.Select` truncates a long selected label inside its trigger and exposes the full label as the trigger title. `WorkspaceToolbar.Actions` names every action button by its label, so compact icon-only buttons keep their accessible name.
 - `WorkspaceToolbar.Meta`: compact passive metadata for rare toolbar-safe status. Props: `tone?: 'neutral' | 'warning' | 'success'`, `children?: Snippet`, plus normal `div` attributes. Keep passive route context outside the toolbar unless there is proven room.
 
 Allowed route behavior knobs:
@@ -224,8 +225,8 @@ Allowed route behavior knobs:
 
 Rules:
 
-- Keep the toolbar as one row. Combine filters early for action-heavy or filter-heavy routes instead of letting controls create a tall two-row toolbar.
-- Use shadcn `button-group` for view toggles. Do not build route-local segmented controls for migrated toolbar surfaces.
+- Keep the toolbar as one row where it fits. Combine filters early for action-heavy routes; move page-level commands such as exports to the page header. A filter-heavy report toolbar that still cannot fit uses `wrap` rather than hiding controls behind sideways scrolling.
+- Use shadcn `button-group` for view toggles and [`ui/toggle-group`](#uitoggle-group) for a single-choice segmented value such as a forecast horizon. Do not build route-local segmented controls for migrated toolbar surfaces.
 - Use `DropdownMenu` for command overflow. Commands can overflow; filters and search should stay as stateful controls or combine into a filter trigger.
 - Use compact search widths such as `w-40 sm:w-56` unless a route has proven room for wider search.
 - Keep disabled actions visible when their presence explains unavailable work. Loading actions should be disabled and show the shared spinner.
@@ -238,6 +239,33 @@ Migration guidance:
 - Start every migrated route toolbar from `WorkspaceToolbar.Root`, `WorkspaceToolbar.Group`, shadcn `ButtonGroup`, shadcn `Button`, shadcn `DropdownMenu`, and shadcn form primitives.
 - Treat the `docs/component-catalog.md` desktop, constrained/mobile, overflow, disabled, loading, selected, filter, search, view-toggle, and icon-only examples as the review baseline.
 - Production route migration happens only when explicitly requested. Until then, the component catalog is the development ground for this toolbar family.
+
+---
+
+## `ui/toggle-group`
+
+`ui/toggle-group` wraps bits-ui `ToggleGroup` with the shared `toggle` variants as a segmented control: a muted track with the pressed item raised. Arrow keys move between items.
+
+```svelte
+<script lang="ts">
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+</script>
+
+<ToggleGroup.Root
+	type="single"
+	size="sm"
+	value="90"
+	onValueChange={(value) => value && setHorizon(value)}
+	aria-label="Forecast horizon"
+>
+	<ToggleGroup.Item value="30" aria-label="30 days">30 D</ToggleGroup.Item>
+	<ToggleGroup.Item value="90" aria-label="90 days">90 D</ToggleGroup.Item>
+</ToggleGroup.Root>
+```
+
+- Use it for a small, always-visible single choice whose options fit inline. Use `WorkspaceToolbar.Select` when the options are many or data-driven.
+- A `single` group emits an empty value when the pressed item is clicked again; ignore it so one option stays selected.
+- Give the group an `aria-label` and give abbreviated items a full `aria-label`.
 
 ---
 
@@ -309,7 +337,7 @@ Public components:
 - `OptionChips`: shadcn `Toggle`-backed multi-select rendered as chips, each with an optional color identity dot. Use for status-type and assignment-type filters instead of route-local toggle buttons. Props: `options: { id; label; color? }[]`, `selectedIds`, `onToggle`, `label?`, `ariaLabel?`, `onToggleAll?`, `allSelected?`. Color is shown as a small dot only; selection uses the standard toggle state, never a flood of the raw color.
 - `OptionList`: scrollable shadcn `Checkbox` + `Label` list for personnel, group, MOS, and role selection. Use instead of raw `<input type="checkbox">` lists. Props: `options: { id; label }[]`, `selectedIds`, `onToggle`, `ariaLabel?`, `emptyMessage?`.
 - `Content`: report section layout. Props: `layout?: 'stack' | 'split'`.
-- `Section`: generic bounded report section. Props: `title`, `description?`, `meta?`, `actions?`, `summary?`.
+- `Section`: generic bounded report section. Props: `title`, `description?`, `meta?`, `actions?`, `summary?`, `variant?: 'card' | 'briefing'`, `eyebrow?`. The default `card` is a bordered card. `briefing` is an open section under a 2px foreground rule with a small-caps `eyebrow`, a heading-font title and a description capped at 560px; its `actions` stack at the top right. Each briefing column is its own section so stacked columns keep their rules.
 - `SummaryStrip`: compact operational summary band for completed report results. Props: `topRisk`, `population`, `parameters`, `findings`, `riskTone?: 'default' | 'warning' | 'danger' | 'success'`, `ariaLabel?`. Use inside the `summary` snippet so the strip sits between the section header and result body, not as a nested card.
 - `Chart`: chart section with accessible chart region. Props: `title`, `description?`, `meta?`, `ariaLabel?`.
 - `Table`: DataTable-backed report table section. Props include `data`, `columns`, `table`, `ariaLabel`, `emptyMessage`, `loading`, `showSearch`, `searchPlaceholder`, `pageSize`, and cell/header/summary snippets.
@@ -343,7 +371,7 @@ Migration notes:
 
 - Calendar reports should migrate first because they already have multiple report subtypes and date-oriented filters.
 - Critical Tasks reports should follow because they already use the shared toolbar but still carry route-local report grids, states, and chart/table shells.
-- Training reports should follow after Calendar/Critical Tasks settle table and export state conventions.
+- Training Reports uses a wrapping toolbar for filters and the forecast horizon, page-header export actions, `State`, and the `briefing` section variant; its drill-down table and export redesign follow in issue 1504.
 - Personnel report-like flows should migrate after bulk import/merge surfaces are separated from the current combined manager.
 
 ---
@@ -357,12 +385,14 @@ Current chart inventory:
 - Critical Tasks readiness trend maps to `ReportLineChart` with multiple series.
 - Critical Tasks expiration cliff maps to `ReportBarChart layout="stack"`.
 - Critical Tasks readiness distribution maps to `ReportBarChart layout="group"` or `layout="overlap"`.
+- Training Reports' forecast maps to `ReportForecastChart`.
 - No current report usage requires a shadcn area chart. Add an area wrapper only when a real route needs cumulative or filled-trend semantics.
 
 Public components:
 
 - `ReportLineChart`: multi-series line chart. Props: `data`, `series`, `ariaLabel`, `yDomain?`, `yTicks?`, `heightClass?`, `class?`.
 - `ReportBarChart`: multi-series bar chart. Props: `data`, `series`, `ariaLabel`, `layout?: 'group' | 'stack' | 'overlap'`, `yDomain?`, `yTicks?`, `heightClass?`, `class?`.
+- `ReportForecastChart`: one plot that pairs a readiness line over a shaded area (upper area) with per-interval count bars rising from the shared calendar axis (lower strip), plus a dashed success goal line, an optional highlighted band whose label and caption sit in their own row above the plot, aligned to the band, start and end point labels, and a screen-reader table. Props: `points: { date, label, percent }[]`, `bars: { start, end, count, emphasized }[]`, `goal: { value, label }`, `band: { start, end, label, caption } | null`, `xTicks: { date, label }[]`, `endTone` (text color class, usually from `readinessBandTone`), `ariaLabel`, `heightClass?`, `class?`. Dates are `YYYY-MM-DD` calendar days placed as UTC midnights, so a short final interval and month ticks land exactly. The y domain comes from `readinessTrendDomain` over the points and goal. Axis ticks and bar counts that would overlap a neighbor are dropped; the first and last ticks always stay. Points must not rise over time, so the start label sits above the start point and the end label below the end point, the sides the line never reaches. Each label steps past any gridline or goal line its glyphs would cross. The end label has its own row between the line floor and the bar counts. The goal label sits in the right gutter past the end point, centered on the goal line, and the right padding is sized to fit it, so no plotted mark can reach it. Training Reports uses it for the readiness forecast.
 
 Routes configure:
 
@@ -394,7 +424,7 @@ Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` a
 
 ## `ui/readiness-band`
 
-`ui/readiness-band` is the shared shadcn-svelte-style visual contract for Critical Tasks report readiness tiers. It preserves the current report semantics and band colors while moving heat-cell and legend styling out of production route files.
+`ui/readiness-band` is the shared shadcn-svelte-style visual contract for readiness tiers. The default `ramp` palette keeps Critical Tasks' report colors; Training Reports uses the token-based `semantic` palette (success → warning → destructive) with goal-relative tiers supplied by its model.
 
 ```svelte
 <script lang="ts">
@@ -407,21 +437,33 @@ Public shared exports are `RequirementStatusBadge`, `requirementStatusVisuals` a
 
 Public components:
 
-- `Cell`: compact report heat-cell. Props: `tier`, `percent?`, `label?`, `children?`, plus normal `span` attributes.
-- `Legend`: readiness tier legend. Props: `items?`, `ariaLabel?`, plus normal `ul` attributes.
-- `Swatch`: visual swatch used by `Legend`. Props: `tier`, plus normal `span` attributes.
+- `Cell`: report heat-cell. Props: `tier`, `percent?`, `label?`, `palette?: 'ramp' | 'semantic'`, `size?: 'compact' | 'tile'`, `drop?: number | null`, `children?`, plus normal `span` attributes. `tile` fills its column for a briefing grid. `drop` marks an upcoming hot spot with a 2px inset foreground ring and a `▼ n` chip in foreground/background tokens, and adds screen-reader text contained by the cell; the ring and chip stay distinguishable on every band, including solid destructive cells.
+- `Legend`: readiness tier legend. Props: `items?`, `ariaLabel?`, `palette?`, `dropLabel?` (keys the `drop` marker), plus normal `ul` attributes.
+- `Swatch`: visual swatch used by `Legend`. Props: `tier`, `palette?`, plus normal `span` attributes.
+
+Semantic palette:
+
+| Tier             | Fill                   | Text                 |
+| ---------------- | ---------------------- | -------------------- |
+| `good`           | success at 14%         | foreground           |
+| `okay`           | warning at 12%         | foreground           |
+| `caution`        | warning at 28%         | foreground           |
+| `warn`           | destructive at 18%     | foreground           |
+| `danger`         | solid destructive      | background, semibold |
+| `not-applicable` | none, 1px inset border | muted                |
 
 Public helpers:
 
 - `readinessBandLegendItems`
 - `readinessBandTierForPercent(percent)`
 - `formatReadinessBandPercent(percent)`
+- `readinessBandTone`: text color class per tier for values shown outside a cell (success, warning, destructive or muted), so a headline number, chart end label and grid total column share the cell scale.
 
 Rules:
 
-- Keep the thresholds centralized: `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+`, and not applicable.
+- Keep the `ramp` thresholds centralized: `<60%`, `60-69%`, `70-79%`, `80-89%`, `90%+`, and not applicable. A feature with its own goal-relative bands maps them to tiers in one record and passes the tier; never re-derive a tier from a rounded display percent.
 - Routes may pass data, labels, and accessible names. They must not restyle readiness colors, hatching, radius, typography, or density locally.
-- `ui/operational-matrix` may host these cells during a future matrix migration, but readiness-tier meaning stays in `ui/readiness-band`, not in the matrix primitive.
+- `ui/operational-matrix` hosts these cells in Critical Tasks and Training Reports grids; readiness-tier meaning stays in `ui/readiness-band`, not in the matrix primitive.
 
 ---
 
@@ -487,7 +529,7 @@ Rules:
 - Do not restore the deleted visual-first API and do not add compatibility adapters for it.
 - Dialogs belong in wrappers/component catalog examples. `Cell` emits row and column identity; it does not open dialogs itself.
 - Color-only cells must provide an accessible label through `ariaLabel`, visually hidden text, or both.
-- Production route migration is a later phase. Do not consume this primitive from production routes until a route migration slice explicitly asks for it.
+- Production consumers are the Critical Tasks matrix and readiness table, the Training matrix and the Training Reports hot-spot grid. Consumers style its cells and triggers through `data-slot` selectors, as those wrappers do.
 
 Component Catalog coverage:
 

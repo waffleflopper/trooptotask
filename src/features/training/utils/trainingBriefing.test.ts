@@ -183,6 +183,7 @@ describe('buildTrainingBriefing readiness ledger', () => {
 			scopeName: 'Test Company',
 			soldierCount: 2,
 			asOf: AS_OF,
+			asOfLabel: '29 Sep 2026',
 			horizonEnd: '2026-12-28',
 			horizonEndLabel: '28 Dec',
 			today: { ready: 7, applicable: 9, percent: 78, band: 'below' },
@@ -282,6 +283,23 @@ describe('buildTrainingBriefing forecast', () => {
 			]
 		};
 	}
+
+	it('labels today, each first of the month inside the horizon and the horizon end without repeating a month-start end', () => {
+		const ticks = (asOf: string, horizonDays: number) =>
+			buildTrainingBriefing(briefingInput({ asOf, horizonDays })).forecast.axisTicks;
+
+		expect(ticks(AS_OF, 90)).toEqual([
+			{ date: '2026-09-29', label: 'Today · 29 Sep' },
+			{ date: '2026-10-01', label: '1 Oct' },
+			{ date: '2026-11-01', label: '1 Nov' },
+			{ date: '2026-12-01', label: '1 Dec' },
+			{ date: '2026-12-28', label: '28 Dec' }
+		]);
+		expect(ticks('2026-10-02', 30)).toEqual([
+			{ date: '2026-10-02', label: 'Today · 2 Oct' },
+			{ date: '2026-11-01', label: '1 Nov' }
+		]);
+	});
 
 	it('counts each lapse in the weekly bucket that holds its lapse date, with a short final bucket', () => {
 		const briefing = buildTrainingBriefing(bucketEdgeFixture());
@@ -609,6 +627,27 @@ describe('buildTrainingBriefing hot-spot grid', () => {
 		]);
 		expect(briefing.grid.rows[3].cells.map((cell) => cell.today.band)).toEqual(['none', 'none']);
 		expect(briefing.grid.total).toMatchObject({ key: null, label: 'Total' });
+	});
+
+	it('counts every filtered soldier per row, including soldiers with no applicable requirement', () => {
+		const counts = (input: TrainingBriefingInput) => {
+			const grid = buildTrainingBriefing(input).grid;
+			return [...grid.rows, grid.total].map((row) => [row.label, row.soldierCount]);
+		};
+
+		expect(counts(rosterFixture())).toEqual([
+			['Bravo', 1],
+			['Alpha', 2],
+			['Unassigned', 1],
+			['Charlie', 1],
+			['Total', 5]
+		]);
+		expect(counts({ ...rosterFixture(), filters: { mos: ['68W'] } })).toEqual([
+			['Bravo', 1],
+			['Alpha', 1],
+			['Total', 2]
+		]);
+		expect(buildTrainingBriefing(rosterFixture()).grid.dropAlertPoints).toBe(10);
 	});
 
 	it('orders exact readiness fractions even when both rows display 85 percent and preserves frozen inputs', () => {

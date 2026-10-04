@@ -1,251 +1,193 @@
-/** Training report page, detail, and workbook projection. */
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { requireFeaturePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
+import { formatToday } from '$lib/utils/dates';
+import { writeWorkbookBuffer } from '$lib/utils/workbook';
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
+import type { Personnel, PersonnelTrainingRosterPort } from '$features/personnel/contracts';
+import { observedRankCodesForOptions } from '$features/personnel/contracts';
+import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type {
-	TrainingType,
-	TrainingReportInput,
-	TrainingReportData,
-	TrainingReportDetail,
-	TrainingReportSort,
-	TrainingReportPagination,
-	TrainingReportTrainingType,
-	TrainingReportWorkbookExport
+	TrainingBriefingDetail,
+	TrainingBriefingDetailInput,
+	TrainingBriefingFilterOptions,
+	TrainingBriefingReportData,
+	TrainingBriefingReportInput,
+	TrainingReportWorkbookExport,
+	TrainingType
 } from '../contracts';
-import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
 import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { listTrainingCompletions } from './trainingCompletionRead.server';
-import { listTrainingTypes } from './trainingCatalogRead.server';
-import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
-import type { Personnel } from '$features/personnel/contracts';
-import type { RankCatalogEntry } from '$features/personnel/contracts';
-import { observedRankCodesForOptions } from '$features/personnel/contracts';
-import { comparePersonnelByCatalogRankThenName } from '$features/personnel/contracts';
-import {
-	buildPivotTableFromMatrix,
-	buildTrainingReportMatrix,
-	computeReadinessDashboardFromMatrix,
-	filterPersonnel,
-	type PivotRow,
-	type ReadinessDashboard
-} from '../utils/reportCalculations';
+import { listTrainingTypes, listTrainingViews } from './trainingCatalogRead.server';
+import { buildPivotTableFromMatrix, buildTrainingReportMatrix, filterPersonnel } from '../utils/reportCalculations';
+import { buildTrainingBriefing, matchBriefingRequirements } from '../utils/trainingBriefing';
+import type { TrainingBriefingInput } from '../utils/trainingBriefing.types';
 import { buildTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
-import { writeWorkbookBuffer } from '$lib/utils/workbook';
-import { TRAINING_STATUS_SORT_ORDER } from '../utils/trainingStatus';
-import { requireFeaturePolicy } from '$lib/access/index.server';
+import { filterColumnsByView } from '../utils/viewFiltering';
 
 type TrainingReportReadContext = Omit<TrainingCompletionReadContext, 'store'> & {
 	readonly store: TrainingCatalogReadStore & Parameters<typeof loadOrganizationRankCatalog>[0]['store'];
-	readonly audit?: TrainingCompletionReadContext['audit'];
 	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'listActiveForReports'>;
+	readonly organizationSettings: Pick<OrganizationSettingsReader, 'findTrainingBriefingContext'>;
 };
 
-const DEFAULT_REPORT_PAGE_SIZE = 25;
-const MAX_REPORT_PAGE_SIZE = 100;
-
-async function requireTrainingRecordView(ctx: TrainingReportReadContext): Promise<void> {
-	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
+interface BriefingSource {
+	input: TrainingBriefingReportInput;
+	organizationName: string;
+	filterOptions: TrainingBriefingFilterOptions;
+	briefingInput: TrainingBriefingInput;
 }
 
-function normalizePagination(pagination: TrainingReportInput['pagination']): TrainingReportPagination {
-	const page = Math.max(1, Math.floor(pagination?.page ?? 1));
-	const requestedPageSize = Math.floor(pagination?.pageSize ?? DEFAULT_REPORT_PAGE_SIZE);
-	const pageSize = Math.min(MAX_REPORT_PAGE_SIZE, Math.max(1, requestedPageSize));
-	return { page, pageSize };
+function uniqueSorted(values: string[]): string[] {
+	return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
 }
 
-function normalizeSort(sort: TrainingReportInput['sort']): TrainingReportSort {
-	return {
-		column: sort?.column ?? 'name',
-		direction: sort?.direction === 'desc' ? 'desc' : 'asc'
-	};
+function pick(selected: string[], available: string[]): string[] {
+	const chosen = new Set(selected);
+	return available.filter((value) => chosen.has(value));
 }
 
-function uniqueSorted(values: Array<string | null | undefined>): string[] {
-	return [...new Set(values.filter((value): value is string => !!value))].sort((a, b) => a.localeCompare(b));
-}
-
-function toReportTrainingType(type: TrainingType): TrainingReportTrainingType {
-	return {
-		id: type.id,
-		name: type.name,
-		color: type.color
-	};
-}
-
-interface BuiltTrainingReport {
-	dashboard: ReadinessDashboard;
-	pivotRows: PivotRow[];
-	trainingTypes: TrainingType[];
-	reportTrainingTypes: TrainingReportTrainingType[];
-	filterOptions: TrainingReportData['filterOptions'];
-	sort: TrainingReportSort;
-}
-
-interface BuiltTrainingReportRows {
-	personnel: Personnel[];
-	pivotRows: PivotRow[];
-	trainingTypes: TrainingType[];
-	reportMatrix: ReturnType<typeof buildTrainingReportMatrix>;
-	rankCatalog: RankCatalogEntry[];
-	sort: TrainingReportSort;
-}
-
-async function buildTrainingReportRows(
+async function loadBriefingSource(
 	ctx: TrainingReportReadContext,
-	input: TrainingReportInput = {}
-): Promise<BuiltTrainingReportRows> {
-	await requireTrainingRecordView(ctx);
-	const orgId = ctx.auth.orgId;
-	const filters = input.filters ?? {};
-	const sort = normalizeSort(input.sort);
+	request: TrainingBriefingReportInput
+): Promise<BriefingSource> {
+	await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.training.viewRecords, { kind: 'unscoped' }, 'training_record');
 	if (!ctx.personnelTrainingRoster) throw new Error('Personnel Training roster provider unavailable');
+	const orgId = ctx.auth.orgId;
 
-	const [personnel, trainingTypes, trainings, rankCatalog] = await Promise.all([
+	const [personnel, types, views, records, rankCatalog, groups, organization] = await Promise.all([
 		ctx.personnelTrainingRoster.listActiveForReports(ctx.auth),
 		listTrainingTypes(ctx.store, orgId),
+		listTrainingViews(ctx.store, orgId),
 		listTrainingCompletions(ctx),
-		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'training-records' })
+		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'training-records' }),
+		listGroupCatalog(ctx),
+		ctx.organizationSettings.findTrainingBriefingContext(orgId)
 	]);
+	if (!organization) fail(404, 'Organization not found');
 
-	const filteredPersonnel = filterPersonnel(personnel, filters);
-	const selectedTypes = filters.trainingTypeIds?.length
-		? trainingTypes.filter((type) => filters.trainingTypeIds?.includes(type.id))
-		: trainingTypes;
-	const reportMatrix = buildTrainingReportMatrix(filteredPersonnel, selectedTypes, trainings);
+	const view = views.find((candidate) => candidate.id === request.viewId) ?? null;
+	const columns = filterColumnsByView(types, view).filter((type) => !type.isOptional);
+	const group = groups.find((candidate) => candidate.id === request.groupId) ?? null;
+	const filterOptions: TrainingBriefingFilterOptions = {
+		views: views.map(({ id, name }) => ({ id, name })),
+		groups: groups.map(({ id, name }) => ({ id, name })),
+		ranks: observedRankCodesForOptions({
+			rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
+			observedRanks: personnel.map((person) => person.rank)
+		}),
+		mos: uniqueSorted(personnel.map((person) => person.mos)),
+		roles: uniqueSorted(personnel.map((person) => person.clinicRole)),
+		types: columns.map(({ id, name }) => ({ id, name }))
+	};
+	const input: TrainingBriefingReportInput = {
+		viewId: view?.id ?? null,
+		groupId: group?.id ?? null,
+		rank: request.rank && filterOptions.ranks.includes(request.rank) ? request.rank : null,
+		mos: pick(request.mos, filterOptions.mos),
+		roles: pick(request.roles, filterOptions.roles),
+		typeIds: pick(
+			request.typeIds,
+			columns.map((type) => type.id)
+		),
+		horizonDays: request.horizonDays,
+		rowsBy: request.rowsBy
+	};
 
-	let pivotRows = buildPivotTableFromMatrix(reportMatrix);
-	if (filters.status) {
-		pivotRows = pivotRows.filter((row) => {
-			for (const cell of row.cells.values()) {
-				if (cell.status === filters.status) return true;
-			}
-			return false;
-		});
-	}
-
-	pivotRows.sort((a, b) => {
-		let cmp = 0;
-		if (sort.column === 'name') {
-			cmp = a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName);
-		} else if (sort.column === 'rank') {
-			cmp = comparePersonnelByCatalogRankThenName(a.person, b.person, rankCatalog.length > 0 ? rankCatalog : undefined);
-		} else if (sort.column === 'group') {
-			cmp = a.person.groupName.localeCompare(b.person.groupName);
-		} else {
-			const aCell = a.cells.get(sort.column);
-			const bCell = b.cells.get(sort.column);
-			cmp =
-				(aCell ? (TRAINING_STATUS_SORT_ORDER[aCell.status] ?? 99) : 99) -
-				(bCell ? (TRAINING_STATUS_SORT_ORDER[bCell.status] ?? 99) : 99);
+	return {
+		input,
+		organizationName: organization.name,
+		filterOptions,
+		briefingInput: {
+			personnel,
+			types: columns,
+			records,
+			filters: {
+				groupId: input.groupId ?? undefined,
+				rank: input.rank ?? undefined,
+				mos: input.mos,
+				role: input.roles,
+				trainingTypeIds: input.typeIds
+			},
+			horizonDays: input.horizonDays,
+			asOf: formatToday(),
+			goalPercent: organization.trainingReadinessGoalPercent,
+			rowsBy: input.rowsBy,
+			scopeName: group?.name ?? organization.name
 		}
-		return sort.direction === 'asc' ? cmp : -cmp;
+	};
+}
+
+function selectedColumns(source: BriefingSource): TrainingType[] {
+	const { types, filters } = source.briefingInput;
+	const selected = filters.trainingTypeIds ?? [];
+	return selected.length === 0 ? types : types.filter((type) => selected.includes(type.id));
+}
+
+export async function fetchTrainingBriefingReport(
+	ctx: TrainingReportReadContext,
+	request: TrainingBriefingReportInput
+): Promise<TrainingBriefingReportData> {
+	const source = await loadBriefingSource(ctx, request);
+	return {
+		input: source.input,
+		organizationName: source.organizationName,
+		briefing: buildTrainingBriefing(source.briefingInput),
+		filterOptions: source.filterOptions
+	};
+}
+
+/** The affected requirements behind one grid cell or focus area, re-derived from the same filters. */
+export async function fetchTrainingBriefingDetail(
+	ctx: TrainingReportReadContext,
+	request: TrainingBriefingDetailInput
+): Promise<TrainingBriefingDetail> {
+	const source = await loadBriefingSource(ctx, request.report);
+	const requirements = matchBriefingRequirements(source.briefingInput, request.scope);
+	if (!requirements) fail(404, 'Training report scope not found');
+
+	const totalPages = Math.max(1, Math.ceil(requirements.length / request.pageSize));
+	const page = Math.min(request.page, totalPages);
+	const start = (page - 1) * request.pageSize;
+	const people = new Map(source.briefingInput.personnel.map((person) => [person.id, person]));
+	const typeNames = new Map(source.briefingInput.types.map((type) => [type.id, type.name]));
+	const rows = requirements.slice(start, start + request.pageSize).map((requirement) => {
+		const person = people.get(requirement.personId) as Personnel;
+		return {
+			personId: person.id,
+			rank: person.rank,
+			name: `${person.lastName}, ${person.firstName}`,
+			groupName: person.groupName,
+			typeId: requirement.typeId,
+			typeName: typeNames.get(requirement.typeId) ?? '',
+			status: requirement.status,
+			label: requirement.label,
+			expirationDate: requirement.expirationDate,
+			lapseDate: requirement.lapseDate,
+			lapsesInHorizon: requirement.lapsesInHorizon
+		};
 	});
 
-	return {
-		personnel,
-		pivotRows,
-		trainingTypes: selectedTypes,
-		reportMatrix,
-		rankCatalog,
-		sort
-	};
+	return { scope: request.scope, rows, totalRows: requirements.length, page, pageSize: request.pageSize, totalPages };
 }
 
-async function buildTrainingReport(
-	ctx: TrainingReportReadContext,
-	input: TrainingReportInput = {}
-): Promise<BuiltTrainingReport> {
-	const [{ personnel, pivotRows, trainingTypes, reportMatrix, rankCatalog, sort }, groups] = await Promise.all([
-		buildTrainingReportRows(ctx, input),
-		listGroupCatalog(ctx)
-	]);
-
-	return {
-		dashboard: computeReadinessDashboardFromMatrix(reportMatrix),
-		pivotRows,
-		trainingTypes,
-		reportTrainingTypes: trainingTypes.map(toReportTrainingType),
-		filterOptions: {
-			groups,
-			mos: uniqueSorted(personnel.map((person) => person.mos)),
-			roles: uniqueSorted(personnel.map((person) => person.clinicRole)),
-			ranks: observedRankCodesForOptions({
-				rankCatalog: rankCatalog.length > 0 ? rankCatalog : undefined,
-				observedRanks: personnel.map((person) => person.rank)
-			})
-		},
-		sort
-	};
-}
-
-function buildTrainingReportDetail(
-	pivotRows: PivotRow[],
-	trainingTypes: TrainingType[],
-	sort: TrainingReportSort,
-	paginationInput: TrainingReportInput['pagination']
-): TrainingReportDetail {
-	const pagination = normalizePagination(paginationInput);
-	const totalRows = pivotRows.length;
-	const totalPages = Math.max(1, Math.ceil(totalRows / pagination.pageSize));
-	const page = Math.min(pagination.page, totalPages);
-	const start = (page - 1) * pagination.pageSize;
-	const rows = pivotRows.slice(start, start + pagination.pageSize).map((row) => ({
-		person: row.person,
-		cells: trainingTypes.map((type) => {
-			const cell = row.cells.get(type.id);
-			return {
-				trainingTypeId: type.id,
-				status: cell?.status ?? 'not-completed',
-				label: cell?.label ?? 'Not Done',
-				date: cell?.date ?? null
-			};
-		})
-	}));
-
-	return {
-		rows,
-		totalRows,
-		page,
-		pageSize: pagination.pageSize,
-		totalPages,
-		sort
-	};
-}
-
-export async function fetchTrainingReportPage(
-	ctx: TrainingReportReadContext,
-	input: TrainingReportInput = {}
-): Promise<TrainingReportData> {
-	const { dashboard, pivotRows, trainingTypes, reportTrainingTypes, filterOptions, sort } = await buildTrainingReport(
-		ctx,
-		input
-	);
-
-	return {
-		dashboard,
-		detail: buildTrainingReportDetail(pivotRows, trainingTypes, sort, input.pagination),
-		trainingTypes: reportTrainingTypes,
-		filterOptions
-	};
-}
-
-export async function fetchTrainingReportDetailPage(
-	ctx: TrainingReportReadContext,
-	input: TrainingReportInput = {}
-): Promise<TrainingReportDetail> {
-	const { pivotRows, trainingTypes, sort } = await buildTrainingReportRows(ctx, input);
-	return buildTrainingReportDetail(pivotRows, trainingTypes, sort, input.pagination);
-}
-
+/** The retained per-soldier status workbook for exactly the population and columns the briefing shows. */
 export async function generateTrainingReportWorkbookExport(
 	ctx: TrainingReportReadContext,
-	input: TrainingReportInput = {}
+	request: TrainingBriefingReportInput
 ): Promise<TrainingReportWorkbookExport> {
-	const { pivotRows, trainingTypes } = await buildTrainingReport(ctx, input);
-	const workbook = await buildTrainingReportWorkbook(pivotRows, trainingTypes);
-	const date = new Date().toISOString().split('T')[0];
+	const source = await loadBriefingSource(ctx, request);
+	const { personnel, filters, records } = source.briefingInput;
+	const columns = selectedColumns(source);
+	const pivotRows = buildPivotTableFromMatrix(
+		buildTrainingReportMatrix(filterPersonnel(personnel, filters), columns, records)
+	).sort(
+		(a, b) => a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName)
+	);
+	const workbook = await buildTrainingReportWorkbook(pivotRows, columns);
 	return {
 		buffer: await writeWorkbookBuffer(workbook),
-		filename: `training-report-${date}.xlsx`
+		filename: `training-report-${source.briefingInput.asOf}.xlsx`
 	};
 }

@@ -191,7 +191,7 @@ The proportion of applicable requirements counted as ready. Both Training and Cr
 _Avoid_: Currency Status
 
 **Readiness goal**:
-An Organization's target Training readiness, a whole-number percent from 1 to 100 that defaults to 90. The planned Training Reports forecast will use it for goal lines and heat-map bands. Current reports do not consume the goal.
+An Organization's target Training readiness, a whole-number percent from 1 to 100 that defaults to 90. Training Reports uses it for the forecast goal line, readiness bands and horizon tone.
 _Avoid_: Readiness threshold, which names the separate Critical Tasks constant
 
 **Lapse**:

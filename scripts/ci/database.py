@@ -61,7 +61,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261003000200_platform_organization_membership_commands.sql",
     "20261004000200_critical_task_archive_retention.sql",
     "20261004000100_scope_getting_started_progress.sql",
-    "20261004000100_training_readiness_goal.sql",
+    "20261004100618_training_readiness_goal.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",

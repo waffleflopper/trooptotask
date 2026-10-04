@@ -1077,6 +1077,15 @@ function createInMemoryOrganizationSettingsReader(store: DataStore): Organizatio
 					}
 				: null;
 		},
+		async findTrainingBriefingContext(orgId) {
+			const row = await store.findOne<{ name: string; training_readiness_goal_percent: number }>(
+				'organizations',
+				orgId.toLowerCase(),
+				{},
+				'name, training_readiness_goal_percent'
+			);
+			return row ? { name: row.name, trainingReadinessGoalPercent: row.training_readiness_goal_percent } : null;
+		},
 		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
 		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
 		findStorageCapBytes: (orgId) => findScalar(orgId, 'personnel_document_storage_cap_bytes'),

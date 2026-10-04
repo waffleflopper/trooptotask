@@ -1,20 +1,23 @@
 <script lang="ts">
 	import type { HTMLAttributes } from 'svelte/elements';
 	import { cn, type WithElementRef } from '$lib/utils.js';
-	import type { ReadinessBandTier } from './types.js';
+	import type { ReadinessBandPalette, ReadinessBandTier } from './types.js';
 
 	let {
 		tier,
+		palette = 'ramp',
 		class: className,
 		...restProps
 	}: WithElementRef<HTMLAttributes<HTMLSpanElement>> & {
 		tier: ReadinessBandTier;
+		palette?: ReadinessBandPalette;
 	} = $props();
 </script>
 
 <span
 	data-slot="readiness-band-swatch"
 	data-tier={tier}
+	data-palette={palette}
 	aria-hidden="true"
 	class={cn('readiness-band-swatch', className)}
 	{...restProps}
@@ -65,5 +68,34 @@
 			var(--readiness-band-na-b) 3px,
 			var(--readiness-band-na-b) 6px
 		);
+	}
+
+	.readiness-band-swatch[data-palette='semantic'][data-tier='good'] {
+		background: color-mix(in srgb, var(--chart-2) 14%, transparent);
+	}
+
+	.readiness-band-swatch[data-palette='semantic'][data-tier='okay'] {
+		background: color-mix(in srgb, var(--accent) 12%, transparent);
+	}
+
+	.readiness-band-swatch[data-palette='semantic'][data-tier='caution'] {
+		background: color-mix(in srgb, var(--accent) 28%, transparent);
+	}
+
+	.readiness-band-swatch[data-palette='semantic'][data-tier='warn'] {
+		background: color-mix(in srgb, var(--destructive) 18%, transparent);
+	}
+
+	.readiness-band-swatch[data-palette='semantic'][data-tier='danger'] {
+		background: var(--destructive);
+	}
+
+	.readiness-band-swatch[data-palette='semantic'][data-tier='not-applicable'] {
+		background: none;
+	}
+
+	.readiness-band-swatch[data-drop] {
+		background: none;
+		box-shadow: inset 0 0 0 2px var(--foreground);
 	}
 </style>

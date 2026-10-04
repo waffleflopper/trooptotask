@@ -1,28 +1,22 @@
-import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
-import type { TrainingReportDetail } from '$features/training/contracts';
+import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
+import type { TrainingBriefingDetail, TrainingBriefingDetailInput } from '$features/training/contracts';
 import { json } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fetchTrainingReportDetailPage } from '$features/training/index.server';
+import { fetchTrainingBriefingDetail } from '$features/training/index.server';
 import {
 	PRIVATE_REPORT_HEADERS,
-	parseTrainingReportInput,
-	toTrainingReportInput,
-	trainingReportInput,
-	type TrainingReportRouteInput
+	parseTrainingBriefingDetailRequest,
+	trainingBriefingDetailInput
 } from '../reportInput';
 
-export const _getDetailConfig: RouteConfig<
-	TrainingReportRouteInput,
-	TrainingReportDetail,
-	ReturnType<typeof createRequestTrainingRosterContext>
-> = {
-	context: createRequestTrainingRosterContext,
+export const _getDetailConfig: RouteConfig<TrainingBriefingDetailInput, TrainingBriefingDetail, ReturnType<typeof createRequestTrainingBriefingContext>> = {
+	context: createRequestTrainingBriefingContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
-	input: trainingReportInput,
-	parseInput: (event) => parseTrainingReportInput(event.url),
-	fn: async (ctx, input) => fetchTrainingReportDetailPage(ctx, toTrainingReportInput(input)),
+	input: trainingBriefingDetailInput,
+	parseInput: (event) => parseTrainingBriefingDetailRequest(event) as TrainingBriefingDetailInput,
+	fn: fetchTrainingBriefingDetail,
 	formatOutput: (result) => json(result, { headers: PRIVATE_REPORT_HEADERS })
 };
 

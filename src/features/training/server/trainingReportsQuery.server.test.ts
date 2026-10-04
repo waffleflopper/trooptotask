@@ -1,19 +1,29 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
 import {
 	createInMemoryDataStore,
 	createQueryPortsContext,
 	createQueryWithRawStorePortsContext
 } from '$lib/server/adapters/inMemory';
+import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportInput } from '$features/training/contracts';
 import {
-	fetchTrainingReportDetailPage,
-	fetchTrainingReportPage,
+	fetchTrainingBriefingDetail,
+	fetchTrainingBriefingReport,
 	generateTrainingReportWorkbookExport
 } from './trainingReportsQuery.server';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+type Store = ReturnType<typeof createInMemoryDataStore>;
 
 const ORG = 'test-org';
+const NO_CAPABILITIES = {
+	calendar: 'none',
+	personnel: 'none',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'none',
+	ratingScheme: 'none'
+} as const;
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ['Date'] });
@@ -21,686 +31,310 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-function buildCtx() {
-	return createQueryPortsContext();
+function input(overrides: Partial<TrainingBriefingReportInput> = {}): TrainingBriefingReportInput {
+	return { ...DEFAULT_TRAINING_BRIEFING_INPUT, ...overrides };
 }
 
-describe('Training report projections', () => {
-	it('returns a filtered, sorted, paginated report page with server-computed cells and dashboard counts', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+function person(id: string, lastName: string, rank: string, mos: string, role: string, group: 'alpha' | 'bravo') {
+	return {
+		id,
+		organization_id: ORG,
+		rank,
+		last_name: lastName,
+		first_name: 'Pat',
+		mos,
+		clinic_role: role,
+		group_id: group,
+		archived_at: null,
+		groups: { name: group === 'alpha' ? 'Alpha' : 'Bravo' }
+	};
+}
 
-		store.seed('groups', [
-			{ id: 'group-1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
-			{ id: 'group-2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
-		]);
-		store.seed('personnel', [
-			{
-				id: 'p-smith',
-				organization_id: ORG,
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-1',
-				archived_at: null,
-				groups: { name: 'Alpha' }
-			},
-			{
-				id: 'p-adams',
-				organization_id: ORG,
-				rank: 'SPC',
-				last_name: 'Adams',
-				first_name: 'John',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-1',
-				archived_at: null,
-				groups: { name: 'Alpha' }
-			},
-			{
-				id: 'p-bravo',
-				organization_id: ORG,
-				rank: 'PFC',
-				last_name: 'Brown',
-				first_name: 'Bailey',
-				mos: '11B',
-				clinic_role: 'Line',
-				group_id: 'group-2',
-				archived_at: null,
-				groups: { name: 'Bravo' }
-			}
-		]);
-		store.seed('organization_rank_catalog', [
-			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
-			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' }),
-			rankCatalogRow({ code: 'SP4', label: 'Specialist Four', state: 'retired', pay_grade: 'E-4' })
-		]);
-		store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ORG,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt-adams-cpr',
-				organization_id: ORG,
-				personnel_id: 'p-adams',
-				training_type_id: 'type-cpr',
-				completion_date: '2026-01-01',
-				expiration_date: null,
-				notes: null,
-				certificate_url: null
-			},
-			{
-				id: 'pt-bravo-cpr',
-				organization_id: ORG,
-				personnel_id: 'p-bravo',
-				training_type_id: 'type-cpr',
-				completion_date: '2026-01-01',
-				expiration_date: null,
-				notes: null,
-				certificate_url: null
-			}
-		]);
+function trainingType(id: string, name: string, sortOrder: number, overrides: Record<string, unknown> = {}) {
+	return {
+		id,
+		organization_id: ORG,
+		name,
+		description: 'Internal guidance',
+		expiration_months: 12,
+		warning_days_yellow: 60,
+		warning_days_orange: 30,
+		applies_to_roles: [],
+		applies_to_mos: [],
+		applies_to_ranks: [],
+		excluded_roles: [],
+		excluded_mos: [],
+		excluded_ranks: [],
+		color: '#22c55e',
+		sort_order: sortOrder,
+		expiration_date_only: false,
+		can_be_exempted: true,
+		exempt_personnel_ids: ['p-hidden'],
+		is_optional: false,
+		...overrides
+	};
+}
 
-		const result = await fetchTrainingReportPage(ctx, {
-			filters: { groupId: 'group-1' },
-			sort: { column: 'name', direction: 'asc' },
-			pagination: { page: 2, pageSize: 1 }
+function completion(personId: string, typeId: string, expirationDate: string) {
+	return {
+		id: `pt-${personId}-${typeId}`,
+		organization_id: ORG,
+		personnel_id: personId,
+		training_type_id: typeId,
+		completion_date: '2025-06-01',
+		expiration_date: expirationDate,
+		notes: 'private note',
+		certificate_url: null
+	};
+}
+
+function seedUnit(store: Store) {
+	store.seed('organizations', [{ id: ORG, name: 'Test Company', training_readiness_goal_percent: 80 }]);
+	store.seed('groups', [
+		{ id: 'alpha', organization_id: ORG, name: 'Alpha', sort_order: 0 },
+		{ id: 'bravo', organization_id: ORG, name: 'Bravo', sort_order: 1 }
+	]);
+	store.seed('personnel', [
+		person('p-able', 'Able', 'SGT', '68W', 'Medic', 'alpha'),
+		person('p-baker', 'Baker', 'SPC', '11B', 'Line', 'bravo'),
+		person('p-cole', 'Cole', 'SPC', '68W', 'Line', 'alpha')
+	]);
+	store.seed('training_types', [
+		trainingType('cpr', 'CPR', 0),
+		trainingType('bls', 'BLS', 1),
+		trainingType('opt', 'Optional', 2, { is_optional: true })
+	]);
+	store.seed('training_views', [
+		{ id: 'medical', organization_id: ORG, name: 'Medical', column_ids: ['bls', 'cpr', 'opt'] }
+	]);
+	store.seed('personnel_trainings', [
+		completion('p-able', 'cpr', '2027-06-01'),
+		completion('p-able', 'bls', '2026-10-10'),
+		completion('p-baker', 'cpr', '2026-01-01'),
+		completion('p-cole', 'cpr', '2026-11-15'),
+		completion('p-cole', 'bls', '2027-06-01')
+	]);
+}
+
+function unitContext() {
+	const ctx = createQueryPortsContext();
+	seedUnit(ctx.store as Store);
+	return ctx;
+}
+
+describe('Training briefing report', () => {
+	it('briefs the whole authorized roster against the Organization goal and offers only display options', async () => {
+		const report = await fetchTrainingBriefingReport(unitContext(), input());
+
+		expect(report.input).toEqual(DEFAULT_TRAINING_BRIEFING_INPUT);
+		expect(report.organizationName).toBe('Test Company');
+		expect(report.briefing.bottomLine).toMatchObject({
+			scopeName: 'Test Company',
+			soldierCount: 3,
+			asOf: '2026-09-29',
+			horizonEnd: '2026-12-28',
+			today: { ready: 4, applicable: 6, percent: 67, band: 'below' },
+			horizon: { ready: 2, applicable: 6, percent: 33, band: 'critical' },
+			expired: 1,
+			notRecorded: 1,
+			lapsing: 2
 		});
+		expect(report.briefing.forecast.goalPercent).toBe(80);
+		expect(report.briefing.grid.columns).toEqual([
+			{ typeId: 'cpr', name: 'CPR' },
+			{ typeId: 'bls', name: 'BLS' }
+		]);
+		expect(report.filterOptions).toEqual({
+			views: [{ id: 'medical', name: 'Medical' }],
+			groups: [
+				{ id: 'alpha', name: 'Alpha' },
+				{ id: 'bravo', name: 'Bravo' }
+			],
+			ranks: ['SGT', 'SPC'],
+			mos: ['11B', '68W'],
+			roles: ['Line', 'Medic'],
+			types: [
+				{ id: 'cpr', name: 'CPR' },
+				{ id: 'bls', name: 'BLS' }
+			]
+		});
+		const body = JSON.stringify(report);
+		for (const leaked of ['pt-p-able-cpr', 'private note', 'Internal guidance', 'p-hidden', 'p-baker']) {
+			expect(body).not.toContain(leaked);
+		}
+	});
 
-		expect(result.detail.totalRows).toBe(2);
-		expect(result.detail.page).toBe(2);
-		expect(result.detail.pageSize).toBe(1);
-		expect(result.detail.rows).toHaveLength(1);
-		expect(result.detail.rows[0].person.id).toBe('p-smith');
-		expect(result.detail.rows[0].cells).toEqual([
-			expect.objectContaining({
-				trainingTypeId: 'type-cpr',
-				status: 'not-completed',
-				label: 'Not Done',
-				date: null
+	it('orders columns by the saved view, intersects selected types and drops each unknown value independently', async () => {
+		const report = await fetchTrainingBriefingReport(
+			unitContext(),
+			input({
+				viewId: 'medical',
+				groupId: 'ghost',
+				rank: 'COL',
+				mos: ['68W', 'ZZZ'],
+				roles: ['Nobody'],
+				typeIds: ['cpr', 'opt', 'ghost'],
+				horizonDays: 30,
+				rowsBy: 'mos'
 			})
-		]);
-		expect(result.dashboard.readinessPercent).toBe(50);
-		expect(result.dashboard.statusCounts.current).toBe(1);
-		expect(result.dashboard.statusCounts.notCompleted).toBe(1);
-		expect(result.filterOptions.ranks).toEqual(['SGT', 'SPC', 'PFC']);
-	});
-
-	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report filters', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel', [
-			personnelRow({ id: 'p-retired', rank: 'SP4' }),
-			personnelRow({ id: 'p-discovered', rank: 'SGT' }),
-			personnelRow({ id: 'p-unknown', rank: 'LOCAL-CADET' })
-		]);
-		store.seed('organization_rank_catalog', [
-			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
-			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' }),
-			rankCatalogRow({ code: 'SP4', label: 'Specialist Four', state: 'retired', pay_grade: 'E-4' })
-		]);
-
-		const result = await fetchTrainingReportPage(ctx);
-
-		expect(result.filterOptions.ranks).toEqual(['SGT', 'SP4', 'LOCAL-CADET']);
-	});
-
-	it('sorts report rows by catalog rank precedence with unknown ranks last', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel', [
-			personnelRow({ id: 'p-unknown', rank: 'LOCAL-CADET', last_name: 'Able' }),
-			personnelRow({ id: 'p-navy', rank: 'PO2', last_name: 'Baker' }),
-			personnelRow({ id: 'p-army', rank: 'SGT', last_name: 'Able' }),
-			personnelRow({ id: 'p-air-force', rank: 'SSgt', last_name: 'Charlie' })
-		]);
-		store.seed('organization_rank_catalog', [
-			rankCatalogRow({ code: 'PO2', label: 'Petty Officer Second Class', service: 'navy', pay_grade: 'E-5' }),
-			rankCatalogRow({ code: 'SGT', label: 'Sergeant', service: 'army', pay_grade: 'E-5' }),
-			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
-		]);
-		store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ORG,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-
-		const input = {
-			sort: { column: 'rank' as const, direction: 'asc' as const },
-			pagination: { page: 1, pageSize: 10 }
-		};
-
-		const page = await fetchTrainingReportPage(ctx, input);
-		const detail = await fetchTrainingReportDetailPage(ctx, input);
-
-		expect(page.detail.rows.map((row) => row.person.id)).toEqual(['p-navy', 'p-army', 'p-air-force', 'p-unknown']);
-		expect(detail.rows.map((row) => row.person.id)).toEqual(['p-navy', 'p-army', 'p-air-force', 'p-unknown']);
-	});
-
-	it('clamps oversized page requests to the last available report page', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed(
-			'personnel',
-			Array.from({ length: 105 }, (_, index) => ({
-				id: `p-${String(index).padStart(3, '0')}`,
-				organization_id: ORG,
-				rank: 'SPC',
-				last_name: `Person ${String(index).padStart(3, '0')}`,
-				first_name: 'Test',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: null,
-				archived_at: null,
-				groups: null
-			}))
 		);
-		store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ORG,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
 
-		const result = await fetchTrainingReportPage(ctx, {
-			sort: { column: 'name', direction: 'asc' },
-			pagination: { page: 999, pageSize: 999 }
+		expect(report.input).toEqual({
+			viewId: 'medical',
+			groupId: null,
+			rank: null,
+			mos: ['68W'],
+			roles: [],
+			typeIds: ['cpr'],
+			horizonDays: 30,
+			rowsBy: 'mos'
 		});
-
-		expect(result.detail.pageSize).toBe(100);
-		expect(result.detail.totalRows).toBe(105);
-		expect(result.detail.totalPages).toBe(2);
-		expect(result.detail.page).toBe(2);
-		expect(result.detail.rows).toHaveLength(5);
+		expect(report.filterOptions.types).toEqual([
+			{ id: 'bls', name: 'BLS' },
+			{ id: 'cpr', name: 'CPR' }
+		]);
+		expect(report.briefing.grid.columns).toEqual([{ typeId: 'cpr', name: 'CPR' }]);
+		expect(report.briefing.grid.rows.map((row) => [row.key, row.soldierCount, row.today.percent])).toEqual([
+			['68W', 2, 100]
+		]);
+		expect(report.briefing.bottomLine.horizonEnd).toBe('2026-10-29');
 	});
 
-	it('returns a detail-only report page without aggregate metadata', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
+	it('names the selected group as the briefing scope', async () => {
+		const report = await fetchTrainingBriefingReport(unitContext(), input({ groupId: 'alpha', rank: 'SPC' }));
 
-		store.seed('personnel', [
-			{
-				id: 'p-smith',
-				organization_id: ORG,
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: null,
-				archived_at: null,
-				groups: null
-			},
-			{
-				id: 'p-adams',
-				organization_id: ORG,
-				rank: 'SPC',
-				last_name: 'Adams',
-				first_name: 'John',
-				mos: '11B',
-				clinic_role: 'Line',
-				group_id: null,
-				archived_at: null,
-				groups: null
-			}
-		]);
-		store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ORG,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-
-		const detail = await fetchTrainingReportDetailPage(ctx, {
-			sort: { column: 'name', direction: 'asc' },
-			pagination: { page: 2, pageSize: 1 }
-		});
-
-		expect(detail.totalRows).toBe(2);
-		expect(detail.page).toBe(2);
-		expect(detail.rows).toHaveLength(1);
-		expect(detail.rows[0].person.id).toBe('p-smith');
-		expect(detail.sort).toEqual({ column: 'name', direction: 'asc' });
+		expect(report.input).toMatchObject({ groupId: 'alpha', rank: 'SPC' });
+		expect(report.briefing.bottomLine).toMatchObject({ scopeName: 'Alpha', soldierCount: 1 });
+		expect(report.organizationName).toBe('Test Company');
 	});
 
-	it('returns only scoped report rows for a Training-only member whose Personnel SELECT is denied', async () => {
+	it('briefs only the scoped roster of a Training-only member and cannot open a hidden row', async () => {
 		const ctx = createQueryWithRawStorePortsContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
-				scopeSet: { kind: 'groups', groupIds: ['group-1'] },
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'view',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
+				scopeSet: { kind: 'groups', groupIds: ['alpha'] },
+				capabilityMap: { ...NO_CAPABILITIES, training: 'view' }
 			}
 		});
-		const store = ctx.rawStore;
-		store.seed('groups', [
-			{ id: 'group-1', organization_id: ORG, name: 'Alpha', sort_order: 0 },
-			{ id: 'group-2', organization_id: ORG, name: 'Bravo', sort_order: 1 }
-		]);
-
-		store.seed('personnel', [
-			{
-				id: 'p-alpha',
-				organization_id: ORG,
-				rank: 'SGT',
-				last_name: 'Alpha',
-				first_name: 'Ann',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-1',
-				archived_at: null,
-				groups: { name: 'Alpha' }
-			},
-			{
-				id: 'p-bravo',
-				organization_id: ORG,
-				rank: 'SPC',
-				last_name: 'Bravo',
-				first_name: 'Ben',
-				mos: '11B',
-				clinic_role: 'Line',
-				group_id: 'group-2',
-				archived_at: null,
-				groups: { name: 'Bravo' }
-			}
-		]);
-		store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ORG,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-		store.seed('personnel_trainings', [
-			{
-				id: 'pt-alpha-cpr',
-				organization_id: ORG,
-				personnel_id: 'p-alpha',
-				training_type_id: 'type-cpr',
-				completion_date: '2026-01-01',
-				expiration_date: null,
-				notes: null,
-				certificate_url: null
-			},
-			{
-				id: 'pt-bravo-cpr',
-				organization_id: ORG,
-				personnel_id: 'p-bravo',
-				training_type_id: 'type-cpr',
-				completion_date: '2026-01-01',
-				expiration_date: null,
-				notes: null,
-				certificate_url: null
-			}
-		]);
-
-		const authorizedRoster = await ctx.personnelTrainingRoster!.listActiveForReports(ctx.auth);
-		ctx.personnelTrainingRoster = {
-			...ctx.personnelTrainingRoster!,
-			listActiveForReports: async () => authorizedRoster
-		};
+		seedUnit(ctx.rawStore as Store);
+		const scopedRoster = await ctx.personnelTrainingRoster!.listActiveForReports(ctx.auth);
+		ctx.personnelTrainingRoster = { ...ctx.personnelTrainingRoster!, listActiveForReports: async () => scopedRoster };
 		const rawFindMany = ctx.rawStore.findMany.bind(ctx.rawStore);
 		ctx.rawStore.findMany = ((table, orgId, filters, options) => {
 			if (table === 'personnel') throw new Error('Personnel SELECT denied for this Training-only actor');
-			if (table === 'organization_rank_catalog') {
-				throw new Error('Report rank catalog must use the authorized request store');
-			}
 			return rawFindMany(table, orgId, filters, options);
 		}) as typeof ctx.rawStore.findMany;
-		const requestFindMany = ctx.store.findMany.bind(ctx.store);
-		ctx.store.findMany = ((table, orgId, filters, options) =>
-			table === 'organization_rank_catalog'
-				? Promise.resolve([])
-				: requestFindMany(table, orgId, filters, options)) as typeof ctx.store.findMany;
 
-		const result = await fetchTrainingReportPage(ctx);
+		const report = await fetchTrainingBriefingReport(ctx, input());
 
-		expect(result.detail.totalRows).toBe(1);
-		expect(result.detail.rows[0].person.id).toBe('p-alpha');
-		expect(result.filterOptions.groups.map((group) => group.name)).toEqual(['Alpha', 'Bravo']);
-		const outsideScope = await fetchTrainingReportPage(ctx, { filters: { groupId: 'group-2' } });
-		expect(outsideScope.detail.rows).toEqual([]);
-		expect(outsideScope.dashboard.readinessPercent).toBe(0);
+		expect(report.briefing.bottomLine.soldierCount).toBe(2);
+		expect(report.briefing.grid.rows.map((row) => row.key)).toEqual(['alpha']);
+		expect(report.filterOptions.mos).toEqual(['68W']);
+		await expect(
+			fetchTrainingBriefingDetail(ctx, {
+				report: input(),
+				scope: { kind: 'cell', rowKey: 'bravo', typeId: 'cpr' },
+				page: 1,
+				pageSize: 25
+			})
+		).rejects.toMatchObject({ status: 404 });
 	});
 
-	it('generates an authorized full workbook export without applying detail pagination', async () => {
-		const ctx = createQueryPortsContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-1'] } } });
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-
-		store.seed('personnel', [
-			{
-				id: 'p-alpha',
-				organization_id: ORG,
-				rank: 'SGT',
-				last_name: 'Alpha',
-				first_name: 'Ann',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-1',
-				archived_at: null,
-				groups: { name: 'Alpha' }
-			},
-			{
-				id: 'p-able',
-				organization_id: ORG,
-				rank: 'SPC',
-				last_name: 'Able',
-				first_name: 'Amy',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-1',
-				archived_at: null,
-				groups: { name: 'Alpha' }
-			},
-			{
-				id: 'p-bravo',
-				organization_id: ORG,
-				rank: 'SPC',
-				last_name: 'Bravo',
-				first_name: 'Ben',
-				mos: '11B',
-				clinic_role: 'Line',
-				group_id: 'group-2',
-				archived_at: null,
-				groups: { name: 'Bravo' }
-			}
-		]);
-		store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ORG,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-
-		const exportResult = await generateTrainingReportWorkbookExport(ctx, {
-			sort: { column: 'name', direction: 'asc' },
-			pagination: { page: 1, pageSize: 1 }
-		});
-		const workbook = new ExcelJS.Workbook();
-		await workbook.xlsx.load(exportResult.buffer as WorkbookLoadBuffer);
-		const sheet = workbook.getWorksheet('Training Report')!;
-
-		expect(exportResult.filename).toMatch(/^training-report-.*\.xlsx$/);
-		expect(sheet.rowCount).toBe(3);
-		expect(sheet.getCell('A2').value).toBe('Able, Amy');
-		expect(sheet.getCell('A3').value).toBe('Alpha, Ann');
-		expect(sheet.getColumn(1).values).not.toContain('Bravo, Ben');
-	});
-
-	it('denies report reads without Training view capability', async () => {
+	it('denies the briefing, its detail and its export without Training view', async () => {
 		const ctx = createQueryPortsContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				}
-			}
+			auth: { role: 'member', isPrivileged: false, capabilityMap: NO_CAPABILITIES }
 		});
+		seedUnit(ctx.store as Store);
+		const detail = { report: input(), scope: { kind: 'focus' as const, key: 'wave' }, page: 1, pageSize: 25 };
 
-		await expect(fetchTrainingReportPage(ctx)).rejects.toMatchObject({ status: 403 });
-		await expect(fetchTrainingReportDetailPage(ctx)).rejects.toMatchObject({ status: 403 });
-		await expect(generateTrainingReportWorkbookExport(ctx)).rejects.toMatchObject({ status: 403 });
+		await expect(fetchTrainingBriefingReport(ctx, input())).rejects.toMatchObject({ status: 403 });
+		await expect(fetchTrainingBriefingDetail(ctx, detail)).rejects.toMatchObject({ status: 403 });
+		await expect(generateTrainingReportWorkbookExport(ctx, input())).rejects.toMatchObject({ status: 403 });
+	});
+
+	it('refuses to brief an Organization it cannot read', async () => {
+		const ctx = createQueryPortsContext();
+		await expect(fetchTrainingBriefingReport(ctx, input())).rejects.toMatchObject({ status: 404 });
 	});
 });
 
-function personnelRow(overrides: Record<string, unknown>): Record<string, unknown> {
-	return {
-		id: overrides.id ?? 'person-1',
-		organization_id: ORG,
-		rank: overrides.rank ?? 'SGT',
-		last_name: overrides.last_name ?? 'Soldier',
-		first_name: overrides.first_name ?? 'Test',
-		mos: overrides.mos ?? '68W',
-		clinic_role: overrides.clinic_role ?? 'Medic',
-		group_id: null,
-		archived_at: null,
-		groups: null,
-		...overrides
-	};
-}
-
-function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unknown> {
-	return {
-		id: overrides.id ?? `rank-${overrides.code ?? 'SGT'}`,
-		organization_id: ORG,
-		code: overrides.code ?? 'SGT',
-		label: overrides.label ?? overrides.code ?? 'Sergeant',
-		service: overrides.service ?? 'army',
-		category: overrides.category ?? 'enlisted',
-		pay_grade: overrides.pay_grade ?? 'E-5',
-		state: overrides.state ?? 'active',
-		source: overrides.source ?? 'custom',
-		sort_order: overrides.sort_order ?? 0,
-		...overrides
-	};
-}
-
-describe('dated report filtering and workbook contract', () => {
-	it('filters displayed rows by status while preserving the complete required-cell dashboard and workbook dates', async () => {
-		const ctx = buildCtx();
-		const store = ctx.store as ReturnType<typeof createInMemoryDataStore>;
-		store.seed('groups', [
-			{ id: 'alpha', organization_id: ORG, name: 'Alpha', sort_order: 0 },
-			{ id: 'bravo', organization_id: ORG, name: 'Bravo', sort_order: 1 }
-		]);
-		store.seed('personnel', [
-			personnelRow({
-				id: 'able',
-				last_name: 'Able',
-				first_name: 'Amy',
-				mos: '68W',
-				group_id: 'alpha',
-				groups: { name: 'Alpha' }
-			}),
-			personnelRow({
-				id: 'baker',
-				last_name: 'Baker',
-				first_name: 'Ben',
-				mos: '11B',
-				group_id: 'bravo',
-				groups: { name: 'Bravo' }
-			}),
-			personnelRow({ id: 'charlie', last_name: 'Charlie', first_name: 'Cam', mos: '42A' })
-		]);
-		const required = {
-			id: 'required',
-			organization_id: ORG,
-			name: 'Required',
-			description: null,
-			expiration_months: 12,
-			warning_days_yellow: 60,
-			warning_days_orange: 30,
-			applies_to_roles: [],
-			applies_to_mos: [],
-			applies_to_ranks: [],
-			excluded_roles: [],
-			excluded_mos: [],
-			excluded_ranks: [],
-			color: '#22c55e',
-			sort_order: 0,
-			expiration_date_only: false,
-			can_be_exempted: false,
-			exempt_personnel_ids: [],
-			is_optional: false
-		};
-		store.seed('training_types', [
-			required,
-			{ ...required, id: 'targeted', name: 'Targeted', sort_order: 1, applies_to_mos: ['68W'] },
-			{ ...required, id: 'optional', name: 'Optional', sort_order: 2, is_optional: true }
-		]);
-		store.seed(
-			'personnel_trainings',
-			[
-				['able-required', 'able', 'required', '2026-09-22', '2027-09-22'],
-				['baker-required', 'baker', 'required', '2024-09-29', '2025-09-29'],
-				['able-targeted', 'able', 'targeted', '2025-10-14', '2026-10-14'],
-				['able-optional', 'able', 'optional', '2024-09-29', '2025-09-29']
-			].map(([id, personnelId, typeId, completed, expiry]) => ({
-				id,
-				organization_id: ORG,
-				personnel_id: personnelId,
-				training_type_id: typeId,
-				completion_date: completed,
-				expiration_date: expiry,
-				notes: 'retained',
-				certificate_url: null
-			}))
-		);
-		const scan = vi.spyOn(store, 'findMany');
-		const input = {
-			filters: { status: 'warning-orange' as const },
-			sort: { column: 'name', direction: 'asc' as const },
-			pagination: { page: 1, pageSize: 1 }
-		};
-		const report = await fetchTrainingReportPage(ctx, input);
-
-		expect(report.dashboard.readinessPercent).toBe(50);
-		expect(report.dashboard.statusCounts).toEqual({
-			current: 1,
-			warningYellow: 0,
-			warningOrange: 1,
-			expired: 1,
-			notCompleted: 1
+describe('Training briefing detail', () => {
+	it('pages the affected requirements of a Total cell, clamping past the last page and joining display labels', async () => {
+		const detail = await fetchTrainingBriefingDetail(unitContext(), {
+			report: input(),
+			scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
+			page: 9,
+			pageSize: 1
 		});
-		expect(report.detail.rows.map((row) => row.person.id)).toEqual(['able']);
-		expect(report.detail.rows[0].cells).toEqual([
-			{ trainingTypeId: 'required', status: 'current', label: 'Current', date: '2027-09-22' },
-			{ trainingTypeId: 'targeted', status: 'warning-orange', label: '15d left', date: '2026-10-14' },
-			{ trainingTypeId: 'optional', status: 'expired', label: 'Expired 365d ago', date: '2025-09-29' }
-		]);
-		expect(scan.mock.calls.filter(([table]) => table === 'personnel_trainings')).toHaveLength(1);
 
-		const exported = await generateTrainingReportWorkbookExport(ctx, input);
+		expect(detail).toEqual({
+			scope: { kind: 'cell', rowKey: null, typeId: 'cpr' },
+			rows: [
+				{
+					personId: 'p-cole',
+					rank: 'SPC',
+					name: 'Cole, Pat',
+					groupName: 'Alpha',
+					typeId: 'cpr',
+					typeName: 'CPR',
+					status: 'warning-yellow',
+					label: '47d left',
+					expirationDate: '2026-11-15',
+					lapseDate: '2026-11-16',
+					lapsesInHorizon: true
+				}
+			],
+			totalRows: 2,
+			page: 2,
+			pageSize: 1,
+			totalPages: 2
+		});
+	});
+
+	it('lists a row cell under the same filters the page shows', async () => {
+		const detail = await fetchTrainingBriefingDetail(unitContext(), {
+			report: input({ viewId: 'medical' }),
+			scope: { kind: 'cell', rowKey: 'bravo', typeId: 'bls' },
+			page: 1,
+			pageSize: 25
+		});
+
+		expect(detail.rows.map((row) => [row.name, row.typeName, row.label, row.expirationDate])).toEqual([
+			['Baker, Pat', 'BLS', 'Not Done', null]
+		]);
+		expect(detail.totalPages).toBe(1);
+	});
+
+	it('rejects a row, type or focus area the current filters do not produce', async () => {
+		const ctx = unitContext();
+		const request = (scope: Parameters<typeof fetchTrainingBriefingDetail>[1]['scope'], report = input()) =>
+			fetchTrainingBriefingDetail(ctx, { report, scope, page: 1, pageSize: 25 });
+
+		await expect(request({ kind: 'cell', rowKey: 'ghost', typeId: 'cpr' })).rejects.toMatchObject({ status: 404 });
+		await expect(request({ kind: 'cell', rowKey: null, typeId: 'opt' })).rejects.toMatchObject({ status: 404 });
+		await expect(
+			request({ kind: 'cell', rowKey: 'bravo', typeId: 'cpr' }, input({ groupId: 'alpha' }))
+		).rejects.toMatchObject({ status: 404 });
+		await expect(request({ kind: 'focus', key: 'gap:ghost' })).rejects.toMatchObject({ status: 404 });
+	});
+});
+
+describe('Training report workbook', () => {
+	it('exports exactly the filtered population and view columns the briefing shows', async () => {
+		const exported = await generateTrainingReportWorkbookExport(
+			unitContext(),
+			input({ viewId: 'medical', groupId: 'alpha', typeIds: [] })
+		);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(exported.buffer as WorkbookLoadBuffer);
 		const sheet = workbook.getWorksheet('Training Report')!;
-		expect(sheet.getCell('A2').value).toBe('Able, Amy');
-		expect(sheet.getCell('F2').value).toBe('Current (2027-09-22)');
-		expect(sheet.getCell('G2').value).toBe('15d left (2026-10-14)');
-		expect(sheet.getCell('H2').value).toBe('Expired 365d ago (2025-09-29)');
-		expect(sheet.getCell('A3').value).toBeNull();
+
+		expect(exported.filename).toBe('training-report-2026-09-29.xlsx');
+		expect(sheet.getSheetValues().slice(1)).toEqual([
+			[undefined, 'Name', 'Rank', 'MOS', 'Duty Role', 'Group', 'BLS', 'CPR'],
+			[undefined, 'Able, Pat', 'SGT', '68W', 'Medic', 'Alpha', '11d left (2026-10-10)', 'Current (2027-06-01)'],
+			[undefined, 'Cole, Pat', 'SPC', '68W', 'Line', 'Alpha', 'Current (2027-06-01)', '47d left (2026-11-15)']
+		]);
 	});
 });

@@ -22,6 +22,7 @@ export { buildTrainingBriefing, matchBriefingRequirements } from './utils/traini
 export type {
 	BriefingBand,
 	BriefingFocusArea,
+	BriefingGridRow,
 	BriefingReadiness,
 	BriefingRequirement,
 	BriefingRowsBy,

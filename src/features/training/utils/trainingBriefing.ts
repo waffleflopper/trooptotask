@@ -4,6 +4,7 @@ import { formatDate, parseDate } from '$lib/utils/dates';
 import { filterPersonnel } from './reportCalculations';
 import { getTrainingStatus } from './trainingStatus';
 import type {
+	BriefingAxisTick,
 	BriefingBand,
 	BriefingForecast,
 	BriefingFocus,
@@ -52,6 +53,7 @@ interface Entry {
 interface Row {
 	key: string;
 	label: string;
+	soldierCount: number;
 	entries: Entry[];
 }
 
@@ -223,7 +225,8 @@ function analyze(input: TrainingBriefingInput): Analysis {
 
 	for (const person of population) {
 		const identity = rowIdentity(person, input.rowsBy);
-		const row = rows.get(identity.key) ?? { ...identity, entries: [] };
+		const row = rows.get(identity.key) ?? { ...identity, soldierCount: 0, entries: [] };
+		row.soldierCount += 1;
 		rows.set(identity.key, row);
 		columns.forEach((type, column) => {
 			const record = records.get(`${person.id}-${type.id}`);
@@ -284,8 +287,20 @@ function cliffRange(analysis: Analysis, cliff: Cliff): { start: string; end: str
 	};
 }
 
+function axisTicks(asOf: string, horizonEnd: string): BriefingAxisTick[] {
+	const ticks: BriefingAxisTick[] = [{ date: asOf, label: `Today · ${dayLabel(asOf)}` }];
+	const month = parseDate(asOf);
+	month.setDate(1);
+	for (month.setMonth(month.getMonth() + 1); formatDate(month) < horizonEnd; month.setMonth(month.getMonth() + 1)) {
+		ticks.push({ date: formatDate(month), label: dayLabel(formatDate(month)) });
+	}
+	ticks.push({ date: horizonEnd, label: dayLabel(horizonEnd) });
+	return ticks;
+}
+
 function buildForecast(analysis: Analysis): BriefingForecast {
 	const { input, entries, bucketEnds, bucketLapses, cliff } = analysis;
+	const ticks = axisTicks(input.asOf, analysis.horizonEnd);
 	const pointOffsets = [0, ...bucketEnds];
 	const points = pointOffsets.map((offset) => {
 		const date = addDays(input.asOf, offset);
@@ -303,13 +318,14 @@ function buildForecast(analysis: Analysis): BriefingForecast {
 			inCliff: cliff !== null && cliff.highlighted && index >= cliff.firstBucket && index <= cliff.lastBucket
 		};
 	});
-	if (cliff === null) return { goalPercent: input.goalPercent, points, buckets, cliff: null };
+	if (cliff === null) return { goalPercent: input.goalPercent, axisTicks: ticks, points, buckets, cliff: null };
 
 	const range = cliffRange(analysis, cliff);
 	const typeNames = joinNames(cliff.dominantColumns.map((column) => analysis.columns[column].name));
 	const lapsingCount = bucketLapses.reduce((total, lapses) => total + lapses, 0);
 	return {
 		goalPercent: input.goalPercent,
+		axisTicks: ticks,
 		points,
 		buckets,
 		cliff: {
@@ -337,7 +353,13 @@ function summarize(entries: Entry[], horizonDays: number, goal: number) {
 	};
 }
 
-function gridRow(key: string | null, label: string, entries: Entry[], analysis: Analysis): BriefingGridRow {
+function gridRow(
+	key: string | null,
+	label: string,
+	soldierCount: number,
+	entries: Entry[],
+	analysis: Analysis
+): BriefingGridRow {
 	const { horizonDays, goalPercent } = analysis.input;
 	const cells: BriefingGridCell[] = analysis.columns.map((type, column) => {
 		const cell = summarize(
@@ -348,7 +370,7 @@ function gridRow(key: string | null, label: string, entries: Entry[], analysis: 
 		return { typeId: type.id, ...cell };
 	});
 	const { today, horizon, drop } = summarize(entries, horizonDays, goalPercent);
-	return { key, label, cells, today, horizon, drop };
+	return { key, label, soldierCount, cells, today, horizon, drop };
 }
 
 function compareRowsByReadiness(a: BriefingGridRow, b: BriefingGridRow): number {
@@ -364,9 +386,12 @@ function buildGrid(analysis: Analysis): BriefingGrid {
 	return {
 		rowsBy: input.rowsBy,
 		columns: columns.map((type) => ({ typeId: type.id, name: type.name })),
-		rows: rows.map((row) => gridRow(row.key, row.label, row.entries, analysis)).sort(compareRowsByReadiness),
-		total: gridRow(null, 'Total', entries, analysis),
-		legend: legendFor(input.goalPercent)
+		rows: rows
+			.map((row) => gridRow(row.key, row.label, row.soldierCount, row.entries, analysis))
+			.sort(compareRowsByReadiness),
+		total: gridRow(null, 'Total', analysis.population.length, entries, analysis),
+		legend: legendFor(input.goalPercent),
+		dropAlertPoints: DROP_ALERT_POINTS
 	};
 }
 
@@ -612,6 +637,7 @@ export function buildTrainingBriefing(input: TrainingBriefingInput): TrainingBri
 			scopeName: input.scopeName,
 			soldierCount: analysis.population.length,
 			asOf: input.asOf,
+			asOfLabel: fullDateLabel(input.asOf),
 			horizonEnd,
 			horizonEndLabel: dayLabel(horizonEnd),
 			today: totals.today,

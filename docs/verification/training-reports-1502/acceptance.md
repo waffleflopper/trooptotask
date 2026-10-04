@@ -62,4 +62,4 @@ Extract a chosen archive with `tar -xzf ARCHIVE -C EMPTY_DIRECTORY`. Compare the
 
 ## Release obligations
 
-Apply slice 1's `20261004000100_training_readiness_goal.sql` through the authorized release process before deploying code that selects the new column. It remains unapplied remotely by this task. Keep PR 1511 draft while issues 1503 and 1504 complete parent 1433. Parent completion, merge and deployment are not claimed.
+Apply slice 1's `20261004100618_training_readiness_goal.sql` through the authorized release process before deploying code that selects the new column. It remains unapplied remotely by this task. Keep PR 1511 draft while issues 1503 and 1504 complete parent 1433. Parent completion, merge and deployment are not claimed. The unreleased migration was renumbered from `20261004000100` to `20261004000200` after main introduced `20261004000100_scope_getting_started_progress.sql`; its SQL is unchanged, and historical archives retain the original tested filename. It is now timestamped `20261004100618` after main introduced `20261004000200_critical_task_archive_retention.sql`; the earlier 00100→00200 rename remains historical integration context.

@@ -28,6 +28,15 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 					}
 				: null;
 		},
+		async findTrainingBriefingContext(orgId) {
+			const { data, error } = await supabase
+				.from('organizations')
+				.select('name, training_readiness_goal_percent')
+				.eq('id', orgId.toLowerCase())
+				.maybeSingle();
+			if (error) throw new Error(error.message);
+			return data ? { name: data.name, trainingReadinessGoalPercent: data.training_readiness_goal_percent } : null;
+		},
 		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
 		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
 		findStorageCapBytes: (orgId) => findScalar(orgId, 'personnel_document_storage_cap_bytes'),

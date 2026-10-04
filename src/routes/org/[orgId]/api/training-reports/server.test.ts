@@ -1,298 +1,170 @@
 import { describe, expect, it } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import ExcelJS from 'exceljs';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { handleUseCaseRequest, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
+import type { TrainingBriefingDetail, TrainingBriefingReportData } from '$features/training/contracts';
 import { _getConfig } from './+server';
 import { _getDetailConfig } from './detail/+server';
+import { _getConfig as _getExportConfig } from './export/+server';
+
+type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
+
+const NO_TRAINING = {
+	calendar: 'none',
+	personnel: 'none',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'none',
+	ratingScheme: 'none'
+} as const;
+
+function seededContext(overrides: Parameters<typeof createTestContext>[0] = {}) {
+	const ctx = createTestContext(overrides);
+	const org = ctx.auth.orgId;
+	ctx.store.seed('organizations', [{ id: org, name: 'Test Company', training_readiness_goal_percent: 90 }]);
+	ctx.store.seed('groups', [{ id: 'alpha', organization_id: org, name: 'Alpha', sort_order: 0 }]);
+	ctx.store.seed(
+		'personnel',
+		['Able', 'Baker', 'Cole'].map((lastName) => ({
+			id: `p-${lastName.toLowerCase()}`,
+			organization_id: org,
+			rank: 'SGT',
+			last_name: lastName,
+			first_name: 'Pat',
+			mos: lastName === 'Baker' ? '11B' : '68W',
+			clinic_role: 'Medic',
+			group_id: 'alpha',
+			archived_at: null,
+			groups: { name: 'Alpha' }
+		}))
+	);
+	ctx.store.seed('training_types', [
+		{
+			id: 'cpr',
+			organization_id: org,
+			name: 'CPR',
+			description: null,
+			expiration_months: 12,
+			warning_days_yellow: 60,
+			warning_days_orange: 30,
+			applies_to_roles: [],
+			applies_to_mos: [],
+			applies_to_ranks: [],
+			excluded_roles: [],
+			excluded_mos: [],
+			excluded_ranks: [],
+			color: '#22c55e',
+			sort_order: 0,
+			expiration_date_only: false,
+			can_be_exempted: false,
+			exempt_personnel_ids: [],
+			is_optional: false
+		}
+	]);
+	return ctx;
+}
+
+function request<TInput, TOutput>(
+	config: RouteConfig<TInput, TOutput, Parameters<typeof _getConfig.fn>[0]>,
+	query: string,
+	ctx = seededContext()
+): Promise<TOutput> {
+	const url = new URL(`https://example.test/org/test-org/api/training-reports?${query}`);
+	return handleUseCaseRequest(config, ctx, config.parseInput!({ url } as never), () => ctx);
+}
 
 describe('GET /api/training-reports', () => {
-	it('exports a training read RouteConfig', () => {
-		expect('permission' in _getConfig).toBe(false);
-		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
-		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
-		expect(_getConfig.mutation).toBeUndefined();
-	});
+	it('returns the briefing for the filters in the URL with canonical input', async () => {
+		const report = await request(_getConfig, 'mos=68W&mos=ZZZ&horizon=60&rowsBy=mos&group=ghost');
 
-	it('denies training report access through the policy decision', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				},
-				scopeSet: { kind: 'organization' }
-			}
+		expect(report.input).toEqual({
+			viewId: null,
+			groupId: null,
+			rank: null,
+			mos: ['68W'],
+			roles: [],
+			typeIds: [],
+			horizonDays: 60,
+			rowsBy: 'mos'
 		});
-
-		await expect(
-			handleUseCaseRequest(
-				_getConfig,
-				ctx,
-				{
-					page: 1,
-					pageSize: 25,
-					sortColumn: 'name',
-					sortDirection: 'asc'
-				},
-				() => ctx
-			)
-		).rejects.toMatchObject({ status: 403 });
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'policy.denied',
-				resourceType: 'training.viewRecords'
-			})
-		]);
+		expect(report.briefing.bottomLine).toMatchObject({ scopeName: 'Test Company', soldierCount: 2 });
+		expect(report.briefing.grid.rows.map((row) => row.label)).toEqual(['68W']);
 	});
 
-	it('returns a server-computed paginated training report page', async () => {
-		const ctx = createTestContext();
+	it('marks briefing responses private and non-cacheable', () => {
+		const response = _getConfig.formatOutput!({} as TrainingBriefingReportData);
 
-		ctx.store.seed('personnel', [
-			{
-				id: 'p-smith',
-				organization_id: ctx.auth.orgId,
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-1',
-				archived_at: null,
-				groups: { name: 'Alpha' }
-			}
-		]);
-		ctx.store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ctx.auth.orgId,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-
-		const result = await handleUseCaseRequest(
-			_getConfig,
-			ctx,
-			{
-				page: 1,
-				pageSize: 25,
-				sortColumn: 'name',
-				sortDirection: 'asc'
-			},
-			() => ctx
-		);
-
-		expect(result.detail.totalRows).toBe(1);
-		expect(result.detail.rows[0].person.id).toBe('p-smith');
-		expect(result.trainingTypes).toEqual([expect.objectContaining({ id: 'type-cpr', name: 'CPR' })]);
-	});
-
-	it('returns only display metadata for report training types', async () => {
-		const ctx = createTestContext();
-
-		ctx.store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ctx.auth.orgId,
-				name: 'CPR',
-				description: 'Internal details',
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: ['Medic'],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: true,
-				exempt_personnel_ids: ['p-sensitive'],
-				is_optional: false
-			}
-		]);
-
-		const result = await handleUseCaseRequest(
-			_getConfig,
-			ctx,
-			{
-				page: 1,
-				pageSize: 25,
-				sortColumn: 'name',
-				sortDirection: 'asc'
-			},
-			() => ctx
-		);
-
-		expect(result.trainingTypes).toEqual([{ id: 'type-cpr', name: 'CPR', color: '#22c55e' }]);
-	});
-
-	it('marks report responses private and non-cacheable', async () => {
-		const response = _getConfig.formatOutput?.({
-			dashboard: {
-				readinessPercent: 0,
-				statusCounts: { current: 0, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 },
-				worstTypes: [],
-				groupComparison: [],
-				typeBreakdown: []
-			},
-			detail: {
-				rows: [],
-				totalRows: 0,
-				page: 1,
-				pageSize: 25,
-				totalPages: 1,
-				sort: { column: 'name', direction: 'asc' }
-			},
-			trainingTypes: [],
-			filterOptions: { groups: [], mos: [], roles: [], ranks: [] }
-		});
-
-		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');
-		expect(response?.headers.get('Vary')).toBe('Cookie');
+		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+		expect(response.headers.get('Vary')).toBe('Cookie');
 	});
 });
 
 describe('GET /api/training-reports/detail', () => {
-	it('exports a training read RouteConfig for detail-only pages', () => {
-		expect('permission' in _getDetailConfig).toBe(false);
-		expect(_getDetailConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
-		expect(_getDetailConfig.policyResource).toEqual({ kind: 'unscoped' });
-		expect(_getDetailConfig.mutation).toBeUndefined();
+	it('pages a cell of affected requirements and clamps an oversized page size to 100', async () => {
+		const detail = await request(_getDetailConfig, 'scope=cell&type=cpr&pageSize=500&page=3');
+
+		expect(detail.pageSize).toBe(100);
+		expect(detail.page).toBe(1);
+		expect(detail.rows.map((row) => row.name)).toEqual(['Able, Pat', 'Baker, Pat', 'Cole, Pat']);
 	});
 
-	it('denies training report detail access through the policy decision', async () => {
-		const ctx = createTestContext({
-			auth: {
-				role: 'member',
-				isPrivileged: false,
-				capabilityMap: {
-					calendar: 'none',
-					personnel: 'none',
-					training: 'none',
-					criticalTasks: 'none',
-					onboarding: 'none',
-					ratingScheme: 'none'
-				},
-				scopeSet: { kind: 'organization' }
-			}
-		});
+	it.each([
+		['no scope', 'type=cpr'],
+		['an unknown scope kind', 'scope=row&type=cpr'],
+		['a cell without a type', 'scope=cell&row=alpha'],
+		['a focus area without a key', 'scope=focus']
+	])('rejects %s as a bad request', async (_case, query) => {
+		await expect(request(_getDetailConfig, query)).rejects.toMatchObject({ status: 400 });
+	});
 
-		await expect(
-			handleUseCaseRequest(
-				_getDetailConfig,
-				ctx,
-				{
-					page: 1,
-					pageSize: 25,
-					sortColumn: 'name',
-					sortDirection: 'asc'
-				},
-				() => ctx
-			)
-		).rejects.toMatchObject({ status: 403 });
-		expect(ctx.auditPort.events).toEqual([
-			expect.objectContaining({
-				action: 'policy.denied',
-				resourceType: 'training.viewRecords'
-			})
+	it('returns not found for a row the filters do not produce', async () => {
+		await expect(request(_getDetailConfig, 'scope=cell&row=bravo&type=cpr')).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('marks detail responses private and non-cacheable', () => {
+		const response = _getDetailConfig.formatOutput!({} as TrainingBriefingDetail);
+
+		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+		expect(response.headers.get('Vary')).toBe('Cookie');
+	});
+});
+
+describe('GET /api/training-reports/export', () => {
+	it('downloads the workbook for the filtered population', async () => {
+		const result = await request(_getExportConfig, 'mos=11B');
+		const response = _getExportConfig.formatOutput!(result);
+		const workbook = new ExcelJS.Workbook();
+		await workbook.xlsx.load(result.buffer as WorkbookLoadBuffer);
+
+		expect(workbook.getWorksheet('Training Report')!.getSheetValues().slice(1)).toEqual([
+			[undefined, 'Name', 'Rank', 'MOS', 'Duty Role', 'Group', 'CPR'],
+			[undefined, 'Baker, Pat', 'SGT', '11B', 'Medic', 'Alpha', 'Not Done']
 		]);
+		expect(response.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
+		expect(response.headers.get('Content-Disposition')).toMatch(/attachment; filename="training-report-.*\.xlsx"/);
+		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 	});
+});
 
-	it('returns only the server-computed training report detail page', async () => {
-		const ctx = createTestContext();
+describe('Training report API access', () => {
+	it.each([
+		['summary', _getConfig, ''],
+		['detail', _getDetailConfig, 'scope=cell&type=cpr'],
+		['export', _getExportConfig, '']
+	] as const)(
+		'denies the %s route without Training view and records the policy denial',
+		async (_name, config, query) => {
+			const ctx = seededContext({
+				auth: { role: 'member', isPrivileged: false, capabilityMap: NO_TRAINING, scopeSet: { kind: 'organization' } }
+			});
 
-		ctx.store.seed('personnel', [
-			{
-				id: 'p-smith',
-				organization_id: ctx.auth.orgId,
-				rank: 'SGT',
-				last_name: 'Smith',
-				first_name: 'Jane',
-				mos: '68W',
-				clinic_role: 'Medic',
-				group_id: 'group-1',
-				archived_at: null,
-				groups: { name: 'Alpha' }
-			}
-		]);
-		ctx.store.seed('training_types', [
-			{
-				id: 'type-cpr',
-				organization_id: ctx.auth.orgId,
-				name: 'CPR',
-				description: null,
-				expiration_months: null,
-				warning_days_yellow: 60,
-				warning_days_orange: 30,
-				applies_to_roles: [],
-				applies_to_mos: [],
-				applies_to_ranks: [],
-				excluded_roles: [],
-				excluded_mos: [],
-				excluded_ranks: [],
-				color: '#22c55e',
-				sort_order: 0,
-				expiration_date_only: false,
-				can_be_exempted: false,
-				exempt_personnel_ids: [],
-				is_optional: false
-			}
-		]);
-
-		const result = await handleUseCaseRequest(
-			_getDetailConfig,
-			ctx,
-			{
-				page: 1,
-				pageSize: 25,
-				sortColumn: 'name',
-				sortDirection: 'asc'
-			},
-			() => ctx
-		);
-
-		expect(result.totalRows).toBe(1);
-		expect(result.rows[0].person.id).toBe('p-smith');
-		expect('dashboard' in result).toBe(false);
-		expect('trainingTypes' in result).toBe(false);
-	});
-
-	it('marks detail responses private and non-cacheable', async () => {
-		const response = _getDetailConfig.formatOutput?.({
-			rows: [],
-			totalRows: 0,
-			page: 1,
-			pageSize: 25,
-			totalPages: 1,
-			sort: { column: 'name', direction: 'asc' }
-		});
-
-		expect(response?.headers.get('Cache-Control')).toBe('private, no-store');
-		expect(response?.headers.get('Vary')).toBe('Cookie');
-	});
+			await expect(request(config as RouteConfig<unknown, unknown>, query, ctx)).rejects.toMatchObject({
+				status: 403
+			});
+			expect(ctx.auditPort.events).toEqual([
+				expect.objectContaining({ action: 'policy.denied', resourceType: 'training.viewRecords' })
+			]);
+		}
+	);
 });

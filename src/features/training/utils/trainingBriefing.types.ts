@@ -61,6 +61,7 @@ export interface BriefingBottomLine {
 	scopeName: string;
 	soldierCount: number;
 	asOf: string;
+	asOfLabel: string;
 	horizonEnd: string;
 	horizonEndLabel: string;
 	today: BriefingReadiness;
@@ -99,8 +100,15 @@ export interface BriefingCliff {
 	dominantTypeIds: string[];
 }
 
+/** Today, the first of each month inside the horizon, and the horizon end. */
+export interface BriefingAxisTick {
+	date: string;
+	label: string;
+}
+
 export interface BriefingForecast {
 	goalPercent: number;
+	axisTicks: BriefingAxisTick[];
 	points: BriefingForecastPoint[];
 	buckets: BriefingForecastBucket[];
 	cliff: BriefingCliff | null;
@@ -117,6 +125,8 @@ export interface BriefingGridCell {
 export interface BriefingGridRow {
 	key: string | null;
 	label: string;
+	/** Filtered soldiers in the row, including those with no applicable requirement. */
+	soldierCount: number;
 	cells: BriefingGridCell[];
 	today: BriefingReadiness;
 	horizon: BriefingReadiness;
@@ -134,6 +144,8 @@ export interface BriefingGrid {
 	rows: BriefingGridRow[];
 	total: BriefingGridRow;
 	legend: BriefingLegendItem[];
+	/** A cell losing at least this many points by the horizon end is an upcoming hot spot. */
+	dropAlertPoints: number;
 }
 
 export interface BriefingTypeRisk {

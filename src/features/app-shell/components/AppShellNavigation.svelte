@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { afterNavigate } from '$app/navigation';
+	import { mergeProps } from 'bits-ui';
 	import * as Sidebar from '$lib/components/ui/sidebar';
 	import OrgNavIcon from './OrgNavIcon.svelte';
 	import { isOrgNavItemActive, type OrgNavItem } from './orgNavigation';
@@ -28,10 +29,10 @@
 		<Sidebar.MenuItem>
 			<Sidebar.MenuButton isActive={isOrgNavItemActive(pathname, item)} tooltipContent={item.label}>
 				{#snippet child({ props })}
+					{@const linkProps = mergeProps(props, { onclick: selectLink })}
 					<a
-						{...props}
+						{...linkProps}
 						href={resolve(item.href as `/org/${string}`)}
-						onclick={selectLink}
 						aria-current={isOrgNavItemActive(pathname, item) ? 'page' : undefined}
 					>
 						<OrgNavIcon icon={item.icon} />

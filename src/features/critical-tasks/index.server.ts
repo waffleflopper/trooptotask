@@ -22,3 +22,8 @@ export {
 	generateCriticalTasksReportWorkbookExport,
 	generateCriticalTasksMatrixWorkbookExport
 } from './server/criticalTasksReportsQuery.server';
+
+export {
+	listCriticalTaskExportRows,
+	listPersonnelCriticalTaskCompletionExportRows
+} from './server/criticalTasksExportRead.server';

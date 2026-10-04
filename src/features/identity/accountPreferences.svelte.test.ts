@@ -69,6 +69,7 @@ describe('AccountPreferencesState', () => {
 	afterEach(() => {
 		for (const state of states.splice(0)) state.dispose();
 		vi.useRealTimers();
+		vi.unstubAllGlobals();
 	});
 
 	it('owns its initial seed without timers or requests until an explicit edit', async () => {
@@ -85,6 +86,31 @@ describe('AccountPreferencesState', () => {
 			calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
 			training: { selectedGroupId: 'seed-group', selectedViewId: null, matrixViewMode: 'by-group' }
 		});
+	});
+
+	it('uses the current browser transport when a delayed save dispatches', async () => {
+		const initialTransport = vi.fn();
+		vi.stubGlobal('fetch', initialTransport);
+		const onError = vi.fn();
+		const state = new AccountPreferencesState(
+			{ userId: 'user-a', orgId: 'org-a', preferences: preferences() },
+			onError
+		);
+		states.push(state);
+		const saved = preferences();
+		saved.training.matrixViewMode = 'alphabetical';
+		const installedTransport = vi.fn(() => Promise.resolve(Response.json(saved)));
+		vi.stubGlobal('fetch', installedTransport);
+		state.patch({ training: { matrixViewMode: 'alphabetical' } });
+		await vi.advanceTimersByTimeAsync(350);
+		expect(initialTransport).not.toHaveBeenCalled();
+		expect(installedTransport).toHaveBeenCalledWith('/org/org-a/api/user-preferences', {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ training: { matrixViewMode: 'alphabetical' } })
+		});
+		expect(state.value.training.matrixViewMode).toBe('alphabetical');
+		expect(onError).not.toHaveBeenCalled();
 	});
 
 	it('coalesces latest choices across sections after 350ms and saves without ambient invalidation', async () => {

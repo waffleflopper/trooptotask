@@ -53,7 +53,7 @@ export class AccountPreferencesState {
 	constructor(
 		input: { userId: string; orgId: string; preferences: UserOrgPreferences },
 		onError: (message: string) => void,
-		fetcher: typeof fetch = globalThis.fetch
+		fetcher: typeof fetch = (...args) => globalThis.fetch(...args)
 	) {
 		this.#scope = { userId: input.userId, orgId: input.orgId };
 		this.#value = mergeUserOrgPreferences(input.preferences, undefined);

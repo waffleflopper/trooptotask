@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
+import { buildRouteRequest, createRequestSensitiveActionContext } from '$lib/server/adapters/requestContexts.server';
 import { createSupabaseAuditAdapter, getRequestInfo } from '$lib/audit/index.server';
 import {
 	createSupabaseOrganizationOwnershipTransferPort,
@@ -11,9 +11,13 @@ import {
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadDangerSettings } from '$features/organization/index.server';
 import { loadSettingsPage } from '../settingsLoad.server';
+import {
+	createSettingsDangerContext,
+	createSettingsSensitiveNotificationContext
+} from '../settingsRequestContexts.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, async (ctx, { common, organization }) => {
+	loadSettingsPage(event, createSettingsDangerContext, async (ctx, { common, organization }) => {
 		const dangerSettings = await loadDangerSettings(ctx, {
 			isAdmin: common.isAdmin,
 			organization
@@ -36,7 +40,7 @@ export const actions: Actions = {
 		const newOwnerIdRaw = formData.get('newOwnerId');
 		const confirmTransferEmailRaw = formData.get('confirmTransferEmail');
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createSettingsSensitiveNotificationContext(await buildRouteRequest(event));
 			return await transferOrganizationOwnership(
 				{
 					auth: ctx.auth,
@@ -63,7 +67,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const confirmNameRaw = formData.get('confirmName');
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createRequestSensitiveActionContext(await buildRouteRequest(event));
 			await deleteOrganization(
 				{
 					auth: ctx.auth,

@@ -62,7 +62,7 @@ describe('AppShell admitted request composition', () => {
 		const bind = (locals: App.Locals, orgId: string) =>
 			createAppShellRequest(
 				{ locals, cookies: {} as Cookies, orgSegment: orgId, url: new URL(`http://app.invalid/org/${orgId}/training`) },
-				{ getLayoutClient: () => ({ supabase: client, userId: locals.actor!.userId }) }
+				{ getAdmittedRequestClient: () => ({ supabase: client, userId: locals.actor!.userId }) }
 			);
 		const firstA = bind(localsA, ORG_A).loadFirstPaint();
 		const secondA = bind(localsA, ORG_A).loadFirstPaint();

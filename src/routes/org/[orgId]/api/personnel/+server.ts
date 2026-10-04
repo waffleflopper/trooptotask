@@ -1,17 +1,22 @@
-import { json } from '@sveltejs/kit';
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import {
+	archivePersonnelRecord,
+	createPersonnelRecord,
+	restorePersonnelRecord,
+	updatePersonnelRecord
+} from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { validateUUID } from '$lib/server/validation';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
-	createPersonnelRecord,
-	updatePersonnelRecord,
-	archivePersonnelRecord,
-	restorePersonnelRecord
-} from '$features/personnel/index.server';
+	createRequestDataContext,
+	createRequestPersonnelLifecycleContext
+} from '$lib/server/adapters/requestContexts.server';
+import { validateUUID } from '$lib/server/validation';
+import type { RequestEvent } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 
-export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _postConfig: RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestDataContext>> = {
+	context: createRequestDataContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 	policyResource: { kind: 'unscoped' },
@@ -20,7 +25,8 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown> = {
 
 export const POST = handle(_postConfig);
 
-export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _putConfig: RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestDataContext>> = {
+	context: createRequestDataContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
@@ -29,7 +35,12 @@ export const _putConfig: RouteConfig<Record<string, unknown>, unknown> = {
 
 export const PUT = handle(_putConfig);
 
-export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
+export const _deleteConfig: RouteConfig<
+	Record<string, unknown>,
+	Record<string, unknown>,
+	ReturnType<typeof createRequestPersonnelLifecycleContext>
+> = {
+	context: createRequestPersonnelLifecycleContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
@@ -54,7 +65,12 @@ export const _deleteConfig: RouteConfig<Record<string, unknown>, Record<string, 
 
 export const DELETE = handle(_deleteConfig);
 
-export const _patchConfig: RouteConfig<Record<string, unknown>, Record<string, unknown>> = {
+export const _patchConfig: RouteConfig<
+	Record<string, unknown>,
+	Record<string, unknown>,
+	ReturnType<typeof createRequestPersonnelLifecycleContext>
+> = {
+	context: createRequestPersonnelLifecycleContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.restoreRecords,
 	policyResource: { kind: 'unscoped' },

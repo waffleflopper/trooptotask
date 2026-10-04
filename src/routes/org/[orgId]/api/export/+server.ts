@@ -1,14 +1,15 @@
-import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
-import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
-import { handle, createRequestDeletionRequestStore, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	executeOrganizationDataExport,
 	loadOrganizationExportPayload,
 	type OrganizationDataExportArtifact,
 	type OrganizationDataExportExecutionResult
 } from '$features/data-export/index.server';
-import { createOrganizationDataExportReads } from '../organizationDataExportDelivery.server';
+import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createRequestDeletionRequestStore, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestOrganizationExportContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { createOrganizationDataExportReads } from '../organizationDataExportDelivery.server';
 
 interface ExportInput {
 	email: string | undefined;
@@ -17,8 +18,11 @@ interface ExportInput {
 type JsonExportArtifact = Extract<OrganizationDataExportArtifact, { kind: 'json' }>;
 type ExportOutput = OrganizationDataExportExecutionResult<JsonExportArtifact>;
 
-export function _createPostConfig(store: DeletionRequestStore): RouteConfig<ExportInput, ExportOutput> {
+export function _createPostConfig(
+	store: DeletionRequestStore
+): RouteConfig<ExportInput, ExportOutput, ReturnType<typeof createRequestOrganizationExportContext>> {
 	return {
+		context: createRequestOrganizationExportContext,
 		mutation: true,
 		policyAction: POLICY_ACTION_CATALOG.organization.exportData,
 		policyResource: { kind: 'organization' },

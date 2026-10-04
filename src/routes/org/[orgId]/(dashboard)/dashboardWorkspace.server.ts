@@ -1,6 +1,7 @@
-import type { Cookies } from '@sveltejs/kit';
+import { fetchDashboardBootstrap } from '$features/dashboard/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestDashboardWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
 import {
 	createWorkspaceHydrationTarget,
 	createWorkspaceValueHydrationTarget,
@@ -8,15 +9,15 @@ import {
 	type DeferredData,
 	type HydrationItems
 } from '$lib/server/core/streamedWorkspace';
-import { fetchDashboardBootstrap } from '$features/dashboard/index.server';
+import type { Cookies } from '@sveltejs/kit';
 
 import {
 	DASHBOARD_WORKSPACE_KEY,
+	type DashboardAssignmentsWorkspaceHydrationTarget,
 	type DashboardWorkspaceData,
-	type DashboardWorkspaceResult,
 	type DashboardWorkspaceHydration,
 	type DashboardWorkspaceHydrationTarget,
-	type DashboardAssignmentsWorkspaceHydrationTarget
+	type DashboardWorkspaceResult
 } from '$features/dashboard/contracts';
 export interface DashboardWorkspaceRequestContext {
 	locals: App.Locals;
@@ -73,6 +74,7 @@ export async function streamDashboardWorkspaceBootstrap(
 	context: DashboardWorkspaceRequestContext
 ): Promise<DashboardWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		context: createRequestDashboardWorkspaceContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 		defer: true,
 		fn: async (ctx) => {

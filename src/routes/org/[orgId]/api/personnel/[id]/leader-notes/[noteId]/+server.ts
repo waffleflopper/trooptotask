@@ -1,13 +1,14 @@
-import type { RequestEvent } from '@sveltejs/kit';
-import { json } from '@sveltejs/kit';
-import { fail } from '$lib/errors';
-import { handle, personnelLeaderNoteContext, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	archivePersonnelLeaderNote,
 	deletePersonnelLeaderNote,
 	restorePersonnelLeaderNote
 } from '$features/personnel/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/errors';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelLeaderNoteContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 
 function routeIds(event: RequestEvent): { personnelId: string; noteId: string } {
 	const personnelId = event.params.id;
@@ -17,33 +18,37 @@ function routeIds(event: RequestEvent): { personnelId: string; noteId: string } 
 	return { personnelId, noteId };
 }
 
-export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _patchConfig: RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestPersonnelLeaderNoteContext>
+> = {
+	context: createRequestPersonnelLeaderNoteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => ({ ...(await event.request.json()), ...routeIds(event) }),
 	fn: (ctx, input) => {
 		if (input.action === 'restore')
-			return restorePersonnelLeaderNote(
-				personnelLeaderNoteContext(ctx),
-				input as { personnelId: string; noteId: string }
-			);
+			return restorePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
 		if (input.action === 'archive')
-			return archivePersonnelLeaderNote(
-				personnelLeaderNoteContext(ctx),
-				input as { personnelId: string; noteId: string }
-			);
+			return archivePersonnelLeaderNote(ctx, input as { personnelId: string; noteId: string });
 		fail(400, 'Unsupported leader note action.');
 	}
 };
 
-export const _deleteConfig: RouteConfig<{ personnelId: string; noteId: string }, { success: true }> = {
+export const _deleteConfig: RouteConfig<
+	{ personnelId: string; noteId: string },
+	{ success: true },
+	ReturnType<typeof createRequestPersonnelLeaderNoteContext>
+> = {
+	context: createRequestPersonnelLeaderNoteContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event) => routeIds(event),
 	fn: async (ctx, input) => {
-		await deletePersonnelLeaderNote(personnelLeaderNoteContext(ctx), input);
+		await deletePersonnelLeaderNote(ctx, input);
 		return { success: true };
 	},
 	formatOutput: (result) => json(result)

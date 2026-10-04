@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-17T12:00:00Z');
-let checkRateLimit: typeof import('./rateLimit').checkRateLimit;
+let checkRateLimit: typeof import('./rateLimit.server').checkRateLimit;
 
 beforeEach(async () => {
 	vi.useFakeTimers();
 	vi.setSystemTime(NOW);
 	vi.resetModules();
-	({ checkRateLimit } = await import('./rateLimit'));
+	({ checkRateLimit } = await import('./rateLimit.server'));
 });
 
 afterEach(() => {
@@ -25,7 +25,6 @@ describe('global in-memory rate limits', () => {
 	});
 });
 
-// These examples specify retained budgets independently of the production rule table.
 const policies = [
 	{ name: 'invitation renewal', path: '/auth/renew-invite', method: 'POST', limit: 5, windowMs: 3_600_000 },
 	{ name: 'auth forms', path: '/auth/login', method: 'POST', limit: 10, windowMs: 900_000 },

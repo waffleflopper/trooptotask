@@ -1,8 +1,10 @@
+import { createRequestOnboardingReconciliationContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { resyncOnboarding, switchTemplate } from '$features/onboarding/index.server';
 
 export const _postConfig = {
+	context: createRequestOnboardingReconciliationContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.onboarding.configureWorkflows,
 	policyResource: { kind: 'unscoped' },
@@ -15,6 +17,10 @@ export const _postConfig = {
 		}
 		return resyncOnboarding(ctx, input.onboardingId as string);
 	}
-} satisfies RouteConfig<Record<string, unknown>, unknown>;
+} satisfies RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestOnboardingReconciliationContext>
+>;
 
 export const POST = handle(_postConfig);

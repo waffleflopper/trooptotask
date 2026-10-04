@@ -6,7 +6,7 @@ import {
 	hashRateLimitDimension,
 	normalizeRateLimitEmail,
 	type DurableRateLimitStore
-} from './durableRateLimit';
+} from './durableRateLimit.server';
 
 function makeSharedStore(): DurableRateLimitStore & { keys: string[] } {
 	const buckets = new Map<string, { count: number; resetAt: number }>();

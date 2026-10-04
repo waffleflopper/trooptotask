@@ -1,11 +1,8 @@
-import {
-	personnelArtifactsContext,
-	loadWithContext,
-	personnelLeaderNoteContext
-} from '$lib/server/adapters/httpAdapter';
-import type { PageServerLoadEvent } from './$types';
 import type { PersonnelDetailHeader } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelArchivedArtifactsContext } from '$lib/server/adapters/requestContexts.server';
+import type { PageServerLoadEvent } from './$types';
 
 import { listPersonnelArchivedArtifacts } from '$features/personnel/index.server';
 
@@ -27,10 +24,10 @@ export function _createPersonnelArchivedPageLoad(deps: PersonnelArchivedPageLoad
 		const parentData = (await parent()) as PersonnelDetailParentData;
 		const personnelId = parentData.personnelDetailHeader.person.id;
 		const records = await loadWithContextFn(locals, cookies, params.orgId, {
+			context: createRequestPersonnelArchivedArtifactsContext,
 			policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 			policyResource: { kind: 'unscoped' },
-			fn: (ctx) =>
-				listPersonnelArchivedArtifacts(personnelArtifactsContext(ctx), personnelLeaderNoteContext(ctx), personnelId)
+			fn: (ctx) => listPersonnelArchivedArtifacts(ctx.artifacts, ctx.leaderNotes, personnelId)
 		});
 
 		return {

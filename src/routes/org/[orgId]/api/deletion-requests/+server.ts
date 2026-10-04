@@ -1,24 +1,31 @@
-import { json } from '@sveltejs/kit';
-import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import {
-	handle,
-	createRequestDeletionRequestStore,
-	createRequestDeletionRequestCancellation,
-	type RouteConfig
-} from '$lib/server/adapters/httpAdapter';
+	cancelDeletionRequest,
+	createDeletionRequest,
+	listDeletionRequests,
+	type CreateDeletionRequestInput,
+	type DeletionRequestCancellationPort,
+	type DeletionRequestStore
+} from '$features/deletion-requests/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import {
-	createDeletionRequest,
-	cancelDeletionRequest,
-	listDeletionRequests,
-	type CreateDeletionRequestInput,
-	type DeletionRequestStore,
-	type DeletionRequestCancellationPort
-} from '$features/deletion-requests/index.server';
+	createRequestDeletionRequestCancellation,
+	createRequestDeletionRequestStore,
+	handle,
+	type RouteConfig
+} from '$lib/server/adapters/httpAdapter';
+import {
+	createRequestNotificationContext,
+	createRequestWriteContext
+} from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 
-export function _createGetConfig(store: DeletionRequestStore): RouteConfig<{ status?: string }, unknown> {
+export function _createGetConfig(
+	store: DeletionRequestStore
+): RouteConfig<{ status?: string }, unknown, ReturnType<typeof createRequestWriteContext>> {
 	return {
+		context: createRequestWriteContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.listOwnDeletionRequests,
 		parseInput: (event: RequestEvent) => ({ status: event.url.searchParams.get('status') ?? undefined }),
 		fn: (ctx, input) =>
@@ -29,8 +36,11 @@ export function _createGetConfig(store: DeletionRequestStore): RouteConfig<{ sta
 	};
 }
 
-export function _createPostConfig(store: DeletionRequestStore): RouteConfig<CreateDeletionRequestInput, unknown> {
+export function _createPostConfig(
+	store: DeletionRequestStore
+): RouteConfig<CreateDeletionRequestInput, unknown, ReturnType<typeof createRequestNotificationContext>> {
 	return {
+		context: createRequestNotificationContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.createOwnDeletionRequest,
 		mutation: true,
 		parseInput: async (event: RequestEvent) => ({
@@ -46,8 +56,9 @@ export function _createPostConfig(store: DeletionRequestStore): RouteConfig<Crea
 export function _createDeleteConfig(
 	store: DeletionRequestStore,
 	cancellation: DeletionRequestCancellationPort
-): RouteConfig<Record<string, unknown>, { success: true }> {
+): RouteConfig<Record<string, unknown>, { success: true }, ReturnType<typeof createRequestWriteContext>> {
 	return {
+		context: createRequestWriteContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 		mutation: true,
 		fn: async (ctx, input) => {

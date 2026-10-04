@@ -1,8 +1,9 @@
-import { z } from 'zod';
+import { fetchCalendarRangeData } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fetchCalendarRangeData } from '$features/calendar/index.server';
+import { createRequestCalendarRangeContext } from '$lib/server/adapters/requestContexts.server';
 import { formatDate, parseDate } from '$lib/utils/dates';
+import { z } from 'zod';
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_CALENDAR_RANGE_DAYS = 366;
@@ -40,7 +41,12 @@ const calendarRangeInput = z
 		}
 	);
 
-export const _getConfig: RouteConfig<z.infer<typeof calendarRangeInput>> = {
+export const _getConfig: RouteConfig<
+	z.infer<typeof calendarRangeInput>,
+	Awaited<ReturnType<typeof fetchCalendarRangeData>>,
+	ReturnType<typeof createRequestCalendarRangeContext>
+> = {
+	context: createRequestCalendarRangeContext,
 	policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
 	policyResource: { kind: 'unscoped' },
 	input: calendarRangeInput,

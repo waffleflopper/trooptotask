@@ -59,7 +59,7 @@ describe('createRootOrgLayoutLoad', () => {
 			access_scope_group_ids: ['group-alpha']
 		});
 		const load = createRootOrgLayoutLoad({
-			getLayoutClient: () => ({ supabase, userId: 'user-1' }),
+			getAdmittedRequestClient: () => ({ supabase, userId: 'user-1' }),
 			createFirstPaintChromePort: () => ({
 				getFirstPaintChrome: async () => ({ announcements: [], preferences: getDefaultUserOrgPreferences() })
 			})
@@ -93,7 +93,7 @@ describe('createRootOrgLayoutLoad', () => {
 			suspended_at: null
 		});
 		const userSupabase = { kind: 'user-supabase' };
-		const getLayoutClient = vi.fn().mockReturnValue({ supabase });
+		const getAdmittedRequestClient = vi.fn().mockReturnValue({ supabase });
 		const createOrgAccessPort = vi.fn(
 			(config: { orgId: string; userId: string; orgName: string }) =>
 				({
@@ -128,7 +128,7 @@ describe('createRootOrgLayoutLoad', () => {
 		);
 
 		const load = createRootOrgLayoutLoad({
-			getLayoutClient,
+			getAdmittedRequestClient,
 			createOrgAccessPort,
 			createFirstPaintChromePort
 		});
@@ -184,12 +184,12 @@ describe('createRootOrgLayoutLoad', () => {
 			url_slug: null,
 			suspended_at: '2026-04-01T00:00:00.000Z'
 		});
-		const getLayoutClient = vi.fn().mockReturnValue({ supabase });
+		const getAdmittedRequestClient = vi.fn().mockReturnValue({ supabase });
 		const createOrgAccessPort = vi.fn();
 		const createFirstPaintChromePort = vi.fn();
 
 		const load = createRootOrgLayoutLoad({
-			getLayoutClient,
+			getAdmittedRequestClient,
 			createOrgAccessPort,
 			createFirstPaintChromePort
 		});

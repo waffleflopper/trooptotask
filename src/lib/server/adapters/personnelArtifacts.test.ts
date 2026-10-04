@@ -1,5 +1,5 @@
 import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
-import { personnelArtifactsContext } from './httpAdapter';
+import { createPersonnelArtifactDeliveryContext } from './requestContexts.server';
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import {
@@ -108,7 +108,7 @@ describe('Personnel artifact provider delivery', () => {
 		'returns all 1,001 $table rows and Organization contributor labels within provider limits',
 		async (family) => {
 			const run = fixture(family);
-			const actual = await family.list(personnelArtifactsContext(run.ctx), PERSON);
+			const actual = await family.list(createPersonnelArtifactDeliveryContext(run.ctx), PERSON);
 			expect(actual.map((row) => row.id)).toEqual(
 				Array.from({ length: 1001 }, (_, i) => `artifact-${String(1000 - i).padStart(4, '0')}`)
 			);
@@ -123,7 +123,7 @@ describe('Personnel artifact provider delivery', () => {
 
 	it('propagates a later artifact-page failure instead of returning partial history', async () => {
 		const run = fixture(families[1], 'artifact-page');
-		await expect(families[1].list(personnelArtifactsContext(run.ctx), PERSON)).rejects.toThrow(
+		await expect(families[1].list(createPersonnelArtifactDeliveryContext(run.ctx), PERSON)).rejects.toThrow(
 			'Later artifact page unavailable'
 		);
 		expect(run.receipts.some((receipt) => receipt.table === 'organization_memberships')).toBe(false);
@@ -131,7 +131,7 @@ describe('Personnel artifact provider delivery', () => {
 
 	it('propagates a later contributor failure instead of returning partly hydrated history', async () => {
 		const run = fixture(families[1], 'label-page');
-		await expect(families[1].list(personnelArtifactsContext(run.ctx), PERSON)).rejects.toThrow(
+		await expect(families[1].list(createPersonnelArtifactDeliveryContext(run.ctx), PERSON)).rejects.toThrow(
 			'Later contributor page unavailable'
 		);
 	});
@@ -156,7 +156,7 @@ describe('Personnel artifact provider delivery', () => {
 					}
 				}
 			});
-			const context = personnelArtifactsContext({
+			const context = createPersonnelArtifactDeliveryContext({
 				...ctx,
 				organizationSettings: createSupabaseOrganizationSettingsReader(client)
 			});

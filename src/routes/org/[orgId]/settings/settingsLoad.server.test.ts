@@ -66,7 +66,9 @@ describe('settings load helpers', () => {
 
 	it('wraps section loaders with the shared governance context and common props', async () => {
 		const ctx = { auth: { orgId: 'org-1' } };
-		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+			config.fn(config.context({}))
+		);
 
 		const result = await loadSettingsPage(
 			{
@@ -81,6 +83,7 @@ describe('settings load helpers', () => {
 						}
 					} as never)
 			} as never,
+			() => ctx,
 			async (receivedCtx, { common, organization }) => ({
 				sectionSettings: {
 					authOrgId: receivedCtx.auth.orgId,
@@ -126,6 +129,7 @@ describe('settings load helpers', () => {
 					}
 				})
 			} as never,
+			() => ({}),
 			() => ({ sectionSettings: true })
 		);
 

@@ -1,12 +1,13 @@
 import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
-import { json } from '@sveltejs/kit';
-import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
-import { handle, createRequestDeletionRequestStore, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
+import { createRequestDeletionRequestStore, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelArchiveBatchContext } from '$lib/server/adapters/requestContexts.server';
 import { archivePersonnelBatch } from '$lib/server/personnelArchiveBatchDelivery';
 import { validateUUID } from '$lib/server/validation';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 
 interface ArchivePersonnelBatchRouteInput {
 	ids: string[];
@@ -15,8 +16,13 @@ interface ArchivePersonnelBatchRouteInput {
 
 export function _createPostConfig(
 	store: DeletionRequestStore
-): RouteConfig<ArchivePersonnelBatchRouteInput, ArchivePersonnelBatchResult> {
+): RouteConfig<
+	ArchivePersonnelBatchRouteInput,
+	ArchivePersonnelBatchResult,
+	ReturnType<typeof createRequestPersonnelArchiveBatchContext>
+> {
 	return {
+		context: createRequestPersonnelArchiveBatchContext,
 		mutation: true,
 		policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 		policyResource: { kind: 'unscoped' },

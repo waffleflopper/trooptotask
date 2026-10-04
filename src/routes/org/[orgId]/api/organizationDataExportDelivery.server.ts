@@ -1,5 +1,3 @@
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { listAuditExportRows } from '$lib/audit/index.server';
 import {
 	listAssignmentTypeExportRows,
 	listAvailabilityExportRows,
@@ -17,28 +15,30 @@ import { listDeletionRequestExportRows, type DeletionRequestStore } from '$featu
 import { listGettingStartedProgressExportRows, listUserOrgPreferenceExportRows } from '$features/identity/index.server';
 import { listNotificationExportRows } from '$features/notifications/index.server';
 import {
+	listOnboardingStepProgressExportRows,
 	listOnboardingTemplateExportRows,
 	listOnboardingTemplateStepExportRows,
-	listPersonnelOnboardingExportRows,
-	listOnboardingStepProgressExportRows
+	listPersonnelOnboardingExportRows
 } from '$features/onboarding/index.server';
 import {
 	listGroupExportRows,
-	listPersonnelExportRows,
 	listOrganizationRankCatalogExportRows,
+	listPersonnelExportRows,
 	listUserPinnedGroupExportRows
 } from '$features/personnel/index.server';
 import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
 import { listSignInRosterExportRows } from '$features/sign-in-rosters/index.server';
 import {
-	listTrainingTypeExportRows,
 	listTrainingCompletionExportRows,
+	listTrainingTypeExportRows,
 	listTrainingViewExportRows
 } from '$features/training/index.server';
+import { listAuditExportRows } from '$lib/audit/index.server';
+import type { createRequestOrganizationExportContext } from '$lib/server/adapters/requestContexts.server';
 
 export function createOrganizationDataExportReads(
 	ctx: Pick<
-		UseCaseContext,
+		ReturnType<typeof createRequestOrganizationExportContext>,
 		| 'auth'
 		| 'rawStore'
 		| 'organizationRawExport'

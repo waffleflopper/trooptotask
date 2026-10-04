@@ -29,16 +29,21 @@ describe('/api/personnel/[id]/extended-info', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_putConfig, ctx, {
-			personnelId: 'person-1',
-			bloodType: 'AB+',
-			basd: '2018-03-01',
-			dateOfRank: '2022-10-01',
-			numberOfDependents: 1,
-			children: [{ name: 'Avery', age: 7 }],
-			militaryEducation: ['BLC', 'Airborne'],
-			emergencyContactName: 'Jamie Rivera'
-		});
+		const result = await handleUseCaseRequest(
+			_putConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				bloodType: 'AB+',
+				basd: '2018-03-01',
+				dateOfRank: '2022-10-01',
+				numberOfDependents: 1,
+				children: [{ name: 'Avery', age: 7 }],
+				militaryEducation: ['BLC', 'Airborne'],
+				emergencyContactName: 'Jamie Rivera'
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			bloodType: 'AB+',
@@ -73,7 +78,7 @@ describe('/api/personnel/[id]/extended-info', () => {
 			}
 		]);
 
-		await expect(handleUseCaseRequest(_putConfig, ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_putConfig, ctx, { personnelId: 'person-1' }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 	});

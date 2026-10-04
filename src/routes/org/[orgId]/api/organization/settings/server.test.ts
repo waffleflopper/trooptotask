@@ -21,7 +21,9 @@ describe('/api/organization/settings', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_postConfig, memberCtx, { lossWarningWindowDays: 90 })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_postConfig, memberCtx, { lossWarningWindowDays: 90 }, () => memberCtx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 	});

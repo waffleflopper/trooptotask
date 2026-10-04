@@ -125,3 +125,5 @@ export {
 	listOrganizationRankCatalogExportRows,
 	listUserPinnedGroupExportRows
 } from './ordinaryExportRead.server';
+
+export { createSupabaseScopeEnforcementAdapter } from './scopeEnforcement.server';

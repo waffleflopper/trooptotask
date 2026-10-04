@@ -100,7 +100,12 @@ describe('settings layout server load', () => {
 		});
 		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		const result = await load({
@@ -170,7 +175,12 @@ describe('settings layout server load', () => {
 		});
 		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		const result = await load({
@@ -235,7 +245,12 @@ describe('settings layout server load', () => {
 		]);
 		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		const result = await load({
@@ -283,7 +298,12 @@ describe('settings layout server load', () => {
 		});
 		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		await expect(

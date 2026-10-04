@@ -1,3 +1,4 @@
+import { createRequestRatingSchemeWorkspaceContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { LayoutServerLoad } from './$types';
 import { isHttpError } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -19,6 +20,7 @@ export async function _streamRatingSchemeWorkspace(
 	context: FeatureLaneWorkspaceRequestContext
 ): Promise<RatingSchemeWorkspaceRouteData> {
 	const deferred = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		context: createRequestRatingSchemeWorkspaceContext,
 		policyAction: POLICY_ACTION_CATALOG.ratingScheme.viewEntries,
 		policyResource: { kind: 'unscoped' },
 		defer: true,

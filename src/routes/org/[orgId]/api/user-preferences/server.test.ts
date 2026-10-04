@@ -1,14 +1,20 @@
+import { buildRouteRequest } from '$lib/server/adapters/requestContexts.server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { buildRouteContext, createRequestAccountPreferencesProvider } from '$lib/server/adapters/httpAdapter';
+import { createRequestAccountPreferencesProvider } from '$lib/server/adapters/httpAdapter';
 import { PATCH } from './+server';
 
 vi.mock('$lib/server/adapters/httpAdapter', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/server/adapters/httpAdapter')>()),
-	buildRouteContext: vi.fn(),
 	createRequestAccountPreferencesProvider: vi.fn()
 }));
+
+vi.mock('$lib/server/adapters/requestContexts.server', () => ({ buildRouteRequest: vi.fn() }));
+
+function requestContext(options?: Parameters<typeof createTestContext>[0]) {
+	return { ...createTestContext(options), supabase: {} as SupabaseClient, session: null };
+}
 
 const preferences = {
 	calendar: { showStatusText: false, showPersonnelRoles: false, highlightOnboarding: true },
@@ -18,7 +24,7 @@ let readError: null | { message: string };
 let writes: number;
 let conflicts: boolean;
 beforeEach(() => {
-	vi.mocked(buildRouteContext).mockReset().mockResolvedValue(createTestContext());
+	vi.mocked(buildRouteRequest).mockReset().mockResolvedValue(requestContext());
 	readError = null;
 	writes = 0;
 	conflicts = false;
@@ -82,7 +88,7 @@ describe('PATCH preference HTTP delivery', () => {
 	});
 
 	it('converts anonymous owner denial to HTTP 401 before any write', async () => {
-		vi.mocked(buildRouteContext).mockResolvedValue(createTestContext({ auth: { userId: '' } }));
+		vi.mocked(buildRouteRequest).mockResolvedValue(requestContext({ auth: { userId: '' } }));
 		await expect(PATCH(event('{}'))).rejects.toMatchObject({ status: 401 });
 		expect(writes).toBe(0);
 	});

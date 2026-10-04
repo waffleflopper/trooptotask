@@ -3,7 +3,7 @@ import { createAppShellRequest, type AppShellRequestDeps } from '$lib/server/ada
 import type { AppShellRequest } from '$features/app-shell/contracts';
 export interface RootOrgLayoutLoadDeps {
 	createAppShellRequest?: (context: RootOrgLayoutRequestContext) => AppShellRequest;
-	getLayoutClient?: AppShellRequestDeps['getLayoutClient'];
+	getAdmittedRequestClient?: AppShellRequestDeps['getAdmittedRequestClient'];
 	createOrgAccessPort?: AppShellRequestDeps['createOrgAccessPort'];
 	createFirstPaintChromePort?: AppShellRequestDeps['createFirstPaintChromePort'];
 	createDeferredChromePort?: AppShellRequestDeps['createDeferredChromePort'];
@@ -23,7 +23,7 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 			createAppShellRequest(
 				{ locals, cookies, orgSegment, url },
 				{
-					getLayoutClient: deps.getLayoutClient,
+					getAdmittedRequestClient: deps.getAdmittedRequestClient,
 					createOrgAccessPort: deps.createOrgAccessPort,
 					createFirstPaintChromePort: deps.createFirstPaintChromePort,
 					createDeferredChromePort: deps.createDeferredChromePort

@@ -1,124 +1,38 @@
-import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import { createSupabaseSignInRosterFileWritePort } from '$features/sign-in-rosters/index.server';
-import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
 import {
 	createSupabaseDeletionRequestCancellation,
 	createSupabaseDeletionRequestStore
 } from '$features/deletion-requests/index.server';
-/**
- * HTTP adapter — the bridge between SvelteKit routes and use cases.
- *
- * Three primary exports for route authors:
- * - `handle(config)` — wraps a use case as a SvelteKit RequestHandler. Builds UseCaseContext,
- *   parses + validates input, enforces permissions, calls the use case, and formats the response.
- * - `entityHandlers(entity, hooks?)` — generates POST/PUT/DELETE handlers from an EntityDefinition.
- *   The standard way to wire up CRUD endpoints; prefer over `handle()` for entity routes.
- * - `loadWithContext(locals, cookies, orgId, config)` — for page load functions. Builds context
- *   from a layout-fetched membership row and runs the load fn with permission checks.
- *
- * Internal helpers (`buildRouteContext`, `buildLayoutContext`, `getLayoutClient`) are not
- * intended for direct use in routes — they exist to satisfy the different context-building
- * needs of route handlers vs. layout servers.
- */
-import { json, error, isHttpError, isRedirect } from '@sveltejs/kit';
-import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
-import type { z } from 'zod';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { getAdminClient } from '$lib/server/supabase';
-import {
-	createPermissionContextFromMembership,
-	getMembershipRow,
-	type MembershipRow
-} from '$lib/server/permissionContext';
-import { cacheRequestMembership, getOrLoadRequestMembership } from '$lib/server/membershipContextCache';
-import { validateUUID } from '$lib/server/validation';
-import { getRequestInfo } from '$lib/audit/index.server';
-import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
-import { createSupabaseDataStore } from './supabaseDataStore';
-import { createSupabaseCalendarAssignmentReplacementPort } from '$features/calendar/index.server';
-import { createIdentityAuthorization } from '$features/identity/index.server';
-import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
-import { createSupabaseAuditAdapter } from '$lib/audit/index.server';
-import { createScopedDataStore } from './scopedDataStore';
-import { defaultScopeRules } from './scopeRules';
-import {
-	createSupabaseNotificationDelivery,
-	createSupabaseNotificationStore
-} from '$features/notifications/index.server';
-import {
-	createSupabaseOrganizationSettingsReader,
-	createSupabaseOrganizationRawExportReader,
-	createSupabaseOrganizationPolicyWritePort,
-	createSupabaseOrganizationAdministratorRecipients,
-	createSupabaseFeedbackOrganizationContextPort
-} from '$features/organization/index.server';
 import {
 	createFeedbackSubmission,
-	createSupabaseFeedbackSubmissionStore,
 	createGitHubFeedbackMirror,
-	listFeedbackExportRows
+	createSupabaseFeedbackSubmissionStore
 } from '$features/feedback/index.server';
-import { createSupabaseStorageAdapter } from './supabaseStorage';
-import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
-import { createSupabaseCriticalTasksSettingsWritePort } from '$features/critical-tasks/index.server';
-import {
-	createSupabasePersonnelRatingSchemeRosterPort,
-	createSupabasePersonnelAwardAcknowledgementPort,
-	createSupabasePersonnelArtifactWritePort,
-	createSupabasePersonnelOrganizationExportPort,
-	createSupabaseSignInRosterPersonnelLookupPort,
-	createSupabasePersonnelTrainingRosterPort,
-	createSupabasePersonnelCriticalTasksRosterPort,
-	createSupabasePersonnelCalendarRosterPort,
-	createSupabasePersonnelOnboardingRosterPort
-} from '$features/personnel/index.server';
-import { createSupabaseRatingSchemeDuePort } from '$features/rating-scheme/index.server';
-
-import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
-
-import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
-import {
-	createSupabaseOnboardingCalendarMarkersPort,
-	createSupabaseOnboardingReconciliationPort,
-	createSupabaseOnboardingNoteAppendPort,
-	createSupabaseOnboardingLifecycleTransitionPort,
-	createSupabaseOnboardingInactiveStepRemovalPort,
-	createSupabaseOnboardingPacketCreationPort
-} from '$features/onboarding/index.server';
-import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
-import { resolveOrganizationRouteIdentity } from '$features/organization/index.server';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/errors';
+import { createSupabaseAccountAnnouncementDismissals } from '$features/notifications/index.server';
+import { createSupabaseFeedbackOrganizationContextPort } from '$features/organization/index.server';
 import {
 	enforceLoadAuthorization,
 	enforceRouteAuthorization,
 	type LoadAuthorizationConfig,
 	type RouteAuthorizationConfig
 } from '$lib/access/index.server';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/errors';
+import type { WritePorts } from '$lib/server/core/ports';
 import { createCrudUseCases } from '$lib/server/core/useCases/crud';
 import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
-import type {
-	LeaderNoteContext,
-	LeaderNoteRow,
-	PersonnelArtifactsContext,
-	CounselingRecordRow,
-	PersonnelDocumentRow,
-	FollowUpRow
-} from '$features/personnel/index.server';
+import { getAdminClient } from '$lib/server/supabase';
+import { validateUUID } from '$lib/server/validation';
+import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
+import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
+import type { z } from 'zod';
 import {
-	loadOrganizationMemberLabels,
-	loadPersonnelDocumentStorageCapBytes,
-	type OrganizationMemberLabelRow
-} from '$features/organization/index.server';
-
-/** Bind delivery to owned Organization recipient facts without giving Notifications membership access. */
-export function createRequestNotificationDelivery() {
-	return createSupabaseNotificationDelivery({
-		getAdminClient,
-		resolveAdministratorRecipients: createSupabaseOrganizationAdministratorRecipients(getAdminClient)
-	});
-}
+	buildLayoutRequest,
+	buildRouteRequest,
+	getAdmittedRequestClient,
+	type AdmittedOrganizationRequest,
+	type RequestContextBuilder
+} from './requestContexts.server';
 
 /** Construct Feedback collaborators only after the route admits the account. */
 export function createRequestFeedbackSubmission() {
@@ -130,556 +44,10 @@ export function createRequestFeedbackSubmission() {
 	});
 }
 
-/**
- * Gets authentication context for API routes.
- * Throws 401 if the request does not have an admitted actor.
- */
-function getApiContext(locals: App.Locals): { supabase: SupabaseClient; userId: string } {
-	if (!locals.actor) {
-		throw error(401, 'Unauthorized');
-	}
-
-	return {
-		supabase: locals.supabase,
-		userId: locals.actor.userId
-	};
-}
-
-interface BuildContextResult {
-	ctx: UseCaseContext;
-	supabase: ReturnType<typeof getApiContext>['supabase'];
-}
-
-/** Bind the admitted request to Personnel's three retained artifact families. */
-export function personnelArtifactsContext(ctx: UseCaseContext): PersonnelArtifactsContext {
-	const orgId = ctx.auth.orgId;
-	const requestStore = ctx.rawStore ?? ctx.store;
-	return {
-		actor: ctx.auth,
-		scope: ctx.scope,
-		audit: ctx.audit,
-		persistence: {
-			async findPersonnelGroup(personnelId) {
-				const row = await requestStore.findOne<{ group_id: string | null }>(
-					'personnel',
-					orgId,
-					{ id: personnelId },
-					'id, group_id'
-				);
-				return row?.group_id;
-			},
-			listCounselingRecords: (personnelId, { archived, limit }) =>
-				ctx.store.findMany<CounselingRecordRow>(
-					'counseling_records',
-					orgId,
-					{ personnel_id: personnelId },
-					{
-						orderBy: [
-							{ column: 'date_conducted', ascending: false },
-							{ column: 'created_at', ascending: false }
-						],
-						isNull: { archived_at: !archived },
-						limit
-					}
-				),
-			listDocuments: (personnelId, { archived, limit }) =>
-				ctx.store.findMany<PersonnelDocumentRow>(
-					'personnel_documents',
-					orgId,
-					{ personnel_id: personnelId },
-					{
-						orderBy: [{ column: 'created_at', ascending: false }],
-						isNull: { archived_at: !archived },
-						limit
-					}
-				),
-			listFollowUps: (personnelId, { archived, limit }) =>
-				ctx.store.findMany<FollowUpRow>(
-					'personnel_follow_ups',
-					orgId,
-					{ personnel_id: personnelId, ...(archived ? { status: 'archived' } : {}) },
-					{
-						orderBy: [
-							{ column: 'status', ascending: false },
-							...(archived ? [{ column: 'archived_at', ascending: false }] : []),
-							{ column: 'created_at', ascending: false }
-						],
-						...(archived ? {} : { notInFilters: { status: ['archived'] } }),
-						limit
-					}
-				),
-			findDocument: (personnelId, documentId) =>
-				ctx.store.findOne<PersonnelDocumentRow>('personnel_documents', orgId, {
-					id: documentId,
-					personnel_id: personnelId
-				})
-		},
-		writerFor(personnelId) {
-			if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
-			return ctx.personnelArtifactWrites.forPerson(ctx.auth, personnelId);
-		},
-		contributorLabels: (userIds) =>
-			loadOrganizationMemberLabels(
-				{
-					async findMembers(memberOrgId, ids) {
-						const rows: OrganizationMemberLabelRow[] = [];
-						// The full artifact list can exceed one provider page. Bound each
-						// UUID filter just as the accepted note traversal bounds label reads.
-						for (let from = 0; from < ids.length; from += 100) {
-							rows.push(
-								...(await requestStore.findMany<OrganizationMemberLabelRow>(
-									'organization_memberships',
-									memberOrgId,
-									undefined,
-									{ inFilters: { user_id: ids.slice(from, from + 100) } }
-								))
-							);
-						}
-						return rows;
-					}
-				},
-				orgId,
-				userIds
-			),
-		documentStorageCapBytes: () => loadPersonnelDocumentStorageCapBytes(ctx.organizationSettings, orgId),
-		createDocumentSignedUrl: (filePath, expiresInSeconds) =>
-			ctx.storage.createSignedUrl('personnel-documents', filePath, expiresInSeconds)
-	};
-}
-
-/** Bind the admitted request to Personnel's typed note collaborators. */
-export function personnelLeaderNoteContext(ctx: UseCaseContext): LeaderNoteContext {
-	const orgId = ctx.auth.orgId;
-	const writerFor = (personnelId: string) => {
-		if (!ctx.personnelArtifactWrites) throw new Error('Personnel artifact write port is required');
-		return ctx.personnelArtifactWrites.forPerson(ctx.auth, personnelId);
-	};
-	return {
-		actor: ctx.auth,
-		scope: ctx.scope,
-		audit: ctx.audit,
-		persistence: {
-			async findPersonnelGroup(personnelId) {
-				const row = await ctx.rawStore.findOne<{ group_id: string | null }>(
-					'personnel',
-					orgId,
-					{ id: personnelId },
-					'group_id'
-				);
-				return row?.group_id;
-			},
-			async listPage(personnelId, { archived, limit, before }) {
-				const options = {
-					orderBy: [
-						{ column: 'created_at', ascending: false },
-						{ column: 'id', ascending: false }
-					],
-					isNull: { archived_at: !archived },
-					limit
-				};
-				if (!before) {
-					return ctx.store.findMany<LeaderNoteRow>('leader_notes', orgId, { personnel_id: personnelId }, options);
-				}
-				// Two disjoint ranges express the composite cursor using the existing scoped store.
-				// Finish the tied timestamp before reading older notes; never use an offset.
-				const tied = await ctx.store.findMany<LeaderNoteRow>(
-					'leader_notes',
-					orgId,
-					{ personnel_id: personnelId, created_at: before.createdAt },
-					{ ...options, rangeFilters: [{ column: 'id', op: 'lt', value: before.id }] }
-				);
-				if (tied.length === limit) return tied;
-				const older = await ctx.store.findMany<LeaderNoteRow>(
-					'leader_notes',
-					orgId,
-					{ personnel_id: personnelId },
-					{
-						...options,
-						limit: limit - tied.length,
-						rangeFilters: [{ column: 'created_at', op: 'lt', value: before.createdAt }]
-					}
-				);
-				return [...tied, ...older];
-			},
-			async find(personnelId, noteId) {
-				return (await writerFor(personnelId)).find<LeaderNoteRow>('leader_notes', noteId);
-			},
-			async insert(input) {
-				return (await writerFor(input.personnelId)).insert<LeaderNoteRow>('leader_notes', {
-					author: input.author,
-					text: input.text,
-					created_at: input.createdAt
-				});
-			},
-			async update(personnelId, noteId, archivedAt) {
-				return (await writerFor(personnelId)).update<LeaderNoteRow>('leader_notes', noteId, {
-					archived_at: archivedAt
-				});
-			},
-			async delete(personnelId, noteId) {
-				return (await writerFor(personnelId)).delete('leader_notes', noteId);
-			}
-		},
-		contributorLabels: (userIds) =>
-			loadOrganizationMemberLabels(
-				{
-					findMembers: (memberOrgId, ids) =>
-						ctx.rawStore.findMany<OrganizationMemberLabelRow>('organization_memberships', memberOrgId, undefined, {
-							inFilters: { user_id: ids }
-						})
-				},
-				orgId,
-				userIds
-			)
-	};
-}
-
-function policyScopeGroupIds(auth: OrganizationAccessGrant): string[] | string | null {
-	return auth.scopeSet.kind === 'groups' ? auth.scopeSet.groupIds : null;
-}
-
-async function createRequestAuthorizationPorts(config: {
-	locals: App.Locals;
-	supabase: ReturnType<typeof getApiContext>['supabase'];
-	userId: string;
-	orgId: string;
-}) {
-	const membership = await getOrLoadRequestMembership(config.locals, config.userId, config.orgId, () =>
-		getMembershipRow(config.supabase, config.userId, config.orgId)
-	);
-
-	const permCtx = createPermissionContextFromMembership(membership);
-	const auth = createIdentityAuthorization(permCtx, { userId: config.userId }, config.orgId);
-	const scope = createSupabaseScopeEnforcementAdapter({
-		supabase: config.supabase,
-		orgId: config.orgId,
-		scopeSet: permCtx.scopeSet
-	});
-	return { auth, scope };
-}
-
-async function buildContextInternal(event: RequestEvent): Promise<BuildContextResult> {
-	const routeOrgSegment = event.params.orgId as string;
-	const { supabase, userId } = getApiContext(event.locals);
-	const orgId = validateUUID(routeOrgSegment)
-		? routeOrgSegment
-		: await resolveOrganizationIdForRequest(supabase, routeOrgSegment);
-	const requestInfo = getRequestInfo(event);
-
-	const store = createSupabaseDataStore(supabase);
-
-	const audit = createSupabaseAuditAdapter(orgId, requestInfo);
-
-	const { auth, scope } = await createRequestAuthorizationPorts({
-		locals: event.locals,
-		supabase,
-		userId,
-		orgId
-	});
-
-	const notifications = createRequestNotificationDelivery();
-	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
-	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
-	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
-	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
-	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
-	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
-	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
-	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
-	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
-	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
-	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
-	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
-	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
-	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
-	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
-	const onboardingNoteAppend = createSupabaseOnboardingNoteAppendPort(supabase);
-	const onboardingLifecycleTransition = createSupabaseOnboardingLifecycleTransitionPort(supabase);
-	const onboardingInactiveStepRemoval = createSupabaseOnboardingInactiveStepRemovalPort(supabase);
-	const onboardingPacketCreation = createSupabaseOnboardingPacketCreationPort(supabase);
-	const organizationInvitationSetupStateLookup =
-		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
-	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
-		supabase,
-		authenticatedUserId: userId,
-		session: event.locals.session
-	});
-	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
-	return {
-		ctx: {
-			store: scopedStore,
-			auth,
-			scope,
-			audit,
-			calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
-			organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
-			organizationRawExport: createSupabaseOrganizationRawExportReader(supabase),
-			organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
-
-			notifications,
-			notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
-			feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
-
-			storage: createSupabaseStorageAdapter(supabase),
-			sensitiveActionAuthorizer,
-			criticalTasksReadModel,
-			criticalTasksSettingsWrite,
-			personnelRatingSchemeRoster,
-			personnelAwardAcknowledgement,
-			ratingSchemeDue,
-			personnelArtifactWrites,
-			signInRosterFileWrites,
-			personnelOrganizationExport,
-			signInRosterPersonnelLookup,
-			personnelTrainingRoster,
-			personnelCriticalTasksRoster,
-			personnelCalendarRoster,
-			personnelOnboardingRoster,
-			trainingOnboardingReferences,
-			onboardingCalendarMarkers,
-			onboardingReconciliation,
-			onboardingNoteAppend,
-			onboardingLifecycleTransition,
-			onboardingInactiveStepRemoval,
-			onboardingPacketCreation,
-			organizationInvitationSetupStateLookup,
-			rawStore: store
-		},
-		supabase
-	};
-}
-
-/**
- * Provides the raw Supabase client and user info for org layout servers.
- * Org layouts need pre-auth data (org lookup, suspension check)
- * before building a full UseCaseContext. This keeps getApiContext/getSupabaseClient
- * behind the adapter boundary.
- */
-export function getLayoutClient(locals: App.Locals, _cookies: Cookies, _orgId: string) {
-	return getApiContext(locals);
-}
-
 /** Bind Identity's personal preferences to the admitted ordinary request client. */
 export function createRequestAccountPreferencesProvider(locals: App.Locals) {
-	const { supabase } = getApiContext(locals);
+	const { supabase } = getAdmittedRequestClient(locals);
 	return { supabase };
-}
-
-export async function buildRouteContext(event: RequestEvent): Promise<UseCaseContext> {
-	const { ctx } = await buildContextInternal(event);
-	return ctx;
-}
-
-/**
- * Build a UseCaseContext from layout/page server parameters.
- * Layout servers don't have a RequestEvent, so this accepts the raw pieces.
- * Audit is a no-op since layout loads are read-only data fetches.
- */
-export async function buildLayoutContext(
-	locals: App.Locals,
-	_cookies: Cookies,
-	orgId: string
-): Promise<UseCaseContext> {
-	const { supabase, userId } = getApiContext(locals);
-	const canonicalOrgId = validateUUID(orgId) ? orgId : await resolveOrganizationIdForRequest(supabase, orgId);
-
-	const store = createSupabaseDataStore(supabase);
-
-	const audit = { log() {} };
-
-	const { auth, scope } = await createRequestAuthorizationPorts({
-		locals,
-		supabase,
-		userId,
-		orgId: canonicalOrgId
-	});
-
-	const notifications = createRequestNotificationDelivery();
-	const storage = createSupabaseStorageAdapter(supabase);
-	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
-	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
-	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
-	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
-	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
-	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
-	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
-	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
-	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
-	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
-	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
-	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
-	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
-	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
-	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
-	const onboardingNoteAppend = createSupabaseOnboardingNoteAppendPort(supabase);
-	const onboardingLifecycleTransition = createSupabaseOnboardingLifecycleTransitionPort(supabase);
-	const onboardingInactiveStepRemoval = createSupabaseOnboardingInactiveStepRemovalPort(supabase);
-	const onboardingPacketCreation = createSupabaseOnboardingPacketCreationPort(supabase);
-	const organizationInvitationSetupStateLookup =
-		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
-	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
-		supabase,
-		authenticatedUserId: userId,
-		session: locals.session
-	});
-	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
-	return {
-		store: scopedStore,
-		auth,
-		scope,
-		audit,
-		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
-		organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
-		organizationRawExport: createSupabaseOrganizationRawExportReader(supabase),
-		organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
-
-		notifications,
-		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
-		feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
-
-		storage,
-		sensitiveActionAuthorizer,
-		criticalTasksReadModel,
-		criticalTasksSettingsWrite,
-		personnelRatingSchemeRoster,
-		personnelAwardAcknowledgement,
-		ratingSchemeDue,
-		personnelArtifactWrites,
-		signInRosterFileWrites,
-		personnelOrganizationExport,
-		signInRosterPersonnelLookup,
-		personnelTrainingRoster,
-		personnelCriticalTasksRoster,
-		personnelCalendarRoster,
-		personnelOnboardingRoster,
-		trainingOnboardingReferences,
-		onboardingCalendarMarkers,
-		onboardingReconciliation,
-		onboardingNoteAppend,
-		onboardingLifecycleTransition,
-		onboardingInactiveStepRemoval,
-		onboardingPacketCreation,
-		organizationInvitationSetupStateLookup,
-		rawStore: store
-	};
-}
-
-/**
- * Build a UseCaseContext using an already-fetched membership row.
- * Avoids re-querying organization_memberships when the layout already has the data.
- */
-export async function buildLayoutContextFromMembership(
-	locals: App.Locals,
-	_cookies: Cookies,
-	orgId: string,
-	membership: MembershipRow
-): Promise<UseCaseContext> {
-	if (!validateUUID(orgId)) {
-		throw error(400, 'Invalid organization ID');
-	}
-
-	const { supabase, userId } = getApiContext(locals);
-
-	const store = createSupabaseDataStore(supabase);
-
-	const audit = { log() {} };
-
-	cacheRequestMembership(locals, userId, orgId, membership);
-	const permCtx = createPermissionContextFromMembership(membership);
-	const auth = createIdentityAuthorization(permCtx, { userId }, orgId);
-	const scope = createSupabaseScopeEnforcementAdapter({
-		supabase,
-		orgId,
-		scopeSet: permCtx.scopeSet
-	});
-
-	const notifications = createRequestNotificationDelivery();
-	const storage = createSupabaseStorageAdapter(supabase);
-	const criticalTasksReadModel = createSupabaseCriticalTasksReadModelAdapter(supabase);
-	const criticalTasksSettingsWrite = createSupabaseCriticalTasksSettingsWritePort(supabase);
-	const personnelRatingSchemeRoster = createSupabasePersonnelRatingSchemeRosterPort(supabase, getAdminClient);
-	const personnelAwardAcknowledgement = createSupabasePersonnelAwardAcknowledgementPort(supabase);
-	const ratingSchemeDue = createSupabaseRatingSchemeDuePort(supabase);
-	const personnelArtifactWrites = createSupabasePersonnelArtifactWritePort(supabase, getAdminClient);
-	const signInRosterFileWrites = createSupabaseSignInRosterFileWritePort(supabase, getAdminClient);
-	const personnelOrganizationExport = createSupabasePersonnelOrganizationExportPort(getAdminClient);
-	const signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(getAdminClient);
-	const personnelTrainingRoster = createSupabasePersonnelTrainingRosterPort(getAdminClient);
-	const personnelCriticalTasksRoster = createSupabasePersonnelCriticalTasksRosterPort(getAdminClient);
-	const personnelCalendarRoster = createSupabasePersonnelCalendarRosterPort(getAdminClient);
-	const personnelOnboardingRoster = createSupabasePersonnelOnboardingRosterPort(getAdminClient);
-	const trainingOnboardingReferences = createSupabaseTrainingOnboardingReferencesPort(getAdminClient);
-	const onboardingCalendarMarkers = createSupabaseOnboardingCalendarMarkersPort(supabase);
-	const onboardingReconciliation = createSupabaseOnboardingReconciliationPort(supabase);
-	const onboardingNoteAppend = createSupabaseOnboardingNoteAppendPort(supabase);
-	const onboardingLifecycleTransition = createSupabaseOnboardingLifecycleTransitionPort(supabase);
-	const onboardingInactiveStepRemoval = createSupabaseOnboardingInactiveStepRemovalPort(supabase);
-	const onboardingPacketCreation = createSupabaseOnboardingPacketCreationPort(supabase);
-	const organizationInvitationSetupStateLookup =
-		createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
-	const sensitiveActionAuthorizer = createSupabaseSensitiveActionAuthorizer({
-		supabase,
-		authenticatedUserId: userId,
-		session: locals.session
-	});
-	const scopedStore = createScopedDataStore(store, policyScopeGroupIds(auth), defaultScopeRules);
-	return {
-		store: scopedStore,
-		auth,
-		scope,
-		audit,
-		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(supabase),
-		organizationSettings: createSupabaseOrganizationSettingsReader(supabase),
-		organizationRawExport: createSupabaseOrganizationRawExportReader(supabase),
-		organizationPolicyWrite: createSupabaseOrganizationPolicyWritePort(supabase),
-
-		notifications,
-		notificationSelf: { auth, audit, store: createSupabaseNotificationStore(supabase) },
-		feedbackExport: { listRows: (orgId) => listFeedbackExportRows(supabase, orgId) },
-
-		storage,
-		sensitiveActionAuthorizer,
-		criticalTasksReadModel,
-		criticalTasksSettingsWrite,
-		personnelRatingSchemeRoster,
-		personnelAwardAcknowledgement,
-		ratingSchemeDue,
-		personnelArtifactWrites,
-		signInRosterFileWrites,
-		personnelOrganizationExport,
-		signInRosterPersonnelLookup,
-		personnelTrainingRoster,
-		personnelCriticalTasksRoster,
-		personnelCalendarRoster,
-		personnelOnboardingRoster,
-		trainingOnboardingReferences,
-		onboardingCalendarMarkers,
-		onboardingReconciliation,
-		onboardingNoteAppend,
-		onboardingLifecycleTransition,
-		onboardingInactiveStepRemoval,
-		onboardingPacketCreation,
-		organizationInvitationSetupStateLookup,
-		rawStore: store
-	};
-}
-
-async function resolveOrganizationIdForRequest(
-	supabase: ReturnType<typeof getApiContext>['supabase'],
-	segment: string
-): Promise<string> {
-	if (validateUUID(segment)) {
-		return segment;
-	}
-
-	const identity = await resolveOrganizationRouteIdentity(supabase, segment);
-	if (!identity) {
-		throw error(404, 'Organization not found');
-	}
-
-	return identity.id;
 }
 
 export function createRequestAccountAnnouncementDismissals(locals: Pick<App.Locals, 'supabase'>, userId: string) {
@@ -730,16 +98,12 @@ async function withHttpStatusErrorBoundary<T>(operation: Promise<T>): Promise<T>
 	}
 }
 
-// ---------------------------------------------------------------------------
-// handle() — unified route wrapper
-// ---------------------------------------------------------------------------
+type PolicyRequest = Pick<AdmittedOrganizationRequest, 'auth' | 'audit'>;
 
-type RouteConfigAuthorization = RouteAuthorizationConfig;
-
-type RouteConfigBehavior<TInput, TOutput> = {
+type RouteBehavior<TInput, TOutput, TContext> = {
 	input?: z.ZodType<TInput>;
 	parseInput?: (event: RequestEvent) => TInput | Promise<TInput>;
-	fn: (ctx: UseCaseContext, input: TInput) => Promise<TOutput>;
+	fn: (context: TContext, input: TInput) => Promise<TOutput>;
 	formatOutput?: (result: TOutput) => Response;
 	audit?: {
 		action: string;
@@ -748,191 +112,153 @@ type RouteConfigBehavior<TInput, TOutput> = {
 	};
 };
 
-export type RouteConfig<TInput = void, TOutput = unknown> = RouteConfigAuthorization &
-	RouteConfigBehavior<TInput, TOutput>;
+type RouteOperationConfig<TInput, TOutput, TContext> = RouteAuthorizationConfig &
+	RouteBehavior<TInput, TOutput, TContext>;
 
-/**
- * Testable core of handle() — no HTTP/RequestEvent dependency.
- * Called by handle() after building context and parsing input from the request.
- */
-export async function handleUseCaseRequest<TInput, TOutput>(
-	config: RouteConfig<TInput, TOutput>,
-	ctx: UseCaseContext,
-	rawInput: unknown
+export type RouteConfig<TInput = void, TOutput = unknown, TContext = unknown> = RouteOperationConfig<
+	TInput,
+	TOutput,
+	TContext
+> & { context: RequestContextBuilder<TContext> };
+
+export async function handleUseCaseRequest<TInput, TOutput, TContext>(
+	config: RouteOperationConfig<TInput, TOutput, TContext>,
+	request: PolicyRequest,
+	rawInput: unknown,
+	selectContext: () => TContext
 ): Promise<TOutput> {
-	// 1. Permission check
-	await enforceRouteAuthorization(ctx, config as RouteConfig<unknown, unknown>);
-
-	// 2. Zod input validation
+	await enforceRouteAuthorization(request, config);
 	let input: TInput;
 	if (config.input) {
 		const result = config.input.safeParse(rawInput);
-		if (!result.success) {
-			fail(400, result.error.issues.map((i) => i.message).join('; '));
-		}
+		if (!result.success) fail(400, result.error.issues.map((issue) => issue.message).join('; '));
 		input = result.data;
 	} else {
 		input = rawInput as TInput;
 	}
-
-	// 3. Execute use case
-	const output = await config.fn(ctx, input);
-
-	// 4. Declarative audit
+	const output = await config.fn(selectContext(), input);
 	if (config.audit) {
-		ctx.audit.log({
+		request.audit.log({
 			action: config.audit.action,
 			resourceType: config.audit.resourceType,
 			resourceId: config.audit.resourceId?.(output)
 		});
 	}
-
 	return output;
 }
 
-// ---------------------------------------------------------------------------
-// loadWithContext() — page loader wrapper
-// ---------------------------------------------------------------------------
-
-type LoadConfig<T> = LoadAuthorizationConfig & {
-	fn: (ctx: UseCaseContext) => Promise<T>;
+type LoadOperationConfig<T, TContext> = LoadAuthorizationConfig & {
+	fn: (context: TContext) => Promise<T>;
 	defer?: boolean;
 };
+type LoadConfig<T, TContext> = LoadOperationConfig<T, TContext> & {
+	context: RequestContextBuilder<TContext>;
+};
 
-function enforceLoadPermission(ctx: UseCaseContext, config: LoadConfig<unknown>): void | Promise<void> {
-	return enforceLoadAuthorization(ctx, config);
-}
-
-/**
- * Testable core of loadWithContext() — no SvelteKit dependency.
- *
- * Without `defer`: checks permissions and awaits the data (blocks navigation).
- * With `defer: true`: starts the policy check immediately and returns data as an
- * unresolved promise for SvelteKit streaming. Denied access rejects that promise.
- */
-export function loadWithContextCore<T>(
-	ctx: UseCaseContext,
-	config: LoadConfig<T> & { defer: true }
+export function loadWithContextCore<T, TContext>(
+	request: PolicyRequest,
+	config: LoadOperationConfig<T, TContext> & { defer: true },
+	selectContext: () => TContext
 ): { data: Promise<T> };
-export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T>): Promise<T>;
-export function loadWithContextCore<T>(ctx: UseCaseContext, config: LoadConfig<T>): Promise<T> | { data: Promise<T> } {
-	if (config.defer) {
-		const permissionResult = enforceLoadPermission(ctx, config as LoadConfig<unknown>);
-		return {
-			data: withHttpStatusErrorBoundary(Promise.resolve(permissionResult).then(() => config.fn(ctx)))
-		};
-	}
-
-	return withHttpStatusErrorBoundary(
-		Promise.resolve(enforceLoadPermission(ctx, config as LoadConfig<unknown>)).then(() => config.fn(ctx))
+export function loadWithContextCore<T, TContext>(
+	request: PolicyRequest,
+	config: LoadOperationConfig<T, TContext>,
+	selectContext: () => TContext
+): Promise<T>;
+export function loadWithContextCore<T, TContext>(
+	request: PolicyRequest,
+	config: LoadOperationConfig<T, TContext>,
+	selectContext: () => TContext
+): Promise<T> | { data: Promise<T> } {
+	const data = withHttpStatusErrorBoundary(
+		Promise.resolve(enforceLoadAuthorization(request, config)).then(() => config.fn(selectContext()))
 	);
+	return config.defer ? { data } : data;
 }
 
-export function loadWithDeferredContext<T>(
-	context: Promise<UseCaseContext>,
-	config: LoadConfig<T> & { defer: true }
+export function loadWithDeferredContext<T, TContext, TRequest extends PolicyRequest>(
+	request: Promise<TRequest>,
+	config: LoadOperationConfig<T, TContext> & { defer: true },
+	selectContext: (request: TRequest) => TContext
 ): { data: Promise<T> } {
 	return {
-		data: withHttpErrorBoundary(context.then((ctx) => loadWithContextCore(ctx, config).data))
+		data: withHttpErrorBoundary(
+			request.then((admitted) => loadWithContextCore(admitted, config, () => selectContext(admitted)).data)
+		)
 	};
 }
 
-/**
- * Page loader wrapper with mandatory permission declaration.
- * Wraps buildLayoutContext() for use in +page.server.ts / +layout.server.ts load functions.
- *
- * Without `defer`: awaits data before returning (standard blocking load).
- * With `defer: true`: policy checks start immediately, data is returned as an
- * unresolved promise that SvelteKit streams, and denied access rejects that promise.
- * Pages with skeleton UIs should use this to allow instant navigation.
- */
-export async function loadWithContext<T>(
+export async function loadWithContext<T, TContext>(
 	locals: App.Locals,
 	cookies: Cookies,
 	orgId: string,
-	config: LoadConfig<T> & { defer: true }
+	config: LoadConfig<T, TContext> & { defer: true }
 ): Promise<{ data: Promise<T> }>;
-export async function loadWithContext<T>(
+export async function loadWithContext<T, TContext>(
 	locals: App.Locals,
 	cookies: Cookies,
 	orgId: string,
-	config: LoadConfig<T>
+	config: LoadConfig<T, TContext>
 ): Promise<T>;
-export async function loadWithContext<T>(
+export async function loadWithContext<T, TContext>(
 	locals: App.Locals,
-	cookies: Cookies,
+	_cookies: Cookies,
 	orgId: string,
-	config: LoadConfig<T>
+	config: LoadConfig<T, TContext>
 ): Promise<T | { data: Promise<T> }> {
-	const context = buildLayoutContext(locals, cookies, orgId);
-
-	if (config.defer) {
-		return loadWithDeferredContext(context, config as LoadConfig<T> & { defer: true });
-	}
-
+	const request = buildLayoutRequest(locals, orgId);
+	if (config.defer) return loadWithDeferredContext(request, { ...config, defer: true }, config.context);
 	return withHttpErrorBoundary(
-		context.then((ctx) => loadWithContextCore(ctx, config as LoadConfig<T> & { defer?: false | undefined }))
+		request.then((admitted) => loadWithContextCore(admitted, config, () => config.context(admitted)))
 	);
 }
 
-/**
- * Unified route handler — mandatory permission, policy authorization,
- * optional Zod validation, optional audit.
- */
-export function handle<TInput, TOutput>(config: RouteConfig<TInput, TOutput>): RequestHandler {
+export function handle<TInput, TOutput, TContext>(config: RouteConfig<TInput, TOutput, TContext>): RequestHandler {
 	return async (event) => {
 		try {
-			const ctx = await buildRouteContext(event);
-
+			const request = await buildRouteRequest(event);
 			let rawInput: unknown;
-			if (config.parseInput) {
-				rawInput = await config.parseInput(event);
-			} else if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
+			if (config.parseInput) rawInput = await config.parseInput(event);
+			else if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
 				try {
 					rawInput = await event.request.json();
 				} catch {
 					throw error(400, 'Invalid JSON in request body');
 				}
 			}
-
-			const result = await handleUseCaseRequest(config, ctx, rawInput);
-
-			if (config.formatOutput) {
-				return config.formatOutput(result);
-			}
-
-			return json(result);
+			const result = await handleUseCaseRequest(config, request, rawInput, () => config.context(request));
+			return config.formatOutput ? config.formatOutput(result) : json(result);
 		} catch (err) {
 			rethrowOrWrap(err);
 		}
 	};
 }
 
-// ---------------------------------------------------------------------------
-// entityHandlers() — derive CRUD handlers from entity metadata
-// ---------------------------------------------------------------------------
-
-export interface EntityHandlerHooks {
+export interface EntityHandlerHooks<TContext extends WritePorts> {
 	policyAction?: FeatureLanePolicyAction;
-	policyResourceForPersonnel?: (ctx: UseCaseContext, personnelId: string) => Promise<PolicyResource>;
-	policyResourceForRecord?: (ctx: UseCaseContext, recordId: string) => Promise<PolicyResource>;
-	beforeDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
-	afterDelete?: (ctx: UseCaseContext, id: string) => Promise<void>;
+	policyResourceForPersonnel?: (ctx: TContext, personnelId: string) => Promise<PolicyResource>;
+	policyResourceForRecord?: (ctx: TContext, recordId: string) => Promise<PolicyResource>;
+	beforeDelete?: (ctx: TContext, id: string) => Promise<void>;
+	afterDelete?: (ctx: TContext, id: string) => Promise<void>;
 }
 
-export interface EntityHandlersResult {
+export interface EntityHandlersResult<TContext extends WritePorts> {
 	POST?: RequestHandler;
 	PUT?: RequestHandler;
 	DELETE?: RequestHandler;
 	/** Exposed for testing — the RouteConfig objects backing each handler */
 	_configs: {
-		POST?: RouteConfig<Record<string, unknown>, unknown>;
-		PUT?: RouteConfig<Record<string, unknown>, unknown>;
-		DELETE?: RouteConfig<Record<string, unknown>, unknown>;
+		POST?: RouteConfig<Record<string, unknown>, unknown, TContext>;
+		PUT?: RouteConfig<Record<string, unknown>, unknown, TContext>;
+		DELETE?: RouteConfig<Record<string, unknown>, unknown, TContext>;
 	};
 }
 
-export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHooks): EntityHandlersResult {
+export function entityHandlers<TContext extends WritePorts>(
+	entity: EntityDefinition,
+	context: RequestContextBuilder<TContext>,
+	hooks?: EntityHandlerHooks<TContext>
+): EntityHandlersResult<TContext> {
 	const policyAction = hooks?.policyAction ?? entity.policyAction;
 	if (!policyAction) {
 		throw new Error(`entityHandlers: entity "${entity.table}" must define policyAction`);
@@ -944,18 +270,17 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 		policyAction,
 		policyResourceForPersonnel: hooks?.policyResourceForPersonnel,
 		policyResourceForRecord: hooks?.policyResourceForRecord,
-		beforeDelete: hooks?.beforeDelete
-			? async (ctx: UseCaseContext, id: string) => hooks.beforeDelete!(ctx, id)
-			: undefined,
-		afterDelete: hooks?.afterDelete ? async (ctx: UseCaseContext, id: string) => hooks.afterDelete!(ctx, id) : undefined
+		beforeDelete: hooks?.beforeDelete ? async (ctx: TContext, id: string) => hooks.beforeDelete!(ctx, id) : undefined,
+		afterDelete: hooks?.afterDelete ? async (ctx: TContext, id: string) => hooks.afterDelete!(ctx, id) : undefined
 	};
 
 	const useCases = createCrudUseCases(config);
 	const methods = new Set(entity.methods);
-	const result: EntityHandlersResult = { _configs: {} };
+	const result: EntityHandlersResult<TContext> = { _configs: {} };
 
 	if (methods.has('POST')) {
-		const postConfig: RouteConfig<Record<string, unknown>, unknown> = {
+		const postConfig: RouteConfig<Record<string, unknown>, unknown, TContext> = {
+			context,
 			mutation: true,
 			policyAction,
 			policyResource: { kind: 'unscoped' },
@@ -966,7 +291,8 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 	}
 
 	if (methods.has('PUT')) {
-		const putConfig: RouteConfig<Record<string, unknown>, unknown> = {
+		const putConfig: RouteConfig<Record<string, unknown>, unknown, TContext> = {
+			context,
 			mutation: true,
 			policyAction,
 			policyResource: { kind: 'unscoped' },
@@ -977,7 +303,8 @@ export function entityHandlers(entity: EntityDefinition, hooks?: EntityHandlerHo
 	}
 
 	if (methods.has('DELETE')) {
-		const deleteConfig: RouteConfig<Record<string, unknown>, unknown> = {
+		const deleteConfig: RouteConfig<Record<string, unknown>, unknown, TContext> = {
+			context,
 			mutation: true,
 			policyAction,
 			policyResource: { kind: 'unscoped' },

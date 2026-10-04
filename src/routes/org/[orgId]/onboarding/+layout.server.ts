@@ -1,3 +1,4 @@
+import { createRequestOnboardingWorkspaceContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import type { OnboardingWorkspaceRouteData } from '$features/onboarding/contracts';
 import type { LayoutServerLoad } from './$types';
@@ -14,6 +15,7 @@ async function streamOnboardingWorkspaceBootstrap(
 	options: OnboardingWorkspaceBootstrapOptions = {}
 ): Promise<OnboardingWorkspaceRouteData> {
 	const onboarding = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		context: createRequestOnboardingWorkspaceContext,
 		policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 		policyResource: { kind: 'unscoped' },
 		defer: true,

@@ -24,7 +24,7 @@ describe('GET /api/critical-tasks/reports/summary', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_getConfig, ctx, { asOf: '2026-05-23' })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_getConfig, ctx, { asOf: '2026-05-23' }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 		expect(ctx.auditPort.events).toEqual([
@@ -38,7 +38,7 @@ describe('GET /api/critical-tasks/reports/summary', () => {
 	it('returns an authorized readiness summary dashboard', async () => {
 		const ctx = createTestContext();
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, { asOf: '2026-05-23' });
+		const result = await handleUseCaseRequest(_getConfig, ctx, { asOf: '2026-05-23' }, () => ctx);
 
 		expect(result.kpis.overallReadiness).toMatchObject({
 			percent: 0,

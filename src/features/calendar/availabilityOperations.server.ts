@@ -2,12 +2,15 @@ import type { PolicyResource } from '$lib/access/policyEvaluator';
 import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPolicy,
-	type CalendarWritePorts
+	type CalendarAvailabilityPorts
 } from '$lib/server/core/useCases/calendarPolicy';
 import { AvailabilityEntryEntity } from './availabilityEntity.server';
 import { error } from '@sveltejs/kit';
 
-async function policyResourceForPersonnel(ctx: CalendarWritePorts, personnelId: string): Promise<PolicyResource> {
+async function policyResourceForPersonnel(
+	ctx: CalendarAvailabilityPorts,
+	personnelId: string
+): Promise<PolicyResource> {
 	if (!ctx.personnelCalendarRoster) throw new Error('Personnel Calendar roster provider unavailable');
 	const groups = await ctx.personnelCalendarRoster.findGroupIds(ctx.auth, [personnelId]);
 	if (!groups.has(personnelId)) {
@@ -20,7 +23,7 @@ async function policyResourceForPersonnel(ctx: CalendarWritePorts, personnelId: 
 	return groupId ? { kind: 'group', groupId } : { kind: 'organization' };
 }
 
-async function policyResourceForRecord(ctx: CalendarWritePorts, id: string): Promise<PolicyResource> {
+async function policyResourceForRecord(ctx: CalendarAvailabilityPorts, id: string): Promise<PolicyResource> {
 	const row = await (ctx.rawStore ?? ctx.store).findOne<Record<string, unknown>>(
 		AvailabilityEntryEntity.table,
 		ctx.auth.orgId,
@@ -36,7 +39,7 @@ async function policyResourceForRecord(ctx: CalendarWritePorts, id: string): Pro
 
 export const availabilityUpdateInput = AvailabilityEntryEntity.updateSchema.omit({ personnelId: true }).strict();
 
-export async function createAvailability(ctx: CalendarWritePorts, input: Record<string, unknown>) {
+export async function createAvailability(ctx: CalendarAvailabilityPorts, input: Record<string, unknown>) {
 	const parsed = AvailabilityEntryEntity.createSchema.safeParse(input);
 	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	const resource = await policyResourceForPersonnel(ctx, parsed.data.personnelId as string);
@@ -55,7 +58,7 @@ export async function createAvailability(ctx: CalendarWritePorts, input: Record<
 	return AvailabilityEntryEntity.fromDb(row);
 }
 
-export async function updateAvailability(ctx: CalendarWritePorts, input: Record<string, unknown>) {
+export async function updateAvailability(ctx: CalendarAvailabilityPorts, input: Record<string, unknown>) {
 	const parsed = availabilityUpdateInput.safeParse(input);
 	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	const id = parsed.data.id as string;
@@ -71,7 +74,7 @@ export async function updateAvailability(ctx: CalendarWritePorts, input: Record<
 	return AvailabilityEntryEntity.fromDb(row);
 }
 
-export async function deleteAvailability(ctx: CalendarWritePorts, id: string): Promise<void> {
+export async function deleteAvailability(ctx: CalendarAvailabilityPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, await policyResourceForRecord(ctx, id));
 	await ctx.store.delete(AvailabilityEntryEntity.table, ctx.auth.orgId, id);
 	ctx.audit.log({ action: 'availability.deleted', resourceType: 'availability', resourceId: id });

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { listPersonnelLeaderNotes } from '$features/personnel/index.server';
 import { createTestContext } from './inMemory';
 import { createSupabaseDataStore } from './supabaseDataStore';
-import { personnelLeaderNoteContext } from './httpAdapter';
+import { createPersonnelLeaderNoteDeliveryContext } from './requestContexts.server';
 
 function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
 	ctx.store.seed('personnel', [{ id: 'person-1', organization_id: ctx.auth.orgId, group_id: null }]);
@@ -48,7 +48,7 @@ describe('Personnel note cursor delivery', () => {
 				}
 				return read(table, orgId, filters, options);
 			});
-			const context = personnelLeaderNoteContext(ctx);
+			const context = createPersonnelLeaderNoteDeliveryContext(ctx);
 			const labels = context.contributorLabels;
 			context.contributorLabels = (ids) => {
 				expect(ids.length).toBeLessThanOrEqual(100);
@@ -88,7 +88,7 @@ describe('Personnel note cursor delivery', () => {
 				}
 			});
 			const ctx = createTestContext();
-			const notes = personnelLeaderNoteContext({ ...ctx, store: createSupabaseDataStore(client) });
+			const notes = createPersonnelLeaderNoteDeliveryContext({ ...ctx, store: createSupabaseDataStore(client) });
 			const rows = await notes.persistence.listPage('person-1', {
 				archived,
 				limit: 100,
@@ -138,7 +138,7 @@ describe('Personnel note cursor delivery', () => {
 			}
 			return read(table, orgId, filters, options);
 		});
-		await expect(listPersonnelLeaderNotes(personnelLeaderNoteContext(ctx), 'person-1')).rejects.toThrow(
+		await expect(listPersonnelLeaderNotes(createPersonnelLeaderNoteDeliveryContext(ctx), 'person-1')).rejects.toThrow(
 			'Read unavailable'
 		);
 	});

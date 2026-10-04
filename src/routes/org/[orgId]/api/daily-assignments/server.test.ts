@@ -26,7 +26,7 @@ describe('/api/daily-assignments', () => {
 			});
 
 			await expect(
-				handleUseCaseRequest(config, ctx, { date: '2026-05-01', assignmentTypeId: 'type-cq' })
+				handleUseCaseRequest(config, ctx, { date: '2026-05-01', assignmentTypeId: 'type-cq' }, () => ctx)
 			).rejects.toMatchObject({ status: 403 });
 			expect(ctx.auditPort.events).toEqual([
 				expect.objectContaining({
@@ -57,10 +57,10 @@ describe('/api/daily-assignments', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { date: '2026-05-01', assignmentTypeId: 'type-cq' })
+			handleUseCaseRequest(_postConfig, ctx, { date: '2026-05-01', assignmentTypeId: 'type-cq' }, () => ctx)
 		).resolves.toEqual({ success: true, removed: true });
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { date: '2026-05-02', assignmentTypeId: 'type-cq' })
+			handleUseCaseRequest(_deleteConfig, ctx, { date: '2026-05-02', assignmentTypeId: 'type-cq' }, () => ctx)
 		).resolves.toEqual({ success: true });
 
 		await expect(ctx.store.findMany('daily_assignments', ctx.auth.orgId)).resolves.toEqual([]);
@@ -90,11 +90,16 @@ describe('/api/daily-assignments', () => {
 		ctx.store.seed('daily_assignments', [existing]);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				date: '2026-05-01',
-				assignmentTypeId: 'type-cq',
-				assigneeId: '   '
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					date: '2026-05-01',
+					assignmentTypeId: 'type-cq',
+					assigneeId: '   '
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 400 });
 		expect(await ctx.store.findMany('daily_assignments', ctx.auth.orgId)).toEqual([existing]);
 		expect(ctx.auditPort.events).toEqual([]);

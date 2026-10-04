@@ -1,7 +1,7 @@
 import type { Cookies } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import type { RequestContextBuilder } from '$lib/server/adapters/requestContexts.server';
 import type { AppShellRouteData } from '$features/app-shell/contracts';
 
 export type SettingsSubrouteParentData = AppShellRouteData;
@@ -32,14 +32,15 @@ export interface SettingsLoadContext {
 	organization: SettingsPageOrganization;
 }
 
-export type SettingsSectionLoader<TSectionData extends Record<string, unknown>> = (
-	ctx: UseCaseContext,
+export type SettingsSectionLoader<TContext, TSectionData extends Record<string, unknown>> = (
+	ctx: TContext,
 	context: SettingsLoadContext
 ) => Promise<TSectionData> | TSectionData;
 
-export async function loadSettingsPage<TSectionData extends Record<string, unknown>>(
+export async function loadSettingsPage<TContext, TSectionData extends Record<string, unknown>>(
 	event: SettingsSubrouteLoadEvent,
-	loadSectionData: SettingsSectionLoader<TSectionData>
+	context: RequestContextBuilder<TContext>,
+	loadSectionData: SettingsSectionLoader<TContext, TSectionData>
 ): Promise<(CommonSettingsPageData & TSectionData) | Record<string, never>> {
 	const parentData = await event.parent();
 	if (parentData.shell.kind === 'suspended') return {};
@@ -48,6 +49,7 @@ export async function loadSettingsPage<TSectionData extends Record<string, unkno
 	const organization = buildSettingsPageOrganization(parentData);
 
 	return loadWithContext(event.locals, event.cookies, common.orgId, {
+		context,
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
 		policyResource: { kind: 'organization' },
 		fn: async (ctx) => ({

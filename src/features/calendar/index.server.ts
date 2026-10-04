@@ -55,3 +55,14 @@ export {
 	type CalendarRangeData
 } from './calendarQuery.server';
 export { fetchCalendarReportData } from './calendarReportQuery.server';
+
+export {
+	createCalendarWorkspaceHydration,
+	CALENDAR_WORKSPACE_LANE_KEY,
+	type CalendarWorkspaceRouteData,
+	type CalendarWorkspaceResult
+} from './server/calendarWorkspaceBootstrap';
+
+export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
+export { createInitialCalendarBufferedRange } from './utils/calendarRange';
+export { withCalendarTiming } from '$lib/server/utils/calendarTiming';

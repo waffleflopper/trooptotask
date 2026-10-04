@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import { createSupabaseScopeEnforcementAdapter } from './supabaseScopeEnforcement';
+import { createSupabaseScopeEnforcementAdapter } from './scopeEnforcement.server';
 
 class FakeQuery {
 	private filters: Array<[string, unknown]> = [];

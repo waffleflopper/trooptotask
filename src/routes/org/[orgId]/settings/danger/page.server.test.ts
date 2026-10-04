@@ -2,14 +2,18 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { createReadyAppShellRouteData } from '../../appShell.test-support';
 
 const {
-	buildRouteContextMock,
+	buildRouteRequestMock,
+	createSettingsSensitiveNotificationContextMock,
+	createRequestSensitiveActionContextMock,
 	createSupabaseOrganizationDestructionPortMock,
 	createSupabaseOrganizationOwnershipTransferPortMock,
 	deleteOrganizationUseCaseMock,
 	loadWithContextMock,
 	transferOrganizationOwnershipMock
 } = vi.hoisted(() => ({
-	buildRouteContextMock: vi.fn(),
+	buildRouteRequestMock: vi.fn(),
+	createSettingsSensitiveNotificationContextMock: vi.fn(),
+	createRequestSensitiveActionContextMock: vi.fn(),
 	createSupabaseOrganizationDestructionPortMock: vi.fn(),
 	createSupabaseOrganizationOwnershipTransferPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
@@ -24,8 +28,28 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 	return {
 		...actual,
-		buildRouteContext: buildRouteContextMock,
 		loadWithContext: loadWithContextMock
+	};
+});
+
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
+	);
+	return {
+		...actual,
+		buildRouteRequest: buildRouteRequestMock,
+		createRequestSensitiveActionContext: createRequestSensitiveActionContextMock
+	};
+});
+
+vi.mock('../settingsRequestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('../settingsRequestContexts.server')>(
+		'../settingsRequestContexts.server'
+	);
+	return {
+		...actual,
+		createSettingsSensitiveNotificationContext: createSettingsSensitiveNotificationContextMock
 	};
 });
 
@@ -73,7 +97,13 @@ function actionEvent(
 describe('danger settings page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		buildRouteContextMock.mockResolvedValue(authContext);
+		buildRouteRequestMock.mockResolvedValue(authContext);
+		createSettingsSensitiveNotificationContextMock.mockReturnValue(authContext);
+		createRequestSensitiveActionContextMock.mockReturnValue({
+			auth: authContext.auth,
+			audit: authContext.audit,
+			sensitiveActionAuthorizer: authContext.sensitiveActionAuthorizer
+		});
 		createSupabaseOrganizationDestructionPortMock.mockReturnValue({ kind: 'admin-port' });
 		createSupabaseOrganizationOwnershipTransferPortMock.mockReturnValue({ kind: 'transfer-port' });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
@@ -283,7 +313,7 @@ describe('danger settings page server', () => {
 			)
 		).rejects.toMatchObject({ status: 303, location: '/auth/login' });
 
-		expect(buildRouteContextMock).not.toHaveBeenCalled();
+		expect(buildRouteRequestMock).not.toHaveBeenCalled();
 		expect(transferOrganizationOwnershipMock).not.toHaveBeenCalled();
 		expect(deleteOrganizationUseCaseMock).not.toHaveBeenCalled();
 	});

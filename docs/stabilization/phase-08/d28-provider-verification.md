@@ -1,0 +1,60 @@
+# D28 provider and persistence verification preparation
+
+## Scope and prerequisites
+
+This intermediate deliverable references [#1376](https://github.com/waffleflopper/trooptotask/issues/1376). It adds reusable SDK persistence checks, reconciles the affected feature recipes and captures the unchanged provider/file baseline. It does not finish provider ownership, generic persistence removal, mapping or Storage repairs. Those remain under the same issue before D29 utilities and D30 can advance.
+
+The base is fetched `9b6f9b74d76af91895cf16b063b157c1927eb1c6`. Independent reconciliation verifies D24 #1517 at `ad63659a`, D25 #1521 at `fa623ed9`, and D27 #1527/#1528/#1530 through `49cacc66`. Each accepted head has the same tree as its merge, every merge is an ancestor of this base and applicable exact-head CI passed. Paginated all-state PR inspection found no D28 competitor. Preserve separately owned D29 work and its preparation #1529.
+
+D25's actual merge supplies local prerequisite credit. Its release record still lacks a later owner-reported hosted migration result. Hosted parity and external Vercel Git integration remain uninspected. This preparation changes no SQL, buckets, policies, product code or dependencies and requires no remote operation.
+
+## Coverage and findings
+
+The maintained [shared access recipe](../../../.agents/skills/verify-trooptotask/features/access-context.md) links the already-integrated [Personnel artifact](../../../.agents/skills/verify-trooptotask/features/personnel-artifacts.md) and [Sign-in Roster](../../../.agents/skills/verify-trooptotask/features/sign-in-rosters.md) journeys. No duplicate feature map is added. Counseling has no native download action; its direct Storage/SQL proof remains distinct.
+
+`persistenceContract.test.ts` uses the real Supabase SDK with a finite synthetic HTTP model. Literal mixed-tenant records establish Organization binding across `organization_id`, `org_id` and Organization primary keys, submitted-tenant override, foreign-row preservation, Personnel Group filtering before counted pagination, nonempty whole-roster scope, complete 1,001-row reads and rejection of a later failed page. These transport checks complement in-memory scope behavior, owner operations and real SQL; they do not establish RLS or latency improvement.
+
+Current providers already own the former global entity definitions and Personnel scope enforcement. Their old central paths are absent. Remaining structural owner ports still accept generic table/query vocabulary. Default entity mapping currently renames fields and applies defaults without removing unknown columns or validating non-null provider values. D28 must reconcile supported output and historical values at the relevant owner boundaries; this preparation introduces no global strict parser.
+
+Two finite real-SDK Storage controls fail against unchanged `supabaseStorage.ts`. A 200 deletion response `[]` resolves without confirming an existing object's removal. A 200 signing response `{}` returns `http://storage.invalid/storage/v1undefined`. The archive preserves the executable probe, observations and exit 1. These are controlled transport failures, not a real provider outage or native interaction. Roster Remove/delete and ordinary document/scan signed URLs are affected consumers. Group their repairs and affected proof in one Storage deliverable; no affected refactor earns passing credit from these failures.
+
+## Actual baseline and verification
+
+The tested application remains base `9b6f9b74`; the candidate additionally contains only the new checks and revised driving guidance. Owned Node 24.21.0 verification runs use candidate digest `7f769776e7ea3bddad82e6cfd0f516e7356490a3de81c0f3478603884f221233` and Chromium 152.0.7977.82. The first Node 26.8.2 launch compiled but failed during Vercel adaptation. Owned cleanup passed before relaunch on the required Node 24. That failed attempt remains visible.
+
+Focused checks pass six files and 72 tests on Node 24.21.0. The selected files cover the new SDK contract, existing scoped persistence and constraint mapping, provider-sized artifact delivery, owned Personnel scope enforcement and roster file-writer compensation. They are appropriate to this preparation; full final D28 consumer verification remains required after the cutover. The new source also passes focused ESLint and whitespace inspection.
+
+Four SQL suites pass 128 assertions on the newly created owned disposable project `t2t-verify-0bb77417e6c04690a7da3d84`, with API/DB ports `59834`/`63422` and legacy seed disabled. Exact commands, allocation and logs are preserved. They establish Personnel sensitive reads, counseling file scope, artifact Group scope and roster RLS. The current migration chain is replayed by the owned launcher. This is not populated-upgrade or hosted parity proof; this PR changes no database objects.
+
+The first native session uses origin `http://127.0.0.1:34637` and normal `rosterManager` sign-in. Training opens Sign-In Rosters. Native New Roster, title entry, Alpha selection and Generate & Print save one `D28 Private Scan Baseline` row with Able's exact saved snapshot and Alpha scope, and produce a captured 4,159-byte PDF containing that title and Person. Exact rows and snapshots survive cleanup. Subsequent native expansion times out; doctor reports `DEVTOOLS_UNAVAILABLE`. The scan lifecycle is not passed by that attempt. Owned disposal passes and removes its disposable provider and the UI-created row.
+
+A fresh retry at `http://127.0.0.1:40965` signs `rosterManager` in normally, expands the seeded Alpha roster and chooses its scan. The captured 3,205-byte PDF matches separate Storage size/hash readback. This is seeded-file access, not native upload. As `manager`, native Dashboard uploads on a dedicated helper-seeded Alpha Person save one document and one counseling PDF with exact matching source bytes. Document reload succeeds and Open is clicked. Counseling saves with October 4, 2026, then reload displays Error 500. Its cause remains unknown; counseling reload and downloaded document bytes are not passed. Original metadata-only seed paths do not establish file presence.
+
+Separate ordinary HTTP document download returns manager 200, Personnel operate 403, empty-scope 404 and foreign-Organization 404. An operator POST actually returns 200 and saves another document, correctly preserving the retained distinction between `operate` writes and `configure` sensitive reads. Its misleading `document-operate-upload-denied.json` filename is explained in the archive; neither it nor subsequent changed provider rows earns denial credit. The view-only write probe is blocked by doctor before dispatch. Native full-page screenshot returns INCONCLUSIVE and saves no image; final doctor reports `DEVTOOLS_UNAVAILABLE`. Owned disposal passes. Visible artifact deletion, exact absence and counseling reload remain unverified; disposal is not user-deletion proof. D28's affected cutover must diagnose/reverify the failed reload and complete its affected file journeys before acceptance.
+
+## Review and delivery gates
+
+The [baseline archive](d28-provider-baseline.tar.gz) contains 74 sanitized payloads and `inventory.json`. Archive SHA-256 is `f3b8e1e56afb1add983df9d1e33218d675a53eda696a4c944d8b927d118aedd8`. Three signed-URL token occurrences across two native navigation replies are redacted; the ordinary HTTP helper separately redacts its signed URL. Rows, statuses, byte hashes and PDF payloads remain unchanged. Re-extraction into fresh ignored `d28-expanded-review` space verifies the exact payload set and every expanded SHA-256. The archive has no successful screenshot capture. It preserves tested base/digest and actual failures. The recipe precision correction and packaging occur after final doctor and owned disposal and are not another live run.
+
+To inspect the run, extract into a new ignored directory and verify both the file set and inventory hashes:
+
+```bash
+mkdir -p .verification/evidence/verify-trooptotask/d28-review-copy
+tar -xzf docs/stabilization/phase-08/d28-provider-baseline.tar.gz \
+  -C .verification/evidence/verify-trooptotask/d28-review-copy
+python3 - <<'PY'
+import hashlib, json
+from pathlib import Path
+root = Path('.verification/evidence/verify-trooptotask/d28-review-copy')
+files = json.loads((root / 'inventory.json').read_text())['files']
+assert {p.name for p in root.iterdir()} == {f['filename'] for f in files} | {'inventory.json'}
+for f in files:
+    assert hashlib.sha256((root / f['filename']).read_bytes()).hexdigest() == f['sha256']
+PY
+```
+
+Independent reconciliation and source census are read-only. Scoped Comment Sicko review has no flags, suppressions or comments to delete. Source Standards review finds one recipe overclaim about counted roster pagination, corrected to separate Personnel counted pagination from whole-roster scope. Final independent Standards GO / Spec GO covers all six files and every expanded payload, including both PDFs, with no remaining actionable findings. This is source/artifact acceptance, not independent live execution. Final diff cleanup retains no unused scaffolding or narrative source comments.
+
+CodeRabbit CLI `review --base origin/main --uncommitted --agent` completes against base `9b6f9b74`, reviews all five text paths and reports zero findings. It explicitly excludes the one binary archive, which has separate complete expanded acceptance above. Subsequent edits record these outcomes only; test and recipe bytes remain unchanged. Local touched-file formatting, links, focused lint and whitespace pass. Full exact-head CI/build and completed clean hosted bots remain merge gates after publication.
+
+The verification PR may expose product failures truthfully while keeping #1376 open. It uses `Refs #1376`. Successive non-migration publication and merges are authorized after green current-head CI and completed bots without actionable feedback. Any migration-containing candidate stops before merge for Robert's manual operation. No other issue or phase is selected.

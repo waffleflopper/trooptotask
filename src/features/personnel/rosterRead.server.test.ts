@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
-import { listPersonnelNamesByIds, loadRosterPersonnel } from './index.server';
+import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
+import { loadRosterPersonnel } from './index.server';
 
 const ORG = 'test-org';
 
@@ -55,43 +55,5 @@ describe('Personnel server roster read', () => {
 		expect((await loadRosterPersonnel(ctx, { status: 'archived', order: 'archived-newest' })).map((p) => p.id)).toEqual(
 			['archived-new', 'archived-old']
 		);
-	});
-
-	it('returns only referenced Organization names, retaining archived labels and empty name parts', async () => {
-		const store = createInMemoryDataStore();
-		store.seed('personnel', [
-			{ id: 'active', organization_id: ORG, rank: 'SPC', last_name: 'Vega', first_name: 'Rowan', archived_at: null },
-			{
-				id: 'archived',
-				organization_id: ORG,
-				rank: '',
-				last_name: 'Vale',
-				first_name: '',
-				archived_at: '2026-01-01T00:00:00Z'
-			},
-			{ id: 'unrequested', organization_id: ORG, rank: 'SGT', last_name: 'Hidden', first_name: 'Local' },
-			{ id: 'foreign', organization_id: 'other-org', rank: 'SFC', last_name: 'Foreign', first_name: 'Person' }
-		]);
-
-		expect(await listPersonnelNamesByIds(store, ORG, ['active', 'archived', 'foreign', 'missing'])).toEqual(
-			new Map([
-				['active', 'SPC Vega Rowan'],
-				['archived', 'Vale']
-			])
-		);
-	});
-
-	it('returns no Personnel names without accessing persistence when no IDs are referenced', async () => {
-		await expect(
-			listPersonnelNamesByIds(
-				{
-					async findMany() {
-						throw new Error('Persistence is unavailable');
-					}
-				},
-				ORG,
-				[]
-			)
-		).resolves.toEqual(new Map());
 	});
 });

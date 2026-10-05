@@ -14,6 +14,7 @@ A member records follow-ups and leader notes, uploads counseling PDFs and other 
 - `artifact-sensitive-scope`: distinguish configure reads from operate writes, authorized Alpha from Bravo/unassigned/empty scope, and the requested Organization from a foreign Organization.
 - `artifact-export`: preserve raw Organization export rows separately from readable workbook projections and the existing narrower single-Person workbook.
 - `artifact-retention`: delete only expired archived artifacts, remove files for deleted rows, preserve active/recent/foreign sentinels and report truthful counts and failures.
+- `artifact-storage-responses`: document signing rejects malformed replies; admitted cleanup preserves already-missing objects while rejecting malformed or unrelated deletion acknowledgments and keeping known partial effects explicit.
 - `artifact-switching`: a Person or Organization change and late responses cannot carry the previous record's draft, saved items or file access into the next record.
 
 ## How to get to it (user POV)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { selectRosterContext } from '../rosterTestContexts';
+import { selectRosterUploadContext } from '../rosterTestContexts';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
 import { _deleteConfig } from './+server';
@@ -88,7 +88,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		};
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
 		).rejects.toMatchObject({ status: 403 });
 		await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toMatchObject({
 			signed_file_path: SIGNED_SCAN_PATH
@@ -104,7 +104,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		]);
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'foreign-roster' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'foreign-roster' }, () => selectRosterUploadContext(ctx))
 		).rejects.toMatchObject({ status: 404, message: 'Roster not found' });
 		await expect(
 			ctx.rawStore.findOne('sign_in_rosters', 'foreign-org', { id: 'foreign-roster' })
@@ -127,7 +127,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		};
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
 		).rejects.toThrow('storage cleanup failed');
 
 		expect(deleteCalls).toEqual([]);
@@ -156,7 +156,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		};
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
 		).rejects.toThrow('delete failed');
 
 		expect(removeCalls).toEqual([[SIGNED_SCAN_PATH]]);
@@ -165,6 +165,11 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 			ctx.store.findOne<{ signed_file_path: string | null }>('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })
 		).resolves.toMatchObject({ signed_file_path: SIGNED_SCAN_PATH });
 		expect(ctx.auditPort.events).toEqual([]);
+		ctx.store.delete = deleteRow;
+		await expect(
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
+		).resolves.toEqual({ success: true });
+		await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toBeNull();
 	});
 
 	it('deletes the DB row, removes the stored scan, and logs audit when deletion succeeds', async () => {
@@ -172,7 +177,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, SIGNED_SCAN_PATH, new File([PDF_BYTES], 'signed-scan.pdf'));
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
 		).resolves.toEqual({
 			success: true
 		});
@@ -193,7 +198,7 @@ describe('/api/sign-in-rosters/[id] route config', () => {
 		const ctx = createScopedRosterContext();
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' }, () => selectRosterUploadContext(ctx))
 		).rejects.toMatchObject({
 			status: 404,
 			message: 'Roster not found'

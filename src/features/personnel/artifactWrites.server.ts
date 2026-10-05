@@ -158,7 +158,8 @@ export function createSupabasePersonnelArtifactWritePort(
 					const bucket = artifactFileTarget(kind, actor.orgId, personnelId, path);
 					const { data, error } = await admin.storage.from(bucket).remove([path]);
 					if (error) throw new Error(`Storage remove failed: ${error.message}`);
-					if (data?.length !== 1 || data[0].name !== path) throw new Error('Storage removal was not acknowledged');
+					if (!Array.isArray(data) || data.length !== 1 || data[0]?.name !== path)
+						throw new Error('Storage removal was not acknowledged');
 				}
 			};
 			return writer;

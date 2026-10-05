@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
+import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import { createSupabasePersonnelRetentionSource } from './personnelRetention.server';
 
 const ORG = 'd1204000-0000-4000-8000-000000000001';
@@ -51,6 +52,8 @@ function fixture() {
 		files: new Map<string, number[]>(),
 		rpcInputs: [] as DeleteInput[],
 		readFailure: null as null | ((table: Table, stage: ReadStage, ids: string[] | null, offset: number) => boolean),
+		storageFailure: null as null | ((bucket: string, paths: string[]) => boolean),
+		storageResponse: null as null | ((bucket: string, removed: string[]) => unknown),
 		rpcFailure: false,
 		countOverride: undefined as unknown,
 		beforeDelete: () => {}
@@ -104,6 +107,18 @@ function fixture() {
 				const resource = url.pathname.split('/').at(-1);
 				// Exercise the actual regression boundary rather than pinning query calls.
 				if (url.href.length > 8192) return new Response('URI too long', { status: 414 });
+				if (url.pathname.startsWith('/storage/v1/object/')) {
+					if (init?.method !== 'DELETE' || ![DOCUMENT_BUCKET, COUNSELING_BUCKET].includes(resource ?? ''))
+						throw new Error('Unexpected synthetic Storage request');
+					const bucket = resource!;
+					const { prefixes } = JSON.parse(String(init.body)) as { prefixes: string[] };
+					if (prefixes.length > 1000)
+						return Response.json({ message: 'Storage removal accepts at most 1000 paths' }, { status: 400 });
+					if (state.storageFailure?.(bucket, prefixes))
+						return Response.json({ message: 'Later Storage batch unavailable' }, { status: 503 });
+					const removed = prefixes.filter((path) => state.files.delete(`${bucket}:${path}`));
+					return Response.json(state.storageResponse?.(bucket, removed) ?? removed.map((name) => ({ name })));
+				}
 				if (resource === 'delete_expired_personnel' && init?.method === 'POST') {
 					const args = JSON.parse(String(init.body)) as DeleteInput;
 					state.rpcInputs.push(args);
@@ -158,10 +173,9 @@ function fixture() {
 			}
 		}
 	});
+	const adapter = createSupabaseStorageAdapter(client);
 	const storage = {
-		remove: vi.fn(async (bucket: string, paths: string[]) => {
-			for (const path of paths) state.files.delete(`${bucket}:${path}`);
-		})
+		remove: vi.fn((bucket: string, paths: string[]) => adapter.remove(bucket, paths))
 	};
 	return { state, storage, addFile, source: createSupabasePersonnelRetentionSource(client, storage) };
 }
@@ -226,6 +240,70 @@ describe('Personnel scheduled parent retention', () => {
 		// Splitting mutations into independently committed cohorts breaks batch rollback.
 		expect(state.rpcInputs).toHaveLength(1);
 		expect(state.rpcInputs[0].p_candidate_ids).toHaveLength(1001);
+	});
+
+	it.each(['some', 'all'] as const)(
+		'retains delete-if-present cleanup when %s expired files are already absent',
+		async (missing) => {
+			const { source, state } = fixture();
+			for (const [table, bucket] of [
+				['personnel_documents', DOCUMENT_BUCKET],
+				['counseling_records', COUNSELING_BUCKET]
+			] as const) {
+				for (const suffix of missing === 'all' ? ['active-first', 'recent-first', 'active-second'] : ['active-first'])
+					state.files.delete(`${bucket}:${ORG}/${table}-${suffix}.pdf`);
+			}
+			const before = snapshot(state);
+
+			await expect(source.deleteExpired(ORG, CUTOFF)).resolves.toBe(2);
+
+			expect(state.rows.personnel).toEqual(before.rows.personnel.slice(2));
+			expect([...state.files.keys()].sort()).toEqual(retainedFileKeys());
+			for (const [key, bytes] of state.files) expect(bytes).toEqual(before.files.get(key));
+		}
+	);
+
+	it('rejects a malformed SDK acknowledgment without claiming rollback of parent or file effects', async () => {
+		const { source, state } = fixture();
+		const before = snapshot(state);
+		state.storageResponse = (bucket, removed) =>
+			bucket === DOCUMENT_BUCKET ? { deleted: removed } : removed.map((name) => ({ name }));
+
+		await expect(source.deleteExpired(ORG, CUTOFF)).rejects.toThrow('Invalid deletion response');
+
+		expect(state.rows.personnel).toEqual(before.rows.personnel.slice(2));
+		expect([...state.files.keys()].sort()).toEqual(retainedFileKeys());
+		for (const [key, bytes] of state.files) expect(bytes).toEqual(before.files.get(key));
+		const after = snapshot(state);
+		await expect(source.deleteExpired(ORG, CUTOFF)).resolves.toBe(0);
+		expect(snapshot(state)).toEqual(after);
+	});
+
+	it('preserves earlier removals and orphaned files after a later SDK batch fails', async () => {
+		const { source, state, addFile } = fixture();
+		for (let index = 0; index < 1001; index++)
+			addFile('personnel_documents', `dense-${String(index).padStart(4, '0')}`, 1, null);
+		const before = snapshot(state);
+		let documentBatches = 0;
+		state.storageFailure = (bucket) => bucket === DOCUMENT_BUCKET && ++documentBatches === 2;
+
+		await expect(source.deleteExpired(ORG, CUTOFF)).rejects.toThrow('Later Storage batch unavailable');
+
+		expect(state.rows.personnel).toEqual(before.rows.personnel.slice(2));
+		for (const table of ['personnel_documents', 'counseling_records'] as const)
+			expect(state.rows[table]).toEqual(
+				before.rows[table].filter((row) => row.personnel_id !== personId(1) && row.personnel_id !== personId(2))
+			);
+		expect(state.files.has(`${DOCUMENT_BUCKET}:${ORG}/dense-0000.pdf`)).toBe(false);
+		expect(state.files.get(`${DOCUMENT_BUCKET}:${ORG}/dense-1000.pdf`)).toEqual([1, 2, 1]);
+		expect([...state.files.keys()].filter((key) => key.startsWith(`${COUNSELING_BUCKET}:`)).sort()).toEqual(
+			retainedFileKeys().filter((key) => key.startsWith(`${COUNSELING_BUCKET}:`))
+		);
+		for (const key of retainedFileKeys()) expect(state.files.get(key)).toEqual(before.files.get(key));
+		for (const [key, bytes] of state.files) expect(bytes).toEqual(before.files.get(key));
+		const after = snapshot(state);
+		await expect(source.deleteExpired(ORG, CUTOFF)).resolves.toBe(0);
+		expect(snapshot(state)).toEqual(after);
 	});
 
 	it('removes only confirmed absent parents’ files when another candidate is restored before deletion', async () => {

@@ -28,6 +28,8 @@ For stabilization work, follow the [stabilization workflow](docs/agents/stabiliz
 
 ## Task-specific guidance
 
+When a project specifies its own verification toolkit or browser workflow in AGENTS.md or an invoked skill, follow that workflow. T3 browser preferences apply only when the project has not specified one.
+
 For stabilization app verification, use the repository's `npm run verify:app` environment, native browser controls and documented verify-trooptotask helpers. Use an integrated browser only when Robert explicitly requests it. The communication app or harness does not change this default; tool availability or a failed call does not authorize switching browsers.
 
 Open the relevant sections when the task needs them; links are a reading map, not a mandatory reading sequence.

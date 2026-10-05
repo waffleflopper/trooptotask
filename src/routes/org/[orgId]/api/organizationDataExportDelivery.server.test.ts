@@ -1,3 +1,4 @@
+import { createSupabaseSignInRosterExportReader } from '$features/sign-in-rosters/index.server';
 import { createSupabaseDeletionRequestStore } from '$features/deletion-requests/index.server';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { describe, expect, it } from 'vitest';
@@ -57,6 +58,7 @@ describe('organization export inventory', () => {
 				{
 					...ctx,
 					rawStore: store,
+					signInRosterExport: { listRows: () => store.findMany('sign_in_rosters', 'org-1') },
 					organizationRawExport: { listRows: (orgId, table) => store.findMany(table, orgId) },
 					personnelOrganizationExport: { listRows: (actor, table) => store.findMany(table, actor.orgId) },
 					notificationSelf: {
@@ -782,6 +784,7 @@ describe('retained Organization export projection', () => {
 				{
 					auth: actor,
 					rawStore: store,
+					signInRosterExport: createSupabaseSignInRosterExportReader(client, actor.orgId),
 					personnelOrganizationExport: createSupabasePersonnelOrganizationExportPort(() => adminClient),
 					organizationRawExport: createSupabaseOrganizationRawExportReader(client),
 					notificationSelf: { auth: actor, audit: { log() {} }, store: createSupabaseNotificationStore(client) },

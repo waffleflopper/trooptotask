@@ -15,13 +15,14 @@ import {
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 import { loadRanksSettings } from '../settingsRanks.server';
+import { createSettingsRanksContext } from '../settingsRequestContexts.server';
 import { listTrainingRankApplicabilityReferences } from '$features/training/index.server';
 
 const PG_INTEGER_MIN = -2_147_483_648;
 const PG_INTEGER_MAX = 2_147_483_647;
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, createRequestDataContext, async (ctx) => ({
+	loadSettingsPage(event, createSettingsRanksContext, async (ctx) => ({
 		ranksSettings: await loadRanksSettings(ctx)
 	}));
 
@@ -139,14 +140,15 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const code = getStringFormValue(formData, 'code');
 		try {
-			const ctx = createRequestDataContext(await buildRouteRequest(event));
+			const ctx = createSettingsRanksContext(await buildRouteRequest(event));
 			await removeOrganizationRankCatalogEntry(
 				{
 					...ctx,
 					rankCatalogAdministration: createSupabaseRankCatalogAdministrationPort()
 				},
 				{ code },
-				() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId)
+				() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId),
+				ctx.readSignInRosterRankReferences
 			);
 			return { success: true, code };
 		} catch (error) {

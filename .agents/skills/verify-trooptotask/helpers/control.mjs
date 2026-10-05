@@ -1324,6 +1324,7 @@ async function main() {
 				'overlap',
 				'bulk-501',
 				'training-pages',
+				'roster-pages',
 				'personnel-lifecycle',
 				'personnel-artifact-context',
 				'personnel-retention',
@@ -1873,6 +1874,33 @@ async function main() {
 					slug: `map-duplicate-${tag}`
 				}
 			];
+		} else if (kind === 'roster-pages') {
+			table = 'sign_in_rosters';
+			records = Array.from({ length: 1001 }, (_, index) => ({
+				id: randomUUID(),
+				organization_id: org('orgA'),
+				title: `MapRoster${tag}${String(index).padStart(4, '0')}`,
+				roster_date: null,
+				blank_date: true,
+				separate_by_group: false,
+				sort_by: 'rank',
+				personnel_ids: [fixture.ids.personA],
+				scope_group_ids: [fixture.ids.groupA],
+				personnel_snapshot: [
+					{
+						id: fixture.ids.personA,
+						rank: 'VFY-ACTIVE-A',
+						lastName: 'Historical',
+						firstName: 'Synthetic',
+						group: 'Former Alpha',
+						retainedMarker: index
+					}
+				],
+				filter_config: { ranks: ['VFY-ACTIVE-A'], groups: ['Former Alpha'], retainedMarker: tag },
+				signed_file_path: null,
+				created_by: fixture.actors.rosterManager.id,
+				created_at: '2026-01-02T03:04:05.123456Z'
+			}));
 		} else if (kind === 'training-pages') {
 			table = 'personnel';
 			records = Array.from({ length: 26 }, (_, index) => ({
@@ -1914,7 +1942,10 @@ async function main() {
 		}
 		ownedState.seeded.push({ kind, table, ids: records.map((record) => record.id), tag });
 		await save(ownedState);
-		checked(await client.from(table).insert(records));
+		if (kind === 'roster-pages') {
+			for (let offset = 0; offset < records.length; offset += 100)
+				checked(await client.from(table).insert(records.slice(offset, offset + 100)));
+		} else checked(await client.from(table).insert(records));
 		note({ kind, tag, count: records.length, firstId: records[0].id });
 		return;
 	}

@@ -65,6 +65,8 @@ Use a held failing provider response or focused deferred component checks for la
 
 ## Gotchas
 
+- Use `$V seed roster-pages` for 1,001 saved A roster rows when roster persistence or its backup reader changes. Preserve the exact preceding `$V rows sign_in_rosters orgA` readback and compare every seeded ID and raw field in JSON and the `Raw - Sign-in Rosters` worksheet, including unknown nested marker fields, null dates and timestamp precision. Check the B roster remains absent. Finish all comparisons that need temporary seeds across this worker before running `clean-seeds`. It removes every journaled seed row, including other cohorts in the same worker; this synthetic setup is separate from native creation and export admission.
+
 - JSON and Excel are POST downloads. Native Blob capture proves what the member downloaded; an authenticated fetch returning 200 alone does not.
 - The current artifact captures the export row while it is processing. After download, provider history can show that same row completed. Do not require the immutable artifact to predict a later lifecycle update or its own later Audit event.
 - Inventory, source rows, readable projections, and lifecycle effects are distinct observations. An empty or successful workbook cannot prove complete source retrieval.

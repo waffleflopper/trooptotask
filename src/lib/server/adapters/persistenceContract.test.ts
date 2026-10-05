@@ -140,23 +140,6 @@ describe('Request persistence contracts through the real provider SDK', () => {
 		expect(await empty.findManyWithCount('personnel', 'org-a')).toEqual({ data: [], count: 0 });
 	});
 
-	it('admits only nonempty saved roster scopes wholly inside the Group grant', async () => {
-		const run = provider('sign_in_rosters', [
-			{ id: 'alpha', organization_id: 'org-a', scope_group_ids: ['alpha'] },
-			{ id: 'mixed', organization_id: 'org-a', scope_group_ids: ['alpha', 'bravo'] },
-			{ id: 'unassigned', organization_id: 'org-a', scope_group_ids: [] },
-			{ id: 'foreign', organization_id: 'org-b', scope_group_ids: ['alpha'] }
-		]);
-		const rules = new Map([
-			['sign_in_rosters', { type: 'group-array' as const, groupColumn: 'scope_group_ids', requireNonEmpty: true }]
-		]);
-		const scoped = createScopedDataStore(run.store, { kind: 'groups', groupIds: ['alpha'] }, rules);
-		expect(await scoped.findMany('sign_in_rosters', 'org-a')).toEqual([
-			{ id: 'alpha', organization_id: 'org-a', scope_group_ids: ['alpha'] }
-		]);
-		expect(await scoped.findOne('sign_in_rosters', 'org-a', { id: 'mixed' })).toBeNull();
-	});
-
 	it('returns complete provider-sized history and its count', async () => {
 		const run = provider(
 			'personnel',

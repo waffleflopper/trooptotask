@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createWritePortsContext } from './criticalTaskLibrary.test-support';
+import { createWritePortsContext } from './criticalTaskLibrary.test-support.server';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
 

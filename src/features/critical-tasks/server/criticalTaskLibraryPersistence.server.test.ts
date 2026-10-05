@@ -3,7 +3,7 @@ import { setImmediate } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseCriticalTaskLibraryPersistence } from './criticalTaskLibraryPersistence.server';
 import { importIctTasksBatch } from './ictTasksBatch.server';
-import { createWritePortsContext } from './criticalTaskLibrary.test-support';
+import { createWritePortsContext } from './criticalTaskLibrary.test-support.server';
 
 type Row = Record<string, unknown>;
 
@@ -213,7 +213,7 @@ describe('owned Critical Tasks library provider', () => {
 	});
 
 	it('completes 1001 tasks without admitting a foreign or archived tail', async () => {
-		const rows = Array.from({ length: 1001 }, (_, index) => ({
+		const rows: Row[] = Array.from({ length: 1001 }, (_, index) => ({
 			...saved,
 			id: `task-${index}`,
 			task_code: `RESP-${index}`,

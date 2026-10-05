@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from './criticalTaskLibrary.test-support';
+import { createTestContext } from './criticalTaskLibrary.test-support.server';
 import { fetchCriticalTasksBootstrap } from './criticalTasksWorkspaceQuery.server';
 
 describe('criticalTasksWorkspaceQuery', () => {

@@ -15,7 +15,6 @@ import {
 	type LoadAuthorizationConfig,
 	type RouteAuthorizationConfig
 } from '$lib/access/index.server';
-import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { getAdminClient } from '$lib/server/supabase';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';

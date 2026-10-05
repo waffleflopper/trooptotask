@@ -5,7 +5,7 @@ import {
 	preparePersonnelIctCompletionDeletion
 } from './personnelIctCompletionOperations.server';
 import type { PersonnelIctCompletionWriteContext } from './personnelIctCompletionPorts.server';
-import { createTestContext } from './criticalTaskLibrary.test-support';
+import { createTestContext } from './criticalTaskLibrary.test-support.server';
 
 function completionContext(ctx: ReturnType<typeof createTestContext>): PersonnelIctCompletionWriteContext {
 	return {

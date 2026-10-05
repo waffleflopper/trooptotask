@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import ExcelJS from 'exceljs';
-import { createTestContext } from './criticalTaskLibrary.test-support';
+import { createTestContext } from './criticalTaskLibrary.test-support.server';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils/ictWorkbookExport';
 import {

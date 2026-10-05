@@ -2,7 +2,7 @@ import { createSupabaseCriticalTaskLibraryPersistence } from './criticalTaskLibr
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { describe, expect, it, vi } from 'vitest';
-import { createTestContext } from './criticalTaskLibrary.test-support';
+import { createTestContext } from './criticalTaskLibrary.test-support.server';
 import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery.server';
 
 describe('fetchCriticalTasksPersonnelHistory', () => {

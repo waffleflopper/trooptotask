@@ -131,23 +131,22 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 	it('hydrates active task definitions by default and archived definitions when requested', async () => {
 		const activeTask = {
 			id: 'task-active',
-			organization_id: '11111111-1111-1111-1111-111111111111',
-			task_code: 'A-001',
+			taskCode: 'A-001',
 			title: 'Active Task',
 			description: null,
 			category: null,
 			mos: [],
-			expiration_months: null,
-			sort_order: 0,
-			archived_at: null,
-			created_at: '2026-01-01T00:00:00.000Z'
+			expirationMonths: null,
+			sortOrder: 0,
+			archivedAt: null,
+			createdAt: '2026-01-01T00:00:00.000Z'
 		};
 		const archivedTask = {
 			...activeTask,
 			id: 'task-archived',
-			task_code: 'A-002',
+			taskCode: 'A-002',
 			title: 'Archived Task',
-			archived_at: '2026-02-01T00:00:00.000Z'
+			archivedAt: '2026-02-01T00:00:00.000Z'
 		};
 		listCatalogMock.mockImplementation((options?: { includeArchived?: boolean }) =>
 			Promise.resolve(options?.includeArchived ? [activeTask, archivedTask] : [activeTask])

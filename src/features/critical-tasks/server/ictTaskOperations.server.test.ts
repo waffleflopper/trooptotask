@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createIctTask, updateIctTask } from './ictTaskOperations.server';
-import { createWritePortsContext } from './criticalTaskLibrary.test-support';
+import { createWritePortsContext } from './criticalTaskLibrary.test-support.server';
 
 describe('owned task library operations', () => {
 	it('creates defaults, ignores readonly/unknown input and audits the persisted task', async () => {

@@ -5,12 +5,16 @@
 	import type { ComponentProps } from 'svelte';
 	import type { WithoutChildrenOrChild } from '$lib/utils.js';
 
+	const uid = $props.id();
+
 	let {
 		ref = $bindable(null),
+		id = uid,
 		class: className,
 		sideOffset = 0,
 		side = 'top',
 		children,
+		child: customChild,
 		arrowClasses,
 		portalProps,
 		...restProps
@@ -23,6 +27,7 @@
 <TooltipPortal {...portalProps}>
 	<TooltipPrimitive.Content
 		bind:ref
+		{id}
 		data-slot="tooltip-content"
 		{sideOffset}
 		{side}
@@ -32,21 +37,31 @@
 		)}
 		{...restProps}
 	>
-		{@render children?.()}
-		<TooltipPrimitive.Arrow>
-			{#snippet child({ props })}
-				<div
-					class={cn(
-						'size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground z-50',
-						'data-[side=top]:translate-x-1/2 data-[side=top]:translate-y-[calc(-50%+2px)]',
-						'data-[side=bottom]:-translate-x-1/2 data-[side=bottom]:-translate-y-[calc(-50%+1px)]',
-						'data-[side=right]:translate-x-[calc(50%+2px)] data-[side=right]:translate-y-1/2',
-						'data-[side=left]:-translate-y-[calc(50%-3px)]',
-						arrowClasses
-					)}
-					{...props}
-				></div>
-			{/snippet}
-		</TooltipPrimitive.Arrow>
+		{#snippet child({ props, wrapperProps, open })}
+			{#if customChild}
+				{@render customChild({ props: { ...props, id, role: 'tooltip' }, wrapperProps, open })}
+			{:else}
+				<div {...wrapperProps}>
+					<div {...props} {id} role="tooltip">
+						{@render children?.()}
+						<TooltipPrimitive.Arrow>
+							{#snippet child({ props })}
+								<div
+									class={cn(
+										'size-2.5 translate-y-[calc(-50%-2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground z-50',
+										'data-[side=top]:translate-x-1/2 data-[side=top]:translate-y-[calc(-50%+2px)]',
+										'data-[side=bottom]:-translate-x-1/2 data-[side=bottom]:-translate-y-[calc(-50%+1px)]',
+										'data-[side=right]:translate-x-[calc(50%+2px)] data-[side=right]:translate-y-1/2',
+										'data-[side=left]:-translate-y-[calc(50%-3px)]',
+										arrowClasses
+									)}
+									{...props}
+								></div>
+							{/snippet}
+						</TooltipPrimitive.Arrow>
+					</div>
+				</div>
+			{/if}
+		{/snippet}
 	</TooltipPrimitive.Content>
 </TooltipPortal>

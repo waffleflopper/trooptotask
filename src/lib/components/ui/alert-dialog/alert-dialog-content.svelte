@@ -2,7 +2,7 @@
 	import { AlertDialog as AlertDialogPrimitive } from 'bits-ui';
 	import type { ComponentProps, Snippet } from 'svelte';
 	import AlertDialogPortal from './alert-dialog-portal.svelte';
-	import * as AlertDialog from './index.js';
+	import AlertDialogOverlay from './alert-dialog-overlay.svelte';
 	import { cn, type WithoutChildrenOrChild } from '$lib/utils.js';
 
 	let {
@@ -18,7 +18,7 @@
 </script>
 
 <AlertDialogPortal {...portalProps}>
-	<AlertDialog.Overlay />
+	<AlertDialogOverlay />
 	<AlertDialogPrimitive.Content {...restProps}>
 		{#snippet child({ props })}
 			<div

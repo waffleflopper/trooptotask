@@ -1,23 +1,16 @@
-interface DataExportWriteStore {
-	insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T>;
-	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
-}
+import type { DataExportLifecycleWriter } from './dataExportPersistence.server';
 
 export interface DataExportLifecyclePorts {
-	auth: { readonly orgId: string };
-	store: DataExportWriteStore;
+	exportLifecycle: DataExportLifecycleWriter;
 }
 
-interface DataExportRow {
-	id: string;
-}
-
-async function updateDataExportStatusBestEffort(
-	ports: DataExportLifecyclePorts,
-	input: { exportId: string; patch: Record<string, unknown>; statusLabel: 'completed' | 'failed' }
-): Promise<void> {
+async function updateDataExportStatusBestEffort(input: {
+	exportId: string;
+	update: () => Promise<void>;
+	statusLabel: 'completed' | 'failed';
+}): Promise<void> {
 	try {
-		await ports.store.update('data_exports', ports.auth.orgId, input.exportId, input.patch);
+		await input.update();
 	} catch (error) {
 		console.warn(`[data-exports] Failed to mark export ${input.exportId} as ${input.statusLabel}:`, error);
 	}
@@ -27,37 +20,32 @@ export async function startDataExport(
 	ports: DataExportLifecyclePorts,
 	input: { requestedBy: string }
 ): Promise<{ exportId: string }> {
-	const record = await ports.store.insert<DataExportRow>('data_exports', ports.auth.orgId, {
-		requested_by: input.requestedBy,
-		status: 'processing',
-		created_at: new Date().toISOString()
+	return ports.exportLifecycle.createProcessing({
+		requestedBy: input.requestedBy,
+		createdAt: new Date().toISOString()
 	});
-
-	return { exportId: record.id };
 }
 
 export async function completeDataExport(
 	ports: DataExportLifecyclePorts,
 	input: { exportId: string; fileSizeBytes: number }
 ): Promise<void> {
-	await updateDataExportStatusBestEffort(ports, {
+	await updateDataExportStatusBestEffort({
 		exportId: input.exportId,
-		patch: {
-			status: 'completed',
-			completed_at: new Date().toISOString(),
-			file_size_bytes: input.fileSizeBytes
-		},
+		update: () =>
+			ports.exportLifecycle.markCompleted({
+				exportId: input.exportId,
+				completedAt: new Date().toISOString(),
+				fileSizeBytes: input.fileSizeBytes
+			}),
 		statusLabel: 'completed'
 	});
 }
 
 export async function failDataExport(ports: DataExportLifecyclePorts, input: { exportId: string }): Promise<void> {
-	await updateDataExportStatusBestEffort(ports, {
+	await updateDataExportStatusBestEffort({
 		exportId: input.exportId,
-		patch: {
-			status: 'failed',
-			completed_at: new Date().toISOString()
-		},
+		update: () => ports.exportLifecycle.markFailed({ exportId: input.exportId, completedAt: new Date().toISOString() }),
 		statusLabel: 'failed'
 	});
 }

@@ -39,8 +39,12 @@
 		{@const buttonProps = {
 			...elementProps,
 			disabled,
-			onclick: disabled ? undefined : elementProps.onclick,
-			onkeydown: disabled ? undefined : elementProps.onkeydown
+			onclick: disabled ? (event: MouseEvent) => event.preventDefault() : elementProps.onclick,
+			onkeydown: disabled
+				? (event: KeyboardEvent) => {
+						if (event.key === 'Enter' || event.key === ' ') event.preventDefault();
+					}
+				: elementProps.onkeydown
 		}}
 		{#if customChild}
 			{@render customChild({ props: buttonProps })}

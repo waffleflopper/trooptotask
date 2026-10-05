@@ -14,6 +14,7 @@
 		disableWrapperDestinations?: boolean;
 	} = $props();
 	let page = $state(untrack(() => initialPage));
+	let callerInteraction = $state('');
 </script>
 
 <Pagination.Root count={25} perPage={10} bind:page>
@@ -25,9 +26,13 @@
 						page={{ type: 'page', value: 1 }}
 						isActive={page === 1}
 						disabled={disableWrapperDestinations}
+						onclick={() => (callerInteraction = 'click')}
+						onkeydown={(event) => (callerInteraction = event.key)}
 					>
 						{#snippet child({ props })}
-							<a {...props} role="button" tabindex="0" aria-disabled={disableWrapperDestinations}>First page</a>
+							<a {...props} href="#first-page" role="button" tabindex="0" aria-disabled={disableWrapperDestinations}>
+								First page
+							</a>
 						{/snippet}
 					</Pagination.Link>
 				{:else if usePageWrappers}
@@ -68,3 +73,4 @@
 </Pagination.Root>
 
 <output aria-label="Current page">{page}</output>
+<output aria-label="Caller interaction">{callerInteraction}</output>

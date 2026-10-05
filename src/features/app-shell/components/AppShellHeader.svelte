@@ -630,9 +630,9 @@
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 					<Tooltip.Root>
-						<Tooltip.Trigger>
+						<Tooltip.Trigger onclick={onToggleTheme}>
 							{#snippet child({ props })}
-								<Button {...props} variant="ghost" size="icon" onclick={onToggleTheme} aria-label="Toggle theme">
+								<Button {...props} variant="ghost" size="icon" aria-label="Toggle theme">
 									{#if isDarkTheme}
 										<Sun />
 									{:else}

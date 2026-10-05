@@ -449,6 +449,22 @@ describe('notification recovery', () => {
 });
 
 describe('AppShellHeader', () => {
+	it('dismisses the theme tooltip after keyboard activation without losing trigger focus', async () => {
+		const onToggleTheme = vi.fn();
+		renderHeader({ onToggleTheme });
+		const trigger = screen.getByRole('button', { name: 'Toggle theme' });
+		trigger.focus();
+		const tooltip = await screen.findByRole('tooltip');
+		expect(trigger.getAttribute('aria-describedby')).toBe(tooltip.id);
+
+		await fireEvent.click(trigger, { detail: 0 });
+
+		expect(onToggleTheme).toHaveBeenCalledTimes(1);
+		await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+		expect(trigger.getAttribute('aria-describedby')).toBeNull();
+		expect(document.activeElement).toBe(trigger);
+	});
+
 	it('renders a feedback utility button when a feedback handler is provided', async () => {
 		const onFeedback = vi.fn();
 

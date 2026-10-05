@@ -6,7 +6,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import PaginationTest from './PaginationTest.svelte';
 
 describe('Pagination public page selection', () => {
-	afterEach(cleanup);
+	afterEach(() => {
+		cleanup();
+		window.location.hash = '';
+	});
 
 	it('updates the caller page and record range by keyboard and keeps navigation within end boundaries', async () => {
 		render(PaginationTest);
@@ -93,9 +96,52 @@ describe('Pagination public page selection', () => {
 			const control = screen.getByRole('button', { name: 'Page 1' });
 			control.focus();
 			expect(document.activeElement).toBe(control);
-			await fireEvent.keyDown(control, { key });
+			const activation = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+			await fireEvent(control, activation);
+			expect.soft(activation.defaultPrevented).toBe(true);
 			expect(screen.getByLabelText('Current page')).toHaveTextContent(expectedPage);
 			expect(screen.getByLabelText('Visible records')).toHaveTextContent(expectedRange);
+			expect(screen.getByLabelText('Caller interaction').textContent).toBe(disabled ? '' : key);
 		}
 	);
+
+	it.each([
+		{ disabled: true, expectedPage: '2', expectedRange: '11-20', expectedHash: '#initial-page' },
+		{ disabled: false, expectedPage: '1', expectedRange: '1-10', expectedHash: '#first-page' }
+	])(
+		'honors disabled=$disabled for browser navigation from a caller-rendered destination',
+		async ({ disabled, expectedPage, expectedRange, expectedHash }) => {
+			window.location.hash = '#initial-page';
+			render(PaginationTest, {
+				initialPage: 2,
+				usePageWrappers: true,
+				customDestination: true,
+				disableWrapperDestinations: disabled
+			});
+			const control = screen.getByRole('button', { name: 'Page 1' });
+			const activation = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+			await fireEvent(control, activation);
+			expect.soft(activation.defaultPrevented).toBe(disabled);
+			expect.soft(window.location.hash).toBe(expectedHash);
+			expect(screen.getByLabelText('Current page')).toHaveTextContent(expectedPage);
+			expect(screen.getByLabelText('Visible records')).toHaveTextContent(expectedRange);
+			expect(screen.getByLabelText('Caller interaction').textContent).toBe(disabled ? '' : 'click');
+		}
+	);
+
+	it('does not cancel unrelated keys on a disabled caller-rendered destination', async () => {
+		render(PaginationTest, {
+			initialPage: 2,
+			usePageWrappers: true,
+			customDestination: true,
+			disableWrapperDestinations: true
+		});
+		const control = screen.getByRole('button', { name: 'Page 1' });
+		control.focus();
+		const navigation = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true });
+		await fireEvent(control, navigation);
+		expect(navigation.defaultPrevented).toBe(false);
+		expect(screen.getByLabelText('Current page')).toHaveTextContent('2');
+		expect(screen.getByLabelText('Visible records')).toHaveTextContent('11-20');
+	});
 });

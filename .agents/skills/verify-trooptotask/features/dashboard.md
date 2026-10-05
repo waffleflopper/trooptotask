@@ -48,6 +48,8 @@ Restore network hooks, run `clean-seeds`, read back disappearance of the returne
 
 ## Gotchas
 
+Starter pack apply currently has an authenticated endpoint and screen-model method, but no rendered Apply control. When changing its request composition, verify the ordinary signed-in `POST /org/ORG_ID/api/starter-configuration-packs/first-week-operations/apply` separately from native Dashboard interaction. An Organization owner must create “Complete unit orientation” as a Training step linked to “Unit Orientation”; reload and reapply must skip existing artifacts without duplicates. A view-only actor must receive 403 with unchanged Types/Templates/Steps. Preserve provider readbacks and remove only recorded synthetic artifacts through the ordinary delete endpoints before seed cleanup. These observations establish API/provider behavior; they do not establish a native Apply journey.
+
 - Page-data responses include session credentials. Redact access/refresh token values before saving or sharing captures, including flattened credential slots; preserve all source facts and error outcomes.
 - SvelteKit can return HTTP 200 with serialized route errors. Foreign denial must inspect the node status/message and absence of A data, not only the transport status.
 - The switcher preserves Calendar when used there. Enter B's Home before releasing the held A Dashboard response; whole-navigation isolation does not prove individual deferred-source isolation.

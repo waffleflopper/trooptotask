@@ -1,3 +1,4 @@
+import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
 import { createTestContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
 import {
 	createPersonnelArtifactDeliveryContext,
@@ -24,7 +25,10 @@ const operateAuth = {
 } satisfies Parameters<typeof createTestAuthContext>[0];
 
 function detailTestContext(personnelId = 'person-1', auth: Parameters<typeof createTestAuthContext>[0] = {}) {
-	const ctx = createTestContext({ auth: { ...operateAuth, ...auth } });
+	const ctx = createTestContext({
+		criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence,
+		auth: { ...operateAuth, ...auth }
+	});
 	ctx.rawStore.seed('personnel', [
 		{
 			id: personnelId,
@@ -41,6 +45,7 @@ function selectedContexts(
 	ctx: ReturnType<typeof createTestContext>
 ): ReturnType<typeof createRequestPersonnelDetailStreamsContext> {
 	return {
+		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		detail: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore, scope: ctx.scope },
 		extendedInfo: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, scope: ctx.scope },
 		artifacts: createPersonnelArtifactDeliveryContext(ctx),
@@ -60,7 +65,10 @@ describe('personnel detail page server load', () => {
 			vi.useFakeTimers({ toFake: ['Date'] });
 			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
 			try {
-				const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+				const ctx = createTestContext({
+					criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence,
+					auth: { orgId: 'org-1' }
+				});
 				ctx.store.seed('personnel', [
 					{
 						id: 'person-1',

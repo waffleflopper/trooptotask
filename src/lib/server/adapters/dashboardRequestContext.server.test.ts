@@ -81,8 +81,12 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 	const supabase = createClient('http://127.0.0.1:9', 'synthetic-request', {
 		...options,
 		global: {
-			fetch: async () => {
-				throw new Error('Ordinary Personnel read is forbidden');
+			fetch: async (input) => {
+				const url = new URL(input instanceof Request ? input.url : input.toString());
+				if (url.pathname !== '/rest/v1/ict_tasks') throw new Error('Ordinary Personnel read is forbidden');
+				expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+				expect(url.searchParams.get('archived_at')).toBe('is.null');
+				return Response.json(await ctx.rawStore.findMany('ict_tasks', ctx.auth.orgId));
 			}
 		}
 	});

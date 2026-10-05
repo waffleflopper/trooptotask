@@ -61,7 +61,6 @@
 				"src/lib/server/adapters/appShellRequestDelivery.test.ts",
 				"src/lib/server/adapters/dashboardRequestContext.server.test.ts",
 				"src/lib/server/adapters/appShellRequestDelivery.ts",
-				"src/lib/server/adapters/entityHandlers.test.ts",
 				"src/lib/server/adapters/featureRequestContexts.server.ts",
 				"src/lib/server/adapters/handle.test.ts",
 				"src/lib/server/adapters/httpAdapter.ts",
@@ -69,6 +68,7 @@
 				"src/lib/server/adapters/membershipAdmission.test.ts",
 				"src/lib/server/adapters/notificationDelivery.test.ts",
 				"src/lib/server/adapters/personnelArtifacts.test.ts",
+				"src/lib/server/adapters/personnelCriticalTasksRequestContext.server.test.ts",
 				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/requestContexts.server.test.ts",
 				"src/lib/server/adapters/requestContexts.server.ts",
@@ -80,8 +80,6 @@
 				"src/lib/server/core/streamedWorkspace.ts",
 				"src/lib/server/core/useCases/createRootOrgLayoutLoad.test.ts",
 				"src/lib/server/core/useCases/createRootOrgLayoutLoad.ts",
-				"src/lib/server/core/useCases/crud.test.ts",
-				"src/lib/server/core/useCases/crud.ts",
 				"src/lib/server/core/useCases/starterConfigurationPacks.test.ts",
 				"src/lib/server/core/useCases/starterConfigurationPacks.ts",
 				"src/lib/server/organizationProvisioningDelivery.test.ts",
@@ -533,6 +531,8 @@
 		"src/lib/server/adapters/inMemory.ts",
 		"src/features/personnel/leaderNotes.testHelper.ts",
 		"src/features/personnel/personnelArtifacts.testHelper.ts",
-		"src/routes/org/[orgId]/api/sign-in-rosters/rosterTestContexts.ts"
+		"src/routes/org/[orgId]/api/sign-in-rosters/rosterTestContexts.ts",
+		"src/features/critical-tasks/server/criticalTaskLibrary.test-support.ts",
+		"src/features/critical-tasks/server/inMemoryCriticalTaskLibrary.server.ts"
 	]
 }

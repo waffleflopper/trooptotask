@@ -173,7 +173,7 @@ For new or migrated feature work, put the owner operation behind its server-only
 
 ### Route handlers and loads
 
-- Prefer `handle()`, `entityHandlers()`, and `loadWithContext()` / streaming workspace loaders when they fit.
+- Prefer `handle()` and `loadWithContext()` / streaming workspace loaders when they fit.
 - Avoid ad hoc request parsing, permission checking, and persistence logic inside route files when an existing wrapper or use-case path already exists.
 
 ### Provider access

@@ -17,11 +17,7 @@ import {
 } from '$lib/access/index.server';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import type { WritePorts } from '$lib/server/core/ports';
-import { createCrudUseCases } from '$lib/server/core/useCases/crud';
-import { getEntityAuditResource, type EntityDefinition } from '$lib/server/entitySchema';
 import { getAdminClient } from '$lib/server/supabase';
-import { validateUUID } from '$lib/server/validation';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
@@ -232,97 +228,4 @@ export function handle<TInput, TOutput, TContext>(config: RouteConfig<TInput, TO
 			rethrowOrWrap(err);
 		}
 	};
-}
-
-export interface EntityHandlerHooks<TContext extends WritePorts> {
-	policyAction?: FeatureLanePolicyAction;
-	policyResourceForPersonnel?: (ctx: TContext, personnelId: string) => Promise<PolicyResource>;
-	policyResourceForRecord?: (ctx: TContext, recordId: string) => Promise<PolicyResource>;
-	beforeDelete?: (ctx: TContext, id: string) => Promise<void>;
-	afterDelete?: (ctx: TContext, id: string) => Promise<void>;
-}
-
-export interface EntityHandlersResult<TContext extends WritePorts> {
-	POST?: RequestHandler;
-	PUT?: RequestHandler;
-	DELETE?: RequestHandler;
-	/** Exposed for testing — the RouteConfig objects backing each handler */
-	_configs: {
-		POST?: RouteConfig<Record<string, unknown>, unknown, TContext>;
-		PUT?: RouteConfig<Record<string, unknown>, unknown, TContext>;
-		DELETE?: RouteConfig<Record<string, unknown>, unknown, TContext>;
-	};
-}
-
-export function entityHandlers<TContext extends WritePorts>(
-	entity: EntityDefinition,
-	context: RequestContextBuilder<TContext>,
-	hooks?: EntityHandlerHooks<TContext>
-): EntityHandlersResult<TContext> {
-	const policyAction = hooks?.policyAction ?? entity.policyAction;
-	if (!policyAction) {
-		throw new Error(`entityHandlers: entity "${entity.table}" must define policyAction`);
-	}
-
-	const config = {
-		entity,
-		auditResource: getEntityAuditResource(entity),
-		policyAction,
-		policyResourceForPersonnel: hooks?.policyResourceForPersonnel,
-		policyResourceForRecord: hooks?.policyResourceForRecord,
-		beforeDelete: hooks?.beforeDelete ? async (ctx: TContext, id: string) => hooks.beforeDelete!(ctx, id) : undefined,
-		afterDelete: hooks?.afterDelete ? async (ctx: TContext, id: string) => hooks.afterDelete!(ctx, id) : undefined
-	};
-
-	const useCases = createCrudUseCases(config);
-	const methods = new Set(entity.methods);
-	const result: EntityHandlersResult<TContext> = { _configs: {} };
-
-	if (methods.has('POST')) {
-		const postConfig: RouteConfig<Record<string, unknown>, unknown, TContext> = {
-			context,
-			mutation: true,
-			policyAction,
-			policyResource: { kind: 'unscoped' },
-			fn: (ctx, input) => useCases.create(ctx, input)
-		};
-		result.POST = handle(postConfig);
-		result._configs.POST = postConfig;
-	}
-
-	if (methods.has('PUT')) {
-		const putConfig: RouteConfig<Record<string, unknown>, unknown, TContext> = {
-			context,
-			mutation: true,
-			policyAction,
-			policyResource: { kind: 'unscoped' },
-			fn: (ctx, input) => useCases.update(ctx, input)
-		};
-		result.PUT = handle(putConfig);
-		result._configs.PUT = putConfig;
-	}
-
-	if (methods.has('DELETE')) {
-		const deleteConfig: RouteConfig<Record<string, unknown>, unknown, TContext> = {
-			context,
-			mutation: true,
-			policyAction,
-			policyResource: { kind: 'unscoped' },
-			fn: async (ctx, input) => {
-				const id = input?.id;
-				if (!id || typeof id !== 'string') {
-					fail(400, 'Missing id');
-				}
-				if (!validateUUID(id)) {
-					fail(400, 'Invalid resource ID');
-				}
-				await useCases.remove(ctx, id);
-				return { success: true };
-			}
-		};
-		result.DELETE = handle(deleteConfig);
-		result._configs.DELETE = deleteConfig;
-	}
-
-	return result;
 }

@@ -1,14 +1,3 @@
-/**
- * Entity definition framework — schema-first system for defining database entities.
- *
- * Typical usage:
- * 1. Define fields: `field(z.string(), { readOnly: true })`
- * 2. Register entity: `defineEntity({ table, groupScope, schema, policyAction, audit, ... })`
- * 3. Wire up routes: `entityHandlers(entity)` in +server.ts
- * 4. Load data: `entity.fromDbArray(rows)` in load functions
- *
- * See docs/entity-system.md for full documentation and examples.
- */
 import { z } from 'zod';
 import type { FeatureLanePolicyAction } from '$lib/access/policyEvaluator';
 
@@ -77,10 +66,6 @@ export interface EntityDefinition<T = unknown> {
 	policyAction?: FeatureLanePolicyAction;
 	audit?: string | { resourceType: string; action?: string; detailFields?: string[] };
 	orderBy?: Array<{ column: string; ascending?: boolean }>;
-}
-
-export function getEntityAuditResource(entity: EntityDefinition): string {
-	return typeof entity.audit === 'string' ? entity.audit : (entity.audit?.resourceType ?? entity.table);
 }
 
 export function defineEntity<T = unknown>(config: EntityConfig<T>): EntityDefinition<T> {

@@ -1,0 +1,66 @@
+# D28 Organization backup source ownership
+
+Issue [#1376](https://github.com/waffleflopper/trooptotask/issues/1376), task `08-M15-02`, continues from integrated roster [#1536](https://github.com/waffleflopper/trooptotask/pull/1536) at `a783a07fc31898cd796b3e77abb97f10dc34fd07`. The branch is `stabilization/1376-backup-source-ownership`. Retained R1/R5/R7, ordinary RLS, sensitive Personnel authority and archival formats govern this intermediate deliverable. It uses `Refs #1376` and contains no migration.
+
+## Outcome and remainder
+
+Complete all remaining generic source reads used by full Organization JSON and Excel backups. Delivery selects ten owner readers after admission. Each captures the ordinary request Supabase client and admitted Organization at construction. Multi-table readers accept only their closed owner table union; single-table readers accept no arguments. There is no table, filter, projection or client option supplied by delivery. Raw archive values intentionally retain the current backup contract, including unknown historical fields. The readers do not expose provider clients or general query APIs.
+
+| Owner          | Retained source tables                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| Calendar       | status_types, availability_entries, assignment_types, daily_assignments, special_days            |
+| Training       | training_types, personnel_trainings, training_views                                              |
+| Onboarding     | onboarding_templates, onboarding_template_steps, personnel_onboardings, onboarding_step_progress |
+| Personnel      | groups, personnel, organization_rank_catalog, user_pinned_groups                                 |
+| Identity       | getting_started_progress, user_org_preferences                                                   |
+| Critical Tasks | ict_tasks, personnel_ict_completions                                                             |
+| Dashboard      | dashboard_configs                                                                                |
+| Rating Scheme  | rating_scheme_entries                                                                            |
+| Data Export    | data_exports                                                                                     |
+| Audit          | audit_logs                                                                                       |
+
+The 24 replaced APIs and their callers disappear together. Calendar's ordinary special-day consumer keeps the same fixed read. Training's separately consumed single-Person export remains with its tests. Existing Organization, Notifications, Feedback, Sign-in Roster, sensitive Personnel and Deletion Request readers remain unchanged. Generic DataExport lifecycle writes still use the admitted raw store. Audit retention keeps its strict cutoff and current deletion behavior.
+
+Status Types retains its existing seven-field projection. Rating alone retains explicit ID ascending order. Other sources preserve provider order. Audit, Data Export and Dashboard use `org_id`; the other new readers use `organization_id`. Provider-sized traversal retains 1,000-row pages. Any first or later error rejects the whole source; an error-free null response is empty. No active/status/time filter or normalization is added.
+
+This grouping completes one shared backup concern and all its affected consumers. The concrete split is between source reads and independent domain write/lifecycle behavior. Generic domain CRUD, current-label Audit reads, lifecycle writes, shared request/store/scope facades and final integrated D28 acceptance remain. D29 mixed utilities and D30 stay blocked. No other issue advances.
+
+## Throughput and decisions
+
+The coordinator owns delivery, test composition, recipes, records and the only native worker. An isolated writer owns the ten readers; an independent read-only reviewer assesses source, consumers and coverage. No parallel writes share files or services. The unchanged app is frozen and verified before integrating the owner patch. The final app and recipe freeze before repeat native proof. The complete read concern stays in one PR.
+
+Boundary Discipline binds ordinary authority and tenant scope before reads. Model the Domain uses closed owner table unions instead of a generic query interface. Migrate Callers Then Delete Legacy APIs removes all replaced backup APIs in the same wave. Test Behavior restores completed/failed export history and completed/change-of-rater workflow witnesses. Prove It Works compares downloaded JSON and workbook fields against preceding provider facts. The archive inspector is the reusable lever; no new fixture system or browser framework is introduced.
+
+## Baseline and coverage
+
+The authoritative [Organization export recipe](../../../.agents/skills/verify-trooptotask/features/organization-exports.md) owns the journey. Existing maintenance-retention-1001, dashboard and audit seeds establish paged inactive/history and mixed source witnesses. Setup/readback is privileged fixture proof. Native downloads and ordinary denied requests establish their own boundaries.
+
+Baseline `a783a07f`, digest `a1c95e9c…`, has owner A JSON/Excel with all 38 raw source sections and every saved field compared. Assignment Types has 1,008 rows; Critical Tasks has 1,007. B's native JSON has B-owned source rows only. Viewer POST is 403; owner A targeting B is 404 with no lifecycle changes. A matched source rejection produces actual HTTP 500, visible failure, no Blob and failed history. Explicit retry succeeds; A/B completed history persists after native reload. Original immutable source sets survive full journal cleanup. Final doctor and owned disposal pass. Baseline B has native click, success, Blob and persisted history but no matched network status; its observer targets A only.
+
+The first source hook expires before dispatch and produces a normal download; this attempt earns no failure credit. The corrected 120-second arm occurs after capture/network/snapshot preparation. Scratch workbook header assumptions are corrected against actual retained Duty Role and PCS / DEROS labels, without app changes. All actual captures, the unmatched attempt and passing artifact comparison survive cleanup.
+
+System collections that remain empty establish absence and inventory presence; SDK literals own their positive field proof. Existing D24/D25 acceptance and lower-level delivery/workbook/workspace/component checks remain applicable to unchanged UI switching, second-admin admission and lifecycle behavior. The candidate does not claim a new live run of every unchanged recipe scenario. No provider outage, lifecycle-write failure, snapshot isolation, hosted parity or performance improvement is inferred.
+
+## Durable artifacts
+
+[Unchanged baseline archive](d28-backup-baseline.tar.gz) contains 187 sanitized payloads. Archive SHA-256 `d6d6a81847bcd41284547f7b7fab43ddd254eec4c350a119b4c38213801f344a`, 1,072,432 bytes. Its tested revision/digest remain distinct from subsequent packaging and recipe updates. Fresh extraction verifies the exact payload set and every expanded hash.
+
+[Final archive](d28-backup-final.tar.gz) contains 229 sanitized payloads. Archive SHA-256 `ce85778a934a581fc6362fe45b1a902f51463765ac6fbc089563dfce5d78eddf`, 1,066,093 bytes. Frozen final digest `d53c1b33…` passes the same affected proof, including independent native B POST 200 inspection, three completed A exports and one failed export. All 48 changed application/test/recipe entries match their frozen hashes/absence after doctor and disposal. Both packages now preserve 416 payloads, three PNG captures with two distinct image hashes, and two downloaded workbooks. The final package also preserves actual offline mutation and restored-green logs with command/input provenance.
+
+Extract each package with `tar -xzf ARCHIVE -C EMPTY_DIRECTORY`. Read its run folder's `INVENTORY.json`. Require the exact expanded file set excluding that inventory, and SHA-256 equality for every payload. Run `inspect-downloads.mjs` from its folder with the repository's ExcelJS dependency. Integrity is separate from independent behavioral acceptance.
+
+## Checks and acceptance
+
+The unchanged lower-level baseline passes seven suites / 37 tests. The first delivery integration fails three checks because test fixtures still bind the old store or lack readers. Two excess rawStore properties and a test-auth input type also fail intermediate type checks. Corrected fixture composition binds production readers through the actual request factory and explicit fake readers for concurrency. The retained failure logs are not successful results.
+
+Current focused verification passes 17 suites / 84 tests, types 0 errors / 0 warnings and governance at 160 existing findings. Two independent findings restore mixed history statuses in SDK fixture expectations. Actual isolated failed-only DataExport and completed-only Rating filters fail the corrected checks; exact-restored readers pass all 80 owner tests. Four integrated delivery/context/JSON/Excel suites pass 41 tests. Full format, lint and local Markdown links pass with three unchanged lint warnings. All 47 source/test paths receive provisional independent Standards GO / Spec GO with no remaining source findings. This is source review, not independent live execution.
+
+Final native proof passes all 38 source sections in JSON and Excel, paged history, failed source/retry, B ownership, denied requests, persisted history and original-row cleanup. Complete independent Standards GO / Spec GO accepts all 55 paths and 416 expanded payloads, with all inventory hashes, the 48 frozen input entries, actual workbooks/JSON and all three PNG captures independently inspected. This is source/artifact review, not independent live execution. Full intended CLI review completes all 53 text paths against `a783a07f` with zero findings and exit 0. It covers the application/source result committed as `47df0b79`; the two archives have separate complete expanded acceptance. The three-file acceptance-record update has independent Standards GO / Spec GO. Its proportional CLI review against `47df0b79` completes all three paths with zero findings and exit 0. Result-recording prose receives documentation validation without repeating unchanged runtime proof. Exact-head CI/build and completed hosted review remain merge gates. The complete candidate has 55 paths, 53 text files and two archives. Installed CodeRabbit 0.8.2 CLI help exposes no file limit. Its full intended review selects the uncommitted diff against `a783a07f` and reports the two archives as unsupported binary exclusions; their expanded observations have independent acceptance. No partial or skipped review is treated as clean. Fresh Comment Sicko review finds no added comments, suppressions, deletion candidates, encoding findings or MUST KILL flags in changed code or the four produced archive scripts. Eleven obsolete API doc comments are removed. The installed package lacks deslop; the direct cleanup fallback checks the actual diff, dead APIs/options, comments, suppressions, types, meaningful tests and scope. The full required repository sequence belongs to exact-head CI; publication does not transfer earlier green results.
+
+Hosted review on `974ca0a0` identifies ambiguous D27/D28 attribution in the [drift ledger](../../architecture/DRIFT_LEDGER.md). The correction separates D27's verified integration from this D28 candidate and explicitly keeps D28's exact-head CI/build, completed hosted review and merge open. It changes only progress records. All 48 frozen inputs and both archives remain unchanged, so accepted native and expanded-artifact proof still applies. The optional 6.90% docstring metric identifies no missing public contract. Narrow typed readers, retained behavior tests and the maintained recipe already describe the consumed contracts; no extra comments or application changes are warranted.
+
+The three-record hosted correction has independent Standards GO / Spec GO. CodeRabbit `review --base-commit 974ca0a0412204708fc716e5107cfb8196f04c88 --uncommitted --agent` completes exactly those three paths with zero findings and exit 0. Explicit Markdown formatting, links/anchors across all 223 tracked documents and `git diff --check` pass. All 48 frozen input hashes/absences and both archive hashes match. These result annotations change only prose and retain current-head CI/build and completed hosted review as gates.
+
+## Release obligations
+
+No migration, SQL, policy, bucket or remote database change is included. D25 hosted migration parity is unverified and remains an operator obligation. Remote production and existing-local databases are untouched. Repository CI runs on main-targeted PRs and main pushes. Vercel keeps `npm run build`; this branch has no local deployment-disable entry. Hosted deployment/environment settings are uninspected, and no manual deployment is requested. Robert authorizes same-issue non-migration merge after exact-head green CI and completed review without actionable feedback. The issue remains open through this intermediate source-read outcome.

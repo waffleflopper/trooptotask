@@ -4,8 +4,12 @@ import { createDeletionRequestTestStore } from '$features/deletion-requests/test
 import { describe, expect, it } from 'vitest';
 import type { DataStore } from '$lib/server/core/ports';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
-import { createTestAuthContext, createTestContext } from '$lib/server/adapters/inMemory';
+import { createRequestOrganizationExportContext } from '$lib/server/adapters/requestContexts.server';
+import {
+	createTestAuthContext,
+	createTestContext,
+	createTestOrganizationArchiveReaders
+} from '$lib/server/adapters/inMemory';
 import { createSupabaseOrganizationRawExportReader } from '$features/organization/index.server';
 import { createSupabasePersonnelOrganizationExportPort } from '$features/personnel/index.server';
 import { createSupabaseNotificationStore } from '$features/notifications/index.server';
@@ -57,7 +61,7 @@ describe('organization export inventory', () => {
 			createOrganizationDataExportReads(
 				{
 					...ctx,
-					rawStore: store,
+					archiveReaders: createTestOrganizationArchiveReaders(store, 'org-1'),
 					signInRosterExport: { listRows: () => store.findMany('sign_in_rosters', 'org-1') },
 					organizationRawExport: { listRows: (orgId, table) => store.findMany(table, orgId) },
 					personnelOrganizationExport: { listRows: (actor, table) => store.findMany(table, actor.orgId) },
@@ -776,14 +780,17 @@ describe('retained Organization export projection', () => {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: { fetch: (input) => fetchRows(input, false) }
 		});
-		const store = createSupabaseDataStore(client);
 		const actor = createTestAuthContext({ orgId: 'org-1' });
 		const result = await loadOrganizationExportPayload(
 			actor.orgId,
 			createOrganizationDataExportReads(
 				{
 					auth: actor,
-					rawStore: store,
+					archiveReaders: createRequestOrganizationExportContext({
+						...createTestContext({ auth: { ...actor } }),
+						supabase: client,
+						session: null
+					}).archiveReaders,
 					signInRosterExport: createSupabaseSignInRosterExportReader(client, actor.orgId),
 					personnelOrganizationExport: createSupabasePersonnelOrganizationExportPort(() => adminClient),
 					organizationRawExport: createSupabaseOrganizationRawExportReader(client),

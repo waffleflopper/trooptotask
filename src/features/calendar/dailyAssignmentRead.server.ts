@@ -35,8 +35,3 @@ export async function listDailyAssignments(
 	);
 	return DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(rows, scope));
 }
-
-/** Keep the organization export's saved row shape, including fields outside the Calendar view. */
-export function listDailyAssignmentExportRows(store: DataStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>(DailyAssignmentEntity.table, orgId);
-}

@@ -1,3 +1,4 @@
+import type { createRequestOrganizationExportContext } from './requestContexts.server';
 /**
  * In-memory implementations of all port interfaces, used in unit and integration tests.
  *
@@ -1056,6 +1057,33 @@ function createInMemoryOrganizationPolicyWritePort(store: DataStore): Organizati
 	};
 }
 
+export function createTestOrganizationArchiveReaders(rawStore: Pick<DataStore, 'findMany'>, orgId: string) {
+	return {
+		calendar: {
+			async listRows(table) {
+				const rows = await rawStore.findMany<Record<string, unknown>>(table, orgId);
+				if (table !== 'status_types') return rows;
+				const fields = new Set(['id', 'organization_id', 'name', 'color', 'text_color', 'sort_order', 'created_at']);
+				return rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => fields.has(key))));
+			}
+		},
+		training: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		onboarding: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		personnel: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		identity: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		criticalTasks: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		dashboard: { listRows: () => rawStore.findMany<Record<string, unknown>>('dashboard_configs', orgId) },
+		ratingScheme: {
+			listRows: () =>
+				rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+					orderBy: [{ column: 'id', ascending: true }]
+				})
+		},
+		dataExport: { listRows: () => rawStore.findMany<Record<string, unknown>>('data_exports', orgId) },
+		audit: { listRows: () => rawStore.findMany<Record<string, unknown>>('audit_logs', orgId) }
+	} satisfies ReturnType<typeof createRequestOrganizationExportContext>['archiveReaders'];
+}
+
 export function createTestContext(
 	overrides?: TestContextOptions & {
 		scope?: Partial<ScopeEnforcementPort>;
@@ -1109,6 +1137,7 @@ export function createTestContext(
 		signInRosterExport: {
 			listRows: () => rawStore.findMany<Record<string, unknown>>('sign_in_rosters', auth.orgId)
 		},
+		archiveReaders: createTestOrganizationArchiveReaders(rawStore, auth.orgId),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
 		organizationRawExport: {
 			listRows: (orgId, table) => rawStore.findMany<Record<string, unknown>>(table, orgId)

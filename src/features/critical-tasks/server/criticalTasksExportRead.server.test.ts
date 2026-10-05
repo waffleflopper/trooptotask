@@ -1,9 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import {
-	listCriticalTaskExportRows,
-	listPersonnelCriticalTaskCompletionExportRows
+	createSupabaseCriticalTasksExportReader,
+	type CriticalTasksExportTable
 } from './criticalTasksExportRead.server';
 
 type Row = Record<string, unknown>;
@@ -11,7 +10,6 @@ const ORG = 'org-a';
 const cases = [
 	{
 		table: 'ict_tasks',
-		read: listCriticalTaskExportRows,
 		saved: {
 			id: 'task-a',
 			organization_id: ORG,
@@ -29,7 +27,6 @@ const cases = [
 	},
 	{
 		table: 'personnel_ict_completions',
-		read: listPersonnelCriticalTaskCompletionExportRows,
 		saved: {
 			id: 'completion-a',
 			organization_id: ORG,
@@ -43,12 +40,13 @@ const cases = [
 			created_at: '2026-08-02T03:04:05.654321Z'
 		}
 	}
-];
+] as const;
 
-function provider(table: string, saved: Row) {
+function provider(table: CriticalTasksExportTable, saved: Row) {
 	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({
 		...saved,
 		id: `saved-${index}`,
+		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] },
 		...(table === 'ict_tasks' ? { task_code: `RESP-${index}` } : { personnel_id: `archived-person-${index}` })
 	}));
 	const rows: Row[] = [{ ...saved, id: 'foreign-row', organization_id: 'org-b' }, ...owned];
@@ -57,7 +55,10 @@ function provider(table: string, saved: Row) {
 		auth: { persistSession: false, autoRefreshToken: false },
 		global: {
 			fetch: async (input, init) => {
-				const url = new URL(String(input));
+				const request = new Request(input, init);
+				const url = new URL(request.url);
+				if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
+					throw new Error('Export read must retain ordinary request authority');
 				if (url.pathname.split('/').at(-1) !== table || (init?.method ?? 'GET') !== 'GET')
 					throw new Error('Unexpected export provider operation');
 				const offset = Number(url.searchParams.get('offset') ?? 0);
@@ -67,6 +68,13 @@ function provider(table: string, saved: Row) {
 				for (const [column, filter] of url.searchParams) {
 					if (filter.startsWith('eq.')) visible = visible.filter((row) => String(row[column]) === filter.slice(3));
 					if (filter === 'is.null') visible = visible.filter((row) => row[column] == null);
+				}
+				const ordering = url.searchParams.get('order');
+				if (ordering) {
+					const [column, direction] = ordering.split('.');
+					visible = visible.toSorted(
+						(a, b) => String(a[column]).localeCompare(String(b[column])) * (direction === 'desc' ? -1 : 1)
+					);
 				}
 				const limit = Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000);
 				const select = url.searchParams.get('select');
@@ -82,24 +90,37 @@ function provider(table: string, saved: Row) {
 			}
 		}
 	});
-	return { store: createSupabaseDataStore(client), state, owned };
+	return { client, state, owned };
 }
 
 describe('Critical Tasks ordinary Organization export reads', () => {
-	it.each(cases)('retains all saved $table fields and pages without foreign rows', async ({ table, read, saved }) => {
-		const { store, owned } = provider(table, saved);
-		expect(await read(store, ORG)).toEqual(owned);
-		expect(await read(store, 'empty-org')).toEqual([]);
+	it.each(cases)('retains all saved $table fields and pages without foreign rows', async ({ table, saved }) => {
+		const { client, owned } = provider(table, saved);
+		expect(await createSupabaseCriticalTasksExportReader(client, ORG).listRows(table)).toEqual(owned);
+		expect(await createSupabaseCriticalTasksExportReader(client, 'empty-org').listRows(table)).toEqual([]);
 	});
 
-	it.each(cases)(
-		'rejects $table provider failures without returning partial saved rows',
-		async ({ table, read, saved }) => {
-			const { store, state } = provider(table, saved);
-			state.failFrom = 1000;
-			await expect(read(store, ORG)).rejects.toThrow('Saved rows unavailable');
-			state.failFrom = 0;
-			await expect(read(store, ORG)).rejects.toThrow('Saved rows unavailable');
-		}
-	);
+	it.each(cases)('rejects $table provider failures without returning partial saved rows', async ({ table, saved }) => {
+		const { client, state } = provider(table, saved);
+		state.failFrom = 1000;
+		await expect(createSupabaseCriticalTasksExportReader(client, ORG).listRows(table)).rejects.toThrow(
+			'Saved rows unavailable'
+		);
+		state.failFrom = 0;
+		await expect(createSupabaseCriticalTasksExportReader(client, ORG).listRows(table)).rejects.toThrow(
+			'Saved rows unavailable'
+		);
+	});
+
+	it('rejects an unrelated table before provider access', async () => {
+		const fetch = vi.fn();
+		const client = createClient('http://archive.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: { fetch }
+		});
+		await expect(
+			createSupabaseCriticalTasksExportReader(client, ORG).listRows('access_requests' as CriticalTasksExportTable)
+		).rejects.toMatchObject({ status: 400 });
+		expect(fetch).not.toHaveBeenCalled();
+	});
 });

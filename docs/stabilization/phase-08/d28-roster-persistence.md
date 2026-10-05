@@ -59,6 +59,12 @@ The title-wildcard suggestion is dismissed for this deliverable. Base `a4f5e2ab`
 
 Documentation format/link/whitespace validation covers the follow-up. The first proportional CLI attempt completes all four changed text paths with one stale intermediate-cleanup finding and exit 0. It finishes before the proposed bounded stop, so no process is terminated. The intermediate instruction is corrected before changed-material review; the one-finding result is not recorded as clean. Final changed-material CLI review completes all four changed text paths against `5f49dde0` with zero findings and exit 0. Independent Standards GO / Spec GO accepts the final four-file correction, including the captured cleanup-order reuse and retained unrun limits. New-head CI/build and completed hosted review without actionable findings remain merge gates; the initial green run is not transferred to a new head.
 
+## Verified integration
+
+Final head `475ddf84f08c93037c663c4486963bbba588dc93` passes all seven checks in [CI 37339859301](https://github.com/waffleflopper/trooptotask/actions/runs/37339859301), job `111863994388`. The full sequence and production build pass with 695 suites / 6,906 tests, types 0/0 and governance at 160 existing findings. Completed CodeRabbit approval `5417727536` covers this head. Paginated feedback has no remaining actionable item and both threads are resolved.
+
+[#1536](https://github.com/waffleflopper/trooptotask/pull/1536) merges on 2026-10-05 at `a783a07fc31898cd796b3e77abb97f10dc34fd07`. Fetched default has exact whole-tree equality with the accepted head. Its T3 watch is stopped. Earlier new-head gates above are fulfilled by these results. #1376 remains open; [backup source ownership](d28-backup-source-ownership.md) continues the same issue.
+
 ## Release and remaining obligations
 
 No database operation is required for this deliverable. Hosted migration parity remains unverified, including D25's owner obligation. This local proof grants no deployment or production-parity claim. Finish other generic persistence consumers/removals and final integrated D28 acceptance before issue closure or dependent work.

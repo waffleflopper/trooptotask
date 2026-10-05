@@ -24,14 +24,7 @@ export {
 	fetchOnboardingStarterReadiness,
 	countOnboardingTemplateSteps
 } from './server/onboardingTemplateRead.server';
-export {
-	listOnboardingTemplateExportRows,
-	listOnboardingTemplateStepExportRows
-} from './server/onboardingTemplateExportRead.server';
-export {
-	listPersonnelOnboardingExportRows,
-	listOnboardingStepProgressExportRows
-} from './server/onboardingExportRead.server';
+export { createSupabaseOnboardingExportReader } from './server/onboardingExportRead.server';
 export {
 	fetchOnboardingWorkspace,
 	type OnboardingWorkspaceBootstrapOptions

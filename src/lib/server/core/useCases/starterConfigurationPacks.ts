@@ -18,7 +18,7 @@ import {
 	listExistingTrainingTypeNames
 } from '$features/training/index.server';
 import type { OnboardingTemplate } from '$features/onboarding/contracts';
-import type { TrainingType } from '$features/training/contracts';
+import type { TrainingOnboardingReferencesPort, TrainingType } from '$features/training/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackArtifactFamilyId,
@@ -117,6 +117,10 @@ interface StarterPackReadinessRows {
 	onboardingStepNames: string[];
 }
 
+type StarterConfigurationApplyContext = WritePorts & {
+	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'listTypes'>;
+};
+
 export async function listStarterConfigurationPacks(
 	ctx: Pick<WritePorts, 'store' | 'auth'>
 ): Promise<StarterConfigurationPackSupport[]> {
@@ -124,7 +128,7 @@ export async function listStarterConfigurationPacks(
 }
 
 export async function applyStarterConfigurationPack(
-	ctx: WritePorts,
+	ctx: StarterConfigurationApplyContext,
 	packId: StarterConfigurationPackId | string
 ): Promise<StarterConfigurationPackApplyResult> {
 	if (packId !== PACK_ID) {
@@ -279,7 +283,7 @@ async function applyStarterTrainingTypes(
 }
 
 async function applyStarterOnboardingTemplate(
-	ctx: WritePorts,
+	ctx: StarterConfigurationApplyContext,
 	result: StarterConfigurationPackApplyResult,
 	unitOrientationTrainingTypeId: string | null
 ): Promise<void> {

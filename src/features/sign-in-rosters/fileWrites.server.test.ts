@@ -127,7 +127,21 @@ function fixture(fault: Fault) {
 			present = false;
 		},
 		async find() {
-			return present ? { id: rosterId, title: 'Known roster', signed_file_path: signedPath } : null;
+			return present
+				? {
+						id: rosterId,
+						title: 'Known roster',
+						rosterDate: null,
+						blankDate: false,
+						separateByGroup: false,
+						sortBy: 'alphabetical',
+						personnelSnapshot: [],
+						filterConfig: null,
+						signedFilePath: signedPath,
+						createdBy: userId,
+						createdAt: '2026-01-02T03:04:05.123456Z'
+					}
+				: null;
 		},
 		async setSignedFilePath(_id: string, path: string | null) {
 			if (path !== null) expect(registrations.size).toBe(1);

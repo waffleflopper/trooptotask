@@ -27,7 +27,6 @@ import {
 	listUserPinnedGroupExportRows
 } from '$features/personnel/index.server';
 import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
-import { listSignInRosterExportRows } from '$features/sign-in-rosters/index.server';
 import {
 	listTrainingCompletionExportRows,
 	listTrainingTypeExportRows,
@@ -45,6 +44,7 @@ export function createOrganizationDataExportReads(
 		| 'personnelOrganizationExport'
 		| 'notificationSelf'
 		| 'feedbackExport'
+		| 'signInRosterExport'
 	>,
 	deletionRequestStore: DeletionRequestStore
 ): OrganizationDataExportReads {
@@ -76,7 +76,7 @@ export function createOrganizationDataExportReads(
 		leaderNotes: () => personnelOrganizationExport.listRows(auth, 'leader_notes'),
 		personnelFollowUps: () => personnelOrganizationExport.listRows(auth, 'personnel_follow_ups'),
 		personnelDocuments: () => personnelOrganizationExport.listRows(auth, 'personnel_documents'),
-		signInRosters: () => listSignInRosterExportRows(rawStore, orgId),
+		signInRosters: () => ctx.signInRosterExport.listRows(),
 		statusTypes: () => listStatusTypeExportRows(rawStore, orgId),
 		availabilityEntries: () => listAvailabilityExportRows(rawStore, orgId),
 		assignmentTypes: () => listAssignmentTypeExportRows(rawStore, orgId),

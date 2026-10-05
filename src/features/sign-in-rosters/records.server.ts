@@ -6,7 +6,7 @@ import {
 	validateSensitivePdfFile
 } from '$lib/storage/sensitiveFiles';
 import { prepareSignInRosterSnapshot, type SignInRosterSnapshotContext } from './snapshot.server';
-import type { SignInRosterListInput, SignInRosterPersistence, SignInRosterRecord } from './rosterPersistence.server';
+import type { SignInRosterListInput, SignInRosterPersistence } from './rosterPersistence.server';
 import type { SignInRosterFileWritePort, SignInRosterFileActor } from './contracts';
 
 interface RosterContext {
@@ -33,25 +33,9 @@ function fail(status: number, message: string): never {
 	throw Object.assign(new Error(message), { status });
 }
 
-function toClient(row: SignInRosterRecord) {
-	return {
-		id: row.id,
-		title: row.title,
-		rosterDate: row.roster_date,
-		blankDate: row.blank_date,
-		separateByGroup: row.separate_by_group,
-		sortBy: row.sort_by,
-		personnelSnapshot: row.personnel_snapshot,
-		filterConfig: row.filter_config,
-		signedFilePath: row.signed_file_path,
-		createdBy: row.created_by,
-		createdAt: row.created_at
-	};
-}
-
 export async function listSignInRosters(ctx: RosterContext, input: SignInRosterListInput) {
 	const { data, count } = await ctx.persistence.list(input);
-	return { rosters: data.map(toClient), total: count ?? 0 };
+	return { rosters: data, total: count ?? 0 };
 }
 
 export async function createSignInRoster(ctx: CreateRosterContext, input: Record<string, unknown>) {
@@ -59,33 +43,32 @@ export async function createSignInRoster(ctx: CreateRosterContext, input: Record
 	const snapshot = await prepareSignInRosterSnapshot(ctx, input);
 	const row = await ctx.persistence.create({
 		title: (input.title as string).trim(),
-		roster_date: input.rosterDate || null,
-		blank_date: input.blankDate ?? false,
-		separate_by_group: input.separateByGroup ?? false,
-		sort_by: snapshot.sortBy,
-		personnel_snapshot: snapshot.personnelSnapshot,
-		personnel_ids: snapshot.personnelIds,
-		scope_group_ids: snapshot.scopeGroupIds,
-		filter_config: snapshot.filterConfig,
-		signed_file_path: null,
-		created_by: ctx.userId
+		rosterDate: input.rosterDate || null,
+		blankDate: input.blankDate ?? false,
+		separateByGroup: input.separateByGroup ?? false,
+		sortBy: snapshot.sortBy,
+		personnelSnapshot: snapshot.personnelSnapshot,
+		personnelIds: snapshot.personnelIds,
+		scopeGroupIds: snapshot.scopeGroupIds,
+		filterConfig: snapshot.filterConfig,
+		createdBy: ctx.userId
 	});
 
 	ctx.audit.log({
 		action: 'sign_in_roster.created',
 		resourceType: 'sign_in_roster',
-		resourceId: row.id as string,
+		resourceId: row.id,
 		details: { title: input.title }
 	});
-	return toClient(row);
+	return row;
 }
 
 export async function deleteSignInRoster(ctx: RosterFileContext, rosterId: string) {
 	const roster = await ctx.persistence.find(rosterId);
 	if (!roster) fail(404, 'Roster not found');
-	if (roster.signed_file_path) {
+	if (roster.signedFilePath) {
 		const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
-		await files.removePrevious(roster.signed_file_path);
+		await files.removePrevious(roster.signedFilePath);
 	}
 	await ctx.persistence.delete(rosterId);
 	ctx.audit.log({
@@ -99,8 +82,8 @@ export async function deleteSignInRoster(ctx: RosterFileContext, rosterId: strin
 
 export async function getSignedScanUrl(ctx: RosterContext, rosterId: string) {
 	const roster = await ctx.persistence.find(rosterId);
-	if (!roster?.signed_file_path) fail(404, 'No signed file found');
-	return { url: await ctx.storage.createSignedUrl(SENSITIVE_FILE_BUCKET, roster.signed_file_path, 300) };
+	if (!roster?.signedFilePath) fail(404, 'No signed file found');
+	return { url: await ctx.storage.createSignedUrl(SENSITIVE_FILE_BUCKET, roster.signedFilePath, 300) };
 }
 
 function buildScanPath(orgId: string, rosterId: string, filename: string): string {
@@ -119,7 +102,7 @@ export async function uploadSignedScan(ctx: RosterFileContext, rosterId: string,
 
 	const roster = await ctx.persistence.find(rosterId);
 	if (!roster) fail(404, 'Roster not found');
-	const previousSignedFilePath = roster.signed_file_path ?? null;
+	const previousSignedFilePath = roster.signedFilePath ?? null;
 	const storagePath = buildScanPath(ctx.orgId, rosterId, file.name);
 
 	const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
@@ -176,9 +159,9 @@ export async function uploadSignedScan(ctx: RosterFileContext, rosterId: string,
 export async function removeSignedScan(ctx: RosterFileContext, rosterId: string) {
 	const roster = await ctx.persistence.find(rosterId);
 	if (!roster) fail(404, 'Roster not found');
-	if (roster.signed_file_path) {
+	if (roster.signedFilePath) {
 		const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
-		await files.removePrevious(roster.signed_file_path);
+		await files.removePrevious(roster.signedFilePath);
 	}
 	await ctx.persistence.setSignedFilePath(rosterId, null);
 	return { success: true };

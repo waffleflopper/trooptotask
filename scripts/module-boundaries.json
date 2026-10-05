@@ -140,6 +140,7 @@
 		"provider": {
 			"roots": ["src/lib/storage/"],
 			"files": [
+				"src/lib/server/adapters/persistenceContract.test.ts",
 				"src/lib/server/adapters/scopedDataStore.test.ts",
 				"src/lib/server/adapters/scopedDataStore.ts",
 				"src/lib/server/adapters/supabaseDataStore.test.ts",

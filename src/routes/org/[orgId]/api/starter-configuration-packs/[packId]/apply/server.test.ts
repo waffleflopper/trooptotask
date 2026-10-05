@@ -1,9 +1,43 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
 import { _postConfig } from './+server';
+
+const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
+
+function buildRequest(ctx: ReturnType<typeof createTestContext>): AdmittedOrganizationRequest {
+	const supabase = createClient('http://127.0.0.1:9', 'synthetic-starter-pack-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input) => {
+				const url = new URL(input instanceof Request ? input.url : String(input));
+				if (
+					url.pathname !== '/rest/v1/training_types' ||
+					url.searchParams.get('organization_id') !== `eq.${ctx.auth.orgId}`
+				) {
+					throw new Error('Unexpected starter-pack reference read');
+				}
+				return Response.json(await ctx.rawStore.findMany('training_types', ctx.auth.orgId));
+			}
+		}
+	});
+	getAdminClient.mockClear();
+	getAdminClient.mockReturnValue(supabase);
+	return {
+		auth: ctx.auth,
+		audit: ctx.audit,
+		store: ctx.store,
+		rawStore: ctx.rawStore,
+		scope: ctx.scope,
+		supabase,
+		session: null
+	};
+}
 
 const NO_TRAINING_CONFIGURE: CapabilityMap = {
 	calendar: 'configure',
@@ -39,15 +73,24 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 		expect(input).toEqual({ packId: 'first-week-operations' });
 	});
 
-	it('applies the starter pack through the route config', async () => {
+	it('persists the orientation Training step through the selected request context', async () => {
 		const ctx = createTestContext();
+		const request = buildRequest(ctx);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx);
+		const result = await handleUseCaseRequest(_postConfig, request, { packId: 'first-week-operations' }, () =>
+			_postConfig.context(request)
+		);
 
 		expect(result.failed).toEqual([]);
 		expect(result.created).toContainEqual({ family: 'training-types', name: 'Unit Orientation' });
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
 		expect(await ctx.store.findMany('onboarding_template_steps', ctx.auth.orgId)).toHaveLength(4);
+		const orientation = await ctx.store.findOne<Record<string, unknown>>('training_types', ctx.auth.orgId, {
+			name: 'Unit Orientation'
+		});
+		expect(
+			await ctx.store.findOne('onboarding_template_steps', ctx.auth.orgId, { name: 'Complete unit orientation' })
+		).toMatchObject({ step_type: 'training', training_type_id: orientation?.id });
 	});
 
 	it('allows Training and onboarding configurators without Calendar access', async () => {
@@ -58,8 +101,11 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 				capabilityMap: { ...NO_ONBOARDING_CONFIGURE, onboarding: 'configure' }
 			}
 		});
+		const request = buildRequest(ctx);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx);
+		const result = await handleUseCaseRequest(_postConfig, request, { packId: 'first-week-operations' }, () =>
+			_postConfig.context(request)
+		);
 
 		expect(result.failed).toEqual([]);
 		expect(await ctx.store.findMany('training_types', ctx.auth.orgId)).toHaveLength(2);
@@ -75,15 +121,19 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 				capabilityMap: NO_TRAINING_CONFIGURE
 			}
 		});
+		const request = buildRequest(ctx);
 		const insertSpy = vi.spyOn(ctx.store, 'insert');
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx)
+			handleUseCaseRequest(_postConfig, request, { packId: 'first-week-operations' }, () =>
+				_postConfig.context(request)
+			)
 		).rejects.toMatchObject({
 			status: 403
 		});
 
 		expect(insertSpy).not.toHaveBeenCalled();
+		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 
 	it('denies from the starter-pack preflight before writes when another configure action is missing', async () => {
@@ -94,14 +144,18 @@ describe('POST /api/starter-configuration-packs/[packId]/apply', () => {
 				capabilityMap: NO_ONBOARDING_CONFIGURE
 			}
 		});
+		const request = buildRequest(ctx);
 		const insertSpy = vi.spyOn(ctx.store, 'insert');
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { packId: 'first-week-operations' }, () => ctx)
+			handleUseCaseRequest(_postConfig, request, { packId: 'first-week-operations' }, () =>
+				_postConfig.context(request)
+			)
 		).rejects.toMatchObject({
 			status: 403
 		});
 
 		expect(insertSpy).not.toHaveBeenCalled();
+		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 });

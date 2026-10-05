@@ -11,6 +11,8 @@ The Organization Dashboard composes authorized Personnel, Calendar, Training, Cr
 - `navigation-recovery`: an exact A Dashboard navigation fails once, remains recoverable, and a delayed A navigation cannot overwrite B.
 - `deferred-state`: first-paint shell, workspace/summary pending, rejection and scope replacement remain explicit obligations. Whole-navigation holds do not prove individual server-source delay or failure.
 
+After changing request composition, run the real Organization Home route with Critical Tasks access and inspect its settled summary as well as the visible Overview. Tests that supply a broad fixture context or mock the summary operation cannot establish that the route selected every required provider. The Dashboard must settle without its load-error alert before this path earns verification credit.
+
 ## How to get to it (user POV)
 
 Sign in, enter an Organization and choose **Home** in its sidebar. The Organization breadcrumb also returns to this Dashboard. Its source workspaces remain available through Calendar, Personnel, Training, ICTLs and Onboard when the member has the corresponding access. Use **Switch organization** to select another membership; it preserves the current section, so choose Home afterward when switching from Calendar.
@@ -45,6 +47,8 @@ The Training snapshot is deliberately saved complete. With an authorized Trainin
 Restore network hooks, run `clean-seeds`, read back disappearance of the returned IDs and preservation of original A/B rows, run final doctor and owned cleanup, and package sanitized captures under the [durable evidence contract](../../../../docs/architecture/DEFINITION_OF_DONE.md#packaging-durable-artifacts). Baseline failures, unavailable paths and later repaired candidates stay distinct.
 
 ## Gotchas
+
+Starter pack apply currently has an authenticated endpoint and screen-model method, but no rendered Apply control. When changing its request composition, verify the ordinary signed-in `POST /org/ORG_ID/api/starter-configuration-packs/first-week-operations/apply` separately from native Dashboard interaction. An Organization owner must create “Complete unit orientation” as a Training step linked to “Unit Orientation”; reload and reapply must skip existing artifacts without duplicates. A view-only actor must receive 403 with unchanged Types/Templates/Steps. Preserve provider readbacks and remove only recorded synthetic artifacts through the ordinary delete endpoints before seed cleanup. These observations establish API/provider behavior; they do not establish a native Apply journey.
 
 - Page-data responses include session credentials. Redact access/refresh token values before saving or sharing captures, including flattened credential slots; preserve all source facts and error outcomes.
 - SvelteKit can return HTTP 200 with serialized route errors. Foreign denial must inspect the node status/message and absence of A data, not only the transport status.

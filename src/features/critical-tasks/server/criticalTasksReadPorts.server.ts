@@ -25,6 +25,6 @@ export interface CriticalTasksHistoryContext {
 export interface CriticalTasksReportContext {
 	readonly auth: PersonnelRosterActor;
 	readonly store: CriticalTasksReadStore;
-	readonly personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
+	readonly personnelCriticalTasksRoster: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
 	readonly criticalTasksReadModel: CriticalTasksReadModelPort;
 }

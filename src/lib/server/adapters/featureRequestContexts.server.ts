@@ -156,13 +156,11 @@ export function createRequestRatingSchemeWorkspaceContext(
 	};
 }
 
-export function createRequestOnboardingTemplateStepContext(
-	request: AdmittedOrganizationRequest
-): Parameters<typeof createOnboardingTemplateStep>[0] {
+export function createRequestOnboardingTemplateStepContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestWriteContext(request),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
-	};
+	} satisfies Parameters<typeof createOnboardingTemplateStep>[0];
 }
 
 export function createRequestOnboardingStartContext(

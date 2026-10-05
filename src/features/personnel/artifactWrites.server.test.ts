@@ -188,7 +188,10 @@ describe('Person-bound artifact writes', () => {
 // tests and the actual SQL/RLS/native provider proofs.
 describe('Person-bound registered Storage transport', () => {
 	const kinds = ['document', 'counseling'] as const;
-	function finite(kind: (typeof kinds)[number], fault: 'upload-lost' | 'upload-key' | 'remove-empty' | 'remove-lost') {
+	function finite(
+		kind: (typeof kinds)[number],
+		fault: 'upload-lost' | 'upload-key' | 'remove-empty' | 'remove-lost' | 'remove-array-like'
+	) {
 		const actor = member('operate');
 		const bucket = kind === 'document' ? 'personnel-documents' : 'counseling-files';
 		const path =
@@ -225,6 +228,7 @@ describe('Person-bound registered Storage transport', () => {
 			if (init?.method === 'DELETE' && url.pathname === `/storage/v1/object/${bucket}`) {
 				if (fault === 'remove-lost') throw new TypeError('Removal outcome unknown');
 				if (fault === 'remove-empty') return Response.json([]);
+				if (fault === 'remove-array-like') return Response.json({ length: 1, 0: { name: path } });
 				throw new Error('Unexpected removal');
 			}
 			throw new Error('Unexpected finite provider operation');
@@ -256,7 +260,7 @@ describe('Person-bound registered Storage transport', () => {
 		}
 	);
 	it.each(kinds)('rejects unacknowledged %s compensation without releasing its registration', async (kind) => {
-		for (const fault of ['remove-empty', 'remove-lost'] as const) {
+		for (const fault of ['remove-empty', 'remove-lost', 'remove-array-like'] as const) {
 			const run = finite(kind, fault);
 			const writer = await run.writer;
 			await writer.uploadFile(kind, run.path, new File(['%PDF-1.7'], 'unique.pdf', { type: 'application/pdf' }));

@@ -101,7 +101,7 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 							},
 							() => selectRosterUploadContext(ctx)
 						)
-					: handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx));
+					: handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx));
 			await expect(result).rejects.toMatchObject({ status: 403 });
 			expect(ctx.storagePort.files.map((file) => file.path)).toEqual([OLD_SCAN_PATH]);
 			await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toMatchObject({
@@ -134,7 +134,9 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 						)
 					: operation === 'read'
 						? handleUseCaseRequest(_getConfig, ctx, { rosterId: 'foreign-roster' }, () => selectRosterContext(ctx))
-						: handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'foreign-roster' }, () => selectRosterContext(ctx));
+						: handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'foreign-roster' }, () =>
+								selectRosterUploadContext(ctx)
+							);
 			await expect(result).rejects.toMatchObject({
 				status: 404,
 				message: operation === 'read' ? 'No signed file found' : 'Roster not found'
@@ -381,7 +383,7 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		};
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
 		).rejects.toThrow('storage cleanup failed');
 
 		expect(updateCalls).toEqual([]);
@@ -410,7 +412,7 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		};
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
 		).rejects.toThrow('update failed');
 
 		expect(removeCalls).toEqual([[OLD_SCAN_PATH]]);
@@ -419,6 +421,13 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 			id: 'roster-1'
 		});
 		expect(roster?.signed_file_path).toBe(OLD_SCAN_PATH);
+		ctx.store.update = update;
+		await expect(
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
+		).resolves.toEqual({ success: true });
+		await expect(ctx.store.findOne('sign_in_rosters', ctx.auth.orgId, { id: 'roster-1' })).resolves.toMatchObject({
+			signed_file_path: null
+		});
 	});
 
 	it('clears the DB path and removes the old scan when unlinking succeeds', async () => {
@@ -426,7 +435,7 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, OLD_SCAN_PATH, new File([PDF_BYTES], 'old-scan.pdf'));
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-1' }, () => selectRosterUploadContext(ctx))
 		).resolves.toEqual({
 			success: true
 		});
@@ -443,7 +452,7 @@ describe('/api/sign-in-rosters/[id]/upload route config', () => {
 		await ctx.storage.upload(SENSITIVE_FILE_BUCKET, MIXED_SCAN_PATH, new File([PDF_BYTES], 'mixed-scan.pdf'));
 
 		await expect(
-			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' }, () => selectRosterContext(ctx))
+			handleUseCaseRequest(_deleteConfig, ctx, { rosterId: 'roster-mixed' }, () => selectRosterUploadContext(ctx))
 		).rejects.toMatchObject({
 			status: 404,
 			message: 'Roster not found'

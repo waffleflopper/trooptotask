@@ -43,7 +43,7 @@ export function createSupabaseSignInRosterFileWritePort(
 			async function removeFile(path: string, previous: boolean) {
 				assertPath(path);
 				const { data, error } = await request.storage.from(SENSITIVE_FILE_BUCKET).remove([path]);
-				if (!error && data?.length === 1 && data[0].name === path) return;
+				if (!error && Array.isArray(data) && data.length === 1 && data[0]?.name === path) return;
 				if (previous && !error && Array.isArray(data) && data.length === 0) {
 					// An ordinary empty ACK can also hide an existing object through RLS.
 					// Read only this admitted roster's exact key with the server provider.

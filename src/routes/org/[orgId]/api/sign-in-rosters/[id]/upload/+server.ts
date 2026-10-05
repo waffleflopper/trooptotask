@@ -45,9 +45,9 @@ export const POST = handle(_postConfig);
 export const _deleteConfig: RouteConfig<
 	{ rosterId: string },
 	{ success: boolean },
-	ReturnType<typeof createRequestSignInRosterContext>
+	ReturnType<typeof createRequestSignInRosterUploadContext>
 > = {
-	context: createRequestSignInRosterContext,
+	context: createRequestSignInRosterUploadContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },

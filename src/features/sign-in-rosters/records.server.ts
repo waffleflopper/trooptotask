@@ -13,13 +13,16 @@ interface RosterContext {
 	orgId: string;
 	persistence: SignInRosterPersistence;
 	storage: {
-		upload(bucket: string, path: string, data: File, options?: { upsert?: boolean }): Promise<void>;
-		remove(bucket: string, paths: string[]): Promise<void>;
 		createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
 	};
 	audit: {
 		log(event: { action: string; resourceType: string; resourceId: string; details?: Record<string, unknown> }): void;
 	};
+}
+
+interface RosterFileContext extends Pick<RosterContext, 'orgId' | 'persistence' | 'audit'> {
+	actor: SignInRosterFileActor;
+	fileWrites: SignInRosterFileWritePort;
 }
 
 interface CreateRosterContext extends RosterContext, SignInRosterSnapshotContext {
@@ -77,10 +80,13 @@ export async function createSignInRoster(ctx: CreateRosterContext, input: Record
 	return toClient(row);
 }
 
-export async function deleteSignInRoster(ctx: RosterContext, rosterId: string) {
+export async function deleteSignInRoster(ctx: RosterFileContext, rosterId: string) {
 	const roster = await ctx.persistence.find(rosterId);
 	if (!roster) fail(404, 'Roster not found');
-	if (roster.signed_file_path) await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [roster.signed_file_path]);
+	if (roster.signed_file_path) {
+		const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
+		await files.removePrevious(roster.signed_file_path);
+	}
 	await ctx.persistence.delete(rosterId);
 	ctx.audit.log({
 		action: 'sign_in_roster.deleted',
@@ -106,11 +112,7 @@ function buildScanPath(orgId: string, rosterId: string, filename: string): strin
 	});
 }
 
-export async function uploadSignedScan(
-	ctx: RosterContext & { actor: SignInRosterFileActor; fileWrites: SignInRosterFileWritePort },
-	rosterId: string,
-	file: File | null
-) {
+export async function uploadSignedScan(ctx: RosterFileContext, rosterId: string, file: File | null) {
 	if (!file) fail(400, 'No file provided');
 	const validationError = await validateSensitivePdfFile(file);
 	if (validationError) fail(400, validationError);
@@ -171,10 +173,13 @@ export async function uploadSignedScan(
 	return { filePath: storagePath };
 }
 
-export async function removeSignedScan(ctx: RosterContext, rosterId: string) {
+export async function removeSignedScan(ctx: RosterFileContext, rosterId: string) {
 	const roster = await ctx.persistence.find(rosterId);
 	if (!roster) fail(404, 'Roster not found');
-	if (roster.signed_file_path) await ctx.storage.remove(SENSITIVE_FILE_BUCKET, [roster.signed_file_path]);
+	if (roster.signed_file_path) {
+		const files = await ctx.fileWrites.forRoster(ctx.actor, rosterId);
+		await files.removePrevious(roster.signed_file_path);
+	}
 	await ctx.persistence.setSignedFilePath(rosterId, null);
 	return { success: true };
 }

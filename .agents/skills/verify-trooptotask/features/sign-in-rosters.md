@@ -11,6 +11,7 @@ A Training member creates a printable attendance roster from the current Personn
 - `roster-scope`: an Alpha-scoped member sees Alpha-only rosters, while mixed-Group and unassigned snapshots stay outside that member's scope.
 - `roster-denied`: Training read access cannot create, upload, remove or delete; no Training access or a foreign Organization cannot read or mutate the roster or scan.
 - `roster-failure`: a failed list or scan request shows an error and recovers on retry without deleting the saved roster or file.
+- `roster-removal-confirmation`: unlink/delete retains metadata when an existing scan is hidden by an empty ordinary deletion reply; an admitted exact-key check permits retry when the old scan is genuinely absent.
 
 ## How to get to it (user POV)
 

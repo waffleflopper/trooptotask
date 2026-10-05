@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import type { PersonnelGovernanceDeletionPort } from './contracts';
 import { artifactFileTarget } from './artifactWrites.server';
 
@@ -44,8 +45,7 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 
 			if (row.file_path) {
 				const bucket = artifactFileTarget('counseling', actor.orgId, row.personnel_id, row.file_path);
-				const { error: storageError } = await admin.storage.from(bucket).remove([row.file_path]);
-				if (storageError) throw new Error(`Storage remove failed: ${storageError.message}`);
+				await createSupabaseStorageAdapter(admin).remove(bucket, [row.file_path]);
 			}
 
 			const { error } = await admin.rpc('approve_counseling_deletion_request', {

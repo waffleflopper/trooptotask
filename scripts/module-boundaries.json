@@ -146,6 +146,7 @@
 				"src/lib/server/adapters/supabaseDataStore.test.ts",
 				"src/lib/server/adapters/supabaseDataStore.ts",
 				"src/lib/server/adapters/supabaseStorage.ts",
+				"src/lib/server/adapters/supabaseStorage.test.ts",
 				"src/lib/server/entitySchema.test.ts",
 				"src/lib/server/entitySchema.ts",
 				"src/lib/server/env.test.ts",

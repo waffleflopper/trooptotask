@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createSupabasePersonnelGovernanceDeletionPort } from './governanceDeletion.server';
 
@@ -26,7 +26,7 @@ function client(
 	requestExists = true,
 	readError?: string
 ) {
-	const remove = vi.fn().mockResolvedValue({ error: null });
+	const remove = vi.fn().mockResolvedValue({ data: row?.file_path ? [{ name: row.file_path }] : [], error: null });
 	const storage = { from: vi.fn(() => ({ remove })) };
 	const rpc = vi.fn().mockResolvedValue({ error: null });
 	const queries: Array<{ table: string; eq: ReturnType<typeof vi.fn> }> = [];
@@ -168,6 +168,7 @@ describe('Organization-approved counseling deletion', () => {
 			).deleteApprovedCounselingRecord(admin(), 'request-1', 'record-1', '2026-01-01T00:00:00.000Z')
 		).rejects.toMatchObject({ status: 400 });
 		expect(unsafe.from).toHaveBeenCalledTimes(1);
+		expect(unsafe.remove).not.toHaveBeenCalled();
 		expect(unsafe.rpc).not.toHaveBeenCalled();
 		const failedStorage = client({ personnel_id: 'person-1', file_path: FILE_PATH });
 		failedStorage.remove.mockResolvedValue({ error: { message: 'Unavailable' } });
@@ -179,6 +180,22 @@ describe('Organization-approved counseling deletion', () => {
 		).rejects.toThrow('Storage remove failed: Unavailable');
 		expect(failedStorage.from).toHaveBeenCalledTimes(1);
 		expect(failedStorage.rpc).not.toHaveBeenCalled();
+	});
+
+	it.each([
+		['malformed', { name: FILE_PATH }],
+		['duplicate', [{ name: FILE_PATH }, { name: FILE_PATH }]],
+		['foreign', [{ name: 'org-2/counseling-records/person-1/other.pdf' }]]
+	])('refuses a %s Storage acknowledgement before approval', async (_fault, data) => {
+		const provider = client({ personnel_id: 'person-1', file_path: FILE_PATH });
+		provider.remove.mockResolvedValue({ data, error: null });
+		await expect(
+			createSupabasePersonnelGovernanceDeletionPort(
+				() => provider.value,
+				provider.requirePending
+			).deleteApprovedCounselingRecord(admin(), 'request-1', 'record-1', '2026-01-01T00:00:00.000Z')
+		).rejects.toThrow();
+		expect(provider.rpc).not.toHaveBeenCalled();
 	});
 
 	it('treats a missing row at the atomic database step as 404', async () => {
@@ -193,24 +210,62 @@ describe('Organization-approved counseling deletion', () => {
 	});
 
 	it('retries database approval after its file was already removed', async () => {
-		const provider = client({ personnel_id: 'person-1', file_path: FILE_PATH });
-		provider.remove
-			.mockResolvedValueOnce({ data: [{ name: FILE_PATH }], error: null })
-			.mockResolvedValueOnce({ data: [], error: null });
-		provider.rpc
-			.mockResolvedValueOnce({ error: { code: 'XX000', message: 'status write failed' } })
-			.mockResolvedValueOnce({ error: null });
-		const deletion = createSupabasePersonnelGovernanceDeletionPort(() => provider.value, provider.requirePending);
+		const files = new Set([FILE_PATH]);
+		const acknowledgements: string[][] = [];
+		let recordExists = true;
+		let pending = true;
+		let failNextApproval = true;
+		const provider = createClient('https://storage.invalid', 'synthetic-service-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(String(input));
+					const method = init?.method ?? 'GET';
+					if (method === 'GET' && url.pathname === '/rest/v1/counseling_records') {
+						if (url.searchParams.get('organization_id') !== 'eq.org-1' || url.searchParams.get('id') !== 'eq.record-1')
+							throw new Error('Unexpected counseling target');
+						return Response.json(recordExists ? [{ personnel_id: 'person-1', file_path: FILE_PATH }] : []);
+					}
+					if (method === 'DELETE' && url.pathname === '/storage/v1/object/counseling-files') {
+						const { prefixes } = JSON.parse(String(init?.body)) as { prefixes: string[] };
+						const removed = prefixes.filter((path) => files.delete(path));
+						acknowledgements.push(removed);
+						return Response.json(removed.map((name) => ({ name })));
+					}
+					if (method === 'POST' && url.pathname === '/rest/v1/rpc/approve_counseling_deletion_request') {
+						if (files.has(FILE_PATH)) throw new Error('File still exists at approval');
+						if (failNextApproval) {
+							failNextApproval = false;
+							return Response.json({ code: 'XX000', message: 'status write failed' }, { status: 500 });
+						}
+						recordExists = false;
+						pending = false;
+						return Response.json(null);
+					}
+					throw new Error('Unexpected finite provider request');
+				}
+			}
+		});
+		const requirePending = vi.fn(async () => {
+			if (!pending) throw Object.assign(new Error('Pending deletion request not found'), { status: 404 });
+		});
+		const deletion = createSupabasePersonnelGovernanceDeletionPort(() => provider, requirePending);
 		const reviewer = admin();
 
 		await expect(
 			deletion.deleteApprovedCounselingRecord(reviewer, 'request-1', 'record-1', '2026-01-01T00:00:00.000Z')
 		).rejects.toThrow('status write failed');
+		expect(files.size).toBe(0);
+		expect(recordExists).toBe(true);
+		expect(pending).toBe(true);
+		expect(acknowledgements).toEqual([[FILE_PATH]]);
 		await expect(
 			deletion.deleteApprovedCounselingRecord(reviewer, 'request-1', 'record-1', '2026-01-01T00:00:00.000Z')
 		).resolves.toBeUndefined();
-		expect(provider.remove).toHaveBeenCalledTimes(2);
-		expect(provider.rpc).toHaveBeenCalledTimes(2);
-		expect(provider.requirePending).toHaveBeenCalledTimes(2);
+		expect(acknowledgements).toEqual([[FILE_PATH], []]);
+		expect(files.size).toBe(0);
+		expect(recordExists).toBe(false);
+		expect(pending).toBe(false);
+		expect(requirePending).toHaveBeenCalledTimes(2);
 	});
 });

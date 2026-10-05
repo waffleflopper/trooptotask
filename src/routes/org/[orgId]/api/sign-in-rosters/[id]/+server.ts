@@ -1,15 +1,15 @@
 import { deleteSignInRoster } from '$features/sign-in-rosters/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createRequestSignInRosterContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestSignInRosterUploadContext } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent } from '@sveltejs/kit';
 
 export const _deleteConfig: RouteConfig<
 	{ rosterId: string },
 	unknown,
-	ReturnType<typeof createRequestSignInRosterContext>
+	ReturnType<typeof createRequestSignInRosterUploadContext>
 > = {
-	context: createRequestSignInRosterContext,
+	context: createRequestSignInRosterUploadContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.manageSignInRosters,
 	policyResource: { kind: 'unscoped' },

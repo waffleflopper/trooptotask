@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import { createSupabaseSignInRosterFileWritePort } from './fileWrites.server';
-import { uploadSignedScan } from './records.server';
+import { deleteSignInRoster, removeSignedScan, uploadSignedScan } from './records.server';
 import type { SignInRosterPersistence } from './rosterPersistence.server';
 
 const orgId = 'ab181000-0000-4000-8000-000000000101';
@@ -21,6 +22,10 @@ type Fault =
 	| 'old-removal'
 	| 'old-missing'
 	| 'old-hidden'
+	| 'old-malformed'
+	| 'old-array-like'
+	| 'old-name'
+	| 'old-duplicate'
 	| 'info-invalid'
 	| 'info-bucket'
 	| 'info-unavailable';
@@ -31,6 +36,8 @@ function fixture(fault: Fault) {
 	const registrations = new Map<string, Record<string, unknown>>();
 	const files = new Map<string, string>(fault === 'old-missing' ? [] : [[oldPath, 'old signed bytes']]);
 	let signedPath: string | null = oldPath;
+	let present = true;
+	const audits: string[] = [];
 	const actor = createTestAuthContext({ orgId, userId });
 	const transport: typeof fetch = async (resource, init) => {
 		const url = new URL(String(resource));
@@ -87,6 +94,12 @@ function fixture(fault: Fault) {
 				return Response.json({ message: 'Removal denied' }, { status: 403 });
 			if (paths.includes(oldPath) && ['old-hidden', 'info-invalid', 'info-bucket', 'info-unavailable'].includes(fault))
 				return Response.json([]);
+			if (paths.includes(oldPath) && fault === 'old-malformed') return Response.json({ name: oldPath });
+			if (paths.includes(oldPath) && fault === 'old-array-like')
+				return Response.json({ length: 1, 0: { name: oldPath } });
+			if (paths.includes(oldPath) && fault === 'old-name') return Response.json([{ name: 'other/scan.pdf' }]);
+			if (paths.includes(oldPath) && fault === 'old-duplicate')
+				return Response.json([{ name: oldPath }, { name: oldPath }]);
 			if (fault === 'compensation-empty') {
 				for (const path of paths) files.delete(path);
 				return Response.json([]);
@@ -111,13 +124,13 @@ function fixture(fault: Fault) {
 			throw new Error('Unused create');
 		},
 		async delete() {
-			throw new Error('Unused delete');
+			present = false;
 		},
 		async find() {
-			return { id: rosterId, title: 'Known roster', signed_file_path: signedPath };
+			return present ? { id: rosterId, title: 'Known roster', signed_file_path: signedPath } : null;
 		},
 		async setSignedFilePath(_id: string, path: string | null) {
-			expect(registrations.size).toBe(1);
+			if (path !== null) expect(registrations.size).toBe(1);
 			if (['attachment', 'compensation', 'compensation-empty'].includes(fault)) throw new Error('Attachment rejected');
 			signedPath = path;
 		}
@@ -127,21 +140,65 @@ function fixture(fault: Fault) {
 		orgId,
 		fileWrites,
 		persistence,
-		audit: { log() {} },
-		storage: {
-			async upload() {
-				throw new Error('Generic upload is unused');
-			},
-			async remove() {
-				throw new Error('Generic removal is unused during upload');
-			},
-			async createSignedUrl() {
-				return '';
+		audit: {
+			log(event: { action: string }) {
+				audits.push(event.action);
 			}
-		}
+		},
+		storage: createSupabaseStorageAdapter(client('http://ordinary.invalid'))
 	};
-	return { context, registrations, files, signedPath: () => signedPath };
+	return { context, registrations, files, audits, present: () => present, signedPath: () => signedPath };
 }
+
+describe.each([
+	['unlink', removeSignedScan],
+	['delete roster', deleteSignInRoster]
+] as const)('admitted roster %s through actual SDK removal', (operation, remove) => {
+	it.each([
+		'old-hidden',
+		'info-invalid',
+		'info-bucket',
+		'info-unavailable',
+		'old-malformed',
+		'old-array-like',
+		'old-name',
+		'old-duplicate'
+	] as const)('preserves metadata and known bytes when removal is unconfirmed: %s', async (fault) => {
+		const run = fixture(fault);
+		await expect(remove(run.context, rosterId)).rejects.toThrow();
+		expect(run.present()).toBe(true);
+		expect(run.signedPath()).toBe(oldPath);
+		expect(run.files).toEqual(new Map([[oldPath, 'old signed bytes']]));
+		expect(run.audits).toEqual([]);
+	});
+	it('completes when the admitted exact key is already absent', async () => {
+		const run = fixture('old-missing');
+		await remove(run.context, rosterId);
+		expect(run.files.size).toBe(0);
+		if (operation === 'unlink') {
+			expect(run.present()).toBe(true);
+			expect(run.signedPath()).toBeNull();
+		} else {
+			expect(run.present()).toBe(false);
+			expect(run.audits).toEqual(['sign_in_roster.deleted']);
+		}
+	});
+	it('rechecks current Training permission before file or metadata effects', async () => {
+		const run = fixture('none');
+		run.context.actor = {
+			...run.context.actor,
+			role: 'member',
+			isPrivileged: false,
+			canManageMembers: false,
+			capabilityMap: { ...run.context.actor.capabilityMap, training: 'view' }
+		};
+		await expect(remove(run.context, rosterId)).rejects.toMatchObject({ status: 403 });
+		expect(run.present()).toBe(true);
+		expect(run.signedPath()).toBe(oldPath);
+		expect(run.files).toEqual(new Map([[oldPath, 'old signed bytes']]));
+		expect(run.audits).toEqual([]);
+	});
+});
 
 describe('registered roster upload provider and attachment', () => {
 	it('keeps the registration through attachment and ordinary replacement cleanup', async () => {

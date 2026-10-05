@@ -4,6 +4,10 @@ This intermediate outcome for [#1377](https://github.com/waffleflopper/trooptota
 
 The verification-only PR delivers the [shared UI recipe](../../../.agents/skills/verify-trooptotask/features/shared-ui.md), meaningful component coverage and unchanged-application evidence. It changes no production application or database code and may merge only after green exact-head CI and completed bot review without actionable feedback. The subsequent implementation PR removes six back-imports across five families and repairs reproduced shared UI contracts. It stops for Robert's review without merging. Both use `Refs #1377`; neither closes the child or parent #1281. This split supplies independently usable verification before changing the components, rather than dividing individual defect repairs.
 
+## Integrated preparation
+
+[PR #1529](https://github.com/waffleflopper/trooptotask/pull/1529) merges at `9b6f9b74d76af91895cf16b063b157c1927eb1c6` after accepted head `40b7d432ebac89f718ffaf7abc9ad6c54d0fd9fa` passes [exact-head CI 37245581165](https://github.com/waffleflopper/trooptotask/actions/runs/37245581165), including all 687 suites / 6,793 tests and production build. Completed hosted review has no actionable or unresolved finding; the two outside-diff preservation requests are [independently withdrawn after archive inspection](https://github.com/waffleflopper/trooptotask/pull/1529#issuecomment-5985900068). Integrated and accepted trees are identical at `dd3a5434029de2febdda0d1f6525b44f1db43827`. The watch is stopped. Earlier pending gates below describe preparation history; the [implementation receipt](d29-ui-contracts.md) owns current behavior and its unmerged review gate.
+
 ## Scope and consumers
 
 The full Svelte-aware scan reports zero parse/resolution failures. AlertDialog Content, Dialog Content, Calendar and RangeCalendar each import their own barrel; Pagination Previous and Next import Link through their barrel. Public exports and supported caller interfaces remain.

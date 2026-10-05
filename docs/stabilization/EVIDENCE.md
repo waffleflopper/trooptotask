@@ -2,7 +2,7 @@
 
 ## Phase 08 D28 owned Critical Tasks library persistence
 
-The [task-library receipt](phase-08/d28-critical-task-library-persistence.md) declares the next same-issue outcome from integrated Audit #1541 at `cba2ee80`. It groups all ordinary task-definition persistence and every catalog/reference reader with removal of the last shared CRUD route. Both Critical Tasks recipes select affected baseline/final proof. The disposed unchanged baseline and independent expanded-artifact acceptance pass; the source cutover and local checks pass, while final native and review acceptance remain pending; completion persistence and the remaining generic owner/context/store/scope concerns keep #1376 open.
+The [task-library receipt](phase-08/d28-critical-task-library-persistence.md) declares the next same-issue outcome from integrated Audit #1541 at `cba2ee80`. It groups all ordinary task-definition persistence and every catalog/reference reader with removal of the last shared CRUD route. Both Critical Tasks recipes select affected baseline/final proof. The disposed unchanged baseline and independent expanded-artifact acceptance pass; the source cutover, local checks, frozen final native/SQL proof and full 64-text-path CLI review pass; expanded final acceptance passes with no consequential gaps; the four final record updates receive separate CLI review before publication; publication-head CI/hosted approval remain gates; completion persistence and the remaining generic owner/context/store/scope concerns keep #1376 open.
 
 ## Phase 08 D28 owned Audit current-label persistence
 

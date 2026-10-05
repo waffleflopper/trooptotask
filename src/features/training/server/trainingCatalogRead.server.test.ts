@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createInMemoryDataStore, createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$lib/server/adapters/inMemory';
 import {
 	findTrainingTypeByName,
 	hasTrainingTypes,
 	listExistingTrainingTypeNames,
 	listTrainingRankApplicabilityReferences,
 	listTrainingTypeLabels,
-	listTrainingTypeNamesByIds,
 	listTrainingTypes,
 	listTrainingViews
 } from './trainingCatalogRead.server';
@@ -74,38 +73,5 @@ describe('Training catalog reads', () => {
 		expect(await listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId)).toEqual([
 			{ appliesToRanks: ['DET-SGT'], excludedRanks: ['SGT'] }
 		]);
-	});
-
-	it('returns only referenced Organization type names and retains the missing-name ID fallback', async () => {
-		const store = createInMemoryDataStore();
-		store.seed('training_types', [
-			{ id: 'referenced', organization_id: 'org-1', name: 'Combat lifesaver' },
-			{ id: 'missing-name', organization_id: 'org-1', name: null },
-			{ id: 'unrequested', organization_id: 'org-1', name: 'Unrequested local type' },
-			{ id: 'foreign', organization_id: 'org-2', name: 'Foreign type' }
-		]);
-
-		expect(
-			await listTrainingTypeNamesByIds(store, 'org-1', ['referenced', 'missing-name', 'foreign', 'missing'])
-		).toEqual(
-			new Map([
-				['referenced', 'Combat lifesaver'],
-				['missing-name', 'missing-name']
-			])
-		);
-	});
-
-	it('returns no Training type names without accessing persistence when no IDs are referenced', async () => {
-		await expect(
-			listTrainingTypeNamesByIds(
-				{
-					async findMany() {
-						throw new Error('Persistence is unavailable');
-					}
-				},
-				'org-1',
-				[]
-			)
-		).resolves.toEqual(new Map());
 	});
 });

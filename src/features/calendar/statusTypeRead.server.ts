@@ -16,17 +16,3 @@ export async function listStatusTypes(store: DataStore, orgId: string): Promise<
 export function listStatusTypeLabels(store: DataStore, orgId: string): Promise<Array<{ id: string; name: string }>> {
 	return store.findMany<{ id: string; name: string }>('status_types', orgId, undefined, { select: 'id, name' });
 }
-
-/** Resolve only referenced labels for a separately authorized audit read. */
-export async function listStatusTypeNamesByIds(
-	store: DataStore,
-	orgId: string,
-	ids: string[]
-): Promise<Map<string, string>> {
-	if (ids.length === 0) return new Map();
-	const rows = await store.findMany<{ id: string; name: string }>('status_types', orgId, undefined, {
-		select: 'id, name',
-		inFilters: { id: ids }
-	});
-	return new Map(rows.map(({ id, name }) => [id, name ?? id]));
-}

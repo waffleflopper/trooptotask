@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { createScopedDataStore } from './scopedDataStore';
-import { defaultScopeRules } from './scopeRules';
 import { createSupabaseDataStore } from './supabaseDataStore';
 
 type Row = { id: string; [column: string]: unknown };
@@ -50,7 +49,7 @@ function provider(table: string, rows: Row[], failPage = false) {
 				if (failPage && offset > 0) {
 					return Response.json({ message: 'Later provider page unavailable' }, { status: 400 });
 				}
-				result = result.slice(offset, offset + Number(url.searchParams.get('limit') ?? 1000));
+				result = result.slice(offset, offset + Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000));
 				if (request.headers.get('accept')?.includes('application/vnd.pgrst.object+json')) {
 					return result.length === 1
 						? Response.json(result[0])
@@ -120,14 +119,15 @@ describe('Request persistence contracts through the real provider SDK', () => {
 			{ id: 'alpha-2', organization_id: 'org-a', group_id: 'alpha' },
 			{ id: 'foreign', organization_id: 'org-b', group_id: 'alpha' }
 		]);
-		const scoped = createScopedDataStore(run.store, { kind: 'groups', groupIds: ['alpha'] }, defaultScopeRules);
+		const rules = new Map([['personnel', { type: 'group' as const, groupColumn: 'group_id' }]]);
+		const scoped = createScopedDataStore(run.store, { kind: 'groups', groupIds: ['alpha'] }, rules);
 		expect(await scoped.findManyWithCount('personnel', 'org-a', undefined, { range: { from: 1, to: 1 } })).toEqual({
 			data: [{ id: 'alpha-2', organization_id: 'org-a', group_id: 'alpha' }],
 			count: 2
 		});
 		expect(await scoped.findOne('personnel', 'org-a', { id: 'unassigned' })).toBeNull();
 		expect(await scoped.findOne('personnel', 'org-a', { id: 'foreign' })).toBeNull();
-		const empty = createScopedDataStore(run.store, { kind: 'groups', groupIds: [] }, defaultScopeRules);
+		const empty = createScopedDataStore(run.store, { kind: 'groups', groupIds: [] }, rules);
 		expect(await empty.findManyWithCount('personnel', 'org-a')).toEqual({ data: [], count: 0 });
 	});
 
@@ -138,7 +138,10 @@ describe('Request persistence contracts through the real provider SDK', () => {
 			{ id: 'unassigned', organization_id: 'org-a', scope_group_ids: [] },
 			{ id: 'foreign', organization_id: 'org-b', scope_group_ids: ['alpha'] }
 		]);
-		const scoped = createScopedDataStore(run.store, { kind: 'groups', groupIds: ['alpha'] }, defaultScopeRules);
+		const rules = new Map([
+			['sign_in_rosters', { type: 'group-array' as const, groupColumn: 'scope_group_ids', requireNonEmpty: true }]
+		]);
+		const scoped = createScopedDataStore(run.store, { kind: 'groups', groupIds: ['alpha'] }, rules);
 		expect(await scoped.findMany('sign_in_rosters', 'org-a')).toEqual([
 			{ id: 'alpha', organization_id: 'org-a', scope_group_ids: ['alpha'] }
 		]);

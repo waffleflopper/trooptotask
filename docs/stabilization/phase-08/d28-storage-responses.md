@@ -2,7 +2,7 @@
 
 ## Outcome and scope
 
-This intermediate deliverable references [#1376](https://github.com/waffleflopper/trooptotask/issues/1376). It starts from merged preparation `7735ea32` and integrates separately owned shared UI [#1533](https://github.com/waffleflopper/trooptotask/pull/1533) at `10dbfcd1e1a84a4a21465b71edb2e47fca47366f`. The current branch is `stabilization/1376-storage-responses`. No migration, schema, bucket or policy changes are included.
+This intermediate deliverable references [#1376](https://github.com/waffleflopper/trooptotask/issues/1376). It starts from merged preparation `7735ea32` and integrates separately owned shared UI [#1533](https://github.com/waffleflopper/trooptotask/pull/1533) at `10dbfcd1e1a84a4a21465b71edb2e47fca47366f`. The delivered branch is `stabilization/1376-storage-responses`. #1534 is merged at `4b5c4b5a4a34157a24979b875904c7f5dfb4a754` with exact tree equality to accepted head `ef78cec716947731cfb7b37d5b825338998de191`. No migration, schema, bucket or policy changes are included.
 
 Malformed signing replies now fail before an application receives a URL for the wrong object or origin. Shared privileged removal accepts only an array of unique requested names from the current batch. Empty arrays and valid subsets preserve delete-if-present semantics for missing catalog objects. Requests contain at most 1,000 unique keys. Both strict file owners also reject array-like JSON that previously looked like a one-entry acknowledgment.
 
@@ -49,6 +49,8 @@ Five separately packaged runs preserve 302 sanitized payloads plus inventories. 
 Extract each archive into its own new ignored directory, for example `mkdir -p .verification/evidence/d28-review/baseline` followed by `tar -xzf docs/stabilization/phase-08/d28-storage-baseline.tar.gz -C .verification/evidence/d28-review/baseline`. Read `inventory.json`; compare its `files[].filename` set with every extracted payload except the inventory, and hash each expanded file against `files[].sha256`. Verify the archive hash from this table first. Actual observations are in snapshots, PDFs, screenshots, request/provider readbacks and run-notes.md. Checksums prove packaging integrity, not behavior.
 
 ## Checks and acceptance
+
+Exact-head [CI run 37266066529](https://github.com/waffleflopper/trooptotask/actions/runs/37266066529) passes all six checks, including 692 suites / 6,888 tests, types 0/0 and production build. Completed hosted review `d23b3dec-2012-4f5c-9e5f-42db1679dda0` processes the corrected head without actionable feedback. There are no unresolved review threads. The head-conditional squash merge completes on 2026-10-05; the PR watch is stopped. This completes the Storage deliverable, while #1376 remains open.
 
 Changed-material CLI review uses `coderabbit review --base-commit 349d306b7f0fe1d4fc73662f7cde1dc54e624461 --uncommitted --agent`. It completes with zero findings on all three correction paths in patch `5064d9b6`. Later result-status prose records the completed checks and acceptance without changing the fixture. The added TypeScript diff contains no comments, suppressions or weakened assertions.
 

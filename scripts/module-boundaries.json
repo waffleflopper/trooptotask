@@ -152,6 +152,7 @@
 				"src/lib/server/env.test.ts",
 				"src/lib/server/env.ts",
 				"src/lib/server/supabase.ts",
+				"src/lib/server/supabase.test.ts",
 				"src/lib/server/supabasePagination.test.ts",
 				"src/lib/server/validation.test.ts",
 				"src/lib/server/validation.ts",

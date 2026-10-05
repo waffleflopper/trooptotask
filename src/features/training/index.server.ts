@@ -12,13 +12,13 @@ export {
 	listTrainingTypes,
 	listTrainingViews,
 	listTrainingTypeLabels,
-	listTrainingTypeNamesByIds,
 	listTrainingRankApplicabilityReferences,
 	countTrainingTypes,
 	findTrainingTypeByName,
 	listExistingTrainingTypeNames,
 	hasTrainingTypes
 } from './server/trainingCatalogRead.server';
+export { createSupabaseTrainingTypeNamesReader } from './server/trainingTypeNames.server';
 export { loadTrainingReadinessLane } from './server/personnelTrainingReadiness.server';
 export {
 	createTrainingRecord,

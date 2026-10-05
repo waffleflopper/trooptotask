@@ -23,15 +23,6 @@ interface RosterReadOptions {
 	order?: 'archived-newest';
 }
 
-interface PersonnelNamesReadStore {
-	findMany<T>(
-		table: string,
-		orgId: string,
-		filters: undefined,
-		options: { select: string; inFilters: { id: string[] } }
-	): Promise<T[]>;
-}
-
 const NAME_ORDER = [
 	{ column: 'last_name', ascending: true },
 	{ column: 'first_name', ascending: true }
@@ -51,22 +42,6 @@ export async function loadRosterPersonnel(
 	});
 
 	return PersonnelEntity.fromDbArray(rows);
-}
-
-/** Referenced names, including archived Personnel, for a separately authorized audit read. */
-export async function listPersonnelNamesByIds(
-	store: PersonnelNamesReadStore,
-	orgId: string,
-	ids: string[]
-): Promise<Map<string, string>> {
-	if (ids.length === 0) return new Map();
-	const rows = await store.findMany<{ id: string; rank: string; last_name: string; first_name: string }>(
-		PersonnelEntity.table,
-		orgId,
-		undefined,
-		{ select: 'id, rank, last_name, first_name', inFilters: { id: ids } }
-	);
-	return new Map(rows.map((row) => [row.id, [row.rank, row.last_name, row.first_name].filter(Boolean).join(' ')]));
 }
 
 /** Count archived Personnel for an already admitted Organization settings request. */

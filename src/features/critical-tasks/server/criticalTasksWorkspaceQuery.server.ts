@@ -1,9 +1,11 @@
-import type { CriticalTasksReadModelPort, CriticalTasksWorkspaceData } from '../contracts';
-import type { IctTask } from '../criticalTasks.types';
-import type { Group, PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
+import type {
+	CriticalTaskLibraryPersistence,
+	CriticalTasksReadModelPort,
+	CriticalTasksWorkspaceData
+} from '../contracts';
+import type { PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import { listGroupCatalog } from '$features/personnel/index.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
-import { IctTaskEntity } from './ictTaskEntity.server';
 
 interface CriticalTasksWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
@@ -23,19 +25,15 @@ interface CriticalTasksWorkspaceQueryContext {
 	};
 	personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
+	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
 }
 
 export interface CriticalTasksBootstrapOptions {
 	includeArchivedTasks?: boolean;
 }
 
-function loadCriticalTasksItems<R, T>(
-	orgId: string,
-	label: string,
-	load: Promise<R>,
-	mapRows: (rows: R) => T
-): Promise<T> {
-	return load.then(mapRows).catch((error) => {
+function loadCriticalTasksItems<T>(orgId: string, label: string, load: Promise<T>): Promise<T> {
+	return load.catch((error) => {
 		console.error(`[critical-tasks-workspace] Failed to load ${label}`, {
 			orgId,
 			error
@@ -58,18 +56,11 @@ export async function fetchCriticalTasksBootstrap(
 		});
 		throw error;
 	});
-	const groups = loadCriticalTasksItems(orgId, 'groups', listGroupCatalog(ctx), (groups): Group[] => groups);
+	const groups = loadCriticalTasksItems(orgId, 'groups', listGroupCatalog(ctx));
 	const ictTasks = loadCriticalTasksItems(
 		orgId,
 		'ICT tasks',
-		ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
-			...(options.includeArchivedTasks ? {} : { isNull: { archived_at: true } }),
-			orderBy: [
-				{ column: 'sort_order', ascending: true },
-				{ column: 'task_code', ascending: true }
-			]
-		}),
-		(rows) => IctTaskEntity.fromDbArray(rows) as IctTask[]
+		ctx.criticalTaskLibrary.listCatalog({ includeArchived: options.includeArchivedTasks })
 	);
 	const personnelIctCompletions = Promise.all([personnel, ictTasks])
 		.then(([loadedPersonnel, loadedTasks]) =>

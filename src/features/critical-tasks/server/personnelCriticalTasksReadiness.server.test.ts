@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './criticalTaskLibrary.test-support';
 import { loadCriticalTasksReadinessLane } from './personnelCriticalTasksReadiness.server';
 const AS_OF = '2026-05-14';
 
@@ -72,6 +72,7 @@ describe('Personnel Critical Tasks readiness', () => {
 		await expect(
 			loadCriticalTasksReadinessLane({
 				store: ctx.store,
+				criticalTaskLibrary: ctx.criticalTaskLibrary,
 				orgId: ctx.auth.orgId,
 				personnelId: 'person-1',
 				asOf: AS_OF,
@@ -151,6 +152,7 @@ describe('Personnel Critical Tasks readiness', () => {
 		await expect(
 			loadCriticalTasksReadinessLane({
 				store: ctx.store,
+				criticalTaskLibrary: ctx.criticalTaskLibrary,
 				orgId: ctx.auth.orgId,
 				personnelId: 'person-1',
 				asOf: AS_OF,
@@ -201,6 +203,7 @@ describe('Personnel Critical Tasks readiness', () => {
 		await expect(
 			loadCriticalTasksReadinessLane({
 				store: ctx.store,
+				criticalTaskLibrary: ctx.criticalTaskLibrary,
 				orgId: ctx.auth.orgId,
 				personnelId: 'person-1',
 				asOf: AS_OF,

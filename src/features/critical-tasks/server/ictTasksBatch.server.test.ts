@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from './criticalTaskLibrary.test-support';
 import { importIctTasksBatch } from './ictTasksBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {

@@ -1,7 +1,8 @@
+import { createSupabaseCriticalTaskLibraryPersistence } from './criticalTaskLibraryPersistence.server';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import { describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './criticalTaskLibrary.test-support';
 import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery.server';
 
 describe('fetchCriticalTasksPersonnelHistory', () => {
@@ -173,7 +174,11 @@ describe('wide retained task metadata', () => {
 			}
 		});
 		const history = await fetchCriticalTasksPersonnelHistory(
-			{ ...ctx, store: createSupabaseDataStore(client) },
+			{
+				...ctx,
+				store: createSupabaseDataStore(client),
+				criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(client, ctx.auth.orgId)
+			},
 			'person-history'
 		);
 		expect(history.rows.map((row) => [row.completion.id, row.taskCode, row.completion.notes])).toEqual(

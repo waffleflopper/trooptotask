@@ -1,14 +1,13 @@
-import type { CriticalTasksReadModelFilters, CriticalTasksReadModelPort } from '../contracts';
+import type {
+	CriticalTaskLibraryPersistence,
+	CriticalTasksReadModelFilters,
+	CriticalTasksReadModelPort
+} from '../contracts';
 import type { CriticalTasksReadStore } from './criticalTasksReadPorts.server';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import { buildLatestIctCompletionLookup } from '../utils/ictReadinessSnapshot';
 
 interface PersonnelRow {
-	id: string;
-	archived_at: string | null;
-}
-
-interface IctTaskRow {
 	id: string;
 	archived_at: string | null;
 }
@@ -32,6 +31,7 @@ function normalizeIds(values?: string[]): string[] | undefined {
 
 async function loadActiveScope(
 	store: Pick<CriticalTasksReadStore, 'findMany'>,
+	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>,
 	orgId: string,
 	filters: CriticalTasksReadModelFilters
 ): Promise<{
@@ -46,20 +46,18 @@ async function loadActiveScope(
 			isNull: { archived_at: true },
 			...(personnelIdFilter ? { inFilters: { id: personnelIdFilter } } : {})
 		}),
-		store.findMany<IctTaskRow>('ict_tasks', orgId, undefined, {
-			isNull: { archived_at: true },
-			...(taskIdFilter ? { inFilters: { id: taskIdFilter } } : {})
-		})
+		criticalTaskLibrary.listCatalog()
 	]);
 
 	return {
 		personnelIds: new Set(personnelRows.map((row) => row.id)),
-		taskIds: new Set(taskRows.map((row) => row.id))
+		taskIds: new Set(taskRows.filter((row) => !taskIdFilter || taskIdFilter.includes(row.id)).map((row) => row.id))
 	};
 }
 
 export function createInMemoryCriticalTasksReadModelAdapter(
-	store: Pick<CriticalTasksReadStore, 'findMany'>
+	store: Pick<CriticalTasksReadStore, 'findMany'>,
+	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>
 ): CriticalTasksReadModelPort {
 	return {
 		async findLatestCompletions(orgId: string, filters: CriticalTasksReadModelFilters = {}) {
@@ -67,7 +65,7 @@ export function createInMemoryCriticalTasksReadModelAdapter(
 				return [];
 			}
 
-			const { personnelIds, taskIds } = await loadActiveScope(store, orgId, filters);
+			const { personnelIds, taskIds } = await loadActiveScope(store, criticalTaskLibrary, orgId, filters);
 			if (personnelIds.size === 0 || taskIds.size === 0) {
 				return [];
 			}

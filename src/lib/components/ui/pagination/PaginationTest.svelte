@@ -7,12 +7,16 @@
 		initialPage = 1,
 		usePageWrappers = false,
 		customDestination = false,
-		disableWrapperDestinations = false
+		disableWrapperDestinations = false,
+		cancelKeydown = false,
+		cancelClick = false
 	}: {
 		initialPage?: number;
 		usePageWrappers?: boolean;
 		customDestination?: boolean;
 		disableWrapperDestinations?: boolean;
+		cancelKeydown?: boolean;
+		cancelClick?: boolean;
 	} = $props();
 	let page = $state(untrack(() => initialPage));
 	let callerInteraction = $state('');
@@ -27,8 +31,14 @@
 						page={{ type: 'page', value: 1 }}
 						isActive={page === 1}
 						disabled={disableWrapperDestinations}
-						onclick={() => (callerInteraction = 'click')}
-						onkeydown={(event) => (callerInteraction = event.key)}
+						onclick={(event) => {
+							callerInteraction += `${callerInteraction ? ',' : ''}click`;
+							if (cancelClick) event.preventDefault();
+						}}
+						onkeydown={(event) => {
+							callerInteraction += `${callerInteraction ? ',' : ''}${event.key}`;
+							if (cancelKeydown) event.preventDefault();
+						}}
 					>
 						{#snippet child({ props })}
 							<Button {...props} href="#first-page" role="button">First page</Button>

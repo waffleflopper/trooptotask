@@ -40,12 +40,23 @@
 			...elementProps,
 			disabled,
 			onclick: disabled ? (event: MouseEvent) => event.preventDefault() : elementProps.onclick,
-			onkeydown: disabled
-				? (event: KeyboardEvent) => {
-						if (event.key === 'Enter' || event.key === ' ') event.preventDefault();
-					}
-				: elementProps.onkeydown
-		}}
+			onkeydown: (event) => {
+				if (event.defaultPrevented) return;
+				if (disabled) {
+					if (event.key === 'Enter' || event.key === ' ') event.preventDefault();
+					return;
+				}
+				if (
+					event.key === 'Enter' &&
+					event.currentTarget instanceof HTMLAnchorElement &&
+					event.currentTarget.hasAttribute('href')
+				) {
+					restProps.onkeydown?.call(event.currentTarget, event);
+					return;
+				}
+				elementProps.onkeydown?.call(event.currentTarget, event);
+			}
+		} satisfies HTMLButtonAttributes}
 		{#if customChild}
 			{@render customChild({ props: buttonProps })}
 		{:else}

@@ -87,6 +87,7 @@ describe('Pagination public page selection', () => {
 	])(
 		'honors disabled=$disabled for a caller-rendered destination with key "$key"',
 		async ({ disabled, key, expectedPage, expectedRange }) => {
+			window.location.hash = '#initial-page';
 			render(PaginationTest, {
 				initialPage: 2,
 				usePageWrappers: true,
@@ -98,12 +99,48 @@ describe('Pagination public page selection', () => {
 			expect(document.activeElement).toBe(control);
 			const activation = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
 			await fireEvent(control, activation);
-			expect.soft(activation.defaultPrevented).toBe(true);
+			expect(activation.defaultPrevented).toBe(disabled || key !== 'Enter');
+			expect(screen.getByLabelText('Caller interaction').textContent).toBe(disabled ? '' : key);
+			if (!disabled && key === 'Enter') {
+				expect(screen.getByLabelText('Current page')).toHaveTextContent('2');
+				expect(screen.getByLabelText('Visible records')).toHaveTextContent('11-20');
+				await fireEvent.click(control);
+			}
+			expect(window.location.hash).toBe(!disabled && key === 'Enter' ? '#first-page' : '#initial-page');
 			expect(screen.getByLabelText('Current page')).toHaveTextContent(expectedPage);
 			expect(screen.getByLabelText('Visible records')).toHaveTextContent(expectedRange);
-			expect(screen.getByLabelText('Caller interaction').textContent).toBe(disabled ? '' : key);
+			expect(screen.getByLabelText('Caller interaction').textContent).toBe(
+				disabled ? '' : key === 'Enter' ? 'Enter,click' : key
+			);
 		}
 	);
+
+	it.each([
+		{ cancellation: 'keydown', cancelKeydown: true, cancelClick: false },
+		{ cancellation: 'click', cancelKeydown: false, cancelClick: true }
+	])('honors caller $cancellation cancellation for an enabled destination', async ({ cancelKeydown, cancelClick }) => {
+		window.location.hash = '#initial-page';
+		render(PaginationTest, {
+			initialPage: 2,
+			usePageWrappers: true,
+			customDestination: true,
+			cancelKeydown,
+			cancelClick
+		});
+		const control = screen.getByRole('button', { name: 'Page 1' });
+		const keydown = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+		await fireEvent(control, keydown);
+		expect(keydown.defaultPrevented).toBe(cancelKeydown);
+		if (!cancelKeydown) {
+			const click = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
+			await fireEvent(control, click);
+			expect(click.defaultPrevented).toBe(true);
+		}
+		expect(screen.getByLabelText('Current page')).toHaveTextContent('2');
+		expect(screen.getByLabelText('Visible records')).toHaveTextContent('11-20');
+		expect(window.location.hash).toBe('#initial-page');
+		expect(screen.getByLabelText('Caller interaction').textContent).toBe(cancelKeydown ? 'Enter' : 'Enter,click');
+	});
 
 	it.each([
 		{ disabled: true, expectedPage: '2', expectedRange: '11-20', expectedHash: '#initial-page' },

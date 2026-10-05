@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext, createTestDataExportLifecycleWriter } from '$lib/server/adapters/inMemory';
 import {
 	executeOrganizationDataExport,
 	type OrganizationDataExportArtifact
@@ -166,7 +166,7 @@ describe('executeOrganizationDataExport', () => {
 	it('does not build an artifact or emit effects when the processing record is rejected', async () => {
 		const ctx = createTestContext();
 		const failure = new Error('lifecycle insert rejected');
-		vi.spyOn(ctx.rawStore, 'insert').mockRejectedValue(failure);
+		vi.spyOn(ctx.exportLifecycle, 'createProcessing').mockRejectedValue(failure);
 		const buildArtifact = vi.fn(async () => jsonArtifact());
 		await expect(
 			executeOrganizationDataExport(ctx, {
@@ -181,10 +181,33 @@ describe('executeOrganizationDataExport', () => {
 		expect(ctx.notificationPort.notifications).toEqual([]);
 	});
 
+	it('returns the artifact and success effects when its completion update fails', async () => {
+		const ctx = createTestContext();
+		const artifact = workbookArtifact();
+		vi.spyOn(ctx.exportLifecycle, 'markCompleted').mockRejectedValue(new Error('completion update denied'));
+		vi.spyOn(console, 'warn').mockImplementation(() => {});
+		await expect(
+			executeOrganizationDataExport(ctx, {
+				requestedByEmail: undefined,
+				auditAction: 'export.excel_created',
+				buildArtifact: async () => artifact
+			})
+		).resolves.toEqual({ status: 'ready', artifact });
+		const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+		expect(rows).toEqual([expect.objectContaining({ status: 'processing', requested_by: ctx.auth.userId })]);
+		expect(rows[0]).not.toHaveProperty('file_size_bytes');
+		expect(ctx.auditPort.events).toEqual([
+			expect.objectContaining({ action: 'export.excel_created', resourceId: rows[0].id })
+		]);
+		expect(ctx.notificationPort.notifications).toEqual([
+			expect.objectContaining({ target: 'admins', orgId: ctx.auth.orgId, excludeUserId: ctx.auth.userId })
+		]);
+	});
+
 	it('retains the artifact error if marking its row failed also fails', async () => {
 		const ctx = createTestContext();
 		const failure = new Error('source unavailable');
-		vi.spyOn(ctx.rawStore, 'update').mockRejectedValue(new Error('lifecycle update denied'));
+		vi.spyOn(ctx.exportLifecycle, 'markFailed').mockRejectedValue(new Error('lifecycle update denied'));
 		vi.spyOn(console, 'warn').mockImplementation(() => {});
 		await expect(
 			executeOrganizationDataExport(ctx, {
@@ -240,7 +263,7 @@ describe('executeOrganizationDataExport', () => {
 			executeOrganizationDataExport(
 				{
 					auth: ctx.auth,
-					rawStore: first.rawStore,
+					exportLifecycle: createTestDataExportLifecycleWriter(first.rawStore, ctx.auth.orgId),
 					audit: ctx.audit,
 					notifications: ctx.notifications
 				},

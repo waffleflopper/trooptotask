@@ -960,6 +960,22 @@ async function main() {
 		note({ organization: orgKey, personnelId, tables: Object.fromEntries(tables), files: observations });
 		return;
 	}
+	if (command === 'private-buckets') {
+		if (args.length) throw new Error('Use private-buckets without arguments.');
+		const client = await provider();
+		const buckets = [];
+		for (const id of ['personnel-documents', 'counseling-files']) {
+			const bucket = checked(await client.storage.getBucket(id));
+			buckets.push({
+				id: bucket.id,
+				public: bucket.public,
+				fileSizeLimit: bucket.file_size_limit,
+				allowedMimeTypes: bucket.allowed_mime_types
+			});
+		}
+		note({ buckets });
+		return;
+	}
 	if (command === 'roster-files') {
 		const [orgKey, rosterId] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
@@ -2290,7 +2306,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

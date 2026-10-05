@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
-import { countRatingSchemeEntries, listRatingSchemeExportRows } from './ratingSchemeRead.server';
+import { countRatingSchemeEntries } from './ratingSchemeRead.server';
 
 type Row = Record<string, unknown>;
 const saved: Row = {
@@ -81,26 +81,6 @@ function actor(ratingScheme: 'none' | 'view' = 'view') {
 }
 
 describe('Rating Scheme reverse reads', () => {
-	it('exports all raw saved fields and statuses across pages without another Organization or Personnel lookup', async () => {
-		const rows: Row[] = Array.from({ length: 1001 }, (_, i) => ({
-			...saved,
-			id: `eval-${String(i).padStart(4, '0')}`
-		}));
-		rows[1000] = { ...rows[1000], status: 'change-of-rater', workflow_status: 'with-rater' };
-		const { store } = provider([...rows, { ...saved, id: 'foreign', organization_id: 'org-2' }].reverse());
-		const result = await listRatingSchemeExportRows(store, 'org-1');
-		expect(result).toEqual(rows);
-		expect(result[0]).toEqual(saved);
-	});
-
-	it('fails the entire raw export when a later page is unavailable', async () => {
-		const rows: Row[] = Array.from({ length: 1001 }, (_, i) => ({
-			...saved,
-			id: `eval-${String(i).padStart(4, '0')}`
-		}));
-		await expect(listRatingSchemeExportRows(provider(rows, 1000).store, 'org-1')).rejects.toThrow('Rating unavailable');
-	});
-
 	it('counts the Rating-only request-visible lane without a Personnel read', async () => {
 		const { store } = provider([
 			{ ...saved, id: 'own' },

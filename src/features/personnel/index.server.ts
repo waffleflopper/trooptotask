@@ -119,11 +119,6 @@ export { listPersonnelArchivedArtifacts } from './personnelArchivedArtifacts.ser
 
 export { createPersonnelSupportReader } from './supportReadProvider.server';
 
-export {
-	listGroupExportRows,
-	listPersonnelExportRows,
-	listOrganizationRankCatalogExportRows,
-	listUserPinnedGroupExportRows
-} from './ordinaryExportRead.server';
+export { createSupabasePersonnelExportReader } from './ordinaryExportRead.server';
 
 export { createSupabaseScopeEnforcementAdapter } from './scopeEnforcement.server';

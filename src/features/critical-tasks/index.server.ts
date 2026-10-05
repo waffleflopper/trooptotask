@@ -27,7 +27,4 @@ export {
 	generateCriticalTasksMatrixWorkbookExport
 } from './server/criticalTasksReportsQuery.server';
 
-export {
-	listCriticalTaskExportRows,
-	listPersonnelCriticalTaskCompletionExportRows
-} from './server/criticalTasksExportRead.server';
+export { createSupabaseCriticalTasksExportReader } from './server/criticalTasksExportRead.server';

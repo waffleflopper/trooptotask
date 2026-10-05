@@ -1,5 +1,14 @@
-import { createSupabaseCalendarAssignmentReplacementPort } from '$features/calendar/index.server';
-import { createSupabaseCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
+import { createSupabaseDashboardExportReader } from '$features/dashboard/index.server';
+import { createSupabaseDataExportReader } from '$features/data-export/index.server';
+import { createSupabaseTrainingExportReader } from '$features/training/index.server';
+import {
+	createSupabaseCalendarExportReader,
+	createSupabaseCalendarAssignmentReplacementPort
+} from '$features/calendar/index.server';
+import {
+	createSupabaseCriticalTasksExportReader,
+	createSupabaseCriticalTasksReadModelAdapter
+} from '$features/critical-tasks/index.server';
 import { listFeedbackExportRows } from '$features/feedback/index.server';
 import {
 	createSupabaseNotificationDelivery,
@@ -12,6 +21,7 @@ import {
 	createSupabaseOrganizationSettingsReader
 } from '$features/organization/index.server';
 import {
+	createSupabasePersonnelExportReader,
 	createSupabasePersonnelArtifactWritePort,
 	createSupabasePersonnelAwardAcknowledgementPort,
 	createSupabasePersonnelCalendarRosterPort,
@@ -22,14 +32,17 @@ import {
 	findGroupNamesByIds,
 	loadOrganizationRankCatalog
 } from '$features/personnel/index.server';
-import { createSupabaseRatingSchemeDuePort } from '$features/rating-scheme/index.server';
+import {
+	createSupabaseRatingSchemeExportReader,
+	createSupabaseRatingSchemeDuePort
+} from '$features/rating-scheme/index.server';
 import {
 	createSupabaseSignInRosterPersistence,
 	createSupabaseSignInRosterExportReader,
 	createSupabaseSignInRosterFileWritePort
 } from '$features/sign-in-rosters/index.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import { createSupabaseAuditAdapter, getRequestInfo } from '$lib/audit/index.server';
+import { createSupabaseAuditExportReader, createSupabaseAuditAdapter, getRequestInfo } from '$lib/audit/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { validateUUID } from '$lib/server/validation';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -41,8 +54,14 @@ import { createSupabaseDataStore } from './supabaseDataStore';
 import { createSupabaseScopeEnforcementAdapter } from '$features/personnel/index.server';
 import { createSupabaseStorageAdapter } from './supabaseStorage';
 
-import { createSupabaseSensitiveActionAuthorizer } from '$features/identity/index.server';
-import { createSupabaseOnboardingCalendarMarkersPort } from '$features/onboarding/index.server';
+import {
+	createSupabaseIdentityExportReader,
+	createSupabaseSensitiveActionAuthorizer
+} from '$features/identity/index.server';
+import {
+	createSupabaseOnboardingExportReader,
+	createSupabaseOnboardingCalendarMarkersPort
+} from '$features/onboarding/index.server';
 import {
 	loadOrganizationMemberLabels,
 	loadPersonnelDocumentStorageCapBytes,
@@ -558,6 +577,18 @@ export function createRequestOrganizationExportContext(request: AdmittedOrganiza
 		audit: request.audit,
 		rawStore: request.rawStore,
 		notifications: createRequestNotificationDelivery(),
+		archiveReaders: {
+			calendar: createSupabaseCalendarExportReader(request.supabase, request.auth.orgId),
+			training: createSupabaseTrainingExportReader(request.supabase, request.auth.orgId),
+			onboarding: createSupabaseOnboardingExportReader(request.supabase, request.auth.orgId),
+			personnel: createSupabasePersonnelExportReader(request.supabase, request.auth.orgId),
+			identity: createSupabaseIdentityExportReader(request.supabase, request.auth.orgId),
+			criticalTasks: createSupabaseCriticalTasksExportReader(request.supabase, request.auth.orgId),
+			dashboard: createSupabaseDashboardExportReader(request.supabase, request.auth.orgId),
+			ratingScheme: createSupabaseRatingSchemeExportReader(request.supabase, request.auth.orgId),
+			dataExport: createSupabaseDataExportReader(request.supabase, request.auth.orgId),
+			audit: createSupabaseAuditExportReader(request.supabase, request.auth.orgId)
+		},
 		organizationRawExport: createSupabaseOrganizationRawExportReader(request.supabase),
 		signInRosterExport: createSupabaseSignInRosterExportReader(request.supabase, request.auth.orgId),
 		personnelOrganizationExport: createSupabasePersonnelOrganizationExportPort(getAdminClient),

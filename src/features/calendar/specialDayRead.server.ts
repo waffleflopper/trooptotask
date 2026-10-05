@@ -24,12 +24,8 @@ export async function listSpecialDaysInRange(
 	return SpecialDayEntity.fromDbArray(rows);
 }
 
-/** Raw saved rows for an already-authorized Organization export, including stored metadata. */
-export function listSpecialDayExportRows(store: DataStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('special_days', orgId);
-}
-
 /** Complete saved set for Calendar settings after overlapping local mutations. */
 export async function listSpecialDays(store: DataStore, orgId: string): Promise<SpecialDay[]> {
-	return SpecialDayEntity.fromDbArray(await listSpecialDayExportRows(store, orgId));
+	const rows = await store.findMany<Record<string, unknown>>('special_days', orgId);
+	return SpecialDayEntity.fromDbArray(rows);
 }

@@ -5,5 +5,5 @@ export type {
 } from './organizationDataExportExecution.server';
 export { loadOrganizationExportPayload, ORGANIZATION_EXPORT_SECTIONS } from './organizationExport.server';
 export type { OrganizationDataExportReads, OrganizationExportPayload } from './organizationExport.server';
-export { listDataExportRows } from './dataExportLifecycle.server';
+export { createSupabaseDataExportReader } from './dataExportRead.server';
 export { buildOrganizationDataExportWorkbook } from './organizationExportWorkbook.server';

@@ -22,8 +22,3 @@ export function listAssignmentTypeTargets(
 		select: 'id, assign_to'
 	});
 }
-
-/** Saved row shape for a separately authorized Organization export. */
-export function listAssignmentTypeExportRows(store: DataStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('assignment_types', orgId);
-}

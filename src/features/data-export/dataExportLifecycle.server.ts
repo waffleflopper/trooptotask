@@ -3,10 +3,6 @@ interface DataExportWriteStore {
 	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
 }
 
-interface DataExportReadStore {
-	findMany<T>(table: string, orgId: string): Promise<T[]>;
-}
-
 export interface DataExportLifecyclePorts {
 	auth: { readonly orgId: string };
 	store: DataExportWriteStore;
@@ -64,8 +60,4 @@ export async function failDataExport(ports: DataExportLifecyclePorts, input: { e
 		},
 		statusLabel: 'failed'
 	});
-}
-
-export function listDataExportRows(store: DataExportReadStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('data_exports', orgId);
 }

@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -66,6 +67,7 @@ vi.mock('../settingsRanks.server', async () => {
 });
 
 import { actions, load } from './+page.server';
+import { createSettingsRanksContext } from '../settingsRequestContexts.server';
 
 const routeContext = {
 	auth: { orgId: 'org-1', role: 'owner' },
@@ -131,6 +133,41 @@ describe('rank settings page server', () => {
 
 		expect(result).toEqual({
 			ranksSettings: { sections: { ranks: { commands: { canManageCatalog: true } } } }
+		});
+	});
+
+	it('uses saved roster rank references for both Settings warnings and deletion decisions', async () => {
+		const supabase = createClient('http://ordinary.invalid', 'synthetic-ordinary-key', {
+			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+					if (url.pathname !== '/rest/v1/sign_in_rosters' || url.searchParams.get('organization_id') !== 'eq.org-1')
+						throw new Error('Unexpected roster reference read');
+					return Response.json([{ filter_config: { ranks: ['DET-SGT'] }, personnel_snapshot: [] }]);
+				}
+			}
+		});
+		const request = { ...routeContext, supabase };
+		buildRouteRequestMock.mockResolvedValue(request);
+		loadSettingsPageMock.mockImplementation(async (_event, context, loader) => loader(context(request)));
+		loadRanksSettingsMock.mockImplementation(async (ctx: ReturnType<typeof createSettingsRanksContext>) => ({
+			warnings: await ctx.readSignInRosterRankReferences()
+		}));
+		removeOrganizationRankCatalogEntryMock.mockImplementation(async (_ctx, _input, _training, readRosters) => {
+			const references = await readRosters();
+			if (references.some((row: { filterRanks: string[] }) => row.filterRanks.includes('DET-SGT')))
+				throw Object.assign(new Error('Retire referenced rank instead'), { status: 409 });
+		});
+
+		await expect(load({ locals: {}, cookies: {}, parent: async () => ({}) } as never)).resolves.toEqual({
+			ranksSettings: { warnings: [{ filterRanks: ['DET-SGT'], snapshotRanks: [] }] }
+		});
+		await expect(
+			actions.deleteRank(actionEvent('deleteRank', new URLSearchParams({ code: 'DET-SGT' })))
+		).resolves.toMatchObject({
+			status: 409,
+			data: { rankError: 'Retire referenced rank instead' }
 		});
 	});
 

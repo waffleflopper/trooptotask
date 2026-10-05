@@ -108,6 +108,7 @@ export interface BuildRanksSettingsDataInput {
 export async function loadRanksSettings(
 	ctx: Parameters<typeof loadOrganizationRankCatalogReferenceSummaries>[0] & {
 		rawStore: Parameters<typeof listTrainingRankApplicabilityReferences>[0];
+		readSignInRosterRankReferences: Parameters<typeof loadOrganizationRankCatalogReferenceSummaries>[3];
 	}
 ): Promise<RanksSettingsData> {
 	const catalog = await loadOrganizationRankCatalog(ctx, { authorization: 'organization-governance' });
@@ -117,6 +118,7 @@ export async function loadRanksSettings(
 			codes: catalog.map((entry) => entry.code)
 		},
 		() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId),
+		ctx.readSignInRosterRankReferences,
 		{ authorization: 'organization-governance' }
 	);
 

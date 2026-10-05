@@ -24,7 +24,8 @@ import {
 } from '$features/personnel/index.server';
 import { createSupabaseRatingSchemeDuePort } from '$features/rating-scheme/index.server';
 import {
-	createSignInRosterPersistence,
+	createSupabaseSignInRosterPersistence,
+	createSupabaseSignInRosterExportReader,
 	createSupabaseSignInRosterFileWritePort
 } from '$features/sign-in-rosters/index.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -494,7 +495,10 @@ export function createRequestCalendarReportContext(request: AdmittedOrganization
 export function createRequestSignInRosterContext(request: AdmittedOrganizationRequest) {
 	return {
 		orgId: request.auth.orgId,
-		persistence: createSignInRosterPersistence(request.store, request.auth.orgId),
+		persistence: createSupabaseSignInRosterPersistence(request.supabase, {
+			orgId: request.auth.orgId,
+			scopeSet: request.auth.scopeSet
+		}),
 		storage: createSupabaseStorageAdapter(request.supabase),
 		audit: request.audit
 	};
@@ -555,6 +559,7 @@ export function createRequestOrganizationExportContext(request: AdmittedOrganiza
 		rawStore: request.rawStore,
 		notifications: createRequestNotificationDelivery(),
 		organizationRawExport: createSupabaseOrganizationRawExportReader(request.supabase),
+		signInRosterExport: createSupabaseSignInRosterExportReader(request.supabase, request.auth.orgId),
 		personnelOrganizationExport: createSupabasePersonnelOrganizationExportPort(getAdminClient),
 		notificationSelf: createRequestNotificationSelfContext(request),
 		feedbackExport: { listRows: (orgId: string) => listFeedbackExportRows(request.supabase, orgId) }

@@ -29,6 +29,7 @@ const NO_CAPABILITIES = {
 } as const;
 
 const noTrainingRankReferences = async () => [];
+const noRosterRankReferences = async () => [];
 
 function withAtomicDelete(ctx: ReturnType<typeof createTestContext>) {
 	return {
@@ -783,20 +784,9 @@ describe('organization rank catalog', () => {
 				last_name: 'Rivera'
 			}
 		]);
-		ctx.rawStore.seed('sign_in_rosters', [
-			{
-				id: 'sign-in-1',
-				organization_id: 'test-org',
-				filter_config: { ranks: ['DET-SGT'] },
-				personnel_snapshot: [
-					{
-						id: 'person-1',
-						rank: 'DET-SGT',
-						name: 'Jamie Rivera'
-					}
-				]
-			}
-		]);
+		const readRosterRankReferences = async () => [
+			{ filterRanks: ['DET-SGT', 'DET-SGT'], snapshotRanks: ['DET-SGT', 'DET-SGT'] }
+		];
 
 		const findMany = ctx.rawStore.findMany.bind(ctx.rawStore);
 		vi.spyOn(ctx.rawStore, 'findMany').mockImplementation((table, orgId, filters, options) => {
@@ -804,10 +794,15 @@ describe('organization rank catalog', () => {
 			return findMany(table, orgId, filters, options);
 		});
 
-		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(ctx, { codes: ['DET-SGT'] }, async () => [
-			{ appliesToRanks: ['DET-SGT'], excludedRanks: [] },
-			{ appliesToRanks: [], excludedRanks: ['DET-SGT'] }
-		]);
+		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(
+			ctx,
+			{ codes: ['DET-SGT'] },
+			async () => [
+				{ appliesToRanks: ['DET-SGT'], excludedRanks: [] },
+				{ appliesToRanks: [], excludedRanks: ['DET-SGT'] }
+			],
+			readRosterRankReferences
+		);
 
 		expect(summary).toMatchObject({
 			code: 'DET-SGT',
@@ -836,22 +831,21 @@ describe('organization rank catalog', () => {
 			state: 'retired',
 			sortOrder: 500
 		});
-		ctx.rawStore.seed('sign_in_rosters', [
-			{
-				id: 'sign-in-1',
-				organization_id: 'test-org',
-				filter_config: { ranks: ['DET-SGT'] },
-				personnel_snapshot: []
-			}
-		]);
+		const readRosterRankReferences = async () => [{ filterRanks: ['DET-SGT'], snapshotRanks: [] }];
 
 		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(
 			ctx,
 			{ codes: ['DET-SGT'] },
-			noTrainingRankReferences
+			noTrainingRankReferences,
+			readRosterRankReferences
 		);
 		await expect(
-			removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'DET-SGT' }, noTrainingRankReferences)
+			removeOrganizationRankCatalogEntry(
+				withAtomicDelete(ctx),
+				{ code: 'DET-SGT' },
+				noTrainingRankReferences,
+				readRosterRankReferences
+			)
 		).rejects.toMatchObject({
 			status: 409,
 			message: 'Rank is referenced by Organization data. Retire it instead.'
@@ -876,9 +870,12 @@ describe('organization rank catalog', () => {
 		});
 
 		await expect(
-			removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'DET-SGT' }, async () => [
-				{ appliesToRanks: ['DET-SGT'], excludedRanks: [] }
-			])
+			removeOrganizationRankCatalogEntry(
+				withAtomicDelete(ctx),
+				{ code: 'DET-SGT' },
+				async () => [{ appliesToRanks: ['DET-SGT'], excludedRanks: [] }],
+				noRosterRankReferences
+			)
 		).rejects.toMatchObject({
 			status: 409,
 			message: 'Rank is referenced by active Organization data. Retire it instead.'
@@ -910,11 +907,13 @@ describe('organization rank catalog', () => {
 		const [summary] = await loadOrganizationRankCatalogReferenceSummaries(
 			ctx,
 			{ codes: ['Field Marshal'] },
-			noTrainingRankReferences
+			noTrainingRankReferences,
+			async () => [{ filterRanks: ['  Field   Marshal  '], snapshotRanks: ['Field   Marshal'] }]
 		);
 
 		expect(summary).toMatchObject({
 			activeReferences: { personnel: 1, total: 1 },
+			historicalReferences: { signInRosterFilters: 1, signInRosterSnapshots: 1, total: 2 },
 			canDelete: false
 		});
 	});
@@ -930,7 +929,12 @@ describe('organization rank catalog', () => {
 		});
 
 		await expect(
-			loadOrganizationRankCatalogReferenceSummaries(blockedCtx, { codes: ['SGT'] }, noTrainingRankReferences)
+			loadOrganizationRankCatalogReferenceSummaries(
+				blockedCtx,
+				{ codes: ['SGT'] },
+				noTrainingRankReferences,
+				noRosterRankReferences
+			)
 		).rejects.toMatchObject({
 			status: 403,
 			message: 'You do not have permission to use personnel data'
@@ -960,7 +964,8 @@ describe('organization rank catalog', () => {
 		const summaries = await loadOrganizationRankCatalogReferenceSummaries(
 			ctx,
 			{ codes: ['DET-SGT', 'GEN', 'Gen'] },
-			noTrainingRankReferences
+			noTrainingRankReferences,
+			noRosterRankReferences
 		);
 		const byCode = new Map(summaries.map((summary) => [summary.code, summary]));
 
@@ -976,7 +981,8 @@ describe('organization rank catalog', () => {
 		const summaries = await loadOrganizationRankCatalogReferenceSummaries(
 			ctx,
 			{ codes: ['DET', 'Det', 'det'] },
-			noTrainingRankReferences
+			noTrainingRankReferences,
+			noRosterRankReferences
 		);
 
 		expect(summaries.map((summary) => summary.activeReferences.personnel)).toEqual([0, 0, 0]);
@@ -1004,7 +1010,12 @@ describe('organization rank catalog', () => {
 		]);
 
 		await expect(
-			removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'DET-SGT' }, noTrainingRankReferences)
+			removeOrganizationRankCatalogEntry(
+				withAtomicDelete(ctx),
+				{ code: 'DET-SGT' },
+				noTrainingRankReferences,
+				noRosterRankReferences
+			)
 		).rejects.toMatchObject({
 			status: 409,
 			message: 'Rank is referenced by active Organization data. Retire it instead.'
@@ -1044,7 +1055,12 @@ describe('organization rank catalog', () => {
 		};
 
 		await expect(
-			removeOrganizationRankCatalogEntry(guardedContext, { code: 'DET-SGT' }, noTrainingRankReferences)
+			removeOrganizationRankCatalogEntry(
+				guardedContext,
+				{ code: 'DET-SGT' },
+				noTrainingRankReferences,
+				noRosterRankReferences
+			)
 		).rejects.toThrow('Rank is referenced by Organization data');
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(before);
 		expect(ctx.auditPort.events).toEqual([]);
@@ -1067,7 +1083,12 @@ describe('organization rank catalog', () => {
 			code: 'DET-SGT'
 		});
 		expect(storedRank?.id).toBeTruthy();
-		await removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'DET-SGT' }, noTrainingRankReferences);
+		await removeOrganizationRankCatalogEntry(
+			withAtomicDelete(ctx),
+			{ code: 'DET-SGT' },
+			noTrainingRankReferences,
+			noRosterRankReferences
+		);
 
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.not.toEqual(
 			expect.arrayContaining([expect.objectContaining({ code: 'DET-SGT' })])
@@ -1118,7 +1139,12 @@ describe('organization rank catalog', () => {
 			}
 		]);
 
-		await removeOrganizationRankCatalogEntry(withAtomicDelete(ctx), { code: 'det' }, noTrainingRankReferences);
+		await removeOrganizationRankCatalogEntry(
+			withAtomicDelete(ctx),
+			{ code: 'det' },
+			noTrainingRankReferences,
+			noRosterRankReferences
+		);
 
 		await expect(loadOrganizationRankCatalog(ctx)).resolves.toEqual(
 			expect.arrayContaining([expect.objectContaining({ code: 'DET' })])
@@ -1146,7 +1172,8 @@ describe('organization rank catalog', () => {
 			removeOrganizationRankCatalogEntry(
 				withAtomicDelete(personnelEditorCtx),
 				{ code: 'DET-SGT' },
-				noTrainingRankReferences
+				noTrainingRankReferences,
+				noRosterRankReferences
 			)
 		).rejects.toMatchObject({
 			status: 403,

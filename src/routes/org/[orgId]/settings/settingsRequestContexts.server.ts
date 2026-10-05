@@ -1,5 +1,7 @@
+import { createSupabaseSignInRosterRankReferenceReader } from '$features/sign-in-rosters/index.server';
 import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
 import {
+	createRequestDataContext,
 	createRequestNotificationContext,
 	createRequestSensitiveActionContext,
 	createRequestWriteContext
@@ -76,5 +78,12 @@ export function createSettingsSensitiveNotificationContext(request: AdmittedOrga
 	return {
 		...createRequestNotificationContext(request),
 		...createRequestSensitiveActionContext(request)
+	};
+}
+
+export function createSettingsRanksContext(request: AdmittedOrganizationRequest) {
+	return {
+		...createRequestDataContext(request),
+		readSignInRosterRankReferences: createSupabaseSignInRosterRankReferenceReader(request.supabase, request.auth.orgId)
 	};
 }

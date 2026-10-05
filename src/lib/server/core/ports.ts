@@ -8,10 +8,6 @@ export interface FindOptions {
 	filters?: Record<string, unknown>;
 	inFilters?: Record<string, unknown[]>;
 	notInFilters?: Record<string, unknown[]>;
-	/** Array containment filters: { scope_group_ids: ['g1'] } means column values must be contained by the given array */
-	arrayContainedByFilters?: Record<string, unknown[]>;
-	/** Require array columns to contain at least one value */
-	nonEmptyArrayFilters?: string[];
 	select?: string;
 	limit?: number;
 	/** Null-check filters: { archived_at: true } means IS NULL, false means IS NOT NULL */
@@ -42,10 +38,7 @@ export interface OrganizationInvitationSetupStateLookupPort {
 }
 
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
-export type GroupScopeRule =
-	| { type: 'group'; groupColumn: string }
-	| { type: 'group-array'; groupColumn: string; requireNonEmpty?: boolean }
-	| { type: 'personnel'; personnelColumn: string };
+export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
 /** Abstracts all persistence — business logic never imports Supabase */
 export interface DataStore {

@@ -7,6 +7,7 @@ type Row = { id: string; [column: string]: unknown };
 
 function provider(table: string, rows: Row[], failPage = false) {
 	let saved = structuredClone(rows);
+	let upsertConflict: string | null = null;
 	const client = createClient('http://persistence.invalid', 'synthetic-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
@@ -31,6 +32,9 @@ function provider(table: string, rows: Row[], failPage = false) {
 					});
 				let result: Row[];
 				if (request.method === 'POST') {
+					if (request.headers.get('prefer')?.includes('resolution=merge-duplicates')) {
+						upsertConflict = url.searchParams.get('on_conflict');
+					}
 					const body: Row | Row[] = await request.json();
 					result = Array.isArray(body) ? body : [body];
 					for (const row of result) {
@@ -61,7 +65,11 @@ function provider(table: string, rows: Row[], failPage = false) {
 			}
 		}
 	});
-	return { store: createSupabaseDataStore(client), saved: () => structuredClone(saved) };
+	return {
+		store: createSupabaseDataStore(client),
+		saved: () => structuredClone(saved),
+		upsertConflict: () => upsertConflict
+	};
 }
 
 describe('Request persistence contracts through the real provider SDK', () => {
@@ -104,6 +112,7 @@ describe('Request persistence contracts through the real provider SDK', () => {
 		await run.store.upsertMany('personnel', 'org-a', [{ id: 'first', organization_id: 'org-b', title: 'Updated A' }], {
 			onConflict: 'organization_id,id'
 		});
+		expect(run.upsertConflict()).toBe('organization_id,id');
 		expect(run.saved()).toEqual([
 			{ id: 'foreign', organization_id: 'org-b', title: 'Keep B' },
 			{ id: 'first', organization_id: 'org-a', title: 'Updated A' },

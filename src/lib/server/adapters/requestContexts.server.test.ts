@@ -78,6 +78,65 @@ describe('request-bound sensitive-action authorization', () => {
 	);
 });
 
+describe('request-bound export lifecycle persistence', () => {
+	it('writes through the admitted ordinary client and leaves foreign history unchanged', async () => {
+		const rows: Record<string, unknown>[] = [
+			{ id: 'foreign-export', org_id: OTHER_ORG_ID, requested_by: OTHER_USER_ID, status: 'processing' }
+		];
+		const supabase = createClient('http://lifecycle.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					const url = new URL(request.url);
+					if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
+						return Response.json({ message: 'Ordinary authority required' }, { status: 403 });
+					if (url.pathname === '/rest/v1/organization_memberships' && request.method === 'GET')
+						return Response.json({ role: 'owner' });
+					if (url.pathname !== '/rest/v1/data_exports') throw new Error('Unexpected lifecycle transport');
+					if (request.method === 'POST') {
+						const row = { ...(await request.json()), id: 'export-a' };
+						rows.push(row);
+						return Response.json({ id: row.id });
+					}
+					if (request.method !== 'PATCH') throw new Error('Unexpected lifecycle method');
+					const visible = rows.filter((row) =>
+						[...url.searchParams].every(([column, filter]) =>
+							column === 'select' ? true : filter === `eq.${row[column]}`
+						)
+					);
+					if (visible.length !== 1)
+						return Response.json({ code: 'PGRST116', message: 'No matching export' }, { status: 406 });
+					Object.assign(visible[0], await request.json());
+					return Response.json({ id: visible[0].id });
+				}
+			}
+		});
+		const locals = { actor: { userId: USER_ID }, supabase, session: null } as unknown as App.Locals;
+		const ctx = createRequestOrganizationExportContext(await buildRequest('route', locals));
+		const createdAt = '2026-10-05T18:00:00.000Z';
+		const completedAt = '2026-10-05T18:00:01.000Z';
+		const { exportId } = await ctx.exportLifecycle.createProcessing({ requestedBy: USER_ID, createdAt });
+		await ctx.exportLifecycle.markCompleted({ exportId, completedAt, fileSizeBytes: 512 });
+		await expect(ctx.exportLifecycle.markFailed({ exportId: 'foreign-export', completedAt })).rejects.toThrow(
+			'No matching export'
+		);
+		expect(rows).toEqual([
+			{ id: 'foreign-export', org_id: OTHER_ORG_ID, requested_by: OTHER_USER_ID, status: 'processing' },
+			{
+				id: 'export-a',
+				org_id: ORG_ID,
+				requested_by: USER_ID,
+				status: 'completed',
+				created_at: createdAt,
+				completed_at: completedAt,
+				file_size_bytes: 512
+			}
+		]);
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+});
+
 describe('request-bound communications exports', () => {
 	it.each(['route', 'layout'] as const)(
 		'uses the ordinary request client and admitted user/Organization in the %s request',

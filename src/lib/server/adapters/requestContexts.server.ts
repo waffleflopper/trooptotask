@@ -1,5 +1,8 @@
 import { createSupabaseDashboardExportReader } from '$features/dashboard/index.server';
-import { createSupabaseDataExportReader } from '$features/data-export/index.server';
+import {
+	createSupabaseDataExportReader,
+	createSupabaseDataExportLifecycleWriter
+} from '$features/data-export/index.server';
 import { createSupabaseTrainingExportReader } from '$features/training/index.server';
 import {
 	createSupabaseCalendarExportReader,
@@ -575,7 +578,7 @@ export function createRequestOrganizationExportContext(request: AdmittedOrganiza
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		rawStore: request.rawStore,
+		exportLifecycle: createSupabaseDataExportLifecycleWriter(request.supabase, request.auth.orgId),
 		notifications: createRequestNotificationDelivery(),
 		archiveReaders: {
 			calendar: createSupabaseCalendarExportReader(request.supabase, request.auth.orgId),

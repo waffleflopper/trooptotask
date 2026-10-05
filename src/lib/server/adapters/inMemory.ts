@@ -20,6 +20,7 @@ import type {
 	SavedAssignment
 } from '$features/calendar/contracts';
 import type { CriticalTasksReadModelPort } from '$features/critical-tasks/contracts';
+import type { DataExportLifecycleWriter } from '$features/data-export/index.server';
 import type { FeedbackExportRow } from '$features/feedback/index.server';
 import type {
 	SensitiveActionAuthorizeInput,
@@ -1084,6 +1085,32 @@ export function createTestOrganizationArchiveReaders(rawStore: Pick<DataStore, '
 	} satisfies ReturnType<typeof createRequestOrganizationExportContext>['archiveReaders'];
 }
 
+export function createTestDataExportLifecycleWriter(store: DataStore, orgId: string): DataExportLifecycleWriter {
+	return {
+		async createProcessing(input) {
+			const row = await store.insert<{ id: string }>('data_exports', orgId, {
+				requested_by: input.requestedBy,
+				status: 'processing',
+				created_at: input.createdAt
+			});
+			return { exportId: row.id };
+		},
+		async markCompleted(input) {
+			await store.update('data_exports', orgId, input.exportId, {
+				status: 'completed',
+				completed_at: input.completedAt,
+				file_size_bytes: input.fileSizeBytes
+			});
+		},
+		async markFailed(input) {
+			await store.update('data_exports', orgId, input.exportId, {
+				status: 'failed',
+				completed_at: input.completedAt
+			});
+		}
+	};
+}
+
 export function createTestContext(
 	overrides?: TestContextOptions & {
 		scope?: Partial<ScopeEnforcementPort>;
@@ -1138,6 +1165,7 @@ export function createTestContext(
 			listRows: () => rawStore.findMany<Record<string, unknown>>('sign_in_rosters', auth.orgId)
 		},
 		archiveReaders: createTestOrganizationArchiveReaders(rawStore, auth.orgId),
+		exportLifecycle: createTestDataExportLifecycleWriter(rawStore, auth.orgId),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
 		organizationRawExport: {
 			listRows: (orgId, table) => rawStore.findMany<Record<string, unknown>>(table, orgId)

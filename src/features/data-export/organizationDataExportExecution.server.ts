@@ -27,7 +27,7 @@ export type OrganizationDataExportExecutionResult<
 
 interface OrganizationDataExportExecutionPorts {
 	auth: { readonly orgId: string; readonly userId: string };
-	rawStore: DataExportLifecyclePorts['store'];
+	exportLifecycle: DataExportLifecyclePorts['exportLifecycle'];
 	audit: AuditPort;
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
@@ -45,7 +45,7 @@ export async function executeOrganizationDataExport<TArtifact extends Organizati
 	const orgId = ctx.auth.orgId;
 	const userId = ctx.auth.userId;
 
-	const lifecyclePorts = { auth: ctx.auth, store: ctx.rawStore };
+	const lifecyclePorts = { exportLifecycle: ctx.exportLifecycle };
 	const exportRecord = await startDataExport(lifecyclePorts, { requestedBy: userId });
 
 	try {

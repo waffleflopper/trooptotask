@@ -4,10 +4,14 @@
 
 	let {
 		initialPage = 1,
-		usePageWrappers = false
+		usePageWrappers = false,
+		customDestination = false,
+		disableWrapperDestinations = false
 	}: {
 		initialPage?: number;
 		usePageWrappers?: boolean;
+		customDestination?: boolean;
+		disableWrapperDestinations?: boolean;
 	} = $props();
 	let page = $state(untrack(() => initialPage));
 </script>
@@ -16,8 +20,22 @@
 	{#snippet children({ pages, range })}
 		<Pagination.Content>
 			<Pagination.Item>
-				{#if usePageWrappers}
-					<Pagination.Previous page={{ type: 'page', value: 1 }} isActive={page === 1} disabled={page === 1} />
+				{#if customDestination}
+					<Pagination.Link
+						page={{ type: 'page', value: 1 }}
+						isActive={page === 1}
+						disabled={disableWrapperDestinations}
+					>
+						{#snippet child({ props })}
+							<a {...props} role="button" tabindex="0" aria-disabled={disableWrapperDestinations}>First page</a>
+						{/snippet}
+					</Pagination.Link>
+				{:else if usePageWrappers}
+					<Pagination.Previous
+						page={{ type: 'page', value: 1 }}
+						isActive={page === 1}
+						disabled={disableWrapperDestinations || page === 1}
+					/>
 				{:else}
 					<Pagination.PrevButton />
 				{/if}
@@ -35,7 +53,11 @@
 			{/if}
 			<Pagination.Item>
 				{#if usePageWrappers}
-					<Pagination.Next page={{ type: 'page', value: 3 }} isActive={page === 3} disabled={page === 3} />
+					<Pagination.Next
+						page={{ type: 'page', value: 3 }}
+						isActive={page === 3}
+						disabled={disableWrapperDestinations || page === 3}
+					/>
 				{:else}
 					<Pagination.NextButton />
 				{/if}

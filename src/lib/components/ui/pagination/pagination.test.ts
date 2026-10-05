@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import '@testing-library/jest-dom/vitest';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import PaginationTest from './PaginationTest.svelte';
@@ -49,4 +50,52 @@ describe('Pagination public page selection', () => {
 		expect(screen.getByLabelText('Current page').textContent).toBe('3');
 		expect(screen.getByLabelText('Visible records').textContent).toBe('21-25');
 	});
+
+	it.each([
+		{ wrapper: 'Previous', destination: 'Page 1', action: 'Enter' },
+		{ wrapper: 'Previous', destination: 'Page 1', action: 'Space' },
+		{ wrapper: 'Previous', destination: 'Page 1', action: 'click' },
+		{ wrapper: 'Next', destination: 'Page 3', action: 'Enter' },
+		{ wrapper: 'Next', destination: 'Page 3', action: 'Space' },
+		{ wrapper: 'Next', destination: 'Page 3', action: 'click' }
+	])('keeps disabled $wrapper noninteractive during $action', async ({ destination, action }) => {
+		render(PaginationTest, { initialPage: 2, usePageWrappers: true, disableWrapperDestinations: true });
+		const control = screen.getByRole('button', { name: destination });
+		expect.soft(control).toBeDisabled();
+
+		if (action === 'click') {
+			control.click();
+			await tick();
+		} else {
+			control.focus();
+			expect.soft(document.activeElement).not.toBe(control);
+			await fireEvent.keyDown(document.activeElement!, { key: action === 'Space' ? ' ' : action });
+		}
+
+		expect.soft(screen.getByLabelText('Current page').textContent).toBe('2');
+		expect(screen.getByLabelText('Visible records').textContent).toBe('11-20');
+	});
+
+	it.each([
+		{ disabled: true, key: 'Enter', expectedPage: '2', expectedRange: '11-20' },
+		{ disabled: true, key: ' ', expectedPage: '2', expectedRange: '11-20' },
+		{ disabled: false, key: 'Enter', expectedPage: '1', expectedRange: '1-10' },
+		{ disabled: false, key: ' ', expectedPage: '1', expectedRange: '1-10' }
+	])(
+		'honors disabled=$disabled for a caller-rendered destination with key "$key"',
+		async ({ disabled, key, expectedPage, expectedRange }) => {
+			render(PaginationTest, {
+				initialPage: 2,
+				usePageWrappers: true,
+				customDestination: true,
+				disableWrapperDestinations: disabled
+			});
+			const control = screen.getByRole('button', { name: 'Page 1' });
+			control.focus();
+			expect(document.activeElement).toBe(control);
+			await fireEvent.keyDown(control, { key });
+			expect(screen.getByLabelText('Current page')).toHaveTextContent(expectedPage);
+			expect(screen.getByLabelText('Visible records')).toHaveTextContent(expectedRange);
+		}
+	);
 });

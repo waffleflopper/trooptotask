@@ -34,8 +34,10 @@ Native `evaluate_script` may read `document.activeElement`, tooltip/trigger attr
 
 ## Gotchas
 
-Run `npm run test -- src/lib/components/ui/range-calendar/range-calendar.test.ts src/lib/components/ui/pagination/pagination.test.ts` under the required Node/npm versions. These render the public barrels, use literal expected dates/pages and assert caller-visible values, disabled selection, keyboard focus and selected semantics. Unconsumed components need this proof rather than a new test route.
+Run `npm run test -- src/lib/components/ui/tooltip/tooltip.test.ts src/lib/components/ui/range-calendar/range-calendar.test.ts src/lib/components/ui/pagination/pagination.test.ts` under the required Node/npm versions. These render the public barrels, use literal expected dates/pages and assert caller-visible values, disabled selection, keyboard focus and selected semantics. Tooltip checks cover generated and caller IDs, resolving descriptions, dismissal, custom child rendering, references and Escape callbacks. Unconsumed components need this proof rather than a new test route.
 
-Retain AppDialog, ConfirmDialog and AppShellHeader interaction tests alongside affected consumer tests. Add a shared Tooltip semantic regression test with the repair; text-only assertions cannot detect an empty ID or a broken description. A source-aware import scan establishes cycle removal and reverse consumers separately from these user interactions. Full required checks and production build remain candidate gates.
+Retain AppDialog, ConfirmDialog and AppShellHeader interaction tests alongside affected consumer tests. Text-only assertions cannot detect an empty ID or a broken description. A source-aware import scan establishes cycle removal and reverse consumers separately from these user interactions. Full required checks and production build remain candidate gates.
+
+The audited Bits UI patch keeps RangeCalendar's placeholder synchronized with changes to the start date. Completing an end date must preserve keyboard focus even when that date lies beyond the start month's trailing week. Caller-driven start-date changes still update the displayed month.
 
 Known unchanged baselines must remain failures until reproduced repairs pass. Completing a cross-month range must not strand focus on the document body; a disabled pagination destination must not change the caller's page through Enter. Record any unreachable consumer or unavailable native probe explicitly. This recipe does not activate Phase 09 or verify D29's mixed-owner utility/provider work.

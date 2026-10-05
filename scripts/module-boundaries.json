@@ -59,6 +59,7 @@
 				"src/hooks.signOut.test.ts",
 				"src/lib/personnelArchiveRequestDelivery.ts",
 				"src/lib/server/adapters/appShellRequestDelivery.test.ts",
+				"src/lib/server/adapters/dashboardRequestContext.server.test.ts",
 				"src/lib/server/adapters/appShellRequestDelivery.ts",
 				"src/lib/server/adapters/entityHandlers.test.ts",
 				"src/lib/server/adapters/featureRequestContexts.server.ts",

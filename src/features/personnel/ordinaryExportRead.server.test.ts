@@ -1,12 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
-import {
-	listGroupExportRows,
-	listPersonnelExportRows,
-	listOrganizationRankCatalogExportRows,
-	listUserPinnedGroupExportRows
-} from './ordinaryExportRead.server';
+import { createSupabasePersonnelExportReader, type PersonnelExportTable } from './ordinaryExportRead.server';
 
 type Row = Record<string, unknown>;
 const ORG = 'org-a';
@@ -14,7 +8,6 @@ const USER = 'user-a';
 const cases = [
 	{
 		table: 'groups',
-		read: listGroupExportRows,
 		selfOwned: false,
 		saved: {
 			id: 'group-a',
@@ -27,7 +20,6 @@ const cases = [
 	},
 	{
 		table: 'personnel',
-		read: listPersonnelExportRows,
 		selfOwned: false,
 		saved: {
 			id: 'person-a',
@@ -48,7 +40,6 @@ const cases = [
 	},
 	{
 		table: 'organization_rank_catalog',
-		read: listOrganizationRankCatalogExportRows,
 		selfOwned: false,
 		saved: {
 			id: 'rank-a',
@@ -67,7 +58,6 @@ const cases = [
 	},
 	{
 		table: 'user_pinned_groups',
-		read: listUserPinnedGroupExportRows,
 		selfOwned: true,
 		saved: {
 			id: 'pin-a',
@@ -78,12 +68,13 @@ const cases = [
 			created_at: '2026-01-02T03:04:05.123456Z'
 		}
 	}
-];
+] as const;
 
-function provider(table: string, saved: Row, selfOwned: boolean) {
+function provider(table: PersonnelExportTable, saved: Row, selfOwned: boolean) {
 	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({
 		...saved,
 		id: `saved-${index}`,
+		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] },
 		...Object.fromEntries(
 			['name', 'code', 'group_name']
 				.filter((column) => column in saved)
@@ -101,7 +92,10 @@ function provider(table: string, saved: Row, selfOwned: boolean) {
 		auth: { persistSession: false, autoRefreshToken: false },
 		global: {
 			fetch: async (input, init) => {
-				const url = new URL(String(input));
+				const request = new Request(input, init);
+				const url = new URL(request.url);
+				if (request.headers.get('authorization') !== 'Bearer synthetic-request-key')
+					throw new Error('Export read must retain ordinary request authority');
 				if (url.pathname.split('/').at(-1) !== table || (init?.method ?? 'GET') !== 'GET')
 					throw new Error('Unexpected export provider operation');
 				const offset = Number(url.searchParams.get('offset') ?? 0);
@@ -111,6 +105,13 @@ function provider(table: string, saved: Row, selfOwned: boolean) {
 				for (const [column, filter] of url.searchParams) {
 					if (filter.startsWith('eq.')) visible = visible.filter((row) => String(row[column]) === filter.slice(3));
 					if (filter === 'is.null') visible = visible.filter((row) => row[column] == null);
+				}
+				const ordering = url.searchParams.get('order');
+				if (ordering) {
+					const [column, direction] = ordering.split('.');
+					visible = visible.toSorted(
+						(a, b) => String(a[column]).localeCompare(String(b[column])) * (direction === 'desc' ? -1 : 1)
+					);
 				}
 				const limit = Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000);
 				const select = url.searchParams.get('select');
@@ -126,37 +127,53 @@ function provider(table: string, saved: Row, selfOwned: boolean) {
 			}
 		}
 	});
-	return { store: createSupabaseDataStore(client), state, owned, peer };
+	return { client, state, owned, peer };
 }
 
 describe('Personnel ordinary Organization export reads', () => {
 	it.each(cases)(
 		'retains all saved $table fields and pages without foreign rows',
-		async ({ table, read, saved, selfOwned }) => {
-			const { store, owned } = provider(table, saved, selfOwned);
-			expect(await read(store, ORG)).toEqual(owned);
-			expect(await read(store, 'empty-org')).toEqual([]);
+		async ({ table, saved, selfOwned }) => {
+			const { client, owned } = provider(table, saved, selfOwned);
+			expect(await createSupabasePersonnelExportReader(client, ORG).listRows(table)).toEqual(owned);
+			expect(await createSupabasePersonnelExportReader(client, 'empty-org').listRows(table)).toEqual([]);
 		}
 	);
 
 	it.each(cases)(
 		'rejects $table provider failures without returning partial saved rows',
-		async ({ table, read, saved, selfOwned }) => {
-			const { store, state } = provider(table, saved, selfOwned);
+		async ({ table, saved, selfOwned }) => {
+			const { client, state } = provider(table, saved, selfOwned);
 			state.failFrom = 1000;
-			await expect(read(store, ORG)).rejects.toThrow('Saved rows unavailable');
+			await expect(createSupabasePersonnelExportReader(client, ORG).listRows(table)).rejects.toThrow(
+				'Saved rows unavailable'
+			);
 			state.failFrom = 0;
-			await expect(read(store, ORG)).rejects.toThrow('Saved rows unavailable');
+			await expect(createSupabasePersonnelExportReader(client, ORG).listRows(table)).rejects.toThrow(
+				'Saved rows unavailable'
+			);
 		}
 	);
 
 	it.each(cases.filter(({ selfOwned }) => selfOwned))(
 		'retains the request user visibility of $table',
-		async ({ table, read, saved }) => {
-			const { store, state, peer, owned } = provider(table, saved, true);
-			expect(await read(store, ORG)).toEqual(owned);
+		async ({ table, saved }) => {
+			const { client, state, peer, owned } = provider(table, saved, true);
+			expect(await createSupabasePersonnelExportReader(client, ORG).listRows(table)).toEqual(owned);
 			state.userId = 'peer';
-			expect(await read(store, ORG)).toEqual([peer]);
+			expect(await createSupabasePersonnelExportReader(client, ORG).listRows(table)).toEqual([peer]);
 		}
 	);
+
+	it('rejects an unrelated table before provider access', async () => {
+		const fetch = vi.fn();
+		const client = createClient('http://archive.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: { fetch }
+		});
+		await expect(
+			createSupabasePersonnelExportReader(client, ORG).listRows('access_requests' as PersonnelExportTable)
+		).rejects.toMatchObject({ status: 400 });
+		expect(fetch).not.toHaveBeenCalled();
+	});
 });

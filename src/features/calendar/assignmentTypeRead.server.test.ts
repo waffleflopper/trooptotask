@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
-import {
-	listAssignmentTypeExportRows,
-	listAssignmentTypeTargets,
-	listAssignmentTypes
-} from './assignmentTypeRead.server';
+import { listAssignmentTypeTargets, listAssignmentTypes } from './assignmentTypeRead.server';
 
 describe('Calendar assignment-type reads', () => {
 	it('keeps archived references available to authorized consumers and isolates another Organization', async () => {
@@ -54,6 +50,5 @@ describe('Calendar assignment-type reads', () => {
 			{ id: 'archived', assign_to: 'personnel' },
 			{ id: 'group', assign_to: 'group' }
 		]);
-		expect((await listAssignmentTypeExportRows(store, 'alpha')).map((row) => row.id)).toEqual(['archived', 'group']);
 	});
 });

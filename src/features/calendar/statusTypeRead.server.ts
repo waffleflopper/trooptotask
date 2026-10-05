@@ -30,10 +30,3 @@ export async function listStatusTypeNamesByIds(
 	});
 	return new Map(rows.map(({ id, name }) => [id, name ?? id]));
 }
-
-/** Saved row shape for a separately authorized Organization export. */
-export function listStatusTypeExportRows(store: DataStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('status_types', orgId, undefined, {
-		select: StatusTypeEntity.select
-	});
-}

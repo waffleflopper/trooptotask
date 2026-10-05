@@ -38,9 +38,7 @@ export {
 } from './server/trainingReportsQuery.server';
 export { fetchDashboardTrainingSummary } from './server/trainingSummaryQuery.server';
 export {
-	listTrainingTypeExportRows,
-	listTrainingCompletionExportRows,
-	listTrainingViewExportRows,
+	createSupabaseTrainingExportReader,
 	listPersonnelTrainingExportRows
 } from './server/trainingExportRead.server';
 

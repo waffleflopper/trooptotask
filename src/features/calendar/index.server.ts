@@ -1,8 +1,4 @@
-export {
-	listAvailabilityEntries,
-	listPersonnelAvailabilityHistory,
-	listAvailabilityExportRows
-} from './availabilityRead.server';
+export { listAvailabilityEntries, listPersonnelAvailabilityHistory } from './availabilityRead.server';
 export {
 	availabilityUpdateInput,
 	createAvailability,
@@ -16,29 +12,20 @@ export {
 	deleteSpecialDay,
 	resetFederalHolidays
 } from './specialDayOperations.server';
-export { listSpecialDaysInRange, listSpecialDayExportRows, listSpecialDays } from './specialDayRead.server';
+export { listSpecialDaysInRange, listSpecialDays } from './specialDayRead.server';
 export { seedFederalHolidays } from './specialDaySeed.server';
 export { seedDefaultStatusTypes } from './statusTypeSeed.server';
 export { createStatusType, updateStatusType, deleteStatusType } from './statusTypeOperations.server';
-export {
-	listStatusTypes,
-	listStatusTypeLabels,
-	listStatusTypeNamesByIds,
-	listStatusTypeExportRows
-} from './statusTypeRead.server';
+export { listStatusTypes, listStatusTypeLabels, listStatusTypeNamesByIds } from './statusTypeRead.server';
 export { createAssignmentType, updateAssignmentType, deleteAssignmentType } from './assignmentTypeOperations.server';
-export {
-	listAssignmentTypes,
-	listAssignmentTypeTargets,
-	listAssignmentTypeExportRows
-} from './assignmentTypeRead.server';
+export { listAssignmentTypes, listAssignmentTypeTargets } from './assignmentTypeRead.server';
 export { seedDefaultAssignmentTypes } from './assignmentTypeSeed.server';
 export {
 	createSupabaseAssignmentTypeRetention,
 	type AssignmentTypeRetentionSource
 } from './assignmentTypeRetention.server';
 export { createCalendarSupportReader } from './platformCatalogCounts.server';
-export { listDailyAssignments, listDailyAssignmentExportRows } from './dailyAssignmentRead.server';
+export { listDailyAssignments } from './dailyAssignmentRead.server';
 export { createSupabaseCalendarAssignmentReplacementPort } from './dailyAssignmentPersistence.server';
 export {
 	setDailyAssignmentSlot,
@@ -66,3 +53,5 @@ export {
 export { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from './utils/calendarAnchorDate';
 export { createInitialCalendarBufferedRange } from './utils/calendarRange';
 export { withCalendarTiming } from '$lib/server/utils/calendarTiming';
+
+export { createSupabaseCalendarExportReader } from './calendarExportRead.server';

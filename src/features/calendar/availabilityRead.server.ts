@@ -51,8 +51,3 @@ export async function listPersonnelAvailabilityHistory(
 	);
 	return AvailabilityEntryEntity.fromDbArray(rows);
 }
-
-/** Full saved rows for an already-authorized Organization export. */
-export function listAvailabilityExportRows(store: DataStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>(AvailabilityEntryEntity.table, orgId);
-}

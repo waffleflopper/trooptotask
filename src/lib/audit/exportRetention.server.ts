@@ -1,13 +1,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { assertAuditQuerySuccess } from './providerError.server';
 
-interface AuditExportStore {
-	findMany<T>(table: 'audit_logs', orgId: string): Promise<T[]>;
+export interface AuditExportReader {
+	listRows(): Promise<Record<string, unknown>[]>;
 }
 
-/** The admitted Organization export retains saved raw Audit fields. */
-export function listAuditExportRows(store: AuditExportStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('audit_logs', orgId);
+export function createSupabaseAuditExportReader(client: SupabaseClient, orgId: string): AuditExportReader {
+	return {
+		async listRows() {
+			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
+				const { data, error } = await client.from('audit_logs').select('*').eq('org_id', orgId).range(from, to);
+				return { data, error };
+			});
+			if (result.error) throw new Error((result.error as { message?: string }).message ?? 'Audit export read failed');
+			return result.data ?? [];
+		}
+	};
 }
 
 /** Scheduled delivery admits the configured credential before this owned operation. */

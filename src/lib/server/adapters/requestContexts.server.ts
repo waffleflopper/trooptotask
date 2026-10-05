@@ -15,6 +15,7 @@ import {
 	createSupabasePersonnelArtifactWritePort,
 	createSupabasePersonnelAwardAcknowledgementPort,
 	createSupabasePersonnelCalendarRosterPort,
+	createSupabasePersonnelCriticalTasksRosterPort,
 	createSupabasePersonnelOrganizationExportPort,
 	createSupabasePersonnelTrainingRosterPort,
 	createSupabaseSignInRosterPersonnelLookupPort,
@@ -577,6 +578,7 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 	return {
 		...createRequestDataContext(request),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase),
+		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};
 }

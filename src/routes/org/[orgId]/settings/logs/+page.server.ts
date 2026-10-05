@@ -2,7 +2,11 @@ import type { PageServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { createRequestActorContext } from '$lib/server/adapters/requestContexts.server';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createSupabaseOrganizationAuditStore } from '$lib/audit/index.server';
+import { createSupabaseStatusTypeNamesReader } from '$features/calendar/index.server';
+import { createSupabasePersonnelNamesReader } from '$features/personnel/index.server';
+import { createSupabaseTrainingTypeNamesReader } from '$features/training/index.server';
+import { createSupabaseOrganizationMemberEmailsReader } from '$features/organization/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { loadLogsSettings, type LogsSettingsData } from '../settingsLogs.server';
 import {
@@ -37,11 +41,15 @@ export const load: PageServerLoad = async (event) => {
 			policyResource: { kind: 'organization' },
 			fn: async (ctx) => {
 				const adminClient = getAdminClient();
-				const adminStore = createSupabaseDataStore(adminClient);
 
 				return {
 					...common,
-					logsSettings: await loadLogsSettings(ctx, adminStore, adminClient)
+					logsSettings: await loadLogsSettings(ctx, createSupabaseOrganizationAuditStore(adminClient), {
+						personnelNames: createSupabasePersonnelNamesReader(adminClient, ctx.auth.orgId),
+						trainingTypeNames: createSupabaseTrainingTypeNamesReader(adminClient, ctx.auth.orgId),
+						statusTypeNames: createSupabaseStatusTypeNamesReader(adminClient, ctx.auth.orgId),
+						actorEmails: createSupabaseOrganizationMemberEmailsReader(adminClient, ctx.auth.orgId)
+					})
 				};
 			}
 		}

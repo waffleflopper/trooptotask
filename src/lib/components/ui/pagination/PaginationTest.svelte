@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Pagination from './index.js';
 
 	let {
@@ -30,9 +31,7 @@
 						onkeydown={(event) => (callerInteraction = event.key)}
 					>
 						{#snippet child({ props })}
-							<a {...props} href="#first-page" role="button" tabindex="0" aria-disabled={disableWrapperDestinations}>
-								First page
-							</a>
+							<Button {...props} href="#first-page" role="button">First page</Button>
 						{/snippet}
 					</Pagination.Link>
 				{:else if usePageWrappers}

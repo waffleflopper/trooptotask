@@ -64,18 +64,18 @@ describe('Pagination public page selection', () => {
 	])('keeps disabled $wrapper noninteractive during $action', async ({ destination, action }) => {
 		render(PaginationTest, { initialPage: 2, usePageWrappers: true, disableWrapperDestinations: true });
 		const control = screen.getByRole('button', { name: destination });
-		expect.soft(control).toBeDisabled();
+		expect(control).toBeDisabled();
 
 		if (action === 'click') {
 			control.click();
 			await tick();
 		} else {
 			control.focus();
-			expect.soft(document.activeElement).not.toBe(control);
-			await fireEvent.keyDown(document.activeElement!, { key: action === 'Space' ? ' ' : action });
+			expect(document.activeElement).not.toBe(control);
+			await fireEvent.keyDown(control, { key: action === 'Space' ? ' ' : action });
 		}
 
-		expect.soft(screen.getByLabelText('Current page').textContent).toBe('2');
+		expect(screen.getByLabelText('Current page').textContent).toBe('2');
 		expect(screen.getByLabelText('Visible records').textContent).toBe('11-20');
 	});
 
@@ -119,6 +119,15 @@ describe('Pagination public page selection', () => {
 				disableWrapperDestinations: disabled
 			});
 			const control = screen.getByRole('button', { name: 'Page 1' });
+			if (disabled) {
+				expect(control).not.toHaveAttribute('href');
+			} else {
+				expect(control).toHaveAttribute('href', '#first-page');
+			}
+			expect(control).toHaveAttribute('aria-disabled', String(disabled));
+			expect(control.tabIndex).toBe(disabled ? -1 : 0);
+			expect(control).not.toHaveAttribute('disabled');
+			expect(control).not.toHaveAttribute('type');
 			const activation = new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 });
 			await fireEvent(control, activation);
 			expect.soft(activation.defaultPrevented).toBe(disabled);

@@ -120,7 +120,9 @@ function fixture(member: OrganizationMembershipFacts = membership) {
 					requests.push({ client: kind, path: url.pathname, method, body });
 					if (url.pathname.startsWith('/storage/')) {
 						if (state.failSigning) return Response.json({ message: 'synthetic signing failure' }, { status: 500 });
-						return Response.json({ signedURL: '/object/sign/synthetic-private-file' });
+						return Response.json({
+							signedURL: `${url.pathname.slice('/storage/v1'.length)}?token=synthetic-private-token`
+						});
 					}
 					const table = url.pathname.split('/').at(-1)!;
 					if (!(table in tables)) throw new Error(`Unexpected table: ${table}`);
@@ -266,7 +268,7 @@ describe('private resource HTTP admission and provider ownership', () => {
 			const response = await handler(event(f, 'GET', id));
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({
-				url: 'http://caller.invalid/storage/v1/object/sign/synthetic-private-file'
+				url: `http://caller.invalid/storage/v1/object/sign/${bucket}/${path}?token=synthetic-private-token`
 			});
 			expect(f.requests.filter((r) => r.path.startsWith('/storage/'))).toEqual([
 				{

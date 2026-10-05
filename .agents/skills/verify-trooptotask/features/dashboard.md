@@ -11,6 +11,8 @@ The Organization Dashboard composes authorized Personnel, Calendar, Training, Cr
 - `navigation-recovery`: an exact A Dashboard navigation fails once, remains recoverable, and a delayed A navigation cannot overwrite B.
 - `deferred-state`: first-paint shell, workspace/summary pending, rejection and scope replacement remain explicit obligations. Whole-navigation holds do not prove individual server-source delay or failure.
 
+After changing request composition, run the real Organization Home route with Critical Tasks access and inspect its settled summary as well as the visible Overview. Tests that supply a broad fixture context or mock the summary operation cannot establish that the route selected every required provider. The Dashboard must settle without its load-error alert before this path earns verification credit.
+
 ## How to get to it (user POV)
 
 Sign in, enter an Organization and choose **Home** in its sidebar. The Organization breadcrumb also returns to this Dashboard. Its source workspaces remain available through Calendar, Personnel, Training, ICTLs and Onboard when the member has the corresponding access. Use **Switch organization** to select another membership; it preserves the current section, so choose Home afterward when switching from Calendar.

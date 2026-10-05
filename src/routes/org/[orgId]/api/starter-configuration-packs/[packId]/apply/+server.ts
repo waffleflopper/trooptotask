@@ -1,7 +1,7 @@
 import type { StarterConfigurationPackApplyResult } from '$features/dashboard/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createRequestDataContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestOnboardingTemplateStepContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { applyStarterConfigurationPack } from '$lib/server/core/useCases/starterConfigurationPacks';
 import type { RequestEvent } from '@sveltejs/kit';
 import { z } from 'zod';
@@ -15,7 +15,7 @@ function parseApplyStarterPackInput(event: RequestEvent): z.infer<typeof applySt
 }
 
 const applyStarterPackConfig = {
-	context: createRequestDataContext,
+	context: createRequestOnboardingTemplateStepContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'organization' },
@@ -25,7 +25,7 @@ const applyStarterPackConfig = {
 } satisfies RouteConfig<
 	z.infer<typeof applyStarterPackInput>,
 	StarterConfigurationPackApplyResult,
-	ReturnType<typeof createRequestDataContext>
+	ReturnType<typeof createRequestOnboardingTemplateStepContext>
 >;
 
 export const POST = handle(applyStarterPackConfig);

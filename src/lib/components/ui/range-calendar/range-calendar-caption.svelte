@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { ComponentProps } from 'svelte';
-	import type RangeCalendar from './range-calendar.svelte';
 	import RangeCalendarMonthSelect from './range-calendar-month-select.svelte';
 	import RangeCalendarYearSelect from './range-calendar-year-select.svelte';
 	import { DateFormatter, getLocalTimeZone, type DateValue } from '@internationalized/date';
@@ -16,7 +15,7 @@
 		placeholder = $bindable(),
 		monthIndex = 0
 	}: {
-		captionLayout: ComponentProps<typeof RangeCalendar>['captionLayout'];
+		captionLayout: 'dropdown' | 'dropdown-months' | 'dropdown-years' | 'label' | undefined;
 		months: ComponentProps<typeof RangeCalendarMonthSelect>['months'];
 		monthFormat: ComponentProps<typeof RangeCalendarMonthSelect>['monthFormat'];
 		years: ComponentProps<typeof RangeCalendarYearSelect>['years'];

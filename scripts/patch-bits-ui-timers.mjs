@@ -46,6 +46,20 @@ function assertAuditedBitsUiVersion() {
 assertAuditedBitsUiVersion();
 
 patchFile({
+	patchName: 'range calendar start placeholder synchronization',
+	filePath: join(bitsUiDist, 'range-calendar', 'range-calendar.svelte.js'),
+	replacements: [
+		{
+			original: `        watch(() => this.opts.value.current, (value) => {
+            const startValue = value.start;
+            if (startValue && this.opts.placeholder.current !== startValue) {`,
+			patched: `        watch(() => this.opts.value.current.start, (startValue, previousStartValue) => {
+            if (startValue && startValue !== previousStartValue && this.opts.placeholder.current !== startValue) {`
+		}
+	]
+});
+
+patchFile({
 	patchName: 'dismissible layer timeout cleanup',
 	filePath: join(bitsUiDist, 'utilities', 'dismissible-layer', 'use-dismissable-layer.svelte.js'),
 	replacements: [

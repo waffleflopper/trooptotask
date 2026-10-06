@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTestAuthContext, createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './ratingSchemePersistence.test-support.server';
 import { createApprovedRatingSchemeDeletionPort } from './approvedRatingSchemeDeletion.server';
 
 function reviewer(role: 'admin' | 'member' = 'admin') {
@@ -35,11 +36,7 @@ function provider(overrides: Record<string, unknown> = {}) {
 		{ id: 'entry-2', organization_id: 'org-1' },
 		{ id: 'entry-1', organization_id: 'org-2' }
 	]);
-	// InMemory.delete rejects absent rows; deleteWhere supplies the production
-	// store's idempotent DELETE contract while keeping real stored effects.
-	const deleteEntry = vi
-		.spyOn(ctx.rawStore, 'delete')
-		.mockImplementation((table, orgId, id) => ctx.rawStore.deleteWhere(table, orgId, { id }));
+	const deleteEntry = vi.spyOn(ctx.rawStore, 'deleteWhere');
 	const requirePending = vi.fn(async (orgId: string, requestId: string, resourceType: string, resourceId: string) => {
 		const request = await ctx.rawStore.findOne('deletion_requests', orgId, {
 			id: requestId,
@@ -53,7 +50,7 @@ function provider(overrides: Record<string, unknown> = {}) {
 		ctx,
 		deleteEntry,
 		requirePending,
-		port: createApprovedRatingSchemeDeletionPort(ctx.rawStore, requirePending)
+		port: createApprovedRatingSchemeDeletionPort(ctx.ratingScheme, requirePending)
 	};
 }
 

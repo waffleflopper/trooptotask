@@ -50,7 +50,7 @@ export const POST: RequestHandler = (event) => {
 	return handle(
 		_reviewPostConfig(store, (ctx) => {
 			const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient, requirePending);
-			const rating = createApprovedRatingSchemeDeletionPort(ctx.rawStore, requirePending);
+			const rating = createApprovedRatingSchemeDeletionPort(ctx.ratingScheme, requirePending);
 			const counseling = createSupabasePersonnelGovernanceDeletionPort(getAdminClient, requirePending);
 			return {
 				archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createSupabaseRatingSchemePersistence } from './ratingSchemePersistence.server';
 import { countRatingSchemeEntries } from './ratingSchemeRead.server';
 
 type Row = Record<string, unknown>;
@@ -30,7 +30,7 @@ const saved: Row = {
 
 function provider(rows: Row[], failAt?: number) {
 	const requests: string[] = [];
-	const store = createSupabaseDataStore(
+	const ratingScheme = createSupabaseRatingSchemePersistence(
 		createClient('http://127.0.0.1:9', 'synthetic-request-key', {
 			auth: { persistSession: false, autoRefreshToken: false },
 			global: {
@@ -59,9 +59,10 @@ function provider(rows: Row[], failAt?: number) {
 					});
 				}
 			}
-		})
+		}),
+		'org-1'
 	);
-	return { store, requests };
+	return { ratingScheme, requests };
 }
 
 function actor(ratingScheme: 'none' | 'view' = 'view') {
@@ -82,24 +83,24 @@ function actor(ratingScheme: 'none' | 'view' = 'view') {
 
 describe('Rating Scheme reverse reads', () => {
 	it('counts the Rating-only request-visible lane without a Personnel read', async () => {
-		const { store } = provider([
+		const { ratingScheme } = provider([
 			{ ...saved, id: 'own' },
 			{ ...saved, id: 'foreign', organization_id: 'org-2' }
 		]);
-		await expect(countRatingSchemeEntries({ store, actor: actor() })).resolves.toBe(1);
+		await expect(countRatingSchemeEntries({ ratingScheme, actor: actor() })).resolves.toBe(1);
 	});
 
 	it.each(['denied', 'empty scope'])('returns zero before provider access for %s', async (reason) => {
-		const findManyWithCount = vi.fn();
+		const countEntries = vi.fn();
 		const trusted = actor(reason === 'denied' ? 'none' : 'view');
 		if (reason === 'empty scope') Object.assign(trusted, { scopeSet: { kind: 'groups', groupIds: [] } });
-		await expect(countRatingSchemeEntries({ store: { findManyWithCount }, actor: trusted })).resolves.toBe(0);
-		expect(findManyWithCount).not.toHaveBeenCalled();
+		await expect(countRatingSchemeEntries({ ratingScheme: { countEntries }, actor: trusted })).resolves.toBe(0);
+		expect(countEntries).not.toHaveBeenCalled();
 	});
 
 	it('propagates an admitted count failure instead of treating it as an empty lane', async () => {
-		await expect(countRatingSchemeEntries({ store: provider([], 0).store, actor: actor() })).rejects.toThrow(
-			'Rating unavailable'
-		);
+		await expect(
+			countRatingSchemeEntries({ ratingScheme: provider([], 0).ratingScheme, actor: actor() })
+		).rejects.toThrow('Rating unavailable');
 	});
 });

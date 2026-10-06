@@ -1,5 +1,10 @@
 <script lang="ts" module>
-	import type { BriefingBand, BriefingGridCell, BriefingReadiness } from '../utils/trainingBriefing.types';
+	import type {
+		BriefingBand,
+		BriefingGrid,
+		BriefingGridCell,
+		BriefingReadiness
+	} from '../utils/trainingBriefing.types';
 
 	const BAND_FILL: Record<Exclude<BriefingBand, 'none'>, string> = {
 		goal: 'bg-(--training-print-goal)',
@@ -35,12 +40,34 @@
 	const goal = $derived(briefing.forecast.goalPercent);
 	const risks = $derived(new Map(briefing.typeRisk.map((risk) => [risk.typeId, risk])));
 	const colspan = $derived(chunk.columns.length + 4);
+	const leading = $derived(grid.columns.slice(0, -1));
+	const last = $derived(grid.columns.at(-1));
 	const range = $derived(
 		columnTotal > chunk.columns.length
 			? `${noun.many} ${chunk.start + 1}–${chunk.start + chunk.columns.length} of ${columnTotal}`
 			: null
 	);
 </script>
+
+{#snippet typeRow(type: BriefingGrid['columns'][number], index: number)}
+	{@const risk = risks.get(type.typeId)}
+	<tr>
+		<th
+			scope="row"
+			class="border-b border-border py-1 pr-2 text-left font-serif text-[13px] leading-4 font-normal [overflow-wrap:anywhere]"
+		>
+			{type.name}
+		</th>
+		{@render readiness(grid.total.cells[index], true)}
+		{#each chunk.columns as column (column.item.key)}
+			{@render readiness(column.item.cells[index])}
+		{/each}
+		<td class="border-b border-border pr-1 text-right font-mono text-[13px]">{risk?.notReady ?? 0}</td>
+		<td class="border-b border-border pr-1 text-right font-mono text-[13px] font-semibold">
+			{risk?.lapsing ?? 0}
+		</td>
+	</tr>
+{/snippet}
 
 {#snippet readiness(cell: BriefingGridCell, gap = false)}
 	{@const band = cell.today.band}
@@ -75,26 +102,18 @@
 			<col style:width={`${PRINT_MATRIX_WIDTHS.count}px`} />
 		</colgroup>
 		<thead>
-			<TrainingPrintRunningHeader organizationName={report.organizationName} {context} {colspan} />
-			<tr>
-				<td {colspan} class="p-0 pb-2.5">
-					<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-						<p class="font-mono text-[9.5px] leading-3 uppercase tracking-[0.08em] text-muted-foreground">
-							Where and what
-						</p>
-						<h3 class="font-heading text-[19px] leading-[22px] font-semibold">
-							Training type by {noun.one}{chunk.start > 0 ? ', continued' : ''}
-						</h3>
-						{#if range}
-							<p
-								class="px-1.5 py-px font-mono text-[10px] leading-3 font-semibold uppercase tracking-[0.04em] shadow-[inset_0_0_0_1px_var(--foreground)]"
-							>
-								{range}
-							</p>
-						{/if}
-					</div>
-				</td>
-			</tr>
+			<TrainingPrintRunningHeader organizationName={report.organizationName} {context} {colspan}>
+				<h3 class="font-heading text-[19px] leading-[22px] font-semibold">
+					Training type by {noun.one}{chunk.start > 0 ? ', continued' : ''}
+				</h3>
+				{#if range}
+					<p
+						class="px-1.5 py-px font-mono text-[10px] leading-3 font-semibold uppercase tracking-[0.04em] whitespace-nowrap outline-1 outline-solid outline-foreground -outline-offset-1"
+					>
+						{range}
+					</p>
+				{/if}
+			</TrainingPrintRunningHeader>
 			<tr class="align-bottom">
 				<th
 					scope="col"
@@ -129,27 +148,14 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each grid.columns as type, index (type.typeId)}
-				{@const risk = risks.get(type.typeId)}
-				<tr>
-					<th
-						scope="row"
-						class="border-b border-border py-1 pr-2 text-left font-serif text-[13px] leading-4 font-normal [overflow-wrap:anywhere]"
-					>
-						{type.name}
-					</th>
-					{@render readiness(grid.total.cells[index], true)}
-					{#each chunk.columns as column (column.item.key)}
-						{@render readiness(column.item.cells[index])}
-					{/each}
-					<td class="border-b border-border pr-1 text-right font-mono text-[13px]">{risk?.notReady ?? 0}</td>
-					<td class="border-b border-border pr-1 text-right font-mono text-[13px] font-semibold">
-						{risk?.lapsing ?? 0}
-					</td>
-				</tr>
+			{#each leading as type, index (type.typeId)}
+				{@render typeRow(type, index)}
 			{/each}
 		</tbody>
 		<tbody class="break-inside-avoid">
+			{#if last}
+				{@render typeRow(last, leading.length)}
+			{/if}
 			<tr class="[&>*]:border-t-[1.5px] [&>*]:border-foreground">
 				<th scope="row" class="py-1 text-left font-mono text-[9px] leading-3 font-normal uppercase tracking-[0.04em]">
 					All selected types · today

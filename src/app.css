@@ -449,7 +449,6 @@ input[type='checkbox']:focus-visible {
 
 	[data-print-report='training'] {
 		page: training-brief;
-		print-color-adjust: exact;
 	}
 
 	[data-print-report='training']:has(> [data-print-brief='training']) > :not([data-print-brief='training']) {

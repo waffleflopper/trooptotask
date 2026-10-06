@@ -648,15 +648,18 @@ describe('Training Reports briefing page', () => {
 		expect(document.activeElement).toBe(pageSize);
 	});
 
-	it('prints the brief from the browser with the displayed filters stated', async () => {
-		const print = vi.fn();
+	it('invokes native print without refetching the loaded briefing', async () => {
+		const print = vi.fn(() => {
+			window.dispatchEvent(new Event('beforeprint'));
+			window.dispatchEvent(new Event('afterprint'));
+		});
 		vi.stubGlobal('print', print);
-		renderPage(vi.fn<typeof fetch>(), reportFor({ groupId: 'alpha', horizonDays: 60 }));
+		const fetchImpl = renderPage(vi.fn<typeof fetch>(), reportFor({ groupId: 'alpha', horizonDays: 60 }));
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Print brief' }));
 
 		expect(print).toHaveBeenCalledOnce();
-		expect(screen.getByText(/^Filters · View: All training · Group: Alpha · .* · Horizon: 60 days/)).toBeTruthy();
+		expect(fetchImpl).not.toHaveBeenCalled();
 	});
 
 	it('exports the whole filtered briefing even while one cell is drilled into', async () => {

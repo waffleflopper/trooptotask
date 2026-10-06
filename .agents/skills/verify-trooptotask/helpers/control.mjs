@@ -22,6 +22,7 @@ import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency } from './dashboard-fixtures.mjs';
+import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
 import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
@@ -244,15 +245,32 @@ async function main() {
 		return fixture.ids[key];
 	};
 	if (command === 'print') {
-		const [action, page, expectedUrl, filePath] = args;
+		const [action, page, expectedUrl, filePath, paperSize = 'letter', backgrounds = 'on'] = args;
 		const pageId = Number(page);
 		if (
 			!Number.isSafeInteger(pageId) ||
 			pageId < 1 ||
-			(action === 'save' ? args.length !== 4 : args.length !== 2 || !['arm', 'state', 'restore'].includes(action))
+			(action === 'save'
+				? args.length < 4 ||
+					args.length > 6 ||
+					!['letter', 'a4'].includes(paperSize) ||
+					!['on', 'off'].includes(backgrounds)
+				: args.length !== 2 || !['arm', 'state', 'restore'].includes(action))
 		)
-			throw new Error('Use print arm|state|restore PAGE, or print save PAGE EXACT_REPORT_URL FILE.pdf.');
-		if (action === 'save') note(await run(state, { command: 'print-capture', pageId, expectedUrl, filePath }));
+			throw new Error(
+				'Use print arm|state|restore PAGE, or print save PAGE EXACT_REPORT_URL FILE.pdf [letter|a4] [on|off].'
+			);
+		if (action === 'save')
+			note(
+				await run(state, {
+					command: 'print-capture',
+					pageId,
+					expectedUrl,
+					filePath,
+					paperSize,
+					printBackground: backgrounds === 'on'
+				})
+			);
 		else note(await evaluate(state, pageId, `() => (${observePrint.toString()})(window, ${JSON.stringify(action)})`));
 		return;
 	}
@@ -1338,6 +1356,7 @@ async function main() {
 				'overlap',
 				'bulk-501',
 				'training-pages',
+				'training-print',
 				'roster-pages',
 				'personnel-lifecycle',
 				'personnel-artifact-context',
@@ -1368,6 +1387,10 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'training-print') {
+			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'platform-admin') {
 			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
 			return;
@@ -1984,6 +2007,7 @@ async function main() {
 		} catch (error) {
 			platformError = error;
 		}
+		await cleanTrainingPrint({ client, fixture, ownedState, save });
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);

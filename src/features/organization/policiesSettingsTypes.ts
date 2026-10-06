@@ -15,6 +15,10 @@ export type SettingsPoliciesSectionData = {
 		savedDays: number;
 		constraints: WorkspaceConstraint<'days'>;
 	};
+	trainingReadinessGoal: {
+		savedPercent: number;
+		constraints: WorkspaceConstraint<'percent'>;
+	};
 	canUpdateRetention: boolean;
 };
 

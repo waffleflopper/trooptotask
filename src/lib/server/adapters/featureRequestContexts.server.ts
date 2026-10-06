@@ -1,3 +1,4 @@
+import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
 import type { AdmittedOrganizationRequest } from './requestContexts.server';
 import {
 	createRequestDataContext,
@@ -15,7 +16,7 @@ import { createSupabaseTrainingOnboardingReferencesPort } from '$features/traini
 import type {
 	createTrainingRecord,
 	deleteTrainingType,
-	fetchTrainingReportPage,
+	fetchTrainingBriefingReport,
 	fetchTrainingWorkspaceData
 } from '$features/training/index.server';
 import {
@@ -60,12 +61,20 @@ import type {
 
 export function createRequestTrainingRosterContext(
 	request: AdmittedOrganizationRequest
-): Parameters<typeof createTrainingRecord>[0] &
-	Parameters<typeof fetchTrainingWorkspaceData>[0] &
-	Parameters<typeof fetchTrainingReportPage>[0] {
+): Parameters<typeof createTrainingRecord>[0] & Parameters<typeof fetchTrainingWorkspaceData>[0] {
 	return {
 		...createRequestWriteContext(request),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
+	};
+}
+
+export function createRequestTrainingBriefingContext(
+	request: AdmittedOrganizationRequest
+): Parameters<typeof fetchTrainingBriefingReport>[0] {
+	return {
+		...createRequestWriteContext(request),
+		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
+		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};
 }
 

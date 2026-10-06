@@ -30,7 +30,9 @@
 <div class="app">
 	{@render children()}
 </div>
-<Toaster />
+<div class="contents" data-print-chrome>
+	<Toaster />
+</div>
 
 <style>
 	.app {

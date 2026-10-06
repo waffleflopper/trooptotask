@@ -7,6 +7,7 @@ export async function requestSettings(target, { origin, organizationSegment, fam
 		'organization/settings': [
 			'archiveRetentionMonths',
 			'lossWarningWindowDays',
+			'trainingReadinessGoalPercent',
 			'personnelDocumentStorageCapMb',
 			'criticalTasksDefaultExpirationMonths',
 			'criticalTasksExpiringSoonWarningDays'

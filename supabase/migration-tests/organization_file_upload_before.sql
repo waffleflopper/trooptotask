@@ -27,7 +27,7 @@ INSERT INTO storage.objects(id,bucket_id,name,metadata) VALUES
   ('fa180000-0000-4000-8000-000000000505','d17-file-other','fa180000-0000-4000-8000-000000000101/unrelated.pdf','{"size":31}');
 CREATE VIEW upgrade_fixture.organization_file_upload_current_rows AS
 SELECT 'auth.users'::text table_name,id::text row_id,to_jsonb(r) row_data FROM auth.users r WHERE id::text LIKE 'fa180000-%'
-UNION ALL SELECT 'organizations',id::text,to_jsonb(r) FROM public.organizations r WHERE id::text LIKE 'fa180000-%'
+UNION ALL SELECT 'organizations',id::text,to_jsonb(r) - 'training_readiness_goal_percent' FROM public.organizations r WHERE id::text LIKE 'fa180000-%'
 UNION ALL SELECT 'memberships',id::text,to_jsonb(r) FROM public.organization_memberships r WHERE organization_id::text LIKE 'fa180000-%'
 UNION ALL SELECT 'personnel',id::text,to_jsonb(r) FROM public.personnel r WHERE id::text LIKE 'fa180000-%'
 UNION ALL SELECT 'buckets',id,to_jsonb(r) FROM storage.buckets r WHERE id IN ('counseling-files','personnel-documents','d17-file-other')

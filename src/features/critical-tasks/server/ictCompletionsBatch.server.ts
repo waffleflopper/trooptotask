@@ -5,7 +5,6 @@ import type {
 	IctCompletionBatchImportResult
 } from '../contracts';
 import { reviewMappedIctCompletionImportRows } from '../utils/ictCompletionImport';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import type { IctCompletionBatchContext } from './personnelIctCompletionPorts.server';
 import { policyResourceForGroup, requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -15,19 +14,9 @@ function fail(status: number, message: string): never {
 }
 
 const MAX_BATCH_SIZE = 500;
-// Both UUID filters contribute to the provider URL. Bound pairs together so
-// a supported batch stays below its request-line limit in either dimension.
-const LOOKUP_PAIR_BATCH_SIZE = 50;
-
 function errorMessage(error: unknown): string {
 	if (error instanceof Error && error.message) return error.message;
 	return 'Batch import failed';
-}
-
-function stripOrganizationId(row: Record<string, unknown>): Record<string, unknown> {
-	const rest = { ...row };
-	delete rest.organization_id;
-	return rest;
 }
 
 function buildPersonnelName(values: Record<string, string>): string {
@@ -94,21 +83,7 @@ export async function importIctCompletionsBatch(
 			])
 		).values()
 	];
-	const lookups: Array<Promise<Record<string, unknown>[]>> = [];
-	for (let index = 0; index < matchedPairs.length; index += LOOKUP_PAIR_BATCH_SIZE) {
-		const pairs = matchedPairs.slice(index, index + LOOKUP_PAIR_BATCH_SIZE);
-		lookups.push(
-			ctx.store.findMany<Record<string, unknown>>(PersonnelIctCompletionEntity.table, ctx.auth.orgId, undefined, {
-				inFilters: {
-					personnel_id: [...new Set(pairs.map((pair) => pair.personnelId))],
-					ict_task_id: [...new Set(pairs.map((pair) => pair.ictTaskId))]
-				}
-			})
-		);
-	}
-	// The two filters can return overlapping history; retain each stored ID once.
-	const existingCompletionRows = [...new Map((await Promise.all(lookups)).flat().map((row) => [row.id, row])).values()];
-	const existingCompletions = PersonnelIctCompletionEntity.fromDbArray(existingCompletionRows);
+	const existingCompletions = await ctx.criticalTaskCompletions.listImportHistory(matchedPairs);
 
 	const review = reviewMappedIctCompletionImportRows(input.records, {
 		personnel,
@@ -126,25 +101,13 @@ export async function importIctCompletionsBatch(
 	const createRows = review.validRows.filter((row) => !row.completionId);
 	if (createRows.length > 0) {
 		try {
-			const insertedRows = await ctx.store.insertMany<Record<string, unknown>>(
-				PersonnelIctCompletionEntity.table,
-				ctx.auth.orgId,
-				createRows.map((row) =>
-					stripOrganizationId(PersonnelIctCompletionEntity.toDbInsert(row.completion, ctx.auth.orgId))
-				),
-				PersonnelIctCompletionEntity.select
-			);
-			inserted.push(...PersonnelIctCompletionEntity.fromDbArray(insertedRows));
+			const insertedRows = await ctx.criticalTaskCompletions.createMany(createRows.map((row) => row.completion));
+			inserted.push(...insertedRows);
 		} catch {
 			for (const row of createRows) {
 				try {
-					const insertedRow = await ctx.store.insert<Record<string, unknown>>(
-						PersonnelIctCompletionEntity.table,
-						ctx.auth.orgId,
-						stripOrganizationId(PersonnelIctCompletionEntity.toDbInsert(row.completion, ctx.auth.orgId)),
-						PersonnelIctCompletionEntity.select
-					);
-					inserted.push(PersonnelIctCompletionEntity.fromDb(insertedRow));
+					const insertedRow = await ctx.criticalTaskCompletions.create(row.completion);
+					inserted.push(insertedRow);
 				} catch (error) {
 					errors.push({
 						rowNumber: row.rowNumber,
@@ -163,14 +126,8 @@ export async function importIctCompletionsBatch(
 
 	for (const row of review.validRows.filter((entry) => entry.completionId)) {
 		try {
-			const updatedRow = await ctx.store.update<Record<string, unknown>>(
-				PersonnelIctCompletionEntity.table,
-				ctx.auth.orgId,
-				row.completionId!,
-				PersonnelIctCompletionEntity.toDbUpdate(row.completion),
-				PersonnelIctCompletionEntity.select
-			);
-			updated.push(PersonnelIctCompletionEntity.fromDb(updatedRow));
+			const updatedRow = await ctx.criticalTaskCompletions.update(row.completionId!, row.completion);
+			updated.push(updatedRow);
 		} catch (error) {
 			errors.push({
 				rowNumber: row.rowNumber,

@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import ExcelJS from 'exceljs';
-import { createTestContext } from './criticalTaskLibrary.test-support.server';
+import { createTestContext } from './criticalTasksPersistence.test-support.server';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils/ictWorkbookExport';
 import {
@@ -782,6 +782,7 @@ function createWideHistoryContext(
 		global: {
 			fetch: async (input) => {
 				const url = new URL(String(input));
+				if (options.forbidHistory) throw new Error('Excluded history must not be read');
 				if (url.href.length > 8192) return Response.json({ message: 'URI too long' }, { status: 414 });
 				const ids = (column: string) => url.searchParams.get(column)?.slice(4, -1).split(',') ?? [];
 				expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
@@ -796,15 +797,8 @@ function createWideHistoryContext(
 			}
 		}
 	});
-	const provider = createSupabaseDataStore(client);
-	const findMany = ctx.store.findMany.bind(ctx.store);
-	vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-		args[0] === 'personnel_ict_completions'
-			? options.forbidHistory
-				? Promise.reject(new Error('Excluded history must not be read'))
-				: provider.findMany(...args)
-			: findMany(...args)
-	);
+	ctx.criticalTaskCompletions = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
+
 	return ctx;
 }
 
@@ -948,11 +942,7 @@ describe('deep Critical Tasks dated history', () => {
 				}
 			}
 		});
-		const provider = createSupabaseDataStore(client);
-		const findMany = ctx.store.findMany.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
-		);
+		ctx.criticalTaskCompletions = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
 		const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
 		expect(summary.kpis.overallReadiness).toMatchObject({
 			readyCount: expectedReadyCount,
@@ -1051,11 +1041,7 @@ describe('paged Critical Tasks report history', () => {
 					}
 				}
 			});
-			const provider = createSupabaseDataStore(client);
-			const findMany = ctx.store.findMany.bind(ctx.store);
-			vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-				args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
-			);
+			ctx.criticalTaskCompletions = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
 
 			const report = await fetchReport(ctx, { asOf: '2026-03-20' });
 			expect(report.kpis.overallReadiness).toMatchObject({ readyCount: 1, applicableCount: 1, percent: 100 });

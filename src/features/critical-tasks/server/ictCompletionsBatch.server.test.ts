@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createWritePortsContext } from './criticalTaskLibrary.test-support.server';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
+import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import { importIctCompletionsBatch } from './ictCompletionsBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -85,11 +85,9 @@ describe('importIctCompletionsBatch', () => {
 					}
 				}
 			});
-			const provider = createSupabaseDataStore(client);
+			const provider = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
 			const findMany = ctx.store.findMany.bind(ctx.store);
-			vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-				args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
-			);
+			ctx.criticalTaskCompletions.listImportHistory = provider.listImportHistory;
 			const result = await importIctCompletionsBatch(ctx, { records });
 			expect(result.errors).toEqual([]);
 			expect(result.inserted).toHaveLength(250);
@@ -126,11 +124,7 @@ describe('importIctCompletionsBatch', () => {
 			}))
 		);
 		const findMany = ctx.store.findMany.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) => {
-			if (args[0] === 'personnel_ict_completions' && args[3]?.inFilters?.ict_task_id?.includes('task-99'))
-				return Promise.reject(new Error('History lookup failed'));
-			return findMany(...args);
-		});
+		vi.spyOn(ctx.criticalTaskCompletions, 'listImportHistory').mockRejectedValue(new Error('History lookup failed'));
 		await expect(
 			importIctCompletionsBatch(ctx, {
 				records: Array.from({ length: 100 }, (_, index) => ({
@@ -550,13 +544,13 @@ describe('importIctCompletionsBatch', () => {
 				archived_at: null
 			}
 		]);
-		vi.spyOn(ctx.store, 'insertMany').mockRejectedValueOnce(new Error('bulk insert unavailable'));
-		const storeInsert = ctx.store.insert.bind(ctx.store);
-		vi.spyOn(ctx.store, 'insert').mockImplementation((...args) => {
-			if ((args[2] as Record<string, unknown>).personnel_id === 'person-rejected') {
+		vi.spyOn(ctx.criticalTaskCompletions, 'createMany').mockRejectedValueOnce(new Error('bulk insert unavailable'));
+		const create = ctx.criticalTaskCompletions.create.bind(ctx.criticalTaskCompletions);
+		vi.spyOn(ctx.criticalTaskCompletions, 'create').mockImplementation((input) => {
+			if (input.personnelId === 'person-rejected') {
 				throw new Error('row rejected');
 			}
-			return storeInsert(...args);
+			return create(input);
 		});
 
 		const result = await importIctCompletionsBatch(ctx, {

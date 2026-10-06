@@ -9,7 +9,7 @@ describe('Critical Tasks latest completion provider', () => {
 			personnel_id: `person-${index}`,
 			ict_task_id: 'task-common',
 			completed_at: '2026-09-29',
-			created_at: '2026-09-29T12:00:00Z',
+			created_at: '2026-09-29T12:00:00.654321Z',
 			validation_method: 'Demonstration',
 			validated_by: null,
 			notes: `Row${index}`,
@@ -44,6 +44,17 @@ describe('Critical Tasks latest completion provider', () => {
 				: undefined
 		);
 		expect(result.map((row) => row.id)).toEqual(rows.map((row) => row.id));
+		expect(result[0]).toEqual({
+			id: 'completion-0',
+			personnelId: 'person-0',
+			ictTaskId: 'task-common',
+			completedAt: '2026-09-29',
+			createdAt: '2026-09-29T12:00:00.654321Z',
+			validationMethod: 'Demonstration',
+			validatedBy: null,
+			notes: 'Row0',
+			loggedBy: null
+		});
 		// A full terminal page needs one empty read; the short page stops immediately.
 		expect(servedOffsets).toEqual([0, 1000]);
 	});

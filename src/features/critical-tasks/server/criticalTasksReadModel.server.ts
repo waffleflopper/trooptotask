@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { CriticalTasksReadModelFilters, CriticalTasksReadModelPort } from '../contracts';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
+import { mapPersonnelIctCompletion, type SavedPersonnelIctCompletion } from './personnelIctCompletionMapping.server';
 
 function hasEmptyFilter(values?: string[]): boolean {
 	return Array.isArray(values) && values.length === 0;
@@ -19,7 +19,7 @@ export function createSupabaseCriticalTasksReadModelAdapter(supabase: SupabaseCl
 				return [];
 			}
 
-			const { data, error } = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) =>
+			const { data, error } = await selectAllSupabaseRows<SavedPersonnelIctCompletion>(async (from, to) =>
 				supabase
 					.rpc('latest_active_personnel_ict_completions', {
 						p_organization_id: orgId,
@@ -35,7 +35,7 @@ export function createSupabaseCriticalTasksReadModelAdapter(supabase: SupabaseCl
 				throw new Error((error as { message: string }).message);
 			}
 
-			return PersonnelIctCompletionEntity.fromDbArray(data ?? []);
+			return (data ?? []).map(mapPersonnelIctCompletion);
 		}
 	};
 }

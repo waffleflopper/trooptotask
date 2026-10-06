@@ -8,6 +8,7 @@ import { Blocked, processIdentity, repository } from './core.mjs';
 const evidenceRoot = path.join(repository, '.verification/evidence/verify-trooptotask');
 const documentState = '() => ({ url: location.href, timeOrigin: performance.timeOrigin, ready: document.readyState })';
 const queryKeys = new Set(['view', 'group', 'rank', 'mos', 'role', 'types', 'horizon', 'rowsBy']);
+const paperSizes = { letter: { width: 8.5, height: 11 }, a4: { width: 210 / 25.4, height: 297 / 25.4 } };
 const fail = (code, message) => {
 	throw new Blocked(code, message);
 };
@@ -15,14 +16,18 @@ const fail = (code, message) => {
 function captureInput(input, origin) {
 	if (
 		!input ||
-		Object.keys(input).some((key) => !['command', 'pageId', 'expectedUrl', 'filePath'].includes(key)) ||
+		Object.keys(input).some(
+			(key) => !['command', 'pageId', 'expectedUrl', 'filePath', 'paperSize', 'printBackground'].includes(key)
+		) ||
 		input.command !== 'print-capture' ||
 		!Number.isSafeInteger(input.pageId) ||
 		input.pageId < 1 ||
 		typeof input.expectedUrl !== 'string' ||
-		typeof input.filePath !== 'string'
+		typeof input.filePath !== 'string' ||
+		(input.paperSize !== undefined && !['letter', 'a4'].includes(input.paperSize)) ||
+		(input.printBackground !== undefined && typeof input.printBackground !== 'boolean')
 	)
-		fail('PRINT_INPUT', 'Use print save PAGE EXACT_REPORT_URL FILE.pdf.');
+		fail('PRINT_INPUT', 'Use print save PAGE EXACT_REPORT_URL FILE.pdf [letter|a4] [on|off].');
 	let url;
 	try {
 		url = new URL(input.expectedUrl);
@@ -42,7 +47,7 @@ function captureInput(input, origin) {
 	const target = path.resolve(repository, input.filePath);
 	if (!target.startsWith(evidenceRoot + path.sep) || path.extname(target) !== '.pdf')
 		fail('PRINT_PATH', 'PDF must be under .verification/evidence/verify-trooptotask.');
-	return { ...input, target };
+	return { ...input, target, paperSize: input.paperSize ?? 'letter', printBackground: input.printBackground ?? true };
 }
 
 export async function ownedPrintEndpoint(state, session, { identity = processIdentity, procRoot = '/proc' } = {}) {
@@ -267,7 +272,10 @@ export async function capturePrint(
 		({ stream } = await clock.run(() =>
 			cdp.send('Page.printToPDF', {
 				transferMode: 'ReturnAsStream',
-				printBackground: true,
+				printBackground: request.printBackground,
+				landscape: true,
+				paperWidth: paperSizes[request.paperSize].width,
+				paperHeight: paperSizes[request.paperSize].height,
 				preferCSSPageSize: true,
 				displayHeaderFooter: false
 			})
@@ -332,6 +340,8 @@ export async function capturePrint(
 			status: 'PASS',
 			pageId: request.pageId,
 			url: request.expectedUrl,
+			paperSize: request.paperSize,
+			printBackground: request.printBackground,
 			candidate: state.candidate,
 			session: state.id,
 			saved: request.target,

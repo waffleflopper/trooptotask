@@ -116,10 +116,9 @@
 	title="Affected soldiers"
 	class="outline-none"
 	aria-busy={detail.status === 'loading'}
-	data-print-section
 >
 	{#snippet actions()}
-		<div class="flex items-center gap-2 print:hidden">
+		<div class="flex items-center gap-2">
 			<span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Rows per page</span>
 			<ToggleGroup.Root
 				type="single"
@@ -142,7 +141,7 @@
 	<div class="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm">
 		<p role="status" aria-live="polite">
 			{#if summary}{summary}{/if}
-			{#if pending}<span class="text-muted-foreground print:hidden">{summary ? ' ' : ''}{pending}</span>{/if}
+			{#if pending}<span class="text-muted-foreground">{summary ? ' ' : ''}{pending}</span>{/if}
 		</p>
 		{#if range}
 			<p class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">{range}</p>

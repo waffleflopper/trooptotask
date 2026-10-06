@@ -14,12 +14,7 @@
 	const uid = $props.id();
 </script>
 
-<ReportWorkspace.Section
-	variant="briefing"
-	eyebrow="Focus"
-	title="Where training time buys the most"
-	data-print-section
->
+<ReportWorkspace.Section variant="briefing" eyebrow="Focus" title="Where training time buys the most">
 	{#if focus.areas.length > 0}
 		<ol class="border-t border-border">
 			{#each focus.areas as area, index (area.key)}
@@ -43,7 +38,7 @@
 								variant="link"
 								href={`#${detailId}`}
 								data-sveltekit-preload-data="off"
-								class="h-auto p-0 font-serif text-sm font-medium text-foreground underline print:hidden"
+								class="h-auto p-0 font-serif text-sm font-medium text-foreground underline"
 								aria-describedby={`${uid}-${index}`}
 								aria-current={openKey === area.key ? 'true' : undefined}
 								onclick={(event: MouseEvent) => {

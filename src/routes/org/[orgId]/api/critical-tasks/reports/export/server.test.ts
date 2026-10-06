@@ -1,8 +1,7 @@
-import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
@@ -40,7 +39,7 @@ function rowNumberForMetric(sheet: ExcelJS.Worksheet, metric: string): number {
 
 describe('GET /api/critical-tasks/reports/export', () => {
 	it('places filtered action rows before summary metadata', async () => {
-		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
+		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -127,7 +126,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 	});
 
 	it('uses critical tasks read permission and returns a report-context workbook download', async () => {
-		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
+		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -262,7 +261,6 @@ describe('GET /api/critical-tasks/reports/export', () => {
 
 	it('does not leak other-group readiness data for scoped viewers', async () => {
 		const ctx = createTestContext({
-			criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence,
 			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
 		});
 		ctx.store.seed('organizations', [
@@ -364,7 +362,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 	});
 
 	it('includes filtered below-threshold task rows in worst-first order', async () => {
-		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
+		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,

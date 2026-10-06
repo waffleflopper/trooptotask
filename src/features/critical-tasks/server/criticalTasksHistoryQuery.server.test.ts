@@ -1,8 +1,8 @@
 import { createSupabaseCriticalTaskLibraryPersistence } from './criticalTaskLibraryPersistence.server';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
-import { describe, expect, it, vi } from 'vitest';
-import { createTestContext } from './criticalTaskLibrary.test-support.server';
+import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
+import { describe, expect, it } from 'vitest';
+import { createTestContext } from './criticalTasksPersistence.test-support.server';
 import { fetchCriticalTasksPersonnelHistory } from './criticalTasksHistoryQuery.server';
 
 describe('fetchCriticalTasksPersonnelHistory', () => {
@@ -176,7 +176,7 @@ describe('wide retained task metadata', () => {
 		const history = await fetchCriticalTasksPersonnelHistory(
 			{
 				...ctx,
-				store: createSupabaseDataStore(client),
+				criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId),
 				criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(client, ctx.auth.orgId)
 			},
 			'person-history'
@@ -239,7 +239,6 @@ describe('paged Personnel Critical Tasks history', () => {
 					const url = new URL(String(input));
 					const offset = Number(url.searchParams.get('offset') ?? 0);
 					// SQL may return equal sort keys in a different order for each request.
-					// Apply the requested order after changing only that incidental input order.
 					const rows = offset === 0 ? [...captures] : [...captures].reverse();
 					const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
 					rows.sort((left, right) => {
@@ -254,11 +253,7 @@ describe('paged Personnel Critical Tasks history', () => {
 				}
 			}
 		});
-		const provider = createSupabaseDataStore(client);
-		const findMany = ctx.store.findMany.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
-		);
+		ctx.criticalTaskCompletions = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
 
 		const result = await fetchCriticalTasksPersonnelHistory(ctx, personId);
 		expect(new Set(result.rows.map(({ completion }) => completion.id)).size).toBe(1003);

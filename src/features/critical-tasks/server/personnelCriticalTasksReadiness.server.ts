@@ -1,8 +1,7 @@
 import type { Personnel } from '$features/personnel/contracts';
 import { buildCriticalTasksSoldierReadinessSummary } from '../utils/ictReadinessSnapshot';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
-import type { CriticalTaskLibraryPersistence } from '../contracts';
+import type { CriticalTaskLibraryPersistence, CriticalTaskCompletionPersistence } from '../contracts';
 
 interface CriticalTasksReadinessLane {
 	label: 'Critical Tasks';
@@ -11,14 +10,8 @@ interface CriticalTasksReadinessLane {
 	tone: 'good' | 'watch' | 'bad' | 'neutral';
 }
 interface CriticalTasksReadinessInput {
-	store: Parameters<typeof fetchCriticalTasksSettings>[0]['store'] & {
-		findMany<T>(
-			table: string,
-			orgId: string,
-			filters: Record<string, unknown>,
-			options: { select: string }
-		): Promise<T[]>;
-	};
+	store: Parameters<typeof fetchCriticalTasksSettings>[0]['store'];
+	criticalTaskCompletions: Pick<CriticalTaskCompletionPersistence, 'listReadinessHistory'>;
 	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
 	orgId: string;
 	personnelId: string;
@@ -34,23 +27,18 @@ function plural(count: number, singular: string): string {
 export async function loadCriticalTasksReadinessLane({
 	store,
 	criticalTaskLibrary,
+	criticalTaskCompletions,
 	orgId,
 	personnelId,
 	asOf,
 	loadAuthorizedPerson
 }: CriticalTasksReadinessInput): Promise<CriticalTasksReadinessLane> {
 	const person = await loadAuthorizedPerson();
-	const [tasks, completionRows, settings] = await Promise.all([
+	const [tasks, completions, settings] = await Promise.all([
 		criticalTaskLibrary.listCatalog(),
-		store.findMany<Record<string, unknown>>(
-			'personnel_ict_completions',
-			orgId,
-			{ personnel_id: personnelId },
-			{ select: PersonnelIctCompletionEntity.select }
-		),
+		criticalTaskCompletions.listReadinessHistory(personnelId),
 		fetchCriticalTasksSettings({ auth: { orgId }, store })
 	]);
-	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
 	const readiness = buildCriticalTasksSoldierReadinessSummary({
 		person,
 		activeTasks: tasks,

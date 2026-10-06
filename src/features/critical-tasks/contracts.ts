@@ -37,6 +37,24 @@ export interface CriticalTaskLibraryPersistence {
 	update(id: string, patch: IctTaskPatch): Promise<IctTask>;
 }
 
+export type PersonnelIctCompletionCreate = Omit<PersonnelIctCompletionWrite, 'validatedBy' | 'notes'> &
+	Partial<Pick<PersonnelIctCompletionWrite, 'validatedBy' | 'notes'>>;
+export type PersonnelIctCompletionPatch = Partial<PersonnelIctCompletionWrite>;
+export type CriticalTaskCompletionReference = Pick<PersonnelIctCompletion, 'id' | 'personnelId' | 'ictTaskId'>;
+export type CriticalTaskCompletionPair = Pick<PersonnelIctCompletion, 'personnelId' | 'ictTaskId'>;
+
+export interface CriticalTaskCompletionPersistence {
+	listHistory(personnelId: string): Promise<PersonnelIctCompletion[]>;
+	listReadinessHistory(personnelId: string): Promise<PersonnelIctCompletion[]>;
+	listReportHistory(input: { personnelIds: string[]; taskIds: string[] }): Promise<PersonnelIctCompletion[]>;
+	listImportHistory(pairs: CriticalTaskCompletionPair[]): Promise<PersonnelIctCompletion[]>;
+	findReference(id: string): Promise<CriticalTaskCompletionReference | null>;
+	create(input: PersonnelIctCompletionCreate): Promise<PersonnelIctCompletion>;
+	createMany(inputs: PersonnelIctCompletionCreate[]): Promise<PersonnelIctCompletion[]>;
+	update(id: string, patch: PersonnelIctCompletionPatch): Promise<PersonnelIctCompletion>;
+	delete(id: string): Promise<void>;
+}
+
 export interface IctCompletionImportMappedRow {
 	rowNumber: number;
 	values: Record<string, string>;

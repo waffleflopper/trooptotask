@@ -1,5 +1,4 @@
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/contracts';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import type { CriticalTasksHistoryContext } from './criticalTasksReadPorts.server';
 
 export async function fetchCriticalTasksPersonnelHistory(
@@ -13,19 +12,7 @@ export async function fetchCriticalTasksPersonnelHistory(
 		throw Object.assign(new Error('Personnel record not found'), { status: 404 });
 	}
 
-	const completionRows = await ctx.store.findMany<Record<string, unknown>>(
-		'personnel_ict_completions',
-		ctx.auth.orgId,
-		{ personnel_id: personnelId },
-		{
-			// A unique tie-break keeps equal-date captures on stable provider pages.
-			orderBy: [
-				{ column: 'completed_at', ascending: false },
-				{ column: 'id', ascending: true }
-			]
-		}
-	);
-	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
+	const completions = await ctx.criticalTaskCompletions.listHistory(personnelId);
 	const taskIds = [...new Set(completions.map((completion) => completion.ictTaskId))];
 	const tasks = await ctx.criticalTaskLibrary.listReferenced(taskIds);
 	const tasksById = new Map(tasks.map((task) => [task.id, task]));

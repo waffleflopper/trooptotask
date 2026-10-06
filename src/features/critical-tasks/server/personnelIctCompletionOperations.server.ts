@@ -1,19 +1,12 @@
 import type { z } from 'zod';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { PersonnelIctCompletion } from '../contracts';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
+import type { PersonnelIctCompletion, CriticalTaskCompletionReference } from '../contracts';
+import { completionCreateSchema, completionUpdateSchema } from './personnelIctCompletionMapping.server';
 import type { PersonnelIctCompletionWriteContext } from './personnelIctCompletionPorts.server';
 
-const entity = PersonnelIctCompletionEntity;
 const ACTION = POLICY_ACTION_CATALOG.criticalTasks.recordCompletion;
 const AUDIT_RESOURCE = 'personnel_ict_completion';
-
-interface CompletionReference {
-	id: string;
-	ict_task_id: string;
-	personnel_id: string;
-}
 
 type CompletionPerson = Awaited<
 	ReturnType<PersonnelIctCompletionWriteContext['personnelCriticalTasksRoster']['findForCompletionWrite']>
@@ -22,7 +15,7 @@ type CompletionPerson = Awaited<
 interface CompletionWriteContext extends PersonnelIctCompletionWriteContext {
 	readonly references: {
 		people: Map<string, Promise<CompletionPerson>>;
-		completions: Map<string, Promise<CompletionReference | null>>;
+		completions: Map<string, Promise<CriticalTaskCompletionReference | null>>;
 	};
 }
 
@@ -30,7 +23,7 @@ function writeContext(ctx: PersonnelIctCompletionWriteContext): CompletionWriteC
 	return {
 		auth: ctx.auth,
 		audit: ctx.audit,
-		store: ctx.store,
+		criticalTaskCompletions: ctx.criticalTaskCompletions,
 		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		personnelCriticalTasksRoster: ctx.personnelCriticalTasksRoster,
 		references: { people: new Map(), completions: new Map() }
@@ -50,7 +43,7 @@ function parseOrFail<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T
 function findExistingCompletion(ctx: CompletionWriteContext, completionId: string) {
 	let pending = ctx.references.completions.get(completionId);
 	if (!pending) {
-		pending = ctx.store.findOne<CompletionReference>(entity.table, ctx.auth.orgId, { id: completionId });
+		pending = ctx.criticalTaskCompletions.findReference(completionId);
 		ctx.references.completions.set(completionId, pending);
 	}
 	return pending;
@@ -90,11 +83,11 @@ async function requireWritableCompletionHistory(
 	const existing = await findExistingCompletion(ctx, completionId);
 	if (!existing) return;
 
-	const person = await findCompletionPerson(ctx, existing.personnel_id);
+	const person = await findCompletionPerson(ctx, existing.personnelId);
 	await requireCompletionPersonScope(ctx, person, existing.id);
 	if (person?.archivedAt) fail(400, `Archived personnel completion history cannot be ${operation}`);
 
-	const task = await ctx.criticalTaskLibrary.findReference(existing.ict_task_id);
+	const task = await ctx.criticalTaskLibrary.findReference(existing.ictTaskId);
 	if (!task) fail(400, 'Critical task not found');
 	if (task.archivedAt) fail(400, `Archived critical task history cannot be ${operation}`);
 	if (!person) fail(400, 'Personnel record not found');
@@ -102,7 +95,7 @@ async function requireWritableCompletionHistory(
 
 async function requireRecordScope(ctx: CompletionWriteContext, id: string) {
 	const existing = await findExistingCompletion(ctx, id);
-	const person = existing ? await findCompletionPerson(ctx, existing.personnel_id) : null;
+	const person = existing ? await findCompletionPerson(ctx, existing.personnelId) : null;
 	await requireCompletionPersonScope(ctx, person, id);
 }
 
@@ -119,16 +112,11 @@ export async function createPersonnelIctCompletion(
 	await requireActivePersonnel(writeCtx, personnelId);
 	await requireActiveIctTask(writeCtx, ictTaskId);
 
-	const validated = parseOrFail(entity.createSchema, input);
+	const validated = parseOrFail(completionCreateSchema, input);
 	await requireCompletionPersonScope(writeCtx, await findCompletionPerson(writeCtx, personnelId));
-	const row = await ctx.store.insert<Record<string, unknown>>(
-		entity.table,
-		ctx.auth.orgId,
-		entity.toDbInsert(validated, ctx.auth.orgId),
-		entity.select
-	);
-	ctx.audit.log({ action: `${AUDIT_RESOURCE}.created`, resourceType: AUDIT_RESOURCE, resourceId: row.id as string });
-	return entity.fromDb(row);
+	const row = await ctx.criticalTaskCompletions.create(validated);
+	ctx.audit.log({ action: `${AUDIT_RESOURCE}.created`, resourceType: AUDIT_RESOURCE, resourceId: row.id });
+	return row;
 }
 
 export async function updatePersonnelIctCompletion(
@@ -144,18 +132,12 @@ export async function updatePersonnelIctCompletion(
 	}
 	if (typeof input.ictTaskId === 'string') await requireActiveIctTask(writeCtx, input.ictTaskId);
 
-	const validated = parseOrFail(entity.updateSchema, input);
-	const completionId = (validated as { id: string }).id;
+	const validated = parseOrFail(completionUpdateSchema, input);
+	const completionId = validated.id;
 	await requireRecordScope(writeCtx, completionId);
-	const row = await ctx.store.update<Record<string, unknown>>(
-		entity.table,
-		ctx.auth.orgId,
-		completionId,
-		entity.toDbUpdate(validated),
-		entity.select
-	);
+	const row = await ctx.criticalTaskCompletions.update(completionId, validated);
 	ctx.audit.log({ action: `${AUDIT_RESOURCE}.updated`, resourceType: AUDIT_RESOURCE, resourceId: completionId });
-	return entity.fromDb(row);
+	return row;
 }
 
 export async function preparePersonnelIctCompletionDeletion(ctx: PersonnelIctCompletionWriteContext, id: unknown) {
@@ -163,11 +145,10 @@ export async function preparePersonnelIctCompletionDeletion(ctx: PersonnelIctCom
 	const writeCtx = writeContext(ctx);
 	if (typeof id === 'string') await requireWritableCompletionHistory(writeCtx, id, 'deleted');
 
-	// The delivery route validates its query ID after the retained history guards.
 	return async (): Promise<void> => {
 		if (typeof id !== 'string') fail(400, 'Missing id');
 		await requireRecordScope(writeCtx, id);
-		await ctx.store.delete(entity.table, ctx.auth.orgId, id);
+		await ctx.criticalTaskCompletions.delete(id);
 		ctx.audit.log({ action: `${AUDIT_RESOURCE}.deleted`, resourceType: AUDIT_RESOURCE, resourceId: id });
 	};
 }

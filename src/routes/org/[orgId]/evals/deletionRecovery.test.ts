@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	RatingSchemePageContext,
@@ -10,6 +10,7 @@ import type { RatingSchemeEntry } from '$features/rating-scheme/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { submitDeletionRequest } from '$features/deletion-requests';
+import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
 const { default: RatingSchemeModals } = await loadRatingSchemeModals();
 let snapshot = 0;
 let ctx: RatingSchemePageContext;
@@ -69,6 +70,44 @@ afterEach(() => {
 });
 
 describe('Evals deletion recovery', () => {
+	it('retires held update feedback after leaving the originating workspace', async () => {
+		let release!: (response: Response) => void;
+		const pending = new Promise<Response>((resolve) => {
+			release = resolve;
+		});
+		const errorToast = vi.spyOn(toastStore, 'error').mockReturnValue('error');
+		const successToast = vi.spyOn(toastStore, 'success').mockReturnValue('success');
+		const update = vi.spyOn(ratingSchemeStore, 'update');
+		vi.stubGlobal('fetch', () => pending);
+		await openEditor();
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Held A edit' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect((screen.getByRole('button', { name: 'Saving...' }) as HTMLButtonElement).disabled).toBe(true);
+		cleanup();
+		const foreignEntry = { ...otherEntry, id: 'foreign-evaluation', notes: 'B saved notes' };
+		await ratingSchemeWorkspaceHydrator.hydrate({
+			orgId: 'org-b',
+			ratingSchemeEntries: { mode: 'replace', snapshotKey: `foreign-${++snapshot}`, items: [foreignEntry] }
+		});
+		const foreignModals = new ModalRegistry();
+		foreignModals.open('rating-modal', { entry: foreignEntry });
+		render(RatingSchemeModals, {
+			modals: foreignModals,
+			personnelLookup: [{ id: 'person-b', rank: 'SPC', firstName: 'Synthetic', lastName: 'Foreign' }],
+			onRequestDeletion: async () => false
+		});
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'B retained draft' } });
+		await act(async () => {
+			release(Response.json({ ...entry, notes: 'Held A edit' }));
+			await update.mock.results[0].value;
+		});
+		expect(errorToast).not.toHaveBeenCalled();
+		expect(successToast).not.toHaveBeenCalled();
+		expect(ratingSchemeStore.items).toEqual([foreignEntry]);
+		expect(foreignModals.isOpen('rating-modal')).toBe(true);
+		expect((screen.getByLabelText('Notes') as HTMLTextAreaElement).value).toBe('B retained draft');
+	});
+
 	it.each(['delete', 'approval request'] as const)(
 		'preserves an unsaved draft after failed %s and supports retry',
 		async (operation) => {

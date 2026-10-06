@@ -3,7 +3,7 @@ import type { PersonnelFollowUp } from '$features/personnel/contracts';
 import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
-import { createPersonnelDetailWorkspace } from './personnelDetailWorkspace.svelte';
+import { createPersonnelDetailWorkspace, type PersonnelDetailWorkspaceInput } from './personnelDetailWorkspace.svelte';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -220,6 +220,62 @@ describe('PersonnelDetailWorkspace', () => {
 			replaceState: true,
 			invalidateAll: true
 		});
+	});
+
+	it('refreshes Loss Tracking after clearing ETS without changing the personnel URL', async () => {
+		const originalPerson = { ...person, ets: '2027-05-02' };
+		const savedPerson = { ...originalPerson, ets: null };
+		let input: PersonnelDetailWorkspaceInput = {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-alpha',
+			person: originalPerson,
+			orgName: 'Test Org',
+			requestArchiveApproval: async () => false,
+			detail: makeDetail({
+				readinessLanes: {
+					...makeDetail().readinessLanes,
+					lossTracking: Promise.resolve({
+						label: 'Loss Tracking',
+						value: 'No loss risk',
+						detail: 'ETS May 2, 2027 is 208 days away.',
+						tone: 'good'
+					})
+				}
+			})
+		};
+		const workspace = createPersonnelDetailWorkspace(() => input, {
+			fetch: async () => Response.json(savedPerson),
+			invalidateAll: async () => {
+				input = {
+					...input,
+					person: savedPerson,
+					detail: makeDetail({
+						readinessLanes: {
+							...makeDetail().readinessLanes,
+							lossTracking: Promise.resolve({
+								label: 'Loss Tracking',
+								value: 'Missing ETS',
+								detail: 'No ETS date is set on the personnel record.',
+								tone: 'bad'
+							})
+						}
+					})
+				};
+			}
+		});
+
+		workspace.startBasicInfoEdit();
+		workspace.basicInfoEts = '';
+		await workspace.saveBasicInfo();
+
+		expect(workspace.currentPerson.ets).toBeNull();
+		expect(await workspace.detail.readinessLanes.lossTracking).toEqual({
+			label: 'Loss Tracking',
+			value: 'Missing ETS',
+			detail: 'No ETS date is set on the personnel record.',
+			tone: 'bad'
+		});
+		expect(workspace.editingBasicInfo).toBe(false);
 	});
 
 	it.each([false, true])(

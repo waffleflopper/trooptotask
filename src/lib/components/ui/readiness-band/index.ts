@@ -14,6 +14,8 @@ export {
 	formatReadinessBandPercent,
 	readinessBandLegendItems,
 	readinessBandTierForPercent,
+	readinessBandTone,
 	type ReadinessBandLegendItem,
+	type ReadinessBandPalette,
 	type ReadinessBandTier
 } from './types.js';

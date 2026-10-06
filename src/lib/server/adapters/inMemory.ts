@@ -1078,10 +1078,29 @@ function createInMemoryOrganizationSettingsReader(store: DataStore): Organizatio
 			const row = await store.findOne<{
 				archive_retention_months?: number | null;
 				loss_warning_window_days?: number | null;
-			}>('organizations', orgId.toLowerCase(), {}, 'archive_retention_months, loss_warning_window_days');
+				training_readiness_goal_percent: number;
+			}>(
+				'organizations',
+				orgId.toLowerCase(),
+				{},
+				'archive_retention_months, loss_warning_window_days, training_readiness_goal_percent'
+			);
 			return row
-				? { archiveRetentionMonths: row.archive_retention_months, lossWarningWindowDays: row.loss_warning_window_days }
+				? {
+						archiveRetentionMonths: row.archive_retention_months,
+						lossWarningWindowDays: row.loss_warning_window_days,
+						trainingReadinessGoalPercent: row.training_readiness_goal_percent
+					}
 				: null;
+		},
+		async findTrainingBriefingContext(orgId) {
+			const row = await store.findOne<{ name: string; training_readiness_goal_percent: number }>(
+				'organizations',
+				orgId.toLowerCase(),
+				{},
+				'name, training_readiness_goal_percent'
+			);
+			return row ? { name: row.name, trainingReadinessGoalPercent: row.training_readiness_goal_percent } : null;
 		},
 		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
 		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
@@ -1108,6 +1127,8 @@ function createInMemoryOrganizationPolicyWritePort(store: DataStore): Organizati
 			if (changes.archiveRetentionMonths !== undefined)
 				updates.archive_retention_months = changes.archiveRetentionMonths;
 			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
+			if (changes.trainingReadinessGoalPercent !== undefined)
+				updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
 			if (changes.personnelDocumentStorageCapBytes !== undefined)
 				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
 			await store.updateById('organizations', orgId, updates);

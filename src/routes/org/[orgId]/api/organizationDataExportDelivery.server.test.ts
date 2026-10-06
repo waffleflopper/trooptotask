@@ -270,7 +270,8 @@ describe('retained Organization export projection', () => {
 			critical_tasks_default_expiration_months: 12,
 			critical_tasks_expiring_soon_warning_days: 30,
 			loss_warning_window_days: 90,
-			personnel_document_storage_cap_bytes: 104857600
+			personnel_document_storage_cap_bytes: 104857600,
+			training_readiness_goal_percent: 85
 		};
 		const assignment = {
 			id: 'assignment-1',

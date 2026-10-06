@@ -46,7 +46,8 @@ function present(status: TrainingStatus, label: string, daysUntilExpiration: num
 export function getTrainingStatus(
 	training: PersonnelTraining | undefined,
 	type: TrainingType,
-	person: Personnel
+	person: Personnel,
+	asOf?: string | Date
 ): TrainingStatusInfo {
 	const isRequired = isTrainingApplicable(type, person);
 
@@ -88,7 +89,8 @@ export function getTrainingStatus(
 				{ id: 'orange', withinDays: type.warningDaysOrange },
 				{ id: 'yellow', withinDays: type.warningDaysYellow }
 			]
-		}
+		},
+		asOf
 	);
 
 	const days = result.daysUntilExpiration;

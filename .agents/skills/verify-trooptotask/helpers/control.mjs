@@ -2167,14 +2167,16 @@ async function main() {
 			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
 			if (
 				action === 'arm-hold-fail' &&
-				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch', 'user-preferences'].includes(
-					family
-				) &&
+				![
+					'organization/settings',
+					'deletion-requests/review',
+					'personnel/archive-batch',
+					'user-preferences',
+					'personnel'
+				].includes(family) &&
 				!platformForm
 			)
-				throw new Error(
-					'Delayed synthetic failure is supported only for Organization policies, deletion review and Personnel bulk archival.'
-				);
+				throw new Error('Delayed synthetic failure is not supported for this request family.');
 			if (
 				(['admin-access-read', 'admin-audit-read', 'admin-dashboard-read'].includes(family) || shellPart) &&
 				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
@@ -2206,8 +2208,16 @@ async function main() {
 			const failureField =
 				platformForm?.failureField ?? (family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
 			const requestTarget = platformForm?.requestTarget ?? null;
-			const sameOrigin = family === 'user-preferences' || !!shellPart || (platformForm?.sameOrigin ?? false);
-			const requestMethod = family === 'user-preferences' ? 'PATCH' : shellPart ? 'GET' : null;
+			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';
+			const sameOrigin =
+				heldPersonnelFailure || family === 'user-preferences' || !!shellPart || (platformForm?.sameOrigin ?? false);
+			const requestMethod = heldPersonnelFailure
+				? 'PUT'
+				: family === 'user-preferences'
+					? 'PATCH'
+					: shellPart
+						? 'GET'
+						: null;
 			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
 			if (family.startsWith('onboarding-') || shellPart) {

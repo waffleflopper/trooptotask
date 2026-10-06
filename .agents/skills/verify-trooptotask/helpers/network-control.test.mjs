@@ -71,6 +71,47 @@ function deferred() {
 	return { promise, resolve };
 }
 
+test('held Personnel failure isolates one owned PUT without dispatch and permits an explicit retry', async () => {
+	const dispatched = [];
+	const page = {
+		location: { href: 'http://localhost/org/a/personnel' },
+		fetch: async (url, init) => {
+			dispatched.push({ url, method: init?.method });
+			return Response.json({ id: 'person-a', clinicRole: 'Saved' });
+		}
+	};
+	const suffix = '/org/a/api/personnel';
+	installNetworkControl(page, { mode: 'hold-fail', ordinal: 1, suffix, requestMethod: 'PUT', sameOrigin: true });
+	for (const [url, method] of [
+		[suffix, 'GET'],
+		[suffix, 'POST'],
+		[suffix, 'DELETE'],
+		['/org/b/api/personnel', 'PUT'],
+		['http://foreign.test' + suffix, 'PUT'],
+		[suffix + '/batch', 'PUT']
+	])
+		assert.equal((await page.fetch(url, { method })).status, 200);
+	assert.equal(page.__mapNetwork.calls.length, 0);
+	assert.equal(dispatched.length, 6);
+	let settled = false;
+	const pending = page.fetch(suffix, { method: 'PUT', body: JSON.stringify({ id: 'person-a', clinicRole: 'Held' }) });
+	pending.then(() => (settled = true));
+	await new Promise(setImmediate);
+	assert.equal(settled, false);
+	assert.equal(dispatched.length, 6);
+	page.__mapNetwork.release();
+	const response = await pending;
+	assert.equal(response.status, 503);
+	assert.deepEqual(await response.json(), { message: 'Synthetic request failure' });
+	assert.deepEqual(
+		page.__mapNetwork.calls.map(({ method, status }) => ({ method, status })),
+		[{ method: 'PUT', status: 503 }]
+	);
+	assert.equal(dispatched.length, 6);
+	assert.equal((await page.fetch(suffix, { method: 'PUT' })).status, 200);
+	assert.equal(dispatched.length, 7);
+});
+
 for (const family of ['deletion-requests/review', 'personnel/archive-batch']) {
 	for (const mode of ['fail', 'hold', 'hold-fail', 'reject', 'observe']) {
 		test(`${family} ${mode} preserves the selected POST after non-POST requests`, async () => {

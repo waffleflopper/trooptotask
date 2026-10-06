@@ -3,7 +3,11 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { requireGovernancePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { ARCHIVE_RETENTION_CONSTRAINT, LOSS_WARNING_CONSTRAINT } from './policyConstraints';
+import {
+	ARCHIVE_RETENTION_CONSTRAINT,
+	LOSS_WARNING_CONSTRAINT,
+	TRAINING_READINESS_GOAL_CONSTRAINT
+} from './policyConstraints';
 import type {
 	OrganizationPolicyChanges,
 	OrganizationPolicyWritePort,
@@ -24,6 +28,13 @@ function parseWholeNumber(value: unknown, message: string, range: { min: number;
 	return rounded;
 }
 
+function parseInteger(value: unknown, message: string, range: { min: number; max: number }): number | undefined {
+	if (value === undefined) return undefined;
+	if (typeof value !== 'number' || !Number.isInteger(value) || value < range.min || value > range.max)
+		fail(400, message);
+	return value;
+}
+
 export async function updateOrganizationSettings(
 	ports: PolicyPorts,
 	input: OrganizationSettingsInput
@@ -42,6 +53,11 @@ export async function updateOrganizationSettings(
 		'Warning window must be between 1 and 365 days',
 		LOSS_WARNING_CONSTRAINT
 	);
+	const trainingReadinessGoalPercent = parseInteger(
+		input.trainingReadinessGoalPercent,
+		'Training readiness goal must be a whole number between 1 and 100',
+		TRAINING_READINESS_GOAL_CONSTRAINT
+	);
 	const capMb = parseWholeNumber(
 		input.personnelDocumentStorageCapMb,
 		'Personnel document storage cap must be between 10 and 1024 MB',
@@ -56,6 +72,10 @@ export async function updateOrganizationSettings(
 	if (lossWarningWindowDays !== undefined) {
 		changes.lossWarningWindowDays = lossWarningWindowDays;
 		details.loss_warning_window_days = lossWarningWindowDays;
+	}
+	if (trainingReadinessGoalPercent !== undefined) {
+		changes.trainingReadinessGoalPercent = trainingReadinessGoalPercent;
+		details.training_readiness_goal_percent = trainingReadinessGoalPercent;
 	}
 	if (capMb !== undefined) {
 		changes.personnelDocumentStorageCapBytes = capMb * 1024 * 1024;

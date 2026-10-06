@@ -3,7 +3,7 @@ import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { isOrganizationRawExportTable, type OrganizationRawExportReader } from './rawExportTypes';
 
 const PROFILE_EXPORT_FIELDS =
-	'id,name,created_by,created_at,url_slug,archive_retention_months,suspended_at,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,loss_warning_window_days,personnel_document_storage_cap_bytes';
+	'id,name,created_by,created_at,url_slug,archive_retention_months,suspended_at,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,loss_warning_window_days,personnel_document_storage_cap_bytes,training_readiness_goal_percent';
 
 /** Construction is lazy. Invitation provenance keeps its existing platform-admin RLS restriction. */
 export function createSupabaseOrganizationRawExportReader(client: SupabaseClient): OrganizationRawExportReader {

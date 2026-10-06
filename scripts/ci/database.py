@@ -61,6 +61,7 @@ STAGED_UPGRADE_MIGRATIONS = (
     "20261003000200_platform_organization_membership_commands.sql",
     "20261004000200_critical_task_archive_retention.sql",
     "20261004000100_scope_getting_started_progress.sql",
+    "20261004100618_training_readiness_goal.sql",
 )
 STAGED_UPGRADE_FIXTURES = (
     "account_setup_populated_before.sql",
@@ -84,6 +85,7 @@ STAGED_UPGRADE_FIXTURES = (
     "platform_membership_before.sql",
     "critical_task_archive_retention_before.sql",
     "account_preferences_scope_before.sql",
+    "training_readiness_goal_before.sql",
 )
 STAGED_UPGRADE_CONTRACTS = (
     "account_setup_populated_after.sql",
@@ -109,6 +111,7 @@ STAGED_UPGRADE_CONTRACTS = (
     "platform_membership_after.sql",
     "critical_task_archive_retention_after.sql",
     "account_preferences_scope_after.sql",
+    "training_readiness_goal_after.sql",
 )
 
 _receipt = None
@@ -597,6 +600,7 @@ def validate(repository, *, staged_upgrade=False):
             "account_setup_staff_release.sql",
             "organization_storage_cleanup_fresh.sql",
             "organization_file_upload_fresh.sql",
+            "training_readiness_goal_fresh.sql",
         ):
             execute([
                 "docker", "run", "--rm", "--name", runner,

@@ -415,7 +415,7 @@
 		],
 		"shared": [],
 		"sign-in-rosters": ["organization", "personnel", "access", "audit", "provider", "shared", "web-ui"],
-		"training": ["personnel", "sign-in-rosters", "access", "audit", "provider", "shared", "web-ui"],
+		"training": ["organization", "personnel", "sign-in-rosters", "access", "audit", "provider", "shared", "web-ui"],
 		"web-ui": ["shared"]
 	},
 	"publicRoots": {

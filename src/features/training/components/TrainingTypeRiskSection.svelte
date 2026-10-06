@@ -16,12 +16,7 @@
 	}
 </script>
 
-<ReportWorkspace.Section
-	variant="briefing"
-	eyebrow="What · by training type"
-	title="Already gone vs. about to go"
-	data-print-section
->
+<ReportWorkspace.Section variant="briefing" eyebrow="What · by training type" title="Already gone vs. about to go">
 	{#snippet actions()}
 		<ul class="flex flex-wrap gap-4 font-mono text-[11px] text-muted-foreground" aria-label="Type risk legend">
 			<li class="flex items-center gap-1.5">

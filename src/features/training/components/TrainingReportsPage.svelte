@@ -45,9 +45,11 @@
 		type TrainingBriefingReportInput
 	} from '../contracts';
 	import { TrainingBriefingSession } from '../read-model/trainingBriefingSession.svelte';
-	import { BRIEFING_ROWS_BY_LABELS as ROWS_BY_LABEL, briefingFilterLabels } from '../utils/briefingFilterLabels';
+	import { TrainingPrintCycle } from '../read-model/trainingPrintCycle.svelte';
+	import { BRIEFING_ROWS_BY_LABELS as ROWS_BY_LABEL } from '../utils/briefingFilterLabels';
 	import TrainingAffectedSoldiersSection from './TrainingAffectedSoldiersSection.svelte';
 	import TrainingFocusSection from './TrainingFocusSection.svelte';
+	import TrainingPrintBrief from './TrainingPrintBrief.svelte';
 	import TrainingTypeRiskSection from './TrainingTypeRiskSection.svelte';
 
 	interface Props {
@@ -71,8 +73,24 @@
 				}
 			})
 	);
-	onMount(() => session.syncQuery());
-	onDestroy(() => session.dispose());
+	const printCycle = new TrainingPrintCycle(() => ({
+		report: session.report,
+		detail: session.detail.status === 'idle' ? null : session.detail.detail
+	}));
+	onMount(() => {
+		session.syncQuery();
+		const printMedia = window.matchMedia('print');
+		const onPrintMediaChange = () => {
+			if (printMedia.matches) printCycle.capture();
+			else printCycle.release();
+		};
+		printMedia.addEventListener('change', onPrintMediaChange);
+		return () => printMedia.removeEventListener('change', onPrintMediaChange);
+	});
+	onDestroy(() => {
+		printCycle.dispose();
+		session.dispose();
+	});
 
 	let exporting = $state(false);
 	let exportError = $state<string | null>(null);
@@ -157,11 +175,6 @@
 		if (openScope?.kind !== 'cell') return null;
 		return { rowId: openScope.rowKey === null ? TOTAL_ROW_ID : `row:${openScope.rowKey}`, columnId: openScope.typeId };
 	});
-	const filterLine = $derived(
-		briefingFilterLabels(report.input, options)
-			.map(({ label, value }) => `${label}: ${value}`)
-			.join(' · ')
-	);
 
 	function scopeLabel(scope: BriefingScope): string {
 		if (scope.kind === 'focus')
@@ -243,13 +256,21 @@
 	}
 </script>
 
-<div class="flex flex-col gap-6 p-4 md:p-6 print:p-0" data-print-report="training">
+<svelte:window onbeforeprint={() => printCycle.capture()} onafterprint={() => printCycle.release()} />
+
+{#if printCycle.data}
+	<div class="hidden print:block" data-print-report="training">
+		<TrainingPrintBrief report={printCycle.data.report} detail={printCycle.data.detail} />
+	</div>
+{/if}
+
+<div class="flex flex-col gap-6 p-4 md:p-6 print:hidden">
 	<PageShell.Header
 		title="Training Reports"
 		subtitle={`${report.organizationName} · ${soldierLabel(bottomLine.soldierCount)} · as of ${bottomLine.asOfLabel}`}
 	>
 		{#snippet actions()}
-			<div class="flex flex-wrap items-center gap-2 print:hidden" role="group" aria-label="Training report actions">
+			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Training report actions">
 				<span class="min-w-30 text-right text-sm text-muted-foreground" role="status" aria-live="polite">
 					{loading ? 'Updating briefing' : ''}
 				</span>
@@ -266,22 +287,15 @@
 					<Download aria-hidden="true" />
 					{exporting ? 'Exporting...' : 'Export Excel'}
 				</Button>
-				<Button type="button" size="sm" onclick={() => window.print()}>
+				<Button type="button" size="sm" onclick={() => printCycle.print(() => window.print())}>
 					<Printer aria-hidden="true" />
 					Print brief
 				</Button>
 			</div>
 		{/snippet}
 	</PageShell.Header>
-	<p class="-mt-4 hidden font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground print:block">
-		Filters · {filterLine}
-	</p>
 
-	<WorkspaceToolbar.Root
-		ariaLabel="Training report controls"
-		wrap
-		class="print:hidden [&_[data-slot=toggle-group]]:shrink-0"
-	>
+	<WorkspaceToolbar.Root ariaLabel="Training report controls" wrap class="[&_[data-slot=toggle-group]]:shrink-0">
 		<WorkspaceToolbar.Group
 			label="Training report filters"
 			activeCount={activeFilterCount}
@@ -388,15 +402,13 @@
 					: 'No soldier is required to hold the configured training.'}
 			>
 				{#if hasNonDefault}
-					<Button type="button" variant="secondary" size="sm" class="print:hidden" onclick={clearFilters}>
-						Clear filters
-					</Button>
+					<Button type="button" variant="secondary" size="sm" onclick={clearFilters}>Clear filters</Button>
 				{/if}
 			</ReportWorkspace.State>
 		{:else}
 			<div class="flex flex-col gap-10">
 				<div class="grid gap-12 lg:grid-cols-[21.25rem_minmax(0,1fr)]">
-					<ReportWorkspace.Section variant="briefing" title="Bottom line" data-print-section>
+					<ReportWorkspace.Section variant="briefing" title="Bottom line">
 						<div class="flex flex-wrap items-end gap-x-5 gap-y-3">
 							<div>
 								<p class="font-heading text-[104px] leading-[88px] font-extrabold tracking-[-0.02em]">
@@ -446,7 +458,6 @@
 						variant="briefing"
 						eyebrow={`Forecast · next ${report.input.horizonDays} days`}
 						title={`${bottomLine.scopeName} readiness if no one renews`}
-						data-print-section
 					>
 						<div data-testid="training-briefing-forecast">
 							<ReportForecastChart
@@ -467,10 +478,9 @@
 					eyebrow="Where · hot spots"
 					title={`${ROWS_BY_LABEL[grid.rowsBy]} by training type`}
 					description={`% ready today. Color shows distance from the ${briefing.forecast.goalPercent}% goal. ▼ marks a drop of ${grid.dropAlertPoints}+ points by ${horizonEndLabel}.`}
-					data-print-section
 				>
 					{#snippet actions()}
-						<div class="flex items-center gap-2 print:hidden">
+						<div class="flex items-center gap-2">
 							<span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Rows by</span>
 							<ToggleGroup.Root
 								type="single"
@@ -497,32 +507,32 @@
 					{/snippet}
 
 					<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} {selectedCell}>
-						<OperationalMatrix.Viewport ariaLabel="Hot-spot grid" class="print:overflow-visible">
+						<OperationalMatrix.Viewport ariaLabel="Hot-spot grid">
 							<OperationalMatrix.Table
 								ariaLabel={`${ROWS_BY_LABEL[grid.rowsBy]} by training type readiness`}
-								class="min-w-max border-separate border-spacing-[2px] print:min-w-0 print:table-fixed [&_[data-slot=operational-matrix-cell-trigger]]:block [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:rounded-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:outline-none [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:relative [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:z-20 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-foreground [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-4 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-background [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-offset-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-dashed [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-foreground"
+								class="min-w-max border-separate border-spacing-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:block [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:rounded-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:outline-none [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:relative [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:z-20 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-foreground [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-4 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-background [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-offset-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-dashed [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-foreground"
 							>
 								<OperationalMatrix.Header>
 									<OperationalMatrix.HeaderRow>
 										<OperationalMatrix.CornerCell
-											class="w-[170px] pb-2 text-left font-mono print:w-32 text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
+											class="w-[170px] pb-2 text-left font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
 										>
 											{ROWS_BY_LABEL[grid.rowsBy]}
 										</OperationalMatrix.CornerCell>
 										{#each matrixColumns as column (column.id)}
 											<OperationalMatrix.ColumnHeader
 												{column}
-												class="min-w-24 px-1 pb-2 text-center font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:min-w-0 print:[overflow-wrap:anywhere]"
+												class="min-w-24 px-1 pb-2 text-center font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
 											/>
 										{/each}
 										<th
 											scope="col"
-											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:w-16"
+											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
 											>Today</th
 										>
 										<th
 											scope="col"
-											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:w-16"
+											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
 											>{horizonEndLabel}</th
 										>
 									</OperationalMatrix.HeaderRow>
@@ -537,7 +547,7 @@
 											<OperationalMatrix.RowHeader
 												{row}
 												sticky
-												class="sticky left-0 z-10 bg-background pr-3 text-left align-middle print:static"
+												class="sticky left-0 z-10 bg-background pr-3 text-left align-middle"
 											>
 												<span class="block font-serif text-[15px] font-medium">{row.label}</span>
 												<span class="block font-mono text-[11px] text-muted-foreground">
@@ -569,10 +579,10 @@
 													/>
 												</OperationalMatrix.Cell>
 											{/each}
-											<td class="text-right align-middle font-heading text-2xl font-bold print:text-xl">
+											<td class="text-right align-middle font-heading text-2xl font-bold">
 												{percentLabel(row.source.today)}
 											</td>
-											<td class="text-right align-middle font-heading text-2xl font-bold print:text-xl">
+											<td class="text-right align-middle font-heading text-2xl font-bold">
 												<span class={tone(row.source.horizon)}>{percentLabel(row.source.horizon)}</span>
 											</td>
 										</OperationalMatrix.Row>

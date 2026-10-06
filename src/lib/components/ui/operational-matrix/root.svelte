@@ -16,7 +16,8 @@
 		rows: OperationalMatrixRow[];
 		columns: OperationalMatrixColumn[];
 		rowGroups?: OperationalMatrixRowGroup[];
-		selectedCell?: OperationalMatrixCellIdentity;
+		/** Controls the selection; `null` selects no cell, omitting it lets the matrix remember the last selected cell. */
+		selectedCell?: OperationalMatrixCellIdentity | null;
 		readOnly?: boolean;
 		disabled?: boolean;
 		onCellSelect?: OperationalMatrixSelectHandler;
@@ -39,7 +40,7 @@
 	let internalSelectedCell = $state<OperationalMatrixCellIdentity | undefined>();
 
 	function currentSelectedCell() {
-		return selectedCell ?? internalSelectedCell;
+		return selectedCell === undefined ? internalSelectedCell : (selectedCell ?? undefined);
 	}
 
 	function selectCell(selection: OperationalMatrixCellSelection) {

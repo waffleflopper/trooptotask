@@ -15,6 +15,7 @@ import { requestSettings } from './settings-request.mjs';
 import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
 import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
+import { observePrint } from './print-observation.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
 import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
@@ -82,7 +83,7 @@ const tableColumns = {
 };
 const tableSelect = {
 	organizations:
-		'id,name,url_slug,created_by,created_at,suspended_at,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days',
+		'id,name,url_slug,created_by,created_at,suspended_at,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,training_readiness_goal_percent',
 	personnel_extended_info:
 		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at',
 	organization_rank_catalog:
@@ -242,6 +243,19 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'print') {
+		const [action, page, expectedUrl, filePath] = args;
+		const pageId = Number(page);
+		if (
+			!Number.isSafeInteger(pageId) ||
+			pageId < 1 ||
+			(action === 'save' ? args.length !== 4 : args.length !== 2 || !['arm', 'state', 'restore'].includes(action))
+		)
+			throw new Error('Use print arm|state|restore PAGE, or print save PAGE EXACT_REPORT_URL FILE.pdf.');
+		if (action === 'save') note(await run(state, { command: 'print-capture', pageId, expectedUrl, filePath }));
+		else note(await evaluate(state, pageId, `() => (${observePrint.toString()})(window, ${JSON.stringify(action)})`));
+		return;
+	}
 	if (command === 'server-source') {
 		const [action, table, mode, ordinal, holdMs] = args;
 		if (
@@ -2337,7 +2351,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, print, or workbook.'
 	);
 }
 

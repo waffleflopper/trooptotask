@@ -2,7 +2,7 @@
 import { cleanup, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import ReadinessBandTest from './ReadinessBandTest.svelte';
-import { readinessBandTierForPercent } from './index.js';
+import { Cell, Legend, readinessBandTierForPercent } from './index.js';
 
 afterEach(() => {
 	cleanup();
@@ -34,5 +34,24 @@ describe('ui/readiness-band', () => {
 		expect(readinessBandTierForPercent(70)).toBe('caution');
 		expect(readinessBandTierForPercent(80)).toBe('okay');
 		expect(readinessBandTierForPercent(90)).toBe('good');
+	});
+
+	it('announces an upcoming drop on a cell and keys it in a semantic legend', () => {
+		render(Cell, { props: { tier: 'caution', percent: 74, palette: 'semantic', drop: 12, 'aria-label': 'Alpha CPR' } });
+		render(Legend, {
+			props: {
+				palette: 'semantic',
+				items: [{ tier: 'good', label: '85+' }],
+				ariaLabel: 'Briefing bands',
+				dropLabel: '▼ 10+'
+			}
+		});
+
+		expect(screen.getByLabelText('Alpha CPR').textContent).toBe('74%▼ 12, drops 12 points');
+		expect(
+			within(screen.getByLabelText('Briefing bands'))
+				.getAllByRole('listitem')
+				.map((item) => item.textContent?.trim())
+		).toEqual(['85+', '▼ 10+']);
 	});
 });

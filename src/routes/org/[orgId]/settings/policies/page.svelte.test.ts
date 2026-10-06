@@ -7,7 +7,7 @@ import Page from './+page.svelte';
 const feedback = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('$lib/stores/toast.svelte', () => ({ toastStore: feedback }));
 
-function data(orgId: string, months = 36, days = 180) {
+function data(orgId: string, months = 36, days = 180, goal = 90) {
 	return {
 		orgId,
 		orgUrlSegment: `slug-${orgId}`,
@@ -16,6 +16,7 @@ function data(orgId: string, months = 36, days = 180) {
 				policies: {
 					archiveRetention: { savedMonths: months, constraints: { min: 1, max: 120, unit: 'months' } },
 					lossWarning: { savedDays: days, constraints: { min: 1, max: 365, unit: 'days' } },
+					trainingReadinessGoal: { savedPercent: goal, constraints: { min: 1, max: 100, unit: 'percent' } },
 					canUpdateRetention: true
 				}
 			}
@@ -78,7 +79,9 @@ describe('Organization policy saves', () => {
 		['Retention period', 'Archive Retention', 200],
 		['Retention period', 'Archive Retention', 503],
 		['Warning lead time', 'Loss Warning Window', 200],
-		['Warning lead time', 'Loss Warning Window', 503]
+		['Warning lead time', 'Loss Warning Window', 503],
+		['Training readiness goal (%)', 'Training Readiness', 200],
+		['Training readiness goal (%)', 'Training Readiness', 503]
 	] as const)('discards pending A %s feedback after switching A → B → A (%i)', async (label, region, status) => {
 		const pending = deferredResponse();
 		const view = render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
@@ -87,7 +90,9 @@ describe('Organization policy saves', () => {
 		expect(pending.request).toHaveBeenCalledWith('/org/slug-a/api/organization/settings', expect.any(Object));
 
 		await view.rerender({ data: data('b') });
-		const original = label === 'Retention period' ? '36' : '180';
+		const original = { 'Retention period': '36', 'Warning lead time': '180', 'Training readiness goal (%)': '90' }[
+			label
+		];
 		expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe(original);
 		expect(screen.queryByRole('button', { name: /Saving/ })).toBeNull();
 		expect(screen.queryByText('Unsaved changes')).toBeNull();
@@ -97,7 +102,8 @@ describe('Organization policy saves', () => {
 			data: data(
 				'a',
 				label === 'Retention period' && status === 200 ? 49 : 36,
-				label === 'Warning lead time' && status === 200 ? 49 : 180
+				label === 'Warning lead time' && status === 200 ? 49 : 180,
+				label === 'Training readiness goal (%)' && status === 200 ? 49 : 90
 			)
 		});
 		pending.resolve(new Response(null, { status }));
@@ -119,7 +125,8 @@ describe('Organization policy saves', () => {
 
 	it.each([
 		['Retention period', 'Archive Retention', 'archiveRetentionMonths', 48, 49],
-		['Warning lead time', 'Loss Warning Window', 'lossWarningWindowDays', 30, 31]
+		['Warning lead time', 'Loss Warning Window', 'lossWarningWindowDays', 30, 31],
+		['Training readiness goal (%)', 'Training Readiness', 'trainingReadinessGoalPercent', 85, 86]
 	] as const)('keeps edits made during a %s save unsaved', async (label, region, field, submitted, edited) => {
 		const pending = deferredResponse();
 		render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
@@ -134,6 +141,32 @@ describe('Organization policy saves', () => {
 		expect((input as HTMLInputElement).value).toBe(String(edited));
 		expect(section.getByText('Unsaved changes')).toBeTruthy();
 		expect((section.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('rejects an invalid readiness goal with a linked field error before saving', async () => {
+		const request = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+		vi.stubGlobal('fetch', request);
+		render(Page, { data: data('a'), form: null, params: { orgId: 'slug-a' } });
+		const input = screen.getByLabelText('Training readiness goal (%)');
+		const section = within(screen.getByRole('region', { name: 'Training Readiness' }));
+		for (const value of ['', '0', '101', '90.5']) {
+			await fireEvent.input(input, { target: { value } });
+			expect(input.getAttribute('aria-invalid')).toBe('true');
+			const describedBy = input.getAttribute('aria-describedby')!.split(' ');
+			expect(describedBy.map((id) => document.getElementById(id)?.textContent?.trim())).toContain(
+				section.getByRole('alert').textContent?.trim()
+			);
+			expect((section.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
+		}
+		expect(request).not.toHaveBeenCalled();
+
+		await fireEvent.input(input, { target: { value: '85' } });
+		expect(input.getAttribute('aria-invalid')).toBeNull();
+		expect(section.queryByRole('alert')).toBeNull();
+		await fireEvent.click(section.getByRole('button', { name: 'Save' }));
+		await waitFor(() => expect(feedback.success).toHaveBeenCalledOnce());
+		expect(JSON.parse(request.mock.calls[0][1].body as string)).toEqual({ trainingReadinessGoalPercent: 85 });
+		expect(section.getByText('Saved')).toBeTruthy();
 	});
 
 	it('retains a failed draft for an explicit successful retry', async () => {

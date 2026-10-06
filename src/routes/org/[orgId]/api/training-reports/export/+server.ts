@@ -1,33 +1,22 @@
-import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
-import type { TrainingReportWorkbookExport } from '$features/training/contracts';
+import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
+import type { TrainingBriefingReportInput, TrainingReportWorkbookExport } from '$features/training/contracts';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { generateTrainingReportWorkbookExport } from '$features/training/index.server';
 import { workbookBufferResponse } from '$lib/utils/workbook';
-import {
-	PRIVATE_REPORT_HEADERS,
-	parseTrainingReportInput,
-	toTrainingReportInput,
-	trainingReportInput,
-	type TrainingReportRouteInput
-} from '../reportInput';
+import { PRIVATE_REPORT_HEADERS, parseTrainingBriefingRequest } from '../reportInput';
 
 export const _getConfig: RouteConfig<
-	TrainingReportRouteInput,
+	TrainingBriefingReportInput,
 	TrainingReportWorkbookExport,
-	ReturnType<typeof createRequestTrainingRosterContext>
+	ReturnType<typeof createRequestTrainingBriefingContext>
 > = {
-	context: createRequestTrainingRosterContext,
+	context: createRequestTrainingBriefingContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },
-	input: trainingReportInput,
-	parseInput: (event) => parseTrainingReportInput(event.url),
-	fn: async (ctx, input) => {
-		return generateTrainingReportWorkbookExport(ctx, toTrainingReportInput(input));
-	},
-	formatOutput: (result) => {
-		return workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS);
-	}
+	parseInput: parseTrainingBriefingRequest,
+	fn: generateTrainingReportWorkbookExport,
+	formatOutput: (result) => workbookBufferResponse(result.buffer, result.filename, PRIVATE_REPORT_HEADERS)
 };
 
 export const GET = handle(_getConfig);

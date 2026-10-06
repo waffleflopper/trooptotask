@@ -32,8 +32,8 @@ export type { ApprovedTrainingDeletionPort } from './server/approvedTrainingDele
 
 export { fetchTrainingWorkspaceData } from './server/trainingWorkspaceQuery.server';
 export {
-	fetchTrainingReportPage,
-	fetchTrainingReportDetailPage,
+	fetchTrainingBriefingReport,
+	fetchTrainingBriefingDetail,
 	generateTrainingReportWorkbookExport
 } from './server/trainingReportsQuery.server';
 export { fetchDashboardTrainingSummary } from './server/trainingSummaryQuery.server';

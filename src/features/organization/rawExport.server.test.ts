@@ -14,7 +14,8 @@ const profile = {
 	critical_tasks_default_expiration_months: 12,
 	critical_tasks_expiring_soon_warning_days: 30,
 	loss_warning_window_days: 0,
-	personnel_document_storage_cap_bytes: 0
+	personnel_document_storage_cap_bytes: 0,
+	training_readiness_goal_percent: 85
 };
 const tables = [
 	'organizations',

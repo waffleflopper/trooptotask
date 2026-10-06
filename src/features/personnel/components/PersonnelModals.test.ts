@@ -3,6 +3,7 @@ import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { tick } from 'svelte';
 import { groupCatalogHydration, groupsStore } from '$features/personnel';
 import { personnelStore } from '$features/personnel/stores/personnel.svelte';
 import type { Personnel } from '../personnel.types';
@@ -169,5 +170,104 @@ describe('scoped Personnel creation', () => {
 		expect(personnelStore.items).toEqual([
 			expect.objectContaining({ id: 'saved-alpha', groupId: 'alpha', lastName: 'Scoped' })
 		]);
+	});
+});
+
+describe('retired Personnel save feedback', () => {
+	it.each([200, 503])('keeps the destination quiet when a retired save returns HTTP %s', async (status) => {
+		const personA: Personnel = {
+			id: 'person-a',
+			slug: 'synthetic-alpha',
+			rank: 'SPC',
+			firstName: 'Synthetic',
+			lastName: 'Alpha',
+			mos: '68V',
+			clinicRole: 'Medic',
+			ets: null,
+			deros: null,
+			groupId: null,
+			groupName: '',
+			archivedAt: null
+		};
+		const personB: Personnel = { ...personA, id: 'person-b', slug: 'synthetic-bravo', lastName: 'Bravo' };
+		const expectedB = structuredClone([personB]);
+		const access = (level: 'configure' | 'view') =>
+			createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), personnel: level },
+				scopeSet: { kind: 'organization' }
+			});
+		const rankCatalog = [
+			{
+				code: 'SPC',
+				label: 'Specialist',
+				service: 'army' as const,
+				category: 'enlisted' as const,
+				payGrade: 'E-4',
+				state: 'active' as const,
+				sortOrder: 0
+			}
+		];
+		groupCatalogHydration.load([], 'org-a');
+		personnelStore.load([personA], 'org-a');
+		let releaseResponse!: (response: Response) => void;
+		const response = new Promise<Response>((resolve) => {
+			releaseResponse = resolve;
+		});
+		let submitted: unknown;
+		vi.stubGlobal('fetch', (url: string, init: RequestInit) => {
+			if (url !== '/org/org-a/api/personnel' || init.method !== 'PUT') throw new Error('Unexpected request');
+			submitted = JSON.parse(init.body as string);
+			return response;
+		});
+		let updateSettled: Promise<boolean> | undefined;
+		const update = personnelStore.update;
+		vi.spyOn(personnelStore, 'update').mockImplementation((id, data) => {
+			updateSettled = update(id, data);
+			return updateSettled;
+		});
+		const error = vi.spyOn(toastStore, 'error').mockReturnValue('synthetic-error');
+		const success = vi.spyOn(toastStore, 'success').mockReturnValue('synthetic-success');
+		const modalsA = new ModalRegistry();
+		const ctxA = new PersonnelPageContext(
+			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog },
+			modalsA,
+			access('configure'),
+			personnelStore
+		);
+		modalsA.open('personnel-modal', { person: personA });
+		const ownerA = render(PersonnelModals, { props: { ctx: ctxA, modals: modalsA, requestArchiveApproval } });
+		await fireEvent.input(screen.getByLabelText('Duty Role'), { target: { value: 'Held Save First' } });
+		await fireEvent.click(screen.getByTestId('personnel-save'));
+		expect(submitted).toEqual(expect.objectContaining({ id: 'person-a', clinicRole: 'Held Save First' }));
+		expect(screen.getByRole('button', { name: 'Saving...' })).toBeTruthy();
+		if (!updateSettled) throw new Error('Personnel save did not dispatch');
+
+		ownerA.unmount();
+		groupCatalogHydration.load([], 'org-b');
+		personnelStore.load([personB], 'org-b');
+		const modalsB = new ModalRegistry();
+		const ctxB = new PersonnelPageContext(
+			{ orgId: 'org-b', orgName: 'B', pinnedGroups: [], rankCatalog },
+			modalsB,
+			access('view'),
+			personnelStore
+		);
+		render(PersonnelModals, { props: { ctx: ctxB, modals: modalsB, requestArchiveApproval } });
+		expect(personnelStore.items).toEqual(expectedB);
+		releaseResponse(
+			status === 200
+				? Response.json({ ...personA, clinicRole: 'Held Save First' })
+				: Response.json({ message: 'Unavailable' }, { status })
+		);
+		await updateSettled;
+		await tick();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(personnelStore.orgId).toBe('org-b');
+		expect(personnelStore.items).toEqual(expectedB);
+		expect(error).not.toHaveBeenCalled();
+		expect(success).not.toHaveBeenCalled();
+		expect(modalsB.isOpen('personnel-modal')).toBe(false);
 	});
 });

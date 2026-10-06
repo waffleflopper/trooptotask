@@ -18,7 +18,6 @@ export {
 } from './server/personnelIctCompletionOperations.server';
 
 export { createSupabaseCriticalTasksReadModelAdapter } from './server/criticalTasksReadModel.server';
-export { createInMemoryCriticalTasksReadModelAdapter } from './server/inMemoryCriticalTasksReadModel.server';
 export { fetchCriticalTasksPersonnelHistory } from './server/criticalTasksHistoryQuery.server';
 export {
 	fetchCriticalTasksReportDashboard,

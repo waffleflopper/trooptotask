@@ -60,8 +60,7 @@ function createPersonnelDetailStreams(
 					)
 			}),
 			ratingScheme: loadRatingSchemeReadinessLane({
-				store: ctx.rawStore,
-				orgId: ctx.auth.orgId,
+				ratingScheme: contexts.ratingScheme,
 				personnelId,
 				loadAuthorizedPerson: () =>
 					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, 'rating_scheme_entry')

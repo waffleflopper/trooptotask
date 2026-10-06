@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { createQueryWithRawStorePortsContext } from '$lib/server/adapters/inMemory';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createTestContext } from './ratingSchemePersistence.test-support.server';
+import { createSupabaseRatingSchemePersistence } from './ratingSchemePersistence.server';
+import { mapRatingSchemeEntry, type RatingSchemeRow } from './ratingSchemeEntryMapping.server';
 import { loadRatingSchemeWorkspace } from './ratingSchemeWorkspaceQuery.server';
 
 const orgId = 'test-org';
@@ -43,7 +44,7 @@ function row(id: string) {
 }
 
 function context() {
-	const ctx = createQueryWithRawStorePortsContext({ auth: actor });
+	const ctx = createTestContext({ auth: actor });
 	ctx.personnelRatingSchemeRoster = {
 		listActiveReferences: vi.fn().mockResolvedValue([person]),
 		findRatedPersonGroupForWrite: vi.fn(),
@@ -91,7 +92,7 @@ function pagedStore(rows: ReturnType<typeof row>[], failSecondPage = false) {
 			}
 		}
 	});
-	return { store: createSupabaseDataStore(client), requests };
+	return { ratingScheme: createSupabaseRatingSchemePersistence(client, orgId), requests };
 }
 
 describe('Rating-owned Evals workspace', () => {
@@ -99,7 +100,7 @@ describe('Rating-owned Evals workspace', () => {
 		const ctx = context();
 		const ids = Array.from({ length: 1001 }, (_, i) => `entry-${String(i).padStart(4, '0')}`);
 		const provider = pagedStore(ids.map(row).reverse());
-		const result = await loadRatingSchemeWorkspace({ ...ctx, rawStore: provider.store });
+		const result = await loadRatingSchemeWorkspace({ ...ctx, ratingScheme: provider.ratingScheme });
 		expect(result.personnelLookup).toEqual([person]);
 		expect(result.ratingSchemeEntries.map((entry) => entry.id)).toEqual(ids);
 		expect(result.ratingSchemeEntries[1000]).toMatchObject({
@@ -117,7 +118,7 @@ describe('Rating-owned Evals workspace', () => {
 			Array.from({ length: 1001 }, (_, i) => row(`entry-${i}`)),
 			true
 		);
-		await expect(loadRatingSchemeWorkspace({ ...ctx, rawStore: provider.store })).rejects.toThrow(
+		await expect(loadRatingSchemeWorkspace({ ...ctx, ratingScheme: provider.ratingScheme })).rejects.toThrow(
 			'Later page unavailable'
 		);
 	});
@@ -127,11 +128,11 @@ describe('Rating-owned Evals workspace', () => {
 			...ctx.auth,
 			capabilityMap: { ...ctx.auth.capabilityMap, personnel: 'view' as const, ratingScheme: 'none' as const }
 		};
-		const findMany = vi.fn();
-		await expect(loadRatingSchemeWorkspace({ ...ctx, auth, rawStore: { findMany } })).rejects.toMatchObject({
+		const listWorkspace = vi.fn();
+		await expect(loadRatingSchemeWorkspace({ ...ctx, auth, ratingScheme: { listWorkspace } })).rejects.toMatchObject({
 			status: 403
 		});
-		expect(findMany).not.toHaveBeenCalled();
+		expect(listWorkspace).not.toHaveBeenCalled();
 		expect(ctx.personnelRatingSchemeRoster?.listActiveReferences).not.toHaveBeenCalled();
 	});
 	it('propagates a reference-provider failure', async () => {
@@ -149,11 +150,11 @@ describe('Rating-owned Evals workspace', () => {
 		const wait = new Promise<void>((resolve) => {
 			release = resolve;
 		});
-		const rawStore = {
-			findMany: async <T>() => {
+		const ratingScheme = {
+			listWorkspace: async () => {
 				started.add('entries');
 				await wait;
-				return [row('entry-1')] as T[];
+				return [mapRatingSchemeEntry(row('entry-1') as RatingSchemeRow)];
 			}
 		};
 		const personnelRatingSchemeRoster = {
@@ -163,7 +164,7 @@ describe('Rating-owned Evals workspace', () => {
 				return [person];
 			}
 		};
-		const pending = loadRatingSchemeWorkspace({ ...ctx, rawStore, personnelRatingSchemeRoster });
+		const pending = loadRatingSchemeWorkspace({ ...ctx, ratingScheme, personnelRatingSchemeRoster });
 		try {
 			await vi.waitFor(() => expect(started).toEqual(new Set(['entries', 'references'])));
 		} finally {

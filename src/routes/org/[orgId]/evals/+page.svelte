@@ -92,8 +92,16 @@
 			<RatingSchemeModals
 				{modals}
 				{personnelLookup}
-				onRequestDeletion={(id, description) =>
-					submitDeletionRequest(ctx.orgId, 'rating_scheme_entry', id, description, `/org/${ctx.orgId}/evals`)}
+				orgId={ctx.orgId}
+				onRequestDeletion={(id, description, isCurrent) =>
+					submitDeletionRequest(
+						ctx.orgId,
+						'rating_scheme_entry',
+						id,
+						description,
+						`/org/${ctx.orgId}/evals`,
+						isCurrent
+					)}
 			/>
 		{/await}
 	{/if}

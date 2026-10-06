@@ -41,6 +41,7 @@ import type {
 	loadRatingSchemeWorkspace,
 	removeRatingSchemeEntry
 } from '$features/rating-scheme/index.server';
+import { createSupabaseRatingSchemePersistence } from '$features/rating-scheme/index.server';
 import {
 	createSupabaseOnboardingReconciliationPort,
 	createSupabaseOnboardingNoteAppendPort,
@@ -157,7 +158,9 @@ export function createRequestRatingSchemeWriteContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof createRatingSchemeEntry>[0] {
 	return {
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
 		personnelRatingSchemeRoster: createSupabasePersonnelRatingSchemeRosterPort(request.supabase, getAdminClient)
 	};
 }
@@ -183,7 +186,7 @@ export function createRequestRatingSchemeWorkspaceContext(
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		rawStore: request.rawStore,
+		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
 		personnelRatingSchemeRoster: createSupabasePersonnelRatingSchemeRosterPort(request.supabase, getAdminClient)
 	};
 }

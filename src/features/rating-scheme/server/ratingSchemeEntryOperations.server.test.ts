@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './ratingSchemePersistence.test-support.server';
 import {
 	createRatingSchemeEntry,
 	updateRatingSchemeEntry,
@@ -412,7 +412,7 @@ describe('Rating scheme entry — delete', () => {
 		seedRatedPerson(ctx);
 		const entry = await createRatingSchemeEntry(ctx, validInput);
 		const before = structuredClone(await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: entry.id }));
-		vi.spyOn(ctx.store, 'delete').mockRejectedValueOnce(new Error('Synthetic deletion failure'));
+		vi.spyOn(ctx.rawStore, 'deleteWhere').mockRejectedValueOnce(new Error('Synthetic deletion failure'));
 
 		await expect(removeRatingSchemeEntry(ctx, entry.id)).rejects.toThrow('Synthetic deletion failure');
 		expect(await ctx.store.findOne('rating_scheme_entries', 'test-org', { id: entry.id })).toEqual(before);

@@ -451,10 +451,6 @@ input[type='checkbox']:focus-visible {
 		page: training-brief;
 	}
 
-	[data-print-report='training']:has(> [data-print-brief='training']) > :not([data-print-brief='training']) {
-		display: none !important;
-	}
-
 	[data-print-brief='training'] thead,
 	[data-print-brief='training'] tfoot,
 	[data-print-brief='training'] tr {

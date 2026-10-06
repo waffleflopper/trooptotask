@@ -1,23 +1,15 @@
 import type {
 	CriticalTaskLibraryPersistence,
+	CriticalTaskCompletionPersistence,
 	CriticalTasksReadModelFilters,
 	CriticalTasksReadModelPort
 } from '../contracts';
 import type { CriticalTasksReadStore } from './criticalTasksReadPorts.server';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import { buildLatestIctCompletionLookup } from '../utils/ictReadinessSnapshot';
 
 interface PersonnelRow {
 	id: string;
 	archived_at: string | null;
-}
-
-interface PersonnelIctCompletionRow extends Record<string, unknown> {
-	id: string;
-	personnel_id: string;
-	ict_task_id: string;
-	completed_at: string;
-	created_at: string;
 }
 
 function hasEmptyFilter(values?: string[]): boolean {
@@ -57,7 +49,8 @@ async function loadActiveScope(
 
 export function createInMemoryCriticalTasksReadModelAdapter(
 	store: Pick<CriticalTasksReadStore, 'findMany'>,
-	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>
+	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>,
+	criticalTaskCompletions: Pick<CriticalTaskCompletionPersistence, 'listReportHistory'>
 ): CriticalTasksReadModelPort {
 	return {
 		async findLatestCompletions(orgId: string, filters: CriticalTasksReadModelFilters = {}) {
@@ -70,19 +63,10 @@ export function createInMemoryCriticalTasksReadModelAdapter(
 				return [];
 			}
 
-			const completionRows = await store.findMany<PersonnelIctCompletionRow>(
-				'personnel_ict_completions',
-				orgId,
-				undefined,
-				{
-					inFilters: {
-						personnel_id: [...personnelIds],
-						ict_task_id: [...taskIds]
-					}
-				}
-			);
-
-			const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
+			const completions = await criticalTaskCompletions.listReportHistory({
+				personnelIds: [...personnelIds],
+				taskIds: [...taskIds]
+			});
 			return [...buildLatestIctCompletionLookup(completions).values()];
 		}
 	};

@@ -1,9 +1,7 @@
-import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
-import { createInMemoryCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig } from './+server';
 
@@ -11,10 +9,7 @@ type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
 describe('GET /api/critical-tasks/matrix/export', () => {
 	it('uses critical tasks read permission and returns a matrix workbook matching group and gap filters', async () => {
-		const ctx = createTestContext({
-			criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence,
-			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter
-		});
+		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,

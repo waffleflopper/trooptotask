@@ -16,7 +16,6 @@ import {
 	type IctReportScope
 } from '../utils/ictReports';
 import { getActiveIctTasksForLibrary } from '../utils/ictTaskLibrary';
-import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
 import type {
 	CriticalTasksReportInput,
@@ -72,11 +71,10 @@ async function buildDashboardFromSource(
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboard> {
 	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
-	const completions = await loadReportCompletions(
-		ctx,
-		filteredPersonnel.map((person) => person.id),
-		source.tasks.map((task) => task.id)
-	);
+	const completions = await ctx.criticalTaskCompletions.listReportHistory({
+		personnelIds: filteredPersonnel.map((person) => person.id),
+		taskIds: source.tasks.map((task) => task.id)
+	});
 
 	return buildIctReportDashboard({
 		personnel: filteredPersonnel,
@@ -123,48 +121,6 @@ async function loadLatestCompletions(
 	return completionRows;
 }
 
-async function loadReportCompletions(
-	ctx: CriticalTasksReportContext,
-	personnelIds: string[],
-	taskIds: string[]
-): Promise<PersonnelIctCompletion[]> {
-	if (personnelIds.length === 0 || taskIds.length === 0) {
-		return [];
-	}
-
-	const people = [...new Set(personnelIds)];
-	const tasks = [...new Set(taskIds)];
-	const completionRows: Record<string, unknown>[] = [];
-	let pending: Array<Promise<Record<string, unknown>[]>> = [];
-	// Bound both UUID filters and concurrent history reads. Each lookup retains
-	// the store's pagination; reports need every historical date, not only latest.
-	for (let personIndex = 0; personIndex < people.length; personIndex += 50) {
-		for (let taskIndex = 0; taskIndex < tasks.length; taskIndex += 50) {
-			pending.push(
-				ctx.store.findMany<Record<string, unknown>>('personnel_ict_completions', ctx.auth.orgId, undefined, {
-					inFilters: {
-						personnel_id: people.slice(personIndex, personIndex + 50),
-						ict_task_id: tasks.slice(taskIndex, taskIndex + 50)
-					},
-					// Reports need every date; make offset pages stable even for tied captures.
-					orderBy: [{ column: 'id', ascending: true }]
-				})
-			);
-			if (pending.length === 4) {
-				for (const rows of await Promise.all(pending)) {
-					for (const row of rows) completionRows.push(row);
-				}
-				pending = [];
-			}
-		}
-	}
-	for (const rows of await Promise.all(pending)) {
-		for (const row of rows) completionRows.push(row);
-	}
-
-	return PersonnelIctCompletionEntity.fromDbArray(completionRows);
-}
-
 export async function fetchCriticalTasksReportDashboard(
 	ctx: CriticalTasksReportContext,
 	input: CriticalTasksReportInput = {}
@@ -179,11 +135,10 @@ export async function fetchCriticalTasksDashboardSummary(
 ): Promise<IctReportDashboardSummary> {
 	const source = await loadCriticalTasksReportSource(ctx);
 	const filteredPersonnel = filterIctReportPersonnel(source.personnel, input.filters ?? {});
-	const completions = await loadReportCompletions(
-		ctx,
-		filteredPersonnel.map((person) => person.id),
-		source.tasks.map((task) => task.id)
-	);
+	const completions = await ctx.criticalTaskCompletions.listReportHistory({
+		personnelIds: filteredPersonnel.map((person) => person.id),
+		taskIds: source.tasks.map((task) => task.id)
+	});
 
 	return buildIctReportDashboardSummary({
 		personnel: filteredPersonnel,

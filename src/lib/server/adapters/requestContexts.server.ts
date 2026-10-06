@@ -11,7 +11,8 @@ import {
 import {
 	createSupabaseCriticalTasksExportReader,
 	createSupabaseCriticalTasksReadModelAdapter,
-	createSupabaseCriticalTaskLibraryPersistence
+	createSupabaseCriticalTaskLibraryPersistence,
+	createSupabaseCriticalTaskCompletionPersistence
 } from '$features/critical-tasks/index.server';
 import { listFeedbackExportRows } from '$features/feedback/index.server';
 import {
@@ -453,6 +454,7 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 	return {
 		detail: createRequestPersonnelDetailContext(request),
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
+		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		extendedInfo: createRequestPersonnelExtendedInfoContext(request),
 		artifacts: createRequestPersonnelArtifactsContext(request),
 		leaderNotes: createRequestPersonnelLeaderNoteContext(request),
@@ -620,6 +622,7 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 		...createRequestDataContext(request),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase),
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
+		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};

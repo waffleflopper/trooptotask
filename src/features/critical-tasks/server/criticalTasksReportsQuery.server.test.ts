@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
+import { createSupabaseCriticalTaskCompletionPersistence } from './criticalTaskCompletionPersistence.server';
 import ExcelJS from 'exceljs';
-import { createTestContext } from './criticalTaskLibrary.test-support.server';
+import { createTestContext } from './criticalTasksPersistence.test-support.server';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils/ictWorkbookExport';
 import {
@@ -782,6 +782,7 @@ function createWideHistoryContext(
 		global: {
 			fetch: async (input) => {
 				const url = new URL(String(input));
+				if (options.forbidHistory) throw new Error('Excluded history must not be read');
 				if (url.href.length > 8192) return Response.json({ message: 'URI too long' }, { status: 414 });
 				const ids = (column: string) => url.searchParams.get(column)?.slice(4, -1).split(',') ?? [];
 				expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
@@ -796,15 +797,8 @@ function createWideHistoryContext(
 			}
 		}
 	});
-	const provider = createSupabaseDataStore(client);
-	const findMany = ctx.store.findMany.bind(ctx.store);
-	vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-		args[0] === 'personnel_ict_completions'
-			? options.forbidHistory
-				? Promise.reject(new Error('Excluded history must not be read'))
-				: provider.findMany(...args)
-			: findMany(...args)
-	);
+	ctx.criticalTaskCompletions = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
+
 	return ctx;
 }
 
@@ -891,8 +885,6 @@ describe('deep Critical Tasks dated history', () => {
 			'2026-01-01',
 			'2026-03-15'
 		];
-		// Each pair has 1001 distinct dates. The 150-task case leaves three
-		// history windows; the 151-Person case fills four with 151151 rows.
 		const history: Record<string, string | null>[] = people.flatMap((person, personIndex) =>
 			tasks.flatMap((task, taskIndex) =>
 				dates.map((date, dateIndex) => ({
@@ -909,8 +901,6 @@ describe('deep Critical Tasks dated history', () => {
 				}))
 			)
 		);
-		// Cache the immutable fixture selection per provider query, so paging
-		// doesn't repeatedly scan/sort 150k stored captures inside this fake.
 		const selections = new Map<string, typeof history>();
 		const client = createClient('https://provider.invalid', 'synthetic-key', {
 			auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -948,19 +938,13 @@ describe('deep Critical Tasks dated history', () => {
 				}
 			}
 		});
-		const provider = createSupabaseDataStore(client);
-		const findMany = ctx.store.findMany.bind(ctx.store);
-		vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-			args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
-		);
+		ctx.criticalTaskCompletions = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
 		const summary = await fetchCriticalTasksDashboardSummary(ctx, { asOf: '2026-03-20' });
 		expect(summary.kpis.overallReadiness).toMatchObject({
 			readyCount: expectedReadyCount,
 			applicableCount: expectedReadyCount,
 			percent: 100
 		});
-		// All pairs are ready in January, expired in February, and restored
-		// by their March capture; the old 2020–2022 dates cannot supply readiness.
 		expect(
 			summary.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
 		).toEqual([
@@ -1023,7 +1007,6 @@ describe('paged Critical Tasks report history', () => {
 			});
 			const captures: Record<string, string | null>[] = [
 				capture(0, '2026-03-15'),
-				// Distinct older dates obey the Person/task/date uniqueness constraint.
 				...Array.from({ length: 1000 }, (_, index) =>
 					capture(index + 1, new Date(Date.UTC(2020, 0, index + 1)).toISOString().slice(0, 10))
 				),
@@ -1051,16 +1034,10 @@ describe('paged Critical Tasks report history', () => {
 					}
 				}
 			});
-			const provider = createSupabaseDataStore(client);
-			const findMany = ctx.store.findMany.bind(ctx.store);
-			vi.spyOn(ctx.store, 'findMany').mockImplementation((...args) =>
-				args[0] === 'personnel_ict_completions' ? provider.findMany(...args) : findMany(...args)
-			);
+			ctx.criticalTaskCompletions = createSupabaseCriticalTaskCompletionPersistence(client, ctx.auth.orgId);
 
 			const report = await fetchReport(ctx, { asOf: '2026-03-20' });
 			expect(report.kpis.overallReadiness).toMatchObject({ readyCount: 1, applicableCount: 1, percent: 100 });
-			// A January 1 capture is ready in January, expired in February; the
-			// March 15 capture restores readiness in March for this one-month task.
 			expect(
 				report.readinessTrend.months.slice(-3).map((point) => [point.month, point.overallReadinessPercent])
 			).toEqual([

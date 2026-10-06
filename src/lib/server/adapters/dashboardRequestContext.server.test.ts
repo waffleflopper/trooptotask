@@ -40,7 +40,7 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 			created_at: '2026-01-01T00:00:00Z'
 		}
 	]);
-	ctx.store.seed('personnel_ict_completions', [
+	const completions = [
 		{
 			id: 'completion-alpha',
 			organization_id: ctx.auth.orgId,
@@ -50,7 +50,7 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 			validation_method: 'Demonstration',
 			created_at: '2026-01-15T00:00:00Z'
 		}
-	]);
+	];
 	const providerFetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = new URL(input instanceof Request ? input.url : input.toString());
 		if (url.pathname !== '/rest/v1/personnel') throw new Error('Unexpected admin query');
@@ -83,6 +83,12 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 		global: {
 			fetch: async (input) => {
 				const url = new URL(input instanceof Request ? input.url : input.toString());
+				if (url.pathname === '/rest/v1/personnel_ict_completions') {
+					expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+					expect(url.searchParams.get('personnel_id')).toBe('in.(person-alpha)');
+					expect(url.searchParams.get('ict_task_id')).toBe('in.(task-common)');
+					return Response.json(completions);
+				}
 				if (url.pathname !== '/rest/v1/ict_tasks') throw new Error('Ordinary Personnel read is forbidden');
 				expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 				expect(url.searchParams.get('archived_at')).toBe('is.null');

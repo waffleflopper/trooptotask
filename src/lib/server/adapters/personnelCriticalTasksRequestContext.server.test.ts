@@ -33,7 +33,7 @@ function request(criticalTasks: 'view' | 'none') {
 		}
 	]);
 	ctx.store.seed('organizations', [{ id: ctx.auth.orgId, critical_tasks_default_expiration_months: 12 }]);
-	ctx.store.seed('personnel_ict_completions', [
+	const completions = [
 		{
 			id: 'completion-alpha',
 			organization_id: ctx.auth.orgId,
@@ -43,9 +43,14 @@ function request(criticalTasks: 'view' | 'none') {
 			validation_method: 'Demonstration',
 			created_at: '2026-01-15T00:00:00Z'
 		}
-	]);
+	];
 	const providerFetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = new URL(input instanceof Request ? input.url : input.toString());
+		if (url.pathname === '/rest/v1/personnel_ict_completions') {
+			expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+			expect(url.searchParams.get('personnel_id')).toBe('eq.person-alpha');
+			return Response.json(completions);
+		}
 		if (url.pathname !== '/rest/v1/ict_tasks') throw new Error('Unexpected ordinary provider read');
 		expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 		expect(url.searchParams.get('archived_at')).toBe('is.null');
@@ -77,6 +82,7 @@ function loadReadiness(input: ReturnType<typeof request>) {
 	return loadCriticalTasksReadinessLane({
 		store: contexts.detail.store,
 		criticalTaskLibrary: contexts.criticalTaskLibrary,
+		criticalTaskCompletions: contexts.criticalTaskCompletions,
 		orgId: contexts.detail.auth.orgId,
 		personnelId: 'person-alpha',
 		asOf: '2026-03-20',

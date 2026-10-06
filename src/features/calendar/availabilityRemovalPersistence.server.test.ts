@@ -7,6 +7,7 @@ import { createWritePortsContext } from '$lib/server/adapters/inMemory';
 const ORG = '00000000-0000-4000-8000-000000000001';
 const IDS = Array.from({ length: 500 }, (_, i) => `00000000-0000-4000-8001-${String(i).padStart(12, '0')}`);
 const KEY = 'synthetic-ordinary-client';
+const MAX_REFERENCE_URL_BYTES = 8192;
 
 function fixture(options: { failedRead?: number; reply?: unknown; error?: { code: string; message: string } } = {}) {
 	const requests: Request[] = [];
@@ -29,7 +30,8 @@ function fixture(options: { failedRead?: number; reply?: unknown; error?: { code
 					)
 						throw new Error('Unexpected reference authority');
 					const ids = url.searchParams.get('id')?.slice(4, -1).split(',') ?? [];
-					if (ids.length > 100) return Response.json({ message: 'URI Too Long' }, { status: 414 });
+					if (new TextEncoder().encode(request.url).length > MAX_REFERENCE_URL_BYTES)
+						return Response.json({ message: 'URI Too Long' }, { status: 414 });
 					return Response.json(ids.map((id) => ({ personnel_id: `person-${IDS.indexOf(id)}` })));
 				}
 				if (request.method === 'POST' && url.pathname === '/rest/v1/rpc/delete_availability_entries') {
@@ -51,19 +53,21 @@ describe('ordinary Calendar availability removal transport', () => {
 		expect(people[0]).toBe('person-0');
 		expect(people[499]).toBe('person-499');
 		await expect(port.deleteIds(IDS)).resolves.toBe(500);
-		expect(requests.map((r) => r.method)).toEqual(['GET', 'GET', 'GET', 'GET', 'GET', 'POST']);
-		expect(
-			requests
-				.filter((r) => r.method === 'GET')
-				.map((r) => new URL(r.url).searchParams.get('id')?.slice(4, -1).split(',').length)
-		).toEqual([100, 100, 100, 100, 100]);
-		const mutation = requests[5];
+		const reads = requests.filter((r) => r.method === 'GET');
+		expect(reads.every((r) => new TextEncoder().encode(r.url).length <= MAX_REFERENCE_URL_BYTES)).toBe(true);
+		expect(reads.flatMap((r) => new URL(r.url).searchParams.get('id')?.slice(4, -1).split(',') ?? []).sort()).toEqual(
+			[...IDS].sort()
+		);
+		const mutations = requests.filter((r) => r.method === 'POST');
+		expect(mutations).toHaveLength(1);
+		const mutation = mutations[0];
+		expect(requests.at(-1)).toBe(mutation);
 		expect(mutation.url).toBe('http://ordinary.invalid/rest/v1/rpc/delete_availability_entries');
 		expect(await mutation.json()).toEqual({ p_organization_id: ORG, p_ids: IDS });
 	});
 
 	it('does not mutate or publish a success audit after a later reference request fails', async () => {
-		const { port, requests } = fixture({ failedRead: 5 });
+		const { port, requests } = fixture({ failedRead: 2 });
 		const ctx = createWritePortsContext();
 		await expect(deleteAvailabilityBatch({ ...ctx, availabilityRemoval: port }, { ids: IDS })).rejects.toThrow(
 			'Reference unavailable'

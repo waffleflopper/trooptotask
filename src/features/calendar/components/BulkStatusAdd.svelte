@@ -89,7 +89,6 @@
 				return;
 			}
 			if (insertedIds.length < ids.length) {
-				// Keep the failed subset selected so the operator can retry just those people.
 				const insertedSet = new Set(insertedIds);
 				const failed = selected.filter((p) => !insertedSet.has(p.id));
 				selection.clear();
@@ -102,7 +101,7 @@
 				selection.clear();
 			}
 			step = 'select';
-			onComplete();
+			if (insertedIds.length === ids.length) onComplete();
 		} finally {
 			isSubmitting = false;
 		}

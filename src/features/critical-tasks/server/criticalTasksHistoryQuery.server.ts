@@ -1,5 +1,4 @@
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/contracts';
-import { IctTaskEntity } from './ictTaskEntity.server';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import type { CriticalTasksHistoryContext } from './criticalTasksReadPorts.server';
 
@@ -28,26 +27,8 @@ export async function fetchCriticalTasksPersonnelHistory(
 	);
 	const completions = PersonnelIctCompletionEntity.fromDbArray(completionRows);
 	const taskIds = [...new Set(completions.map((completion) => completion.ictTaskId))];
-	const taskRows: Record<string, unknown>[] = [];
-	// Referenced history may span a large catalog, including archived definitions.
-	// Bound metadata filters without changing the completion history order.
-	for (let index = 0; index < taskIds.length; index += 200) {
-		const windows: Array<Promise<Record<string, unknown>[]>> = [];
-		for (let offset = index; offset < Math.min(index + 200, taskIds.length); offset += 50) {
-			windows.push(
-				ctx.store.findMany<Record<string, unknown>>('ict_tasks', ctx.auth.orgId, undefined, {
-					inFilters: { id: taskIds.slice(offset, offset + 50) },
-					orderBy: [
-						{ column: 'sort_order', ascending: true },
-						{ column: 'task_code', ascending: true }
-					]
-				})
-			);
-		}
-		taskRows.push(...(await Promise.all(windows)).flat());
-	}
-
-	const tasksById = new Map(IctTaskEntity.fromDbArray(taskRows).map((task) => [task.id, task]));
+	const tasks = await ctx.criticalTaskLibrary.listReferenced(taskIds);
+	const tasksById = new Map(tasks.map((task) => [task.id, task]));
 
 	return {
 		personnel,

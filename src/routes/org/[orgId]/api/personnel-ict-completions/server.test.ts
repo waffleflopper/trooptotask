@@ -1,3 +1,4 @@
+import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -10,6 +11,7 @@ function criticalTasksOnlyContext(
 	}
 ) {
 	return createTestContext({
+		criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence,
 		auth: {
 			role: 'member',
 			isPrivileged: false,
@@ -76,7 +78,7 @@ function blockRequestPersonnelLookup(ctx: ReturnType<typeof createTestContext>) 
 
 describe('personnel ICT completions API', () => {
 	it('audits successful completion create, update, and delete actions through the guarded route configs', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-1',
@@ -156,7 +158,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects creating a completion for an archived ICT task', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-1',
@@ -206,7 +208,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects creating a completion for an archived person', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-archived',
@@ -256,7 +258,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects updating a completion when its ICT task has been archived', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('ict_tasks', [
 			{
 				id: 'task-archived',
@@ -308,7 +310,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects updating a completion when its person has been archived', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-archived',
@@ -373,7 +375,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects updating archived task history even when the payload includes an active personnel id', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-active',
@@ -434,7 +436,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects updating archived personnel history even when the payload includes an active task id', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-archived',
@@ -495,7 +497,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects deleting a completion when its ICT task has been archived to preserve history', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('ict_tasks', [
 			{
 				id: 'task-archived',
@@ -546,7 +548,7 @@ describe('personnel ICT completions API', () => {
 	});
 
 	it('rejects deleting a completion when its person has been archived to preserve history', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('personnel', [
 			{
 				id: 'person-archived',

@@ -9,11 +9,6 @@ const entity = PersonnelIctCompletionEntity;
 const ACTION = POLICY_ACTION_CATALOG.criticalTasks.recordCompletion;
 const AUDIT_RESOURCE = 'personnel_ict_completion';
 
-interface IctTaskRow {
-	id: string;
-	archived_at: string | null;
-}
-
 interface CompletionReference {
 	id: string;
 	ict_task_id: string;
@@ -36,6 +31,7 @@ function writeContext(ctx: PersonnelIctCompletionWriteContext): CompletionWriteC
 		auth: ctx.auth,
 		audit: ctx.audit,
 		store: ctx.store,
+		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		personnelCriticalTasksRoster: ctx.personnelCriticalTasksRoster,
 		references: { people: new Map(), completions: new Map() }
 	};
@@ -81,9 +77,9 @@ async function requireActivePersonnel(ctx: CompletionWriteContext, personnelId: 
 }
 
 async function requireActiveIctTask(ctx: CompletionWriteContext, taskId: string) {
-	const task = await ctx.store.findOne<IctTaskRow>('ict_tasks', ctx.auth.orgId, { id: taskId });
+	const task = await ctx.criticalTaskLibrary.findReference(taskId);
 	if (!task) fail(400, 'Critical task not found');
-	if (task.archived_at) fail(400, 'Archived critical tasks cannot receive new completion entries');
+	if (task.archivedAt) fail(400, 'Archived critical tasks cannot receive new completion entries');
 }
 
 async function requireWritableCompletionHistory(
@@ -98,9 +94,9 @@ async function requireWritableCompletionHistory(
 	await requireCompletionPersonScope(ctx, person, existing.id);
 	if (person?.archivedAt) fail(400, `Archived personnel completion history cannot be ${operation}`);
 
-	const task = await ctx.store.findOne<IctTaskRow>('ict_tasks', ctx.auth.orgId, { id: existing.ict_task_id });
+	const task = await ctx.criticalTaskLibrary.findReference(existing.ict_task_id);
 	if (!task) fail(400, 'Critical task not found');
-	if (task.archived_at) fail(400, `Archived critical task history cannot be ${operation}`);
+	if (task.archivedAt) fail(400, `Archived critical task history cannot be ${operation}`);
 	if (!person) fail(400, 'Personnel record not found');
 }
 

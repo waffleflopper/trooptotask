@@ -10,7 +10,8 @@ import {
 } from '$features/calendar/index.server';
 import {
 	createSupabaseCriticalTasksExportReader,
-	createSupabaseCriticalTasksReadModelAdapter
+	createSupabaseCriticalTasksReadModelAdapter,
+	createSupabaseCriticalTaskLibraryPersistence
 } from '$features/critical-tasks/index.server';
 import { listFeedbackExportRows } from '$features/feedback/index.server';
 import {
@@ -451,6 +452,7 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
 	return {
 		detail: createRequestPersonnelDetailContext(request),
+		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		extendedInfo: createRequestPersonnelExtendedInfoContext(request),
 		artifacts: createRequestPersonnelArtifactsContext(request),
 		leaderNotes: createRequestPersonnelLeaderNoteContext(request),
@@ -617,6 +619,7 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 	return {
 		...createRequestDataContext(request),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase),
+		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};

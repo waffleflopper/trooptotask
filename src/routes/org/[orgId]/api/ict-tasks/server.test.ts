@@ -1,16 +1,15 @@
-import { createRequestDataContext } from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it } from 'vitest';
-import { IctTaskEntity } from '$features/critical-tasks/index.server';
-import { entityHandlers, handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
+import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
+import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { createTestContext } from '$lib/server/adapters/inMemory';
+import { _postConfig, _putConfig } from './+server';
 
 describe('ICT task JSON handlers', () => {
-	it('audits task library create and soft-archive updates through the public entity handlers', async () => {
-		const handlers = entityHandlers(IctTaskEntity, createRequestDataContext);
-		const ctx = createTestContext();
+	it('audits task library create and soft-archive updates through the public JSON handlers', async () => {
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 
 		const created = (await handleUseCaseRequest(
-			handlers._configs.POST!,
+			_postConfig,
 			ctx,
 			{
 				taskCode: '181-105-1001',
@@ -27,7 +26,7 @@ describe('ICT task JSON handlers', () => {
 		expect(created.category).toBe('Casualty Care');
 
 		await handleUseCaseRequest(
-			handlers._configs.PUT!,
+			_putConfig,
 			ctx,
 			{
 				id: created.id,

@@ -1,9 +1,8 @@
-import { createInMemoryCriticalTasksReadModelAdapter } from './inMemoryCriticalTasksReadModel.server';
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseDataStore } from '$lib/server/adapters/supabaseDataStore';
 import ExcelJS from 'exceljs';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './criticalTaskLibrary.test-support.server';
 import type { IctReportDashboard } from '$features/critical-tasks/utils/ictReports';
 import { buildCriticalTasksReportWorkbook } from '$features/critical-tasks/utils/ictWorkbookExport';
 import {
@@ -21,7 +20,6 @@ function toWorkbookBuffer(buffer: ExcelJS.Buffer): WorkbookLoadBuffer {
 describe('Critical Tasks report queries', () => {
 	it('builds the filtered dashboard payload inside the scoped group boundary', async () => {
 		const ctx = createTestContext({
-			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
 			auth: {
 				scopeSet: { kind: 'groups', groupIds: ['group-alpha'] },
 				role: 'member',
@@ -265,7 +263,7 @@ describe('Critical Tasks report queries', () => {
 	});
 
 	it('uses the organization expiring-soon window when calculating report dashboard risk', async () => {
-		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
+		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -329,7 +327,7 @@ describe('Critical Tasks report queries', () => {
 	});
 
 	it('builds the reports page model from one server-shaped report scope', async () => {
-		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
+		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -411,7 +409,7 @@ describe('Critical Tasks report queries', () => {
 	});
 
 	it('keeps observed active, retired, discovered, and unknown Personnel ranks in report scope filters', async () => {
-		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
+		const ctx = createTestContext();
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -447,7 +445,6 @@ describe('Critical Tasks report queries', () => {
 
 	it('builds expiration cliff buckets after scoped access and report filters are applied', async () => {
 		const ctx = createTestContext({
-			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
 			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
 		});
 		ctx.store.seed('organizations', [
@@ -722,7 +719,6 @@ function createWideHistoryContext(
 	options: { failLastHistory?: boolean; forbidHistory?: boolean } = {}
 ) {
 	const ctx = createTestContext({
-		criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter,
 		auth: {
 			scopeSet: { kind: 'groups', groupIds: ['alpha'] },
 			role: 'member',

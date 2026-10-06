@@ -1,8 +1,8 @@
 import type { Personnel } from '$features/personnel/contracts';
 import { buildCriticalTasksSoldierReadinessSummary } from '../utils/ictReadinessSnapshot';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
-import { listActiveIctTasksForReadiness } from './ictTaskRead.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
+import type { CriticalTaskLibraryPersistence } from '../contracts';
 
 interface CriticalTasksReadinessLane {
 	label: 'Critical Tasks';
@@ -11,8 +11,15 @@ interface CriticalTasksReadinessLane {
 	tone: 'good' | 'watch' | 'bad' | 'neutral';
 }
 interface CriticalTasksReadinessInput {
-	store: Parameters<typeof listActiveIctTasksForReadiness>[0]['store'] &
-		Parameters<typeof fetchCriticalTasksSettings>[0]['store'];
+	store: Parameters<typeof fetchCriticalTasksSettings>[0]['store'] & {
+		findMany<T>(
+			table: string,
+			orgId: string,
+			filters: Record<string, unknown>,
+			options: { select: string }
+		): Promise<T[]>;
+	};
+	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
 	orgId: string;
 	personnelId: string;
 	asOf?: string | Date;
@@ -26,6 +33,7 @@ function plural(count: number, singular: string): string {
 /** Critical Tasks owns its source lookups and projection; delivery retains admission. */
 export async function loadCriticalTasksReadinessLane({
 	store,
+	criticalTaskLibrary,
 	orgId,
 	personnelId,
 	asOf,
@@ -33,7 +41,7 @@ export async function loadCriticalTasksReadinessLane({
 }: CriticalTasksReadinessInput): Promise<CriticalTasksReadinessLane> {
 	const person = await loadAuthorizedPerson();
 	const [tasks, completionRows, settings] = await Promise.all([
-		listActiveIctTasksForReadiness({ store, orgId }),
+		criticalTaskLibrary.listCatalog(),
 		store.findMany<Record<string, unknown>>(
 			'personnel_ict_completions',
 			orgId,

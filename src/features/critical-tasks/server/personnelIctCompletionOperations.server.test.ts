@@ -5,13 +5,14 @@ import {
 	preparePersonnelIctCompletionDeletion
 } from './personnelIctCompletionOperations.server';
 import type { PersonnelIctCompletionWriteContext } from './personnelIctCompletionPorts.server';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './criticalTaskLibrary.test-support.server';
 
 function completionContext(ctx: ReturnType<typeof createTestContext>): PersonnelIctCompletionWriteContext {
 	return {
 		auth: ctx.auth,
 		audit: ctx.audit,
 		store: ctx.store,
+		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		personnelCriticalTasksRoster: ctx.personnelCriticalTasksRoster
 	};
 }

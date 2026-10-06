@@ -1,14 +1,19 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 	import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
+	import { buildTrainingMatrixWorkbook, type TrainingMatrixWorkbookInput } from '../utils/trainingMatrixWorkbook';
+	import { downloadBlob, workbookBlob } from '$lib/utils/workbook';
+	import { formatToday } from '$lib/utils/dates';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ButtonGroup from '$lib/components/ui/button-group';
 	import * as Empty from '$lib/components/ui/empty';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
@@ -20,6 +25,12 @@
 
 	let { ctx, modals }: { ctx: TrainingPageContext; modals: ModalRegistry } = $props();
 	const orgUrlSegment = $derived(ctx.orgUrlSegment ?? ctx.orgId);
+	type ExportState = { status: 'idle' } | { status: 'exporting' } | { status: 'error'; orgId: string; message: string };
+	let exportState = $state<ExportState>({ status: 'idle' });
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
 
 	const storesHydratedForOrg = $derived(
 		rosterStore.orgId === ctx.orgId &&
@@ -37,6 +48,46 @@
 			trainingViewsStore.loading ||
 			personnelTrainingsStore.loading
 	);
+	const exportDisabled = $derived(
+		loading ||
+			exportState.status === 'exporting' ||
+			ctx.filteredPersonnel.length === 0 ||
+			trainingTypesStore.items.length === 0
+	);
+	const exportError = $derived(
+		exportState.status === 'error' && exportState.orgId === ctx.orgId ? exportState.message : null
+	);
+
+	async function exportExcel(): Promise<void> {
+		if (disposed || !ctx.canViewTraining || exportDisabled) return;
+		const orgId = ctx.orgId;
+		const input: TrainingMatrixWorkbookInput = $state.snapshot({
+			personnel: ctx.filteredPersonnel,
+			trainingTypes: trainingTypesStore.items,
+			trainings: personnelTrainingsStore.items
+		});
+		function isSnapshotStillAuthorized(): boolean {
+			if (disposed || ctx.orgId !== orgId || !ctx.canViewTraining || !storesHydratedForOrg) return false;
+			const authorizedIds = new Set(ctx.personnel.map((person) => person.id));
+			return input.personnel.every((person) => authorizedIds.has(person.id));
+		}
+		exportState = { status: 'exporting' };
+		try {
+			const blob = await workbookBlob(await buildTrainingMatrixWorkbook(input));
+			if (!isSnapshotStillAuthorized()) return;
+			downloadBlob(blob, `training-matrix-${formatToday()}.xlsx`);
+		} catch {
+			if (isSnapshotStillAuthorized()) {
+				exportState = {
+					status: 'error',
+					orgId,
+					message: 'The Excel workbook could not be created. Try again.'
+				};
+			}
+		} finally {
+			if (exportState.status === 'exporting') exportState = { status: 'idle' };
+		}
+	}
 
 	const activeView = $derived(ctx.selectedViewId ? (trainingViewsStore.getById(ctx.selectedViewId) ?? null) : null);
 
@@ -53,7 +104,16 @@
 	];
 	const activeFilterCount = $derived((ctx.selectedViewId ? 1 : 0) + (ctx.selectedGroupId ? 1 : 0));
 	const toolbarActions = $derived.by<WorkspaceToolbarAction[]>(() => {
-		const actions: WorkspaceToolbarAction[] = [];
+		const actions: WorkspaceToolbarAction[] = [
+			{
+				id: 'export-excel',
+				label: exportState.status === 'exporting' ? 'Exporting...' : 'Export Excel',
+				onclick: () => void exportExcel(),
+				icon: 'download',
+				disabled: exportDisabled,
+				priority: 'normal'
+			}
+		];
 
 		if (ctx.canBulkImport) {
 			actions.push({
@@ -153,6 +213,18 @@
 					/>
 				</WorkspaceToolbar.Group>
 			</WorkspaceToolbar.Root>
+
+			{#if exportError}
+				<Alert.Root variant="destructive">
+					<Alert.Title>Unable to export the workbook</Alert.Title>
+					<Alert.Description>{exportError}</Alert.Description>
+					<Alert.Action>
+						<Button type="button" variant="destructive" size="xs" onclick={exportExcel} disabled={exportDisabled}>
+							Retry
+						</Button>
+					</Alert.Action>
+				</Alert.Root>
+			{/if}
 
 			{#if loading}
 				<div

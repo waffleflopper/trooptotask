@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
+import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
 import { createAssignmentType, deleteAssignmentType, updateAssignmentType } from './assignmentTypeOperations.server';
 
 const ID = '00000000-0000-4000-a000-000000000001';

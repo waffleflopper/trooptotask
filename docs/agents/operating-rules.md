@@ -14,6 +14,8 @@ Scope implementation searches to the owning source paths and affected callers, t
 
 Use [t2t-engineer](../../.agents/skills/t2t-engineer/SKILL.md) for engineering modes and bounded worker briefs, and [verify-trooptotask](../../.agents/skills/verify-trooptotask/SKILL.md) for live app proof and Feature Map maintenance. Keep one primary review path proportional to risk: equivalence and ownership for mechanical changes, deeper review for authorization, persistence or changed behavior. Unrelated style suggestions do not become acceptance gates. Stop review when consequential findings are resolved; do not target zero suggestions or retry unavailable services indefinitely.
 
+For owner-accepted non-blocking bugs or edge cases, use authorized tracker publication to file a concise GitHub issue with `chore` and the appropriate triage label. Put the likelihood of encountering it in normal work at the top, with a short rationale. Use a qualitative rating unless usage evidence supports a numerical probability. Preserve failed observations and link the deferred issue in the task record. Continue repairing supported-workflow failures and verification blockers within the active scope.
+
 ## Shared skills and project workflows
 
 Use the shared `pstack-for-codex` plugin from [Robert's fork](https://github.com/waffleflopper/pstack-for-codex) for reusable methods. Resolve its skills through the installed catalog and read their resources relative to the owning skill; do not hardcode a user-home cache path or duplicate the package into this repository. Read only the relevant leaf skills or playbook. If a method is unavailable, report that limit and continue work whose requirements can still be met with available tools.

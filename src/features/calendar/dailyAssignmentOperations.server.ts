@@ -1,5 +1,5 @@
 import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
-import { DailyAssignmentEntity } from './dailyAssignmentEntity.server';
+import { dailyAssignmentSlotInput } from './calendarPersistenceMapping.server';
 import { listAssignmentTypeTargets } from './assignmentTypeRead.server';
 import {
 	CALENDAR_POLICY_ACTIONS,
@@ -7,7 +7,6 @@ import {
 	requireCalendarPolicy
 } from '$lib/server/core/useCases/calendarPolicy';
 
-const entity = DailyAssignmentEntity;
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
 
@@ -17,7 +16,7 @@ function fail(status: number, message: string): never {
 
 type AssignmentTarget = 'personnel' | 'group';
 type AssignmentPolicyRecord = { assignmentTypeId: string; assigneeId: string };
-type AssignmentSlotFilter = { date: string; assignment_type_id: string };
+type AssignmentSlot = { date: string; assignmentTypeId: string };
 
 export type DailyAssignmentSlotRecord = {
 	date: string;
@@ -39,7 +38,7 @@ export async function replaceDailyAssignmentDay(
 	const records = input.records.map((record) => ({ ...record, date: input.date }));
 
 	await requireCalendarAssignmentPolicy(ctx, records);
-	await requireExistingAssignmentAccess(ctx, { date: input.date });
+	await requireExistingAssignmentAccess(ctx, input.date);
 	const inserted = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [input.date], records);
 
 	ctx.audit.log({
@@ -55,15 +54,11 @@ export async function setDailyAssignmentSlot(
 	ctx: CalendarWritePorts,
 	input: Record<string, unknown>
 ): Promise<unknown> {
-	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
-	const record = toDailyAssignmentSlotRecord(validated);
+	const record = dailyAssignmentSlotInput.parse(input);
 	if (!record.assigneeId.trim()) fail(400, 'Assignee ID is required to set an assignment');
 
 	await requireCalendarAssignmentPolicy(ctx, [record]);
-	await requireExistingAssignmentAccess(ctx, {
-		date: record.date,
-		assignment_type_id: record.assignmentTypeId
-	});
+	await requireExistingAssignmentAccess(ctx, record.date, record.assignmentTypeId);
 	const [inserted] = await ctx.calendarAssignmentReplacement.replace(ctx.auth.orgId, [], [record]);
 	if (!inserted) fail(500, 'Daily assignment replacement returned no row');
 	ctx.audit.log({
@@ -83,10 +78,7 @@ export async function clearDailyAssignmentSlot(
 	ctx: CalendarWritePorts,
 	input: { date: string; assignmentTypeId: string }
 ): Promise<void> {
-	await requireExistingAssignmentAccess(ctx, {
-		date: input.date,
-		assignment_type_id: input.assignmentTypeId
-	});
+	await requireExistingAssignmentAccess(ctx, input.date, input.assignmentTypeId);
 
 	await ctx.calendarAssignmentReplacement.replace(
 		ctx.auth.orgId,
@@ -137,7 +129,7 @@ export async function replaceDailyAssignmentSlotsBatch(
 		...new Map(
 			records.map((record) => [
 				toSlotKey(record.date, record.assignmentTypeId),
-				{ date: record.date, assignment_type_id: record.assignmentTypeId }
+				{ date: record.date, assignmentTypeId: record.assignmentTypeId }
 			])
 		).values()
 	];
@@ -156,14 +148,6 @@ export async function replaceDailyAssignmentSlotsBatch(
 	return { inserted, cleared: clears.length };
 }
 
-function toDailyAssignmentSlotRecord(record: Record<string, unknown>): DailyAssignmentSlotRecord {
-	return {
-		date: record.date as string,
-		assignmentTypeId: record.assignmentTypeId as string,
-		assigneeId: record.assigneeId as string
-	};
-}
-
 async function getAssignmentTargets(
 	ctx: CalendarWritePorts,
 	assignmentTypeIds: string[]
@@ -175,11 +159,10 @@ async function getAssignmentTargets(
 		return targets;
 	}
 
-	const rows = await listAssignmentTypeTargets(ctx.store, ctx.auth.orgId, uniqueIds);
+	const rows = await listAssignmentTypeTargets(ctx.calendarCatalogs, uniqueIds);
 
 	for (const row of rows) {
-		if (typeof row.id !== 'string') continue;
-		targets.set(row.id, row.assign_to === 'group' ? 'group' : 'personnel');
+		targets.set(row.id, row.assignTo);
 	}
 
 	return targets;
@@ -187,58 +170,31 @@ async function getAssignmentTargets(
 
 async function requireExistingAssignmentAccess(
 	ctx: CalendarWritePorts,
-	filters: Record<string, unknown>
+	date: string,
+	assignmentTypeId?: string
 ): Promise<void> {
-	const lookupStore = ctx.rawStore ?? ctx.store;
-	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, filters, {
-		select: 'assignee_id, assignment_type_id'
-	});
+	const existingRows = await ctx.calendarAssignments.listDayReferences(date, assignmentTypeId);
 	await requireCalendarAssignmentRowsPolicy(ctx, existingRows);
 }
 
 async function requireExistingAssignmentSlotPolicy(
 	ctx: CalendarWritePorts,
-	slotFilters: AssignmentSlotFilter[]
+	slotFilters: AssignmentSlot[]
 ): Promise<Set<string>> {
 	if (slotFilters.length === 0) return new Set();
 
-	const lookupStore = ctx.rawStore ?? ctx.store;
-	const affectedSlotKeys = new Set(slotFilters.map((filter) => toSlotKey(filter.date, filter.assignment_type_id)));
-	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, undefined, {
-		inFilters: {
-			date: [...new Set(slotFilters.map((filter) => filter.date))],
-			assignment_type_id: [...new Set(slotFilters.map((filter) => filter.assignment_type_id))]
-		},
-		select: 'date, assignment_type_id, assignee_id'
-	});
-	const affectedRows = existingRows.filter(
-		(row) =>
-			typeof row.date === 'string' &&
-			typeof row.assignment_type_id === 'string' &&
-			affectedSlotKeys.has(toSlotKey(row.date, row.assignment_type_id))
-	);
+	const affectedRows = await ctx.calendarAssignments.listSlotReferences(slotFilters);
 	if (affectedRows.length === 0) return new Set();
 
 	await requireCalendarAssignmentRowsPolicy(ctx, affectedRows);
-	return new Set(affectedRows.map((row) => toSlotKey(String(row.date), String(row.assignment_type_id))));
+	return new Set(affectedRows.map((row) => toSlotKey(row.date, row.assignmentTypeId)));
 }
 
 async function requireCalendarAssignmentRowsPolicy(
 	ctx: CalendarWritePorts,
-	rows: Record<string, unknown>[]
+	rows: AssignmentPolicyRecord[]
 ): Promise<void> {
-	await requireCalendarAssignmentPolicy(
-		ctx,
-		rows
-			.map((row) => ({
-				assignmentTypeId: row.assignment_type_id,
-				assigneeId: row.assignee_id
-			}))
-			.filter(
-				(record): record is AssignmentPolicyRecord =>
-					typeof record.assignmentTypeId === 'string' && typeof record.assigneeId === 'string'
-			)
-	);
+	await requireCalendarAssignmentPolicy(ctx, rows);
 }
 
 async function requireCalendarAssignmentPolicy(

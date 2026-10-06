@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import { createInMemoryCalendarCatalogPersistence } from './inMemoryCalendarPersistence.server';
 import { listStatusTypeLabels, listStatusTypes } from './statusTypeRead.server';
 
 describe('Calendar status-type reads', () => {
@@ -11,13 +12,20 @@ describe('Calendar status-type reads', () => {
 			{ id: 'first', organization_id: 'alpha', name: 'Leave', color: '#333', text_color: '#000', sort_order: 1 }
 		]);
 
-		expect((await listStatusTypes(store, 'alpha')).map(({ id, name, textColor }) => ({ id, name, textColor }))).toEqual(
-			[
-				{ id: 'first', name: 'Leave', textColor: '#000' },
-				{ id: 'second', name: 'TDY', textColor: '#fff' }
-			]
-		);
-		expect((await listStatusTypeLabels(store, 'alpha')).map(({ id, name }) => ({ id, name }))).toEqual([
+		expect(
+			(await listStatusTypes(createInMemoryCalendarCatalogPersistence(store, 'alpha'))).map(
+				({ id, name, textColor }) => ({ id, name, textColor })
+			)
+		).toEqual([
+			{ id: 'first', name: 'Leave', textColor: '#000' },
+			{ id: 'second', name: 'TDY', textColor: '#fff' }
+		]);
+		expect(
+			(await listStatusTypeLabels(createInMemoryCalendarCatalogPersistence(store, 'alpha'))).map(({ id, name }) => ({
+				id,
+				name
+			}))
+		).toEqual([
 			{ id: 'second', name: 'TDY' },
 			{ id: 'first', name: 'Leave' }
 		]);

@@ -29,6 +29,9 @@ export {
 export { createCalendarSupportReader } from './platformCatalogCounts.server';
 export { listDailyAssignments } from './dailyAssignmentRead.server';
 export { createSupabaseCalendarAssignmentReplacementPort } from './dailyAssignmentPersistence.server';
+export { createSupabaseCalendarCatalogPersistence } from './calendarCatalogPersistence.server';
+export { createSupabaseCalendarAvailabilityPersistence } from './calendarAvailabilityPersistence.server';
+export { createSupabaseCalendarAssignmentReader } from './calendarAssignmentReader.server';
 export {
 	setDailyAssignmentSlot,
 	clearDailyAssignmentSlot,

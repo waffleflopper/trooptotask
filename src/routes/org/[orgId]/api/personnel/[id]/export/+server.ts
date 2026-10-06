@@ -21,7 +21,7 @@ export const _getConfig: RouteConfig<
 			ctx,
 			input,
 			(personnelId) => listPersonnelAvailabilityHistory(ctx, personnelId),
-			() => listStatusTypeLabels(ctx.rawStore, ctx.auth.orgId),
+			() => listStatusTypeLabels(ctx.calendarCatalogs),
 			() => listTrainingTypeLabels(ctx.rawStore, ctx.auth.orgId),
 			(personnelId) => listPersonnelTrainingExportRows(ctx.rawStore, ctx.auth.orgId, personnelId)
 		),

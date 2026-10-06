@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createInMemoryDataStore, createTestContext } from '$lib/server/adapters/inMemory';
+import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './calendarPersistence.test-support.server';
 import { fetchCalendarReportData } from './calendarReportQuery.server';
 
 const ORG = 'test-org';

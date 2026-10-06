@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import {
 	clearDailyAssignmentSlot,
 	replaceDailyAssignmentDay,

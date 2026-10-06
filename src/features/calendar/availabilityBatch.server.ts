@@ -7,7 +7,6 @@
  * Single-record availability uses Calendar-owned operations behind the route.
  */
 import { error } from '@sveltejs/kit';
-import { AvailabilityEntryEntity } from './availabilityEntity.server';
 import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPersonnelPolicy,
@@ -15,7 +14,6 @@ import {
 	type CalendarAvailabilityRemovalPorts
 } from '$lib/server/core/useCases/calendarPolicy';
 
-const entity = AvailabilityEntryEntity;
 const AUDIT_RESOURCE = 'availability';
 const MAX_BATCH_SIZE = 500;
 
@@ -53,9 +51,7 @@ export async function createAvailabilityBatch(
 		throw error(404, 'Person not found');
 	}
 
-	// Transform and bulk insert
-	const rows = records.map((r) => entity.toDbInsert(r, ctx.auth.orgId));
-	const inserted = await ctx.store.insertMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, rows);
+	const inserted = await ctx.calendarAvailability.createMany(records);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_created`,
@@ -63,7 +59,7 @@ export async function createAvailabilityBatch(
 		details: { count: inserted.length }
 	});
 
-	return { inserted: inserted.map((row) => entity.fromDb(row)) };
+	return { inserted };
 }
 
 interface DeleteAvailabilityBatchInput {

@@ -8,6 +8,56 @@ afterEach(() => {
 });
 
 describe('owned request submission', () => {
+	it('does not dispatch an approval request from a departed editor', async () => {
+		const request = vi.fn();
+		vi.stubGlobal('fetch', request);
+
+		expect(
+			await submitDeletionRequest(
+				'org-a',
+				'rating_scheme_entry',
+				'entry',
+				'Saved evaluation',
+				'/org/org-a/evals',
+				() => false
+			)
+		).toBe(false);
+		expect(request).not.toHaveBeenCalled();
+		expect(toastStore.info).not.toHaveBeenCalled();
+		expect(toastStore.error).not.toHaveBeenCalled();
+	});
+
+	it.each([200, 409, 503, 'transport'] as const)(
+		'keeps a dispatched approval %s settlement quiet after its editor departs',
+		async (outcome) => {
+			let resolveRequest!: (response: Response) => void;
+			let rejectRequest!: (reason: Error) => void;
+			const response = new Promise<Response>((resolve, reject) => {
+				resolveRequest = resolve;
+				rejectRequest = reject;
+			});
+			const request = vi.fn().mockReturnValue(response);
+			vi.stubGlobal('fetch', request);
+			let current = true;
+			const result = submitDeletionRequest(
+				'org-a',
+				'rating_scheme_entry',
+				'entry',
+				'Saved evaluation',
+				'/org/org-a/evals',
+				() => current
+			);
+			expect(request).toHaveBeenCalledOnce();
+			current = false;
+			if (outcome === 'transport') rejectRequest(new TypeError('Network unavailable'));
+			else resolveRequest(new Response(null, { status: outcome }));
+
+			expect(await result).toBe(false);
+			expect(toastStore.info).not.toHaveBeenCalled();
+			expect(toastStore.error).not.toHaveBeenCalled();
+		}
+	);
+
 	it.each([200, 409])(
 		'acknowledges %i and preserves source intent without submitting actor metadata',
 		async (status) => {

@@ -1,0 +1,51 @@
+# D28 Calendar persistence baseline and canonical Bulk Remove repair
+
+This deliverable establishes the affected Calendar baseline and repairs its blocking Bulk Remove identity defect before changing persistence. It belongs to #1376, Phase 08, task 08-M15-02. Catalog, availability and assignment persistence, their consumers and final generic-facade removal remain in D28. No migration, SQL, provider permission or remote database change is included.
+
+## Outcome and source
+
+The broader unchanged baseline exercises Calendar ranges, catalogs, closures, availability, assignment planning, Quick Fill, Add/import, scoped reads and denials, reports, Dashboard and Personnel consumers. It exposes a real Remove review GET to `/org/undefined/api/calendar-range`, HTTP 404. Its whole-entry warning, Back and confirmed-removal cases are blocked, with no pre-confirm effects. This historical run remains ISSUES.
+
+The established shell owns canonical Organization identity. Frozen repair `4ebd0c58d7bdc57830056a2608d032526941ce0b`, tree `dec7a03a7c91480fc37e3eb0a956d4b5c2f52e70`, changes only two route projections to `data.shell.org.id/name`. The real route regression uses a separate navigation alias, streamed Calendar data and a literal saved partial overlap. The unchanged route fails the canonical request assertion; the repaired route passes. Existing active-instance/Organization guards stay byte-identical.
+
+Selected route, Remove, range, hydration, layout and Assignment tests pass seven files / 19 tests. Root's later semantic warning-assertion refinement passes its one route test separately. The initial missing navigation mock executes zero tests; the first broad attempt's temporary transform quota error passes only three files / eight tests. Both remain failed preparation attempts, superseded by their precise completed reruns. Scoped lint/format and whitespace pass. The owned production launch proves the frozen repaired app builds and starts. Complete published-head CI remains required.
+
+## Three separate closed runs
+
+The historical broad run uses `6adc6bd6`, candidate `1d214ff0f94fb0c3324ed6235a43496e0644099c0cf3b60740b541a5c1b26578`, 5,078 inputs. Both owned sessions close after matching doctors/cleanup. Complete independent review reads all 915 captures, views 20 PNGs, decodes all seven genuine workbooks and verifies 925 literal comparisons, including 363 spreadsheet cells and every preserved Git input. Standards GO accepts truthful ISSUES evidence; covered observations receive scoped Spec GO. The original Remove defect remains NO-GO. Controlled catalog deletion/reset and fresh-UUID restart preserve their separately identified effects, without original-timestamp or SQL/transaction credit.
+
+The first repaired segment at `4ebd0c58`, candidate `c348c7ead61139f923a0f99031bbc05bc80141bdf2c4f37f2bf695351980a9aa`, 5,086 inputs, proves canonical review and Back plus a synthetic range failure. Its owned supervisor becomes unavailable. Failed A readback/restoration captures remain empty; the later doctor is BLOCKED. Complete owned disposal and frozen-input identity pass, but there is no final healthy doctor or completed retry/lifetime acceptance. The cause is unknown. This segment remains INCOMPLETE.
+
+The separate fresh recovery uses the same frozen revision/tree/candidate, session `ad5cffdd-1d95-47b7-a420-6718b916d3dd`, Chromium 152.0.7977.82 and owned origin `http://127.0.0.1:40689`. It passes canonical real 200 review, saved whole-entry warning, Back/no effects, matched synthetic 503 and restored real-200 retry. Confirmed removal consumes only a journaled temporary overlap; reload and a second review prove absence while every original A6/B1 availability field remains exact. Native Alpha/empty/view gates and separately labeled authenticated range reads preserve scope.
+
+The fresh native Organization menu admits B while a real A range 200 remains held. B Calendar September contains only its Foreign status/closure/duty facts before release. Release leaves those facts and all original rows exact, with continuous feedback empty and no stale review. All twelve original domain A/B row sets and temporary-overlap absence compare before seed cleanup. Every hook restores successfully. Final same-candidate doctor and complete cleanup pass; the owned directory, four recorded processes and origin are absent. All 5,086 inputs remain exact. A preserved shell-quoting failure has no HTTP proof credit; the corrected command supplies the actual scoped 200.
+
+## Durable packages
+
+Each archive preserves original captures under `raw/`, their relative names and exact bytes. Separate `acceptance/` inventories, scan records and selected report/checker/source supplements are offline metadata. No authentication root or actual credential requires redaction. The native schema's static header example remains exact. Fresh root expansion verifies unique safe regular members, the exact inventory set and every expanded size/hash against staging and original captures.
+
+| Archive                                                              | Native payloads | Governed payloads | PNG / XLSX | Archive bytes |
+| -------------------------------------------------------------------- | --------------: | ----------------: | ---------: | ------------: |
+| [Historical baseline](d28-calendar-persistence-baseline.tar.gz)      |             915 |               923 |     20 / 7 |     4,290,206 |
+| [Incomplete repaired segment](d28-calendar-remove-incomplete.tar.gz) |              53 |                59 |      2 / 0 |       540,724 |
+| [Fresh repair recovery](d28-calendar-remove-recovery.tar.gz)         |             156 |               167 |      4 / 0 |       807,552 |
+
+The incomplete/fresh `raw/` directories additionally retain their existing inventory metadata, so their raw member counts are 54/157. Each new archive has one additional root `inventory.json`, excluded only from its own entries. Total governed payloads are 1,149; native payloads remain 1,124. Metadata is not an app observation or test.
+
+Archive SHA-256 values, in table order, are `962fb76734eb31f5356a3f7fe5c3a7ce92b64fbcef25daa6cc20e93b5251a7c5`, `804e651e08ba4a349e4ff5c0934af787830c0fc9d126d78a2e15c476edf46a90` and `6c59010dd0b897bb7c2ee92a8fb45ffcb3de4296cb542cbd3cefbc7f168725c8`. Inventory hashes are `feb4c1eef7ede7a3aeae91cce61b0d407e248e610ba4ef316c06d30d5fd0982c`, `954c07f9ffe46624002734a9aa0aa5ff7fdf103431d9589d62a559bb2d28c70b` and `b95ba035000796f11139152f85a3bdf8542f9506c5abe3fcf0c5869c73f36975`. Extract each into fresh ignored scratch with `tar -xzf ARCHIVE -C SCRATCH`; compare all inventory paths, byte counts and SHA-256 values, plus inventory's archive-protected hash. Expanded payload bytes are 18,557,530 / 1,582,473 / 2,490,831 respectively.
+
+## Acceptance and remainder
+
+Independent source/comment review accepts the exact three-path repair with zero actionable findings. Complete independent repaired-source/native acceptance passes 163 request, effect and lifetime comparisons plus 25 source/fixture comparisons, all six repair-segment PNGs and every preserved input. Standards GO and scoped Spec GO cover canonical identity and the named retained baseline. Complete independent expansion passes 4,679 identity comparisons across all three archives, binding every payload to the separately reviewed original bytes. All 26 PNGs and seven real workbooks are reviewed under their actual historical or repair scopes. These comparisons are evidence checks, not application tests or independent live execution. Historical ISSUES and predecessor INCOMPLETE remain distinct. Packaging after closed runs adds evidence files; it does not relabel the tested source or imply another live execution.
+
+This verification and blocking repair is an independently useful result before the complete Calendar persistence concern. No related Calendar state-handling defect is excluded from this repair. Exact published-head CI/build, completed bots without actionable feedback and verified integration remain before authorized non-migration merge. #1376 stays open. The accepted prior Calendar bulk retry repair and its own archives remain unchanged. No fresh SQL/RLS, atomicity, provider outage, independent live execution, performance timing or whole-D28 acceptance is claimed.
+
+## Integrated acceptance
+
+[#1549](https://github.com/waffleflopper/trooptotask/pull/1549) merges accepted head `e3598d5c3df59d9c3e73b36815f6a950ba58dc8e` at `1a59d77efd983c4d4c47a230d0edffd4c368719c`, `2026-10-06T07:08:02Z`. The accepted and merged whole trees both equal `e84cb93e442b5f19c9dfd76048a31a5ca03479ef`; freshly fetched default contains that merge. Every one of the ten accepted files remains byte-identical to complete independent acceptance.
+
+Exact-head [CI run 37426477568](https://github.com/waffleflopper/trooptotask/actions/runs/37426477568) passes documentation/whitespace, runner safety, format, lint, governance, types, 712 suites / 7,136 tests and the production build/server-only boundary. Types have zero errors and warnings. Lint retains three warnings; governance retains 159 findings with zero new findings. Database contracts and optional Claude review are skipped and earn no SQL or additional review credit. CI uses its recorded unreachable synthetic environment, separately from the native fixture.
+
+Complete CLI review covers all seven text paths with zero findings and exit zero. The three excluded archives retain complete independent expanded acceptance. Hosted review `5424904047` approves the exact head; [completed report](https://github.com/waffleflopper/trooptotask/pull/1549#issuecomment-6011070367) covers the same base/head and seven text paths with no actionable feedback. All paginated reviews/comments and the exhausted review-thread page contain zero unresolved findings. Vercel succeeds. The head-conditional merge does not override a failed gate; the watch is stopped.
+
+This integrates the affected baseline and blocking canonical identity repair. Calendar's complete private persistence concern, the other D28 domains/facades and whole-issue integrated acceptance remain. #1376 is verified OPEN after merge. No migration or remote database operation is introduced.

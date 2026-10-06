@@ -6,7 +6,11 @@ import { generateTrainingReportWorkbookExport } from '$features/training/index.s
 import { workbookBufferResponse } from '$lib/utils/workbook';
 import { PRIVATE_REPORT_HEADERS, parseTrainingBriefingRequest } from '../reportInput';
 
-export const _getConfig: RouteConfig<TrainingBriefingReportInput, TrainingReportWorkbookExport, ReturnType<typeof createRequestTrainingBriefingContext>> = {
+export const _getConfig: RouteConfig<
+	TrainingBriefingReportInput,
+	TrainingReportWorkbookExport,
+	ReturnType<typeof createRequestTrainingBriefingContext>
+> = {
 	context: createRequestTrainingBriefingContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },

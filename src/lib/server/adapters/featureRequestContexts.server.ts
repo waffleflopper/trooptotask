@@ -61,8 +61,7 @@ import type {
 
 export function createRequestTrainingRosterContext(
 	request: AdmittedOrganizationRequest
-): Parameters<typeof createTrainingRecord>[0] &
-	Parameters<typeof fetchTrainingWorkspaceData>[0] {
+): Parameters<typeof createTrainingRecord>[0] & Parameters<typeof fetchTrainingWorkspaceData>[0] {
 	return {
 		...createRequestWriteContext(request),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
@@ -73,7 +72,8 @@ export function createRequestTrainingBriefingContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchTrainingBriefingReport>[0] {
 	return {
-		...createRequestTrainingRosterContext(request),
+		...createRequestWriteContext(request),
+		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};
 }

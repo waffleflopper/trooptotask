@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 import { _createTrainingLayoutLoad } from './+layout.server';
 
 type TrainingLoadEvent = Parameters<ReturnType<typeof _createTrainingLayoutLoad>>[0];

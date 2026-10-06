@@ -6,7 +6,11 @@ import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { fetchTrainingBriefingReport } from '$features/training/index.server';
 import { PRIVATE_REPORT_HEADERS, parseTrainingBriefingRequest } from './reportInput';
 
-export const _getConfig: RouteConfig<TrainingBriefingReportInput, TrainingBriefingReportData, ReturnType<typeof createRequestTrainingBriefingContext>> = {
+export const _getConfig: RouteConfig<
+	TrainingBriefingReportInput,
+	TrainingBriefingReportData,
+	ReturnType<typeof createRequestTrainingBriefingContext>
+> = {
 	context: createRequestTrainingBriefingContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },

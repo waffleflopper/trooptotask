@@ -8,7 +8,9 @@ describe('/api/organization/settings', () => {
 		const ctx = createTestContext();
 		ctx.rawStore.seed('organizations', [{ id: ctx.auth.orgId, training_readiness_goal_percent: 90 }]);
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { trainingReadinessGoalPercent: 85 }, () => ctx)).resolves.toEqual({
+		await expect(
+			handleUseCaseRequest(_postConfig, ctx, { trainingReadinessGoalPercent: 85 }, () => ctx)
+		).resolves.toEqual({
 			success: true
 		});
 		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
@@ -37,7 +39,9 @@ describe('/api/organization/settings', () => {
 
 			memberCtx.rawStore.seed('organizations', [{ id: memberCtx.auth.orgId, training_readiness_goal_percent: 90 }]);
 
-			await expect(handleUseCaseRequest(_postConfig, memberCtx, body, () => memberCtx)).rejects.toMatchObject({ status: 403 });
+			await expect(handleUseCaseRequest(_postConfig, memberCtx, body, () => memberCtx)).rejects.toMatchObject({
+				status: 403
+			});
 			expect(await memberCtx.rawStore.findOne('organizations', memberCtx.auth.orgId, {})).toMatchObject({
 				training_readiness_goal_percent: 90
 			});

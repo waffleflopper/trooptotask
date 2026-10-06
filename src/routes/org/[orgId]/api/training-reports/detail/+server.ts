@@ -10,7 +10,11 @@ import {
 	trainingBriefingDetailInput
 } from '../reportInput';
 
-export const _getDetailConfig: RouteConfig<TrainingBriefingDetailInput, TrainingBriefingDetail, ReturnType<typeof createRequestTrainingBriefingContext>> = {
+export const _getDetailConfig: RouteConfig<
+	TrainingBriefingDetailInput,
+	TrainingBriefingDetail,
+	ReturnType<typeof createRequestTrainingBriefingContext>
+> = {
 	context: createRequestTrainingBriefingContext,
 	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 	policyResource: { kind: 'unscoped' },

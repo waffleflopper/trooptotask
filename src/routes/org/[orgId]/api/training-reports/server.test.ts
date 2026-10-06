@@ -170,7 +170,9 @@ describe('Training report API access', () => {
 				auth: { role: 'member', isPrivileged: false, capabilityMap: NO_TRAINING, scopeSet: { kind: 'organization' } }
 			});
 
-			await expect(request(config as RouteConfig<unknown, unknown>, query, ctx)).rejects.toMatchObject({
+			await expect(
+				request(config as RouteConfig<unknown, unknown, Parameters<typeof _getConfig.fn>[0]>, query, ctx)
+			).rejects.toMatchObject({
 				status: 403
 			});
 			expect(ctx.auditPort.events).toEqual([

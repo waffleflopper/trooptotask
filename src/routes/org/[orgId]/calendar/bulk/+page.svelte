@@ -57,8 +57,8 @@
 	});
 
 	const pageData = $derived.by(() => ({
-		orgId: resolvedData.orgId,
-		orgName: resolvedData.orgName,
+		orgId: data.shell.org.id,
+		orgName: data.shell.org.name,
 		calendar: resolvedData.calendar ? { data: resolvedData.calendar.data } : undefined
 	}));
 </script>

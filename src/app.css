@@ -350,6 +350,35 @@ input[type='checkbox']:focus-visible {
 @page training-brief {
 	size: landscape;
 	margin: 12mm;
+	background: oklch(100% 0 0);
+
+	@bottom-left {
+		content: 'TroopToTask · printed from the loaded report · Excel holds every affected requirement';
+		font:
+			8.5px/12px 'IBM Plex Mono',
+			monospace;
+		letter-spacing: 0.04em;
+		color: oklch(44.4% 0.011 73.639);
+	}
+
+	@bottom-right {
+		content: 'Page ' counter(page) ' of ' counter(pages);
+		font:
+			8.5px/12px 'IBM Plex Mono',
+			monospace;
+		letter-spacing: 0.04em;
+		color: oklch(14.7% 0.004 49.25);
+	}
+}
+
+[data-print-brief='training'] {
+	--training-print-goal: #eef6ef;
+	--training-print-near: #fbf2dd;
+	--training-print-below: #f8e2c6;
+	--training-print-far: #f5cfc8;
+	--training-print-critical: #e9a79c;
+	--training-print-bar: #b9b5af;
+	--training-print-band: #f4f4f2;
 }
 
 @media print {
@@ -382,6 +411,19 @@ input[type='checkbox']:focus-visible {
 		--chart-3: oklch(58.8% 0.158 241.966);
 		--chart-4: oklch(57.7% 0.245 27.325);
 		--chart-5: oklch(55.3% 0.013 58.071);
+		--sidebar: oklch(100% 0 0);
+		--sidebar-foreground: oklch(14.7% 0.004 49.25);
+		--sidebar-accent: oklch(97% 0.001 106.424);
+		--sidebar-accent-foreground: oklch(21.6% 0.006 56.043);
+		--sidebar-border: oklch(92.3% 0.003 48.717);
+	}
+
+	body:has([data-print-report='training']),
+	body:has([data-print-report='training']) [data-slot='sidebar-wrapper'],
+	body:has([data-print-report='training']) [data-slot='sidebar-inset'],
+	body:has([data-print-report='training']) #main-content {
+		background: oklch(100% 0 0) !important;
+		color: oklch(14.7% 0.004 49.25);
 	}
 
 	body:has([data-print-report='training']) [data-print-chrome],
@@ -410,34 +452,11 @@ input[type='checkbox']:focus-visible {
 		print-color-adjust: exact;
 	}
 
-	[data-print-report='training'] [data-print-section],
-	[data-print-report='training'] tr {
+	[data-print-report='training']:has(> [data-print-brief='training']) > :not([data-print-brief='training']) {
+		display: none !important;
+	}
+
+	[data-print-brief='training'] tr {
 		break-inside: avoid;
-	}
-
-	[data-print-report='training'] [data-slot='training-status-cell'] > span {
-		white-space: normal;
-	}
-
-	[data-print-report='training'] [data-slot='training-status-cell'][data-status='warning-orange'] {
-		color: var(--color-orange-700);
-	}
-
-	[data-print-report='training'] [data-slot='data-table'],
-	[data-print-report='training'] [data-slot='table-container'] {
-		max-height: none;
-		overflow: visible;
-	}
-
-	[data-print-report='training'] [data-slot='data-table-pagination'] {
-		display: none;
-	}
-
-	[data-print-report='training'] [data-slot='alert-action'] {
-		display: none;
-	}
-
-	[data-print-report='training'] [data-slot='alert']:has(> [data-slot='alert-action']) {
-		padding-right: calc(var(--spacing) * 2.5);
 	}
 }

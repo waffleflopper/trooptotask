@@ -8,7 +8,7 @@ import {
 } from '$lib/access/policyEvaluator';
 import type { DataStore } from '$lib/server/core/ports';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
-import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
+import type { CalendarAssignmentReplacementPort, CalendarAvailabilityRemovalPort } from '$features/calendar/contracts';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { requirePersonnelCalendarRoster } from './calendarScope';
 import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
@@ -39,6 +39,11 @@ export interface CalendarAvailabilityPorts extends CalendarCatalogPorts {
 
 export interface CalendarWritePorts extends CalendarAvailabilityPorts {
 	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
+}
+
+export interface CalendarAvailabilityRemovalPorts extends CalendarPersonnelPolicyPorts {
+	audit: AuditPort;
+	availabilityRemoval: CalendarAvailabilityRemovalPort;
 }
 
 export const CALENDAR_POLICY_ACTIONS = POLICY_ACTION_CATALOG.calendar;

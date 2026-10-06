@@ -11,7 +11,8 @@ import { AvailabilityEntryEntity } from './availabilityEntity.server';
 import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPersonnelPolicy,
-	type CalendarAvailabilityPorts
+	type CalendarAvailabilityPorts,
+	type CalendarAvailabilityRemovalPorts
 } from '$lib/server/core/useCases/calendarPolicy';
 
 const entity = AvailabilityEntryEntity;
@@ -70,7 +71,7 @@ interface DeleteAvailabilityBatchInput {
 }
 
 export async function deleteAvailabilityBatch(
-	ctx: CalendarAvailabilityPorts,
+	ctx: CalendarAvailabilityRemovalPorts,
 	input: DeleteAvailabilityBatchInput
 ): Promise<{ deleted: number }> {
 	const { ids } = input;
@@ -83,20 +84,10 @@ export async function deleteAvailabilityBatch(
 		throw error(400, `Maximum ${MAX_BATCH_SIZE} ids per batch`);
 	}
 
-	// Enforce group scope — look up personnel IDs from entries being deleted
-	const lookupStore = ctx.rawStore ?? ctx.store;
-	const existingRows = await lookupStore.findMany<Record<string, unknown>>(entity.table, ctx.auth.orgId, undefined, {
-		inFilters: { id: ids },
-		select: 'personnel_id'
-	});
-	await requireCalendarPersonnelPolicy(
-		ctx,
-		CALENDAR_POLICY_ACTIONS.manageAvailability,
-		existingRows.map((row) => row.personnel_id).filter((id): id is string => typeof id === 'string')
-	);
+	const personnelIds = await ctx.availabilityRemoval.findPersonnelIds(ids);
+	await requireCalendarPersonnelPolicy(ctx, CALENDAR_POLICY_ACTIONS.manageAvailability, personnelIds);
 
-	// Batch delete all entries in one round-trip
-	const deletedCount = await ctx.store.deleteManyByIds(entity.table, ctx.auth.orgId, ids);
+	const deletedCount = await ctx.availabilityRemoval.deleteIds(ids);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.bulk_deleted`,

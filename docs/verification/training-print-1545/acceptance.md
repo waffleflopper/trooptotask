@@ -1,6 +1,6 @@
 # Training print acceptance for issue 1545
 
-The final native run on `873c9fa1` records successful inspection of every captured PDF page and the complete workbook. It supersedes the intermediate pagination and backgrounds-off failures described below. Packaging integrity passes. **Independent acceptance and exact final-head CI remain pending.** The parent owns review, integration, PR publication, and merge.
+Independent source and expanded-artifact acceptance is **conditional PASS with no blocking implementation findings** for parent `5b8b8f1cf12523031b81f67ff50e1f70b20d1f9e`. The final native run tested application `873c9fa1` and supersedes the intermediate pagination and backgrounds-off failures. Packaging integrity passes. **Exact final-head CI and the proposed behavior-neutral cleanup remain pending.** The parent owns integration, delta acceptance, PR publication, and merge. This record does not claim CI passed or the issue merged.
 
 ## Design and source decisions
 
@@ -12,7 +12,7 @@ Printing consumes existing report and detail data. It adds no refetch, PDF engin
 
 The original private black-filled PDF was not reproduced under Chrome 154, including dark theme. The unchanged source lacked a sidebar print-token reset. That omission is a supported explanation, not a proven cause of the Chrome 152 attachment. The private PDF is absent from every archive.
 
-Four accepted comment deletions are integrated. The parent reported no actionable findings in Astra's source review of `c2ca46279e45e44072b86bbe1eeadea1a6ab832d` through `8040418e01b95d95e048961946bb944a34be0380`. That review does not cover later visual fixes or final expanded artifacts. Claude's intermediate visual reviews found the pagination and background failures that the final run now supersedes. Fresh independent acceptance remains pending.
+Four accepted comment deletions are integrated. The parent reported no actionable findings in Astra's source review of `c2ca46279e45e44072b86bbe1eeadea1a6ab832d` through `8040418e01b95d95e048961946bb944a34be0380`. That review does not cover later visual fixes or final expanded artifacts. Claude's intermediate visual reviews found the pagination and background failures that the final run now supersedes. The fresh independent review of source and all five expanded run/check archives is recorded below. It is artifact acceptance, not independent app execution.
 
 ## Exact run bindings
 
@@ -26,13 +26,13 @@ All browser runs used owned worker 1, native controls, Node 24.21.0, Chrome for 
 | Full source checks             | State-worktree revision `0860cfd9ddb577d262427b1b6f0c61c4e7e09472`, tree-identical to parent `91c79c6fa2ec32ecc04321560933bcd733071a92`; tree `fee2b9301b445c27a95fee53baae2b8b16cbd83a` | Node 24.21.0; npm 11.19.0 versus declared 11.12.1; Vitest 4.1.8; Vite 8.0.16                        |
 | Final native round 3           | Revision `873c9fa141437ef847ce5fd8c10956a243116ff0`; candidate `10c678244e996b102c487e7a8cd98862ecbbb53cfe3fe3994e6bb18e62724832`                                                        | Origin `http://127.0.0.1:40723`; session `ebeaf8a3-6d37-438d-938f-0e86ef55504b`; fixture `4994a746` |
 
-Each browser archive contains its complete frozen `run.md`, receipts, captures, and cleanup proof. The checks archive contains command intervals, exit results, scripts, environments, and full logs. Historical scratch paths identify the run location rather than durable storage. Final `doctor-final.json` still binds the tested `873c9fa1` revision and original digest. Post-proof changes through parent `bf68191a` clarify instructions and package evidence only. They do not change driving steps or constitute another live run. This worker changes only this record and the fifth archive.
+Each browser archive contains its complete frozen `run.md`, receipts, captures, and cleanup proof. The checks archive contains command intervals, exit results, scripts, environments, and full logs. Historical scratch paths identify the run location rather than durable storage. Final `doctor-final.json` still binds the tested `873c9fa1` revision and original digest. Post-proof changes through reviewed parent `5b8b8f1c` clarify instructions and package evidence only. Application source, helpers, and scripts match tested `873c9fa1`. They do not change driving steps or constitute another live run. This round changes only this record and the review archive.
 
 ## Final observations and reused evidence
 
 Dense has 112 Soldiers, 2,632 applicable requirements, 1,272 ready today, 642 horizon-ready, 730 not recorded, 630 expired, and 630 lapsing. The report shows 48% today, 24% at 90 days, and goal 90%. Native Dense/PFC selection matches the independent cohort because every seeded PFC is MOS 68V. All 24 types, 14 Groups, and 14 duty roles retain their selected order.
 
-The final parent run rendered and inspected all pages of these artifacts. Group inspection used contact sheets, every A4 page at full size, and relevant Letter pages. Role/detail inspection used all-page contact sheets with full-size continuation and final-row checks. This packaging worker confirms PDF metadata, preserves observations, and checks integrity. It does not claim independent visual acceptance.
+The final parent run rendered and inspected all pages of these artifacts. Group inspection used contact sheets, every A4 page at full size, and relevant Letter pages. Role/detail inspection used all-page contact sheets with full-size continuation and final-row checks. This packaging worker preserves observations and checks integrity. Independent visual acceptance below has its own narrower, explicit page-inspection scope.
 
 | Final artifact                                          |   Pages | Recorded result                                                                                                                                                                                                                  |
 | ------------------------------------------------------- | ------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -47,7 +47,7 @@ Backgrounds-off now suppresses readiness fills and legend chips in the actual Gr
 
 Native Export Excel with the dated detail open produced `report.xlsx`. Workbook XML and `workbook-summary.json` retain Summary, Forecast, Hot spots, Focus, and Requirements. Requirements has 1,990 data rows plus its header. Detail page size does not truncate Excel. Summary values and first/last row readbacks survive packaging.
 
-Scoped report and detail observers recorded zero requests during the specified print invocations/captures and were restored. Normal dark desktop and 390×844 screenshots preserve visible filters and Print brief after captures. The `printMounted: false` readback used the invalid `.training-print-document` selector. It does not prove live subtree release. Visible return-to-screen observations and unit afterprint/release checks remain separate.
+Scoped report and detail observers recorded zero requests during the specified print invocations/captures and were restored. Normal dark desktop and 390×844 screenshots preserve visible filters and Print brief after captures. The `printMounted: false` readback used the invalid `.training-print-document` selector. It does not prove live subtree release. Visible return-to-screen observations and unit afterprint/release checks remain separate. The independent reviewer observed fresh rows 26–50 in `bls-page2.pdf` after `bls25.pdf` printed rows 1–25. That saved live evidence demonstrates snapshot release and recapture between PDF prints. It does not validate the selector probe or establish OS cancellation behavior.
 
 The final artifacts supersede baseline fragmentation, round 1's split Focus/missing context, and round 2's A4 Focus separation, orphaned totals, role continuation headers, and backgrounds-off fills. They also replace earlier uninspected Short/empty artifacts. Failed archives remain unchanged for provenance.
 
@@ -59,7 +59,7 @@ Button invocation recorded `beforeprint: 1`, `afterprint: 0` before PDF captures
 
 `trainingPrintCycle.svelte.test.ts` protects retained loaded data, release, fresh subsequent capture, duplicate invocation, thrown printing, and disposal. `TrainingReportsPage.test.ts` protects printing without a report refetch. These complement the recorded browser/PDF observations. They do not turn the invalid selector probe into live DOM proof.
 
-Node 26's adapter failure, Chrome 152's pre-login crash, and Chrome 154's system `/tmp` stream failure remain historical unavailable attempts. The short private `TMPDIR` enabled the unchanged helper. Resource exhaustion remains an inference. No system configuration changed. The dense fixture covers long labels and wide continuations. Pathological lengths beyond it remain subject to Chromium's repeat-header height limit.
+Node 26's adapter failure, Chrome 152's pre-login crash, and Chrome 154's system `/tmp` stream failure remain historical unavailable attempts. The short private `TMPDIR` enabled the unchanged helper. Resource exhaustion remains an inference. No system configuration changed. The dense fixture covers long labels and wide continuations with fixed column widths of 64–104px. The independent reviewer estimated its dense A4 repeated heading at about 104pt against Chromium's quarter-page threshold of about 132pt. This leaves roughly two or three wrapped label lines of margin. Group validation allows 100-character names, and `clinicRole` has no length limit. Valid labels longer than the fixture can exceed the finite physical-page header budget and lose heading repetition while all data still prints. The acceptance guarantee covers the tested fixtures, not arbitrary unbounded labels. This is an accepted review limit.
 
 ## Check provenance and final gate
 
@@ -75,7 +75,7 @@ This round performs documentation and packaging checks only. No SQL/database con
 
 The fifth archive preserves all 137 files from the refrozen final proof root, including four approved synthetic exports, all ten PDFs, the workbook, screenshots, receipts, and `check.log`. Inspection covers text/JSON/logs, extracted PDF text, workbook XML, OCR of all 77 images, and representative visual captures. No real-person data, JWT, active credential, or token-bearing URL was found. Mock names are approved synthetic values and captured identities are synthetic fixtures. No redaction or payload exclusion was needed. Every original payload byte is preserved. The private original PDF and browser credential/profile files were never in the supplied proof root.
 
-Each archive contains `SHA256SUMS` for every expanded payload with its original relative filename. The inventory excludes itself. Fresh ignored extraction verifies the exact file set, every hash, and byte equality with the original frozen root. The four earlier archive hashes remain unchanged.
+Each archive contains `SHA256SUMS` for every expanded payload with its original relative filename. The inventory excludes itself. Fresh ignored extraction verifies the exact file set, every hash, and byte equality with the original frozen root. The five earlier archive hashes remain unchanged. The sixth archive preserves every byte of all three files in the frozen review-results root, including the full CodeRabbit JSONL, independent acceptance summary, and parent format-check log. Full UTF-8 inspection and credential/token-URL checks found no actual secrets or real-person data. No payload was excluded or redacted. Fresh ignored extraction verifies the review inventory, exact file set, hashes, and byte equality against that original root.
 
 | Archive                                                 | Payload files | Expanded payload bytes | Archive SHA-256                                                    |
 | ------------------------------------------------------- | ------------: | ---------------------: | ------------------------------------------------------------------ |
@@ -84,8 +84,9 @@ Each archive contains `SHA256SUMS` for every expanded payload with its original 
 | [Failed intermediate round 2](1545-final-round2.tar.gz) |           124 |             29,129,967 | `c9442570cb98129d106f784bddb60602574428d156a3947228d2308b1c71ced8` |
 | [Full checks](1545-full-checks.tar.gz)                  |            20 |                346,878 | `5ae63e4ea93f1019accfc6dd939f55fa1caae600b620ad1bf8c93bb0646e5301` |
 | [Final native round 3](1545-final-round3.tar.gz)        |           137 |             42,446,313 | `ad06f1000c17669afd37f39af42fed9f181c7e1849d7ab5c16d44afc53ebcef6` |
+| [Review results](1545-reviews.tar.gz)                   |             3 |                  9,037 | `42701816e1b53556603abaad71e0fa38e6555a868a1bccd5d77d8ee0fd1a6b18` |
 
-The five archives contain 384 payload files and 88,012,485 expanded payload bytes, including 29 PDFs and three workbooks. Five additional archive members are inventories. The final archive is 36,938,628 compressed bytes.
+The six archives contain 387 payload files and 88,021,522 expanded payload bytes, including 29 PDFs and three workbooks. Six additional archive members are inventories. The final native archive is 36,938,628 compressed bytes. The review archive is 4,185 compressed bytes.
 
 To repeat integrity validation from the repository root, use fresh ignored scratch per archive. Set `archive` and `expected` from the table, then run:
 
@@ -110,16 +111,29 @@ print(f"Exact file set verified: {len(entries)} payload files")
 PY
 ```
 
-## Review scope and remaining acceptance
+## Independent review and remaining gates
 
-This round changes two owned paths, this record and `1545-final-round3.tar.gz`. After parent integration, the complete intended diff against `c2ca46279e45e44072b86bbe1eeadea1a6ab832d` contains **24 files, 19 readable files and five archives**. Count includes all source, helpers, tests, instructions, and evidence. Parent `bf68191a` has the same 23-path scope before this fifth archive. Regenerate the count after integration or further changes:
+The reviewed base is `c2ca46279e45e44072b86bbe1eeadea1a6ab832d`. The reviewed head is `5b8b8f1cf12523031b81f67ff50e1f70b20d1f9e`, a complete 24-file diff with 19 readable files and five binary archives. Its application is `873c9fa141437ef847ce5fd8c10956a243116ff0`, tested with digest `10c678244e996b102c487e7a8cd98862ecbbb53cfe3fe3994e6bb18e62724832`. Source/helper/script comparison confirms no executable changes between those revisions.
+
+CodeRabbit CLI 0.8.2 help showed no numeric file limit. The parent reported exit 0. The archived full JSONL records completed review, zero findings, all 19 readable source/docs files, and five explicitly excluded binary archives. Its reviewed and excluded lists exactly cover the 24-file base/head diff. Binary exclusion is not archive acceptance.
+
+Claude independently inspected the complete source diff and extracted all five existing archives. Every archive hash, exact payload set, expanded hash, final-root byte comparison, and all 11 PDF/XLSX receipt hashes passed. The reviewer compared the approved brief, matrix, and corrected appendix mocks with actual output and inspected these pages:
+
+- Independently rendered all-page contact sheets for dense Letter/on and A4/off, five pages each; dark role A4/on and Letter/off, 12 each; dated84, 11; bls25, seven; Short, three; and both empty artifacts, one each.
+- Full-size A4/off pages 1 and 3, and role Letter/off pages 4 and 12.
+- Extracted text for loaded ranges 1–25, 26–50, 1–100 on all seven appendix pages, and 1–84 on all six. The reviewer checked the page-two partial-range note and context/headings/key on all four dense matrix pages. `bls-page2.pdf` has text inspection, not independently rendered all-page visual inspection.
+- Workbook summary with five sheets and 1,990 requirement rows, scoped network logs with zero calls, and `check.log` with zero errors/warnings.
+
+The verdict is conditional PASS with no blocking implementation findings. It accepts readiness semantics, selected ordering, cross-sheet totals, loaded-only detail, continued headings/final rows, themes/background settings, and empty cases. App status labels and dates remain consistent with the screen. The reviewer did not independently execute the app, browser, or tests. CodeRabbit was not used as visual proof. A proposed additional page-level print-event test is an optional coverage suggestion, not a failing gate.
+
+The reviewer recommended removing obsolete screen print attributes/classes and a redundant CSS hide rule. A separate isolated visual worker owns that behavior-neutral cleanup. Its commit is not yet known or integrated. Parent inspection, independent delta acceptance, and exact-head CI remain pending. This proposed cleanup does not invalidate the recorded PDFs unless review finds a behavior change. No cleanup SHA or later CI result is claimed here.
+
+This round adds one archive and updates this record. The complete diff after its integration is **25 files, 19 readable files and six archives**, before the pending cleanup. The reviewed parent remains the 24-file candidate above. Regenerate the actual count after integration or further changes:
 
 ```bash
 { git diff --name-only c2ca46279e45e44072b86bbe1eeadea1a6ab832d HEAD; git diff --name-only HEAD; git ls-files --others --exclude-standard docs/verification/training-print-1545; } | sort -u | wc -l
 ```
 
-CodeRabbit CLI 0.8.2 help exposes committed/uncommitted scope and explicit base options but no numeric file limit. No CLI or hosted review was requested by this worker. The parent must inspect actual service limits and record complete reviewed base/head/scope, including any skipped or partial files. Expanded-artifact acceptance must examine the final observations alongside the complete source diff and coverage selection. Checksums prove packaging integrity only.
+Native keyboard/cancellation, physical printing, fresh grayscale, sign-out timing, held-detail scope switching, and the measured label-length limit remain explicit. Earlier unchanged timing/goal proof is reused, not rerun. Exact-head CI is still a gate before merge. The parent owns its result in the PR record and retains publication/merge authority.
 
-Independent acceptance, exact-head CI, PR publication, and merge remain parent-owned gates. Native keyboard/cancellation, physical printing, sign-out timing, held-detail scope switch, and extreme label limits stay explicit. No independent acceptance pass or issue closure is claimed.
-
-Documentation validation passed `npm exec prettier -- --ignore-path /dev/null --write docs/verification/training-print-1545/acceptance.md`, the corresponding `--check`, six local links/anchors, the extraction instructions for all five archives, `git diff --check`, and instruction/source-consumer review. Packaging used Python 3.14; documentation formatting used Node 26.8.2, npm 12.0.2, and Prettier 3.8.3. These are packaging tools, separate from the recorded app runtime. No source, recipe, helper, or driving steps changed in this round. Deslop is unavailable. Manual cleanup with technical-writing and unslop guidance removes filler and obsolete diary detail while retaining evidence limits. The earlier accepted no-comments removals remain integrated; no new comment review is claimed.
+Documentation validation passed `npm exec prettier -- --ignore-path /dev/null --write docs/verification/training-print-1545/acceptance.md`, the corresponding `--check`, seven local links/anchors, the extraction instructions for all six archives, `git diff --check`, and instruction/source-consumer review. Packaging used Python 3.14; documentation formatting used Node 26.8.2, npm 12.0.2, and Prettier 3.8.3. These packaging tools are separate from the recorded app runtime. No source, recipe, helper, or driving steps changed in this round. Deslop is unavailable. Manual technical-writing and unslop checks preserve exact scope and limits and remove obsolete handoff claims. The earlier accepted no-comments removals remain integrated; no new comment review is claimed.

@@ -22,6 +22,7 @@ import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
 import { seedAudit } from './audit-fixtures.mjs';
 import { seedDashboard, seedDashboardCurrency } from './dashboard-fixtures.mjs';
+import { seedTrainingPrint, cleanTrainingPrint } from './training-print-fixtures.mjs';
 import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
 import { requestPlatform } from './platform-request.mjs';
 import { platformFormNetworkTarget } from './platform-network-target.mjs';
@@ -1338,6 +1339,7 @@ async function main() {
 				'overlap',
 				'bulk-501',
 				'training-pages',
+				'training-print',
 				'roster-pages',
 				'personnel-lifecycle',
 				'personnel-artifact-context',
@@ -1368,6 +1370,10 @@ async function main() {
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'training-print') {
+			note(await seedTrainingPrint({ client, fixture, tag, ownedState, save }));
+			return;
+		}
 		if (kind === 'platform-admin') {
 			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
 			return;
@@ -1984,6 +1990,7 @@ async function main() {
 		} catch (error) {
 			platformError = error;
 		}
+		await cleanTrainingPrint({ client, fixture, ownedState, save });
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);

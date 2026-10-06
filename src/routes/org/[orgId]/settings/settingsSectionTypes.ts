@@ -1,15 +1,8 @@
 import type { MembershipRole } from '$lib/access/memberAccessShape';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
-import type { AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
+import type { AuditLogQueryResult } from '$lib/audit/contracts';
 import type { OrganizationRankCatalogReferenceSummary } from '$features/personnel/contracts';
-import type { DeletionRequestRow } from './settingsRows.server';
-import type { OwnershipTransferCandidate } from '$features/organization';
-
-export type WorkspaceConstraint<Unit extends string> = {
-	min: number;
-	max: number;
-	unit: Unit;
-};
+import type { DeletionRequestApproval } from '$features/deletion-requests/contracts';
 
 export type SettingsArchivedPersonnelRow = {
 	id: string;
@@ -39,26 +32,12 @@ export type SettingsArchivesSectionData = {
 
 export type SettingsActivityData = {
 	pendingApprovalsCount: number;
-	approvalRequests: DeletionRequestRow[];
+	approvalRequests: DeletionRequestApproval[];
 	auditLog: AuditLogQueryResult;
 };
 
 export type SettingsApprovalsSectionData = {
 	activity: SettingsActivityData;
-};
-
-export type SettingsOwnershipTransferCandidate = OwnershipTransferCandidate;
-
-export type SettingsPoliciesSectionData = {
-	archiveRetention: {
-		savedMonths: number;
-		constraints: WorkspaceConstraint<'months'>;
-	};
-	lossWarning: {
-		savedDays: number;
-		constraints: WorkspaceConstraint<'days'>;
-	};
-	canUpdateRetention: boolean;
 };
 
 export type SettingsCurrentMemberData = {
@@ -67,16 +46,6 @@ export type SettingsCurrentMemberData = {
 	isAdmin: boolean;
 	canManageMembers: boolean;
 };
-
-export type SettingsOrganizationSectionData = {
-	id: string;
-	name: string | null;
-	urlSlug: string | null;
-	urlSegment: string;
-	canUpdateProfile: boolean;
-	canUpdateUrlSlug: boolean;
-};
-
 export type SettingsRankOption<Value extends string> = {
 	value: Value;
 	label: string;
@@ -137,25 +106,5 @@ export type SettingsRanksSectionData = {
 		canManageCatalog: boolean;
 		canAddServicePack: boolean;
 		canAddCustomRank: boolean;
-	};
-};
-
-export type SettingsDangerSectionData = {
-	transferOwnershipCandidates: SettingsOwnershipTransferCandidate[];
-	deleteConfirmation: {
-		organizationName: string | null;
-		normalizedOrganizationName: string;
-	};
-	commands: {
-		canTransferOwnership: boolean;
-		canDeleteOrganization: boolean;
-	};
-};
-
-export type DangerSettingsData = {
-	currentMember: SettingsCurrentMemberData;
-	sections: {
-		organization: SettingsOrganizationSectionData;
-		dangerZone: SettingsDangerSectionData;
 	};
 };

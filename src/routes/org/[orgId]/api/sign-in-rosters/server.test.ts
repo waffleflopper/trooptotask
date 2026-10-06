@@ -1,8 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createSupabaseSignInRosterPersonnelLookupPort } from '$features/personnel/index.server';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createRosterTestContext, selectRosterContext, selectRosterCreationContext } from './rosterTestContexts';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import type { SignInRosterPersonnelLookupRecord } from '$features/personnel/contracts';
 import { _getConfig, _postConfig } from './+server';
@@ -10,48 +9,44 @@ import { _getConfig, _postConfig } from './+server';
 const GROUP_ALPHA = 'group-alpha';
 const GROUP_BRAVO = 'group-bravo';
 
-function seedPersonnel(ctx: ReturnType<typeof createTestContext>) {
-	ctx.signInRosterPersonnelLookup ??= {
-		findPersonnelForRosterSnapshot: async (orgId, personnelIds) => {
-			const rows = await ctx.rawStore.findMany<{
-				id: string;
-				rank: string | null;
-				last_name: string | null;
-				first_name: string | null;
-				group_id: string | null;
-			}>('personnel', orgId, undefined, { inFilters: { id: personnelIds } });
-			return rows.map((row) => ({
-				id: row.id,
-				rank: row.rank,
-				lastName: row.last_name,
-				firstName: row.first_name,
-				groupId: row.group_id,
-				groupName: null
-			}));
-		}
-	};
+function seedPersonnel(ctx: ReturnType<typeof createRosterTestContext>) {
 	ctx.rawStore.seed('groups', [
 		{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
 		{ id: GROUP_BRAVO, organization_id: ctx.auth.orgId, name: 'Bravo' }
 	]);
-	ctx.rawStore.seed('personnel', [
+	const personnel = [
 		{
 			id: 'p-alpha',
-			organization_id: ctx.auth.orgId,
+			orgId: ctx.auth.orgId,
 			rank: 'SGT',
-			last_name: 'Smith',
-			first_name: 'Jane',
-			group_id: GROUP_ALPHA
+			lastName: 'Smith',
+			firstName: 'Jane',
+			groupId: GROUP_ALPHA,
+			groupName: null
 		},
 		{
 			id: 'p-bravo',
-			organization_id: ctx.auth.orgId,
+			orgId: ctx.auth.orgId,
 			rank: 'SSG',
-			last_name: 'Jones',
-			first_name: 'Avery',
-			group_id: GROUP_BRAVO
+			lastName: 'Jones',
+			firstName: 'Avery',
+			groupId: GROUP_BRAVO,
+			groupName: null
+		},
+		{
+			id: 'p-foreign',
+			orgId: 'foreign-org',
+			rank: 'SGT',
+			lastName: 'Foreign',
+			firstName: 'Peer',
+			groupId: GROUP_ALPHA,
+			groupName: null
 		}
-	]);
+	];
+	ctx.personnelLookup = {
+		findPersonnelForRosterSnapshot: async (orgId, personnelIds) =>
+			personnel.filter((row) => row.orgId === orgId && personnelIds.includes(row.id))
+	};
 }
 
 describe('/api/sign-in-rosters route config', () => {
@@ -75,10 +70,12 @@ describe('/api/sign-in-rosters route config', () => {
 				}
 			}
 		});
-		const ctx = createTestContext();
-		ctx.signInRosterPersonnelLookup = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
+		const ctx = createRosterTestContext();
+		ctx.personnelLookup = createSupabaseSignInRosterPersonnelLookupPort(() => supabase);
 
-		await handleUseCaseRequest(_postConfig, ctx, { title: 'Training attendance', personnelIds: ['person-1'] });
+		await handleUseCaseRequest(_postConfig, ctx, { title: 'Training attendance', personnelIds: ['person-1'] }, () =>
+			selectRosterCreationContext(ctx)
+		);
 
 		const saved = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
 		expect(saved[0]).toMatchObject({
@@ -92,7 +89,7 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('creates and reloads an independent sign-in roster with Calendar denied and no duty records', async () => {
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -108,7 +105,7 @@ describe('/api/sign-in-rosters route config', () => {
 			}
 		});
 		seedPersonnel(ctx);
-		ctx.signInRosterPersonnelLookup = {
+		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: async () => [
 				{
 					id: 'p-alpha',
@@ -120,12 +117,19 @@ describe('/api/sign-in-rosters route config', () => {
 				}
 			]
 		};
-		const created = (await handleUseCaseRequest(_postConfig, ctx, {
-			title: 'Independent training attendance',
-			rosterDate: '2026-03-15',
-			personnelIds: ['p-alpha']
-		})) as Record<string, unknown>;
-		const result = await handleUseCaseRequest(_getConfig, ctx, { limit: 20, offset: 0 });
+		const created = (await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				title: 'Independent training attendance',
+				rosterDate: '2026-03-15',
+				personnelIds: ['p-alpha']
+			},
+			() => selectRosterCreationContext(ctx)
+		)) as Record<string, unknown>;
+		const result = await handleUseCaseRequest(_getConfig, ctx, { limit: 20, offset: 0 }, () =>
+			selectRosterContext(ctx)
+		);
 		expect(result).toEqual({
 			total: 1,
 			rosters: [
@@ -146,7 +150,7 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('looks up only missing same-Organization Group labels and leaves unknown labels blank', async () => {
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -165,7 +169,7 @@ describe('/api/sign-in-rosters route config', () => {
 			{ id: GROUP_ALPHA, organization_id: ctx.auth.orgId, name: 'Alpha' },
 			{ id: 'foreign', organization_id: 'other-org', name: 'Foreign' }
 		]);
-		ctx.signInRosterPersonnelLookup = {
+		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: async () => [
 				{ id: 'p-known', rank: 'SGT', lastName: 'Smith', firstName: 'Jane', groupId: GROUP_ALPHA, groupName: null },
 				{
@@ -180,10 +184,15 @@ describe('/api/sign-in-rosters route config', () => {
 		};
 		const groupRead = vi.spyOn(ctx.rawStore, 'findMany');
 
-		await handleUseCaseRequest(_postConfig, ctx, {
-			title: 'Training attendance',
-			personnelIds: ['p-known', 'p-unknown']
-		});
+		await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				title: 'Training attendance',
+				personnelIds: ['p-known', 'p-unknown']
+			},
+			() => selectRosterCreationContext(ctx)
+		);
 
 		const stored = await ctx.store.findMany<Record<string, unknown>>('sign_in_rosters', ctx.auth.orgId);
 		expect(stored[0].personnel_snapshot).toEqual([
@@ -198,17 +207,7 @@ describe('/api/sign-in-rosters route config', () => {
 		]);
 	});
 
-	it('uses policy-first route configs for sign-in roster reads and creation', () => {
-		expect('permission' in _getConfig).toBe(false);
-		expect('permission' in _postConfig).toBe(false);
-		expect(_getConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.viewRecords);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.training.manageSignInRosters);
-		expect(_getConfig.policyResource).toEqual({ kind: 'unscoped' });
-		expect(_postConfig.policyResource).toEqual({ kind: 'unscoped' });
-	});
-
 	it('persists sign-in rosters through the Training record policy for operators', async () => {
-		let legacyEditCalled = false;
 		const findPersonnelForRosterSnapshot = vi.fn(async () => [
 			{
 				id: 'p-alpha',
@@ -219,7 +218,7 @@ describe('/api/sign-in-rosters route config', () => {
 				groupName: 'Alpha'
 			}
 		]);
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -231,34 +230,34 @@ describe('/api/sign-in-rosters route config', () => {
 					onboarding: 'view',
 					ratingScheme: 'view'
 				},
-				scopeSet: { kind: 'organization' },
-				requireEdit() {
-					legacyEditCalled = true;
-					throw new Error('legacy Training edit flag should not decide sign-in roster writes');
-				}
+				scopeSet: { kind: 'organization' }
 			}
 		});
-		ctx.signInRosterPersonnelLookup = {
+		seedPersonnel(ctx);
+		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot
 		};
-		seedPersonnel(ctx);
 
-		const result = (await handleUseCaseRequest(_postConfig, ctx, {
-			title: 'Annual AT Sign-In',
-			rosterDate: '2026-05-02',
-			blankDate: false,
-			separateByGroup: true,
-			sortBy: 'rank',
-			personnelSnapshot: [{ id: 'p-alpha', rank: 'FAKE', lastName: 'Injected', firstName: 'Payload' }],
-			filterConfig: { groups: ['Alpha'] }
-		})) as Record<string, unknown>;
+		const result = (await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				title: 'Annual AT Sign-In',
+				rosterDate: '2026-05-02',
+				blankDate: false,
+				separateByGroup: true,
+				sortBy: 'rank',
+				personnelSnapshot: [{ id: 'p-alpha', rank: 'FAKE', lastName: 'Injected', firstName: 'Payload' }],
+				filterConfig: { groups: ['Alpha'] }
+			},
+			() => selectRosterCreationContext(ctx)
+		)) as Record<string, unknown>;
 
 		expect(findPersonnelForRosterSnapshot).toHaveBeenCalledWith(ctx.auth.orgId, ['p-alpha']);
 		expect(result).toMatchObject({
 			title: 'Annual AT Sign-In',
 			sortBy: 'rank'
 		});
-		expect(legacyEditCalled).toBe(false);
 
 		const stored = await ctx.store.findMany('sign_in_rosters', ctx.auth.orgId);
 		expect(stored).toHaveLength(1);
@@ -284,7 +283,7 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('sorts a Training-only scoped sign-in snapshot with active and retired ranks before unknown ranks', async () => {
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -305,7 +304,7 @@ describe('/api/sign-in-rosters route config', () => {
 			rankCatalogRow({ code: 'SGT', label: 'Sergeant', service: 'army', pay_grade: 'E-5' }),
 			rankCatalogRow({ code: 'SSgt', label: 'Staff Sergeant', service: 'air-force', pay_grade: 'E-5' })
 		]);
-		ctx.signInRosterPersonnelLookup = {
+		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				signInPersonnel({ id: 'retired', rank: 'SSG', lastName: 'Charlie' }),
 				signInPersonnel({ id: 'unknown', rank: 'LOCAL-CADET', lastName: 'Able' }),
@@ -319,14 +318,19 @@ describe('/api/sign-in-rosters route config', () => {
 			return ctx.rawStore.findMany(table, ...args);
 		});
 
-		await handleUseCaseRequest(_postConfig, ctx, {
-			title: 'Joint Sign-In',
-			rosterDate: '2026-05-02',
-			blankDate: false,
-			separateByGroup: false,
-			sortBy: 'rank',
-			personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5', 'retired']
-		});
+		await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				title: 'Joint Sign-In',
+				rosterDate: '2026-05-02',
+				blankDate: false,
+				separateByGroup: false,
+				sortBy: 'rank',
+				personnelIds: ['unknown', 'navy-e5', 'army-e5', 'air-force-e5', 'retired']
+			},
+			() => selectRosterCreationContext(ctx)
+		);
 
 		const stored = await ctx.store.findMany<{ personnel_snapshot?: Array<{ id: string }> }>(
 			'sign_in_rosters',
@@ -342,7 +346,7 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('orders alphabetical snapshots and persists the roster filters', async () => {
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -357,22 +361,27 @@ describe('/api/sign-in-rosters route config', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
-		ctx.signInRosterPersonnelLookup = {
+		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				signInPersonnel({ id: 'p-smith', rank: 'SGT', lastName: 'Smith', firstName: 'Jane' }),
 				signInPersonnel({ id: 'p-adams', rank: 'PO2', lastName: 'Adams', firstName: 'Avery' })
 			])
 		};
 
-		await handleUseCaseRequest(_postConfig, ctx, {
-			title: 'Alphabetical Sign-In',
-			rosterDate: '2026-05-02',
-			blankDate: false,
-			separateByGroup: false,
-			sortBy: 'alphabetical',
-			personnelIds: ['p-smith', 'p-adams'],
-			filterConfig: { groups: ['Alpha'], ranks: ['SGT', 'PO2'] }
-		});
+		await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				title: 'Alphabetical Sign-In',
+				rosterDate: '2026-05-02',
+				blankDate: false,
+				separateByGroup: false,
+				sortBy: 'alphabetical',
+				personnelIds: ['p-smith', 'p-adams'],
+				filterConfig: { groups: ['Alpha'], ranks: ['SGT', 'PO2'] }
+			},
+			() => selectRosterCreationContext(ctx)
+		);
 
 		const stored = await ctx.store.findMany<{
 			personnel_ids?: string[];
@@ -392,7 +401,7 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('marks rosters with unassigned personnel as organization-only', async () => {
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -407,7 +416,7 @@ describe('/api/sign-in-rosters route config', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
-		ctx.signInRosterPersonnelLookup = {
+		ctx.personnelLookup = {
 			findPersonnelForRosterSnapshot: vi.fn(async () => [
 				{
 					id: 'p-alpha',
@@ -428,10 +437,15 @@ describe('/api/sign-in-rosters route config', () => {
 			])
 		};
 
-		await handleUseCaseRequest(_postConfig, ctx, {
-			title: 'Mixed Assignment Sign-In',
-			personnelIds: ['p-alpha', 'p-unassigned']
-		});
+		await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				title: 'Mixed Assignment Sign-In',
+				personnelIds: ['p-alpha', 'p-unassigned']
+			},
+			() => selectRosterCreationContext(ctx)
+		);
 
 		const stored = await ctx.store.findMany('sign_in_rosters', ctx.auth.orgId);
 		expect(stored[0]).toMatchObject({
@@ -445,7 +459,7 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('denies sign-in roster creation through the Training policy decision', async () => {
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -462,10 +476,15 @@ describe('/api/sign-in-rosters route config', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				title: 'Annual AT Sign-In',
-				personnelSnapshot: [{ id: 'p-1' }]
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					title: 'Annual AT Sign-In',
+					personnelSnapshot: [{ id: 'p-1' }]
+				},
+				() => selectRosterCreationContext(ctx)
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
@@ -476,53 +495,74 @@ describe('/api/sign-in-rosters route config', () => {
 	});
 
 	it('rejects malformed, duplicate, and oversized personnel selections before insert', async () => {
-		const malformed = createTestContext();
+		const malformed = createRosterTestContext();
 		seedPersonnel(malformed);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, malformed, {
-				title: 'Annual AT Sign-In',
-				personnelSnapshot: [{ rank: 'SGT' }]
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				malformed,
+				{
+					title: 'Annual AT Sign-In',
+					personnelSnapshot: [{ rank: 'SGT' }]
+				},
+				() => selectRosterCreationContext(malformed)
+			)
 		).rejects.toMatchObject({ status: 400, message: 'Personnel snapshot contains a missing or invalid id' });
 		await expect(malformed.store.findMany('sign_in_rosters', malformed.auth.orgId)).resolves.toHaveLength(0);
 
-		const duplicate = createTestContext();
+		const duplicate = createRosterTestContext();
 		seedPersonnel(duplicate);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, duplicate, {
-				title: 'Annual AT Sign-In',
-				personnelSnapshot: [{ id: 'p-alpha' }, { id: 'p-alpha' }]
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				duplicate,
+				{
+					title: 'Annual AT Sign-In',
+					personnelSnapshot: [{ id: 'p-alpha' }, { id: 'p-alpha' }]
+				},
+				() => selectRosterCreationContext(duplicate)
+			)
 		).rejects.toMatchObject({ status: 400, message: 'Personnel selection contains duplicate ids' });
 		await expect(duplicate.store.findMany('sign_in_rosters', duplicate.auth.orgId)).resolves.toHaveLength(0);
 
-		const oversized = createTestContext();
+		const oversized = createRosterTestContext();
 		seedPersonnel(oversized);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, oversized, {
-				title: 'Annual AT Sign-In',
-				personnelSnapshot: Array.from({ length: 501 }, (_, index) => ({ id: `p-${index}` }))
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				oversized,
+				{
+					title: 'Annual AT Sign-In',
+					personnelSnapshot: Array.from({ length: 501 }, (_, index) => ({ id: `p-${index}` }))
+				},
+				() => selectRosterCreationContext(oversized)
+			)
 		).rejects.toMatchObject({ status: 400, message: 'Personnel selection is limited to 500 personnel' });
 		await expect(oversized.store.findMany('sign_in_rosters', oversized.auth.orgId)).resolves.toHaveLength(0);
 	});
 
 	it('rejects unknown and out-of-scope personnel selections before insert', async () => {
-		const unknown = createTestContext();
-		seedPersonnel(unknown);
+		for (const personnelId of ['p-missing', 'p-foreign']) {
+			const unknown = createRosterTestContext();
+			seedPersonnel(unknown);
+			await expect(
+				handleUseCaseRequest(
+					_postConfig,
+					unknown,
+					{
+						title: 'Annual AT Sign-In',
+						personnelSnapshot: [{ id: personnelId }]
+					},
+					() => selectRosterCreationContext(unknown)
+				)
+			).rejects.toMatchObject({ status: 400, message: 'Personnel selection includes unknown personnel' });
+			await expect(unknown.store.findMany('sign_in_rosters', unknown.auth.orgId)).resolves.toHaveLength(0);
+		}
 
-		await expect(
-			handleUseCaseRequest(_postConfig, unknown, {
-				title: 'Annual AT Sign-In',
-				personnelSnapshot: [{ id: 'p-missing' }]
-			})
-		).rejects.toMatchObject({ status: 400, message: 'Personnel selection includes unknown personnel' });
-		await expect(unknown.store.findMany('sign_in_rosters', unknown.auth.orgId)).resolves.toHaveLength(0);
-
-		const scoped = createTestContext({
+		const scoped = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -540,16 +580,21 @@ describe('/api/sign-in-rosters route config', () => {
 		seedPersonnel(scoped);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, scoped, {
-				title: 'Annual AT Sign-In',
-				personnelSnapshot: [{ id: 'p-bravo' }]
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				scoped,
+				{
+					title: 'Annual AT Sign-In',
+					personnelSnapshot: [{ id: 'p-bravo' }]
+				},
+				() => selectRosterCreationContext(scoped)
+			)
 		).rejects.toMatchObject({ status: 403, message: 'You do not have access to personnel outside your group' });
 		await expect(scoped.rawStore.findMany('sign_in_rosters', scoped.auth.orgId)).resolves.toHaveLength(0);
 	});
 
 	it('omits out-of-scope, mixed-scope, and organization-only rosters for group-scoped readers', async () => {
-		const ctx = createTestContext({
+		const ctx = createRosterTestContext({
 			auth: {
 				role: 'member',
 				isPrivileged: false,
@@ -600,10 +645,21 @@ describe('/api/sign-in-rosters route config', () => {
 				personnel_ids: [],
 				personnel_snapshot: [],
 				created_at: '2026-05-01T10:00:00.000Z'
+			},
+			{
+				id: 'roster-foreign',
+				organization_id: 'foreign-org',
+				title: 'Foreign',
+				scope_group_ids: [GROUP_ALPHA],
+				personnel_ids: ['p-foreign'],
+				personnel_snapshot: [],
+				created_at: '2026-05-05T10:00:00.000Z'
 			}
 		]);
 
-		const result = (await handleUseCaseRequest(_getConfig, ctx, { limit: 20, offset: 0 })) as {
+		const result = (await handleUseCaseRequest(_getConfig, ctx, { limit: 20, offset: 0 }, () =>
+			selectRosterContext(ctx)
+		)) as {
 			rosters: Array<{ id: string }>;
 			total: number;
 		};
@@ -628,7 +684,7 @@ function signInPersonnel(overrides: Partial<SignInRosterPersonnelLookupRecord>):
 function rankCatalogRow(overrides: Record<string, unknown>): Record<string, unknown> {
 	return {
 		id: overrides.id ?? `rank-${overrides.code ?? 'SGT'}`,
-		organization_id: 'org-1',
+		organization_id: 'test-org',
 		code: overrides.code ?? 'SGT',
 		label: overrides.label ?? overrides.code ?? 'Sergeant',
 		service: overrides.service ?? 'army',

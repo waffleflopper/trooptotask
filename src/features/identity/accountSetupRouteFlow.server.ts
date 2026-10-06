@@ -16,7 +16,7 @@ import {
 import { durableRateLimitAuditDetails } from '$lib/access/index.server';
 import type { IdentityAuditWriter } from './auditWriter.server';
 import { getAuthenticatedRedirectPath } from './mfaGate.server';
-import { getAdminClient, getSupabaseClient } from '$lib/server/supabase';
+import { getAdminClient } from '$lib/server/supabase';
 import { PASSWORD_PROVIDER_REJECTION_MESSAGE, validatePassword } from './passwordPolicy';
 
 type AccountSetupLinkService = Pick<ReturnType<typeof createAccountSetupLinkService>, 'validateToken'>;
@@ -607,7 +607,7 @@ export function createSupabaseAccountSetupRouteFlow(locals: App.Locals, audit: A
 		if (!providers) {
 			const adminClient = getAdminClient();
 			const store = createSupabaseAccountSetupCompletionStore(adminClient);
-			const auth = createSupabaseAccountSetupAuthAdapter(adminClient, getSupabaseClient(locals));
+			const auth = createSupabaseAccountSetupAuthAdapter(adminClient, locals.supabase);
 
 			providers = {
 				store,

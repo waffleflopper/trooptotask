@@ -52,16 +52,11 @@ describe('rank settings read model', () => {
 				excluded_ranks: []
 			}
 		]);
-		ctx.rawStore.seed('sign_in_rosters', [
-			{
-				id: 'sign-in-1',
-				organization_id: 'test-org',
-				filter_config: { ranks: ['DET-SGT'] },
-				personnel_snapshot: [{ id: 'person-1', rank: 'DET-SGT' }]
-			}
-		]);
 
-		const settings = await loadRanksSettings(ctx);
+		const settings = await loadRanksSettings({
+			...ctx,
+			readSignInRosterRankReferences: async () => [{ filterRanks: ['DET-SGT'], snapshotRanks: ['DET-SGT'] }]
+		});
 		const activeRank = settings.sections.ranks.entries.active.find((entry) => entry.code === 'DET-SGT');
 		const retiredRank = settings.sections.ranks.entries.retired.find((entry) => entry.code === 'OLD-SGT');
 		const navyPack = settings.sections.ranks.servicePacks.find((pack) => pack.value === 'navy');
@@ -149,7 +144,7 @@ describe('rank settings read model', () => {
 			}
 		]);
 
-		const settings = await loadRanksSettings(ctx);
+		const settings = await loadRanksSettings({ ...ctx, readSignInRosterRankReferences: async () => [] });
 
 		expect(settings.sections.ranks.commands.canManageCatalog).toBe(true);
 		expect(settings.sections.ranks.entries.active).toEqual(
@@ -658,7 +653,9 @@ describe('rank settings read model', () => {
 			canAddServicePack: false,
 			canAddCustomRank: false
 		});
-		await expect(loadRanksSettings(ownerCtx)).resolves.toMatchObject({
+		await expect(
+			loadRanksSettings({ ...ownerCtx, readSignInRosterRankReferences: async () => [] })
+		).resolves.toMatchObject({
 			sections: {
 				ranks: {
 					commands: {
@@ -669,7 +666,9 @@ describe('rank settings read model', () => {
 				}
 			}
 		});
-		await expect(loadRanksSettings(adminCtx)).resolves.toMatchObject({
+		await expect(
+			loadRanksSettings({ ...adminCtx, readSignInRosterRankReferences: async () => [] })
+		).resolves.toMatchObject({
 			sections: {
 				ranks: {
 					commands: {
@@ -680,7 +679,9 @@ describe('rank settings read model', () => {
 				}
 			}
 		});
-		await expect(loadRanksSettings(memberCtx)).rejects.toMatchObject({
+		await expect(
+			loadRanksSettings({ ...memberCtx, readSignInRosterRankReferences: async () => [] })
+		).rejects.toMatchObject({
 			status: 403,
 			message: 'This action requires an organization admin or owner role'
 		});

@@ -9,13 +9,13 @@ export { loginIdentity } from './login.server';
 
 export { readIdentityAdmission } from './admission.server';
 export {
+	getIdentitySessionScope,
 	getAuthenticatedRedirectPath,
 	getPendingAuthFlowCookieName,
 	getPublicPageUser,
 	setCompletedAuthFlowCookie,
 	setPendingAuthFlowCookie
 } from './mfaGate.server';
-export { createIdentityAuthorization } from './authorization.server';
 export { readIdentityMfaStatus, verifyIdentityMfa } from './mfa.server';
 export {
 	enrollIdentityMfa,
@@ -25,6 +25,12 @@ export {
 } from './mfaManagement.server';
 
 export { loadUserProfile, parseUserProfileForm, upsertUserProfile } from './userProfile.server';
+export {
+	loadUserOrgPreferences,
+	patchUserOrgPreferences,
+	loadGettingStartedDismissed,
+	setGettingStartedDismissed
+} from './accountPreferences.server';
 export { verifyCurrentUserEmailConfirmation } from './currentUserEmailConfirmation.server';
 
 export { checkSessionAssurance } from './sessionAssurance.server';
@@ -48,7 +54,6 @@ export {
 } from './passwordCompletion.server';
 
 export { updateIdentityPassword } from './updatePassword.server';
-export { sendPlatformAuthEmail } from './authEmailDelivery.server';
 export { getAuthConfirmState, getAuthConfirmRedirectTo } from './authConfirm.server';
 export { confirmAuthLink } from './confirmAuthLink.server';
 export { requestPublicPasswordRecovery } from './passwordRecoveryRequest.server';
@@ -102,3 +107,11 @@ export {
 	ACCESS_REQUEST_RATE_LIMIT_MESSAGE,
 	checkAccessRequestSubmissionRateLimit
 } from './accessRequestRateLimit.server';
+
+export { createIdentityPlatformSupportReader } from './platformSupportReader.server';
+export { createIdentityPlatformSuspensionCommands } from './platformSuspensionCommands.server';
+export { createIdentityPlatformAccountEmailPort } from './platformAccountEmail.server';
+export { createIdentityPlatformAccessRequestStore } from './platformAccessRequests.server';
+
+export { createSupabaseIdentityExportReader } from './organizationExportRead.server';
+export { createIdentityPlatformDashboardReader } from './platformDashboardReader.server';

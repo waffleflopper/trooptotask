@@ -1,3 +1,25 @@
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { ClientAffordance } from '$lib/access/clientAccess';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+
+/** Live advisory facts supplied by Delivery for Calendar operations. */
+export interface CalendarOperationsPageAccess {
+	readonly orgUrlSegment: string;
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => Pick<ClientAffordance, 'allowed'>;
+}
+
+export interface CalendarSettingsPageAccess {
+	readonly orgUrlSegment: string;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => Pick<ClientAffordance, 'allowed' | 'visible'>;
+}
+
 /** Calendar facts shared with its web and server consumers. */
 
 export interface StatusType {
@@ -54,3 +76,5 @@ export type SavedAssignment = DailyAssignment & { organization_id?: string; crea
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
 }
+
+export type { CalendarSupportReader } from './supportReadTypes';

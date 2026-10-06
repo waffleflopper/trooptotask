@@ -1,3 +1,4 @@
+import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
@@ -39,7 +40,7 @@ function rowNumberForMetric(sheet: ExcelJS.Worksheet, metric: string): number {
 
 describe('GET /api/critical-tasks/reports/export', () => {
 	it('places filtered action rows before summary metadata', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -92,12 +93,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 		const sheet = await loadReportSheet(result.buffer);
 
 		expect(sheet.getRow(1).values).toEqual([undefined, 'Section', 'Metric', 'Value', 'Subtitle']);
@@ -121,7 +127,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 	});
 
 	it('uses critical tasks read permission and returns a report-context workbook download', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -226,12 +232,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 
 		expect('permission' in _getConfig).toBe(false);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 		const response = _getConfig.formatOutput?.(result);
 		const sheet = await loadReportSheet(result.buffer);
 
@@ -250,7 +261,10 @@ describe('GET /api/critical-tasks/reports/export', () => {
 	});
 
 	it('does not leak other-group readiness data for scoped viewers', async () => {
-		const ctx = createTestContext({ auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } } });
+		const ctx = createTestContext({
+			criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence,
+			auth: { scopeSet: { kind: 'groups', groupIds: ['group-alpha'] } }
+		});
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -329,12 +343,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: undefined,
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: undefined,
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 
 		const sheet = await loadReportSheet(result.buffer);
 		expect(columnValues(sheet, 2)).toContain('Overall Readiness');
@@ -345,7 +364,7 @@ describe('GET /api/critical-tasks/reports/export', () => {
 	});
 
 	it('includes filtered below-threshold task rows in worst-first order', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -508,12 +527,17 @@ describe('GET /api/critical-tasks/reports/export', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			mos: undefined,
-			role: undefined,
-			rank: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				mos: undefined,
+				role: undefined,
+				rank: undefined
+			},
+			() => ctx
+		);
 
 		const sheet = await loadReportSheet(result.buffer);
 

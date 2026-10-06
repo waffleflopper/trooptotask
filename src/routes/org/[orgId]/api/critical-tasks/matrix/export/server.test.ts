@@ -1,3 +1,4 @@
+import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
 import { createInMemoryCriticalTasksReadModelAdapter } from '$features/critical-tasks/index.server';
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
@@ -10,7 +11,10 @@ type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
 
 describe('GET /api/critical-tasks/matrix/export', () => {
 	it('uses critical tasks read permission and returns a matrix workbook matching group and gap filters', async () => {
-		const ctx = createTestContext({ criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter });
+		const ctx = createTestContext({
+			criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence,
+			criticalTasksReadModelFactory: createInMemoryCriticalTasksReadModelAdapter
+		});
 		ctx.store.seed('organizations', [
 			{
 				id: ctx.auth.orgId,
@@ -115,11 +119,16 @@ describe('GET /api/critical-tasks/matrix/export', () => {
 
 		expect('permission' in _getConfig).toBe(false);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			groupId: 'group-alpha',
-			gapsOnly: true,
-			search: undefined
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				groupId: 'group-alpha',
+				gapsOnly: true,
+				search: undefined
+			},
+			() => ctx
+		);
 		const response = _getConfig.formatOutput?.(result);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(result.buffer as WorkbookLoadBuffer);

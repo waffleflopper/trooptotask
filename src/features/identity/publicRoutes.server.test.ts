@@ -1,5 +1,25 @@
+import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
+import { readIdentityAdmission } from './admission.server';
 import { isPublicRoute } from './publicRoutes.server';
+
+function admitAnonymous(pathname: string) {
+	return readIdentityAdmission({
+		supabase: createClient('http://localhost:9', 'synthetic-anonymous-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async () => {
+					throw new Error('Anonymous cron admission must not query user identity');
+				}
+			}
+		}),
+		session: null,
+		user: null,
+		cookies: { get: () => undefined, delete: () => {} },
+		pathname,
+		method: 'GET'
+	});
+}
 
 describe('isPublicRoute', () => {
 	it('allows unauthenticated auth bootstrap routes', () => {
@@ -20,23 +40,39 @@ describe('isPublicRoute', () => {
 		expect(isPublicRoute('/security')).toBe(true);
 	});
 
-	it.each(['/api/cleanup-archived-records', '/api/cleanup-archived-personnel', '/api/cleanup-expired-onboardings'])(
-		'lets %s reach its own secret check without opening nested routes',
-		(path) => {
-			expect(isPublicRoute(path)).toBe(true);
-			expect(isPublicRoute(path + '/other')).toBe(false);
+	it.each([
+		'/api/cleanup-old-data',
+		'/api/cleanup-archived-records',
+		'/api/cleanup-expired-onboardings',
+		'/api/cleanup-account-setup-links'
+	])('lets %s reach its own secret check without opening nested routes', async (path) => {
+		await expect(admitAnonymous(path)).resolves.toEqual({
+			status: 'allowed',
+			actor: null,
+			mfaPending: false,
+			authFlow: null
+		});
+		await expect(admitAnonymous(path + '/other')).resolves.toEqual({
+			status: 'redirect',
+			code: 303,
+			location: '/auth/login'
+		});
+	});
+
+	it.each(['/api/cleanup-archived-personnel', '/api/admin/users', '/dashboard', '/org/test-org/settings'])(
+		'keeps anonymous requests to %s behind sign-in',
+		async (pathname) => {
+			await expect(admitAnonymous(pathname)).resolves.toEqual({
+				status: 'redirect',
+				code: 303,
+				location: '/auth/login'
+			});
 		}
 	);
 
 	it('does not classify the removed help route as public', () => {
 		expect(isPublicRoute('/help')).toBe(false);
 		expect(isPublicRoute('/help/platform-guide')).toBe(false);
-	});
-
-	it('keeps protected application routes private', () => {
-		expect(isPublicRoute('/api/admin/users')).toBe(false);
-		expect(isPublicRoute('/dashboard')).toBe(false);
-		expect(isPublicRoute('/org/test-org/settings')).toBe(false);
 	});
 
 	it('does not grant anonymous access to retired scheduled billing paths', () => {

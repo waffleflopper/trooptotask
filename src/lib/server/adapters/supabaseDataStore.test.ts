@@ -10,12 +10,6 @@ const foreignCalendarStatus = {
 	hint: ''
 };
 
-const duplicateTaskCode = {
-	...foreignCalendarStatus,
-	code: '23505',
-	message: 'duplicate key value violates unique constraint "ict_tasks_organization_id_task_code_key"'
-};
-
 function storeWithProviderError(error: Omit<typeof foreignCalendarStatus, 'details'> & { details: string | null }) {
 	const client = createClient('http://127.0.0.1:1', 'synthetic-anon-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -85,13 +79,6 @@ describe('Supabase DataStore conflict handling', () => {
 		expect(caught).toBeInstanceOf(Error);
 		expect(caught).not.toHaveProperty('code');
 		expect(caught).not.toHaveProperty('details');
-	});
-
-	it.each(writes)('%s returns a conflict for a duplicate Critical Tasks code', async (method) => {
-		await expect(write(storeWithProviderError(duplicateTaskCode), method, 'ict_tasks')).rejects.toMatchObject({
-			status: 409,
-			message: 'Task code already exists in this Organization'
-		});
 	});
 
 	it.each(writes)('%s returns a concealed 404 for a foreign Calendar status reference', async (method) => {

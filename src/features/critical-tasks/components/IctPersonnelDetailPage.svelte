@@ -4,7 +4,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import type { CriticalTasksPageAccess } from '../contracts';
 	import IctCompletionModal from '$features/critical-tasks/components/IctCompletionModal.svelte';
 	import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
 	import { personnelIctCompletionsStore } from '$features/critical-tasks/stores/personnelIctCompletions.svelte';
@@ -29,6 +29,7 @@
 	import { compareIctCompletionRecency } from '../utils/ictReadinessSnapshot';
 
 	interface Props {
+		org: CriticalTasksPageAccess;
 		data: {
 			orgId: string;
 			criticalTasksPersonnelHistory: CriticalTasksPersonnelHistoryData;
@@ -61,13 +62,12 @@
 	type IctStatusValue = ActiveTaskRow['statusInfo']['status'];
 	type IctStatusFilter = IctStatusValue | 'all';
 
-	let { data }: Props = $props();
+	let { data, org }: Props = $props();
 
-	const org = getOrgContext();
 	const history = $derived(data.criticalTasksPersonnelHistory);
 	const personnelDisplayName = $derived(`${history.personnel.lastName}, ${history.personnel.firstName}`);
 	const personnelName = $derived([history.personnel.rank, personnelDisplayName].filter(Boolean).join(' '));
-	const settings = $derived(normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data, org.orgId)));
+	const settings = $derived(normalizeCriticalTasksSettings(criticalTasksSettingsFromWorkspaceData(data, data.orgId)));
 	const recordCompletionAffordance = $derived(
 		criticalTasksRecordCompletionAffordance(org, criticalTasksPolicyResourceForGroup(history.personnel.groupId))
 	);

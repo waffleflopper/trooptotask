@@ -16,10 +16,15 @@ describe('GET /api/calendar-range', () => {
 		const ctx = createTestContext();
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, {
-				rangeStart: '03/01/2026',
-				rangeEnd: '2026-03-31'
-			})
+			handleUseCaseRequest(
+				_getConfig,
+				ctx,
+				{
+					rangeStart: '03/01/2026',
+					rangeEnd: '2026-03-31'
+				},
+				() => ctx
+			)
 		).rejects.toThrow('Dates must use YYYY-MM-DD format');
 	});
 
@@ -27,10 +32,15 @@ describe('GET /api/calendar-range', () => {
 		const ctx = createTestContext();
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, {
-				rangeStart: '2026-04-01',
-				rangeEnd: '2026-03-31'
-			})
+			handleUseCaseRequest(
+				_getConfig,
+				ctx,
+				{
+					rangeStart: '2026-04-01',
+					rangeEnd: '2026-03-31'
+				},
+				() => ctx
+			)
 		).rejects.toThrow('rangeStart must not exceed rangeEnd');
 	});
 
@@ -38,10 +48,15 @@ describe('GET /api/calendar-range', () => {
 		const ctx = createTestContext();
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, {
-				rangeStart: '2026-01-01',
-				rangeEnd: '2027-01-02'
-			})
+			handleUseCaseRequest(
+				_getConfig,
+				ctx,
+				{
+					rangeStart: '2026-01-01',
+					rangeEnd: '2027-01-02'
+				},
+				() => ctx
+			)
 		).rejects.toThrow('Calendar range cannot exceed 366 days');
 	});
 
@@ -66,10 +81,15 @@ describe('GET /api/calendar-range', () => {
 			{ id: 'da1', organization_id: ctx.auth.orgId, date: '2026-03-10', assignment_type_id: 'at1', assignee_id: 'p1' }
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			rangeStart: '2026-03-01',
-			rangeEnd: '2026-03-31'
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				rangeStart: '2026-03-01',
+				rangeEnd: '2026-03-31'
+			},
+			() => ctx
+		);
 
 		expect(result).toEqual({
 			rangeStart: '2026-03-01',
@@ -93,7 +113,7 @@ describe('GET /api/calendar-range', () => {
 				})
 			]
 		});
-		expect((result as Record<string, unknown>).assignmentTypes).toBeUndefined();
-		expect((result as Record<string, unknown>).pinnedGroups).toBeUndefined();
+		expect('assignmentTypes' in result).toBe(false);
+		expect('pinnedGroups' in result).toBe(false);
 	});
 });

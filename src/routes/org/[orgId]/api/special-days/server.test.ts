@@ -18,7 +18,7 @@ describe('GET /api/special-days', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, undefined);
+		const result = await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx);
 
 		expect(result).toEqual([expect.objectContaining({ id: 'own-day', name: 'Own closure' })]);
 	});
@@ -34,11 +34,16 @@ describe('POST /api/special-days', () => {
 	it('creates a special day through the mixed-action route config', async () => {
 		const ctx = createTestContext();
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			date: '2026-02-13',
-			name: 'Training Stand-down',
-			type: 'org-closure'
-		});
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				date: '2026-02-13',
+				name: 'Training Stand-down',
+				type: 'org-closure'
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			date: '2026-02-13',
@@ -73,11 +78,16 @@ describe('PUT /api/special-days', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_putConfig, ctx, {
-			id: 'sd-1',
-			name: 'Staff Holiday',
-			type: 'org-closure'
-		});
+		const result = await handleUseCaseRequest(
+			_putConfig,
+			ctx,
+			{
+				id: 'sd-1',
+				name: 'Staff Holiday',
+				type: 'org-closure'
+			},
+			() => ctx
+		);
 
 		expect(result).toMatchObject({
 			id: 'sd-1',
@@ -119,10 +129,10 @@ describe('special-day configuration policy', () => {
 		ctx.store.seed('special_days', [saved]);
 
 		for (const run of [
-			() => handleUseCaseRequest(_getConfig, ctx, undefined),
-			() => handleUseCaseRequest(_putConfig, ctx, { id, name: 'Changed' }),
-			() => handleUseCaseRequest(_deleteConfig, ctx, { id }),
-			() => handleUseCaseRequest(_postConfig, ctx, { action: 'resetFederalHolidays' })
+			() => handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx),
+			() => handleUseCaseRequest(_putConfig, ctx, { id, name: 'Changed' }, () => ctx),
+			() => handleUseCaseRequest(_deleteConfig, ctx, { id }, () => ctx),
+			() => handleUseCaseRequest(_postConfig, ctx, { action: 'resetFederalHolidays' }, () => ctx)
 		]) {
 			await expect(run()).rejects.toMatchObject({ status: 403 });
 		}

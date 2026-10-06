@@ -3,21 +3,13 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { env } from '$env/dynamic/private';
 import { addUtcDays } from './accountSetupDates';
 import { getAdminClient } from '$lib/server/supabase';
+import type { AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
+export type { AccountSetupLinkRevocationReason, AccountSetupLinkFailureReason } from './contracts';
 
 export const ACCOUNT_SETUP_LINK_EXPIRY_DAYS = 14;
 const RESEND_EMAILS_URL = 'https://api.resend.com/emails';
 const SETUP_LINK_SELECT =
 	'id, access_request_id, token_hash, expires_at, created_at, claimed_at, failed_at, failure_reason, used_at, revoked_at, revocation_reason';
-
-export type AccountSetupLinkRevocationReason = 'manual' | 'replaced' | 'cleanup';
-export type AccountSetupLinkFailureReason =
-	| 'access-request-missing'
-	| 'access-request-completed'
-	| 'access-request-not-approved'
-	| 'account-create-failed'
-	| 'completion-tracking-failed'
-	| 'reconciled-no-write'
-	| 'operator-released';
 
 type AutomaticAccountSetupLinkFailureReason = Exclude<AccountSetupLinkFailureReason, 'operator-released'>;
 
@@ -64,6 +56,12 @@ export interface CreateAccountSetupLinkInput {
 	createdAt: Date;
 }
 
+interface AccountSetupLinkHistoryCounts {
+	staleRevokedCount: number;
+	completedSetupHistoryCount: number;
+	failedSetupHistoryCount: number;
+}
+
 export interface AccountSetupLinkStore {
 	getAccessRequest(id: string): Promise<AccountSetupLinkAccessRequest | null>;
 	revokeUnusedLinksForAccessRequest(accessRequestId: string, revokedAt: Date): Promise<AccountSetupLinkRecord[]>;
@@ -81,8 +79,8 @@ export interface AccountSetupLinkStore {
 		failedAt: Date,
 		failureReason: AutomaticAccountSetupLinkFailureReason
 	): Promise<AccountSetupLinkRecord | null>;
-	listCleanupEligible(cutoff: Date): Promise<AccountSetupLinkRecord[]>;
-	revokeExpiredUnusedLinks(cutoff: Date, revokedAt: Date): Promise<AccountSetupLinkRecord[]>;
+	countCleanupHistory(cutoff: Date): Promise<AccountSetupLinkHistoryCounts>;
+	revokeExpiredUnusedLinks(cutoff: Date, revokedAt: Date): Promise<number>;
 	countActiveLinks(referenceTime: Date): Promise<number>;
 }
 
@@ -155,11 +153,8 @@ export type FailClaimedAccountSetupLinkResult =
 	| { status: 'failed'; accessRequestId: string; link: AccountSetupLinkRecord }
 	| { status: Exclude<AccountSetupLinkValidationStatus, 'valid' | 'claimed'> };
 
-export interface AccountSetupLinkCleanupResult {
+export interface AccountSetupLinkCleanupResult extends AccountSetupLinkHistoryCounts {
 	revokedExpiredUnusedCount: number;
-	staleRevokedCount: number;
-	completedSetupHistoryCount: number;
-	failedSetupHistoryCount: number;
 	activeLinkCount: number;
 	deletedAccessRequestCount: 0;
 	deletedUserAccountCount: 0;
@@ -254,6 +249,13 @@ function throwSupabaseError(error: unknown): asserts error is null | undefined {
 	if (error) {
 		throw error;
 	}
+}
+
+function readExactCount(count: number | null): number {
+	if (count === null || !Number.isSafeInteger(count) || count < 0) {
+		throw new Error('Invalid account setup link count');
+	}
+	return count;
 }
 
 function isUniqueConstraintError(error: unknown): boolean {
@@ -493,15 +495,15 @@ export function createAccountSetupLinkService(
 		async cleanupStaleLinks(input: { olderThan?: Date } = {}): Promise<AccountSetupLinkCleanupResult> {
 			const cleanupAt = now();
 			const cutoff = input.olderThan ?? cleanupAt;
-			const revokedExpiredUnusedLinks = await store.revokeExpiredUnusedLinks(cutoff, cleanupAt);
-			const cleanupEligibleLinks = await store.listCleanupEligible(cutoff);
-			const activeLinkCount = await store.countActiveLinks(cutoff);
+			const revokedExpiredUnusedCount = await store.revokeExpiredUnusedLinks(cutoff, cleanupAt);
+			const [historyCounts, activeLinkCount] = await Promise.all([
+				store.countCleanupHistory(cutoff),
+				store.countActiveLinks(cutoff)
+			]);
 
 			return {
-				revokedExpiredUnusedCount: revokedExpiredUnusedLinks.length,
-				staleRevokedCount: cleanupEligibleLinks.filter((link) => link.revokedAt).length,
-				completedSetupHistoryCount: cleanupEligibleLinks.filter((link) => link.usedAt).length,
-				failedSetupHistoryCount: cleanupEligibleLinks.filter((link) => link.failedAt).length,
+				revokedExpiredUnusedCount,
+				...historyCounts,
 				activeLinkCount,
 				deletedAccessRequestCount: 0,
 				deletedUserAccountCount: 0
@@ -625,31 +627,36 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 			return data ? mapSetupLinkRow(data as AccountSetupLinkRow) : null;
 		},
 
-		async listCleanupEligible(cutoff) {
+		async countCleanupHistory(cutoff) {
 			const cutoffIso = cutoff.toISOString();
-			const { data, error } = await client
-				.from('account_setup_links')
-				.select(SETUP_LINK_SELECT)
-				.or(
-					`used_at.lte.${cutoffIso},revoked_at.lte.${cutoffIso},failed_at.lte.${cutoffIso},expires_at.lte.${cutoffIso}`
-				);
+			const [staleRevokedCount, completedSetupHistoryCount, failedSetupHistoryCount] = await Promise.all(
+				['revoked_at', 'used_at', 'failed_at'].map(async (column) => {
+					const { count, error } = await client
+						.from('account_setup_links')
+						.select('id', { count: 'exact', head: true })
+						.or(
+							`used_at.lte.${cutoffIso},revoked_at.lte.${cutoffIso},failed_at.lte.${cutoffIso},expires_at.lte.${cutoffIso}`
+						)
+						.not(column, 'is', null);
 
-			throwSupabaseError(error);
-			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);
+					throwSupabaseError(error);
+					return readExactCount(count);
+				})
+			);
+			return { staleRevokedCount, completedSetupHistoryCount, failedSetupHistoryCount };
 		},
 
 		async revokeExpiredUnusedLinks(cutoff, revokedAt) {
-			const { data, error } = await client
+			const { count, error } = await client
 				.from('account_setup_links')
-				.update({ revoked_at: revokedAt.toISOString(), revocation_reason: 'cleanup' })
+				.update({ revoked_at: revokedAt.toISOString(), revocation_reason: 'cleanup' }, { count: 'exact' })
 				.lte('expires_at', cutoff.toISOString())
 				.is('claimed_at', null)
 				.is('used_at', null)
-				.is('revoked_at', null)
-				.select(SETUP_LINK_SELECT);
+				.is('revoked_at', null);
 
 			throwSupabaseError(error);
-			return ((data ?? []) as AccountSetupLinkRow[]).map(mapSetupLinkRow);
+			return readExactCount(count);
 		},
 
 		async countActiveLinks(referenceTime) {
@@ -663,7 +670,7 @@ export function createSupabaseAccountSetupLinkStore(client: SupabaseClient): Acc
 				.is('revoked_at', null);
 
 			throwSupabaseError(error);
-			return count ?? 0;
+			return readExactCount(count);
 		}
 	};
 }

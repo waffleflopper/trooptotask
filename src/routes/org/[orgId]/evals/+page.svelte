@@ -3,14 +3,14 @@
 	import type { RatingSchemePageData } from '$features/rating-scheme';
 	import { submitDeletionRequest } from '$features/deletion-requests';
 	import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { isPromiseLike, observeDeferred, throwRenderError } from '$lib/utils/streamedRouteData';
 	import type { RatingSchemeWorkspaceResult, RatingSchemeWorkspaceRestricted } from '$features/rating-scheme/contracts';
 
 	let { data } = $props();
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	const modals = new ModalRegistry();
 	let ratingSchemeBootstrap = $state<RatingSchemeWorkspaceResult | RatingSchemeWorkspaceRestricted | null>(null);
 	let loadError = $state<Error | null>(null);
@@ -25,8 +25,7 @@
 		return {
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
-			ratingSchemeEntries: workspace.data.ratingSchemeEntries,
-			lossWarningWindowDays: workspace.data.lossWarningWindowDays
+			ratingSchemeEntries: workspace.data.ratingSchemeEntries
 		};
 	}
 

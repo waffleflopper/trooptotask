@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { z } from 'zod';
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -5,8 +7,8 @@ import { personnelExtendedInfoInputSchema, type PersonnelExtendedInfo } from './
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 
 interface PersonnelExtendedInfoContext {
-	auth: Parameters<typeof requireFeaturePolicy>[0]['auth'];
-	audit: NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 	store: {
 		findOne<T>(

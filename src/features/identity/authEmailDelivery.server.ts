@@ -92,18 +92,3 @@ export async function sendAuthEmail(
 export function sendPublicRecoveryEmail(email: string, redirectTo: string): Promise<AuthEmailResult> {
 	return sendAuthEmail({ supabase: getAdminClient(), type: 'recovery', email, redirectTo });
 }
-
-export function sendPlatformAuthEmail(input: {
-	type: AuthEmailType;
-	userId: string;
-	email: string;
-	redirectTo: string;
-}): Promise<AuthEmailResult> {
-	return sendAuthEmail({
-		supabase: getAdminClient(),
-		type: input.type,
-		email: input.email,
-		redirectTo: input.redirectTo,
-		expectedUserId: input.userId
-	});
-}

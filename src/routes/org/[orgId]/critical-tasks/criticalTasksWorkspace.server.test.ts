@@ -3,6 +3,7 @@ import type { Cookies } from '@sveltejs/kit';
 import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/contracts';
 
 const {
+	listCatalogMock,
 	findLatestCompletionsMock,
 	findManyMock,
 	findOneMock,
@@ -10,6 +11,7 @@ const {
 	loadWithContextMock,
 	mockCtx
 } = vi.hoisted(() => {
+	const listCatalogMock = vi.fn();
 	const findLatestCompletionsMock = vi.fn();
 	const findManyMock = vi.fn();
 	const findOneMock = vi.fn();
@@ -17,6 +19,7 @@ const {
 	const loadWithContextMock = vi.fn();
 
 	return {
+		listCatalogMock,
 		findLatestCompletionsMock,
 		findManyMock,
 		findOneMock,
@@ -31,6 +34,7 @@ const {
 				findMany: findManyMock,
 				findOne: findOneMock
 			},
+			criticalTaskLibrary: { listCatalog: listCatalogMock },
 			criticalTasksReadModel: {
 				findLatestCompletions: findLatestCompletionsMock
 			},
@@ -61,6 +65,7 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 			critical_tasks_expiring_soon_warning_days: 45
 		});
 		findLatestCompletionsMock.mockResolvedValue([]);
+		listCatalogMock.mockResolvedValue([]);
 		listActiveForReadinessMock.mockResolvedValue([]);
 		loadWithContextMock.mockImplementation((_locals, _cookies, _orgId, config) => {
 			const data = config.fn(mockCtx as never);
@@ -71,11 +76,11 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 	it('streams a lane-keyed Critical Tasks workspace result with explicit hydration targets', async () => {
 		const deferredRows = new Promise<Record<string, unknown>[]>(() => undefined);
 		listActiveForReadinessMock.mockReturnValue(deferredRows);
+		listCatalogMock.mockReturnValue(deferredRows);
 
 		findManyMock.mockImplementation((table: string) => {
 			switch (table) {
 				case 'groups':
-				case 'ict_tasks':
 				case 'personnel_ict_completions':
 					return deferredRows;
 				default:
@@ -126,32 +131,27 @@ describe('streamCriticalTasksWorkspaceBootstrap', () => {
 	it('hydrates active task definitions by default and archived definitions when requested', async () => {
 		const activeTask = {
 			id: 'task-active',
-			organization_id: '11111111-1111-1111-1111-111111111111',
-			task_code: 'A-001',
+			taskCode: 'A-001',
 			title: 'Active Task',
 			description: null,
 			category: null,
 			mos: [],
-			expiration_months: null,
-			sort_order: 0,
-			archived_at: null,
-			created_at: '2026-01-01T00:00:00.000Z'
+			expirationMonths: null,
+			sortOrder: 0,
+			archivedAt: null,
+			createdAt: '2026-01-01T00:00:00.000Z'
 		};
 		const archivedTask = {
 			...activeTask,
 			id: 'task-archived',
-			task_code: 'A-002',
+			taskCode: 'A-002',
 			title: 'Archived Task',
-			archived_at: '2026-02-01T00:00:00.000Z'
+			archivedAt: '2026-02-01T00:00:00.000Z'
 		};
-		findManyMock.mockImplementation(
-			(table: string, _orgId: string, _filters: unknown, options?: Record<string, unknown>) => {
-				if (table === 'ict_tasks') {
-					return Promise.resolve(options?.isNull ? [activeTask] : [activeTask, archivedTask]);
-				}
-				return Promise.resolve([]);
-			}
+		listCatalogMock.mockImplementation((options?: { includeArchived?: boolean }) =>
+			Promise.resolve(options?.includeArchived ? [activeTask, archivedTask] : [activeTask])
 		);
+		findManyMock.mockResolvedValue([]);
 
 		const defaultRouteData = await streamCriticalTasksWorkspaceBootstrap({
 			locals: {} as App.Locals,

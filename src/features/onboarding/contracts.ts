@@ -1,7 +1,28 @@
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+
+/** Live routing, scope and advisory decisions supplied by Delivery. */
+export interface OnboardingPageAccess {
+	readonly orgId: string;
+	readonly orgUrlSegment?: string;
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => { readonly allowed: boolean; readonly visible: boolean };
+}
+
 import type { Group, OrganizationRankCatalogEntry } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
-import type { OnboardingTemplate, OnboardingTemplateStep, PersonnelOnboarding } from './onboarding.types';
+export { getProgress } from './onboardingProgress';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	PersonnelOnboarding,
+	OnboardingStepNote,
+	OnboardingStatus
+} from './onboarding.types';
 export type {
 	OnboardingTemplate,
 	OnboardingTemplateStep,
@@ -94,3 +115,77 @@ export interface OnboardingReconciliationPort {
 		newTemplateId: string | null
 	): Promise<OnboardingReconciliationResult>;
 }
+
+/** Authoritative saved notes after one atomic database append. */
+export interface OnboardingNoteAppendResult {
+	id: string;
+	notes: OnboardingStepNote[];
+}
+
+export interface OnboardingNoteAppendPort {
+	/** Attribution and timestamp come from the ordinary authenticated database request. */
+	append(organizationId: string, stepId: string, text: string): Promise<OnboardingNoteAppendResult>;
+}
+
+export type OnboardingLifecycleTransition =
+	| { kind: 'cancel'; at: string }
+	| { kind: 'complete'; at: string }
+	| { kind: 'reopen' };
+
+/** Only the saved parent fields consumed by lifecycle responses. */
+export interface OnboardingLifecycleTransitionResult {
+	id: string;
+	status: OnboardingStatus;
+	cancelled_at: string | null;
+	completed_at: string | null;
+}
+
+export interface OnboardingLifecycleTransitionPort {
+	/** Null means the parent no longer matches this transition's required status. */
+	transition(
+		organizationId: string,
+		onboardingId: string,
+		command: OnboardingLifecycleTransition
+	): Promise<OnboardingLifecycleTransitionResult | null>;
+}
+
+export interface OnboardingInactiveStepRemovalPort {
+	/** Null means no row still matches the inactive-only deletion predicate. */
+	remove(organizationId: string, stepId: string): Promise<{ id: string } | null>;
+}
+
+/** Prepared catalog snapshots; fresh identities and workflow defaults belong to creation. */
+export interface OnboardingStartStepSnapshot extends Pick<
+	OnboardingReconciliationStepRow,
+	'step_name' | 'step_type' | 'training_type_id' | 'stages' | 'sort_order' | 'completed'
+> {
+	template_step_id: string;
+}
+
+export interface OnboardingPacketCreationInput {
+	personnelId: string;
+	templateId: string;
+	startedAt: string;
+	steps: OnboardingStartStepSnapshot[];
+}
+
+/** Authoritative saved parent and snapshots from one creation transaction. */
+export interface OnboardingPacketCreationResult {
+	onboarding: {
+		id: string;
+		personnel_id: string;
+		template_id: string;
+		status: OnboardingStatus;
+		started_at: string;
+		completed_at: string | null;
+		cancelled_at: string | null;
+	};
+	steps: OnboardingReconciliationStepRow[];
+}
+
+export interface OnboardingPacketCreationPort {
+	/** Save the new packet and all prepared steps together, or save neither. */
+	create(organizationId: string, input: OnboardingPacketCreationInput): Promise<OnboardingPacketCreationResult>;
+}
+
+export type { OnboardingSupportReader } from './supportReadTypes';

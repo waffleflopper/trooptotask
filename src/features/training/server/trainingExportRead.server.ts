@@ -1,28 +1,33 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
 
+const EXPORT_TABLES = ['training_types', 'personnel_trainings', 'training_views'] as const;
+
+export type TrainingExportTable = (typeof EXPORT_TABLES)[number];
+
+export interface TrainingExportReader {
+	listRows(table: TrainingExportTable): Promise<Record<string, unknown>[]>;
+}
+
+export function createSupabaseTrainingExportReader(client: SupabaseClient, orgId: string): TrainingExportReader {
+	return {
+		async listRows(table) {
+			if (!EXPORT_TABLES.includes(table)) {
+				throw Object.assign(new Error('Unsupported Training export table'), { status: 400 });
+			}
+			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
+				const { data, error } = await client.from(table).select('*').eq('organization_id', orgId).range(from, to);
+				return { data, error };
+			});
+			if (result.error)
+				throw new Error((result.error as { message?: string }).message ?? 'Training export read failed');
+			return result.data ?? [];
+		}
+	};
+}
+
 type TrainingExportReadStore = Pick<TrainingCatalogReadStore, 'findMany'>;
-
-/** Raw saved rows for separately authorized exports; the request store retains its RLS. */
-export function listTrainingTypeExportRows(
-	store: TrainingExportReadStore,
-	orgId: string
-): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('training_types', orgId);
-}
-
-export function listTrainingCompletionExportRows(
-	store: TrainingExportReadStore,
-	orgId: string
-): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('personnel_trainings', orgId);
-}
-
-export function listTrainingViewExportRows(
-	store: TrainingExportReadStore,
-	orgId: string
-): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('training_views', orgId);
-}
 
 export function listPersonnelTrainingExportRows(
 	store: TrainingExportReadStore,

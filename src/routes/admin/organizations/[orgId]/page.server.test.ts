@@ -1,51 +1,78 @@
 import { isHttpError, type RequestEvent } from '@sveltejs/kit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformMembershipRecord } from '$lib/server/core/useCases/platformMembershipAdministration';
 
-const { lookupRole, audit, store, getOrganizationDetail } = vi.hoisted(() => ({
-	lookupRole: vi.fn(),
+const { audit, readOrganization, command, authority } = vi.hoisted(() => ({
 	audit: vi.fn(),
-	store: {
-		listMembers: vi.fn(),
-		getOrganization: vi.fn(),
-		getMembership: vi.fn(),
-		getCurrentOwner: vi.fn(),
-		setMembershipRole: vi.fn()
-	},
-	getOrganizationDetail: vi.fn()
+	readOrganization: vi.fn(),
+	command: vi.fn(),
+	authority: { role: 'super_admin' as string | null, error: null as unknown }
 }));
-
-vi.mock('$lib/server/admin', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/admin')>()),
-	getAdminRole: lookupRole
+vi.mock('$lib/server/supabase', () => ({
+	getAdminClient: () => ({
+		from: () => {
+			const query = {
+				select: () => query,
+				eq: () => query,
+				maybeSingle: async () => ({ data: authority.role ? { role: authority.role } : null, error: authority.error })
+			};
+			return query;
+		},
+		rpc: command
+	})
 }));
-vi.mock('$lib/server/supabase', () => ({ getAdminClient: () => ({}) }));
-vi.mock('$lib/server/auditLog', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$lib/server/auditLog')>()),
-	auditLog: audit
+vi.mock('$lib/audit/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/audit/index.server')>()),
+	auditLog: audit,
+	createSupabasePlatformAudit: () => ({ listRecentByOrganization: async () => detail().auditEvents })
 }));
-vi.mock('$lib/server/adapters/supabasePlatformMembershipAdministration', async () => {
-	const { createPlatformMembershipAdministration } =
-		await import('$lib/server/core/useCases/platformMembershipAdministration');
+vi.mock('$features/organization/index.server', async (importOriginal) => {
+	const original = await importOriginal<typeof import('$features/organization/index.server')>();
 	return {
-		createSupabasePlatformMembershipAdministration: (ctx: { audit: typeof audit }) =>
-			createPlatformMembershipAdministration({ store, audit: ctx.audit })
+		...original,
+		createOrganizationSupportReader: () => ({ getOrganizationById: readOrganization }),
+		createSupabaseOrganizationPlatformMembershipPort: (
+			...args: Parameters<typeof original.createSupabaseOrganizationPlatformMembershipPort>
+		) => ({
+			...original.createSupabaseOrganizationPlatformMembershipPort(...args),
+			listMembers: async () => detail().members
+		})
 	};
 });
-vi.mock('$lib/server/adapters/supabasePlatformOrganizationDetail', () => ({
-	createSupabasePlatformOrganizationDetail: () => ({ getOrganizationDetail })
+vi.mock('$features/personnel/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/personnel/index.server')>()),
+	createPersonnelSupportReader: () => ({ countActivePersonnelForOrganization: async () => 3 })
 }));
-
 import { actions, load } from './+page.server';
-
 const orgId = '11111111-1111-4111-8111-111111111111';
 const ownerId = '22222222-2222-4222-8222-222222222222';
 const targetUserId = '33333333-3333-4333-8333-333333333333';
-let memberships: PlatformMembershipRecord[];
-
+const actorId = '44444444-4444-4444-8444-444444444444';
 function event(form: Record<string, string> = { targetUserId, confirmName: 'Able Company' }, id = orgId): RequestEvent {
 	return {
-		locals: { actor: { userId: 'admin-1' }, user: { id: 'admin-1' }, supabase: {}, session: null },
+		locals: {
+			actor: { userId: actorId },
+			user: { id: 'untrusted-other-user' },
+			session: {
+				access_token: 'synthetic-request-token',
+				expires_at: Math.floor(Date.now() / 1000) + 3600,
+				user: { id: actorId }
+			},
+			supabase: {
+				auth: {
+					mfa: {
+						getAuthenticatorAssuranceLevel: async () => ({
+							error: null,
+							data: {
+								currentLevel: 'aal1',
+								nextLevel: 'aal1',
+								currentAuthenticationMethods: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) }]
+							}
+						})
+					}
+				},
+				rpc: async () => ({ data: false, error: null })
+			}
+		},
 		params: { orgId: id },
 		request: new Request(`http://localhost/admin/organizations/${id}`, {
 			method: 'POST',
@@ -54,15 +81,12 @@ function event(form: Record<string, string> = { targetUserId, confirmName: 'Able
 		getClientAddress: () => '127.0.0.1'
 	} as unknown as RequestEvent;
 }
-
 function loadDetail(request = event()) {
 	return load(request as Parameters<typeof load>[0]);
 }
-
 function runAction(action: 'makeAdmin' | 'transferOwnership', request = event()) {
 	return actions[action](request as Parameters<(typeof actions)[typeof action]>[0]);
 }
-
 function detail() {
 	return {
 		adminRole: 'super_admin',
@@ -78,185 +102,142 @@ function detail() {
 		auditEvents: [{ id: 'audit-1', action: 'admin.org.make_admin', resourceId: orgId }]
 	};
 }
-
 beforeEach(() => {
 	vi.resetAllMocks();
-	lookupRole.mockResolvedValue('super_admin');
-	getOrganizationDetail.mockResolvedValue({ status: 'found', detail: detail() });
-	memberships = [
-		{ orgId, userId: ownerId, role: 'owner' },
-		{ orgId, userId: targetUserId, role: 'member' }
-	];
-	store.getOrganization.mockImplementation(async (id: string) => (id === orgId ? { id, name: 'Able Company' } : null));
-	store.getMembership.mockImplementation(async (input: { orgId: string; userId: string }) => {
-		const member = memberships.find((member) => member.orgId === input.orgId && member.userId === input.userId);
-		return member ? { ...member } : null;
+	authority.role = 'super_admin';
+	authority.error = null;
+	readOrganization.mockResolvedValue({
+		id: orgId,
+		name: 'Able Company',
+		suspended_at: null,
+		created_at: detail().org.createdAt
 	});
-	store.getCurrentOwner.mockImplementation(
-		async (id: string) => memberships.find((member) => member.orgId === id && member.role === 'owner') ?? null
-	);
-	store.setMembershipRole.mockImplementation(async (input: PlatformMembershipRecord) => {
-		const member = memberships.find((member) => member.orgId === input.orgId && member.userId === input.userId);
-		if (!member) throw new Error('Membership not found');
-		member.role = input.role;
-	});
+	command.mockImplementation(async (name: string) => ({
+		error: null,
+		data:
+			name === 'platform_promote_org_member'
+				? { status: 'updated', org_id: orgId, target_user_id: targetUserId }
+				: {
+						status: 'updated',
+						org_id: orgId,
+						from_user_id: ownerId,
+						to_user_id: targetUserId,
+						org_name: 'Able Company'
+					}
+	}));
 });
-
 describe('admin organization detail load', () => {
 	it('rejects malformed organization IDs before reading detail', async () => {
 		await expect(loadDetail(event({}, 'not-a-uuid'))).rejects.toMatchObject({ status: 400 });
-		expect(getOrganizationDetail).not.toHaveBeenCalled();
+		expect(readOrganization).not.toHaveBeenCalled();
 	});
 
 	it('allows support to read retained identity, membership, suspension and audit data', async () => {
-		lookupRole.mockResolvedValue('support');
+		authority.role = 'support';
 		const suspended = detail();
 		suspended.org.suspendedAt = '2026-06-02T00:00:00.000Z';
 		suspended.org.isSuspended = true;
-		getOrganizationDetail.mockResolvedValue({ status: 'found', detail: suspended });
+		suspended.adminRole = 'support';
+		readOrganization.mockResolvedValue({
+			id: orgId,
+			name: suspended.org.name,
+			suspended_at: suspended.org.suspendedAt,
+			created_at: suspended.org.createdAt
+		});
 		expect(await loadDetail()).toEqual(suspended);
 	});
 
 	it('maps missing organization detail results to 404', async () => {
-		getOrganizationDetail.mockResolvedValue({ status: 'not_found' });
+		readOrganization.mockResolvedValue(null);
 		await expect(loadDetail()).rejects.toMatchObject({ status: 404 });
 	});
 
 	it('maps provider failures to a sanitized 500', async () => {
-		getOrganizationDetail.mockResolvedValue({ status: 'provider_error', message: 'database offline' });
+		readOrganization.mockRejectedValue(new Error('private database offline'));
 		const caught = await Promise.resolve(loadDetail()).catch((error: unknown) => error);
 		expect(isHttpError(caught, 500)).toBe(true);
 		expect(caught).toMatchObject({ body: { message: 'Failed to load organization detail' } });
 	});
 
 	it.each([null, 'billing'])('denies detail access for role %s before reading protected data', async (role) => {
-		lookupRole.mockResolvedValue(role);
+		authority.role = role;
 		await expect(loadDetail()).rejects.toMatchObject({ status: 403 });
-		expect(getOrganizationDetail).not.toHaveBeenCalled();
+		expect(readOrganization).not.toHaveBeenCalled();
 	});
 });
 
-describe('admin organization membership actions', () => {
-	it('promotes the selected member and preserves the existing owner', async () => {
-		expect(await runAction('makeAdmin')).toEqual({ success: true });
-		expect(memberships).toEqual([
-			{ orgId, userId: ownerId, role: 'owner' },
-			{ orgId, userId: targetUserId, role: 'admin' }
-		]);
-		expect(audit).toHaveBeenCalledWith(
-			expect.objectContaining({ action: 'admin.org.make_admin', orgId }),
-			expect.any(Object)
-		);
+describe('admin organization membership action delivery', () => {
+	it.each(['makeAdmin', 'transferOwnership'] as const)(
+		'binds %s to the admitted actor despite forged actor fields',
+		async (action) => {
+			expect(
+				await runAction(action, event({ targetUserId, confirmName: 'Able Company', actorUserId: ownerId }))
+			).toEqual({ success: true });
+			expect(command).toHaveBeenCalledTimes(1);
+			expect(command).toHaveBeenCalledWith(
+				action === 'makeAdmin' ? 'platform_promote_org_member' : 'platform_transfer_org_ownership',
+				expect.objectContaining({ p_actor_user_id: actorId, p_organization_id: orgId, p_target_user_id: targetUserId })
+			);
+			expect(audit).toHaveBeenCalledWith(
+				expect.objectContaining({ orgId }),
+				expect.objectContaining({ userId: actorId })
+			);
+		}
+	);
+	it.each(['support', 'billing', null])('denies current platform role %s before privileged commands', async (role) => {
+		authority.role = role;
+		await expect(runAction('transferOwnership')).rejects.toMatchObject({ status: 403 });
+		expect(command).not.toHaveBeenCalled();
+		expect(audit).not.toHaveBeenCalled();
 	});
-
-	it('transfers ownership to the selected member and preserves the former owner as admin', async () => {
-		expect(await runAction('transferOwnership')).toEqual({ success: true });
-		expect(memberships).toEqual([
-			{ orgId, userId: ownerId, role: 'admin' },
-			{ orgId, userId: targetUserId, role: 'owner' }
-		]);
-		expect(audit).toHaveBeenCalledWith(
-			expect.objectContaining({ action: 'admin.org.transfer_ownership', orgId }),
-			expect.any(Object)
-		);
+	it('reports unavailable current role as 503 without leaking provider details', async () => {
+		authority.error = { message: 'private database details' };
+		await expect(runAction('makeAdmin')).rejects.toMatchObject({
+			status: 503,
+			body: { message: 'Unable to verify platform administration access' }
+		});
+		expect(command).not.toHaveBeenCalled();
 	});
-
-	for (const action of ['makeAdmin', 'transferOwnership'] as const) {
-		it(`${action} rejects support administrators before any membership work`, async () => {
-			lookupRole.mockResolvedValue('support');
-			expect(await runAction(action)).toMatchObject({ status: 403 });
-			expect(store.getMembership).not.toHaveBeenCalled();
-			expect(store.setMembershipRole).not.toHaveBeenCalled();
-			expect(audit).not.toHaveBeenCalled();
-		});
-
-		it.each([null, 'billing'])(`${action} rejects role %s before protected effects`, async (role) => {
-			lookupRole.mockResolvedValue(role);
-			await expect(runAction(action)).rejects.toMatchObject({ status: 403 });
-			expect(store.setMembershipRole).not.toHaveBeenCalled();
-			expect(audit).not.toHaveBeenCalled();
-		});
-
-		it.each([
-			['organization', 'not-a-uuid', targetUserId],
-			['target user', orgId, 'not-a-uuid']
-		])(`${action} rejects malformed %s IDs without mutations`, async (_, id, target) => {
-			expect(await runAction(action, event({ targetUserId: target }, id))).toMatchObject({ status: 400 });
-			expect(store.setMembershipRole).not.toHaveBeenCalled();
-		});
-	}
-
 	it.each([
-		['missing', 'Target user is not a member of this organization'],
-		['admin', 'Target user is already an admin'],
-		['owner', 'Target user is already the owner']
-	] as const)('rejects make-admin for a target who is %s without mutations', async (role, message) => {
-		if (role === 'missing') memberships.pop();
-		else memberships[1].role = role;
-		expect(await runAction('makeAdmin')).toMatchObject({ status: 400, data: { error: { message } } });
-		expect(store.setMembershipRole).not.toHaveBeenCalled();
-	});
-
-	it('requires matching organization confirmation before ownership transfer', async () => {
-		expect(await runAction('transferOwnership', event({ targetUserId, confirmName: 'Other Company' }))).toMatchObject({
-			status: 400
-		});
-		expect(store.setMembershipRole).not.toHaveBeenCalled();
-	});
-
-	it('returns a sanitized failure when make-admin storage fails', async () => {
-		store.setMembershipRole.mockRejectedValueOnce(new Error('private database details'));
-		expect(await runAction('makeAdmin')).toMatchObject({
-			status: 500,
-			data: { error: { message: 'Failed to update membership' } }
-		});
-		expect(memberships[1].role).toBe('member');
+		['organization', 'not-a-uuid', targetUserId],
+		['target', orgId, 'not-a-uuid']
+	])('rejects malformed %s before command effects', async (_, id, target) => {
+		expect(await runAction('makeAdmin', event({ targetUserId: target }, id))).toMatchObject({ status: 400 });
+		expect(command).not.toHaveBeenCalled();
 		expect(audit).not.toHaveBeenCalled();
 	});
-
-	it('returns a sanitized failure when ownership lookup throws', async () => {
-		store.getOrganization.mockRejectedValueOnce(new Error('private database details'));
-		expect(await runAction('transferOwnership')).toMatchObject({
-			status: 500,
-			data: { error: { message: 'Transfer failed' } }
-		});
-		expect(store.setMembershipRole).not.toHaveBeenCalled();
-	});
-
-	it('restores the current owner when promotion fails and reports failure', async () => {
-		store.setMembershipRole.mockImplementationOnce(async () => {
-			memberships[0].role = 'admin';
-		});
-		store.setMembershipRole.mockRejectedValueOnce(new Error('promotion failed'));
-		expect(await runAction('transferOwnership')).toMatchObject({
-			status: 500,
-			data: { error: { message: 'Transfer failed during promotion' } }
-		});
-		expect(memberships[0].role).toBe('owner');
-		expect(memberships[1].role).toBe('member');
-		expect(audit).not.toHaveBeenCalled();
-	});
-
-	it('reports when the current owner cannot be verified without changing ownership', async () => {
-		store.getCurrentOwner.mockRejectedValueOnce(new Error('owner lookup failed'));
-		expect(await runAction('transferOwnership')).toMatchObject({
-			status: 500,
-			data: { error: { message: 'Could not verify current owner' } }
-		});
-		expect(store.setMembershipRole).not.toHaveBeenCalled();
-	});
-
-	it('reports when ownership transfer rollback needs manual recovery', async () => {
-		store.setMembershipRole.mockImplementationOnce(async () => {
-			memberships[0].role = 'admin';
-		});
-		store.setMembershipRole.mockRejectedValueOnce(new Error('promotion failed'));
-		store.setMembershipRole.mockRejectedValueOnce(new Error('rollback failed'));
-		expect(await runAction('transferOwnership')).toMatchObject({
-			status: 500,
+	it('preserves actionable Identity step-up fields and makes no membership RPC', async () => {
+		const request = event();
+		request.locals.supabase.auth.mfa.getAuthenticatorAssuranceLevel = vi.fn().mockResolvedValue({
+			error: null,
 			data: {
-				error: { message: 'Transfer failed during promotion; original owner could not be restored automatically' }
+				currentLevel: 'aal1',
+				nextLevel: 'aal2',
+				currentAuthenticationMethods: [{ method: 'password', timestamp: Math.floor(Date.now() / 1000) - 3600 }]
 			}
+		});
+		expect(await runAction('transferOwnership', request)).toMatchObject({
+			status: 403,
+			data: { requiresStepUp: true, stepUpPath: '/auth/mfa-verify', reason: 'denied.staleSession' }
+		});
+		expect(command).not.toHaveBeenCalled();
+	});
+	it.each([
+		['name_mismatch', 400],
+		['multiple_current_owners', 409],
+		['forbidden', 403],
+		['provider_error', 503]
+	] as const)('maps %s to an honest action failure', async (status, httpStatus) => {
+		command.mockResolvedValue({ data: { status }, error: null });
+		expect(await runAction('transferOwnership')).toMatchObject({ status: httpStatus });
+		expect(audit).not.toHaveBeenCalled();
+	});
+	it('does not report success from an unacknowledged RPC response', async () => {
+		command.mockResolvedValue({ data: null, error: { message: 'private SQL detail' } });
+		const result = await runAction('transferOwnership');
+		expect(result).toMatchObject({
+			status: 503,
+			data: { error: { message: 'Could not confirm the transfer. Reload this page before trying again.' } }
 		});
 		expect(audit).not.toHaveBeenCalled();
 	});

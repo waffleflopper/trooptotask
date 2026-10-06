@@ -1,0 +1,49 @@
+import type { PersonnelLeaderNote } from './personnelLeaderNote.types';
+
+/** Portable sensitive Personnel artifact responses; raw export rows remain separate. */
+export interface PersonnelCounselingRecord {
+	id: string;
+	personnelId: string;
+	dateConducted: string;
+	title: string;
+	summary?: string;
+	status: 'uploaded' | 'needs-title' | 'archived';
+	uploadedBy: string;
+	fileName: string;
+	createdAt: string;
+	archivedAt?: string | null;
+}
+
+export interface PersonnelDocument {
+	id: string;
+	personnelId: string;
+	title: string;
+	fileName: string;
+	fileSizeBytes: number;
+	contentType: string;
+	uploadedBy: string;
+	createdAt: string;
+	archivedAt?: string | null;
+}
+
+export type PersonnelFollowUpStatus = 'open' | 'completed' | 'archived';
+
+export interface PersonnelFollowUp {
+	id: string;
+	personnelId: string;
+	title: string;
+	notes: string;
+	dueDate: string | null;
+	status: PersonnelFollowUpStatus;
+	createdBy: string;
+	createdAt: string;
+	updatedAt: string;
+	completedAt: string | null;
+	archivedAt?: string | null;
+}
+
+export type PersonnelArchivedArtifact =
+	| ({ kind: 'follow-up' } & PersonnelFollowUp)
+	| ({ kind: 'counseling' } & PersonnelCounselingRecord & { archivedAt: string | null })
+	| ({ kind: 'document' } & PersonnelDocument & { archivedAt: string | null })
+	| ({ kind: 'note' } & PersonnelLeaderNote & { archivedAt: string | null });

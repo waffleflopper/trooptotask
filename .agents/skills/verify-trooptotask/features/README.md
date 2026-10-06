@@ -30,12 +30,23 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 
 ## Features
 
+- [Dashboard composition and freshness](dashboard.md): combined source counts, readiness/due, active packet progress, losses, admission, reload, source consumers and delayed navigation.
+
 ### Access and people
 
+- [Trusted access and request isolation](access-context.md): shared admission, Organization/Group and empty scope, denied writes, authority injection, changed grants and concurrent request targets.
+
+- [Platform access, accounts and Organizations](platform-administration.md): platform admission, reviewed access, directories, suspension, role/ownership support and recovery.
+- [Platform announcements, Feedback and Audit support](platform-support-content.md): admin content lifecycle, reduced Dashboard activity, paging, denial, persisted effects and recovery.
 - [Sign in and sign out](sign-in.md): public gate, member session, account menu, sign-out and form failure.
+- [App shell and saved preferences](shell-preferences.md): optional chrome, Training/Calendar persistence, pending saves, failures and user/Organization/session lifetime.
+- [Shared dialogs, date selection and tooltips](shared-ui.md): accessible descriptions, keyboard/focus restoration, actual form consumers and separate unconsumed range-calendar/pagination checks.
 - [Create an Organization](organization-creation.md): confirmed-account gate, owner creation, initial configuration and retry boundaries.
 - [Invite and accept Organization members](organization-invitations.md): existing/new account paths, separate setup and invitation states, acceptance, denial and resend.
 - [Manage Organization member access and ownership](organization-member-access.md): role, capability and Group edits, stale access, transfer and denial.
+- [Archival and deletion requests](deletion-requests.md): cross-feature submission, review, denial/cancellation, partial failures, source effects and scope.
+- [Organization settings and destruction](organization-settings-destruction.md): name and URL changes, retained settings, confirmation, step-up, denial and disposable-Organization deletion.
+- [Organization data exports](organization-exports.md): JSON and workbook contents, sensitive raw records, lifecycle, failed generation, download recovery, governance denial, and Organization switching.
 - [Find personnel](find-personnel.md): search, roster views, Organization-wide and Alpha-only reads, and record opening.
 - [Personnel record lifecycle](personnel-records-lifecycle.md): create/edit, imports and ETS/DEROS backfill, archive/restore, approval, replay, scope and stable identities.
 - [Personnel artifacts](personnel-artifacts.md): counseling PDFs, documents, follow-ups and leader notes; drafts, sensitive access, archive/restore/removal, exports and retention.
@@ -45,6 +56,8 @@ For durable publication, follow [artifact packaging](../../../../docs/architectu
 - [Training completions, matrix and reports](training-completions-reports.md): saved record lifecycle, import/upsert recovery, dated status math, report downloads and scoped denial.
 
 ### Communications
+
+- [Audit capture and safe projections](audit-capture-projections.md): owner summaries, privileged details, paging, source labels, masking, producer events and denied access.
 
 - [Notifications, feedback and announcements](notifications-feedback.md): real recipients, own inbox persistence/deletion, scope changes, failed requests, feedback and global dismissal.
 

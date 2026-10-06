@@ -1,3 +1,5 @@
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TrainingPageContext } from './TrainingPageContext.svelte';
 const getDefaultUserOrgPreferences = () => ({
@@ -6,7 +8,6 @@ const getDefaultUserOrgPreferences = () => ({
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
@@ -17,10 +18,10 @@ import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 
-const { gotoMock, invalidateMock, queueUserPreferencesPatchMock } = vi.hoisted(() => ({
+const { gotoMock, invalidateMock, savePreferencesMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
 	invalidateMock: vi.fn(),
-	queueUserPreferencesPatchMock: vi.fn()
+	savePreferencesMock: vi.fn()
 }));
 
 async function waitForAsyncSideEffect(assertion: () => void): Promise<void> {
@@ -52,7 +53,11 @@ vi.mock('$app/navigation', () => ({
 // ---------------------------------------------------------------------------
 
 function makeOrg() {
-	return createTestOrgContext({ userRole: 'member' });
+	return {
+		orgId: 'test-org',
+		orgUrlSegment: 'test-org',
+		...createClientAccess({ membershipRole: 'member', capabilityMap: createCapabilityMap('configure') })
+	};
 }
 
 function makeModals() {
@@ -60,10 +65,14 @@ function makeModals() {
 }
 
 function makePolicyOrg(options: { training: CapabilityMap['training'] }) {
-	return createTestOrgContext({
-		userRole: 'member',
-		capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: options.training }
-	});
+	return {
+		orgId: 'test-org',
+		orgUrlSegment: 'test-org',
+		...createClientAccess({
+			membershipRole: 'member',
+			capabilityMap: { ...createCapabilityMap('none'), training: options.training }
+		})
+	};
 }
 
 const mockPerson: Personnel = {
@@ -155,7 +164,7 @@ function makeData(overrides: Record<string, unknown> = {}) {
 const submitRemovalRequest = vi.fn().mockResolvedValue(true);
 type ContextArgs = ConstructorParameters<typeof TrainingPageContext>;
 function makeContext(data: ContextArgs[0], modals: ContextArgs[1], org: ContextArgs[2]) {
-	return new TrainingPageContext(data, modals, org, submitRemovalRequest, queueUserPreferencesPatchMock);
+	return new TrainingPageContext(data, modals, org, submitRemovalRequest, savePreferencesMock);
 }
 
 describe('TrainingPageContext', () => {
@@ -166,8 +175,7 @@ describe('TrainingPageContext', () => {
 		submitRemovalRequest.mockReset().mockResolvedValue(true);
 		vi.unstubAllGlobals();
 		modals = makeModals();
-		queueUserPreferencesPatchMock.mockReset();
-		queueUserPreferencesPatchMock.mockResolvedValue(undefined);
+		savePreferencesMock.mockReset();
 		personnelRosterHydration.load([mockPerson, mockPerson2], 'org-1');
 		groupCatalogHydration.load(mockGroups, 'org-1');
 		trainingRankCatalogStore.load([], 'org-1');
@@ -189,11 +197,15 @@ describe('TrainingPageContext', () => {
 		});
 
 		it('keeps Group-scoped configurators in the matrix without Organization-wide controls', () => {
-			const org = createTestOrgContext({
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, training: 'configure' },
-				scopeSet: { kind: 'groups', groupIds: ['g-1'] }
-			});
+			const org = {
+				orgId: 'test-org',
+				orgUrlSegment: 'test-org',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), training: 'configure' },
+					scopeSet: { kind: 'groups', groupIds: ['g-1'] }
+				})
+			};
 			const ctx = makeContext(makeData(), modals, org);
 
 			expect(ctx.canViewTraining).toBe(true);
@@ -277,7 +289,7 @@ describe('TrainingPageContext', () => {
 
 			expect(ctx.filteredPersonnel.map((person) => person.id)).toEqual(['p-unassigned']);
 			await waitForAsyncSideEffect(() => {
-				expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+				expect(savePreferencesMock).toHaveBeenCalledWith({
 					training: { selectedGroupId: 'name:Unassigned' }
 				});
 			});
@@ -302,7 +314,7 @@ describe('TrainingPageContext', () => {
 			expect(ctx.groupFilterOptions).toContainEqual({ value: 'g-empty', label: 'Charlie' });
 			expect(ctx.filteredPersonnel).toEqual([]);
 			expect(ctx.selectedGroupId).toBe('g-empty');
-			expect(queueUserPreferencesPatchMock).not.toHaveBeenCalled();
+			expect(savePreferencesMock).not.toHaveBeenCalled();
 		});
 	});
 
@@ -591,8 +603,8 @@ describe('TrainingPageContext', () => {
 			void ctx.filteredPersonnel;
 
 			await waitForAsyncSideEffect(() => {
-				expect(queueUserPreferencesPatchMock).toHaveBeenCalledTimes(1);
-				expect(queueUserPreferencesPatchMock).toHaveBeenCalledWith('org-1', {
+				expect(savePreferencesMock).toHaveBeenCalledTimes(1);
+				expect(savePreferencesMock).toHaveBeenCalledWith({
 					training: {
 						selectedGroupId: null,
 						selectedViewId: null

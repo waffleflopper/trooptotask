@@ -1,8 +1,10 @@
-import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent } from '@sveltejs/kit';
+
+import { createPersonnelDocumentDownloadUrl } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
-import { createPersonnelDocumentDownloadUrl } from '$lib/server/core/useCases/personnelDocuments';
 
 interface PersonnelDocumentDownloadInput {
 	personnelId: string;
@@ -17,7 +19,12 @@ function inputFromEvent(event: RequestEvent): PersonnelDocumentDownloadInput {
 	return { personnelId, documentId };
 }
 
-export const _getConfig: RouteConfig<PersonnelDocumentDownloadInput, { url: string }> = {
+export const _getConfig: RouteConfig<
+	PersonnelDocumentDownloadInput,
+	{ url: string },
+	ReturnType<typeof createRequestPersonnelArtifactsContext>
+> = {
+	context: createRequestPersonnelArtifactsContext,
 	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => inputFromEvent(event),

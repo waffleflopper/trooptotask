@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { enhance } from '$app/forms';
+	import type { SubmitFunction } from '@sveltejs/kit';
+	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { formatDisplayDate, formatDisplayDateTime } from '$lib/utils/dates';
 	import { Badge } from '$lib/components/ui/badge';
@@ -20,8 +23,73 @@
 	let sendingInvite = $state(false);
 	let toastMessage = $state<string | null>(null);
 	let toastError = $state<string | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+	let navigationLifetime = $state(0);
+	const canSuspend = $derived(data.adminRole === 'super_admin');
+
+	beforeNavigate(() => {
+		navigationLifetime += 1;
+		clearTimeout(toastTimer);
+		showSuspendModal = false;
+		toastMessage = null;
+		toastError = null;
+		sendingReset = false;
+		sendingInvite = false;
+	});
+	onDestroy(() => {
+		navigationLifetime += 1;
+		clearTimeout(toastTimer);
+	});
+
+	async function reloadSuspension(lifetime: number, targetId: string): Promise<boolean> {
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) throw new Error('User is no longer current');
+		await invalidateAll();
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) throw new Error('User is no longer current');
+		if (typeof data.isSuspended !== 'boolean') throw new Error('User state could not be refreshed');
+		return data.isSuspended;
+	}
+
+	const accountEmailEnhance =
+		(kind: 'reset' | 'invite'): SubmitFunction =>
+		() => {
+			const lifetime = navigationLifetime;
+			const targetId = data.user.id;
+			const isCurrent = () => lifetime === navigationLifetime && targetId === data.user.id;
+			if (kind === 'reset') sendingReset = true;
+			else sendingInvite = true;
+			return async ({ result, update }) => {
+				if (!isCurrent()) return;
+				try {
+					// Refresh separately so a late read cannot apply the old form result to a reopened page.
+					await update({ invalidateAll: false });
+					if (!isCurrent()) return;
+					if (result.type === 'success') await invalidateAll();
+				} catch {
+					if (isCurrent())
+						showToast(
+							'Account details could not be refreshed. Check the current account before sending another email.',
+							true
+						);
+				} finally {
+					if (isCurrent()) {
+						if (kind === 'reset') sendingReset = false;
+						else sendingInvite = false;
+					}
+				}
+			};
+		};
+
+	async function handleSuspendComplete(lifetime: number, targetId: string, isSuspended: boolean) {
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) return;
+		if ((await reloadSuspension(lifetime, targetId)) !== isSuspended)
+			throw new Error('User state could not be refreshed');
+		if (targetId !== data.user.id || lifetime !== navigationLifetime) return;
+		showSuspendModal = false;
+		showToast(isSuspended ? 'User suspended' : 'User unsuspended');
+	}
 
 	function showToast(message: string, isError = false) {
+		clearTimeout(toastTimer);
 		if (isError) {
 			toastError = message;
 			toastMessage = null;
@@ -29,7 +97,7 @@
 			toastMessage = message;
 			toastError = null;
 		}
-		setTimeout(() => {
+		toastTimer = setTimeout(() => {
 			toastMessage = null;
 			toastError = null;
 		}, 4000);
@@ -38,7 +106,7 @@
 	const initials = $derived(data.user.email.slice(0, 2).toUpperCase());
 	const formToastMessage = $derived(form?.success && form?.message ? `${form.message}` : null);
 	const formToastError = $derived(form && 'error' in form && form.error ? `${form.error}` : null);
-	const visibleToastMessage = $derived(toastMessage ?? formToastMessage);
+	const visibleToastMessage = $derived(toastError ? null : (toastMessage ?? formToastMessage));
 	const visibleToastError = $derived(visibleToastMessage ? null : (toastError ?? formToastError));
 	const emailConfirmationLabel = $derived(data.user.emailConfirmationStatus === 'confirmed' ? 'Confirmed' : 'Pending');
 	const emailConfirmationDetail = $derived(
@@ -100,17 +168,7 @@
 	</PageShell.FactGrid>
 
 	<div class="flex flex-wrap gap-2">
-		<form
-			method="POST"
-			action="?/resetPassword"
-			use:enhance={() => {
-				sendingReset = true;
-				return async ({ update }) => {
-					await update();
-					sendingReset = false;
-				};
-			}}
-		>
+		<form method="POST" action="?/resetPassword" use:enhance={accountEmailEnhance('reset')}>
 			<Button type="submit" variant="outline" disabled={sendingReset}>
 				{#if sendingReset}<Spinner color="currentColor" />{/if}
 				Send Password Reset
@@ -118,17 +176,7 @@
 		</form>
 
 		{#if data.user.emailConfirmationStatus === 'pending'}
-			<form
-				method="POST"
-				action="?/resendInvite"
-				use:enhance={() => {
-					sendingInvite = true;
-					return async ({ update }) => {
-						await update();
-						sendingInvite = false;
-					};
-				}}
-			>
+			<form method="POST" action="?/resendInvite" use:enhance={accountEmailEnhance('invite')}>
 				<Button type="submit" variant="outline" disabled={sendingInvite}>
 					{#if sendingInvite}<Spinner color="currentColor" />{/if}
 					Resend Invite
@@ -136,9 +184,11 @@
 			</form>
 		{/if}
 
-		<Button variant={data.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
-			{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}
-		</Button>
+		{#if canSuspend}
+			<Button variant={data.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
+				{data.isSuspended ? 'Unsuspend User' : 'Suspend User'}
+			</Button>
+		{/if}
 	</div>
 
 	<div class="grid gap-4 xl:grid-cols-2">
@@ -229,16 +279,14 @@
 	</div>
 </PageShell.Root>
 
-{#if showSuspendModal}
+{#if canSuspend && showSuspendModal}
 	<SuspendModal
 		type="user"
 		targetId={data.user.id}
 		targetName={data.user.email}
 		isSuspended={data.isSuspended}
 		onClose={() => (showSuspendModal = false)}
-		onComplete={() => {
-			showSuspendModal = false;
-			showToast(data.isSuspended ? 'User unsuspended' : 'User suspended');
-		}}
+		onComplete={handleSuspendComplete.bind(null, navigationLifetime)}
+		onReload={reloadSuspension.bind(null, navigationLifetime)}
 	/>
 {/if}

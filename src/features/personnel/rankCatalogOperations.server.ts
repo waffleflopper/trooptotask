@@ -1,3 +1,5 @@
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
 	BUILT_IN_RANK_CATALOG,
 	compareRankCodes,
@@ -19,9 +21,6 @@ import type {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
-
-type RankActor = Parameters<typeof requireGovernancePolicy>[0]['auth'];
-type RankAudit = Parameters<typeof requireGovernancePolicy>[0]['audit'];
 
 interface RankCatalogStore {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
@@ -123,22 +122,21 @@ interface TrainingTypeRankReferenceRow {
 
 type ReadTrainingRankApplicabilityReferences = () => Promise<TrainingTypeRankReferenceRow[]>;
 
-interface SignInRosterRankReferenceRow {
-	filter_config?: unknown;
-	personnel_snapshot?: unknown;
-}
+type ReadSignInRosterRankReferences = () => Promise<
+	{ filterRanks: readonly string[]; snapshotRanks: readonly string[] }[]
+>;
 
 interface RankCatalogPorts {
-	auth: RankActor;
+	auth: OrganizationAccessGrant;
 	store: RankCatalogStore;
 	rawStore?: RankCatalogStore;
-	audit: RankAudit;
+	audit: PolicyAuditSink;
 }
 
 type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth'> & {
 	store: Pick<RankCatalogStore, 'findMany'>;
 	rawStore?: Pick<RankCatalogStore, 'findMany'>;
-	audit?: RankAudit;
+	audit?: PolicyAuditSink;
 };
 
 type RankCatalogReadAuthorization =
@@ -152,7 +150,7 @@ interface RankCatalogReadOptions {
 	authorization?: RankCatalogReadAuthorization;
 }
 
-const NOOP_AUDIT_PORT: RankAudit = { log() {} };
+const NOOP_AUDIT_PORT: PolicyAuditSink = { log() {} };
 
 async function requireRankCatalogReadPolicy(
 	ports: RankCatalogReadPorts,
@@ -422,6 +420,7 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit'>,
 	input: { codes: readonly string[] },
 	readTrainingRankApplicabilityReferences: ReadTrainingRankApplicabilityReferences,
+	readSignInRosterRankReferences: ReadSignInRosterRankReferences,
 	options: RankCatalogReadOptions = {}
 ): Promise<OrganizationRankCatalogReferenceSummary[]> {
 	await requireRankCatalogReadPolicy(ports, options.authorization ?? 'personnel-view');
@@ -438,7 +437,7 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 	const [personnelRows, trainingTypeRows, signInRosterRows] = await Promise.all([
 		referenceStore.findMany<PersonnelRankRow>('personnel', ports.auth.orgId),
 		readTrainingRankApplicabilityReferences(),
-		referenceStore.findMany<SignInRosterRankReferenceRow>('sign_in_rosters', ports.auth.orgId)
+		readSignInRosterRankReferences()
 	]);
 
 	for (const code of codes) {
@@ -457,10 +456,10 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 			summary.activeReferences.personnel + summary.activeReferences.trainingApplicability;
 
 		summary.historicalReferences.signInRosterFilters = signInRosterRows.filter((row) =>
-			arrayContainsRankReference(getSignInRosterFilterRanks(row.filter_config), code, referenceMatcher)
+			arrayContainsRankReference(row.filterRanks, code, referenceMatcher)
 		).length;
 		summary.historicalReferences.signInRosterSnapshots = signInRosterRows.filter((row) =>
-			signInRosterSnapshotContainsRank(row.personnel_snapshot, code, referenceMatcher)
+			arrayContainsRankReference(row.snapshotRanks, code, referenceMatcher)
 		).length;
 		summary.historicalReferences.total =
 			summary.historicalReferences.signInRosterFilters + summary.historicalReferences.signInRosterSnapshots;
@@ -557,7 +556,8 @@ export async function reactivateOrganizationRankCatalogEntry(
 export async function removeOrganizationRankCatalogEntry(
 	ports: RankCatalogPorts & { rankCatalogAdministration: RankCatalogAdministrationPort },
 	input: { code: string },
-	readTrainingRankApplicabilityReferences: ReadTrainingRankApplicabilityReferences
+	readTrainingRankApplicabilityReferences: ReadTrainingRankApplicabilityReferences,
+	readSignInRosterRankReferences: ReadSignInRosterRankReferences
 ): Promise<void> {
 	await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
 
@@ -588,6 +588,7 @@ export async function removeOrganizationRankCatalogEntry(
 			ports,
 			{ codes: summaryCodes },
 			readTrainingRankApplicabilityReferences,
+			readSignInRosterRankReferences,
 			{ authorization: 'organization-governance' }
 		)
 	).find((summary) => summary.code === code);
@@ -817,27 +818,6 @@ function createRankReferenceMatcher(codes: readonly string[]): RankReferenceMatc
 
 function normalizeRankReference(value: string): string {
 	return value.trim().replace(/\s+/g, ' ');
-}
-
-function getSignInRosterFilterRanks(filterConfig: unknown): unknown[] {
-	if (!filterConfig || typeof filterConfig !== 'object' || Array.isArray(filterConfig)) {
-		return [];
-	}
-
-	const ranks = (filterConfig as { ranks?: unknown }).ranks;
-	return Array.isArray(ranks) ? ranks : [];
-}
-
-function signInRosterSnapshotContainsRank(snapshot: unknown, code: string, matcher: RankReferenceMatcher): boolean {
-	return Array.isArray(snapshot) && snapshot.some((entry) => objectHasRankReference(entry, code, matcher));
-}
-
-function objectHasRankReference(value: unknown, code: string, matcher: RankReferenceMatcher): boolean {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) {
-		return false;
-	}
-
-	return matcher.matches((value as { rank?: unknown }).rank, code);
 }
 
 function sortCatalog(entries: OrganizationRankCatalogEntry[]): OrganizationRankCatalogEntry[] {

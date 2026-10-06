@@ -1,18 +1,36 @@
 #!/usr/bin/env node
+import { registeredFixtureFileWrite } from '../../../../scripts/verification/registered-file-upload.mjs';
 // Controls only this checkout's owned synthetic worker. No claim runner is used.
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import { jsPDF } from 'jspdf';
 import { repository, sessionPath, readJSON, processIdentity } from '../../../../scripts/verification/core.mjs';
 import { installNetworkControl } from './network-control.mjs';
+import { requestSettings } from './settings-request.mjs';
+import { seedDeletionSources, requestDeletion, requestPersonnelArchiveBatch } from './deletion-requests.mjs';
+import { requestOnboarding, readOnboardingRequests } from './onboarding-request.mjs';
 import { installFeedbackControl } from './feedback-control.mjs';
 import { seedPersonnelRetention, readRetentionFiles } from './personnel-retention.mjs';
 import { seedArtifactRetention } from './artifact-retention.mjs';
+import { seedMaintenance, readMaintenance } from './maintenance-fixtures.mjs';
 import { seedOnboarding } from './onboarding-fixtures.mjs';
+import { seedAudit } from './audit-fixtures.mjs';
+import { seedDashboard, seedDashboardCurrency } from './dashboard-fixtures.mjs';
+import { seedPlatform, readPlatform, cleanPlatform, recordPlatformUserAudit } from './platform-fixtures.mjs';
+import { requestPlatform } from './platform-request.mjs';
+import { platformFormNetworkTarget } from './platform-network-target.mjs';
+import { requestAuditTrainingUpdate } from './audit-request.mjs';
 import { artifactHttp, clearArtifactHttpCache } from './artifact-http.mjs';
+import {
+	prepareUploadOverlap,
+	inspectUploadOverlap,
+	deleteAfterUploadOverlap
+} from './organization-upload-overlap.mjs';
 import { selectAllSupabaseRows } from '../../../../src/lib/server/supabasePagination.server.ts';
 
 const argv = process.argv.slice(2);
@@ -23,6 +41,7 @@ const session = sessionPath(worker);
 const scratch = path.join(session, 'verify-trooptotask-owned.json');
 const evidenceRoot = path.join(repository, '.verification/evidence/verify-trooptotask');
 const tableColumns = {
+	organizations: 'id',
 	groups: 'organization_id',
 	personnel: 'organization_id',
 	personnel_extended_info: 'organization_id',
@@ -42,6 +61,12 @@ const tableColumns = {
 	organization_memberships: 'organization_id',
 	organization_invitations: 'organization_id',
 	organization_invitation_email_outbox: 'organization_id',
+	access_request_organization_invitation_links: 'organization_id',
+	dashboard_configs: 'org_id',
+	getting_started_progress: 'organization_id',
+	user_org_preferences: 'organization_id',
+	user_pinned_groups: 'organization_id',
+	beta_feedback: 'organization_id',
 	sign_in_rosters: 'organization_id',
 	training_types: 'organization_id',
 	training_views: 'organization_id',
@@ -56,21 +81,26 @@ const tableColumns = {
 	rating_scheme_entries: 'organization_id'
 };
 const tableSelect = {
+	organizations:
+		'id,name,url_slug,created_by,created_at,suspended_at,archive_retention_months,loss_warning_window_days,personnel_document_storage_cap_bytes,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days',
 	personnel_extended_info:
 		'id,organization_id,personnel_id,blood_type,basd,date_of_rank,marital_status,number_of_dependents,children,civilian_education,military_education,emergency_contact_name,emergency_contact_relationship,emergency_contact_phone,spouse_name,spouse_phone,vehicle_make_model,vehicle_plate,vehicle_color,personal_email,personal_phone,address_street,address_city,address_state,address_zip,award_tracking_acknowledged_at,created_at,updated_at',
-	organization_rank_catalog: 'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order',
+	organization_rank_catalog:
+		'id,organization_id,code,label,service,category,pay_grade,state,source,sort_order,created_at,updated_at',
 	training_types:
-		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional',
+		'id,organization_id,name,description,expiration_months,warning_days_yellow,warning_days_orange,applies_to_roles,applies_to_mos,applies_to_ranks,excluded_roles,excluded_mos,excluded_ranks,color,sort_order,expiration_date_only,can_be_exempted,exempt_personnel_ids,is_optional,created_at',
 	training_views: 'id,organization_id,name,column_ids,created_by,created_at,updated_at',
 	personnel_trainings:
-		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url',
-	onboarding_templates: 'id,organization_id,name,description',
+		'id,organization_id,personnel_id,training_type_id,completion_date,expiration_date,notes,certificate_url,created_at,updated_at',
+	onboarding_templates: 'id,organization_id,name,description,created_at',
 	onboarding_template_steps:
-		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order',
-	personnel_onboardings: 'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status',
+		'id,organization_id,template_id,name,description,step_type,training_type_id,stages,sort_order,created_at',
+	personnel_onboardings:
+		'id,organization_id,personnel_id,template_id,started_at,completed_at,cancelled_at,status,created_at',
 	onboarding_step_progress:
-		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active',
-	deletion_requests: 'id,organization_id,resource_type,resource_id,status,reviewed_by,reviewed_at',
+		'id,organization_id,onboarding_id,template_step_id,step_name,step_type,training_type_id,stages,sort_order,completed,current_stage,notes,active,updated_at',
+	deletion_requests:
+		'id,organization_id,requested_by,requested_by_email,resource_type,resource_id,resource_description,resource_url,status,denial_reason,reviewed_by,reviewed_at,created_at',
 	rating_scheme_entries:
 		'id,organization_id,rated_person_id,eval_type,rater_person_id,rater_name,senior_rater_person_id,senior_rater_name,intermediate_rater_person_id,intermediate_rater_name,reviewer_person_id,reviewer_name,rating_period_start,rating_period_end,status,notes,report_type,workflow_status,created_at,updated_at',
 	organization_invitations:
@@ -93,6 +123,7 @@ const filters = new Set([
 	'personnel_id',
 	'user_id',
 	'type',
+	'action',
 	'email',
 	'status',
 	'invitation_id',
@@ -101,7 +132,9 @@ const filters = new Set([
 	'template_id',
 	'onboarding_id',
 	'template_step_id',
-	'rated_person_id'
+	'rated_person_id',
+	'resource_id',
+	'requested_by'
 ]);
 
 async function owned() {
@@ -178,6 +211,30 @@ async function save(value) {
 	await fs.writeFile(scratch, JSON.stringify(value, null, 2), { mode: 0o600 });
 }
 
+async function deletionReviewFailure(action, requestId) {
+	if (!['arm', 'restore', 'state'].includes(action) || (action === 'arm' && !requestId))
+		throw new Error('Use deletion-review-failure arm|restore|state [REQUEST_ID].');
+	let stdout;
+	try {
+		({ stdout } = await promisify(execFile)(
+			'python3',
+			[
+				path.join(repository, 'scripts/verification/environment.py'),
+				'deletion-review-failure',
+				session,
+				action,
+				...(requestId ? [requestId] : [])
+			],
+			{ maxBuffer: 1024 * 1024 }
+		));
+	} catch {
+		throw new Error('Owned deletion review failure control blocked; inspect its sanitized state command.');
+	}
+	const result = JSON.parse(stdout);
+	if (result.status !== 'PASS') throw new Error('Owned deletion review failure control did not pass.');
+	return result;
+}
+
 async function main() {
 	const { state, doctor } = await owned();
 	const fixture = await readJSON(path.join(session, 'fixtures.json'));
@@ -185,6 +242,116 @@ async function main() {
 		if (!['orgA', 'orgB'].includes(key)) throw new Error('Use orgA or orgB.');
 		return fixture.ids[key];
 	};
+	if (command === 'server-source') {
+		const [action, table, mode, ordinal, holdMs] = args;
+		if (
+			!['arm', 'state', 'release', 'restore'].includes(action) ||
+			(action === 'arm' ? args.length < 3 || args.length > 5 : args.length !== 1)
+		)
+			throw new Error('Use server-source arm TABLE hold|fail|fail-hard [ORDINAL] [HOLD_MS], or state|release|restore.');
+		note(
+			await run(state, {
+				command: 'server-source',
+				action,
+				table,
+				mode,
+				...(ordinal === undefined ? {} : { ordinal: Number(ordinal) }),
+				...(holdMs === undefined ? {} : { holdMs: Number(holdMs) })
+			})
+		);
+		return;
+	}
+	if (command === 'deletion-review-failure') {
+		if (args.length < 1 || args.length > 2)
+			throw new Error('Use deletion-review-failure arm|restore|state [REQUEST_ID].');
+		note(await deletionReviewFailure(...args));
+		return;
+	}
+	if (command === 'platform-audit') {
+		note(
+			await recordPlatformUserAudit({
+				client: await provider(),
+				ownedState: await saved(),
+				ids: JSON.parse(args[0] ?? 'null'),
+				save
+			})
+		);
+		return;
+	}
+	if (command === 'platform-state') {
+		note(await readPlatform({ client: await provider(), fixture, ownedState: await saved() }));
+		return;
+	}
+	if (command === 'content-request') {
+		const [page, family, targetId, bodyText = '{}'] = args;
+		const pageId = Number(page);
+		if (
+			args.length < 3 ||
+			args.length > 4 ||
+			!Number.isInteger(pageId) ||
+			pageId < 1 ||
+			!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetId ?? '')
+		)
+			throw new Error('Use content-request PAGE FAMILY RECORDED_UUID JSON.');
+		const client = await provider();
+		if (['announcementCreate', 'announcementToggle', 'announcementDelete'].includes(family)) {
+			const seedIds = (await saved()).seeded
+				.filter((item) => item.kind === 'communications' && item.table === 'platform_announcements')
+				.flatMap((item) => item.ids);
+			const row = checked(
+				await client.from('platform_announcements').select('id,created_by').eq('id', targetId).maybeSingle()
+			);
+			if (!row || (!seedIds.includes(targetId) && row.created_by !== fixture.actors.platformReviewer.id))
+				throw new Error('Use a saved announcement owned by this verification worker.');
+		} else if (family === 'feedbackUpdate') {
+			const row = checked(await client.from('beta_feedback').select('id,user_id').eq('id', targetId).maybeSingle());
+			if (!row || !Object.values(fixture.actors).some((actor) => actor.id === row.user_id))
+				throw new Error("Use Feedback submitted by this worker's synthetic account.");
+		} else throw new Error('Unsupported content request family.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestPlatform.toString()})(window, ${JSON.stringify({ origin: doctor.origin, family, targetId, body: JSON.parse(bodyText) })})`
+			)
+		);
+		return;
+	}
+	if (command === 'platform-request') {
+		const [page, family, targetKey, bodyText = '{}'] = args;
+		const pageId = Number(page);
+		if (args.length < 3 || args.length > 4 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use platform-request PAGE FAMILY TARGET_KEY JSON.');
+		const seed = (await saved()).platform;
+		if (!seed) throw new Error('Seed platform-admin first.');
+		const body = JSON.parse(bodyText);
+		const access = ['approve', 'reject', 'resend'].includes(family);
+		const membership = ['makeAdmin', 'transferOwnership'].includes(family);
+		const targetId = access
+			? seed.requests[targetKey]?.id
+			: membership
+				? targetKey === 'organization'
+					? seed.organization.id
+					: null
+				: family === 'suspend' && body.type === 'org'
+					? targetKey === 'organization'
+						? seed.organization.id
+						: null
+					: ['orgCreator', 'orgInvitee', 'orgMember'].includes(targetKey)
+						? fixture.actors[targetKey].id
+						: null;
+		if (!targetId) throw new Error('Unknown recorded platform target.');
+		if (membership && body.targetUserId && !seed.memberships.some((row) => row.user_id === body.targetUserId))
+			throw new Error('Use a member of the temporary platform Organization.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestPlatform.toString()})(window, ${JSON.stringify({ origin: doctor.origin, family, targetId, body })})`
+			)
+		);
+		return;
+	}
 	if (command === 'artifact-http') {
 		note(await artifactHttp({ origin: doctor.origin, fixture, evidenceRoot, session, sessionId: state.id, args }));
 		return;
@@ -202,7 +369,170 @@ async function main() {
 		});
 		return;
 	}
+	if (command === 'preferences') {
+		const [role, orgKey] = args;
+		if (args.length !== 2 || !fixture.actors[role]) throw new Error('Use a known synthetic role and Organization.');
+		const userId = fixture.actors[role].id;
+		const organizationId = org(orgKey);
+		const client = await provider();
+		const preferences = checked(
+			await client
+				.from('user_org_preferences')
+				.select('id,user_id,organization_id,preferences')
+				.eq('user_id', userId)
+				.eq('organization_id', organizationId)
+		);
+		const progress = checked(
+			await client
+				.from('getting_started_progress')
+				.select('*')
+				.eq('user_id', userId)
+				.eq('organization_id', organizationId)
+		);
+		note({ role, userId, organization: orgKey, organizationId, preferences, progress });
+		return;
+	}
+	if (command === 'deletion-request') {
+		const [page, orgKey, action, bodyText = '{}'] = args;
+		const pageId = Number(page);
+		if (args.length < 3 || args.length > 4 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use deletion-request PAGE orgA|orgB list|submit|cancel|review JSON.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestDeletion.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), action, body: JSON.parse(bodyText) })})`
+			)
+		);
+		return;
+	}
+	if (command === 'personnel-archive-batch') {
+		const [page, orgKey, idsText] = args;
+		const pageId = Number(page);
+		if (args.length !== 3 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use personnel-archive-batch PAGE orgA|orgB JSON_UUID_ARRAY.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestPersonnelArchiveBatch.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), ids: JSON.parse(idsText) })})`
+			)
+		);
+		return;
+	}
+	if (command === 'audit-training-update') {
+		const [page, orgKey, bodyText] = args;
+		const pageId = Number(page);
+		if (args.length !== 3 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use audit-training-update PAGE orgA|orgB JSON.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`async () => (${requestAuditTrainingUpdate.toString()})(window, ${JSON.stringify({ origin: doctor.origin, orgId: org(orgKey), body: JSON.parse(bodyText) })})`
+			)
+		);
+		return;
+	}
+	if (command === 'settings-request') {
+		const [page, orgKey, family, bodyText] = args;
+		const pageId = Number(page);
+		if (args.length !== 4 || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use settings-request PAGE orgA|orgB FAMILY JSON.');
+		const organization = checked(
+			await (await provider()).from('organizations').select('url_slug').eq('id', org(orgKey)).single()
+		);
+		const input = {
+			origin: doctor.origin,
+			organizationSegment: organization.url_slug || org(orgKey),
+			family,
+			body: JSON.parse(bodyText)
+		};
+		note(
+			await evaluate(state, pageId, `async () => (${requestSettings.toString()})(window, ${JSON.stringify(input)})`)
+		);
+		return;
+	}
+	if (command === 'reauth') {
+		const [page, role] = args;
+		const pageId = Number(page);
+		if (args.length !== 2 || !Number.isInteger(pageId) || pageId < 1 || !fixture.actors[role])
+			throw new Error('Use reauth PAGE FIXTURE_ROLE on the normal owned password confirmation page.');
+		const location = new URL(await evaluate(state, pageId, '() => location.href'));
+		if (
+			location.origin !== doctor.origin ||
+			location.pathname !== '/auth/login' ||
+			location.searchParams.get('reauth') !== '1'
+		)
+			throw new Error('Use the existing owned reauthentication handoff; no navigation or session is injected.');
+		const snapshot = text(await tool(state, 'take_snapshot', { pageId }));
+		const uid = (label) => {
+			const matches = snapshot.split('\n').filter((line) => line.includes(`textbox ${JSON.stringify(label)}`));
+			if (matches.length !== 1) throw new Error('Normal confirmation fields are unavailable.');
+			return matches[0].match(/uid=([^\s]+)/)?.[1];
+		};
+		await tool(state, 'fill_form', {
+			pageId,
+			elements: [
+				{ uid: uid('Email Address'), value: fixture.actors[role].email },
+				{ uid: uid('Password'), value: fixture.actors[role].password }
+			]
+		});
+		const ready = text(await tool(state, 'take_snapshot', { pageId }));
+		const button = ready
+			.split('\n')
+			.find((line) => line.includes('button "Sign In"'))
+			?.match(/uid=([^\s]+)/)?.[1];
+		if (!button) throw new Error('Normal confirmation submit is unavailable.');
+		await tool(state, 'click', { pageId, uid: button });
+		await tool(state, 'wait_for', { pageId, text: ['Destructive Actions'], timeout: 20000 });
+		note({
+			pageId,
+			role,
+			handoff: location.pathname + location.search,
+			returnedPath: await evaluate(state, pageId, '() => location.pathname'),
+			snapshot: text(await tool(state, 'take_snapshot', { pageId }))
+		});
+		return;
+	}
+	if (command === 'onboarding-request') {
+		const [page, orgKey, method, family, bodyText, mode = 'await'] = args;
+		const pageId = Number(page);
+		if (![5, 6].includes(args.length) || !Number.isInteger(pageId) || pageId < 1)
+			throw new Error('Use onboarding-request PAGE orgA|orgB METHOD FAMILY JSON [start].');
+		const organization = checked(
+			await (await provider()).from('organizations').select('url_slug').eq('id', org(orgKey)).single()
+		);
+		const input = {
+			origin: doctor.origin,
+			organizationSegment: organization.url_slug || org(orgKey),
+			method,
+			family,
+			body: JSON.parse(bodyText),
+			mode
+		};
+		note(
+			await evaluate(state, pageId, `async () => (${requestOnboarding.toString()})(window, ${JSON.stringify(input)})`)
+		);
+		return;
+	}
+	if (['onboarding-request-state', 'onboarding-request-restore'].includes(command)) {
+		const pageId = Number(args[0]);
+		if (args.length !== 1 || !Number.isInteger(pageId) || pageId < 1) throw new Error('Use an owned page ID.');
+		note(
+			await evaluate(
+				state,
+				pageId,
+				`() => (${readOnboardingRequests.toString()})(window, ${JSON.stringify(doctor.origin)}, ${command === 'onboarding-request-restore'})`
+			)
+		);
+		return;
+	}
 	if (command === 'retention') {
+		if (args[0] === 'maintenance') {
+			note(await readMaintenance({ client: await provider(), fixture, ownedState: await saved() }));
+			return;
+		}
 		if (args[0] === 'settings') {
 			const client = await provider();
 			note({
@@ -222,17 +552,17 @@ async function main() {
 		if (
 			args[0] !== 'cron' ||
 			!['missing', 'wrong', 'run'].includes(args[1]) ||
-			(args[2] && !['records', 'personnel', 'onboarding'].includes(args[2]))
+			(args[2] && !['records', 'onboarding', 'audit', 'setup-links'].includes(args[2]))
 		)
 			throw new Error(
-				'Use retention settings, retention files or retention cron missing|wrong|run [records|personnel|onboarding].'
+				'Use retention settings|files|maintenance or retention cron missing|wrong|run [records|onboarding|audit|setup-links].'
 			);
-		const endpoint =
-			args[2] === 'onboarding'
-				? '/api/cleanup-expired-onboardings'
-				: args[2] === 'personnel'
-					? '/api/cleanup-archived-personnel'
-					: '/api/cleanup-archived-records';
+		const endpoint = {
+			records: '/api/cleanup-archived-records',
+			onboarding: '/api/cleanup-expired-onboardings',
+			audit: '/api/cleanup-old-data',
+			'setup-links': '/api/cleanup-account-setup-links'
+		}[args[2] ?? 'records'];
 		const headers = {};
 		if (args[1] === 'wrong') headers.authorization = 'Bearer synthetic-incorrect-secret';
 		if (args[1] === 'run') {
@@ -241,11 +571,11 @@ async function main() {
 		}
 		const response = await fetch(new URL(endpoint, state.origin), {
 			headers,
-			redirect: 'error',
+			redirect: 'manual',
 			signal: AbortSignal.timeout(180000)
 		});
 		const body = await response.text();
-		note({ mode: args[1], endpoint, status: response.status, body });
+		note({ mode: args[1], endpoint, status: response.status, location: response.headers.get('location'), body });
 		return;
 	}
 	if (command === 'actor') {
@@ -266,23 +596,48 @@ async function main() {
 			'onboarding',
 			'onboarding/templates',
 			'onboarding/history',
+			'settings/logs',
 			'settings/policies',
+			'settings/general',
 			'settings/archives',
+			'settings/approvals',
 			'settings/members',
 			'settings/exports',
 			'settings/danger'
 		];
 		if (
 			!fixture.actors[role] ||
-			![...orgDestinations, 'dashboard', 'org/new', 'admin/feedback'].includes(destination) ||
+			![
+				...orgDestinations,
+				'dashboard',
+				'org/new',
+				'admin',
+				'admin/announcements',
+				'admin/feedback',
+				'admin/audit',
+				'admin/users',
+				'admin/organizations',
+				'admin/access-requests'
+			].includes(destination) ||
 			(fixture.actors[role].organization === null && orgDestinations.includes(destination)) ||
-			(destination === 'admin/feedback' && !['platformReviewer', 'platformSupport'].includes(role))
+			((destination === 'admin' || destination.startsWith('admin/')) &&
+				![
+					'platformReviewer',
+					'platformSupport',
+					'platformBilling',
+					'platformInactive',
+					'viewer',
+					'orgOwner',
+					'orgAdmin',
+					'orgMember',
+					'orgSettingsPeer'
+				].includes(role))
 		)
 			throw new Error('Unknown synthetic actor or destination.');
 		const targetOrg = fixture.actors[role].organization ?? null;
 		const destinationPath =
-			destination === 'admin/feedback'
-				? '/admin/feedback'
+			destination === 'admin' || destination.startsWith('admin/')
+				? `/${destination}`
 				: destination === 'dashboard'
 					? '/dashboard?show=all'
 					: destination === 'org/new'
@@ -290,51 +645,76 @@ async function main() {
 						: destination === 'home'
 							? `/org/${org(targetOrg)}`
 							: `/org/${org(targetOrg)}/${destination}`;
-		const readyText =
-			destination === 'admin/feedback'
-				? ['Beta Feedback', 'Access denied', 'Forbidden']
-				: destination.startsWith('onboarding')
-					? [
-							'STEPS',
-							'No templates yet.',
-							'Onboarding Pipeline',
-							'Onboarding History',
-							'Access restricted',
-							"You don't have permission to view this page"
-						]
-					: destination === 'home'
-						? ['Verification Organization A', 'Verification Organization B']
-						: destination === 'critical-tasks/library'
+		let readyText =
+			destination === 'admin/audit'
+				? [
+						'Audit Log',
+						'Access denied',
+						'Forbidden',
+						'Not authorized',
+						"You don't have access",
+						"You don't have permission to view this page"
+					]
+				: destination === 'settings/logs'
+					? ['Audit Log', "You don't have permission to view this page"]
+					: destination === 'admin/feedback'
+						? ['Beta Feedback', 'Access denied', 'Forbidden']
+						: destination.startsWith('onboarding')
 							? [
-									'ICT task library controls',
-									'Access Restricted',
+									'STEPS',
+									'No templates yet.',
+									'Onboarding Pipeline',
+									'Onboarding History',
 									'Access restricted',
 									"You don't have permission to view this page"
 								]
-							: destination === 'critical-tasks'
-								? ['Critical Tasks', 'Access restricted']
-								: destination === 'settings/archives'
-									? ['Archived Records', "You don't have permission to view this page"]
-									: destination === 'settings/policies'
-										? ['Archive Retention', "You don't have permission to view this page"]
-										: destination === 'settings/members'
-											? ['Access Management', "You don't have permission to view this page"]
-											: destination === 'settings/danger'
-												? ['Destructive Actions', "You don't have permission to view this page"]
-												: destination === 'dashboard'
-													? ['Pending Invitations', 'Organizations']
-													: destination === 'org/new'
-														? ['Create your first Organization', 'Confirm your email first']
-														: [
-																'Calendar',
-																'Evaluation controls',
-																'Training',
-																'Able, Synthetic',
-																'Foreign, Synthetic',
-																'No personnel on the active roster',
-																'Access restricted',
-																'Access Restricted'
-															];
+							: destination === 'home'
+								? ['Verification Organization A', 'Verification Organization B']
+								: destination === 'critical-tasks/library'
+									? [
+											'ICT task library controls',
+											'Access Restricted',
+											'Access restricted',
+											"You don't have permission to view this page"
+										]
+									: destination === 'critical-tasks'
+										? ['Critical Tasks', 'Access restricted']
+										: destination === 'settings/archives'
+											? ['Archived Records', "You don't have permission to view this page"]
+											: destination === 'settings/approvals'
+												? ['Approval Requests', "You don't have permission to view this page"]
+												: destination === 'settings/policies'
+													? ['Archive Retention', "You don't have permission to view this page"]
+													: destination === 'settings/general'
+														? ['Organization Profile', "You don't have permission to view this page"]
+														: destination === 'settings/members'
+															? ['Access Management', "You don't have permission to view this page"]
+															: destination === 'settings/exports'
+																? ['Export JSON', "You don't have permission to view this page", 'Access restricted']
+																: destination === 'settings/danger'
+																	? ['Destructive Actions', "You don't have permission to view this page"]
+																	: destination === 'dashboard'
+																		? ['Pending Invitations', 'Organizations']
+																		: destination === 'org/new'
+																			? ['Create your first Organization', 'Confirm your email first']
+																			: [
+																					'Calendar',
+																					'Evaluation controls',
+																					'Training',
+																					'Able, Synthetic',
+																					'Foreign, Synthetic',
+																					'No personnel on the active roster',
+																					'Access restricted',
+																					'Access Restricted'
+																				];
+		if (destination === 'admin') readyText = ['Admin Dashboard', 'Total Users', 'Forbidden', 'Access denied', '403'];
+		if (destination === 'admin/announcements') readyText = ['Announcements', 'Forbidden', 'Access denied', '403'];
+		if (
+			destination.startsWith('admin/') &&
+			!['admin/audit', 'admin/feedback', 'admin/announcements'].includes(destination)
+		)
+			readyText = ['Users', 'Organizations', 'Access Requests', 'Forbidden', 'Access denied', '403'];
+		readyText = [...readyText, 'Account Suspended'];
 		const url = `${doctor.origin}/auth/login?next=${encodeURIComponent(destinationPath)}`;
 		const browserContext = `map-${role}-${randomUUID()}`;
 		const created = text(await tool(state, 'new_page', { url, isolatedContext: browserContext }));
@@ -415,6 +795,30 @@ async function main() {
 			)
 		);
 		note({ role, userId, dismissals, feedback });
+		return;
+	}
+	if (command === 'platform-content') {
+		if (args.length) throw new Error('Platform content readback accepts no external targets.');
+		const client = await provider();
+		const ownedState = await saved();
+		const seedIds = ownedState.seeded
+			.filter((item) => item.kind === 'communications' && item.table === 'platform_announcements')
+			.flatMap((item) => item.ids);
+		const select = 'id,title,message,type,is_active,expires_at,created_by,updated_by,created_at';
+		const announcements = checked(
+			await selectAllSupabaseRows((from, to) =>
+				client
+					.from('platform_announcements')
+					.select(select)
+					.eq('created_by', fixture.actors.platformReviewer.id)
+					.order('id')
+					.range(from, to)
+			)
+		);
+		const seededAnnouncements = seedIds.length
+			? checked(await client.from('platform_announcements').select(select).in('id', seedIds))
+			: [];
+		note({ announcements, seededAnnouncements });
 		return;
 	}
 	if (command === 'rows') {
@@ -556,6 +960,22 @@ async function main() {
 		note({ organization: orgKey, personnelId, tables: Object.fromEntries(tables), files: observations });
 		return;
 	}
+	if (command === 'private-buckets') {
+		if (args.length) throw new Error('Use private-buckets without arguments.');
+		const client = await provider();
+		const buckets = [];
+		for (const id of ['personnel-documents', 'counseling-files']) {
+			const bucket = checked(await client.storage.getBucket(id));
+			buckets.push({
+				id: bucket.id,
+				public: bucket.public,
+				fileSizeLimit: bucket.file_size_limit,
+				allowedMimeTypes: bucket.allowed_mime_types
+			});
+		}
+		note({ buckets });
+		return;
+	}
 	if (command === 'roster-files') {
 		const [orgKey, rosterId] = args;
 		if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rosterId ?? ''))
@@ -570,6 +990,79 @@ async function main() {
 			files.push({ name: entry.name, size: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
 		}
 		note({ organization: orgKey, rosterId, files });
+		return;
+	}
+	if (command === 'roster-replace') {
+		const [page, orgKey, rosterKey, filename] = args;
+		const pageId = Number(page);
+		if (
+			args.length !== 4 ||
+			!Number.isInteger(pageId) ||
+			pageId < 1 ||
+			!['rosterAlpha', 'rosterMixed', 'rosterUnassigned', 'rosterForeign'].includes(rosterKey)
+		)
+			throw new Error('Use roster-replace PAGE orgA|orgB FIXTURE_ROSTER_KEY EVIDENCE_PDF.');
+		const rosterId = fixture.ids[rosterKey];
+		const client = await provider();
+		const roster = checked(
+			await client
+				.from('sign_in_rosters')
+				.select('id,signed_file_path')
+				.eq('organization_id', org(orgKey))
+				.eq('id', rosterId)
+				.single()
+		);
+		const target = await fs.realpath(path.resolve(filename ?? ''));
+		if (!target.startsWith(evidenceRoot + path.sep) || !target.endsWith('.pdf') || !(await fs.stat(target)).isFile())
+			throw new Error('Use a real PDF under the skill evidence directory without a symlink escape.');
+		const bytes = await fs.readFile(target);
+		if (bytes.length > 1024 * 1024 || bytes.subarray(0, 5).toString() !== '%PDF-')
+			throw new Error('Use a synthetic PDF no larger than 1 MiB.');
+		const location = new URL(await evaluate(state, pageId, '() => location.href'));
+		if (location.origin !== doctor.origin) throw new Error('Use a normally signed-in page on this owned app.');
+		const previous = roster.signed_file_path
+			? await client.storage.from('counseling-files').info(roster.signed_file_path)
+			: null;
+		const endpoint = `/org/${org(orgKey)}/api/sign-in-rosters/${rosterId}/upload`;
+		const response = await evaluate(
+			state,
+			pageId,
+			`async () => {
+				if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Owned app origin changed before roster replacement.');
+				const bytes = Uint8Array.from(atob(${JSON.stringify(bytes.toString('base64'))}), c => c.charCodeAt(0));
+				const form = new FormData();
+				form.set('file', new File([bytes], ${JSON.stringify(path.basename(target))}, { type: 'application/pdf' }));
+				const response = await fetch(${JSON.stringify(endpoint)}, { method: 'POST', body: form, redirect: 'error' });
+				return { status: response.status, body: await response.text() };
+			}`
+		);
+		note({
+			pageId,
+			organization: orgKey,
+			rosterId,
+			endpoint,
+			method: 'POST',
+			previousPath: roster.signed_file_path,
+			previousInfo: previous
+				? {
+						present: !!previous.data,
+						error: previous.error
+							? {
+									name: previous.error.name,
+									status: previous.error.status,
+									statusCode: previous.error.statusCode,
+									message: previous.error.message
+								}
+							: null
+					}
+				: null,
+			upload: {
+				filename: path.basename(target),
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex')
+			},
+			...response
+		});
 		return;
 	}
 	if (command === 'signed-download') {
@@ -623,6 +1116,49 @@ async function main() {
 		note({ saved: target, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
 		return;
 	}
+	if (command === 'dashboard-access') {
+		const [role, mode] = args;
+		if (
+			args.length !== 2 ||
+			!['dashboardView', 'dashboardSwitch'].includes(role) ||
+			!['alpha', 'no-training', 'restore'].includes(mode)
+		)
+			throw new Error('Use dashboard-access dashboardView|dashboardSwitch alpha|no-training|restore.');
+		const client = await provider();
+		const rows = checked(
+			await client
+				.from('organization_memberships')
+				.select('id,capability_overrides,access_scope_kind,access_scope_group_ids')
+				.eq('organization_id', org('orgA'))
+				.eq('user_id', fixture.actors[role].id)
+		);
+		if (rows.length !== 1) throw new Error('Expected one owned Dashboard A membership.');
+		const { id, ...original } = rows[0];
+		const ownedState = await saved();
+		ownedState.dashboardAccess ??= [];
+		let snapshot = ownedState.dashboardAccess.find((item) => item.id === id);
+		if (!snapshot && mode !== 'restore') {
+			snapshot = { id, original };
+			ownedState.dashboardAccess.push(snapshot);
+			await save(ownedState);
+		}
+		if (mode === 'restore' && !snapshot) throw new Error('No owned Dashboard access change to restore.');
+		const changes =
+			mode === 'restore'
+				? snapshot.original
+				: mode === 'alpha'
+					? { access_scope_kind: 'groups', access_scope_group_ids: [fixture.ids.groupA] }
+					: { capability_overrides: { ...original.capability_overrides, training: 'none' } };
+		checked(
+			await client.from('organization_memberships').update(changes).eq('organization_id', org('orgA')).eq('id', id)
+		);
+		if (mode === 'restore') {
+			ownedState.dashboardAccess = ownedState.dashboardAccess.filter((item) => item.id !== id);
+			await save(ownedState);
+		}
+		note({ role, mode, membershipId: id, changes });
+		return;
+	}
 	if (command === 'calendar-grant') {
 		const [role, level] = args;
 		if (!fixture.actors[role] || !['none', 'view', 'operate', 'configure', 'restore'].includes(level))
@@ -655,6 +1191,131 @@ async function main() {
 		note({ role, calendar: next.calendar });
 		return;
 	}
+	if (command === 'destruction') {
+		if (['overlap-scan', 'overlap-delete'].includes(args[0])) {
+			if (args.length !== 1) throw new Error('Overlap controls accept no target or credentials.');
+			const client = await provider();
+			const ownedState = await saved();
+			const config = await readJSON(path.join(session, 'provider.json'));
+			const owner = createClient(config.API_URL, config.ANON_KEY, {
+				auth: { persistSession: false, autoRefreshToken: false }
+			});
+			const login = await owner.auth.signInWithPassword({
+				email: fixture.actors.orgOwner.email,
+				password: fixture.actors.orgOwner.password
+			});
+			if (login.error || login.data.user?.id !== fixture.actors.orgOwner.id)
+				throw new Error('Normal owned owner provider sign-in failed.');
+			if (args[0] === 'overlap-scan') {
+				if (ownedState.uploadOverlap) throw new Error('Use a fresh worker for another overlap.');
+				const prepared = await prepareUploadOverlap(owner, {
+					orgId: org('orgA'),
+					personId: fixture.ids.personA,
+					tag: randomUUID().slice(0, 8)
+				});
+				ownedState.uploadOverlap = { ...prepared, sessionId: state.id, candidate: doctor.candidate };
+				await save(ownedState);
+				note(ownedState.uploadOverlap);
+				return;
+			}
+			const prepared = ownedState.uploadOverlap;
+			if (
+				!prepared ||
+				prepared.sessionId !== state.id ||
+				prepared.candidate !== doctor.candidate ||
+				prepared.orgId !== org('orgA') ||
+				prepared.personId !== fixture.ids.personA
+			)
+				throw new Error('No unchanged owned final scan belongs to this worker.');
+			const { row, bytes } = await inspectUploadOverlap(client, prepared);
+			const file = {
+				bucket: 'personnel-documents',
+				path: row.file_path,
+				size: bytes.length,
+				sha256: createHash('sha256').update(bytes).digest('hex')
+			};
+			ownedState.seeded.push({
+				kind: 'organization-upload-overlap',
+				table: 'personnel_documents',
+				organization: 'orgA',
+				ids: [row.id],
+				files: [file]
+			});
+			await save(ownedState);
+
+			const deletion = await deleteAfterUploadOverlap(owner, prepared);
+			const organizationAfter = checked(await client.from('organizations').select('id,name').eq('id', prepared.orgId));
+			const documentAfter = checked(await client.from('personnel_documents').select('*').eq('id', row.id));
+			const blob = checked(await client.storage.from(file.bucket).download(file.path));
+			const afterBytes = Buffer.from(await blob.arrayBuffer());
+			note({
+				prepared,
+				nativeDocument: row,
+				fileBefore: file,
+				deletion,
+				organizationAfter,
+				documentAfter,
+				fileAfter: { ...file, size: afterBytes.length, sha256: createHash('sha256').update(afterBytes).digest('hex') },
+				boundary: 'Ordinary provider delete after native upload; not Identity or native destruction proof.'
+			});
+			return;
+		}
+		if (['fault-on', 'fault-off', 'bytes'].includes(args[0])) {
+			let stdout;
+			try {
+				({ stdout } = await promisify(execFile)(
+					'python3',
+					[
+						path.join(repository, '.agents/skills/verify-trooptotask/helpers/organization-destruction-provider.py'),
+						'--worker',
+						worker,
+						args[0]
+					],
+					{ maxBuffer: 8 * 1024 * 1024 }
+				));
+			} catch (cause) {
+				let blocked;
+				try {
+					blocked = JSON.parse(cause.stdout);
+				} catch {
+					throw cause;
+				}
+				if (blocked?.status === 'BLOCKED' && typeof blocked.message === 'string') {
+					throw new Error(blocked.message);
+				}
+				throw cause;
+			}
+			note(JSON.parse(stdout));
+			return;
+		}
+		if (args[0] !== 'files') throw new Error('Use destruction files, bytes, fault-on, or fault-off.');
+		const client = await provider();
+		const files = (await saved()).seeded.flatMap((item) => item.files ?? []);
+		const observations = [];
+		for (let start = 0; start < files.length; start += 16) {
+			observations.push(
+				...(await Promise.all(
+					files.slice(start, start + 16).map(async (file) => {
+						const { data, error } = await client.storage.from(file.bucket).download(file.path);
+						if (error) {
+							const status = String(error.statusCode ?? error.status ?? '');
+							if (status !== '404') throw new Error('Owned Storage byte read failed rather than proving absence.');
+							return { ...file, present: false, status };
+						}
+						const bytes = Buffer.from(await data.arrayBuffer());
+						return {
+							...file,
+							present: true,
+							observedSize: bytes.length,
+							observedSha256: createHash('sha256').update(bytes).digest('hex')
+						};
+					})
+				))
+			);
+		}
+		note({ files: observations });
+		return;
+	}
 	if (command === 'seed') {
 		const kind = args[0];
 		if (
@@ -663,6 +1324,7 @@ async function main() {
 				'overlap',
 				'bulk-501',
 				'training-pages',
+				'roster-pages',
 				'personnel-lifecycle',
 				'personnel-artifact-context',
 				'personnel-retention',
@@ -670,18 +1332,105 @@ async function main() {
 				'personnel-retention-dense',
 				'artifact-retention',
 				'artifact-retention-1001',
+				'maintenance-retention',
+				'maintenance-retention-1001',
 				'onboarding-legacy',
+				'onboarding-start',
 				'onboarding-history',
+				'onboarding-consumers',
 				'onboarding-retention',
 				'onboarding-retention-1001',
+				'audit',
+				'dashboard',
+				'dashboard-currency',
+				'platform-admin',
 				'communications',
-				'rating-scheme'
+				'organization-destruction',
+				'rating-scheme',
+				'deletion-sources'
 			].includes(kind)
 		)
 			throw new Error('Unknown temporary seed.');
 		const client = await provider();
 		const ownedState = await saved();
 		const tag = randomUUID().slice(0, 8);
+		if (kind === 'platform-admin') {
+			note(await seedPlatform({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'audit') {
+			note(await seedAudit({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'dashboard') {
+			note(await seedDashboard({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'dashboard-currency') {
+			note(await seedDashboardCurrency({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'deletion-sources') {
+			note(await seedDeletionSources({ client, fixture, tag, ownedState, save }));
+			return;
+		}
+		if (kind === 'organization-destruction') {
+			if (ownedState.seeded.some((item) => item.kind === kind))
+				throw new Error('Restore and clean the existing destruction seed first.');
+			const objects = [];
+			const add = (bucket, filePath, classification) => {
+				const bytes = Buffer.from('Synthetic Organization destruction ' + tag + ' ' + classification + ' ' + filePath);
+				objects.push({
+					bucket,
+					path: filePath,
+					classification,
+					size: bytes.length,
+					sha256: createHash('sha256').update(bytes).digest('hex'),
+					bytes
+				});
+			};
+			for (let n = 0; n < 1002; n++)
+				add(
+					'personnel-documents',
+					`${org('orgA')}/destruction-${tag}/page/${String(n).padStart(4, '0')}.pdf`,
+					'target-orphan'
+				);
+			const lowerId = org('orgA').toLowerCase();
+			const upperId = lowerId.toUpperCase();
+			const mixedId = lowerId.replace(/[a-f]/, (letter) => letter.toUpperCase());
+			if (mixedId === lowerId || mixedId === upperId) throw new Error('Fixture needs distinct UUID path casing.');
+			const sharedSuffix = `/destruction-${tag}/nested/orphan.pdf`;
+			add('counseling-files', lowerId + sharedSuffix, 'target-lowercase');
+			add('counseling-files', upperId + sharedSuffix, 'target-uppercase');
+			add('counseling-files', mixedId + sharedSuffix, 'target-mixed');
+			add('counseling-files', `${org('orgA')}/destruction-${tag}-root.pdf`, 'target-root');
+			for (const bucket of ['counseling-files', 'personnel-documents']) {
+				add(bucket, `${org('orgB')}/destruction-${tag}/foreign.pdf`, 'foreign');
+				// Invalid namespace lookalikes are historical SQL fixtures; runtime writes now require a canonical Organization.
+			}
+			const source = objects.find((file) => file.classification === 'target-lowercase');
+			const prefixRoot = {
+				...source,
+				path: lowerId + '/',
+				classification: 'target-prefix-root',
+				copyFrom: source.path
+			};
+			// SDK upload trims trailing slashes; copy preserves this valid raw key.
+			// Ledger the destination before any effect and copy only after its source exists.
+			objects.push(prefixRoot);
+			for (const file of objects) file.uploadId = randomUUID();
+			const files = objects.map(({ bytes: _bytes, ...file }) => file);
+			ownedState.seeded.push({ kind, tag, table: 'organizations', organization: 'orgA', ids: [], files });
+			await save(ownedState);
+			const uploads = objects.filter((file) => !file.copyFrom);
+			for (let start = 0; start < uploads.length; start += 16)
+				await Promise.all(
+					uploads.slice(start, start + 16).map((file) => registeredFixtureFileWrite(client, fixture, file))
+				);
+			await registeredFixtureFileWrite(client, fixture, prefixRoot);
+			note({ kind, tag, files, setup: 'Synthetic Storage API upload/copy; no application acceptance claim.' });
+			return;
+		}
 		if (kind === 'personnel-artifact-context') {
 			const actor = fixture.actors.personnelContext;
 			if (!actor || actor.organization !== 'orgA') throw new Error('The Personnel context actor is unavailable.');
@@ -785,6 +1534,7 @@ async function main() {
 					}
 				}
 			}
+			for (const file of objects) file.uploadId = randomUUID();
 			const files = objects.map(({ bytes: _bytes, ...file }) => file);
 			const batches = [
 				['organization_memberships', 'orgB', [membership]],
@@ -814,10 +1564,7 @@ async function main() {
 				});
 			await save(ownedState);
 			for (const [table, , records] of batches) checked(await client.from(table).insert(records));
-			for (const file of objects)
-				checked(
-					await client.storage.from(file.bucket).upload(file.path, file.bytes, { contentType: 'application/pdf' })
-				);
+			for (const file of objects) await registeredFixtureFileWrite(client, fixture, file);
 			note({
 				kind,
 				tag,
@@ -830,6 +1577,10 @@ async function main() {
 				files,
 				fileSetup: 'Actual synthetic PDF uploads; provider readback and native interactions remain unverified.'
 			});
+			return;
+		}
+		if (kind.startsWith('maintenance-retention')) {
+			note(await seedMaintenance({ client, fixture, kind, tag, ownedState, save }));
 			return;
 		}
 		if (kind.startsWith('artifact-retention')) {
@@ -1123,6 +1874,33 @@ async function main() {
 					slug: `map-duplicate-${tag}`
 				}
 			];
+		} else if (kind === 'roster-pages') {
+			table = 'sign_in_rosters';
+			records = Array.from({ length: 1001 }, (_, index) => ({
+				id: randomUUID(),
+				organization_id: org('orgA'),
+				title: `MapRoster${tag}${String(index).padStart(4, '0')}`,
+				roster_date: null,
+				blank_date: true,
+				separate_by_group: false,
+				sort_by: 'rank',
+				personnel_ids: [fixture.ids.personA],
+				scope_group_ids: [fixture.ids.groupA],
+				personnel_snapshot: [
+					{
+						id: fixture.ids.personA,
+						rank: 'VFY-ACTIVE-A',
+						lastName: 'Historical',
+						firstName: 'Synthetic',
+						group: 'Former Alpha',
+						retainedMarker: index
+					}
+				],
+				filter_config: { ranks: ['VFY-ACTIVE-A'], groups: ['Former Alpha'], retainedMarker: tag },
+				signed_file_path: null,
+				created_by: fixture.actors.rosterManager.id,
+				created_at: '2026-01-02T03:04:05.123456Z'
+			}));
 		} else if (kind === 'training-pages') {
 			table = 'personnel';
 			records = Array.from({ length: 26 }, (_, index) => ({
@@ -1164,16 +1942,46 @@ async function main() {
 		}
 		ownedState.seeded.push({ kind, table, ids: records.map((record) => record.id), tag });
 		await save(ownedState);
-		checked(await client.from(table).insert(records));
+		if (kind === 'roster-pages') {
+			for (let offset = 0; offset < records.length; offset += 100)
+				checked(await client.from(table).insert(records.slice(offset, offset + 100)));
+		} else checked(await client.from(table).insert(records));
 		note({ kind, tag, count: records.length, firstId: records[0].id });
 		return;
 	}
 	if (command === 'clean-seeds') {
+		await deletionReviewFailure('restore');
 		const client = await provider();
 		const ownedState = await saved();
+		for (const snapshot of ownedState.dashboardAccess ?? [])
+			checked(
+				await client
+					.from('organization_memberships')
+					.update(snapshot.original)
+					.eq('organization_id', org('orgA'))
+					.eq('id', snapshot.id)
+			);
+		ownedState.dashboardAccess = [];
+		await save(ownedState);
+		let platformCleanup;
+		let platformError;
+		try {
+			platformCleanup = await cleanPlatform({ client, fixture, ownedState, save });
+		} catch (error) {
+			platformError = error;
+		}
 		for (const item of [...ownedState.seeded].reverse()) {
 			for (let offset = 0; offset < item.ids.length; offset += 100) {
 				const ids = item.ids.slice(offset, offset + 100);
+				if (item.kind === 'deletion-sources' || (item.kind === 'personnel-lifecycle' && item.table === 'personnel')) {
+					let requests = client
+						.from('deletion_requests')
+						.delete()
+						.eq('organization_id', org(item.organization ?? 'orgA'))
+						.in('resource_id', ids);
+					if (item.kind === 'personnel-lifecycle') requests = requests.eq('resource_type', 'personnel');
+					checked(await requests);
+				}
 				if (item.kind === 'bulk-501')
 					checked(
 						await client
@@ -1183,29 +1991,60 @@ async function main() {
 							.in('personnel_id', ids)
 					);
 				let query = client.from(item.table).delete().in('id', ids);
-				if (item.kind !== 'communications' || item.table !== 'platform_announcements')
-					query = query.eq('organization_id', org(item.organization ?? 'orgA'));
+				if (
+					!(
+						item.kind.startsWith('maintenance-retention') &&
+						['access_requests', 'account_setup_links'].includes(item.table)
+					) &&
+					(item.kind !== 'communications' || item.table !== 'platform_announcements')
+				)
+					query = query.eq(
+						item.table === 'audit_logs' ? 'org_id' : 'organization_id',
+						org(item.organization ?? 'orgA')
+					);
 				checked(await query);
 			}
 			for (const bucket of ['personnel-documents', 'counseling-files']) {
 				const paths = (item.files ?? []).filter((file) => file.bucket === bucket).map((file) => file.path);
-				if (paths.length) checked(await client.storage.from(bucket).remove(paths));
+				for (let start = 0; start < paths.length; start += 1000)
+					checked(await client.storage.from(bucket).remove(paths.slice(start, start + 1000)));
 			}
 		}
 		ownedState.seeded = [];
 		await save(ownedState);
 		await clearArtifactHttpCache({ session, sessionId: state.id });
-		note({ cleaned: true, artifactHttpSessionsCleared: true });
+		if (platformError) throw platformError;
+		note({ cleaned: true, artifactHttpSessionsCleared: true, platformCleanup });
 		return;
 	}
 	if (command === 'network') {
 		const [action, page, family, ordinalText = '1'] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
-		if (action === 'arm-fail' || action === 'arm-hold' || action === 'arm-observe') {
+		if (['arm-fail', 'arm-hold', 'arm-hold-fail', 'arm-reject', 'arm-observe', 'arm-drop'].includes(action)) {
+			const platformForm = platformFormNetworkTarget(family, fixture, (await saved()).platform);
+			const shellPart = {
+				'shell-notification-count': 'notification-count',
+				'shell-organization-switcher': 'organization-switcher'
+			}[family];
+			const formActions = {
+				'settings/general/updateName': 'error',
+				'settings/general/updateSlug': 'slugError',
+				'settings/general/clearSlug': 'slugError',
+				'settings/danger/deleteOrganization': 'deleteError'
+			};
 			if (
 				![
+					'audit-page',
+					'dashboard-page',
+					'user-preferences',
+					'shell-notification-count',
+					'shell-organization-switcher',
+					'admin-suspend',
+					'admin-search',
+					'admin-transfer',
 					'notifications',
+					'organization/settings',
 					'rating-scheme',
 					'feedback',
 					'announcements/dismiss',
@@ -1241,6 +2080,8 @@ async function main() {
 					'critical-tasks/reports/export',
 					'critical-tasks/matrix/export'
 				].includes(family) &&
+				!Object.hasOwn(formActions, family) &&
+				!platformForm &&
 				!/^onboarding-templates\/[0-9a-f-]{36}\/duplicate$/.test(family) &&
 				!/^sign-in-rosters\/[0-9a-f-]{36}\/upload$/.test(family) &&
 				!/^personnel\/[0-9a-f-]{36}\/export$/.test(family) &&
@@ -1255,13 +2096,83 @@ async function main() {
 				throw new Error('Unsupported request family.');
 			const ordinal = Number(ordinalText);
 			if (!Number.isInteger(ordinal) || ordinal < 1) throw new Error('Ordinal must be a positive integer.');
-			const suffix = ['feedback', 'announcements/dismiss'].includes(family)
-				? `/api/${family}`
-				: `/org/${org('orgA')}/api/${family}`;
-			const mode = action === 'arm-fail' ? 'fail' : action === 'arm-hold' ? 'hold' : 'observe';
-			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix })})`;
+			const formAction = Object.hasOwn(formActions, family) ? family.split('/').at(-1) : null;
+			let organizationSegment = org('orgA');
+			if (
+				formAction ||
+				['organization/settings', 'audit-page', 'dashboard-page', 'deletion-requests/review'].includes(family) ||
+				shellPart
+			) {
+				const organization = checked(
+					await (await provider()).from('organizations').select('url_slug').eq('id', org('orgA')).single()
+				);
+				organizationSegment = organization.url_slug || organizationSegment;
+			}
+			let suffix =
+				family === 'dashboard-page'
+					? `/org/${organizationSegment}/__data.json`
+					: family === 'audit-page'
+						? `/org/${organizationSegment}/settings/logs/__data.json`
+						: formAction
+							? `/org/${organizationSegment}/${family.slice(0, family.lastIndexOf('/'))}`
+							: ['feedback', 'announcements/dismiss'].includes(family)
+								? `/api/${family}`
+								: `/org/${organizationSegment}/api/${family}`;
+			if (family === 'admin-suspend') suffix = '/admin/api/suspend';
+			if (family === 'admin-search') suffix = '/admin/api/search';
+			if (family === 'admin-transfer') {
+				const seed = (await saved()).platform;
+				if (!seed) throw new Error('Seed platform-admin first.');
+				suffix = `/admin/organizations/${seed.organization.id}`;
+			}
+			if (platformForm) suffix = platformForm.suffix;
+			if (shellPart) suffix = `/org/${organizationSegment}/api/app-shell-chrome`;
+			if (
+				action === 'arm-hold-fail' &&
+				!['organization/settings', 'deletion-requests/review', 'personnel/archive-batch', 'user-preferences'].includes(
+					family
+				) &&
+				!platformForm
+			)
+				throw new Error(
+					'Delayed synthetic failure is supported only for Organization policies, deletion review and Personnel bulk archival.'
+				);
+			if (
+				(['admin-access-read', 'admin-audit-read', 'admin-dashboard-read'].includes(family) || shellPart) &&
+				!['arm-fail', 'arm-hold', 'arm-observe'].includes(action)
+			)
+				throw new Error('Platform read controls support failure, hold and observation only.');
+			if (
+				action === 'arm-reject' &&
+				!['deletion-requests/review', 'personnel/archive-batch'].includes(family) &&
+				!platformForm?.failureField
+			)
+				throw new Error('Synthetic transport rejection requires a documented mutation family.');
+			if (action === 'arm-drop' && !['admin-suspend', 'admin-transfer'].includes(family))
+				throw new Error('Lost-response proof is supported only for platform mutation controls.');
+			const mode =
+				action === 'arm-hold-fail'
+					? 'hold-fail'
+					: action === 'arm-fail'
+						? 'fail'
+						: action === 'arm-hold'
+							? 'hold'
+							: action === 'arm-reject'
+								? 'reject'
+								: action === 'arm-drop'
+									? 'drop-response'
+									: 'observe';
+			const search =
+				(shellPart ? `?part=${shellPart}` : platformForm?.search) ??
+				(family === 'admin-transfer' ? '?/transferOwnership' : formAction ? `?/${formAction}` : null);
+			const failureField =
+				platformForm?.failureField ?? (family === 'admin-transfer' ? 'error' : formAction ? formActions[family] : null);
+			const requestTarget = platformForm?.requestTarget ?? null;
+			const sameOrigin = family === 'user-preferences' || !!shellPart || (platformForm?.sameOrigin ?? false);
+			const requestMethod = family === 'user-preferences' ? 'PATCH' : shellPart ? 'GET' : null;
+			const install = `(${installNetworkControl.toString()})(window, ${JSON.stringify({ mode, ordinal, suffix, search, failureField, requestTarget, sameOrigin, requestMethod })})`;
 			// Onboarding's HTTP adapter captures fetch at creation, so install before page code.
-			if (family.startsWith('onboarding-')) {
+			if (family.startsWith('onboarding-') || shellPart) {
 				const armed = await evaluate(state, pageId, '() => !!window.__mapNetwork');
 				if (armed) throw new Error('Restore the existing map network control first');
 				await tool(state, 'navigate_page', { pageId, type: 'reload', initScript: install });
@@ -1269,7 +2180,7 @@ async function main() {
 			const result = await evaluate(
 				state,
 				pageId,
-				family.startsWith('onboarding-')
+				family.startsWith('onboarding-') || shellPart
 					? '() => ({ armed: !!window.__mapNetwork, mode: window.__mapNetwork?.mode, suffix: window.__mapNetwork?.suffix, ordinal: window.__mapNetwork?.ordinal, reloaded: true })'
 					: `() => ${install}`
 			);
@@ -1306,6 +2217,29 @@ async function main() {
 		const [action, page, filename] = args;
 		const pageId = Number(page);
 		if (!Number.isInteger(pageId) || pageId < 1) throw new Error('Use a page ID from the owned browser.');
+		if (action === 'request') {
+			const [, , orgKey, format] = args;
+			if (!['json', 'excel'].includes(format) || args.length !== 4)
+				throw new Error('Use export request PAGE orgA|orgB json|excel.');
+			const endpoint = `/org/${org(orgKey)}/api/${format === 'json' ? 'export' : 'export-excel'}`;
+			// Separate ordinary HTTP proof through the signed-in synthetic page, never a native download claim.
+			note(
+				await evaluate(
+					state,
+					pageId,
+					`async () => {
+					if (location.origin !== ${JSON.stringify(doctor.origin)}) throw new Error('Use an owned app page');
+					const response = await fetch(${JSON.stringify(endpoint)}, { method: 'POST' });
+					const contentType = response.headers.get('Content-Type');
+					const body = response.ok ? null : await response.text();
+					return { request: { method: 'POST', path: ${JSON.stringify(endpoint)} },
+						status: response.status, body,
+						contentType, contentDisposition: response.headers.get('Content-Disposition') };
+				}`
+				)
+			);
+			return;
+		}
 		if (action === 'arm') {
 			note(
 				await evaluate(
@@ -1403,7 +2337,7 @@ async function main() {
 		return;
 	}
 	throw new Error(
-		'Use fixture, actor, rows, artifact-http, artifact-files, roster-files, signed-download, calendar-grant, seed, clean-seeds, retention, network, export, or workbook.'
+		'Use fixture, actor, rows, settings-request, deletion-request, personnel-archive-batch, deletion-review-failure, audit-training-update, onboarding-request, onboarding-request-state, onboarding-request-restore, artifact-http, artifact-files, private-buckets, roster-files, roster-replace, signed-download, calendar-grant, dashboard-access, server-source, seed, clean-seeds, retention, network, export, or workbook.'
 	);
 }
 

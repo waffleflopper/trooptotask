@@ -1,19 +1,12 @@
 import type { Cookies } from '@sveltejs/kit';
-import {
-	createSupabaseAppShellDeferredChromePort,
-	createSupabaseAppShellFirstPaintChromePort,
-	createSupabaseAppShellRequest,
-	createSupabaseOrgAccessPort,
-	type SupabaseAppShellRequestDeps
-} from '$lib/server/adapters/supabaseOrgShell';
-import type { AppShellRequest } from '../orgShell';
-
+import { createAppShellRequest, type AppShellRequestDeps } from '$lib/server/adapters/appShellRequestDelivery';
+import type { AppShellRequest } from '$features/app-shell/contracts';
 export interface RootOrgLayoutLoadDeps {
 	createAppShellRequest?: (context: RootOrgLayoutRequestContext) => AppShellRequest;
-	getLayoutClient?: SupabaseAppShellRequestDeps['getLayoutClient'];
-	createOrgAccessPort?: typeof createSupabaseOrgAccessPort;
-	createFirstPaintChromePort?: typeof createSupabaseAppShellFirstPaintChromePort;
-	createDeferredChromePort?: typeof createSupabaseAppShellDeferredChromePort;
+	getAdmittedRequestClient?: AppShellRequestDeps['getAdmittedRequestClient'];
+	createOrgAccessPort?: AppShellRequestDeps['createOrgAccessPort'];
+	createFirstPaintChromePort?: AppShellRequestDeps['createFirstPaintChromePort'];
+	createDeferredChromePort?: AppShellRequestDeps['createDeferredChromePort'];
 }
 
 interface RootOrgLayoutRequestContext {
@@ -24,13 +17,13 @@ interface RootOrgLayoutRequestContext {
 }
 
 export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
-	const createAppShellRequest =
+	const bindAppShellRequest =
 		deps.createAppShellRequest ??
 		(({ locals, cookies, orgSegment, url }: RootOrgLayoutRequestContext) =>
-			createSupabaseAppShellRequest(
+			createAppShellRequest(
 				{ locals, cookies, orgSegment, url },
 				{
-					getLayoutClient: deps.getLayoutClient,
+					getAdmittedRequestClient: deps.getAdmittedRequestClient,
 					createOrgAccessPort: deps.createOrgAccessPort,
 					createFirstPaintChromePort: deps.createFirstPaintChromePort,
 					createDeferredChromePort: deps.createDeferredChromePort
@@ -50,7 +43,7 @@ export function createRootOrgLayoutLoad(deps: RootOrgLayoutLoadDeps = {}) {
 		depends: (...deps: string[]) => void;
 		url: URL;
 	}) => {
-		depends('app:org-core', 'app:org-preferences');
-		return createAppShellRequest({ locals, cookies, orgSegment: params.orgId, url }).loadFirstPaint();
+		depends('app:org-core');
+		return bindAppShellRequest({ locals, cookies, orgSegment: params.orgId, url }).loadFirstPaint();
 	};
 }

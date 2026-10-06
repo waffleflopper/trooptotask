@@ -1,5 +1,5 @@
 import type { PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
-import type { CriticalTasksReadModelPort } from '../contracts';
+import type { CriticalTaskLibraryPersistence, CriticalTasksReadModelPort } from '../contracts';
 
 export interface CriticalTasksReadStore {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
@@ -19,12 +19,14 @@ export interface CriticalTasksReadStore {
 export interface CriticalTasksHistoryContext {
 	readonly auth: PersonnelRosterActor;
 	readonly store: CriticalTasksReadStore;
+	readonly criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listReferenced'>;
 	readonly personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'findForHistory'>;
 }
 
 export interface CriticalTasksReportContext {
 	readonly auth: PersonnelRosterActor;
 	readonly store: CriticalTasksReadStore;
-	readonly personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
+	readonly criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
+	readonly personnelCriticalTasksRoster: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
 	readonly criticalTasksReadModel: CriticalTasksReadModelPort;
 }

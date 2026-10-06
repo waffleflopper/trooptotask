@@ -15,6 +15,16 @@ export type CapabilityOverrideMap = Partial<Record<DurableFeatureLane, Capabilit
 
 export type ScopeSet = { kind: 'organization' } | { kind: 'groups'; groupIds: string[] };
 
+export interface OrganizationAccessGrant {
+	readonly userId: string;
+	readonly orgId: string;
+	readonly role: MembershipRole;
+	readonly isPrivileged: boolean;
+	readonly canManageMembers: boolean;
+	readonly capabilityMap: CapabilityMap;
+	readonly scopeSet: ScopeSet;
+}
+
 export const DURABLE_FEATURE_LANES: DurableFeatureLane[] = [
 	'calendar',
 	'personnel',

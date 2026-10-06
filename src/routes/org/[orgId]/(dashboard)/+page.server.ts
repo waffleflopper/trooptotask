@@ -1,121 +1,44 @@
+import type { DashboardWorkspaceResult } from '$features/dashboard/contracts';
+import { fetchDashboardSummary, withDashboardTiming } from '$features/dashboard/index.server';
+import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { loadWithContextCore, rethrowOrWrap } from '$lib/server/adapters/httpAdapter';
+import {
+	buildLayoutRequest,
+	buildRouteRequest,
+	createRequestDashboardSummaryContext,
+	createRequestNotificationContext
+} from '$lib/server/adapters/requestContexts.server';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoadEvent } from './$types';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import {
-	buildLayoutContext,
-	buildRouteContext,
-	loadWithContextCore,
-	rethrowOrWrap
-} from '$lib/server/adapters/httpAdapter';
-import { fetchDashboardTrainingSummary } from '$features/training/index.server';
-import { fetchCriticalTasksDashboardSummary } from '$features/critical-tasks/index.server';
-import { createSupabaseOrgSettingsMemberManagementPort, leaveOrganization } from '$features/organization/index.server';
-import type { UseCaseContext } from '$lib/server/core/ports';
-import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
-import type { IctReportDashboardSummary } from '$features/critical-tasks/contracts';
-import type { DashboardIctlSummary } from '$features/dashboard/dashboard.types';
-import type { DashboardWorkspaceResult } from '$features/dashboard/server/dashboardWorkspaceBootstrap';
 
-export interface DashboardPageSummaryData {
-	trainingSummary: Awaited<ReturnType<typeof fetchDashboardTrainingSummary>>['trainingSummary'] | null;
-	ictlSummary: DashboardIctlSummary | null;
-	onboardingTrainingCompletions: string[];
-}
-
-function toDashboardIctlSummary(report: IctReportDashboardSummary): DashboardIctlSummary {
-	const { overallReadiness, soldiersBelow70, tasksExpiringSoon, tasksBelowThreshold } = report.kpis;
-
-	return {
-		hasActiveTasks: report.hasActiveTasks,
-		overallReadinessPercent: overallReadiness.percent,
-		overallDeltaPercent: overallReadiness.deltaPercent,
-		readyCount: overallReadiness.readyCount,
-		applicableCount: overallReadiness.applicableCount,
-		soldiersBelowThresholdCount: soldiersBelow70.count,
-		soldiersBelowThresholdTotal: soldiersBelow70.totalApplicable,
-		thresholdPercent: soldiersBelow70.thresholdPercent,
-		expiringSoonCount: tasksExpiringSoon.count,
-		expiringSoonAffectedSoldiers: tasksExpiringSoon.affectedSoldiers,
-		expiringSoonWindowDays: tasksExpiringSoon.windowDays,
-		tasksBelowThresholdCount: tasksBelowThreshold.count,
-		projectedReadinessPercent: report.projectedReadinessAtMonth6.readinessPercent,
-		mosReadiness: report.mosReadiness.map((row) => ({
-			mos: row.mos,
-			personnelCount: row.personnelCount,
-			readinessPercent: row.readinessPercent
-		})),
-		trend: report.readinessTrend.months.map((point) => ({
-			month: point.month,
-			label: point.label,
-			readinessPercent: point.overallReadinessPercent
-		})),
-		tasksBelowThreshold: report.tasksBelowThreshold.rows.map((row) => ({
-			taskId: row.taskId,
-			taskCode: row.taskCode,
-			taskName: row.taskName,
-			percentComplete: row.percentComplete,
-			soldierGapCount: row.soldierGapCount
-		})),
-		atRiskSoldiers: report.atRiskSoldiers.rows.map((row) => ({
-			personnelId: row.personnelId,
-			soldierName: row.soldierName,
-			mos: row.mos,
-			rank: row.rank,
-			groupName: row.groupName,
-			readinessPercent: row.readinessPercent,
-			tasksExpiringSoonCount: row.tasksExpiringSoonCount,
-			daysSinceLastIctUpdate: row.daysSinceLastIctUpdate
-		}))
-	};
-}
-
-async function loadDashboardIctlSummary(
-	ctx: UseCaseContext,
-	canViewCriticalTasks: boolean
-): Promise<DashboardIctlSummary | null> {
-	if (!canViewCriticalTasks) return null;
-
-	const report = await fetchCriticalTasksDashboardSummary(ctx);
-	return toDashboardIctlSummary(report);
-}
-
-export const load = async ({ params, locals, cookies, depends, parent }: PageServerLoadEvent) => {
+export const load = async ({ params, locals, depends, parent }: PageServerLoadEvent) => {
 	depends('app:org-core');
 	depends('app:dashboard-data');
 	const { orgId } = params;
 	const parentData = await parent();
-	const ctx = await buildLayoutContext(locals, cookies, orgId);
-	const { data: summary } = loadWithContextCore(ctx, {
-		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-		defer: true,
-		fn: async () =>
-			withDashboardTiming(orgId, 'summary', async () => {
-				const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
-				const workspaceData = (await workspaceBootstrap).data;
-				const canViewCriticalTasks =
-					parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
-				const canViewTraining =
-					parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
-				const trainingData = canViewTraining
-					? await fetchDashboardTrainingSummary(ctx, {
-							personnel: workspaceData.personnel,
-							trainingTypes: workspaceData.trainingTypes,
-							onboardingPersonnelIds: workspaceData.activeOnboardings.map((o) => o.personnelId),
-							options: {
-								// Fetch enough to guarantee 5 unique people after client-side deduplication
-								issueLimit: 25,
-								issueStatuses: ['expired', 'warning-orange']
-							}
-						})
-					: null;
-
-				return {
-					trainingSummary: trainingData?.trainingSummary ?? null,
-					ictlSummary: await loadDashboardIctlSummary(ctx, canViewCriticalTasks),
-					onboardingTrainingCompletions: trainingData ? [...trainingData.onboardingTrainingCompletions] : []
-				} satisfies DashboardPageSummaryData;
-			})
-	});
+	const ctx = await buildLayoutRequest(locals, orgId);
+	const { data: summary } = loadWithContextCore(
+		ctx,
+		{
+			policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+			defer: true,
+			fn: async (ctx) =>
+				withDashboardTiming(orgId, 'summary', async () => {
+					const workspaceBootstrap = parentData.dashboard.data as Promise<DashboardWorkspaceResult>;
+					const workspaceData = (await workspaceBootstrap).data;
+					const canViewCriticalTasks =
+						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.criticalTasks !== 'none';
+					const canViewTraining =
+						parentData.shell.kind === 'ready' && parentData.shell.member.capabilityMap.training !== 'none';
+					return fetchDashboardSummary(ctx, workspaceData, {
+						training: canViewTraining,
+						criticalTasks: canViewCriticalTasks
+					});
+				})
+		},
+		() => createRequestDashboardSummaryContext(ctx)
+	);
 
 	return {
 		summary
@@ -129,7 +52,7 @@ export const actions: Actions = {
 
 		const formData = await event.request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await createRequestNotificationContext(await buildRouteRequest(event));
 			await leaveOrganization(
 				{
 					auth: ctx.auth,

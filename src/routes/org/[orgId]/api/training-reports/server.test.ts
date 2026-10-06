@@ -31,12 +31,17 @@ describe('GET /api/training-reports', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_getConfig, ctx, {
-				page: 1,
-				pageSize: 25,
-				sortColumn: 'name',
-				sortDirection: 'asc'
-			})
+			handleUseCaseRequest(
+				_getConfig,
+				ctx,
+				{
+					page: 1,
+					pageSize: 25,
+					sortColumn: 'name',
+					sortDirection: 'asc'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
@@ -87,12 +92,17 @@ describe('GET /api/training-reports', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			page: 1,
-			pageSize: 25,
-			sortColumn: 'name',
-			sortDirection: 'asc'
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				page: 1,
+				pageSize: 25,
+				sortColumn: 'name',
+				sortDirection: 'asc'
+			},
+			() => ctx
+		);
 
 		expect(result.detail.totalRows).toBe(1);
 		expect(result.detail.rows[0].person.id).toBe('p-smith');
@@ -126,12 +136,17 @@ describe('GET /api/training-reports', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, {
-			page: 1,
-			pageSize: 25,
-			sortColumn: 'name',
-			sortDirection: 'asc'
-		});
+		const result = await handleUseCaseRequest(
+			_getConfig,
+			ctx,
+			{
+				page: 1,
+				pageSize: 25,
+				sortColumn: 'name',
+				sortDirection: 'asc'
+			},
+			() => ctx
+		);
 
 		expect(result.trainingTypes).toEqual([{ id: 'type-cpr', name: 'CPR', color: '#22c55e' }]);
 	});
@@ -188,12 +203,17 @@ describe('GET /api/training-reports/detail', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_getDetailConfig, ctx, {
-				page: 1,
-				pageSize: 25,
-				sortColumn: 'name',
-				sortDirection: 'asc'
-			})
+			handleUseCaseRequest(
+				_getDetailConfig,
+				ctx,
+				{
+					page: 1,
+					pageSize: 25,
+					sortColumn: 'name',
+					sortDirection: 'asc'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(ctx.auditPort.events).toEqual([
 			expect.objectContaining({
@@ -244,12 +264,17 @@ describe('GET /api/training-reports/detail', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_getDetailConfig, ctx, {
-			page: 1,
-			pageSize: 25,
-			sortColumn: 'name',
-			sortDirection: 'asc'
-		});
+		const result = await handleUseCaseRequest(
+			_getDetailConfig,
+			ctx,
+			{
+				page: 1,
+				pageSize: 25,
+				sortColumn: 'name',
+				sortDirection: 'asc'
+			},
+			() => ctx
+		);
 
 		expect(result.totalRows).toBe(1);
 		expect(result.rows[0].person.id).toBe('p-smith');

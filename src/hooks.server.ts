@@ -2,11 +2,11 @@ import { createServerClient } from '@supabase/ssr';
 import { type Handle, error, redirect } from '@sveltejs/kit';
 import { stringify } from 'devalue';
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_ANON_KEY } from '$env/static/public';
-import { checkRateLimit } from '$lib/server/rateLimit';
-import { auditLog } from '$lib/server/auditLog';
+import { checkRateLimit } from '$lib/access/rateLimit.server';
+import { auditLog } from '$lib/audit/index.server';
 import { getAuthCookieOptions } from '$features/identity/index.server';
 import { readIdentitySession, readIdentityAdmission } from '$features/identity/index.server';
-import { requireActiveOrganization } from '$lib/server/adapters/supabaseOrganizationAdmission';
+import { requireActiveOrganization } from '$features/organization/index.server';
 import '$lib/server/env'; // validate env vars on startup
 
 const impeccableLiveDevSources = import.meta.env.DEV ? ' http://localhost:8400 http://127.0.0.1:8400' : '';
@@ -120,9 +120,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	// Layouts do not protect endpoints/actions. Keep page GETs available for the
 	// suspended shell, but admit every Organization write/API request on fresh status.
 	const orgSegment = event.params?.orgId;
+	const organizationRoute = '/org/[orgId]';
+	const isOrganizationRoute =
+		event.route?.id === organizationRoute || event.route?.id?.startsWith(`${organizationRoute}/`);
 	const isOrganizationApi = event.route?.id?.startsWith('/org/[orgId]/api/');
 	const isWriteRequest = !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method);
-	if (orgSegment && (isWriteRequest || isOrganizationApi)) {
+	if (isOrganizationRoute && orgSegment && (isWriteRequest || isOrganizationApi)) {
 		await requireActiveOrganization(event.locals.supabase, orgSegment);
 	}
 

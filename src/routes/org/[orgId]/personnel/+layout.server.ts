@@ -1,13 +1,14 @@
-import type { LayoutServerLoad } from './$types';
+import { listStatusTypes } from '$features/calendar/index.server';
+import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
+import { loadPersonnelWorkspace } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestPersonnelWorkspaceContext } from '$lib/server/adapters/requestContexts.server';
 import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/core/featureLaneWorkspaceLoad';
-import { loadPersonnelWorkspace } from '$features/personnel/index.server';
-import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
-import { listStatusTypes } from '$features/calendar/index.server';
+import type { LayoutServerLoad } from './$types';
 
 export interface PersonnelLayoutLoadDeps {
 	streamPersonnelWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<PersonnelWorkspaceRouteData>;
@@ -17,21 +18,15 @@ async function streamPersonnelWorkspace(
 	context: FeatureLaneWorkspaceRequestContext
 ): Promise<PersonnelWorkspaceRouteData> {
 	const personnel = await loadWithContext(context.locals, context.cookies, context.orgId, {
+		context: createRequestPersonnelWorkspaceContext,
 		policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
 		policyResource: { kind: 'unscoped' },
 		defer: true,
 		fn: (ctx) =>
 			loadPersonnelWorkspace(ctx, {
 				listStatusTypes: (orgId) => listStatusTypes(ctx.store, orgId),
-				loadLossWarningWindowDays: async (orgId) => {
-					const row = await ctx.store.findOne<{ loss_warning_window_days: number | null }>(
-						'organizations',
-						orgId,
-						{},
-						'loss_warning_window_days'
-					);
-					return row?.loss_warning_window_days ?? null;
-				}
+				loadLossWarningWindowDays: async (orgId) =>
+					(await ctx.organizationSettings.findLossWarningWindowDays(orgId)) ?? null
 			})
 	});
 	return { personnel };

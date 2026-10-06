@@ -6,17 +6,7 @@ import type {
 	DashboardOrganizationSummary,
 	DashboardPendingInvitationSummary
 } from './dashboardAccess.server';
-import { getPreferredOrganizationUrlSegment } from '$lib/server/core/useCases/organizationUrlSlug';
-
-interface OrganizationMembershipRow {
-	organization_id: string;
-	role: string;
-	organizations: {
-		id: string;
-		name: string;
-		url_slug: string | null;
-	} | null;
-}
+import { readOrganizationMembershipSummaries } from './membershipSummaries.server';
 
 interface OrganizationInvitationSummaryRow {
 	id: string;
@@ -43,33 +33,8 @@ export function createSupabaseDashboardOrgAccessPort(locals: Pick<App.Locals, 's
 
 	return {
 		async listOrganizationsForUser(userId: string): Promise<DashboardOrganizationSummary[]> {
-			const { data, error } = await selectAllSupabaseRows<OrganizationMembershipRow>(
-				(from, to) =>
-					supabase
-						.from('organization_memberships')
-						.select('organization_id, role, organizations(id, name, url_slug)')
-						.eq('user_id', userId)
-						.range(from, to) as unknown as Promise<{
-						data: OrganizationMembershipRow[] | null;
-						error: unknown;
-					}>
-			);
-
-			if (error || !data) {
-				return [];
-			}
-
-			return data
-				.filter((membership) => membership.organizations)
-				.map((membership) => ({
-					id: membership.organizations!.id,
-					name: membership.organizations!.name,
-					role: membership.role,
-					urlSegment: getPreferredOrganizationUrlSegment({
-						id: membership.organizations!.id,
-						urlSlug: membership.organizations!.url_slug
-					})
-				}));
+			const { data, error } = await readOrganizationMembershipSummaries(supabase, userId);
+			return error || !data ? [] : data;
 		},
 
 		async listPendingInvitationsForEmail(email: string): Promise<DashboardPendingInvitationSummary[]> {

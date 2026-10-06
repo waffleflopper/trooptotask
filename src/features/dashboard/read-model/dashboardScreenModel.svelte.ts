@@ -1,6 +1,4 @@
 import { browser } from '$app/environment';
-import { changelog } from '$lib/data/changelog';
-import { whatsNewStore } from '$lib/stores/whatsNew.svelte';
 import { createRosterReadModel, type RosterReadModelView } from '$features/personnel/contracts';
 import { rosterStore } from '$features/personnel';
 import { calendarStatusSource, calendarAvailabilitySource, calendarAssignmentsSource } from '$features/calendar';
@@ -10,18 +8,19 @@ import type { Group } from '$features/personnel/contracts';
 import { getRatingDueStatus } from '$features/rating-scheme/contracts';
 import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { formatDate, parseDate } from '$lib/utils/dates';
-import { formatDashboardDisplayDate } from '$lib/utils/dashboardDate';
+import { formatDashboardDisplayDate } from '$features/dashboard/contracts';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
 import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
-import type { DashboardPageData } from '$features/dashboard/dashboard.types';
+import type { DashboardPageData } from '$features/dashboard/contracts';
 import type { TrainingIssue } from '$features/training/contracts';
+import { getProgress } from '$features/onboarding/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackId,
 	StarterConfigurationPackSupport
-} from '$lib/types/starterConfigurationPacks';
+} from '$features/dashboard/contracts';
 
 export type GroupedEntries<T> = Array<[string, T[]]>;
 export type UpcomingGroupBy = 'date' | 'group';
@@ -446,28 +445,6 @@ export class DashboardScreenModel {
 		}
 	}
 
-	// ---------------------------------------------------------------------------
-	// localStorage side-effect — call once inside $effect (browser only)
-	// ---------------------------------------------------------------------------
-	autoShowWhatsNew(hasShown: { value: boolean }) {
-		if (browser && !hasShown.value && changelog.length > 0 && this.data.userId) {
-			const storage = getBrowserLocalStorage();
-			if (!storage) return;
-
-			let lastSeen: string | null = null;
-			try {
-				lastSeen = storage.getItem(`changelog-last-seen-${this.data.userId}`);
-			} catch {
-				return;
-			}
-
-			if (lastSeen !== changelog[0].id) {
-				hasShown.value = true;
-				whatsNewStore.show();
-			}
-		}
-	}
-
 	get isHydrating(): boolean {
 		return (
 			this.sources.personnel.loading === true ||
@@ -591,17 +568,14 @@ export class DashboardScreenModel {
 		return onboardings.map((o) => {
 			const person = this.findRosterPerson(o.personnelId);
 			const personName = person ? `${person.rank} ${person.lastName}, ${person.firstName}` : 'Unknown';
-			const steps = ((o.steps ?? []) as { stepType: string; trainingTypeId?: string; completed: boolean }[]).map(
-				(step) => {
-					if (step.stepType === 'training' && step.trainingTypeId && !step.completed) {
-						const hasTraining = completionSet.has(`${o.personnelId}-${step.trainingTypeId}`);
-						return { ...step, completed: hasTraining };
-					}
-					return step;
+			const steps = o.steps.map((step) => {
+				if (this.data.trainingSummary && step.active && step.stepType === 'training' && step.trainingTypeId) {
+					const hasTraining = completionSet.has(`${o.personnelId}-${step.trainingTypeId}`);
+					return { ...step, completed: hasTraining };
 				}
-			);
-			const totalSteps = steps.length;
-			const completedSteps = steps.filter((s) => s.completed).length;
+				return step;
+			});
+			const { total: totalSteps, completed: completedSteps } = getProgress({ ...o, steps });
 
 			return {
 				id: o.id,
@@ -712,19 +686,14 @@ export class DashboardScreenModel {
 	}
 
 	get trainingCurrencyPct(): number {
-		const stats = this.trainingStats;
-		if (!stats || this.totalPersonnel === 0) return 100;
+		const summary = this.data.trainingSummary;
+		if (!summary || this.totalPersonnel === 0) return 100;
 
-		const withIssues = new SvelteSet<string>();
-		for (const issue of this.topTrainingIssues) {
-			withIssues.add(issue.personnelId);
-		}
-
-		const totalRecordIssues = stats.expired + stats.warningOrange + stats.warningYellow;
-		if (totalRecordIssues === 0) return 100;
-		if (withIssues.size === 0) return 0;
-
-		return Math.max(0, Math.round(((this.totalPersonnel - withIssues.size) / this.totalPersonnel) * 100));
+		const delinquentPersonnel = summary.groupDelinquencies.reduce(
+			(total, group) => total + group.delinquentPersonnelCount,
+			0
+		);
+		return Math.max(0, Math.round(((this.totalPersonnel - delinquentPersonnel) / this.totalPersonnel) * 100));
 	}
 
 	get onLeaveCount(): number {

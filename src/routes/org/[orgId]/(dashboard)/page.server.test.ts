@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type {
-	DashboardWorkspaceData,
-	DashboardWorkspaceResult
-} from '$features/dashboard/server/dashboardWorkspaceBootstrap';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import type { DashboardWorkspaceData, DashboardWorkspaceResult } from '$features/dashboard/contracts';
+import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
 
 const {
-	buildLayoutContextMock,
-	buildRouteContextMock,
+	buildLayoutRequestMock,
+	buildRouteRequestMock,
+	createRequestDashboardSummaryContextMock,
+	createRequestNotificationContextMock,
 	createSupabaseOrgSettingsMemberManagementPortMock,
 	fetchCriticalTasksDashboardSummaryMock,
 	fetchDashboardTrainingSummaryMock,
@@ -22,8 +21,10 @@ const {
 	const findManyMock = vi.fn();
 
 	return {
-		buildLayoutContextMock: vi.fn(),
-		buildRouteContextMock: vi.fn(),
+		buildLayoutRequestMock: vi.fn(),
+		buildRouteRequestMock: vi.fn(),
+		createRequestDashboardSummaryContextMock: vi.fn(),
+		createRequestNotificationContextMock: vi.fn(),
 		createSupabaseOrgSettingsMemberManagementPortMock: vi.fn(),
 		fetchCriticalTasksDashboardSummaryMock: vi.fn(),
 		fetchDashboardTrainingSummaryMock: vi.fn(),
@@ -44,8 +45,10 @@ const {
 					ratingScheme: 'view'
 				},
 				scopeSet: { kind: 'organization' },
-				isPrivileged: false
+				isPrivileged: false,
+				canManageMembers: false
 			},
+			audit: { log: vi.fn() },
 			store: {
 				findManyWithCount: findManyWithCountMock,
 				findMany: findManyMock
@@ -54,14 +57,16 @@ const {
 	};
 });
 
-vi.mock('$lib/server/adapters/httpAdapter', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
-		'$lib/server/adapters/httpAdapter'
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
 	);
 	return {
 		...actual,
-		buildLayoutContext: buildLayoutContextMock,
-		buildRouteContext: buildRouteContextMock
+		buildLayoutRequest: buildLayoutRequestMock,
+		buildRouteRequest: buildRouteRequestMock,
+		createRequestDashboardSummaryContext: createRequestDashboardSummaryContextMock,
+		createRequestNotificationContext: createRequestNotificationContextMock
 	};
 });
 
@@ -92,8 +97,13 @@ const ORG_ID = '11111111-1111-1111-1111-111111111111';
 describe('dashboard page server load', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		buildLayoutContextMock.mockResolvedValue(mockCtx);
-		buildRouteContextMock.mockResolvedValue({
+		buildLayoutRequestMock.mockResolvedValue({ auth: mockCtx.auth, audit: mockCtx.audit });
+		createRequestDashboardSummaryContextMock.mockReturnValue(mockCtx);
+		buildRouteRequestMock.mockResolvedValue({
+			auth: { kind: 'auth' },
+			audit: { kind: 'audit' }
+		});
+		createRequestNotificationContextMock.mockReturnValue({
 			auth: { kind: 'auth' },
 			audit: { kind: 'audit' },
 			notifications: { kind: 'notifications' }
@@ -167,7 +177,7 @@ describe('dashboard page server load', () => {
 		findManyMock.mockResolvedValue([{ dismissed_at: null }]);
 	});
 
-	it('rejects suspended parent admission before creating context or streaming dashboard reads', async () => {
+	it('rejects suspended parent admission before creating a request or streaming dashboard reads', async () => {
 		const result = await load({
 			params: { orgId: ORG_ID },
 			locals: {},
@@ -184,7 +194,8 @@ describe('dashboard page server load', () => {
 		if ('data' in result) await result.data.summary.catch(() => undefined);
 
 		expect(result).toMatchObject({ error: { status: 403, body: { message: 'Organization is suspended' } } });
-		expect(buildLayoutContextMock).not.toHaveBeenCalled();
+		expect(buildLayoutRequestMock).not.toHaveBeenCalled();
+		expect(createRequestDashboardSummaryContextMock).not.toHaveBeenCalled();
 		expect(fetchDashboardTrainingSummaryMock).not.toHaveBeenCalled();
 		expect(fetchCriticalTasksDashboardSummaryMock).not.toHaveBeenCalled();
 	});

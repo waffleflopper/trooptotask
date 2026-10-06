@@ -24,10 +24,7 @@ export {
 	fetchOnboardingStarterReadiness,
 	countOnboardingTemplateSteps
 } from './server/onboardingTemplateRead.server';
-export {
-	listOnboardingTemplateExportRows,
-	listOnboardingTemplateStepExportRows
-} from './server/onboardingTemplateExportRead.server';
+export { createSupabaseOnboardingExportReader } from './server/onboardingExportRead.server';
 export {
 	fetchOnboardingWorkspace,
 	type OnboardingWorkspaceBootstrapOptions
@@ -51,3 +48,13 @@ export { resyncOnboarding, switchTemplate } from './server/onboardingResync.serv
 export { listActiveOnboardings } from './server/onboardingQuery.server';
 
 export { createSupabaseOnboardingReconciliationPort } from './server/onboardingReconciliationProvider.server';
+
+export { createSupabaseOnboardingNoteAppendPort } from './server/onboardingNoteAppendProvider.server';
+
+export { createSupabaseOnboardingLifecycleTransitionPort } from './server/onboardingLifecycleProvider.server';
+
+export { createSupabaseOnboardingInactiveStepRemovalPort } from './server/onboardingInactiveStepRemovalProvider.server';
+
+export { createSupabaseOnboardingPacketCreationPort } from './server/onboardingPacketCreationProvider.server';
+
+export { createOnboardingSupportReader } from './server/supportReadProvider.server';

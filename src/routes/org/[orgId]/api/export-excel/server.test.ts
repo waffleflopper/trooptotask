@@ -6,7 +6,10 @@ import { createClient } from '@supabase/supabase-js';
 import { createSupabaseNotificationStore } from '$features/notifications/index.server';
 import { listFeedbackExportRows } from '$features/feedback/index.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _createPostConfig } from './+server';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
+const configFor = (ctx: ReturnType<typeof createTestContext>) =>
+	_createPostConfig(createDeletionRequestTestStore(ctx.rawStore));
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
 
 type WorkbookLoadBuffer = Parameters<ExcelJS.Workbook['xlsx']['load']>[0];
@@ -25,7 +28,7 @@ function toWorkbookBuffer(buffer: ArrayBuffer): WorkbookLoadBuffer {
 	return Buffer.from(buffer) as unknown as WorkbookLoadBuffer;
 }
 
-function readyWorkbookBuffer(result: Awaited<ReturnType<(typeof _postConfig)['fn']>>): ArrayBuffer {
+function readyWorkbookBuffer(result: Awaited<ReturnType<ReturnType<typeof _createPostConfig>['fn']>>): ArrayBuffer {
 	expect(result.status).toBe('ready');
 	if (result.status !== 'ready') throw new Error('Expected export to be ready');
 	return result.artifact.buffer;
@@ -73,7 +76,54 @@ function createExportTestContext(overrides?: Parameters<typeof createTestContext
 	return Object.assign(ctx, { communicationsRows });
 }
 
+function savedDeletionHistory(orgId: string) {
+	return (['pending', 'approved', 'denied', 'cancelled'] as const).map((status) => ({
+		id: `history-${status}`,
+		organization_id: orgId,
+		requested_by: 'saved-requester',
+		requested_by_email: 'saved-requester@example.test',
+		resource_type: 'training_type',
+		resource_id: `removed-type-${status}`,
+		resource_description: 'Saved removed-source description',
+		resource_url: '/org/saved/training',
+		status,
+		reviewed_by: status === 'approved' || status === 'denied' ? 'saved-reviewer' : null,
+		reviewed_at: status === 'approved' || status === 'denied' ? '2026-09-29T01:02:03.123456Z' : null,
+		denial_reason: status === 'denied' ? 'Retain the saved reason' : null,
+		created_at: '2026-05-01T00:00:00.654321Z'
+	}));
+}
+
 describe('POST /api/export-excel', () => {
+	it.each(['organizations', 'organization_memberships', 'personnel_onboardings', 'onboarding_step_progress'] as const)(
+		'rejects a failed %s read without an artifact or success effects',
+		async (failedTable) => {
+			const ctx = createExportTestContext();
+			const failure = new Error(`Saved ${failedTable} rows unavailable`);
+			const findMany = ctx.rawStore.findMany.bind(ctx.rawStore);
+			ctx.rawStore.findMany = async (table, ...args) => {
+				if (table === failedTable) throw failure;
+				return findMany(table, ...args);
+			};
+
+			await expect(handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx)).rejects.toBe(
+				failure
+			);
+
+			const rows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+			expect(rows).toEqual([
+				expect.objectContaining({
+					requested_by: ctx.auth.userId,
+					status: 'failed',
+					completed_at: expect.any(String)
+				})
+			]);
+			expect(rows[0]).not.toHaveProperty('file_size_bytes');
+			expect(ctx.auditPort.events.filter((event) => event.action.startsWith('export.'))).toEqual([]);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+		}
+	);
+
 	it.each([
 		{ label: 'ordinary member', scopeSet: { kind: 'organization' as const } },
 		{ label: 'Group-scoped member', scopeSet: { kind: 'groups' as const, groupIds: ['alpha'] } }
@@ -81,7 +131,9 @@ describe('POST /api/export-excel', () => {
 		const ctx = createExportTestContext({
 			auth: { role: 'member', isPrivileged: false, canManageMembers: false, scopeSet }
 		});
-		await expect(handleUseCaseRequest(_postConfig, ctx, { email: 'member@example.com' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(configFor(ctx), ctx, { email: 'member@example.com' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(await ctx.rawStore.findMany('data_exports', ctx.auth.orgId)).toEqual([]);
@@ -95,6 +147,11 @@ describe('POST /api/export-excel', () => {
 
 	it('downloads above former quotas and excludes another Organization', async () => {
 		const ctx = createExportTestContext();
+		const history = savedDeletionHistory(ctx.auth.orgId);
+		ctx.rawStore.seed('deletion_requests', [
+			...history,
+			{ ...history[0], id: 'foreign-request', organization_id: 'other-org' }
+		]);
 		ctx.rawStore.seed(
 			'data_exports',
 			Array.from({ length: 11 }, (_, i) => ({
@@ -172,12 +229,50 @@ describe('POST /api/export-excel', () => {
 				{ ...row, id: `foreign-${table}`, organization_id: 'other-org' }
 			];
 		}
-		const result = await handleUseCaseRequest(_postConfig, ctx, { email: 'owner@example.com' });
-		const response = _postConfig.formatOutput?.(result);
+		const result = await handleUseCaseRequest(configFor(ctx), ctx, { email: 'owner@example.com' }, () => ctx);
+		const response = configFor(ctx).formatOutput?.(result);
 		expect(response?.status).toBe(200);
 		expect(response?.headers.get('Content-Disposition')).toMatch(/^attachment; filename="org-export-test-org-/);
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(await response!.arrayBuffer()));
+		const rawRequests = workbook.getWorksheet('Raw - Deletion Requests')!;
+		const requestFields = [
+			'id',
+			'organization_id',
+			'requested_by',
+			'requested_by_email',
+			'resource_type',
+			'resource_id',
+			'resource_description',
+			'resource_url',
+			'status',
+			'reviewed_by',
+			'reviewed_at',
+			'denial_reason',
+			'created_at'
+		] as const;
+		const requestHeaders = [
+			'Id',
+			'Organization Id',
+			'Requested By',
+			'Requested By Email',
+			'Resource Type',
+			'Resource Id',
+			'Resource Description',
+			'Resource Url',
+			'Status',
+			'Reviewed By',
+			'Reviewed At',
+			'Denial Reason',
+			'Created At'
+		];
+		expect((rawRequests.getRow(1).values as string[]).slice(1)).toEqual(requestHeaders);
+		const savedRequests = Array.from({ length: rawRequests.rowCount - 1 }, (_, index) =>
+			Object.fromEntries(
+				requestFields.map((field, column) => [field, rawRequests.getRow(index + 2).getCell(column + 1).value ?? null])
+			)
+		);
+		expect(savedRequests).toEqual(history);
 		const rawRating = workbook.getWorksheet('Raw - Rating Scheme Entries')!;
 		const headers = rawRating.getRow(1).values as string[];
 		const savedCells = Object.fromEntries(
@@ -231,9 +326,9 @@ describe('POST /api/export-excel', () => {
 	});
 
 	it('uses the organization data export policy boundary', () => {
-		expect('permission' in _postConfig).toBe(false);
-		expect(_postConfig.policyAction).toBe(POLICY_ACTION_CATALOG.organization.exportData);
-		expect(_postConfig.policyResource).toEqual({ kind: 'organization' });
+		expect('permission' in configFor(createTestContext())).toBe(false);
+		expect(configFor(createTestContext()).policyAction).toBe(POLICY_ACTION_CATALOG.organization.exportData);
+		expect(configFor(createTestContext()).policyResource).toEqual({ kind: 'organization' });
 	});
 
 	it('allows delegated member managers to export organization workbooks', async () => {
@@ -257,9 +352,14 @@ describe('POST /api/export-excel', () => {
 			{ id: 'foreign-note', organization_id: 'other-org', personnel_id: 'p-2', text: 'Foreign' }
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			email: 'member-manager@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'member-manager@example.com'
+			},
+			() => ctx
+		);
 
 		expect(result.status).toBe('ready');
 		const workbook = new ExcelJS.Workbook();
@@ -267,6 +367,38 @@ describe('POST /api/export-excel', () => {
 		const rows = workbook.getWorksheet('Raw - Leader Notes')!.getSheetValues().flat(2);
 		expect(rows).toContain('own-note');
 		expect(rows).not.toContain('foreign-note');
+		const inventory = workbook.getWorksheet('Export Inventory')!;
+		const inventoryRows = inventory.getSheetValues();
+		expect(inventoryRows).toEqual(
+			expect.arrayContaining([
+				expect.arrayContaining(['personnel_onboardings', 'personnelOnboardings', 0]),
+				expect.arrayContaining(['onboarding_step_progress', 'onboardingStepProgress', 0])
+			])
+		);
+		const exportRows = await ctx.rawStore.findMany<Record<string, unknown>>('data_exports', ctx.auth.orgId);
+		expect(exportRows).toEqual([
+			expect.objectContaining({
+				requested_by: ctx.auth.userId,
+				status: 'completed',
+				completed_at: expect.any(String),
+				file_size_bytes: result.artifact.buffer.byteLength
+			})
+		]);
+		expect(ctx.auditPort.events.filter((event) => event.action.startsWith('export.'))).toEqual([
+			expect.objectContaining({
+				action: 'export.excel_created',
+				resourceType: 'data_export',
+				resourceId: exportRows[0].id
+			})
+		]);
+		expect(ctx.notificationPort.notifications).toEqual([
+			expect.objectContaining({
+				target: 'admins',
+				orgId: ctx.auth.orgId,
+				excludeUserId: ctx.auth.userId,
+				notification: expect.objectContaining({ type: 'bulk_data_exported' })
+			})
+		]);
 	});
 
 	it('includes ETS and PCS / DEROS columns in the personnel worksheet', async () => {
@@ -287,10 +419,15 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			email: 'leader@example.com'
-		});
-		const response = _postConfig.formatOutput?.(result);
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
+		const response = configFor(ctx).formatOutput?.(result);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
@@ -379,9 +516,14 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
@@ -458,9 +600,14 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
@@ -538,9 +685,14 @@ describe('POST /api/export-excel', () => {
 			}
 		]);
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));
@@ -601,9 +753,14 @@ describe('POST /api/export-excel', () => {
 			return originalUpdate(...args);
 		};
 
-		const result = await handleUseCaseRequest(_postConfig, ctx, {
-			email: 'leader@example.com'
-		});
+		const result = await handleUseCaseRequest(
+			configFor(ctx),
+			ctx,
+			{
+				email: 'leader@example.com'
+			},
+			() => ctx
+		);
 
 		const workbook = new ExcelJS.Workbook();
 		await workbook.xlsx.load(toWorkbookBuffer(readyWorkbookBuffer(result)));

@@ -6,7 +6,12 @@
  * For lifecycle transitions (start, cancel, complete the whole record), see `onboardingLifecycle.server.ts`.
  */
 import { fail } from '$lib/errors';
-import type { OnboardingWorkflowPorts } from './onboardingPorts.server';
+import type { OnboardingNoteAppendResult } from '../contracts';
+import type {
+	OnboardingWorkflowPorts,
+	OnboardingNoteAppendPorts,
+	OnboardingInactiveStepRemovalPorts
+} from './onboardingPorts.server';
 import { requireOnboardingManagePolicyForStep } from './onboardingPolicy.server';
 
 interface ToggleCheckboxInput {
@@ -91,53 +96,26 @@ interface AddNoteInput {
 	text: string;
 }
 
-interface NoteResult {
-	id: string;
-	notes: Array<{ text: string; timestamp: string; userId: string }>;
-}
-
-export async function addNote(ctx: OnboardingWorkflowPorts, input: AddNoteInput): Promise<NoteResult> {
+export async function addNote(
+	ctx: OnboardingNoteAppendPorts,
+	input: AddNoteInput
+): Promise<OnboardingNoteAppendResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
-	const userId = ctx.auth.userId;
-	const step = await ctx.store.findOne<{
-		id: string;
-		notes: Array<{ text: string; timestamp: string; userId: string }>;
-	}>('onboarding_step_progress', ctx.auth.orgId, { id: input.stepId });
-
-	if (!step) {
-		fail(404, 'Step not found');
-	}
-
-	const newNote = {
-		text: input.text,
-		timestamp: new Date().toISOString(),
-		userId
-	};
-
-	const updatedNotes = [...(step.notes ?? []), newNote];
-
-	const updated = await ctx.store.update<{
-		id: string;
-		notes: Array<{ text: string; timestamp: string; userId: string }>;
-	}>('onboarding_step_progress', ctx.auth.orgId, input.stepId, {
-		notes: updatedNotes
-	});
+	if (!ctx.onboardingNoteAppend) throw new Error('Bind the owned Onboarding note append provider');
+	const result = await ctx.onboardingNoteAppend.append(ctx.auth.orgId, input.stepId, input.text);
 
 	ctx.audit.log({
 		action: 'onboarding_step.note_added',
 		resourceType: 'onboarding_step_progress',
 		resourceId: input.stepId,
-		details: { note_author_user_id: userId }
+		details: { note_author_user_id: ctx.auth.userId }
 	});
 
-	return {
-		id: updated.id,
-		notes: updated.notes
-	};
+	return result;
 }
 
-export async function removeInactiveStep(ctx: OnboardingWorkflowPorts, stepId: string): Promise<void> {
+export async function removeInactiveStep(ctx: OnboardingInactiveStepRemovalPorts, stepId: string): Promise<void> {
 	await requireOnboardingManagePolicyForStep(ctx, stepId);
 
 	const step = await ctx.store.findOne<{ id: string; active: boolean }>('onboarding_step_progress', ctx.auth.orgId, {
@@ -152,12 +130,14 @@ export async function removeInactiveStep(ctx: OnboardingWorkflowPorts, stepId: s
 		fail(400, 'Only inactive steps can be removed');
 	}
 
-	await ctx.store.delete('onboarding_step_progress', ctx.auth.orgId, stepId);
+	if (!ctx.onboardingInactiveStepRemoval) throw new Error('Bind the owned Onboarding inactive step removal provider');
+	const removed = await ctx.onboardingInactiveStepRemoval.remove(ctx.auth.orgId, stepId);
+	if (!removed) fail(409, 'Step changed before removal; reload and try again');
 
 	ctx.audit.log({
 		action: 'onboarding_step.inactive_removed',
 		resourceType: 'onboarding_step_progress',
-		resourceId: stepId
+		resourceId: removed.id
 	});
 }
 

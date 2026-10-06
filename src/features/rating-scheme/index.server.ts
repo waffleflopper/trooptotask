@@ -1,11 +1,7 @@
 export { createSupabaseRatingSchemeDuePort } from './ratingSchemeDue.server';
 export { loadRatingSchemeWorkspace } from './server/ratingSchemeWorkspaceQuery.server';
 export { loadRatingSchemeReadinessLane } from './server/personnelRatingSchemeReadiness.server';
-export {
-	listRatingSchemeExportRows,
-	countRatingSchemeEntries,
-	countRatingSchemeEntriesByOrganization
-} from './server/ratingSchemeRead.server';
+export { createSupabaseRatingSchemeExportReader, countRatingSchemeEntries } from './server/ratingSchemeRead.server';
 export {
 	createApprovedRatingSchemeDeletionPort,
 	type ApprovedRatingSchemeDeletionPort
@@ -17,3 +13,5 @@ export {
 	ratingSchemeEntryCreateSchema,
 	ratingSchemeEntryUpdateSchema
 } from './server/ratingSchemeEntryOperations.server';
+
+export { createRatingSchemeSupportReader } from './server/supportReadProvider.server';

@@ -2,7 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { actions } from './+page.server';
 
 const { audit } = vi.hoisted(() => ({ audit: vi.fn() }));
-vi.mock('$lib/server/auditLog', () => ({ auditLog: audit }));
+vi.mock('$lib/audit/index.server', () => ({ auditLog: audit }));
 afterEach(() => vi.restoreAllMocks());
 
 const success = () => ({

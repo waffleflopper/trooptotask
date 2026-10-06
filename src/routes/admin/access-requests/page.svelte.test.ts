@@ -1,9 +1,20 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
+import type { ActionResult, SubmitFunction } from '@sveltejs/kit';
+
+const { forms, beforeNavigate, invalidateAll } = vi.hoisted(() => ({
+	forms: new Map<string, SubmitFunction>(),
+	beforeNavigate: vi.fn(),
+	invalidateAll: vi.fn()
+}));
+vi.mock('$app/navigation', () => ({ beforeNavigate, invalidateAll }));
 
 vi.mock('$app/forms', () => ({
-	enhance: () => {}
+	enhance: (form: HTMLFormElement, submit: SubmitFunction) => {
+		forms.set(form.getAttribute('action')!, submit);
+		return { destroy: () => forms.delete(form.getAttribute('action')!) };
+	}
 }));
 
 import Page from './+page.svelte';
@@ -11,6 +22,7 @@ import type { PageData } from './$types';
 
 afterEach(() => {
 	cleanup();
+	vi.resetAllMocks();
 });
 
 type ReviewedRequest = PageData['reviewed'][number];
@@ -119,7 +131,7 @@ function makePendingRequest(overrides: Partial<PendingRequest>): PendingRequest 
 }
 
 function renderPending(requests: PendingRequest[]) {
-	render(Page, {
+	return render(Page, {
 		props: {
 			data: {
 				session: null,
@@ -136,7 +148,82 @@ function renderPending(requests: PendingRequest[]) {
 	});
 }
 
+async function submitReview(name: string) {
+	await act();
+	const form = screen.getByRole('button', { name }).closest('form')!;
+	const input = {
+		formElement: form,
+		formData: new FormData(form),
+		action: new URL(form.action),
+		controller: new AbortController(),
+		submitter: null,
+		cancel: vi.fn()
+	};
+	const callback = await forms.get(form.getAttribute('action')!)!(input);
+	await act();
+	if (!callback) throw new Error('Form did not provide its response callback');
+	return (result: ActionResult, update: () => Promise<void>) => callback({ ...input, result, update });
+}
+
 describe('admin access request setup support UI', () => {
+	it('does not apply a delayed review result to a reopened review page', async () => {
+		const pending = [makePendingRequest({})];
+		const view = renderPending(pending);
+		const finish = await submitReview('Approve');
+		view.unmount();
+		const reopened = renderPending(pending);
+		const update = vi.fn(async () => {
+			await reopened.rerender({ form: { error: 'Old review failure' } });
+		});
+		await act(() => finish({ type: 'failure', status: 503, data: { error: 'Old review failure' } }, update));
+		expect(screen.queryByRole('alert')).toBeNull();
+		expect(update).not.toHaveBeenCalled();
+		expect(invalidateAll).not.toHaveBeenCalled();
+	});
+
+	it('reads current request state after an approval failure before offering another review', async () => {
+		const view = renderPending([makePendingRequest({})]);
+		const finish = await submitReview('Approve');
+		let release!: () => void;
+		invalidateAll.mockImplementation(
+			() =>
+				new Promise<void>((resolve) => {
+					release = resolve;
+				})
+		);
+		const pending = finish({ type: 'failure', status: 500, data: { error: 'Setup creation failed' } }, async () => {
+			await view.rerender({ form: { error: 'Setup creation failed' } });
+		});
+		await waitFor(() => expect(invalidateAll).toHaveBeenCalled());
+		expect((screen.getByRole('button', { name: /Approve/ }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(true);
+		await act(async () => {
+			await view.rerender({
+				data: { adminUserId: 'admin-1', pending: [], reviewed: [makeReviewedRequest({})] } as unknown as PageData
+			});
+			release();
+			await pending;
+		});
+		expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
+		expect(screen.getByRole('alert').textContent).toContain('Setup creation failed');
+		await fireEvent.click(screen.getByRole('tab', { name: /Reviewed/ }));
+		expect((screen.getByRole('button', { name: 'Send Fresh Setup' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('keeps review writes disabled after a failed reread and retries only the read', async () => {
+		renderPending([makePendingRequest({})]);
+		const finish = await submitReview('Reject');
+		invalidateAll.mockRejectedValueOnce(new Error('read unavailable')).mockResolvedValueOnce(undefined);
+		await act(() => finish({ type: 'failure', status: 503, data: { error: 'Reply unavailable' } }, async () => {}));
+		expect((screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement).disabled).toBe(true);
+		expect((screen.getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(true);
+		await fireEvent.click(screen.getByRole('button', { name: 'Reload requests' }));
+		await waitFor(() =>
+			expect((screen.getByRole('button', { name: 'Reject' }) as HTMLButtonElement).disabled).toBe(false)
+		);
+		expect(invalidateAll).toHaveBeenCalledTimes(2);
+	});
+
 	it('surfaces setup delivery failure details and fresh setup action without token-bearing URLs', async () => {
 		await renderReviewed([
 			makeReviewedRequest({

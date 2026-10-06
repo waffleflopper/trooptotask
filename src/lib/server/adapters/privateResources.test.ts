@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
-import type { MembershipRow } from '$lib/server/permissionContext';
+import type { OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
 import {
 	GET as listDocuments,
 	POST as uploadDocument
@@ -27,7 +27,7 @@ vi.mock('$lib/server/supabase', async (original) => ({
 const ORG = '11111111-1111-4111-8111-111111111111';
 const FOREIGN_ORG = '22222222-2222-4222-8222-222222222222';
 const USER = '33333333-3333-4333-8333-333333333333';
-const membership: MembershipRow = {
+const membership: OrganizationMembershipFacts = {
 	role: 'member',
 	member_preset: 'operator',
 	capability_overrides: { personnel: 'configure', training: 'operate' },
@@ -36,7 +36,7 @@ const membership: MembershipRow = {
 };
 type Row = Record<string, unknown>;
 
-function fixture(member: MembershipRow = membership) {
+function fixture(member: OrganizationMembershipFacts = membership) {
 	const tables: Record<string, Row[]> = {
 		organization_memberships: [{ ...member, user_id: USER, organization_id: ORG }],
 		personnel: [
@@ -120,7 +120,9 @@ function fixture(member: MembershipRow = membership) {
 					requests.push({ client: kind, path: url.pathname, method, body });
 					if (url.pathname.startsWith('/storage/')) {
 						if (state.failSigning) return Response.json({ message: 'synthetic signing failure' }, { status: 500 });
-						return Response.json({ signedURL: '/object/sign/synthetic-private-file' });
+						return Response.json({
+							signedURL: `${url.pathname.slice('/storage/v1'.length)}?token=synthetic-private-token`
+						});
 					}
 					const table = url.pathname.split('/').at(-1)!;
 					if (!(table in tables)) throw new Error(`Unexpected table: ${table}`);
@@ -266,7 +268,7 @@ describe('private resource HTTP admission and provider ownership', () => {
 			const response = await handler(event(f, 'GET', id));
 			expect(response.status).toBe(200);
 			expect(await response.json()).toEqual({
-				url: 'http://caller.invalid/storage/v1/object/sign/synthetic-private-file'
+				url: `http://caller.invalid/storage/v1/object/sign/${bucket}/${path}?token=synthetic-private-token`
 			});
 			expect(f.requests.filter((r) => r.path.startsWith('/storage/'))).toEqual([
 				{

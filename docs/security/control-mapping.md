@@ -15,7 +15,7 @@ This document is the repo-facing summary of where the current security remediati
 - **Sensitive storage authorization**
   Sensitive file access is mediated through app endpoints and versioned storage policies in the consolidated Supabase migrations.
 - **Audit-log minimization**
-  Audit writes are centrally sanitized in `src/lib/server/auditLog.ts`, and higher-value callers now emit normalized subject/reviewer fields.
+  Audit writes are centrally sanitized in `src/lib/audit/auditLog.server.ts`, and higher-value callers now emit normalized subject/reviewer fields.
 - **Public and internal security copy alignment**
   `/security`, `docs/security/security-overview.md`, and `supabase/config.toml` now reflect the implemented retention, session, and auth baseline.
 

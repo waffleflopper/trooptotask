@@ -1,13 +1,15 @@
-import type { RequestEvent } from '@sveltejs/kit';
-import { json } from '@sveltejs/kit';
 import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
+
 import {
 	archivePersonnelDocument,
 	deletePersonnelDocument,
 	restorePersonnelDocument
-} from '$lib/server/core/useCases/personnelDocuments';
+} from '$features/personnel/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
 function routeIds(event: RequestEvent): { personnelId: string; documentId: string } {
 	const personnelId = event.params.id;
@@ -17,7 +19,12 @@ function routeIds(event: RequestEvent): { personnelId: string; documentId: strin
 	return { personnelId, documentId };
 }
 
-export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
+export const _patchConfig: RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestPersonnelArtifactsContext>
+> = {
+	context: createRequestPersonnelArtifactsContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },
@@ -31,7 +38,12 @@ export const _patchConfig: RouteConfig<Record<string, unknown>, unknown> = {
 	}
 };
 
-export const _deleteConfig: RouteConfig<{ personnelId: string; documentId: string }, { success: true }> = {
+export const _deleteConfig: RouteConfig<
+	{ personnelId: string; documentId: string },
+	{ success: true },
+	ReturnType<typeof createRequestPersonnelArtifactsContext>
+> = {
+	context: createRequestPersonnelArtifactsContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },

@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 
-const { loadWithContextMock } = vi.hoisted(() => ({
-	loadWithContextMock: vi.fn()
+const { loadWithContextMock, requestStoreMock } = vi.hoisted(() => ({
+	loadWithContextMock: vi.fn(),
+	requestStoreMock: vi.fn()
 }));
 
 vi.mock('$lib/server/adapters/httpAdapter', async () => {
@@ -14,7 +16,8 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 	return {
 		...actual,
-		loadWithContext: loadWithContextMock
+		loadWithContext: loadWithContextMock,
+		createRequestDeletionRequestStore: requestStoreMock
 	};
 });
 
@@ -24,6 +27,7 @@ import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 describe('settings layout server load', () => {
 	beforeEach(() => {
 		loadWithContextMock.mockReset();
+		requestStoreMock.mockReset();
 	});
 
 	it('redirects the settings index before loading the shell', async () => {
@@ -45,21 +49,34 @@ describe('settings layout server load', () => {
 		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});
 
-	it('redirects suspended organizations before loading the shell', async () => {
+	it.each([
+		{
+			name: 'canonical slug from the Settings index',
+			routeId: '/org/[orgId]/settings',
+			orgUrlSegment: 'test-org',
+			location: '/org/test-org'
+		},
+		{
+			name: 'UUID fallback from nested Settings',
+			routeId: '/org/[orgId]/settings/general',
+			orgUrlSegment: '11111111-1111-4111-8111-111111111111',
+			location: '/org/11111111-1111-4111-8111-111111111111'
+		}
+	])('redirects a suspended Organization to its existing root: $name', async ({ routeId, orgUrlSegment, location }) => {
 		await expect(
 			load({
-				params: { orgId: 'org-1' },
+				params: { orgId: '11111111-1111-4111-8111-111111111111' },
 				locals: {},
 				cookies: {},
-				route: { id: '/org/[orgId]/settings' },
+				route: { id: routeId },
 				parent: async () =>
 					createSuspendedAppShellRouteData({
-						orgId: 'org-1',
+						orgId: '11111111-1111-4111-8111-111111111111',
 						orgName: 'Test Org',
-						orgUrlSegment: 'test-org'
+						orgUrlSegment
 					})
 			} as never)
-		).rejects.toMatchObject({ status: 303, location: '/org/test-org/suspended' });
+		).rejects.toMatchObject({ status: 303, location });
 
 		expect(loadWithContextMock).not.toHaveBeenCalled();
 	});
@@ -81,8 +98,14 @@ describe('settings layout server load', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		const result = await load({
@@ -150,8 +173,14 @@ describe('settings layout server load', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		const result = await load({
@@ -214,8 +243,14 @@ describe('settings layout server load', () => {
 			{ id: 'approval-2', organization_id: 'org-1', status: 'pending' },
 			{ id: 'approval-approved', organization_id: 'org-1', status: 'approved' }
 		]);
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		const result = await load({
@@ -261,8 +296,14 @@ describe('settings layout server load', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
+		requestStoreMock.mockReturnValue(createDeletionRequestTestStore(ctx.store));
 		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
+			loadWithContextCore(ctx, config, () => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				organizationSettings: ctx.organizationSettings
+			}))
 		);
 
 		await expect(

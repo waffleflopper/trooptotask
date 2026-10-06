@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { describe, it, expect, vi } from 'vitest';
+import {
+	createTestContext,
+	createWritePortsContext,
+	createWriteWithNotificationsPortsContext
+} from '$lib/server/adapters/inMemory';
 import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './onboardingStepProgress.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -22,7 +26,7 @@ interface OnboardingStepFixture {
 	organization_id: string;
 }
 
-function seedStep(ctx: ReturnType<typeof buildContext>, overrides?: Partial<OnboardingStepFixture>) {
+function seedStep(ctx: Pick<ReturnType<typeof buildContext>, 'store'>, overrides?: Partial<OnboardingStepFixture>) {
 	ctx.store.seed('onboarding_step_progress', [
 		{
 			id: 'step-1',
@@ -199,98 +203,275 @@ function seedTrainingStep(ctx: ReturnType<typeof buildContext>, overrides?: Part
 	]);
 }
 
+const operateCapabilityMap = {
+	calendar: 'none',
+	personnel: 'view',
+	training: 'none',
+	criticalTasks: 'none',
+	onboarding: 'operate',
+	ratingScheme: 'none'
+} as const;
+
+function noteContext(options?: Parameters<typeof buildContext>[0], groupId = 'group-alpha') {
+	const ctx = buildContext(options);
+	seedStep(ctx, {
+		active: false,
+		notes: [{ text: 'Original note', timestamp: '2026-09-01T12:00:00.000Z', userId: 'original-author' }]
+	});
+	ctx.store.seed('personnel_onboardings', [
+		{ id: 'ob-1', personnel_id: 'person-1', status: 'completed', organization_id: ctx.auth.orgId }
+	]);
+	ctx.store.seed('personnel', [
+		{ id: 'person-1', group_id: groupId, organization_id: ctx.auth.orgId, archived_at: null }
+	]);
+	return ctx;
+}
+
 describe('addNote', () => {
-	it('appends a note with server-generated timestamp and authenticated userId', async () => {
-		const ctx = buildContext({ auth: { userId: 'user-abc' } });
-		seedStep(ctx);
-
-		const result = await addNote(ctx, {
-			stepId: 'step-1',
-			text: 'Emailed soldier about ID card'
+	it('returns authoritative saved notes including another committed note without generic note reads or replacement', async () => {
+		const saved = {
+			id: 'step-1',
+			notes: [
+				{ text: 'Original note', timestamp: '2026-09-01T12:00:00.000Z', userId: 'original-author' },
+				{ text: 'Another committed note', timestamp: '2026-10-01T12:00:00.001Z', userId: 'other-author' },
+				{ text: 'Sent to clinic', timestamp: '2026-10-01T12:00:00.002Z', userId: 'operator' }
+			]
+		};
+		const ctx = noteContext({
+			auth: { userId: 'operator' },
+			onboardingNoteAppend: {
+				async append(orgId, stepId, text) {
+					expect({ orgId, stepId, text }).toEqual({ orgId: 'test-org', stepId: 'step-1', text: 'Sent to clinic' });
+					return saved;
+				}
+			}
 		});
+		const findOne = ctx.store.findOne.bind(ctx.store);
+		ctx.store.findOne = (table, orgId, filters, select) => {
+			if (table === 'onboarding_step_progress' && select !== 'onboarding_id') {
+				throw new Error('Generic note reads are unavailable');
+			}
+			return findOne(table, orgId, filters, select);
+		};
+		ctx.store.update = async () => {
+			throw new Error('Generic replacement writes are unavailable');
+		};
 
-		expect(result.notes).toHaveLength(1);
-		expect(result.notes[0].text).toBe('Emailed soldier about ID card');
-		expect(result.notes[0].userId).toBe('user-abc');
-		expect(result.notes[0].timestamp).toBeTruthy();
-		// Timestamp should be a valid ISO string
-		expect(new Date(result.notes[0].timestamp).toISOString()).toBe(result.notes[0].timestamp);
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'Sent to clinic' })).resolves.toEqual(saved);
+		expect(ctx.audit.events).toEqual([
+			{
+				action: 'onboarding_step.note_added',
+				resourceType: 'onboarding_step_progress',
+				resourceId: 'step-1',
+				details: { note_author_user_id: 'operator' }
+			}
+		]);
 	});
 
-	it('preserves existing notes when appending', async () => {
-		const ctx = buildContext({ auth: { userId: 'user-2' } });
-		const existingNote = { text: 'First note', timestamp: '2026-03-01T00:00:00.000Z', userId: 'user-1' };
-		seedStep(ctx, { notes: [existingNote] });
+	it.each(['', '  \t '])('forwards the original text %j to the atomic provider', async (text) => {
+		const append = vi.fn(async () => ({ id: 'step-1', notes: [] }));
+		const ctx = noteContext({ onboardingNoteAppend: { append } });
 
-		const result = await addNote(ctx, {
-			stepId: 'step-1',
-			text: 'Second note'
-		});
+		await addNote(ctx, { stepId: 'step-1', text });
 
-		expect(result.notes).toHaveLength(2);
-		expect(result.notes[0]).toEqual(existingNote);
-		expect(result.notes[1].text).toBe('Second note');
-		expect(result.notes[1].userId).toBe('user-2');
+		expect(append).toHaveBeenCalledWith('test-org', 'step-1', text);
 	});
 
-	it('rejects when step not found', async () => {
-		const ctx = buildContext({ auth: { userId: 'user-1' } });
+	it('does not emit a success audit when persistence fails', async () => {
+		const failure = new Error('Database unavailable');
+		const ctx = noteContext({
+			onboardingNoteAppend: {
+				append: async () => {
+					throw failure;
+				}
+			}
+		});
 
-		await expect(addNote(ctx, { stepId: 'nonexistent', text: 'hello' })).rejects.toThrow('Step not found');
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toBe(failure);
+		expect(ctx.audit.events).toEqual([]);
 	});
 
-	it('emits audit log on note addition', async () => {
-		const ctx = buildContext({ auth: { userId: 'user-abc' } });
-		seedStep(ctx);
+	it('fails explicitly without a bound provider instead of replacing notes through the generic store', async () => {
+		const ctx = noteContext();
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toThrow(
+			'Bind the owned Onboarding note append provider'
+		);
+		const missingContext = { ...ctx, onboardingNoteAppend: undefined };
+		await expect(addNote(missingContext, { stepId: 'step-1', text: 'Saved text' })).rejects.toThrow(
+			'Bind the owned Onboarding note append provider'
+		);
+		expect(ctx.audit.events).toEqual([]);
+	});
 
-		await addNote(ctx, { stepId: 'step-1', text: 'Note text' });
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
-			action: 'onboarding_step.note_added',
-			resourceType: 'onboarding_step_progress',
-			resourceId: 'step-1',
-			details: { note_author_user_id: 'user-abc' }
+	it('denies a viewer before calling the atomic provider', async () => {
+		const append = vi.fn(async () => ({ id: 'step-1', notes: [] }));
+		const ctx = noteContext({
+			onboardingNoteAppend: { append },
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...operateCapabilityMap, onboarding: 'view' }
+			}
 		});
+
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toMatchObject({ status: 403 });
+		expect(append).not.toHaveBeenCalled();
+		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'onboarding_step.note_added' }));
+	});
+
+	it('denies an out-of-scope Person before calling the atomic provider', async () => {
+		const append = vi.fn(async () => ({ id: 'step-1', notes: [] }));
+		const ctx = noteContext(
+			{
+				onboardingNoteAppend: { append },
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: operateCapabilityMap,
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				}
+			},
+			'group-bravo'
+		);
+
+		await expect(addNote(ctx, { stepId: 'step-1', text: 'Saved text' })).rejects.toMatchObject({ status: 403 });
+		expect(append).not.toHaveBeenCalled();
+		expect(ctx.audit.events).not.toContainEqual(expect.objectContaining({ action: 'onboarding_step.note_added' }));
 	});
 });
 
 describe('removeInactiveStep', () => {
-	it('hard-deletes a step where active is false', async () => {
-		const ctx = buildContext();
-		seedStep(ctx, { active: false });
+	it('rejects an unmet persistence predicate without claiming removal or erasing saved work', async () => {
+		const ctx = noteContext();
+		const before = await ctx.store.findOne<OnboardingStepFixture>('onboarding_step_progress', ctx.auth.orgId, {
+			id: 'step-1'
+		});
+		const reactivated = { ...before!, active: true };
+		// A controlled boundary outcome, not an in-memory conditional-delete algorithm or concurrency proof.
+		ctx.onboardingInactiveStepRemoval = {
+			async remove() {
+				await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, 'step-1', { active: true });
+				return null;
+			}
+		};
+		ctx.store.delete = async () => {
+			throw new Error('Generic deletion is unavailable');
+		};
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 409 });
+
+		await expect(ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })).resolves.toEqual(
+			reactivated
+		);
+		expect(ctx.audit.events).not.toContainEqual(
+			expect.objectContaining({ action: 'onboarding_step.inactive_removed' })
+		);
+	});
+
+	it('uses a successful owned removal and audits its identity for terminal, completed inactive work', async () => {
+		const remove = vi.fn(async () => ({ id: 'step-1' }));
+		const ctx = noteContext({ onboardingInactiveStepRemoval: { remove } });
+		await ctx.store.update('onboarding_step_progress', ctx.auth.orgId, 'step-1', { completed: true });
+		await expect(
+			ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })
+		).resolves.toMatchObject({
+			active: false,
+			completed: true
+		});
+		await expect(ctx.store.findOne('personnel_onboardings', ctx.auth.orgId, { id: 'ob-1' })).resolves.toMatchObject({
+			status: 'completed'
+		});
+		ctx.store.delete = async () => {
+			throw new Error('Generic deletion is unavailable');
+		};
 
 		await removeInactiveStep(ctx, 'step-1');
 
-		// Verify step is gone
-		const result = await ctx.store.findOne('onboarding_step_progress', 'test-org', { id: 'step-1' });
-		expect(result).toBeNull();
-	});
-
-	it('rejects removal of an active step', async () => {
-		const ctx = buildContext();
-		seedStep(ctx, { active: true });
-
-		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow('Only inactive steps can be removed');
-	});
-
-	it('rejects when step not found', async () => {
-		const ctx = buildContext();
-
-		await expect(removeInactiveStep(ctx, 'nonexistent')).rejects.toThrow('Step not found');
-	});
-
-	it('emits audit log on removal', async () => {
-		const ctx = buildContext();
-		seedStep(ctx, { active: false });
-
-		await removeInactiveStep(ctx, 'step-1');
-
-		expect(ctx.audit.events).toHaveLength(1);
-		expect(ctx.audit.events[0]).toMatchObject({
+		expect(remove).toHaveBeenCalledWith('test-org', 'step-1');
+		expect(ctx.audit.events).toContainEqual({
 			action: 'onboarding_step.inactive_removed',
 			resourceType: 'onboarding_step_progress',
 			resourceId: 'step-1'
 		});
+	});
+
+	it('rejects removal of an active step', async () => {
+		const remove = vi.fn(async () => ({ id: 'step-1' }));
+		const ctx = buildContext({ onboardingInactiveStepRemoval: { remove } });
+		seedStep(ctx, { active: true });
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 400 });
+		expect(remove).not.toHaveBeenCalled();
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it('rejects when step not found', async () => {
+		const remove = vi.fn(async () => ({ id: 'nonexistent' }));
+		const ctx = buildContext({ onboardingInactiveStepRemoval: { remove } });
+
+		await expect(removeInactiveStep(ctx, 'nonexistent')).rejects.toMatchObject({ status: 404 });
+		expect(remove).not.toHaveBeenCalled();
+	});
+
+	it('propagates a provider failure with saved work retained and no success audit', async () => {
+		const failure = new Error('Delete rejected by provider');
+		const ctx = noteContext({
+			onboardingInactiveStepRemoval: {
+				async remove() {
+					throw failure;
+				}
+			}
+		});
+		const before = await ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' });
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toBe(failure);
+
+		await expect(ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })).resolves.toEqual(
+			before
+		);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
+	it.each([createTestContext, createWritePortsContext, createWriteWithNotificationsPortsContext])(
+		'fails explicitly in an unbound test context instead of deleting through the generic store',
+		async (createContext) => {
+			const ctx = createContext();
+			seedStep(ctx, { active: false });
+			await expect(removeInactiveStep(ctx, 'step-1')).rejects.toThrow(
+				'Bind the owned Onboarding inactive step removal provider'
+			);
+			const missingContext = { ...ctx, onboardingInactiveStepRemoval: undefined };
+			await expect(removeInactiveStep(missingContext, 'step-1')).rejects.toThrow(
+				'Bind the owned Onboarding inactive step removal provider'
+			);
+			await expect(
+				ctx.store.findOne('onboarding_step_progress', ctx.auth.orgId, { id: 'step-1' })
+			).resolves.not.toBeNull();
+		}
+	);
+
+	it.each([
+		{ onboarding: 'view' as const, groupId: 'group-alpha' },
+		{ onboarding: 'operate' as const, groupId: 'group-bravo' }
+	])('denies $onboarding/$groupId before persistence', async ({ onboarding, groupId }) => {
+		const remove = vi.fn(async () => ({ id: 'step-1' }));
+		const ctx = noteContext(
+			{
+				onboardingInactiveStepRemoval: { remove },
+				auth: {
+					role: 'member',
+					isPrivileged: false,
+					capabilityMap: { ...operateCapabilityMap, onboarding },
+					scopeSet: { kind: 'groups', groupIds: ['group-alpha'] }
+				}
+			},
+			groupId
+		);
+
+		await expect(removeInactiveStep(ctx, 'step-1')).rejects.toMatchObject({ status: 403 });
+		expect(remove).not.toHaveBeenCalled();
+		expect(ctx.audit.events).not.toContainEqual(
+			expect.objectContaining({ action: 'onboarding_step.inactive_removed' })
+		);
 	});
 });

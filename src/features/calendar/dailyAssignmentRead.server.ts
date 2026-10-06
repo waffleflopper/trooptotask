@@ -1,11 +1,15 @@
 import type { DailyAssignment } from '$features/calendar/contracts';
 import type { CalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
 import { filterRowsByCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
-import type { resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
 import { DailyAssignmentEntity } from './dailyAssignmentEntity.server';
 import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
+type DataStore = CalendarWritePorts['store'];
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 
-type DailyAssignmentQueryPorts = Pick<Parameters<typeof resolveCalendarAssigneeScope>[0], 'auth' | 'store'>;
+interface DailyAssignmentQueryPorts {
+	auth: OrganizationAccessGrant;
+	store: DataStore;
+}
 
 export interface DailyAssignmentRange {
 	rangeStart: string;
@@ -30,12 +34,4 @@ export async function listDailyAssignments(
 		}
 	);
 	return DailyAssignmentEntity.fromDbArray(filterRowsByCalendarAssigneeScope(rows, scope));
-}
-
-/** Keep the organization export's saved row shape, including fields outside the Calendar view. */
-export function listDailyAssignmentExportRows(
-	store: CalendarWritePorts['store'],
-	orgId: string
-): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>(DailyAssignmentEntity.table, orgId);
 }

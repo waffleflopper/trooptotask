@@ -1,3 +1,4 @@
+import { registeredFixtureFileWrite } from './registered-file-upload.mjs';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { jsPDF } from 'jspdf';
@@ -203,10 +204,21 @@ export async function seed(session) {
 		orgOwner: { organization: 'orgA', role: 'owner', scope: 'organization' },
 		orgAdmin: { organization: 'orgA', role: 'admin', scope: 'organization' },
 		orgMember: { organization: 'orgA', role: 'member', scope: 'groups', groups: [ids.groupA] },
+		orgSettingsPeer: { organization: 'orgB', role: 'owner', scope: 'organization', personnel: 'none' },
+		orgSettingsSwitch: { organization: 'orgA', role: 'admin', scope: 'organization', personnel: 'none' },
 		orgInvitee: { organization: null },
 		orgCreator: { organization: null },
 		platformReviewer: { organization: null },
-		platformSupport: { organization: null }
+		platformSupport: { organization: null },
+		platformBilling: { organization: null },
+		platformInactive: { organization: null }
+	};
+	const deletionActors = {
+		deletionRequester: { organization: 'orgA', role: 'member', scope: 'organization', level: 'operate' },
+		deletionPeer: { organization: 'orgA', role: 'member', scope: 'organization', level: 'view' },
+		deletionScoped: { organization: 'orgA', role: 'member', scope: 'groups', groups: [ids.groupA], level: 'operate' },
+		deletionReviewer: { organization: 'orgA', role: 'admin', scope: 'organization', level: 'none' },
+		deletionForeign: { organization: 'orgB', role: 'admin', scope: 'organization', level: 'none' }
 	};
 	const notificationActors = {
 		notificationMember: { organization: 'orgA' },
@@ -218,6 +230,14 @@ export async function seed(session) {
 		orgOwner: ids.orgOwnerMembership,
 		orgAdmin: ids.orgAdminMembership,
 		orgMember: ids.orgMemberMembership
+	};
+	const dashboardActors = {
+		dashboardView: { level: 'view', scope: 'organization' },
+		dashboardScoped: { level: 'view', scope: 'groups', groups: [ids.groupA] },
+		dashboardEmpty: { level: 'view', scope: 'groups', groups: [] },
+		dashboardNone: { level: 'none', scope: 'organization' },
+		dashboardSwitch: { level: 'view', scope: 'organization' },
+		dashboardForeign: { level: 'view', scope: 'organization', organization: 'orgB' }
 	};
 	for (const role of [
 		'manager',
@@ -231,7 +251,9 @@ export async function seed(session) {
 		...Object.keys(onboardingActors),
 		...Object.keys(ratingSchemeActors),
 		...Object.keys(organizationActors),
-		...Object.keys(notificationActors)
+		...Object.keys(notificationActors),
+		...Object.keys(deletionActors),
+		...Object.keys(dashboardActors)
 	]) {
 		const email = `${role}-${randomUUID()}@example.test`;
 		const { user } = checked(await service.auth.admin.createUser({ email, password, email_confirm: true }));
@@ -248,6 +270,8 @@ export async function seed(session) {
 					onboardingActors[role]?.organization ??
 					ratingSchemeActors[role]?.organization ??
 					notificationActors[role]?.organization ??
+					deletionActors[role]?.organization ??
+					dashboardActors[role]?.organization ??
 					(role === 'foreign' ? 'orgB' : 'orgA'))
 		};
 	}
@@ -258,7 +282,9 @@ export async function seed(session) {
 	checked(
 		await service.from('platform_admins').insert([
 			{ user_id: actors.platformReviewer.id, role: 'super_admin', is_active: true },
-			{ user_id: actors.platformSupport.id, role: 'support', is_active: true }
+			{ user_id: actors.platformSupport.id, role: 'support', is_active: true },
+			{ user_id: actors.platformBilling.id, role: 'billing', is_active: true },
+			{ user_id: actors.platformInactive.id, role: 'super_admin', is_active: false }
 		])
 	);
 	checked(
@@ -320,16 +346,21 @@ export async function seed(session) {
 		const ratingScheme = ratingSchemeActors[role];
 		const organization = organizationActors[role];
 		const notification = notificationActors[role];
+		const deletion = deletionActors[role];
+		const dashboard = dashboardActors[role];
 		checked(
 			await service.from('organization_memberships').insert({
 				...(organizationMembershipIds[role] ? { id: organizationMembershipIds[role] } : {}),
 				organization_id: ids[actor.organization],
 				user_id: actor.id,
 				...(organization ? { email: actor.email } : {}),
-				role: organization?.role ?? calendar?.role ?? 'member',
+				role: organization?.role ?? calendar?.role ?? deletion?.role ?? 'member',
 				member_preset: 'viewer',
 				capability_overrides: {
 					personnel:
+						dashboard?.level ??
+						organization?.personnel ??
+						deletion?.level ??
 						onboarding?.personnel ??
 						(criticalTasks || onboarding || ratingScheme || notification
 							? 'none'
@@ -337,14 +368,16 @@ export async function seed(session) {
 								calendar?.personnel ??
 								training?.personnel ??
 								(role === 'manager' ? 'configure' : 'view'))),
-					calendar: calendar?.calendar ?? 'none',
-					training: training?.training ?? 'none',
-					criticalTasks: criticalTasks?.criticalTasks ?? 'none',
-					onboarding: onboarding?.onboarding ?? training?.onboarding ?? 'none',
-					ratingScheme: ratingScheme?.ratingScheme ?? 'none'
+					calendar: dashboard?.level ?? calendar?.calendar ?? 'none',
+					training: dashboard?.level ?? training?.training ?? deletion?.level ?? 'none',
+					criticalTasks: dashboard?.level ?? criticalTasks?.criticalTasks ?? 'none',
+					onboarding: dashboard?.level ?? onboarding?.onboarding ?? training?.onboarding ?? 'none',
+					ratingScheme: dashboard?.level ?? ratingScheme?.ratingScheme ?? deletion?.level ?? 'none'
 				},
 				access_scope_kind:
+					dashboard?.scope ??
 					organization?.scope ??
+					deletion?.scope ??
 					personnel?.scope ??
 					calendar?.scope ??
 					training?.scope ??
@@ -353,7 +386,9 @@ export async function seed(session) {
 					ratingScheme?.scope ??
 					(role === 'scoped' ? 'groups' : 'organization'),
 				access_scope_group_ids:
+					dashboard?.groups ??
 					organization?.groups ??
+					deletion?.groups ??
 					personnel?.groups ??
 					calendar?.groups ??
 					training?.groups ??
@@ -364,6 +399,41 @@ export async function seed(session) {
 			})
 		);
 	}
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.dashboardSwitch.id,
+			role: 'member',
+			member_preset: 'viewer',
+			capability_overrides: Object.fromEntries(
+				['personnel', 'calendar', 'training', 'criticalTasks', 'onboarding', 'ratingScheme'].map((lane) => [
+					lane,
+					'view'
+				])
+			),
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
+	checked(
+		await service.from('organization_memberships').insert({
+			organization_id: ids.orgB,
+			user_id: actors.orgSettingsSwitch.id,
+			email: actors.orgSettingsSwitch.email,
+			role: 'admin',
+			member_preset: 'viewer',
+			capability_overrides: {
+				personnel: 'none',
+				calendar: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		})
+	);
 	checked(
 		await service.from('organization_memberships').insert({
 			organization_id: ids.orgB,
@@ -647,9 +717,9 @@ export async function seed(session) {
 	const signedScan = new jsPDF();
 	signedScan.text('Synthetic signed scan for Verification Alpha Snapshot', 20, 20);
 	const pdf = Buffer.from(signedScan.output('arraybuffer'));
-	checked(
-		await service.storage.from('counseling-files').upload(alphaScanPath, pdf, { contentType: 'application/pdf' })
-	);
+	const scan = { uploadId: randomUUID(), bucket: 'counseling-files', path: alphaScanPath, bytes: pdf };
+	await writeJSON(path.join(session, 'fixture-file-uploads.json'), [{ ...scan, bytes: undefined }]);
+	await registeredFixtureFileWrite(service, { ids, actors }, scan);
 	const dates = {
 		historical: '2026-03-11',
 		start: '2026-09-14',
@@ -1131,7 +1201,8 @@ export async function seed(session) {
 		onboardingActors,
 		ratingSchemeActors,
 		organizationActors,
-		notificationActors
+		notificationActors,
+		deletionActors
 	};
 	await writeJSON(path.join(session, 'fixtures.json'), fixture);
 	return fixture;

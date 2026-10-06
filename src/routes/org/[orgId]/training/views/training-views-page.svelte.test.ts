@@ -6,8 +6,8 @@ import { trainingTypesStore } from '$features/training';
 import { trainingViewsStore } from '$features/training';
 import type { TrainingWorkspaceResult } from '$features/training/contracts';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		affordanceForFeatureAction: () => ({

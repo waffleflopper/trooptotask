@@ -3,10 +3,8 @@
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import type {
-		PersonnelCounselingRecord,
-		PersonnelCounselingsPageData
-	} from '$features/personnel/personnel-detail.types';
+	import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
+	import type { PersonnelCounselingsPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
 	import { counselingRecordDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 

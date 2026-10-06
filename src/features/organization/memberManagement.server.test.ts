@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { createSupabaseOrgSettingsMemberManagementPort } from './memberManagementProvider.server';
 import {
 	createSupabaseOrganizationInvitationDeliveryPort,
 	sendOrganizationInvitationEmail
@@ -2364,35 +2365,26 @@ describe('removeOrganizationMember', () => {
 		]);
 	});
 
-	it('preserves the current missing-membership success path without sending notifications', async () => {
+	it('rejects a missing membership without writing or reporting a removal', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort();
-
-		const result = await removeOrganizationMember(
-			{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
-			{
-				membershipId: '11111111-1111-4111-8111-111111111111',
-				actorEmail: 'actor@example.com'
-			}
-		);
-
-		expect(result).toEqual({ success: true });
-		expect(port.removedMemberships).toEqual([
-			{ orgId: 'test-org', membershipId: '11111111-1111-4111-8111-111111111111' }
-		]);
+		await expect(
+			removeOrganizationMember(
+				{ auth: ctx.auth, audit: ctx.audit, notifications: ctx.notifications, settings: port },
+				{
+					membershipId: '11111111-1111-4111-8111-111111111111'
+				}
+			)
+		).rejects.toMatchObject({ status: 404, message: 'Membership not found' });
+		expect(port.removedMemberships).toEqual([]);
 		expect(ctx.notificationPort.notifications).toEqual([]);
-		expect(ctx.auditPort.events).toEqual([
-			{
-				action: 'member.removed',
-				resourceType: 'organization',
-				details: { membershipId: '11111111-1111-4111-8111-111111111111' }
-			}
-		]);
+		expect(ctx.auditPort.events).toEqual([]);
 	});
 
 	it('fails when membership removal returns a provider error', async () => {
 		const ctx = createTestContext();
 		const port = createOrganizationSettingsMemberManagementPort({
+			membership: { userId: 'target', role: 'member', email: null },
 			removeMembershipError: 'Failed to remove member'
 		});
 
@@ -3004,6 +2996,7 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
+				expectedRole: 'member',
 				role: 'admin',
 				memberPreset: 'editor',
 				capabilityOverrides: {},
@@ -3076,6 +3069,7 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
+				expectedRole: 'member',
 				role: 'member',
 				memberPreset: 'editor',
 				capabilityOverrides: { personnel: 'view' },
@@ -3153,6 +3147,7 @@ describe('updateOrganizationMemberAccess', () => {
 			{
 				organizationId: 'org-1',
 				membershipId: '11111111-1111-4111-8111-111111111111',
+				expectedRole: 'member',
 				role: 'member',
 				memberPreset: 'operator',
 				capabilityOverrides: {
@@ -3224,6 +3219,214 @@ describe('invitation credential and governance boundaries', () => {
 			expect(settings.pendingInvitationByIdLookups).toEqual([]);
 			expect(settings.revokedInvitations).toEqual([]);
 			expect(delivery.deliveries).toEqual([]);
+		}
+	);
+});
+
+// Real SDK transport composed with the operation. The cohort applies documented
+// PostgREST eq predicates to current rows after an independently scheduled change.
+function ordinaryMutationScenario(options: {
+	action: 'update' | 'remove' | 'leave';
+	actorRole?: 'owner' | 'admin' | 'member';
+	initialRole?: unknown;
+	lateRole?: 'owner' | 'admin' | 'member';
+	foreign?: boolean;
+	wrongAcknowledgement?: boolean;
+}) {
+	const membershipId = '11111111-1111-4111-8111-111111111111';
+	const actorUserId = 'ordinary-actor';
+	const ctx = createTestContext({ auth: { userId: actorUserId, orgId: 'org-a', role: options.actorRole ?? 'owner' } });
+	const rows: Array<Record<string, unknown>> = [
+		{
+			id: membershipId,
+			organization_id: options.foreign ? 'org-b' : 'org-a',
+			user_id: options.action === 'leave' ? actorUserId : 'target-user',
+			email: 'target@example.test',
+			role: 'initialRole' in options ? options.initialRole : 'member',
+			member_preset: 'viewer',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		},
+		{
+			id: '22222222-2222-4222-8222-222222222222',
+			organization_id: 'org-b',
+			user_id: 'neighbor',
+			email: 'neighbor@example.test',
+			role: 'owner',
+			member_preset: 'editor',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		}
+	];
+	let mutations = 0;
+	const client = createClient('http://localhost:9', 'synthetic-companion-key', {
+		auth: { persistSession: false, autoRefreshToken: false },
+		global: {
+			fetch: async (input, init) => {
+				const request = new Request(input, init);
+				const url = new URL(request.url);
+				if (url.pathname === '/rest/v1/organizations') return Response.json({ name: 'Ordinary A' });
+				expect(url.pathname).toBe('/rest/v1/organization_memberships');
+				if (request.method !== 'GET') {
+					mutations++;
+					if (options.lateRole)
+						Object.assign(rows[0], {
+							role: options.lateRole,
+							member_preset: options.lateRole === 'member' ? 'operator' : 'editor',
+							capability_overrides: {},
+							access_scope_kind: 'organization',
+							access_scope_group_ids: []
+						});
+				}
+				const selected = rows.filter((row) =>
+					['id', 'organization_id', 'role'].every((field) => {
+						const filter = url.searchParams.get(field);
+						if (filter === null) return true;
+						if (!filter.startsWith('eq.')) throw new Error('Fixture supports documented equality filters only');
+						return row[field] === filter.slice(3);
+					})
+				);
+				if (request.method === 'GET')
+					return selected.length === 1
+						? Response.json(selected[0])
+						: Response.json({ code: 'PGRST116', message: 'No matching membership' }, { status: 406 });
+				if (request.method === 'PATCH') {
+					const changes = await request.json();
+					for (const row of selected) Object.assign(row, changes);
+				} else if (request.method === 'DELETE') for (const row of selected) rows.splice(rows.indexOf(row), 1);
+				else throw new Error('Unexpected membership method');
+				return Response.json(
+					options.wrongAcknowledgement
+						? [{ id: '22222222-2222-4222-8222-222222222222' }]
+						: selected.map((row) => ({ id: row.id }))
+				);
+			}
+		}
+	});
+	const settings = createSupabaseOrgSettingsMemberManagementPort(
+		{ supabase: client },
+		{ getAdminClient: () => client }
+	);
+	const ports = {
+		auth: ctx.auth,
+		audit: ctx.audit,
+		notifications: ctx.notifications,
+		settings,
+		sensitiveActionAuthorizer: ctx.sensitiveActionAuthorizer
+	};
+	const run = (membershipRole: 'member' | 'admin' = 'member') =>
+		options.action === 'update'
+			? updateOrganizationMemberAccess(ports, {
+					membershipId,
+					membershipRole,
+					memberAccess: memberAccess({ memberPreset: 'operator' })
+				})
+			: options.action === 'remove'
+				? removeOrganizationMember(ports, { membershipId })
+				: leaveOrganization(ports, { membershipId, confirmation: 'YES' });
+	return { ctx, rows, run, mutations: () => mutations };
+}
+
+describe('ordinary membership mutation safety', () => {
+	it('blocks removal of an existing owner before any provider mutation or success effect', async () => {
+		const { ctx, rows, run, mutations } = ordinaryMutationScenario({ action: 'remove', initialRole: 'owner' });
+		const before = structuredClone(rows);
+		await expect(run()).rejects.toMatchObject({ status: 400, message: 'Cannot remove the organization owner' });
+		expect(mutations()).toBe(0);
+		expect(rows).toEqual(before);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+	});
+	it.each([
+		{ action: 'update', actorRole: 'admin', initialRole: 'member', lateRole: 'owner', wantedRole: 'member' },
+		{ action: 'update', actorRole: 'admin', initialRole: 'member', lateRole: 'admin', wantedRole: 'member' },
+		{ action: 'update', actorRole: 'owner', initialRole: 'admin', lateRole: 'member', wantedRole: 'admin' },
+		{ action: 'remove', actorRole: 'owner', initialRole: 'member', lateRole: 'owner', wantedRole: 'member' },
+		{ action: 'remove', actorRole: 'admin', initialRole: 'member', lateRole: 'admin', wantedRole: 'member' },
+		{ action: 'leave', actorRole: 'member', initialRole: 'member', lateRole: 'owner', wantedRole: 'member' },
+		{ action: 'leave', actorRole: 'admin', initialRole: 'admin', lateRole: 'owner', wantedRole: 'member' }
+	] as const)('refuses $action after $initialRole becomes $lateRole', async (options) => {
+		const { ctx, rows, run, mutations } = ordinaryMutationScenario(options);
+		const expected = structuredClone(rows);
+		Object.assign(expected[0], {
+			role: options.lateRole,
+			member_preset: options.lateRole === 'member' ? 'operator' : 'editor',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		});
+		await expect(run(options.wantedRole)).rejects.toMatchObject({ status: 500 });
+		expect(mutations()).toBe(1);
+		expect(rows).toEqual(expected);
+		expect(ctx.auditPort.events).toEqual([]);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		if (options.actorRole === 'admin') expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+	});
+	it.each([
+		{ action: 'update', actorRole: 'admin', initialRole: 'member' },
+		{ action: 'update', actorRole: 'owner', initialRole: 'admin' },
+		{ action: 'remove', actorRole: 'admin', initialRole: 'member' },
+		{ action: 'remove', actorRole: 'owner', initialRole: 'admin' },
+		{ action: 'leave', actorRole: 'member', initialRole: 'member' },
+		{ action: 'leave', actorRole: 'admin', initialRole: 'admin' }
+	] as const)('preserves allowed $actorRole $action of a current $initialRole', async (options) => {
+		const { ctx, rows, run, mutations } = ordinaryMutationScenario(options);
+		const neighbor = structuredClone(rows[1]);
+		await expect(run()).resolves.toEqual(options.action === 'update' ? { accessSuccess: true } : { success: true });
+		expect(mutations()).toBe(1);
+		expect(rows.find((row) => row.id === neighbor.id)).toEqual(neighbor);
+		if (options.action === 'update') expect(rows[0]).toMatchObject({ role: 'member', member_preset: 'operator' });
+		else expect(rows).toEqual([neighbor]);
+		expect(ctx.auditPort.events).toContainEqual(
+			expect.objectContaining({
+				action:
+					options.action === 'update'
+						? 'member.access_changed'
+						: options.action === 'remove'
+							? 'member.removed'
+							: 'member.left'
+			})
+		);
+		expect(ctx.notificationPort.notifications.length).toBeGreaterThan(0);
+	});
+	it.each(['update', 'remove', 'leave'] as const)(
+		'refuses %s with a malformed or unknown looked-up role',
+		async (action) => {
+			for (const initialRole of [null, 'unknown', 7]) {
+				const { ctx, rows, run, mutations } = ordinaryMutationScenario({ action, initialRole });
+				const before = structuredClone(rows);
+				await expect(run()).rejects.toMatchObject({ status: 500, message: 'Membership role could not be verified' });
+				expect(mutations()).toBe(0);
+				expect(rows).toEqual(before);
+				expect(ctx.auditPort.events).toEqual([]);
+				expect(ctx.notificationPort.notifications).toEqual([]);
+				expect(ctx.sensitiveActionAuthorizer.requests).toEqual([]);
+			}
+		}
+	);
+	it.each(['update', 'remove', 'leave'] as const)('refuses a foreign membership %s before writing', async (action) => {
+		const { ctx, rows, run, mutations } = ordinaryMutationScenario({ action, foreign: true });
+		const before = structuredClone(rows);
+		await expect(run()).rejects.toMatchObject({ status: action === 'leave' ? 403 : 404 });
+		expect(mutations()).toBe(0);
+		expect(rows).toEqual(before);
+		expect(ctx.notificationPort.notifications).toEqual([]);
+		expect(ctx.auditPort.events).not.toContainEqual(
+			expect.objectContaining({ action: expect.stringMatching(/^member\.(access_changed|removed|left)$/) })
+		);
+	});
+	it.each(['update', 'remove', 'leave'] as const)(
+		'does not report successful %s after a wrong selected-ID acknowledgement',
+		async (action) => {
+			const { ctx, run } = ordinaryMutationScenario({ action, wrongAcknowledgement: true });
+			await expect(run()).rejects.toMatchObject({ status: 500 });
+			expect(ctx.auditPort.events).toEqual([]);
+			expect(ctx.notificationPort.notifications).toEqual([]);
+			// The write may already have committed before a bad response. No compensation
+			// or unchanged-target claim is inferred from acknowledgement rejection.
 		}
 	);
 });

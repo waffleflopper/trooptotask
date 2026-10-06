@@ -19,7 +19,7 @@ vi.mock('@supabase/supabase-js', () => ({
 vi.mock('$features/identity/passwordUpdateRateLimit.server', () => ({
 	checkPasswordUpdateRateLimit: async () => ({ limited: false })
 }));
-vi.mock('$lib/server/auditLog', () => ({ auditLog: vi.fn() }));
+vi.mock('$lib/audit/index.server', () => ({ auditLog: vi.fn() }));
 import { POST } from './+server';
 const now = new Date('2026-09-17T12:00:00Z');
 const user = { id: 'actor', email: 'actor@example.test' };

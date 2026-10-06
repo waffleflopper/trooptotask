@@ -1,10 +1,14 @@
-import type { requireFeaturePolicy } from '$lib/access/index.server';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
-import type { OnboardingReconciliationPort } from '../contracts';
-
-type OnboardingActor = Parameters<typeof requireFeaturePolicy>[0]['auth'];
-type OnboardingAudit = NonNullable<Parameters<typeof requireFeaturePolicy>[0]['audit']>;
+import type {
+	OnboardingReconciliationPort,
+	OnboardingNoteAppendPort,
+	OnboardingLifecycleTransitionPort,
+	OnboardingInactiveStepRemovalPort,
+	OnboardingPacketCreationPort
+} from '../contracts';
 
 export interface OnboardingReadStore {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
@@ -21,15 +25,12 @@ export interface OnboardingReadStore {
 }
 
 interface OnboardingWriteStore extends OnboardingReadStore {
-	insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
 	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
-	delete(table: string, orgId: string, id: string): Promise<void>;
-	insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
 }
 
 export interface OnboardingPolicyPorts {
-	readonly auth: OnboardingActor;
-	readonly audit?: OnboardingAudit;
+	readonly auth: OrganizationAccessGrant;
+	readonly audit?: PolicyAuditSink;
 }
 
 export interface OnboardingResourcePorts extends OnboardingPolicyPorts {
@@ -40,16 +41,35 @@ export interface OnboardingResourcePorts extends OnboardingPolicyPorts {
 }
 
 export interface OnboardingReconciliationPorts extends OnboardingResourcePorts {
-	readonly audit: OnboardingAudit;
+	readonly audit: PolicyAuditSink;
 	readonly onboardingReconciliation?: OnboardingReconciliationPort;
 }
 
+export interface OnboardingNoteAppendPorts extends OnboardingResourcePorts {
+	readonly audit: PolicyAuditSink;
+	readonly onboardingNoteAppend?: OnboardingNoteAppendPort;
+}
+
+export interface OnboardingInactiveStepRemovalPorts extends OnboardingResourcePorts {
+	readonly audit: PolicyAuditSink;
+	readonly onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
+}
+
+export interface OnboardingLifecyclePorts extends OnboardingResourcePorts {
+	readonly audit: PolicyAuditSink;
+	readonly store: OnboardingReadStore;
+	readonly onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
+}
+
 export interface OnboardingWorkflowPorts extends OnboardingResourcePorts {
-	readonly audit: OnboardingAudit;
+	readonly audit: PolicyAuditSink;
 	readonly store: OnboardingWriteStore;
 }
 
-export interface OnboardingTrainingPorts extends OnboardingWorkflowPorts {
+export interface OnboardingTrainingPorts extends OnboardingResourcePorts {
+	readonly audit: PolicyAuditSink;
+	readonly store: OnboardingReadStore;
+	readonly onboardingPacketCreation?: OnboardingPacketCreationPort;
 	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'completedTypeIds'>;
 }
 

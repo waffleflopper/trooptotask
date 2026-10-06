@@ -2,10 +2,9 @@
  * Onboarding store — active and completed onboarding records for the org.
  *
  * Extended methods (all call server API routes):
- * - `startOnboarding(personnelId, startedAt, templateId?)` — creates a new onboarding from a template
+ * - `startOnboarding(personnelId, startedAt, templateId)` — success requires a saved configured template; unavailable selections may be sent as null and return failure
  * - `toggleCheckbox(stepId, completed)` — marks a step complete/incomplete
  * - `advanceStage(stepId, stageName)` — advances a multi-stage step (e.g., training steps)
- * - `addNote(stepId, text)` — appends a timestamped note to a step
  * - `resync(onboardingId)` — reconciles steps when the template was edited after start
  * - `switchTemplate(onboardingId, newTemplateId)` — reassigns to a different template
  * - `cancelOnboarding(id)` / `completeOnboarding(id)` — lifecycle transitions
@@ -33,7 +32,6 @@ interface OnboardingExtensions extends Record<string, unknown> {
 	) => Promise<PersonnelOnboarding | null>;
 	toggleCheckbox: (stepId: string, completed: boolean) => Promise<boolean>;
 	advanceStage: (stepId: string, stageName: string) => Promise<boolean>;
-	addNote: (stepId: string, text: string) => Promise<boolean>;
 	removeDeprecatedStep: (stepId: string) => Promise<boolean>;
 	resync: (onboardingId: string) => Promise<{ success: boolean; error?: string }>;
 	switchTemplate: (onboardingId: string, newTemplateId: string) => Promise<{ success: boolean; error?: string }>;
@@ -47,10 +45,33 @@ function enhance(
 	internals: StoreInternals<PersonnelOnboarding>
 ): OnboardingExtensions {
 	let organizationVersion = 0;
+	let requestOrder = 0;
+	type StepMutation = {
+		onboardingId: string;
+		stepId: string;
+		mutationId: string;
+		requestOrder: number;
+		update: (steps: OnboardingStepProgress[]) => OnboardingStepProgress[];
+		progress: boolean;
+		superseded: boolean;
+	};
+	type ReconciliationMutation = {
+		onboardingId: string;
+		requestOrder: number;
+		updates: StepMutation['update'][];
+		superseded: boolean;
+	};
+	let pendingStepMutations: StepMutation[] = [];
+	let pendingReconciliations: ReconciliationMutation[] = [];
 
 	function load(onboardings: PersonnelOnboarding[], orgId: string) {
-		if (orgId !== internals.orgId()) organizationVersion++;
+		if (orgId !== internals.orgId()) {
+			organizationVersion++;
+			pendingStepMutations = [];
+			pendingReconciliations = [];
+		}
 		base.load(onboardings, orgId);
+		rebaseStepMutations();
 	}
 	function getDisplay(): PersonnelOnboarding[] {
 		return internals.snapshot();
@@ -60,32 +81,93 @@ function enhance(
 		return `/org/${internals.orgId()}/api/${path}`;
 	}
 
-	function applyStepUpdate(stepId: string, updater: (step: OnboardingStepProgress) => OnboardingStepProgress) {
-		const display = getDisplay();
-		const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
+	function rebaseStepMutations() {
+		if (!pendingStepMutations.length) return;
+		// Rebuild existing log entries from saved state so one pending step cannot
+		// replace another step's confirmed work with an earlier checklist snapshot.
+		for (const mutation of pendingStepMutations) internals.log.resolve(mutation.mutationId);
+		const stepsByPacket = new Map(getDisplay().map((packet) => [packet.id, packet.steps]));
+		for (const mutation of pendingStepMutations) {
+			const steps = stepsByPacket.get(mutation.onboardingId);
+			const updatedSteps = steps && !mutation.superseded ? mutation.update(steps) : steps;
+			if (updatedSteps) stepsByPacket.set(mutation.onboardingId, updatedSteps);
+			internals.log.push({
+				type: 'update',
+				mutationId: mutation.mutationId,
+				targetId: mutation.onboardingId,
+				data: updatedSteps ? { steps: updatedSteps } : {}
+			});
+		}
+	}
+
+	function applyStepMutation(stepId: string, update: StepMutation['update'], progress = false) {
+		const onboarding = getDisplay().find((o) => o.steps.some((s) => s.id === stepId));
 		if (!onboarding) return null;
 
-		const updatedSteps = onboarding.steps.map((s) => (s.id === stepId ? updater(s) : s));
-		const mutationId = crypto.randomUUID();
-		internals.log.push({
-			type: 'update',
-			mutationId,
-			targetId: onboarding.id,
-			data: { steps: updatedSteps } as Partial<PersonnelOnboarding>
-		});
+		const mutation: StepMutation = {
+			onboardingId: onboarding.id,
+			stepId,
+			mutationId: crypto.randomUUID(),
+			requestOrder: ++requestOrder,
+			update,
+			progress,
+			superseded: false
+		};
+		pendingStepMutations.push(mutation);
+		rebaseStepMutations();
+		return mutation;
+	}
 
-		return { onboarding, updatedSteps, mutationId };
+	function applyStepUpdate(
+		stepId: string,
+		updater: (step: OnboardingStepProgress) => OnboardingStepProgress,
+		progress = false
+	) {
+		return applyStepMutation(
+			stepId,
+			(steps) => steps.map((step) => (step.id === stepId ? updater(step) : step)),
+			progress
+		);
+	}
+
+	function resolveStepMutation(mutation: StepMutation) {
+		internals.log.resolve(mutation.mutationId);
+		pendingStepMutations = pendingStepMutations.filter((pending) => pending !== mutation);
+		rebaseStepMutations();
 	}
 
 	function commitStepUpdate(
-		onboardingId: string,
-		mutationId: string,
+		mutation: StepMutation,
 		update: (steps: OnboardingStepProgress[]) => OnboardingStepProgress[]
 	) {
-		internals.serverState.set(
-			internals.serverState.getSnapshot().map((o) => (o.id === onboardingId ? { ...o, steps: update(o.steps) } : o))
-		);
-		internals.log.resolve(mutationId);
+		if (!mutation.superseded) {
+			internals.serverState.set(
+				internals.serverState
+					.getSnapshot()
+					.map((o) => (o.id === mutation.onboardingId ? { ...o, steps: update(o.steps) } : o))
+			);
+			// Keep only confirmed, later changes to progress/removal while an older
+			// checklist response is pending. Replay their narrow updaters onto its
+			// fresh definitions and notes rather than retaining whole old rows.
+			for (const pending of pendingReconciliations) {
+				if (
+					!pending.superseded &&
+					pending.onboardingId === mutation.onboardingId &&
+					pending.requestOrder < mutation.requestOrder
+				) {
+					pending.updates.push(update);
+				}
+			}
+			if (mutation.progress) {
+				// Only confirmed newer checkbox/stage progress supersedes older selections. Failed
+				// requests still roll back to saved state and leave a usable retry.
+				for (const pending of pendingStepMutations) {
+					if (pending === mutation) break;
+					if (pending.progress && pending.stepId === mutation.stepId) pending.superseded = true;
+				}
+			}
+		}
+		resolveStepMutation(mutation);
 	}
 
 	async function parseErrorMessage(res: Response, fallback: string): Promise<string> {
@@ -97,6 +179,65 @@ function enhance(
 			// ignore parse errors
 		}
 		return fallback;
+	}
+
+	async function reconcile(
+		onboardingId: string,
+		newTemplateId: string | undefined,
+		fallback: string
+	): Promise<{ success: boolean; error?: string }> {
+		const version = organizationVersion;
+		const mutation: ReconciliationMutation = {
+			onboardingId,
+			requestOrder: ++requestOrder,
+			updates: [],
+			superseded: false
+		};
+		pendingReconciliations.push(mutation);
+		try {
+			const res = await fetch(apiUrl('onboarding-resync'), {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ onboardingId, newTemplateId })
+			});
+			if (!res.ok) {
+				const error = await parseErrorMessage(res, fallback);
+				return version === organizationVersion ? { success: false, error } : { success: false };
+			}
+			const result: Pick<PersonnelOnboarding, 'templateId' | 'steps'> = await res.json();
+			if (version !== organizationVersion) return { success: false };
+			if (!mutation.superseded) {
+				let steps = result.steps;
+				for (const update of mutation.updates) steps = update(steps);
+				internals.serverState.set(
+					internals.serverState
+						.getSnapshot()
+						.map((o) => (o.id === onboardingId ? { ...o, templateId: result.templateId, steps } : o))
+				);
+				for (const pending of pendingReconciliations) {
+					if (pending.onboardingId === onboardingId && pending.requestOrder < mutation.requestOrder) {
+						pending.superseded = true;
+					}
+				}
+				// A confirmed newer checklist can reset progress when a stage is
+				// removed. Earlier pending responses must not restore the old fields.
+				for (const pending of pendingStepMutations) {
+					if (
+						pending.progress &&
+						pending.onboardingId === onboardingId &&
+						pending.requestOrder < mutation.requestOrder
+					) {
+						pending.superseded = true;
+					}
+				}
+				rebaseStepMutations();
+			}
+			return { success: true };
+		} catch {
+			return version === organizationVersion ? { success: false, error: fallback } : { success: false };
+		} finally {
+			pendingReconciliations = pendingReconciliations.filter((pending) => pending !== mutation);
+		}
 	}
 
 	return {
@@ -114,6 +255,8 @@ function enhance(
 
 		invalidatePendingRequests() {
 			organizationVersion++;
+			pendingStepMutations = [];
+			pendingReconciliations = [];
 			internals.log.clear();
 		},
 
@@ -151,7 +294,7 @@ function enhance(
 
 		async toggleCheckbox(stepId: string, completed: boolean): Promise<boolean> {
 			const version = organizationVersion;
-			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, completed }));
+			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, completed }), true);
 			if (!mutation) return false;
 
 			try {
@@ -163,7 +306,7 @@ function enhance(
 				if (!res.ok) throw new Error('Failed to toggle checkbox');
 				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
 				if (version !== organizationVersion) return false;
-				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) =>
 						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
 					)
@@ -171,7 +314,7 @@ function enhance(
 				return true;
 			} catch {
 				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutation.mutationId);
+				resolveStepMutation(mutation);
 				return false;
 			}
 		},
@@ -186,11 +329,7 @@ function enhance(
 			const stages = step.stages ?? [];
 			const isLast = stageName === stages[stages.length - 1];
 
-			const mutation = applyStepUpdate(stepId, (s) => ({
-				...s,
-				currentStage: stageName,
-				completed: isLast
-			}));
+			const mutation = applyStepUpdate(stepId, (s) => ({ ...s, currentStage: stageName, completed: isLast }), true);
 			if (!mutation) return false;
 
 			try {
@@ -202,7 +341,7 @@ function enhance(
 				if (!res.ok) throw new Error('Failed to advance stage');
 				const result: Pick<OnboardingStepProgress, 'completed' | 'currentStage'> = await res.json();
 				if (version !== organizationVersion) return false;
-				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
+				commitStepUpdate(mutation, (steps) =>
 					steps.map((step) =>
 						step.id === stepId ? { ...step, completed: result.completed, currentStage: result.currentStage } : step
 					)
@@ -210,61 +349,15 @@ function enhance(
 				return true;
 			} catch {
 				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutation.mutationId);
-				return false;
-			}
-		},
-
-		async addNote(stepId: string, text: string): Promise<boolean> {
-			const version = organizationVersion;
-			const display = getDisplay();
-			const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
-			if (!onboarding) return false;
-
-			// Optimistic: add a placeholder note client-side
-			const placeholderNote = { text, timestamp: new Date().toISOString(), userId: '' };
-			const mutation = applyStepUpdate(stepId, (s) => ({
-				...s,
-				notes: [placeholderNote, ...s.notes]
-			}));
-			if (!mutation) return false;
-
-			try {
-				const res = await fetch(apiUrl('onboarding-steps'), {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ action: 'addNote', stepId, text })
-				});
-				if (!res.ok) throw new Error('Failed to add note');
-
-				// Server returns the authoritative notes array with real userId/timestamp
-				const result = await res.json();
-				if (version !== organizationVersion) return false;
-				commitStepUpdate(mutation.onboarding.id, mutation.mutationId, (steps) =>
-					steps.map((step) => (step.id === stepId ? { ...step, notes: result.notes } : step))
-				);
-				return true;
-			} catch {
-				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutation.mutationId);
+				resolveStepMutation(mutation);
 				return false;
 			}
 		},
 
 		async removeDeprecatedStep(stepId: string): Promise<boolean> {
 			const version = organizationVersion;
-			const display = getDisplay();
-			const onboarding = display.find((o) => o.steps.some((s) => s.id === stepId));
-			if (!onboarding) return false;
-
-			const filteredSteps = onboarding.steps.filter((s) => s.id !== stepId);
-			const mutationId = crypto.randomUUID();
-			internals.log.push({
-				type: 'update',
-				mutationId,
-				targetId: onboarding.id,
-				data: { steps: filteredSteps } as Partial<PersonnelOnboarding>
-			});
+			const mutation = applyStepMutation(stepId, (steps) => steps.filter((step) => step.id !== stepId));
+			if (!mutation) return false;
 
 			try {
 				const res = await fetch(apiUrl('onboarding-steps'), {
@@ -274,89 +367,25 @@ function enhance(
 				});
 				if (!res.ok) throw new Error('Failed to remove step');
 				if (version !== organizationVersion) return false;
-				commitStepUpdate(onboarding.id, mutationId, (steps) => steps.filter((step) => step.id !== stepId));
+				commitStepUpdate(mutation, (steps) => steps.filter((step) => step.id !== stepId));
 				return true;
 			} catch {
 				if (version !== organizationVersion) return false;
-				internals.log.resolve(mutationId);
+				resolveStepMutation(mutation);
 				return false;
 			}
 		},
 
-		async resync(onboardingId: string): Promise<{ success: boolean; error?: string }> {
-			const version = organizationVersion;
-			try {
-				const res = await fetch(apiUrl('onboarding-resync'), {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ onboardingId })
-				});
-
-				if (!res.ok) {
-					return { success: false, error: await parseErrorMessage(res, 'Failed to re-sync onboarding') };
-				}
-
-				const result = await res.json();
-				if (version !== organizationVersion) return { success: false };
-				internals.serverState.set(
-					internals.serverState
-						.getSnapshot()
-						.map((o) => (o.id === onboardingId ? { ...o, templateId: result.templateId, steps: result.steps } : o))
-				);
-				return { success: true };
-			} catch {
-				return { success: false, error: 'Failed to re-sync onboarding' };
-			}
+		resync(onboardingId: string) {
+			return reconcile(onboardingId, undefined, 'Failed to re-sync onboarding');
 		},
 
-		async switchTemplate(onboardingId: string, newTemplateId: string): Promise<{ success: boolean; error?: string }> {
-			const version = organizationVersion;
-			try {
-				const res = await fetch(apiUrl('onboarding-resync'), {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ onboardingId, newTemplateId })
-				});
-
-				if (!res.ok) {
-					return { success: false, error: await parseErrorMessage(res, 'Failed to switch template') };
-				}
-
-				const result = await res.json();
-				if (version !== organizationVersion) return { success: false };
-				internals.serverState.set(
-					internals.serverState
-						.getSnapshot()
-						.map((o) => (o.id === onboardingId ? { ...o, templateId: result.templateId, steps: result.steps } : o))
-				);
-				return { success: true };
-			} catch {
-				return { success: false, error: 'Failed to switch template' };
-			}
+		switchTemplate(onboardingId: string, newTemplateId: string) {
+			return reconcile(onboardingId, newTemplateId, 'Failed to switch template');
 		},
 
-		async assignTemplate(onboardingId: string, templateId: string): Promise<{ success: boolean; error?: string }> {
-			const version = organizationVersion;
-			try {
-				const res = await fetch(apiUrl('onboarding-resync'), {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ onboardingId, newTemplateId: templateId })
-				});
-				if (!res.ok) {
-					return { success: false, error: await parseErrorMessage(res, 'Failed to assign template') };
-				}
-				const result = await res.json();
-				if (version !== organizationVersion) return { success: false };
-				internals.serverState.set(
-					internals.serverState
-						.getSnapshot()
-						.map((o) => (o.id === onboardingId ? { ...o, templateId: result.templateId, steps: result.steps } : o))
-				);
-				return { success: true };
-			} catch {
-				return { success: false, error: 'Failed to assign template' };
-			}
+		assignTemplate(onboardingId: string, templateId: string) {
+			return reconcile(onboardingId, templateId, 'Failed to assign template');
 		},
 
 		async cancelOnboarding(id: string): Promise<boolean> {

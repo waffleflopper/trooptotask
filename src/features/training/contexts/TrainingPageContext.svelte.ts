@@ -17,7 +17,6 @@ import type {
 	TrainingPagePreferences,
 	TrainingPreferencesPatch
 } from '../contracts';
-import { toast } from 'svelte-sonner';
 import type { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { Group } from '$features/personnel/contracts';
@@ -65,7 +64,7 @@ export class TrainingPageContext {
 	readonly #modals: ModalRegistry;
 	readonly #org: TrainingPageAccess;
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
-	readonly #savePreferences: (orgId: string, patch: TrainingPreferencesPatch) => Promise<unknown>;
+	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
 	#hydratedSelectionFingerprint: string | null = null;
 
 	// ---- mutable UI state ----
@@ -79,7 +78,7 @@ export class TrainingPageContext {
 		modals: ModalRegistry,
 		org: TrainingPageAccess,
 		submitRemovalRequest: TrainingRemovalRequest,
-		savePreferences: (orgId: string, patch: TrainingPreferencesPatch) => Promise<unknown>
+		savePreferences: (patch: TrainingPreferencesPatch) => void
 	) {
 		this.#data = data;
 		this.#modals = modals;
@@ -266,7 +265,7 @@ export class TrainingPageContext {
 
 	setSelectedGroupId(groupId: string): void {
 		this.selectedGroupId = this.isValidGroupId(groupId) ? groupId : '';
-		void this.persistPreferences({
+		this.#savePreferences({
 			training: {
 				selectedGroupId: this.selectedGroupId || null
 			}
@@ -275,7 +274,7 @@ export class TrainingPageContext {
 
 	setSelectedViewId(viewId: string | null): void {
 		this.selectedViewId = viewId && this.savedViewIds.has(viewId) ? viewId : null;
-		void this.persistPreferences({
+		this.#savePreferences({
 			training: {
 				selectedViewId: this.selectedViewId
 			}
@@ -284,7 +283,7 @@ export class TrainingPageContext {
 
 	setViewMode(viewMode: TrainingMatrixViewMode): void {
 		this.viewMode = viewMode;
-		void this.persistPreferences({
+		this.#savePreferences({
 			training: {
 				matrixViewMode: viewMode
 			}
@@ -388,7 +387,7 @@ export class TrainingPageContext {
 		}
 
 		if (Object.keys(patch).length > 0) {
-			void this.persistPreferences({ training: patch });
+			this.#savePreferences({ training: patch });
 		}
 
 		this.#hydratedSelectionFingerprint = this.getHydratedSelectionFingerprint();
@@ -417,16 +416,6 @@ export class TrainingPageContext {
 				: 'pending';
 
 		return [this.orgId, this.selectedGroupId, this.selectedViewId, groupIds, groupFilterValues, viewIds].join('|');
-	}
-
-	private async persistPreferences(preferences: TrainingPreferencesPatch): Promise<void> {
-		try {
-			await this.#savePreferences(this.orgId, preferences);
-		} catch (error) {
-			toast.error(error instanceof Error ? error.message : 'Failed to save your training preferences', {
-				duration: 6000
-			});
-		}
 	}
 
 	private trainingRosterView(options: { groupFilter?: string } = {}): RosterReadModelView {

@@ -13,20 +13,27 @@
 		targetName: string;
 		isSuspended: boolean;
 		onClose: () => void;
-		onComplete: () => void;
+		onComplete: (targetId: string, isSuspended: boolean) => void | Promise<void>;
+		onReload: (targetId: string) => Promise<boolean>;
 	}
 
-	let { type, targetId, targetName, isSuspended, onClose, onComplete }: Props = $props();
+	let { type, targetId, targetName, isSuspended, onClose, onComplete, onReload }: Props = $props();
 
 	let reason = $state('');
 	let saving = $state(false);
 	let errorMsg = $state('');
+	let saved = $state(false);
+	let uncertain = $state<{ targetId: string; isSuspended: boolean } | null>(null);
+	let reloading = $state(false);
 
 	const action = $derived(isSuspended ? 'unsuspend' : 'suspend');
 	const title = $derived(isSuspended ? `Unsuspend ${targetName}` : `Suspend ${targetName}`);
 
 	async function handleAction() {
-		if (saving) return;
+		if (saving || saved || uncertain || reloading) return;
+		const mutationTargetId = targetId;
+		const suspendedAfterSave = action === 'suspend';
+		const complete = onComplete;
 		saving = true;
 		errorMsg = '';
 		try {
@@ -35,22 +42,59 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ type, targetId, action, reason: reason.trim() || undefined })
 			});
-			if (!res.ok) {
-				const body = await res.json().catch(() => ({}));
-				errorMsg = body?.message ?? 'An error occurred. Please try again.';
+			const body = await res.json().catch(() => null);
+			if (targetId !== mutationTargetId) return;
+			if (!res.ok || body?.success !== true) {
+				errorMsg =
+					typeof body?.message === 'string'
+						? body.message
+						: 'The change could not be confirmed. Reload this page before trying again.';
+				if (![400, 403, 404, 409].includes(res.status) || typeof body?.message !== 'string') {
+					uncertain = { targetId: mutationTargetId, isSuspended: suspendedAfterSave };
+				}
 				return;
 			}
-			onComplete();
+			saved = true;
+			try {
+				await complete(mutationTargetId, suspendedAfterSave);
+			} catch {
+				errorMsg = 'Saved, but the details could not be refreshed. Reload this page to see the current state.';
+			}
 		} catch {
-			errorMsg = 'Network error. Please try again.';
+			if (targetId !== mutationTargetId) return;
+			uncertain = { targetId: mutationTargetId, isSuspended: suspendedAfterSave };
+			errorMsg = 'The change could not be confirmed. Reload this page before trying again.';
 		} finally {
 			saving = false;
 		}
 	}
+
+	async function reloadDetails() {
+		if (!uncertain || reloading) return;
+		const command = uncertain;
+		const reload = onReload;
+		reloading = true;
+		try {
+			const currentState = await reload(command.targetId);
+			if (targetId !== command.targetId) return;
+			if (typeof currentState !== 'boolean') throw new Error('Suspension state unavailable');
+			if (currentState === command.isSuspended) {
+				onClose();
+			} else {
+				uncertain = null;
+				errorMsg = 'Details refreshed. Review the current state and confirm again if needed.';
+			}
+		} catch {
+			if (targetId === command.targetId)
+				errorMsg = 'Details could not be refreshed. Reload details before trying again.';
+		} finally {
+			reloading = false;
+		}
+	}
 </script>
 
-<AppDialog.Root open closeBlocked={saving} {onClose}>
-	<AppDialog.Content closeBlocked={saving}>
+<AppDialog.Root open closeBlocked={saving || saved || !!uncertain || reloading} {onClose}>
+	<AppDialog.Content closeBlocked={saving || saved || !!uncertain || reloading}>
 		<AppDialog.Header>
 			<AppDialog.Title>{title}</AppDialog.Title>
 		</AppDialog.Header>
@@ -78,7 +122,7 @@
 						rows={3}
 						bind:value={reason}
 						placeholder="Internal note about why this action was taken..."
-						disabled={saving}
+						disabled={saving || saved || !!uncertain || reloading}
 					></Textarea>
 				</Field.Control>
 			</Field.Root>
@@ -91,11 +135,20 @@
 		</AppDialog.Body>
 
 		<AppDialog.Footer>
-			<Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
-			<Button variant={isSuspended ? 'default' : 'destructive'} onclick={handleAction} disabled={saving}>
-				{#if saving}<Spinner />{/if}
-				{saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
-			</Button>
+			{#if saved}
+				<Button onclick={() => window.location.reload()}>Reload details</Button>
+			{:else if uncertain}
+				<Button onclick={reloadDetails} disabled={reloading}>
+					{#if reloading}<Spinner />{/if}
+					Reload details
+				</Button>
+			{:else}
+				<Button variant="outline" onclick={onClose} disabled={saving}>Cancel</Button>
+				<Button variant={isSuspended ? 'default' : 'destructive'} onclick={handleAction} disabled={saving}>
+					{#if saving}<Spinner />{/if}
+					{saving ? 'Processing...' : isSuspended ? 'Unsuspend' : 'Suspend'}
+				</Button>
+			{/if}
 		</AppDialog.Footer>
 	</AppDialog.Content>
 </AppDialog.Root>

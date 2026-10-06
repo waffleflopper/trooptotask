@@ -1,6 +1,6 @@
-import type { DataStore, QueryPorts } from '$lib/server/core/ports';
-import { fetchAuditLogs, type AuditLogQueryResult } from '$lib/server/core/useCases/auditLogQuery';
-import { listStatusTypeNamesByIds } from '$features/calendar/index.server';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import { fetchAuditLogs, type AuditLabelReads, type OrganizationAuditStore } from '$lib/audit/index.server';
+import type { AuditLogQueryResult } from '$lib/audit/contracts';
 
 export interface LogsSettingsData {
 	sections: {
@@ -16,8 +16,13 @@ export interface BuildLogsSettingsDataInput {
 	auditLogPage: AuditLogQueryResult;
 }
 
-export async function loadLogsSettings(ctx: QueryPorts, adminStore: DataStore): Promise<LogsSettingsData> {
-	const auditLogPage = await fetchAuditLogs(ctx, adminStore, { page: 1, limit: 100 }, listStatusTypeNamesByIds);
+export async function loadLogsSettings(
+	ctx: { auth: Pick<OrganizationAccessGrant, 'orgId'> },
+	store: OrganizationAuditStore,
+	labels: AuditLabelReads
+): Promise<LogsSettingsData> {
+	const orgId = ctx.auth.orgId;
+	const auditLogPage = await fetchAuditLogs(orgId, store, { page: 1, limit: 100 }, labels);
 
 	return buildLogsSettingsData({ auditLogPage });
 }

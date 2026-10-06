@@ -1,108 +1,103 @@
+import type { createRequestOrganizationExportContext } from './requestContexts.server';
 /**
  * In-memory implementations of all port interfaces, used in unit and integration tests.
  *
  * Key exports:
- * - `createTestContext()` — full UseCaseContext wired to in-memory adapters.
- *   Use this as the starting point for most use-case tests.
  * - `createInMemoryDataStore()` — DataStore with a `.seed(table, rows)` method for
  *   pre-populating test data. Supports filters, sorting, pagination, and range filters.
  * - Individual port builders (`createTestAuthContext`, `createTestAuditPort`, etc.) for
  *   tests that only need specific ports.
- * - Port bundle builders (`createWritePortsContext`, `createQueryPortsContext`, etc.)
- *   matching the narrower port subsets accepted by individual use cases.
  *
  * Group scoping works automatically from `auth.scopeSet`. Critical Tasks latest-read
  * consumers supply their owned adapter through `criticalTasksReadModelFactory`.
  */
+import type { DataStore, FindOptions, FindResult, ScopeEnforcementPort, StoragePort } from '../core/ports';
+import type { AuditEvent, AuditPort } from '$lib/audit/contracts';
+import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
-	DataStore,
-	FindOptions,
-	FindResult,
-	AuthContext,
-	AuditPort,
-	ScopeEnforcementPort,
-	StoragePort,
-	UseCaseContext,
-	WritePorts,
-	WriteWithNotificationsPorts,
-	UserWritePorts,
-	QueryPorts,
-	QueryWithRawStorePorts
-} from '../core/ports';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+	AssignmentSlotChange,
+	CalendarAssignmentReplacementPort,
+	SavedAssignment
+} from '$features/calendar/contracts';
+import type { CriticalTaskLibraryPersistence, CriticalTasksReadModelPort } from '$features/critical-tasks/contracts';
+import type { DataExportLifecycleWriter } from '$features/data-export/index.server';
+import type { FeedbackExportRow } from '$features/feedback/index.server';
+import type {
+	SensitiveActionAuthorizeInput,
+	SensitiveActionAuthorizer,
+	SensitiveActionDecision
+} from '$features/identity/contracts';
+import type { NotificationDeliveryPort, NotificationPayload } from '$features/notifications/contracts';
+import type { NotificationStore } from '$features/notifications/contracts.server';
+import type {
+	OnboardingCalendarMarkersPort,
+	OnboardingInactiveStepRemovalPort,
+	OnboardingLifecycleTransitionPort,
+	OnboardingNoteAppendPort,
+	OnboardingPacketCreationPort,
+	OnboardingReconciliationPort
+} from '$features/onboarding/contracts';
+import type {
+	OrganizationPolicyWritePort,
+	OrganizationRawExportReader,
+	OrganizationSettingsReader
+} from '$features/organization/contracts';
+import type {
+	PersonnelArtifactWritePort,
+	PersonnelAwardAcknowledgementPort,
+	PersonnelCalendarRosterPort,
+	PersonnelCriticalTasksRosterPort,
+	PersonnelOnboardingRosterPort,
+	PersonnelOrganizationExportPort,
+	PersonnelRatingSchemeRosterPort,
+	PersonnelTrainingRosterPort
+} from '$features/personnel/contracts';
+import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
+import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
+import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
 type InMemoryDataStore = ReturnType<typeof createInMemoryDataStore>;
-type CalendarAssignmentReplacementPort = UseCaseContext['calendarAssignmentReplacement'];
-type AssignmentSlotChange = Parameters<CalendarAssignmentReplacementPort['replace']>[2][number];
-type SavedAssignment = Awaited<ReturnType<CalendarAssignmentReplacementPort['replace']>>[number];
-type SensitiveActionAuthorizer = UseCaseContext['sensitiveActionAuthorizer'];
-type SensitiveActionAuthorizeInput = Parameters<SensitiveActionAuthorizer['authorize']>[0];
-type SensitiveActionDecision = Awaited<ReturnType<SensitiveActionAuthorizer['authorize']>>;
 
-function createInMemoryPersonnelOrganizationExportPort(
-	rawStore: DataStore
-): NonNullable<UseCaseContext['personnelOrganizationExport']> {
+function createInMemorySignInRosterFileWritePort(storage: StoragePort): SignInRosterFileWritePort {
 	return {
-		listRows(actor, table) {
-			return rawStore.findMany<Record<string, unknown>>(table, actor.orgId);
+		async forRoster(actor, rosterId) {
+			function assertPath(path: string) {
+				const prefix = `${actor.orgId}/sign-in-rosters/${rosterId}/`;
+				if (
+					!path.startsWith(prefix) ||
+					path.length === prefix.length ||
+					path.split('/').some((part) => part === '.' || part === '..')
+				)
+					throw Object.assign(new Error('Scan path is outside the authorized roster'), { status: 400 });
+			}
+			return {
+				async upload(path, file) {
+					if (!(file instanceof File)) throw Object.assign(new Error('A scan file is required'), { status: 400 });
+					assertPath(path);
+					await storage.upload('counseling-files', path, file, { upsert: false });
+					return { async complete() {} };
+				},
+				async remove(path) {
+					assertPath(path);
+					await storage.remove('counseling-files', [path]);
+				},
+				async removePrevious(path) {
+					assertPath(path);
+					await storage.remove('counseling-files', [path]);
+				}
+			};
 		}
 	};
 }
 
-function createInMemoryPersonnelGovernanceDeletionPort(
-	rawStore: DataStore,
-	storage: StoragePort
-): NonNullable<UseCaseContext['personnelGovernanceDeletion']> {
+function createInMemoryPersonnelOrganizationExportPort(rawStore: DataStore): PersonnelOrganizationExportPort {
 	return {
-		async deleteApprovedCounselingRecord(actor, requestId, recordId, reviewedAt) {
-			if (actor.role !== 'owner' && actor.role !== 'admin') {
-				throw Object.assign(new Error('Deletion review access denied'), { status: 403 });
-			}
-			const request = await rawStore.findOne<Record<string, unknown>>('deletion_requests', actor.orgId, {
-				id: requestId,
-				status: 'pending',
-				resource_type: 'counseling_record',
-				resource_id: recordId
-			});
-			if (!request) throw Object.assign(new Error('Pending deletion request not found'), { status: 404 });
-			const row = await rawStore.findOne<{ personnel_id?: string; file_path?: string | null }>(
-				'counseling_records',
-				actor.orgId,
-				{ id: recordId }
-			);
-			if (!row) throw Object.assign(new Error('Counseling record not found'), { status: 404 });
-			if (row.file_path) {
-				const prefix = `${actor.orgId}/counseling-records/${row.personnel_id}/`;
-				if (!row.file_path.startsWith(prefix) || row.file_path.length === prefix.length) {
-					throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
-				}
-				await storage.remove('counseling-files', [row.file_path]);
-			}
-			if (request.status !== 'pending') {
-				throw Object.assign(new Error('Pending deletion request not found'), { status: 404 });
-			}
-			const priorReview = {
-				status: request.status,
-				reviewed_by: request.reviewed_by,
-				reviewed_at: request.reviewed_at,
-				denial_reason: request.denial_reason
-			};
-			await rawStore.update('deletion_requests', actor.orgId, requestId, {
-				status: 'approved',
-				reviewed_by: actor.userId,
-				reviewed_at: reviewedAt,
-				denial_reason: null
-			});
-			try {
-				await rawStore.delete('counseling_records', actor.orgId, recordId);
-			} catch (error) {
-				Object.assign(request, priorReview);
-				throw error;
-			}
+		listRows(actor, table) {
+			return rawStore.findMany<Record<string, unknown>>(table, actor.orgId);
 		}
 	};
 }
@@ -116,15 +111,55 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 	ratingScheme: 'configure'
 };
 
-type TestAuthContextOverrides = Partial<AuthContext> & Record<string, unknown>;
+type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string, unknown>;
 
 type TestContextOptions = {
 	auth?: Parameters<typeof createTestAuthContext>[0];
-	criticalTasksReadModelFactory?: (rawStore: DataStore) => QueryPorts['criticalTasksReadModel'];
-	onboardingReconciliation?: UseCaseContext['onboardingReconciliation'];
+	criticalTaskLibraryFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskLibraryPersistence;
+	criticalTasksReadModelFactory?: (
+		rawStore: DataStore,
+		criticalTaskLibrary: CriticalTaskLibraryPersistence
+	) => CriticalTasksReadModelPort;
+	onboardingReconciliation?: OnboardingReconciliationPort;
+	onboardingNoteAppend?: OnboardingNoteAppendPort;
+	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
+	onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
+	onboardingPacketCreation?: OnboardingPacketCreationPort;
 };
 
-function unavailableOnboardingReconciliation(): NonNullable<UseCaseContext['onboardingReconciliation']> {
+function unavailableOnboardingPacketCreation(): OnboardingPacketCreationPort {
+	return {
+		async create() {
+			throw new Error('Bind the owned Onboarding packet creation provider');
+		}
+	};
+}
+
+function unavailableOnboardingInactiveStepRemoval(): OnboardingInactiveStepRemovalPort {
+	return {
+		async remove() {
+			throw new Error('Bind the owned Onboarding inactive step removal provider');
+		}
+	};
+}
+
+function unavailableOnboardingLifecycleTransition(): OnboardingLifecycleTransitionPort {
+	return {
+		async transition() {
+			throw new Error('Bind the owned Onboarding lifecycle transition provider');
+		}
+	};
+}
+
+function unavailableOnboardingNoteAppend(): OnboardingNoteAppendPort {
+	return {
+		async append() {
+			throw new Error('Bind the owned Onboarding note append provider');
+		}
+	};
+}
+
+function unavailableOnboardingReconciliation(): OnboardingReconciliationPort {
 	return {
 		async reconcile() {
 			throw new Error('Bind the owned Onboarding reconciliation provider');
@@ -132,7 +167,22 @@ function unavailableOnboardingReconciliation(): NonNullable<UseCaseContext['onbo
 	};
 }
 
-function unavailableCriticalTasksReadModel(): QueryPorts['criticalTasksReadModel'] {
+function unavailableCriticalTaskLibrary(): CriticalTaskLibraryPersistence {
+	async function unavailable(): Promise<never> {
+		throw new Error('Bind the owned Critical Tasks library in this test context');
+	}
+	return {
+		listCatalog: unavailable,
+		listImportCandidates: unavailable,
+		listReferenced: unavailable,
+		findReference: unavailable,
+		create: unavailable,
+		createMany: unavailable,
+		update: unavailable
+	};
+}
+
+function unavailableCriticalTasksReadModel(): CriticalTasksReadModelPort {
 	return {
 		async findLatestCompletions() {
 			throw new Error('Bind the owned Critical Tasks read model in this test context');
@@ -198,25 +248,6 @@ export function createInMemoryDataStore(): DataStore & {
 		if (options?.notInFilters) {
 			for (const [key, values] of Object.entries(options.notInFilters)) {
 				results = results.filter((row) => !values.includes(row[key]));
-			}
-		}
-
-		if (options?.arrayContainedByFilters) {
-			for (const [key, values] of Object.entries(options.arrayContainedByFilters)) {
-				const allowedValues = new Set(values);
-				results = results.filter((row) => {
-					const rowValues = row[key];
-					return Array.isArray(rowValues) && rowValues.every((value) => allowedValues.has(value));
-				});
-			}
-		}
-
-		if (options?.nonEmptyArrayFilters) {
-			for (const key of options.nonEmptyArrayFilters) {
-				results = results.filter((row) => {
-					const rowValues = row[key];
-					return Array.isArray(rowValues) && rowValues.length > 0;
-				});
 			}
 		}
 
@@ -358,15 +389,6 @@ export function createInMemoryDataStore(): DataStore & {
 			return { data, count };
 		},
 
-		async listDistinctAuditActions(orgId: string, excludedActions: string[] = []): Promise<string[]> {
-			const filtered = applyFilters('audit_logs', getRows('audit_logs'), orgId, undefined, {
-				notInFilters: { action: excludedActions }
-			});
-			return [
-				...new Set(filtered.map((row) => row.action).filter((value): value is string => typeof value === 'string'))
-			].sort();
-		},
-
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T> {
 			const row: Row = { id: crypto.randomUUID(), ...data, [getOrgColumn(table)]: orgId };
 			getRows(table).push(row);
@@ -490,8 +512,8 @@ export function createInMemoryDataStore(): DataStore & {
 	};
 }
 
-export function createTestAuthContext(overrides?: TestAuthContextOverrides): AuthContext {
-	const defaults: AuthContext = {
+export function createTestAuthContext(overrides?: TestAuthContextOverrides): OrganizationAccessGrant {
+	const defaults: OrganizationAccessGrant = {
 		userId: 'test-user',
 		orgId: 'test-org',
 		role: 'owner',
@@ -514,15 +536,6 @@ export function createTestScopeEnforcementPort(overrides?: Partial<ScopeEnforcem
 	return { ...defaults, ...overrides };
 }
 
-interface AuditEvent {
-	action: string;
-	resourceType: string;
-	resourceId?: string;
-	orgId?: string;
-	details?: Record<string, unknown>;
-	severity?: 'info' | 'warning' | 'critical';
-}
-
 export function createTestAuditPort(): AuditPort & { events: AuditEvent[] } {
 	const events: AuditEvent[] = [];
 	return {
@@ -538,33 +551,28 @@ interface RecordedNotification {
 	orgId: string;
 	userId?: string;
 	excludeUserId?: string | null;
-	notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2];
+	notification: NotificationPayload;
 }
 
-export function createTestNotificationPort(): UseCaseContext['notifications'] & {
+export function createTestNotificationPort(): NotificationDeliveryPort & {
 	notifications: RecordedNotification[];
 } {
 	const notifications: RecordedNotification[] = [];
 	return {
 		notifications,
-		async notifyUser(
-			orgId: string,
-			userId: string,
-			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
-		): Promise<void> {
+		async notifyUser(orgId: string, userId: string, notification: NotificationPayload): Promise<void> {
 			notifications.push({ target: 'user', orgId, userId, notification });
 		},
-		async notifyAdmins(
-			orgId: string,
-			excludeUserId: string | null,
-			notification: Parameters<UseCaseContext['notifications']['notifyUser']>[2]
-		): Promise<void> {
+		async notifyAdmins(orgId: string, excludeUserId: string | null, notification: NotificationPayload): Promise<void> {
 			notifications.push({ target: 'admins', orgId, excludeUserId, notification });
 		}
 	};
 }
 
-function createScopedTestStores(auth: AuthContext): { store: InMemoryDataStore; rawStore: InMemoryDataStore } {
+function createScopedTestStores(auth: OrganizationAccessGrant): {
+	store: InMemoryDataStore;
+	rawStore: InMemoryDataStore;
+} {
 	const rawStore = createInMemoryDataStore();
 	if (auth.scopeSet.kind === 'organization') {
 		return { store: rawStore, rawStore };
@@ -588,7 +596,7 @@ function createInMemoryCalendarAssignmentReplacementPort(
 
 async function inMemoryPersonnelRows(
 	rawStore: DataStore,
-	actor: AuthContext,
+	actor: OrganizationAccessGrant,
 	status: 'active' | 'all',
 	ids?: string[]
 ) {
@@ -609,9 +617,7 @@ async function inMemoryPersonnelRows(
 	});
 }
 
-function createInMemoryPersonnelAwardAcknowledgementPort(
-	rawStore: DataStore
-): NonNullable<UseCaseContext['personnelAwardAcknowledgement']> {
+function createInMemoryPersonnelAwardAcknowledgementPort(rawStore: DataStore): PersonnelAwardAcknowledgementPort {
 	return {
 		async listAcknowledgedPersonnelIds(actor) {
 			if (!actor.isPrivileged && actor.capabilityMap.personnel === 'none') return [];
@@ -634,7 +640,7 @@ function createInMemoryPersonnelAwardAcknowledgementPort(
 function createInMemoryPersonnelArtifactWritePort(
 	rawStore: DataStore,
 	storage: StoragePort
-): NonNullable<UseCaseContext['personnelArtifactWrites']> {
+): PersonnelArtifactWritePort {
 	return {
 		async forPerson(actor, personnelId) {
 			const person = await rawStore.findOne<{ group_id: string | null }>('personnel', actor.orgId, {
@@ -698,6 +704,7 @@ function createInMemoryPersonnelArtifactWritePort(
 						throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
 					}
 					await storage.upload(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', path, file);
+					return { async complete() {} };
 				},
 				async removeFile(kind: 'counseling' | 'document', path: string) {
 					const prefix =
@@ -789,9 +796,7 @@ function inMemoryPersonnelFromRow(row: Row) {
 	};
 }
 
-function createInMemoryPersonnelCalendarRosterPort(
-	rawStore: DataStore
-): NonNullable<UseCaseContext['personnelCalendarRoster']> {
+function createInMemoryPersonnelCalendarRosterPort(rawStore: DataStore): PersonnelCalendarRosterPort {
 	return {
 		async listActive(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
@@ -810,7 +815,7 @@ function createInMemoryPersonnelCalendarRosterPort(
 	};
 }
 
-function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): UseCaseContext['personnelOnboardingRoster'] {
+function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): PersonnelOnboardingRosterPort {
 	return {
 		async listRoster(actor, status) {
 			return (await inMemoryPersonnelRows(rawStore, actor, status)).map(inMemoryPersonnelFromRow);
@@ -826,8 +831,8 @@ function createInMemoryPersonnelOnboardingRosterPort(rawStore: DataStore): UseCa
 	};
 }
 
-function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): UseCaseContext['personnelTrainingRoster'] {
-	const listActive = async (actor: AuthContext) =>
+function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): PersonnelTrainingRosterPort {
+	const listActive = async (actor: OrganizationAccessGrant) =>
 		(await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
 	return {
 		listActiveForWorkspace: listActive,
@@ -843,9 +848,7 @@ function createInMemoryPersonnelTrainingRosterPort(rawStore: DataStore): UseCase
 	};
 }
 
-function createInMemoryPersonnelCriticalTasksRosterPort(
-	rawStore: DataStore
-): UseCaseContext['personnelCriticalTasksRoster'] {
+function createInMemoryPersonnelCriticalTasksRosterPort(rawStore: DataStore): PersonnelCriticalTasksRosterPort {
 	return {
 		async listActiveForReadiness(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map(inMemoryPersonnelFromRow);
@@ -870,7 +873,7 @@ function createInMemoryPersonnelCriticalTasksRosterPort(
 	};
 }
 
-function createInMemoryRatingSchemeDuePort(rawStore: DataStore): NonNullable<QueryPorts['ratingSchemeDue']> {
+function createInMemoryRatingSchemeDuePort(rawStore: DataStore): RatingSchemeDuePort {
 	return {
 		async listDueEntries(actor) {
 			if (actor.capabilityMap.ratingScheme === 'none') return [];
@@ -889,9 +892,7 @@ function createInMemoryRatingSchemeDuePort(rawStore: DataStore): NonNullable<Que
 	};
 }
 
-function createInMemoryPersonnelRatingSchemeRosterPort(
-	rawStore: DataStore
-): NonNullable<UseCaseContext['personnelRatingSchemeRoster']> {
+function createInMemoryPersonnelRatingSchemeRosterPort(rawStore: DataStore): PersonnelRatingSchemeRosterPort {
 	return {
 		async listActiveReferences(actor) {
 			return (await inMemoryPersonnelRows(rawStore, actor, 'active')).map((row) => ({
@@ -914,9 +915,7 @@ function createInMemoryPersonnelRatingSchemeRosterPort(
 	};
 }
 
-function createInMemoryTrainingOnboardingReferencesPort(
-	rawStore: DataStore
-): UseCaseContext['trainingOnboardingReferences'] {
+function createInMemoryTrainingOnboardingReferencesPort(rawStore: DataStore): TrainingOnboardingReferencesPort {
 	return {
 		async listTypes(actor) {
 			const rows = await rawStore.findMany<Row>('training_types', actor.orgId, undefined, {
@@ -982,8 +981,8 @@ function createInMemoryTrainingOnboardingReferencesPort(
 
 function createInMemoryOnboardingCalendarMarkersPort(
 	rawStore: DataStore,
-	auth: AuthContext
-): UseCaseContext['onboardingCalendarMarkers'] {
+	auth: OrganizationAccessGrant
+): OnboardingCalendarMarkersPort {
 	return {
 		async listActivePersonnelIds(orgId) {
 			const organizationWide = auth.scopeSet.kind === 'organization' || auth.role === 'owner' || auth.role === 'admin';
@@ -1013,7 +1012,7 @@ function createInMemoryOnboardingCalendarMarkersPort(
 	};
 }
 
-function unavailableNotificationStore(): UseCaseContext['notificationSelf']['store'] {
+function unavailableNotificationStore(): NotificationStore {
 	const unavailable = async (): Promise<never> => {
 		throw new Error('Bind the owned Notifications provider in this test context');
 	};
@@ -1029,21 +1028,115 @@ function unavailableNotificationStore(): UseCaseContext['notificationSelf']['sto
 	};
 }
 
-/** Convenience: build a full UseCaseContext for tests. rawStore defaults to store (unscoped). */
+/** Test delivery binding for Organization-owned scalar facts. */
+function createInMemoryOrganizationSettingsReader(store: DataStore): OrganizationSettingsReader {
+	async function findScalar(orgId: string, column: string) {
+		const row = await store.findOne<Record<string, number | null>>('organizations', orgId.toLowerCase(), {}, column);
+		return row?.[column];
+	}
+	return {
+		async findPolicies(orgId) {
+			const row = await store.findOne<{
+				archive_retention_months?: number | null;
+				loss_warning_window_days?: number | null;
+			}>('organizations', orgId.toLowerCase(), {}, 'archive_retention_months, loss_warning_window_days');
+			return row
+				? { archiveRetentionMonths: row.archive_retention_months, lossWarningWindowDays: row.loss_warning_window_days }
+				: null;
+		},
+		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
+		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
+		findStorageCapBytes: (orgId) => findScalar(orgId, 'personnel_document_storage_cap_bytes'),
+		async countPendingInvitations(orgId) {
+			return (
+				(
+					await store.findManyWithCount(
+						'organization_invitations',
+						orgId.toLowerCase(),
+						{ status: 'pending' },
+						{ select: 'id', limit: 0 }
+					)
+				).count ?? 0
+			);
+		}
+	};
+}
+
+function createInMemoryOrganizationPolicyWritePort(store: DataStore): OrganizationPolicyWritePort {
+	return {
+		async updatePolicies(orgId, changes) {
+			const updates: Record<string, number> = {};
+			if (changes.archiveRetentionMonths !== undefined)
+				updates.archive_retention_months = changes.archiveRetentionMonths;
+			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
+			if (changes.personnelDocumentStorageCapBytes !== undefined)
+				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
+			await store.updateById('organizations', orgId, updates);
+			return null;
+		}
+	};
+}
+
+export function createTestOrganizationArchiveReaders(rawStore: Pick<DataStore, 'findMany'>, orgId: string) {
+	return {
+		calendar: {
+			async listRows(table) {
+				const rows = await rawStore.findMany<Record<string, unknown>>(table, orgId);
+				if (table !== 'status_types') return rows;
+				const fields = new Set(['id', 'organization_id', 'name', 'color', 'text_color', 'sort_order', 'created_at']);
+				return rows.map((row) => Object.fromEntries(Object.entries(row).filter(([key]) => fields.has(key))));
+			}
+		},
+		training: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		onboarding: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		personnel: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		identity: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		criticalTasks: { listRows: (table) => rawStore.findMany<Record<string, unknown>>(table, orgId) },
+		dashboard: { listRows: () => rawStore.findMany<Record<string, unknown>>('dashboard_configs', orgId) },
+		ratingScheme: {
+			listRows: () =>
+				rawStore.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
+					orderBy: [{ column: 'id', ascending: true }]
+				})
+		},
+		dataExport: { listRows: () => rawStore.findMany<Record<string, unknown>>('data_exports', orgId) },
+		audit: { listRows: () => rawStore.findMany<Record<string, unknown>>('audit_logs', orgId) }
+	} satisfies ReturnType<typeof createRequestOrganizationExportContext>['archiveReaders'];
+}
+
+export function createTestDataExportLifecycleWriter(store: DataStore, orgId: string): DataExportLifecycleWriter {
+	return {
+		async createProcessing(input) {
+			const row = await store.insert<{ id: string }>('data_exports', orgId, {
+				requested_by: input.requestedBy,
+				status: 'processing',
+				created_at: input.createdAt
+			});
+			return { exportId: row.id };
+		},
+		async markCompleted(input) {
+			await store.update('data_exports', orgId, input.exportId, {
+				status: 'completed',
+				completed_at: input.completedAt,
+				file_size_bytes: input.fileSizeBytes
+			});
+		},
+		async markFailed(input) {
+			await store.update('data_exports', orgId, input.exportId, {
+				status: 'failed',
+				completed_at: input.completedAt
+			});
+		}
+	};
+}
+
 export function createTestContext(
 	overrides?: TestContextOptions & {
 		scope?: Partial<ScopeEnforcementPort>;
 
 		sensitiveActionDecision?: Partial<SensitiveActionDecision>;
 	}
-): UseCaseContext & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	rawStore: ReturnType<typeof createInMemoryDataStore>;
-	auditPort: ReturnType<typeof createTestAuditPort>;
-	notificationPort: ReturnType<typeof createTestNotificationPort>;
-	storagePort: ReturnType<typeof createTestStoragePort>;
-	sensitiveActionAuthorizer: ReturnType<typeof createTestSensitiveActionAuthorizer>;
-} {
+) {
 	const auth = createTestAuthContext(overrides?.auth);
 	const scope = createTestScopeEnforcementPort(overrides?.scope);
 	const { store, rawStore } = createScopedTestStores(auth);
@@ -1051,8 +1144,10 @@ export function createTestContext(
 	const notificationPort = createTestNotificationPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
+	const criticalTaskLibrary =
+		overrides?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		overrides?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		overrides?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		rawStore,
@@ -1060,13 +1155,21 @@ export function createTestContext(
 		scope,
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
+		organizationPolicyWrite: createInMemoryOrganizationPolicyWritePort(rawStore),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
+		onboardingNoteAppend: overrides?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
+		onboardingLifecycleTransition:
+			overrides?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
+		onboardingInactiveStepRemoval:
+			overrides?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
+		onboardingPacketCreation: overrides?.onboardingPacketCreation ?? unavailableOnboardingPacketCreation(),
 		auditPort,
 
 		notifications: notificationPort,
 		notificationSelf: { auth, audit: auditPort, store: unavailableNotificationStore() },
 		feedbackExport: {
-			async listRows() {
+			async listRows(_orgId: string): Promise<FeedbackExportRow[]> {
 				throw new Error('Bind the owned Feedback export provider in this test context');
 			}
 		},
@@ -1075,11 +1178,20 @@ export function createTestContext(
 		storagePort,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
-		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
+		signInRosterFileWrites: createInMemorySignInRosterFileWritePort(storagePort),
+		signInRosterExport: {
+			listRows: () => rawStore.findMany<Record<string, unknown>>('sign_in_rosters', auth.orgId)
+		},
+		archiveReaders: createTestOrganizationArchiveReaders(rawStore, auth.orgId),
+		exportLifecycle: createTestDataExportLifecycleWriter(rawStore, auth.orgId),
 		personnelOrganizationExport: createInMemoryPersonnelOrganizationExportPort(rawStore),
+		organizationRawExport: {
+			listRows: (orgId, table) => rawStore.findMany<Record<string, unknown>>(table, orgId)
+		} satisfies OrganizationRawExportReader,
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
@@ -1145,27 +1257,13 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 	};
 }
 
-// ---------------------------------------------------------------------------
-// Port bundle context builders — return exactly the ports in each bundle
-// ---------------------------------------------------------------------------
-
-export function createWritePortsContext(options?: TestContextOptions): WritePorts &
-	Pick<
-		UseCaseContext,
-		| 'personnelTrainingRoster'
-		| 'personnelCriticalTasksRoster'
-		| 'personnelCalendarRoster'
-		| 'personnelOnboardingRoster'
-		| 'trainingOnboardingReferences'
-	> & {
-		store: ReturnType<typeof createInMemoryDataStore>;
-		audit: ReturnType<typeof createTestAuditPort>;
-		criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
-	} {
+export function createWritePortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
@@ -1174,10 +1272,14 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
+		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
+		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
+		onboardingInactiveStepRemoval: options?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
+		onboardingPacketCreation: options?.onboardingPacketCreation ?? unavailableOnboardingPacketCreation(),
 
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
-		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
@@ -1187,24 +1289,13 @@ export function createWritePortsContext(options?: TestContextOptions): WritePort
 	};
 }
 
-export function createWriteWithNotificationsPortsContext(options?: TestContextOptions): WriteWithNotificationsPorts &
-	Pick<
-		UseCaseContext,
-		| 'personnelTrainingRoster'
-		| 'personnelCriticalTasksRoster'
-		| 'personnelCalendarRoster'
-		| 'personnelOnboardingRoster'
-		| 'trainingOnboardingReferences'
-	> & {
-		store: ReturnType<typeof createInMemoryDataStore>;
-		audit: ReturnType<typeof createTestAuditPort>;
-		notifications: ReturnType<typeof createTestNotificationPort>;
-		criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
-	} {
+export function createWriteWithNotificationsPortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
@@ -1213,11 +1304,15 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
+		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
+		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
+		onboardingInactiveStepRemoval: options?.onboardingInactiveStepRemoval ?? unavailableOnboardingInactiveStepRemoval(),
+		onboardingPacketCreation: options?.onboardingPacketCreation ?? unavailableOnboardingPacketCreation(),
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
-		personnelGovernanceDeletion: createInMemoryPersonnelGovernanceDeletionPort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
 		personnelRatingSchemeRoster: createInMemoryPersonnelRatingSchemeRosterPort(rawStore),
@@ -1227,12 +1322,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 	};
 }
 
-export function createUserWritePortsContext(options?: {
-	auth?: Parameters<typeof createTestAuthContext>[0];
-}): UserWritePorts & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	audit: ReturnType<typeof createTestAuditPort>;
-} {
+export function createUserWritePortsContext(options?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store } = createScopedTestStores(auth);
 	return {
@@ -1242,18 +1332,19 @@ export function createUserWritePortsContext(options?: {
 	};
 }
 
-export function createQueryPortsContext(options?: TestContextOptions): QueryPorts & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
-} {
+export function createQueryPortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
@@ -1266,20 +1357,20 @@ export function createQueryPortsContext(options?: TestContextOptions): QueryPort
 	};
 }
 
-export function createQueryWithRawStorePortsContext(options?: TestContextOptions): QueryWithRawStorePorts & {
-	store: ReturnType<typeof createInMemoryDataStore>;
-	rawStore: ReturnType<typeof createInMemoryDataStore>;
-	criticalTasksReadModel: QueryPorts['criticalTasksReadModel'];
-} {
+export function createQueryWithRawStorePortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,
 		rawStore,
+		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),

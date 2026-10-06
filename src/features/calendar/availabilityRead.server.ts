@@ -1,6 +1,7 @@
 import type { AvailabilityEntry } from '$features/calendar/contracts';
-import type { resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
+type DataStore = CalendarWritePorts['store'];
 import { AvailabilityEntryEntity } from './availabilityEntity.server';
 
 export interface AvailabilityRangeInput {
@@ -14,7 +15,7 @@ export interface AvailabilityRangeInput {
 
 /** Date-overlap read shared by Calendar and its server consumers. */
 export async function listAvailabilityEntries(
-	ctx: Pick<Parameters<typeof resolveCalendarAssigneeScope>[0], 'store' | 'auth'>,
+	ctx: { auth: OrganizationAccessGrant; store: DataStore },
 	input: AvailabilityRangeInput
 ): Promise<AvailabilityEntry[]> {
 	const rows = await ctx.store.findMany<Record<string, unknown>>(
@@ -36,7 +37,7 @@ export async function listAvailabilityEntries(
 
 /** Full saved history for an already-authorized Personnel export. */
 export async function listPersonnelAvailabilityHistory(
-	ctx: Pick<CalendarWritePorts, 'auth'> & { rawStore: NonNullable<CalendarWritePorts['rawStore']> },
+	ctx: { auth: OrganizationAccessGrant; rawStore: DataStore },
 	personnelId: string
 ): Promise<AvailabilityEntry[]> {
 	const rows = await ctx.rawStore.findMany<Record<string, unknown>>(
@@ -49,12 +50,4 @@ export async function listPersonnelAvailabilityHistory(
 		}
 	);
 	return AvailabilityEntryEntity.fromDbArray(rows);
-}
-
-/** Full saved rows for an already-authorized Organization export. */
-export function listAvailabilityExportRows(
-	store: CalendarWritePorts['store'],
-	orgId: string
-): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>(AvailabilityEntryEntity.table, orgId);
 }

@@ -1,43 +1,30 @@
+import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createPersonnelArtifactDeliveryContext } from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it, vi } from 'vitest';
 import { _createPersonnelDocumentsPageLoad } from './+page.server';
 
 describe('personnel documents page server load', () => {
 	it('loads the full document list for the layout-resolved Soldier', async () => {
-		const ctx = {
-			store: {
-				findOne: vi.fn(async () => ({ id: 'person-1', group_id: null })),
-				findMany: vi.fn(async () => [
-					{
-						id: 'document-1',
-						personnel_id: 'person-1',
-						title: 'BLS Card',
-						file_path: 'org-1/personnel/person-1/documents/bls.pdf',
-						file_size_bytes: 500,
-						content_type: 'application/pdf',
-						uploaded_by: 'test-user',
-						created_at: '2026-05-01T10:00:00Z'
-					}
-				])
-			},
-			auth: {
-				orgId: 'org-1',
-				userId: 'test-user',
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'configure',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' }
-			},
-			scope: {
-				requireGroupAccess: vi.fn(async () => {})
-			},
-			audit: { log: vi.fn() }
-		};
-		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) => config.fn(ctx));
+		const ctx = createTestContext({ auth: { orgId: 'org-1' } });
+		ctx.store.seed('personnel', [{ id: 'person-1', organization_id: 'org-1', group_id: null }]);
+		ctx.store.seed(
+			'personnel_documents',
+			[
+				{
+					id: 'document-1',
+					personnel_id: 'person-1',
+					title: 'BLS Card',
+					file_path: 'org-1/personnel/person-1/documents/bls.pdf',
+					file_size_bytes: 500,
+					content_type: 'application/pdf',
+					uploaded_by: 'test-user',
+					created_at: '2026-05-01T10:00:00Z'
+				}
+			].map((row) => ({ ...row, organization_id: 'org-1', archived_at: null }))
+		);
+		const loadWithContext = vi.fn(async (_locals, _cookies, _orgId, config) =>
+			config.fn(createPersonnelArtifactDeliveryContext(ctx))
+		);
 		const load = _createPersonnelDocumentsPageLoad({ loadWithContext });
 		const depends = vi.fn();
 

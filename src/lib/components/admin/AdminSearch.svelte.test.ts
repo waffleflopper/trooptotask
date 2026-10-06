@@ -9,6 +9,105 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
+function pendingResponse() {
+	let resolve!: (response: Response) => void;
+	const promise = new Promise<Response>((done) => {
+		resolve = done;
+	});
+	return { promise, resolve };
+}
+
+function userResult(id: string) {
+	return Response.json({ users: [{ id, email: `${id}@example.test`, orgCount: 1 }], organizations: [] });
+}
+
+it('keeps cleared input empty when an obsolete response arrives', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	const pending = pendingResponse();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(() => pending.promise)
+	);
+	render(AdminSearch);
+	const input = screen.getByRole('combobox');
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'obsolete' } });
+	await vi.advanceTimersByTimeAsync(250);
+	await fireEvent.input(input, { target: { value: '' } });
+	pending.resolve(userResult('obsolete'));
+	await vi.advanceTimersByTimeAsync(0);
+	expect(screen.queryByRole('listbox')).toBeNull();
+	expect(screen.queryByRole('option')).toBeNull();
+	expect(input.getAttribute('aria-expanded')).toBe('false');
+});
+
+it('keeps the current matches when responses arrive in reverse order', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	const old = pendingResponse(),
+		current = pendingResponse();
+	vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise));
+	render(AdminSearch);
+	const input = screen.getByRole('combobox');
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'old-query' } });
+	await vi.advanceTimersByTimeAsync(250);
+	await fireEvent.input(input, { target: { value: 'current-query' } });
+	await vi.advanceTimersByTimeAsync(250);
+	current.resolve(userResult('current'));
+	await vi.advanceTimersByTimeAsync(0);
+	old.resolve(userResult('obsolete'));
+	await vi.advanceTimersByTimeAsync(0);
+	expect(screen.getByRole('option', { name: /current@example.test/ })).toBeTruthy();
+	expect(screen.queryByRole('option', { name: /obsolete@example.test/ })).toBeNull();
+});
+
+it('does not reopen a blurred search when its response arrives', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	const pending = pendingResponse();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(() => pending.promise)
+	);
+	render(AdminSearch);
+	const input = screen.getByRole('combobox');
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'current' } });
+	await vi.advanceTimersByTimeAsync(250);
+	input.blur();
+	await vi.advanceTimersByTimeAsync(160);
+	pending.resolve(userResult('current'));
+	await vi.advanceTimersByTimeAsync(0);
+	expect(screen.queryByRole('listbox')).toBeNull();
+	input.focus();
+	await vi.advanceTimersByTimeAsync(0);
+	expect(screen.getByRole('option', { name: /current@example.test/ })).toBeTruthy();
+});
+
+it('cancels scheduled lookup on unmount and reports a failed lookup with a working retry', async () => {
+	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+	const fetch = vi
+		.fn()
+		.mockResolvedValueOnce(new Response('', { status: 503 }))
+		.mockResolvedValueOnce(userResult('recovered'));
+	vi.stubGlobal('fetch', fetch);
+	const first = render(AdminSearch);
+	await fireEvent.input(screen.getByRole('combobox'), { target: { value: 'scheduled' } });
+	first.unmount();
+	await vi.advanceTimersByTimeAsync(250);
+	expect(fetch).not.toHaveBeenCalled();
+	render(AdminSearch);
+	const input = screen.getByRole('combobox');
+	input.focus();
+	await fireEvent.input(input, { target: { value: 'failed' } });
+	await vi.advanceTimersByTimeAsync(250);
+	expect(screen.getByRole('alert').textContent).toContain('Search could not be loaded');
+	expect(screen.queryByRole('option')).toBeNull();
+	await fireEvent.input(input, { target: { value: 'recovered' } });
+	await vi.advanceTimersByTimeAsync(250);
+	expect(screen.queryByRole('alert')).toBeNull();
+	expect(screen.getByRole('option', { name: /recovered@example.test/ })).toBeTruthy();
+});
+
 it('opens server-matched User and Organization records by keyboard with accessible selection', async () => {
 	vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 	vi.stubGlobal(

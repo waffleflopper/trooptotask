@@ -1,14 +1,16 @@
+import { readPendingDeletionRequestSummary } from '$features/deletion-requests/index.server';
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
+import { loadWithContext, createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsShell } from './settingsShell.server';
 import { requireReadyAppShell } from '$lib/server/core/appShellRouteData';
+import { createSettingsShellContext } from './settingsRequestContexts.server';
 
 export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, route }) => {
 	const parentData = await parent();
 	if (parentData.shell.kind === 'suspended') {
-		redirect(303, `/org/${parentData.shell.org.urlSegment}/suspended`);
+		redirect(303, `/org/${parentData.shell.org.urlSegment}`);
 	}
 
 	const shell = requireReadyAppShell(parentData);
@@ -21,16 +23,26 @@ export const load: LayoutServerLoad = async ({ locals, cookies, params, parent, 
 	}
 
 	return loadWithContext(locals, cookies, orgId, {
+		context: createSettingsShellContext,
 		policyAction: POLICY_ACTION_CATALOG.organization.accessGovernance,
 		policyResource: { kind: 'organization' },
 		fn: async (ctx) => ({
 			canAccessOrganizationGovernance: true,
-			settingsShell: await loadSettingsShell(ctx, {
-				id: orgId,
-				name: orgName,
-				urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
-				urlSegment: orgUrlSegment ?? params.orgId
-			})
+			settingsShell: await loadSettingsShell(
+				ctx,
+				{
+					id: orgId,
+					name: orgName,
+					urlSlug: orgUrlSegment && orgUrlSegment !== orgId ? orgUrlSegment : null,
+					urlSegment: orgUrlSegment ?? params.orgId
+				},
+				() =>
+					readPendingDeletionRequestSummary({
+						auth: ctx.auth,
+						audit: ctx.audit,
+						store: createRequestDeletionRequestStore(locals)
+					})
+			)
 		})
 	});
 };

@@ -19,7 +19,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as TypeWorkspace from '$lib/components/ui/type-workspace';
 	import * as Select from '$lib/components/ui/select';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { createOnboardingTemplateWorkspace, type OnboardingTemplateDeleteTarget } from '$features/onboarding';
 	import type { OnboardingStepType } from '$features/onboarding/contracts';
@@ -28,7 +28,7 @@
 	let { data }: PageProps = $props();
 	let ConfirmDialog = $state<typeof import('$lib/components/ui/ConfirmDialog.svelte').default | null>(null);
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	const orgId = $derived(org.orgId);
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? data.orgId ?? org.orgId);
 

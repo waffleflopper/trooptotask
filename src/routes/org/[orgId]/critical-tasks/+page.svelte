@@ -7,7 +7,7 @@
 	import { Toggle } from '$lib/components/ui/toggle';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
 	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { rosterStore } from '$features/personnel';
 	import { groupsStore } from '$features/personnel';
 	import {
@@ -30,7 +30,7 @@
 
 	let { data } = $props();
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	const orgId = $derived(org.orgId);
 	const orgUrlSegment = $derived(org.orgUrlSegment ?? orgId);
 	const orgName = $derived(org.orgName);

@@ -1,11 +1,13 @@
 // @vitest-environment happy-dom
+import { createRawSnippet, getAllContexts, mount, unmount, untrack } from 'svelte';
+import { AccountPreferencesProvider } from '$features/identity';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 import { CALENDAR_ANCHOR_COOKIE } from '$features/calendar/utils/calendarAnchorDate';
 import type { CalendarRangeData } from '$features/calendar/index';
 import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 
 const { exportMonthToExcelMock, loadCalendarRangeMock, mergeCalendarRangeIntoStoresMock, printMonthCalendarMock } =
 	vi.hoisted(() => ({
@@ -20,8 +22,8 @@ vi.mock('$features/calendar/utils/calendarExport', () => ({
 	printMonthCalendar: printMonthCalendarMock
 }));
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
@@ -134,6 +136,30 @@ function makeBootstrap(): CalendarWorkspaceResult {
 	};
 }
 
+const WithPreferences: typeof Page = (anchor, props) => {
+	const shell = untrack(() => props.data.shell);
+	if (shell.kind !== 'ready') throw new Error('Test requires admitted shell');
+	const children = createRawSnippet(() => {
+		const context = getAllContexts();
+		return {
+			render: () => '<section></section>',
+			setup: (target) => {
+				const page = mount(Page, { target, props, context });
+				return () => {
+					void unmount(page);
+				};
+			}
+		};
+	});
+	AccountPreferencesProvider(anchor, {
+		userId: shell.user.id,
+		orgId: shell.org.id,
+		preferences: shell.preferences,
+		children
+	});
+	return {};
+};
+
 function makePageData() {
 	return {
 		...createReadyAppShellRouteData({
@@ -167,7 +193,7 @@ describe('calendar page', () => {
 	});
 
 	it('loads a larger calendar range on demand when navigating beyond the buffered window', async () => {
-		render(Page, {
+		render(WithPreferences, {
 			props: {
 				data: makePageData()
 			}
@@ -195,7 +221,7 @@ describe('calendar page', () => {
 				})
 		);
 
-		render(Page, {
+		render(WithPreferences, {
 			props: {
 				data: makePageData()
 			}
@@ -222,7 +248,7 @@ describe('calendar page', () => {
 	it('loads the navigated quarter and persists that month for the next server bootstrap', async () => {
 		calendarStore.goToMonth(2026, 2);
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
-		render(Page, { props: { data: makePageData() } });
+		render(WithPreferences, { props: { data: makePageData() } });
 
 		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
 		expect(loadCalendarRangeMock).not.toHaveBeenCalled();
@@ -247,7 +273,7 @@ describe('calendar page', () => {
 			dailyAssignments: []
 		});
 
-		render(Page, {
+		render(WithPreferences, {
 			props: {
 				data: makePageData()
 			}
@@ -278,7 +304,7 @@ describe('calendar page', () => {
 	it('stores the viewed calendar month as a bootstrap anchor cookie for future requests', async () => {
 		document.cookie = `${CALENDAR_ANCHOR_COOKIE}=; Max-Age=0; Path=/`;
 
-		render(Page, {
+		render(WithPreferences, {
 			props: {
 				data: makePageData()
 			}

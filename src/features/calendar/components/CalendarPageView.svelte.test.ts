@@ -1,14 +1,11 @@
 // @vitest-environment happy-dom
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import CalendarPageView from './CalendarPageView.svelte';
 import { CalendarPageContext, type CalendarPageData } from '../contexts/CalendarPageContext.svelte';
 import { availabilityStore } from '$features/calendar/stores/availability.svelte';
-import {
-	createTestOrgContext,
-	FULL_TEST_CAPABILITY_MAP,
-	VIEW_TEST_CAPABILITY_MAP
-} from '$lib/test-support/orgContextBuilder';
 import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
 import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
@@ -86,6 +83,13 @@ const filterPersonnel: Personnel[] = [
 	}
 ];
 
+function makeContext(
+	data: ConstructorParameters<typeof CalendarPageContext>[0],
+	org: ConstructorParameters<typeof CalendarPageContext>[1]
+) {
+	return new CalendarPageContext(data, org, vi.fn());
+}
+
 function makeMockOrg(
 	overrides: {
 		userRole?: 'owner' | 'admin' | 'member';
@@ -95,13 +99,15 @@ function makeMockOrg(
 ) {
 	const role = overrides.userRole ?? 'member';
 	const isPrivileged = role === 'owner' || role === 'admin';
-	return createTestOrgContext({
-		orgId: 'org1',
+	return {
 		userId: 'user1',
-		userRole: role,
-		capabilityMap: overrides.capabilityMap ?? (isPrivileged ? FULL_TEST_CAPABILITY_MAP : VIEW_TEST_CAPABILITY_MAP),
-		scopeSet: overrides.scopeSet
-	});
+		...createClientAccess({
+			membershipRole: role,
+			capabilityMap:
+				overrides.capabilityMap ?? (isPrivileged ? createCapabilityMap('configure') : createCapabilityMap('view')),
+			scopeSet: overrides.scopeSet
+		})
+	};
 }
 
 describe('CalendarPageView', () => {
@@ -112,7 +118,7 @@ describe('CalendarPageView', () => {
 		mutableStatusTypesStore.loading = false;
 		mutableGroupsStore.loading = false;
 
-		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		const ctx = makeContext(mockData, makeMockOrg());
 
 		render(CalendarPageView, {
 			props: {
@@ -133,10 +139,7 @@ describe('CalendarPageView', () => {
 	it('moves forward across the year boundary and back through the month controls', async () => {
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);
-		const ctx = new CalendarPageContext(
-			{ ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel },
-			makeMockOrg()
-		);
+		const ctx = makeContext({ ...mockData, personnel: filterPersonnel, allPersonnel: filterPersonnel }, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		expect(screen.getByRole('button', { name: /December 2026/ })).toBeTruthy();
@@ -151,7 +154,7 @@ describe('CalendarPageView', () => {
 		vi.setSystemTime(new Date(2026, 8, 22, 12));
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);
-		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
@@ -164,7 +167,7 @@ describe('CalendarPageView', () => {
 	it('keeps quarter arrows and picker on the Calendar-owned month across a year boundary', async () => {
 		mutableAvailabilityStore.loading = false;
 		calendarStore.goToMonth(2026, 11);
-		const ctx = new CalendarPageContext(mockData, makeMockOrg());
+		const ctx = makeContext(mockData, makeMockOrg());
 		render(CalendarPageView, { props: { ctx, data: { orgId: 'org1', orgName: 'Test Org' } } });
 
 		await fireEvent.click(screen.getByTestId('calendar-view-toggle'));
@@ -195,7 +198,7 @@ describe('CalendarPageView', () => {
 			personnel: filterPersonnel,
 			allPersonnel: filterPersonnel
 		};
-		const ctx = new CalendarPageContext(data, makeMockOrg());
+		const ctx = makeContext(data, makeMockOrg());
 
 		render(CalendarPageView, {
 			props: {

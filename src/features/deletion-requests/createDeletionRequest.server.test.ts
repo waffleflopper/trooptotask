@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
 import { createDeletionRequest } from './createDeletionRequest.server';
+import { createDeletionRequestTestStore } from './testing.server';
 
 function buildContext(overrides?: Parameters<typeof createWriteWithNotificationsPortsContext>[0]) {
-	return createWriteWithNotificationsPortsContext(overrides);
+	const ctx = createWriteWithNotificationsPortsContext(overrides);
+	return { ...ctx, requests: createDeletionRequestTestStore(ctx.store) };
 }
 
 describe('createDeletionRequest', () => {
 	const validInput = {
-		resourceType: 'counseling_record',
+		resourceType: 'counseling_record' as const,
 		resourceId: 'rec-1',
 		resourceDescription: 'Counseling session with SGT Smith',
 		resourceUrl: '/org/test-org/personnel/p-1/counselings',
@@ -31,7 +33,7 @@ describe('createDeletionRequest', () => {
 			}
 		});
 
-		await createDeletionRequest(ctx, validInput);
+		await createDeletionRequest({ ...ctx, store: ctx.requests }, validInput);
 
 		// Record stored with correct fields
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
@@ -62,13 +64,16 @@ describe('createDeletionRequest', () => {
 	it('creates a pending personnel archival request', async () => {
 		const ctx = buildContext();
 
-		const created = await createDeletionRequest(ctx, {
-			...validInput,
-			resourceType: 'personnel',
-			resourceId: 'p-1',
-			resourceDescription: 'Archive SGT Smith, Jane',
-			resourceUrl: '/org/test-org/personnel'
-		});
+		const created = await createDeletionRequest(
+			{ ...ctx, store: ctx.requests },
+			{
+				...validInput,
+				resourceType: 'personnel',
+				resourceId: 'p-1',
+				resourceDescription: 'Archive SGT Smith, Jane',
+				resourceUrl: '/org/test-org/personnel'
+			}
+		);
 
 		expect(created).toMatchObject({
 			resource_type: 'personnel',
@@ -81,12 +86,15 @@ describe('createDeletionRequest', () => {
 		const ctx = buildContext();
 
 		await expect(
-			createDeletionRequest(ctx, {
-				...validInput,
-				resourceType: 'unknown_type',
-				resourceId: 'unknown-1',
-				resourceDescription: 'Unknown thing'
-			})
+			createDeletionRequest(
+				{ ...ctx, store: ctx.requests },
+				{
+					...validInput,
+					resourceType: 'unknown_type' as never,
+					resourceId: 'unknown-1',
+					resourceDescription: 'Unknown thing'
+				}
+			)
 		).rejects.toMatchObject({ status: 400 });
 
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
@@ -138,10 +146,13 @@ describe('createDeletionRequest', () => {
 		]) {
 			const ctx = buildContext({ auth });
 
-			await createDeletionRequest(ctx, {
-				...validInput,
-				resourceId: `${auth.userId}-resource`
-			});
+			await createDeletionRequest(
+				{ ...ctx, store: ctx.requests },
+				{
+					...validInput,
+					resourceId: `${auth.userId}-resource`
+				}
+			);
 
 			const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
 			expect(stored).toHaveLength(1);
@@ -152,7 +163,7 @@ describe('createDeletionRequest', () => {
 	it('notifies admins on create', async () => {
 		const ctx = buildContext({ auth: { userId: 'member-user' } });
 
-		await createDeletionRequest(ctx, validInput);
+		await createDeletionRequest({ ...ctx, store: ctx.requests }, validInput);
 
 		const notifications = ctx.notifications.notifications;
 		expect(notifications).toHaveLength(1);
@@ -167,7 +178,7 @@ describe('createDeletionRequest', () => {
 			throw new Error('notification failed');
 		};
 
-		await expect(createDeletionRequest(ctx, validInput)).resolves.toMatchObject({
+		await expect(createDeletionRequest({ ...ctx, store: ctx.requests }, validInput)).resolves.toMatchObject({
 			resource_type: 'counseling_record'
 		});
 
@@ -190,7 +201,9 @@ describe('createDeletionRequest', () => {
 			}
 		]);
 
-		await expect(createDeletionRequest(ctx, validInput)).rejects.toMatchObject({ status: 409 });
+		await expect(createDeletionRequest({ ...ctx, store: ctx.requests }, validInput)).rejects.toMatchObject({
+			status: 409
+		});
 
 		// No new record created
 		const stored = await ctx.store.findMany<Record<string, unknown>>('deletion_requests', 'test-org');
@@ -228,17 +241,43 @@ describe('createDeletionRequest', () => {
 		]);
 
 		await expect(
-			createDeletionRequest(ctx, {
-				resourceType: 'rating_scheme_entry',
-				resourceId: 'rs-1',
-				resourceDescription: 'SGT Smith OER',
-				resourceUrl: '/org/test-org/evals',
-				userEmail: 'operator@example.com'
-			})
+			createDeletionRequest(
+				{ ...ctx, store: ctx.requests },
+				{
+					resourceType: 'rating_scheme_entry',
+					resourceId: 'rs-1',
+					resourceDescription: 'SGT Smith OER',
+					resourceUrl: '/org/test-org/evals',
+					userEmail: 'operator@example.com'
+				}
+			)
 		).resolves.toMatchObject({
 			resource_type: 'rating_scheme_entry',
 			resource_id: 'rs-1',
 			status: 'pending'
 		});
+	});
+});
+
+describe('creation failure acknowledgement', () => {
+	it('propagates persistence failure without success audit or administrator notification', async () => {
+		const ctx = buildContext();
+		ctx.requests.createRequest = async () => {
+			throw new Error('Request creation unavailable');
+		};
+		await expect(
+			createDeletionRequest(
+				{ ...ctx, store: ctx.requests },
+				{
+					resourceType: 'personnel',
+					resourceId: 'person',
+					resourceDescription: 'Saved description',
+					userEmail: 'saved@example.test'
+				}
+			)
+		).rejects.toThrow('Request creation unavailable');
+		expect(await ctx.store.findMany('deletion_requests', ctx.auth.orgId)).toEqual([]);
+		expect(ctx.audit.events).toEqual([]);
+		expect(ctx.notifications.notifications).toEqual([]);
 	});
 });

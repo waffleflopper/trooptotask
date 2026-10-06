@@ -32,7 +32,22 @@ function buildPorts() {
 		}
 	);
 	return {
-		store: Object.assign(memory, { deleteExpiredBatch }),
+		store: Object.assign(memory, {
+			deleteExpiredBatch,
+			listExpired: (orgId: string, status: 'completed' | 'cancelled', cutoff: string) => {
+				const column = status === 'completed' ? 'completed_at' : 'cancelled_at';
+				return memory.findMany<{ id: string }>(
+					'personnel_onboardings',
+					orgId,
+					{ status },
+					{
+						select: 'id',
+						rangeFilters: [{ column, op: 'lt', value: cutoff }],
+						isNull: { [column]: false }
+					}
+				);
+			}
+		}),
 		notifications: { notifyAdmins: vi.fn<NotificationDeliveryPort['notifyAdmins']>().mockResolvedValue(undefined) }
 	};
 }

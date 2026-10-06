@@ -25,7 +25,6 @@ export type {
 
 // Context
 export { OnboardingPageContext, MODAL_IDS } from './contexts/OnboardingPageContext.svelte';
-export type { AssignTemplatePayload } from './contexts/OnboardingPageContext.svelte';
 
 export { onboardingWorkspaceHydrator } from './onboardingWorkspaceHydration.svelte';
 
@@ -36,3 +35,5 @@ export { default as OnboardingHistoryPage } from './components/OnboardingHistory
 export function loadOnboardingModals() {
 	return import('./components/OnboardingModals.svelte');
 }
+
+export type { OnboardingPageAccess } from './contracts';

@@ -1,11 +1,19 @@
 export {
+	evaluateAuthoritativePolicyDecision,
 	evaluateFeaturePolicy,
+	requireFeaturePolicy,
 	policyResourceForGroup,
-	requireFeaturePolicy
-} from '$lib/server/core/useCases/featurePolicy';
-export { requireGovernancePolicy } from '$lib/server/core/useCases/governancePolicy';
-export { evaluateAuthoritativePolicyDecision } from '$lib/server/core/useCases/policyAdapter';
-export { denyPolicyDecision, policyDenialAuditDetails } from '$lib/server/core/useCases/policyDenial';
+	requireGovernancePolicy,
+	requireIdentityOwnedPolicy,
+	requirePolicyDecision,
+	denyPolicyDecision,
+	policyDenialAuditDetails,
+	enforceRouteAuthorization,
+	enforceLoadAuthorization,
+	type RoutePolicyAction,
+	type RouteAuthorizationConfig,
+	type LoadAuthorizationConfig
+} from './serverPolicy.server';
 export {
 	checkDurableRateLimit,
 	createSupabaseDurableRateLimitStore,
@@ -13,6 +21,5 @@ export {
 	normalizeRateLimitEmail,
 	type DurableRateLimitDecision,
 	type DurableRateLimitStore
-} from '$lib/server/durableRateLimit';
-export { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
-export { requireIdentityOwnedPolicy } from '$lib/server/core/useCases/identityPolicy';
+} from './durableRateLimit.server';
+export { getOrLoadRequestMembership } from './requestMembershipCache.server';

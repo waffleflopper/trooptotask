@@ -1,0 +1,99 @@
+import { describe, expect, it } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
+import type { Cookies } from '@sveltejs/kit';
+import { createAppShellRequest } from './appShellRequestDelivery';
+
+const ORG_A = '11111111-1111-4111-8111-111111111111';
+const ORG_B = '22222222-2222-4222-8222-222222222222';
+
+describe('AppShell admitted request composition', () => {
+	it('shares in-flight membership only within a request while another account and Organization complete independently', async () => {
+		let release!: () => void;
+		let started!: () => void;
+		const held = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const memberStarted = new Promise<void>((resolve) => {
+			started = resolve;
+		});
+		const memberReads: string[] = [];
+		const rows = [
+			{
+				id: 'member-a',
+				user_id: 'account-a',
+				organization_id: ORG_A,
+				role: 'member',
+				member_preset: 'viewer',
+				capability_overrides: { training: 'operate' },
+				access_scope_kind: 'groups',
+				access_scope_group_ids: ['clinic']
+			},
+			{ id: 'member-b', user_id: 'account-b', organization_id: ORG_B, role: 'owner' }
+		];
+		const client = createClient('http://shell-request.invalid', 'synthetic-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const url = new URL(String(input));
+					if (init?.method !== 'GET') throw new Error('Only read requests are permitted');
+					if (url.pathname.endsWith('/organizations')) {
+						const id = url.searchParams.get('id')?.slice(3);
+						return Response.json([{ id, name: id === ORG_A ? 'Alpha' : 'Bravo', url_slug: null, suspended_at: null }]);
+					}
+					if (url.pathname.endsWith('/organization_memberships')) {
+						const userId = url.searchParams.get('user_id')?.slice(3);
+						const orgId = url.searchParams.get('organization_id')?.slice(3);
+						memberReads.push(`${userId}:${orgId}`);
+						if (userId === 'account-a') {
+							started();
+							await held;
+						}
+						return Response.json(rows.filter((row) => row.user_id === userId && row.organization_id === orgId));
+					}
+					if (url.pathname.endsWith('/user_org_preferences')) return Response.json(null);
+					if (url.pathname.endsWith('/platform_announcements') || url.pathname.endsWith('/announcement_dismissals'))
+						return Response.json([]);
+					throw new Error(`Unexpected first-paint read: ${url.pathname}`);
+				}
+			}
+		});
+		const localsA = { actor: { userId: 'account-a' }, supabase: client } as unknown as App.Locals;
+		const localsB = { actor: { userId: 'account-b' }, supabase: client } as unknown as App.Locals;
+		const bind = (locals: App.Locals, orgId: string) =>
+			createAppShellRequest(
+				{ locals, cookies: {} as Cookies, orgSegment: orgId, url: new URL(`http://app.invalid/org/${orgId}/training`) },
+				{ getAdmittedRequestClient: () => ({ supabase: client, userId: locals.actor!.userId }) }
+			);
+		const firstA = bind(localsA, ORG_A).loadFirstPaint();
+		const secondA = bind(localsA, ORG_A).loadFirstPaint();
+		await memberStarted;
+		try {
+			const resultB = await bind(localsB, ORG_B).loadFirstPaint();
+			expect(resultB.shell).toMatchObject({
+				org: { id: ORG_B },
+				user: { id: 'account-b' },
+				member: {
+					membershipId: 'member-b',
+					isOwner: true,
+					capabilityMap: { training: 'configure' },
+					scopeSet: { kind: 'organization' }
+				}
+			});
+			expect(memberReads.filter((key) => key === `account-a:${ORG_A}`)).toHaveLength(1);
+		} finally {
+			release();
+		}
+		for (const result of await Promise.all([firstA, secondA])) {
+			expect(result.shell).toMatchObject({
+				org: { id: ORG_A },
+				user: { id: 'account-a' },
+				member: {
+					membershipId: 'member-a',
+					isOwner: false,
+					capabilityMap: { training: 'operate' },
+					scopeSet: { kind: 'groups', groupIds: ['clinic'] }
+				}
+			});
+		}
+	});
+});

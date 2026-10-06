@@ -1,7 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
-import { createSupabaseAuditAdapter } from '$lib/server/adapters/supabaseAudit';
-import { createRequestNotificationDelivery } from '$lib/server/adapters/httpAdapter';
+import { createSupabaseAuditAdapter } from '$lib/audit/index.server';
+import { createRequestNotificationDelivery } from '$lib/server/adapters/requestContexts.server';
 import {
 	acceptDashboardInvitation,
 	createSupabaseDashboardOrgAccessPort,

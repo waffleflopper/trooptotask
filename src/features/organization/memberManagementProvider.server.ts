@@ -11,6 +11,7 @@ import {
 	normalizeUserEmailIdentity
 } from '$features/identity/index.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { validateUUID } from '$lib/server/validation';
 
 interface OrganizationInvitationLookupRow {
 	id: string;
@@ -269,30 +270,38 @@ export function createSupabaseOrgSettingsMemberManagementPort(
 			};
 		},
 
-		async removeMembership(orgId, membershipId) {
-			const adminSupabase = getAdminClientFn();
-			const { data, error } = await adminSupabase
-				.from('organization_memberships')
-				.delete()
-				.eq('id', membershipId)
-				.eq('organization_id', orgId)
-				.select('id');
-
-			if (error) {
-				return error.message;
+		async removeMembership(orgId, membershipId, expectedRole) {
+			const failure = 'Membership could not be removed';
+			if (expectedRole !== 'member' && expectedRole !== 'admin') return failure;
+			try {
+				const { data, error } = await getAdminClientFn()
+					.from('organization_memberships')
+					.delete()
+					.eq('id', membershipId)
+					.eq('organization_id', orgId)
+					.eq('role', expectedRole)
+					.select('id');
+				return !error && acknowledgesMembership(data, membershipId) ? null : failure;
+			} catch {
+				return failure;
 			}
-
-			return data?.length === 1 ? null : 'Membership could not be removed';
 		},
 
 		async updateMembership(input) {
-			const { error } = await supabase
-				.from('organization_memberships')
-				.update(serializeMembershipUpdate(input))
-				.eq('id', input.membershipId)
-				.eq('organization_id', input.organizationId);
-
-			return error?.message ?? null;
+			const failure = 'Membership access could not be updated';
+			if (input.expectedRole !== 'member' && input.expectedRole !== 'admin') return failure;
+			try {
+				const { data, error } = await supabase
+					.from('organization_memberships')
+					.update(serializeMembershipUpdate(input))
+					.eq('id', input.membershipId)
+					.eq('organization_id', input.organizationId)
+					.eq('role', input.expectedRole)
+					.select('id');
+				return !error && acknowledgesMembership(data, input.membershipId) ? null : failure;
+			} catch {
+				return failure;
+			}
 		},
 
 		async getOrganizationName(orgId) {
@@ -566,6 +575,17 @@ function normalizeRevokeStatus(
 	}
 
 	return 'failed';
+}
+
+function acknowledgesMembership(data: unknown, membershipId: string): boolean {
+	if (!Array.isArray(data) || data.length !== 1 || data[0] === null || typeof data[0] !== 'object') return false;
+	const acknowledgedId = Reflect.get(data[0], 'id');
+	return (
+		typeof acknowledgedId === 'string' &&
+		validateUUID(acknowledgedId) &&
+		validateUUID(membershipId) &&
+		acknowledgedId.toLowerCase() === membershipId.toLowerCase()
+	);
 }
 
 function serializeMembershipUpdate(input: OrganizationMembershipUpdateInput) {

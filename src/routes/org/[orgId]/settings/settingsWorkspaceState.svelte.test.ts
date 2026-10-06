@@ -1,17 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createSettingsMemberAccessWorkspace } from '$features/organization';
 import type { SettingsMembersSectionData } from '$features/organization/contracts';
-import type {
-	DangerSettingsData,
-	SettingsArchivesSectionData,
-	SettingsPoliciesSectionData
-} from './settingsSectionTypes';
-import {
-	createSettingsArchivedPersonnelState,
-	createSettingsDangerZoneState,
-	createSettingsDataExportState,
-	createSettingsPoliciesState
-} from './settingsWorkspaceState.svelte';
+import type { SettingsArchivesSectionData } from './settingsSectionTypes';
+import { createSettingsArchivedPersonnelState } from './settingsWorkspaceState.svelte';
 
 const capabilityMap = {
 	calendar: 'configure',
@@ -22,10 +13,10 @@ const capabilityMap = {
 	ratingScheme: 'configure'
 } as const;
 
-type SettingsStateTestData = DangerSettingsData & {
-	sections: DangerSettingsData['sections'] & {
+type SettingsStateTestData = {
+	currentMember: { isOwner: boolean };
+	sections: {
 		members: SettingsMembersSectionData;
-		policies: SettingsPoliciesSectionData;
 		archivedPersonnel: SettingsArchivesSectionData;
 	};
 };
@@ -33,10 +24,7 @@ type SettingsStateTestData = DangerSettingsData & {
 function makeSettingsData(): SettingsStateTestData {
 	return {
 		currentMember: {
-			role: 'owner',
-			isOwner: true,
-			isAdmin: false,
-			canManageMembers: true
+			isOwner: true
 		},
 		sections: {
 			members: {
@@ -77,25 +65,6 @@ function makeSettingsData(): SettingsStateTestData {
 				canInvite: true,
 				canManageMemberAccess: true
 			},
-			policies: {
-				archiveRetention: {
-					savedMonths: 36,
-					constraints: { min: 1, max: 120, unit: 'months' }
-				},
-				lossWarning: {
-					savedDays: 180,
-					constraints: { min: 1, max: 365, unit: 'days' }
-				},
-				canUpdateRetention: true
-			},
-			organization: {
-				id: 'org-1',
-				name: 'Test Org',
-				urlSlug: '1-11-bde',
-				urlSegment: '1-11-bde',
-				canUpdateProfile: true,
-				canUpdateUrlSlug: true
-			},
 			archivedPersonnel: {
 				rows: [
 					{
@@ -120,48 +89,12 @@ function makeSettingsData(): SettingsStateTestData {
 					canExport: true,
 					canPermanentlyDelete: true
 				}
-			},
-			dangerZone: {
-				transferOwnershipCandidates: [
-					{
-						id: 'member-1',
-						userId: 'user-1',
-						email: 'member@example.com',
-						membershipRole: 'member'
-					}
-				],
-				deleteConfirmation: {
-					organizationName: 'Test Org',
-					normalizedOrganizationName: 'Test Org'
-				},
-				commands: {
-					canTransferOwnership: true,
-					canDeleteOrganization: true
-				}
 			}
 		}
 	};
 }
 
 describe('settings workspace state', () => {
-	it('owns policy dirty and validity state from Policies section data', () => {
-		const state = createSettingsPoliciesState(makeSettingsData().sections.policies);
-
-		expect(state.retentionMonths).toBe(36);
-		expect(state.hasRetentionChanges).toBe(false);
-
-		state.retentionMonths = 0;
-
-		expect(state.hasRetentionChanges).toBe(true);
-		expect(state.isRetentionValid).toBe(false);
-
-		state.retentionMonths = 48;
-		state.markRetentionSaved();
-
-		expect(state.savedRetentionMonths).toBe(48);
-		expect(state.hasRetentionChanges).toBe(false);
-	});
-
 	it('composes member editor state from Members section data', () => {
 		const data = makeSettingsData();
 		const state = createSettingsMemberAccessWorkspace({
@@ -198,41 +131,6 @@ describe('settings workspace state', () => {
 
 		expect(state.confirmPermanentDelete).toBeNull();
 		expect(state.permanentDeleteConfirmText).toBe('');
-	});
-
-	it('tracks export progress, success and failure', () => {
-		const state = createSettingsDataExportState();
-
-		state.beginExport('json');
-
-		expect(state.exportingOrgJson).toBe(true);
-		expect(state.exportingOrgExcel).toBe(false);
-		expect(state.exportSuccess).toBe(false);
-
-		state.markExportSucceeded();
-		state.finishExport();
-
-		expect(state.exportingOrgJson).toBe(false);
-		expect(state.exportSuccess).toBe(true);
-	});
-
-	it('owns danger zone delete confirmation transition state', () => {
-		const state = createSettingsDangerZoneState(makeSettingsData());
-
-		state.openDeleteConfirmation();
-		state.deleteConfirmText = 'test org';
-
-		expect(state.showDeleteConfirm).toBe(true);
-		expect(state.deleteConfirmMatches).toBe(false);
-
-		state.deleteConfirmText = 'Test Org';
-
-		expect(state.deleteConfirmMatches).toBe(true);
-
-		state.closeDeleteConfirmation();
-
-		expect(state.showDeleteConfirm).toBe(false);
-		expect(state.deleteConfirmText).toBe('');
 	});
 
 	it('owns member capability edits while the editor is open', () => {

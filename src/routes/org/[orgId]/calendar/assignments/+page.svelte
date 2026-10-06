@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { getAppShellContext } from '$features/app-shell';
+	const org = getAppShellContext();
 	import AssignmentPlannerPage from '$features/calendar/components/AssignmentPlannerPage.svelte';
 	import { Spinner } from '$lib/components/ui/spinner';
 	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
@@ -78,5 +80,5 @@
 		<p class="m-0">Loading assignment planner...</p>
 	</section>
 {:else}
-	<AssignmentPlannerPage data={pageData} />
+	<AssignmentPlannerPage {org} data={pageData} />
 {/if}

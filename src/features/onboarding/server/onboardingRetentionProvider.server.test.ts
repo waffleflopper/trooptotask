@@ -6,6 +6,64 @@ const cutoff = '2025-10-01T12:00:00.000Z';
 const expired = '2025-10-01T11:59:59.999Z';
 
 describe('Supabase Onboarding retention deletion', () => {
+	it('discovers every expired terminal packet while preserving boundary, active and foreign records', async () => {
+		const expiredIds = Array.from({ length: 1001 }, (_, index) => `expired-${String(index).padStart(4, '0')}`);
+		const rows = [
+			...expiredIds.map((id) => ({ id, organization_id: 'org-a', status: 'completed', completed_at: expired })),
+			{ id: 'cancelled', organization_id: 'org-a', status: 'cancelled', cancelled_at: expired },
+			{ id: 'boundary', organization_id: 'org-a', status: 'completed', completed_at: cutoff },
+			{ id: 'null', organization_id: 'org-a', status: 'completed', completed_at: null },
+			{ id: 'active', organization_id: 'org-a', status: 'in_progress', completed_at: expired },
+			{ id: 'foreign', organization_id: 'org-b', status: 'completed', completed_at: expired }
+		];
+		const client = createClient('http://127.0.0.1:9', 'synthetic-offline-only', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					if (init?.method && init.method !== 'GET') throw new Error('Discovery must not mutate packets');
+					const url = new URL(String(input));
+					if (url.pathname !== '/rest/v1/personnel_onboardings') throw new Error('Unexpected provider resource');
+					const eligible = rows
+						.filter((row) => {
+							for (const [column, expression] of url.searchParams) {
+								const value = row[column as keyof typeof row];
+								if (expression.startsWith('eq.') && value !== expression.slice(3)) return false;
+								if (expression === 'not.is.null' && value == null) return false;
+								if (
+									expression.startsWith('lt.') &&
+									(typeof value !== 'string' || Date.parse(value) >= Date.parse(expression.slice(3)))
+								)
+									return false;
+							}
+							return true;
+						})
+						.sort((a, b) => a.id.localeCompare(b.id));
+					const from = Number(url.searchParams.get('offset') ?? 0);
+					const limit = Math.min(Number(url.searchParams.get('limit') ?? 1000), 1000);
+					return Response.json(eligible.slice(from, from + limit).map(({ id }) => ({ id })));
+				}
+			}
+		});
+		const source = createSupabaseOnboardingRetentionSource(client);
+		await expect(source.listExpired('org-a', 'completed', cutoff)).resolves.toEqual(expiredIds.map((id) => ({ id })));
+		await expect(source.listExpired('org-a', 'cancelled', cutoff)).resolves.toEqual([{ id: 'cancelled' }]);
+	});
+
+	it('fails complete discovery when a later provider page is unreadable', async () => {
+		const client = createClient('http://127.0.0.1:9', 'synthetic-offline-only', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input) =>
+					Number(new URL(String(input)).searchParams.get('offset') ?? 0) === 0
+						? Response.json(Array.from({ length: 1000 }, (_, index) => ({ id: `packet-${index}` })))
+						: Response.json({ code: '42501', message: 'packet discovery unavailable' }, { status: 403 })
+			}
+		});
+		await expect(
+			createSupabaseOnboardingRetentionSource(client).listExpired('org-a', 'completed', cutoff)
+		).rejects.toThrow('packet discovery unavailable');
+	});
+
 	it.each(['completed', 'cancelled'] as const)(
 		'rechecks %s candidates using Organization, IDs, terminal status and a strict cutoff at the parent mutation',
 		async (status) => {

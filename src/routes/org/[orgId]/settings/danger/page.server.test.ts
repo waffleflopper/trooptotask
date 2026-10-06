@@ -1,16 +1,20 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../../appShell.test-support';
 
 const {
-	buildRouteContextMock,
-	createSupabaseOrgSettingsAdministrationPortMock,
+	buildRouteRequestMock,
+	createSettingsSensitiveNotificationContextMock,
+	createRequestSensitiveActionContextMock,
+	createSupabaseOrganizationDestructionPortMock,
 	createSupabaseOrganizationOwnershipTransferPortMock,
 	deleteOrganizationUseCaseMock,
 	loadWithContextMock,
 	transferOrganizationOwnershipMock
 } = vi.hoisted(() => ({
-	buildRouteContextMock: vi.fn(),
-	createSupabaseOrgSettingsAdministrationPortMock: vi.fn(),
+	buildRouteRequestMock: vi.fn(),
+	createSettingsSensitiveNotificationContextMock: vi.fn(),
+	createRequestSensitiveActionContextMock: vi.fn(),
+	createSupabaseOrganizationDestructionPortMock: vi.fn(),
 	createSupabaseOrganizationOwnershipTransferPortMock: vi.fn(),
 	deleteOrganizationUseCaseMock: vi.fn(),
 	loadWithContextMock: vi.fn(),
@@ -24,23 +28,28 @@ vi.mock('$lib/server/adapters/httpAdapter', async () => {
 
 	return {
 		...actual,
-		buildRouteContext: buildRouteContextMock,
 		loadWithContext: loadWithContextMock
 	};
 });
 
-vi.mock('$lib/server/adapters/supabaseOrgSettingsAdministration', () => ({
-	createSupabaseOrgSettingsAdministrationPort: createSupabaseOrgSettingsAdministrationPortMock
-}));
-
-vi.mock('$lib/server/core/useCases/orgSettingsAdministration', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/core/useCases/orgSettingsAdministration')>(
-		'$lib/server/core/useCases/orgSettingsAdministration'
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
 	);
-
 	return {
 		...actual,
-		deleteOrganization: deleteOrganizationUseCaseMock
+		buildRouteRequest: buildRouteRequestMock,
+		createRequestSensitiveActionContext: createRequestSensitiveActionContextMock
+	};
+});
+
+vi.mock('../settingsRequestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('../settingsRequestContexts.server')>(
+		'../settingsRequestContexts.server'
+	);
+	return {
+		...actual,
+		createSettingsSensitiveNotificationContext: createSettingsSensitiveNotificationContextMock
 	};
 });
 
@@ -50,6 +59,8 @@ vi.mock('$features/organization/index.server', async () => {
 	);
 	return {
 		...actual,
+		createSupabaseOrganizationDestructionPort: createSupabaseOrganizationDestructionPortMock,
+		deleteOrganization: deleteOrganizationUseCaseMock,
 		createSupabaseOrganizationOwnershipTransferPort: createSupabaseOrganizationOwnershipTransferPortMock,
 		transferOrganizationOwnership: transferOrganizationOwnershipMock
 	};
@@ -86,8 +97,14 @@ function actionEvent(
 describe('danger settings page server', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		buildRouteContextMock.mockResolvedValue(authContext);
-		createSupabaseOrgSettingsAdministrationPortMock.mockReturnValue({ kind: 'admin-port' });
+		buildRouteRequestMock.mockResolvedValue(authContext);
+		createSettingsSensitiveNotificationContextMock.mockReturnValue(authContext);
+		createRequestSensitiveActionContextMock.mockReturnValue({
+			auth: authContext.auth,
+			audit: authContext.audit,
+			sensitiveActionAuthorizer: authContext.sensitiveActionAuthorizer
+		});
+		createSupabaseOrganizationDestructionPortMock.mockReturnValue({ kind: 'admin-port' });
 		createSupabaseOrganizationOwnershipTransferPortMock.mockReturnValue({ kind: 'transfer-port' });
 		transferOrganizationOwnershipMock.mockResolvedValue({ transferSuccess: true });
 		deleteOrganizationUseCaseMock.mockResolvedValue({ success: true });
@@ -296,7 +313,7 @@ describe('danger settings page server', () => {
 			)
 		).rejects.toMatchObject({ status: 303, location: '/auth/login' });
 
-		expect(buildRouteContextMock).not.toHaveBeenCalled();
+		expect(buildRouteRequestMock).not.toHaveBeenCalled();
 		expect(transferOrganizationOwnershipMock).not.toHaveBeenCalled();
 		expect(deleteOrganizationUseCaseMock).not.toHaveBeenCalled();
 	});

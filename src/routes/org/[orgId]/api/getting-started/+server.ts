@@ -1,131 +1,83 @@
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/errors';
-import type { FindOptions, UseCaseContext } from '$lib/server/core/ports';
-import { withDashboardTiming } from '$lib/server/utils/dashboardTiming';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
-import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
+import type { DashboardSetupSupport } from '$features/dashboard/contracts';
+import { fetchDashboardSetupSupport, withDashboardTiming } from '$features/dashboard/index.server';
+import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
+import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';
+import { countOrganizationMembers } from '$features/organization/index.server';
 import { countRatingSchemeEntries } from '$features/rating-scheme/index.server';
 import { countTrainingTypes } from '$features/training/index.server';
-import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import {
+	createRequestAccountPreferencesProvider,
+	handleUseCaseRequest,
+	rethrowOrWrap,
+	type RouteConfig
+} from '$lib/server/adapters/httpAdapter';
+import {
+	buildRouteRequest,
+	createRequestDataContext,
+	createRequestWriteContext
+} from '$lib/server/adapters/requestContexts.server';
+import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { json, type RequestEvent } from '@sveltejs/kit';
 
-interface GettingStartedSupportData {
-	trainingTypeCount: number;
-	onboardingTemplateStepCount: number;
-	ratingSchemeEntryCount: number;
-	orgMemberCount: number;
+interface GettingStartedSupportData extends DashboardSetupSupport {
 	gettingStartedDismissed: boolean;
-	starterConfigurationPacks: StarterConfigurationPackSupport[];
 }
 
-async function countRows(
-	ctx: UseCaseContext,
-	table: string,
-	filters?: Record<string, unknown>,
-	options: FindOptions = {}
-): Promise<number> {
-	const result = await ctx.store.findManyWithCount<{ id: string }>(table, ctx.auth.orgId, filters, {
-		...options,
-		select: options.select ?? 'id',
-		range: { from: 0, to: 0 },
-		count: options.count ?? 'estimated'
-	});
-	return result.count ?? 0;
-}
-
-async function fetchGettingStartedSupport(ctx: UseCaseContext) {
-	const [
-		trainingTypeCount,
-		onboardingTemplateStepCount,
-		ratingSchemeEntryCount,
-		orgMemberCount,
-		gettingStartedRows,
-		starterConfigurationPacks
-	] = await Promise.all([
-		countTrainingTypes(ctx.store, ctx.auth.orgId),
-		countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
-		countRatingSchemeEntries({ store: ctx.rawStore, actor: ctx.auth }),
-		countRows(ctx, 'organization_memberships'),
-		ctx.auth.userId
-			? ctx.store.findMany<Record<string, unknown>>('getting_started_progress', ctx.auth.orgId, {
-					user_id: ctx.auth.userId
-				})
-			: Promise.resolve([]),
-		listStarterConfigurationPacks(ctx)
+async function fetchGettingStartedSupport(
+	ctx: ReturnType<typeof createRequestDataContext>,
+	provider: { supabase: SupabaseClient }
+) {
+	const [support, gettingStartedDismissed] = await Promise.all([
+		fetchDashboardSetupSupport({
+			countTrainingTypes: () => countTrainingTypes(ctx.store, ctx.auth.orgId),
+			countOnboardingTemplateSteps: () => countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
+			countRatingSchemeEntries: () => countRatingSchemeEntries({ store: ctx.rawStore, actor: ctx.auth }),
+			countOrganizationMembers: () => countOrganizationMembers(provider.supabase, ctx.auth.orgId),
+			listStarterConfigurationPacks: () => listStarterConfigurationPacks(ctx)
+		}),
+		loadGettingStartedDismissed(provider, ctx.auth)
 	]);
-
-	const gettingStartedData = gettingStartedRows.length > 0 ? gettingStartedRows[0] : null;
-
-	return {
-		trainingTypeCount,
-		onboardingTemplateStepCount,
-		ratingSchemeEntryCount,
-		orgMemberCount,
-		gettingStartedDismissed: (gettingStartedData as Record<string, unknown> | null)?.dismissed_at != null,
-		starterConfigurationPacks
-	} satisfies GettingStartedSupportData;
+	return { ...support, gettingStartedDismissed } satisfies GettingStartedSupportData;
 }
 
-export const _getConfig: RouteConfig<void, GettingStartedSupportData> = {
-	// Getting-started supports the signed-in user's dashboard checklist, so it follows the identity-owned dashboard boundary.
-	policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
-	fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx))
-};
-
-export const GET = handle(_getConfig);
-
-export const _postConfig: RouteConfig<void, unknown> = {
-	mutation: true,
-
-	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-	parseInput: () => undefined,
-	fn: async (ctx) => {
-		const userId = ctx.auth.userId;
-		if (!userId) fail(401, 'Unauthorized');
-
-		const existing = await ctx.store.findOne('getting_started_progress', ctx.auth.orgId, { user_id: userId });
-
-		if (existing) {
-			await ctx.store.update(
-				'getting_started_progress',
-				ctx.auth.orgId,
-				(existing as Record<string, unknown>).id as string,
-				{ dismissed_at: new Date().toISOString() }
-			);
-		} else {
-			await ctx.store.insert('getting_started_progress', ctx.auth.orgId, {
-				user_id: userId,
-				dismissed_at: new Date().toISOString()
-			});
+/** Per-request composition: Delivery binds Dashboard support and Identity personal progress independently. */
+export function _createConfigs(provider: { supabase: SupabaseClient }) {
+	const get: RouteConfig<void, GettingStartedSupportData, ReturnType<typeof createRequestDataContext>> = {
+		context: createRequestDataContext,
+		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+		fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx, provider))
+	};
+	const progress = (
+		dismissed: boolean
+	): RouteConfig<void, { success: true }, ReturnType<typeof createRequestWriteContext>> => ({
+		context: createRequestWriteContext,
+		mutation: true,
+		policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
+		parseInput: () => undefined,
+		fn: async (ctx) => {
+			await setGettingStartedDismissed({ supabase: provider.supabase, auth: ctx.auth, audit: ctx.audit }, dismissed);
+			return { success: true };
 		}
+	});
+	return { get, post: progress(true), delete: progress(false) };
+}
 
-		return { success: true };
+async function request(event: RequestEvent, method: 'get' | 'post' | 'delete') {
+	try {
+		const ctx = await buildRouteRequest(event);
+		const configs = _createConfigs(createRequestAccountPreferencesProvider(event.locals));
+		const result =
+			method === 'get'
+				? await handleUseCaseRequest(configs.get, ctx, undefined, () => configs.get.context(ctx))
+				: await handleUseCaseRequest(configs[method], ctx, undefined, () => configs[method].context(ctx));
+		return json(result);
+	} catch (cause) {
+		rethrowOrWrap(cause);
 	}
-};
+}
 
-export const POST = handle(_postConfig);
-
-export const _deleteConfig: RouteConfig<void, unknown> = {
-	mutation: true,
-
-	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
-	parseInput: () => undefined,
-	fn: async (ctx) => {
-		const userId = ctx.auth.userId;
-		if (!userId) fail(401, 'Unauthorized');
-
-		const existing = await ctx.store.findOne<{ id: string }>('getting_started_progress', ctx.auth.orgId, {
-			user_id: userId
-		});
-
-		if (existing) {
-			await ctx.store.update('getting_started_progress', ctx.auth.orgId, existing.id, {
-				dismissed_at: null
-			});
-		}
-
-		return { success: true };
-	}
-};
-
-export const DELETE = handle(_deleteConfig);
+export const GET = (event: RequestEvent) => request(event, 'get');
+export const POST = (event: RequestEvent) => request(event, 'post');
+export const DELETE = (event: RequestEvent) => request(event, 'delete');

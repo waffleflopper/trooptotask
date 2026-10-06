@@ -18,6 +18,7 @@ export {
 	listExistingTrainingTypeNames,
 	hasTrainingTypes
 } from './server/trainingCatalogRead.server';
+export { createSupabaseTrainingTypeNamesReader } from './server/trainingTypeNames.server';
 export { loadTrainingReadinessLane } from './server/personnelTrainingReadiness.server';
 export {
 	createTrainingRecord,
@@ -37,8 +38,8 @@ export {
 } from './server/trainingReportsQuery.server';
 export { fetchDashboardTrainingSummary } from './server/trainingSummaryQuery.server';
 export {
-	listTrainingTypeExportRows,
-	listTrainingCompletionExportRows,
-	listTrainingViewExportRows,
+	createSupabaseTrainingExportReader,
 	listPersonnelTrainingExportRows
 } from './server/trainingExportRead.server';
+
+export { createTrainingSupportReader } from './server/supportReadProvider.server';

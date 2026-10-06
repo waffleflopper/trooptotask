@@ -1,16 +1,34 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
 import type { RatingSchemeDueActor } from '../contracts';
 
-/** Raw saved rows for the separately authorized Organization export, retaining request-client RLS. */
-export function listRatingSchemeExportRows(
-	store: Pick<RatingSchemeReadStore, 'findMany'>,
+export interface RatingSchemeExportReader {
+	listRows(): Promise<Record<string, unknown>[]>;
+}
+
+export function createSupabaseRatingSchemeExportReader(
+	client: SupabaseClient,
 	orgId: string
-): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('rating_scheme_entries', orgId, undefined, {
-		orderBy: [{ column: 'id', ascending: true }]
-	});
+): RatingSchemeExportReader {
+	return {
+		async listRows() {
+			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
+				const { data, error } = await client
+					.from('rating_scheme_entries')
+					.select('*')
+					.eq('organization_id', orgId)
+					.order('id', { ascending: true })
+					.range(from, to);
+				return { data, error };
+			});
+			if (result.error)
+				throw new Error((result.error as { message?: string }).message ?? 'Rating Scheme export read failed');
+			return result.data ?? [];
+		}
+	};
 }
 
 /** Optional getting-started count: a denied or empty Rating lane contributes zero. */
@@ -31,12 +49,4 @@ export async function countRatingSchemeEntries({
 		count: 'estimated'
 	});
 	return result.count ?? 0;
-}
-
-/** Rating Scheme chooses its owned setup source for an already-authorized platform scan. */
-export function countRatingSchemeEntriesByOrganization(
-	organizationIds: string[],
-	countRows: (table: 'rating_scheme_entries', organizationIds: string[]) => Promise<Map<string, number>>
-): Promise<Map<string, number>> {
-	return countRows('rating_scheme_entries', organizationIds);
 }

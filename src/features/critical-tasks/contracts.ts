@@ -1,9 +1,41 @@
+import type { ClientAffordance } from '$lib/access/clientAccess';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+
+export type CriticalTasksAffordance = Pick<ClientAffordance, 'allowed' | 'visible'>;
+
+/** Live advisory decisions supplied by Delivery; server operations enforce policy. */
+export interface CriticalTasksPageAccess {
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => CriticalTasksAffordance;
+}
+
 import type { IctReportDashboard, IctReportFilters, IctReportScope } from './utils/ictReports';
 import type { Group } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from './criticalTasks.types';
 
 export type PersonnelIctCompletionWrite = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
+
+export type IctTaskCreate = Pick<IctTask, 'taskCode' | 'title'> &
+	Partial<Omit<IctTask, 'id' | 'createdAt' | 'taskCode' | 'title'>>;
+export type IctTaskPatch = Partial<IctTaskCreate>;
+
+export interface CriticalTaskReference {
+	id: string;
+	archivedAt: string | null;
+}
+
+export interface CriticalTaskLibraryPersistence {
+	listCatalog(options?: { includeArchived?: boolean }): Promise<IctTask[]>;
+	listImportCandidates(): Promise<IctTask[]>;
+	listReferenced(ids: string[]): Promise<IctTask[]>;
+	findReference(id: string): Promise<CriticalTaskReference | null>;
+	create(input: IctTaskCreate): Promise<IctTask>;
+	createMany(inputs: IctTaskCreate[]): Promise<IctTask[]>;
+	update(id: string, patch: IctTaskPatch): Promise<IctTask>;
+}
 
 export interface IctCompletionImportMappedRow {
 	rowNumber: number;

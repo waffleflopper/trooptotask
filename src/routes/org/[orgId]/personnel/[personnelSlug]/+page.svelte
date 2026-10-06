@@ -4,7 +4,7 @@
 	import type { PersonnelWorkspaceResult } from '$features/personnel/contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import type { Group } from '$features/personnel/contracts';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { throwRenderError } from '$lib/utils/streamedRouteData';
 
 	interface PersonnelLayoutData {
@@ -34,7 +34,7 @@
 		}
 	}
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
 	const workspaceGroups = $derived(new PersonnelWorkspaceGroups(data.personnel.data));
 	const renderWorkspaceError = $derived.by(() => {
 		if (workspaceGroups.error) {

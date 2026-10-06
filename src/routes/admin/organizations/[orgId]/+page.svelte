@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button';
-	import { invalidateAll } from '$app/navigation';
+	import { beforeNavigate, invalidateAll } from '$app/navigation';
 	import type { PageData } from './$types';
 	import SuspendModal from '$lib/components/admin/SuspendModal.svelte';
 	import TransferOwnershipModal from '$lib/components/admin/TransferOwnershipModal.svelte';
@@ -17,15 +18,58 @@
 
 	let showSuspendModal = $state(false);
 	let showTransferModal = $state(false);
+	let navigationLifetime = $state(0);
+	const canAdminister = $derived(data.adminRole === 'super_admin');
 
-	async function handleSuspendComplete() {
+	beforeNavigate(() => {
+		navigationLifetime += 1;
 		showSuspendModal = false;
+		showTransferModal = false;
+	});
+	onDestroy(() => {
+		navigationLifetime += 1;
+	});
+
+	async function refreshOrganization(orgId: string, lifetime: number) {
+		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
 		await invalidateAll();
+		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
 	}
 
-	async function handleTransferComplete() {
+	async function reloadSuspension(lifetime: number, orgId: string): Promise<boolean> {
+		await refreshOrganization(orgId, lifetime);
+		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
+		if (typeof data.org.isSuspended !== 'boolean') throw new Error('Organization state could not be refreshed');
+		return data.org.isSuspended;
+	}
+
+	async function handleSuspendComplete(lifetime: number, targetId: string, isSuspended: boolean) {
+		if (targetId !== data.org.id || lifetime !== navigationLifetime) return;
+		if ((await reloadSuspension(lifetime, targetId)) !== isSuspended)
+			throw new Error('Organization state could not be refreshed');
+		if (targetId !== data.org.id || lifetime !== navigationLifetime) return;
+		showSuspendModal = false;
+	}
+
+	async function reloadOwnership(lifetime: number, orgId: string, targetUserId: string) {
+		await refreshOrganization(orgId, lifetime);
+		if (orgId !== data.org.id || lifetime !== navigationLifetime) throw new Error('Organization is no longer current');
+		const owners = data.members.filter((member) => member.role === 'owner');
+		if (owners.length !== 1) throw new Error('Ownership could not be refreshed');
+		return {
+			ownerUserId: owners[0].userId,
+			targetIsEligible: data.members.some(
+				(member) => member.userId === targetUserId && (member.role === 'member' || member.role === 'admin')
+			)
+		};
+	}
+
+	async function handleTransferComplete(lifetime: number, orgId: string, targetUserId: string) {
+		if (orgId !== data.org.id || lifetime !== navigationLifetime) return;
+		const current = await reloadOwnership(lifetime, orgId, targetUserId);
+		if (orgId !== data.org.id || lifetime !== navigationLifetime) return;
+		if (current.ownerUserId !== targetUserId) throw new Error('Ownership could not be refreshed');
 		showTransferModal = false;
-		await invalidateAll();
 	}
 </script>
 
@@ -53,12 +97,14 @@
 		{/snippet}
 	</PageShell.Header>
 
-	<div class="flex flex-wrap gap-2">
-		<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer Ownership</Button>
-		<Button variant={data.org.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
-			{data.org.isSuspended ? 'Unsuspend' : 'Suspend'}
-		</Button>
-	</div>
+	{#if canAdminister}
+		<div class="flex flex-wrap gap-2">
+			<Button variant="outline" onclick={() => (showTransferModal = true)}>Transfer Ownership</Button>
+			<Button variant={data.org.isSuspended ? 'outline' : 'destructive'} onclick={() => (showSuspendModal = true)}>
+				{data.org.isSuspended ? 'Unsuspend' : 'Suspend'}
+			</Button>
+		</div>
+	{/if}
 
 	<div class="grid gap-4 lg:grid-cols-2">
 		<Card.Root>
@@ -153,23 +199,25 @@
 	</Card.Root>
 </PageShell.Root>
 
-{#if showSuspendModal}
+{#if canAdminister && showSuspendModal}
 	<SuspendModal
 		type="org"
 		targetId={data.org.id}
 		targetName={data.org.name}
 		isSuspended={data.org.isSuspended}
 		onClose={() => (showSuspendModal = false)}
-		onComplete={handleSuspendComplete}
+		onComplete={handleSuspendComplete.bind(null, navigationLifetime)}
+		onReload={reloadSuspension.bind(null, navigationLifetime)}
 	/>
 {/if}
 
-{#if showTransferModal}
+{#if canAdminister && showTransferModal}
 	<TransferOwnershipModal
 		orgId={data.org.id}
 		orgName={data.org.name}
 		members={data.members}
 		onClose={() => (showTransferModal = false)}
-		onComplete={handleTransferComplete}
+		onComplete={handleTransferComplete.bind(null, navigationLifetime)}
+		onReload={reloadOwnership.bind(null, navigationLifetime)}
 	/>
 {/if}

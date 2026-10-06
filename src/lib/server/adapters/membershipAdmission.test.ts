@@ -2,15 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { RequestEvent } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { MembershipRow } from '$lib/server/permissionContext';
-import { cacheRequestMembership } from '$lib/server/membershipContextCache';
+import type { OrganizationMembershipFacts } from '$lib/access/memberAccessProjection';
+import { getOrLoadRequestMembership } from '$lib/access/index.server';
 import {
-	buildLayoutContext,
-	buildLayoutContextFromMembership,
-	buildRouteContext,
-	handle,
-	loadWithContext
-} from './httpAdapter';
+	buildLayoutRequest,
+	buildRouteRequest,
+	createRequestWriteContext,
+	getAdmittedRequestClient
+} from './requestContexts.server';
+import { handle, loadWithContext } from './httpAdapter';
 
 const { adminClient } = vi.hoisted(() => ({ adminClient: vi.fn() }));
 vi.mock('$lib/server/supabase', async (importOriginal) => ({
@@ -21,7 +21,7 @@ const ORG = '11111111-1111-4111-8111-111111111111';
 const OTHER_ORG = '22222222-2222-4222-8222-222222222222';
 const USER = '33333333-3333-4333-8333-333333333333';
 const OTHER_USER = '44444444-4444-4444-8444-444444444444';
-const member: MembershipRow = {
+const member: OrganizationMembershipFacts = {
 	id: 'membership-a',
 	role: 'member',
 	member_preset: 'operator',
@@ -33,7 +33,7 @@ type Row = Record<string, unknown>;
 
 // A small PostgREST transport fake: it applies the filters actually emitted by the SDK.
 // It deliberately supplies no RLS, so missing application filters cannot pass by accident.
-function fixture(membership: MembershipRow = member) {
+function fixture(membership: OrganizationMembershipFacts = member) {
 	const tables: Record<string, Row[]> = {
 		organization_memberships: [
 			{ ...membership, user_id: USER, organization_id: ORG },
@@ -53,13 +53,22 @@ function fixture(membership: MembershipRow = member) {
 		],
 		audit_logs: []
 	};
-	const state = { failedTable: '', membershipReads: 0 };
+	const state: {
+		failedTable: string;
+		membershipReads: number;
+		membershipGate?: Promise<void>;
+		membershipStarted?: () => void;
+	} = { failedTable: '', membershipReads: 0 };
 	const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = new URL(String(input));
 		expect(url.origin).toBe('http://membership.invalid');
 		const table = url.pathname.split('/').at(-1)!;
 		if (!(table in tables)) throw new Error(`Unexpected provider table: ${table}`);
-		if (table === 'organization_memberships') state.membershipReads++;
+		if (table === 'organization_memberships') {
+			state.membershipReads++;
+			state.membershipStarted?.();
+			await state.membershipGate;
+		}
 		if (table === state.failedTable) {
 			return Response.json({ code: 'XX000', message: 'synthetic provider failure' }, { status: 500 });
 		}
@@ -108,6 +117,7 @@ function event(locals: App.Locals, orgId = ORG): RequestEvent {
 }
 
 const write = handle({
+	context: createRequestWriteContext,
 	policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 	policyResource: { kind: 'group', groupId: 'group-b' },
 	mutation: true,
@@ -116,23 +126,26 @@ const write = handle({
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('request membership admission through real context construction', () => {
-	it.each(['route', 'layout', 'prefetched'] as const)(
-		'keeps both Groups and independent lane overrides in the %s context',
+describe('request membership admission through real request construction', () => {
+	it.each(['route', 'layout'] as const)(
+		'keeps both Groups and independent lane overrides in the %s request',
 		async (path) => {
 			const f = fixture();
-			const ctx =
-				path === 'route'
-					? await buildRouteContext(event(f.locals))
-					: path === 'layout'
-						? await buildLayoutContext(f.locals, {} as never, ORG)
-						: await buildLayoutContextFromMembership(f.locals, {} as never, ORG, member);
-			expect(ctx.auth).toMatchObject({
+			const ctx = path === 'route' ? await buildRouteRequest(event(f.locals)) : await buildLayoutRequest(f.locals, ORG);
+			expect(ctx.auth).toEqual({
 				userId: USER,
 				orgId: ORG,
 				role: 'member',
 				isPrivileged: false,
-				capabilityMap: { personnel: 'configure', training: 'none', ratingScheme: 'configure' },
+				canManageMembers: false,
+				capabilityMap: {
+					calendar: 'operate',
+					personnel: 'configure',
+					training: 'none',
+					criticalTasks: 'operate',
+					onboarding: 'operate',
+					ratingScheme: 'configure'
+				},
 				scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] }
 			});
 			const visible = await ctx.store.findMany<{ id: string }>('personnel', ctx.auth.orgId);
@@ -147,7 +160,7 @@ describe('request membership admission through real context construction', () =>
 		'retains Organization-wide access for %s without leaking foreign rows',
 		async (role) => {
 			const f = fixture({ ...member, role });
-			const ctx = await buildRouteContext(event(f.locals));
+			const ctx = await buildRouteRequest(event(f.locals));
 			expect(ctx.auth.scopeSet).toEqual({ kind: 'organization' });
 			expect(ctx.auth.capabilityMap.training).toBe('configure');
 			expect((await ctx.store.findMany<{ id: string }>('personnel', ORG)).map((row) => row.id)).toEqual([
@@ -159,6 +172,16 @@ describe('request membership admission through real context construction', () =>
 		}
 	);
 
+	it('uses the admitted actor rather than an unrelated provider user to load membership', async () => {
+		const f = fixture();
+		f.locals.user = { id: OTHER_USER } as App.Locals['user'];
+		expect(getAdmittedRequestClient(f.locals)).toEqual({ supabase: f.locals.supabase, userId: USER });
+		const request = await buildRouteRequest(event(f.locals));
+		expect(request.auth.userId).toBe(USER);
+		expect(request.auth.role).toBe('member');
+		expect(request.auth.isPrivileged).toBe(false);
+	});
+
 	it('admits an in-scope write with canonical Organization identity through a slug', async () => {
 		const f = fixture();
 		const response = await write(event(f.locals, 'alpha'));
@@ -167,31 +190,29 @@ describe('request membership admission through real context construction', () =>
 		expect(f.tables.personnel.at(-1)).toEqual({ id: 'created', group_id: 'group-b', organization_id: ORG });
 	});
 
-	it('rejects anonymous requests even with a seeded membership and never reads or writes provider data', async () => {
+	it('rejects anonymous requests despite a prior membership read and never reads or writes provider data', async () => {
 		const f = fixture();
+		await buildLayoutRequest(f.locals, ORG);
+		f.fetch.mockClear();
 		f.locals.user = null;
 		f.locals.actor = null;
-		cacheRequestMembership(f.locals, null, ORG, { role: 'owner' });
 		const before = structuredClone(f.tables);
 		await expect(write(event(f.locals))).rejects.toMatchObject({ status: 401 });
-		await expect(buildLayoutContext(f.locals, {} as never, ORG)).rejects.toMatchObject({ status: 401 });
-		await expect(buildLayoutContextFromMembership(f.locals, {} as never, ORG, member)).rejects.toMatchObject({
-			status: 401
-		});
+		await expect(buildLayoutRequest(f.locals, ORG)).rejects.toMatchObject({ status: 401 });
+		expect(() => getAdmittedRequestClient(f.locals)).toThrow(expect.objectContaining({ status: 401 }));
 		expect(f.fetch).not.toHaveBeenCalled();
 		expect(f.tables).toEqual(before);
 	});
 
 	it('denies provider identity without application admission before any membership read or effect', async () => {
 		const f = fixture();
+		await buildLayoutRequest(f.locals, ORG);
+		f.fetch.mockClear();
 		f.locals.actor = null;
-		cacheRequestMembership(f.locals, USER, ORG, { role: 'owner' });
 		const before = structuredClone(f.tables);
 		await expect(write(event(f.locals))).rejects.toMatchObject({ status: 401 });
-		await expect(buildLayoutContext(f.locals, {} as never, ORG)).rejects.toMatchObject({ status: 401 });
-		await expect(buildLayoutContextFromMembership(f.locals, {} as never, ORG, member)).rejects.toMatchObject({
-			status: 401
-		});
+		await expect(buildLayoutRequest(f.locals, ORG)).rejects.toMatchObject({ status: 401 });
+		expect(() => getAdmittedRequestClient(f.locals)).toThrow(expect.objectContaining({ status: 401 }));
 		expect(f.fetch).not.toHaveBeenCalled();
 		expect(f.tables).toEqual(before);
 	});
@@ -207,9 +228,13 @@ describe('request membership admission through real context construction', () =>
 							scenario === 'other user only' ? row.user_id === OTHER_USER : row.organization_id === OTHER_ORG
 						);
 			const before = structuredClone(f.tables.personnel);
-			await expect(write(event(f.locals))).rejects.toMatchObject({ status: 403 });
+			await expect(write(event(f.locals))).rejects.toMatchObject({
+				status: 403,
+				body: { message: 'Not a member of this organization' }
+			});
 			await expect(
 				loadWithContext(f.locals, {} as never, ORG, {
+					context: createRequestWriteContext,
 					policyAction: POLICY_ACTION_CATALOG.personnel.viewRoster,
 					fn: async (ctx) => ctx.store.findMany('personnel', ctx.auth.orgId)
 				})
@@ -225,7 +250,9 @@ describe('request membership admission through real context construction', () =>
 				: { ...member, access_scope_group_ids: ['group-a'] }
 		);
 		const before = structuredClone(f.tables.personnel);
-		await expect(write(event(f.locals))).rejects.toMatchObject({ status: 403 });
+		await expect(write(event(f.locals))).rejects.toMatchObject({
+			status: 403
+		});
 		expect(f.tables.personnel).toEqual(before);
 	});
 
@@ -253,39 +280,70 @@ describe('request membership admission through real context construction', () =>
 	it('rejects malformed stored member access before a mutation', async () => {
 		const f = fixture({ ...member, member_preset: null });
 		const before = structuredClone(f.tables.personnel);
-		await expect(write(event(f.locals))).rejects.toMatchObject({ status: 500 });
+		await expect(write(event(f.locals))).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Membership row is missing normalized member access storage' }
+		});
 		expect(f.tables.personnel).toEqual(before);
 	});
 
-	it('shares the prefetched layout membership with a later route consumer', async () => {
+	it('evaluates a stable grant and rejects malformed cached facts when constructing a later request', async () => {
 		const f = fixture();
-		await buildLayoutContextFromMembership(f.locals, {} as never, ORG, member);
-		const ctx = await buildRouteContext(event(f.locals));
+		const request = await buildLayoutRequest(f.locals, ORG);
+		const cachedFacts = await getOrLoadRequestMembership(f.locals, USER, ORG, async () => {
+			throw new Error('The fetched membership must be reused within this request');
+		});
+		cachedFacts.capability_overrides = { personnel: 'none' };
+		cachedFacts.access_scope_group_ids = ['group-c'];
+		cachedFacts.member_preset = null;
+		expect(request.auth.capabilityMap.personnel).toBe('configure');
+		expect(request.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
+		const before = structuredClone(f.tables.personnel);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		await expect(write(event(f.locals))).rejects.toMatchObject({
+			status: 500,
+			body: { message: 'Internal server error' }
+		});
+		expect(f.tables.personnel).toEqual(before);
+		expect(f.state.membershipReads).toBe(1);
+	});
+
+	it('shares a fetched layout membership with a later route consumer', async () => {
+		const f = fixture();
+		await buildLayoutRequest(f.locals, ORG);
+		const ctx = await buildRouteRequest(event(f.locals));
 		expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 		expect(ctx.auth.capabilityMap.training).toBe('none');
-		expect(f.state.membershipReads).toBe(0);
+		expect(f.state.membershipReads).toBe(1);
 	});
 
 	it('shares one membership snapshot across concurrent route/layout and slug/UUID consumers', async () => {
 		const f = fixture();
-		const [route, layout] = await Promise.all([
-			buildRouteContext(event(f.locals)),
-			buildLayoutContext(f.locals, {} as never, 'alpha')
-		]);
+		let release!: () => void;
+		f.state.membershipGate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const started = new Promise<void>((resolve) => {
+			f.state.membershipStarted = resolve;
+		});
+		const requests = Promise.all([buildRouteRequest(event(f.locals)), buildLayoutRequest(f.locals, 'alpha')]);
+		await started;
+		release();
+		const [route, layout] = await requests;
 		expect(f.state.membershipReads).toBe(1);
-		expect(route.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
-		expect(layout.auth.scopeSet).toEqual(route.auth.scopeSet);
+		expect(route.auth).toMatchObject({ orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] } });
+		expect(layout.auth).toMatchObject({ orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['group-a', 'group-b'] } });
 	});
 
 	it('does not reuse an owner grant across users or Organizations within request locals', async () => {
 		const f = fixture();
-		await buildLayoutContext(f.locals, {} as never, OTHER_ORG);
+		await buildLayoutRequest(f.locals, OTHER_ORG);
 		f.locals.actor = { userId: OTHER_USER };
 		f.locals.user = { id: OTHER_USER } as App.Locals['user'];
-		await buildRouteContext(event(f.locals));
+		await buildRouteRequest(event(f.locals));
 		f.locals.actor = { userId: USER };
 		f.locals.user = { id: USER } as App.Locals['user'];
-		const ctx = await buildLayoutContext(f.locals, {} as never, ORG);
+		const ctx = await buildLayoutRequest(f.locals, ORG);
 		expect(ctx.auth.role).toBe('member');
 		expect(ctx.auth.scopeSet).toEqual({ kind: 'groups', groupIds: ['group-a', 'group-b'] });
 		expect(f.state.membershipReads).toBe(3);
@@ -293,7 +351,7 @@ describe('request membership admission through real context construction', () =>
 
 	it('does not carry a cached grant into a new request after membership revocation', async () => {
 		const f = fixture();
-		await buildRouteContext(event(f.locals));
+		await buildRouteRequest(event(f.locals));
 		f.tables.organization_memberships = [];
 		const nextLocals = {
 			actor: f.locals.actor,

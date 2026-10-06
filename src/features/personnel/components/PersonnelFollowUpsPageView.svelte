@@ -3,7 +3,8 @@
 	import { DatePicker } from '$lib/components/ui/date-picker';
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
-	import type { PersonnelFollowUp, PersonnelFollowUpsPageData } from '$features/personnel/personnel-detail.types';
+	import type { PersonnelFollowUp } from '$features/personnel/contracts';
+	import type { PersonnelFollowUpsPageData } from '$features/personnel/personnel-detail.types';
 	import { ArtifactDraft } from '$features/personnel/workspace/artifactDraft.svelte';
 	import { followUpDraftSpec } from '$features/personnel/workspace/personnelArtifactDraftSpecs';
 

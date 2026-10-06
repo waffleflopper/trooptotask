@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 
 const { loadWithContextMock } = vi.hoisted(() => ({ loadWithContextMock: vi.fn() }));
 vi.mock('$lib/server/adapters/httpAdapter', async () => ({
@@ -23,7 +23,9 @@ describe('settings commercial isolation', () => {
 	it('keeps organization profile settings available when commercial storage is unavailable', async () => {
 		const ctx = createTestContext({ auth: { orgId: 'org-1', role: 'admin', isPrivileged: true } });
 		const commercialRead = vi.spyOn(ctx.rawStore, 'findOne').mockRejectedValue(new Error('Billing unavailable'));
-		loadWithContextMock.mockImplementationOnce((_locals, _cookies, _orgId, config) => loadWithContextCore(ctx, config));
+		loadWithContextMock.mockImplementationOnce((_locals, _cookies, _orgId, config) =>
+			loadWithContextCore(ctx, config, () => ({ auth: ctx.auth }))
+		);
 
 		const result = await loadGeneral(event as never);
 

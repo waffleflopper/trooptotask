@@ -1,16 +1,69 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { UseCaseContext } from '$lib/server/core/ports';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
+import { countOrganizationMembers } from '$features/organization/index.server';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _deleteConfig, _getConfig, _postConfig } from './+server';
+import { _createConfigs } from './+server';
+
+vi.mock('$features/identity/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/identity/index.server')>()),
+	loadGettingStartedDismissed: vi.fn(),
+	setGettingStartedDismissed: vi.fn()
+}));
+vi.mock('$features/organization/index.server', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$features/organization/index.server')>()),
+	countOrganizationMembers: vi.fn()
+}));
+const supabase = {} as SupabaseClient;
+const { get: _getConfig, post: _postConfig, delete: _deleteConfig } = _createConfigs({ supabase });
+beforeEach(() => {
+	vi.mocked(countOrganizationMembers).mockReset().mockResolvedValue(2);
+	vi.mocked(loadGettingStartedDismissed).mockReset().mockResolvedValue(false);
+	vi.mocked(setGettingStartedDismissed).mockReset().mockResolvedValue();
+});
 
 afterEach(() => vi.restoreAllMocks());
 
 describe('GET /api/getting-started', () => {
+	it('starts personal progress while Dashboard support is still pending', async () => {
+		let release!: (count: number) => void;
+		let started!: () => void;
+		const memberStarted = new Promise<void>((resolve) => {
+			started = resolve;
+		});
+		vi.mocked(countOrganizationMembers).mockImplementation(() => {
+			started();
+			return new Promise<number>((resolve) => {
+				release = resolve;
+			});
+		});
+		const pending = handleUseCaseRequest(_getConfig, createTestContext(), undefined, () => createTestContext());
+		await memberStarted;
+		try {
+			expect(loadGettingStartedDismissed).toHaveBeenCalled();
+		} finally {
+			release(2);
+		}
+		await expect(pending).resolves.toMatchObject({ orgMemberCount: 2, gettingStartedDismissed: false });
+	});
+
+	it('fails the complete GET when Organization support cannot be read', async () => {
+		vi.mocked(countOrganizationMembers).mockRejectedValue(new Error('Membership count unavailable'));
+		await expect(
+			handleUseCaseRequest(_getConfig, createTestContext(), undefined, () => createTestContext())
+		).rejects.toThrow('Membership count unavailable');
+	});
 	it.each([
-		['GET', (ctx: UseCaseContext) => handleUseCaseRequest(_getConfig, ctx, undefined)],
-		['POST', (ctx: UseCaseContext) => handleUseCaseRequest(_postConfig, ctx, undefined)],
-		['DELETE', (ctx: UseCaseContext) => handleUseCaseRequest(_deleteConfig, ctx, undefined)]
+		['GET', (ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)],
+		[
+			'POST',
+			(ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_postConfig, ctx, undefined, () => ctx)
+		],
+		[
+			'DELETE',
+			(ctx: ReturnType<typeof createTestContext>) => handleUseCaseRequest(_deleteConfig, ctx, undefined, () => ctx)
+		]
 	] as const)('%s rejects anonymous access before reading or writing support data', async (_method, request) => {
 		const ctx = createTestContext({ auth: { userId: '' } });
 		const reads = vi.spyOn(ctx.store, 'findManyWithCount');
@@ -21,6 +74,9 @@ describe('GET /api/getting-started', () => {
 		});
 		expect(reads).not.toHaveBeenCalled();
 		expect(preferences).not.toHaveBeenCalled();
+		expect(loadGettingStartedDismissed).not.toHaveBeenCalled();
+		expect(countOrganizationMembers).not.toHaveBeenCalled();
+		expect(setGettingStartedDismissed).not.toHaveBeenCalled();
 	});
 
 	it.each(['none', 'view'] as const)(
@@ -53,35 +109,28 @@ describe('GET /api/getting-started', () => {
 					return scopedStore.findManyWithCount(table, ...args);
 				}
 			};
-			await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+			await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).resolves.toMatchObject({
 				ratingSchemeEntryCount: ratingScheme === 'view' ? 1 : 0
 			});
 		}
 	);
 
-	it('dismisses and restores only the current user’s Organization preference', async () => {
+	it('binds personal progress to the admitted account, Organization and ordinary request client', async () => {
 		const ctx = createTestContext();
-		const own = { id: 'own', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, dismissed_at: null };
-		const other = { id: 'other', organization_id: ctx.auth.orgId, user_id: 'other-user', dismissed_at: null };
-		const foreign = { id: 'foreign', organization_id: 'foreign-org', user_id: ctx.auth.userId, dismissed_at: null };
-		ctx.store.seed('getting_started_progress', [own, other, foreign]);
+		await handleUseCaseRequest(_postConfig, ctx, undefined, () => ctx);
+		expect(setGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase, auth: ctx.auth, audit: ctx.audit }, true);
+		await handleUseCaseRequest(_deleteConfig, ctx, undefined, () => ctx);
+		expect(setGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase, auth: ctx.auth, audit: ctx.audit }, false);
+		await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx);
+		expect(loadGettingStartedDismissed).toHaveBeenLastCalledWith({ supabase }, ctx.auth);
+		expect(countOrganizationMembers).toHaveBeenLastCalledWith(supabase, ctx.auth.orgId);
+	});
 
-		await handleUseCaseRequest(_postConfig, ctx, undefined);
-		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
-			gettingStartedDismissed: true
-		});
-		await expect(ctx.store.findOne('getting_started_progress', ctx.auth.orgId, { id: 'other' })).resolves.toEqual(
-			other
-		);
-		await expect(ctx.store.findOne('getting_started_progress', 'foreign-org', { id: 'foreign' })).resolves.toEqual(
-			foreign
-		);
-
-		await handleUseCaseRequest(_deleteConfig, ctx, undefined);
-		await expect(ctx.store.findOne('getting_started_progress', ctx.auth.orgId, { id: 'own' })).resolves.toEqual(own);
-		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
-			gettingStartedDismissed: false
-		});
+	it('does not report dismissal success when its owner cannot confirm the save', async () => {
+		vi.mocked(setGettingStartedDismissed).mockRejectedValue(new Error('Unable to confirm Getting Started save'));
+		await expect(
+			handleUseCaseRequest(_postConfig, createTestContext(), undefined, () => createTestContext())
+		).rejects.toThrow('Unable to confirm');
 	});
 
 	it('returns retained scoped support with retired Duty storage unavailable', async () => {
@@ -130,20 +179,9 @@ describe('GET /api/getting-started', () => {
 		ctx.store.seed('rating_scheme_entries', [
 			{ id: 'rating-1', organization_id: ctx.auth.orgId, rated_person_id: 'p1', rating_period_end: '2026-01-01' }
 		]);
-		ctx.store.seed('organization_memberships', [
-			{ id: 'member-1', organization_id: ctx.auth.orgId, user_id: ctx.auth.userId, role: 'owner' },
-			{ id: 'member-2', organization_id: ctx.auth.orgId, user_id: 'user-2', role: 'member' }
-		]);
-		ctx.store.seed('getting_started_progress', [
-			{
-				id: 'progress-1',
-				organization_id: ctx.auth.orgId,
-				user_id: ctx.auth.userId,
-				dismissed_at: '2026-04-10T00:00:00Z'
-			}
-		]);
+		vi.mocked(loadGettingStartedDismissed).mockResolvedValue(true);
 
-		const result = await handleUseCaseRequest(_getConfig, ctx, undefined);
+		const result = await handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx);
 
 		expect(result).toEqual({
 			trainingTypeCount: 2,
@@ -194,7 +232,7 @@ describe('GET /api/getting-started', () => {
 			}
 		});
 
-		await expect(handleUseCaseRequest(_getConfig, ctx, undefined)).resolves.toMatchObject({
+		await expect(handleUseCaseRequest(_getConfig, ctx, undefined, () => ctx)).resolves.toMatchObject({
 			gettingStartedDismissed: false,
 			starterConfigurationPacks: [
 				expect.objectContaining({

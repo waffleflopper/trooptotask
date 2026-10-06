@@ -1,23 +1,15 @@
 import {
-	listOnboardingTemplateExportRows,
-	listOnboardingTemplateStepExportRows
-} from '$features/onboarding/index.server';
-import { listRatingSchemeExportRows } from '$features/rating-scheme/index.server';
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import {
 	executeOrganizationDataExport,
+	loadOrganizationExportPayload,
 	type OrganizationDataExportArtifact,
 	type OrganizationDataExportExecutionResult
-} from '$lib/server/core/useCases/organizationDataExportExecution';
-import { loadOrganizationExportPayload } from '$lib/server/core/useCases/organizationExport';
-import { listNotificationExportRows } from '$features/notifications/index.server';
+} from '$features/data-export/index.server';
+import type { DeletionRequestStore } from '$features/deletion-requests/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import {
-	listTrainingTypeExportRows,
-	listTrainingCompletionExportRows,
-	listTrainingViewExportRows
-} from '$features/training/index.server';
+import { createRequestDeletionRequestStore, handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestOrganizationExportContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
+import { createOrganizationDataExportReads } from '../organizationDataExportDelivery.server';
 
 interface ExportInput {
 	email: string | undefined;
@@ -26,56 +18,46 @@ interface ExportInput {
 type JsonExportArtifact = Extract<OrganizationDataExportArtifact, { kind: 'json' }>;
 type ExportOutput = OrganizationDataExportExecutionResult<JsonExportArtifact>;
 
-export const _postConfig: RouteConfig<ExportInput, ExportOutput> = {
-	mutation: true,
-	policyAction: POLICY_ACTION_CATALOG.organization.exportData,
-	policyResource: { kind: 'organization' },
-	parseInput: (event: RequestEvent) => ({
-		email: event.locals.user?.email
-	}),
-	fn: async (ctx, input) => {
-		const orgId = ctx.auth.orgId;
-		return executeOrganizationDataExport(ctx, {
-			requestedByEmail: input.email,
-			auditAction: 'export.created',
-			buildArtifact: async () => {
-				if (!ctx.personnelOrganizationExport) throw new Error('Personnel Organization export port is required');
-				const exportData = await loadOrganizationExportPayload(
-					ctx.rawStore,
-					ctx.auth,
-					ctx.personnelOrganizationExport,
-					{
-						listTrainingTypeExportRows,
-						listTrainingCompletionExportRows,
-						listTrainingViewExportRows
-					},
-					{ listOnboardingTemplateExportRows, listOnboardingTemplateStepExportRows },
-					{
-						listNotificationExportRows: () => listNotificationExportRows(ctx.notificationSelf),
-						listFeedbackExportRows: () => ctx.feedbackExport.listRows(orgId)
-					},
-					{ listRatingSchemeExportRows }
-				);
-				const jsonStr = JSON.stringify(exportData, null, 2);
-				const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
+export function _createPostConfig(
+	store: DeletionRequestStore
+): RouteConfig<ExportInput, ExportOutput, ReturnType<typeof createRequestOrganizationExportContext>> {
+	return {
+		context: createRequestOrganizationExportContext,
+		mutation: true,
+		policyAction: POLICY_ACTION_CATALOG.organization.exportData,
+		policyResource: { kind: 'organization' },
+		parseInput: (event: RequestEvent) => ({
+			email: event.locals.user?.email
+		}),
+		fn: async (ctx, input) => {
+			const orgId = ctx.auth.orgId;
+			return executeOrganizationDataExport(ctx, {
+				requestedByEmail: input.email,
+				auditAction: 'export.created',
+				buildArtifact: async () => {
+					const exportData = await loadOrganizationExportPayload(orgId, createOrganizationDataExportReads(ctx, store));
+					const jsonStr = JSON.stringify(exportData, null, 2);
+					const dateStr = exportData.exportedAt.split('T')[0] || new Date().toISOString().split('T')[0];
 
-				return {
-					kind: 'json',
-					body: jsonStr,
-					filename: `org-export-${orgId}-${dateStr}.json`,
-					fileSizeBytes: new TextEncoder().encode(jsonStr).length
-				};
-			}
-		});
-	},
-	formatOutput: (result) => {
-		return new Response(result.artifact.body, {
-			headers: {
-				'Content-Type': 'application/json',
-				'Content-Disposition': `attachment; filename="${result.artifact.filename}"`
-			}
-		});
-	}
-};
+					return {
+						kind: 'json',
+						body: jsonStr,
+						filename: `org-export-${orgId}-${dateStr}.json`,
+						fileSizeBytes: new TextEncoder().encode(jsonStr).length
+					};
+				}
+			});
+		},
+		formatOutput: (result) => {
+			return new Response(result.artifact.body, {
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Disposition': `attachment; filename="${result.artifact.filename}"`
+				}
+			});
+		}
+	};
+}
 
-export const POST = handle(_postConfig);
+export const POST: RequestHandler = (event) =>
+	handle(_createPostConfig(createRequestDeletionRequestStore(event.locals)))(event);

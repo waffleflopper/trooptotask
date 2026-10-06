@@ -317,7 +317,7 @@ describe('members settings setup-state lookup degradation', () => {
 		const data = await loadMembersSettings(context, {
 			isAdmin: true,
 			groups: Promise.resolve([]),
-			approvalRequests: Promise.resolve([])
+			pendingApprovalSummary: Promise.resolve({ count: 0, oldestCreatedAt: null })
 		});
 
 		expect(data.sections.members.invitations).toHaveLength(1);
@@ -342,7 +342,7 @@ describe('members settings setup-state lookup degradation', () => {
 		const data = await loadMembersSettings(context, {
 			isAdmin: true,
 			groups: Promise.resolve([]),
-			approvalRequests: Promise.resolve([])
+			pendingApprovalSummary: Promise.resolve({ count: 0, oldestCreatedAt: null })
 		});
 
 		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe('Invitation email failed');
@@ -356,7 +356,7 @@ describe('members settings setup-state lookup degradation', () => {
 		const data = await loadMembersSettings(context, {
 			isAdmin: true,
 			groups: Promise.resolve([]),
-			approvalRequests: Promise.resolve([])
+			pendingApprovalSummary: Promise.resolve({ count: 0, oldestCreatedAt: null })
 		});
 
 		expect(data.sections.members.invitations[0].funnelStatusLabel).toBe("Setup email didn't reach them");
@@ -388,11 +388,7 @@ describe('members settings section shaping', () => {
 				memberRow({ id: 'member-admin', user_id: 'user-2', email: 'admin@example.com', role: 'admin' }),
 				memberRow({ id: 'member-1', user_id: 'user-3', email: 'member@example.com', role: 'member' })
 			],
-			approvalRequests: [
-				{ id: 'request-1', status: 'pending', created_at: '2026-07-30T09:00:00Z' },
-				{ id: 'request-2', status: 'pending', created_at: '2026-07-28T09:00:00Z' },
-				{ id: 'request-3', status: 'approved', created_at: '2026-07-01T09:00:00Z' }
-			] as BuildMembersSettingsDataInput['approvalRequests']
+			pendingApprovalSummary: { count: 2, oldestCreatedAt: '2026-07-28T09:00:00Z' }
 		});
 
 		expect(section.roleCounts).toEqual({ owner: 1, admin: 1, member: 1 });

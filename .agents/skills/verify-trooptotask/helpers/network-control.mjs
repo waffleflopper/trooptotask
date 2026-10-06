@@ -1,6 +1,18 @@
 // This function runs in the owned browser page. Keep it self-contained so
 // control.mjs can inject it through the native DevTools evaluation tool.
-export function installNetworkControl(target, { mode, ordinal, suffix }) {
+export function installNetworkControl(
+	target,
+	{
+		mode,
+		ordinal,
+		suffix,
+		search = null,
+		failureField = null,
+		requestTarget = null,
+		sameOrigin = false,
+		requestMethod = null
+	}
+) {
 	if (target.__mapNetwork) throw new Error('Restore the existing map network control first');
 	const original = target.fetch;
 	const control = { original, calls: [], release: null, mode, ordinal, suffix };
@@ -10,30 +22,100 @@ export function installNetworkControl(target, { mode, ordinal, suffix }) {
 		if (target.__mapNetwork !== control) return original(...input);
 		const [url, init] = input;
 		const requestUrl = typeof Request !== 'undefined' && url instanceof Request ? url.url : String(url);
-		const pathname = new URL(requestUrl, target.location?.href ?? 'http://localhost/').pathname;
-		if (pathname !== control.suffix) return original(...input);
-		const call = { method: init?.method ?? 'GET', count: 0, ids: [], notes: [], status: null };
+		const parsedUrl = new URL(requestUrl, target.location?.href ?? 'http://localhost/');
+		const method = String(
+			init?.method ?? (typeof Request !== 'undefined' && url instanceof Request ? url.method : 'GET')
+		).toUpperCase();
+		const requiredMethod =
+			requestMethod ??
+			(search !== null ||
+			control.suffix.endsWith('/deletion-requests/review') ||
+			control.suffix.endsWith('/personnel/archive-batch') ||
+			control.suffix === '/admin/api/suspend' ||
+			['hold-fail', 'reject', 'drop-response'].includes(control.mode)
+				? 'POST'
+				: null);
+		if (
+			parsedUrl.pathname !== control.suffix ||
+			(search !== null && parsedUrl.search !== search) ||
+			(requiredMethod !== null && method !== requiredMethod)
+		)
+			return original(...input);
+		if ((sameOrigin || requestTarget) && parsedUrl.origin !== new URL(target.location.href).origin)
+			return original(...input);
+		if (requestTarget) {
+			let body = init?.body;
+			if (body === undefined && typeof Request !== 'undefined' && url instanceof Request)
+				body = await url.clone().formData();
+			const fields = typeof body === 'string' ? new URLSearchParams(body) : body;
+			if (!fields || typeof fields.get !== 'function' || fields.get(requestTarget.field) !== requestTarget.value)
+				return original(...input);
+		}
+		const call = { method, count: 0, ids: [], notes: [], status: null };
+		if (requestTarget) call.formTarget = requestTarget.value;
 		try {
-			const records = JSON.parse(init?.body ?? '{}').records ?? [];
+			const body = JSON.parse(init?.body ?? '{}');
+			const records = body.records ?? [];
+			if (control.suffix.endsWith('/user-preferences')) {
+				call.preferencePatch = Object.fromEntries(
+					Object.entries({
+						calendar: ['showStatusText', 'showPersonnelRoles', 'highlightOnboarding'],
+						training: ['selectedGroupId', 'selectedViewId', 'matrixViewMode']
+					})
+						.filter(([family]) => body[family] && typeof body[family] === 'object')
+						.map(([family, keys]) => [
+							family,
+							Object.fromEntries(
+								keys.filter((key) => Object.hasOwn(body[family], key)).map((key) => [key, body[family][key]])
+							)
+						])
+				);
+			}
 			call.count = records.length;
 			call.ids = records.map((row) => row.personnelId);
 			call.notes = [...new Set(records.map((row) => row.note))];
+			if (control.suffix.endsWith('/personnel/archive-batch') && Array.isArray(body.ids)) {
+				call.ids = body.ids.filter((id) => typeof id === 'string');
+				call.count = body.ids.length;
+			}
+			if (control.suffix.endsWith('/deletion-requests/review'))
+				call.review = {
+					id: typeof body.id === 'string' ? body.id : null,
+					action: typeof body.action === 'string' ? body.action : null,
+					denialReason: typeof body.denialReason === 'string' ? body.denialReason : null
+				};
 		} catch {
 			// GET requests and non-JSON bodies have no batch record details.
 		}
 		const requestNumber = control.calls.push(call);
-		if (control.mode === 'fail' && requestNumber === control.ordinal) {
+		if (control.mode === 'reject' && requestNumber === control.ordinal) {
+			call.failure = 'transport';
+			throw new TypeError('Synthetic network rejection');
+		}
+		if (['fail', 'hold-fail'].includes(control.mode) && requestNumber === control.ordinal) {
 			call.status = 503;
-			return new Response(JSON.stringify({ message: 'Synthetic request failure' }), {
+			const body = failureField
+				? { type: 'failure', status: 503, data: JSON.stringify([{ [failureField]: 1 }, 'Synthetic request failure']) }
+				: { message: 'Synthetic request failure' };
+			const response = new Response(JSON.stringify(body), {
 				status: 503,
 				headers: { 'Content-Type': 'application/json' }
 			});
+			if (control.mode === 'hold-fail')
+				return new Promise((resolve) => {
+					control.release = () => resolve(response);
+				});
+			return response;
 		}
 		const response = await original(...input);
 		if (target.__mapNetwork !== control) return response;
 		call.status = response.status;
 		call.contentDisposition = response.headers?.get('Content-Disposition') ?? null;
 		call.contentType = response.headers?.get('Content-Type') ?? null;
+		if (control.mode === 'drop-response' && requestNumber === control.ordinal) {
+			call.failure = 'response';
+			throw new TypeError('Synthetic response lost after real dispatch');
+		}
 		if (control.mode === 'hold' && requestNumber === control.ordinal)
 			return new Promise((resolve) => {
 				control.release = () => resolve(response);

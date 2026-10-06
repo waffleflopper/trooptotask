@@ -1,4 +1,5 @@
 import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
+type DataStore = CalendarWritePorts['store'];
 import type { SpecialDay } from '$features/calendar/contracts';
 import { SpecialDayEntity } from './specialDayEntity.server';
 
@@ -7,11 +8,9 @@ export interface SpecialDayRange {
 	rangeEnd: string;
 }
 
-type SpecialDayStore = CalendarWritePorts['store'];
-
 /** Retained Calendar range read; the caller has already passed Calendar view policy. */
 export async function listSpecialDaysInRange(
-	store: SpecialDayStore,
+	store: DataStore,
 	orgId: string,
 	range: SpecialDayRange
 ): Promise<SpecialDay[]> {
@@ -25,12 +24,8 @@ export async function listSpecialDaysInRange(
 	return SpecialDayEntity.fromDbArray(rows);
 }
 
-/** Raw saved rows for an already-authorized Organization export, including stored metadata. */
-export function listSpecialDayExportRows(store: SpecialDayStore, orgId: string): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('special_days', orgId);
-}
-
 /** Complete saved set for Calendar settings after overlapping local mutations. */
-export async function listSpecialDays(store: SpecialDayStore, orgId: string): Promise<SpecialDay[]> {
-	return SpecialDayEntity.fromDbArray(await listSpecialDayExportRows(store, orgId));
+export async function listSpecialDays(store: DataStore, orgId: string): Promise<SpecialDay[]> {
+	const rows = await store.findMany<Record<string, unknown>>('special_days', orgId);
+	return SpecialDayEntity.fromDbArray(rows);
 }

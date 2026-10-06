@@ -1,12 +1,18 @@
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { RequestEvent } from '@sveltejs/kit';
-import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { fail } from '$lib/errors';
 import { listAssignmentTypes, listAvailabilityEntries, listDailyAssignments } from '$features/calendar/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/errors';
+import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
+import { createRequestCalendarRangeContext } from '$lib/server/adapters/requestContexts.server';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
 import { resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
+import type { RequestEvent } from '@sveltejs/kit';
 
-export const _getConfig: RouteConfig<{ startDate: string; endDate: string }, unknown> = {
+export const _getConfig: RouteConfig<
+	{ startDate: string; endDate: string },
+	unknown,
+	ReturnType<typeof createRequestCalendarRangeContext>
+> = {
+	context: createRequestCalendarRangeContext,
 	policyAction: POLICY_ACTION_CATALOG.calendar.viewReports,
 	policyResource: { kind: 'unscoped' },
 	parseInput: (event: RequestEvent) => ({

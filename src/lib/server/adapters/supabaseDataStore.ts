@@ -12,13 +12,6 @@ import type { DataStore, FindOptions, FindResult } from '../core/ports';
 import { fail } from '$lib/errors';
 import { selectAllSupabaseRows, SUPABASE_PAGE_SIZE } from '$lib/server/supabasePagination.server';
 
-type DistinctAuditLogActionsRpcClient = {
-	rpc(
-		fn: 'list_audit_log_actions',
-		args: { p_org_id: string; p_excluded_actions: string[] }
-	): Promise<{ data: Array<{ action: string | null }> | null; error: { message?: string } | null }>;
-};
-
 function getOrgColumn(table: string): string {
 	switch (table) {
 		case 'audit_logs':
@@ -48,13 +41,7 @@ function throwMutationError(table: string, error: { code?: string; message: stri
 		// catalog's existence private and return a useful client error.
 		fail(404, 'Status type is unavailable for this Organization');
 	}
-	if (
-		table === 'ict_tasks' &&
-		error.code === '23505' &&
-		error.message.includes('"ict_tasks_organization_id_task_code_key"')
-	) {
-		fail(409, 'Task code already exists in this Organization');
-	}
+
 	throw new Error(error.message);
 }
 
@@ -115,18 +102,6 @@ function applyFindOptions(query: any, filters?: Record<string, unknown>, options
 	if (options?.notInFilters) {
 		for (const [key, values] of Object.entries(options.notInFilters)) {
 			query = query.not(key, 'in', `(${values.map(formatPostgrestFilterValue).join(',')})`);
-		}
-	}
-
-	if (options?.arrayContainedByFilters) {
-		for (const [key, values] of Object.entries(options.arrayContainedByFilters)) {
-			query = query.containedBy(key, values);
-		}
-	}
-
-	if (options?.nonEmptyArrayFilters) {
-		for (const key of options.nonEmptyArrayFilters) {
-			query = query.not(key, 'eq', '{}');
 		}
 	}
 
@@ -285,22 +260,6 @@ export function createSupabaseDataStore(supabase: SupabaseClient): DataStore {
 			}
 
 			return { data: result.data ?? [], count: result.count ?? null };
-		},
-
-		async listDistinctAuditActions(orgId: string, excludedActions: string[] = []): Promise<string[]> {
-			const { data, error } = await (supabase as unknown as DistinctAuditLogActionsRpcClient).rpc(
-				'list_audit_log_actions',
-				{
-					p_org_id: orgId,
-					p_excluded_actions: excludedActions
-				}
-			);
-
-			if (error) {
-				throw new Error(error.message ?? 'Supabase distinct value query failed');
-			}
-
-			return [...new Set((data ?? []).map((row) => row.action).filter((action): action is string => !!action))].sort();
 		},
 
 		async insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T> {

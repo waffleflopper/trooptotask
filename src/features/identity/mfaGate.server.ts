@@ -60,6 +60,16 @@ function sessionBinding(
 	}
 }
 
+/** Stable metadata from a session already admitted by request hooks; not token verification. */
+export function getIdentitySessionScope(
+	session: FlowSession | null,
+	user: FlowUser | null
+): { userId: string; sessionId: string } | null {
+	if (!session || !user) return null;
+	const binding = sessionBinding(session, user);
+	return binding ? { userId: user.id, sessionId: binding.sessionId } : null;
+}
+
 const pendingFlowRoutes: Record<Exclude<PendingAuthFlow, null>, string[]> = {
 	recovery: [
 		'/auth/reset-password',

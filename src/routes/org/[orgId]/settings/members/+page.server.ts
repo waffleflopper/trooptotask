@@ -1,7 +1,9 @@
+import { readPendingDeletionRequestSummary } from '$features/deletion-requests/index.server';
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
-import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
+import { createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
+import { buildRouteRequest, createRequestNotificationContext } from '$lib/server/adapters/requestContexts.server';
 import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
 import { listGroupCatalog } from '$features/personnel/index.server';
@@ -18,18 +20,21 @@ import {
 } from '$features/organization/index.server';
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadSettingsPage } from '../settingsLoad.server';
+import {
+	createSettingsMembersContext,
+	createSettingsSensitiveNotificationContext
+} from '../settingsRequestContexts.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, async (ctx, { common }) => ({
+	loadSettingsPage(event, createSettingsMembersContext, async (ctx, { common }) => ({
 		membersSettings: await loadMembersSettings(ctx, {
 			isAdmin: common.isAdmin,
 			groups: listGroupCatalog(ctx),
-			approvalRequests: ctx.store.findMany<{ status: 'pending' | 'approved' | 'denied'; created_at: string }>(
-				'deletion_requests',
-				ctx.auth.orgId,
-				undefined,
-				{ orderBy: [{ column: 'created_at', ascending: false }] }
-			)
+			pendingApprovalSummary: readPendingDeletionRequestSummary({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: createRequestDeletionRequestStore(event.locals)
+			})
 		})
 	}));
 
@@ -41,7 +46,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createSettingsSensitiveNotificationContext(await buildRouteRequest(event));
 			const origin = event.url?.origin ?? new URL(request.url).origin;
 			const accessCommand = parseMemberAccessEditFormData(formData);
 			return await inviteOrganizationMember(
@@ -76,7 +81,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createRequestNotificationContext(await buildRouteRequest(event));
 			const origin = event.url?.origin ?? new URL(request.url).origin;
 			return await resendOrganizationInvitation(
 				{
@@ -106,7 +111,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createRequestNotificationContext(await buildRouteRequest(event));
 			return await revokeOrganizationInvitation(
 				{
 					auth: ctx.auth,
@@ -129,7 +134,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createSettingsSensitiveNotificationContext(await buildRouteRequest(event));
 			return await removeOrganizationMember(
 				{
 					auth: ctx.auth,
@@ -156,7 +161,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createSettingsSensitiveNotificationContext(await buildRouteRequest(event));
 			const accessCommand = parseMemberAccessEditFormData(formData);
 			return await updateOrganizationMemberAccess(
 				{

@@ -1,25 +1,6 @@
-import type { NotificationDeliveryPort } from '$features/notifications/contracts';
-import type { NotificationStore } from '$features/notifications/contracts.server';
-import type { FeedbackExportRow } from '$features/feedback/index.server';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
-import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
+import type { AuditPort } from '$lib/audit/contracts';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { AccessRequestSetupState } from '$features/identity/contracts';
-import type { SensitiveActionAuthorizer } from '$features/identity/contracts';
-import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
-import type { PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
-import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
-import type { PersonnelOnboardingRosterPort } from '$features/personnel/contracts';
-import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
-import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
-import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
-import type { PersonnelArtifactWritePort } from '$features/personnel/contracts';
-import type { PersonnelGovernanceDeletionPort } from '$features/personnel/contracts';
-import type { PersonnelOrganizationExportPort } from '$features/personnel/contracts';
-import type { SignInRosterPersonnelLookupPort } from '$features/personnel/contracts';
-import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
-import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
-import type { OnboardingReconciliationPort } from '$features/onboarding/contracts';
-import type { CriticalTasksReadModelPort, CriticalTasksSettingsWritePort } from '$features/critical-tasks/contracts';
 
 /** Options for DataStore.findMany queries */
 export interface FindOptions {
@@ -27,10 +8,6 @@ export interface FindOptions {
 	filters?: Record<string, unknown>;
 	inFilters?: Record<string, unknown[]>;
 	notInFilters?: Record<string, unknown[]>;
-	/** Array containment filters: { scope_group_ids: ['g1'] } means column values must be contained by the given array */
-	arrayContainedByFilters?: Record<string, unknown[]>;
-	/** Require array columns to contain at least one value */
-	nonEmptyArrayFilters?: string[];
 	select?: string;
 	limit?: number;
 	/** Null-check filters: { archived_at: true } means IS NULL, false means IS NOT NULL */
@@ -61,10 +38,7 @@ export interface OrganizationInvitationSetupStateLookupPort {
 }
 
 /** Scope rule for ScopedDataStore — how a table relates to personnel groups */
-export type GroupScopeRule =
-	| { type: 'group'; groupColumn: string }
-	| { type: 'group-array'; groupColumn: string; requireNonEmpty?: boolean }
-	| { type: 'personnel'; personnelColumn: string };
+export type GroupScopeRule = { type: 'group'; groupColumn: string } | { type: 'personnel'; personnelColumn: string };
 
 /** Abstracts all persistence — business logic never imports Supabase */
 export interface DataStore {
@@ -103,19 +77,6 @@ export interface DataStore {
 		filters?: Record<string, unknown>,
 		options?: FindOptions
 	): Promise<FindResult<T>>;
-
-	listDistinctAuditActions(orgId: string, excludedActions?: string[]): Promise<string[]>;
-}
-
-/** Abstracts permission enforcement — no SupabaseClient parameter needed */
-export interface AuthContext {
-	readonly userId: string;
-	readonly orgId: string;
-	readonly role: 'owner' | 'admin' | 'member';
-	readonly isPrivileged: boolean;
-	readonly canManageMembers: boolean;
-	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
 }
 
 /** Enforces resource-level Group scope checks for scoped personnel data. */
@@ -125,18 +86,6 @@ export interface ScopeEnforcementPort {
 	requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void>;
 }
 
-/** Fire-and-forget audit logging */
-export interface AuditPort {
-	log(event: {
-		action: string;
-		resourceType: string;
-		resourceId?: string;
-		orgId?: string;
-		details?: Record<string, unknown>;
-		severity?: 'info' | 'warning' | 'critical';
-	}): void;
-}
-
 /** Abstracts file storage operations — business logic never imports Supabase storage */
 export interface StoragePort {
 	upload(bucket: string, path: string, data: File | Blob | ArrayBuffer, options?: { upsert?: boolean }): Promise<void>;
@@ -144,89 +93,9 @@ export interface StoragePort {
 	createSignedUrl(bucket: string, path: string, expiresInSeconds: number): Promise<string>;
 }
 
-/** The 4 ports every standard write operation needs */
 export interface WritePorts {
 	store: DataStore;
 	rawStore?: DataStore;
-	auth: AuthContext;
+	auth: OrganizationAccessGrant;
 	audit: AuditPort;
-	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
-
-	criticalTasksReadModel: CriticalTasksReadModelPort;
-	personnelArtifactWrites?: PersonnelArtifactWritePort;
-	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
-	onboardingReconciliation?: OnboardingReconciliationPort;
-	personnelTrainingRoster?: PersonnelTrainingRosterPort;
-	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
-	personnelCalendarRoster?: PersonnelCalendarRosterPort;
-	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
-	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
-	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
-}
-
-/** Write + notifications (e.g., assignment type deletion, rating scheme approval) */
-export interface WriteWithNotificationsPorts extends WritePorts {
-	notifications: NotificationDeliveryPort;
-}
-
-/** User-scoped operations that aren't org-level writes (e.g., pinned groups) */
-export interface UserWritePorts {
-	store: DataStore;
-	auth: AuthContext;
-	audit: AuditPort;
-}
-
-/** Read-only query operations */
-export interface QueryPorts {
-	store: DataStore;
-	auth: AuthContext;
-	criticalTasksReadModel: CriticalTasksReadModelPort;
-	personnelTrainingRoster?: PersonnelTrainingRosterPort;
-	personnelCriticalTasksRoster?: PersonnelCriticalTasksRosterPort;
-	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
-	ratingSchemeDue?: RatingSchemeDuePort;
-	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
-	personnelCalendarRoster?: PersonnelCalendarRosterPort;
-	personnelOnboardingRoster?: PersonnelOnboardingRosterPort;
-	trainingOnboardingReferences?: TrainingOnboardingReferencesPort;
-	onboardingCalendarMarkers?: OnboardingCalendarMarkersPort;
-}
-
-/** Query operations needing unscoped access (e.g., shared data) */
-export interface QueryWithRawStorePorts extends QueryPorts {
-	rawStore: DataStore;
-}
-
-/** Combined context for all use cases */
-export interface UseCaseContext {
-	notificationSelf: { auth: AuthContext; audit: AuditPort; store: NotificationStore };
-	feedbackExport: { listRows(orgId: string): Promise<FeedbackExportRow[]> };
-	store: DataStore;
-	auth: AuthContext;
-	scope: ScopeEnforcementPort;
-	audit: AuditPort;
-	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
-
-	notifications: NotificationDeliveryPort;
-	storage: StoragePort;
-	sensitiveActionAuthorizer: SensitiveActionAuthorizer;
-	criticalTasksReadModel: CriticalTasksReadModelPort;
-	criticalTasksSettingsWrite?: CriticalTasksSettingsWritePort;
-	personnelRatingSchemeRoster?: PersonnelRatingSchemeRosterPort;
-	ratingSchemeDue?: RatingSchemeDuePort;
-	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
-	personnelArtifactWrites?: PersonnelArtifactWritePort;
-	personnelGovernanceDeletion?: PersonnelGovernanceDeletionPort;
-	onboardingReconciliation?: OnboardingReconciliationPort;
-	personnelOrganizationExport?: PersonnelOrganizationExportPort;
-	signInRosterPersonnelLookup?: SignInRosterPersonnelLookupPort;
-	personnelTrainingRoster: PersonnelTrainingRosterPort;
-	personnelCriticalTasksRoster: PersonnelCriticalTasksRosterPort;
-	personnelCalendarRoster: PersonnelCalendarRosterPort;
-	personnelOnboardingRoster: PersonnelOnboardingRosterPort;
-	trainingOnboardingReferences: TrainingOnboardingReferencesPort;
-	onboardingCalendarMarkers: OnboardingCalendarMarkersPort;
-	organizationInvitationSetupStateLookup?: OrganizationInvitationSetupStateLookupPort;
-	/** Unscoped DataStore — use only when business logic requires org-wide data (e.g. allPersonnel for dropdowns) */
-	rawStore: DataStore;
 }

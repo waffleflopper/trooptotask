@@ -24,8 +24,8 @@ Date: 2026-06-06
 - Keep **Platform Administration** separate from **Organization Governance Actions**:
   - Platform Administration is app-wide and platform-admin gated.
   - Organization Governance Actions are Organization-scoped and membership/governance gated.
-- Provider-specific Platform Administration reads and commands must stay behind app-owned modules, such as `src/lib/server/core/useCases/platformAdministration.ts` and `src/lib/server/adapters/supabasePlatformAdministration.ts`.
-- Platform-admin routes should compose admin context and use cases; they should not grow route-local Supabase queries for platform business behavior.
+- Platform Administration reads and commands use admitted operations under `src/features/platform-admin/server/`, exposed through `index.server.ts`. Identity, Organization, Feedback and Audit keep their source-owned provider reads and commands; Platform owns announcement management.
+- Platform-admin routes call narrow admitted operations; they should not grow route-local Supabase queries for platform business behavior.
 - Privileged platform commands should emit audit events only after the underlying app-owned operation reports success.
 
 ## Rejected Or Deferred Alternatives
@@ -42,7 +42,7 @@ Date: 2026-06-06
 - Supabase RPC names, table names, query syntax, service-role reads, and provider command details belong in adapters or narrowly owned platform modules, not route handlers or UI components.
 - Platform Administration may use service-role access when the workflow is explicitly app-wide support or operation work.
 - Organization-scoped settings, member management, and owner-danger workflows remain **Organization Governance Actions** unless the work is explicitly platform-wide support.
-- Exception, 2026-08-03: an Organization-scoped surface may read a **narrow projection** of platform-owned state through a purpose-built optional service-role port on `UseCaseContext`, wired in `httpAdapter.ts`, returning the minimum shape that surface needs and no raw platform rows. The first case is the organization members screen reading **Account Setup Link** state for its own pending **Organization Invitations** ([ADR 0012](0012-organization-invited-platform-access-auto-approval.md)). Platform Administration vocabulary must be collapsed to Organization-facing language before it crosses the network boundary. This is not a general licence: RLS grants on platform tables and denormalised mirrors of platform state onto Organization tables both remain rejected.
+- Exception, 2026-08-03: an Organization-scoped surface may read a **narrow projection** of platform-owned state through a purpose-built optional service-role port, now bound by the selected Settings delivery context, returning the minimum shape that surface needs and no raw platform rows. The first case is the organization members screen reading **Account Setup Link** state for its own pending **Organization Invitations** ([ADR 0012](0012-organization-invited-platform-access-auto-approval.md)). Platform Administration vocabulary must be collapsed to Organization-facing language before it crosses the network boundary. This is not a general licence: RLS grants on platform tables and denormalised mirrors of platform state onto Organization tables both remain rejected.
 
 ## Consequences
 
@@ -53,9 +53,9 @@ Date: 2026-06-06
 
 ## Rollout And Follow-Up
 
-- Keep the current Platform Administration dashboard and suspension commands behind the platform administration use case and Supabase adapter.
+- Dashboard, announcements, Feedback review, Audit browsing and retained support commands now use the Platform-owned admitted operations. The replaced central admin context, administration adapter and announcement APIs are removed in D22.
 - Prefer narrow aggregate RPCs or adapter-owned provider queries for platform-wide dashboard metrics so the UI does not scan full tables.
-- When retiring the remaining route-level `adminClient` reads (drift D-02), shape the work as several narrow per-domain Platform Administration modules — for example `PlatformMetrics`, `PlatformAnnouncements`, `PlatformFeedback`, `PlatformUserDirectory`, and `PlatformAudit` — each with its own scoped store port and a Supabase plus in-memory test adapter. Do not absorb these into one extended `platformAdministration.ts` interface: the existing module is deep because its store port is scoped to one job, and a grab-bag store would rebuild the orchestration-heavy shape this boundary is meant to avoid.
+- Dashboard composes parallel narrow Identity, Organization, Feedback and reduced Audit reads. Announcement operations own their store port and provider adapter. Feedback and Audit remain source-owned; their Platform entry points supply page admission.
 - For Platform Administration user-directory work, the row shaping (auth users joined with memberships, suspensions, and counts) belongs behind a store port, while raw `auth.admin.*` identity/email calls may stay inside that adapter as acknowledged auth-provider edges under ADR 0004.
 - Update this ADR if Platform Administration later gains a formal policy-action catalog or non-Supabase provider.
 

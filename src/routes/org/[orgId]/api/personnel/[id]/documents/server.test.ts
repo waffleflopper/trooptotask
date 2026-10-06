@@ -1,3 +1,4 @@
+import { createPersonnelArtifactDeliveryContext } from '$lib/server/adapters/requestContexts.server';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -27,12 +28,19 @@ describe('/api/personnel/[id]/documents', () => {
 		});
 		seedPersonnel(ctx);
 
-		const created = await handleUseCaseRequest(_postConfig, ctx, {
-			personnelId: 'person-1',
-			title: 'BLS Card',
-			file: new File([PDF_BYTES], 'bls.pdf', { type: 'application/pdf' })
-		});
-		const records = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' });
+		const created = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				title: 'BLS Card',
+				file: new File([PDF_BYTES], 'bls.pdf', { type: 'application/pdf' })
+			},
+			() => createPersonnelArtifactDeliveryContext(ctx)
+		);
+		const records = await handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+			createPersonnelArtifactDeliveryContext(ctx)
+		);
 
 		expect(created.title).toBe('BLS Card');
 		expect(records).toHaveLength(1);
@@ -54,7 +62,11 @@ describe('/api/personnel/[id]/documents', () => {
 		});
 		seedPersonnel(ctx);
 
-		await expect(handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' })).rejects.toMatchObject({
+		await expect(
+			handleUseCaseRequest(_getConfig, ctx, { personnelId: 'person-1' }, () =>
+				createPersonnelArtifactDeliveryContext(ctx)
+			)
+		).rejects.toMatchObject({
 			status: 403
 		});
 	});
@@ -76,11 +88,16 @@ describe('/api/personnel/[id]/documents', () => {
 		seedPersonnel(ctx);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'person-1',
-				title: 'Spoofed PDF',
-				file: new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' })
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'person-1',
+					title: 'Spoofed PDF',
+					file: new File(['not a pdf'], 'spoofed.pdf', { type: 'application/pdf' })
+				},
+				() => createPersonnelArtifactDeliveryContext(ctx)
+			)
 		).rejects.toMatchObject({ status: 400 });
 	});
 
@@ -130,24 +147,39 @@ describe('/api/personnel/[id]/documents', () => {
 			}
 		]);
 
-		const archived = (await handleUseCaseRequest(_patchConfig, ctx, {
-			personnelId: 'person-1',
-			documentId: 'document-1',
-			action: 'archive'
-		})) as { archivedAt: string | null };
-		expect(archived.archivedAt).toBeTruthy();
-		const restored = (await handleUseCaseRequest(_patchConfig, ctx, {
-			personnelId: 'person-1',
-			documentId: 'document-1',
-			action: 'restore'
-		})) as { archivedAt: string | null };
-		expect(restored.archivedAt).toBeNull();
-		await expect(
-			handleUseCaseRequest(_patchConfig, ctx, {
+		const archived = (await handleUseCaseRequest(
+			_patchConfig,
+			ctx,
+			{
 				personnelId: 'person-1',
 				documentId: 'document-1',
-				action: 'publish'
-			})
+				action: 'archive'
+			},
+			() => createPersonnelArtifactDeliveryContext(ctx)
+		)) as { archivedAt: string | null };
+		expect(archived.archivedAt).toBeTruthy();
+		const restored = (await handleUseCaseRequest(
+			_patchConfig,
+			ctx,
+			{
+				personnelId: 'person-1',
+				documentId: 'document-1',
+				action: 'restore'
+			},
+			() => createPersonnelArtifactDeliveryContext(ctx)
+		)) as { archivedAt: string | null };
+		expect(restored.archivedAt).toBeNull();
+		await expect(
+			handleUseCaseRequest(
+				_patchConfig,
+				ctx,
+				{
+					personnelId: 'person-1',
+					documentId: 'document-1',
+					action: 'publish'
+				},
+				() => createPersonnelArtifactDeliveryContext(ctx)
+			)
 		).rejects.toMatchObject({ status: 400 });
 	});
 });

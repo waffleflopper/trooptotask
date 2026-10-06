@@ -4,7 +4,7 @@ import type { TrainingType } from '$features/training/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { AssignmentType, AvailabilityEntry, StatusType, DailyAssignment } from '$features/calendar/contracts';
 import { createDashboardWorkspaceHydrator, type DashboardHydrationStores } from './dashboardWorkspaceHydration.svelte';
-import type { DashboardWorkspaceHydration } from './server/dashboardWorkspaceBootstrap';
+import type { DashboardWorkspaceHydration } from './contracts';
 
 function deferred<T>() {
 	let resolve!: (value: T) => void;

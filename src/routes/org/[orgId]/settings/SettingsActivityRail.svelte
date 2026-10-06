@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -33,11 +35,18 @@
 	let denyingId = $state<string | null>(null);
 	let denialReason = $state('');
 	let processingApproval = $state<string | null>(null);
+	const reviewedIds = new SvelteSet<string>();
+	let active = true;
+	onDestroy(() => {
+		active = false;
+	});
 
 	const approvalRequests = $derived(activity.approvalRequests);
 	const auditLog = $derived(activity.auditLog);
-	const pendingApprovalsCount = $derived(activity.pendingApprovalsCount);
-	const pendingApprovals = $derived(approvalRequests.filter((request) => request.status === 'pending'));
+	const pendingApprovals = $derived(
+		approvalRequests.filter((request) => request.status === 'pending' && !reviewedIds.has(request.id))
+	);
+	const pendingApprovalsCount = $derived(pendingApprovals.length);
 	const approvalLimit = $derived(lockedTab === 'approvals' ? pendingApprovals.length : 4);
 	const visibleApprovals = $derived(pendingApprovals.slice(0, approvalLimit));
 	const visibleAuditLogs = $derived(auditLog.logs.slice(0, 9));
@@ -78,24 +87,42 @@
 	];
 
 	async function handleApprovalAction(id: string, action: 'approve' | 'deny', reason?: string) {
-		if (processingApproval) return;
+		if (!active || processingApproval || reviewedIds.has(id)) return;
 		processingApproval = id;
+		const targetOrganization = orgId;
+		const failureMessage = 'Unable to confirm the review. Refresh the page or try again.';
 		try {
-			const res = await fetch(`/org/${orgId}/api/deletion-requests/review`, {
+			const res = await fetch(`/org/${targetOrganization}/api/deletion-requests/review`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ id, action, denialReason: reason ?? null })
 			});
+			if (!active) return;
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({ message: 'Unknown error' }));
-				toastStore.error(err.message || 'Failed to process request');
+				const err: unknown = await res.json().catch(() => null);
+				if (!active) return;
+				const message =
+					err !== null && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+						? err.message.trim()
+						: '';
+				toastStore.error(message || failureMessage);
 				return;
 			}
-			denyingId = null;
-			denialReason = '';
-			await invalidateAll();
+			// HTTP acknowledgment is separate from refreshing the current read model.
+			reviewedIds.add(id);
+			if (denyingId === id) {
+				denyingId = null;
+				denialReason = '';
+			}
+			try {
+				await invalidateAll();
+			} catch {
+				if (active) toastStore.warning('Review completed. Refresh the page to update the list.');
+			}
+		} catch {
+			if (active) toastStore.error(failureMessage);
 		} finally {
-			processingApproval = null;
+			if (active) processingApproval = null;
 		}
 	}
 </script>
@@ -130,7 +157,7 @@
 					{#each visibleApprovals as request (request.id)}
 						<article class="grid gap-2 rounded-md border p-3">
 							<header>
-								<strong>{request.requester_email ?? 'Unknown requester'}</strong>
+								<strong>{request.requested_by_email ?? 'Unknown requester'}</strong>
 							</header>
 							{#if request.resource_url}
 								<a
@@ -151,7 +178,9 @@
 											aria-label="Denial reason"
 											placeholder="Reason"
 											bind:value={denialReason}
+											disabled={processingApproval !== null}
 											onkeydown={(event) => {
+												if (processingApproval) return;
 												if (event.key === 'Enter') handleApprovalAction(request.id, 'deny', denialReason);
 												if (event.key === 'Escape') {
 													denyingId = null;
@@ -162,7 +191,7 @@
 										<Button
 											variant="destructive"
 											size="sm"
-											disabled={processingApproval === request.id}
+											disabled={processingApproval !== null}
 											onclick={() => handleApprovalAction(request.id, 'deny', denialReason)}
 										>
 											{#if processingApproval === request.id}<Spinner />{/if}
@@ -173,13 +202,21 @@
 									<div class="flex flex-wrap gap-2">
 										<Button
 											size="sm"
-											disabled={processingApproval === request.id}
+											disabled={processingApproval !== null}
 											onclick={() => handleApprovalAction(request.id, 'approve')}
 										>
 											{#if processingApproval === request.id}<Spinner />{/if}
 											Approve
 										</Button>
-										<Button variant="outline" size="sm" onclick={() => (denyingId = request.id)}>Deny</Button>
+										<Button
+											variant="outline"
+											size="sm"
+											disabled={processingApproval !== null}
+											onclick={() => {
+												denyingId = request.id;
+												denialReason = '';
+											}}>Deny</Button
+										>
 									</div>
 								{/if}
 							</div>

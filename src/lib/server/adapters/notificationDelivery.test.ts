@@ -1,10 +1,19 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createTestContext } from './inMemory';
+import {
+	createRequestTrainingTypeDeletionContext,
+	createRequestRatingSchemeDeletionContext
+} from './featureRequestContexts.server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { getAdminClient } = vi.hoisted(() => ({ getAdminClient: vi.fn() }));
 
 vi.mock('$lib/server/supabase', () => ({ getAdminClient }));
 
-import { createRequestNotificationDelivery } from './httpAdapter';
+import {
+	createRequestNotificationDelivery,
+	createRequestPersonnelPermanentDeletionContext
+} from './requestContexts.server';
 const { notifyAdmins, notifyUser } = createRequestNotificationDelivery();
 
 interface Membership {
@@ -97,6 +106,46 @@ const payload = {
 describe('notification producers', () => {
 	beforeEach(() => getAdminClient.mockReset());
 	afterEach(() => vi.restoreAllMocks());
+
+	it.each(['training', 'rating', 'personnel'] as const)(
+		'binds the %s deletion notification to the admitted Organization and actor',
+		async (kind) => {
+			const provider = createProvider([
+				{ organization_id: 'org-a', user_id: 'actor', role: 'owner' },
+				{ organization_id: 'org-a', user_id: 'recipient', role: 'admin' },
+				{ organization_id: 'org-b', user_id: 'foreign-admin', role: 'admin' }
+			]);
+			const request = {
+				...createTestContext({ auth: { orgId: 'org-a', userId: 'actor' } }),
+				supabase: {} as SupabaseClient,
+				session: null
+			};
+			if (kind === 'training') await createRequestTrainingTypeDeletionContext(request).notifyTrainingTypeDeleted();
+			else if (kind === 'rating')
+				await createRequestRatingSchemeDeletionContext(request).notifyRatingSchemeEntryDeleted();
+			else await createRequestPersonnelPermanentDeletionContext(request).notifyPersonnelDeleted('SGT Smith, Jamie');
+			expect(provider.stored).toEqual([
+				{
+					organization_id: 'org-a',
+					user_id: 'recipient',
+					link: null,
+					...(kind === 'training'
+						? { type: 'config_type_deleted', title: 'Training Type Deleted', message: 'A training type was deleted.' }
+						: kind === 'rating'
+							? {
+									type: 'config_type_deleted',
+									title: 'Rating Scheme Entry Deleted',
+									message: 'A rating scheme entry was deleted.'
+								}
+							: {
+									type: 'personnel_permanently_deleted',
+									title: 'Personnel Permanently Deleted',
+									message: 'Personnel "SGT Smith, Jamie" was permanently deleted.'
+								})
+				}
+			]);
+		}
+	);
 
 	it('stores the complete payload for only the specified user and Organization', async () => {
 		const provider = createProvider([

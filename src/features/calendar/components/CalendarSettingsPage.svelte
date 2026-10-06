@@ -2,7 +2,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import type { CalendarSettingsPageAccess } from '../contracts';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 	import { dailyAssignmentsStore } from '$features/calendar/stores/dailyAssignments.svelte';
 	import { specialDaysStore } from '$features/calendar/stores/specialDays.svelte';
@@ -18,8 +18,8 @@
 	import Settings from '@lucide/svelte/icons/settings';
 	import Users from '@lucide/svelte/icons/users';
 
-	const org = getOrgContext();
-	const orgUrlSegment = $derived(org.orgUrlSegment ?? org.orgId);
+	let { org }: { org: CalendarSettingsPageAccess } = $props();
+	const orgUrlSegment = $derived(org.orgUrlSegment);
 	const configureAffordance = $derived(
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.calendar.configureStatusTypes)
 	);

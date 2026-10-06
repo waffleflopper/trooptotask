@@ -1,19 +1,21 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
-import { createSupabaseOrgSettingsAdministrationPort } from '$lib/server/adapters/supabaseOrgSettingsAdministration';
+import { buildRouteRequest, createRequestActorContext } from '$lib/server/adapters/requestContexts.server';
 import {
+	createSupabaseOrganizationProfilePort,
 	clearOrganizationUrlSlug,
 	renameOrganization,
 	updateOrganizationUrlSlug
-} from '$lib/server/core/useCases/orgSettingsAdministration';
+} from '$features/organization/index.server';
 import { toActionFailure } from '../settingsActionFailure.server';
-import { buildGeneralSettingsData } from '../settingsGeneral.server';
+import { buildGeneralSettingsData } from '$features/organization/contracts';
 import { loadSettingsPage } from '../settingsLoad.server';
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, async (ctx, { common, organization }) => ({
-		generalSettings: buildGeneralSettingsData(ctx, {
+	loadSettingsPage(event, createRequestActorContext, async (ctx, { common, organization }) => ({
+		generalSettings: buildGeneralSettingsData({
+			currentMemberRole: ctx.auth.role,
+			canManageMembers: ctx.auth.canManageMembers,
 			isAdmin: common.isAdmin,
 			organization
 		})
@@ -28,13 +30,13 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const nameRaw = formData.get('name');
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await buildRouteRequest(event);
 			return await renameOrganization(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
 
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+					administration: createSupabaseOrganizationProfilePort(locals)
 				},
 				{
 					name: typeof nameRaw === 'string' ? nameRaw : ''
@@ -54,13 +56,13 @@ export const actions: Actions = {
 		const urlSlugRaw = formData.get('urlSlug');
 		let orgUrlSlug: string;
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await buildRouteRequest(event);
 			const result = await updateOrganizationUrlSlug(
 				{
 					auth: ctx.auth,
 					audit: ctx.audit,
 
-					administration: createSupabaseOrgSettingsAdministrationPort(locals)
+					administration: createSupabaseOrganizationProfilePort(locals)
 				},
 				{
 					urlSlug: typeof urlSlugRaw === 'string' ? urlSlugRaw : ''
@@ -81,12 +83,12 @@ export const actions: Actions = {
 
 		let orgId: string;
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = await buildRouteRequest(event);
 			await clearOrganizationUrlSlug({
 				auth: ctx.auth,
 				audit: ctx.audit,
 
-				administration: createSupabaseOrgSettingsAdministrationPort(locals)
+				administration: createSupabaseOrganizationProfilePort(locals)
 			});
 			orgId = ctx.auth.orgId;
 		} catch (error) {

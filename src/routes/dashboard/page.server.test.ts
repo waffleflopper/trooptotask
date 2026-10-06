@@ -14,7 +14,7 @@ const {
 	declineDashboardInvitationMock: vi.fn()
 }));
 
-vi.mock('$lib/server/adapters/httpAdapter', () => ({
+vi.mock('$lib/server/adapters/requestContexts.server', () => ({
 	createRequestNotificationDelivery: createRequestNotificationDeliveryMock
 }));
 

@@ -1,8 +1,8 @@
 import { POLICY_ACTION_CATALOG, type PolicyAction } from '$lib/access/policyEvaluator';
-import { evaluateAuthoritativePolicyDecision } from '$lib/server/core/useCases/policyAdapter';
-import { requirePolicyDecision } from '$lib/server/core/useCases/policyAuthorization';
+import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
+import { requirePolicyDecision } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
-import type { UseCaseContext, WritePorts } from '$lib/server/core/ports';
+import type { WritePorts } from '$lib/server/core/ports';
 import {
 	createOnboardingTemplate,
 	createStarterOnboardingTemplateStep,
@@ -18,14 +18,14 @@ import {
 	listExistingTrainingTypeNames
 } from '$features/training/index.server';
 import type { OnboardingTemplate } from '$features/onboarding/contracts';
-import type { TrainingType } from '$features/training/contracts';
+import type { TrainingOnboardingReferencesPort, TrainingType } from '$features/training/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackArtifactFamilyId,
 	StarterConfigurationPackId,
 	StarterConfigurationPackResultItem,
 	StarterConfigurationPackSupport
-} from '$lib/types/starterConfigurationPacks';
+} from '$features/dashboard/contracts';
 
 const PACK_ID: StarterConfigurationPackId = 'first-week-operations';
 const PACK_NAME = 'First Week Operations';
@@ -117,12 +117,18 @@ interface StarterPackReadinessRows {
 	onboardingStepNames: string[];
 }
 
-export async function listStarterConfigurationPacks(ctx: UseCaseContext): Promise<StarterConfigurationPackSupport[]> {
+type StarterConfigurationApplyContext = WritePorts & {
+	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'listTypes'>;
+};
+
+export async function listStarterConfigurationPacks(
+	ctx: Pick<WritePorts, 'store' | 'auth'>
+): Promise<StarterConfigurationPackSupport[]> {
 	return [await buildFirstWeekOperationsSupport(ctx)];
 }
 
 export async function applyStarterConfigurationPack(
-	ctx: WritePorts,
+	ctx: StarterConfigurationApplyContext,
 	packId: StarterConfigurationPackId | string
 ): Promise<StarterConfigurationPackApplyResult> {
 	if (packId !== PACK_ID) {
@@ -138,7 +144,9 @@ export async function applyStarterConfigurationPack(
 	return result;
 }
 
-async function buildFirstWeekOperationsSupport(ctx: UseCaseContext): Promise<StarterConfigurationPackSupport> {
+async function buildFirstWeekOperationsSupport(
+	ctx: Pick<WritePorts, 'store' | 'auth'>
+): Promise<StarterConfigurationPackSupport> {
 	const [rows, decisions] = await Promise.all([fetchReadinessRows(ctx), evaluateRequiredConfigureActions(ctx)]);
 	const readiness = buildReadiness(rows);
 	const deniedActions = decisions
@@ -167,7 +175,7 @@ async function buildFirstWeekOperationsSupport(ctx: UseCaseContext): Promise<Sta
 	};
 }
 
-async function fetchReadinessRows(ctx: Pick<UseCaseContext, 'store' | 'auth'>): Promise<StarterPackReadinessRows> {
+async function fetchReadinessRows(ctx: Pick<WritePorts, 'store' | 'auth'>): Promise<StarterPackReadinessRows> {
 	const starterTrainingNames = STARTER_TRAINING_TYPES.map((type) => type.name);
 	const starterStepNames = ONBOARDING_STEPS.map((step) => step.name);
 	const [trainingTypeNames, hasAnyTrainingType, onboarding] = await Promise.all([
@@ -216,7 +224,7 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 	];
 }
 
-async function evaluateRequiredConfigureActions(ctx: Pick<UseCaseContext, 'auth'>) {
+async function evaluateRequiredConfigureActions(ctx: Pick<WritePorts, 'auth'>) {
 	return Promise.all(
 		REQUIRED_CONFIGURE_ACTIONS.map(async (action) => ({
 			action,
@@ -275,7 +283,7 @@ async function applyStarterTrainingTypes(
 }
 
 async function applyStarterOnboardingTemplate(
-	ctx: WritePorts,
+	ctx: StarterConfigurationApplyContext,
 	result: StarterConfigurationPackApplyResult,
 	unitOrientationTrainingTypeId: string | null
 ): Promise<void> {

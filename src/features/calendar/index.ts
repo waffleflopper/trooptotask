@@ -25,7 +25,7 @@ export {
 
 // Context
 export { CalendarPageContext } from './contexts/CalendarPageContext.svelte';
-export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
+export type { CalendarPageData, CalendarPageAccess } from './contexts/CalendarPageContext.svelte';
 
 // Components are imported directly from their paths:
 // $features/calendar/components/CalendarPageView.svelte
@@ -42,3 +42,7 @@ export type { CalendarPageData } from './contexts/CalendarPageContext.svelte';
 // $features/calendar/components/DailyAssignmentModal.svelte
 // $features/calendar/components/MonthlyAssignmentPlanner.svelte
 // $features/calendar/components/LongRangeView.svelte
+
+export { CalendarStatusBadge } from '$lib/components/ui/calendar-status-badge';
+
+export type { CalendarOperationsPageAccess, CalendarSettingsPageAccess } from './contracts';

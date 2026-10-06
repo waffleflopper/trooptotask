@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { PersonnelDetailStreams, PersonnelFollowUp } from '$features/personnel/personnel-detail.types';
+import type { PersonnelFollowUp } from '$features/personnel/contracts';
+import type { PersonnelDetailStreams } from '$features/personnel/personnel-detail.types';
 import type { Personnel } from '../personnel.types';
 import { personnelStore } from '../stores/personnel.svelte';
 import { createPersonnelDetailWorkspace } from './personnelDetailWorkspace.svelte';

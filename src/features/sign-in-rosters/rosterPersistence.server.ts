@@ -1,29 +1,7 @@
-interface RosterFindOptions {
-	orderBy?: Array<{ column: string; ascending: boolean }>;
-	range?: { from: number; to: number };
-	count?: 'exact';
-	ilikeFilters?: Record<string, string>;
-	rangeFilters?: Array<{ column: string; op: 'gte' | 'lte'; value: string }>;
-}
-
-interface RequestStore {
-	findManyWithCount<T>(
-		table: string,
-		orgId: string,
-		filters?: Record<string, unknown>,
-		options?: RosterFindOptions
-	): Promise<{ data: T[]; count: number | null }>;
-	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
-	insert<T>(table: string, orgId: string, data: Record<string, unknown>): Promise<T>;
-	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
-	delete(table: string, orgId: string, id: string): Promise<void>;
-}
-
-export interface SignInRosterRecord extends Record<string, unknown> {
-	id: string;
-	title: string;
-	signed_file_path: string | null;
-}
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { ScopeSet } from '$lib/access/memberAccessShape';
+import type { SignInRoster } from './sign-in-rosters.types';
+import type { PreparedSignInRosterSnapshot } from './snapshot.server';
 
 export interface SignInRosterListInput {
 	title: string;
@@ -33,41 +11,138 @@ export interface SignInRosterListInput {
 	offset: number;
 }
 
+export interface SignInRosterCreateInput {
+	title: string;
+	rosterDate: unknown;
+	blankDate: unknown;
+	separateByGroup: unknown;
+	sortBy: PreparedSignInRosterSnapshot['sortBy'];
+	personnelSnapshot: PreparedSignInRosterSnapshot['personnelSnapshot'];
+	personnelIds: string[];
+	scopeGroupIds: string[];
+	filterConfig: PreparedSignInRosterSnapshot['filterConfig'];
+	createdBy: string;
+}
+
 export interface SignInRosterPersistence {
-	list(input: SignInRosterListInput): Promise<{ data: SignInRosterRecord[]; count: number | null }>;
-	find(id: string): Promise<SignInRosterRecord | null>;
-	create(data: Record<string, unknown>): Promise<SignInRosterRecord>;
+	list(input: SignInRosterListInput): Promise<{ data: SignInRoster[]; count: number | null }>;
+	find(id: string): Promise<SignInRoster | null>;
+	create(input: SignInRosterCreateInput): Promise<SignInRoster>;
 	setSignedFilePath(id: string, path: string | null): Promise<void>;
 	delete(id: string): Promise<void>;
 }
 
-/** Bind the owner's record operations to the request-scoped store and its Group rules. */
-export function createSignInRosterPersistence(store: RequestStore, orgId: string): SignInRosterPersistence {
+interface RosterRow {
+	id: string;
+	title: string;
+	roster_date: SignInRoster['rosterDate'];
+	blank_date: boolean;
+	separate_by_group: boolean;
+	sort_by: SignInRoster['sortBy'];
+	personnel_snapshot: SignInRoster['personnelSnapshot'];
+	filter_config: SignInRoster['filterConfig'];
+	signed_file_path: string | null;
+	created_by: string;
+	created_at: string;
+}
+
+const ROSTER_FIELDS =
+	'id,title,roster_date,blank_date,separate_by_group,sort_by,personnel_snapshot,filter_config,signed_file_path,created_by,created_at';
+
+function toRoster(row: RosterRow): SignInRoster {
 	return {
-		list(input) {
-			const options: RosterFindOptions = {
-				orderBy: [{ column: 'created_at', ascending: false }],
-				range: { from: input.offset, to: input.offset + input.limit - 1 },
-				count: 'exact'
-			};
-			if (input.title) options.ilikeFilters = { title: `%${input.title}%` };
-			const rangeFilters: NonNullable<typeof options.rangeFilters> = [];
-			if (input.from) rangeFilters.push({ column: 'created_at', op: 'gte', value: input.from });
-			if (input.to) rangeFilters.push({ column: 'created_at', op: 'lte', value: input.to + 'T23:59:59.999Z' });
-			if (rangeFilters.length) options.rangeFilters = rangeFilters;
-			return store.findManyWithCount<SignInRosterRecord>('sign_in_rosters', orgId, undefined, options);
+		id: row.id,
+		title: row.title,
+		rosterDate: row.roster_date,
+		blankDate: row.blank_date,
+		separateByGroup: row.separate_by_group,
+		sortBy: row.sort_by,
+		personnelSnapshot: row.personnel_snapshot,
+		filterConfig: row.filter_config,
+		signedFilePath: row.signed_file_path,
+		createdBy: row.created_by,
+		createdAt: row.created_at
+	};
+}
+
+export function createSupabaseSignInRosterPersistence(
+	client: SupabaseClient,
+	{ orgId, scopeSet }: { orgId: string; scopeSet: ScopeSet }
+): SignInRosterPersistence {
+	const groupIds = scopeSet.kind === 'groups' ? [...new Set(scopeSet.groupIds.filter(Boolean))] : null;
+
+	function read(count?: 'exact') {
+		let query = client
+			.from('sign_in_rosters')
+			.select(ROSTER_FIELDS, count ? { count } : undefined)
+			.eq('organization_id', orgId);
+		if (groupIds) query = query.containedBy('scope_group_ids', groupIds).not('scope_group_ids', 'eq', '{}');
+		return query;
+	}
+
+	return {
+		async list(input) {
+			if (groupIds?.length === 0) return { data: [], count: 0 };
+			let query = read('exact');
+			if (input.title) query = query.ilike('title', `%${input.title}%`);
+			if (input.from) query = query.gte('created_at', input.from);
+			if (input.to) query = query.lte('created_at', input.to + 'T23:59:59.999Z');
+			const { data, error, count } = await query
+				.order('created_at', { ascending: false })
+				.range(input.offset, input.offset + input.limit - 1);
+			if (error) throw new Error(error.message);
+			return { data: ((data ?? []) as RosterRow[]).map(toRoster), count: count ?? null };
 		},
-		find(id) {
-			return store.findOne<SignInRosterRecord>('sign_in_rosters', orgId, { id });
+		async find(id) {
+			if (groupIds?.length === 0) return null;
+			const query = read().eq('id', id);
+			if (groupIds) {
+				const { data, error } = await query.limit(1);
+				if (error) throw new Error(error.message);
+				return data?.[0] ? toRoster(data[0] as RosterRow) : null;
+			}
+			const { data, error } = await query.single();
+			if (error) {
+				if (error.code === 'PGRST116') return null;
+				throw new Error(error.message);
+			}
+			return data ? toRoster(data as RosterRow) : null;
 		},
-		create(data) {
-			return store.insert<SignInRosterRecord>('sign_in_rosters', orgId, data);
+		async create(input) {
+			const { data, error } = await client
+				.from('sign_in_rosters')
+				.insert({
+					organization_id: orgId,
+					title: input.title,
+					roster_date: input.rosterDate,
+					blank_date: input.blankDate,
+					separate_by_group: input.separateByGroup,
+					sort_by: input.sortBy,
+					personnel_snapshot: input.personnelSnapshot,
+					personnel_ids: input.personnelIds,
+					scope_group_ids: input.scopeGroupIds,
+					filter_config: input.filterConfig,
+					signed_file_path: null,
+					created_by: input.createdBy
+				})
+				.select(ROSTER_FIELDS)
+				.single();
+			if (error) throw new Error(error.message);
+			return toRoster(data as RosterRow);
 		},
 		async setSignedFilePath(id, path) {
-			await store.update('sign_in_rosters', orgId, id, { signed_file_path: path });
+			const { error } = await client
+				.from('sign_in_rosters')
+				.update({ signed_file_path: path })
+				.eq('organization_id', orgId)
+				.eq('id', id)
+				.select('id')
+				.single();
+			if (error) throw new Error(error.message);
 		},
-		delete(id) {
-			return store.delete('sign_in_rosters', orgId, id);
+		async delete(id) {
+			const { error } = await client.from('sign_in_rosters').delete().eq('organization_id', orgId).eq('id', id);
+			if (error) throw new Error(error.message);
 		}
 	};
 }

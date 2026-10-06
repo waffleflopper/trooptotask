@@ -1,5 +1,21 @@
+import type { ClientAffordance } from '$lib/access/clientAccess';
+import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
+
+export type PersonnelAffordance = Pick<ClientAffordance, 'allowed'>;
+
+/** Personnel consumes routing, scope and live advisory decisions from Delivery. */
+export interface PersonnelPageAccess {
+	readonly orgUrlSegment?: string;
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => PersonnelAffordance;
+}
+
+import type { OrganizationFileUploadRegistration } from '$features/organization/contracts';
 import { z } from 'zod';
-import type { CapabilityMap, ScopeSet } from '$lib/access/memberAccessShape';
+import type { OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type { Personnel, PersonnelLookup } from './personnel.types';
 import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
 
@@ -53,16 +69,7 @@ export interface SignInRosterPersonnelLookupPort {
 	findPersonnelForRosterSnapshot(orgId: string, personnelIds: string[]): Promise<SignInRosterPersonnelLookupRecord[]>;
 }
 
-/** Trusted request authorization facts; structurally matches the shared AuthContext. */
-export interface PersonnelRosterActor {
-	readonly userId: string;
-	readonly orgId: string;
-	readonly role: 'owner' | 'admin' | 'member';
-	readonly isPrivileged: boolean;
-	readonly canManageMembers: boolean;
-	readonly capabilityMap: CapabilityMap;
-	readonly scopeSet: ScopeSet;
-}
+export type PersonnelRosterActor = OrganizationAccessGrant;
 
 export interface PersonnelCalendarRosterPort {
 	listActive(actor: PersonnelRosterActor): Promise<Personnel[]>;
@@ -113,7 +120,7 @@ export interface PersonnelArtifactWriter {
 	delete(table: PersonnelArtifactTable, id: string): Promise<void>;
 	sumActiveDocumentBytes(): Promise<number>;
 	/** The server implementation accepts only a File after runtime validation. */
-	uploadFile(kind: 'counseling' | 'document', path: string, file: unknown): Promise<void>;
+	uploadFile(kind: 'counseling' | 'document', path: string, file: unknown): Promise<OrganizationFileUploadRegistration>;
 	removeFile(kind: 'counseling' | 'document', path: string): Promise<void>;
 }
 
@@ -335,3 +342,13 @@ export const personnelExtendedInfoInputSchema = z.object({
 	addressState: z.string().trim().max(80).optional().default(''),
 	addressZip: z.string().trim().max(20).optional().default('')
 });
+
+export type {
+	PersonnelCounselingRecord,
+	PersonnelDocument,
+	PersonnelFollowUpStatus,
+	PersonnelFollowUp,
+	PersonnelArchivedArtifact
+} from './personnelArtifact.types';
+
+export type { PersonnelSupportReader } from './supportReadTypes';

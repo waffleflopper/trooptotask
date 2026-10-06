@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, render, screen, within } from '@testing-library/svelte';
 import DashboardPageView from './DashboardPageView.svelte';
 import type { DashboardScreenModel } from '../read-model/dashboardScreenModel.svelte';
-import type { StarterConfigurationPackSupport } from '$lib/types/starterConfigurationPacks';
+import type { StarterConfigurationPackSupport } from '$features/dashboard/contracts';
 
 afterEach(() => {
 	cleanup();
@@ -154,6 +154,9 @@ describe('DashboardPageView', () => {
 	it('keeps saved Calendar assignments visible without presenting unavailable Training as current', () => {
 		const ctx = makeCtx({
 			trainingStats: null,
+			groupBreakdown: [
+				{ id: 'alpha', name: 'Clinic group', pct: 100, total: 1, available: 1, statusCounts: new Map() }
+			],
 			dutyForDays: () => [
 				{
 					date: '2026-09-21',
@@ -167,6 +170,9 @@ describe('DashboardPageView', () => {
 		expect(screen.getByText('Clinic Coverage')).toBeTruthy();
 		expect(screen.getByText('Alpha')).toBeTruthy();
 		expect(screen.queryByText('training current')).toBeNull();
+		const training = screen.getByRole('heading', { name: 'Training & Evaluations' }).closest('[data-slot="card"]')!;
+		expect(within(training as HTMLElement).queryByText('Clinic group')).toBeNull();
+		expect(screen.getByText('Clinic group')).toBeTruthy();
 	});
 
 	it('keeps Workspace Setup and its starter pack hidden even for an eligible owner', () => {
@@ -194,6 +200,23 @@ describe('DashboardPageView', () => {
 });
 
 describe('Dashboard Training attention', () => {
+	it.each([
+		{ total: 2, pct: 50 },
+		{ total: 8, pct: 88 }
+	])('renders Group Training currency independently of availability: $pct%', ({ total, pct }) => {
+		const ctx = makeCtx({
+			trainingStats: { expired: 1, warningOrange: 0, warningYellow: 0, current: 1 },
+			groupBreakdown: [{ id: 'alpha', name: 'Alpha', pct: 100, total, available: total, statusCounts: new Map() }],
+			trainingGroupDelinquencies: [
+				{ groupId: 'alpha', groupName: 'Alpha', count: 1, expiredPersonnelCount: 1, pct: 50 }
+			]
+		});
+		render(DashboardPageView, { props: { ctx } });
+		const training = screen.getByRole('heading', { name: 'Training & Evaluations' }).closest('[data-slot="card"]')!;
+		const group = within(training as HTMLElement).getByText('Alpha').parentElement!;
+		expect(within(group).getByText(`${pct}%`)).toBeTruthy();
+		expect(within(group).queryByText('100%')).toBeNull();
+	});
 	it('shows the distinct expired-person total and expired-only groups while retaining record warnings', () => {
 		const ctx = makeCtx({
 			trainingStats: { expired: 2, warningOrange: 1, warningYellow: 0, current: 1 },

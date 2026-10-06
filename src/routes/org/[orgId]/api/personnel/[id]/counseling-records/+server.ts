@@ -1,13 +1,15 @@
-import type { RequestEvent } from '@sveltejs/kit';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { fail } from '$lib/errors';
+import { createRequestPersonnelArtifactsContext } from '$lib/server/adapters/requestContexts.server';
+import type { RequestEvent } from '@sveltejs/kit';
+
+import type { PersonnelCounselingRecord } from '$features/personnel/contracts';
 import {
 	createPersonnelCounselingRecord,
 	listPersonnelCounselingRecords,
 	type PersonnelCounselingRecordInput
-} from '$lib/server/core/useCases/personnelCounselingRecords';
-import type { PersonnelCounselingRecord } from '$features/personnel/personnel-detail.types';
+} from '$features/personnel/index.server';
+import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/errors';
 
 function personnelIdFromEvent(event: RequestEvent): string {
 	const personnelId = event.params.id;
@@ -15,7 +17,12 @@ function personnelIdFromEvent(event: RequestEvent): string {
 	return personnelId;
 }
 
-export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelCounselingRecord[]> = {
+export const _getConfig: RouteConfig<
+	{ personnelId: string },
+	PersonnelCounselingRecord[],
+	ReturnType<typeof createRequestPersonnelArtifactsContext>
+> = {
+	context: createRequestPersonnelArtifactsContext,
 	policyAction: POLICY_ACTION_CATALOG.personnel.readSensitiveRecords,
 	policyResource: { kind: 'unscoped' },
 	parseInput: async (event: RequestEvent) => ({
@@ -24,7 +31,12 @@ export const _getConfig: RouteConfig<{ personnelId: string }, PersonnelCounselin
 	fn: (ctx, input) => listPersonnelCounselingRecords(ctx, input.personnelId)
 };
 
-export const _postConfig: RouteConfig<PersonnelCounselingRecordInput, PersonnelCounselingRecord> = {
+export const _postConfig: RouteConfig<
+	PersonnelCounselingRecordInput,
+	PersonnelCounselingRecord,
+	ReturnType<typeof createRequestPersonnelArtifactsContext>
+> = {
+	context: createRequestPersonnelArtifactsContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },

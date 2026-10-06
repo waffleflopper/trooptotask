@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { RankCategory, RankPayGrade, RankService, RankState } from '$features/personnel/contracts';
-import { buildRouteContext } from '$lib/server/adapters/httpAdapter';
+import { buildRouteRequest, createRequestDataContext } from '$lib/server/adapters/requestContexts.server';
 import { createSupabaseRankCatalogAdministrationPort } from '$features/personnel/index.server';
 import { fail } from '$lib/errors';
 import {
@@ -15,13 +15,14 @@ import {
 import { toActionFailure } from '../settingsActionFailure.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 import { loadRanksSettings } from '../settingsRanks.server';
+import { createSettingsRanksContext } from '../settingsRequestContexts.server';
 import { listTrainingRankApplicabilityReferences } from '$features/training/index.server';
 
 const PG_INTEGER_MIN = -2_147_483_648;
 const PG_INTEGER_MAX = 2_147_483_647;
 
 export const load: PageServerLoad = (event) =>
-	loadSettingsPage(event, async (ctx) => ({
+	loadSettingsPage(event, createSettingsRanksContext, async (ctx) => ({
 		ranksSettings: await loadRanksSettings(ctx)
 	}));
 
@@ -32,7 +33,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createRequestDataContext(await buildRouteRequest(event));
 			const result = await addOrganizationRankServicePack(ctx, {
 				service: getStringFormValue(formData, 'service') as RankService
 			});
@@ -53,7 +54,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createRequestDataContext(await buildRouteRequest(event));
 			const service = getStringFormValue(formData, 'service') as RankService;
 			const targetState = getStringFormValue(formData, 'targetState') as RankState;
 			if (targetState !== 'active' && targetState !== 'retired') {
@@ -79,7 +80,7 @@ export const actions: Actions = {
 
 		const formData = await request.formData();
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createRequestDataContext(await buildRouteRequest(event));
 			const code = getStringFormValue(formData, 'code');
 			const originalCode = getStringFormValue(formData, 'originalCode');
 			const intent = getRankSaveIntent(formData);
@@ -111,7 +112,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const code = getStringFormValue(formData, 'code');
 		try {
-			await retireOrganizationRankCatalogEntry(await buildRouteContext(event), { code });
+			await retireOrganizationRankCatalogEntry(createRequestDataContext(await buildRouteRequest(event)), { code });
 			return { success: true, code };
 		} catch (error) {
 			return toActionFailure('rankError', error);
@@ -125,7 +126,7 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const code = getStringFormValue(formData, 'code');
 		try {
-			await reactivateOrganizationRankCatalogEntry(await buildRouteContext(event), { code });
+			await reactivateOrganizationRankCatalogEntry(createRequestDataContext(await buildRouteRequest(event)), { code });
 			return { success: true, code };
 		} catch (error) {
 			return toActionFailure('rankError', error);
@@ -139,14 +140,15 @@ export const actions: Actions = {
 		const formData = await request.formData();
 		const code = getStringFormValue(formData, 'code');
 		try {
-			const ctx = await buildRouteContext(event);
+			const ctx = createSettingsRanksContext(await buildRouteRequest(event));
 			await removeOrganizationRankCatalogEntry(
 				{
 					...ctx,
 					rankCatalogAdministration: createSupabaseRankCatalogAdministrationPort()
 				},
 				{ code },
-				() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId)
+				() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId),
+				ctx.readSignInRosterRankReferences
 			);
 			return { success: true, code };
 		} catch (error) {

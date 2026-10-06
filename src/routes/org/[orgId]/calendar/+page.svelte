@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { getAccountPreferencesContext } from '$features/identity';
 	import { CalendarPageContext } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import { CalendarRangeCoordinator } from '$features/calendar/contexts/CalendarRangeCoordinator.svelte';
 	import type { CalendarPageData } from '$features/calendar/contexts/CalendarPageContext.svelte';
 	import type { CalendarWorkspaceResult } from '$features/calendar/server/calendarWorkspaceBootstrap';
-	import { getOrgContext } from '$lib/stores/orgContext.svelte';
+	import { getAppShellContext } from '$features/app-shell';
 	import { calendarStore } from '$features/calendar/stores/calendar.svelte';
 	import { buildCalendarAnchorCookie } from '$features/calendar/utils/calendarAnchorDate';
 	import CalendarPageView from '$features/calendar/components/CalendarPageView.svelte';
@@ -14,7 +15,8 @@
 
 	let { data } = $props();
 
-	const org = getOrgContext();
+	const org = getAppShellContext();
+	const preferences = getAccountPreferencesContext();
 	const rangeCoordinator = new CalendarRangeCoordinator();
 	const shell = $derived(data.shell.kind === 'ready' ? data.shell : null);
 	let calendarBootstrap = $state<CalendarWorkspaceResult | null>(null);
@@ -94,7 +96,6 @@
 			orgId: data.shell.org.id,
 			orgName: data.shell.org.name,
 			userId: shell?.user.id ?? null,
-			userPreferences: shell?.preferences,
 			calendar: calendarBootstrap
 				? {
 						data: {
@@ -110,7 +111,12 @@
 		orgUrlSegment: data.shell.org.urlSegment,
 		orgName: pageData.orgName ?? 'Troop to Task'
 	}));
-	const ctx = new CalendarPageContext(() => pageData, org);
+	const ctx = new CalendarPageContext(
+		() => pageData,
+		org,
+		(patch) => preferences.patch({ calendar: patch })
+	);
+	ctx.syncUserPreferences(untrack(() => preferences.value.calendar));
 	let activeAccessKey: string | null = null;
 
 	$effect(() => {
@@ -135,11 +141,8 @@
 	});
 
 	$effect(() => {
-		const preferences = pageData.userPreferences;
-		untrack(() => ctx.syncUserPreferences(preferences));
-	});
-	$effect(() => {
-		ctx.markCalendarVisited();
+		const calendarPreferences = preferences.value.calendar;
+		untrack(() => ctx.syncUserPreferences(calendarPreferences));
 	});
 </script>
 

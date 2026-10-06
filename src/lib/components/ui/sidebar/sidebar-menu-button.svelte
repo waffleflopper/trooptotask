@@ -55,6 +55,23 @@
 
 	const sidebar = useSidebar();
 
+	function closeMobileNavigation(event: MouseEvent) {
+		if (
+			!sidebar.isMobile ||
+			event.button !== 0 ||
+			event.metaKey ||
+			event.ctrlKey ||
+			event.shiftKey ||
+			event.altKey ||
+			event.defaultPrevented ||
+			!(event.currentTarget instanceof HTMLAnchorElement) ||
+			!event.currentTarget.hasAttribute('href')
+		) {
+			return;
+		}
+		sidebar.setOpenMobile(false);
+	}
+
 	const buttonProps = $derived({
 		class: cn(sidebarMenuButtonVariants({ variant, size }), className),
 		'data-slot': 'sidebar-menu-button',
@@ -66,7 +83,7 @@
 </script>
 
 {#snippet Button({ props }: { props?: Record<string, unknown> })}
-	{@const mergedProps = mergeProps(buttonProps, props)}
+	{@const mergedProps = mergeProps(buttonProps, props, { onclick: closeMobileNavigation })}
 	{#if child}
 		{@render child({ props: mergedProps })}
 	{:else}
@@ -76,7 +93,7 @@
 	{/if}
 {/snippet}
 
-{#if !tooltipContent}
+{#if !tooltipContent || sidebar.state !== 'collapsed' || sidebar.isMobile}
 	{@render Button({})}
 {:else}
 	<Tooltip.Root>
@@ -85,12 +102,7 @@
 				{@render Button({ props })}
 			{/snippet}
 		</Tooltip.Trigger>
-		<Tooltip.Content
-			side="right"
-			align="center"
-			hidden={sidebar.state !== 'collapsed' || sidebar.isMobile}
-			{...tooltipContentProps}
-		>
+		<Tooltip.Content side="right" align="center" {...tooltipContentProps}>
 			{#if typeof tooltipContent === 'string'}
 				{tooltipContent}
 			{:else if tooltipContent}

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import type { PersonnelGovernanceDeletionPort } from './contracts';
 import { artifactFileTarget } from './artifactWrites.server';
 
@@ -9,7 +10,13 @@ function fail(status: number, message: string): never {
 
 /** An Organization reviewer can delete exactly one of its counseling records. */
 export function createSupabasePersonnelGovernanceDeletionPort(
-	getAdminClient: () => SupabaseClient
+	getAdminClient: () => SupabaseClient,
+	requirePending: (
+		orgId: string,
+		requestId: string,
+		resourceType: 'counseling_record',
+		resourceId: string
+	) => Promise<void>
 ): PersonnelGovernanceDeletionPort {
 	return {
 		async deleteApprovedCounselingRecord(actor, requestId, recordId, reviewedAt) {
@@ -24,16 +31,8 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 			if (!actor.userId || !actor.orgId || !decision.allowed) fail(403, 'Deletion review access denied');
 
 			const admin = getAdminClient();
-			const [{ data: request, error: requestError }, { data: row, error: readError }] = await Promise.all([
-				admin
-					.from('deletion_requests')
-					.select('id')
-					.eq('organization_id', actor.orgId)
-					.eq('id', requestId)
-					.eq('status', 'pending')
-					.eq('resource_type', 'counseling_record')
-					.eq('resource_id', recordId)
-					.maybeSingle(),
+			const [, { data: row, error: readError }] = await Promise.all([
+				requirePending(actor.orgId, requestId, 'counseling_record', recordId),
 				admin
 					.from('counseling_records')
 					.select('personnel_id,file_path')
@@ -41,15 +40,12 @@ export function createSupabasePersonnelGovernanceDeletionPort(
 					.eq('id', recordId)
 					.maybeSingle()
 			]);
-			if (requestError) throw new Error(requestError.message);
-			if (!request) fail(404, 'Pending deletion request not found');
 			if (readError) throw new Error(readError.message);
 			if (!row) fail(404, 'Counseling record not found');
 
 			if (row.file_path) {
 				const bucket = artifactFileTarget('counseling', actor.orgId, row.personnel_id, row.file_path);
-				const { error: storageError } = await admin.storage.from(bucket).remove([row.file_path]);
-				if (storageError) throw new Error(`Storage remove failed: ${storageError.message}`);
+				await createSupabaseStorageAdapter(admin).remove(bucket, [row.file_path]);
 			}
 
 			const { error } = await admin.rpc('approve_counseling_deletion_request', {

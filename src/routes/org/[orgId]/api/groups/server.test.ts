@@ -23,7 +23,7 @@ describe('/api/groups', () => {
 				scopeSet: { kind: 'organization' }
 			}
 		});
-		const created = await handleUseCaseRequest(_postConfig, ctx, { name: 'Alpha' });
+		const created = await handleUseCaseRequest(_postConfig, ctx, { name: 'Alpha' }, () => ctx);
 		expect(created).toMatchObject({ id: expect.any(String), name: 'Alpha', sortOrder: 0 });
 		expect(await ctx.store.findMany('groups', ctx.auth.orgId)).toMatchObject([
 			{ organization_id: ctx.auth.orgId, name: 'Alpha', sort_order: 0 }
@@ -34,13 +34,15 @@ describe('/api/groups', () => {
 			{ id: groupId, organization_id: 'other-org', name: 'Other', sort_order: 1 }
 		]);
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'After', sortOrder: 2 })
+			handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'After', sortOrder: 2 }, () => ctx)
 		).resolves.toMatchObject({
 			id: groupId,
 			name: 'After',
 			sortOrder: 2
 		});
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: groupId })).resolves.toEqual({ success: true });
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: groupId }, () => ctx)).resolves.toEqual({
+			success: true
+		});
 		expect(await ctx.store.findOne('groups', ctx.auth.orgId, { id: groupId })).toBeNull();
 		expect(await ctx.store.findOne('groups', 'other-org', { id: groupId })).toMatchObject({ name: 'Other' });
 		expect(ctx.auditPort.events).toEqual([
@@ -53,11 +55,11 @@ describe('/api/groups', () => {
 	it('rejects invalid names, order and delete IDs without a Group write', async () => {
 		const ctx = createTestContext();
 		for (const request of [
-			() => handleUseCaseRequest(_postConfig, ctx, { name: '' }),
-			() => handleUseCaseRequest(_postConfig, ctx, { name: 'A', sortOrder: 1.5 }),
-			() => handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'B'.repeat(101) }),
-			() => handleUseCaseRequest(_deleteConfig, ctx, {}),
-			() => handleUseCaseRequest(_deleteConfig, ctx, { id: 'not-a-uuid' })
+			() => handleUseCaseRequest(_postConfig, ctx, { name: '' }, () => ctx),
+			() => handleUseCaseRequest(_postConfig, ctx, { name: 'A', sortOrder: 1.5 }, () => ctx),
+			() => handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'B'.repeat(101) }, () => ctx),
+			() => handleUseCaseRequest(_deleteConfig, ctx, {}, () => ctx),
+			() => handleUseCaseRequest(_deleteConfig, ctx, { id: 'not-a-uuid' }, () => ctx)
 		]) {
 			await expect(request()).rejects.toMatchObject({ status: 400 });
 		}
@@ -82,9 +84,9 @@ describe('/api/groups', () => {
 			}
 		});
 		for (const run of [
-			() => handleUseCaseRequest(_postConfig, ctx, { id: groupId, name: 'Denied' }),
-			() => handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'Denied' }),
-			() => handleUseCaseRequest(_deleteConfig, ctx, { id: groupId, name: 'Denied' })
+			() => handleUseCaseRequest(_postConfig, ctx, { id: groupId, name: 'Denied' }, () => ctx),
+			() => handleUseCaseRequest(_putConfig, ctx, { id: groupId, name: 'Denied' }, () => ctx),
+			() => handleUseCaseRequest(_deleteConfig, ctx, { id: groupId, name: 'Denied' }, () => ctx)
 		]) {
 			await expect(run()).rejects.toMatchObject({
 				status: 403

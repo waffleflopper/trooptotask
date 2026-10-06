@@ -64,47 +64,6 @@ function createInvitationLookupBuilder() {
 	return { builder, calls };
 }
 
-function createMembershipRemovalBuilder(result: { data: unknown[] | null; error: { message: string } | null }) {
-	const calls: Call[] = [];
-
-	function track(method: string) {
-		return (...args: unknown[]) => {
-			calls.push({ method, args });
-			return builder;
-		};
-	}
-
-	const builder: Record<string, unknown> = {
-		delete: track('delete'),
-		eq: track('eq'),
-		select: (...args: unknown[]) => {
-			calls.push({ method: 'select', args });
-			return result;
-		}
-	};
-
-	return { builder, calls };
-}
-
-function createMembershipUpdateBuilder(result: { error: { message: string } | null }) {
-	const calls: Call[] = [];
-	let eqCount = 0;
-
-	const builder: Record<string, unknown> = {
-		update: (...args: unknown[]) => {
-			calls.push({ method: 'update', args });
-			return builder;
-		},
-		eq: (...args: unknown[]) => {
-			calls.push({ method: 'eq', args });
-			eqCount += 1;
-			return eqCount >= 2 ? result : builder;
-		}
-	};
-
-	return { builder, calls };
-}
-
 function createInvitationInsertBuilder(result: {
 	data?: { id: string; created_at?: string } | null;
 	error: { message: string } | null;
@@ -1313,117 +1272,6 @@ describe('createSupabaseOrgSettingsMemberManagementPort', () => {
 		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'membership-1'] });
 		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
 	});
-
-	it('updates memberships through replacement member-access storage only', async () => {
-		const { builder, calls } = createMembershipUpdateBuilder({ error: null });
-		const supabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort({
-			supabase
-		} as never);
-
-		await expect(
-			port.updateMembership({
-				organizationId: 'org-1',
-				membershipId: 'membership-1',
-				role: 'member',
-				memberPreset: 'operator',
-				capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
-				accessScopeKind: 'groups',
-				accessScopeGroupIds: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
-			})
-		).resolves.toBeNull();
-
-		expect(supabase.from).toHaveBeenCalledWith('organization_memberships');
-		expect(calls).toEqual([
-			{
-				method: 'update',
-				args: [
-					{
-						role: 'member',
-						member_preset: 'operator',
-						capability_overrides: { calendar: 'configure', ratingScheme: 'none' },
-						access_scope_kind: 'groups',
-						access_scope_group_ids: ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222']
-					}
-				]
-			},
-			{ method: 'eq', args: ['id', 'membership-1'] },
-			{ method: 'eq', args: ['organization_id', 'org-1'] }
-		]);
-	});
-
-	it('removes memberships with the admin client and verifies a row was deleted', async () => {
-		const { builder, calls } = createMembershipRemovalBuilder({
-			data: [{ id: 'membership-1' }],
-			error: null
-		});
-		const supabase = {
-			from: vi.fn()
-		};
-		const adminSupabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase
-			} as never,
-			{
-				getAdminClient: () => adminSupabase as never
-			}
-		);
-
-		const result = await port.removeMembership('org-1', 'membership-1');
-
-		expect(result).toBeNull();
-		expect(supabase.from).not.toHaveBeenCalled();
-		expect(adminSupabase.from).toHaveBeenCalledWith('organization_memberships');
-		expect(calls).toContainEqual({ method: 'delete', args: [] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['id', 'membership-1'] });
-		expect(calls).toContainEqual({ method: 'eq', args: ['organization_id', 'org-1'] });
-		expect(calls).toContainEqual({ method: 'select', args: ['id'] });
-	});
-
-	it('reports failure when a membership removal deletes no rows', async () => {
-		const { builder } = createMembershipRemovalBuilder({
-			data: [],
-			error: null
-		});
-		const adminSupabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{
-				getAdminClient: () => adminSupabase as never
-			}
-		);
-
-		await expect(port.removeMembership('org-1', 'membership-1')).resolves.toBe('Membership could not be removed');
-	});
-
-	it('reports provider errors when membership removal fails', async () => {
-		const { builder } = createMembershipRemovalBuilder({
-			data: null,
-			error: { message: 'delete blocked' }
-		});
-		const adminSupabase = {
-			from: vi.fn(() => builder)
-		};
-		const port = createSupabaseOrgSettingsMemberManagementPort(
-			{
-				supabase: { from: vi.fn() }
-			} as never,
-			{
-				getAdminClient: () => adminSupabase as never
-			}
-		);
-
-		await expect(port.removeMembership('org-1', 'membership-1')).resolves.toBe('delete blocked');
-	});
 });
 
 describe('invitation approval provenance', () => {
@@ -1580,4 +1428,220 @@ describe('invitation Organization isolation', () => {
 		expect(rows[0]).toMatchObject({ id: 'failed', status: 'blocked', blocked_by: 'owner-a' });
 		expect(rows.slice(1)).toEqual(before.slice(1));
 	});
+});
+
+// Interprets PostgREST's documented equality filters against independently stored
+// rows. It does not return an arranged success for a particular query chain.
+function membershipCohort(
+	options: {
+		initialRole?: 'member' | 'admin';
+		beforeWrite?: (rows: Array<Record<string, unknown>>) => void;
+		acknowledgement?: unknown;
+		failure?: 'provider' | 'transport';
+	} = {}
+) {
+	const rows: Array<Record<string, unknown>> = [
+		{
+			id: '11111111-1111-4111-8111-111111111111',
+			organization_id: 'org-a',
+			role: options.initialRole ?? 'member',
+			member_preset: 'viewer',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		},
+		{
+			id: '22222222-2222-4222-8222-222222222222',
+			organization_id: 'org-a',
+			role: 'owner',
+			member_preset: 'editor',
+			capability_overrides: {},
+			access_scope_kind: 'organization',
+			access_scope_group_ids: []
+		},
+		{
+			id: '33333333-3333-4333-8333-333333333333',
+			organization_id: 'org-b',
+			role: 'member',
+			member_preset: 'operator',
+			capability_overrides: { training: 'none' },
+			access_scope_kind: 'groups',
+			access_scope_group_ids: ['group-b']
+		}
+	];
+	const requests: Array<{ authority: 'ordinary' | 'admin'; method: string }> = [];
+	const client = (authority: 'ordinary' | 'admin') =>
+		createClient('http://localhost:9', `synthetic-${authority}-key`, {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input, init) => {
+					const request = new Request(input, init);
+					const url = new URL(request.url);
+					expect(url.pathname).toBe('/rest/v1/organization_memberships');
+					requests.push({ authority, method: request.method });
+					if (options.failure === 'transport') throw new Error('private transport detail');
+					if (options.failure === 'provider')
+						return Response.json(
+							{ code: '42501', message: 'private SQL detail', details: 'private credential' },
+							{ status: 403 }
+						);
+					options.beforeWrite?.(rows);
+					const selected = rows.filter((row) =>
+						['id', 'organization_id', 'role'].every((field) => {
+							const filter = url.searchParams.get(field);
+							if (filter === null) return true;
+							if (!filter.startsWith('eq.')) throw new Error('Fixture supports documented equality filters only');
+							return field === 'id'
+								? String(row.id).toLowerCase() === filter.slice(3).toLowerCase()
+								: row[field] === filter.slice(3);
+						})
+					);
+					if (request.method === 'PATCH') {
+						const changes = await request.json();
+						for (const row of selected) Object.assign(row, changes);
+					} else if (request.method === 'DELETE') for (const row of selected) rows.splice(rows.indexOf(row), 1);
+					else throw new Error('Unexpected mutation method');
+					return Response.json(
+						'acknowledgement' in options ? options.acknowledgement : selected.map((row) => ({ id: row.id }))
+					);
+				}
+			}
+		});
+	const port = createSupabaseOrgSettingsMemberManagementPort(
+		{ supabase: client('ordinary') },
+		{ getAdminClient: () => client('admin') }
+	);
+	return { rows, requests, port };
+}
+
+const guardedMembershipId = '11111111-1111-4111-8111-111111111111';
+function mutateMembership(
+	port: ReturnType<typeof membershipCohort>['port'],
+	method: 'update' | 'remove',
+	expectedRole: 'member' | 'admin',
+	membershipId = guardedMembershipId
+) {
+	return method === 'remove'
+		? port.removeMembership('org-a', membershipId, expectedRole)
+		: port.updateMembership({
+				organizationId: 'org-a',
+				membershipId,
+				expectedRole,
+				role: 'member',
+				memberPreset: 'operator',
+				capabilityOverrides: { calendar: 'configure', ratingScheme: 'none' },
+				accessScopeKind: 'groups',
+				accessScopeGroupIds: ['44444444-4444-4444-8444-444444444444']
+			});
+}
+
+describe('ordinary membership role and acknowledgement guards', () => {
+	it('acknowledges the exact UUID independently of its submitted letter case', async () => {
+		const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+		for (const method of ['update', 'remove'] as const) {
+			const { port, rows } = membershipCohort();
+			rows[0].id = id;
+			expect(await mutateMembership(port, method, 'member', id.toUpperCase())).toBeNull();
+			if (method === 'update') expect(rows[0]).toMatchObject({ id, member_preset: 'operator' });
+			else expect(rows.some((row) => row.id === id)).toBe(false);
+		}
+	});
+	it.each(['member', 'admin'] as const)('allows acknowledged %s mutations and preserves the cohort', async (role) => {
+		for (const method of ['update', 'remove'] as const) {
+			const { port, rows, requests } = membershipCohort({ initialRole: role });
+			const neighbors = structuredClone(rows.slice(1));
+			expect(await mutateMembership(port, method, role)).toBeNull();
+			expect(rows.filter((row) => row.id !== guardedMembershipId)).toEqual(neighbors);
+			if (method === 'update')
+				expect(rows[0]).toEqual({
+					id: guardedMembershipId,
+					organization_id: 'org-a',
+					role: 'member',
+					member_preset: 'operator',
+					capability_overrides: { calendar: 'configure', ratingScheme: 'none' },
+					access_scope_kind: 'groups',
+					access_scope_group_ids: ['44444444-4444-4444-8444-444444444444']
+				});
+			else expect(rows.some((row) => row.id === guardedMembershipId)).toBe(false);
+			expect(requests).toEqual([
+				{ authority: method === 'remove' ? 'admin' : 'ordinary', method: method === 'remove' ? 'DELETE' : 'PATCH' }
+			]);
+		}
+	});
+	it.each([
+		['member', 'owner'],
+		['member', 'admin'],
+		['admin', 'owner'],
+		['admin', 'member']
+	] as const)('refuses final writes when the authorized %s becomes %s', async (expectedRole, lateRole) => {
+		for (const method of ['update', 'remove'] as const) {
+			const { port, rows } = membershipCohort({
+				initialRole: expectedRole,
+				beforeWrite: (cohort) => {
+					Object.assign(cohort[0], {
+						role: lateRole,
+						member_preset: lateRole === 'member' ? 'operator' : 'editor',
+						capability_overrides: {},
+						access_scope_kind: 'organization',
+						access_scope_group_ids: []
+					});
+				}
+			});
+			const expected = structuredClone(rows);
+			Object.assign(expected[0], {
+				role: lateRole,
+				member_preset: lateRole === 'member' ? 'operator' : 'editor',
+				capability_overrides: {},
+				access_scope_kind: 'organization',
+				access_scope_group_ids: []
+			});
+			expect(await mutateMembership(port, method, expectedRole)).toBe(
+				method === 'remove' ? 'Membership could not be removed' : 'Membership access could not be updated'
+			);
+			expect(rows).toEqual(expected);
+		}
+	});
+	it.each(['update', 'remove'] as const)('cannot %s a foreign or absent membership', async (method) => {
+		const { port, rows } = membershipCohort();
+		const before = structuredClone(rows);
+		for (const membershipId of ['33333333-3333-4333-8333-333333333333', '55555555-5555-4555-8555-555555555555']) {
+			expect(await mutateMembership(port, method, 'member', membershipId)).not.toBeNull();
+			expect(rows).toEqual(before);
+		}
+	});
+	it.each([
+		null,
+		[],
+		[{ id: '33333333-3333-4333-8333-333333333333' }],
+		[{ id: guardedMembershipId }, { id: guardedMembershipId }],
+		{ id: guardedMembershipId }
+	])('does not acknowledge unexpected selected rows %#', async (acknowledgement) => {
+		for (const method of ['update', 'remove'] as const) {
+			const { port } = membershipCohort({ acknowledgement });
+			expect(await mutateMembership(port, method, 'member')).toBe(
+				method === 'remove' ? 'Membership could not be removed' : 'Membership access could not be updated'
+			);
+		}
+	});
+	it.each(['provider', 'transport'] as const)('reports safe %s failure without changing records', async (failure) => {
+		for (const method of ['update', 'remove'] as const) {
+			const { port, rows } = membershipCohort({ failure });
+			const before = structuredClone(rows);
+			expect(await mutateMembership(port, method, 'member')).toBe(
+				method === 'remove' ? 'Membership could not be removed' : 'Membership access could not be updated'
+			);
+			expect(rows).toEqual(before);
+		}
+	});
+	it.each(['owner', null, 'unknown'])(
+		'rejects a noneditable expected role %# before a provider request',
+		async (role) => {
+			const { port, rows, requests } = membershipCohort();
+			const before = structuredClone(rows);
+			for (const method of ['update', 'remove'] as const)
+				expect(await mutateMembership(port, method, role as never)).not.toBeNull();
+			expect(requests).toEqual([]);
+			expect(rows).toEqual(before);
+		}
+	);
 });

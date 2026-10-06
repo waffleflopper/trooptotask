@@ -1,3 +1,5 @@
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { onboardingStore } from '../stores/onboarding.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
@@ -13,18 +15,11 @@ vi.mock('$app/navigation', () => ({
 	invalidateAll: vi.fn()
 }));
 
-import {
-	OnboardingPageContext,
-	getProgress,
-	isStepDeprecated,
-	isTrainingStepComplete,
-	getPaperworkStageIndex,
-	formatTimestamp
-} from './OnboardingPageContext.svelte';
+import { OnboardingPageContext, getProgress, formatTimestamp } from './OnboardingPageContext.svelte';
 import type { PersonnelOnboarding, OnboardingStepProgress } from '../onboarding.types';
 import { personnelRosterHydration } from '$features/personnel';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
+import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 
 afterEach(() => {
 	personnelRosterHydration.load([], 'org-test-reset');
@@ -68,56 +63,339 @@ function makeOnboarding(overrides: Partial<PersonnelOnboarding> = {}): Personnel
 }
 
 const baseCapabilityMap: CapabilityMap = {
-	...NONE_TEST_CAPABILITY_MAP,
+	...createCapabilityMap('none'),
 	personnel: 'view',
 	onboarding: 'operate'
 };
 
 function makeOrgContext(capabilityMap: CapabilityMap = baseCapabilityMap) {
-	return createTestOrgContext({
+	return {
 		orgId: 'org-1',
-		userRole: 'member',
-		capabilityMap,
-		scopeSet: { kind: 'groups', groupIds: ['g-1'] }
-	});
+		orgUrlSegment: 'org-1',
+		...createClientAccess({ membershipRole: 'member', capabilityMap, scopeSet: { kind: 'groups', groupIds: ['g-1'] } })
+	};
 }
 
-describe('Onboarding Personnel creation result', () => {
-	it('keeps a failed note draft and clears it only after a confirmed retry', async () => {
-		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
-		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
-		ctx.noteInputs['step-1'] = ' Retained note ';
-		const save = vi.spyOn(onboardingStore, 'addNote').mockResolvedValueOnce(false).mockResolvedValueOnce(true);
-		const feedback = vi.spyOn(toastStore, 'error');
-		await ctx.handleAddNote(makeStep());
-		expect(ctx.noteInputs['step-1']).toBe(' Retained note ');
-		expect(feedback).toHaveBeenCalledWith(expect.any(String));
-		await ctx.handleAddNote(makeStep());
-		expect(ctx.noteInputs['step-1']).toBe('');
-		expect(save.mock.calls).toEqual([
-			['step-1', 'Retained note'],
-			['step-1', 'Retained note']
-		]);
+function deferredResponse() {
+	let respond!: (response: Response) => void;
+	const promise = new Promise<Response>((resolve) => {
+		respond = resolve;
 	});
+	return { promise, respond };
+}
 
-	it('keeps a newer note draft when an earlier submission succeeds', async () => {
-		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
-		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
-		ctx.noteInputs['step-1'] = 'First note';
-		let confirm!: (saved: boolean) => void;
-		vi.spyOn(onboardingStore, 'addNote').mockImplementation(
-			() =>
-				new Promise<boolean>((resolve) => {
-					confirm = resolve;
+describe('Onboarding reconciliation draft lifetime', () => {
+	it.each([
+		['switch', 200, false],
+		['switch', 503, false],
+		['assign', 200, false],
+		['assign', 503, false],
+		['switch', 200, true],
+		['switch', 503, true],
+		['assign', 200, true],
+		['assign', 503, true]
+	] as const)(
+		'keeps a reopened %s draft independent of earlier response %s with new submission pending=%s',
+		async (kind, status, newRequestPending) => {
+			onboardingStore.load([makeOnboarding({ templateId: kind === 'assign' ? null : 'tpl-1' })], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const draft =
+				kind === 'switch'
+					? {
+							open: () => ctx.openSwitchTemplate('ob-1'),
+							close: () => ctx.closeSwitchTemplate(),
+							select: (id: string) => (ctx.switchTemplateSelected = id),
+							submit: () => ctx.handleSwitchTemplate(),
+							state: () => ({
+								id: ctx.switchingTemplateId,
+								selected: ctx.switchTemplateSelected,
+								pending: ctx.switchingTemplate,
+								error: ctx.switchTemplateError
+							})
+						}
+					: {
+							open: () => ctx.openAssignTemplate('ob-1'),
+							close: () => ctx.closeAssignTemplate(),
+							select: (id: string) => (ctx.assignTemplateSelected = id),
+							submit: () => ctx.handleAssignTemplate(),
+							state: () => ({
+								id: ctx.assigningTemplateId,
+								selected: ctx.assignTemplateSelected,
+								pending: ctx.assigningTemplate,
+								error: ctx.assignTemplateError
+							})
+						};
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal(
+				'fetch',
+				vi
+					.fn()
+					.mockReturnValueOnce(oldResponse.promise)
+					.mockReturnValueOnce(newResponse.promise)
+					.mockResolvedValueOnce(Response.json({ templateId: 'tpl-a', steps: [] }))
+			);
+			draft.open();
+			draft.select('tpl-b');
+			const older = draft.submit();
+			draft.close();
+			draft.open();
+			draft.select('tpl-a');
+			expect.soft(draft.state()).toEqual({ id: 'ob-1', selected: 'tpl-a', pending: false, error: '' });
+			let newer = newRequestPending ? draft.submit() : undefined;
+			oldResponse.respond(
+				Response.json(status === 200 ? { templateId: 'tpl-b', steps: [] } : { message: 'Earlier selection failed' }, {
+					status
 				})
+			);
+			await older;
+			expect.soft(draft.state()).toEqual({ id: 'ob-1', selected: 'tpl-a', pending: newRequestPending, error: '' });
+			newer ??= draft.submit();
+			newResponse.respond(Response.json({ message: 'New selection failed' }, { status: 503 }));
+			await newer;
+			expect(draft.state()).toEqual({ id: 'ob-1', selected: 'tpl-a', pending: false, error: 'New selection failed' });
+			expect(onboardingStore.getById('ob-1')?.templateId).toBe(
+				status === 200 ? 'tpl-b' : kind === 'assign' ? null : 'tpl-1'
+			);
+
+			await draft.submit();
+			expect(draft.state()).toEqual({ id: null, selected: 'tpl-a', pending: false, error: '' });
+			expect(onboardingStore.getById('ob-1')?.templateId).toBe('tpl-a');
+		}
+	);
+
+	it.each(['same-organization-load', 'disposed', 'organization-return'] as const)(
+		'preserves current response admission for %s',
+		async (lifetime) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const response = deferredResponse();
+			vi.stubGlobal('fetch', () => response.promise);
+			ctx.openSwitchTemplate('ob-1');
+			ctx.switchTemplateSelected = 'tpl-b';
+			const pending = ctx.handleSwitchTemplate();
+			if (lifetime === 'same-organization-load') onboardingStore.load([makeOnboarding()], 'org-1');
+			else if (lifetime === 'disposed') ctx.dispose();
+			else {
+				onboardingStore.enterOrganization('org-2');
+				onboardingStore.load([makeOnboarding()], 'org-1');
+			}
+			response.respond(Response.json({ templateId: 'tpl-b', steps: [] }));
+			await pending;
+			expect(ctx.switchingTemplateId).toBe(lifetime === 'same-organization-load' ? null : 'ob-1');
+			expect(ctx.switchingTemplate).toBe(lifetime !== 'same-organization-load');
+			expect(ctx.switchTemplateError).toBe('');
+		}
+	);
+});
+
+describe('Onboarding Re-sync feedback lifetime', () => {
+	it.each(['older-first', 'older-last'] as const)(
+		'keeps each packet failure when overlapping delivery is %s',
+		async (order) => {
+			onboardingStore.load([makeOnboarding(), makeOnboarding({ id: 'ob-2', personnelId: 'p-2' })], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+			const older = ctx.handleResync('ob-1');
+			const newer = ctx.handleResync('ob-2');
+			if (order === 'older-first') {
+				oldResponse.respond(Response.json({ message: 'Older packet failed' }, { status: 503 }));
+				await older;
+				expect.soft(ctx.isResyncing('ob-1')).toBe(false);
+				expect.soft(ctx.isResyncing('ob-2')).toBe(true);
+				expect.soft(ctx.getResyncError('ob-1')).toBe('Older packet failed');
+			}
+			newResponse.respond(Response.json({ message: 'Current packet failed' }, { status: 503 }));
+			await newer;
+			if (order === 'older-last') {
+				oldResponse.respond(Response.json({ message: 'Older packet failed' }, { status: 503 }));
+				await older;
+			}
+			expect(ctx.isResyncing('ob-1')).toBe(false);
+			expect(ctx.isResyncing('ob-2')).toBe(false);
+			expect(ctx.getResyncError('ob-1')).toBe('Older packet failed');
+			expect(ctx.getResyncError('ob-2')).toBe('Current packet failed');
+		}
+	);
+
+	it('keeps an earlier packet failure while another packet starts and succeeds', async () => {
+		onboardingStore.load([makeOnboarding(), makeOnboarding({ id: 'ob-2', personnelId: 'p-2' })], 'org-1');
+		const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+		const otherResponse = deferredResponse();
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ message: 'First packet failed' }, { status: 503 }))
+				.mockReturnValueOnce(otherResponse.promise)
 		);
-		const pending = ctx.handleAddNote(makeStep());
-		ctx.noteInputs['step-1'] = 'Next note';
-		confirm(true);
-		await pending;
-		expect(ctx.noteInputs['step-1']).toBe('Next note');
+		await ctx.handleResync('ob-1');
+		const other = ctx.handleResync('ob-2');
+		expect.soft(ctx.getResyncError('ob-1')).toBe('First packet failed');
+		expect(ctx.isResyncing('ob-2')).toBe(true);
+		otherResponse.respond(Response.json({ templateId: 'tpl-1', steps: [] }));
+		await other;
+		expect(ctx.getResyncError('ob-1')).toBe('First packet failed');
+		expect(ctx.getResyncError('ob-2')).toBeNull();
+		expect(ctx.isResyncing('ob-2')).toBe(false);
 	});
 
+	it.each([
+		['older-first', 200, 503],
+		['older-last', 200, 503],
+		['older-first', 503, 200],
+		['older-last', 503, 200]
+	] as const)(
+		'keeps the newer same-packet result for %s delivery of %s then %s',
+		async (order, oldStatus, newStatus) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const oldResponse = deferredResponse();
+			const newResponse = deferredResponse();
+			vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(oldResponse.promise).mockReturnValueOnce(newResponse.promise));
+			const older = ctx.handleResync('ob-1');
+			const newer = ctx.handleResync('ob-1');
+			const oldBody = oldStatus === 200 ? { templateId: 'tpl-1', steps: [] } : { message: 'Old request failed' };
+			if (order === 'older-first') {
+				oldResponse.respond(Response.json(oldBody, { status: oldStatus }));
+				await older;
+				expect(ctx.isResyncing('ob-1')).toBe(true);
+				expect(ctx.getResyncError('ob-1')).toBeNull();
+			}
+			newResponse.respond(
+				Response.json(newStatus === 200 ? { templateId: 'tpl-1', steps: [] } : { message: 'New request failed' }, {
+					status: newStatus
+				})
+			);
+			await newer;
+			if (order === 'older-last') {
+				oldResponse.respond(Response.json(oldBody, { status: oldStatus }));
+				await older;
+			}
+			expect(ctx.isResyncing('ob-1')).toBe(false);
+			expect(ctx.getResyncError('ob-1')).toBe(newStatus === 200 ? null : 'New request failed');
+		}
+	);
+
+	it.each(['same-organization-load', 'disposed', 'organization-return'] as const)(
+		'admits packet failure feedback only in the current %s context',
+		async (lifetime) => {
+			onboardingStore.load([makeOnboarding()], 'org-1');
+			const ctx = new OnboardingPageContext(new ModalRegistry(), makeOrgContext());
+			const response = deferredResponse();
+			vi.stubGlobal('fetch', () => response.promise);
+			const pending = ctx.handleResync('ob-1');
+			if (lifetime === 'same-organization-load') onboardingStore.load([makeOnboarding()], 'org-1');
+			else if (lifetime === 'disposed') ctx.dispose();
+			else {
+				onboardingStore.enterOrganization('org-2');
+				onboardingStore.load([makeOnboarding()], 'org-1');
+			}
+			response.respond(Response.json({ message: 'Current packet unavailable' }, { status: 503 }));
+			await pending;
+			expect(ctx.getResyncError('ob-1')).toBe(
+				lifetime === 'same-organization-load' ? 'Current packet unavailable' : null
+			);
+		}
+	);
+});
+
+describe('OnboardingPageContext Organization input', () => {
+	it('uses the canonical Organization segment for History, Templates and Training links', () => {
+		const ctx = new OnboardingPageContext({} as never, {
+			orgId: 'organization-database-id',
+			orgUrlSegment: 'alpha-unit',
+			scopeSet: { kind: 'organization' },
+			affordanceForFeatureAction: () => ({ allowed: true, visible: true })
+		});
+
+		expect(ctx.historyUrl).toBe('/org/alpha-unit/onboarding/history');
+		expect(ctx.templatesUrl).toBe('/org/alpha-unit/onboarding/templates');
+		expect(ctx.trainingPageUrl).toBe('/org/alpha-unit/training');
+	});
+});
+
+describe('Onboarding inactive step removal feedback', () => {
+	it('restores failed removal with an error and permits a successful retry without losing other work', async () => {
+		const target = makeStep({
+			active: false,
+			templateStepId: null,
+			stepType: 'paperwork',
+			stages: ['Submitted', 'Reviewed', 'Filed'],
+			currentStage: 'Reviewed',
+			notes: [{ text: 'Retained paperwork', timestamp: '2026-01-01T12:00:00Z', userId: 'author' }]
+		});
+		const sibling = makeStep({ id: 'other-step', completed: true });
+		onboardingStore.load([makeOnboarding({ steps: [target, sibling] })], 'org-1');
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
+		let respond!: (response: Response) => void;
+		vi.stubGlobal(
+			'fetch',
+			vi
+				.fn()
+				.mockImplementationOnce(() => new Promise<Response>((resolve) => (respond = resolve)))
+				.mockResolvedValueOnce(new Response('{"success":true}', { status: 200 }))
+		);
+		const feedback = vi.spyOn(toastStore, 'error');
+
+		const pending = ctx.handleRemoveDeprecatedStep(target.id);
+		expect(ctx.removingDeprecatedStepId).toBe(target.id);
+		expect(onboardingStore.items[0].steps).toEqual([sibling]);
+		respond(new Response('{}', { status: 503 }));
+		await pending;
+
+		expect(onboardingStore.items[0].steps).toEqual([target, sibling]);
+		expect(ctx.removingDeprecatedStepId).toBeNull();
+		expect(feedback).toHaveBeenCalledWith(expect.stringMatching(/\S/));
+		feedback.mockClear();
+		await ctx.handleRemoveDeprecatedStep(target.id);
+		expect(onboardingStore.items[0].steps).toEqual([sibling]);
+		expect(ctx.removingDeprecatedStepId).toBeNull();
+		expect(feedback).not.toHaveBeenCalled();
+	});
+
+	it.each(['disposed', 'changed-organization', 'reloaded-organization'] as const)(
+		'does not show a late removal failure for a %s context',
+		async (change) => {
+			const target = makeStep({ active: false });
+			onboardingStore.load([makeOnboarding({ steps: [target] })], 'org-1');
+			let currentOrgId = 'org-1';
+			const ctx = new OnboardingPageContext({ open: vi.fn() } as never, {
+				get orgId() {
+					return currentOrgId;
+				},
+				scopeSet: { kind: 'organization' },
+				affordanceForFeatureAction: () => ({ allowed: true, visible: true })
+			});
+			let respond!: (response: Response) => void;
+			vi.stubGlobal('fetch', () => new Promise<Response>((resolve) => (respond = resolve)));
+			const feedback = vi.spyOn(toastStore, 'error');
+			const pending = ctx.handleRemoveDeprecatedStep(target.id);
+
+			const fresh = makeOnboarding({
+				id: 'fresh-packet',
+				steps: [makeStep({ id: 'fresh-step', onboardingId: 'fresh-packet' })]
+			});
+			if (change === 'disposed') ctx.dispose();
+			else if (change === 'changed-organization') currentOrgId = 'org-2';
+			else {
+				onboardingStore.load([], 'org-2');
+				onboardingStore.load([fresh], 'org-1');
+			}
+			respond(new Response('{}', { status: 503 }));
+			await pending;
+
+			expect(feedback).not.toHaveBeenCalled();
+			expect(onboardingStore.items).toEqual(
+				change === 'reloaded-organization' ? [fresh] : [makeOnboarding({ steps: [target] })]
+			);
+		}
+	);
+});
+
+describe('Onboarding Personnel creation result', () => {
 	it('does not show a late save failure after its page context is disposed', async () => {
 		onboardingStore.load([makeOnboarding({ steps: [makeStep()] })], 'org-1');
 		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, makeOrgContext());
@@ -145,7 +423,11 @@ describe('Onboarding Personnel creation result', () => {
 			finishRequest = resolve;
 		});
 		vi.stubGlobal('fetch', () => response);
-		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, createTestOrgContext({ orgId: 'org-a' }));
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, {
+			orgId: 'org-a',
+			orgUrlSegment: 'org-a',
+			...createClientAccess({ membershipRole: 'owner', capabilityMap: createCapabilityMap('configure') })
+		});
 		const data = {
 			rank: 'SPC',
 			lastName: 'Synthetic',
@@ -168,32 +450,33 @@ describe('OnboardingPageContext policy affordances', () => {
 	it('allows an Onboarding-only operator to start workflows without offering Personnel creation', () => {
 		const onboardingOnly = new OnboardingPageContext(
 			{ open: vi.fn() } as never,
-			makeOrgContext({ ...NONE_TEST_CAPABILITY_MAP, onboarding: 'operate' })
+			makeOrgContext({ ...createCapabilityMap('none'), onboarding: 'operate' })
 		);
 		expect(onboardingOnly.canManageWorkflows).toBe(true);
 		expect(onboardingOnly.canAddPerson).toBe(false);
 
-		const personnelAdmin = new OnboardingPageContext(
-			{ open: vi.fn() } as never,
-			createTestOrgContext({
-				orgId: 'org-1',
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'operate', personnel: 'configure' },
+		const personnelAdmin = new OnboardingPageContext({ open: vi.fn() } as never, {
+			orgId: 'org-1',
+			orgUrlSegment: 'org-1',
+			...createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'operate', personnel: 'configure' },
 				scopeSet: { kind: 'organization' }
 			})
-		);
+		});
 		expect(personnelAdmin.canAddPerson).toBe(true);
 	});
 
 	it('offers the shared creation form to an Alpha Personnel configurator', () => {
-		const ctx = new OnboardingPageContext(
-			{ open: vi.fn() } as never,
-			createTestOrgContext({
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure', personnel: 'configure' },
+		const ctx = new OnboardingPageContext({ open: vi.fn() } as never, {
+			orgId: 'test-org',
+			orgUrlSegment: 'test-org',
+			...createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure', personnel: 'configure' },
 				scopeSet: { kind: 'groups', groupIds: ['alpha'] }
 			})
-		);
+		});
 		expect(ctx.canAddPerson).toBe(true);
 	});
 
@@ -211,15 +494,15 @@ describe('OnboardingPageContext policy affordances', () => {
 			{ kind: 'groups', groupIds: ['g-1'] },
 			{ kind: 'groups', groupIds: [] }
 		] satisfies ScopeSet[]) {
-			const context = new OnboardingPageContext(
-				{ open: vi.fn() } as never,
-				createTestOrgContext({
-					orgId: 'org-1',
-					userRole: 'member',
-					capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, onboarding: 'configure' },
+			const context = new OnboardingPageContext({ open: vi.fn() } as never, {
+				orgId: 'org-1',
+				orgUrlSegment: 'org-1',
+				...createClientAccess({
+					membershipRole: 'member',
+					capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure' },
 					scopeSet
 				})
-			);
+			});
 			expect(context.canManageConfig).toBe(scopeSet.kind === 'organization');
 			expect(context.canViewOnboarding).toBe(true);
 		}
@@ -271,42 +554,6 @@ describe('OnboardingPageContext onboarding actions', () => {
 		await expect(ctx.handleStartOnboarding('p-1', '2026-03-15', 'tpl-1')).resolves.toBe(true);
 
 		expect(start).toHaveBeenLastCalledWith('p-1', '2026-03-15', 'tpl-1');
-	});
-});
-
-// ── isStepDeprecated ──────────────────────────────────────────
-
-describe('isStepDeprecated', () => {
-	it('returns false when templateStepId is null (legacy step)', () => {
-		const step = makeStep({ templateStepId: null });
-		expect(isStepDeprecated(step, [])).toBe(false);
-	});
-
-	it('returns false when templateStepId exists in known steps', () => {
-		const step = makeStep({ templateStepId: 'tpl-step-1' });
-		expect(isStepDeprecated(step, ['tpl-step-1', 'tpl-step-2'])).toBe(false);
-	});
-
-	it('returns true when templateStepId no longer exists in any template', () => {
-		const step = makeStep({ templateStepId: 'removed-step' });
-		expect(isStepDeprecated(step, ['tpl-step-1'])).toBe(true);
-	});
-
-	it('returns true when known step IDs list is empty', () => {
-		const step = makeStep({ templateStepId: 'tpl-step-1' });
-		expect(isStepDeprecated(step, [])).toBe(true);
-	});
-});
-
-// ── isTrainingStepComplete ─────────────────────────────────────
-
-describe('isTrainingStepComplete', () => {
-	it('returns step.completed (server-derived)', () => {
-		const incomplete = makeStep({ stepType: 'training', trainingTypeId: 'tt-1', completed: false });
-		expect(isTrainingStepComplete(incomplete)).toBe(false);
-
-		const complete = makeStep({ stepType: 'training', trainingTypeId: 'tt-1', completed: true });
-		expect(isTrainingStepComplete(complete)).toBe(true);
 	});
 });
 
@@ -380,30 +627,6 @@ describe('getProgress', () => {
 		];
 		const ob = makeOnboarding({ steps });
 		expect(getProgress(ob)).toEqual({ completed: 2, total: 3 });
-	});
-});
-
-// ── getPaperworkStageIndex ─────────────────────────────────────
-
-describe('getPaperworkStageIndex', () => {
-	it('returns 0 when currentStage is null', () => {
-		const step = makeStep({ stages: ['A', 'B', 'C'], currentStage: null });
-		expect(getPaperworkStageIndex(step)).toBe(0);
-	});
-
-	it('returns 0 when stages is null', () => {
-		const step = makeStep({ stages: null, currentStage: null });
-		expect(getPaperworkStageIndex(step)).toBe(0);
-	});
-
-	it('returns correct index for current stage', () => {
-		const step = makeStep({ stages: ['Draft', 'Signed', 'Filed'], currentStage: 'Signed' });
-		expect(getPaperworkStageIndex(step)).toBe(1);
-	});
-
-	it('returns 0 when currentStage not found in stages', () => {
-		const step = makeStep({ stages: ['A', 'B'], currentStage: 'Unknown' });
-		expect(getPaperworkStageIndex(step)).toBe(0);
 	});
 });
 

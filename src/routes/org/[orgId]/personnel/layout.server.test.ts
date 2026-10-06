@@ -1,31 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
+import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
 
-const { requests, acquiredContexts } = vi.hoisted(() => ({
+const { requests, acquiredRequests, createRequestPersonnelWorkspaceContextMock } = vi.hoisted(() => ({
 	requests: new Map<string, ReturnType<typeof createTestContext>>(),
-	acquiredContexts: [] as string[]
+	acquiredRequests: [] as string[],
+	createRequestPersonnelWorkspaceContextMock: vi.fn()
 }));
 
-// Replace only request-context acquisition; real adapter policy/streaming and
-// Personnel/Calendar operations execute against the admitted in-memory context.
-vi.mock('$lib/server/adapters/httpAdapter', async () => {
-	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
-		'$lib/server/adapters/httpAdapter'
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
 	);
 	return {
 		...actual,
-		loadWithContext: async (...args: Parameters<typeof actual.loadWithContext>) => {
-			const [, , orgId, config] = args;
-			acquiredContexts.push(orgId);
+		buildLayoutRequest: async (_locals: App.Locals, orgId: string) => {
+			acquiredRequests.push(orgId);
 			const ctx = requests.get(orgId);
 			if (!ctx) throw Object.assign(new Error('Organization not admitted'), { status: 403 });
-			return config.defer
-				? actual.loadWithDeferredContext(Promise.resolve(ctx), { ...config, defer: true })
-				: actual.loadWithContextCore(ctx, config);
-		}
+			return {
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				rawStore: ctx.rawStore,
+				scope: ctx.scope,
+				supabase: {},
+				session: null
+			};
+		},
+		createRequestPersonnelWorkspaceContext: createRequestPersonnelWorkspaceContextMock
 	};
 });
 
@@ -90,8 +96,22 @@ function seededContext() {
 }
 
 beforeEach(() => {
+	vi.clearAllMocks();
 	requests.clear();
-	acquiredContexts.length = 0;
+	acquiredRequests.length = 0;
+	createRequestPersonnelWorkspaceContextMock.mockImplementation(
+		(request: Pick<AdmittedOrganizationRequest, 'auth'>) => {
+			const ctx = requests.get(request.auth.orgId);
+			if (!ctx) throw new Error('Missing admitted workspace fixture');
+			return {
+				auth: request.auth,
+				store: ctx.store,
+				rawStore: ctx.rawStore,
+				personnelAwardAcknowledgement: ctx.personnelAwardAcknowledgement,
+				organizationSettings: ctx.organizationSettings
+			};
+		}
+	);
 });
 
 describe('Personnel workspace page delivery', () => {
@@ -170,11 +190,13 @@ describe('Personnel workspace page delivery', () => {
 		});
 		const route = (await _createPersonnelLayoutLoad()(eventFor())) as PersonnelWorkspaceRouteData;
 		await expect(route.personnel.data).rejects.toMatchObject({ status: 403 });
+		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
 	});
 
 	it('does not start a workspace for a suspended Organization', async () => {
 		seededContext();
 		await expect(_createPersonnelLayoutLoad()(eventFor(true))).rejects.toMatchObject({ status: 403 });
-		expect(acquiredContexts).toEqual([]);
+		expect(acquiredRequests).toEqual([]);
+		expect(createRequestPersonnelWorkspaceContextMock).not.toHaveBeenCalled();
 	});
 });

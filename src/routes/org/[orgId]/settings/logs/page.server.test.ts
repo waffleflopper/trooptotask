@@ -1,188 +1,132 @@
+import { createClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createTestContext } from '$lib/server/adapters/inMemory';
-import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../../appShell.test-support';
 
-const { createSupabaseDataStoreMock, getAdminClientMock, loadLogsSettingsMock, loadWithContextMock } = vi.hoisted(
-	() => ({
-		createSupabaseDataStoreMock: vi.fn(),
-		getAdminClientMock: vi.fn(),
-		loadLogsSettingsMock: vi.fn(),
-		loadWithContextMock: vi.fn()
-	})
-);
+const { getAdminClientMock, loadWithContextMock } = vi.hoisted(() => ({
+	getAdminClientMock: vi.fn(),
+	loadWithContextMock: vi.fn()
+}));
 
 vi.mock('$lib/server/adapters/httpAdapter', async () => {
 	const actual = await vi.importActual<typeof import('$lib/server/adapters/httpAdapter')>(
 		'$lib/server/adapters/httpAdapter'
 	);
-
-	return {
-		...actual,
-		loadWithContext: loadWithContextMock
-	};
+	return { ...actual, loadWithContext: loadWithContextMock };
 });
 
-vi.mock('$lib/server/adapters/supabaseDataStore', () => ({
-	createSupabaseDataStore: createSupabaseDataStoreMock
-}));
-
-vi.mock('$lib/server/supabase', () => ({
-	getAdminClient: getAdminClientMock
-}));
-
-vi.mock('../settingsLogs.server', () => ({
-	loadLogsSettings: loadLogsSettingsMock
-}));
+vi.mock('$lib/server/supabase', () => ({ getAdminClient: getAdminClientMock }));
 
 import { load } from './+page.server';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 
+function event(suspended = false) {
+	return {
+		locals: {},
+		cookies: {},
+		parent: async () =>
+			(suspended ? createSuspendedAppShellRouteData : createReadyAppShellRouteData)({
+				orgId: 'org-1',
+				orgName: 'Test Org',
+				orgUrlSegment: 'test-org'
+			})
+	} as never;
+}
+
+function admit(role: 'owner' | 'admin' | 'member') {
+	const ctx = createTestContext({
+		auth: {
+			orgId: 'org-1',
+			role,
+			isPrivileged: role !== 'member',
+			capabilityMap: {
+				calendar: 'none',
+				personnel: 'none',
+				training: 'none',
+				criticalTasks: 'none',
+				onboarding: 'none',
+				ratingScheme: 'none'
+			},
+			scopeSet: { kind: 'organization' }
+		}
+	});
+	loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
+		loadWithContextCore(ctx, config, () => ({ auth: ctx.auth }))
+	);
+}
+
 describe('logs settings page server', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		getAdminClientMock.mockReturnValue({ admin: true });
-		createSupabaseDataStoreMock.mockReturnValue({ store: 'admin-store' });
-		loadLogsSettingsMock.mockResolvedValue({
-			sections: {
-				logs: {
-					auditLogPage: {
-						logs: [],
-						page: 1,
-						limit: 100,
-						totalCount: 0,
-						last30DaysCount: 0
+	beforeEach(() => vi.clearAllMocks());
+
+	it('returns no page data for a suspended Organization without constructing privileged readers', async () => {
+		expect(await load(event(true))).toEqual({});
+		expect(loadWithContextMock).not.toHaveBeenCalled();
+		expect(getAdminClientMock).not.toHaveBeenCalled();
+	});
+
+	it.each(['admin', 'member'] as const)('denies %s before constructing privileged readers', async (role) => {
+		admit(role);
+		await expect(load(event())).rejects.toMatchObject({ status: 403 });
+		expect(getAdminClientMock).not.toHaveBeenCalled();
+	});
+
+	it('admits an owner with no feature grants and composes current labels under the requested Organization', async () => {
+		admit('owner');
+		const person = '11111111-1111-4111-8111-111111111111';
+		getAdminClientMock.mockReturnValue(
+			createClient('http://logs.invalid', 'synthetic-privileged-key', {
+				auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+				global: {
+					fetch: async (input, init) => {
+						const request = new Request(input, init);
+						const url = new URL(request.url);
+						if (url.pathname.endsWith('/list_audit_log_actions'))
+							return Response.json([{ action: 'personnel.updated' }]);
+						const column = url.pathname.endsWith('/audit_logs') ? 'org_id' : 'organization_id';
+						if (url.searchParams.get(column) !== 'eq.org-1') throw new Error('Unexpected Organization');
+						if (url.pathname.endsWith('/personnel'))
+							return Response.json([{ id: person, rank: 'SPC', last_name: 'Able', first_name: 'Synthetic' }]);
+						if (url.pathname.endsWith('/organization_memberships'))
+							return Response.json([{ user_id: 'owner-actor', email: 'owner@example.test' }]);
+						if (!url.pathname.endsWith('/audit_logs')) throw new Error('Unexpected source');
+						return new Response(
+							request.method === 'HEAD'
+								? null
+								: JSON.stringify([
+										{
+											id: 'event-1',
+											user_id: 'owner-actor',
+											action: 'personnel.updated',
+											resource_type: 'personnel',
+											resource_id: person,
+											details: { personnel_id: person },
+											timestamp: '2026-10-01T12:00:00Z'
+										}
+									]),
+							{ headers: { 'Content-Type': 'application/json', 'Content-Range': '0-0/1' } }
+						);
 					}
 				}
-			}
-		});
-	});
-
-	it('returns no page data when the parent org layout reports suspension', async () => {
-		const result = await load({
-			locals: {},
-			cookies: {},
-			parent: async () =>
-				createSuspendedAppShellRouteData({
-					orgId: 'org-1',
-					orgName: 'Test Org',
-					orgUrlSegment: 'test-org'
-				})
-		} as never);
-
-		expect(result).toEqual({});
-		expect(loadWithContextMock).not.toHaveBeenCalled();
-		expect(loadLogsSettingsMock).not.toHaveBeenCalled();
-	});
-
-	it('denies admins before audit logs are fetched', async () => {
-		const ctx = createTestContext({
-			auth: {
-				orgId: 'org-1',
-				role: 'admin',
-				isPrivileged: true,
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'view',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' }
-			}
-		});
-		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
-		);
-
-		await expect(
-			load({
-				locals: {},
-				cookies: {},
-				parent: async () =>
-					createReadyAppShellRouteData({
-						orgId: 'org-1',
-						orgName: 'Test Org',
-						orgUrlSegment: 'test-org',
-						role: 'admin'
-					})
-			} as never)
-		).rejects.toMatchObject({
-			status: 403,
-			body: { message: 'Only the organization owner can perform this action' }
-		});
-		expect(loadWithContextMock).toHaveBeenCalledWith(
-			{},
-			{},
-			'org-1',
-			expect.objectContaining({
-				policyAction: POLICY_ACTION_CATALOG.organization.accessAuditLogs,
-				policyResource: { kind: 'organization' }
 			})
 		);
-		expect(getAdminClientMock).not.toHaveBeenCalled();
-		expect(createSupabaseDataStoreMock).not.toHaveBeenCalled();
-		expect(loadLogsSettingsMock).not.toHaveBeenCalled();
-	});
-
-	it('loads owner logs settings with shared page context', async () => {
-		const ctx = createTestContext({
-			auth: {
-				orgId: 'org-1',
-				role: 'owner',
-				isPrivileged: true,
-				capabilityMap: {
-					calendar: 'view',
-					personnel: 'view',
-					training: 'view',
-					criticalTasks: 'view',
-					onboarding: 'view',
-					ratingScheme: 'view'
-				},
-				scopeSet: { kind: 'organization' }
-			}
-		});
-		loadWithContextMock.mockImplementationOnce(async (_locals, _cookies, _orgId, config) =>
-			loadWithContextCore(ctx, config)
-		);
-
-		const result = await load({
-			locals: {},
-			cookies: {},
-			parent: async () =>
-				createReadyAppShellRouteData({
-					orgId: 'org-1',
-					orgName: 'Test Org',
-					orgUrlSegment: 'test-org',
-					role: 'owner'
-				})
-		} as never);
-
+		const result = await load(event());
 		expect(result).toMatchObject({
 			orgId: 'org-1',
 			orgUrlSegment: 'test-org',
-			orgUrlSlug: 'test-org',
 			orgName: 'Test Org',
-			isAdmin: false,
 			logsSettings: {
 				sections: {
 					logs: {
 						auditLogPage: {
-							logs: [],
 							page: 1,
 							limit: 100,
-							totalCount: 0,
-							last30DaysCount: 0
+							totalCount: 1,
+							logs: [{ id: 'event-1', actor: 'owner@example.test', details: { personnel: 'SPC Able Synthetic' } }]
 						}
 					}
 				}
 			}
 		});
 		expect(getAdminClientMock).toHaveBeenCalledOnce();
-		expect(createSupabaseDataStoreMock).toHaveBeenCalledWith({ admin: true });
-		expect(loadLogsSettingsMock).toHaveBeenCalledWith(expect.objectContaining({ auth: ctx.auth }), {
-			store: 'admin-store'
-		});
 	});
 });

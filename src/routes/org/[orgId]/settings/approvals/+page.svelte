@@ -8,5 +8,7 @@
 </script>
 
 <div class="grid gap-4">
-	<SettingsActivityRail orgId={data.orgUrlSegment} {activity} lockedTab="approvals" />
+	{#key data.orgId}
+		<SettingsActivityRail orgId={data.orgUrlSegment} {activity} lockedTab="approvals" />
+	{/key}
 </div>

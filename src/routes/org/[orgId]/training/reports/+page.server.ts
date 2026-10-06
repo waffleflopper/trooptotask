@@ -1,9 +1,9 @@
+import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
 import type { TrainingReportData, TrainingReportInput } from '$features/training/contracts';
 import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { fetchTrainingReportPage } from '$features/training/index.server';
-import type { UseCaseContext } from '$lib/server/core/ports';
 
 const INITIAL_REPORT_INPUT: TrainingReportInput = {
 	sort: { column: 'name', direction: 'asc' }
@@ -13,7 +13,10 @@ type LoadWithContext = typeof loadWithContext;
 
 export interface TrainingReportsPageLoadDeps {
 	loadWithContext?: LoadWithContext;
-	fetchTrainingReportPage?: (ctx: UseCaseContext, input: TrainingReportInput) => Promise<TrainingReportData>;
+	fetchTrainingReportPage?: (
+		ctx: Parameters<typeof fetchTrainingReportPage>[0],
+		input: TrainingReportInput
+	) => Promise<TrainingReportData>;
 }
 
 export function _createTrainingReportsPageLoad(deps: TrainingReportsPageLoadDeps = {}) {
@@ -26,6 +29,7 @@ export function _createTrainingReportsPageLoad(deps: TrainingReportsPageLoadDeps
 
 		return {
 			trainingReport: await loadWithContextFn(locals, cookies, orgId, {
+				context: createRequestTrainingRosterContext,
 				policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 				policyResource: { kind: 'unscoped' },
 				fn: (ctx) => fetchTrainingReportPageFn(ctx, INITIAL_REPORT_INPUT)

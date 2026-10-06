@@ -1,10 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig, _reviewPostConfig } from './+server';
+import { _reviewPostConfig } from './+server';
+import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
+import { requirePendingDeletionRequest, type ApprovedDeletionEffects } from '$features/deletion-requests/index.server';
+import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
+
+function configFor(ctx: ReturnType<typeof createTestContext>, effects: Partial<ApprovedDeletionEffects> = {}) {
+	const store = createDeletionRequestTestStore(ctx.store);
+	const rating = createApprovedRatingSchemeDeletionPort(ctx.rawStore, (orgId, requestId, type, id) =>
+		requirePendingDeletionRequest(store, orgId, requestId, type, id)
+	);
+	const unexpected = async () => {
+		throw new Error('Unexpected source effect');
+	};
+	return _reviewPostConfig(store, () => ({
+		archivePersonnel: unexpected,
+		deleteTrainingType: unexpected,
+		deleteTrainingRecord: unexpected,
+		deleteRatingEntry: (requestId, id) => rating.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, id),
+		approveCounseling: unexpected,
+		...effects
+	}));
+}
 
 describe('POST /api/deletion-requests/review', () => {
-	it('uses the default Rating port, retains pending status on resource failure and retries a failed status write', async () => {
+	it('composes the Rating port, retains pending status on resource failure and retries a failed status write', async () => {
 		const ctx = createTestContext({
 			auth: {
 				role: 'admin',
@@ -38,8 +59,8 @@ describe('POST /api/deletion-requests/review', () => {
 		vi.spyOn(ctx.rawStore, 'delete')
 			.mockImplementation((table, orgId, id) => ctx.rawStore.deleteWhere(table, orgId, { id }))
 			.mockRejectedValueOnce(new Error('Rating deletion unavailable'));
-		const config = _reviewPostConfig({ deleteApprovedTrainingType: vi.fn(), deleteApprovedTrainingRecord: vi.fn() });
-		const approve = () => handleUseCaseRequest(config, ctx, { id: 'rating-request', action: 'approve' });
+		const config = configFor(ctx);
+		const approve = () => handleUseCaseRequest(config, ctx, { id: 'rating-request', action: 'approve' }, () => ctx);
 		await expect(approve()).rejects.toThrow('Rating deletion unavailable');
 		await expect(
 			ctx.rawStore.findOne('rating_scheme_entries', ctx.auth.orgId, { id: 'entry-1' })
@@ -105,7 +126,7 @@ describe('POST /api/deletion-requests/review', () => {
 		});
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, { id: 'rating-request', action: 'approve' })
+			handleUseCaseRequest(configFor(ctx), ctx, { id: 'rating-request', action: 'approve' }, () => ctx)
 		).rejects.toMatchObject({ status: 404 });
 		await expect(ctx.rawStore.findOne('rating_scheme_entries', ctx.auth.orgId, { id: 'entry-1' })).resolves.toEqual({
 			id: 'entry-1',
@@ -143,11 +164,10 @@ describe('POST /api/deletion-requests/review', () => {
 			}
 		]);
 		const deleteApprovedRatingSchemeEntry = vi.fn();
-		const config = _reviewPostConfig(
-			{ deleteApprovedTrainingType: vi.fn(), deleteApprovedTrainingRecord: vi.fn() },
-			{ deleteApprovedRatingSchemeEntry }
-		);
-		await expect(handleUseCaseRequest(config, ctx, { id: 'request', action: 'approve' })).rejects.toMatchObject({
+		const config = configFor(ctx, { deleteRatingEntry: deleteApprovedRatingSchemeEntry });
+		await expect(
+			handleUseCaseRequest(config, ctx, { id: 'request', action: 'approve' }, () => ctx)
+		).rejects.toMatchObject({
 			status: 403
 		});
 		expect(deleteApprovedRatingSchemeEntry).not.toHaveBeenCalled();
@@ -190,7 +210,15 @@ describe('POST /api/deletion-requests/review', () => {
 			}
 		};
 		await expect(
-			handleUseCaseRequest(_reviewPostConfig(trainingDeletion), ctx, { id: 'request-1', action: 'approve' })
+			handleUseCaseRequest(
+				configFor(ctx, {
+					deleteTrainingRecord: (requestId, id) =>
+						trainingDeletion.deleteApprovedTrainingRecord(ctx.auth, requestId, id)
+				}),
+				ctx,
+				{ id: 'request-1', action: 'approve' },
+				() => ctx
+			)
 		).resolves.toEqual({ success: true });
 		await expect(ctx.rawStore.findMany('personnel_trainings', ctx.auth.orgId)).resolves.toEqual([
 			{ id: 'completion-2', organization_id: ctx.auth.orgId }
@@ -228,7 +256,25 @@ describe('POST /api/deletion-requests/review', () => {
 			{ id: 'record-1', organization_id: 'other-org', personnel_id: 'person-2' }
 		]);
 
-		await expect(handleUseCaseRequest(_postConfig, ctx, { id: 'request-1', action: 'approve' })).resolves.toEqual({
+		const store = createDeletionRequestTestStore(ctx.store);
+		const approveCounseling = async (requestId: string, id: string, reviewedAt: string) => {
+			await requirePendingDeletionRequest(store, ctx.auth.orgId, requestId, 'counseling_record', id);
+			await ctx.rawStore.deleteWhere('counseling_records', ctx.auth.orgId, { id });
+			await store.completePendingReview(
+				ctx.auth.orgId,
+				requestId,
+				{ resourceType: 'counseling_record', resourceId: id },
+				{ status: 'approved', reviewedBy: ctx.auth.userId, reviewedAt, denialReason: null }
+			);
+		};
+		await expect(
+			handleUseCaseRequest(
+				configFor(ctx, { approveCounseling }),
+				ctx,
+				{ id: 'request-1', action: 'approve' },
+				() => ctx
+			)
+		).resolves.toEqual({
 			success: true
 		});
 		expect(await ctx.rawStore.findOne('counseling_records', ctx.auth.orgId, { id: 'record-1' })).toBeNull();
@@ -269,12 +315,13 @@ describe('POST /api/deletion-requests/review', () => {
 
 		await expect(
 			handleUseCaseRequest(
-				_reviewPostConfig({ deleteApprovedTrainingType, deleteApprovedTrainingRecord: vi.fn() }),
+				configFor(ctx, { deleteTrainingType: (requestId, id) => deleteApprovedTrainingType(ctx.auth, requestId, id) }),
 				ctx,
 				{
 					id: 'request-1',
 					action: 'approve'
-				}
+				},
+				() => ctx
 			)
 		).resolves.toEqual({ success: true });
 		expect(deleteApprovedTrainingType).toHaveBeenCalledWith(ctx.auth, 'request-1', 'type-1');
@@ -305,16 +352,17 @@ describe('POST /api/deletion-requests/review', () => {
 				status: 'pending'
 			}
 		]);
-		const deleteApprovedTrainingType = vi.fn(async () => {});
+		const deleteApprovedTrainingType = vi.fn(async (_actor: unknown, _requestId: string, _typeId: string) => {});
 
 		await expect(
 			handleUseCaseRequest(
-				_reviewPostConfig({ deleteApprovedTrainingType, deleteApprovedTrainingRecord: vi.fn() }),
+				configFor(ctx, { deleteTrainingType: (requestId, id) => deleteApprovedTrainingType(ctx.auth, requestId, id) }),
 				ctx,
 				{
 					id: 'request-1',
 					action: 'approve'
-				}
+				},
+				() => ctx
 			)
 		).rejects.toMatchObject({ status: 403 });
 		expect(deleteApprovedTrainingType).not.toHaveBeenCalled();

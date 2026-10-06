@@ -3,7 +3,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groupCatalogHydration, personnelStore, PersonnelPageContext, loadPersonnelModals } from '$features/personnel';
 import type { Personnel } from '$features/personnel/contracts';
-import { createTestOrgContext, NONE_TEST_CAPABILITY_MAP } from '$lib/test-support/orgContextBuilder';
+import { createClientAccess } from '$lib/access/clientAccess';
+import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { requestPersonnelArchiveApproval as requestArchiveApproval } from '$lib/personnelArchiveRequestDelivery';
@@ -34,15 +35,13 @@ describe('Personnel Edit archive recovery', () => {
 		groupCatalogHydration.load([{ id: 'alpha', name: 'Alpha', sortOrder: 0 }], 'org-a');
 		personnelStore.load([structuredClone(originalPerson)], 'org-a');
 		const modals = new ModalRegistry();
-		const ctx = new PersonnelPageContext(
-			{ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog: [] },
-			modals,
-			createTestOrgContext({
-				orgId: 'org-a',
-				userRole: 'member',
-				capabilityMap: { ...NONE_TEST_CAPABILITY_MAP, personnel: 'operate' }
+		const ctx = new PersonnelPageContext({ orgId: 'org-a', orgName: 'A', pinnedGroups: [], rankCatalog: [] }, modals, {
+			orgUrlSegment: 'org-a',
+			...createClientAccess({
+				membershipRole: 'member',
+				capabilityMap: { ...createCapabilityMap('none'), personnel: 'operate' }
 			})
-		);
+		});
 		modals.open('personnel-modal', { person: structuredClone(originalPerson) });
 		render(PersonnelModals, { props: { ctx, modals, requestArchiveApproval } });
 		return modals;

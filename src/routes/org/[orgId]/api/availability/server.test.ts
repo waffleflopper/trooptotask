@@ -35,7 +35,7 @@ describe('single-record Calendar availability', () => {
 		]);
 
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id, personnelId: 'person-2', statusTypeId: 'status-new' })
+			handleUseCaseRequest(_putConfig, ctx, { id, personnelId: 'person-2', statusTypeId: 'status-new' }, () => ctx)
 		).rejects.toMatchObject({ status: 400 });
 		expect(
 			await ctx.store.findOne<{ status_type_id: string }>('availability_entries', ctx.auth.orgId, { id })
@@ -43,13 +43,18 @@ describe('single-record Calendar availability', () => {
 			status_type_id: 'status-old'
 		});
 
-		const updated = (await handleUseCaseRequest(_putConfig, ctx, {
-			id,
-			statusTypeId: 'status-new',
-			startDate: '2026-09-27',
-			endDate: '2026-09-28',
-			note: 'Confirmed'
-		})) as { id: string; personnelId: string; statusTypeId: string };
+		const updated = (await handleUseCaseRequest(
+			_putConfig,
+			ctx,
+			{
+				id,
+				statusTypeId: 'status-new',
+				startDate: '2026-09-27',
+				endDate: '2026-09-28',
+				note: 'Confirmed'
+			},
+			() => ctx
+		)) as { id: string; personnelId: string; statusTypeId: string };
 		expect(updated).toMatchObject({ id, personnelId: 'person-1', statusTypeId: 'status-new' });
 		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toHaveLength(1);
 	});
@@ -72,12 +77,17 @@ describe('single-record Calendar availability', () => {
 		ctx.store.seed('personnel', [{ id: 'foreign-person', organization_id: 'another-org', group_id: 'g-1' }]);
 
 		await expect(
-			handleUseCaseRequest(_postConfig, ctx, {
-				personnelId: 'foreign-person',
-				statusTypeId: 'status-1',
-				startDate: '2026-09-26',
-				endDate: '2026-09-26'
-			})
+			handleUseCaseRequest(
+				_postConfig,
+				ctx,
+				{
+					personnelId: 'foreign-person',
+					statusTypeId: 'status-1',
+					startDate: '2026-09-26',
+					endDate: '2026-09-26'
+				},
+				() => ctx
+			)
 		).rejects.toMatchObject({ status: 404, body: { message: 'Person not found' } });
 		expect(await ctx.store.findMany('availability_entries', ctx.auth.orgId)).toHaveLength(0);
 	});
@@ -111,10 +121,10 @@ describe('single-record Calendar availability', () => {
 			startDate: '2026-09-26',
 			endDate: '2026-09-26'
 		};
-		const created = (await handleUseCaseRequest(_postConfig, ctx, entry)) as { id: string };
+		const created = (await handleUseCaseRequest(_postConfig, ctx, entry, () => ctx)) as { id: string };
 		const bravoEntryId = '00000000-0000-4000-8000-000000000002';
 		for (const personnelId of ['person-bravo', 'person-unassigned', 'person-foreign']) {
-			await expect(handleUseCaseRequest(_postConfig, ctx, { ...entry, personnelId })).rejects.toMatchObject({
+			await expect(handleUseCaseRequest(_postConfig, ctx, { ...entry, personnelId }, () => ctx)).rejects.toMatchObject({
 				status: 403
 			});
 		}
@@ -128,18 +138,18 @@ describe('single-record Calendar availability', () => {
 				end_date: '2026-09-26'
 			}
 		]);
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: bravoEntryId })).rejects.toMatchObject({
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: bravoEntryId }, () => ctx)).rejects.toMatchObject({
 			status: 403
 		});
 		await expect(
-			handleUseCaseRequest(_putConfig, ctx, { id: bravoEntryId, statusTypeId: 'status-2' })
+			handleUseCaseRequest(_putConfig, ctx, { id: bravoEntryId, statusTypeId: 'status-2' }, () => ctx)
 		).rejects.toMatchObject({ status: 403 });
 		expect(
 			await ctx.rawStore.findOne<{ status_type_id: string }>('availability_entries', ctx.auth.orgId, {
 				id: bravoEntryId
 			})
 		).toMatchObject({ status_type_id: 'status-1' });
-		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: created.id })).resolves.toBeDefined();
+		await expect(handleUseCaseRequest(_deleteConfig, ctx, { id: created.id }, () => ctx)).resolves.toBeDefined();
 		expect(await ctx.rawStore.findOne('availability_entries', ctx.auth.orgId, { id: bravoEntryId })).not.toBeNull();
 	});
 });

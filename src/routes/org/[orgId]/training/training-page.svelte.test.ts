@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { createRawSnippet, getAllContexts, mount, unmount, untrack } from 'svelte';
+import { AccountPreferencesProvider } from '$features/identity';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Page from './+page.svelte';
 import { trainingTypesStore } from '$features/training';
@@ -8,10 +10,10 @@ import { personnelTrainingsStore } from '$features/training';
 import { groupCatalogHydration } from '$features/personnel';
 import { pinnedGroupsHydration } from '$features/personnel';
 import { personnelRosterHydration } from '$features/personnel';
-import { createReadyAppShellRouteData } from '$lib/test-support/appShellRouteData';
+import { createReadyAppShellRouteData } from '../appShell.test-support';
 
-vi.mock('$lib/stores/orgContext.svelte', () => ({
-	getOrgContext: () => ({
+vi.mock('$features/app-shell', () => ({
+	getAppShellContext: () => ({
 		orgId: 'org-1',
 		orgName: 'Test Unit',
 		userId: 'user-1',
@@ -41,6 +43,30 @@ vi.mock('$lib/stores/orgContext.svelte', () => ({
 		})
 	})
 }));
+
+const WithPreferences: typeof Page = (anchor, props) => {
+	const shell = untrack(() => props.data.shell);
+	if (shell.kind !== 'ready') throw new Error('Test requires admitted shell');
+	const children = createRawSnippet(() => {
+		const context = getAllContexts();
+		return {
+			render: () => '<section></section>',
+			setup: (target) => {
+				const page = mount(Page, { target, props, context });
+				return () => {
+					void unmount(page);
+				};
+			}
+		};
+	});
+	AccountPreferencesProvider(anchor, {
+		userId: shell.user.id,
+		orgId: shell.org.id,
+		preferences: shell.preferences,
+		children
+	});
+	return {};
+};
 
 function makePageData() {
 	return {
@@ -72,7 +98,7 @@ describe('training page', () => {
 	});
 
 	it('renders the training shell while workspace data is still streaming', () => {
-		render(Page, {
+		render(WithPreferences, {
 			props: {
 				data: makePageData()
 			}
@@ -81,5 +107,13 @@ describe('training page', () => {
 		expect(screen.getByRole('toolbar', { name: 'Training controls' })).toBeTruthy();
 		expect(screen.queryByTestId('page-toolbar')).toBeNull();
 		expect(screen.getByTestId('skeleton-grid')).toBeTruthy();
+	});
+	it('keeps the immediate matrix choice when older shell props are revalidated', async () => {
+		const view = render(WithPreferences, { props: { data: makePageData() } });
+		await fireEvent.click(screen.getByRole('button', { name: 'A-Z' }));
+		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
+		await view.rerender({ data: makePageData() });
+		expect(screen.getByRole('button', { name: 'A-Z' }).getAttribute('aria-pressed')).toBe('true');
+		expect(screen.getByRole('button', { name: /^Group$/ }).getAttribute('aria-pressed')).toBe('false');
 	});
 });

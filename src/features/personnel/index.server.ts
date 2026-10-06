@@ -11,6 +11,7 @@ export { createSupabasePersonnelTrainingRosterPort } from './trainingRoster.serv
 export { createSupabaseSignInRosterPersonnelLookupPort } from './signInRosterPersonnelLookup.server';
 export type { PersonnelTrainingRosterPort } from './contracts';
 export { countArchivedPersonnel, loadRosterPersonnel } from './rosterRead.server';
+export { createSupabasePersonnelNamesReader } from './personnelNames.server';
 export { findGroupNamesByIds, listGroupCatalog } from './groupCatalog.server';
 export { createGroup, updateGroup, deleteGroup } from './groupOperations.server';
 export { seedDefaultGroups } from './groupSeed.server';
@@ -82,3 +83,43 @@ export {
 
 export { readPersonnelExtendedInfo, updatePersonnelExtendedInfo } from './personnelExtendedInfo.server';
 export { setPersonnelAwardTrackingAcknowledged } from './awardTracking.server';
+
+export type {
+	PersonnelArtifactsContext,
+	CounselingRecordRow,
+	PersonnelDocumentRow,
+	FollowUpRow
+} from './personnelArtifactContext.server';
+export {
+	listPersonnelCounselingRecords,
+	createPersonnelCounselingRecord,
+	archivePersonnelCounselingRecord,
+	restorePersonnelCounselingRecord,
+	deletePersonnelCounselingRecord
+} from './personnelCounselingRecords.server';
+export type { PersonnelCounselingRecordInput } from './personnelCounselingRecords.server';
+export {
+	listPersonnelDocuments,
+	createPersonnelDocument,
+	createPersonnelDocumentDownloadUrl,
+	archivePersonnelDocument,
+	restorePersonnelDocument,
+	deletePersonnelDocument
+} from './personnelDocuments.server';
+export type { PersonnelDocumentInput, PersonnelDocumentDownloadInput } from './personnelDocuments.server';
+export {
+	listPersonnelFollowUps,
+	createPersonnelFollowUp,
+	setPersonnelFollowUpStatus,
+	updatePersonnelFollowUp,
+	archivePersonnelFollowUp,
+	restorePersonnelFollowUp,
+	deletePersonnelFollowUp
+} from './personnelFollowUps.server';
+export { listPersonnelArchivedArtifacts } from './personnelArchivedArtifacts.server';
+
+export { createPersonnelSupportReader } from './supportReadProvider.server';
+
+export { createSupabasePersonnelExportReader } from './ordinaryExportRead.server';
+
+export { createSupabaseScopeEnforcementAdapter } from './scopeEnforcement.server';

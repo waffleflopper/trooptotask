@@ -8,19 +8,11 @@ import { statusTypesStore } from '$features/calendar/stores/statusTypes.svelte';
 import { pinnedGroupsStore } from '$features/personnel';
 import { groupsStore } from '$features/personnel';
 import { createRosterReadModel } from '$features/personnel/contracts';
-import { getBrowserLocalStorage } from '$lib/utils/browserStorage';
 import { POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
-import { queueUserPreferencesPatch } from '$lib/preferences/userPreferences.client';
-import {
-	getDefaultUserOrgPreferences,
-	type UserOrgPreferences,
-	type UserOrgPreferencesPatch
-} from '$lib/preferences/userPreferences';
-import { toastStore } from '$lib/stores/toast.svelte';
 import { loadCalendarRange } from '$features/calendar/utils/calendarRangeLoader';
 import { mergeById } from '$lib/utils/mergeById';
-import { browser } from '$app/environment';
-import type { OrgContext } from '$lib/stores/orgContext.svelte';
+import type { CapabilityLevel, ScopeSet } from '$lib/access/memberAccessShape';
+import type { FeatureLanePolicyAction, PolicyDecision } from '$lib/access/policyEvaluator';
 import type { CalendarWorkspaceData } from '$features/calendar/calendar.types';
 import { SvelteDate, SvelteMap } from 'svelte/reactivity';
 import { evaluateUpcomingLosses, type UpcomingLossRecord } from '$features/personnel/contracts';
@@ -33,14 +25,21 @@ export interface CalendarRosterFilterOption {
 	count?: number;
 }
 
-type MatchMediaFn = (query: string) => { matches: boolean };
+export interface CalendarDisplayPreferences {
+	showStatusText: boolean;
+	showPersonnelRoles: boolean;
+	highlightOnboarding: boolean;
+}
 
-function getDefaultMatchMedia(): MatchMediaFn | null {
-	if (!browser || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-		return null;
-	}
-
-	return window.matchMedia.bind(window);
+export interface CalendarPageAccess {
+	readonly userId: string | null;
+	readonly role: 'owner' | 'admin' | 'member';
+	readonly capabilityMap: { readonly calendar: CapabilityLevel };
+	readonly scopeSet: ScopeSet;
+	readonly affordanceForFeatureAction: (
+		action: FeatureLanePolicyAction,
+		resource?: PolicyResource
+	) => { readonly allowed: boolean; readonly reason: PolicyDecision['reasonCode'] };
 }
 
 // ---------------------------------------------------------------------------
@@ -51,7 +50,6 @@ export interface CalendarPageData {
 	orgId: string;
 	orgName?: string;
 	userId?: string | null;
-	userPreferences?: UserOrgPreferences;
 	personnel?: Personnel[];
 	allPersonnel?: Personnel[];
 	calendar?: {
@@ -74,7 +72,8 @@ export class CalendarPageContext {
 	}
 
 	// ---- injected deps -----------------------------------------------------
-	readonly #org: OrgContext;
+	readonly #org: CalendarPageAccess;
+	readonly #savePreferences: (patch: Partial<CalendarDisplayPreferences>) => void;
 
 	#calendarAccessKey(): string {
 		return JSON.stringify([this.#org.userId, this.#org.role, this.#org.capabilityMap.calendar, this.#org.scopeSet]);
@@ -202,7 +201,7 @@ export class CalendarPageContext {
 	// ---- reference date (for upcoming-loss evaluation) --------------------
 	/**
 	 * Calendar date used as "today" when evaluating upcoming losses.
-	 * Injectable via the third constructor argument so tests can pin the date
+	 * Injectable via the fourth constructor argument so tests can pin the date
 	 * without real-time dependencies.
 	 */
 	readonly #today: string;
@@ -228,9 +227,15 @@ export class CalendarPageContext {
 	}
 
 	// ---- constructor -------------------------------------------------------
-	constructor(getData: CalendarPageData | (() => CalendarPageData), org: OrgContext, today?: string) {
+	constructor(
+		getData: CalendarPageData | (() => CalendarPageData),
+		org: CalendarPageAccess,
+		savePreferences: (patch: Partial<CalendarDisplayPreferences>) => void,
+		today?: string
+	) {
 		this.#getData = typeof getData === 'function' ? getData : () => getData;
 		this.#org = org;
+		this.#savePreferences = savePreferences;
 
 		// Pin to the provided date or fall back to the local calendar date
 		const now = new SvelteDate();
@@ -241,26 +246,10 @@ export class CalendarPageContext {
 
 	// ---- lifecycle methods (called from route $effect) ---------------------
 
-	syncUserPreferences(
-		preferences: UserOrgPreferences | undefined,
-		_matchMediaFn: MatchMediaFn | null = getDefaultMatchMedia()
-	): void {
-		const current = preferences ?? getDefaultUserOrgPreferences();
-		this.showStatusText = current.calendar.showStatusText;
-		this.showPersonnelRoles = current.calendar.showPersonnelRoles;
-		this.highlightOnboarding = current.calendar.highlightOnboarding;
-	}
-
-	/** Mark calendar as explored for Getting Started checklist. */
-	markCalendarVisited(): void {
-		const storage = getBrowserLocalStorage();
-		if (!browser || !storage) return;
-
-		try {
-			storage.setItem(`gettingStarted_calendarVisited_${this.#data.orgId}`, 'true');
-		} catch {
-			// Non-critical getting-started persistence should not block the calendar.
-		}
+	syncUserPreferences(preferences: CalendarDisplayPreferences): void {
+		this.showStatusText = preferences.showStatusText;
+		this.showPersonnelRoles = preferences.showPersonnelRoles;
+		this.highlightOnboarding = preferences.highlightOnboarding;
 	}
 
 	// ---- handlers ----------------------------------------------------------
@@ -276,29 +265,17 @@ export class CalendarPageContext {
 
 	toggleHighlightOnboarding(): void {
 		this.highlightOnboarding = !this.highlightOnboarding;
-		void this.persistPreferences({
-			calendar: {
-				highlightOnboarding: this.highlightOnboarding
-			}
-		});
+		this.#savePreferences({ highlightOnboarding: this.highlightOnboarding });
 	}
 
 	toggleShowStatusText(): void {
 		this.showStatusText = !this.showStatusText;
-		void this.persistPreferences({
-			calendar: {
-				showStatusText: this.showStatusText
-			}
-		});
+		this.#savePreferences({ showStatusText: this.showStatusText });
 	}
 
 	toggleShowPersonnelRoles(): void {
 		this.showPersonnelRoles = !this.showPersonnelRoles;
-		void this.persistPreferences({
-			calendar: {
-				showPersonnelRoles: this.showPersonnelRoles
-			}
-		});
+		this.#savePreferences({ showPersonnelRoles: this.showPersonnelRoles });
 	}
 
 	setCalendarGroupFilter(value: string): void {
@@ -389,14 +366,6 @@ export class CalendarPageContext {
 
 	closeAssignmentModal(): void {
 		this.assignmentDate = null;
-	}
-
-	private async persistPreferences(preferences: UserOrgPreferencesPatch): Promise<void> {
-		try {
-			await queueUserPreferencesPatch(this.#data.orgId, preferences);
-		} catch (error) {
-			toastStore.error(error instanceof Error ? error.message : 'Failed to save your calendar preferences');
-		}
 	}
 
 	private canManageAvailabilityForPerson(person: Personnel): boolean {

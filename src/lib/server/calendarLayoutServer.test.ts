@@ -56,17 +56,27 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		const ctx = buildCtx();
 		seedCalendarData(ctx.store);
 
-		const result = await loadWithContextCore(ctx, {
-			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
-			policyResource: { kind: 'organization' },
-			fn: async (ctx) => {
-				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-					fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),
-					getActiveOnboardingPersonnelIds(ctx)
-				]);
-				return { ...calendarData, activeOnboardingPersonnelIds };
-			}
-		});
+		const result = await loadWithContextCore(
+			{ auth: ctx.auth, audit: ctx.audit },
+			{
+				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+				policyResource: { kind: 'organization' },
+				fn: async (ctx) => {
+					const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
+						fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),
+						getActiveOnboardingPersonnelIds(ctx)
+					]);
+					return { ...calendarData, activeOnboardingPersonnelIds };
+				}
+			},
+			() => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				personnelCalendarRoster: ctx.personnelCalendarRoster,
+				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers
+			})
+		);
 
 		expect(result.availabilityEntries).toHaveLength(1);
 		expect(result.specialDays).toHaveLength(1);
@@ -84,17 +94,27 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 		]);
 		ctx.store.seed('personnel', [{ id: 'p1', organization_id: ORG, group_id: null }]);
 
-		const result = await loadWithContextCore(ctx, {
-			policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
-			policyResource: { kind: 'organization' },
-			fn: async (ctx) => {
-				const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
-					fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),
-					getActiveOnboardingPersonnelIds(ctx)
-				]);
-				return { ...calendarData, activeOnboardingPersonnelIds };
-			}
-		});
+		const result = await loadWithContextCore(
+			{ auth: ctx.auth, audit: ctx.audit },
+			{
+				policyAction: POLICY_ACTION_CATALOG.calendar.viewAvailability,
+				policyResource: { kind: 'organization' },
+				fn: async (ctx) => {
+					const [calendarData, activeOnboardingPersonnelIds] = await Promise.all([
+						fetchCalendarData(ctx, { rangeStart: RANGE_START, rangeEnd: RANGE_END }),
+						getActiveOnboardingPersonnelIds(ctx)
+					]);
+					return { ...calendarData, activeOnboardingPersonnelIds };
+				}
+			},
+			() => ({
+				auth: ctx.auth,
+				audit: ctx.audit,
+				store: ctx.store,
+				personnelCalendarRoster: ctx.personnelCalendarRoster,
+				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers
+			})
+		);
 
 		expect(result.activeOnboardingPersonnelIds).toEqual(['p1']);
 	});

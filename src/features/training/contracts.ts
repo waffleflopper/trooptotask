@@ -210,3 +210,5 @@ export interface TrainingPagePreferences {
 export interface TrainingPreferencesPatch {
 	training?: Partial<TrainingPagePreferences>;
 }
+
+export type { TrainingSupportReader } from './supportReadTypes';

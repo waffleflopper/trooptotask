@@ -21,6 +21,7 @@ import type {
 import {
 	createSupabaseCriticalTasksReadModelAdapter,
 	createSupabaseCriticalTaskLibraryPersistence,
+	createSupabaseCriticalTaskCompletionPersistence,
 	createSupabaseCriticalTasksSettingsWritePort
 } from '$features/critical-tasks/index.server';
 import type {
@@ -99,8 +100,10 @@ export function createRequestIctCompletionContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof createPersonnelIctCompletion>[0] & Parameters<typeof importIctCompletionsBatch>[0] {
 	return {
-		...createRequestWriteContext(request),
+		auth: request.auth,
+		audit: request.audit,
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
+		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient)
 	};
 }
@@ -112,6 +115,7 @@ export function createRequestCriticalTasksReadContext(
 		auth: request.auth,
 		store: request.store,
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
+		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase)
 	};
@@ -122,8 +126,8 @@ export function createRequestCriticalTasksHistoryContext(
 ): Parameters<typeof fetchCriticalTasksPersonnelHistory>[0] {
 	return {
 		auth: request.auth,
-		store: request.store,
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
+		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient)
 	};
 }

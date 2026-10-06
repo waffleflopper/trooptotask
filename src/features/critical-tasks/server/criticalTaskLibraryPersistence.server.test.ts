@@ -3,7 +3,7 @@ import { setImmediate } from 'node:timers/promises';
 import { describe, expect, it } from 'vitest';
 import { createSupabaseCriticalTaskLibraryPersistence } from './criticalTaskLibraryPersistence.server';
 import { importIctTasksBatch } from './ictTasksBatch.server';
-import { createWritePortsContext } from './criticalTaskLibrary.test-support.server';
+import { createWritePortsContext } from './criticalTasksPersistence.test-support.server';
 
 type Row = Record<string, unknown>;
 

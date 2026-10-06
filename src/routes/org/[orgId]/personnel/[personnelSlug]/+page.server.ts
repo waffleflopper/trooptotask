@@ -47,6 +47,7 @@ function createPersonnelDetailStreams(
 			criticalTasks: loadCriticalTasksReadinessLane({
 				store: ctx.store,
 				criticalTaskLibrary: contexts.criticalTaskLibrary,
+				criticalTaskCompletions: contexts.criticalTaskCompletions,
 				orgId: ctx.auth.orgId,
 				personnelId,
 				asOf: readinessAsOf,

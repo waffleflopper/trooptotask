@@ -11,7 +11,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import ArchiveIcon from '@lucide/svelte/icons/archive';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 
 	interface Props {
 		personnel?: Personnel | null;
@@ -32,6 +32,10 @@
 		onRemove,
 		onClose
 	}: Props = $props();
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
 
 	const COMMON_NEW_PERSONNEL_RANK = 'SPC';
 
@@ -112,12 +116,13 @@
 				groupId: groupId || null,
 				groupName: selectedGroupName
 			});
+			if (disposed) return;
 			toastStore.success(isEditing ? 'Personnel updated' : 'Personnel added');
 			onClose();
 		} catch (error) {
-			toastStore.error(getErrorMessage(error));
+			if (!disposed) toastStore.error(getErrorMessage(error));
 		} finally {
-			isSaving = false;
+			if (!disposed) isSaving = false;
 		}
 	}
 

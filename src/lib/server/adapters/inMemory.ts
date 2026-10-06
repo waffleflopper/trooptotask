@@ -56,7 +56,7 @@ import type {
 	PersonnelRatingSchemeRosterPort,
 	PersonnelTrainingRosterPort
 } from '$features/personnel/contracts';
-import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
+import type { RatingSchemeDuePort, RatingSchemePersistence } from '$features/rating-scheme/contracts';
 import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contracts';
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import { createScopedDataStore } from './scopedDataStore';
@@ -119,6 +119,7 @@ type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string
 
 type TestContextOptions = {
 	auth?: Parameters<typeof createTestAuthContext>[0];
+	ratingSchemeFactory?: (rawStore: DataStore, orgId: string) => RatingSchemePersistence;
 	criticalTaskLibraryFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskLibraryPersistence;
 	criticalTaskCompletionsFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskCompletionPersistence;
 	criticalTasksReadModelFactory?: (
@@ -185,6 +186,21 @@ function unavailableCriticalTaskLibrary(): CriticalTaskLibraryPersistence {
 		create: unavailable,
 		createMany: unavailable,
 		update: unavailable
+	};
+}
+
+function unavailableRatingScheme(): RatingSchemePersistence {
+	async function unavailable(): Promise<never> {
+		throw new Error('Bind the owned Rating Scheme persistence in this test context');
+	}
+	return {
+		listWorkspace: unavailable,
+		findWriteReference: unavailable,
+		listPersonReadiness: unavailable,
+		countEntries: unavailable,
+		create: unavailable,
+		update: unavailable,
+		delete: unavailable
 	};
 }
 
@@ -1206,6 +1222,7 @@ export function createTestContext(
 		criticalTasksReadModel,
 		criticalTaskLibrary,
 		criticalTaskCompletions,
+		ratingScheme: overrides?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1310,6 +1327,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		criticalTasksReadModel,
 		criticalTaskLibrary,
 		criticalTaskCompletions,
+		ratingScheme: options?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
@@ -1347,6 +1365,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		criticalTasksReadModel,
 		criticalTaskLibrary,
 		criticalTaskCompletions,
+		ratingScheme: options?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
@@ -1384,6 +1403,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 		criticalTasksReadModel,
 		criticalTaskLibrary,
 		criticalTaskCompletions,
+		ratingScheme: options?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
@@ -1414,6 +1434,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		criticalTasksReadModel,
 		criticalTaskLibrary,
 		criticalTaskCompletions,
+		ratingScheme: options?.ratingSchemeFactory?.(rawStore, auth.orgId) ?? unavailableRatingScheme(),
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),

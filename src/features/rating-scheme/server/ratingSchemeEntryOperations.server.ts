@@ -5,43 +5,42 @@
  * Empty string fields are coerced to null before persistence (optional fields pattern).
  */
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
-import { RatingSchemeEntryEntity } from './ratingSchemeEntryEntity.server';
-import type { RatingSchemeEntryWriteContext, RatingSchemeEntryDeleteContext } from './ratingSchemeEntryPorts.server';
-import type { RatingSchemeEntry } from '../rating-scheme.types';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
+import type {
+	RatingSchemePersistence,
+	RatingSchemePatchValues,
+	RatingSchemeWriteReference,
+	SavedRatingSchemeEntry
+} from '../contracts';
+import { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryMapping.server';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
 
-const entity = RatingSchemeEntryEntity;
-export const ratingSchemeEntryCreateSchema = entity.createSchema;
-export const ratingSchemeEntryUpdateSchema = entity.updateSchema;
+export { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryMapping.server';
+
+export interface RatingSchemeEntryWriteContext {
+	readonly auth: OrganizationAccessGrant;
+	readonly audit: PolicyAuditSink;
+	readonly ratingScheme: Pick<RatingSchemePersistence, 'findWriteReference' | 'create' | 'update' | 'delete'>;
+	readonly personnelRatingSchemeRoster?: Pick<
+		PersonnelRatingSchemeRosterPort,
+		'findRatedPersonGroupForWrite' | 'hasEvaluatorReferences'
+	>;
+}
+
+export interface RatingSchemeEntryDeleteContext extends RatingSchemeEntryWriteContext {
+	readonly notifyRatingSchemeEntryDeleted: () => Promise<void>;
+}
+
 const AUDIT_RESOURCE = 'rating_scheme';
-const evaluatorColumns = [
-	'rater_person_id',
-	'senior_rater_person_id',
-	'intermediate_rater_person_id',
-	'reviewer_person_id'
+const evaluatorFields = [
+	'raterPersonId',
+	'seniorRaterPersonId',
+	'intermediateRaterPersonId',
+	'reviewerPersonId'
 ] as const;
-type RatingSchemePolicyEntry = { rated_person_id: string | null } & Record<
-	(typeof evaluatorColumns)[number],
-	string | null
->;
-
-/** Coerce empty strings to null for optional fields */
-function coerceEmptyStrings(data: Record<string, unknown>): Record<string, unknown> {
-	const result = { ...data };
-	for (const key of Object.keys(result)) {
-		if (result[key] === '') result[key] = null;
-	}
-	return result;
-}
-
-function optionalPersonnelId(value: unknown): string | null | undefined {
-	if (typeof value === 'string' || value === null || value === undefined) {
-		return value;
-	}
-
-	throw new TypeError('Expected rating scheme personnel id to be a string, null, or undefined');
-}
 
 async function policyResourceForRatedPerson(
 	ctx: RatingSchemeEntryWriteContext,
@@ -64,24 +63,25 @@ async function policyResourceForRatedPerson(
 	return policyResourceForGroup(person.groupId);
 }
 
-async function findRatingSchemeEntry(ctx: RatingSchemeEntryWriteContext, id: string): Promise<RatingSchemePolicyEntry> {
-	const entry = await (ctx.rawStore ?? ctx.store).findOne<RatingSchemePolicyEntry>(entity.table, ctx.auth.orgId, {
-		id
-	});
+async function findRatingSchemeEntry(
+	ctx: RatingSchemeEntryWriteContext,
+	id: string
+): Promise<RatingSchemeWriteReference> {
+	const entry = await ctx.ratingScheme.findWriteReference(id);
 	if (!entry) throw Object.assign(new Error('Rating Scheme entry not found'), { status: 404 });
 	return entry;
 }
 
 async function requireEvaluatorReferences(
 	ctx: RatingSchemeEntryWriteContext,
-	patch: Record<string, unknown>,
-	current?: RatingSchemePolicyEntry
+	patch: RatingSchemePatchValues,
+	current?: RatingSchemeWriteReference
 ): Promise<void> {
-	const ids = evaluatorColumns.flatMap((column) => {
-		const id = patch[column];
+	const ids = evaluatorFields.flatMap((field) => {
+		const id = patch[field];
 		// NOT VALID database constraints preserve historical links. Unrelated edits
 		// must also allow the UI to resubmit an unchanged historical evaluator ID.
-		return typeof id === 'string' && id.toLowerCase() !== current?.[column]?.toLowerCase() ? [id] : [];
+		return typeof id === 'string' && id !== '' && id.toLowerCase() !== current?.[field]?.toLowerCase() ? [id] : [];
 	});
 	if (!ids.length) return;
 	if (!ids.every(validateUUID)) {
@@ -116,7 +116,7 @@ async function requireRatingSchemeEntryDeletionRequestPolicy(
 		POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion,
 		await policyResourceForRatedPerson(
 			ctx,
-			(await findRatingSchemeEntry(ctx, id)).rated_person_id,
+			(await findRatingSchemeEntry(ctx, id)).ratedPersonId,
 			POLICY_ACTION_CATALOG.ratingScheme.requestEntryDeletion
 		),
 		AUDIT_RESOURCE,
@@ -127,46 +127,36 @@ async function requireRatingSchemeEntryDeletionRequestPolicy(
 export async function createRatingSchemeEntry(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
-): Promise<RatingSchemeEntry> {
-	const validated = entity.createSchema.parse(data);
-	await requireRatingSchemeUpdatePolicy(
-		ctx,
-		await policyResourceForRatedPerson(ctx, optionalPersonnelId(validated.ratedPersonId))
-	);
+): Promise<SavedRatingSchemeEntry> {
+	const validated = ratingSchemeEntryCreateSchema.parse(data);
+	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, validated.ratedPersonId));
 
-	const dbData = coerceEmptyStrings(entity.toDbInsert(validated, ctx.auth.orgId));
-	await requireEvaluatorReferences(ctx, dbData);
-	const row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
+	await requireEvaluatorReferences(ctx, validated);
+	const entry = await ctx.ratingScheme.create(validated);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: row.id as string | undefined
+		resourceId: entry.id
 	});
 
-	return entity.fromDb(row);
+	return entry;
 }
 
 export async function updateRatingSchemeEntry(
 	ctx: RatingSchemeEntryWriteContext,
 	data: Record<string, unknown>
-): Promise<RatingSchemeEntry> {
-	const validated = entity.updateSchema.parse(data);
-	const { id } = validated as { id: string };
+): Promise<SavedRatingSchemeEntry> {
+	const { id, ...validated } = ratingSchemeEntryUpdateSchema.parse(data);
 
 	const current = await findRatingSchemeEntry(ctx, id);
-	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, current.rated_person_id), id);
+	await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, current.ratedPersonId), id);
 	if (validated.ratedPersonId !== undefined) {
-		await requireRatingSchemeUpdatePolicy(
-			ctx,
-			await policyResourceForRatedPerson(ctx, optionalPersonnelId(validated.ratedPersonId)),
-			id
-		);
+		await requireRatingSchemeUpdatePolicy(ctx, await policyResourceForRatedPerson(ctx, validated.ratedPersonId), id);
 	}
 
-	const dbData = coerceEmptyStrings(entity.toDbUpdate(validated));
-	await requireEvaluatorReferences(ctx, dbData, current);
-	const row = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, id, dbData, entity.select);
+	await requireEvaluatorReferences(ctx, validated, current);
+	const entry = await ctx.ratingScheme.update(id, validated);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.updated`,
@@ -174,7 +164,7 @@ export async function updateRatingSchemeEntry(
 		resourceId: id
 	});
 
-	return entity.fromDb(row);
+	return entry;
 }
 
 export async function removeRatingSchemeEntry(
@@ -189,7 +179,7 @@ export async function removeRatingSchemeEntry(
 
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.deleteRatingSchemeEntry);
 
-	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
+	await ctx.ratingScheme.delete(id);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.deleted`,

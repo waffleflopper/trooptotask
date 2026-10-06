@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
 import { countOrganizationMembers } from '$features/organization/index.server';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _createConfigs } from './+server';
 

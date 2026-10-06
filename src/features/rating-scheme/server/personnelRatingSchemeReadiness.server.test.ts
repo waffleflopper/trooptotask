@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Personnel } from '$features/personnel/contracts';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './ratingSchemePersistence.test-support.server';
 import { loadRatingSchemeReadinessLane } from './personnelRatingSchemeReadiness.server';
 
 function row(id: string, end: string, overrides: Record<string, unknown> = {}) {
@@ -22,8 +22,7 @@ function readiness(rows: Record<string, unknown>[]) {
 	const ctx = createTestContext();
 	ctx.rawStore.seed('rating_scheme_entries', rows);
 	return loadRatingSchemeReadinessLane({
-		store: ctx.rawStore,
-		orgId: ctx.auth.orgId,
+		ratingScheme: ctx.ratingScheme,
 		personnelId: 'person-1',
 		loadAuthorizedPerson: async () => ({ id: 'person-1' }) as Personnel
 	});
@@ -61,30 +60,28 @@ describe('Personnel Rating Scheme readiness', () => {
 	});
 
 	it('does not read evaluations when the delivery Person/Group authorization fails', async () => {
-		const findMany = vi.fn();
+		const listPersonReadiness = vi.fn();
 		const denial = Object.assign(new Error('out of scope'), { status: 403 });
 		await expect(
 			loadRatingSchemeReadinessLane({
-				store: { findMany },
-				orgId: 'test-org',
+				ratingScheme: { listPersonReadiness },
 				personnelId: 'person-1',
 				loadAuthorizedPerson: async () => {
 					throw denial;
 				}
 			})
 		).rejects.toBe(denial);
-		expect(findMany).not.toHaveBeenCalled();
+		expect(listPersonReadiness).not.toHaveBeenCalled();
 	});
 
 	it('propagates unavailable Rating data instead of showing an assignment result', async () => {
 		await expect(
 			loadRatingSchemeReadinessLane({
-				store: {
-					findMany: async () => {
+				ratingScheme: {
+					listPersonReadiness: async () => {
 						throw new Error('Rating unavailable');
 					}
 				},
-				orgId: 'test-org',
 				personnelId: 'person-1',
 				loadAuthorizedPerson: async () => ({ id: 'person-1' }) as Personnel
 			})

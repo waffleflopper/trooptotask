@@ -1,6 +1,6 @@
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { RatingSchemeEntryWriteContext } from './ratingSchemeEntryPorts.server';
+import type { RatingSchemePersistence } from '../contracts';
 import { fail } from '$lib/errors';
 
 interface ApprovedRatingSchemeDeletionActor {
@@ -21,7 +21,7 @@ export interface ApprovedRatingSchemeDeletionPort {
 
 /** Review authority and the exact pending request precede deletion under the request's Rating RLS. */
 export function createApprovedRatingSchemeDeletionPort(
-	requestStore: Pick<RatingSchemeEntryWriteContext['store'], 'delete'>,
+	ratingScheme: Pick<RatingSchemePersistence, 'delete'>,
 	requirePending: (
 		orgId: string,
 		requestId: string,
@@ -43,7 +43,7 @@ export function createApprovedRatingSchemeDeletionPort(
 
 			await requirePending(actor.orgId, requestId, 'rating_scheme_entry', entryId);
 
-			await requestStore.delete('rating_scheme_entries', actor.orgId, entryId);
+			await ratingScheme.delete(entryId);
 			// A preceding deletion can persist when the coordinator's request-status write fails.
 			// Retrying that same pending request must still complete its status transition.
 		}

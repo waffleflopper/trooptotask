@@ -9,8 +9,11 @@ export async function submitDeletionRequest(
 	resourceType: string,
 	resourceId: string,
 	resourceDescription: string,
-	resourceUrl?: string
+	resourceUrl?: string,
+	isCurrent: () => boolean = () => true
 ): Promise<boolean> {
+	if (!isCurrent()) return false;
+
 	const isPersonnel = resourceType === 'personnel';
 	const action = isPersonnel ? 'archival' : 'deletion';
 
@@ -25,6 +28,7 @@ export async function submitDeletionRequest(
 				resourceUrl: resourceUrl ?? null
 			})
 		});
+		if (!isCurrent()) return false;
 
 		if (res.status === 409) {
 			toastStore.info(`An ${action} request for this item is already pending.`);
@@ -39,6 +43,7 @@ export async function submitDeletionRequest(
 		toastStore.info(`${isPersonnel ? 'Archival' : 'Deletion'} request submitted for admin approval.`);
 		return true;
 	} catch {
+		if (!isCurrent()) return false;
 		toastStore.error(`Failed to submit ${action} request.`);
 		return false;
 	}

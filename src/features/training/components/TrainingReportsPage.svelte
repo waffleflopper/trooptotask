@@ -45,9 +45,11 @@
 		type TrainingBriefingReportInput
 	} from '../contracts';
 	import { TrainingBriefingSession } from '../read-model/trainingBriefingSession.svelte';
-	import { BRIEFING_ROWS_BY_LABELS as ROWS_BY_LABEL, briefingFilterLabels } from '../utils/briefingFilterLabels';
+	import { TrainingPrintCycle } from '../read-model/trainingPrintCycle.svelte';
+	import { BRIEFING_ROWS_BY_LABELS as ROWS_BY_LABEL } from '../utils/briefingFilterLabels';
 	import TrainingAffectedSoldiersSection from './TrainingAffectedSoldiersSection.svelte';
 	import TrainingFocusSection from './TrainingFocusSection.svelte';
+	import TrainingPrintBrief from './TrainingPrintBrief.svelte';
 	import TrainingTypeRiskSection from './TrainingTypeRiskSection.svelte';
 
 	interface Props {
@@ -71,8 +73,24 @@
 				}
 			})
 	);
-	onMount(() => session.syncQuery());
-	onDestroy(() => session.dispose());
+	const printCycle = new TrainingPrintCycle(() => ({
+		report: session.report,
+		detail: session.detail.status === 'idle' ? null : session.detail.detail
+	}));
+	onMount(() => {
+		session.syncQuery();
+		const printMedia = window.matchMedia('print');
+		const onPrintMediaChange = () => {
+			if (printMedia.matches) printCycle.capture();
+			else printCycle.release();
+		};
+		printMedia.addEventListener('change', onPrintMediaChange);
+		return () => printMedia.removeEventListener('change', onPrintMediaChange);
+	});
+	onDestroy(() => {
+		printCycle.dispose();
+		session.dispose();
+	});
 
 	let exporting = $state(false);
 	let exportError = $state<string | null>(null);
@@ -157,11 +175,6 @@
 		if (openScope?.kind !== 'cell') return null;
 		return { rowId: openScope.rowKey === null ? TOTAL_ROW_ID : `row:${openScope.rowKey}`, columnId: openScope.typeId };
 	});
-	const filterLine = $derived(
-		briefingFilterLabels(report.input, options)
-			.map(({ label, value }) => `${label}: ${value}`)
-			.join(' · ')
-	);
 
 	function scopeLabel(scope: BriefingScope): string {
 		if (scope.kind === 'focus')
@@ -243,7 +256,15 @@
 	}
 </script>
 
-<div class="flex flex-col gap-6 p-4 md:p-6 print:p-0" data-print-report="training">
+<svelte:window onbeforeprint={() => printCycle.capture()} onafterprint={() => printCycle.release()} />
+
+{#if printCycle.data}
+	<div class="hidden print:block" data-print-report="training">
+		<TrainingPrintBrief report={printCycle.data.report} detail={printCycle.data.detail} />
+	</div>
+{/if}
+
+<div class="flex flex-col gap-6 p-4 md:p-6 print:hidden">
 	<PageShell.Header
 		title="Training Reports"
 		subtitle={`${report.organizationName} · ${soldierLabel(bottomLine.soldierCount)} · as of ${bottomLine.asOfLabel}`}
@@ -266,16 +287,13 @@
 					<Download aria-hidden="true" />
 					{exporting ? 'Exporting...' : 'Export Excel'}
 				</Button>
-				<Button type="button" size="sm" onclick={() => window.print()}>
+				<Button type="button" size="sm" onclick={() => printCycle.print(() => window.print())}>
 					<Printer aria-hidden="true" />
 					Print brief
 				</Button>
 			</div>
 		{/snippet}
 	</PageShell.Header>
-	<p class="-mt-4 hidden font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground print:block">
-		Filters · {filterLine}
-	</p>
 
 	<WorkspaceToolbar.Root
 		ariaLabel="Training report controls"

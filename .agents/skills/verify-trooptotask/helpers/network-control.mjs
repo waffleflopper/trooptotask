@@ -74,7 +74,11 @@ export function installNetworkControl(
 			call.count = records.length;
 			call.ids = records.map((row) => row.personnelId);
 			call.notes = [...new Set(records.map((row) => row.note))];
-			if (control.suffix.endsWith('/personnel/archive-batch') && Array.isArray(body.ids)) {
+			if (
+				(control.suffix.endsWith('/personnel/archive-batch') ||
+					(control.suffix.endsWith('/availability/batch') && method === 'DELETE')) &&
+				Array.isArray(body.ids)
+			) {
 				call.ids = body.ids.filter((id) => typeof id === 'string');
 				call.count = body.ids.length;
 			}

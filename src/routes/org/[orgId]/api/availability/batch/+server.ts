@@ -1,7 +1,10 @@
 import { createAvailabilityBatch, deleteAvailabilityBatch } from '$features/calendar/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createRequestAvailabilityContext } from '$lib/server/adapters/requestContexts.server';
+import {
+	createRequestAvailabilityContext,
+	createRequestAvailabilityRemovalContext
+} from '$lib/server/adapters/requestContexts.server';
 
 export const _postConfig = {
 	context: createRequestAvailabilityContext,
@@ -16,7 +19,7 @@ export const _postConfig = {
 >;
 
 export const _deleteConfig = {
-	context: createRequestAvailabilityContext,
+	context: createRequestAvailabilityRemovalContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.manageAvailability,
 	policyResource: { kind: 'unscoped' },
@@ -24,7 +27,7 @@ export const _deleteConfig = {
 } satisfies RouteConfig<
 	Parameters<typeof deleteAvailabilityBatch>[1],
 	unknown,
-	ReturnType<typeof createRequestAvailabilityContext>
+	ReturnType<typeof createRequestAvailabilityRemovalContext>
 >;
 
 export const POST = handle(_postConfig);

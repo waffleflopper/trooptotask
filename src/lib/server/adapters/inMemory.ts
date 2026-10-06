@@ -17,6 +17,7 @@ import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/acce
 import type {
 	AssignmentSlotChange,
 	CalendarAssignmentReplacementPort,
+	CalendarAvailabilityRemovalPort,
 	SavedAssignment
 } from '$features/calendar/contracts';
 import type {
@@ -633,6 +634,23 @@ function createInMemoryCalendarAssignmentReplacementPort(
 	return { replace: rawStore.replaceDailyAssignmentSlots.bind(rawStore) };
 }
 
+function createInMemoryCalendarAvailabilityRemovalPort(
+	rawStore: DataStore,
+	store: DataStore,
+	orgId: string
+): CalendarAvailabilityRemovalPort {
+	return {
+		async findPersonnelIds(ids) {
+			const rows = await rawStore.findMany<{ personnel_id: string }>('availability_entries', orgId, undefined, {
+				inFilters: { id: ids },
+				select: 'personnel_id'
+			});
+			return [...new Set(rows.map((row) => row.personnel_id))];
+		},
+		deleteIds: (ids) => store.deleteManyByIds('availability_entries', orgId, ids)
+	};
+}
+
 async function inMemoryPersonnelRows(
 	rawStore: DataStore,
 	actor: OrganizationAccessGrant,
@@ -1218,6 +1236,7 @@ export function createTestContext(
 		scope,
 		audit: auditPort,
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		organizationPolicyWrite: createInMemoryOrganizationPolicyWritePort(rawStore),
 		onboardingReconciliation: overrides?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
@@ -1339,6 +1358,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		auth,
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),
@@ -1376,6 +1396,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		auth,
 		audit: createTestAuditPort(),
 		calendarAssignmentReplacement: createInMemoryCalendarAssignmentReplacementPort(rawStore),
+		availabilityRemoval: createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId),
 		onboardingReconciliation: options?.onboardingReconciliation ?? unavailableOnboardingReconciliation(),
 		onboardingNoteAppend: options?.onboardingNoteAppend ?? unavailableOnboardingNoteAppend(),
 		onboardingLifecycleTransition: options?.onboardingLifecycleTransition ?? unavailableOnboardingLifecycleTransition(),

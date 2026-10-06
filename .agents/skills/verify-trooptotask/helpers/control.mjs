@@ -245,15 +245,32 @@ async function main() {
 		return fixture.ids[key];
 	};
 	if (command === 'print') {
-		const [action, page, expectedUrl, filePath] = args;
+		const [action, page, expectedUrl, filePath, paperSize = 'letter', backgrounds = 'on'] = args;
 		const pageId = Number(page);
 		if (
 			!Number.isSafeInteger(pageId) ||
 			pageId < 1 ||
-			(action === 'save' ? args.length !== 4 : args.length !== 2 || !['arm', 'state', 'restore'].includes(action))
+			(action === 'save'
+				? args.length < 4 ||
+					args.length > 6 ||
+					!['letter', 'a4'].includes(paperSize) ||
+					!['on', 'off'].includes(backgrounds)
+				: args.length !== 2 || !['arm', 'state', 'restore'].includes(action))
 		)
-			throw new Error('Use print arm|state|restore PAGE, or print save PAGE EXACT_REPORT_URL FILE.pdf.');
-		if (action === 'save') note(await run(state, { command: 'print-capture', pageId, expectedUrl, filePath }));
+			throw new Error(
+				'Use print arm|state|restore PAGE, or print save PAGE EXACT_REPORT_URL FILE.pdf [letter|a4] [on|off].'
+			);
+		if (action === 'save')
+			note(
+				await run(state, {
+					command: 'print-capture',
+					pageId,
+					expectedUrl,
+					filePath,
+					paperSize,
+					printBackground: backgrounds === 'on'
+				})
+			);
 		else note(await evaluate(state, pageId, `() => (${observePrint.toString()})(window, ${JSON.stringify(action)})`));
 		return;
 	}

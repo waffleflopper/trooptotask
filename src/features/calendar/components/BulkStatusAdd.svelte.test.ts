@@ -7,7 +7,7 @@ import { toastStore } from '$lib/stores/toast.svelte';
 import BulkStatusAdd from './BulkStatusAdd.svelte';
 
 vi.mock('$lib/components/ui/date-picker', async () => ({
-	DatePicker: (await import('$lib/test-stubs/DatePickerInputStub.svelte')).default
+	DatePicker: (await import('../test-support/DatePickerInputStub.svelte')).default
 }));
 
 const personnel: Personnel[] = [

@@ -1,5 +1,18 @@
 export type ReadinessBandTier = 'danger' | 'warn' | 'caution' | 'okay' | 'good' | 'not-applicable';
 
+/** `ramp` is the stepped Critical Tasks scale; `semantic` reads success → warning → destructive from theme tokens. */
+export type ReadinessBandPalette = 'ramp' | 'semantic';
+
+/** Text tone for a readiness value outside a cell: success at goal, warning within 20 points, destructive below. */
+export const readinessBandTone: Record<ReadinessBandTier, string> = {
+	good: 'text-success',
+	okay: 'text-warning',
+	caution: 'text-warning',
+	warn: 'text-destructive',
+	danger: 'text-destructive',
+	'not-applicable': 'text-muted-foreground'
+};
+
 export interface ReadinessBandLegendItem {
 	tier: ReadinessBandTier;
 	label: string;

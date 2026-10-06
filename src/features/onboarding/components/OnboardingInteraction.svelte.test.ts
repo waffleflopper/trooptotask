@@ -103,6 +103,7 @@ beforeEach(() => {
 afterEach(async () => {
 	cleanup();
 	await waitFor(() => expect(document.body.style.overflow).not.toBe('hidden'));
+	await new Promise((resolve) => setTimeout(resolve, 30));
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 	vi.useRealTimers();

@@ -16,16 +16,26 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 		async findPolicies(orgId) {
 			const { data, error } = await supabase
 				.from('organizations')
-				.select('archive_retention_months, loss_warning_window_days')
+				.select('archive_retention_months, loss_warning_window_days, training_readiness_goal_percent')
 				.eq('id', orgId.toLowerCase())
 				.maybeSingle();
 			if (error) throw new Error(error.message);
 			return data
 				? {
 						archiveRetentionMonths: data.archive_retention_months,
-						lossWarningWindowDays: data.loss_warning_window_days
+						lossWarningWindowDays: data.loss_warning_window_days,
+						trainingReadinessGoalPercent: data.training_readiness_goal_percent
 					}
 				: null;
+		},
+		async findTrainingBriefingContext(orgId) {
+			const { data, error } = await supabase
+				.from('organizations')
+				.select('name, training_readiness_goal_percent')
+				.eq('id', orgId.toLowerCase())
+				.maybeSingle();
+			if (error) throw new Error(error.message);
+			return data ? { name: data.name, trainingReadinessGoalPercent: data.training_readiness_goal_percent } : null;
 		},
 		findArchiveRetentionMonths: (orgId) => findScalar(orgId, 'archive_retention_months'),
 		findLossWarningWindowDays: (orgId) => findScalar(orgId, 'loss_warning_window_days'),
@@ -49,6 +59,8 @@ export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClie
 			if (changes.archiveRetentionMonths !== undefined)
 				updates.archive_retention_months = changes.archiveRetentionMonths;
 			if (changes.lossWarningWindowDays !== undefined) updates.loss_warning_window_days = changes.lossWarningWindowDays;
+			if (changes.trainingReadinessGoalPercent !== undefined)
+				updates.training_readiness_goal_percent = changes.trainingReadinessGoalPercent;
 			if (changes.personnelDocumentStorageCapBytes !== undefined)
 				updates.personnel_document_storage_cap_bytes = changes.personnelDocumentStorageCapBytes;
 			const { data, error } = await supabase

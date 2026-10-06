@@ -1,211 +1,55 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportData } from '$features/training/contracts';
+import { buildTrainingBriefing } from '$features/training';
 import Page from './+page.svelte';
-import { trainingTypesStore } from '$features/training';
-import { personnelTrainingsStore } from '$features/training';
-import { groupCatalogHydration } from '$features/personnel';
-import { personnelRosterHydration } from '$features/personnel';
-import type { TrainingWorkspaceResult } from '$features/training/contracts';
-import type { TrainingReportData } from '$features/training/contracts';
 
-vi.mock('$features/app-shell', () => {
-	const capabilityRank = ['none', 'view', 'operate', 'configure'];
-	const capabilityMap = {
-		calendar: 'configure',
-		personnel: 'configure',
-		training: 'configure',
-		onboarding: 'configure',
-		members: 'configure',
-		criticalTasks: 'configure',
-		ratingScheme: 'configure',
-		reports: 'configure'
-	};
-	const hasCapability = (feature: string, action: string) => {
-		const value = capabilityMap[feature as keyof typeof capabilityMap];
-		if (Array.isArray(value)) return value.includes(action);
-		const actualRank = capabilityRank.indexOf(value);
-		const requiredRank = capabilityRank.indexOf(action);
-		return requiredRank >= 0 && actualRank >= requiredRank;
-	};
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	replaceState: vi.fn()
+}));
+vi.mock('$features/app-shell', () => ({ getAppShellContext: () => ({ orgId: 'org-1' }) }));
 
+function report(organizationName: string, soldiers: number): TrainingBriefingReportData {
 	return {
-		getAppShellContext: () => ({
-			orgId: 'org-1',
-			orgName: 'Test Unit',
-			userId: 'user-1',
-			role: 'owner',
-			isOwner: true,
-			isAdmin: false,
-			isPrivileged: true,
-			capabilityMap,
-			hasCapability,
-			scopeSet: { kind: 'organization' },
-			affordanceForFeatureAction: () => ({
-				allowed: true,
-				visible: true,
-				disabled: false,
-				reason: 'allowed:capability',
-				explanation: '',
-				decision: {}
-			})
-		})
-	};
-});
-
-function makeDeferredBootstrap(): TrainingWorkspaceResult {
-	const deferredItems = Promise.resolve([]);
-	const data = {
-		personnel: deferredItems,
-		groups: deferredItems,
-		trainingTypes: deferredItems,
-		trainingViews: deferredItems,
-		personnelTrainings: deferredItems,
-		pinnedGroups: deferredItems
-	};
-
-	return {
-		laneKey: 'training',
-		data,
-		hydration: {
-			orgId: 'org-1',
-			personnel: { mode: 'replace', snapshotKey: 'personnel:1', items: data.personnel },
-			groups: { mode: 'replace', snapshotKey: 'groups:1', items: data.groups },
-			trainingTypes: { mode: 'replace', snapshotKey: 'types:1', items: data.trainingTypes },
-			trainingViews: { mode: 'replace', snapshotKey: 'views:1', items: data.trainingViews },
-			personnelTrainings: { mode: 'replace', snapshotKey: 'trainings:1', items: data.personnelTrainings },
-			pinnedGroups: { mode: 'replace', snapshotKey: 'pinned:1', items: data.pinnedGroups }
-		}
+		input: DEFAULT_TRAINING_BRIEFING_INPUT,
+		organizationName,
+		briefing: buildTrainingBriefing({
+			personnel: Array.from({ length: soldiers }, (_, index) => ({
+				id: `p${index}`,
+				rank: 'SGT',
+				lastName: `p${index}`,
+				firstName: 'Pat',
+				mos: '68W',
+				clinicRole: 'Medic',
+				groupId: null,
+				groupName: ''
+			})),
+			types: [],
+			records: [],
+			filters: {},
+			horizonDays: 90,
+			asOf: '2026-09-29',
+			goalPercent: 90,
+			rowsBy: 'group',
+			scopeName: organizationName
+		}),
+		filterOptions: { views: [], groups: [], ranks: [], mos: [], roles: [], types: [] }
 	};
 }
 
-function makeTrainingReportData(rowCount = 1): TrainingReportData {
-	return {
-		dashboard: {
-			readinessPercent: rowCount > 0 ? 100 : 0,
-			statusCounts: { current: rowCount, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 },
-			worstTypes: [],
-			groupComparison: [],
-			typeBreakdown: []
-		},
-		detail: {
-			rows:
-				rowCount > 0
-					? [
-							{
-								person: {
-									id: 'person-1',
-									firstName: 'Jane',
-									lastName: 'Smith',
-									rank: 'SGT',
-									mos: '68W',
-									clinicRole: 'Medic',
-									groupId: 'group-1',
-									groupName: 'Alpha'
-								} as never,
-								cells: [{ trainingTypeId: 'type-1', status: 'current', label: 'Current', date: '2026-01-01' }]
-							}
-						]
-					: [],
-			totalRows: rowCount,
-			page: 1,
-			pageSize: 25,
-			totalPages: 1,
-			sort: { column: 'name', direction: 'asc' }
-		},
-		trainingTypes: [
-			{ id: 'type-1', name: 'CPR', color: '#22c55e' },
-			{ id: 'type-2', name: 'SHARP', color: '#f59e0b' }
-		],
-		filterOptions: {
-			groups: [{ id: 'group-1', name: 'Alpha', orgId: 'org-1', sortOrder: 0, pinned: false } as never],
-			mos: ['68W'],
-			roles: ['Medic'],
-			ranks: ['SGT']
-		}
-	};
-}
+afterEach(() => cleanup());
 
-describe('training reports page', () => {
-	beforeEach(() => {
-		personnelRosterHydration.load([], 'org-stale');
-		groupCatalogHydration.load([], 'org-stale');
-		trainingTypesStore.load([], 'org-stale');
-		personnelTrainingsStore.load([], 'org-stale');
-	});
+describe('Training reports route page', () => {
+	it('renders the server briefing and starts over when the route delivers another Organization', async () => {
+		const { rerender } = render(Page, { props: { data: { trainingReport: report('Alpha Company', 2) } as never } });
 
-	afterEach(() => {
-		cleanup();
-		vi.unstubAllGlobals();
-		personnelRosterHydration.load([], 'org-test-reset');
-		groupCatalogHydration.load([], 'org-test-reset');
-		trainingTypesStore.load([], 'org-test-reset');
-		personnelTrainingsStore.load([], 'org-test-reset');
-	});
+		expect(screen.getByText('Alpha Company · 2 soldiers · as of 29 Sep 2026')).toBeTruthy();
 
-	it('keeps the route loading state until current-org training stores hydrate', async () => {
-		render(Page, {
-			props: {
-				data: {
-					training: {
-						data: Promise.resolve(makeDeferredBootstrap())
-					}
-				} as never
-			}
-		});
+		await rerender({ data: { trainingReport: report('Bravo Company', 5) } as never });
 
-		expect(await screen.findByText('Loading training reports...')).toBeTruthy();
-		expect(screen.queryByText('No training types configured. Create training types first.')).toBeNull();
-	});
-
-	it('renders from the server report without waiting for full training store hydration', async () => {
-		render(Page, {
-			props: {
-				data: {
-					training: {
-						data: Promise.resolve(makeDeferredBootstrap())
-					},
-					trainingReport: {
-						dashboard: {
-							readinessPercent: 0,
-							statusCounts: { current: 0, warningYellow: 0, warningOrange: 0, expired: 0, notCompleted: 0 },
-							worstTypes: [],
-							groupComparison: [],
-							typeBreakdown: []
-						},
-						detail: {
-							rows: [],
-							totalRows: 0,
-							page: 1,
-							pageSize: 25,
-							totalPages: 1,
-							sort: { column: 'name', direction: 'asc' }
-						},
-						trainingTypes: [],
-						filterOptions: { groups: [], mos: [], roles: [], ranks: [] }
-					}
-				}
-			}
-		});
-
-		expect(await screen.findByText('No training types configured.')).toBeTruthy();
-		expect(screen.getByText('Create training types first.')).toBeTruthy();
-		expect(screen.queryByText('Loading training reports...')).toBeNull();
-	});
-
-	it('disables report actions when filters or export rows are unavailable', async () => {
-		render(Page, {
-			props: {
-				data: {
-					training: {
-						data: Promise.resolve(makeDeferredBootstrap())
-					},
-					trainingReport: makeTrainingReportData(0)
-				}
-			}
-		});
-
-		expect((await screen.findByRole('button', { name: 'Clear filters' })).hasAttribute('disabled')).toBe(true);
-		expect(screen.getByRole('button', { name: 'Export' }).hasAttribute('disabled')).toBe(true);
+		expect(screen.getByText('Bravo Company · 5 soldiers · as of 29 Sep 2026')).toBeTruthy();
+		expect(screen.queryByText(/Alpha Company/)).toBeNull();
 	});
 });

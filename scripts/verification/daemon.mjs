@@ -29,6 +29,7 @@ import {
 } from './core.mjs';
 import { seed } from './fixtures.mjs';
 import { driver, assertOwnedNavigation } from './browser.mjs';
+import { capturePrint } from './print-capture.mjs';
 
 const session = process.argv[2];
 const state = await readJSON(path.join(session, 'session.json'));
@@ -232,6 +233,8 @@ try {
 		args: [
 			path.join(repository, 'node_modules/chrome-devtools-mcp/build/src/bin/chrome-devtools-mcp.js'),
 			'--headless',
+			'--experimentalStructuredContent',
+			'--chrome-arg=--remote-debugging-port=0',
 			`--executablePath=${state.browser.executable}`,
 			`--userDataDir=${path.join(session, 'chrome-profile')}`,
 			'--no-usage-statistics',
@@ -326,6 +329,9 @@ try {
 										ordinal: input.ordinal,
 										holdMs: input.holdMs
 									});
+									break;
+								case 'print-capture':
+									result = await capturePrint({ state, session, input, call });
 									break;
 								default:
 									throw new Blocked('COMMAND', 'Unknown command. Run --help.');

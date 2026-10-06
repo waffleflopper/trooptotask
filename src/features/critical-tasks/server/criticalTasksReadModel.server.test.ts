@@ -55,7 +55,6 @@ describe('Critical Tasks latest completion provider', () => {
 			notes: 'Row0',
 			loggedBy: null
 		});
-		// A full terminal page needs one empty read; the short page stops immediately.
 		expect(servedOffsets).toEqual([0, 1000]);
 	});
 

@@ -239,7 +239,6 @@ describe('paged Personnel Critical Tasks history', () => {
 					const url = new URL(String(input));
 					const offset = Number(url.searchParams.get('offset') ?? 0);
 					// SQL may return equal sort keys in a different order for each request.
-					// Apply the requested order after changing only that incidental input order.
 					const rows = offset === 0 ? [...captures] : [...captures].reverse();
 					const order = (url.searchParams.get('order') ?? '').split(',').filter(Boolean);
 					rows.sort((left, right) => {

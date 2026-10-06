@@ -68,8 +68,6 @@ describe('importIctCompletionsBatch', () => {
 				global: {
 					fetch: async (input) => {
 						const url = new URL(String(input));
-						// A finite request-line budget is independent of the lookup's chunk size.
-						// Native owned-provider verification separately proves the real deployment.
 						if (url.href.length > 8192)
 							return new Response(JSON.stringify({ message: 'URI too long' }), { status: 414 });
 						const ids = (column: string) => url.searchParams.get(column)?.slice(4, -1).split(',') ?? [];

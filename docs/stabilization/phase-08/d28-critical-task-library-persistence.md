@@ -77,3 +77,13 @@ CLI CodeRabbit completes all 64 text paths with zero findings; both archives rec
 ## Release obligations
 
 No remote database operation is authorized. Any discovered migration requirement stops before merge for Robert's manual operation. D25 hosted migration parity remains unverified and operator-owned. Existing CI/Vercel integrations may run on publication and merge; external deployment settings remain uninspected.
+
+## Integrated acceptance
+
+[#1542](https://github.com/waffleflopper/trooptotask/pull/1542) merges on October 6, 2026 at `00:02:31Z`, with accepted head `5fe280618eeae18e067a96d973149d7b4c2cad82` and default commit `66a238a8fe9915f5dd3994a7d5d62f71c71f7de8`. Their complete trees both equal `56bdfb8545d0c0a69008e225684a9121200cb601`. The head-conditional squash merge uses no override; no migration is included. The PR watch is stopped.
+
+Exact-head [CI run 37389740719](https://github.com/waffleflopper/trooptotask/actions/runs/37389740719) passes documentation/whitespace, format, lint, governance, Svelte/types, 705 suites / 6,997 tests and production/server-only build. Types have zero errors/warnings; lint retains three existing warnings. Database selection and the automatic Claude check are skipped, separately from the accepted owned SQL proof. Vercel succeeds.
+
+All comment, review and inline-thread pages are exhausted before merge. CodeRabbit [approval 5422160757](https://github.com/waffleflopper/trooptotask/pull/1542#pullrequestreview-5422160757) applies to the accepted head and has no actionable findings or inline threads. Its [completed hosted report](https://github.com/waffleflopper/trooptotask/pull/1542#issuecomment-6005609356) selects all 64 text paths; both archives are excluded and independently expanded/accepted. Ten deleted or removal-only paths have no hosted reviewable content; complete independent source acceptance covers their retirement. The 1.79%/80% docstring advisory is dismissed because the repository has no percentage gate; named typed operations and necessary rationale follow its comment guidance. It is not an actionable behavior or boundary finding.
+
+The separate final-record CLI review completes exactly the four Markdown records with zero findings; the final archive remains separately accepted. Documentation formatting, 466 local links, 73 historical links and whitespace checks pass. Prove It Works selects the actual CI log, approval and complete accepted/default-tree comparison. This integrates the declared task-library concern. #1376 remains open for completion-ledger/settings/other domain persistence and final generic request/store/scope facade removal; D29 mixed utilities and D30 stay blocked.

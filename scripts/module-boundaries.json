@@ -534,6 +534,7 @@
 		"src/routes/org/[orgId]/api/sign-in-rosters/rosterTestContexts.ts",
 		"src/features/critical-tasks/server/criticalTasksPersistence.test-support.server.ts",
 		"src/features/critical-tasks/server/inMemoryCriticalTaskLibrary.server.ts",
-		"src/features/critical-tasks/server/inMemoryCriticalTaskCompletion.server.ts"
+		"src/features/critical-tasks/server/inMemoryCriticalTaskCompletion.server.ts",
+		"src/features/critical-tasks/server/inMemoryCriticalTasksReadModel.server.ts"
 	]
 }

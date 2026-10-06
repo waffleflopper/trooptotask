@@ -1,4 +1,3 @@
-import type { DataStore } from '$lib/server/core/ports';
 import type { CriticalTaskCompletionPersistence } from '../contracts';
 import {
 	completionCreateValues,
@@ -7,8 +6,25 @@ import {
 	type SavedPersonnelIctCompletion
 } from './personnelIctCompletionMapping.server';
 
+interface CompletionMemoryStore {
+	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
+	findMany<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: {
+			inFilters?: Record<string, string[]>;
+			orderBy?: Array<{ column: string; ascending: boolean }>;
+		}
+	): Promise<T[]>;
+	insert<T>(table: string, orgId: string, input: Record<string, unknown>): Promise<T>;
+	insertMany<T>(table: string, orgId: string, inputs: Record<string, unknown>[]): Promise<T[]>;
+	update<T>(table: string, orgId: string, id: string, patch: Record<string, unknown>): Promise<T>;
+	delete(table: string, orgId: string, id: string): Promise<void>;
+}
+
 export function createInMemoryCriticalTaskCompletionPersistence(
-	store: Pick<DataStore, 'findOne' | 'findMany' | 'insert' | 'insertMany' | 'update' | 'delete'>,
+	store: CompletionMemoryStore,
 	orgId: string
 ): CriticalTaskCompletionPersistence {
 	return {

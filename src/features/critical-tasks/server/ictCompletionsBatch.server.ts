@@ -58,8 +58,6 @@ export async function importIctCompletionsBatch(
 	const personnel = await ctx.personnelCriticalTasksRoster.listForBatchImport(ctx.auth);
 	const tasks = await ctx.criticalTaskLibrary.listImportCandidates();
 
-	// First pass resolves only valid personnel/task references so we can scope access checks
-	// and the existing-completion lookup without loading unrelated completion history.
 	const preliminaryReview = reviewMappedIctCompletionImportRows(input.records, {
 		personnel,
 		tasks,

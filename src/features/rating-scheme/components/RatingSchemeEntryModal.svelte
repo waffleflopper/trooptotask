@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { PersonnelLookup } from '$features/personnel/contracts';
 	import type { RatingSchemeEntry, ReportType, WorkflowStatus } from '../rating-scheme.types';
 	import {
@@ -30,12 +31,18 @@
 	interface Props {
 		entry: RatingSchemeEntry | null;
 		personnel: PersonnelLookup[];
-		onSave: (data: Omit<RatingSchemeEntry, 'id'>) => Promise<void>;
-		onDelete?: (id: string) => Promise<boolean>;
+		isCurrentWorkspace: () => boolean;
+		onSave: (data: Omit<RatingSchemeEntry, 'id'>, isCurrent: () => boolean) => Promise<void>;
+		onDelete?: (id: string, isCurrent: () => boolean) => Promise<boolean>;
 		onClose: () => void;
 	}
 
-	let { entry, personnel, onSave, onDelete, onClose }: Props = $props();
+	let { entry, personnel, isCurrentWorkspace, onSave, onDelete, onClose }: Props = $props();
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
+	const isCurrent = () => !disposed && isCurrentWorkspace();
 
 	const sortedPersonnel = $derived(
 		[...personnel].sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
@@ -92,37 +99,43 @@
 		draft.workflowStatus = value as WorkflowStatus | '';
 	}
 
-	function getSaveErrorMessage(error: unknown): string {
+	function getSaveErrorMessage(error: unknown, fallback: string): string {
 		if (error instanceof Error && error.message.trim()) return error.message;
-		return entry ? 'Failed to update rating entry' : 'Failed to add rating entry';
+		return fallback;
 	}
 
 	async function handleSave() {
 		saveAttempted = true;
-		if (!view.canSave || busy) return;
+		if (!view.canSave || busy || !isCurrent()) return;
 
+		const saveData = buildRatingSchemeEntrySaveData(draft);
+		const successMessage = entry ? 'Rating entry updated' : 'Rating entry added';
+		const failureMessage = entry ? 'Failed to update rating entry' : 'Failed to add rating entry';
 		isSaving = true;
 		try {
-			await onSave(buildRatingSchemeEntrySaveData(draft));
-			toastStore.success(entry ? 'Rating entry updated' : 'Rating entry added');
+			await onSave(saveData, isCurrent);
+			if (!isCurrent()) return;
+			toastStore.success(successMessage);
 			onClose();
 		} catch (error) {
-			toastStore.error(getSaveErrorMessage(error));
+			if (isCurrent()) toastStore.error(getSaveErrorMessage(error, failureMessage));
 		} finally {
-			isSaving = false;
+			if (isCurrent()) isSaving = false;
 		}
 	}
 
 	async function handleDelete() {
 		const deleteHandler = onDelete;
-		if (!entry || typeof deleteHandler !== 'function' || busy) return;
+		if (!entry || typeof deleteHandler !== 'function' || busy || !isCurrent()) return;
+		const entryId = entry.id;
 		isDeleting = true;
 		try {
-			if (await deleteHandler(entry.id)) onClose();
+			const deleted = await deleteHandler(entryId, isCurrent);
+			if (isCurrent() && deleted) onClose();
 		} catch {
-			toastStore.error('Failed to delete rating entry. Try again.');
+			if (isCurrent()) toastStore.error('Failed to delete rating entry. Try again.');
 		} finally {
-			isDeleting = false;
+			if (isCurrent()) isDeleting = false;
 		}
 	}
 

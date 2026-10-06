@@ -339,6 +339,8 @@ export class PersonnelDetailWorkspace {
 					replaceState: true,
 					invalidateAll: true
 				});
+			} else {
+				await this.#deps.invalidateAll();
 			}
 			this.editingBasicInfo = false;
 		} catch (caught) {

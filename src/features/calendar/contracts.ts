@@ -77,4 +77,9 @@ export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;
 }
 
+export interface CalendarAvailabilityRemovalPort {
+	findPersonnelIds(ids: string[]): Promise<string[]>;
+	deleteIds(ids: string[]): Promise<number>;
+}
+
 export type { CalendarSupportReader } from './supportReadTypes';

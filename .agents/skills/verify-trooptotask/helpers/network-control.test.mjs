@@ -389,3 +389,17 @@ test('lost response preserves real dispatch while isolating the exact platform a
 	assert.equal((await page.fetch(`${suffix}?/transferOwnership`, { method: 'POST' })).status, 200);
 	assert.equal(writes, 2);
 });
+
+test('availability removal observation records the JSON IDs and preserves the real response', async () => {
+	const page = { fetch: async () => Response.json({ deleted: 2 }) };
+	installNetworkControl(page, { mode: 'observe', ordinal: 1, suffix: '/org/a/api/availability/batch' });
+	const response = await page.fetch('/org/a/api/availability/batch', {
+		method: 'DELETE',
+		body: JSON.stringify({ ids: ['saved-a', 'saved-b', 'saved-a'] })
+	});
+	assert.deepEqual(await response.json(), { deleted: 2 });
+	assert.deepEqual(
+		page.__mapNetwork.calls.map(({ method, count, ids, status }) => ({ method, count, ids, status })),
+		[{ method: 'DELETE', count: 3, ids: ['saved-a', 'saved-b', 'saved-a'], status: 200 }]
+	);
+});

@@ -6,7 +6,8 @@ import {
 import { createSupabaseTrainingExportReader } from '$features/training/index.server';
 import {
 	createSupabaseCalendarExportReader,
-	createSupabaseCalendarAssignmentReplacementPort
+	createSupabaseCalendarAssignmentReplacementPort,
+	createSupabaseCalendarAvailabilityRemovalPort
 } from '$features/calendar/index.server';
 import {
 	createSupabaseCriticalTasksExportReader,
@@ -486,6 +487,15 @@ export function createRequestDailyAssignmentContext(request: AdmittedOrganizatio
 	return {
 		...createRequestAvailabilityContext(request),
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase)
+	};
+}
+
+export function createRequestAvailabilityRemovalContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient),
+		availabilityRemoval: createSupabaseCalendarAvailabilityRemovalPort(request.supabase, request.auth.orgId)
 	};
 }
 

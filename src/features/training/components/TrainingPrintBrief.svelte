@@ -203,7 +203,7 @@
 							<table class="mt-1 w-full table-fixed border-collapse">
 								<colgroup>
 									<col class="w-5" />
-									<col class="w-[200px]" />
+									<col class="w-[330px]" />
 									<col />
 									<col class="w-16" />
 									<col class="w-16" />
@@ -250,7 +250,7 @@
 				</div>
 			</div>
 
-			<section class="flex flex-col gap-2.5 border-t-2 border-foreground pt-3" aria-label="Focus">
+			<section class="flex break-inside-avoid flex-col gap-2.5 border-t-2 border-foreground pt-3" aria-label="Focus">
 				<div class="flex items-baseline justify-between gap-4">
 					<div class="flex items-baseline gap-3">
 						{@render eyebrow('Focus')}
@@ -263,7 +263,7 @@
 				{#if briefing.focus.areas.length > 0}
 					<ol class="flex gap-7">
 						{#each briefing.focus.areas as area, index (area.key)}
-							<li class="flex min-w-0 flex-1 gap-2.5 break-inside-avoid">
+							<li class="flex min-w-0 flex-1 gap-2.5">
 								<span class="w-5 shrink-0 font-heading text-[28px] leading-[26px] font-extrabold" aria-hidden="true"
 									>{index + 1}</span
 								>

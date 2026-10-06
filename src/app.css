@@ -456,6 +456,8 @@ input[type='checkbox']:focus-visible {
 		display: none !important;
 	}
 
+	[data-print-brief='training'] thead,
+	[data-print-brief='training'] tfoot,
 	[data-print-brief='training'] tr {
 		break-inside: avoid;
 	}

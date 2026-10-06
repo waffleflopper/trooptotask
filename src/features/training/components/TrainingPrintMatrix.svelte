@@ -77,7 +77,7 @@
 		<thead>
 			<TrainingPrintRunningHeader organizationName={report.organizationName} {context} {colspan} />
 			<tr>
-				<td {colspan} class="p-0 pb-3">
+				<td {colspan} class="p-0 pb-2.5">
 					<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 						<p class="font-mono text-[9.5px] leading-3 uppercase tracking-[0.08em] text-muted-foreground">
 							Where and what
@@ -92,27 +92,7 @@
 								{range}
 							</p>
 						{/if}
-						<p class="font-serif text-[11px] leading-[14px]">
-							Cells: % of applicable requirements ready today. Under each {noun.one}: soldiers. Right columns:
-							requirement counts across all {noun.many}.
-						</p>
 					</div>
-					<ul class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[9px] leading-3">
-						<li class="pr-1 tracking-[0.06em] text-muted-foreground">KEY</li>
-						{#each grid.legend as item (item.band)}
-							<li class={['px-1.5 py-px', BAND_FILL[item.band], item.band !== 'goal' && 'font-semibold']}>
-								{item.label}
-							</li>
-						{/each}
-						<li class="pr-2.5 pl-1">bold = below the {goal}% goal</li>
-						<li class="px-1.5 py-px font-bold outline-[1.25px] outline-solid outline-foreground -outline-offset-1">
-							86▼14
-						</li>
-						<li class="pr-2.5">
-							86% today, loses 14 points by {bottomLine.horizonEndLabel} (marked at {grid.dropAlertPoints}+)
-						</li>
-						<li>— no soldier in the {noun.one} requires the type</li>
-					</ul>
 				</td>
 			</tr>
 			<tr class="align-bottom">
@@ -195,5 +175,31 @@
 				<td></td>
 			</tr>
 		</tbody>
+		<tfoot>
+			<tr>
+				<td {colspan} class="p-0 pt-2.5">
+					<p class="font-serif text-[11px] leading-[14px]">
+						Cells: % of applicable requirements ready today. Under each {noun.one}: soldiers. Right columns: requirement
+						counts across all {noun.many}.
+					</p>
+					<ul class="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 font-mono text-[9px] leading-3">
+						<li class="pr-1 tracking-[0.06em] text-muted-foreground">KEY</li>
+						{#each grid.legend as item (item.band)}
+							<li class={['px-1.5 py-px', BAND_FILL[item.band], item.band !== 'goal' && 'font-semibold']}>
+								{item.label}
+							</li>
+						{/each}
+						<li class="pr-2.5 pl-1">bold = below the {goal}% goal</li>
+						<li class="px-1.5 py-px font-bold outline-[1.25px] outline-solid outline-foreground -outline-offset-1">
+							86▼14
+						</li>
+						<li class="pr-2.5">
+							86% today, loses 14 points by {bottomLine.horizonEndLabel} (marked at {grid.dropAlertPoints}+)
+						</li>
+						<li>— no soldier in the {noun.one} requires the type</li>
+					</ul>
+				</td>
+			</tr>
+		</tfoot>
 	</table>
 </section>

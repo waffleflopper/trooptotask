@@ -153,6 +153,7 @@ describe('GET /api/training-reports/export', () => {
 		]);
 		expect(workbook.getWorksheet('Summary')!.getRow(20).values).toEqual([undefined, 'Filter: MOS', '11B']);
 		expect(response.headers.get('Content-Type')).toBe(WORKBOOK_MIME_TYPE);
+		expect(response.headers.get('Vary')).toBe('Cookie');
 		expect(response.headers.get('Content-Disposition')).toMatch(/attachment; filename="training-report-.*\.xlsx"/);
 		expect(response.headers.get('Cache-Control')).toBe('private, no-store');
 	});

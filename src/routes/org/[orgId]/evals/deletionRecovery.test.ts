@@ -12,7 +12,7 @@ import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
 import { toastStore } from '$lib/stores/toast.svelte';
 import { submitDeletionRequest } from '$features/deletion-requests';
 import * as deletionRequests from '$features/deletion-requests';
-import { ratingSchemeStore } from '$features/rating-scheme/stores/ratingScheme.svelte';
+import { ratingSchemeStore } from '$features/rating-scheme/ratingSchemeStore.test-support.svelte';
 const { default: RatingSchemeModals } = await loadRatingSchemeModals();
 let snapshot = 0;
 let ctx: RatingSchemePageContext;

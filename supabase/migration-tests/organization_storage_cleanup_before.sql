@@ -66,7 +66,7 @@ FROM (VALUES
 CREATE VIEW upgrade_fixture.organization_storage_cleanup_current_rows AS
 SELECT 'auth.users'::text AS table_name, id::text AS row_id, to_jsonb(row_value) AS row_data
   FROM auth.users AS row_value WHERE id::text LIKE 'fa170000-%'
-UNION ALL SELECT 'public.organizations', id::text, to_jsonb(row_value)
+UNION ALL SELECT 'public.organizations', id::text, to_jsonb(row_value) - 'training_readiness_goal_percent'
   FROM public.organizations AS row_value WHERE id::text LIKE 'fa170000-%'
 UNION ALL SELECT 'public.organization_memberships', id::text, to_jsonb(row_value)
   FROM public.organization_memberships AS row_value WHERE organization_id::text LIKE 'fa170000-%'

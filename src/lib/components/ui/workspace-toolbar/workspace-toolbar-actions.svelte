@@ -105,6 +105,7 @@
 				href={action.href}
 				disabled={action.disabled}
 				title={action.disabledReason}
+				aria-label={action.label}
 				aria-pressed={action.toggle ? action.active : undefined}
 				onclick={action.onclick}
 			>

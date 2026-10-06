@@ -96,6 +96,11 @@ describe('Organization policy updates', () => {
 		{ lossWarningWindowDays: 365.5 },
 		{ personnelDocumentStorageCapMb: 9.49 },
 		{ personnelDocumentStorageCapMb: 1024.5 },
+		{ trainingReadinessGoalPercent: 0 },
+		{ trainingReadinessGoalPercent: 101 },
+		{ trainingReadinessGoalPercent: 90.5 },
+		{ trainingReadinessGoalPercent: null },
+		{ trainingReadinessGoalPercent: '90' },
 		{ archiveRetentionMonths: 48, criticalTasksDefaultExpirationMonths: null },
 		{ lossWarningWindowDays: 90, criticalTasksExpiringSoonWarningDays: undefined }
 	])('rejects invalid/empty/retired inputs before any write or success audit (%j)', async (input) => {
@@ -104,6 +109,19 @@ describe('Organization policy updates', () => {
 		await expect(updateOrganizationSettings(ctx, input as never)).rejects.toMatchObject({ status: 400 });
 		expect(update).not.toHaveBeenCalled();
 		expect(ctx.auditPort.events).toEqual([]);
+	});
+
+	it.each([1, 100])('stores and audits the whole-number readiness goal boundary %i alone', async (goal) => {
+		const ctx = createTestContext();
+		ctx.rawStore.seed('organizations', [
+			{ id: ctx.auth.orgId, loss_warning_window_days: 180, training_readiness_goal_percent: 90 }
+		]);
+		expect(await updateOrganizationSettings(ctx, { trainingReadinessGoalPercent: goal })).toEqual({ success: true });
+		expect(await ctx.rawStore.findOne('organizations', ctx.auth.orgId, {})).toMatchObject({
+			loss_warning_window_days: 180,
+			training_readiness_goal_percent: goal
+		});
+		expect(ctx.auditPort.events).toMatchObject([{ details: { training_readiness_goal_percent: goal } }]);
 	});
 
 	it.each(['owner', 'admin', 'member'] as const)(

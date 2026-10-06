@@ -1,819 +1,610 @@
-<script lang="ts">
-	import type { TrainingPageAccess } from '../contracts';
-	import { tick } from 'svelte';
-	import * as Empty from '$lib/components/ui/empty';
-	import { Button } from '$lib/components/ui/button';
-	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
-	import TrainingStatusCell from './TrainingStatusCell.svelte';
-	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import type { WorkspaceToolbarAction } from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
-	import { createRosterReadModel } from '$features/personnel/contracts';
-	import { rosterStore } from '$features/personnel';
-	import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
-	import type { TrainingStatus } from '$features/training/training.types';
-	import type { Personnel } from '$features/personnel/contracts';
-	import { groupsStore } from '$features/personnel';
-	import type { Group } from '$features/personnel/contracts';
-	import type { TrainingReportData, TrainingReportDetail } from '$features/training/contracts';
-	import {
-		buildTrainingReportDetailUrl,
-		buildTrainingReportExportUrl,
-		buildTrainingReportScreenModel,
-		buildTrainingReportUrl,
-		formatTrainingReportCell,
-		getTrainingReportRowsForType,
-		type TrainingReportColumn,
-		type TrainingReportFilterState,
-		type TrainingReportPivotRow,
-		type TrainingReportSortState
-	} from '$features/training/read-model/trainingReportScreenModel';
-	import { exportTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
+<script lang="ts" module>
+	import type { BriefingBand, BriefingRowsBy } from '../contracts';
+	import type { ReadinessBandTier } from '$lib/components/ui/readiness-band/index.js';
 
-	interface Props {
-		org: Pick<TrainingPageAccess, 'orgId' | 'scopeSet'>;
-		data: {
-			training?: {
-				data?: {
-					personnel?: Personnel[];
-					groups?: Group[];
-					[key: string]: unknown;
-				};
-			};
-			trainingReport?: TrainingReportData;
-			personnel?: Personnel[];
-			groups?: Group[];
-		};
-	}
-
-	let { data, org }: Props = $props();
-
-	const workspaceData = $derived(data.training?.data);
-	const serverReport = $derived((data.trainingReport as TrainingReportData | undefined) ?? null);
-	const serverReportKey = $derived(reportIdentity(serverReport));
-	let localReport = $state<{
-		serverReportKey: string | null;
-		report: TrainingReportData | null;
-		loading: boolean;
-		error: string | null;
-		requestId: number;
-	}>({
-		serverReportKey: null,
-		report: null,
-		loading: false,
-		error: null,
-		requestId: 0
-	});
-	const localReportMatchesServer = $derived(localReport.serverReportKey === serverReportKey);
-	const report = $derived(localReportMatchesServer ? localReport.report : null);
-	const activeReport = $derived(report ?? serverReport);
-	const reportLoading = $derived(localReportMatchesServer ? localReport.loading : false);
-	const reportError = $derived(localReportMatchesServer ? localReport.error : null);
-
-	let filterGroupId = $state('');
-	let filterMos = $state('');
-	let filterRole = $state('');
-	let filterRank = $state('');
-	let filterStatus = $state<TrainingStatus | ''>('');
-	let filterTypeIds = $state<string[]>([]);
-	let expandedTypeId = $state<string | null>(null);
-	let sortColumn = $state<string>('name');
-	let sortAsc = $state(true);
-
-	const fallbackPersonnel = $derived<Personnel[]>(
-		Array.isArray(workspaceData?.personnel)
-			? workspaceData.personnel
-			: Array.isArray(data.personnel)
-				? data.personnel
-				: []
-	);
-	const sourcePersonnel = $derived<Personnel[]>(
-		rosterStore.orgId === org.orgId
-			? rosterStore.readModel().scoped(org.scopeSet, { status: 'active' }).flatPersonnel
-			: createRosterReadModel({ personnel: fallbackPersonnel }).scoped(org.scopeSet, { status: 'active' }).flatPersonnel
-	);
-	const sourceGroups = $derived<Group[]>(
-		groupsStore.orgId === org.orgId
-			? groupsStore.items
-			: Array.isArray(workspaceData?.groups)
-				? workspaceData.groups
-				: Array.isArray(data.groups)
-					? data.groups
-					: []
-	);
-	const sourceTrainingTypes = $derived(trainingTypesStore.items);
-	const localTrainingTypes = $derived(trainingTypesStore.items);
-	const allTrainings = $derived(personnelTrainingsStore.items);
-	const reportFilters = $derived<TrainingReportFilterState>({
-		groupId: filterGroupId,
-		mos: filterMos,
-		role: filterRole,
-		rank: filterRank,
-		status: filterStatus,
-		trainingTypeIds: filterTypeIds
-	});
-	const reportSort = $derived<TrainingReportSortState>({
-		column: sortColumn,
-		ascending: sortAsc
-	});
-	const screen = $derived(
-		buildTrainingReportScreenModel({
-			activeReport,
-			serverReport,
-			personnel: sourcePersonnel,
-			groups: sourceGroups,
-			trainingTypes: sourceTrainingTypes,
-			localTrainingTypes,
-			trainings: allTrainings,
-			filters: reportFilters,
-			sort: reportSort
-		})
-	);
-	const canPageBack = $derived(!!activeReport && screen.currentPage > 1 && !reportLoading);
-	const canPageForward = $derived(!!activeReport && screen.currentPage < screen.totalPages && !reportLoading);
-
-	function reportIdentity(report: TrainingReportData | null): string | null {
-		if (!report) return null;
-		return [
-			report.detail.page,
-			report.detail.pageSize,
-			report.detail.totalRows,
-			report.detail.totalPages,
-			report.detail.rows.map((row) => row.person.id).join(',')
-		].join('|');
-	}
-
-	function toggleSort(col: string) {
-		if (sortColumn === col) {
-			sortAsc = !sortAsc;
-		} else {
-			sortColumn = col;
-			sortAsc = true;
-		}
-		void reloadFirstReportDetailPage();
-	}
-
-	function buildFullReportUrl(page: number): string {
-		return buildTrainingReportUrl({
-			orgId: org.orgId,
-			filters: reportFilters,
-			sort: reportSort,
-			page,
-			pageSize: screen.pageSize
-		});
-	}
-
-	function buildDetailReportUrl(page: number): string {
-		return buildTrainingReportDetailUrl({
-			orgId: org.orgId,
-			filters: reportFilters,
-			sort: reportSort,
-			page,
-			pageSize: screen.pageSize
-		});
-	}
-
-	function buildReportExportUrl(): string {
-		return buildTrainingReportExportUrl({
-			orgId: org.orgId,
-			filters: reportFilters,
-			sort: reportSort
-		});
-	}
-
-	async function loadReportPage(page: number): Promise<void> {
-		const baseReport = activeReport;
-		if (!baseReport) return;
-		const requestServerReportKey = serverReportKey;
-		const requestId = localReport.requestId + 1;
-		localReport = {
-			serverReportKey: requestServerReportKey,
-			report: localReportMatchesServer ? localReport.report : null,
-			loading: true,
-			error: null,
-			requestId
-		};
-		try {
-			const response = await fetch(buildDetailReportUrl(page));
-			if (!response.ok) {
-				throw new Error('Failed to load training report page');
-			}
-			const nextDetail = (await response.json()) as TrainingReportDetail;
-			const nextReport = { ...baseReport, detail: nextDetail };
-			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
-				localReport = {
-					serverReportKey: requestServerReportKey,
-					report: nextReport,
-					loading: false,
-					error: null,
-					requestId
-				};
-			}
-		} catch (error) {
-			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
-				localReport = {
-					serverReportKey: requestServerReportKey,
-					report: localReport.serverReportKey === requestServerReportKey ? localReport.report : null,
-					loading: false,
-					error: error instanceof Error ? error.message : 'Failed to load training report page',
-					requestId
-				};
-			}
-		}
-	}
-
-	async function loadFullReportPage(page: number): Promise<void> {
-		if (!activeReport) return;
-		const requestServerReportKey = serverReportKey;
-		const requestId = localReport.requestId + 1;
-		localReport = {
-			serverReportKey: requestServerReportKey,
-			report: localReportMatchesServer ? localReport.report : null,
-			loading: true,
-			error: null,
-			requestId
-		};
-		try {
-			const response = await fetch(buildFullReportUrl(page));
-			if (!response.ok) {
-				throw new Error('Failed to load training report page');
-			}
-			const nextReport = (await response.json()) as TrainingReportData;
-			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
-				localReport = {
-					serverReportKey: requestServerReportKey,
-					report: nextReport,
-					loading: false,
-					error: null,
-					requestId
-				};
-			}
-		} catch (error) {
-			if (requestId === localReport.requestId && requestServerReportKey === serverReportKey) {
-				localReport = {
-					serverReportKey: requestServerReportKey,
-					report: localReport.serverReportKey === requestServerReportKey ? localReport.report : null,
-					loading: false,
-					error: error instanceof Error ? error.message : 'Failed to load training report page',
-					requestId
-				};
-			}
-		}
-	}
-
-	async function reloadFirstReportDetailPage(): Promise<void> {
-		if (!activeReport) return;
-		await tick();
-		await loadReportPage(1);
-	}
-
-	async function reloadFirstReportPage(): Promise<void> {
-		if (!activeReport) return;
-		await tick();
-		await loadFullReportPage(1);
-	}
-
-	async function exportExcel() {
-		if (activeReport) {
-			localReport = {
-				serverReportKey,
-				report: localReportMatchesServer ? localReport.report : null,
-				loading: reportLoading,
-				error: null,
-				requestId: localReport.requestId
-			};
-			try {
-				const response = await fetch(buildReportExportUrl());
-				if (!response.ok) {
-					throw new Error('Failed to export training report');
-				}
-				const blob = await response.blob();
-				downloadBlob(
-					blob,
-					filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'training-report.xlsx')
-				);
-			} catch (error) {
-				localReport = {
-					serverReportKey,
-					report: localReportMatchesServer ? localReport.report : null,
-					loading: reportLoading,
-					error: error instanceof Error ? error.message : 'Failed to export training report',
-					requestId: localReport.requestId
-				};
-			}
-			return;
-		}
-
-		const rows = screen.pivotRows;
-		await exportTrainingReportWorkbook(rows, screen.filteredLocalTrainingTypes);
-	}
-
-	function clearFilters() {
-		filterGroupId = '';
-		filterMos = '';
-		filterRole = '';
-		filterRank = '';
-		filterStatus = '';
-		filterTypeIds = [];
-		void reloadFirstReportPage();
-	}
-
-	function setTypeFilters(typeIds: string[]) {
-		filterTypeIds = typeIds;
-		void reloadFirstReportPage();
-	}
-
-	function setGroupFilter(groupId: string) {
-		filterGroupId = filterGroupId === groupId ? '' : groupId;
-		void reloadFirstReportPage();
-	}
-
-	function setStatusFilter(status: TrainingStatus | '') {
-		filterStatus = filterStatus === status ? '' : status;
-		void reloadFirstReportDetailPage();
-	}
-
-	function readinessToneClass(pct: number): string {
-		if (pct >= 80) return 'text-success-foreground';
-		if (pct >= 60) return 'text-warning-foreground';
-		return 'text-danger-foreground';
-	}
-
-	function readinessBarClass(pct: number): string {
-		if (pct >= 80) return 'bg-success';
-		if (pct >= 60) return 'bg-warning';
-		return 'bg-destructive';
-	}
-
-	const statusDotClass: Record<string, string> = {
-		current: 'bg-success',
-		'warning-yellow': 'bg-warning',
-		'warning-orange': 'bg-warning',
-		expired: 'bg-destructive',
-		'not-completed': 'bg-muted-foreground/40'
+	const BAND_TIER: Record<BriefingBand, ReadinessBandTier> = {
+		goal: 'good',
+		near: 'okay',
+		below: 'caution',
+		far: 'warn',
+		critical: 'danger',
+		none: 'not-applicable'
 	};
 
-	const statusBarClass: Record<string, string> = {
-		current: 'bg-success',
-		warning: 'bg-warning',
-		expired: 'bg-destructive',
-		notCompleted: 'bg-muted-foreground/30'
-	};
-
-	function ringDasharray(pct: number, r = 36): string {
-		const c = 2 * Math.PI * r;
-		return `${(pct / 100) * c} ${c - (pct / 100) * c}`;
-	}
-
-	function ringStrokeClass(pct: number): string {
-		if (pct >= 80) return 'stroke-success';
-		if (pct >= 60) return 'stroke-warning';
-		return 'stroke-destructive';
-	}
-
-	function expandedPersonnelForType(typeId: string, status: 'expired' | 'expiring') {
-		const rows = screen.sortedRows.length > 0 ? screen.sortedRows : screen.pivotRows;
-		return getTrainingReportRowsForType(rows, typeId, status);
-	}
-
-	const groupFilterOptions = $derived([
-		{ value: '', label: 'All Groups' },
-		...screen.allGroups.map((group) => ({ value: group.id, label: group.name }))
-	]);
-
-	const toolbarActions = $derived<WorkspaceToolbarAction[]>([
-		{
-			id: 'clear-filters',
-			label: 'Clear filters',
-			onclick: clearFilters,
-			disabled: !screen.hasActiveFilters,
-			disabledReason: !screen.hasActiveFilters ? 'No filters are active' : undefined,
-			priority: 'normal'
-		},
-		{
-			id: 'export-excel',
-			label: 'Export',
-			onclick: exportExcel,
-			disabled: screen.pivotRows.length === 0,
-			disabledReason: screen.pivotRows.length === 0 ? 'No report rows to export' : undefined,
-			icon: 'download',
-			priority: 'critical',
-			variant: 'primary'
-		}
-	]);
+	const TOTAL_ROW_ID = 'total';
+	const BRIEFING_ID = 'training-briefing';
+	const DETAIL_ID = 'training-affected-soldiers';
 </script>
 
-{#snippet reportHeaderCell(column: TrainingReportColumn)}
-	<button
-		type="button"
-		class="-ml-2 inline-flex h-8 items-center justify-start gap-1.5 bg-transparent px-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-		aria-label={`Sort by ${column.header}`}
-		onclick={() => toggleSort(column.key)}
+<script lang="ts">
+	import Download from '@lucide/svelte/icons/download';
+	import Printer from '@lucide/svelte/icons/printer';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
+	import { replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { Button } from '$lib/components/ui/button';
+	import * as OperationalMatrix from '$lib/components/ui/operational-matrix';
+	import type { OperationalMatrixColumn, OperationalMatrixRow } from '$lib/components/ui/operational-matrix';
+	import * as PageShell from '$lib/components/ui/page-shell';
+	import * as ReadinessBand from '$lib/components/ui/readiness-band/index.js';
+	import { readinessBandTone } from '$lib/components/ui/readiness-band/index.js';
+	import { ReportForecastChart } from '$lib/components/ui/report-chart';
+	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
+	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
+	import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
+	import {
+		DEFAULT_TRAINING_BRIEFING_INPUT,
+		TRAINING_BRIEFING_HORIZONS,
+		type BriefingGridRow,
+		type BriefingReadiness,
+		type BriefingScope,
+		type TrainingBriefingHorizon,
+		type TrainingBriefingReportData,
+		type TrainingBriefingReportInput
+	} from '../contracts';
+	import { TrainingBriefingSession } from '../read-model/trainingBriefingSession.svelte';
+	import { BRIEFING_ROWS_BY_LABELS as ROWS_BY_LABEL, briefingFilterLabels } from '../utils/briefingFilterLabels';
+	import TrainingAffectedSoldiersSection from './TrainingAffectedSoldiersSection.svelte';
+	import TrainingFocusSection from './TrainingFocusSection.svelte';
+	import TrainingTypeRiskSection from './TrainingTypeRiskSection.svelte';
+
+	interface Props {
+		orgId: string;
+		initialReport: TrainingBriefingReportData;
+		fetch?: typeof fetch;
+	}
+
+	let { orgId, initialReport, fetch: fetchImpl = (input, init) => fetch(input, init) }: Props = $props();
+
+	const session = untrack(
+		() =>
+			new TrainingBriefingSession({
+				orgId,
+				initialReport,
+				fetch: fetchImpl,
+				replaceQuery: (query) => {
+					if (window.location.search.replace(/^\?/, '') === query) return;
+					const path = resolve('/org/[orgId]/training/reports', { orgId: page.params.orgId ?? orgId });
+					replaceState(query ? `${path}?${query}` : path, page.state);
+				}
+			})
+	);
+	onMount(() => session.syncQuery());
+	onDestroy(() => session.dispose());
+
+	let exporting = $state(false);
+	let exportError = $state<string | null>(null);
+
+	const report = $derived(session.report);
+	const selected = $derived(session.selected);
+	const briefing = $derived(report.briefing);
+	const options = $derived(report.filterOptions);
+	const bottomLine = $derived(briefing.bottomLine);
+	const grid = $derived(briefing.grid);
+	const loading = $derived(session.request.status === 'loading');
+	const horizonEndLabel = $derived(bottomLine.horizonEndLabel);
+
+	const activeFilterCount = $derived(
+		(selected.viewId ? 1 : 0) +
+			(selected.groupId ? 1 : 0) +
+			(selected.rank ? 1 : 0) +
+			selected.mos.length +
+			selected.roles.length +
+			selected.typeIds.length
+	);
+	const hasNonDefault = $derived(
+		activeFilterCount > 0 ||
+			selected.horizonDays !== DEFAULT_TRAINING_BRIEFING_INPUT.horizonDays ||
+			selected.rowsBy !== DEFAULT_TRAINING_BRIEFING_INPUT.rowsBy
+	);
+
+	const viewOptions = $derived([
+		{ value: '', label: 'All training' },
+		...options.views.map((view) => ({ value: view.id, label: view.name }))
+	]);
+	const groupOptions = $derived([
+		{ value: '', label: 'All groups' },
+		...options.groups.map((group) => ({ value: group.id, label: group.name }))
+	]);
+	const rankOptions = $derived([
+		{ value: '', label: 'All ranks' },
+		...options.ranks.map((rank) => ({ value: rank, label: rank }))
+	]);
+	const mosOptions = $derived(options.mos.map((mos) => ({ value: mos, label: mos })));
+	const roleOptions = $derived(options.roles.map((role) => ({ value: role, label: role })));
+	const typeOptions = $derived(options.types.map((type) => ({ value: type.id, label: type.name })));
+
+	const forecastPoints = $derived(
+		briefing.forecast.points.map((point) => ({ date: point.date, label: point.label, percent: point.percent ?? 0 }))
+	);
+	const forecastBars = $derived(
+		briefing.forecast.buckets.map((bucket, index) => ({
+			start: briefing.forecast.points[index].date,
+			end: bucket.endDate,
+			count: bucket.lapses,
+			emphasized: bucket.inCliff
+		}))
+	);
+	const forecastBand = $derived.by(() => {
+		const cliff = briefing.forecast.cliff;
+		const first = briefing.forecast.buckets.findIndex((bucket) => bucket.inCliff);
+		if (!cliff?.highlighted || first === -1) return null;
+		return {
+			start: briefing.forecast.points[first].date,
+			end: cliff.endDate,
+			label: cliff.label,
+			caption: cliff.caption
+		};
+	});
+
+	type MatrixRow = OperationalMatrixRow & { source: BriefingGridRow };
+	type MatrixColumn = OperationalMatrixColumn & { typeId: string };
+
+	const matrixRows = $derived<MatrixRow[]>(
+		[...grid.rows, grid.total].map((row) => ({
+			id: row.key === null ? TOTAL_ROW_ID : `row:${row.key}`,
+			label: row.label,
+			source: row
+		}))
+	);
+	const matrixColumns = $derived<MatrixColumn[]>(
+		grid.columns.map((column) => ({ id: column.typeId, label: column.name, typeId: column.typeId }))
+	);
+	const openScope = $derived(session.detail.status === 'idle' ? null : session.detail.request.scope);
+	const selectedCell = $derived.by(() => {
+		if (openScope?.kind !== 'cell') return null;
+		return { rowId: openScope.rowKey === null ? TOTAL_ROW_ID : `row:${openScope.rowKey}`, columnId: openScope.typeId };
+	});
+	const filterLine = $derived(
+		briefingFilterLabels(report.input, options)
+			.map(({ label, value }) => `${label}: ${value}`)
+			.join(' · ')
+	);
+
+	function scopeLabel(scope: BriefingScope): string {
+		if (scope.kind === 'focus')
+			return briefing.focus.areas.find((area) => area.key === scope.key)?.title ?? 'Focus area';
+		const row = matrixRows.find((candidate) => candidate.source.key === scope.rowKey);
+		const column = grid.columns.find((candidate) => candidate.typeId === scope.typeId);
+		return `${row?.label ?? 'Total'}, ${column?.name ?? ''}`;
+	}
+
+	async function focusSection(id: string): Promise<void> {
+		await tick();
+		document.getElementById(id)?.focus();
+	}
+
+	function openDetail(scope: BriefingScope): void {
+		session.requestDetail(scope);
+		void focusSection(DETAIL_ID);
+	}
+
+	function retryDetail(): void {
+		session.retryDetail();
+		void focusSection(DETAIL_ID);
+	}
+
+	function retryBriefing(): void {
+		session.retry();
+		void focusSection(BRIEFING_ID);
+	}
+
+	function update(changes: Partial<TrainingBriefingReportInput>): void {
+		session.select({ ...selected, ...changes });
+	}
+
+	function clearFilters(): void {
+		session.select(DEFAULT_TRAINING_BRIEFING_INPUT);
+		void focusSection(BRIEFING_ID);
+	}
+
+	function tone(readiness: BriefingReadiness): string {
+		return readinessBandTone[BAND_TIER[readiness.band]];
+	}
+
+	function soldierLabel(count: number): string {
+		return `${count} ${count === 1 ? 'soldier' : 'soldiers'}`;
+	}
+
+	function percentLabel(readiness: BriefingReadiness): string {
+		return readiness.percent === null ? '—' : `${readiness.percent}%`;
+	}
+
+	function cellLabel(row: BriefingGridRow, typeName: string, index: number, selected: boolean): string {
+		const cell = row.cells[index];
+		if (cell.today.percent === null) return `${row.label}, ${typeName}: no applicable requirements`;
+		const drop = cell.dropAlert ? `, drops ${cell.drop} points by ${horizonEndLabel}` : '';
+		return `${row.label}, ${typeName}: ${cell.today.percent}% ready today${drop}${selected ? ', selected' : ''}`;
+	}
+
+	function retryExport(): void {
+		void exportExcel();
+		void focusSection(BRIEFING_ID);
+	}
+
+	async function exportExcel(): Promise<void> {
+		if (exporting) return;
+		exporting = true;
+		exportError = null;
+		try {
+			const response = await fetchImpl(session.exportHref);
+			if (!response.ok) throw new Error(`The workbook could not be exported (${response.status}).`);
+			downloadBlob(
+				await response.blob(),
+				filenameFromContentDisposition(response.headers.get('Content-Disposition'), 'training-report.xlsx')
+			);
+		} catch (error) {
+			exportError = error instanceof Error ? error.message : 'The workbook could not be exported.';
+		} finally {
+			exporting = false;
+		}
+	}
+</script>
+
+<div class="flex flex-col gap-6 p-4 md:p-6 print:p-0" data-print-report="training">
+	<PageShell.Header
+		title="Training Reports"
+		subtitle={`${report.organizationName} · ${soldierLabel(bottomLine.soldierCount)} · as of ${bottomLine.asOfLabel}`}
 	>
-		<span>{column.header}</span>
-		{#if sortColumn === column.key}
-			<span aria-hidden="true">{sortAsc ? '▲' : '▼'}</span>
-		{/if}
-	</button>
-{/snippet}
-
-{#snippet reportCell(row: TrainingReportPivotRow, column: TrainingReportColumn)}
-	{#if column.key === 'name'}
-		<span>{row.person.lastName}, {row.person.firstName}</span>
-	{:else if column.key === 'rank'}
-		<span>{row.person.rank}</span>
-	{:else if column.key === 'group'}
-		<span>{row.person.groupName}</span>
-	{:else}
-		{@const cell = row.cells.get(column.key)}
-		{#if cell}
-			<TrainingStatusCell
-				status={cell.status}
-				label={formatTrainingReportCell(cell)}
-				srLabel={cell.label}
-				class="min-w-24"
-			/>
-		{/if}
-	{/if}
-{/snippet}
-
-{#if screen.allTypes.length === 0}
-	<Empty.Root>
-		<Empty.Header>
-			<Empty.Title>No training types configured.</Empty.Title>
-			<Empty.Description>Create training types first.</Empty.Description>
-		</Empty.Header>
-	</Empty.Root>
-{:else}
-	<ReportWorkspace.Root ariaLabel="Training reports" class="p-3">
-		<!-- Hero: readiness ring + status pills -->
-		<header
-			class="flex min-w-0 flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between"
-		>
-			<div class="flex items-center gap-4">
-				<svg class="size-16 -rotate-90 shrink-0" viewBox="0 0 80 80" aria-hidden="true">
-					<circle cx="40" cy="40" r="36" fill="none" stroke-width="5" class="stroke-muted" />
-					<circle
-						cx="40"
-						cy="40"
-						r="36"
-						fill="none"
-						stroke-width="5"
-						stroke-linecap="round"
-						class={ringStrokeClass(screen.dashboard.readinessPercent)}
-						stroke-dasharray={ringDasharray(screen.dashboard.readinessPercent)}
-					/>
-				</svg>
-				<div>
-					<h2 class="text-xl font-semibold tracking-normal text-foreground">Training Readiness</h2>
-					<p class="text-sm text-muted-foreground">
-						<span class="font-semibold {readinessToneClass(screen.dashboard.readinessPercent)}"
-							>{screen.dashboard.readinessPercent}%</span
-						>
-						across {screen.detailPersonnelCount} personnel
-					</p>
-				</div>
-			</div>
-			<div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by training status">
-				{#each [{ status: 'current' as TrainingStatus, count: screen.dashboard.statusCounts.current, label: 'Current' }, { status: 'expired' as TrainingStatus, count: screen.dashboard.statusCounts.expired, label: 'Expired' }, { status: 'warning-orange' as TrainingStatus, count: screen.dashboard.statusCounts.warningOrange + screen.dashboard.statusCounts.warningYellow, label: 'Expiring' }, { status: 'not-completed' as TrainingStatus, count: screen.dashboard.statusCounts.notCompleted, label: 'Not Done' }] as pill (pill.status)}
-					<button
-						type="button"
-						class="flex items-center gap-1.5 rounded-md border px-2.5 py-1 transition-colors hover:bg-muted/50 {filterStatus ===
-						pill.status
-							? 'border-foreground bg-muted'
-							: 'border-border'}"
-						aria-pressed={filterStatus === pill.status}
-						onclick={() => setStatusFilter(pill.status)}
-					>
-						<span class="size-2 rounded-full {statusDotClass[pill.status]}"></span>
-						<span class="font-mono text-[0.6875rem] font-semibold text-foreground">{pill.count}</span>
-						<span class="font-mono text-[0.6875rem] text-muted-foreground">{pill.label}</span>
-					</button>
-				{/each}
-			</div>
-		</header>
-
-		<!-- Toolbar: group filter + personnel/report filters + actions -->
-		<ReportWorkspace.Toolbar ariaLabel="Training report controls">
-			<WorkspaceToolbar.Group label="Group filter" activeCount={filterGroupId ? 1 : 0}>
-				<WorkspaceToolbar.Select
-					ariaLabel="Filter by group"
-					options={groupFilterOptions}
-					value={filterGroupId}
-					onValueChange={(value) => {
-						filterGroupId = value;
-						void reloadFirstReportPage();
-					}}
-				/>
-			</WorkspaceToolbar.Group>
-			<WorkspaceToolbar.Group
-				label="Personnel filters"
-				activeCount={screen.personnelFilterCount}
-				data-testid="training-personnel-filters"
-			>
-				<WorkspaceToolbar.Select
-					ariaLabel="Filter by rank"
-					options={screen.rankFilterOptions}
-					value={filterRank}
-					onValueChange={(value) => {
-						filterRank = value;
-						void reloadFirstReportPage();
-					}}
-				/>
-				<WorkspaceToolbar.Select
-					ariaLabel="Filter by MOS"
-					options={screen.mosFilterOptions}
-					value={filterMos}
-					onValueChange={(value) => {
-						filterMos = value;
-						void reloadFirstReportPage();
-					}}
-				/>
-				<WorkspaceToolbar.Select
-					ariaLabel="Filter by duty role"
-					options={screen.roleFilterOptions}
-					value={filterRole}
-					onValueChange={(value) => {
-						filterRole = value;
-						void reloadFirstReportPage();
-					}}
-				/>
-			</WorkspaceToolbar.Group>
-			<WorkspaceToolbar.Group
-				label="Report filters"
-				activeCount={screen.reportFilterCount}
-				data-testid="training-report-filters"
-			>
-				<WorkspaceToolbar.Select
-					ariaLabel="Filter by status"
-					options={screen.statusFilterOptions}
-					value={filterStatus}
-					onValueChange={(value) => {
-						filterStatus = value as TrainingStatus | '';
-						void reloadFirstReportDetailPage();
-					}}
-				/>
-				{#if screen.typeFilterOptions.length > 1}
-					<WorkspaceToolbar.MultiSelect
-						options={screen.typeFilterOptions}
-						value={filterTypeIds}
-						ariaLabel="Filter by training type"
-						label="Training types"
-						onChange={setTypeFilters}
-					/>
+		{#snippet actions()}
+			<div class="flex flex-wrap items-center gap-2 print:hidden" role="group" aria-label="Training report actions">
+				<span class="min-w-30 text-right text-sm text-muted-foreground" role="status" aria-live="polite">
+					{loading ? 'Updating briefing' : ''}
+				</span>
+				{#if hasNonDefault}
+					<Button type="button" variant="secondary" size="sm" onclick={clearFilters}>Clear filters</Button>
 				{/if}
-			</WorkspaceToolbar.Group>
+				<Button
+					type="button"
+					variant="outline"
+					size="sm"
+					onclick={exportExcel}
+					disabled={exporting || bottomLine.soldierCount === 0}
+				>
+					<Download aria-hidden="true" />
+					{exporting ? 'Exporting...' : 'Export Excel'}
+				</Button>
+				<Button type="button" size="sm" onclick={() => window.print()}>
+					<Printer aria-hidden="true" />
+					Print brief
+				</Button>
+			</div>
+		{/snippet}
+	</PageShell.Header>
+	<p class="-mt-4 hidden font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground print:block">
+		Filters · {filterLine}
+	</p>
 
-			<WorkspaceToolbar.Group label="Training report actions" zone="actions">
-				<WorkspaceToolbar.Actions
-					actions={toolbarActions}
-					ariaLabel="Training report actions"
-					overflowAriaLabel="More training report actions"
-				/>
-			</WorkspaceToolbar.Group>
-		</ReportWorkspace.Toolbar>
+	<WorkspaceToolbar.Root
+		ariaLabel="Training report controls"
+		wrap
+		class="print:hidden [&_[data-slot=toggle-group]]:shrink-0"
+	>
+		<WorkspaceToolbar.Group
+			label="Training report filters"
+			activeCount={activeFilterCount}
+			data-testid="training-report-filters"
+		>
+			<WorkspaceToolbar.Select
+				options={viewOptions}
+				value={selected.viewId ?? ''}
+				ariaLabel="Filter by view"
+				onValueChange={(value) => update({ viewId: value || null, typeIds: [] })}
+			/>
+			<WorkspaceToolbar.Select
+				options={groupOptions}
+				value={selected.groupId ?? ''}
+				ariaLabel="Filter by group"
+				onValueChange={(value) => update({ groupId: value || null })}
+			/>
+			<WorkspaceToolbar.Select
+				options={rankOptions}
+				value={selected.rank ?? ''}
+				ariaLabel="Filter by rank"
+				onValueChange={(value) => update({ rank: value || null })}
+			/>
+			<WorkspaceToolbar.MultiSelect
+				options={mosOptions}
+				value={selected.mos}
+				label="MOS"
+				ariaLabel="Filter by MOS"
+				onChange={(mos) => update({ mos })}
+			/>
+			<WorkspaceToolbar.MultiSelect
+				options={roleOptions}
+				value={selected.roles}
+				label="Duty role"
+				ariaLabel="Filter by duty role"
+				onChange={(roles) => update({ roles })}
+			/>
+			<WorkspaceToolbar.MultiSelect
+				options={typeOptions}
+				value={selected.typeIds}
+				label="Types"
+				ariaLabel="Filter by training type"
+				onChange={(typeIds) => update({ typeIds })}
+			/>
+		</WorkspaceToolbar.Group>
 
-		<ReportWorkspace.Content layout="stack">
-			<!-- Training type cards grid -->
-			{#if screen.typeBreakdown.length > 0}
-				<section aria-label="Training type breakdown">
-					<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-						{#each screen.typeBreakdown as tb (tb.typeId)}
-							{@const warningTotal = tb.warningYellow + tb.warningOrange}
-							{@const isExpanded = expandedTypeId === tb.typeId}
-							{@const expiredRows = isExpanded ? expandedPersonnelForType(tb.typeId, 'expired') : []}
-							{@const expiringRows = isExpanded ? expandedPersonnelForType(tb.typeId, 'expiring') : []}
-							<button
-								type="button"
-								class="flex flex-col items-start rounded-lg border border-border bg-card p-3 text-left transition-shadow hover:shadow-sm {isExpanded
-									? 'ring-2 ring-ring/20'
-									: ''}"
-								aria-expanded={isExpanded}
-								onclick={() => (expandedTypeId = isExpanded ? null : tb.typeId)}
-							>
-								<div class="flex w-full items-start justify-between gap-3">
-									<div class="min-w-0 flex-1">
-										<h3 class="truncate text-sm font-semibold text-foreground">{tb.typeName}</h3>
-										<p class="mt-0.5 font-mono text-[0.6875rem] text-muted-foreground">
-											{tb.applicable} personnel
-										</p>
-									</div>
-									<svg class="size-11 -rotate-90 shrink-0" viewBox="0 0 80 80" aria-hidden="true">
-										<circle cx="40" cy="40" r="36" fill="none" stroke-width="6" class="stroke-muted" />
-										<circle
-											cx="40"
-											cy="40"
-											r="36"
-											fill="none"
-											stroke-width="6"
-											stroke-linecap="round"
-											class={ringStrokeClass(tb.complianceRate)}
-											stroke-dasharray={ringDasharray(tb.complianceRate)}
-										/>
-										<text
-											x="40"
-											y="44"
-											text-anchor="middle"
-											class="fill-foreground font-mono text-[1.5rem] font-bold"
-											transform="rotate(90 40 40)">{tb.complianceRate}</text
-										>
-									</svg>
-								</div>
+		<WorkspaceToolbar.Group label="Forecast horizon">
+			<ToggleGroup.Root
+				type="single"
+				size="sm"
+				bind:value={
+					() => String(selected.horizonDays),
+					(value) => {
+						if (value) update({ horizonDays: Number(value) as TrainingBriefingHorizon });
+					}
+				}
+				aria-label="Forecast horizon"
+			>
+				{#each TRAINING_BRIEFING_HORIZONS as days (days)}
+					<ToggleGroup.Item value={String(days)} aria-label={`${days} days`}>{days} D</ToggleGroup.Item>
+				{/each}
+			</ToggleGroup.Root>
+		</WorkspaceToolbar.Group>
+	</WorkspaceToolbar.Root>
 
-								<!-- Stacked status bar -->
-								{#if tb.applicable > 0}
-									<div class="mt-3 flex h-2 w-full overflow-hidden rounded-full bg-muted">
-										{#if tb.current > 0}
-											<div class={statusBarClass.current} style:width="{(tb.current / tb.applicable) * 100}%"></div>
-										{/if}
-										{#if warningTotal > 0}
-											<div class={statusBarClass.warning} style:width="{(warningTotal / tb.applicable) * 100}%"></div>
-										{/if}
-										{#if tb.expired > 0}
-											<div class={statusBarClass.expired} style:width="{(tb.expired / tb.applicable) * 100}%"></div>
-										{/if}
-										{#if tb.notCompleted > 0}
-											<div
-												class={statusBarClass.notCompleted}
-												style:width="{(tb.notCompleted / tb.applicable) * 100}%"
-											></div>
-										{/if}
-									</div>
-								{/if}
+	{#if session.request.status === 'error'}
+		<ReportWorkspace.State
+			state="error"
+			title="Unable to update the briefing"
+			description={`${session.request.message} Showing the last briefing that loaded.`}
+			role="alert"
+			onRetry={retryBriefing}
+		/>
+	{/if}
+	{#if exportError}
+		<ReportWorkspace.State
+			state="error"
+			title="Unable to export the workbook"
+			description={exportError}
+			role="alert"
+			onRetry={retryExport}
+		/>
+	{/if}
 
-								<!-- Counts -->
-								<div class="mt-2 flex w-full flex-wrap gap-x-3 gap-y-1">
-									{#if tb.expired > 0}
-										<span class="font-mono text-[0.6875rem] text-danger-foreground">{tb.expired} expired</span>
-									{/if}
-									{#if warningTotal > 0}
-										<span class="font-mono text-[0.6875rem] text-warning-foreground">{warningTotal} expiring</span>
-									{/if}
-									{#if tb.notCompleted > 0}
-										<span class="font-mono text-[0.6875rem] text-muted-foreground">{tb.notCompleted} not done</span>
-									{/if}
-								</div>
-
-								<!-- Expanded: personnel with issues -->
-								{#if isExpanded && (expiredRows.length > 0 || expiringRows.length > 0)}
-									<div class="mt-3 w-full border-t border-border pt-3">
-										{#if expiredRows.length > 0}
-											<p
-												class="mb-1 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-danger-foreground"
-											>
-												Expired / Not Done
-											</p>
-											<ul class="space-y-0.5">
-												{#each expiredRows.slice(0, 6) as row (row.person.id)}
-													<li class="flex items-center justify-between text-xs">
-														<span class="text-foreground">{row.person.lastName}, {row.person.firstName}</span>
-														<span class="font-mono text-[0.6875rem] text-muted-foreground"
-															>{row.person.rank} · {row.person.groupName}</span
-														>
-													</li>
-												{/each}
-												{#if expiredRows.length > 6}
-													<li class="font-mono text-[0.6875rem] text-muted-foreground">
-														+{expiredRows.length - 6} more
-													</li>
-												{/if}
-											</ul>
-										{/if}
-										{#if expiringRows.length > 0}
-											<p
-												class="mb-1 mt-2 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-warning-foreground"
-											>
-												Expiring Soon
-											</p>
-											<ul class="space-y-0.5">
-												{#each expiringRows.slice(0, 4) as row (row.person.id)}
-													<li class="flex items-center justify-between text-xs">
-														<span class="text-foreground">{row.person.lastName}, {row.person.firstName}</span>
-														<span class="font-mono text-[0.6875rem] text-muted-foreground"
-															>{row.person.rank} · {row.person.groupName}</span
-														>
-													</li>
-												{/each}
-												{#if expiringRows.length > 4}
-													<li class="font-mono text-[0.6875rem] text-muted-foreground">
-														+{expiringRows.length - 4} more
-													</li>
-												{/if}
-											</ul>
-										{/if}
-									</div>
-								{/if}
-							</button>
-						{/each}
-					</div>
-				</section>
-			{/if}
-
-			<!-- Two-column: type compliance + group readiness -->
-			<div class="grid gap-4 lg:grid-cols-2">
-				<ReportWorkspace.Section title="Training Type Compliance" description="Sorted by lowest compliance">
-					<div class="grid gap-2">
-						{#each [...screen.typeBreakdown].sort((a, b) => a.complianceRate - b.complianceRate) as tb (tb.typeId)}
-							<div class="grid gap-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center">
-								<span class="truncate text-sm font-semibold text-foreground">{tb.typeName}</span>
-								<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
-									<div
-										class="h-full rounded-full {readinessBarClass(tb.complianceRate)}"
-										style:width="{tb.complianceRate}%"
-									></div>
-								</div>
-								<div class="flex items-center gap-2">
-									<span class="w-10 text-right font-mono text-xs font-semibold {readinessToneClass(tb.complianceRate)}">
-										{tb.complianceRate}%
-									</span>
-									{#if tb.expired > 0}
-										<span class="w-14 text-right font-mono text-[0.6875rem] text-danger-foreground"
-											>{tb.expired} exp</span
-										>
-									{/if}
-								</div>
+	<ReportWorkspace.Root
+		id={BRIEFING_ID}
+		tabindex={-1}
+		ariaLabel="Training readiness briefing"
+		aria-busy={loading}
+		class="outline-none"
+	>
+		{#if options.types.length === 0}
+			<ReportWorkspace.State
+				state="no-data"
+				title={report.input.viewId ? 'This view has no required training types.' : 'No training types configured.'}
+				description={report.input.viewId ? 'Choose another view.' : 'Create training types first.'}
+			/>
+		{:else if bottomLine.today.percent === null}
+			<ReportWorkspace.State
+				state="no-data"
+				title={activeFilterCount > 0 ? 'No applicable requirements for these filters.' : 'No applicable requirements.'}
+				description={activeFilterCount > 0
+					? 'No soldier in this selection is required to hold the selected training.'
+					: 'No soldier is required to hold the configured training.'}
+			>
+				{#if hasNonDefault}
+					<Button type="button" variant="secondary" size="sm" class="print:hidden" onclick={clearFilters}>
+						Clear filters
+					</Button>
+				{/if}
+			</ReportWorkspace.State>
+		{:else}
+			<div class="flex flex-col gap-10">
+				<div class="grid gap-12 lg:grid-cols-[21.25rem_minmax(0,1fr)]">
+					<ReportWorkspace.Section variant="briefing" title="Bottom line" data-print-section>
+						<div class="flex flex-wrap items-end gap-x-5 gap-y-3">
+							<div>
+								<p class="font-heading text-[104px] leading-[88px] font-extrabold tracking-[-0.02em]">
+									{percentLabel(bottomLine.today)}
+								</p>
+								<p class="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Ready today</p>
 							</div>
-						{/each}
-					</div>
-				</ReportWorkspace.Section>
+							<div>
+								<p class={['font-heading text-[48px] leading-[44px] font-bold', tone(bottomLine.horizon)]}>
+									<span aria-hidden="true">→</span>
+									<span class="sr-only"
+										>{bottomLine.horizon.percent === bottomLine.today.percent ? 'stays at' : 'falls to'}</span
+									>
+									{percentLabel(bottomLine.horizon)}
+								</p>
+								<p class="mt-2 font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
+									By {horizonEndLabel}
+								</p>
+							</div>
+						</div>
+						<p class="mt-6 font-serif text-[17px] leading-[26px]">{bottomLine.sentence}</p>
+						<dl class="mt-6 border-t border-border text-sm" aria-label="Requirement counts">
+							<div class="flex h-9 items-center justify-between border-b border-border">
+								<dt>Ready</dt>
+								<dd class="font-mono font-semibold">{bottomLine.today.ready}</dd>
+							</div>
+							<div class="flex h-9 items-center justify-between border-b border-border">
+								<dt class="flex items-center gap-2">
+									<span class="size-2 rounded-[1px] bg-destructive" aria-hidden="true"></span>Not ready, expired
+								</dt>
+								<dd class="font-mono font-semibold text-destructive">{bottomLine.expired}</dd>
+							</div>
+							<div class="flex h-9 items-center justify-between border-b border-border text-muted-foreground">
+								<dt>Not ready, not recorded</dt>
+								<dd class="font-mono">{bottomLine.notRecorded}</dd>
+							</div>
+							<div class="flex h-9 items-center justify-between border-b border-border">
+								<dt class="flex items-center gap-2">
+									<span class="size-2 rounded-[1px] bg-warning" aria-hidden="true"></span>Lapse by {horizonEndLabel}
+								</dt>
+								<dd class="font-mono font-semibold">{bottomLine.lapsing}</dd>
+							</div>
+						</dl>
+					</ReportWorkspace.Section>
 
-				{#if screen.dashboard.groupComparison.length > 1}
-					<ReportWorkspace.Section title="Group Readiness" description="Click to filter by group">
-						<div class="grid gap-2">
-							{#each screen.dashboard.groupComparison as gc (gc.groupId)}
-								<button
-									type="button"
-									class="grid gap-1 rounded-md px-1 py-1 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto] sm:items-center {filterGroupId ===
-									gc.groupId
-										? 'bg-muted/60'
-										: ''}"
-									aria-pressed={filterGroupId === gc.groupId}
-									onclick={() => setGroupFilter(gc.groupId)}
-								>
-									<span class="truncate text-sm font-semibold text-foreground">{gc.groupName}</span>
-									<div class="h-3 overflow-hidden rounded-full border border-border bg-muted">
-										<div
-											class="h-full rounded-full {readinessBarClass(gc.readinessPercent)}"
-											style:width="{gc.readinessPercent}%"
-										></div>
-									</div>
-									<span class="font-mono text-xs font-semibold {readinessToneClass(gc.readinessPercent)}">
-										{gc.readinessPercent}%
-									</span>
-								</button>
-							{/each}
+					<ReportWorkspace.Section
+						variant="briefing"
+						eyebrow={`Forecast · next ${report.input.horizonDays} days`}
+						title={`${bottomLine.scopeName} readiness if no one renews`}
+						data-print-section
+					>
+						<div data-testid="training-briefing-forecast">
+							<ReportForecastChart
+								points={forecastPoints}
+								bars={forecastBars}
+								goal={{ value: briefing.forecast.goalPercent, label: `Goal ${briefing.forecast.goalPercent}%` }}
+								band={forecastBand}
+								xTicks={briefing.forecast.axisTicks}
+								endTone={tone(bottomLine.horizon)}
+								ariaLabel={`Forecast readiness and weekly lapses through ${horizonEndLabel}`}
+							/>
 						</div>
 					</ReportWorkspace.Section>
+				</div>
+
+				<ReportWorkspace.Section
+					variant="briefing"
+					eyebrow="Where · hot spots"
+					title={`${ROWS_BY_LABEL[grid.rowsBy]} by training type`}
+					description={`% ready today. Color shows distance from the ${briefing.forecast.goalPercent}% goal. ▼ marks a drop of ${grid.dropAlertPoints}+ points by ${horizonEndLabel}.`}
+					data-print-section
+				>
+					{#snippet actions()}
+						<div class="flex items-center gap-2 print:hidden">
+							<span class="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">Rows by</span>
+							<ToggleGroup.Root
+								type="single"
+								size="sm"
+								bind:value={
+									() => selected.rowsBy,
+									(value) => {
+										if (value) update({ rowsBy: value as BriefingRowsBy });
+									}
+								}
+								aria-label="Rows by"
+							>
+								{#each Object.entries(ROWS_BY_LABEL) as [value, label] (value)}
+									<ToggleGroup.Item {value}>{label}</ToggleGroup.Item>
+								{/each}
+							</ToggleGroup.Root>
+						</div>
+						<ReadinessBand.Legend
+							palette="semantic"
+							ariaLabel={`Readiness bands for a ${briefing.forecast.goalPercent}% goal`}
+							items={grid.legend.map((item) => ({ tier: BAND_TIER[item.band], label: item.label }))}
+							dropLabel={`▼ ${grid.dropAlertPoints}+`}
+						/>
+					{/snippet}
+
+					<OperationalMatrix.Root rows={matrixRows} columns={matrixColumns} {selectedCell}>
+						<OperationalMatrix.Viewport ariaLabel="Hot-spot grid" class="print:overflow-visible">
+							<OperationalMatrix.Table
+								ariaLabel={`${ROWS_BY_LABEL[grid.rowsBy]} by training type readiness`}
+								class="min-w-max border-separate border-spacing-[2px] print:min-w-0 print:table-fixed [&_[data-slot=operational-matrix-cell-trigger]]:block [&_[data-slot=operational-matrix-cell-trigger]]:w-full [&_[data-slot=operational-matrix-cell-trigger]]:rounded-[2px] [&_[data-slot=operational-matrix-cell-trigger]]:outline-none [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:relative [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:z-20 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-2 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-foreground [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-4 [&_[data-slot=operational-matrix-cell-trigger]]:focus-visible:ring-offset-background [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-offset-2 [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-dashed [&_[data-selected]_[data-slot=operational-matrix-cell-trigger]]:outline-foreground"
+							>
+								<OperationalMatrix.Header>
+									<OperationalMatrix.HeaderRow>
+										<OperationalMatrix.CornerCell
+											class="w-[170px] pb-2 text-left font-mono print:w-32 text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground"
+										>
+											{ROWS_BY_LABEL[grid.rowsBy]}
+										</OperationalMatrix.CornerCell>
+										{#each matrixColumns as column (column.id)}
+											<OperationalMatrix.ColumnHeader
+												{column}
+												class="min-w-24 px-1 pb-2 text-center font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:min-w-0 print:[overflow-wrap:anywhere]"
+											/>
+										{/each}
+										<th
+											scope="col"
+											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:w-16"
+											>Today</th
+										>
+										<th
+											scope="col"
+											class="w-24 pb-2 text-right font-mono text-[11px] font-normal uppercase tracking-[0.08em] text-muted-foreground print:w-16"
+											>{horizonEndLabel}</th
+										>
+									</OperationalMatrix.HeaderRow>
+								</OperationalMatrix.Header>
+								<OperationalMatrix.Body>
+									{#each matrixRows as row (row.id)}
+										{@const total = row.id === TOTAL_ROW_ID}
+										<OperationalMatrix.Row
+											{row}
+											class={total ? '[&>*]:border-t-2 [&>*]:border-foreground [&>*]:pt-1.5' : undefined}
+										>
+											<OperationalMatrix.RowHeader
+												{row}
+												sticky
+												class="sticky left-0 z-10 bg-background pr-3 text-left align-middle print:static"
+											>
+												<span class="block font-serif text-[15px] font-medium">{row.label}</span>
+												<span class="block font-mono text-[11px] text-muted-foreground">
+													{soldierLabel(row.source.soldierCount)}
+												</span>
+											</OperationalMatrix.RowHeader>
+											{#each matrixColumns as column, index (column.id)}
+												{@const cell = row.source.cells[index]}
+												<OperationalMatrix.Cell
+													{row}
+													{column}
+													readOnly={cell.today.applicable === 0}
+													ariaLabel={cellLabel(
+														row.source,
+														column.label,
+														index,
+														selectedCell?.rowId === row.id && selectedCell.columnId === column.id
+													)}
+													onSelect={() => openDetail({ kind: 'cell', rowKey: row.source.key, typeId: column.typeId })}
+													class="p-0"
+												>
+													<ReadinessBand.Cell
+														palette="semantic"
+														size="tile"
+														tier={BAND_TIER[cell.today.band]}
+														percent={cell.today.percent}
+														label={cell.today.percent === null ? '—' : String(cell.today.percent)}
+														drop={cell.dropAlert ? cell.drop : null}
+													/>
+												</OperationalMatrix.Cell>
+											{/each}
+											<td class="text-right align-middle font-heading text-2xl font-bold print:text-xl">
+												{percentLabel(row.source.today)}
+											</td>
+											<td class="text-right align-middle font-heading text-2xl font-bold print:text-xl">
+												<span class={tone(row.source.horizon)}>{percentLabel(row.source.horizon)}</span>
+											</td>
+										</OperationalMatrix.Row>
+									{/each}
+								</OperationalMatrix.Body>
+							</OperationalMatrix.Table>
+						</OperationalMatrix.Viewport>
+					</OperationalMatrix.Root>
+				</ReportWorkspace.Section>
+
+				<div class="grid gap-14 xl:grid-cols-[minmax(0,1fr)_30rem]">
+					<TrainingTypeRiskSection risks={briefing.typeRisk} {horizonEndLabel} />
+					<TrainingFocusSection
+						focus={briefing.focus}
+						detailId={DETAIL_ID}
+						openKey={openScope?.kind === 'focus' ? openScope.key : null}
+						onOpen={(key) => openDetail({ kind: 'focus', key })}
+					/>
+				</div>
+
+				{#if session.detail.status !== 'idle'}
+					<TrainingAffectedSoldiersSection
+						id={DETAIL_ID}
+						detail={session.detail}
+						{horizonEndLabel}
+						{scopeLabel}
+						onPage={(page) => session.showDetailPage(page)}
+						onPageSize={(pageSize) => session.setDetailPageSize(pageSize)}
+						onRetry={retryDetail}
+					/>
 				{/if}
 			</div>
-
-			{#if reportError}
-				<ReportWorkspace.State state="error" title="Report page failed" description={reportError} />
-			{/if}
-
-			<ReportWorkspace.Table
-				title="Personnel Detail"
-				description="{screen.detailPersonnelCount} of {screen.allPersonnel.length} personnel"
-				data={screen.sortedRows}
-				columns={screen.reportColumns}
-				ariaLabel="Training report detail rows"
-				emptyMessage="No personnel match the current filters."
-				loading={reportLoading}
-				cell={reportCell}
-				headerCell={reportHeaderCell}
-				pageSize={activeReport ? undefined : 25}
-			/>
-
-			{#if activeReport}
-				<div
-					class="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between"
-				>
-					<span class="font-mono text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-						Page {screen.currentPage} of {screen.totalPages}
-					</span>
-					<div class="flex gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							type="button"
-							onclick={() => loadReportPage(screen.currentPage - 1)}
-							disabled={!canPageBack}
-						>
-							Previous page
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							type="button"
-							onclick={() => loadReportPage(screen.currentPage + 1)}
-							disabled={!canPageForward}
-						>
-							Next page
-						</Button>
-					</div>
-				</div>
-			{/if}
-		</ReportWorkspace.Content>
+		{/if}
 	</ReportWorkspace.Root>
-{/if}
+</div>

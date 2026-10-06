@@ -2,7 +2,9 @@ import {
 	ARCHIVE_RETENTION_CONSTRAINT,
 	DEFAULT_ARCHIVE_RETENTION_MONTHS,
 	DEFAULT_LOSS_WARNING_WINDOW_DAYS,
-	LOSS_WARNING_CONSTRAINT
+	DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
+	LOSS_WARNING_CONSTRAINT,
+	TRAINING_READINESS_GOAL_CONSTRAINT
 } from './policyConstraints';
 import type { OrganizationPolicySettings } from './settingsTypes';
 import type { PoliciesSettingsActor, PoliciesSettingsData } from './policiesSettingsTypes';
@@ -27,6 +29,11 @@ export function buildPoliciesSettingsData(
 				lossWarning: {
 					savedDays: input.organizationSettings?.lossWarningWindowDays ?? DEFAULT_LOSS_WARNING_WINDOW_DAYS,
 					constraints: LOSS_WARNING_CONSTRAINT
+				},
+				trainingReadinessGoal: {
+					savedPercent:
+						input.organizationSettings?.trainingReadinessGoalPercent ?? DEFAULT_TRAINING_READINESS_GOAL_PERCENT,
+					constraints: TRAINING_READINESS_GOAL_CONSTRAINT
 				},
 				canUpdateRetention: ctx.auth.canManageMembers
 			}

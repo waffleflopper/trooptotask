@@ -7,10 +7,12 @@
 
 	type Props = HTMLAttributes<HTMLDivElement> & {
 		ariaLabel: string;
+		/** Wrap controls onto further rows instead of scrolling a single row sideways. */
+		wrap?: boolean;
 		children?: Snippet;
 	};
 
-	let { ariaLabel, children, class: className, ...restProps }: Props = $props();
+	let { ariaLabel, wrap = false, children, class: className, ...restProps }: Props = $props();
 	const layout: WorkspaceToolbarLayoutContext = $state({ width: 0 });
 
 	setContext(workspaceToolbarLayoutContextKey, layout);
@@ -22,8 +24,10 @@
 	aria-label={ariaLabel}
 	data-slot="workspace-toolbar"
 	class={cn(
-		'flex h-12 w-full shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto rounded-lg border border-border bg-card p-2 text-card-foreground shadow-xs',
-		'[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+		'flex w-full shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card p-2 text-card-foreground shadow-xs',
+		wrap
+			? 'min-h-12 flex-wrap [&_[data-slot=workspace-toolbar-group]]:max-w-full [&_[data-slot=workspace-toolbar-group]]:flex-wrap'
+			: 'h-12 flex-nowrap overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
 		'[&_[data-slot=button]]:shrink-0 [&_[data-slot=input-group]]:min-w-0',
 		className
 	)}

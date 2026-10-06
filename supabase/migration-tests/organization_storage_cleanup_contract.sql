@@ -209,7 +209,7 @@ SELECT results_eq(
   $$ SELECT row_id::uuid, row_data FROM upgrade_fixture.organization_storage_cleanup_before_rows WHERE table_name = 'storage.objects' AND row_id BETWEEN 'fa170000-0000-4000-8000-000000000509' AND 'fa170000-0000-4000-8000-000000000518' ORDER BY row_id $$,
   'all malformed, foreign and unrelated-bucket objects retain their exact original values');
 SELECT results_eq(
-  $$ SELECT 'organization'::text, to_jsonb(org_row) FROM public.organizations AS org_row WHERE id = 'fa170000-0000-4000-8000-000000000102'
+  $$ SELECT 'organization'::text, to_jsonb(org_row) - 'training_readiness_goal_percent' FROM public.organizations AS org_row WHERE id = 'fa170000-0000-4000-8000-000000000102'
      UNION ALL SELECT 'membership', to_jsonb(member_row) FROM public.organization_memberships AS member_row WHERE organization_id = 'fa170000-0000-4000-8000-000000000102' ORDER BY 1 $$,
   $$ SELECT CASE table_name WHEN 'public.organizations' THEN 'organization' ELSE 'membership' END, row_data FROM upgrade_fixture.organization_storage_cleanup_before_rows
      WHERE (table_name = 'public.organizations' AND row_id = 'fa170000-0000-4000-8000-000000000102') OR (table_name = 'public.organization_memberships' AND row_data->>'organization_id' = 'fa170000-0000-4000-8000-000000000102') ORDER BY 1 $$,

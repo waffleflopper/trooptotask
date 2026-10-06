@@ -1,38 +1,38 @@
-import { createRequestTrainingRosterContext } from '$lib/server/adapters/featureRequestContexts.server';
-import type { TrainingReportData, TrainingReportInput } from '$features/training/contracts';
+import { createRequestTrainingBriefingContext } from '$lib/server/adapters/featureRequestContexts.server';
+import {
+	parseTrainingBriefingReportInput,
+	type TrainingBriefingReportData,
+	type TrainingBriefingReportInput
+} from '$features/training/contracts';
 import type { PageServerLoadEvent } from './$types';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-import { fetchTrainingReportPage } from '$features/training/index.server';
-
-const INITIAL_REPORT_INPUT: TrainingReportInput = {
-	sort: { column: 'name', direction: 'asc' }
-};
+import { fetchTrainingBriefingReport } from '$features/training/index.server';
 
 type LoadWithContext = typeof loadWithContext;
 
 export interface TrainingReportsPageLoadDeps {
 	loadWithContext?: LoadWithContext;
-	fetchTrainingReportPage?: (
-		ctx: Parameters<typeof fetchTrainingReportPage>[0],
-		input: TrainingReportInput
-	) => Promise<TrainingReportData>;
+	fetchTrainingBriefingReport?: (
+		ctx: Parameters<typeof fetchTrainingBriefingReport>[0],
+		input: TrainingBriefingReportInput
+	) => Promise<TrainingBriefingReportData>;
 }
 
 export function _createTrainingReportsPageLoad(deps: TrainingReportsPageLoadDeps = {}) {
 	const loadWithContextFn = deps.loadWithContext ?? loadWithContext;
-	const fetchTrainingReportPageFn = deps.fetchTrainingReportPage ?? fetchTrainingReportPage;
+	const fetchReport = deps.fetchTrainingBriefingReport ?? fetchTrainingBriefingReport;
 
-	return async ({ params, locals, cookies, depends }: PageServerLoadEvent) => {
+	return async ({ params, url, locals, cookies, depends }: PageServerLoadEvent) => {
 		depends('app:training-reports');
-		const { orgId } = params;
+		const input = parseTrainingBriefingReportInput(url.searchParams);
 
 		return {
-			trainingReport: await loadWithContextFn(locals, cookies, orgId, {
-				context: createRequestTrainingRosterContext,
+			trainingReport: await loadWithContextFn(locals, cookies, params.orgId, {
+				context: createRequestTrainingBriefingContext,
 				policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
 				policyResource: { kind: 'unscoped' },
-				fn: (ctx) => fetchTrainingReportPageFn(ctx, INITIAL_REPORT_INPUT)
+				fn: (ctx) => fetchReport(ctx, input)
 			})
 		};
 	};

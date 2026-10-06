@@ -52,7 +52,7 @@ Restore original fixture fields/task archive state and armed hooks. There is no 
 
 - Critical Tasks operate is independent of Personnel and Training; configure is required for library/default writes, not completion recording. Group scope remains authoritative on the server and provider.
 - The latest completion is selected by completion date, then creation time. Older history must not overwrite a newer readiness result; same-date import upsert differs from creating a new dated record.
-- Critical Tasks expiration uses a per-task override or Organization default. Expiring-soon counts as ready, unlike Training's current-only readiness rule.
+- Critical Tasks expiration uses a per-task override or Organization default. Expiring-soon counts as ready, the same rule Training uses for its warning states.
 - The denominator is applicable Person/task assignments, not task count or Personnel count; zero-applicable report readiness is 0%, while a MOS/category matrix can use an empty value.
 - History includes archived definitions; active matrix/report denominators exclude them. Archived Personnel history is read-only.
 - `actor` establishes sign-in and a starting route, not completion of a streamed workspace or a permission verdict. Its `access` output is `not-assessed` unless it captured the explicit settings-page denial; inspect the actual UI and request/provider evidence.

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { createClientAccess } from '$lib/access/clientAccess';
-import { createCapabilityMap } from '$lib/access/memberAccessShape';
+import { createCapabilityMap, type ScopeSet } from '$lib/access/memberAccessShape';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingPageView from './TrainingPageView.svelte';
@@ -16,6 +16,10 @@ import type { TrainingType } from '$features/training/training.types';
 import { TrainingPageContext } from '$features/training/contexts/TrainingPageContext.svelte';
 import TrainingModals from './TrainingModals.svelte';
 import { ModalRegistry } from '$lib/utils/modalRegistry.svelte';
+import ExcelJS from 'exceljs';
+import * as workbookHelpers from '$lib/utils/workbook';
+import { tick } from 'svelte';
+import { fromStore, writable } from 'svelte/store';
 
 vi.mock('$app/navigation', () => ({
 	goto: vi.fn(),
@@ -132,6 +136,7 @@ describe('TrainingPageView', () => {
 
 	afterEach(() => {
 		cleanup();
+		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 		vi.useRealTimers();
 		personnelRosterHydration.load([], 'org-test-reset');
@@ -269,4 +274,204 @@ describe('TrainingPageView', () => {
 		expect(screen.queryByRole('link', { name: 'Manage Views' })).toBeNull();
 		expect(screen.queryByRole('link', { name: 'Manage Types' })).toBeNull();
 	});
+
+	function exportContext(
+		capability: 'view' | 'none' = 'view',
+		orgId = 'org-1',
+		getScope: () => ScopeSet = () => ({ kind: 'organization' })
+	): TrainingPageContext {
+		const access = createClientAccess(() => ({
+			membershipRole: 'member',
+			capabilityMap: { ...createCapabilityMap('none'), training: capability },
+			scopeSet: getScope()
+		}));
+		return new TrainingPageContext(
+			{ orgId, orgName: 'Test Org' },
+			new ModalRegistry(),
+			{
+				...access,
+				orgId,
+				orgUrlSegment: orgId,
+				get scopeSet() {
+					return access.scopeSet;
+				}
+			},
+			vi.fn().mockResolvedValue(true),
+			vi.fn()
+		);
+	}
+
+	function captureDownload() {
+		const blobs: Blob[] = [];
+		const filenames: string[] = [];
+		const createUrl = vi.spyOn(URL, 'createObjectURL').mockImplementation((blob) => {
+			blobs.push(blob as Blob);
+			return 'blob:training-export';
+		});
+		vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+		vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+			filenames.push(this.download);
+		});
+		return { blobs, filenames, createUrl };
+	}
+
+	function holdWorkbook() {
+		const generated = Promise.withResolvers<Blob>();
+		const release = Promise.withResolvers<void>();
+		const original = workbookHelpers.workbookBlob;
+		vi.spyOn(workbookHelpers, 'workbookBlob').mockImplementation(async (workbook) => {
+			const blob = await original(workbook);
+			generated.resolve(blob);
+			await release.promise;
+			return blob;
+		});
+		return { generated: generated.promise, release: release.resolve };
+	}
+
+	it('downloads the selected group snapshot with hidden saved-view columns and prevents duplicate exports while busy', async () => {
+		trainingTypesStore.load(
+			[
+				trainingType,
+				{
+					...trainingType,
+					id: 'optional',
+					name: 'Orientation',
+					expirationMonths: null,
+					isOptional: true,
+					sortOrder: -1
+				}
+			],
+			'org-1'
+		);
+		trainingViewsStore.load(
+			[
+				{
+					id: 'focus',
+					name: 'Focus',
+					columnIds: ['type-1'],
+					createdBy: 'user',
+					createdAt: '2026-01-01',
+					updatedAt: '2026-01-01'
+				}
+			],
+			'org-1'
+		);
+		personnelTrainingsStore.load(
+			[
+				{
+					id: 'completion',
+					personnelId: 'person-1',
+					trainingTypeId: 'type-1',
+					completionDate: '2025-02-03',
+					expirationDate: '2026-02-03',
+					notes: null,
+					certificateUrl: null
+				}
+			],
+			'org-1'
+		);
+		const ctx = exportContext();
+		ctx.setSelectedGroupId('group-1');
+		ctx.setSelectedViewId('focus');
+		const { blobs, filenames } = captureDownload();
+		const pending = holdWorkbook();
+		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+		const button = screen.getByRole('button', { name: 'Export Excel' });
+		await Promise.all([fireEvent.click(button), fireEvent.click(button)]);
+		await pending.generated;
+		expect((screen.getByRole('button', { name: 'Exporting...' }) as HTMLButtonElement).disabled).toBe(true);
+		personnelTrainingsStore.items[0].completionDate = '2040-01-01';
+		ctx.setSelectedGroupId('group-2');
+		pending.release();
+		await waitFor(() => expect(filenames).toHaveLength(1));
+		const parsed = new ExcelJS.Workbook();
+		await parsed.xlsx.load(
+			Buffer.from(await blobs[0].arrayBuffer()) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]
+		);
+		expect(parsed.getWorksheet('Training Matrix')!.getSheetValues()).toEqual([
+			undefined,
+			[undefined, 'Name', 'Rank', 'Group', 'Orientation (completion only)', 'CPR'],
+			[undefined, 'Smith, Jane', 'SGT', 'Alpha', 'not required', '2025-02-03']
+		]);
+		expect(filenames[0]).toMatch(/^training-matrix-\d{4}-\d{2}-\d{2}\.xlsx$/);
+		expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(false);
+	});
+
+	it('suppresses an old-scope workbook when same-Organization access narrows while Training view remains allowed', async () => {
+		const scope = writable<ScopeSet>({ kind: 'organization' });
+		const liveScope = fromStore(scope);
+		const ctx = exportContext('view', 'org-1', () => liveScope.current);
+		const { filenames } = captureDownload();
+		const pending = holdWorkbook();
+		render(TrainingPageView, { props: { ctx, modals: new ModalRegistry() } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+		const blob = await pending.generated;
+		const parsed = new ExcelJS.Workbook();
+		await parsed.xlsx.load(
+			Buffer.from(await blob.arrayBuffer()) as unknown as Parameters<ExcelJS.Workbook['xlsx']['load']>[0]
+		);
+		expect(parsed.getWorksheet('Training Matrix')!.getSheetValues()).toEqual([
+			undefined,
+			[undefined, 'Name', 'Rank', 'Group', 'CPR'],
+			[undefined, 'Adams, John', 'SPC', 'Bravo', 'missing'],
+			[undefined, 'Smith, Jane', 'SGT', 'Alpha', 'missing']
+		]);
+		scope.set({ kind: 'groups', groupIds: ['group-1'] });
+		await tick();
+		expect(ctx.personnel.map((person) => person.id)).toEqual(['person-1']);
+		expect(ctx.canViewTraining).toBe(true);
+		pending.release();
+		await waitFor(() =>
+			expect((screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement).disabled).toBe(false)
+		);
+		expect(filenames).toEqual([]);
+	});
+
+	it('shows a download failure and retries successfully through the visible control', async () => {
+		const { filenames, createUrl } = captureDownload();
+		createUrl.mockImplementationOnce(() => {
+			throw new Error('internal module details');
+		});
+		render(TrainingPageView, { props: { ctx: exportContext(), modals: new ModalRegistry() } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+		await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+		expect(filenames).toEqual([]);
+		await fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+		await waitFor(() => expect(filenames).toHaveLength(1));
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it.each(['loading', 'stale organization', 'empty roster', 'empty catalog'] as const)(
+		'disables export for %s without attempting a download',
+		async (condition) => {
+			if (condition === 'loading') personnelTrainingsStore.startLoading();
+			if (condition === 'stale organization') trainingTypesStore.load([trainingType], 'another-org');
+			if (condition === 'empty roster') personnelRosterHydration.load([], 'org-1');
+			if (condition === 'empty catalog') trainingTypesStore.load([], 'org-1');
+			const { filenames } = captureDownload();
+			render(TrainingPageView, { props: { ctx: exportContext(), modals: new ModalRegistry() } });
+			const button = screen.getByRole('button', { name: 'Export Excel' }) as HTMLButtonElement;
+			expect(button.disabled).toBe(true);
+			await fireEvent.click(button);
+			expect(filenames).toEqual([]);
+		}
+	);
+
+	it.each(['organization changes', 'access disappears', 'unmounts'] as const)(
+		'cancels a delayed download when the workspace %s',
+		async (condition) => {
+			const { filenames } = captureDownload();
+			const pending = holdWorkbook();
+			const modals = new ModalRegistry();
+			const view = render(TrainingPageView, { props: { ctx: exportContext(), modals } });
+			await fireEvent.click(screen.getByRole('button', { name: 'Export Excel' }));
+			await pending.generated;
+			if (condition === 'organization changes') await view.rerender({ ctx: exportContext('view', 'org-2'), modals });
+			if (condition === 'access disappears') await view.rerender({ ctx: exportContext('none'), modals });
+			if (condition === 'unmounts') view.unmount();
+			pending.release();
+			await tick();
+			expect(filenames).toEqual([]);
+		}
+	);
 });

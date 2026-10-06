@@ -69,8 +69,9 @@ The [baseline archive](d28-calendar-atomic-baseline.tar.gz) contains 88 payloads
 Both archives are freshly extracted under ignored scratch paths and every file set, size, hash, and expanded byte matches. Use this verification after extraction into separate empty directories:
 
 ```bash
-tar -xzf docs/stabilization/phase-08/d28-calendar-atomic-final.tar.gz -C /tmp/d28-final
-python3 - /tmp/d28-final <<'PY_VERIFY'
+d28_extract=$(mktemp -d)
+tar -xzf docs/stabilization/phase-08/d28-calendar-atomic-final.tar.gz -C "$d28_extract"
+python3 - "$d28_extract" <<'PY_VERIFY'
 import hashlib, json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
 manifest = json.loads((root / 'inventory.json').read_text())

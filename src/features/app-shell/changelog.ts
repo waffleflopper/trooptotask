@@ -7,6 +7,17 @@ export type ChangelogEntry = {
 
 export const changelog: ChangelogEntry[] = [
 	{
+		id: '2026-10-05-training-reports-and-matrix-export',
+		date: '2026-10-05',
+		title: 'Training Reports and Excel Export',
+		items: [
+			'Open Reports from Training to see readiness today and forecast training dropoffs over the next 30, 60, 90, or 180 days if no one renews.',
+			'Find the groups and training types at risk, see which Soldiers need training, and use the focus areas to plan renewals before readiness falls.',
+			'Filter the briefing for your roster, export it to Excel, or use Print brief to share it with your leaders.',
+			'The main Training page now has Export Excel for a simple spreadsheet with one person per row and every training type as a column. It keeps your Group filter and includes saved dates, exemptions, missing training, and not-required labels.'
+		]
+	},
+	{
 		id: '2026-09-26-foundation-and-fixes',
 		date: '2026-09-26',
 		title: 'Preparing for Future Improvements',

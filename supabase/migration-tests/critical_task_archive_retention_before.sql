@@ -42,7 +42,7 @@ INSERT INTO public.personnel_ict_completions(id,organization_id,personnel_id,ict
 
 CREATE VIEW upgrade_fixture.critical_task_archive_retention_current_rows AS
 SELECT 'auth.users'::text AS table_name,id AS row_id,to_jsonb(row_value) AS row_data FROM auth.users AS row_value WHERE id='d2550000-0000-4000-8000-000000000001'
-UNION ALL SELECT 'organizations',id,to_jsonb(row_value) FROM public.organizations AS row_value WHERE id IN ('d2550000-0000-4000-8000-000000000101','d2550000-0000-4000-8000-000000000102')
+UNION ALL SELECT 'organizations',id,to_jsonb(row_value) - 'training_readiness_goal_percent' FROM public.organizations AS row_value WHERE id IN ('d2550000-0000-4000-8000-000000000101','d2550000-0000-4000-8000-000000000102')
 UNION ALL SELECT 'personnel',id,to_jsonb(row_value) FROM public.personnel AS row_value WHERE organization_id IN ('d2550000-0000-4000-8000-000000000101','d2550000-0000-4000-8000-000000000102')
 UNION ALL SELECT 'tasks',id,to_jsonb(row_value) FROM public.ict_tasks AS row_value WHERE organization_id IN ('d2550000-0000-4000-8000-000000000101','d2550000-0000-4000-8000-000000000102')
 UNION ALL SELECT 'completions',id,to_jsonb(row_value) FROM public.personnel_ict_completions AS row_value WHERE organization_id IN ('d2550000-0000-4000-8000-000000000101','d2550000-0000-4000-8000-000000000102');

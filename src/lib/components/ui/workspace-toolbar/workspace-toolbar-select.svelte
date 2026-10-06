@@ -16,7 +16,9 @@
 </script>
 
 <Select.Root type="single" value={value as never} onValueChange={(next) => onValueChange(next as TValue)}>
-	<Select.Trigger size="sm" aria-label={ariaLabel} {disabled}>{selectedLabel}</Select.Trigger>
+	<Select.Trigger size="sm" aria-label={ariaLabel} title={selectedLabel} {disabled} class="min-w-0 max-w-56">
+		<span class="min-w-0 truncate">{selectedLabel}</span>
+	</Select.Trigger>
 	<Select.Content>
 		{#each options as option (option.value)}
 			<Select.Item value={option.value} label={option.label} />

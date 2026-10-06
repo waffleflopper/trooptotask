@@ -1,11 +1,19 @@
 export interface OrganizationPolicySettings {
 	archiveRetentionMonths?: number | null;
 	lossWarningWindowDays?: number | null;
+	trainingReadinessGoalPercent: number;
+}
+
+/** The Organization facts a Training briefing states: its name and readiness goal. */
+export interface OrganizationTrainingBriefingContext {
+	name: string;
+	trainingReadinessGoalPercent: number;
 }
 
 /** Organization-owned facts; construction never reads the provider. */
 export interface OrganizationSettingsReader {
 	findPolicies(orgId: string): Promise<OrganizationPolicySettings | null>;
+	findTrainingBriefingContext(orgId: string): Promise<OrganizationTrainingBriefingContext | null>;
 	findArchiveRetentionMonths(orgId: string): Promise<number | null | undefined>;
 	findLossWarningWindowDays(orgId: string): Promise<number | null | undefined>;
 	findStorageCapBytes(orgId: string): Promise<number | null | undefined>;
@@ -15,6 +23,7 @@ export interface OrganizationSettingsReader {
 export interface OrganizationPolicyChanges {
 	archiveRetentionMonths?: number;
 	lossWarningWindowDays?: number;
+	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapBytes?: number;
 }
 
@@ -26,6 +35,7 @@ export interface OrganizationPolicyWritePort {
 export interface OrganizationSettingsInput {
 	archiveRetentionMonths?: number;
 	lossWarningWindowDays?: number;
+	trainingReadinessGoalPercent?: number;
 	personnelDocumentStorageCapMb?: number;
 }
 

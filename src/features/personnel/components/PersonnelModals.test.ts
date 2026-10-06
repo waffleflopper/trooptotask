@@ -203,7 +203,7 @@ describe('retired Personnel save feedback', () => {
 				label: 'Specialist',
 				service: 'army' as const,
 				category: 'enlisted' as const,
-				payGrade: 'E-4',
+				payGrade: 'E-4' as const,
 				state: 'active' as const,
 				sortOrder: 0
 			}

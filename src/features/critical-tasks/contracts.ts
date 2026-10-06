@@ -18,6 +18,25 @@ import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from './c
 
 export type PersonnelIctCompletionWrite = Omit<PersonnelIctCompletion, 'id' | 'loggedBy' | 'createdAt'>;
 
+export type IctTaskCreate = Pick<IctTask, 'taskCode' | 'title'> &
+	Partial<Omit<IctTask, 'id' | 'createdAt' | 'taskCode' | 'title'>>;
+export type IctTaskPatch = Partial<IctTaskCreate>;
+
+export interface CriticalTaskReference {
+	id: string;
+	archivedAt: string | null;
+}
+
+export interface CriticalTaskLibraryPersistence {
+	listCatalog(options?: { includeArchived?: boolean }): Promise<IctTask[]>;
+	listImportCandidates(): Promise<IctTask[]>;
+	listReferenced(ids: string[]): Promise<IctTask[]>;
+	findReference(id: string): Promise<CriticalTaskReference | null>;
+	create(input: IctTaskCreate): Promise<IctTask>;
+	createMany(inputs: IctTaskCreate[]): Promise<IctTask[]>;
+	update(id: string, patch: IctTaskPatch): Promise<IctTask>;
+}
+
 export interface IctCompletionImportMappedRow {
 	rowNumber: number;
 	values: Record<string, string>;

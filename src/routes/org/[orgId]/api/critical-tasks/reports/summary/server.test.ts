@@ -1,3 +1,4 @@
+import { createInMemoryCriticalTaskLibraryPersistence } from '$features/critical-tasks/server/inMemoryCriticalTaskLibrary.server';
 import { describe, expect, it } from 'vitest';
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
@@ -36,7 +37,7 @@ describe('GET /api/critical-tasks/reports/summary', () => {
 	});
 
 	it('returns an authorized readiness summary dashboard', async () => {
-		const ctx = createTestContext();
+		const ctx = createTestContext({ criticalTaskLibraryFactory: createInMemoryCriticalTaskLibraryPersistence });
 
 		const result = await handleUseCaseRequest(_getConfig, ctx, { asOf: '2026-05-23' }, () => ctx);
 

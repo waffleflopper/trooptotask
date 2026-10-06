@@ -41,13 +41,7 @@ function throwMutationError(table: string, error: { code?: string; message: stri
 		// catalog's existence private and return a useful client error.
 		fail(404, 'Status type is unavailable for this Organization');
 	}
-	if (
-		table === 'ict_tasks' &&
-		error.code === '23505' &&
-		error.message.includes('"ict_tasks_organization_id_task_code_key"')
-	) {
-		fail(409, 'Task code already exists in this Organization');
-	}
+
 	throw new Error(error.message);
 }
 

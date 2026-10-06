@@ -16,7 +16,6 @@ import {
 	type IctReportScope
 } from '../utils/ictReports';
 import { getActiveIctTasksForLibrary } from '../utils/ictTaskLibrary';
-import { IctTaskEntity } from './ictTaskEntity.server';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
 import type {
@@ -89,18 +88,11 @@ async function buildDashboardFromSource(
 }
 
 async function loadCriticalTasksReportSource(ctx: CriticalTasksReportContext): Promise<CriticalTasksReportSource> {
-	const orgId = ctx.auth.orgId;
 	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
-	const [personnel, groups, taskRows, settings, rankCatalog] = await Promise.all([
+	const [personnel, groups, tasks, settings, rankCatalog] = await Promise.all([
 		ctx.personnelCriticalTasksRoster.listActiveForReadiness(ctx.auth),
 		listGroupCatalog(ctx),
-		ctx.store.findMany<Record<string, unknown>>('ict_tasks', orgId, undefined, {
-			isNull: { archived_at: true },
-			orderBy: [
-				{ column: 'sort_order', ascending: true },
-				{ column: 'task_code', ascending: true }
-			]
-		}),
+		ctx.criticalTaskLibrary.listCatalog(),
 		fetchCriticalTasksSettings(ctx),
 		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'critical-tasks-readiness' })
 	]);
@@ -108,7 +100,7 @@ async function loadCriticalTasksReportSource(ctx: CriticalTasksReportContext): P
 	return {
 		personnel,
 		groups,
-		tasks: IctTaskEntity.fromDbArray(taskRows),
+		tasks,
 		settings,
 		rankCatalog
 	};

@@ -62,7 +62,7 @@ Phases 03–06 removed Billing and Duty Roster runtime and active-schema objects
   - ports in `src/lib/server/core/ports.ts`
   - provider and transport adapters in `src/lib/server/adapters/*`
   - schema-first entities in `src/lib/server/entities/*`
-  - route wrappers such as `handle()`, `entityHandlers()`, and `loadWithContext()`
+  - route wrappers such as `handle()` and `loadWithContext()`
 - These paths are current implementation, not the permanent public feature boundary. New or migrated feature behavior uses the owner-held server seam in [ADR 0013](adrs/0013-v1-module-and-delivery-contract.md), reusing sound typed collaborators and provider adapters until their owning cutovers.
 - Delivery binds each operation's consumed collaborators through selected request builders after authorization and input validation. The admitted request contains trusted grant/session and persistence facts; the universal feature context and unused preloaded-membership builder are removed. Generic persistence infrastructure remains D28's owned cutover.
 - Route-local `locals.supabase` logic still exists in a number of places and remains tolerated only as legacy or transitional drift.

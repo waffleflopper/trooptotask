@@ -1,219 +1,38 @@
-# Entity System (`src/lib/server/entities/`)
+# Retained entity mapping helpers
 
-All database entities use the schema-first `defineEntity()` pattern. Each entity definition provides:
+[`entitySchema.ts`](../src/lib/server/entitySchema.ts) supplies schema validation and row mapping for the remaining feature-owned entity definitions. Each definition lives with its owner; there is no shared entity barrel or generic repository factory. The last `entityHandlers` caller has moved to Critical Tasks operations, and the unused shared CRUD wrappers are removed.
 
-- **Type-safe transforms**: `.fromDb()` / `.fromDbArray()` (snake_case → camelCase)
-- **Insert/update mapping**: `.toDbInsert()` / `.toDbUpdate()` (camelCase → snake_case)
-- **Zod schemas**: `.createSchema` / `.updateSchema` for input validation
-- **Metadata**: `.table`, `.groupScope`, `.methods`, `.fieldMap`, `.select`
+New or migrated persistence uses the owning feature's typed server contract. Keep table names, provider queries and row mapping inside that owner. See [server conventions](architecture/MODULE_CONVENTIONS.md#server-conventions) and [provider boundaries](architecture/AUTHORIZATION_AND_PROVIDER_BOUNDARIES.md).
 
-> **Note**: `EntityDefinition` does **not** include a `.repo` or `.handlers` property.
-> Use `entityHandlers()` from `httpAdapter` for standard CRUD routes, and `createRepository()` from `repositoryFactory` for data access.
+## Mapping and validation
 
----
+`defineEntity()` combines fields into create/update schemas and transforms. Existing owners may reuse these helpers while their persistence callers are cut over.
 
-## Defining a new entity
+| Member                         | Purpose                                                         |
+| ------------------------------ | --------------------------------------------------------------- |
+| `createSchema`, `updateSchema` | Validate submitted fields; update also requires an ID           |
+| `toDbInsert()`, `toDbUpdate()` | Map writable values to provider columns                         |
+| `fromDb()`, `fromDbArray()`    | Map provider rows to domain values                              |
+| `select`, `orderBy`, `table`   | Retained provider metadata; keep it inside owner implementation |
 
-```typescript
-import { z } from 'zod';
-import { defineEntity, field } from '$lib/server/entitySchema';
-import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { MyType } from '$lib/types';
-
-export const MyEntity = defineEntity<MyType>({
-	table: 'my_table',
-	groupScope: 'none', // or { personnelColumn: 'personnel_id' }
-	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
-	audit: 'MyThing',
-	orderBy: [{ column: 'sort_order', ascending: true }],
-	schema: {
-		id: field(z.string(), { readOnly: true }),
-		name: field(z.string()),
-		parentId: field(z.string(), { column: 'parent_id' }),
-		note: field(z.string().nullable().optional(), { insertDefault: null })
-	}
-});
-```
-
-### EntityConfig options
-
-| Option            | Type                                                 | Description                                                  |
-| ----------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
-| `table`           | `string`                                             | Database table name                                          |
-| `groupScope`      | `'none'` \| `{ personnelColumn: string }`            | Group-scoped access control                                  |
-| `schema`          | `Record<string, EntityField>`                        | Field definitions                                            |
-| `select`          | `string`                                             | Custom select expression (default `'*'`)                     |
-| `orderBy`         | `Array<{ column, ascending? }>`                      | Default sort order                                           |
-| `policyAction`    | `FeatureLanePolicyAction`                            | Authorize mutations through a Policy Decision                |
-| `audit`           | `string \| { resourceType, action?, detailFields? }` | Audit log config                                             |
-| `methods`         | `EntityMethod[]`                                     | HTTP verbs to allow; defaults to `['POST', 'PUT', 'DELETE']` |
-| `customTransform` | `(row) => T`                                         | Custom DB row → type mapping (for joins, etc.)               |
-
----
+The [Training type definition](../src/features/training/server/trainingTypeEntity.server.ts) illustrates current use. Metadata does not authorize a request or perform a mutation.
 
 ## Field options
 
-| Option          | Description                                                                            |
-| --------------- | -------------------------------------------------------------------------------------- |
-| `column`        | DB column name if different from camelCase key (auto-converts if omitted)              |
-| `readOnly`      | Excluded from create/update schemas and insert/update mapping                          |
-| `insertDefault` | Default value when field is omitted on insert (makes field optional in `createSchema`) |
-| `nullDefault`   | Value to use in `fromDb` when DB value is `null` (e.g., `[]` for JSON arrays)          |
-| `isPersonnelId` | Marks the personnel ID field for group scope enforcement                               |
+| Option          | Behavior                                                                  |
+| --------------- | ------------------------------------------------------------------------- |
+| `column`        | Overrides the default camelCase-to-snake_case column name                 |
+| `readOnly`      | Excludes a field from submitted create/update values and writable mapping |
+| `insertDefault` | Supplies an omitted insert value and makes the create field optional      |
+| `nullDefault`   | Replaces a provider `null` during row mapping                             |
+| `isPersonnelId` | Identifies the Personnel field for remaining entity metadata consumers    |
 
----
+Input validation, policy decisions, persistence acknowledgment and audit effects belong to the owned operation. Group and Organization authority come from admitted request facts and the feature's policy contract.
 
-## Custom transforms
+## Delivery
 
-For entities with joins or complex mapping, use `customTransform`:
+[`httpAdapter.ts`](../src/lib/server/adapters/httpAdapter.ts) retains `handle()` and `loadWithContext()`. Delivery selects an operation-specific context after admission; routes declare the policy action and call the owner's operation. The [task library route](../src/routes/org/[orgId]/api/ict-tasks/+server.ts) shows explicit create/update delivery without a generic entity handler.
 
-```typescript
-export const PersonnelEntity = defineEntity<Personnel>({
-	table: 'personnel',
-	select: '*, groups(name)',
-	customTransform: (row) => ({
-		id: row.id as string,
-		groupName: ((row.groups as Record<string, unknown>)?.name as string) ?? ''
-		// ... other fields
-	}),
-	schema: {
-		/* ... */
-	}
-});
-```
+`handleUseCaseRequest(config, request, rawInput, selectContext)` is the pure request boundary for meaningful delivery tests. It enforces route authorization, validates any configured input, then selects the consumed context and invokes the operation. It does not supply a universal feature context or replace the owner's validation and policy checks.
 
----
-
-## Standard CRUD routes — `entityHandlers()`
-
-For entities with standard POST/PUT/DELETE, use `entityHandlers()` from `httpAdapter`:
-
-```typescript
-// In +server.ts:
-import { entityHandlers } from '$lib/server/adapters/httpAdapter';
-import { MyEntity } from '$lib/server/entities/myEntity';
-
-const handlers = entityHandlers(MyEntity, {
-	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
-	beforeDelete: async (ctx, id) => {
-		/* optional hook */
-	},
-	afterDelete: async (ctx, id) => {
-		/* optional hook */
-	}
-});
-
-export const POST = handlers.POST;
-export const PUT = handlers.PUT;
-export const DELETE = handlers.DELETE;
-```
-
-`entityHandlers()` automatically enforces:
-
-- Policy Decision authorization (`policyAction`)
-- Read-only guard on mutations
-- Zod validation via `entity.createSchema` / `entity.updateSchema`
-- Group scope enforcement
-- Audit logging via `auditResource`
-
----
-
-## Custom route handlers — `handle()`
-
-For routes with non-standard logic, use `handle()`:
-
-```typescript
-import { handle } from '$lib/server/adapters/httpAdapter';
-import { z } from 'zod';
-
-export const POST = handle({
-	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
-	policyResource: { kind: 'organization' },
-	mutation: true, // documents that this route changes state
-	input: z.object({ name: z.string() }), // optional Zod schema
-	fn: async (ctx, input) => {
-		// ctx is a fully-built UseCaseContext
-		return { id: 'new-id' };
-	},
-	audit: {
-		// optional declarative audit
-		action: 'create',
-		resourceType: 'MyThing',
-		resourceId: (result) => result.id
-	}
-});
-```
-
-`handle()` enforces Policy Decision authorization and Zod validation automatically.
-
-For custom input parsing (e.g. query params, form data), use `parseInput` instead of `input`:
-
-```typescript
-export const GET = handle({
-	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
-	policyResource: { kind: 'organization' },
-	parseInput: (event) => ({ id: event.params.id }),
-	fn: async (ctx, input) => {
-		/* ... */
-	}
-});
-```
-
-For unit testing, use `handleUseCaseRequest(config, ctx, rawInput)` — the pure core without `RequestEvent`.
-
----
-
-## Page loaders — `loadWithContext()`
-
-For `+page.server.ts` and `+layout.server.ts` load functions:
-
-```typescript
-import { loadWithContext } from '$lib/server/adapters/httpAdapter';
-
-export const load = async ({ locals, cookies, params }) => {
-	return loadWithContext(locals, cookies, params.orgId, {
-		policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
-		policyResource: { kind: 'organization' },
-		fn: async (ctx) => {
-			return myUseCase(ctx);
-		}
-	});
-};
-```
-
-For streaming with skeleton UIs, add `defer: true` — the policy check starts immediately, and denied access rejects the streamed data promise:
-
-```typescript
-return loadWithContext(locals, cookies, params.orgId, {
-	policyAction: POLICY_ACTION_CATALOG.training.viewRecords,
-	policyResource: { kind: 'organization' },
-	defer: true,
-	fn: async (ctx) => fetchSlowData(ctx)
-});
-// Returns { data: Promise<T> } for SvelteKit streaming
-```
-
-For unit testing, use `loadWithContextCore(ctx, config)` — the pure core without SvelteKit dependency.
-
----
-
-## Using entity transforms directly
-
-For custom handlers that need direct mapping:
-
-```typescript
-import { MyEntity } from '$lib/server/entities/myEntity';
-
-const insertData = MyEntity.toDbInsert(body, orgId);
-const response = MyEntity.fromDb(data as Record<string, unknown>);
-```
-
----
-
-## Barrel export
-
-All entities are available via `$lib/server/entities`:
-
-```typescript
-import { PersonnelEntity, TrainingTypeEntity } from '$lib/server/entities';
-```
+For streamed loads, `defer: true` starts policy admission immediately and returns a `data` promise. Denied admission rejects that promise. See the [workspace conventions](architecture/MODULE_CONVENTIONS.md#route-handlers-and-loads) for the retained loading pattern.

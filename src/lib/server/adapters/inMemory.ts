@@ -19,7 +19,7 @@ import type {
 	CalendarAssignmentReplacementPort,
 	SavedAssignment
 } from '$features/calendar/contracts';
-import type { CriticalTasksReadModelPort } from '$features/critical-tasks/contracts';
+import type { CriticalTaskLibraryPersistence, CriticalTasksReadModelPort } from '$features/critical-tasks/contracts';
 import type { DataExportLifecycleWriter } from '$features/data-export/index.server';
 import type { FeedbackExportRow } from '$features/feedback/index.server';
 import type {
@@ -115,7 +115,11 @@ type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string
 
 type TestContextOptions = {
 	auth?: Parameters<typeof createTestAuthContext>[0];
-	criticalTasksReadModelFactory?: (rawStore: DataStore) => CriticalTasksReadModelPort;
+	criticalTaskLibraryFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskLibraryPersistence;
+	criticalTasksReadModelFactory?: (
+		rawStore: DataStore,
+		criticalTaskLibrary: CriticalTaskLibraryPersistence
+	) => CriticalTasksReadModelPort;
 	onboardingReconciliation?: OnboardingReconciliationPort;
 	onboardingNoteAppend?: OnboardingNoteAppendPort;
 	onboardingLifecycleTransition?: OnboardingLifecycleTransitionPort;
@@ -160,6 +164,21 @@ function unavailableOnboardingReconciliation(): OnboardingReconciliationPort {
 		async reconcile() {
 			throw new Error('Bind the owned Onboarding reconciliation provider');
 		}
+	};
+}
+
+function unavailableCriticalTaskLibrary(): CriticalTaskLibraryPersistence {
+	async function unavailable(): Promise<never> {
+		throw new Error('Bind the owned Critical Tasks library in this test context');
+	}
+	return {
+		listCatalog: unavailable,
+		listImportCandidates: unavailable,
+		listReferenced: unavailable,
+		findReference: unavailable,
+		create: unavailable,
+		createMany: unavailable,
+		update: unavailable
 	};
 }
 
@@ -1125,8 +1144,10 @@ export function createTestContext(
 	const notificationPort = createTestNotificationPort();
 	const storagePort = createTestStoragePort();
 	const sensitiveActionAuthorizer = createTestSensitiveActionAuthorizer(overrides?.sensitiveActionDecision);
+	const criticalTaskLibrary =
+		overrides?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		overrides?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		overrides?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		rawStore,
@@ -1157,6 +1178,7 @@ export function createTestContext(
 		storagePort,
 		sensitiveActionAuthorizer,
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
@@ -1238,8 +1260,10 @@ export function createTestStoragePort(): StoragePort & { files: StoredFile[] } {
 export function createWritePortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
@@ -1254,6 +1278,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		onboardingPacketCreation: options?.onboardingPacketCreation ?? unavailableOnboardingPacketCreation(),
 
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
@@ -1267,8 +1292,10 @@ export function createWritePortsContext(options?: TestContextOptions) {
 export function createWriteWithNotificationsPortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
 		store,
@@ -1284,6 +1311,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 
 		notifications: createTestNotificationPort(),
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelArtifactWrites: createInMemoryPersonnelArtifactWritePort(rawStore, storagePort),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
 		personnelCriticalTasksRoster: createInMemoryPersonnelCriticalTasksRosterPort(rawStore),
@@ -1307,13 +1335,16 @@ export function createUserWritePortsContext(options?: { auth?: Parameters<typeof
 export function createQueryPortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),
@@ -1329,14 +1360,17 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 export function createQueryWithRawStorePortsContext(options?: TestContextOptions) {
 	const auth = createTestAuthContext(options?.auth);
 	const { store, rawStore } = createScopedTestStores(auth);
+	const criticalTaskLibrary =
+		options?.criticalTaskLibraryFactory?.(rawStore, auth.orgId) ?? unavailableCriticalTaskLibrary();
 	const criticalTasksReadModel =
-		options?.criticalTasksReadModelFactory?.(rawStore) ?? unavailableCriticalTasksReadModel();
+		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary) ?? unavailableCriticalTasksReadModel();
 	return {
 		store,
 		auth,
 		rawStore,
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
 		criticalTasksReadModel,
+		criticalTaskLibrary,
 		personnelAwardAcknowledgement: createInMemoryPersonnelAwardAcknowledgementPort(rawStore),
 		ratingSchemeDue: createInMemoryRatingSchemeDuePort(rawStore),
 		personnelTrainingRoster: createInMemoryPersonnelTrainingRosterPort(rawStore),

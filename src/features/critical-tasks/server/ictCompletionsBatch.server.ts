@@ -5,7 +5,6 @@ import type {
 	IctCompletionBatchImportResult
 } from '../contracts';
 import { reviewMappedIctCompletionImportRows } from '../utils/ictCompletionImport';
-import { IctTaskEntity } from './ictTaskEntity.server';
 import { PersonnelIctCompletionEntity } from './personnelIctCompletionEntity.server';
 import type { IctCompletionBatchContext } from './personnelIctCompletionPorts.server';
 import { policyResourceForGroup, requirePolicyDecision } from '$lib/access/index.server';
@@ -68,10 +67,7 @@ export async function importIctCompletionsBatch(
 
 	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
 	const personnel = await ctx.personnelCriticalTasksRoster.listForBatchImport(ctx.auth);
-	const taskRows = await ctx.store.findMany<Record<string, unknown>>(IctTaskEntity.table, ctx.auth.orgId, undefined, {
-		select: IctTaskEntity.select
-	});
-	const tasks = IctTaskEntity.fromDbArray(taskRows);
+	const tasks = await ctx.criticalTaskLibrary.listImportCandidates();
 
 	// First pass resolves only valid personnel/task references so we can scope access checks
 	// and the existing-completion lookup without loading unrelated completion history.

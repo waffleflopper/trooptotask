@@ -3,9 +3,9 @@ export {
 	createSupabaseCriticalTaskRetentionSource,
 	type CriticalTaskRetentionSource
 } from './server/criticalTaskRetention.server';
-export { IctTaskEntity } from './server/ictTaskEntity.server';
+export { createSupabaseCriticalTaskLibraryPersistence } from './server/criticalTaskLibraryPersistence.server';
+export { createIctTask, updateIctTask } from './server/ictTaskOperations.server';
 export { importIctTasksBatch } from './server/ictTasksBatch.server';
-export { listActiveIctTasksForReadiness } from './server/ictTaskRead.server';
 export { fetchCriticalTasksBootstrap } from './server/criticalTasksWorkspaceQuery.server';
 export { fetchCriticalTasksSettings } from './server/criticalTasksSettingsRead.server';
 export { loadCriticalTasksReadinessLane } from './server/personnelCriticalTasksReadiness.server';

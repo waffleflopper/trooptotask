@@ -2,8 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
-import type { RatingSchemeDueActor } from '../contracts';
+import type { RatingSchemeDueActor, RatingSchemePersistence } from '../contracts';
 
 export interface RatingSchemeExportReader {
 	listRows(): Promise<Record<string, unknown>[]>;
@@ -33,20 +32,15 @@ export function createSupabaseRatingSchemeExportReader(
 
 /** Optional getting-started count: a denied or empty Rating lane contributes zero. */
 export async function countRatingSchemeEntries({
-	store,
+	ratingScheme,
 	actor
 }: {
-	store: Pick<RatingSchemeReadStore, 'findManyWithCount'>;
+	ratingScheme: Pick<RatingSchemePersistence, 'countEntries'>;
 	actor: RatingSchemeDueActor;
 }): Promise<number> {
 	const decision = await evaluateFeaturePolicy({ auth: actor }, POLICY_ACTION_CATALOG.ratingScheme.viewEntries, {
 		kind: 'unscoped'
 	});
 	if (!decision.allowed || (actor.scopeSet.kind === 'groups' && actor.scopeSet.groupIds.length === 0)) return 0;
-	const result = await store.findManyWithCount<{ id: string }>('rating_scheme_entries', actor.orgId, undefined, {
-		select: 'id',
-		range: { from: 0, to: 0 },
-		count: 'estimated'
-	});
-	return result.count ?? 0;
+	return ratingScheme.countEntries();
 }

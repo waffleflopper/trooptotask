@@ -3,14 +3,12 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelRatingSchemeRosterPort } from '$features/personnel/contracts';
-import type { RatingSchemeWorkspaceData } from '../contracts';
-import { RatingSchemeEntryEntity } from './ratingSchemeEntryEntity.server';
-import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
+import type { RatingSchemePersistence, RatingSchemeWorkspaceData } from '../contracts';
 
 interface RatingSchemeWorkspaceContext {
 	auth: OrganizationAccessGrant;
 	audit?: PolicyAuditSink;
-	readonly rawStore: Pick<RatingSchemeReadStore, 'findMany'>;
+	readonly ratingScheme: Pick<RatingSchemePersistence, 'listWorkspace'>;
 	readonly personnelRatingSchemeRoster?: Pick<PersonnelRatingSchemeRosterPort, 'listActiveReferences'>;
 }
 
@@ -24,19 +22,12 @@ export async function loadRatingSchemeWorkspace(ctx: RatingSchemeWorkspaceContex
 	);
 	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster port is required');
 
-	const [personnelLookup, rows] = await Promise.all([
+	const [personnelLookup, ratingSchemeEntries] = await Promise.all([
 		ctx.personnelRatingSchemeRoster.listActiveReferences(ctx.auth),
-		// Authenticated Rating RLS owns row scope. The generic scoped store requires Personnel SELECT.
-		ctx.rawStore.findMany<Record<string, unknown>>(RatingSchemeEntryEntity.table, ctx.auth.orgId, undefined, {
-			select: RatingSchemeEntryEntity.select,
-			orderBy: [
-				{ column: 'rating_period_end', ascending: true },
-				{ column: 'id', ascending: true }
-			]
-		})
+		ctx.ratingScheme.listWorkspace()
 	]);
 	return {
 		personnelLookup,
-		ratingSchemeEntries: RatingSchemeEntryEntity.fromDbArray(rows)
+		ratingSchemeEntries
 	};
 }

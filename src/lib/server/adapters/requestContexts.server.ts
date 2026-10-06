@@ -39,7 +39,8 @@ import {
 } from '$features/personnel/index.server';
 import {
 	createSupabaseRatingSchemeExportReader,
-	createSupabaseRatingSchemeDuePort
+	createSupabaseRatingSchemeDuePort,
+	createSupabaseRatingSchemePersistence
 } from '$features/rating-scheme/index.server';
 import {
 	createSupabaseSignInRosterPersistence,
@@ -455,6 +456,7 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 		detail: createRequestPersonnelDetailContext(request),
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
+		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
 		extendedInfo: createRequestPersonnelExtendedInfoContext(request),
 		artifacts: createRequestPersonnelArtifactsContext(request),
 		leaderNotes: createRequestPersonnelLeaderNoteContext(request),
@@ -605,7 +607,18 @@ export function createRequestOrganizationExportContext(request: AdmittedOrganiza
 }
 
 export function createRequestDeletionReviewContext(request: AdmittedOrganizationRequest) {
-	return { ...createRequestPersonnelLifecycleContext(request), notifications: createRequestNotificationDelivery() };
+	return {
+		...createRequestPersonnelLifecycleContext(request),
+		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
+		notifications: createRequestNotificationDelivery()
+	};
+}
+
+export function createRequestGettingStartedContext(request: AdmittedOrganizationRequest) {
+	return {
+		...createRequestWriteContext(request),
+		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
+	};
 }
 
 export function createRequestDashboardWorkspaceContext(request: AdmittedOrganizationRequest) {

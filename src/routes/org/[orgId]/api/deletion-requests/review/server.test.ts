@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _reviewPostConfig } from './+server';
 import { createDeletionRequestTestStore } from '$features/deletion-requests/testing.server';
@@ -8,7 +8,7 @@ import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/
 
 function configFor(ctx: ReturnType<typeof createTestContext>, effects: Partial<ApprovedDeletionEffects> = {}) {
 	const store = createDeletionRequestTestStore(ctx.store);
-	const rating = createApprovedRatingSchemeDeletionPort(ctx.rawStore, (orgId, requestId, type, id) =>
+	const rating = createApprovedRatingSchemeDeletionPort(ctx.ratingScheme, (orgId, requestId, type, id) =>
 		requirePendingDeletionRequest(store, orgId, requestId, type, id)
 	);
 	const unexpected = async () => {
@@ -55,10 +55,7 @@ describe('POST /api/deletion-requests/review', () => {
 			{ id: 'entry-2', organization_id: ctx.auth.orgId },
 			{ id: 'entry-1', organization_id: 'other-org' }
 		]);
-		// Match the production store's idempotent DELETE using real in-memory rows.
-		vi.spyOn(ctx.rawStore, 'delete')
-			.mockImplementation((table, orgId, id) => ctx.rawStore.deleteWhere(table, orgId, { id }))
-			.mockRejectedValueOnce(new Error('Rating deletion unavailable'));
+		vi.spyOn(ctx.ratingScheme, 'delete').mockRejectedValueOnce(new Error('Rating deletion unavailable'));
 		const config = configFor(ctx);
 		const approve = () => handleUseCaseRequest(config, ctx, { id: 'rating-request', action: 'approve' }, () => ctx);
 		await expect(approve()).rejects.toThrow('Rating deletion unavailable');

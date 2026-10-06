@@ -1,5 +1,6 @@
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
 import { createTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
+import { createInMemoryRatingSchemePersistence } from '$features/rating-scheme/server/inMemoryRatingSchemePersistence.server';
 import {
 	createPersonnelArtifactDeliveryContext,
 	createPersonnelLeaderNoteDeliveryContext,
@@ -26,6 +27,7 @@ const operateAuth = {
 
 function detailTestContext(personnelId = 'person-1', auth: Parameters<typeof createTestAuthContext>[0] = {}) {
 	const ctx = createTestContext({
+		ratingSchemeFactory: createInMemoryRatingSchemePersistence,
 		auth: { ...operateAuth, ...auth }
 	});
 	ctx.rawStore.seed('personnel', [
@@ -46,6 +48,7 @@ function selectedContexts(
 	return {
 		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		criticalTaskCompletions: ctx.criticalTaskCompletions,
+		ratingScheme: ctx.ratingScheme,
 		detail: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore, scope: ctx.scope },
 		extendedInfo: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, scope: ctx.scope },
 		artifacts: createPersonnelArtifactDeliveryContext(ctx),
@@ -66,6 +69,7 @@ describe('personnel detail page server load', () => {
 			vi.setSystemTime(new Date('2026-05-14T12:00:00Z'));
 			try {
 				const ctx = createTestContext({
+					ratingSchemeFactory: createInMemoryRatingSchemePersistence,
 					auth: { orgId: 'org-1' }
 				});
 				ctx.store.seed('personnel', [

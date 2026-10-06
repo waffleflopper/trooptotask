@@ -1,5 +1,5 @@
 import type { Personnel } from '$features/personnel/contracts';
-import type { RatingSchemeReadStore } from './ratingSchemeReadPorts.server';
+import type { RatingSchemePersistence } from '../contracts';
 
 interface RatingSchemeReadinessLane {
 	label: 'Rating Scheme';
@@ -9,41 +9,20 @@ interface RatingSchemeReadinessLane {
 }
 
 interface RatingSchemeReadinessInput {
-	store: Pick<RatingSchemeReadStore, 'findMany'>;
-	orgId: string;
+	ratingScheme: Pick<RatingSchemePersistence, 'listPersonReadiness'>;
 	personnelId: string;
 	/** Delivery supplies the existing Person/Group check under Rating Scheme view policy. */
 	loadAuthorizedPerson: () => Promise<Personnel>;
 }
 
-interface ReadinessRow {
-	status: string;
-	rater_person_id: string | null;
-	rater_name: string | null;
-	senior_rater_person_id: string | null;
-	senior_rater_name: string | null;
-}
-
 /** The newest noncompleted evaluation determines whether the rating chain is assigned. */
 export async function loadRatingSchemeReadinessLane({
-	store,
-	orgId,
+	ratingScheme,
 	personnelId,
 	loadAuthorizedPerson
 }: RatingSchemeReadinessInput): Promise<RatingSchemeReadinessLane> {
 	await loadAuthorizedPerson();
-	const rows = await store.findMany<ReadinessRow>(
-		'rating_scheme_entries',
-		orgId,
-		{ rated_person_id: personnelId },
-		{
-			select: 'status, rater_person_id, rater_name, senior_rater_person_id, senior_rater_name',
-			orderBy: [
-				{ column: 'rating_period_end', ascending: false },
-				{ column: 'id', ascending: false }
-			]
-		}
-	);
+	const rows = await ratingScheme.listPersonReadiness(personnelId);
 	const active = rows.find((entry) => entry.status !== 'completed');
 	if (!active) {
 		return {
@@ -54,8 +33,8 @@ export async function loadRatingSchemeReadinessLane({
 		};
 	}
 
-	const hasRater = Boolean(active.rater_person_id || active.rater_name?.trim());
-	const hasSeniorRater = Boolean(active.senior_rater_person_id || active.senior_rater_name?.trim());
+	const hasRater = Boolean(active.raterPersonId || active.raterName?.trim());
+	const hasSeniorRater = Boolean(active.seniorRaterPersonId || active.seniorRaterName?.trim());
 	if (hasRater && hasSeniorRater) {
 		return {
 			label: 'Rating Scheme',

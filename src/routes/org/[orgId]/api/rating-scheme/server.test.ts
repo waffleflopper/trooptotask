@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _deleteConfig, _postConfig, _putConfig } from './+server';
 

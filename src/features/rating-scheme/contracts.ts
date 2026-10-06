@@ -50,6 +50,56 @@ export interface RatingSchemeWorkspaceData {
 	ratingSchemeEntries: RatingSchemeEntry[];
 }
 
+export interface SavedRatingSchemeEntry extends RatingSchemeEntry {
+	readonly organization_id: string;
+	readonly created_at: string;
+	readonly updated_at: string;
+}
+
+export interface RatingSchemeCreateValues {
+	ratedPersonId: string;
+	evalType: RatingSchemeEntry['evalType'];
+	ratingPeriodStart: string;
+	ratingPeriodEnd: string;
+	status: RatingSchemeEntry['status'];
+	raterPersonId?: string | null;
+	raterName?: string | null;
+	seniorRaterPersonId?: string | null;
+	seniorRaterName?: string | null;
+	intermediateRaterPersonId?: string | null;
+	intermediateRaterName?: string | null;
+	reviewerPersonId?: string | null;
+	reviewerName?: string | null;
+	notes?: string | null;
+	reportType?: string | null;
+	workflowStatus?: string | null;
+}
+
+export type RatingSchemePatchValues = Partial<RatingSchemeCreateValues>;
+
+export interface RatingSchemeWriteReference {
+	ratedPersonId: string | null;
+	raterPersonId: string | null;
+	seniorRaterPersonId: string | null;
+	intermediateRaterPersonId: string | null;
+	reviewerPersonId: string | null;
+}
+
+export type RatingSchemeReadinessEntry = Pick<
+	RatingSchemeEntry,
+	'status' | 'raterPersonId' | 'raterName' | 'seniorRaterPersonId' | 'seniorRaterName'
+>;
+
+export interface RatingSchemePersistence {
+	listWorkspace(): Promise<SavedRatingSchemeEntry[]>;
+	findWriteReference(id: string): Promise<RatingSchemeWriteReference | null>;
+	listPersonReadiness(personnelId: string): Promise<RatingSchemeReadinessEntry[]>;
+	countEntries(): Promise<number>;
+	create(input: RatingSchemeCreateValues): Promise<SavedRatingSchemeEntry>;
+	update(id: string, patch: RatingSchemePatchValues): Promise<SavedRatingSchemeEntry>;
+	delete(id: string): Promise<void>;
+}
+
 export type RatingSchemeWorkspaceHydrationMode = 'replace' | 'preserve-client';
 export interface RatingSchemeWorkspaceHydrationTarget<T> {
 	mode: RatingSchemeWorkspaceHydrationMode;

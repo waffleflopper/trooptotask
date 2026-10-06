@@ -14,7 +14,7 @@ import {
 } from '$lib/server/adapters/httpAdapter';
 import {
 	buildRouteRequest,
-	createRequestDataContext,
+	createRequestGettingStartedContext,
 	createRequestWriteContext
 } from '$lib/server/adapters/requestContexts.server';
 import { listStarterConfigurationPacks } from '$lib/server/core/useCases/starterConfigurationPacks';
@@ -26,14 +26,14 @@ interface GettingStartedSupportData extends DashboardSetupSupport {
 }
 
 async function fetchGettingStartedSupport(
-	ctx: ReturnType<typeof createRequestDataContext>,
+	ctx: ReturnType<typeof createRequestGettingStartedContext>,
 	provider: { supabase: SupabaseClient }
 ) {
 	const [support, gettingStartedDismissed] = await Promise.all([
 		fetchDashboardSetupSupport({
 			countTrainingTypes: () => countTrainingTypes(ctx.store, ctx.auth.orgId),
 			countOnboardingTemplateSteps: () => countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
-			countRatingSchemeEntries: () => countRatingSchemeEntries({ store: ctx.rawStore, actor: ctx.auth }),
+			countRatingSchemeEntries: () => countRatingSchemeEntries({ ratingScheme: ctx.ratingScheme, actor: ctx.auth }),
 			countOrganizationMembers: () => countOrganizationMembers(provider.supabase, ctx.auth.orgId),
 			listStarterConfigurationPacks: () => listStarterConfigurationPacks(ctx)
 		}),
@@ -44,8 +44,8 @@ async function fetchGettingStartedSupport(
 
 /** Per-request composition: Delivery binds Dashboard support and Identity personal progress independently. */
 export function _createConfigs(provider: { supabase: SupabaseClient }) {
-	const get: RouteConfig<void, GettingStartedSupportData, ReturnType<typeof createRequestDataContext>> = {
-		context: createRequestDataContext,
+	const get: RouteConfig<void, GettingStartedSupportData, ReturnType<typeof createRequestGettingStartedContext>> = {
+		context: createRequestGettingStartedContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
 		fn: async (ctx) => withDashboardTiming(ctx.auth.orgId, 'support', () => fetchGettingStartedSupport(ctx, provider))
 	};

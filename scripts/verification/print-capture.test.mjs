@@ -32,8 +32,11 @@ async function fixture(t) {
 		});
 	const resources = { streamClosed: false, detached: false, disconnected: false };
 	const cdp = {
-		async send(method) {
-			if (method === 'Page.printToPDF') return { stream: 'owned-stream' };
+		async send(method, options) {
+			if (method === 'Page.printToPDF') {
+				cdp.printOptions = options;
+				return { stream: 'owned-stream' };
+			}
 			if (method === 'IO.read') return { data: pdf.toString('base64'), base64Encoded: true, eof: true };
 			if (method === 'IO.close') {
 				resources.streamClosed = true;
@@ -90,6 +93,8 @@ test('print capture saves exact target bytes while another native page is select
 		status: 'PASS',
 		pageId: 2,
 		url: reportUrl,
+		paperSize: 'letter',
+		printBackground: true,
 		candidate: 'candidate-fixture',
 		session: 'session-fixture',
 		saved: f.target,
@@ -123,6 +128,9 @@ test('print input admits no generic endpoint, script, format, foreign URL or out
 		{ protocolEndpoint: endpoint },
 		{ script: 'window.print()' },
 		{ media: 'screen' },
+		{ paperSize: 'legal' },
+		{ paperSize: null },
+		{ printBackground: 'off' },
 		{ expectedUrl: reportUrl.replace('43210', '43212') },
 		{ expectedUrl: reportUrl + '&access_token=private' },
 		{ expectedUrl: reportUrl + '#part' },
@@ -139,6 +147,31 @@ test('print input admits no generic endpoint, script, format, foreign URL or out
 		assert.deepEqual(await fs.readdir(f.directory), []);
 	}
 });
+
+for (const [paperSize, paperWidth, paperHeight] of [
+	['letter', 8.5, 11],
+	['a4', 210 / 25.4, 297 / 25.4]
+]) {
+	for (const printBackground of [true, false]) {
+		test(`${paperSize} landscape capture honors backgrounds ${printBackground ? 'on' : 'off'}`, async (t) => {
+			const f = await fixture(t);
+			Object.assign(f.request.input, { paperSize, printBackground });
+			const result = await capturePrint(f.request, f.options);
+			assert.deepEqual(f.cdp.printOptions, {
+				transferMode: 'ReturnAsStream',
+				printBackground,
+				landscape: true,
+				paperWidth,
+				paperHeight,
+				preferCSSPageSize: true,
+				displayHeaderFooter: false
+			});
+			assert.equal(result.paperSize, paperSize);
+			assert.equal(result.printBackground, printBackground);
+			assert.deepEqual(await fs.readFile(f.target), pdf);
+		});
+	}
+}
 
 test('print capture refuses existing output and a symlink directory without changing either', async (t) => {
 	const f = await fixture(t);

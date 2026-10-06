@@ -13,6 +13,7 @@ type Outcome =
 	| 'foreign'
 	| 'stale-retention'
 	| 'stale-warning'
+	| 'stale-goal'
 	| 'stale-cap'
 	| 'single-error'
 	| 'error'
@@ -23,6 +24,7 @@ function fixture(outcome: Outcome, uppercaseId = false) {
 		id,
 		archive_retention_months: 36,
 		loss_warning_window_days: 180,
+		training_readiness_goal_percent: 90,
 		personnel_document_storage_cap_bytes: 104857600,
 		critical_tasks_default_expiration_months: 12
 	}));
@@ -57,6 +59,7 @@ function fixture(outcome: Outcome, uppercaseId = false) {
 				if (outcome === 'foreign') acknowledgement = { ...rows[1], ...values };
 				if (outcome === 'stale-retention') acknowledgement = { ...row, ...values, archive_retention_months: 36 };
 				if (outcome === 'stale-warning') acknowledgement = { ...row, ...values, loss_warning_window_days: 180 };
+				if (outcome === 'stale-goal') acknowledgement = { ...row, ...values, training_readiness_goal_percent: 90 };
 				if (outcome === 'stale-cap')
 					acknowledgement = { ...row, ...values, personnel_document_storage_cap_bytes: 104857600 };
 				return Response.json(acknowledgement);
@@ -68,7 +71,12 @@ function fixture(outcome: Outcome, uppercaseId = false) {
 	return { ctx, rows, before, requests };
 }
 
-const submitted = { archiveRetentionMonths: 48.4, lossWarningWindowDays: 90.4, personnelDocumentStorageCapMb: 256.4 };
+const submitted = {
+	archiveRetentionMonths: 48.4,
+	lossWarningWindowDays: 90.4,
+	trainingReadinessGoalPercent: 75,
+	personnelDocumentStorageCapMb: 256.4
+};
 
 describe('Organization policy save acknowledgement with the actual installed SDK', () => {
 	it('persists rounded policy values for one Organization and leaves its neighbor unchanged', async () => {
@@ -78,6 +86,7 @@ describe('Organization policy save acknowledgement with the actual installed SDK
 			...before[0],
 			archive_retention_months: 48,
 			loss_warning_window_days: 90,
+			training_readiness_goal_percent: 75,
 			personnel_document_storage_cap_bytes: 268435456
 		});
 		expect(rows[1]).toEqual(before[1]);
@@ -88,6 +97,7 @@ describe('Organization policy save acknowledgement with the actual installed SDK
 				details: {
 					archive_retention_months: 48,
 					loss_warning_window_days: 90,
+					training_readiness_goal_percent: 75,
 					personnel_document_storage_cap_bytes: 268435456
 				}
 			}
@@ -99,6 +109,7 @@ describe('Organization policy save acknowledgement with the actual installed SDK
 		'foreign',
 		'stale-retention',
 		'stale-warning',
+		'stale-goal',
 		'stale-cap',
 		'single-error',
 		'error',
@@ -116,6 +127,7 @@ describe('Organization policy save acknowledgement with the actual installed SDK
 			id: ORG,
 			archive_retention_months: 48,
 			loss_warning_window_days: 90,
+			training_readiness_goal_percent: 75,
 			personnel_document_storage_cap_bytes: 268435456
 		});
 		expect(rows[1]).toEqual(before[1]);

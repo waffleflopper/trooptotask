@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TrainingStatus } from '$features/training/training.types';
 import {
 	TRAINING_STATUS_SORT_ORDER,
@@ -305,5 +305,70 @@ describe('getTrainingStats', () => {
 		expect(stats.total).toBe(2);
 		expect(stats.current).toBe(1);
 		expect(stats.expired).toBe(1);
+	});
+});
+
+describe('getTrainingStatus asOf', () => {
+	afterEach(() => vi.useRealTimers());
+
+	it('classifies against today when asOf is omitted, exactly as with an explicit today', () => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date(2026, 8, 29, 15, 0));
+		const type = baseType();
+		const person = basePerson();
+		const records = [
+			baseTraining({ expirationDate: '2026-12-15' }),
+			baseTraining({ expirationDate: '2026-10-15' }),
+			baseTraining({ expirationDate: '2026-09-28' }),
+			baseTraining({ completionDate: null }),
+			undefined
+		];
+
+		for (const training of records) {
+			expect(getTrainingStatus(training, type, person)).toEqual(
+				getTrainingStatus(training, type, person, '2026-09-29')
+			);
+		}
+		expect(getTrainingStatus(records[1], type, person).status).toBe('warning-orange');
+	});
+
+	it.each([
+		['2026-10-15', '2026-10-15', 'warning-orange', 0],
+		['2026-10-15', '2026-10-16', 'expired', -1],
+		['2028-02-29', '2028-02-29', 'warning-orange', 0],
+		['2028-02-29', '2028-03-01', 'expired', -1],
+		['2026-03-31', '2026-01-31', 'warning-yellow', 59]
+	])('treats a record expiring %s as ready through that day when asOf is %s', (expiration, asOf, status, days) => {
+		const result = getTrainingStatus(baseTraining({ expirationDate: expiration }), baseType(), basePerson(), asOf);
+
+		expect([result.status, result.daysUntilExpiration]).toEqual([status, days]);
+	});
+
+	it('counts calendar days across a daylight-saving change for Date and string asOf values', () => {
+		const originalTimeZone = process.env.TZ;
+		process.env.TZ = 'America/New_York';
+		try {
+			const training = baseTraining({ expirationDate: '2026-11-02' });
+			const fromString = getTrainingStatus(training, baseType(), basePerson(), '2026-10-31');
+			const fromDate = getTrainingStatus(training, baseType(), basePerson(), new Date(2026, 9, 31, 23, 30));
+
+			expect([fromString.daysUntilExpiration, fromDate.daysUntilExpiration]).toEqual([2, 2]);
+		} finally {
+			if (originalTimeZone === undefined) delete process.env.TZ;
+			else process.env.TZ = originalTimeZone;
+		}
+	});
+
+	it('keeps never-expiring and completed-without-expiration records current at any asOf', () => {
+		const neverExpires = getTrainingStatus(
+			baseTraining({ completionDate: null }),
+			baseType({ expirationMonths: null }),
+			basePerson(),
+			'2099-01-01'
+		);
+		const noStoredExpiration = getTrainingStatus(baseTraining(), baseType(), basePerson(), '2099-01-01');
+
+		expect([neverExpires.status, noStoredExpiration.status]).toEqual(['current', 'current']);
+		expect([neverExpires.daysUntilExpiration, noStoredExpiration.daysUntilExpiration]).toEqual([null, null]);
 	});
 });

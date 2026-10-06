@@ -57,17 +57,44 @@
 			if (active) policiesState.savingWarningWindow = false;
 		}
 	}
+
+	async function handleReadinessGoalSave() {
+		const submittedPercent = policiesState.readinessGoalPercent;
+		if (
+			!policiesState.hasReadinessGoalChanges ||
+			!policiesState.isReadinessGoalValid ||
+			policiesState.savingReadinessGoal ||
+			submittedPercent === null
+		)
+			return;
+		policiesState.savingReadinessGoal = true;
+		try {
+			await saveSettings({ trainingReadinessGoalPercent: submittedPercent });
+			if (!active) return;
+			policiesState.markReadinessGoalSaved(submittedPercent);
+			toastStore.success('Training readiness goal saved');
+		} catch {
+			if (active) toastStore.error('Failed to save training readiness goal');
+		} finally {
+			if (active) policiesState.savingReadinessGoal = false;
+		}
+	}
 </script>
 
 <PoliciesSettingsSection
 	bind:retentionMonths={policiesState.retentionMonths}
 	bind:warningWindowDays={policiesState.warningWindowDays}
+	bind:readinessGoalPercent={policiesState.readinessGoalPercent}
 	hasRetentionChanges={policiesState.hasRetentionChanges}
 	isRetentionValid={policiesState.isRetentionValid}
 	hasLossWarningChanges={policiesState.hasLossWarningChanges}
 	isLossWarningValid={policiesState.isLossWarningValid}
+	hasReadinessGoalChanges={policiesState.hasReadinessGoalChanges}
+	isReadinessGoalValid={policiesState.isReadinessGoalValid}
 	savingRetention={policiesState.savingRetention}
 	savingWarningWindow={policiesState.savingWarningWindow}
+	savingReadinessGoal={policiesState.savingReadinessGoal}
 	onSaveRetention={handleRetentionSave}
 	onSaveLossWarning={handleLossWarningSave}
+	onSaveReadinessGoal={handleReadinessGoalSave}
 />

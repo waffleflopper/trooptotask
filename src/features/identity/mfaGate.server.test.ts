@@ -86,7 +86,9 @@ describe('mfaGate', () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-09-25T12:00:00Z'));
 		const value = issuedMarker('recovery');
-		for (const forged of ['recovery', 'invite', `${value.slice(0, -1)}x`]) {
+		const [payload, signature] = value.split('.');
+		const tampered = `${payload}.${signature[0] === 'A' ? 'B' : 'A'}${signature.slice(1)}`;
+		for (const forged of ['recovery', 'invite', tampered]) {
 			expect(readPendingAuthFlowCookie({ get: () => forged }, session, user)).toBeNull();
 		}
 		vi.setSystemTime(new Date('2026-09-25T13:00:01Z'));

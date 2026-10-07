@@ -1,4 +1,4 @@
-import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestOnboardingTemplateStepContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { z } from 'zod';
 import { reorderOnboardingTemplateSteps } from '$features/onboarding/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -7,7 +7,7 @@ import { handle } from '$lib/server/adapters/httpAdapter';
 const policyAction = POLICY_ACTION_CATALOG.onboarding.configureWorkflows;
 
 export const POST = handle({
-	context: createRequestWriteContext,
+	context: createRequestOnboardingTemplateStepContext,
 	mutation: true,
 	policyAction,
 	policyResource: { kind: 'organization' },

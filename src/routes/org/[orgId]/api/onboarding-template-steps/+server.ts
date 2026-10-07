@@ -1,4 +1,3 @@
-import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
 import { createRequestOnboardingTemplateStepContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { fail } from '$lib/errors';
 import {
@@ -36,7 +35,7 @@ export const _putConfig = {
 	ReturnType<typeof createRequestOnboardingTemplateStepContext>
 >;
 export const _deleteConfig = {
-	context: createRequestWriteContext,
+	context: createRequestOnboardingTemplateStepContext,
 	mutation: true,
 	policyAction,
 	policyResource,
@@ -47,7 +46,11 @@ export const _deleteConfig = {
 		await deleteOnboardingTemplateStep(ctx, id);
 		return { success: true };
 	}
-} satisfies RouteConfig<Record<string, unknown>, { success: true }, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<
+	Record<string, unknown>,
+	{ success: true },
+	ReturnType<typeof createRequestOnboardingTemplateStepContext>
+>;
 export const POST = handle(_postConfig);
 export const PUT = handle(_putConfig);
 export const DELETE = handle(_deleteConfig);

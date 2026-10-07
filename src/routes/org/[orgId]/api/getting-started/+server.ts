@@ -1,7 +1,6 @@
 import type { DashboardSetupSupport } from '$features/dashboard/contracts';
 import { fetchDashboardSetupSupport, withDashboardTiming } from '$features/dashboard/index.server';
 import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
-import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';
 import { countOrganizationMembers } from '$features/organization/index.server';
 import { countRatingSchemeEntries } from '$features/rating-scheme/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -31,7 +30,7 @@ async function fetchGettingStartedSupport(
 	const [support, gettingStartedDismissed] = await Promise.all([
 		fetchDashboardSetupSupport({
 			countTrainingTypes: () => ctx.trainingCatalog.countTypesEstimated(),
-			countOnboardingTemplateSteps: () => countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
+			countOnboardingTemplateSteps: () => ctx.onboardingCatalog.countEstimatedSteps(),
 			countRatingSchemeEntries: () => countRatingSchemeEntries({ ratingScheme: ctx.ratingScheme, actor: ctx.auth }),
 			countOrganizationMembers: () => countOrganizationMembers(provider.supabase, ctx.auth.orgId),
 			listStarterConfigurationPacks: () => listStarterConfigurationPacks(ctx)

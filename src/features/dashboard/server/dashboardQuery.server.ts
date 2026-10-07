@@ -27,7 +27,7 @@ import {
 	listDailyAssignments,
 	listStatusTypes
 } from '$features/calendar/index.server';
-import { listActiveOnboardings } from '$features/onboarding/index.server';
+import type { OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence } from '$features/training/contracts';
 import { formatDate } from '$lib/utils/dates';
 
@@ -38,7 +38,7 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 		groups: Pick<GroupPersistence, 'listCatalog'>;
 		selfPins: Pick<SelfPinPersistence, 'listNames'>;
 		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes'>;
-		store: Parameters<typeof listActiveOnboardings>[0];
+		onboardingWorkflow: Pick<OnboardingWorkflowPersistence, 'listSavedActivePackets'>;
 		trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
 		organizationSettings: Pick<OrganizationSettingsReader, 'findLossWarningWindowDays'>;
 		ratingSchemeDue?: RatingSchemeDuePort;
@@ -77,7 +77,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		listAssignmentTypes(ctx.calendarCatalogs),
 		ctx.selfPins.listNames(),
 		loadRatingSchemeDueEntries(ctx),
-		listActiveOnboardings(ctx.store, orgId),
+		ctx.onboardingWorkflow.listSavedActivePackets(),
 		ctx.roster.list({ status: 'active' }),
 		ctx.groups.listCatalog(),
 		listStatusTypes(ctx.calendarCatalogs),

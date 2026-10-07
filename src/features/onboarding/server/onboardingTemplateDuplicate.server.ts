@@ -2,8 +2,6 @@ import { error } from '@sveltejs/kit';
 import type { OnboardingTemplateWriteContext } from './onboardingTemplatePorts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import { OnboardingTemplateEntity } from './onboardingTemplateEntity.server';
-import { OnboardingTemplateStepEntity } from './onboardingTemplateStepEntity.server';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '../contracts';
 
 export interface DuplicateOnboardingTemplateResult {
@@ -23,70 +21,29 @@ export async function duplicateOnboardingTemplate(
 		templateId
 	);
 
-	const sourceRow = await ctx.store.findOne<Record<string, unknown>>(OnboardingTemplateEntity.table, ctx.auth.orgId, {
-		id: templateId
-	});
-
-	if (!sourceRow) {
-		throw error(404, 'Onboarding template not found');
-	}
-
-	const source = OnboardingTemplateEntity.fromDb(sourceRow);
-	const existingTemplates = await ctx.store.findMany<Record<string, unknown>>(
-		OnboardingTemplateEntity.table,
-		ctx.auth.orgId,
-		{}
-	);
+	const source = await ctx.onboardingCatalog.findTemplate(templateId);
+	if (!source) throw error(404, 'Onboarding template not found');
+	const existingTemplates = await ctx.onboardingCatalog.listTemplates();
 	const duplicateName = getDuplicateTemplateName(
 		source.name,
-		existingTemplates.map((template) => String(template.name ?? ''))
+		existingTemplates.map((template) => template.name)
 	);
-
-	const createdTemplateRow = await ctx.store.insert<Record<string, unknown>>(
-		OnboardingTemplateEntity.table,
-		ctx.auth.orgId,
-		OnboardingTemplateEntity.toDbInsert(
-			{
-				name: duplicateName,
-				description: source.description
-			},
-			ctx.auth.orgId
-		)
+	const createdTemplate = await ctx.onboardingCatalog.createTemplate({
+		name: duplicateName,
+		description: source.description
+	});
+	const sourceSteps = await ctx.onboardingCatalog.listSteps(templateId);
+	const createdSteps = await ctx.onboardingCatalog.createSteps(
+		sourceSteps.map((step, index) => ({
+			templateId: createdTemplate.id,
+			name: step.name,
+			description: step.description,
+			stepType: step.stepType,
+			trainingTypeId: step.trainingTypeId,
+			stages: step.stages ? [...step.stages] : null,
+			sortOrder: index
+		}))
 	);
-	const createdTemplate = OnboardingTemplateEntity.fromDb(createdTemplateRow);
-
-	const sourceStepRows = await ctx.store.findMany<Record<string, unknown>>(
-		OnboardingTemplateStepEntity.table,
-		ctx.auth.orgId,
-		{ template_id: templateId },
-		{ orderBy: [{ column: 'sort_order', ascending: true }] }
-	);
-	const sourceSteps = OnboardingTemplateStepEntity.fromDbArray(sourceStepRows).sort(
-		(a, b) => a.sortOrder - b.sortOrder
-	);
-
-	const stepRows =
-		sourceSteps.length === 0
-			? []
-			: await ctx.store.insertMany<Record<string, unknown>>(
-					OnboardingTemplateStepEntity.table,
-					ctx.auth.orgId,
-					sourceSteps.map((step, index) =>
-						OnboardingTemplateStepEntity.toDbInsert(
-							{
-								templateId: createdTemplate.id,
-								name: step.name,
-								description: step.description,
-								stepType: step.stepType,
-								trainingTypeId: step.trainingTypeId,
-								stages: step.stages ? [...step.stages] : null,
-								sortOrder: index
-							},
-							ctx.auth.orgId
-						)
-					)
-				);
-	const createdSteps = OnboardingTemplateStepEntity.fromDbArray(stepRows);
 
 	ctx.audit.log({
 		action: 'onboarding_template.duplicated',

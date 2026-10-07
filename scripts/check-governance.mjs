@@ -188,7 +188,6 @@ function legacyRouteAuthorizationScanFiles() {
 		'src/lib/server/adapters/featureRequestContexts.server.ts',
 		...walkRelative('src/lib/access').filter(isProductionSourceFile),
 		'src/lib/server/adapters/inMemory.ts',
-		'src/lib/server/entitySchema.ts',
 		...walkRelative('src/lib/server/entities').filter(isProductionSourceFile)
 	];
 	return [...new Set([...routeFiles, ...serverFiles])];

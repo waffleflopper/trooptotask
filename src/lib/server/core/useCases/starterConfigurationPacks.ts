@@ -2,17 +2,10 @@ import { POLICY_ACTION_CATALOG, type PolicyAction } from '$lib/access/policyEval
 import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
 import { requirePolicyDecision } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
-import type { WritePorts } from '$lib/server/core/ports';
-import {
-	createOnboardingTemplate,
-	createStarterOnboardingTemplateStep,
-	findOnboardingTemplateByName,
-	findOnboardingTemplateStepByName,
-	listOnboardingTemplateSteps,
-	fetchOnboardingStarterReadiness
-} from '$features/onboarding/index.server';
+import type { OnboardingTemplateWriteContext } from '$features/onboarding/index.server';
+import { createOnboardingTemplate, createStarterOnboardingTemplateStep } from '$features/onboarding/index.server';
 import { createTrainingType } from '$features/training/index.server';
-import type { OnboardingTemplate } from '$features/onboarding/contracts';
+import type { OnboardingTemplate, OnboardingCatalogPersistence } from '$features/onboarding/contracts';
 import type {
 	TrainingOnboardingReferencesPort,
 	TrainingType,
@@ -116,10 +109,12 @@ interface StarterPackReadinessRows {
 	onboardingStepNames: string[];
 }
 
-type StarterConfigurationReadContext = Pick<WritePorts, 'store' | 'auth'> & {
+type StarterConfigurationReadContext = Pick<OnboardingTemplateWriteContext, 'auth'> & {
+	readonly onboardingCatalog: Pick<OnboardingCatalogPersistence, 'readStarterReadiness'>;
+} & {
 	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listExistingTypeNames' | 'hasTypes'>;
 };
-type StarterConfigurationApplyContext = WritePorts & {
+type StarterConfigurationApplyContext = OnboardingTemplateWriteContext & {
 	readonly trainingCatalog: Pick<
 		TrainingCatalogPersistence,
 		'listExistingTypeNames' | 'hasTypes' | 'findTypeByName' | 'createType'
@@ -187,7 +182,7 @@ async function fetchReadinessRows(ctx: StarterConfigurationReadContext): Promise
 	const [trainingTypeNames, hasAnyTrainingType, onboarding] = await Promise.all([
 		ctx.trainingCatalog.listExistingTypeNames(starterTrainingNames),
 		ctx.trainingCatalog.hasTypes(),
-		fetchOnboardingStarterReadiness(ctx.store, ctx.auth.orgId, ONBOARDING_TEMPLATE.name, starterStepNames)
+		ctx.onboardingCatalog.readStarterReadiness(ONBOARDING_TEMPLATE.name, starterStepNames)
 	]);
 	return {
 		trainingTypeNames,
@@ -230,7 +225,7 @@ function buildReadiness(rows: StarterPackReadinessRows): StarterConfigurationPac
 	];
 }
 
-async function evaluateRequiredConfigureActions(ctx: Pick<WritePorts, 'auth'>) {
+async function evaluateRequiredConfigureActions(ctx: Pick<OnboardingTemplateWriteContext, 'auth'>) {
 	return Promise.all(
 		REQUIRED_CONFIGURE_ACTIONS.map(async (action) => ({
 			action,
@@ -239,7 +234,7 @@ async function evaluateRequiredConfigureActions(ctx: Pick<WritePorts, 'auth'>) {
 	);
 }
 
-async function requireStarterPackPreflight(ctx: WritePorts): Promise<void> {
+async function requireStarterPackPreflight(ctx: Pick<OnboardingTemplateWriteContext, 'auth' | 'audit'>): Promise<void> {
 	for (const action of REQUIRED_CONFIGURE_ACTIONS) {
 		await requirePolicyDecision({ auth: ctx.auth, audit: ctx.audit }, action, {
 			kind: 'organization'
@@ -293,7 +288,7 @@ async function applyStarterOnboardingTemplate(
 	result: StarterConfigurationPackApplyResult,
 	unitOrientationTrainingTypeId: string | null
 ): Promise<void> {
-	let template = await findOnboardingTemplateByName(ctx.store, ctx.auth.orgId, ONBOARDING_TEMPLATE.name);
+	let template = await ctx.onboardingCatalog.findTemplateByName(ONBOARDING_TEMPLATE.name);
 
 	if (template) {
 		recordSkipped(result, ONBOARDING_FAMILY, ONBOARDING_TEMPLATE.name);
@@ -307,7 +302,7 @@ async function applyStarterOnboardingTemplate(
 		} catch (error) {
 			rethrowAuthorizationFailure(error);
 			if (isUniqueConflict(error)) {
-				template = await findOnboardingTemplateByName(ctx.store, ctx.auth.orgId, ONBOARDING_TEMPLATE.name);
+				template = await ctx.onboardingCatalog.findTemplateByName(ONBOARDING_TEMPLATE.name);
 				if (template) {
 					recordSkipped(result, ONBOARDING_FAMILY, ONBOARDING_TEMPLATE.name);
 				} else {
@@ -321,7 +316,7 @@ async function applyStarterOnboardingTemplate(
 		}
 	}
 
-	const existingSteps = await listOnboardingTemplateSteps(ctx.store, ctx.auth.orgId, template.id);
+	const existingSteps = await ctx.onboardingCatalog.listSteps(template.id);
 	const existingStepNames = new Set(existingSteps.map((step) => step.name));
 
 	for (const starterStep of ONBOARDING_STEPS) {
@@ -351,12 +346,7 @@ async function applyStarterOnboardingTemplate(
 		} catch (error) {
 			rethrowAuthorizationFailure(error);
 			if (isUniqueConflict(error)) {
-				const racedExisting = await findOnboardingTemplateStepByName(
-					ctx.store,
-					ctx.auth.orgId,
-					template.id,
-					starterStep.name
-				);
+				const racedExisting = await ctx.onboardingCatalog.findStepByTemplateAndName(template.id, starterStep.name);
 				if (racedExisting) {
 					existingStepNames.add(starterStep.name);
 					recordSkipped(result, ONBOARDING_FAMILY, starterStep.name);

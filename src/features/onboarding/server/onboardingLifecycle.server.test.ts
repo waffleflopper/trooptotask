@@ -3,7 +3,7 @@ import {
 	createTestContext,
 	createWritePortsContext,
 	createWriteWithNotificationsPortsContext
-} from '$lib/server/adapters/inMemory';
+} from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import type {
 	OnboardingLifecycleTransitionPort,
 	OnboardingLifecycleTransitionResult,

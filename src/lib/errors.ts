@@ -6,7 +6,8 @@ export interface RequestFailureDetails {
 
 /**
  * A failure the app raised on purpose. Server boundaries forward the status and
- * message of a 4xx RequestFailure; every other thrown value becomes a generic 500.
+ * message of a 4xx RequestFailure. A 5xx RequestFailure keeps its status with a
+ * generic message; any other thrown value becomes a generic 500.
  */
 export class RequestFailure extends Error implements RequestFailureDetails {
 	override readonly name = 'RequestFailure';

@@ -112,7 +112,7 @@ export async function createTrainingRecord(
 	const isExpirationDateOnly = trainingType.expirationDateOnly ?? false;
 
 	const expirationDate = isExpirationDateOnly
-		? (input.expirationDate as string)
+		? validated.expirationDate
 		: calculateExpirationDate(completionDate, trainingType.expirationMonths);
 
 	const existing = await ctx.trainingCompletions.findPair(personnelId, trainingTypeId);
@@ -122,9 +122,21 @@ export async function createTrainingRecord(
 		notes: validated.notes ?? null,
 		certificateUrl: validated.certificateUrl ?? null
 	};
-	const row: SavedTrainingCompletion = existing
-		? await ctx.trainingCompletions.patchRecord(existing.id, { ...fields, updatedAt: new Date().toISOString() })
-		: await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
+	let row: SavedTrainingCompletion;
+	if (existing) {
+		const updates: TrainingCompletionPatch = { updatedAt: new Date().toISOString() };
+		if (validated.completionDate !== undefined) updates.completionDate = validated.completionDate;
+		if (isExpirationDateOnly) {
+			if (validated.expirationDate !== undefined) updates.expirationDate = validated.expirationDate;
+		} else if (validated.completionDate !== undefined) {
+			updates.expirationDate = expirationDate ?? null;
+		}
+		if (validated.notes !== undefined) updates.notes = validated.notes;
+		if (validated.certificateUrl !== undefined) updates.certificateUrl = validated.certificateUrl;
+		row = await ctx.trainingCompletions.patchRecord(existing.id, updates);
+	} else {
+		row = await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
+	}
 
 	ctx.audit.log({
 		action: existing ? `${AUDIT_RESOURCE}.updated` : `${AUDIT_RESOURCE}.created`,

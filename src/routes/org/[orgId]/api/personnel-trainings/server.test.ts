@@ -98,6 +98,60 @@ describe('/api/personnel-trainings route config', () => {
 		expect(stored).toHaveLength(1);
 	});
 
+	it('preserves omitted saved completion fields through the configured POST use case', async () => {
+		const ctx = createTestContext();
+		ctx.store.seed('personnel', [{ id: 'p-1', organization_id: ctx.auth.orgId, group_id: null }]);
+		ctx.store.seed('training_types', [
+			{ id: 'tt-1', organization_id: ctx.auth.orgId, expiration_months: 12, expiration_date_only: false }
+		]);
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'tr-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				training_type_id: 'tt-1',
+				completion_date: '2025-03-15',
+				expiration_date: '2026-03-15',
+				notes: 'Saved notes',
+				certificate_url: 'https://example.test/saved-certificate',
+				created_at: '2025-03-15T12:00:00.000Z'
+			}
+		]);
+
+		const result = await handleUseCaseRequest(
+			_postConfig,
+			ctx,
+			{ personnelId: 'p-1', trainingTypeId: 'tt-1', notes: 'Changed notes' },
+			() => ctx
+		);
+		expect(result).toEqual({
+			id: 'tr-1',
+			personnelId: 'p-1',
+			trainingTypeId: 'tt-1',
+			completionDate: '2025-03-15',
+			expirationDate: '2026-03-15',
+			notes: 'Changed notes',
+			certificateUrl: 'https://example.test/saved-certificate',
+			organization_id: ctx.auth.orgId,
+			created_at: '2025-03-15T12:00:00.000Z',
+			updated_at: expect.any(String)
+		});
+		expect(await ctx.store.findMany('personnel_trainings', ctx.auth.orgId)).toEqual([
+			{
+				id: 'tr-1',
+				organization_id: ctx.auth.orgId,
+				personnel_id: 'p-1',
+				training_type_id: 'tt-1',
+				completion_date: '2025-03-15',
+				expiration_date: '2026-03-15',
+				notes: 'Changed notes',
+				certificate_url: 'https://example.test/saved-certificate',
+				created_at: '2025-03-15T12:00:00.000Z',
+				updated_at: expect.any(String)
+			}
+		]);
+	});
+
 	it('denies personnel training writes before executing the use case when Training policy is missing', async () => {
 		const ctx = createTestContext({
 			auth: {

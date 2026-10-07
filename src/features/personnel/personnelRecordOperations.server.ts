@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { Personnel, PersonnelRecordPersistence, GroupPersistence } from './contracts';
 import { normalizeActivePersonnelRank } from './rankValidation.server';
 import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug.server';
+import { fail, RequestFailure } from '$lib/errors';
 
 interface PersonnelRecordContext {
 	auth: OrganizationAccessGrant;
@@ -31,16 +32,6 @@ const updateInput = createInput.partial().extend({ id: z.string() });
 
 const AUDIT_RESOURCE = 'personnel';
 const SLUG_RETRY_LIMIT = 3;
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
-
-function errorStatus(error: unknown): number | undefined {
-	return typeof error === 'object' && error !== null && 'status' in error
-		? (error as { status?: number }).status
-		: undefined;
-}
 
 function rankCodesMatchCanonical(left: string, right: string | undefined): boolean {
 	return right !== undefined && left.trim().toUpperCase() === right.trim().toUpperCase();
@@ -131,7 +122,11 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 			try {
 				patch.rank = await normalizeActivePersonnelRank(ctx, nextRank);
 			} catch (error) {
-				if (errorStatus(error) === 400 && rankCodesMatchCanonical(nextRank, currentRecord?.rank)) {
+				if (
+					error instanceof RequestFailure &&
+					error.status === 400 &&
+					rankCodesMatchCanonical(nextRank, currentRecord?.rank)
+				) {
 					patch.rank = currentRecord?.rank;
 				} else {
 					throw error;

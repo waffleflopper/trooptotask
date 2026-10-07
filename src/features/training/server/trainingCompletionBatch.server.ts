@@ -5,14 +5,11 @@ import { calculateExpirationDate } from '../utils/trainingStatus';
 import type { TrainingCompletionWriteContext } from './trainingCompletionPorts.server';
 import type { TrainingBatchImportInput, TrainingBatchImportResult } from '../contracts';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
 const MAX_BATCH_SIZE = 500;
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 export async function importTrainingRecords(
 	ctx: TrainingCompletionWriteContext,

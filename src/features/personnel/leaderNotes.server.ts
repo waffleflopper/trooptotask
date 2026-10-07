@@ -3,6 +3,7 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { personnelLeaderNoteInputSchema, type PersonnelLeaderNote } from './contracts';
+import { fail } from '$lib/errors';
 
 export interface LeaderNoteRow {
 	id: string;
@@ -36,10 +37,6 @@ export interface LeaderNoteContext {
 	audit: PolicyAuditSink;
 	persistence: LeaderNotePersistence;
 	contributorLabels(userIds: string[]): Promise<Map<string, string>>;
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
 }
 
 async function requireAccess(ctx: LeaderNoteContext, personnelId: string, access: 'read' | 'write'): Promise<void> {

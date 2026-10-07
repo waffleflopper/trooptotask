@@ -4,6 +4,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { PersonnelIctCompletion, CriticalTaskCompletionReference } from '../contracts';
 import { completionCreateSchema, completionUpdateSchema } from './personnelIctCompletionMapping.server';
 import type { PersonnelIctCompletionWriteContext } from './personnelIctCompletionPorts.server';
+import { fail } from '$lib/errors';
 
 const ACTION = POLICY_ACTION_CATALOG.criticalTasks.recordCompletion;
 const AUDIT_RESOURCE = 'personnel_ict_completion';
@@ -28,10 +29,6 @@ function writeContext(ctx: PersonnelIctCompletionWriteContext): CompletionWriteC
 		personnelCriticalTasksRoster: ctx.personnelCriticalTasksRoster,
 		references: { people: new Map(), completions: new Map() }
 	};
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
 }
 
 function parseOrFail<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {

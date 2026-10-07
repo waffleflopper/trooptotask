@@ -1,7 +1,24 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const { buildRouteRequestMock, createRequestOrganizationPolicyContextMock } = vi.hoisted(() => ({
+	buildRouteRequestMock: vi.fn(),
+	createRequestOrganizationPolicyContextMock: vi.fn()
+}));
+
+vi.mock('$lib/server/adapters/requestContexts.server', async () => {
+	const actual = await vi.importActual<typeof import('$lib/server/adapters/requestContexts.server')>(
+		'$lib/server/adapters/requestContexts.server'
+	);
+	return {
+		...actual,
+		buildRouteRequest: buildRouteRequestMock,
+		createRequestOrganizationPolicyContext: createRequestOrganizationPolicyContextMock
+	};
+});
+
 import { createTestContext } from '$lib/server/adapters/inMemory';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
-import { _postConfig } from './+server';
+import { _postConfig, POST } from './+server';
 
 describe('/api/organization/settings', () => {
 	it('admits an Organization owner to save the training readiness goal', async () => {
@@ -47,4 +64,25 @@ describe('/api/organization/settings', () => {
 			});
 		}
 	);
+
+	it('returns a generic 500 when the policy write fails with provider text', async () => {
+		const ctx = createTestContext();
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		buildRouteRequestMock.mockResolvedValue(ctx);
+		createRequestOrganizationPolicyContextMock.mockReturnValue({
+			...ctx,
+			organizationPolicyWrite: {
+				updatePolicies: async () => 'new row violates row-level security policy for table "organizations"'
+			}
+		});
+
+		await expect(
+			POST({
+				request: new Request('http://localhost/org/test-org/api/organization/settings', {
+					method: 'POST',
+					body: JSON.stringify({ trainingReadinessGoalPercent: 85 })
+				})
+			} as never)
+		).rejects.toMatchObject({ status: 500, body: { message: 'Internal server error' } });
+	});
 });

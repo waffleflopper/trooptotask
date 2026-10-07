@@ -11,6 +11,7 @@ import type {
 	PersonnelArtifactWritePort,
 	PersonnelArtifactWriter
 } from './contracts';
+import { fail } from '$lib/errors';
 
 const ARTIFACT_TABLES: ReadonlySet<string> = new Set([
 	'personnel_follow_ups',
@@ -18,10 +19,6 @@ const ARTIFACT_TABLES: ReadonlySet<string> = new Set([
 	'personnel_documents',
 	'leader_notes'
 ]);
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 function assertArtifactPatch(patch: Record<string, unknown>): void {
 	if ('id' in patch || 'organization_id' in patch || 'personnel_id' in patch) {

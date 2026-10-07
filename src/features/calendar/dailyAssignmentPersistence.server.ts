@@ -1,12 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CalendarAssignmentReplacementPort } from '$features/calendar/contracts';
 import type { SavedAssignment } from '$features/calendar/contracts';
+import { fail } from '$lib/errors';
 
 const SLOT_UNAVAILABLE = 'This assignment slot is unavailable. Refresh the Calendar and try again.';
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 type DailyAssignmentRow = {
 	id: string;

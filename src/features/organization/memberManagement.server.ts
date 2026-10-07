@@ -5,8 +5,7 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	memberAccessCommandToStorage,
 	type EditableMembershipRole,
-	type TargetMemberAccessCommand,
-	type MemberAccessStorageCommand
+	type TargetMemberAccessCommand
 } from '$lib/access/memberAccessCommands';
 import {
 	type CapabilityOverrideMap,
@@ -231,7 +230,7 @@ export async function inviteOrganizationMember(
 		fail(400, 'Please enter a valid email address');
 	}
 
-	const accessCommand = buildMemberAccessStorageCommand({
+	const accessCommand = memberAccessCommandToStorage({
 		membershipRole,
 		memberAccess: input.memberAccess
 	});
@@ -831,7 +830,7 @@ export async function updateOrganizationMemberAccess(
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateMemberAccess);
 	}
 
-	const accessCommand = buildMemberAccessStorageCommand({
+	const accessCommand = memberAccessCommandToStorage({
 		membershipRole: input.membershipRole,
 		memberAccess: input.memberAccess
 	});
@@ -1073,19 +1072,4 @@ async function requireIdentityPolicy(
 
 function normalizeEmail(email: string): string {
 	return email.trim().toLowerCase();
-}
-
-function buildMemberAccessStorageCommand(command: {
-	membershipRole: EditableMembershipRole;
-	memberAccess?: TargetMemberAccessCommand | null;
-}): MemberAccessStorageCommand {
-	try {
-		return memberAccessCommandToStorage(command);
-	} catch (error) {
-		if (error instanceof Error && Reflect.get(error, 'status') === 400) {
-			fail(400, error.message);
-		}
-
-		throw error;
-	}
 }

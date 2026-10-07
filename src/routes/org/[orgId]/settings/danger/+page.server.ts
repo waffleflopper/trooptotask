@@ -8,7 +8,7 @@ import {
 	deleteOrganization,
 	transferOrganizationOwnership
 } from '$features/organization/index.server';
-import { toActionFailure } from '../settingsActionFailure.server';
+import { toActionFailure } from '$lib/server/adapters/httpAdapter';
 import { loadDangerSettings } from '$features/organization/index.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 import {

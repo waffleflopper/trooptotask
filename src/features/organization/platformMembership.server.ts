@@ -12,6 +12,7 @@ import type {
 	OrganizationTransferResult,
 	OrganizationPlatformMembershipPort
 } from './platformMembershipTypes';
+import { RequestFailure } from '$lib/errors';
 
 interface Dependencies {
 	/** Hook-verified actor and current request role, supplied by server composition. */
@@ -44,8 +45,7 @@ export function createOrganizationPlatformMembershipAdministration(deps: Depende
 
 	return {
 		async listMembers(orgId: string): Promise<OrganizationSupportMember[]> {
-			if (deps.actor.role === 'billing')
-				throw Object.assign(new Error('Platform support access is required'), { status: 403 });
+			if (deps.actor.role === 'billing') throw new RequestFailure(403, 'Platform support access is required');
 			return deps.port.listMembers(orgId);
 		},
 		async makeAdmin(input: { orgId: string; targetUserId: string }): Promise<OrganizationPromotionResult> {

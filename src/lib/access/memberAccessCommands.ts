@@ -8,6 +8,7 @@ import {
 	type ScopeSet,
 	type StoredMemberPreset
 } from './memberAccessShape';
+import { RequestFailure } from '$lib/errors';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -151,5 +152,5 @@ function isUuid(value: string): boolean {
 }
 
 function throwBadRequest(message: string): never {
-	throw Object.assign(new Error(message), { status: 400 });
+	throw new RequestFailure(400, message);
 }

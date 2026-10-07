@@ -7,7 +7,7 @@ import {
 	renameOrganization,
 	updateOrganizationUrlSlug
 } from '$features/organization/index.server';
-import { toActionFailure } from '../settingsActionFailure.server';
+import { toActionFailure } from '$lib/server/adapters/httpAdapter';
 import { buildGeneralSettingsData } from '$features/organization/contracts';
 import { loadSettingsPage } from '../settingsLoad.server';
 

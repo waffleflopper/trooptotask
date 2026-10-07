@@ -3,6 +3,7 @@ import { isHttpError } from '@sveltejs/kit';
 import { createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
 import { loadWithContextCore, loadWithDeferredContext } from './httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { RequestFailure } from '$lib/errors';
 
 function buildRequest(overrides?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
 	return {
@@ -255,5 +256,43 @@ describe('loadWithContextCore with defer: true', () => {
 
 		admission.resolve(buildRequest({ auth: { orgId: 'admitted-org' } }));
 		await expect(data).resolves.toEqual({ items: [{ id: '1', organization_id: 'admitted-org', name: 'A' }] });
+	});
+});
+
+describe('load failure boundaries', () => {
+	const providerError = () => Object.assign(new Error('User not found'), { name: 'AuthApiError', status: 404 });
+	const loadThrowing = (err: Error) => ({
+		policyAction: POLICY_ACTION_CATALOG.identity.viewDashboard,
+		fn: async () => {
+			throw err;
+		}
+	});
+
+	it('turns an app-created 4xx into that HTTP error', async () => {
+		await expect(
+			loadWithContextCore(
+				buildRequest(),
+				loadThrowing(new RequestFailure(404, 'Personnel record not found')),
+				() => undefined
+			)
+		).rejects.toMatchObject({ status: 404, body: { message: 'Personnel record not found' } });
+	});
+
+	it('does not adopt the status of a provider error', async () => {
+		const err = providerError();
+		await expect(loadWithContextCore(buildRequest(), loadThrowing(err), () => undefined)).rejects.toBe(err);
+	});
+
+	it('returns a generic 500 for a provider error through the full load boundary', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { data } = loadWithDeferredContext(
+			Promise.resolve(buildRequest()),
+			{ ...loadThrowing(providerError()), defer: true },
+			() => undefined
+		);
+
+		await expect(data).rejects.toMatchObject({ status: 500, body: { message: 'Internal server error' } });
+		expect(log).toHaveBeenCalledWith('[http-adapter] Unhandled route error:', expect.stringContaining('AuthApiError'));
+		log.mockRestore();
 	});
 });

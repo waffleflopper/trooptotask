@@ -1,3 +1,9 @@
+import type {
+	OrganizationSettingsMembershipRow,
+	OrganizationSettingsInvitationRow,
+	OrganizationSettingsInvitationDeliveryRow,
+	OrganizationOwnershipCandidateMembershipRow
+} from './organizationSettingsTypes';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -15,6 +21,94 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 		return (data as Record<string, number | null> | null)?.[column];
 	}
 	return {
+		async findCriticalTasksDefaults(orgId) {
+			const { data, error } = await supabase
+				.from('organizations')
+				.select('critical_tasks_default_expiration_months, critical_tasks_expiring_soon_warning_days')
+				.eq('id', orgId.toLowerCase())
+				.single();
+			if (error) {
+				if (error.code === 'PGRST116') return null;
+				throw new Error(error.message);
+			}
+			return data
+				? {
+						...(Object.hasOwn(data, 'critical_tasks_default_expiration_months')
+							? { defaultExpirationMonths: data.critical_tasks_default_expiration_months }
+							: {}),
+						...(Object.hasOwn(data, 'critical_tasks_expiring_soon_warning_days')
+							? { expiringSoonWarningDays: data.critical_tasks_expiring_soon_warning_days }
+							: {})
+					}
+				: null;
+		},
+		async listMemberAccess(orgId) {
+			const { data, error } = await selectAllSupabaseRows<OrganizationSettingsMembershipRow>(async (from, to) =>
+				supabase
+					.from('organization_memberships')
+					.select(
+						'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+					)
+					.eq('organization_id', orgId.toLowerCase())
+					.range(from, to)
+					.returns<OrganizationSettingsMembershipRow[]>()
+			);
+			if (error)
+				throw new Error(
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+				);
+			return (data ?? []).map(mapOrganizationSettingsMembershipRow);
+		},
+		async listInvitations(orgId) {
+			const { data, error } = await selectAllSupabaseRows<OrganizationSettingsInvitationRow>(async (from, to) =>
+				supabase
+					.from('organization_invitations')
+					.select(
+						'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+					)
+					.eq('organization_id', orgId.toLowerCase())
+					.order('created_at', { ascending: false })
+					.range(from, to)
+					.returns<OrganizationSettingsInvitationRow[]>()
+			);
+			if (error)
+				throw new Error(
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+				);
+			return (data ?? []).map(mapOrganizationSettingsInvitationRow);
+		},
+		async listInvitationDeliveries(orgId) {
+			const { data, error } = await selectAllSupabaseRows<OrganizationSettingsInvitationDeliveryRow>(async (from, to) =>
+				supabase
+					.from('organization_invitation_email_outbox')
+					.select('id, invitation_id, status, attempt_count, last_error, updated_at, sent_at')
+					.eq('organization_id', orgId.toLowerCase())
+					.order('created_at', { ascending: false })
+					.range(from, to)
+					.returns<OrganizationSettingsInvitationDeliveryRow[]>()
+			);
+			if (error)
+				throw new Error(
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+				);
+			return (data ?? []).map(mapOrganizationSettingsInvitationDeliveryRow);
+		},
+		async listOwnershipCandidateMemberships(orgId) {
+			const { data, error } = await selectAllSupabaseRows<OrganizationOwnershipCandidateMembershipRow>(
+				async (from, to) =>
+					supabase
+						.from('organization_memberships')
+						.select('id, user_id, email, role')
+						.eq('organization_id', orgId.toLowerCase())
+						.range(from, to)
+						.returns<OrganizationOwnershipCandidateMembershipRow[]>()
+			);
+			if (error)
+				throw new Error(
+					typeof error === 'object' && 'message' in error ? String(error.message) : 'Organization settings read failed'
+				);
+			return (data ?? []).map(mapOrganizationOwnershipCandidateMembershipRow);
+		},
 		findMemberLabels: (orgId, userIds) =>
 			loadOrganizationMemberLabels(
 				{
@@ -101,5 +195,69 @@ export function createSupabaseOrganizationPolicyWritePort(supabase: SupabaseClie
 				? null
 				: 'Unable to confirm Organization settings update';
 		}
+	};
+}
+
+function mapOrganizationSettingsMembershipRow(
+	row: OrganizationSettingsMembershipRow
+): OrganizationSettingsMembershipRow {
+	return {
+		...(Object.hasOwn(row, 'id') ? { id: row.id } : {}),
+		...(Object.hasOwn(row, 'organization_id') ? { organization_id: row.organization_id } : {}),
+		...(Object.hasOwn(row, 'user_id') ? { user_id: row.user_id } : {}),
+		...(Object.hasOwn(row, 'email') ? { email: row.email } : {}),
+		...(Object.hasOwn(row, 'role') ? { role: row.role } : {}),
+		...(Object.hasOwn(row, 'created_at') ? { created_at: row.created_at } : {}),
+		...(Object.hasOwn(row, 'member_preset') ? { member_preset: row.member_preset } : {}),
+		...(Object.hasOwn(row, 'capability_overrides') ? { capability_overrides: row.capability_overrides } : {}),
+		...(Object.hasOwn(row, 'access_scope_kind') ? { access_scope_kind: row.access_scope_kind } : {}),
+		...(Object.hasOwn(row, 'access_scope_group_ids') ? { access_scope_group_ids: row.access_scope_group_ids } : {})
+	};
+}
+
+function mapOrganizationSettingsInvitationRow(
+	row: OrganizationSettingsInvitationRow
+): OrganizationSettingsInvitationRow {
+	return {
+		...(Object.hasOwn(row, 'id') ? { id: row.id } : {}),
+		...(Object.hasOwn(row, 'email') ? { email: row.email } : {}),
+		...(Object.hasOwn(row, 'role') ? { role: row.role } : {}),
+		...(Object.hasOwn(row, 'status') ? { status: row.status } : {}),
+		...(Object.hasOwn(row, 'created_at') ? { created_at: row.created_at } : {}),
+		...(Object.hasOwn(row, 'expires_at') ? { expires_at: row.expires_at } : {}),
+		...(Object.hasOwn(row, 'accepted_at') ? { accepted_at: row.accepted_at } : {}),
+		...(Object.hasOwn(row, 'declined_at') ? { declined_at: row.declined_at } : {}),
+		...(Object.hasOwn(row, 'revoked_at') ? { revoked_at: row.revoked_at } : {}),
+		...(Object.hasOwn(row, 'expired_at') ? { expired_at: row.expired_at } : {}),
+		...(Object.hasOwn(row, 'blocked_at') ? { blocked_at: row.blocked_at } : {}),
+		...(Object.hasOwn(row, 'member_preset') ? { member_preset: row.member_preset } : {}),
+		...(Object.hasOwn(row, 'capability_overrides') ? { capability_overrides: row.capability_overrides } : {}),
+		...(Object.hasOwn(row, 'access_scope_kind') ? { access_scope_kind: row.access_scope_kind } : {}),
+		...(Object.hasOwn(row, 'access_scope_group_ids') ? { access_scope_group_ids: row.access_scope_group_ids } : {})
+	};
+}
+
+function mapOrganizationSettingsInvitationDeliveryRow(
+	row: OrganizationSettingsInvitationDeliveryRow
+): OrganizationSettingsInvitationDeliveryRow {
+	return {
+		id: row.id,
+		invitation_id: row.invitation_id,
+		status: row.status,
+		attempt_count: row.attempt_count,
+		last_error: row.last_error,
+		updated_at: row.updated_at,
+		sent_at: row.sent_at
+	};
+}
+
+function mapOrganizationOwnershipCandidateMembershipRow(
+	row: OrganizationOwnershipCandidateMembershipRow
+): OrganizationOwnershipCandidateMembershipRow {
+	return {
+		id: row.id,
+		user_id: row.user_id,
+		email: row.email,
+		role: row.role
 	};
 }

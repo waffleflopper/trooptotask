@@ -1,3 +1,11 @@
+import type {
+	OrganizationCriticalTasksDefaults,
+	OrganizationSettingsMembershipRow,
+	OrganizationSettingsInvitationRow,
+	OrganizationSettingsInvitationDeliveryRow,
+	OrganizationOwnershipCandidateMembershipRow
+} from './organizationSettingsTypes';
+
 export interface OrganizationPolicySettings {
 	archiveRetentionMonths?: number | null;
 	lossWarningWindowDays?: number | null;
@@ -12,6 +20,11 @@ export interface OrganizationTrainingBriefingContext {
 
 /** Organization-owned facts; construction never reads the provider. */
 export interface OrganizationSettingsReader {
+	findCriticalTasksDefaults(orgId: string): Promise<OrganizationCriticalTasksDefaults | null>;
+	listMemberAccess(orgId: string): Promise<OrganizationSettingsMembershipRow[]>;
+	listInvitations(orgId: string): Promise<OrganizationSettingsInvitationRow[]>;
+	listInvitationDeliveries(orgId: string): Promise<OrganizationSettingsInvitationDeliveryRow[]>;
+	listOwnershipCandidateMemberships(orgId: string): Promise<OrganizationOwnershipCandidateMembershipRow[]>;
 	findMemberLabels(orgId: string, userIds: string[]): Promise<Map<string, string>>;
 	findPolicies(orgId: string): Promise<OrganizationPolicySettings | null>;
 	findTrainingBriefingContext(orgId: string): Promise<OrganizationTrainingBriefingContext | null>;

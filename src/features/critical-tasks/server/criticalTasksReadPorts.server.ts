@@ -1,3 +1,4 @@
+import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
 import type {
 	CriticalTaskLibraryPersistence,
@@ -30,6 +31,7 @@ export interface CriticalTasksHistoryContext {
 export interface CriticalTasksReportContext {
 	readonly auth: PersonnelRosterActor;
 	readonly store: CriticalTasksReadStore;
+	readonly organizationSettings: Pick<OrganizationSettingsReader, 'findCriticalTasksDefaults'>;
 	readonly criticalTaskCompletions: Pick<CriticalTaskCompletionPersistence, 'listReportHistory'>;
 	readonly criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
 	readonly personnelCriticalTasksRoster: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;

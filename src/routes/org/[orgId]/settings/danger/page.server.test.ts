@@ -116,7 +116,7 @@ describe('danger settings page server', () => {
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
 				auth: { orgId: 'org-1', role: 'admin', canManageMembers: true },
-				store: { findMany }
+				organizationSettings: { listOwnershipCandidateMemberships: findMany }
 			})
 		);
 
@@ -157,7 +157,7 @@ describe('danger settings page server', () => {
 		loadWithContextMock.mockImplementation(async (_locals, _cookies, _orgId, config) =>
 			config.fn({
 				auth: { orgId: 'org-1', role: 'owner', canManageMembers: true },
-				store: { findMany }
+				organizationSettings: { listOwnershipCandidateMemberships: findMany }
 			})
 		);
 
@@ -202,9 +202,6 @@ describe('danger settings page server', () => {
 					}
 				}
 			}
-		});
-		expect(findMany).toHaveBeenCalledWith('organization_memberships', 'org-1', undefined, {
-			select: 'id, user_id, email, role'
 		});
 	});
 

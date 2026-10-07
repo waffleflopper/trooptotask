@@ -59,7 +59,7 @@ function selectedContexts(
 			calendarCatalogs: ctx.calendarCatalogs,
 			personnelCalendarRoster: ctx.personnelCalendarRoster
 		},
-		readinessStore: ctx.store,
+		organizationSettings: ctx.organizationSettings,
 		trainingCatalog: ctx.trainingCatalog,
 		trainingCompletions: ctx.trainingCompletions,
 		criticalTaskLibrary: ctx.criticalTaskLibrary,

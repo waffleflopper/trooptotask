@@ -1,11 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AccessRequestSetupState } from '$features/identity/index.server';
-import type { SettingsAccessSourceRow } from './settingsMemberAccessReadModel.server';
+import type { OrganizationSettingsInvitationDeliveryRow, SettingsAccessSourceRow } from './organizationSettingsTypes';
 import {
 	buildMembersSettingsSection,
 	loadMembersSettings,
-	type BuildMembersSettingsDataInput,
-	type SettingsInvitationDeliverySourceRow
+	type BuildMembersSettingsDataInput
 } from './membersSettings.server';
 
 const NOW = new Date('2026-08-04T12:00:00Z');
@@ -81,8 +80,8 @@ function memberRow(overrides: Partial<SettingsAccessSourceRow> = {}): SettingsAc
 }
 
 function deliveryRow(
-	overrides: Partial<SettingsInvitationDeliverySourceRow> = {}
-): SettingsInvitationDeliverySourceRow {
+	overrides: Partial<OrganizationSettingsInvitationDeliveryRow> = {}
+): OrganizationSettingsInvitationDeliveryRow {
 	return {
 		id: 'delivery-1',
 		invitation_id: 'invite-1',
@@ -280,19 +279,13 @@ describe('members settings invitation funnel status', () => {
 function makeLoadContext(
 	lookup: Parameters<typeof loadMembersSettings>[0]['organizationInvitationSetupStateLookup']
 ): Parameters<typeof loadMembersSettings>[0] {
-	const rowsByTable: Record<string, unknown[]> = {
-		organization_memberships: [memberRow()],
-		organization_invitations: [invitationRow()],
-		organization_invitation_email_outbox: [deliveryRow()],
-		groups: [],
-		deletion_requests: []
-	};
-
 	return {
 		auth: { orgId: 'org-1', role: 'owner', canManageMembers: true },
-		store: {
-			findMany: vi.fn(async (table: string) => rowsByTable[table] ?? [])
-		} as unknown as Parameters<typeof loadMembersSettings>[0]['store'],
+		organizationSettings: {
+			listMemberAccess: vi.fn(async () => [memberRow()]),
+			listInvitations: vi.fn(async () => [invitationRow()]),
+			listInvitationDeliveries: vi.fn(async () => [deliveryRow()])
+		},
 		organizationInvitationSetupStateLookup: lookup
 	};
 }
@@ -329,15 +322,9 @@ describe('members settings setup-state lookup degradation', () => {
 		const context = makeLoadContext({
 			findSetupStateByInvitationId: vi.fn().mockRejectedValue(new Error('service role unavailable'))
 		});
-		vi.mocked(context.store.findMany).mockImplementation(async (table: string) =>
-			table === 'organization_memberships'
-				? [memberRow()]
-				: table === 'organization_invitations'
-					? [invitationRow()]
-					: table === 'organization_invitation_email_outbox'
-						? [deliveryRow({ status: 'failed' })]
-						: []
-		);
+		vi.mocked(context.organizationSettings.listInvitationDeliveries).mockResolvedValue([
+			deliveryRow({ status: 'failed' })
+		]);
 
 		const data = await loadMembersSettings(context, {
 			isAdmin: true,

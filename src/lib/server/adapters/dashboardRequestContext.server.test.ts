@@ -83,6 +83,13 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 		global: {
 			fetch: async (input) => {
 				const url = new URL(input instanceof Request ? input.url : input.toString());
+				if (url.pathname === '/rest/v1/organizations') {
+					expect(url.searchParams.get('id')).toBe(`eq.${ctx.auth.orgId}`);
+					return Response.json({
+						critical_tasks_default_expiration_months: 12,
+						critical_tasks_expiring_soon_warning_days: 60
+					});
+				}
 				if (url.pathname === '/rest/v1/groups') {
 					expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 					expect(url.searchParams.has('group_id')).toBe(false);
@@ -132,6 +139,17 @@ describe('Dashboard request composition', () => {
 		).resolves.toMatchObject({
 			ictlSummary: { readyCount: 0, applicableCount: 0 }
 		});
+		expect(getAdminClient).not.toHaveBeenCalled();
+	});
+
+	it('keeps a disabled Critical Tasks summary unloaded', async () => {
+		const ctx = createRequestDashboardSummaryContext(request(['group-alpha'], 'none'));
+		ctx.organizationSettings.findCriticalTasksDefaults = async () => {
+			throw new Error('Disabled summary read Organization settings');
+		};
+		await expect(
+			fetchDashboardSummary(ctx, workspace, { training: false, criticalTasks: false })
+		).resolves.toMatchObject({ trainingSummary: null, ictlSummary: null, onboardingTrainingCompletions: [] });
 		expect(getAdminClient).not.toHaveBeenCalled();
 	});
 

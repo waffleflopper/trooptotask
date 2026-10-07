@@ -45,7 +45,7 @@ function createPersonnelDetailStreams(
 					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.training.viewRecords, 'training_record')
 			}),
 			criticalTasks: loadCriticalTasksReadinessLane({
-				store: contexts.readinessStore,
+				organizationSettings: contexts.organizationSettings,
 				criticalTaskLibrary: contexts.criticalTaskLibrary,
 				criticalTaskCompletions: contexts.criticalTaskCompletions,
 				orgId: ctx.auth.orgId,

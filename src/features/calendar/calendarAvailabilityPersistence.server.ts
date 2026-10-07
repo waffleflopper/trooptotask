@@ -63,7 +63,10 @@ export function createSupabaseCalendarAvailabilityPersistence(
 					if (input.personnelId !== undefined) query = query.eq('personnel_id', input.personnelId);
 					if (ids) query = query.in('personnel_id', ids);
 					if (input.orderByEndDate) query = query.order('end_date', { ascending: true });
-					const { data, error } = await query.range(from, to).returns<AvailabilityRow[]>();
+					const { data, error } = await query
+						.order('id', { ascending: true })
+						.range(from, to)
+						.returns<AvailabilityRow[]>();
 					return { data, error };
 				});
 				if (result.error) throw new Error((result.error as { message: string }).message);
@@ -80,6 +83,7 @@ export function createSupabaseCalendarAvailabilityPersistence(
 					.eq('organization_id', orgId)
 					.eq('personnel_id', personnelId)
 					.order('start_date', { ascending: false })
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<AvailabilityRow[]>();
 				return { data, error };

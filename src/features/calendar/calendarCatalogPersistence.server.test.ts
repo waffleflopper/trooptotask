@@ -6,6 +6,38 @@ const ORG = 'org-a';
 const TIME = '2026-10-06T12:00:00.123456Z';
 
 describe('Calendar ordinary catalog persistence', () => {
+	it.each([
+		['status_types', 'listStatusTypes', false],
+		['status_types', 'listStatusTypeLabels', false],
+		['assignment_types', 'listAssignmentTypes', false],
+		['special_days', 'listSpecialDays', false],
+		['special_days', 'listSpecialDays', true]
+	] as const)('returns every %s row once through %s despite tied page reordering', async (table, method, ranged) => {
+		const ids = Array.from({ length: 1001 }, (_, index) => `row-${String(index).padStart(4, '0')}`);
+		const { client, state } = calendarProvider({
+			[table]: ids.map((id) => ({
+				id,
+				organization_id: ORG,
+				name: id,
+				color: '#123456',
+				text_color: '#ffffff',
+				sort_order: 0,
+				date: '2026-10-06',
+				type: 'org-closure',
+				short_name: id,
+				assign_to: 'personnel',
+				show_in_date_header: false,
+				exempt_personnel_ids: []
+			}))
+		});
+		state.unstablePages = true;
+		const port = createSupabaseCalendarCatalogPersistence(client, ORG);
+		const result = ranged
+			? await port.listSpecialDays({ rangeStart: '2026-10-06', rangeEnd: '2026-10-06' })
+			: await port[method]();
+		expect(result.map(({ id }) => id).sort()).toEqual(ids);
+	});
+
 	it('returns complete ordered catalogs and saved metadata without foreign rows', async () => {
 		const statuses = Array.from({ length: 1001 }, (_, index) => ({
 			id: `status-${index}`,
@@ -56,7 +88,9 @@ describe('Calendar ordinary catalog persistence', () => {
 			sortOrder: 1000,
 			created_at: TIME
 		});
-		expect((await port.listStatusTypeLabels()).at(-1)).toEqual({ id: 'status-1000', name: 'Status 1000' });
+		const labels = await port.listStatusTypeLabels();
+		expect(labels.map(({ id }) => id).sort()).toEqual(statuses.map(({ id }) => id).sort());
+		expect(labels.find(({ id }) => id === 'status-1000')).toEqual({ id: 'status-1000', name: 'Status 1000' });
 		expect(await port.listAssignmentTypes()).toEqual([
 			{
 				id: 'archived',

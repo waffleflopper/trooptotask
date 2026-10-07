@@ -26,6 +26,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					.select(STATUS_TYPE_FIELDS)
 					.eq('organization_id', orgId)
 					.order('sort_order', { ascending: true })
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<StatusTypeRow[]>();
 				return { data, error };
@@ -39,6 +40,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					.from('status_types')
 					.select('id, name')
 					.eq('organization_id', orgId)
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<Array<{ id: string; name: string }>>();
 				return { data, error };
@@ -83,6 +85,7 @@ export function createSupabaseCalendarCatalogPersistence(
 					.select(ASSIGNMENT_TYPE_FIELDS)
 					.eq('organization_id', orgId)
 					.order('sort_order', { ascending: true })
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<AssignmentTypeRow[]>();
 				return { data, error };
@@ -99,6 +102,7 @@ export function createSupabaseCalendarCatalogPersistence(
 						.select('id, assign_to')
 						.eq('organization_id', orgId)
 						.in('id', chunk)
+						.order('id', { ascending: true })
 						.range(from, to)
 						.returns<Array<{ id: string; assign_to: string }>>();
 					return { data, error };
@@ -159,7 +163,7 @@ export function createSupabaseCalendarCatalogPersistence(
 				let query = client.from('special_days').select(SPECIAL_DAY_FIELDS).eq('organization_id', orgId);
 				if (range)
 					query = query.gte('date', range.rangeStart).lte('date', range.rangeEnd).order('date', { ascending: true });
-				const { data, error } = await query.range(from, to).returns<SpecialDayRow[]>();
+				const { data, error } = await query.order('id', { ascending: true }).range(from, to).returns<SpecialDayRow[]>();
 				return { data, error };
 			});
 			if (result.error) throw new Error((result.error as { message: string }).message);

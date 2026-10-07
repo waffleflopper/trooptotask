@@ -54,7 +54,9 @@ export async function setDailyAssignmentSlot(
 	ctx: CalendarWritePorts,
 	input: Record<string, unknown>
 ): Promise<unknown> {
-	const record = dailyAssignmentSlotInput.parse(input);
+	const parsed = dailyAssignmentSlotInput.safeParse(input);
+	if (!parsed.success) fail(400, parsed.error.issues.map((issue) => issue.message).join('; '));
+	const record = parsed.data;
 	if (!record.assigneeId.trim()) fail(400, 'Assignee ID is required to set an assignment');
 
 	await requireCalendarAssignmentPolicy(ctx, [record]);

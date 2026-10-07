@@ -27,6 +27,22 @@ function persistence(
 }
 
 describe('Calendar ordinary availability persistence', () => {
+	it('retains every tied entry once across reordered provider pages', async () => {
+		const ids = Array.from({ length: 1001 }, (_, index) => `entry-${String(index).padStart(4, '0')}`);
+		const { client, state } = calendarProvider({
+			availability_entries: ids.map((id) => ({ ...SAVED, id }))
+		});
+		state.unstablePages = true;
+		const port = persistence(client);
+		for (const result of [
+			await port.listOverlapping(RANGE),
+			await port.listOverlapping({ ...RANGE, orderByEndDate: true }),
+			await port.listPersonnelHistory('person-a')
+		]) {
+			expect(result.map(({ id }) => id).sort()).toEqual(ids);
+		}
+	});
+
 	it('binds bulk removal to the captured ordinary client and Organization independently of read scope', async () => {
 		const original = [SAVED, { ...SAVED, id: 'foreign', organization_id: 'org-b' }];
 		let rows = structuredClone(original);
@@ -178,7 +194,9 @@ describe('Calendar ordinary availability persistence', () => {
 		});
 		const port = persistence(client);
 		expect((await port.listOverlapping(RANGE)).map(({ id }) => id)).toHaveLength(1001);
-		expect((await port.listPersonnelHistory('person-a')).at(-1)?.id).toBe('entry-1000');
+		expect((await port.listPersonnelHistory('person-a')).map(({ id }) => id).sort()).toEqual(
+			Array.from({ length: 1001 }, (_, index) => `entry-${index}`).sort()
+		);
 		for (const offset of [0, 1000]) {
 			state.failure = (request) =>
 				request.offset >= offset ? { code: '42501', message: 'Availability unavailable', status: 403 } : null;

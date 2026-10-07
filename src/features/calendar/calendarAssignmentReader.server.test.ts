@@ -11,6 +11,24 @@ const SAVED = {
 	created_at: '2026-01-02T03:04:05.123456Z'
 };
 describe('Calendar ordinary assignment reads', () => {
+	it('returns every assignment once when tied pages arrive in different storage orders', async () => {
+		const ids = Array.from({ length: 1001 }, (_, index) => `slot-${String(index).padStart(4, '0')}`);
+		const { client, state } = calendarProvider({
+			daily_assignments: ids.map((id) => ({ ...SAVED, id, assignee_id: id }))
+		});
+		state.unstablePages = true;
+		const port = createSupabaseCalendarAssignmentReader(client, 'org-a');
+		expect((await port.listRange({ rangeStart: SAVED.date, rangeEnd: SAVED.date })).map(({ id }) => id).sort()).toEqual(
+			ids
+		);
+		expect((await port.listDayReferences(SAVED.date)).map(({ assigneeId }) => assigneeId).sort()).toEqual(ids);
+		expect(
+			(await port.listSlotReferences([{ date: SAVED.date, assignmentTypeId: SAVED.assignment_type_id }]))
+				.map(({ assigneeId }) => assigneeId)
+				.sort()
+		).toEqual(ids);
+	});
+
 	it('retains full range facts and exact day references without foreign rows', async () => {
 		const { client } = calendarProvider({
 			daily_assignments: [
@@ -23,25 +41,25 @@ describe('Calendar ordinary assignment reads', () => {
 		const port = createSupabaseCalendarAssignmentReader(client, 'org-a');
 		expect(await port.listRange({ rangeStart: '2026-10-06', rangeEnd: '2026-10-06' })).toEqual([
 			{
-				id: 'slot-a',
-				organization_id: 'org-a',
-				date: '2026-10-06',
-				assignmentTypeId: 'type-a',
-				assigneeId: 'person-a',
-				created_at: '2026-01-02T03:04:05.123456Z'
-			},
-			{
 				id: 'group',
 				organization_id: 'org-a',
 				date: '2026-10-06',
 				assignmentTypeId: 'type-b',
 				assigneeId: 'alpha',
 				created_at: '2026-01-02T03:04:05.123456Z'
+			},
+			{
+				id: 'slot-a',
+				organization_id: 'org-a',
+				date: '2026-10-06',
+				assignmentTypeId: 'type-a',
+				assigneeId: 'person-a',
+				created_at: '2026-01-02T03:04:05.123456Z'
 			}
 		]);
 		expect(await port.listDayReferences('2026-10-06')).toEqual([
-			{ assignmentTypeId: 'type-a', assigneeId: 'person-a' },
-			{ assignmentTypeId: 'type-b', assigneeId: 'alpha' }
+			{ assignmentTypeId: 'type-b', assigneeId: 'alpha' },
+			{ assignmentTypeId: 'type-a', assigneeId: 'person-a' }
 		]);
 		expect(await port.listDayReferences('2026-10-06', 'type-b')).toEqual([
 			{ assignmentTypeId: 'type-b', assigneeId: 'alpha' }
@@ -67,8 +85,8 @@ describe('Calendar ordinary assignment reads', () => {
 				{ date: '2026-10-06', assignmentTypeId: 'type-a' }
 			])
 		).toEqual([
-			{ date: '2026-10-06', assignmentTypeId: 'type-a', assigneeId: 'person-a' },
-			{ date: '2026-10-07', assignmentTypeId: 'type-b', assigneeId: 'group-b' }
+			{ date: '2026-10-07', assignmentTypeId: 'type-b', assigneeId: 'group-b' },
+			{ date: '2026-10-06', assignmentTypeId: 'type-a', assigneeId: 'person-a' }
 		]);
 	});
 
@@ -81,11 +99,12 @@ describe('Calendar ordinary assignment reads', () => {
 			}))
 		});
 		const port = createSupabaseCalendarAssignmentReader(client, 'org-a');
-		expect((await port.listRange({ rangeStart: '2026-10-06', rangeEnd: '2026-10-06' })).at(-1)?.id).toBe('slot-1000');
-		expect((await port.listDayReferences('2026-10-06')).at(-1)).toEqual({
-			assignmentTypeId: 'type-1000',
-			assigneeId: 'person-a'
-		});
+		expect(
+			(await port.listRange({ rangeStart: '2026-10-06', rangeEnd: '2026-10-06' })).map(({ id }) => id).sort()
+		).toEqual(Array.from({ length: 1001 }, (_, index) => `slot-${index}`).sort());
+		expect((await port.listDayReferences('2026-10-06')).map(({ assignmentTypeId }) => assignmentTypeId).sort()).toEqual(
+			Array.from({ length: 1001 }, (_, index) => `type-${index}`).sort()
+		);
 		for (const offset of [0, 1000]) {
 			state.failure = (request) =>
 				request.offset >= offset ? { code: '42501', message: 'Assignments unavailable', status: 403 } : null;

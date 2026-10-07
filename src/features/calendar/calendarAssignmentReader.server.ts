@@ -16,6 +16,7 @@ export function createSupabaseCalendarAssignmentReader(
 					.eq('organization_id', orgId)
 					.gte('date', range.rangeStart)
 					.lte('date', range.rangeEnd)
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<AssignmentRow[]>();
 				return { data, error };
@@ -33,6 +34,7 @@ export function createSupabaseCalendarAssignmentReader(
 						.eq('date', date);
 					if (assignmentTypeId !== undefined) query = query.eq('assignment_type_id', assignmentTypeId);
 					const { data, error } = await query
+						.order('id', { ascending: true })
 						.range(from, to)
 						.returns<Array<{ assignment_type_id: string; assignee_id: string }>>();
 					return { data, error };
@@ -58,6 +60,7 @@ export function createSupabaseCalendarAssignmentReader(
 							.eq('organization_id', orgId)
 							.in('date', [...new Set(chunk.map((slot) => slot.date))])
 							.in('assignment_type_id', [...new Set(chunk.map((slot) => slot.assignmentTypeId))])
+							.order('id', { ascending: true })
 							.range(from, to)
 							.returns<Array<{ date: string; assignment_type_id: string; assignee_id: string }>>();
 						return { data, error };

@@ -23,6 +23,7 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 		rows,
 		requests,
 		nullData: false,
+		unstablePages: false,
 		failure: null as null | ((request: ProviderRequest) => { code: string; message: string; status: number } | null)
 	};
 	let nextId = 1;
@@ -52,28 +53,30 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 				const failure = state.failure?.(operation);
 				if (failure) return Response.json({ code: failure.code, message: failure.message }, { status: failure.status });
 				if (state.nullData) return Response.json(null);
-				let selected = rows[table].filter((row) => {
-					for (const [column, filter] of url.searchParams) {
-						if (['select', 'order', 'offset', 'limit', 'columns'].includes(column)) continue;
-						if (filter.startsWith('eq.')) {
-							if (String(row[column]) !== filter.slice(3)) return false;
-						} else if (filter.startsWith('in.(')) {
-							if (
-								!filter
-									.slice(4, -1)
-									.split(',')
-									.map((value) => value.replace(/^"|"$/g, ''))
-									.includes(String(row[column]))
-							)
-								return false;
-						} else if (filter.startsWith('gte.')) {
-							if (String(row[column]) < filter.slice(4)) return false;
-						} else if (filter.startsWith('lte.')) {
-							if (String(row[column]) > filter.slice(4)) return false;
-						} else throw new Error('Unexpected Calendar predicate');
+				let selected = (state.unstablePages && operation.offset > 0 ? rows[table].toReversed() : rows[table]).filter(
+					(row) => {
+						for (const [column, filter] of url.searchParams) {
+							if (['select', 'order', 'offset', 'limit', 'columns'].includes(column)) continue;
+							if (filter.startsWith('eq.')) {
+								if (String(row[column]) !== filter.slice(3)) return false;
+							} else if (filter.startsWith('in.(')) {
+								if (
+									!filter
+										.slice(4, -1)
+										.split(',')
+										.map((value) => value.replace(/^"|"$/g, ''))
+										.includes(String(row[column]))
+								)
+									return false;
+							} else if (filter.startsWith('gte.')) {
+								if (String(row[column]) < filter.slice(4)) return false;
+							} else if (filter.startsWith('lte.')) {
+								if (String(row[column]) > filter.slice(4)) return false;
+							} else throw new Error('Unexpected Calendar predicate');
+						}
+						return true;
 					}
-					return true;
-				});
+				);
 				if (request.method === 'POST') {
 					const inputs: Row[] = Array.isArray(body) ? body : [body];
 					selected = inputs.map((row) => ({
@@ -89,15 +92,18 @@ export function calendarProvider(initial: Partial<Record<CalendarTable, Row[]>> 
 				} else if (request.method !== 'GET') throw new Error('Unexpected Calendar provider method');
 				const order = url.searchParams.get('order');
 				if (order) {
-					const [column, direction] = order.split('.');
+					const fields = order.split(',').map((field) => field.split('.'));
 					selected = selected.toSorted((a, b) => {
-						const left = a[column];
-						const right = b[column];
-						const value =
-							typeof left === 'number' && typeof right === 'number'
-								? left - right
-								: String(left).localeCompare(String(right));
-						return value * (direction === 'desc' ? -1 : 1);
+						for (const [column, direction] of fields) {
+							const left = a[column];
+							const right = b[column];
+							const value =
+								typeof left === 'number' && typeof right === 'number'
+									? left - right
+									: String(left).localeCompare(String(right));
+							if (value) return value * (direction === 'desc' ? -1 : 1);
+						}
+						return 0;
 					});
 				}
 				if (request.method === 'GET')

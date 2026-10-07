@@ -22,7 +22,7 @@ Worker `1` is the default. Add `--worker 2` to **every** command for a second in
 
 ## Doctor
 
-Run `npm run --silent verify:app -- doctor` whenever the page, provider, or build looks wrong. It checks ownership, the running app, the provider, and whether the candidate still matches the checkout, including this SKILL.md and the feature-map Markdown. After changing source or those driving instructions, run `npm run --silent verify:app -- restart` and use new evidence. Other prose remains outside the candidate digest. A blocked doctor is a stop for that worker until its reported cause is resolved.
+Run `npm run --silent verify:app -- doctor` whenever the page, provider, or build looks wrong. It checks ownership, the running app, the provider, and whether the candidate still matches the checkout, including this SKILL.md and the feature-map Markdown. After changing source or those driving instructions, run `npm run --silent verify:app -- restart` and collect new evidence for changed behavior. Apply [verification after a fix](../../../docs/architecture/DEFINITION_OF_DONE.md#verification-after-a-fix) to select reruns and reuse applicable passing observations. A restart or changed digest does not require repeating the whole recipe or fixture matrix. Other prose remains outside the candidate digest. A blocked doctor is a stop for that worker until its reported cause is resolved.
 
 ## Drive
 

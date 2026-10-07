@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
+import { createQueryPortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { fetchOnboardingTemplatesData } from './onboardingTemplateRead.server';
 
 describe('fetchOnboardingTemplatesData', () => {

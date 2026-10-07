@@ -1,4 +1,3 @@
-import { listOnboardingTemplateSteps } from './onboardingTemplateRead.server';
 /**
  * Onboarding lifecycle use cases — start, cancel, complete, and reopen an onboarding record.
  *
@@ -60,16 +59,13 @@ export async function startOnboarding(ctx: OnboardingTrainingPorts, input: Start
 
 	// Enforce one-active-per-soldier before preparing a new packet. The creation
 	// transaction also enforces the existing unique index for overlapping starts.
-	const existing = await ctx.store.findMany<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
-		personnel_id: input.personnelId,
-		status: 'in_progress'
-	});
+	const existing = await ctx.onboardingWorkflow.listActivePacketIdsForPersonnel(input.personnelId);
 	if (existing.length > 0) {
 		fail(409, 'Soldier already has an active onboarding');
 	}
 
 	const startedAt = resolveStartedAt(input.startedAt);
-	const templateSteps = await listOnboardingTemplateSteps(ctx.store, ctx.auth.orgId, input.templateId);
+	const templateSteps = await ctx.onboardingCatalog.listSteps(input.templateId);
 	const trainingTypeIds = templateSteps
 		.filter((step) => step.stepType === 'training' && step.trainingTypeId)
 		.map((step) => step.trainingTypeId!);
@@ -167,9 +163,7 @@ async function persistTransition(ctx: OnboardingLifecyclePorts, id: string, comm
 export async function cancelOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<LifecycleResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
-	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
-		id
-	});
+	const onboarding = await ctx.onboardingWorkflow.findPacketReference(id);
 	if (!onboarding) {
 		fail(404, 'Onboarding not found');
 	}
@@ -197,9 +191,7 @@ export async function cancelOnboarding(ctx: OnboardingLifecyclePorts, id: string
 export async function reopenOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<LifecycleResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
-	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
-		id
-	});
+	const onboarding = await ctx.onboardingWorkflow.findPacketReference(id);
 	if (!onboarding) {
 		fail(404, 'Onboarding not found');
 	}
@@ -231,9 +223,7 @@ interface CompleteResult extends LifecycleResult {
 export async function completeOnboarding(ctx: OnboardingLifecyclePorts, id: string): Promise<CompleteResult> {
 	await requireOnboardingManagePolicyForOnboarding(ctx, id);
 
-	const onboarding = await ctx.store.findOne<{ id: string; status: string }>('personnel_onboardings', ctx.auth.orgId, {
-		id
-	});
+	const onboarding = await ctx.onboardingWorkflow.findPacketReference(id);
 	if (!onboarding) {
 		fail(404, 'Onboarding not found');
 	}
@@ -243,11 +233,7 @@ export async function completeOnboarding(ctx: OnboardingLifecyclePorts, id: stri
 	}
 
 	// Count incomplete active steps (type-agnostic)
-	const incompleteSteps = await ctx.store.findMany<{ id: string }>('onboarding_step_progress', ctx.auth.orgId, {
-		onboarding_id: id,
-		active: true,
-		completed: false
-	});
+	const incompleteSteps = await ctx.onboardingWorkflow.listIncompleteActiveStepIds(id);
 
 	const updated = await persistTransition(ctx, id, { kind: 'complete', at: new Date().toISOString() });
 

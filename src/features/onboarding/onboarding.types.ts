@@ -10,7 +10,7 @@ export interface OnboardingTemplate {
 	orgId: string;
 	name: string;
 	description: string | null;
-	createdAt: string;
+	createdAt: string | null;
 }
 
 export interface OnboardingTemplateStep {
@@ -55,3 +55,5 @@ export interface PersonnelOnboarding {
 	steps: OnboardingStepProgress[];
 	templateId: string | null;
 }
+
+export type OnboardingBootstrapMode = 'all' | 'active' | 'history';

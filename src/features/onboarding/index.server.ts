@@ -15,15 +15,7 @@ export {
 	duplicateOnboardingTemplate,
 	type DuplicateOnboardingTemplateResult
 } from './server/onboardingTemplateDuplicate.server';
-export {
-	fetchOnboardingTemplatesData,
-	listOnboardingTemplates,
-	listOnboardingTemplateSteps,
-	findOnboardingTemplateByName,
-	findOnboardingTemplateStepByName,
-	fetchOnboardingStarterReadiness,
-	countOnboardingTemplateSteps
-} from './server/onboardingTemplateRead.server';
+export { fetchOnboardingTemplatesData } from './server/onboardingTemplateRead.server';
 export { createSupabaseOnboardingExportReader } from './server/onboardingExportRead.server';
 export {
 	fetchOnboardingWorkspace,
@@ -45,7 +37,6 @@ export {
 } from './server/onboardingLifecycle.server';
 export { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './server/onboardingStepProgress.server';
 export { resyncOnboarding, switchTemplate } from './server/onboardingResync.server';
-export { listActiveOnboardings } from './server/onboardingQuery.server';
 
 export { createSupabaseOnboardingReconciliationPort } from './server/onboardingReconciliationProvider.server';
 
@@ -58,3 +49,8 @@ export { createSupabaseOnboardingInactiveStepRemovalPort } from './server/onboar
 export { createSupabaseOnboardingPacketCreationPort } from './server/onboardingPacketCreationProvider.server';
 
 export { createOnboardingSupportReader } from './server/supportReadProvider.server';
+
+export { createSupabaseOnboardingCatalogPersistence } from './server/onboardingCatalogPersistence.server';
+export { createSupabaseOnboardingWorkflowPersistence } from './server/onboardingWorkflowPersistence.server';
+
+export type { OnboardingTemplateWriteContext } from './server/onboardingTemplatePorts.server';

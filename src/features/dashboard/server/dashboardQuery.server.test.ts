@@ -1,9 +1,9 @@
-import { withTrainingPersistence } from '$features/training/server/trainingPersistence.test-support.server';
+import { withOnboardingPersistence } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import {
 	createInMemoryDataStore,
 	createTestAuthContext
-} from '$features/training/server/trainingPersistence.test-support.server';
+} from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { createQueryPortsContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { fetchDashboardBootstrap } from './dashboardQuery.server';
 
@@ -15,7 +15,7 @@ function buildCtx(overrides?: { auth?: Parameters<typeof createTestAuthContext>[
 > & {
 	store: ReturnType<typeof createQueryPortsContext>['store'];
 } {
-	return createQueryPortsContext(withTrainingPersistence({ auth: { orgId: ORG, userId: USER, ...overrides?.auth } }));
+	return createQueryPortsContext(withOnboardingPersistence({ auth: { orgId: ORG, userId: USER, ...overrides?.auth } }));
 }
 
 describe('Dashboard packet read', () => {

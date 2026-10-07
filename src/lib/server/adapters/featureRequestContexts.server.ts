@@ -1,10 +1,6 @@
 import { createSupabaseOrganizationSettingsReader } from '$features/organization/index.server';
 import type { AdmittedOrganizationRequest } from './requestContexts.server';
-import {
-	createRequestDataContext,
-	createRequestNotificationDelivery,
-	createRequestWriteContext
-} from './requestContexts.server';
+import { createRequestNotificationDelivery } from './requestContexts.server';
 import { getAdminClient } from '$lib/server/supabase';
 import {
 	loadOrganizationRankCatalog,
@@ -57,7 +53,9 @@ import {
 	createSupabaseOnboardingNoteAppendPort,
 	createSupabaseOnboardingLifecycleTransitionPort,
 	createSupabaseOnboardingInactiveStepRemovalPort,
-	createSupabaseOnboardingPacketCreationPort
+	createSupabaseOnboardingPacketCreationPort,
+	createSupabaseOnboardingCatalogPersistence,
+	createSupabaseOnboardingWorkflowPersistence
 } from '$features/onboarding/index.server';
 import type {
 	addNote,
@@ -225,7 +223,10 @@ export function createRequestRatingSchemeWorkspaceContext(
 
 export function createRequestOnboardingTemplateStepContext(request: AdmittedOrganizationRequest) {
 	return {
-		...createRequestWriteContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
 	} satisfies Parameters<typeof createOnboardingTemplateStep>[0] & {
@@ -237,9 +238,12 @@ export function createRequestOnboardingStartContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof startOnboarding>[0] {
 	return {
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient),
+		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		onboardingPacketCreation: createSupabaseOnboardingPacketCreationPort(request.supabase)
 	};
 }
@@ -248,7 +252,9 @@ export function createRequestOnboardingLifecycleContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof cancelOnboarding>[0] {
 	return {
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingLifecycleTransition: createSupabaseOnboardingLifecycleTransitionPort(request.supabase)
 	};
@@ -258,7 +264,9 @@ export function createRequestOnboardingReconciliationContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof resyncOnboarding>[0] {
 	return {
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingReconciliation: createSupabaseOnboardingReconciliationPort(request.supabase)
 	};
@@ -268,7 +276,9 @@ export function createRequestOnboardingStepProgressContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof advanceStage>[0] & Parameters<typeof addNote>[0] {
 	return {
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingNoteAppend: createSupabaseOnboardingNoteAppendPort(request.supabase)
 	};
@@ -278,7 +288,9 @@ export function createRequestOnboardingInactiveStepContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof removeInactiveStep>[0] {
 	return {
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		onboardingInactiveStepRemoval: createSupabaseOnboardingInactiveStepRemovalPort(request.supabase)
 	};
@@ -288,8 +300,18 @@ export function createRequestOnboardingWorkspaceContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchOnboardingWorkspace>[0] {
 	return {
+		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
+		loadRankCatalog: () =>
+			loadOrganizationRankCatalog({
+				auth: request.auth,
+				audit: request.audit,
+				store: request.store,
+				rawStore: request.rawStore
+			}),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
-		...createRequestDataContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
 	};

@@ -327,7 +327,9 @@
 								{model.selectedTemplateSteps.length} configured
 							</TypeWorkspace.Impact>
 							<TypeWorkspace.Impact label="Created">
-								{new Date(model.selectedTemplate.createdAt).toLocaleDateString()}
+								{model.selectedTemplate.createdAt
+									? new Date(model.selectedTemplate.createdAt).toLocaleDateString()
+									: 'Unknown'}
 							</TypeWorkspace.Impact>
 						</TypeWorkspace.FactList>
 

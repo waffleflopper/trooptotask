@@ -36,21 +36,13 @@ interface AdvanceStageInput {
 export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceStageInput): Promise<StepResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
-	const step = await ctx.store.findOne<{
-		id: string;
-		onboarding_id: string;
-		step_name: string;
-		step_type: string;
-		stages: string[] | null;
-		completed: boolean;
-		current_stage: string | null;
-	}>('onboarding_step_progress', ctx.auth.orgId, { id: input.stepId });
+	const step = await ctx.onboardingWorkflow.findStepReference(input.stepId);
 
 	if (!step) {
 		fail(404, 'Step not found');
 	}
 
-	if (step.step_type !== 'paperwork') {
+	if (step.stepType !== 'paperwork') {
 		fail(400, 'Only paperwork steps can be advanced');
 	}
 
@@ -62,17 +54,7 @@ export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceS
 	const isLastStage = input.stageName === stages[stages.length - 1];
 	const completed = isLastStage;
 
-	const updated = await ctx.store.update<{
-		id: string;
-		onboarding_id: string;
-		step_name: string;
-		step_type: string;
-		completed: boolean;
-		current_stage: string | null;
-	}>('onboarding_step_progress', ctx.auth.orgId, input.stepId, {
-		current_stage: input.stageName,
-		completed
-	});
+	const updated = await ctx.onboardingWorkflow.savePaperworkProgress(input.stepId, input.stageName, completed);
 
 	ctx.audit.log({
 		action: 'onboarding_step.stage_advanced',
@@ -83,11 +65,11 @@ export async function advanceStage(ctx: OnboardingWorkflowPorts, input: AdvanceS
 
 	return {
 		id: updated.id,
-		onboardingId: updated.onboarding_id,
-		stepName: updated.step_name,
-		stepType: updated.step_type,
+		onboardingId: updated.onboardingId,
+		stepName: updated.stepName,
+		stepType: updated.stepType,
 		completed: updated.completed,
-		currentStage: updated.current_stage
+		currentStage: updated.currentStage
 	};
 }
 
@@ -118,9 +100,7 @@ export async function addNote(
 export async function removeInactiveStep(ctx: OnboardingInactiveStepRemovalPorts, stepId: string): Promise<void> {
 	await requireOnboardingManagePolicyForStep(ctx, stepId);
 
-	const step = await ctx.store.findOne<{ id: string; active: boolean }>('onboarding_step_progress', ctx.auth.orgId, {
-		id: stepId
-	});
+	const step = await ctx.onboardingWorkflow.findStepReference(stepId);
 
 	if (!step) {
 		fail(404, 'Step not found');
@@ -144,33 +124,17 @@ export async function removeInactiveStep(ctx: OnboardingInactiveStepRemovalPorts
 export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: ToggleCheckboxInput): Promise<StepResult> {
 	await requireOnboardingManagePolicyForStep(ctx, input.stepId);
 
-	const step = await ctx.store.findOne<{
-		id: string;
-		onboarding_id: string;
-		step_name: string;
-		step_type: string;
-		completed: boolean;
-		current_stage: string | null;
-	}>('onboarding_step_progress', ctx.auth.orgId, { id: input.stepId });
+	const step = await ctx.onboardingWorkflow.findStepReference(input.stepId);
 
 	if (!step) {
 		fail(404, 'Step not found');
 	}
 
-	if (step.step_type !== 'checkbox') {
+	if (step.stepType !== 'checkbox') {
 		fail(400, 'Only checkbox steps can be toggled');
 	}
 
-	const updated = await ctx.store.update<{
-		id: string;
-		onboarding_id: string;
-		step_name: string;
-		step_type: string;
-		completed: boolean;
-		current_stage: string | null;
-	}>('onboarding_step_progress', ctx.auth.orgId, input.stepId, {
-		completed: input.completed
-	});
+	const updated = await ctx.onboardingWorkflow.saveCheckboxCompletion(input.stepId, input.completed);
 
 	ctx.audit.log({
 		action: 'onboarding_step.toggled',
@@ -181,10 +145,10 @@ export async function toggleCheckbox(ctx: OnboardingWorkflowPorts, input: Toggle
 
 	return {
 		id: updated.id,
-		onboardingId: updated.onboarding_id,
-		stepName: updated.step_name,
-		stepType: updated.step_type,
+		onboardingId: updated.onboardingId,
+		stepName: updated.stepName,
+		stepType: updated.stepType,
 		completed: updated.completed,
-		currentStage: updated.current_stage
+		currentStage: updated.currentStage
 	};
 }

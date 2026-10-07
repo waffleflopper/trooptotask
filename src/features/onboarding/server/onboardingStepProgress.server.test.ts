@@ -3,7 +3,7 @@ import {
 	createTestContext,
 	createWritePortsContext,
 	createWriteWithNotificationsPortsContext
-} from '$lib/server/adapters/inMemory';
+} from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { toggleCheckbox, advanceStage, addNote, removeInactiveStep } from './onboardingStepProgress.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -246,11 +246,11 @@ describe('addNote', () => {
 				}
 			}
 		});
+		const reference = await ctx.onboardingWorkflow.findStepReference('step-1');
+		ctx.onboardingWorkflow.findStepReference = async () => reference;
 		const findOne = ctx.store.findOne.bind(ctx.store);
 		ctx.store.findOne = (table, orgId, filters, select) => {
-			if (table === 'onboarding_step_progress' && select !== 'onboarding_id') {
-				throw new Error('Generic note reads are unavailable');
-			}
+			if (table === 'onboarding_step_progress') throw new Error('Generic note reads are unavailable');
 			return findOne(table, orgId, filters, select);
 		};
 		ctx.store.update = async () => {

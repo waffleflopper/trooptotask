@@ -1,12 +1,28 @@
 import { createHash } from 'node:crypto';
-import type { z } from 'zod';
+import { z } from 'zod';
 import { error } from '@sveltejs/kit';
-import { OnboardingTemplateEntity } from './onboardingTemplateEntity.server';
-import { OnboardingTemplateStepEntity } from './onboardingTemplateStepEntity.server';
-import type { OnboardingTemplate, OnboardingTemplateStep, OnboardingStepType } from '../contracts';
+import type {
+	OnboardingTemplate,
+	OnboardingTemplateStep,
+	OnboardingTemplateStepData,
+	OnboardingTemplateData
+} from '../contracts';
 import type { OnboardingTemplateWriteContext } from './onboardingTemplatePorts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+
+const templateCreateSchema = z.object({ name: z.string(), description: z.string().nullable().optional() });
+const templateUpdateSchema = templateCreateSchema.partial().extend({ id: z.string() });
+const stepCreateSchema = z.object({
+	templateId: z.string(),
+	name: z.string(),
+	description: z.string().nullable().optional(),
+	stepType: z.enum(['training', 'paperwork', 'checkbox']),
+	trainingTypeId: z.string().nullable().optional(),
+	stages: z.array(z.string()).nullable().optional(),
+	sortOrder: z.number().int().optional()
+});
+const stepUpdateSchema = stepCreateSchema.partial().extend({ id: z.string() });
 
 const TEMPLATE_CLEAR_BATCH_SIZE = 25;
 const configureAction = POLICY_ACTION_CATALOG.onboarding.configureWorkflows;
@@ -31,45 +47,37 @@ export async function createOnboardingTemplate(
 	ctx: OnboardingTemplateWriteContext,
 	input: TemplateCreateInput
 ): Promise<OnboardingTemplate> {
-	const parsed = normalizeTemplateInput(parseInput(OnboardingTemplateEntity.createSchema, input));
+	const parsed = normalizeTemplateInput(parseInput(templateCreateSchema, input));
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template');
-	const row = await ctx.store.insert<Record<string, unknown>>(
-		OnboardingTemplateEntity.table,
-		ctx.auth.orgId,
-		OnboardingTemplateEntity.toDbInsert(parsed, ctx.auth.orgId),
-		OnboardingTemplateEntity.select
-	);
+	const row = await ctx.onboardingCatalog.createTemplate({
+		name: parsed.name,
+		description: parsed.description ?? null
+	});
 	ctx.audit.log({
 		action: 'onboarding_template.created',
 		resourceType: 'onboarding_template',
-		resourceId: row.id as string | undefined
+		resourceId: row.id
 	});
-	return OnboardingTemplateEntity.fromDb(row);
+	return row;
 }
 
 export async function updateOnboardingTemplate(
 	ctx: OnboardingTemplateWriteContext,
 	input: TemplateUpdateInput
 ): Promise<OnboardingTemplate> {
-	const parsed = normalizeTemplateInput(parseInput(OnboardingTemplateEntity.updateSchema, input));
-	const id = parsed.id as string;
+	const parsed = normalizeTemplateInput(parseInput(templateUpdateSchema, input));
+	const id = parsed.id;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', id);
 	await requireTemplate(ctx, id);
-	const row = await ctx.store.update<Record<string, unknown>>(
-		OnboardingTemplateEntity.table,
-		ctx.auth.orgId,
-		id,
-		OnboardingTemplateEntity.toDbUpdate(parsed),
-		OnboardingTemplateEntity.select
-	);
+	const row = await ctx.onboardingCatalog.updateTemplate(id, parsed);
 	ctx.audit.log({ action: 'onboarding_template.updated', resourceType: 'onboarding_template', resourceId: id });
-	return OnboardingTemplateEntity.fromDb(row);
+	return row;
 }
 
 export async function deleteOnboardingTemplate(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template', templateId);
 	await requireTemplate(ctx, templateId);
-	await ctx.store.delete(OnboardingTemplateEntity.table, ctx.auth.orgId, templateId);
+	await ctx.onboardingCatalog.deleteTemplate(templateId);
 	ctx.audit.log({ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: templateId });
 	await deleteTemplateDependents(ctx, templateId);
 }
@@ -78,7 +86,7 @@ export async function createOnboardingTemplateStep(
 	ctx: OnboardingTemplateWriteContext,
 	input: StepCreateInput
 ): Promise<OnboardingTemplateStep> {
-	const parsed = normalizeStepInput(parseInput(OnboardingTemplateStepEntity.createSchema, input));
+	const parsed = normalizeStepInput(parseInput(stepCreateSchema, input));
 	return insertTemplateStep(ctx, parsed);
 }
 
@@ -87,56 +95,51 @@ export async function createStarterOnboardingTemplateStep(
 	ctx: OnboardingTemplateWriteContext,
 	input: StepCreateInput
 ): Promise<OnboardingTemplateStep> {
-	const parsed = normalizeStepInput(parseInput(OnboardingTemplateStepEntity.createSchema, input));
-	return insertTemplateStep(
-		ctx,
-		parsed,
-		deterministicStarterOnboardingStepId(parsed.templateId as string, parsed.name as string)
-	);
+	const parsed = normalizeStepInput(parseInput(stepCreateSchema, input));
+	return insertTemplateStep(ctx, parsed, deterministicStarterOnboardingStepId(parsed.templateId, parsed.name));
 }
 
 async function insertTemplateStep(
 	ctx: OnboardingTemplateWriteContext,
-	input: Record<string, unknown>,
+	input: Partial<OnboardingTemplateStepData> & Pick<OnboardingTemplateStepData, 'templateId' | 'name' | 'stepType'>,
 	id?: string
 ): Promise<OnboardingTemplateStep> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step');
-	await requireTemplate(ctx, input.templateId as string);
+	await requireTemplate(ctx, input.templateId);
 	await requireTrainingReference(ctx, input.stepType, input.trainingTypeId);
-	const data = OnboardingTemplateStepEntity.toDbInsert(input, ctx.auth.orgId);
-	const row = await ctx.store.insert<Record<string, unknown>>(
-		OnboardingTemplateStepEntity.table,
-		ctx.auth.orgId,
-		{ ...data, ...(id ? { id } : {}) },
-		OnboardingTemplateStepEntity.select
-	);
+	const row = await ctx.onboardingCatalog.createStep({
+		...input,
+		description: input.description ?? null,
+		trainingTypeId: input.trainingTypeId ?? null,
+		stages: input.stages ?? null,
+		sortOrder: input.sortOrder ?? 0,
+		...(id ? { id } : {})
+	});
 	ctx.audit.log({
 		action: 'onboarding_template_step.created',
 		resourceType: 'onboarding_template_step',
-		resourceId: row.id as string | undefined
+		resourceId: row.id
 	});
-	return OnboardingTemplateStepEntity.fromDb(row);
+	return row;
 }
 
 export async function updateOnboardingTemplateStep(
 	ctx: OnboardingTemplateWriteContext,
 	input: StepUpdateInput
 ): Promise<OnboardingTemplateStep> {
-	let parsed = normalizeStepInput(parseInput(OnboardingTemplateStepEntity.updateSchema, input));
-	const id = parsed.id as string;
+	let parsed = normalizeStepInput(parseInput(stepUpdateSchema, input));
+	const id = parsed.id;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step', id);
-	const current = await ctx.store.findOne<Record<string, unknown>>(OnboardingTemplateStepEntity.table, ctx.auth.orgId, {
-		id
-	});
+	const current = await ctx.onboardingCatalog.findStep(id);
 	if (!current) throw error(404, 'Onboarding template step not found');
-	if (parsed.templateId !== undefined) await requireTemplate(ctx, parsed.templateId as string);
+	if (parsed.templateId !== undefined) await requireTemplate(ctx, parsed.templateId);
 	if (parsed.stepType === undefined && (parsed.trainingTypeId !== undefined || parsed.stages !== undefined)) {
 		parsed = parseInput(
-			OnboardingTemplateStepEntity.updateSchema,
+			stepUpdateSchema,
 			normalizeStepInput({
 				...parsed,
-				stepType: current.step_type,
-				trainingTypeId: parsed.trainingTypeId !== undefined ? parsed.trainingTypeId : current.training_type_id,
+				stepType: current.stepType,
+				trainingTypeId: parsed.trainingTypeId !== undefined ? parsed.trainingTypeId : current.trainingTypeId,
 				stages: parsed.stages !== undefined ? parsed.stages : current.stages
 			})
 		);
@@ -144,35 +147,24 @@ export async function updateOnboardingTemplateStep(
 	if (parsed.stepType !== undefined || parsed.trainingTypeId !== undefined) {
 		await requireTrainingReference(
 			ctx,
-			parsed.stepType ?? current.step_type,
-			parsed.trainingTypeId !== undefined ? parsed.trainingTypeId : current.training_type_id
+			parsed.stepType ?? current.stepType,
+			parsed.trainingTypeId !== undefined ? parsed.trainingTypeId : current.trainingTypeId
 		);
 	}
-	const row = await ctx.store.update<Record<string, unknown>>(
-		OnboardingTemplateStepEntity.table,
-		ctx.auth.orgId,
-		id,
-		OnboardingTemplateStepEntity.toDbUpdate(parsed),
-		OnboardingTemplateStepEntity.select
-	);
+	const row = await ctx.onboardingCatalog.updateStep(id, parsed);
 	ctx.audit.log({
 		action: 'onboarding_template_step.updated',
 		resourceType: 'onboarding_template_step',
 		resourceId: id
 	});
-	return OnboardingTemplateStepEntity.fromDb(row);
+	return row;
 }
 
 export async function deleteOnboardingTemplateStep(ctx: OnboardingTemplateWriteContext, stepId: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'onboarding_template_step', stepId);
-	const current = await ctx.store.findOne<{ id: string }>(
-		OnboardingTemplateStepEntity.table,
-		ctx.auth.orgId,
-		{ id: stepId },
-		'id'
-	);
+	const current = await ctx.onboardingCatalog.findStep(stepId);
 	if (!current) throw error(404, 'Onboarding template step not found');
-	await ctx.store.delete(OnboardingTemplateStepEntity.table, ctx.auth.orgId, stepId);
+	await ctx.onboardingCatalog.deleteStep(stepId);
 	ctx.audit.log({
 		action: 'onboarding_template_step.deleted',
 		resourceType: 'onboarding_template_step',
@@ -181,12 +173,7 @@ export async function deleteOnboardingTemplateStep(ctx: OnboardingTemplateWriteC
 }
 
 async function requireTemplate(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
-	const template = await ctx.store.findOne<{ id: string }>(
-		OnboardingTemplateEntity.table,
-		ctx.auth.orgId,
-		{ id: templateId },
-		'id'
-	);
+	const template = await ctx.onboardingCatalog.findTemplate(templateId);
 	if (!template) throw error(404, 'Onboarding template not found');
 }
 
@@ -216,13 +203,7 @@ export async function reorderOnboardingTemplateSteps(
 
 	await requireTemplate(ctx, input.templateId);
 
-	const currentRows = await ctx.store.findMany<Record<string, unknown>>(
-		OnboardingTemplateStepEntity.table,
-		ctx.auth.orgId,
-		{ template_id: input.templateId },
-		{ orderBy: [{ column: 'sort_order', ascending: true }] }
-	);
-	const currentSteps = OnboardingTemplateStepEntity.fromDbArray(currentRows);
+	const currentSteps = await ctx.onboardingCatalog.listSteps(input.templateId);
 	const currentIds = new Set(currentSteps.map((step) => step.id));
 
 	const orderedIds = new Set(input.orderedStepIds);
@@ -234,14 +215,9 @@ export async function reorderOnboardingTemplateSteps(
 		throw error(409, 'Step order does not match the selected onboarding template');
 	}
 
-	const updatedRows: Record<string, unknown>[] = [];
+	const updatedRows: OnboardingTemplateStep[] = [];
 	for (const [sortOrder, stepId] of input.orderedStepIds.entries()) {
-		const row = await ctx.store.update<Record<string, unknown>>(
-			OnboardingTemplateStepEntity.table,
-			ctx.auth.orgId,
-			stepId,
-			{ sort_order: sortOrder }
-		);
+		const row = await ctx.onboardingCatalog.updateStep(stepId, { sortOrder });
 		updatedRows.push(row);
 	}
 
@@ -252,77 +228,48 @@ export async function reorderOnboardingTemplateSteps(
 		details: { templateId: input.templateId, stepCount: input.orderedStepIds.length }
 	});
 
-	return OnboardingTemplateStepEntity.fromDbArray(updatedRows).sort((a, b) => a.sortOrder - b.sortOrder);
+	return updatedRows.sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
 async function deleteTemplateDependents(ctx: OnboardingTemplateWriteContext, templateId: string): Promise<void> {
-	await ctx.store.deleteWhere(OnboardingTemplateStepEntity.table, ctx.auth.orgId, { template_id: templateId });
+	await ctx.onboardingCatalog.deleteStepsForTemplate(templateId);
 
-	const onboardings = await ctx.store.findMany<{ id: string }>('personnel_onboardings', ctx.auth.orgId, {
-		template_id: templateId
-	});
+	const onboardings = await ctx.onboardingWorkflow.listPacketIdsUsingTemplate(templateId);
 
 	for (let index = 0; index < onboardings.length; index += TEMPLATE_CLEAR_BATCH_SIZE) {
 		const batch = onboardings.slice(index, index + TEMPLATE_CLEAR_BATCH_SIZE);
-		await Promise.all(
-			batch.map((onboarding) =>
-				ctx.store.update('personnel_onboardings', ctx.auth.orgId, onboarding.id, { template_id: null })
-			)
-		);
+		await Promise.all(batch.map((onboarding) => ctx.onboardingWorkflow.clearPacketTemplate(onboarding)));
 	}
 }
 
-function normalizeTemplateInput<T extends TemplateCreateInput | TemplateUpdateInput>(input: T): T {
-	const output: Record<string, unknown> = { ...input };
-	if (typeof input.id !== 'string' || input.name !== undefined) {
-		output.name = normalizeRequiredString(input.name, 'Template name is required');
-	}
-	if (input.description !== undefined) {
-		output.description = normalizeNullableString(input.description);
-	}
-	return output as T;
+function normalizeTemplateInput<T extends Partial<OnboardingTemplateData> & { id?: string }>(input: T): T {
+	return {
+		...input,
+		...(input.id === undefined || input.name !== undefined
+			? { name: normalizeRequiredString(input.name, 'Template name is required') }
+			: {}),
+		...(input.description !== undefined ? { description: normalizeNullableString(input.description) } : {})
+	};
 }
-
-function normalizeStepInput<T extends StepCreateInput | StepUpdateInput>(input: T): T {
-	const stepType = input.stepType as OnboardingStepType | undefined;
-	const output: Record<string, unknown> = { ...input };
-
-	if (typeof input.id !== 'string' || input.name !== undefined) {
-		output.name = normalizeRequiredString(input.name, 'Step name is required');
-	}
-	if (input.description !== undefined) {
-		output.description = normalizeNullableString(input.description);
-	}
-
-	if (!stepType) {
-		return output as T;
-	}
-
-	if (stepType === 'training') {
+function normalizeStepInput<T extends Partial<OnboardingTemplateStepData> & { id?: string }>(input: T): T {
+	const output = {
+		...input,
+		...(input.id === undefined || input.name !== undefined
+			? { name: normalizeRequiredString(input.name, 'Step name is required') }
+			: {}),
+		...(input.description !== undefined ? { description: normalizeNullableString(input.description) } : {})
+	};
+	if (input.stepType === undefined) return output;
+	if (input.stepType === 'training') {
 		const trainingTypeId = normalizeNullableString(input.trainingTypeId);
-		if (!trainingTypeId) {
-			throw error(400, 'Training steps require a Training Type');
-		}
-		return {
-			...output,
-			trainingTypeId,
-			stages: null
-		} as unknown as T;
+		if (!trainingTypeId) throw error(400, 'Training steps require a Training Type');
+		return { ...output, trainingTypeId, stages: null };
 	}
-
-	if (stepType === 'paperwork') {
-		return {
-			...output,
-			trainingTypeId: null,
-			stages: normalizeStages(input.stages)
-		} as unknown as T;
-	}
-
 	return {
 		...output,
 		trainingTypeId: null,
-		stages: null
-	} as unknown as T;
+		stages: input.stepType === 'paperwork' ? normalizeStages(input.stages) : null
+	};
 }
 
 function normalizeRequiredString(value: unknown, message: string): string {

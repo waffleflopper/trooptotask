@@ -91,7 +91,8 @@
 				"src/tests/no-google-fonts.test.ts",
 				"src/tests/security-posture.test.ts",
 				"src/lib/server/adapters/inMemory.ts",
-				"src/lib/server/adapters/privateResources.test.ts"
+				"src/lib/server/adapters/privateResources.test.ts",
+				"src/lib/server/adapters/onboardingRequestPersistence.server.test.ts"
 			],
 			"packet": "08-M15"
 		},
@@ -146,8 +147,6 @@
 				"src/lib/server/adapters/supabaseDataStore.ts",
 				"src/lib/server/adapters/supabaseStorage.ts",
 				"src/lib/server/adapters/supabaseStorage.test.ts",
-				"src/lib/server/entitySchema.test.ts",
-				"src/lib/server/entitySchema.ts",
 				"src/lib/server/env.test.ts",
 				"src/lib/server/env.ts",
 				"src/lib/server/supabase.ts",
@@ -549,6 +548,9 @@
 		"src/features/deletion-requests/submission.test-support.ts",
 		"src/features/training/server/trainingPersistence.test-support.server.ts",
 		"src/features/training/server/inMemoryTrainingPersistence.server.ts",
-		"src/features/training/server/test-support/trainingProvider.server.ts"
+		"src/features/training/server/test-support/trainingProvider.server.ts",
+		"src/features/onboarding/server/onboardingPersistence.test-support.server.ts",
+		"src/features/onboarding/server/inMemoryOnboardingPersistence.server.ts",
+		"src/features/onboarding/server/test-support/onboardingProvider.server.ts"
 	]
 }

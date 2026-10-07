@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 
 const state = vi.hoisted(() => ({ ctx: null as ReturnType<typeof createTestContext> | null }));

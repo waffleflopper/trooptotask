@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import {
 	createOnboardingTemplate,
@@ -615,5 +615,87 @@ describe('Onboarding configuration admission', () => {
 		await expect(
 			reorderOnboardingTemplateSteps(ctx, { templateId: 'missing-template', orderedStepIds: [] })
 		).rejects.toMatchObject({ status: 404 });
+	});
+});
+
+describe('catalog partial effects', () => {
+	it('retains the parent copy if saving its steps fails without a duplication success audit', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [
+			{ id: TMPL_ID, organization_id: 'test-org', name: 'Arrival', description: 'Keep' }
+		]);
+		ctx.store.seed('onboarding_template_steps', [
+			{
+				id: 'one',
+				organization_id: 'test-org',
+				template_id: TMPL_ID,
+				name: 'Orientation',
+				step_type: 'checkbox',
+				training_type_id: null,
+				description: null,
+				stages: null,
+				sort_order: 0
+			}
+		]);
+		const failure = new Error('Bulk insert rejected');
+		ctx.onboardingCatalog.createSteps = async () => {
+			throw failure;
+		};
+		await expect(duplicateOnboardingTemplate(ctx, TMPL_ID)).rejects.toBe(failure);
+		expect(
+			(await ctx.onboardingCatalog.listTemplates()).map((row) => ({ name: row.name, description: row.description }))
+		).toEqual([
+			{ name: 'Arrival', description: 'Keep' },
+			{ name: 'Arrival Copy', description: 'Keep' }
+		]);
+		expect(
+			(await ctx.onboardingCatalog.listSteps()).map((row) => ({
+				id: row.id,
+				templateId: row.templateId,
+				name: row.name
+			}))
+		).toEqual([{ id: 'one', templateId: TMPL_ID, name: 'Orientation' }]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+	it('retains the first reordered step when the later serial write fails', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, organization_id: 'test-org', name: 'Arrival' }]);
+		ctx.store.seed('onboarding_template_steps', [
+			{ id: 'one', organization_id: 'test-org', template_id: TMPL_ID, name: 'One', sort_order: 0 },
+			{ id: 'two', organization_id: 'test-org', template_id: TMPL_ID, name: 'Two', sort_order: 1 }
+		]);
+		const save = ctx.onboardingCatalog.updateStep;
+		const failure = new Error('Second update rejected');
+		ctx.onboardingCatalog.updateStep = (id, data) => (id === 'one' ? Promise.reject(failure) : save(id, data));
+		await expect(
+			reorderOnboardingTemplateSteps(ctx, { templateId: TMPL_ID, orderedStepIds: ['two', 'one'] })
+		).rejects.toBe(failure);
+		expect((await ctx.onboardingCatalog.listSteps()).map((row) => ({ id: row.id, sortOrder: row.sortOrder }))).toEqual([
+			{ id: 'one', sortOrder: 0 },
+			{ id: 'two', sortOrder: 0 }
+		]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+	it('audits the saved template deletion before a dependent deletion error and preserves uncleared packet references', async () => {
+		const ctx = createWritePortsContext();
+		ctx.store.seed('onboarding_templates', [{ id: TMPL_ID, organization_id: 'test-org', name: 'Arrival' }]);
+		const packet = {
+			id: 'packet',
+			organization_id: 'test-org',
+			template_id: TMPL_ID,
+			personnel_id: 'person',
+			status: 'in_progress'
+		};
+		ctx.store.seed('personnel_onboardings', [packet]);
+		const failure = new Error('Dependent deletion rejected');
+		ctx.onboardingCatalog.deleteStepsForTemplate = async () => {
+			throw failure;
+		};
+		await expect(deleteOnboardingTemplate(ctx, TMPL_ID)).rejects.toBe(failure);
+		expect(await ctx.onboardingCatalog.findTemplate(TMPL_ID)).toBeNull();
+		expect(await ctx.store.findMany('personnel_onboardings', 'test-org')).toEqual([packet]);
+		expect(ctx.audit.events).toEqual([
+			{ action: 'onboarding_template.deleted', resourceType: 'onboarding_template', resourceId: TMPL_ID }
+		]);
 	});
 });

@@ -79,7 +79,7 @@ function provider(table: OnboardingExportTable, saved: Row) {
 				if (state.failFrom !== null && offset >= state.failFrom)
 					return Response.json({ code: '42501', message: 'Saved rows unavailable' }, { status: 403 });
 				if (state.nullData) return Response.json(null);
-				let visible = rows;
+				let visible = offset > 0 ? rows.toReversed() : rows;
 				for (const [column, filter] of url.searchParams) {
 					if (filter.startsWith('eq.')) visible = visible.filter((row) => String(row[column]) === filter.slice(3));
 					else if (!['select', 'order', 'offset', 'limit'].includes(column))
@@ -114,7 +114,11 @@ describe('Onboarding ordinary Organization archive reads', () => {
 		'retains saved $table rows across pages and excludes a foreign Organization',
 		async ({ table, saved }) => {
 			const { client, owned } = provider(table, saved);
-			expect(await createSupabaseOnboardingExportReader(client, ORG).listRows(table)).toEqual(owned);
+			const expected = owned.toSorted((a, b) => String(a.id).localeCompare(String(b.id)));
+			expect(await createSupabaseOnboardingExportReader(client, ORG).listRows(table)).toEqual(expected);
+			expect(expected.map((row) => row.id)).toEqual(
+				Array.from({ length: 1001 }, (_, index) => `saved-${String(index + 1).padStart(4, '0')}`)
+			);
 			expect(await createSupabaseOnboardingExportReader(client, 'empty-org').listRows(table)).toEqual([]);
 		}
 	);

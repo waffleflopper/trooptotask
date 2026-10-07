@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CalendarAvailabilityRemovalPort } from './contracts';
+import { RequestFailure } from '$lib/errors';
 
 export function createSupabaseCalendarAvailabilityRemovalPort(
 	supabase: SupabaseClient,
@@ -32,10 +33,8 @@ export function createSupabaseCalendarAvailabilityRemovalPort(
 				p_ids: ids
 			});
 			if (error) {
-				if (error.code === '42501')
-					throw Object.assign(new Error('You do not have access to that Calendar scope'), { status: 403 });
-				if (error.code === '22023')
-					throw Object.assign(new Error('Provide between 1 and 500 availability IDs'), { status: 400 });
+				if (error.code === '42501') throw new RequestFailure(403, 'You do not have access to that Calendar scope');
+				if (error.code === '22023') throw new RequestFailure(400, 'Provide between 1 and 500 availability IDs');
 				throw new Error(error.message);
 			}
 			if (typeof data !== 'number' || !Number.isInteger(data) || data < 0 || data > ids.length)

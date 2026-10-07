@@ -3,10 +3,7 @@ import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/polic
 import { createSupabaseStorageAdapter } from '$lib/server/adapters/supabaseStorage';
 import type { PersonnelGovernanceDeletionPort } from './contracts';
 import { artifactFileTarget } from './artifactWrites.server';
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
+import { fail } from '$lib/errors';
 
 /** An Organization reviewer can delete exactly one of its counseling records. */
 export function createSupabasePersonnelGovernanceDeletionPort(

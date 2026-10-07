@@ -3,6 +3,7 @@ import { isHttpError } from '@sveltejs/kit';
 import { z } from 'zod';
 import { createTestContext, createInMemoryDataStore, createTestAuthContext, createTestAuditPort } from './inMemory';
 import { handleUseCaseRequest, rethrowOrWrap } from './httpAdapter';
+import { RequestFailure } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { createPersonnelRecord, archivePersonnelRecord } from '$features/personnel/index.server';
 
@@ -227,20 +228,37 @@ describe('handleUseCaseRequest', () => {
 });
 
 describe('rethrowOrWrap', () => {
-	it('converts framework-agnostic status errors to SvelteKit HTTP errors', () => {
-		const denied = new Error('You do not have permission');
-		(denied as unknown as { status: number }).status = 403;
-
+	function wrapped(err: unknown) {
 		try {
-			rethrowOrWrap(denied);
-			throw new Error('Expected rethrowOrWrap to throw');
-		} catch (err) {
-			expect(isHttpError(err)).toBe(true);
-			expect(err).toMatchObject({
-				status: 403,
-				body: { message: 'You do not have permission' }
-			});
+			rethrowOrWrap(err);
+		} catch (caught) {
+			return caught;
 		}
+		throw new Error('Expected rethrowOrWrap to throw');
+	}
+
+	it('forwards an app-created 4xx failure', () => {
+		expect(wrapped(new RequestFailure(403, 'You do not have permission'))).toMatchObject({
+			status: 403,
+			body: { message: 'You do not have permission' }
+		});
+	});
+
+	it.each([
+		[
+			'a provider error shaped like a 4xx',
+			Object.assign(new Error('User not found'), { name: 'AuthApiError', status: 404 })
+		],
+		['an app-created 5xx failure', new RequestFailure(500, 'duplicate key value violates unique constraint')]
+	])('logs and hides %s behind a generic 500', (_label, err) => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+		const response = wrapped(err);
+
+		expect(isHttpError(response)).toBe(true);
+		expect(response).toMatchObject({ status: 500, body: { message: 'Internal server error' } });
+		expect(log).toHaveBeenCalledWith('[http-adapter] Unhandled route error:', expect.stringContaining(err.message));
+		log.mockRestore();
 	});
 });
 

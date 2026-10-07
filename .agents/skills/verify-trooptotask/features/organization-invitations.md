@@ -26,5 +26,6 @@ Preconditions: `doctor` passes; `$V fixture` identifies Organization A, Alpha/Br
 ## Gotchas
 
 - A new person's approved Access Request and setup link are distinct from their Organization Invitation. Preserve their separate delivery and state; do not count account activation as membership.
+- An `Admin` invitation is a sensitive action. After more than 15 minutes since the owner's sign-in, `Invite` returns a 403 failure carrying `requiresStepUp`/`stepUpPath` and the page moves to `/auth/login?reauth=1&next=...settings/members` with no invitation row. A duplicate pending email is rejected before that check. The `Membership Role` options appear only in a `"verbose":true` snapshot.
 - Pending invitation creation may succeed when email delivery fails. `Resend` retries that invitation and does not mint a new setup credential.
 - Keep private email links and credentials out of snapshots, logs and committed evidence. F01 approval-provenance repair belongs to 11-01; this recipe records the current behavior without treating that defect as accepted.

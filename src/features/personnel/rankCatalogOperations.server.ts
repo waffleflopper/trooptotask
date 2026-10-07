@@ -22,6 +22,7 @@ import type {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
 
 interface RankCatalogStore {
 	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
@@ -33,10 +34,6 @@ interface RankCatalogStore {
 		rows: Record<string, unknown>[],
 		options: { onConflict: string }
 	): Promise<T[]>;
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
 }
 
 const RANK_CATALOG_TABLE = 'organization_rank_catalog';

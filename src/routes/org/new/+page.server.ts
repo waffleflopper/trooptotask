@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { createOrganizationProvisioningDelivery } from '$lib/server/organizationProvisioningDelivery';
+import { toActionFailure } from '$lib/server/adapters/httpAdapter';
 import { provisionOrganization } from '$features/organization/index.server';
 import { verifyCurrentUserEmailConfirmation } from '$features/identity/index.server';
 import type { CurrentUserEmailConfirmation } from '$features/identity/contracts';
@@ -51,7 +52,7 @@ export const actions: Actions = {
 				email: emailConfirmation.email
 			});
 		} catch (error) {
-			return toActionFailure(error);
+			return toActionFailure('error', error);
 		}
 
 		throw redirect(303, `/org/${result.orgId}`);
@@ -67,12 +68,4 @@ function emailConfirmationLoadData(emailConfirmation: CurrentUserEmailConfirmati
 				? EMAIL_CONFIRMATION_UNAVAILABLE_MESSAGE
 				: EMAIL_CONFIRMATION_REQUIRED_MESSAGE
 	};
-}
-
-function toActionFailure(error: unknown) {
-	if (error instanceof Error && typeof Reflect.get(error, 'status') === 'number') {
-		return fail(Reflect.get(error, 'status') as number, { error: error.message });
-	}
-
-	throw error;
 }

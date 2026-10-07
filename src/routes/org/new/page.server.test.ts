@@ -133,7 +133,7 @@ describe('org/new admission through real provisioning', () => {
 		port.createOrganizationWithOwner.mockResolvedValue({ orgId: null, errorMessage: 'Owner insert denied' });
 		expect(await actions.default(event() as never)).toMatchObject({
 			status: 500,
-			data: { error: 'Owner insert denied' }
+			data: { error: 'Internal server error' }
 		});
 		for (const effect of [
 			port.updateOwnerMembershipEmail,
@@ -151,14 +151,16 @@ describe('org/new admission through real provisioning', () => {
 		port.seedDefaultRankCatalog.mockResolvedValue('Rank catalog unavailable');
 		expect(await actions.default(event() as never)).toMatchObject({
 			status: 500,
-			data: { error: 'Rank catalog unavailable' }
+			data: { error: 'Internal server error' }
 		});
 	});
 
 	it('does not disguise unexpected provider exceptions as successful creation', async () => {
-		const failure = new Error('connection lost');
-		port.createOrganizationWithOwner.mockRejectedValue(failure);
-		await expect(actions.default(event() as never)).rejects.toBe(failure);
+		port.createOrganizationWithOwner.mockRejectedValue(new Error('connection lost'));
+		expect(await actions.default(event() as never)).toMatchObject({
+			status: 500,
+			data: { error: 'Internal server error' }
+		});
 		expect(port.updateOwnerMembershipEmail).not.toHaveBeenCalled();
 	});
 });

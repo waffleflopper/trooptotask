@@ -4,6 +4,7 @@ import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.
 import { SENSITIVE_FILE_BUCKET } from '$lib/storage/sensitiveFiles';
 import { registerOrganizationFileUpload } from '$features/organization/index.server';
 import type { SignInRosterFileWritePort } from './contracts';
+import { RequestFailure } from '$lib/errors';
 
 export function createSupabaseSignInRosterFileWritePort(
 	request: SupabaseClient,
@@ -18,7 +19,7 @@ export function createSupabaseSignInRosterFileWritePort(
 				.eq('id', rosterId)
 				.maybeSingle();
 			if (error) throw new Error('Roster access could not be confirmed');
-			if (!roster) throw Object.assign(new Error('Roster not found'), { status: 404 });
+			if (!roster) throw new RequestFailure(404, 'Roster not found');
 			if (!Array.isArray(roster.scope_group_ids) || roster.scope_group_ids.some((id) => typeof id !== 'string'))
 				throw new Error('Roster Group scope could not be confirmed');
 			for (const group of roster.scope_group_ids.length ? roster.scope_group_ids : [null]) {
@@ -38,7 +39,7 @@ export function createSupabaseSignInRosterFileWritePort(
 					path.length === prefix.length ||
 					path.split('/').some((part) => part === '.' || part === '..')
 				)
-					throw Object.assign(new Error('Scan path is outside the authorized roster'), { status: 400 });
+					throw new RequestFailure(400, 'Scan path is outside the authorized roster');
 			}
 			async function removeFile(path: string, previous: boolean) {
 				assertPath(path);
@@ -63,7 +64,7 @@ export function createSupabaseSignInRosterFileWritePort(
 			return {
 				async upload(path, file) {
 					assertPath(path);
-					if (!(file instanceof File)) throw Object.assign(new Error('A scan file is required'), { status: 400 });
+					if (!(file instanceof File)) throw new RequestFailure(400, 'A scan file is required');
 					const registration = await registerOrganizationFileUpload(admin, {
 						orgId: actor.orgId,
 						userId: actor.userId,
@@ -78,7 +79,7 @@ export function createSupabaseSignInRosterFileWritePort(
 							object_name: path
 						});
 						if (current.error || current.data !== true)
-							throw Object.assign(new Error('Current roster upload access is required'), { status: 403 });
+							throw new RequestFailure(403, 'Current roster upload access is required');
 					} catch (error) {
 						// Storage has not been called, so no byte writer can remain in flight.
 						await registration.complete();

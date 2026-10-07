@@ -2,6 +2,7 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { createSupabaseAuditAdapter } from '$lib/audit/index.server';
 import { createRequestNotificationDelivery } from '$lib/server/adapters/requestContexts.server';
+import { toActionFailure } from '$lib/server/adapters/httpAdapter';
 import {
 	acceptDashboardInvitation,
 	createSupabaseDashboardOrgAccessPort,
@@ -61,7 +62,7 @@ export const actions: Actions = {
 				}
 			);
 		} catch (error) {
-			return toActionFailure(error);
+			return toActionFailure('error', error);
 		}
 	},
 
@@ -96,15 +97,7 @@ export const actions: Actions = {
 				}
 			);
 		} catch (error) {
-			return toActionFailure(error);
+			return toActionFailure('error', error);
 		}
 	}
 };
-
-function toActionFailure(error: unknown) {
-	if (error instanceof Error && typeof Reflect.get(error, 'status') === 'number') {
-		return fail(Reflect.get(error, 'status') as number, { error: error.message });
-	}
-
-	throw error;
-}

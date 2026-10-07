@@ -82,6 +82,7 @@ Use B, except P1 contained `Closes #X` and the issue is closed. A dependent issu
 
 - Candidate H's Calendar catalog creation check fails for an actor without configure permission. Other selected checks pass and retain their complete input bindings.
 - H2 repairs the shared Calendar configure-policy evaluator used by catalog creation, edit and delete. Availability operate and assignment policy use separate unchanged evaluators. No schema or fixture change exists.
+- The declared manual selection consists of six catalog cases: creation, edit and delete with admitted and denied roles. All six use that changed evaluator.
 - Creation has a reproduced denied-write case. The previous catalog edit/delete proof uses H's policy and includes both admitted and denied roles. Dashboard, Training and Onboarding proof uses unchanged code and matching inputs.
 - Exact-head CI passes H only. Publication is authorized; merge is not.
 

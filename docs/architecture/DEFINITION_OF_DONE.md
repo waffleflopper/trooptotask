@@ -43,9 +43,11 @@ npm run build
 
 ### Verification after a fix
 
-If verification passes except for one case, fix that case and rerun it. Add only adjacent checks whose behavior could change because of the repair. Reuse passing evidence for unaffected paths. Do not replay the whole manual baseline, feature recipe or journey matrix after each fix.
+If verification passes except for one case, fix that case and rerun it. Add only adjacent checks whose behavior could change because of the repair. Reuse passing evidence for unaffected paths. Do not automatically replay the whole manual baseline, feature recipe or journey matrix after each fix.
 
 Select reruns from the diff since the tested candidate, not from the entire issue or PR. Before expanding coverage, name the changed shared behavior and the additional paths it can affect in the existing work record or worker brief. A shared authorization, provider, schema or runtime change may require broader coverage of its consumers. A new commit, review round, merge/rebase or session restart alone is not a reason to repeat everything. Do not add speculative variants to an otherwise complete repair.
+
+A full manual repeat is allowed only when a change or evidence gap indicates that it is needed. Before starting, state the justification to Robert and include it in any worker brief. Identify what invalidates prior passing proof and why focused checks cannot establish the required behavior. This requires an explanation, not another permission request. Required current-head CI runs follow the command contract above.
 
 Bind reused evidence to its original tested revision and explain why the relevant code, driving steps, fixtures, runtime settings and role/scope inputs still match. Never relabel old evidence as a fresh run. Missing, failed and unrun observations stay explicit. A fix is accepted when its failing case and justified adjacent checks pass and applicable prior proof covers the remaining requirements.
 

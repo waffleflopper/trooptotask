@@ -36,6 +36,8 @@ Robert has technical experience but is not overly technical. Lead with the outco
 
 The [verification contract](../architecture/DEFINITION_OF_DONE.md#required-commands) selects checks by change type and owns evidence requirements. Documentation-only work follows its documentation checks; application changes require the full candidate sequence, which may run in GitHub Actions. Use focused checks locally; pushes do not require repeating the full suite. Record pending hosted checks at publication handoff, and verify actual results before acceptance. Keep failed or unavailable acceptance evidence explicit.
 
+Follow [verification after a fix](../architecture/DEFINITION_OF_DONE.md#verification-after-a-fix) for repair and review iterations. Worker briefs and acceptance reviews must reuse applicable passing evidence and justify additional checks by the changed behavior. Generic playbooks do not authorize a broader repeat.
+
 Record each required check as passed, failed or unavailable. Missing flow evidence, failed tests and unavailable tools remain explicit; keep the owning task open when that evidence is required for acceptance. Notify Robert when a completed schema change needs a separately operated remote migration before merge; never run it as part of local verification.
 
 ## Stabilization tasks

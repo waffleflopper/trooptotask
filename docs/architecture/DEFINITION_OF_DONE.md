@@ -29,8 +29,6 @@ Full validation is a candidate acceptance requirement, not permission to push. U
 
 Robert intentionally keeps this private, single-contributor repository on its current GitHub plan with `main` unprotected. He reviews CI results before merging. Missing paid branch protection/rulesets is not a failing check, defect or unmet acceptance requirement. Actual failed, cancelled or unavailable validation remains explicit.
 
-Once checks pass, repeat or broaden them only for subsequent changes, failures or unresolved concerns. Recording results alone needs documentation validation, not another unchanged runtime run.
-
 ```bash
 npm run format
 npm run format:check
@@ -42,6 +40,20 @@ npm run build
 ```
 
 `npm run test` runs retained Vitest tests. `npm run gate` combines format checking, lint, governance, Svelte/type checks and tests; it omits formatting writes and the production build and stops at the first failure. It is not the whole sequence above.
+
+### Verification after a fix
+
+If verification passes except for one case, fix that case and rerun it. Add only adjacent checks whose behavior could change because of the repair. Reuse passing evidence for unaffected paths. Do not automatically replay the whole manual baseline, feature recipe or journey matrix after each fix.
+
+Select reruns from the diff since the tested candidate, not from the entire issue or PR. Before expanding coverage, name the changed shared behavior and the additional paths it can affect in the existing work record or worker brief. A shared authorization, provider, schema or runtime change may require broader coverage of its consumers. A new commit, review round, merge/rebase or session restart alone is not a reason to repeat everything. Do not add speculative variants to an otherwise complete repair.
+
+A full manual repeat is allowed only when a change or evidence gap indicates that it is needed. Before starting, state the justification to Robert and include it in any worker brief. Identify what invalidates prior passing proof and why focused checks cannot establish the required behavior. This requires an explanation, not another permission request. Required current-head CI runs follow the command contract above.
+
+Bind reused evidence to its original tested revision and explain why the relevant code, driving steps, fixtures, runtime settings and role/scope inputs still match. Never relabel old evidence as a fresh run. Missing, failed and unrun observations stay explicit. A fix is accepted when its failing case and justified adjacent checks pass and applicable prior proof covers the remaining requirements.
+
+Restart a stale owned verification environment as required by verify-trooptotask, then run the selected checks on the updated app. Restarting establishes the new candidate; it does not invalidate proof of unaffected behavior. Documentation or evidence packaging alone requires documentation validation, not a new live sweep. Changes to executable controls or driving steps require verification of the behavior they change.
+
+Keep the complete required CI sequence for the final application candidate. Current-head CI supplies that evidence once; do not duplicate it locally. Focused repair checks and reused manual evidence supplement CI. They do not waive a required check or unverified acceptance item.
 
 ### Documentation checks
 

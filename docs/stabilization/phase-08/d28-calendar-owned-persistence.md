@@ -27,6 +27,7 @@ Inside, `packaging-notes.md` adds specific references for 33 cases whose phase-l
 Extract into a fresh ignored directory and verify its inventory. The archive hash also protects that inventory.
 
 ```bash
+mkdir -p .verification
 proof_dir=$(mktemp -d .verification/calendar-baseline.XXXXXX)
 tar -xzf docs/stabilization/phase-08/d28-calendar-main-baseline-2024a521-r2.tar.gz -C "$proof_dir"
 python3 - "$proof_dir" <<'PY_VERIFY'

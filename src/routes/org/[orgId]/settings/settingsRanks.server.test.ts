@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILT_IN_RANK_CATALOG } from '$features/personnel/contracts';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { saveOrganizationRankCatalogEntry } from '$features/personnel/index.server';
 import { buildRanksSettingsData, loadRanksSettings } from './settingsRanks.server';
 

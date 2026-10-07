@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createInMemoryDataStore, createQueryPortsContext } from '$lib/server/adapters/inMemory';
+import {
+	createInMemoryDataStore,
+	createQueryPortsContext
+} from '$features/training/server/trainingPersistence.test-support.server';
 import { fetchDashboardTrainingSummary } from './trainingSummaryQuery.server';
 import type { Personnel } from '$features/personnel/contracts';
 

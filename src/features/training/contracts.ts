@@ -230,3 +230,92 @@ export interface TrainingPreferencesPatch {
 }
 
 export type { TrainingSupportReader } from './supportReadTypes';
+
+export type SavedTrainingType = TrainingType & {
+	organization_id: string;
+	created_at: string;
+};
+
+export type SavedTrainingView = TrainingView & {
+	organization_id: string;
+};
+
+export type SavedTrainingCompletion = PersonnelTraining & {
+	organization_id: string;
+	created_at: string;
+	updated_at: string;
+};
+
+export type TrainingTypeCreate = Pick<TrainingType, 'name'> & Partial<Omit<TrainingType, 'id' | 'name'>>;
+export type TrainingTypePatch = Partial<Omit<TrainingType, 'id'>>;
+export type TrainingViewCreate = Pick<TrainingView, 'name'> & Partial<Pick<TrainingView, 'columnIds'>>;
+export type TrainingViewPatch = Partial<Pick<TrainingView, 'name' | 'columnIds'>>;
+export type TrainingTypeTiming = {
+	expirationMonths: number | null;
+	expirationDateOnly: boolean | null;
+};
+export type TrainingTypeImportReference = TrainingTypeTiming & {
+	id: string;
+	canBeExempted: boolean | null;
+	exemptPersonnelIds: string[] | null;
+};
+export type TrainingRankApplicabilityReference = {
+	appliesToRanks: unknown;
+	excludedRanks: unknown;
+};
+
+export interface TrainingCatalogPersistence {
+	listTypes(): Promise<SavedTrainingType[]>;
+	listViews(): Promise<SavedTrainingView[]>;
+	listTypeLabels(): Promise<Array<Pick<TrainingType, 'id' | 'name'>>>;
+	listRankApplicabilityReferences(): Promise<TrainingRankApplicabilityReference[]>;
+	countTypesEstimated(): Promise<number>;
+	findTypeByName(name: string): Promise<SavedTrainingType | null>;
+	listExistingTypeNames(names: readonly string[]): Promise<string[]>;
+	hasTypes(): Promise<boolean>;
+	findTypeTiming(id: string): Promise<TrainingTypeTiming | null>;
+	listTypeImportReferences(ids: readonly string[]): Promise<TrainingTypeImportReference[]>;
+	findTypeId(id: string): Promise<Pick<TrainingType, 'id'> | null>;
+	createType(input: TrainingTypeCreate): Promise<SavedTrainingType>;
+	patchType(id: string, fields: TrainingTypePatch): Promise<SavedTrainingType>;
+	deleteType(id: string): Promise<void>;
+	createView(input: TrainingViewCreate): Promise<SavedTrainingView>;
+	patchView(id: string, fields: TrainingViewPatch): Promise<SavedTrainingView>;
+	deleteView(id: string): Promise<void>;
+}
+
+export type TrainingCompletionCreate = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId'> &
+	Partial<Pick<PersonnelTraining, 'completionDate' | 'expirationDate' | 'notes' | 'certificateUrl'>>;
+export type TrainingCompletionPatch = Partial<
+	Pick<PersonnelTraining, 'completionDate' | 'expirationDate' | 'notes' | 'certificateUrl'>
+> & { updatedAt: string };
+export type TrainingCompletedUpsert = Pick<
+	PersonnelTraining,
+	'personnelId' | 'trainingTypeId' | 'expirationDate' | 'notes'
+> & {
+	completionDate?: string | null;
+	updatedAt: string;
+};
+export type TrainingCompletionResource = Pick<PersonnelTraining, 'personnelId' | 'trainingTypeId'>;
+export type TrainingCompletionPairReference = Pick<PersonnelTraining, 'id' | 'personnelId' | 'trainingTypeId'>;
+export type PersonnelTrainingReadinessFact = Pick<PersonnelTraining, 'trainingTypeId' | 'expirationDate'>;
+export type PersonnelTrainingExportFact = Pick<
+	PersonnelTraining,
+	'trainingTypeId' | 'completionDate' | 'expirationDate' | 'notes'
+>;
+
+export interface TrainingCompletionPersistence {
+	listCompletions(): Promise<SavedTrainingCompletion[]>;
+	findResource(id: string): Promise<TrainingCompletionResource | null>;
+	findPair(personnelId: string, trainingTypeId: string): Promise<Pick<PersonnelTraining, 'id'> | null>;
+	listPairReferences(
+		personnelIds: readonly string[],
+		trainingTypeIds: readonly string[]
+	): Promise<TrainingCompletionPairReference[]>;
+	listPersonReadinessFacts(personnelId: string): Promise<PersonnelTrainingReadinessFact[]>;
+	listPersonExportFacts(personnelId: string): Promise<PersonnelTrainingExportFact[]>;
+	createRecord(input: TrainingCompletionCreate): Promise<SavedTrainingCompletion>;
+	patchRecord(id: string, fields: TrainingCompletionPatch): Promise<SavedTrainingCompletion>;
+	deleteRecord(id: string): Promise<void>;
+	upsertCompleted(rows: readonly TrainingCompletedUpsert[]): Promise<SavedTrainingCompletion[]>;
+}

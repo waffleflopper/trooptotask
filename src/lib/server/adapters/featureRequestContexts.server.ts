@@ -7,6 +7,7 @@ import {
 } from './requestContexts.server';
 import { getAdminClient } from '$lib/server/supabase';
 import {
+	loadOrganizationRankCatalog,
 	createSupabaseGroupPersistence,
 	createSupabaseSelfPinPersistence,
 	createSupabasePersonnelTrainingRosterPort,
@@ -14,9 +15,16 @@ import {
 	createSupabasePersonnelRatingSchemeRosterPort,
 	createSupabasePersonnelOnboardingRosterPort
 } from '$features/personnel/index.server';
-import { createSupabaseTrainingOnboardingReferencesPort } from '$features/training/index.server';
+import {
+	createSupabaseTrainingCatalogPersistence,
+	createSupabaseTrainingCompletionPersistence,
+	createSupabaseTrainingOnboardingReferencesPort
+} from '$features/training/index.server';
 import type {
 	createTrainingRecord,
+	updateTrainingRecord,
+	deleteTrainingRecord,
+	importTrainingRecords,
 	deleteTrainingType,
 	fetchTrainingBriefingReport,
 	fetchTrainingWorkspaceData
@@ -62,13 +70,28 @@ import type {
 	startOnboarding
 } from '$features/onboarding/index.server';
 
+export function createRequestTrainingCatalogContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId)
+	};
+}
+
 export function createRequestTrainingRosterContext(
 	request: AdmittedOrganizationRequest
-): Parameters<typeof createTrainingRecord>[0] & Parameters<typeof fetchTrainingWorkspaceData>[0] {
+): Parameters<typeof createTrainingRecord>[0] &
+	Parameters<typeof updateTrainingRecord>[0] &
+	Parameters<typeof deleteTrainingRecord>[0] &
+	Parameters<typeof importTrainingRecords>[0] &
+	Parameters<typeof fetchTrainingWorkspaceData>[0] {
 	return {
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
-		...createRequestWriteContext(request),
+		...createRequestTrainingCatalogContext(request),
+		loadRankCatalog: () =>
+			loadOrganizationRankCatalog({ auth: request.auth, store: request.store }, { authorization: 'training-view' }),
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};
 }
@@ -78,7 +101,10 @@ export function createRequestTrainingBriefingContext(
 ): Parameters<typeof fetchTrainingBriefingReport>[0] {
 	return {
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
-		...createRequestWriteContext(request),
+		...createRequestTrainingCatalogContext(request),
+		loadRankCatalog: () =>
+			loadOrganizationRankCatalog({ auth: request.auth, store: request.store }, { authorization: 'training-records' }),
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};
@@ -89,7 +115,7 @@ export function createRequestTrainingTypeDeletionContext(
 ): Parameters<typeof deleteTrainingType>[0] {
 	const notifications = createRequestNotificationDelivery();
 	return {
-		...createRequestWriteContext(request),
+		...createRequestTrainingCatalogContext(request),
 		notifyTrainingTypeDeleted: () =>
 			notifications.notifyAdmins(request.auth.orgId, request.auth.userId, {
 				type: 'config_type_deleted',
@@ -200,8 +226,11 @@ export function createRequestRatingSchemeWorkspaceContext(
 export function createRequestOnboardingTemplateStepContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestWriteContext(request),
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)
-	} satisfies Parameters<typeof createOnboardingTemplateStep>[0];
+	} satisfies Parameters<typeof createOnboardingTemplateStep>[0] & {
+		trainingCatalog: ReturnType<typeof createSupabaseTrainingCatalogPersistence>;
+	};
 }
 
 export function createRequestOnboardingStartContext(

@@ -1,10 +1,15 @@
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import {
+	createInMemoryTrainingCatalogPersistence,
+	createInMemoryTrainingCompletionPersistence
+} from '$features/training/server/inMemoryTrainingPersistence.server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { TrainingWorkspaceData } from '$features/training/contracts';
 import type { GroupPersistence, Personnel, SelfPinPersistence } from '$features/personnel/contracts';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
-import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore } from '$features/training/server/trainingPersistence.test-support.server';
 import {
 	createInMemoryGroupPersistence,
 	createInMemorySelfPinPersistence
@@ -36,6 +41,11 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			store: {
 				findMany: findManyMock
 			},
+			loadRankCatalog: undefined as unknown as () => Promise<
+				import('$features/personnel/contracts').RankCatalogEntry[]
+			>,
+			trainingCatalog: undefined as unknown as ReturnType<typeof createInMemoryTrainingCatalogPersistence>,
+			trainingCompletions: undefined as unknown as ReturnType<typeof createInMemoryTrainingCompletionPersistence>,
 			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
 			selfPins: undefined as unknown as Pick<SelfPinPersistence, 'listNames'>,
 			personnelTrainingRoster: undefined as unknown as PersonnelTrainingRosterPort
@@ -69,6 +79,9 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 		mockCtx.auth.scopeSet = { kind: 'organization' };
 		const store = createInMemoryDataStore();
 		store.findMany = findManyMock;
+		mockCtx.loadRankCatalog = () => loadOrganizationRankCatalog(mockCtx as never, { authorization: 'training-view' });
+		mockCtx.trainingCatalog = createInMemoryTrainingCatalogPersistence(store, mockCtx.auth.orgId);
+		mockCtx.trainingCompletions = createInMemoryTrainingCompletionPersistence(store, mockCtx.auth.orgId);
 		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId);
 		mockCtx.selfPins = createInMemorySelfPinPersistence(store, mockCtx.auth.orgId, mockCtx.auth.userId);
 		mockCtx.personnelTrainingRoster = {

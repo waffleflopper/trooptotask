@@ -1,4 +1,4 @@
-import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestTrainingCatalogContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { createRequestTrainingTypeDeletionContext } from '$lib/server/adapters/featureRequestContexts.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
@@ -8,20 +8,20 @@ import { createTrainingType, updateTrainingType, deleteTrainingType } from '$fea
 import type { TrainingType } from '$features/training/contracts';
 
 export const _postConfig = {
-	context: createRequestWriteContext,
+	context: createRequestTrainingCatalogContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => createTrainingType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, TrainingType, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<Record<string, unknown>, TrainingType, ReturnType<typeof createRequestTrainingCatalogContext>>;
 
 export const _putConfig = {
-	context: createRequestWriteContext,
+	context: createRequestTrainingCatalogContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.training.configureRequirements,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => updateTrainingType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, TrainingType, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<Record<string, unknown>, TrainingType, ReturnType<typeof createRequestTrainingCatalogContext>>;
 
 export const _deleteConfig = {
 	context: createRequestTrainingTypeDeletionContext,

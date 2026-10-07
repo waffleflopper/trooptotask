@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import {
 	createTrainingRecord,
 	deleteTrainingRecord,
@@ -162,6 +162,111 @@ describe('createTrainingRecord', () => {
 			action: 'training_record.updated'
 		});
 	});
+
+	describe.each([
+		{
+			kind: 'dated',
+			expirationDateOnly: false,
+			dateInput: { completionDate: '2026-04-01' },
+			clearedDateInput: { completionDate: null },
+			dateFields: { completion_date: '2026-04-01', expiration_date: '2027-04-01' },
+			clearedDateFields: { completion_date: null, expiration_date: null }
+		},
+		{
+			kind: 'expiration-only',
+			expirationDateOnly: true,
+			dateInput: { expirationDate: '2026-04-01' },
+			clearedDateInput: { expirationDate: null },
+			dateFields: { expiration_date: '2026-04-01' },
+			clearedDateFields: { expiration_date: null }
+		}
+	])(
+		'repeated create for a $kind record',
+		({ expirationDateOnly, dateInput, clearedDateInput, dateFields, clearedDateFields }) => {
+			it.each([
+				{ change: 'omitted fields', input: {}, fields: {} },
+				{ change: 'notes only', input: { notes: 'New notes' }, fields: { notes: 'New notes' } },
+				{ change: 'supplied date', input: dateInput, fields: dateFields },
+				{
+					change: 'explicit null clears',
+					input: { ...clearedDateInput, notes: null, certificateUrl: null },
+					fields: { ...clearedDateFields, notes: null, certificate_url: null }
+				}
+			])('preserves unsupplied saved values for $change', async ({ input, fields }) => {
+				const ctx = buildContext();
+				seedPersonnel(ctx);
+				seedTrainingType(ctx, { expiration_date_only: expirationDateOnly });
+				const before = {
+					id: 'tr-1',
+					organization_id: 'test-org',
+					personnel_id: 'p-1',
+					training_type_id: 'tt-1',
+					completion_date: '2025-03-15',
+					expiration_date: '2026-03-15',
+					notes: 'Saved notes',
+					certificate_url: 'https://example.test/saved-certificate',
+					created_at: '2025-03-15T12:00:00.000Z',
+					updated_at: '2025-03-15T12:00:00.000Z'
+				};
+				ctx.store.seed('personnel_trainings', [structuredClone(before)]);
+
+				const result = await createTrainingRecord(ctx, { personnelId: 'p-1', trainingTypeId: 'tt-1', ...input });
+				const stored = await ctx.store.findMany<Pick<typeof before, 'updated_at'>>('personnel_trainings', 'test-org');
+				const expected = { ...before, ...fields, updated_at: expect.any(String) };
+				expect(stored, JSON.stringify({ before, stored, result })).toEqual([expected]);
+				expect(result).toEqual({
+					id: 'tr-1',
+					organization_id: 'test-org',
+					personnelId: 'p-1',
+					trainingTypeId: 'tt-1',
+					completionDate: expected.completion_date,
+					expirationDate: expected.expiration_date,
+					notes: expected.notes,
+					certificateUrl: expected.certificate_url,
+					created_at: '2025-03-15T12:00:00.000Z',
+					updated_at: stored[0].updated_at
+				});
+				expect(stored[0].updated_at).not.toBe(before.updated_at);
+				expect(ctx.audit.events).toEqual([
+					expect.objectContaining({
+						action: 'training_record.updated',
+						resourceType: 'training_record',
+						resourceId: 'tr-1'
+					})
+				]);
+			});
+		}
+	);
+
+	it.each([false, true])(
+		'defaults omitted mutable fields to null on a fresh create with expiration-only %s',
+		async (expirationDateOnly) => {
+			const ctx = buildContext();
+			seedPersonnel(ctx);
+			seedTrainingType(ctx, { expiration_date_only: expirationDateOnly });
+			const result = await createTrainingRecord(ctx, { personnelId: 'p-1', trainingTypeId: 'tt-1' });
+			expect(result).toMatchObject({
+				personnelId: 'p-1',
+				trainingTypeId: 'tt-1',
+				completionDate: null,
+				expirationDate: null,
+				notes: null,
+				certificateUrl: null
+			});
+			expect(await ctx.store.findMany('personnel_trainings', 'test-org')).toEqual([
+				expect.objectContaining({
+					id: result.id,
+					organization_id: 'test-org',
+					personnel_id: 'p-1',
+					training_type_id: 'tt-1',
+					completion_date: null,
+					expiration_date: null,
+					notes: null,
+					certificate_url: null
+				})
+			]);
+		}
+	);
 
 	it('enforces group scope on personnel', async () => {
 		const ctx = buildContext({
@@ -564,5 +669,37 @@ describe('deleteTrainingRecord', () => {
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
+	});
+});
+
+describe('retained direct patch boundary', () => {
+	it('forwards present malformed known fields while stripping unrelated keys and preserving omitted date/certificate', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+		const result = await updateTrainingRecord(ctx, {
+			id: 'tr-1',
+			notes: { retained: true },
+			certificateUrl: ['legacy-value'],
+			personnelId: 'p-2',
+			organization_id: 'other-org',
+			unrelated: 'discard'
+		});
+		expect(result).toMatchObject({
+			id: 'tr-1',
+			personnelId: 'p-1',
+			trainingTypeId: 'tt-1',
+			completionDate: '2025-03-15',
+			expirationDate: '2026-03-15',
+			notes: { retained: true },
+			certificateUrl: ['legacy-value'],
+			organization_id: 'test-org'
+		});
+		expect(result).not.toHaveProperty('unrelated');
+		expect(ctx.audit.events.at(-1)).toMatchObject({
+			action: 'training_record.updated',
+			details: { personnel_id: 'p-1', training_type_id: 'tt-1', completion_date: '2025-03-15' }
+		});
 	});
 });

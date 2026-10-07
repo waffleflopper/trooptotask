@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import { TrainingTypeEntity } from './server/trainingTypeEntity.server';
+import { TRAINING_TYPE_FIELDS, toTrainingType, type TrainingTypeRow } from './server/trainingPersistenceMapping.server';
 import type { TrainingOnboardingActor, TrainingOnboardingReferencesPort } from './contracts';
 
 const PAGE_SIZE = 500;
@@ -24,21 +24,22 @@ export function createSupabaseTrainingOnboardingReferencesPort(
 		async listTypes(actor) {
 			await requireOnboardingReferenceRead(actor);
 			const client = getAdminClient();
-			const rows: Record<string, unknown>[] = [];
+			const rows: TrainingTypeRow[] = [];
 			for (let offset = 0; ; offset += PAGE_SIZE) {
 				const { data, error } = await client
 					.from('training_types')
-					.select(TrainingTypeEntity.select)
+					.select(TRAINING_TYPE_FIELDS)
 					.eq('organization_id', actor.orgId)
 					.order('sort_order', { ascending: true })
 					.order('id', { ascending: true })
-					.range(offset, offset + PAGE_SIZE - 1);
+					.range(offset, offset + PAGE_SIZE - 1)
+					.returns<TrainingTypeRow[]>();
 				if (error) throw new Error(error.message);
-				const page = (data ?? []) as unknown as Record<string, unknown>[];
+				const page = data ?? [];
 				rows.push(...page);
 				if (page.length < PAGE_SIZE) break;
 			}
-			return TrainingTypeEntity.fromDbArray(rows);
+			return rows.map(toTrainingType);
 		},
 		async completedTypeIds(actor, personnelIds, trainingTypeIds) {
 			await requireOnboardingReferenceRead(actor);

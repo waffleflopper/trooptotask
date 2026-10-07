@@ -56,6 +56,15 @@ const expirationDateOnlyType: TrainingType = {
 };
 
 const trainingTypes = [expiringType, neverExpiresType, expirationDateOnlyType];
+const savedRecord: PersonnelTraining = {
+	id: 'saved-record',
+	personnelId: person.id,
+	trainingTypeId: neverExpiresType.id,
+	completionDate: null,
+	expirationDate: null,
+	notes: 'Saved notes',
+	certificateUrl: 'https://example.test/saved'
+};
 
 function renderEditor(
 	overrides: {
@@ -101,6 +110,92 @@ afterEach(() => {
 });
 
 describe('PersonTrainingEditor', () => {
+	it('discards the previous person draft when another person is selected', async () => {
+		vi.useRealTimers();
+		const view = renderEditor();
+		await view.rerender({ trainingTypes: [neverExpiresType], trainings: [savedRecord] });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Previous person draft' } });
+		await view.rerender({ person: { ...person, id: 'another-person' } });
+		expect(screen.queryByLabelText('Notes')).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('');
+	});
+
+	it('suppresses rejected save feedback after the editor closes', async () => {
+		vi.useRealTimers();
+		let rejectSave!: (error: Error) => void;
+		const onSave = vi.fn(
+			() =>
+				new Promise<void>((_, reject) => {
+					rejectSave = reject;
+				})
+		);
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const view = renderEditor({ onSave });
+		await view.rerender({ trainingTypes: [neverExpiresType], trainings: [savedRecord] });
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		view.unmount();
+		rejectSave(new Error('Retired save denied'));
+		await onSave.mock.results[0].value.catch(() => undefined);
+		await Promise.resolve();
+		expect(errorToast).not.toHaveBeenCalled();
+	});
+
+	it('retains an inline draft during record refresh and retries a rejected save', async () => {
+		vi.useRealTimers();
+		let rejectSave!: (error: Error) => void;
+		const pendingSave = new Promise<void>((_, reject) => {
+			rejectSave = reject;
+		});
+		const onSave = vi.fn().mockReturnValueOnce(pendingSave).mockResolvedValueOnce(undefined);
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const record = savedRecord;
+		const view = render(PersonTrainingEditor, {
+			props: {
+				person,
+				trainingTypes: [neverExpiresType],
+				trainings: [record],
+				onSave,
+				onRemove: vi.fn(),
+				onClose: vi.fn()
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+		await fireEvent.input(screen.getByLabelText('Notes'), { target: { value: 'Retained draft' } });
+		await fireEvent.input(screen.getByLabelText('Certificate URL'), {
+			target: { value: 'https://example.test/draft' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await view.rerender({ trainings: [{ ...record, id: 'pending-record', notes: 'Retained draft' }] });
+		rejectSave(new Error('Save denied'));
+		await view.rerender({ trainings: [record] });
+		await waitFor(() => expect(errorToast).toHaveBeenCalled());
+		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('Retained draft');
+		expect((screen.getByLabelText('Certificate URL') as HTMLInputElement).value).toBe('https://example.test/draft');
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await waitFor(() => expect(screen.queryByLabelText('Notes')).toBeNull());
+		expect(onSave.mock.calls.map(([data]) => data)).toEqual([
+			{
+				personnelId: person.id,
+				trainingTypeId: neverExpiresType.id,
+				completionDate: null,
+				expirationDate: null,
+				notes: 'Retained draft',
+				certificateUrl: 'https://example.test/draft'
+			},
+			{
+				personnelId: person.id,
+				trainingTypeId: neverExpiresType.id,
+				completionDate: null,
+				expirationDate: null,
+				notes: 'Retained draft',
+				certificateUrl: 'https://example.test/draft'
+			}
+		]);
+	});
+
 	it('counts saved currency states instead of display labels and excludes exemptions and inapplicable rows', () => {
 		const types: TrainingType[] = [
 			neverExpiresType,

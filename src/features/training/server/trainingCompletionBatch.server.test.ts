@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { importTrainingRecords } from './trainingCompletionBatch.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
@@ -593,5 +593,69 @@ describe('importTrainingRecords', () => {
 			status: 400,
 			message: 'Maximum 500 records per batch'
 		});
+	});
+});
+
+describe('batch acknowledged effects', () => {
+	it('retains completion identity and certificate, then retains early effects when a later exemption fails without final audit', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedTrainingType(ctx, { id: 'early-exempt', can_be_exempted: true, expiration_months: null });
+		seedTrainingType(ctx, { id: 'late-exempt', can_be_exempted: true, expiration_months: null });
+		ctx.store.seed('personnel_trainings', [
+			{
+				id: 'retained-id',
+				organization_id: 'test-org',
+				personnel_id: 'p-1',
+				training_type_id: 'tt-1',
+				completion_date: '2024-01-01',
+				expiration_date: '2025-01-01',
+				certificate_url: 'keep-certificate',
+				notes: 'old'
+			}
+		]);
+		const patch = ctx.trainingCatalog.patchType;
+		ctx.trainingCatalog.patchType = async (id, fields) => {
+			if (id === 'late-exempt') throw new Error('Late exemption failed');
+			return patch(id, fields);
+		};
+		await expect(
+			importTrainingRecords(ctx, {
+				records: [
+					{ personnelId: 'p-1', trainingTypeId: 'tt-1', completionDate: '2026-03-01', status: 'completed' },
+					{ personnelId: 'p-2', trainingTypeId: 'early-exempt', completionDate: null, status: 'exempt' },
+					{ personnelId: 'p-3', trainingTypeId: 'late-exempt', completionDate: null, status: 'exempt' }
+				]
+			})
+		).rejects.toThrow('Late exemption failed');
+		expect(await ctx.trainingCompletions.listCompletions()).toMatchObject([
+			{
+				id: 'retained-id',
+				certificateUrl: 'keep-certificate',
+				completionDate: '2026-03-01',
+				expirationDate: '2027-03-01',
+				notes: null
+			}
+		]);
+		expect(await ctx.trainingCatalog.listTypeImportReferences(['early-exempt', 'late-exempt'])).toMatchObject([
+			{ id: 'early-exempt', exemptPersonnelIds: ['p-2'] },
+			{ id: 'late-exempt', exemptPersonnelIds: [] }
+		]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+	it('keeps an omitted never-expiring batch completion date omitted at the port boundary', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx, { expiration_months: null });
+		const result = await importTrainingRecords(ctx, {
+			records: [{ personnelId: 'p-1', trainingTypeId: 'tt-1', status: 'completed' }] as Parameters<
+				typeof importTrainingRecords
+			>[1]['records']
+		});
+		expect(result.inserted).toMatchObject([
+			{ personnelId: 'p-1', trainingTypeId: 'tt-1', expirationDate: null, notes: null }
+		]);
+		expect(Object.hasOwn(result.inserted[0], 'completionDate')).toBe(false);
 	});
 });

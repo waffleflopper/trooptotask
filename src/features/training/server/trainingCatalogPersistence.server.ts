@@ -26,6 +26,7 @@ export function createSupabaseTrainingCatalogPersistence(
 					.select(TRAINING_TYPE_FIELDS)
 					.eq('organization_id', orgId)
 					.order('sort_order', { ascending: true })
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<TrainingTypeRow[]>();
 				return { data, error };
@@ -40,6 +41,7 @@ export function createSupabaseTrainingCatalogPersistence(
 					.select(TRAINING_VIEW_FIELDS)
 					.eq('organization_id', orgId)
 					.order('name', { ascending: true })
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<TrainingViewRow[]>();
 				return { data, error };
@@ -53,6 +55,7 @@ export function createSupabaseTrainingCatalogPersistence(
 					.from('training_types')
 					.select('id, name')
 					.eq('organization_id', orgId)
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<{ id: string; name: string }[]>();
 				return { data, error };
@@ -67,6 +70,7 @@ export function createSupabaseTrainingCatalogPersistence(
 						.from('training_types')
 						.select('applies_to_ranks, excluded_ranks')
 						.eq('organization_id', orgId)
+						.order('id', { ascending: true })
 						.range(from, to)
 						.returns<{ applies_to_ranks?: unknown; excluded_ranks?: unknown }[]>();
 					return { data, error };
@@ -106,6 +110,7 @@ export function createSupabaseTrainingCatalogPersistence(
 					.select('name')
 					.eq('organization_id', orgId)
 					.in('name', [...names])
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<{ name: string }[]>();
 				return { data, error };
@@ -147,6 +152,7 @@ export function createSupabaseTrainingCatalogPersistence(
 					.select('id, expiration_months, expiration_date_only, can_be_exempted, exempt_personnel_ids')
 					.eq('organization_id', orgId)
 					.in('id', [...ids])
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<
 						{

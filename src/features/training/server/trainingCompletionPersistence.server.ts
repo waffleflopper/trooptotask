@@ -21,6 +21,7 @@ export function createSupabaseTrainingCompletionPersistence(
 					.from('personnel_trainings')
 					.select(TRAINING_COMPLETION_FIELDS)
 					.eq('organization_id', orgId)
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<TrainingCompletionRow[]>();
 				return { data, error };
@@ -60,6 +61,7 @@ export function createSupabaseTrainingCompletionPersistence(
 						.eq('organization_id', orgId)
 						.in('personnel_id', [...personnelIds])
 						.in('training_type_id', [...trainingTypeIds])
+						.order('id', { ascending: true })
 						.range(from, to)
 						.returns<{ id: string; personnel_id: string; training_type_id: string }[]>();
 					return { data, error };
@@ -80,6 +82,7 @@ export function createSupabaseTrainingCompletionPersistence(
 						.select('training_type_id, expiration_date')
 						.eq('organization_id', orgId)
 						.eq('personnel_id', personnelId)
+						.order('id', { ascending: true })
 						.range(from, to)
 						.returns<{ training_type_id: string; expiration_date: string | null }[]>();
 					return { data, error };
@@ -103,6 +106,7 @@ export function createSupabaseTrainingCompletionPersistence(
 					.select('training_type_id, completion_date, expiration_date, notes')
 					.eq('organization_id', orgId)
 					.eq('personnel_id', personnelId)
+					.order('id', { ascending: true })
 					.range(from, to)
 					.returns<
 						{

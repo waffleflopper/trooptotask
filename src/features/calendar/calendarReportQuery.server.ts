@@ -8,7 +8,7 @@ import { requirePersonnelCalendarRoster, resolveCalendarGroupScope } from '$lib/
 
 type CalendarReportPorts = Parameters<typeof requireCalendarPolicy>[0] &
 	Parameters<typeof requirePersonnelCalendarRoster>[0] & {
-		store: Parameters<typeof listStatusTypes>[0];
+		calendarCatalogs: Parameters<typeof listStatusTypes>[0];
 		rawStore: Parameters<typeof listGroupCatalog>[0]['store'];
 	};
 
@@ -21,12 +21,11 @@ export interface CalendarReportData {
 export async function fetchCalendarReportData(ctx: CalendarReportPorts): Promise<CalendarReportData> {
 	await requireCalendarPolicy(ctx, CALENDAR_POLICY_ACTIONS.viewReports);
 
-	const orgId = ctx.auth.orgId;
 	const scope = resolveCalendarGroupScope(ctx);
 
 	const [allPersonnel, statusTypes, groups] = await Promise.all([
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
-		listStatusTypes(ctx.store, orgId),
+		listStatusTypes(ctx.calendarCatalogs),
 		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore }, { groupIds: scope?.groupIds })
 	]);
 

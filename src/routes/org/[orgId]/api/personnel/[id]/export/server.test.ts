@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import ExcelJS from 'exceljs';
 import { _getConfig } from './+server';
 

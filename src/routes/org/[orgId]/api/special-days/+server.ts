@@ -8,18 +8,18 @@ import {
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestCalendarCatalogContext } from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
 
 export const _getConfig = {
-	context: createRequestWriteContext,
+	context: createRequestCalendarCatalogContext,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureSpecialDays,
 	policyResource: { kind: 'organization' },
-	fn: (ctx) => listSpecialDays(ctx.store, ctx.auth.orgId)
-} satisfies RouteConfig<void, unknown, ReturnType<typeof createRequestWriteContext>>;
+	fn: (ctx) => listSpecialDays(ctx.calendarCatalogs)
+} satisfies RouteConfig<void, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 
 export const _postConfig = {
-	context: createRequestWriteContext,
+	context: createRequestCalendarCatalogContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureSpecialDays,
 	policyResource: { kind: 'organization' },
@@ -29,18 +29,18 @@ export const _postConfig = {
 		}
 		return createSpecialDay(ctx, input);
 	}
-} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 
 export const _putConfig = {
-	context: createRequestWriteContext,
+	context: createRequestCalendarCatalogContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureSpecialDays,
 	policyResource: { kind: 'organization' },
 	fn: (ctx, input) => updateSpecialDay(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 
 export const _deleteConfig = {
-	context: createRequestWriteContext,
+	context: createRequestCalendarCatalogContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureSpecialDays,
 	policyResource: { kind: 'organization' },
@@ -51,10 +51,12 @@ export const _deleteConfig = {
 		await deleteSpecialDay(ctx, id);
 		return { success: true };
 	}
-} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 
 export const PUT = handle(_putConfig);
 export const DELETE = handle(_deleteConfig);
 export const GET = handle(_getConfig);
 
-export const POST = handle<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>(_postConfig);
+export const POST = handle<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>(
+	_postConfig
+);

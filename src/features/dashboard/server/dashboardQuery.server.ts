@@ -10,6 +10,8 @@ import { DEFAULT_LOSS_WARNING_WINDOW_DAYS } from '$features/organization/contrac
  * includes data (onboarding, rating scheme) the calendar page doesn't need.
  */
 import type { DashboardBootstrap } from '../contracts';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { CalendarCatalogPersistence } from '$features/calendar/contracts';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
 import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
@@ -29,6 +31,8 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 	Parameters<typeof listDailyAssignments>[0] &
 	Parameters<typeof listPinnedGroupNames>[0] &
 	Parameters<typeof loadRosterPersonnel>[0] & {
+		auth: OrganizationAccessGrant;
+		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes'>;
 		store: Parameters<typeof listActiveOnboardings>[0] & Parameters<typeof listTrainingTypes>[0];
 		organizationSettings: Pick<OrganizationSettingsReader, 'findLossWarningWindowDays'>;
 		ratingSchemeDue?: RatingSchemeDuePort;
@@ -64,13 +68,13 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		warningWindow,
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
-		listAssignmentTypes(ctx.store, orgId),
+		listAssignmentTypes(ctx.calendarCatalogs),
 		listPinnedGroupNames(ctx),
 		loadRatingSchemeDueEntries(ctx),
 		listActiveOnboardings(ctx.store, orgId),
 		loadRosterPersonnel(ctx, { status: 'active' }),
 		listGroupCatalog(ctx),
-		listStatusTypes(ctx.store, orgId),
+		listStatusTypes(ctx.calendarCatalogs),
 		listTrainingTypes(ctx.store, orgId),
 		ctx.organizationSettings.findLossWarningWindowDays(orgId),
 		ctx.personnelAwardAcknowledgement

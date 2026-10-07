@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import { createReadyAppShellRouteData, createSuspendedAppShellRouteData } from '../appShell.test-support';
 import type { PersonnelWorkspaceRouteData } from '$features/personnel/contracts';
@@ -106,6 +106,7 @@ beforeEach(() => {
 			return {
 				auth: request.auth,
 				store: ctx.store,
+				calendarCatalogs: ctx.calendarCatalogs,
 				rawStore: ctx.rawStore,
 				personnelAwardAcknowledgement: ctx.personnelAwardAcknowledgement,
 				organizationSettings: ctx.organizationSettings

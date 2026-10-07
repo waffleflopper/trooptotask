@@ -21,6 +21,7 @@ export { requirePersonnelGroupAccess, requirePersonnelGroupAccessBatch } from '.
 export { createSupabasePersonnelCriticalTasksRosterPort } from './criticalTasksRoster.server';
 export type { PersonnelCriticalTasksRosterPort } from './contracts';
 export { createSupabasePersonnelCalendarRosterPort } from './calendarRoster.server';
+export { createSupabasePersonnelCalendarScopeIds } from './calendarScopeIds.server';
 export type { PersonnelCalendarRosterPort } from './contracts';
 export { createSupabasePersonnelOnboardingRosterPort } from './onboardingRoster.server';
 export type { PersonnelOnboardingRosterPort } from './contracts';

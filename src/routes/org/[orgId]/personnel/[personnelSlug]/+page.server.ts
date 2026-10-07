@@ -33,8 +33,8 @@ function createPersonnelDetailStreams(
 				ctx,
 				personnelId,
 				readinessAsOf,
-				(input) => listAvailabilityEntries(ctx, input),
-				() => listStatusTypes(ctx.store, ctx.auth.orgId)
+				(input) => listAvailabilityEntries(contexts.calendar, input),
+				() => listStatusTypes(contexts.calendar.calendarCatalogs)
 			),
 			training: loadTrainingReadinessLane({
 				store: ctx.store,

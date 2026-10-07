@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createInMemoryDataStore, createQueryPortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import type { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createQueryPortsContext } from './calendarPersistence.test-support.server';
 import {
 	fetchCalendarData,
 	fetchCalendarBootstrap,

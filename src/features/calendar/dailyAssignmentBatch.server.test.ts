@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import { replaceDailyAssignmentSlotsBatch } from './dailyAssignmentOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {

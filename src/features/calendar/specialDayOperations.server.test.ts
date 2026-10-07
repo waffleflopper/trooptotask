@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import { createSpecialDay, deleteSpecialDay, resetFederalHolidays } from './specialDayOperations.server';
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {

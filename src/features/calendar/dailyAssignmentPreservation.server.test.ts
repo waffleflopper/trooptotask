@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './calendarPersistence.test-support.server';
 import { fetchCalendarBootstrap, fetchCalendarData, fetchCalendarRangeData } from '$features/calendar/index.server';
 import { setDailyAssignmentSlot } from './dailyAssignmentOperations.server';
 

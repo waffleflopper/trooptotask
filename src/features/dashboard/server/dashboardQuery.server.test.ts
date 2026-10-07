@@ -1,5 +1,6 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { createInMemoryDataStore, createQueryPortsContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createQueryPortsContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { fetchDashboardBootstrap } from './dashboardQuery.server';
 
 const ORG = 'test-org';

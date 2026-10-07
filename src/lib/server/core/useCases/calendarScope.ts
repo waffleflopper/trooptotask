@@ -57,18 +57,6 @@ export function personnelInFilter(
 	return scope ? { inFilters: { [column]: scope.personnelIds } } : {};
 }
 
-export function filterRowsByCalendarAssigneeScope(
-	rows: Record<string, unknown>[],
-	scope: CalendarAssigneeScope | null
-): Record<string, unknown>[] {
-	if (!scope) {
-		return rows;
-	}
-
-	const allowedAssigneeIds = new Set([...scope.personnelIds, ...scope.groupIds]);
-	return rows.filter((row) => typeof row.assignee_id === 'string' && allowedAssigneeIds.has(row.assignee_id));
-}
-
 function uniqueNonEmptyIds(ids: string[]): string[] {
 	return [...new Set(ids.filter(Boolean))];
 }

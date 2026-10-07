@@ -7,7 +7,10 @@ import { createSupabaseTrainingExportReader } from '$features/training/index.ser
 import {
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
-	createSupabaseCalendarAvailabilityRemovalPort
+	createSupabaseCalendarAvailabilityRemovalPort,
+	createSupabaseCalendarCatalogPersistence,
+	createSupabaseCalendarAvailabilityPersistence,
+	createSupabaseCalendarAssignmentReader
 } from '$features/calendar/index.server';
 import {
 	createSupabaseCriticalTasksExportReader,
@@ -31,6 +34,7 @@ import {
 	createSupabasePersonnelArtifactWritePort,
 	createSupabasePersonnelAwardAcknowledgementPort,
 	createSupabasePersonnelCalendarRosterPort,
+	createSupabasePersonnelCalendarScopeIds,
 	createSupabasePersonnelCriticalTasksRosterPort,
 	createSupabasePersonnelOrganizationExportPort,
 	createSupabasePersonnelTrainingRosterPort,
@@ -437,6 +441,7 @@ export function createRequestPersonnelPermanentDeletionContext(request: Admitted
 export function createRequestPersonnelWorkspaceContext(request: AdmittedOrganizationRequest) {
 	return {
 		auth: request.auth,
+		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		store: request.store,
 		rawStore: request.rawStore,
 		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase),
@@ -455,6 +460,10 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
 	return {
 		detail: createRequestPersonnelDetailContext(request),
+		calendar: {
+			...createRequestAvailabilityContext(request),
+			calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
+		},
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
 		criticalTaskCompletions: createSupabaseCriticalTaskCompletionPersistence(request.supabase, request.auth.orgId),
 		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId),
@@ -466,7 +475,11 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 }
 
 export function createRequestPersonnelExportContext(request: AdmittedOrganizationRequest) {
-	return { auth: request.auth, audit: request.audit, rawStore: request.rawStore };
+	return {
+		...createRequestAvailabilityContext(request),
+		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
+		rawStore: request.rawStore
+	};
 }
 
 export function createRequestNotificationSelfContext(request: AdmittedOrganizationRequest) {
@@ -477,15 +490,32 @@ export function createRequestAvailabilityContext(request: AdmittedOrganizationRe
 	return {
 		auth: request.auth,
 		audit: request.audit,
-		store: request.store,
-		rawStore: request.rawStore,
+		calendarAvailability: createSupabaseCalendarAvailabilityPersistence(request.supabase, {
+			orgId: request.auth.orgId,
+			scopeSet: request.auth.scopeSet,
+			loadScopedPersonnelIds: createSupabasePersonnelCalendarScopeIds(
+				request.supabase,
+				request.auth.orgId,
+				request.auth.scopeSet
+			)
+		}),
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
+	};
+}
+
+export function createRequestCalendarCatalogContext(request: AdmittedOrganizationRequest) {
+	return {
+		auth: request.auth,
+		audit: request.audit,
+		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId)
 	};
 }
 
 export function createRequestDailyAssignmentContext(request: AdmittedOrganizationRequest) {
 	return {
-		...createRequestAvailabilityContext(request),
+		...createRequestCalendarCatalogContext(request),
+		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId),
+		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient),
 		calendarAssignmentReplacement: createSupabaseCalendarAssignmentReplacementPort(request.supabase)
 	};
 }
@@ -500,15 +530,15 @@ export function createRequestAvailabilityRemovalContext(request: AdmittedOrganiz
 }
 
 export function createRequestCalendarCatalogDeletionContext(request: AdmittedOrganizationRequest) {
-	return { ...createRequestWriteContext(request), notifications: createRequestNotificationDelivery() };
+	return { ...createRequestCalendarCatalogContext(request), notifications: createRequestNotificationDelivery() };
 }
 
 export function createRequestCalendarRangeContext(request: AdmittedOrganizationRequest) {
 	return {
-		auth: request.auth,
-		audit: request.audit,
+		...createRequestAvailabilityContext(request),
 		store: request.store,
-		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
+		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
+		calendarAssignments: createSupabaseCalendarAssignmentReader(request.supabase, request.auth.orgId)
 	};
 }
 
@@ -522,9 +552,7 @@ export function createRequestCalendarWorkspaceContext(request: AdmittedOrganizat
 
 export function createRequestCalendarReportContext(request: AdmittedOrganizationRequest) {
 	return {
-		auth: request.auth,
-		audit: request.audit,
-		store: request.store,
+		...createRequestCalendarCatalogContext(request),
 		rawStore: request.rawStore,
 		personnelCalendarRoster: createSupabasePersonnelCalendarRosterPort(getAdminClient)
 	};
@@ -633,7 +661,7 @@ export function createRequestGettingStartedContext(request: AdmittedOrganization
 
 export function createRequestDashboardWorkspaceContext(request: AdmittedOrganizationRequest) {
 	return {
-		...createRequestDailyAssignmentContext(request),
+		...createRequestCalendarRangeContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		ratingSchemeDue: createSupabaseRatingSchemeDuePort(request.supabase),
 		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase)

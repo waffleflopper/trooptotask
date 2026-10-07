@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './calendarPersistence.test-support.server';
 import { listAvailabilityEntries, listPersonnelAvailabilityHistory } from './availabilityRead.server';
 
 describe('Calendar availability reads', () => {

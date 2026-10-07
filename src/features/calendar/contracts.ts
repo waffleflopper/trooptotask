@@ -72,6 +72,116 @@ export interface AssignmentSlotChange {
 
 export type SavedAssignment = DailyAssignment & { organization_id?: string; created_at?: string };
 
+export type SavedStatusType = StatusType & {
+	organization_id?: string;
+	created_at?: string;
+	sortOrder?: number | null;
+};
+
+export type SavedAssignmentType = AssignmentType & {
+	organization_id?: string;
+	created_at?: string;
+	sortOrder?: number | null;
+};
+
+export type SavedSpecialDay = SpecialDay & { organization_id?: string; created_at?: string };
+export type SavedAvailabilityEntry = AvailabilityEntry & { organization_id?: string; created_at?: string };
+
+export interface CalendarDateRange {
+	rangeStart: string;
+	rangeEnd: string;
+}
+
+export interface StatusTypeCreate {
+	name: string;
+	color?: string;
+	textColor?: string;
+	sortOrder?: number;
+}
+
+export type StatusTypePatch = Partial<StatusTypeCreate>;
+
+export interface AssignmentTypeCreate {
+	name: string;
+	shortName: string;
+	assignTo: 'personnel' | 'group';
+	color?: string;
+	sortOrder?: number;
+	showInDateHeader?: boolean;
+	exemptPersonnelIds?: string[];
+}
+
+export type AssignmentTypePatch = Partial<AssignmentTypeCreate>;
+
+export interface SpecialDayCreate {
+	date: string;
+	name: string;
+	type: 'federal-holiday' | 'org-closure';
+}
+
+export type SpecialDayPatch = Partial<SpecialDayCreate>;
+
+export interface AvailabilityCreate {
+	personnelId: string;
+	statusTypeId: string;
+	startDate: string;
+	endDate: string;
+	note?: string | null;
+}
+
+export type AvailabilityPatch = Partial<Omit<AvailabilityCreate, 'personnelId'>>;
+
+export interface CalendarCatalogPersistence {
+	listStatusTypes(): Promise<SavedStatusType[]>;
+	listStatusTypeLabels(): Promise<Array<{ id: string; name: string }>>;
+	createStatusType(input: StatusTypeCreate): Promise<SavedStatusType>;
+	updateStatusType(id: string, patch: StatusTypePatch): Promise<SavedStatusType>;
+	deleteStatusType(id: string): Promise<void>;
+	listAssignmentTypes(): Promise<SavedAssignmentType[]>;
+	listAssignmentTypeTargets(ids: string[]): Promise<Array<{ id: string; assignTo: 'personnel' | 'group' }>>;
+	createAssignmentType(input: AssignmentTypeCreate): Promise<SavedAssignmentType>;
+	updateAssignmentType(id: string, patch: AssignmentTypePatch): Promise<SavedAssignmentType>;
+	deleteAssignmentType(id: string): Promise<void>;
+	listSpecialDays(range?: CalendarDateRange): Promise<SavedSpecialDay[]>;
+	createSpecialDay(input: SpecialDayCreate): Promise<SavedSpecialDay>;
+	updateSpecialDay(id: string, patch: SpecialDayPatch): Promise<SavedSpecialDay>;
+	deleteSpecialDay(id: string): Promise<void>;
+	deleteFederalHolidays(): Promise<void>;
+	createFederalHolidays(inputs: SpecialDayCreate[]): Promise<void>;
+}
+
+export interface CalendarAvailabilityPersistence extends CalendarAvailabilityRemovalPort {
+	listOverlapping(
+		input: CalendarDateRange & { personnelId?: string; personnelIds?: string[]; orderByEndDate?: boolean }
+	): Promise<SavedAvailabilityEntry[]>;
+	listPersonnelHistory(personnelId: string): Promise<SavedAvailabilityEntry[]>;
+	findReference(id: string): Promise<{ personnelId: string } | null>;
+	create(input: AvailabilityCreate): Promise<SavedAvailabilityEntry>;
+	update(id: string, patch: AvailabilityPatch): Promise<SavedAvailabilityEntry>;
+	delete(id: string): Promise<void>;
+	createMany(inputs: AvailabilityCreate[]): Promise<SavedAvailabilityEntry[]>;
+}
+
+export interface CalendarAssignmentReader {
+	listRange(range: CalendarDateRange): Promise<SavedAssignment[]>;
+	listDayReferences(
+		date: string,
+		assignmentTypeId?: string
+	): Promise<
+		Array<{
+			assignmentTypeId: string;
+			assigneeId: string;
+		}>
+	>;
+	listSlotReferences(slots: Array<{ date: string; assignmentTypeId: string }>): Promise<
+		Array<{
+			date: string;
+			assignmentTypeId: string;
+			assigneeId: string;
+		}>
+	>;
+}
+
 /** One committed replacement of selected slots or complete days. */
 export interface CalendarAssignmentReplacementPort {
 	replace(orgId: string, replaceDays: string[], slots: AssignmentSlotChange[]): Promise<SavedAssignment[]>;

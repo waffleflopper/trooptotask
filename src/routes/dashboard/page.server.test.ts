@@ -33,6 +33,7 @@ vi.mock('$features/organization/index.server', async () => {
 });
 
 import { actions, load } from './+page.server';
+import { RequestFailure } from '$lib/errors';
 
 describe('dashboard page server', () => {
 	beforeEach(() => {
@@ -159,7 +160,7 @@ describe('dashboard page server', () => {
 	});
 
 	it('maps use-case failures back into action failures for acceptInvitation', async () => {
-		const err = Object.assign(new Error('Invitation not found'), { status: 404 });
+		const err = new RequestFailure(404, 'Invitation not found');
 		acceptDashboardInvitationMock.mockRejectedValue(err);
 
 		const result = await actions.acceptInvitation({

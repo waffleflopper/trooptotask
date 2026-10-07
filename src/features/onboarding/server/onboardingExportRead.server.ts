@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
+import { RequestFailure } from '$lib/errors';
 
 const EXPORT_TABLES = [
 	'onboarding_templates',
@@ -18,7 +19,7 @@ export function createSupabaseOnboardingExportReader(client: SupabaseClient, org
 	return {
 		async listRows(table) {
 			if (!EXPORT_TABLES.includes(table)) {
-				throw Object.assign(new Error('Unsupported Onboarding export table'), { status: 400 });
+				throw new RequestFailure(400, 'Unsupported Onboarding export table');
 			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
 				const { data, error } = await client.from(table).select('*').eq('organization_id', orgId).range(from, to);

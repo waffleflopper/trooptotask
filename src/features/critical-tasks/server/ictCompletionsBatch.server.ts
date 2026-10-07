@@ -8,10 +8,7 @@ import { reviewMappedIctCompletionImportRows } from '../utils/ictCompletionImpor
 import type { IctCompletionBatchContext } from './personnelIctCompletionPorts.server';
 import { policyResourceForGroup, requirePolicyDecision } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
+import { fail } from '$lib/errors';
 
 const MAX_BATCH_SIZE = 500;
 function errorMessage(error: unknown): string {

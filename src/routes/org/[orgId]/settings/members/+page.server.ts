@@ -2,7 +2,7 @@ import { readPendingDeletionRequestSummary } from '$features/deletion-requests/i
 import { redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { parseMemberAccessEditFormData } from '$lib/access/memberAccessCommands';
-import { createRequestDeletionRequestStore } from '$lib/server/adapters/httpAdapter';
+import { createRequestDeletionRequestStore, toActionFailure } from '$lib/server/adapters/httpAdapter';
 import { buildRouteRequest, createRequestNotificationContext } from '$lib/server/adapters/requestContexts.server';
 import { createSupabaseAccountSetupLinkIssuancePorts } from '$features/identity/index.server';
 import { getAdminClient } from '$lib/server/supabase';
@@ -18,7 +18,6 @@ import {
 	revokeOrganizationInvitation,
 	updateOrganizationMemberAccess
 } from '$features/organization/index.server';
-import { toActionFailure } from '../settingsActionFailure.server';
 import { loadSettingsPage } from '../settingsLoad.server';
 import {
 	createSettingsMembersContext,

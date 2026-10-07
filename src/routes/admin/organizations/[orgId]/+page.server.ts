@@ -5,7 +5,7 @@ import {
 	createPlatformOrganizationMembershipCommands,
 	createPlatformOrganizationOperations
 } from '$features/platform-admin/index.server';
-import type { SensitiveActionFailureFields } from '$features/identity/contracts';
+import { RequestFailure } from '$lib/errors';
 
 export const load: PageServerLoad = async (event) => {
 	const operations = await createPlatformOrganizationOperations(event);
@@ -20,16 +20,13 @@ export const load: PageServerLoad = async (event) => {
 };
 
 function commandFailure(cause: unknown, message: string) {
-	if (cause instanceof Error) {
-		const denial = cause as Error & Partial<SensitiveActionFailureFields> & { status?: number };
-		if (denial.status === 403 && typeof denial.requiresStepUp === 'boolean') {
-			return fail(403, {
-				error: { message: denial.message },
-				reason: denial.reason,
-				requiresStepUp: denial.requiresStepUp,
-				stepUpPath: denial.stepUpPath
-			});
-		}
+	if (cause instanceof RequestFailure && cause.status === 403 && cause.requiresStepUp !== undefined) {
+		return fail(403, {
+			error: { message: cause.message },
+			reason: cause.reason,
+			requiresStepUp: cause.requiresStepUp,
+			stepUpPath: cause.stepUpPath
+		});
 	}
 	return fail(503, { error: { message } });
 }

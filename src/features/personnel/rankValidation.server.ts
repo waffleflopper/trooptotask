@@ -1,12 +1,9 @@
 import { sanitizeString } from '$lib/server/validation';
 import type { OrganizationRankCatalogEntry } from './contracts';
+import { fail } from '$lib/errors';
 
 interface RankCatalogPorts {
 	loadRankCatalog(): Promise<OrganizationRankCatalogEntry[]>;
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
 }
 
 const UNKNOWN_PERSONNEL_RANK_MESSAGE =

@@ -17,6 +17,7 @@ import type {
 import { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryMapping.server';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
+import { RequestFailure } from '$lib/errors';
 
 export { ratingSchemeEntryCreateSchema, ratingSchemeEntryUpdateSchema } from './ratingSchemeEntryMapping.server';
 
@@ -57,7 +58,7 @@ async function policyResourceForRatedPerson(
 		// The provider hides missing and out-of-scope People alike. Group members
 		// receive the usual policy denial; Organization-wide members get a 404.
 		await requireFeaturePolicy(ctx, denialAction, { kind: 'organization' }, AUDIT_RESOURCE, personnelId);
-		throw Object.assign(new Error('Rated person not found'), { status: 404 });
+		throw new RequestFailure(404, 'Rated person not found');
 	}
 
 	return policyResourceForGroup(person.groupId);
@@ -68,7 +69,7 @@ async function findRatingSchemeEntry(
 	id: string
 ): Promise<RatingSchemeWriteReference> {
 	const entry = await ctx.ratingScheme.findWriteReference(id);
-	if (!entry) throw Object.assign(new Error('Rating Scheme entry not found'), { status: 404 });
+	if (!entry) throw new RequestFailure(404, 'Rating Scheme entry not found');
 	return entry;
 }
 
@@ -85,11 +86,11 @@ async function requireEvaluatorReferences(
 	});
 	if (!ids.length) return;
 	if (!ids.every(validateUUID)) {
-		throw Object.assign(new Error('Evaluators must belong to this Organization'), { status: 400 });
+		throw new RequestFailure(400, 'Evaluators must belong to this Organization');
 	}
 	if (!ctx.personnelRatingSchemeRoster) throw new Error('Personnel Rating Scheme roster provider unavailable');
 	if (!(await ctx.personnelRatingSchemeRoster.hasEvaluatorReferences(ctx.auth, ids))) {
-		throw Object.assign(new Error('Evaluators must belong to this Organization'), { status: 400 });
+		throw new RequestFailure(400, 'Evaluators must belong to this Organization');
 	}
 }
 

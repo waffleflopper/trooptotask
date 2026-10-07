@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import { isOrganizationRawExportTable, type OrganizationRawExportReader } from './rawExportTypes';
+import { RequestFailure } from '$lib/errors';
 
 const PROFILE_EXPORT_FIELDS =
 	'id,name,created_by,created_at,url_slug,archive_retention_months,suspended_at,critical_tasks_default_expiration_months,critical_tasks_expiring_soon_warning_days,loss_warning_window_days,personnel_document_storage_cap_bytes,training_readiness_goal_percent';
@@ -10,7 +11,7 @@ export function createSupabaseOrganizationRawExportReader(client: SupabaseClient
 	return {
 		async listRows(orgId, table) {
 			if (!isOrganizationRawExportTable(table)) {
-				throw Object.assign(new Error('Unsupported Organization export table'), { status: 400 });
+				throw new RequestFailure(400, 'Unsupported Organization export table');
 			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
 				const { data, error } = await client

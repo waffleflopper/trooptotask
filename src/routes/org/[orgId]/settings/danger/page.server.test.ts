@@ -67,6 +67,7 @@ vi.mock('$features/organization/index.server', async () => {
 });
 
 import { actions, load } from './+page.server';
+import { RequestFailure } from '$lib/errors';
 
 const authContext = {
 	auth: { kind: 'auth', orgId: 'org-1' },
@@ -208,7 +209,7 @@ describe('danger settings page server', () => {
 	});
 
 	it('maps ownership-transfer failures back into the transferError action payload', async () => {
-		transferOrganizationOwnershipMock.mockRejectedValue(Object.assign(new Error('Invalid user ID'), { status: 400 }));
+		transferOrganizationOwnershipMock.mockRejectedValue(new RequestFailure(400, 'Invalid user ID'));
 
 		const result = await actions.transferOwnership(
 			actionEvent('transferOwnership', new URLSearchParams({ newOwnerId: 'bad-id' }))
@@ -247,8 +248,7 @@ describe('danger settings page server', () => {
 
 	it('preserves sensitive-action step-up details in ownership-transfer failures', async () => {
 		transferOrganizationOwnershipMock.mockRejectedValue(
-			Object.assign(new Error('Please confirm your identity before continuing.'), {
-				status: 403,
+			new RequestFailure(403, 'Please confirm your identity before continuing.', {
 				reason: 'denied.staleSession',
 				requiresStepUp: true,
 				stepUpPath: '/auth/mfa-verify'
@@ -288,9 +288,7 @@ describe('danger settings page server', () => {
 	});
 
 	it('maps destructive org-operation failures back into the deleteError action payload', async () => {
-		deleteOrganizationUseCaseMock.mockRejectedValue(
-			Object.assign(new Error('Organization name does not match'), { status: 400 })
-		);
+		deleteOrganizationUseCaseMock.mockRejectedValue(new RequestFailure(400, 'Organization name does not match'));
 
 		const result = await actions.deleteOrganization(
 			actionEvent('deleteOrganization', new URLSearchParams({ confirmName: 'Other Org' }))

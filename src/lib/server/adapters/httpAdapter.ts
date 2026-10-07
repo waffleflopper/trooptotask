@@ -15,11 +15,11 @@ import {
 	type LoadAuthorizationConfig,
 	type RouteAuthorizationConfig
 } from '$lib/access/index.server';
-import { fail } from '$lib/errors';
+import { fail, RequestFailure, type RequestFailureDetails } from '$lib/errors';
 import { getAdminClient } from '$lib/server/supabase';
 import { sanitizeErrorForLog } from '$lib/utils/logSanitize';
 import type { Cookies, RequestEvent, RequestHandler } from '@sveltejs/kit';
-import { error, isHttpError, isRedirect, json } from '@sveltejs/kit';
+import { fail as actionFailure, error, isHttpError, isRedirect, json } from '@sveltejs/kit';
 import type { z } from 'zod';
 import {
 	buildLayoutRequest,
@@ -58,20 +58,33 @@ export function createRequestDeletionRequestCancellation(locals: Pick<App.Locals
 	return createSupabaseDeletionRequestCancellation(locals.supabase);
 }
 
-export function rethrowOrWrap(err: unknown): never {
-	if (isHttpError(err) || isRedirect(err)) {
-		throw err;
-	}
+const INTERNAL_ERROR_MESSAGE = 'Internal server error';
 
-	if (err && typeof err === 'object' && 'status' in err) {
-		const { status } = err as { status?: unknown };
-		if (typeof status === 'number' && status >= 400 && status <= 599) {
-			const message = err instanceof Error ? err.message : 'Request failed';
-			throw error(status, message);
-		}
+/** Only an app-created 4xx carries its message to the client; anything else is logged and generic. */
+function toPublicFailure(err: unknown): { status: number; message: string; details: RequestFailureDetails } {
+	if (err instanceof RequestFailure && err.status >= 400 && err.status <= 499) {
+		const { reason, requiresStepUp, stepUpPath } = err;
+		return { status: err.status, message: err.message, details: { reason, requiresStepUp, stepUpPath } };
 	}
 	console.error('[http-adapter] Unhandled route error:', sanitizeErrorForLog(err));
-	throw error(500, 'Internal server error');
+	const status = err instanceof RequestFailure && err.status >= 500 && err.status <= 599 ? err.status : 500;
+	return { status, message: INTERNAL_ERROR_MESSAGE, details: {} };
+}
+
+export function rethrowOrWrap(err: unknown): never {
+	if (isHttpError(err) || isRedirect(err)) throw err;
+	const failure = toPublicFailure(err);
+	throw error(failure.status, failure.message);
+}
+
+export function toActionFailure(errorKey: string, err: unknown) {
+	if (isHttpError(err) || isRedirect(err)) throw err;
+	const { status, message, details } = toPublicFailure(err);
+	const data: Record<string, unknown> = { [errorKey]: message };
+	if (details.reason !== undefined) data.reason = details.reason;
+	if (details.requiresStepUp !== undefined) data.requiresStepUp = details.requiresStepUp;
+	if (typeof details.stepUpPath === 'string') data.stepUpPath = details.stepUpPath;
+	return actionFailure(status, data);
 }
 
 async function withHttpErrorBoundary<T>(operation: Promise<T>): Promise<T> {
@@ -82,13 +95,11 @@ async function withHttpErrorBoundary<T>(operation: Promise<T>): Promise<T> {
 	}
 }
 
-async function withHttpStatusErrorBoundary<T>(operation: Promise<T>): Promise<T> {
+async function withRequestFailureBoundary<T>(operation: Promise<T>): Promise<T> {
 	try {
 		return await operation;
 	} catch (err) {
-		if (err && typeof err === 'object' && 'status' in err) {
-			rethrowOrWrap(err);
-		}
+		if (err instanceof RequestFailure) rethrowOrWrap(err);
 		throw err;
 	}
 }
@@ -165,7 +176,7 @@ export function loadWithContextCore<T, TContext>(
 	config: LoadOperationConfig<T, TContext>,
 	selectContext: () => TContext
 ): Promise<T> | { data: Promise<T> } {
-	const data = withHttpStatusErrorBoundary(
+	const data = withRequestFailureBoundary(
 		Promise.resolve(enforceLoadAuthorization(request, config)).then(() => config.fn(selectContext()))
 	);
 	return config.defer ? { data } : data;

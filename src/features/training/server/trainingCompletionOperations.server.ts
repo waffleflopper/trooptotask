@@ -4,13 +4,10 @@ import type { TrainingCompletionWriteContext } from './trainingCompletionPorts.s
 import { calculateExpirationDate } from '../utils/trainingStatus';
 import type { PersonnelTraining } from '../contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
 
 const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 interface TrainingTypeRow {
 	expiration_months: number | null;

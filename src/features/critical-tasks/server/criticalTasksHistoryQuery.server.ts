@@ -1,5 +1,6 @@
 import type { CriticalTasksPersonnelHistoryData } from '$features/critical-tasks/contracts';
 import type { CriticalTasksHistoryContext } from './criticalTasksReadPorts.server';
+import { RequestFailure } from '$lib/errors';
 
 export async function fetchCriticalTasksPersonnelHistory(
 	ctx: CriticalTasksHistoryContext,
@@ -9,7 +10,7 @@ export async function fetchCriticalTasksPersonnelHistory(
 	const personnel = await ctx.personnelCriticalTasksRoster.findForHistory(ctx.auth, personnelId);
 
 	if (!personnel) {
-		throw Object.assign(new Error('Personnel record not found'), { status: 404 });
+		throw new RequestFailure(404, 'Personnel record not found');
 	}
 
 	const completions = await ctx.criticalTaskCompletions.listHistory(personnelId);

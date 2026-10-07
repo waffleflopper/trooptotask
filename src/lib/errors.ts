@@ -1,9 +1,31 @@
+export interface RequestFailureDetails {
+	reason?: string;
+	requiresStepUp?: boolean;
+	stepUpPath?: string | null;
+}
+
 /**
- * Framework-agnostic error helper for use cases.
- * Throws an Error with a `status` property that httpAdapter's rethrowOrWrap() will re-throw.
+ * A failure the app raised on purpose. Server boundaries forward the status and
+ * message of a 4xx RequestFailure; every other thrown value becomes a generic 500.
  */
-export function fail(status: number, message: string): never {
-	const err = new Error(message);
-	(err as unknown as Record<string, unknown>).status = status;
-	throw err;
+export class RequestFailure extends Error implements RequestFailureDetails {
+	override readonly name = 'RequestFailure';
+	readonly reason?: string;
+	readonly requiresStepUp?: boolean;
+	readonly stepUpPath?: string | null;
+
+	constructor(
+		readonly status: number,
+		message: string,
+		details: RequestFailureDetails = {}
+	) {
+		super(message);
+		this.reason = details.reason;
+		this.requiresStepUp = details.requiresStepUp;
+		this.stepUpPath = details.stepUpPath;
+	}
+}
+
+export function fail(status: number, message: string, details?: RequestFailureDetails): never {
+	throw new RequestFailure(status, message, details);
 }

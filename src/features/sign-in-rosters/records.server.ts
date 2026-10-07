@@ -8,6 +8,7 @@ import {
 import { prepareSignInRosterSnapshot, type SignInRosterSnapshotContext } from './snapshot.server';
 import type { SignInRosterListInput, SignInRosterPersistence } from './rosterPersistence.server';
 import type { SignInRosterFileWritePort, SignInRosterFileActor } from './contracts';
+import { fail } from '$lib/errors';
 
 interface RosterContext {
 	orgId: string;
@@ -27,10 +28,6 @@ interface RosterFileContext extends Pick<RosterContext, 'orgId' | 'persistence' 
 
 interface CreateRosterContext extends RosterContext, SignInRosterSnapshotContext {
 	userId: string;
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
 }
 
 export async function listSignInRosters(ctx: RosterContext, input: SignInRosterListInput) {

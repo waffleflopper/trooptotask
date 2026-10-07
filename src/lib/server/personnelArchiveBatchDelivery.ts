@@ -1,15 +1,10 @@
 import type { ArchivePersonnelBatchResult } from '$features/personnel/contracts';
 import { preparePersonnelArchiveBatch } from '$features/personnel/index.server';
 import { createDeletionRequest } from '$features/deletion-requests/index.server';
+import { RequestFailure } from '$lib/errors';
 
 type PersonnelArchiveBatchDeliveryContext = Parameters<typeof preparePersonnelArchiveBatch>[0] &
 	Omit<Parameters<typeof createDeletionRequest>[0], 'store'>;
-
-function errorStatus(error: unknown): number | undefined {
-	return typeof error === 'object' && error !== null && 'status' in error
-		? (error as { status?: number }).status
-		: undefined;
-}
 
 /** Compose authorized Personnel archive outcomes with the retained approval workflow. */
 export async function archivePersonnelBatch(
@@ -39,7 +34,7 @@ export async function archivePersonnelBatch(
 				);
 				result.approvalRequestedIds.push(id);
 			} catch (error) {
-				if (errorStatus(error) === 409) {
+				if (error instanceof RequestFailure && error.status === 409) {
 					result.approvalRequestedIds.push(id);
 				} else {
 					result.errors.push({

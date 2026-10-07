@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
+import { RequestFailure } from '$lib/errors';
 
 const EXPORT_TABLES = ['training_types', 'personnel_trainings', 'training_views'] as const;
 
@@ -14,7 +15,7 @@ export function createSupabaseTrainingExportReader(client: SupabaseClient, orgId
 	return {
 		async listRows(table) {
 			if (!EXPORT_TABLES.includes(table)) {
-				throw Object.assign(new Error('Unsupported Training export table'), { status: 400 });
+				throw new RequestFailure(400, 'Unsupported Training export table');
 			}
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
 				const { data, error } = await client.from(table).select('*').eq('organization_id', orgId).range(from, to);

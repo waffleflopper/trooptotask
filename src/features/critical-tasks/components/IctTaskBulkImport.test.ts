@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import IctTaskBulkImport from './IctTaskBulkImport.svelte';
 import type { IctTask } from '$features/critical-tasks/criticalTasks.types';
 import { ictTasksStore } from '$features/critical-tasks/stores/ictTasks.svelte';
+import {
+	criticalTasksWorkspaceStatus,
+	resetCriticalTasksWorkspaceStatus
+} from '$features/critical-tasks/criticalTasksWorkspaceStatus.svelte';
 
 const { parseFileMock } = vi.hoisted(() => ({
 	parseFileMock: vi.fn()
@@ -41,6 +45,7 @@ const existingTasks: IctTask[] = [
 describe('IctTaskBulkImport', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		resetCriticalTasksWorkspaceStatus();
 		parseFileMock.mockResolvedValue([
 			['Task Code', 'Title', 'MOS'],
 			['181-105-2000', 'Task one', '68W'],
@@ -161,6 +166,7 @@ describe('IctTaskBulkImport', () => {
 		expect(screen.getByText('1 created')).toBeTruthy();
 		expect(screen.getByText('0 updated')).toBeTruthy();
 		expect(screen.getByText('0 restored')).toBeTruthy();
+		expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(false);
 		expect(screen.getByText('0 failed')).toBeTruthy();
 	});
 
@@ -227,5 +233,6 @@ describe('IctTaskBulkImport', () => {
 
 		expect(await screen.findByText('1 restored')).toBeTruthy();
 		expect(screen.getByText('0 failed')).toBeTruthy();
+		expect(criticalTasksWorkspaceStatus.refreshRequested).toBe(true);
 	});
 });

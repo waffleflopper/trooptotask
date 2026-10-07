@@ -3,6 +3,16 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import Layout from './+layout.svelte';
+
+const navigation = vi.hoisted(() => ({
+	afterNavigateCallbacks: [] as Array<() => void>,
+	invalidate: vi.fn()
+}));
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	afterNavigate: (callback: () => void) => navigation.afterNavigateCallbacks.push(callback),
+	invalidate: navigation.invalidate
+}));
 import { criticalTasksWorkspaceStatus, resetCriticalTasksWorkspaceStatus } from '$features/critical-tasks';
 import type { CriticalTasksWorkspaceResult } from '$features/critical-tasks/contracts';
 import {
@@ -49,6 +59,22 @@ describe('critical tasks layout client hydration', () => {
 		criticalTasksWorkspaceHydrator.reset();
 		personnelIctCompletionsStore.load([], 'test-reset');
 		vi.unstubAllGlobals();
+		navigation.afterNavigateCallbacks.length = 0;
+		navigation.invalidate.mockClear();
+	});
+
+	it('refreshes the workspace once after a navigation that follows a refresh request', () => {
+		const children = createRawSnippet(() => ({ render: () => '<section>Critical Tasks child</section>' }));
+		render(Layout, { props: { children, data: { orgId: 'org-1', criticalTasks: { data: createWorkspace() } } } });
+		const navigated = () => navigation.afterNavigateCallbacks.forEach((callback) => callback());
+
+		navigated();
+		expect(navigation.invalidate).not.toHaveBeenCalled();
+
+		criticalTasksWorkspaceStatus.refreshRequested = true;
+		navigated();
+		navigated();
+		expect(navigation.invalidate.mock.calls).toEqual([['app:critical-tasks-data']]);
 	});
 
 	it.each(['response', 'body'] as const)(

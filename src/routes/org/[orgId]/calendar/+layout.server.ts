@@ -1,47 +1,13 @@
-import type { CalendarWorkspaceRouteData } from '$features/calendar/index.server';
 import type { LayoutServerLoad } from './$types';
 import { streamReadyFeatureLaneWorkspace } from '$lib/server/core/featureLaneWorkspaceLoad';
-import {
-	streamCalendarWorkspaceBootstrap,
-	type CalendarWorkspaceRequestContext
-} from './calendarWorkspaceDelivery.server';
-import type { CalendarDateRange } from '$features/calendar/index.server';
-import { CALENDAR_ANCHOR_COOKIE, resolveCalendarAnchorDate } from '$features/calendar/utils/calendarAnchorDate';
+import { streamCalendarWorkspaceBootstrap } from './calendarWorkspaceDelivery.server';
 
-export interface CalendarLayoutLoadDeps {
-	streamCalendarWorkspace?: (context: CalendarWorkspaceRequestContext) => Promise<CalendarWorkspaceRouteData>;
-}
-
-export function _createCalendarLayoutLoad(deps: CalendarLayoutLoadDeps = {}): LayoutServerLoad {
-	const streamCalendarWorkspace = deps.streamCalendarWorkspace ?? streamCalendarWorkspaceBootstrap;
-
+export function _createCalendarLayoutLoad(): LayoutServerLoad {
 	return async (event) =>
-		streamReadyFeatureLaneWorkspace<CalendarWorkspaceRouteData, CalendarWorkspaceRequestContext>(event, {
+		streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:calendar-data'],
-			createContext: ({ locals, cookies, url }, shell) => ({
-				locals,
-				cookies,
-				orgId: shell.org.id,
-				...(isCalendarSettingsPath(url.pathname) && {
-					specialDaysRange: createCalendarSettingsSpecialDaysRange(
-						resolveCalendarAnchorDate(cookies.get(CALENDAR_ANCHOR_COOKIE), new Date())
-					)
-				})
-			}),
-			streamWorkspace: streamCalendarWorkspace
+			streamWorkspace: streamCalendarWorkspaceBootstrap
 		});
-}
-
-function isCalendarSettingsPath(pathname: string): boolean {
-	return pathname.replace(/\/$/, '').endsWith('/calendar/settings');
-}
-
-function createCalendarSettingsSpecialDaysRange(anchorDate: Date): CalendarDateRange {
-	const year = anchorDate.getFullYear();
-	return {
-		rangeStart: `${year - 1}-01-01`,
-		rangeEnd: `${year + 2}-12-31`
-	};
 }
 
 export const load: LayoutServerLoad = _createCalendarLayoutLoad();

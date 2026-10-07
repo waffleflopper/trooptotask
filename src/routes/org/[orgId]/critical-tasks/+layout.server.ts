@@ -2,21 +2,7 @@ import type { LayoutServerLoad } from './$types';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { streamReadyFeatureLaneWorkspace } from '$lib/server/core/featureLaneWorkspaceLoad';
 import type { ReadyAppShell } from '$features/app-shell/contracts';
-import {
-	streamCriticalTasksWorkspaceBootstrap,
-	type CriticalTasksWorkspaceRequestContext,
-	type CriticalTasksWorkspaceRouteData
-} from './criticalTasksWorkspace.server';
-
-export interface CriticalTasksLayoutLoadDeps {
-	streamCriticalTasksWorkspace?: (
-		context: CriticalTasksWorkspaceRequestContext
-	) => Promise<CriticalTasksWorkspaceRouteData>;
-}
-
-function shouldIncludeArchivedIctTasks(pathname: string): boolean {
-	return /\/critical-tasks\/library\/?$/.test(pathname);
-}
+import { streamCriticalTasksWorkspaceBootstrap } from './criticalTasksWorkspace.server';
 
 function canConfigureCriticalTasksLibrary(shell: ReadyAppShell): boolean {
 	return evaluatePolicyDecision({
@@ -32,9 +18,7 @@ function canConfigureCriticalTasksLibrary(shell: ReadyAppShell): boolean {
 	}).allowed;
 }
 
-export function _createCriticalTasksLayoutLoad(deps: CriticalTasksLayoutLoadDeps = {}): LayoutServerLoad {
-	const streamCriticalTasksWorkspace = deps.streamCriticalTasksWorkspace ?? streamCriticalTasksWorkspaceBootstrap;
-
+export function _createCriticalTasksLayoutLoad(): LayoutServerLoad {
 	return async (event) =>
 		streamReadyFeatureLaneWorkspace(event, {
 			dependencies: ['app:org-core', 'app:critical-tasks-data'],
@@ -42,10 +26,9 @@ export function _createCriticalTasksLayoutLoad(deps: CriticalTasksLayoutLoadDeps
 				locals: event.locals,
 				cookies: event.cookies,
 				orgId: shell.org.id,
-				includeArchivedTasks:
-					shouldIncludeArchivedIctTasks(event.url.pathname) && canConfigureCriticalTasksLibrary(shell)
+				includeArchivedTasks: canConfigureCriticalTasksLibrary(shell)
 			}),
-			streamWorkspace: streamCriticalTasksWorkspace
+			streamWorkspace: streamCriticalTasksWorkspaceBootstrap
 		});
 }
 

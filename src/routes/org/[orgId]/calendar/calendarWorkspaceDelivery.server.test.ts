@@ -192,7 +192,21 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		expect(await result).toMatchObject({ cause: { status: 500 } });
 	});
 
-	it('prefers the client-local anchor date and can widen only settings special days', async () => {
+	it('covers the Settings years around today when the saved anchor is in another year', async () => {
+		const cookies = {
+			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2025-05-01' : undefined))
+		} as unknown as Cookies;
+
+		const routeData = await streamCalendarWorkspaceBootstrap({ locals: {} as App.Locals, cookies, orgId });
+		await routeData.calendar.data;
+
+		expect(fetchCalendarBootstrapMock).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({ specialDaysRange: { rangeStart: '2024-01-01', rangeEnd: '2028-12-31' } })
+		);
+	});
+
+	it('prefers the client-local anchor date and loads the special-day catalog years around it', async () => {
 		const cookies = {
 			get: vi.fn((name: string) => (name === CALENDAR_ANCHOR_COOKIE ? '2026-05-01' : undefined))
 		} as unknown as Cookies;
@@ -205,7 +219,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 					{
 						id: 'sd-wide',
 						name: 'Settings special day',
-						date: input.specialDaysRange?.rangeStart ?? input.rangeStart
+						date: `${input.specialDaysRange?.rangeStart}..${input.specialDaysRange?.rangeEnd}`
 					} as SpecialDay
 				])
 			})
@@ -214,8 +228,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		const routeData = await streamCalendarWorkspaceBootstrap({
 			locals: {} as App.Locals,
 			cookies,
-			orgId,
-			specialDaysRange: { rangeStart: '2025-01-01', rangeEnd: '2028-12-31' }
+			orgId
 		});
 		const workspace = await routeData.calendar.data;
 		if ('access' in workspace) throw new Error('Expected an authorized Calendar workspace');
@@ -223,7 +236,7 @@ describe('streamCalendarWorkspaceBootstrap', () => {
 		expect(workspace.data.rangeStart).toBe('2026-04-01');
 		expect(workspace.data.rangeEnd).toBe('2026-06-30');
 		await expect(workspace.data.specialDays).resolves.toEqual([
-			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01' })
+			expect.objectContaining({ id: 'sd-wide', date: '2025-01-01..2028-12-31' })
 		]);
 		expect(workspace.hydration.calendarAssignments.rangeStart).toBe('2026-04-01');
 		expect(workspace.hydration.calendarAssignments.rangeEnd).toBe('2026-06-30');

@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { afterNavigate, invalidate } from '$app/navigation';
 	import {
 		criticalTasksWorkspaceHydrator,
+		criticalTasksWorkspaceStatus,
 		markCriticalTasksWorkspacePending,
 		markCriticalTasksWorkspaceRejected,
 		markCriticalTasksWorkspaceResolved,
@@ -26,6 +28,12 @@
 			throwRenderError(hydrationError, 'Failed to hydrate Critical Tasks workspace');
 		}
 		return null;
+	});
+
+	afterNavigate(() => {
+		if (!criticalTasksWorkspaceStatus.refreshRequested) return;
+		criticalTasksWorkspaceStatus.refreshRequested = false;
+		void invalidate('app:critical-tasks-data');
 	});
 
 	$effect(() => {

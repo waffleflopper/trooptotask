@@ -88,6 +88,6 @@ Accepted head `8735d96e83e307bf355b2b07008948e2670944fa` passes [exact-head CI](
 
 ## Remaining D28 work
 
-Training retains eight failing lower-boundary cases and twelve unrun native families. Onboarding, residual settings and final generic facade removal follow their current owned designs and affected verification. Final integrated acceptance still owns complete consumer/removal and retained security/provider evidence. #1376 stays open; D29/D30 and other issues remain outside this continuation.
+The [Training workflow repair](d28-training-workflow-repair.md) resolves the eight lower-boundary failures and passes both selected failed native cases. Its twelve later persistence families remain UNRUN. Onboarding, residual settings and final generic facade removal follow their current owned designs and affected verification. Final integrated acceptance still owns complete consumer/removal and retained security/provider evidence. #1376 stays open; D29/D30 and other issues remain outside this continuation.
 
 The preserved private Calendar, Personnel and Training worktrees remain clean at `67fa5713`, `52a8a036` and `7d6c0a5c`. A new isolated Personnel source tree supplies the owned implementation; current-main integration never adopts their inherited Calendar patches blindly. No remote database is accessed and no existing local database is reset.

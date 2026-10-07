@@ -1,0 +1,1 @@
+export { submitDeletionRequest } from './submitDeletionRequest';

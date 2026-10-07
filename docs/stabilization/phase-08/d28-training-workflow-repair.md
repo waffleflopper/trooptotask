@@ -30,11 +30,13 @@ The [final archive](d28-training-repair-final-6ee91414.tar.gz) has SHA-256 `cb9f
 
 Corrected tool attempts remain preserved. An unsupported `notes` readback filter exits two before any provider operation; the documented `personnel_id` filter supplies the readback while the response remains held. The initial closure comparator treats reordered identical bind mounts as different; the corrected comparison retains every literal field. Neither correction repeats an application case, build, cleanup or business sweep. The production build reports a potentially missing `@opentelemetry/api` warning; the selected application paths function.
 
-Existing lower-level checks establish batch and approval settlement; they do not claim native execution of those races. The twelve future persistence families remain UNRUN on their original candidate. Source/baseline independent review reports Spec GO and no source defect. Its Standards hold requests archive verification instructions, supplied below. Source CodeRabbit reviews all sixteen text paths with zero findings; binary artifacts require separate expanded acceptance. Complete independent expanded acceptance of all eighteen paths at `50e106e0` reports Standards GO, Spec GO and Comment Sicko GO, with zero actionable findings. It independently verifies both expanded inventories, all original/final rowsets, four PNGs, native chronology, freeze and resource observations. Its report has SHA-256 `c1646f8aab6bfe4d9f848fa5e0f8c15533516f3eb3d7458ff602dd02ddb29620`. This is artifact acceptance, not another live execution. Exact-head CI/build and completed hosted reviews without actionable feedback remain release gates. Publication changes only evidence and prose, so the matching runtime proof remains bound to `6ee91414` without another live sweep. #1376 stays open.
+Existing lower-level checks establish batch and approval settlement; they do not claim native execution of those races. The twelve future persistence families remain UNRUN on their original candidate. Source/baseline independent review reports Spec GO and no source defect. Its Standards hold requests archive verification instructions, supplied below. Source CodeRabbit reviews all sixteen text paths with zero findings; binary artifacts require separate expanded acceptance. Complete independent expanded acceptance of all eighteen paths at `50e106e0` reports Standards GO, Spec GO and Comment Sicko GO, with zero actionable findings. It independently verifies both expanded inventories, all original/final rowsets, four PNGs, native chronology, freeze and resource observations. Its report has SHA-256 `c1646f8aab6bfe4d9f848fa5e0f8c15533516f3eb3d7458ff602dd02ddb29620`. This is artifact acceptance, not another live execution. The first exact-head CI run fails governance because the new Training integration test imports the Deletion Requests production entry without a declared dependency. The repair uses a declared test-only submission export, following the existing test-support pattern. Production imports and runtime behavior remain unchanged; the frozen native proof is reused. Three hosted documentation findings are repaired by correcting the Personnel continuation status, documenting Python extraction-filter support and making verifier failures explicit under Python optimization. Focused reruns cover governance, the two approval settlements using that export and the documented verifier. Exact-head CI/build and completed hosted reviews without actionable feedback remain release gates. Publication changes only evidence and prose, so the matching runtime proof remains bound to `6ee91414` without another live sweep. #1376 stays open.
+
+The [review follow-up archive](d28-training-repair-review-followup.tar.gz) preserves the failed CI log, three hosted findings, passing focused reruns and the completed publication-only CLI review. It contains seven payloads, has 11,004 bytes and SHA-256 `b6a48461c0c505b2e9a3582da60c39dcc92b5cb289ce812a5fe31c839756a01a`. Governance passes with 157 retained findings and no new regressions. Both selected approval tests pass, leaving 37 cases unselected. The verifier checks both native archives under `PYTHONOPTIMIZE=1` and rejects a corrupted copy with exit one. Changed-file lint, formatting and diff checks pass. Fresh extraction verifies all seven payloads and the exact file set.
 
 ## Verify the evidence archives
 
-Run this from the repository root. Each archive extracts into a fresh temporary directory outside the checkout, which is removed afterward. The archive checksum protects its inventory. The expanded checks verify every payload and the exact file set.
+Run this from the repository root with Python 3.12 or later, or an earlier release with the `tarfile` extraction-filter backport. Each archive extracts into a fresh temporary directory outside the checkout, which is removed afterward. The archive checksum protects its inventory. The expanded checks verify every payload and the exact file set.
 
 ```bash
 python3 - <<'VERIFY'
@@ -42,21 +44,27 @@ import hashlib, json, pathlib, tarfile, tempfile
 archives = {
     'd28-training-repair-baseline-369d6e27.tar.gz': 'bd0039bce9ff510836285345a823b87027f8b4b684d1660ac67ca72cf0bf5353',
     'd28-training-repair-final-6ee91414.tar.gz': 'cb9f0244eef64cfcdee0d05739bf40c730f41e2ba8a620359b3ac73913ba6611',
+    'd28-training-repair-review-followup.tar.gz': 'b6a48461c0c505b2e9a3582da60c39dcc92b5cb289ce812a5fe31c839756a01a',
 }
 for name, expected in archives.items():
     archive = pathlib.Path('docs/stabilization/phase-08') / name
-    assert hashlib.sha256(archive.read_bytes()).hexdigest() == expected, name
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != expected:
+        raise SystemExit(f'{name}: archive checksum mismatch')
     with tempfile.TemporaryDirectory(prefix='t2t-training-evidence-') as scratch:
         root = pathlib.Path(scratch)
         with tarfile.open(archive) as stream:
             stream.extractall(root, filter='data')
         entries = json.loads((root / 'archive-inventory.json').read_text())['entries']
         actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
-        assert actual == {entry['path'] for entry in entries} | {'archive-inventory.json'}
+        expected_paths = {entry['path'] for entry in entries} | {'archive-inventory.json'}
+        if actual != expected_paths:
+            raise SystemExit(f'{name}: file set mismatch')
         for entry in entries:
             content = (root / entry['path']).read_bytes()
-            assert len(content) == entry['bytes'], entry['path']
-            assert hashlib.sha256(content).hexdigest() == entry['sha256'], entry['path']
+            if len(content) != entry['bytes']:
+                raise SystemExit(f"{entry['path']}: byte count mismatch")
+            if hashlib.sha256(content).hexdigest() != entry['sha256']:
+                raise SystemExit(f"{entry['path']}: hash mismatch")
         print(f'{name}: verified {len(entries)} payloads and the exact file set')
 VERIFY
 ```

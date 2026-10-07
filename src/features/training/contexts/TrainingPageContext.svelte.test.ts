@@ -17,7 +17,7 @@ import { groupCatalogHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
-import { submitDeletionRequest } from '$features/deletion-requests';
+import { submitDeletionRequest } from '$features/deletion-requests/submission.test-support';
 import { toastStore } from '$lib/stores/toast.svelte';
 
 const { gotoMock, invalidateMock, savePreferencesMock } = vi.hoisted(() => ({

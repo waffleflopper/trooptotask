@@ -146,10 +146,10 @@
 				if (created) selectedViewId = created.id;
 				creating = false;
 			} else if (selectedViewId) {
-				await trainingViewsStore.update(selectedViewId, {
-					name: name.trim(),
-					columnIds: orderedIds
-				});
+				if (!(await trainingViewsStore.update(selectedViewId, { name: name.trim(), columnIds: orderedIds }))) {
+					error = 'Failed to save view.';
+					return;
+				}
 			}
 			editing = false;
 			mobileDetailOpen = true;

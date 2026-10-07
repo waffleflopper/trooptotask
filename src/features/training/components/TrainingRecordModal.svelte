@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { TrainingType, PersonnelTraining } from '$features/training/training.types';
 	import { calculateExpirationDate, getTrainingStatus } from '$features/training/utils/trainingStatus';
@@ -21,7 +22,7 @@
 		trainingType: TrainingType;
 		existingTraining: PersonnelTraining | undefined;
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => void | Promise<void>;
-		onRemove: (id: string) => void | Promise<void>;
+		onRemove: (id: string, isCurrent?: () => boolean) => void | Promise<void>;
 		onClose: () => void;
 		canBeExempted?: boolean;
 		isExempt?: boolean;
@@ -39,6 +40,12 @@
 		isExempt = false,
 		onToggleExempt
 	}: Props = $props();
+
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
+	const isCurrent = () => !disposed;
 
 	const neverExpires = $derived(trainingType.expirationMonths === null && !trainingType.expirationDateOnly);
 	const expirationDateOnly = $derived(trainingType.expirationDateOnly);
@@ -99,7 +106,7 @@
 	}
 
 	async function handleSave() {
-		if (!canSave || isSaving) return;
+		if (!canSave || isSaving || !isCurrent()) return;
 		const saveData = {
 			personnelId: person.id,
 			trainingTypeId: trainingType.id,
@@ -112,21 +119,24 @@
 		isSaving = true;
 		try {
 			await onSave(saveData);
+			if (!isCurrent()) return;
 			toast.success(isUpdate ? 'Training record updated' : 'Training record saved');
 			onClose();
 		} catch (error) {
-			toast.error(getErrorMessage(error), { duration: 6000 });
+			if (isCurrent()) toast.error(getErrorMessage(error), { duration: 6000 });
 		} finally {
-			isSaving = false;
+			if (isCurrent()) isSaving = false;
 		}
 	}
 
 	async function doRemove() {
-		if (existingTraining) {
+		if (existingTraining && isCurrent()) {
 			try {
-				await onRemove(existingTraining.id);
+				await onRemove(existingTraining.id, isCurrent);
+				if (!isCurrent()) return;
 				onClose();
 			} catch (err) {
+				if (!isCurrent()) return;
 				toast.error(err instanceof Error ? err.message : 'Could not remove training record. Try again.', {
 					duration: 6000
 				});

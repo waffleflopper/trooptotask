@@ -32,7 +32,8 @@ export type TrainingRemovalRequest = (
 	resourceType: 'personnel_training',
 	resourceId: string,
 	description: string,
-	resourceUrl: string
+	resourceUrl: string,
+	isCurrent: () => boolean
 ) => Promise<boolean>;
 type NavigationModule = typeof import('$app/navigation');
 let navigationModule: Promise<NavigationModule> | undefined;
@@ -66,6 +67,7 @@ export class TrainingPageContext {
 	readonly #submitRemovalRequest: TrainingRemovalRequest;
 	readonly #savePreferences: (patch: TrainingPreferencesPatch) => void;
 	#hydratedSelectionFingerprint: string | null = null;
+	#disposed = false;
 
 	// ---- mutable UI state ----
 	selectedGroupId = $state<string>('');
@@ -290,29 +292,47 @@ export class TrainingPageContext {
 		});
 	}
 
+	dispose(): void {
+		this.#disposed = true;
+	}
+
+	#isCurrentWorkspace(): boolean {
+		return !this.#disposed && personnelTrainingsStore.orgId === this.orgId;
+	}
+
 	// ---- async handlers ----
 	async handleSaveTraining(data: Omit<PersonnelTraining, 'id'>): Promise<void> {
 		await personnelTrainingsStore.add(data);
 	}
 
 	async handleSaveTrainingBatch(records: TrainingBatchCompletionRecord[]): Promise<void> {
-		const res = await fetch(`/org/${this.orgId}/api/personnel-trainings/batch`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ records })
-		});
+		if (!this.#isCurrentWorkspace()) return;
+		try {
+			const res = await fetch(`/org/${this.orgId}/api/personnel-trainings/batch`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ records })
+			});
+			if (!this.#isCurrentWorkspace()) return;
 
-		const data: Partial<TrainingBatchImportResult> & { message?: string } = await res.json().catch(() => ({}));
-		if (!res.ok) {
-			throw new Error(data.message ?? `HTTP ${res.status}`);
+			const data: Partial<TrainingBatchImportResult> & { message?: string } = await res.json().catch(() => ({}));
+			if (!this.#isCurrentWorkspace()) return;
+			if (!res.ok) {
+				throw new Error(data.message ?? `HTTP ${res.status}`);
+			}
+
+			personnelTrainingsStore.addBatchResults(data.inserted ?? [], data.updated ?? []);
+		} catch (error) {
+			if (this.#isCurrentWorkspace()) throw error;
 		}
-
-		personnelTrainingsStore.addBatchResults(data.inserted ?? [], data.updated ?? []);
 	}
 
-	async handleRemoveTraining(id: string): Promise<void> {
+	async handleRemoveTraining(id: string, isCurrentEditor: () => boolean = () => true): Promise<void> {
+		const isCurrent = () => this.#isCurrentWorkspace() && isCurrentEditor();
+		if (!isCurrent()) return;
 		const training = personnelTrainingsStore.getById(id);
 		const result = await personnelTrainingsStore.remove(id);
+		if (!isCurrent()) return;
 		if (result === 'error') throw new Error('Could not remove training record. Try again.');
 		if (result === 'approval_required' && training) {
 			const person = this.personnel.find((p) => p.id === training.personnelId);
@@ -323,8 +343,10 @@ export class TrainingPageContext {
 				'personnel_training',
 				id,
 				desc,
-				`/org/${this.orgId}/training`
+				`/org/${this.orgId}/training`,
+				isCurrent
 			);
+			if (!isCurrent()) return;
 			if (!submitted) throw new Error('Could not submit removal request. Try again.');
 		}
 	}

@@ -22,4 +22,41 @@ Focused verification passes 20 tests across four files, including the original e
 
 The official Svelte autofixer reports no issues in the five changed runtime files. Its suggestions concern unchanged effects that initialize editable form fields; converting those fields to read-only derived values would change the forms and is outside this repair.
 
-Final native selection repeats only the two failed baseline cases. Existing lower-level integration checks establish batch and approval settlement; they do not claim native execution of those races. The twelve future persistence families remain UNRUN on their original candidate. Final native proof, expanded independent acceptance, exact-head CI/build and completed reviews without actionable feedback remain pending. #1376 stays open.
+Final owned native execution at `6ee9141497217e0013b11ddbc63ec2db71b00fbe`, tree `f574fcf89d1017fda96af080dfd7bfb7596a8520`, passes only the two selected failed baseline cases. Candidate `45462786d3a2082413f4623cc58b2722494de2a1c19d3f1e08e679be950c4bf8` uses Node 24.21.0, npm 11.19.0 and Chromium 152.0.7977.82 with the maintained recipes and unchanged role/scope inputs. P01 retains the failed PUT 503 name and reversed column order, exposes the error and enabled Save, preserves the complete prior saved row, then retries with real PUT 200 and reloads the same ID. P02 holds a real completion POST 200 until native Back admits B. Release produces no feedback or B changes. Returning to A and reloading confirms the committed row. This is one native tab, not shared-session two-tab proof.
+
+Both temporary rows are deleted through the app. All eleven original rows across eight business sets remain exact, without extras. Controls are unarmed, clean-seeds exits zero, final doctor passes and all 5,347 frozen inputs match. Supported cleanup passes. Root separately checks actual absence of fourteen processes, ten ports, five containers, one network, two volumes and the worker directory. The 41 preexisting containers, seven networks and seventeen volumes retain their complete identity/state facts. Docker mount ordering is normalized without dropping fields.
+
+The [final archive](d28-training-repair-final-6ee91414.tar.gz) has SHA-256 `cb9f0244eef64cfcdee0d05739bf40c730f41e2ba8a620359b3ac73913ba6611`, 567,163 bytes, 262 payloads and two PNGs. It preserves all 252 raw captures, their original inventory and nine metadata payloads. Metadata includes the report/receipt, parent closure check, focused test/type/lint logs, autofixer result and completed source reviews. Fresh extraction verifies every expanded hash, byte count and the exact file set. Privacy scans cover captures only. Historical transcripts are outside that claim.
+
+Corrected tool attempts remain preserved. An unsupported `notes` readback filter exits two before any provider operation; the documented `personnel_id` filter supplies the readback while the response remains held. The initial closure comparator treats reordered identical bind mounts as different; the corrected comparison retains every literal field. Neither correction repeats an application case, build, cleanup or business sweep. The production build reports a potentially missing `@opentelemetry/api` warning; the selected application paths function.
+
+Existing lower-level checks establish batch and approval settlement; they do not claim native execution of those races. The twelve future persistence families remain UNRUN on their original candidate. Source/baseline independent review reports Spec GO and no source defect. Its Standards hold requests archive verification instructions, supplied below. Source CodeRabbit reviews all sixteen text paths with zero findings; binary artifacts require separate expanded acceptance. Final expanded independent acceptance, exact-head CI/build and completed hosted reviews without actionable feedback remain pending. Publication changes only evidence and prose, so the matching runtime proof remains bound to `6ee91414` without another live sweep. #1376 stays open.
+
+## Verify the evidence archives
+
+Run this from the repository root. Each archive extracts into a fresh temporary directory outside the checkout, which is removed afterward. The archive checksum protects its inventory. The expanded checks verify every payload and the exact file set.
+
+```bash
+python3 - <<'VERIFY'
+import hashlib, json, pathlib, tarfile, tempfile
+archives = {
+    'd28-training-repair-baseline-369d6e27.tar.gz': 'bd0039bce9ff510836285345a823b87027f8b4b684d1660ac67ca72cf0bf5353',
+    'd28-training-repair-final-6ee91414.tar.gz': 'cb9f0244eef64cfcdee0d05739bf40c730f41e2ba8a620359b3ac73913ba6611',
+}
+for name, expected in archives.items():
+    archive = pathlib.Path('docs/stabilization/phase-08') / name
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == expected, name
+    with tempfile.TemporaryDirectory(prefix='t2t-training-evidence-') as scratch:
+        root = pathlib.Path(scratch)
+        with tarfile.open(archive) as stream:
+            stream.extractall(root, filter='data')
+        entries = json.loads((root / 'archive-inventory.json').read_text())['entries']
+        actual = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+        assert actual == {entry['path'] for entry in entries} | {'archive-inventory.json'}
+        for entry in entries:
+            content = (root / entry['path']).read_bytes()
+            assert len(content) == entry['bytes'], entry['path']
+            assert hashlib.sha256(content).hexdigest() == entry['sha256'], entry['path']
+        print(f'{name}: verified {len(entries)} payloads and the exact file set')
+VERIFY
+```

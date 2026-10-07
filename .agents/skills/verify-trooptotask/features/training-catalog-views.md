@@ -7,11 +7,12 @@ An Organization Training configurator defines requirements and saved matrix layo
 - `catalog`: create, edit, order and delete Training types while preserving their IDs and retained completion references on ordinary edits.
 - `applicability`: Everyone, Optional and targeted role/MOS/rank rules determine whether a Person is required to complete a type; exclusions win over targeting.
 - `saved-views`: create, edit, order and delete a named set of Training columns, then use it in the matrix.
+- `workspace-reuse`: moving between the matrix, Manage Types and Manage Views keeps the loaded workspace and sends no page-data request.
 - `access`: Training view/operate and Group-scoped actors can read their allowed matrix but cannot change the Organization catalog, even when a Group-scoped actor has the Training configure capability; the latter retains its Bulk Import action for authorized records. A foreign Organization's catalog is private.
 
 ## How to get to it (user POV)
 
-Choose `Training` in the Organization navigation. In the Training actions toolbar, open `Manage Types` or `Manage Views`. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link to `training/types` or `training/views` must enforce the same access rules as visible navigation.
+Choose `Training` in the Organization navigation. In the Training actions toolbar, open `Manage Types` or `Manage Views`. On the matrix, choose the named saved view in `Training view filter` and switch the Group selector between all available Groups and Alpha. A direct link (a full page load) to `training/types` or `training/views` must enforce the same access rules as visible navigation. Moving between the matrix, `Manage Types` and `Manage Views` reuses the loaded workspace and is not access proof.
 
 ## Driving it with verify:app
 
@@ -31,7 +32,7 @@ Use `tool evaluate_script` on the signed-in page for endpoint probes. Substitute
 npm run --silent verify:app -- tool evaluate_script "{\"pageId\":$PAGE,\"function\":\"async () => { const response = await fetch('/org/ORG_ID/api/training-types', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'MARKER' }) }); return { status: response.status, body: await response.text() }; }\"}" --worker "$WORKER"
 ```
 
-For views use `api/training-views` and `{name:'MARKER',columnIds:[]}`. Read the same marker in the selected Organization through `$V rows training_types orgA|orgB name MARKER` or `$V rows training_views orgA|orgB name MARKER`. For a persisted UI change save before/action/after snapshots and a screenshot, then reload for a second visible read. Keep the row readback and status in the run note with candidate digest, role, Organization, expected/observed outcome and artifact paths.
+For views use `api/training-views` and `{name:'MARKER',columnIds:[]}`. Read the same marker in the selected Organization through `$V rows training_types orgA|orgB name MARKER` or `$V rows training_views orgA|orgB name MARKER`. For a persisted UI change save before/action/after snapshots and a screenshot, then reload for a second visible read. Keep the row readback and status in the run note with candidate digest, role, Organization, expected/observed outcome and artifact paths. 6. **Workspace reuse:** As `trainingConfigure` on a settled matrix, clear resource timings and visit `Manage Types`, its `Training` link back to the matrix, then `Manage Views`. The page-data probe from the skill's Drive section must show no `__data.json` entry. Click `Reports`: expect one `training/reports/__data.json` and no workspace reload. Returning to the matrix from Reports loads the workspace again.
 
 ## Gotchas
 
@@ -39,6 +40,7 @@ For views use `api/training-views` and `{name:'MARKER',columnIds:[]}`. Read the 
 - The Group selector was changed to a compact control in #1394. Use its accessible name and visible options; do not assume Group pills.
 - This select component's portal options may be absent from a DevTools accessibility snapshot even when rendered. Read its open listbox options without changing the page, then use the focused trigger's arrow keys and Enter; confirm the visible selected value or resulting matrix/step. An empty snapshot listbox alone does not prove an empty catalog.
 - Clearing the Description textbox with `tool fill` can empty its DOM value without updating Svelte's bound value. Use focused keyboard selection and deletion, then inspect the save request body when diagnosing a discrepancy. The unchanged app accepted `description: null` and persisted null in the disposable provider.
+- Deleting a type removes its completions from the loaded matrix without a reload, matching the server cascade. A type deletion that needs approval keeps them.
 - A seeded Training type deletion can remove associated completions. Delete only rows created during this journey; restart this owned worker if a seeded row changes before another scenario needs it.
 - `clean-seeds` removes helper-created temporary rows, not types or views created through the UI. Delete UI-created rows visibly and read back their absence before cleanup.
 - The pure applicability examples and route/component checks in the issue's lower-level tests, plus isolated SQL authorization, complement the UI proof. Direct API and provider reads are not substitutes for browser interaction.

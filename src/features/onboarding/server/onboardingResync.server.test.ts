@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import type { OnboardingReconciliationResult } from '../contracts';
 import { resyncOnboarding, switchTemplate } from './onboardingResync.server';

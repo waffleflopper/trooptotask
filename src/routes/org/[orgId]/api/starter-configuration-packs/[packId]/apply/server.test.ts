@@ -17,8 +17,10 @@ function buildRequest(ctx: ReturnType<typeof createTestContext>): AdmittedOrgani
 			fetch: async (input, init) => {
 				const request = new Request(input, init);
 				const url = new URL(input instanceof Request ? input.url : String(input));
+				const table = url.pathname.replace('/rest/v1/', '');
 				if (
-					url.pathname !== '/rest/v1/training_types' ||
+					(table !== 'training_types' && table !== 'onboarding_templates' && table !== 'onboarding_template_steps') ||
+					(request.method !== 'GET' && request.method !== 'POST') ||
 					(request.method !== 'POST' && url.searchParams.get('organization_id') !== `eq.${ctx.auth.orgId}`)
 				) {
 					throw new Error('Unexpected starter-pack reference read');
@@ -26,15 +28,17 @@ function buildRequest(ctx: ReturnType<typeof createTestContext>): AdmittedOrgani
 				if (request.method === 'POST') {
 					const body = await request.json();
 					if (body.organization_id !== ctx.auth.orgId) throw new Error('Foreign starter write');
-					const row = await ctx.rawStore.insert('training_types', ctx.auth.orgId, body);
+					const row = await ctx.rawStore.insert(table, ctx.auth.orgId, body);
 					return Response.json(row);
 				}
 				const name = url.searchParams.get('name');
-				const rows = await ctx.rawStore.findMany(
-					'training_types',
-					ctx.auth.orgId,
-					name ? { name: name.slice(3) } : undefined
-				);
+				const id = url.searchParams.get('id');
+				const templateId = url.searchParams.get('template_id');
+				const rows = await ctx.rawStore.findMany(table, ctx.auth.orgId, {
+					...(name ? { name: name.slice(3) } : {}),
+					...(id ? { id: id.slice(3) } : {}),
+					...(templateId ? { template_id: templateId.slice(3) } : {})
+				});
 				if (request.headers.get('accept')?.includes('application/vnd.pgrst.object+json')) {
 					return rows.length === 1
 						? Response.json(rows[0])

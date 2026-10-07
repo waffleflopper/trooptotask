@@ -1,21 +1,9 @@
 import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction, type PolicyResource } from '$lib/access/policyEvaluator';
-import type { OnboardingPolicyPorts, OnboardingResourcePorts, OnboardingReadStore } from './onboardingPorts.server';
+import type { OnboardingPolicyPorts, OnboardingResourcePorts } from './onboardingPorts.server';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 
 const ONBOARDING_POLICY_ACTIONS = POLICY_ACTION_CATALOG.onboarding;
 const UNSCOPED_ONBOARDING_RESOURCE: PolicyResource = { kind: 'unscoped' };
-
-interface PersonnelBackedRow {
-	personnel_id: string;
-}
-
-interface StepBackedRow {
-	onboarding_id: string;
-}
-
-function policyLookupStore(ports: OnboardingResourcePorts): Pick<OnboardingReadStore, 'findOne'> {
-	return ports.rawStore ?? ports.store;
-}
 
 export async function policyResourceForOnboardingPersonnel(
 	ports: OnboardingResourcePorts,
@@ -29,32 +17,22 @@ export async function policyResourceForOnboarding(
 	ports: OnboardingResourcePorts,
 	onboardingId: string
 ): Promise<PolicyResource> {
-	const onboarding = await policyLookupStore(ports).findOne<PersonnelBackedRow>(
-		'personnel_onboardings',
-		ports.auth.orgId,
-		{ id: onboardingId },
-		'personnel_id'
-	);
+	const onboarding = await ports.onboardingWorkflow.findPacketReference(onboardingId);
 	if (!onboarding) {
 		return { kind: 'organization' };
 	}
-	return policyResourceForOnboardingPersonnel(ports, onboarding.personnel_id);
+	return policyResourceForOnboardingPersonnel(ports, onboarding.personnelId);
 }
 
 export async function policyResourceForOnboardingStep(
 	ports: OnboardingResourcePorts,
 	stepId: string
 ): Promise<PolicyResource> {
-	const step = await policyLookupStore(ports).findOne<StepBackedRow>(
-		'onboarding_step_progress',
-		ports.auth.orgId,
-		{ id: stepId },
-		'onboarding_id'
-	);
+	const step = await ports.onboardingWorkflow.findStepReference(stepId);
 	if (!step) {
 		return { kind: 'organization' };
 	}
-	return policyResourceForOnboarding(ports, step.onboarding_id);
+	return policyResourceForOnboarding(ports, step.onboardingId);
 }
 
 export async function requireOnboardingPolicy(

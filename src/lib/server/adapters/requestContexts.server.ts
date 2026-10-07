@@ -79,7 +79,9 @@ import {
 } from '$features/identity/index.server';
 import {
 	createSupabaseOnboardingExportReader,
-	createSupabaseOnboardingCalendarMarkersPort
+	createSupabaseOnboardingCalendarMarkersPort,
+	createSupabaseOnboardingCatalogPersistence,
+	createSupabaseOnboardingWorkflowPersistence
 } from '$features/onboarding/index.server';
 import {
 	loadPersonnelDocumentStorageCapBytes,
@@ -694,7 +696,9 @@ export function createRequestDeletionReviewContext(request: AdmittedOrganization
 export function createRequestGettingStartedContext(request: AdmittedOrganizationRequest) {
 	return {
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
-		...createRequestWriteContext(request),
+		auth: request.auth,
+		audit: request.audit,
+		onboardingCatalog: createSupabaseOnboardingCatalogPersistence(request.supabase, request.auth.orgId),
 		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
 	};
 }
@@ -704,7 +708,7 @@ export function createRequestDashboardWorkspaceContext(request: AdmittedOrganiza
 		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		...createRequestCalendarRangeContext(request),
 		...createRequestPersonnelRosterContext(request),
-		store: request.store,
+		onboardingWorkflow: createSupabaseOnboardingWorkflowPersistence(request.supabase, request.auth.orgId),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase),
 		ratingSchemeDue: createSupabaseRatingSchemeDuePort(request.supabase),
 		personnelAwardAcknowledgement: createSupabasePersonnelAwardAcknowledgementPort(request.supabase)

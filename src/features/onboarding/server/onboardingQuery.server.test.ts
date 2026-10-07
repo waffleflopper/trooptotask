@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { fetchOnboardingBootstrap } from './onboardingQuery.server';
 
 const ORG = 'test-org';
@@ -299,9 +299,8 @@ describe('fetchOnboardingBootstrap', () => {
 		]);
 	});
 
-	it('returns only in-progress onboardings and passes a status filter in active mode', async () => {
+	it('returns only in-progress onboardings in active mode', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
-		const findManySpy = vi.spyOn(ctx.store, 'findMany');
 		ctx.store.seed('personnel_onboardings', [
 			makeOnboardingRow({ id: 'active-ob', personnel_id: 'p1', status: 'in_progress' }),
 			makeOnboardingRow({
@@ -322,15 +321,10 @@ describe('fetchOnboardingBootstrap', () => {
 
 		expect(result.onboardings).toHaveLength(1);
 		expect(result.onboardings[0]).toMatchObject({ id: 'active-ob', status: 'in_progress' });
-		const onboardingCall = findManySpy.mock.calls.find(([table]) => table === 'personnel_onboardings');
-		expect(onboardingCall?.[2]).toEqual({ status: 'in_progress' });
-		expect(onboardingCall?.[3]).toMatchObject({ select: expect.any(String) });
-		expect(onboardingCall?.[3]?.inFilters).toBeUndefined();
 	});
 
-	it('returns only completed and cancelled onboardings and passes an in-filter in history mode', async () => {
+	it('returns only completed and cancelled onboardings in history mode', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG } });
-		const findManySpy = vi.spyOn(ctx.store, 'findMany');
 		ctx.store.seed('personnel_onboardings', [
 			makeOnboardingRow({ id: 'active-ob', personnel_id: 'p1', status: 'in_progress' }),
 			makeOnboardingRow({
@@ -350,12 +344,6 @@ describe('fetchOnboardingBootstrap', () => {
 		const result = await fetchOnboardingBootstrap(ctx, { mode: 'history' });
 
 		expect(result.onboardings.map((onboarding) => onboarding.id).sort()).toEqual(['cancelled-ob', 'completed-ob']);
-		const onboardingCall = findManySpy.mock.calls.find(([table]) => table === 'personnel_onboardings');
-		expect(onboardingCall?.[2]).toBeUndefined();
-		expect(onboardingCall?.[3]).toMatchObject({
-			select: expect.any(String),
-			inFilters: { status: ['completed', 'cancelled'] }
-		});
 	});
 
 	it('keeps archived subjects and their completed workflows in scoped Onboarding history', async () => {
@@ -514,7 +502,6 @@ describe('fetchOnboardingBootstrap', () => {
 
 	it('applies group-scoped personnel filtering after the active status query', async () => {
 		const ctx = createWritePortsContext({ auth: { orgId: ORG, scopeSet: { kind: 'groups', groupIds: ['g1'] } } });
-		const findManySpy = vi.spyOn(ctx.store, 'findMany');
 		ctx.store.seed('personnel', [
 			{
 				id: 'p1',
@@ -557,8 +544,6 @@ describe('fetchOnboardingBootstrap', () => {
 		expect(result.onboardings).toHaveLength(1);
 		expect(result.onboardings[0]).toMatchObject({ id: 'in-scope-active', personnelId: 'p1' });
 		expect(result.personnel.map((p) => p.id)).toEqual(['p1']);
-		const onboardingCall = findManySpy.mock.calls.find(([table]) => table === 'personnel_onboardings');
-		expect(onboardingCall?.[2]).toEqual({ status: 'in_progress' });
 	});
 
 	it('refreshes training step completion for active in-progress onboardings', async () => {

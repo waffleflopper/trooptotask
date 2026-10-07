@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/onboarding/server/onboardingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _postConfig } from './+server';
 

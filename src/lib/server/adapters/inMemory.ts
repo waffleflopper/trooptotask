@@ -1,3 +1,4 @@
+import type { OnboardingCatalogPersistence, OnboardingWorkflowPersistence } from '$features/onboarding/contracts';
 import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '$features/training/contracts';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
 import {
@@ -132,6 +133,8 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string, unknown>;
 
 type TestContextOptions = {
+	onboardingCatalogFactory?: (store: DataStore, orgId: string) => OnboardingCatalogPersistence;
+	onboardingWorkflowFactory?: (store: DataStore, orgId: string) => OnboardingWorkflowPersistence;
 	trainingCatalogFactory?: (store: DataStore, orgId: string) => TrainingCatalogPersistence;
 	trainingCompletionsFactory?: (store: DataStore, orgId: string) => TrainingCompletionPersistence;
 	auth?: Parameters<typeof createTestAuthContext>[0];
@@ -156,6 +159,48 @@ type TestContextOptions = {
 	onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
 	onboardingPacketCreation?: OnboardingPacketCreationPort;
 };
+
+function createTestOnboardingPersistence(store: DataStore, orgId: string, options?: TestContextOptions) {
+	async function unavailable(): Promise<never> {
+		throw new Error('Bind the owned Onboarding persistence provider in this test context');
+	}
+	return {
+		onboardingCatalog:
+			options?.onboardingCatalogFactory?.(store, orgId) ??
+			({
+				listTemplates: unavailable,
+				listSteps: unavailable,
+				findTemplate: unavailable,
+				findTemplateByName: unavailable,
+				findStep: unavailable,
+				findStepByTemplateAndName: unavailable,
+				readStarterReadiness: unavailable,
+				countEstimatedSteps: unavailable,
+				createTemplate: unavailable,
+				updateTemplate: unavailable,
+				deleteTemplate: unavailable,
+				createStep: unavailable,
+				createSteps: unavailable,
+				updateStep: unavailable,
+				deleteStep: unavailable,
+				deleteStepsForTemplate: unavailable
+			} satisfies OnboardingCatalogPersistence),
+		onboardingWorkflow:
+			options?.onboardingWorkflowFactory?.(store, orgId) ??
+			({
+				listPackets: unavailable,
+				listSavedActivePackets: unavailable,
+				findPacketReference: unavailable,
+				findStepReference: unavailable,
+				listActivePacketIdsForPersonnel: unavailable,
+				listIncompleteActiveStepIds: unavailable,
+				saveCheckboxCompletion: unavailable,
+				savePaperworkProgress: unavailable,
+				listPacketIdsUsingTemplate: unavailable,
+				clearPacketTemplate: unavailable
+			} satisfies OnboardingWorkflowPersistence)
+	};
+}
 
 function createTestTrainingPersistence(store: DataStore, orgId: string, options?: TestContextOptions) {
 	async function unavailable(): Promise<never> {
@@ -1377,6 +1422,7 @@ export function createTestContext(
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, overrides),
 		...createTestTrainingPersistence(store, auth.orgId, overrides),
+		...createTestOnboardingPersistence(rawStore, auth.orgId, overrides),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
@@ -1503,6 +1549,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
 		...createTestTrainingPersistence(store, auth.orgId, options),
+		...createTestOnboardingPersistence(rawStore, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
@@ -1544,6 +1591,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
 		...createTestTrainingPersistence(store, auth.orgId, options),
+		...createTestOnboardingPersistence(rawStore, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
@@ -1596,6 +1644,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
 		...createTestTrainingPersistence(store, auth.orgId, options),
+		...createTestOnboardingPersistence(rawStore, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,
@@ -1629,6 +1678,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
 		...createTestTrainingPersistence(store, auth.orgId, options),
+		...createTestOnboardingPersistence(rawStore, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,

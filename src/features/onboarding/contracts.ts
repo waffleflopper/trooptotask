@@ -30,7 +30,8 @@ export type {
 	OnboardingStepType,
 	OnboardingStepProgress,
 	OnboardingStepNote,
-	OnboardingStatus
+	OnboardingStatus,
+	OnboardingBootstrapMode
 } from './onboarding.types';
 
 /** Only the active Personnel IDs needed for Calendar's onboarding markers. */
@@ -39,7 +40,6 @@ export interface OnboardingCalendarMarkersPort {
 }
 
 export const ONBOARDING_WORKSPACE_LANE_KEY = 'onboarding' as const;
-export type OnboardingBootstrapMode = 'all' | 'active' | 'history';
 export interface OnboardingBootstrap {
 	onboardingTemplates: OnboardingTemplate[];
 	onboardingTemplateSteps: OnboardingTemplateStep[];
@@ -189,3 +189,17 @@ export interface OnboardingPacketCreationPort {
 }
 
 export type { OnboardingSupportReader } from './supportReadTypes';
+
+export type {
+	OnboardingCatalogPersistence,
+	OnboardingWorkflowPersistence,
+	OnboardingTemplateData,
+	OnboardingTemplateStepData,
+	PreparedOnboardingTemplateStep,
+	SavedOnboardingTemplate,
+	SavedOnboardingTemplateStep,
+	SavedOnboardingProgress,
+	OnboardingPacketReference,
+	OnboardingProgressReference,
+	OnboardingStarterReadiness
+} from './persistenceContracts';

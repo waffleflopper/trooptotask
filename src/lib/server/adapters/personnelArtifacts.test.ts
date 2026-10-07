@@ -3,6 +3,7 @@ import { createPersonnelArtifactDeliveryContext } from './requestContexts.server
 import { createClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import {
+	createSupabasePersonnelRecordPersistence,
 	listPersonnelCounselingRecords,
 	listPersonnelDocuments,
 	listPersonnelFollowUps,
@@ -100,7 +101,17 @@ function fixture(family: (typeof families)[number], failure?: 'artifact-page' | 
 	});
 	const ctx = createTestContext({ auth: { orgId: ORG } });
 	const store = createSupabaseDataStore(client);
-	return { ctx: { ...ctx, store, rawStore: store }, rows, receipts };
+	return {
+		ctx: {
+			...ctx,
+			store,
+			rawStore: store,
+			organizationPersonnel: createSupabasePersonnelRecordPersistence(client, ORG),
+			organizationSettings: createSupabaseOrganizationSettingsReader(client)
+		},
+		rows,
+		receipts
+	};
 }
 
 describe('Personnel artifact provider delivery', () => {

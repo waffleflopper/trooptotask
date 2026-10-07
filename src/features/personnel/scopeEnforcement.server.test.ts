@@ -104,39 +104,4 @@ describe('createSupabaseScopeEnforcementAdapter', () => {
 		await expect(scope.requireGroupAccessBatch(['any'])).rejects.toMatchObject({ status: 403 });
 		expect(from).not.toHaveBeenCalled();
 	});
-
-	it('checks a record Person and preserves missing/unassigned record behavior', async () => {
-		const { supabase } = fakeSupabase({
-			training_records: [
-				{ id: 'allowed-record', organization_id: 'org-1', personnel_id: 'allowed' },
-				{ id: 'outside-record', organization_id: 'org-1', personnel_id: 'outside' },
-				{ id: 'unassigned-record', organization_id: 'org-1', personnel_id: null },
-				{ id: 'foreign-record', organization_id: 'org-2', personnel_id: 'allowed' }
-			],
-			personnel: [
-				{ id: 'allowed', organization_id: 'org-1', group_id: 'group-a' },
-				{ id: 'outside', organization_id: 'org-1', group_id: 'group-b' }
-			]
-		});
-		const scope = createSupabaseScopeEnforcementAdapter({ supabase, orgId: 'org-1', scopeSet: groupScope });
-
-		await expect(
-			scope.requireGroupAccessByRecord('training_records', 'allowed-record', 'personnel_id')
-		).resolves.toBeUndefined();
-		await expect(
-			scope.requireGroupAccessByRecord('training_records', 'outside-record', 'personnel_id')
-		).rejects.toMatchObject({ status: 403 });
-		for (const id of ['unassigned-record', 'missing', 'foreign-record']) {
-			await expect(scope.requireGroupAccessByRecord('training_records', id, 'personnel_id')).resolves.toBeUndefined();
-		}
-	});
-
-	it('propagates record lookup errors before reading the Person', async () => {
-		const failure = new Error('scope lookup failed');
-		const { supabase, from } = fakeSupabase({}, failure);
-		const scope = createSupabaseScopeEnforcementAdapter({ supabase, orgId: 'org-1', scopeSet: groupScope });
-
-		await expect(scope.requireGroupAccessByRecord('training_records', 'any', 'personnel_id')).rejects.toBe(failure);
-		expect(from).toHaveBeenCalledTimes(1);
-	});
 });

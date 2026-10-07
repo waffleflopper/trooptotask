@@ -13,7 +13,6 @@ import { listAvailabilityEntries } from './availabilityRead.server';
 import { listSpecialDaysInRange } from './specialDayRead.server';
 import { listStatusTypes } from './statusTypeRead.server';
 import { listDailyAssignments } from './dailyAssignmentRead.server';
-import { listGroupCatalog, listPinnedGroupNames } from '$features/personnel/index.server';
 import { withCalendarTiming } from '$lib/server/utils/calendarTiming';
 import { CALENDAR_POLICY_ACTIONS, requireCalendarPolicy } from '$lib/server/core/useCases/calendarPolicy';
 import { requirePersonnelCalendarRoster, resolveCalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
@@ -27,12 +26,13 @@ import type { OrganizationSettingsReader } from '$features/organization/contract
 import type { OnboardingCalendarMarkersPort } from '$features/onboarding/contracts';
 import type { AuditPort } from '$lib/audit/contracts';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
-import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
+import type { GroupPersistence, PersonnelCalendarRosterPort, SelfPinPersistence } from '$features/personnel/contracts';
 
 interface CalendarQueryPorts {
 	auth: OrganizationAccessGrant;
 	audit?: AuditPort;
-	store: Parameters<typeof listGroupCatalog>[0]['store'] & Parameters<typeof listPinnedGroupNames>[0]['store'];
+	groups: Pick<GroupPersistence, 'listCatalog'>;
+	selfPins: Pick<SelfPinPersistence, 'listNames'>;
 	calendarCatalogs: CalendarCatalogPersistence;
 	calendarAvailability: Pick<CalendarAvailabilityPersistence, 'listOverlapping'>;
 	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange'>;
@@ -79,7 +79,7 @@ export async function fetchCalendarData(ctx: CalendarQueryPorts, input: Calendar
 		listSpecialDaysInRange(ctx.calendarCatalogs, input),
 		listAssignmentTypes(ctx.calendarCatalogs),
 		listDailyAssignments(ctx, input, calendarScope),
-		listPinnedGroupNames(ctx)
+		ctx.selfPins.listNames()
 	]);
 
 	return {
@@ -141,9 +141,9 @@ export async function fetchCalendarBootstrap(
 
 	const [assignmentTypes, pinnedGroups, personnel, groups, statusTypes, warningWindow] = await Promise.all([
 		listAssignmentTypes(ctx.calendarCatalogs),
-		listPinnedGroupNames(ctx),
+		ctx.selfPins.listNames(),
 		requirePersonnelCalendarRoster(ctx).listActive(ctx.auth),
-		listGroupCatalog(ctx, { groupIds: calendarScope?.groupIds }),
+		ctx.groups.listCatalog({ groupIds: calendarScope?.groupIds }),
 		listStatusTypes(ctx.calendarCatalogs),
 		ctx.organizationSettings.findLossWarningWindowDays(orgId).catch(() => null)
 	]);

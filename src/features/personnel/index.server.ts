@@ -1,3 +1,13 @@
+export { createSupabasePersonnelRosterReader } from './personnelRosterReader.server';
+export { createSupabasePersonnelRecordPersistence } from './personnelRecordPersistence.server';
+export { createSupabaseGroupPersistence } from './groupPersistence.server';
+export { createSupabaseSelfPinPersistence } from './selfPinPersistence.server';
+export type {
+	PersonnelRosterReader,
+	PersonnelRecordPersistence,
+	GroupPersistence,
+	SelfPinPersistence
+} from './contracts';
 export { createPersonnelRecord, updatePersonnelRecord } from './personnelRecordOperations.server';
 export {
 	archivePersonnelLeaderNote,

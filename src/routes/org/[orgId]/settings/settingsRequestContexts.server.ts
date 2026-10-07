@@ -1,7 +1,9 @@
 import { createSupabaseSignInRosterRankReferenceReader } from '$features/sign-in-rosters/index.server';
 import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
 import {
-	createRequestDataContext,
+	createRequestRankCatalogContext,
+	createRequestPersonnelRosterContext,
+	createRequestGroupContext,
 	createRequestNotificationContext,
 	createRequestSensitiveActionContext,
 	createRequestWriteContext
@@ -28,6 +30,7 @@ export function createSettingsShellContext(request: AdmittedOrganizationRequest)
 } {
 	return {
 		...createRequestWriteContext(request),
+		...createRequestPersonnelRosterContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};
 }
@@ -36,8 +39,7 @@ export function createSettingsArchivesContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof loadArchivesSettings>[0] {
 	return {
-		auth: request.auth,
-		store: request.store,
+		...createRequestPersonnelRosterContext(request),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
 	};
 }
@@ -51,6 +53,7 @@ export function createSettingsMembersContext(request: AdmittedOrganizationReques
 	} {
 	return {
 		...createRequestWriteContext(request),
+		...createRequestGroupContext(request),
 		organizationInvitationSetupStateLookup: createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient)
 	};
 }
@@ -83,7 +86,7 @@ export function createSettingsSensitiveNotificationContext(request: AdmittedOrga
 
 export function createSettingsRanksContext(request: AdmittedOrganizationRequest) {
 	return {
-		...createRequestDataContext(request),
+		...createRequestRankCatalogContext(request),
 		readSignInRosterRankReferences: createSupabaseSignInRosterRankReferenceReader(request.supabase, request.auth.orgId)
 	};
 }

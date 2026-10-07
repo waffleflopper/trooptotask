@@ -3,26 +3,19 @@ import type {
 	CriticalTasksReadModelPort,
 	CriticalTasksWorkspaceData
 } from '../contracts';
-import type { PersonnelRosterActor, PersonnelCriticalTasksRosterPort } from '$features/personnel/contracts';
-import { listGroupCatalog } from '$features/personnel/index.server';
+import type {
+	GroupPersistence,
+	PersonnelRosterActor,
+	PersonnelCriticalTasksRosterPort
+} from '$features/personnel/contracts';
 import { fetchCriticalTasksSettings } from './criticalTasksSettingsRead.server';
 
 interface CriticalTasksWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
 	store: {
 		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
-		findMany<T>(
-			table: string,
-			orgId: string,
-			filters?: Record<string, unknown>,
-			options?: {
-				select?: string;
-				isNull?: Record<string, boolean>;
-				inFilters?: Record<string, string[]>;
-				orderBy?: Array<{ column: string; ascending: boolean }>;
-			}
-		): Promise<T[]>;
 	};
+	groups: Pick<GroupPersistence, 'listCatalog'>;
 	personnelCriticalTasksRoster?: Pick<PersonnelCriticalTasksRosterPort, 'listActiveForReadiness'>;
 	criticalTasksReadModel: CriticalTasksReadModelPort;
 	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>;
@@ -56,7 +49,7 @@ export async function fetchCriticalTasksBootstrap(
 		});
 		throw error;
 	});
-	const groups = loadCriticalTasksItems(orgId, 'groups', listGroupCatalog(ctx));
+	const groups = loadCriticalTasksItems(orgId, 'groups', ctx.groups.listCatalog());
 	const ictTasks = loadCriticalTasksItems(
 		orgId,
 		'ICT tasks',

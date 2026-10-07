@@ -23,7 +23,9 @@ const previousCwd = process.cwd();
 process.chdir(root);
 const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'error' });
 try {
-	const { PersonnelEntity } = await vite.ssrLoadModule('/src/features/personnel/personnelEntity.server.ts');
+	const { createSupabasePersonnelRosterReader } = await vite.ssrLoadModule(
+		'/src/features/personnel/personnelRosterReader.server.ts'
+	);
 	const { createSupabaseSignInRosterPersonnelLookupPort } = await vite.ssrLoadModule(
 		'/src/features/personnel/signInRosterPersonnelLookup.server.ts'
 	);
@@ -45,21 +47,15 @@ try {
 		expected.map((row) => (row.id === id(304) ? { ...row, groupName: 'Foreign Bravo Group' } : row))
 	);
 
-	const { data, error } = await service
-		.from('personnel')
-		.select(PersonnelEntity.select)
-		.eq('organization_id', id(101))
-		.order('id');
-	if (error) throw new Error(`Populated Personnel read failed (${error.code}): ${error.message}`);
+	const data = await createSupabasePersonnelRosterReader(service, id(101)).list({ status: 'all' });
 	assert.deepEqual(
-		PersonnelEntity.fromDbArray(data).map(({ id, groupId, groupName, slug }) => ({ id, groupId, groupName, slug })),
+		data
+			.map(({ id, groupId, groupName, slug }) => ({ id, groupId, groupName, slug }))
+			.sort((a, b) => a.id.localeCompare(b.id)),
 		expected
 	);
-	assert.equal(
-		new Date(PersonnelEntity.fromDb(data.find((row) => row.id === id(302))).archivedAt).toISOString(),
-		'2026-08-01T12:00:00.000Z'
-	);
-	assert.equal(data.find((row) => row.id === id(304)).groups, null);
+	assert.equal(new Date(data.find((row) => row.id === id(302)).archivedAt).toISOString(), '2026-08-01T12:00:00.000Z');
+	assert.equal(data.find((row) => row.id === id(304)).groupName, '');
 
 	const snapshots = createSupabaseSignInRosterPersonnelLookupPort(() => service);
 	const rows = await snapshots.findPersonnelForRosterSnapshot(id(101), [

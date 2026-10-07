@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { TrainingWorkspaceData } from '$features/training/contracts';
-import type { Personnel } from '$features/personnel/contracts';
+import type { GroupPersistence, Personnel, SelfPinPersistence } from '$features/personnel/contracts';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/index.server';
+import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import {
+	createInMemoryGroupPersistence,
+	createInMemorySelfPinPersistence
+} from '$features/personnel/inMemoryPersonnelPersistence.server';
 
 const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } = vi.hoisted(() => {
 	const findManyMock = vi.fn();
@@ -31,6 +36,8 @@ const { findManyMock, listRosterCandidatesMock, loadWithContextMock, mockCtx } =
 			store: {
 				findMany: findManyMock
 			},
+			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
+			selfPins: undefined as unknown as Pick<SelfPinPersistence, 'listNames'>,
 			personnelTrainingRoster: undefined as unknown as PersonnelTrainingRosterPort
 		}
 	};
@@ -60,6 +67,10 @@ describe('streamTrainingWorkspaceBootstrap', () => {
 			ratingScheme: 'view'
 		};
 		mockCtx.auth.scopeSet = { kind: 'organization' };
+		const store = createInMemoryDataStore();
+		store.findMany = findManyMock;
+		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId);
+		mockCtx.selfPins = createInMemorySelfPinPersistence(store, mockCtx.auth.orgId, mockCtx.auth.userId);
 		mockCtx.personnelTrainingRoster = {
 			listActiveForWorkspace: listRosterCandidatesMock,
 			listActiveForReports: vi.fn(),

@@ -104,6 +104,7 @@ describe('settings layout server load', () => {
 				auth: ctx.auth,
 				audit: ctx.audit,
 				store: ctx.store,
+				roster: ctx.roster,
 				organizationSettings: ctx.organizationSettings
 			}))
 		);
@@ -179,6 +180,7 @@ describe('settings layout server load', () => {
 				auth: ctx.auth,
 				audit: ctx.audit,
 				store: ctx.store,
+				roster: ctx.roster,
 				organizationSettings: ctx.organizationSettings
 			}))
 		);
@@ -249,6 +251,7 @@ describe('settings layout server load', () => {
 				auth: ctx.auth,
 				audit: ctx.audit,
 				store: ctx.store,
+				roster: ctx.roster,
 				organizationSettings: ctx.organizationSettings
 			}))
 		);
@@ -302,6 +305,7 @@ describe('settings layout server load', () => {
 				auth: ctx.auth,
 				audit: ctx.audit,
 				store: ctx.store,
+				roster: ctx.roster,
 				organizationSettings: ctx.organizationSettings
 			}))
 		);

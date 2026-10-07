@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import { PersonnelEntity } from './personnelEntity.server';
+import { PERSONNEL_FIELDS, toPersonnel } from './personnelPersistenceMapping.server';
 import type { PersonnelOnboardingRosterPort, PersonnelRosterActor } from './contracts';
 import { queryScopedPersonnelRows } from './scopedRosterQuery.server';
 
@@ -21,10 +21,10 @@ export function createSupabasePersonnelOnboardingRosterPort(
 		async listRoster(actor, status) {
 			await requireOnboardingRosterRead(actor);
 			const rows = await queryScopedPersonnelRows(getAdminClient, actor.orgId, actor.scopeSet, {
-				select: PersonnelEntity.select,
+				select: PERSONNEL_FIELDS,
 				status
 			});
-			return PersonnelEntity.fromDbArray(rows);
+			return rows.map(toPersonnel);
 		},
 		async findGroupIds(actor, personnelIds) {
 			await requireOnboardingRosterRead(actor);

@@ -1,14 +1,14 @@
 import { pinGroup, replacePinnedGroups, unpinGroup } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createRequestWriteContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestSelfPinContext } from '$lib/server/adapters/requestContexts.server';
 
 export const _postConfig: RouteConfig<
 	Record<string, unknown>,
 	unknown,
-	ReturnType<typeof createRequestWriteContext>
+	ReturnType<typeof createRequestSelfPinContext>
 > = {
-	context: createRequestWriteContext,
+	context: createRequestSelfPinContext,
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	mutation: true,
 
@@ -29,9 +29,9 @@ export const POST = handle(_postConfig);
 export const _deleteConfig: RouteConfig<
 	Record<string, unknown>,
 	unknown,
-	ReturnType<typeof createRequestWriteContext>
+	ReturnType<typeof createRequestSelfPinContext>
 > = {
-	context: createRequestWriteContext,
+	context: createRequestSelfPinContext,
 	policyAction: POLICY_ACTION_CATALOG.identity.updateOwnPreferences,
 	mutation: true,
 

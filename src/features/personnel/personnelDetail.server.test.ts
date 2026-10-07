@@ -1,10 +1,14 @@
+import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext as basecreateTestContext } from '$lib/server/adapters/inMemory';
+
 import {
 	loadAvailabilityReadinessLane,
 	loadLossTrackingReadinessLane,
 	loadPersonnelDetailHeader
 } from './personnelDetail.server';
+const createTestContext = (overrides?: Parameters<typeof basecreateTestContext>[0]) =>
+	withPersonnelPersistence(basecreateTestContext(overrides));
 
 const AS_OF = '2026-05-14';
 const listStatusTypes = async () => [{ id: 'tdy', name: 'TDY', color: '#000', textColor: '#fff' }];

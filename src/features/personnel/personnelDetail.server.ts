@@ -4,26 +4,19 @@ import { POLICY_ACTION_CATALOG, type FeatureLanePolicyAction } from '$lib/access
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 import { formatDate, formatDisplayDate, parseDate } from '$lib/utils/dates';
-import type { PersonnelAvailabilityPeriod, PersonnelCalendarStatusSnapshot } from './contracts';
+import type {
+	PersonnelAvailabilityPeriod,
+	PersonnelCalendarStatusSnapshot,
+	PersonnelRecordPersistence
+} from './contracts';
 import type { PersonnelDetailHeader, PersonnelReadinessLane } from './personnel-detail.types';
-import { PersonnelEntity } from './personnelEntity.server';
 import type { Personnel } from './personnel.types';
-
-interface PersonnelDetailReadStore {
-	findOne<T>(table: 'personnel', orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
-}
 
 interface PersonnelDetailContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	store: PersonnelDetailReadStore;
-	rawStore?: PersonnelDetailReadStore;
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findBySlug' | 'findById'>;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
-}
-
-interface PersonnelPolicyRow extends Record<string, unknown> {
-	id: string;
-	group_id: string | null;
 }
 
 /** Resolve the shared detail header without excluding archived Personnel. */
@@ -31,14 +24,8 @@ export async function loadPersonnelDetailHeader(
 	ctx: PersonnelDetailContext,
 	personnelSlug: string
 ): Promise<PersonnelDetailHeader> {
-	const row = await (ctx.rawStore ?? ctx.store).findOne<PersonnelPolicyRow>(
-		'personnel',
-		ctx.auth.orgId,
-		{ slug: personnelSlug },
-		PersonnelEntity.select
-	);
-	if (!row) fail(404, 'Personnel record not found');
-	const person = PersonnelEntity.fromDb(row);
+	const person = await ctx.organizationPersonnel.findBySlug(personnelSlug);
+	if (!person) fail(404, 'Personnel record not found');
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.manageRecords,
@@ -57,16 +44,11 @@ export async function loadPersonnelForLane(
 	action: FeatureLanePolicyAction,
 	resourceType: string
 ): Promise<Personnel> {
-	const row = await (ctx.rawStore ?? ctx.store).findOne<PersonnelPolicyRow>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		PersonnelEntity.select
-	);
-	if (!row) fail(404, 'Personnel record not found');
+	const person = await ctx.organizationPersonnel.findById(personnelId);
+	if (!person) fail(404, 'Personnel record not found');
 	await ctx.scope.requireGroupAccess(personnelId);
-	await requireFeaturePolicy(ctx, action, policyResourceForGroup(row.group_id), resourceType, personnelId);
-	return PersonnelEntity.fromDb(row);
+	await requireFeaturePolicy(ctx, action, policyResourceForGroup(person.groupId), resourceType, personnelId);
+	return person;
 }
 
 function asOfDate(value?: string | Date): Date {

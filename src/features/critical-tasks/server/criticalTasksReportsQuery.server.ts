@@ -1,7 +1,7 @@
 import type { CriticalTasksReportContext } from './criticalTasksReadPorts.server';
 import type { CriticalTasksSettings, IctTask, PersonnelIctCompletion } from '../contracts';
-import type { Group } from '$features/personnel/contracts';
-import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import type { Group, GroupPersistence } from '$features/personnel/contracts';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { Personnel } from '$features/personnel/contracts';
 import type { RankCatalogEntry } from '$features/personnel/contracts';
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
@@ -24,6 +24,10 @@ import type {
 	CriticalTasksWorkbookExport
 } from '../contracts';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
+
+type CriticalTasksReportQueryContext = CriticalTasksReportContext & {
+	readonly groups: Pick<GroupPersistence, 'listCatalog'>;
+};
 
 interface CriticalTasksReportSource {
 	personnel: Personnel[];
@@ -85,11 +89,11 @@ async function buildDashboardFromSource(
 	});
 }
 
-async function loadCriticalTasksReportSource(ctx: CriticalTasksReportContext): Promise<CriticalTasksReportSource> {
+async function loadCriticalTasksReportSource(ctx: CriticalTasksReportQueryContext): Promise<CriticalTasksReportSource> {
 	if (!ctx.personnelCriticalTasksRoster) throw new Error('Personnel Critical Tasks roster provider unavailable');
 	const [personnel, groups, tasks, settings, rankCatalog] = await Promise.all([
 		ctx.personnelCriticalTasksRoster.listActiveForReadiness(ctx.auth),
-		listGroupCatalog(ctx),
+		ctx.groups.listCatalog(),
 		ctx.criticalTaskLibrary.listCatalog(),
 		fetchCriticalTasksSettings(ctx),
 		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'critical-tasks-readiness' })
@@ -122,7 +126,7 @@ async function loadLatestCompletions(
 }
 
 export async function fetchCriticalTasksReportDashboard(
-	ctx: CriticalTasksReportContext,
+	ctx: CriticalTasksReportQueryContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboard> {
 	const source = await loadCriticalTasksReportSource(ctx);
@@ -130,7 +134,7 @@ export async function fetchCriticalTasksReportDashboard(
 }
 
 export async function fetchCriticalTasksDashboardSummary(
-	ctx: CriticalTasksReportContext,
+	ctx: CriticalTasksReportQueryContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<IctReportDashboardSummary> {
 	const source = await loadCriticalTasksReportSource(ctx);
@@ -150,7 +154,7 @@ export async function fetchCriticalTasksDashboardSummary(
 }
 
 export async function fetchCriticalTasksReportsPageModel(
-	ctx: CriticalTasksReportContext,
+	ctx: CriticalTasksReportQueryContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<CriticalTasksReportsPageModel> {
 	const source = await loadCriticalTasksReportSource(ctx);
@@ -162,7 +166,7 @@ export async function fetchCriticalTasksReportsPageModel(
 }
 
 export async function generateCriticalTasksReportWorkbookExport(
-	ctx: CriticalTasksReportContext,
+	ctx: CriticalTasksReportQueryContext,
 	input: CriticalTasksReportInput = {}
 ): Promise<CriticalTasksWorkbookExport> {
 	const dashboard = await fetchCriticalTasksReportDashboard(ctx, input);
@@ -175,7 +179,7 @@ export async function generateCriticalTasksReportWorkbookExport(
 }
 
 export async function generateCriticalTasksMatrixWorkbookExport(
-	ctx: CriticalTasksReportContext,
+	ctx: CriticalTasksReportQueryContext,
 	input: CriticalTasksMatrixExportInput = {}
 ): Promise<CriticalTasksWorkbookExport> {
 	const source = await loadCriticalTasksReportSource(ctx);

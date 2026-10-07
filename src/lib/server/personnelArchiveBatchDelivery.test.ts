@@ -457,14 +457,14 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 	it('recovers an acknowledged parent under its first event after the second parent write fails', async () => {
 		const ctx = context();
 		const rows = seed(ctx);
-		const update = ctx.store.update.bind(ctx.store);
+		const setArchivedAt = ctx.personnel.setArchivedAt.bind(ctx.personnel);
 		let pending = true;
-		ctx.store.update = async <T>(...args: Parameters<TestDataStore['update']>) => {
-			if (args[0] === 'personnel' && args[2] === 'two' && pending) {
+		ctx.personnel.setArchivedAt = async (id, archivedAt) => {
+			if (id === 'two' && pending) {
 				pending = false;
 				throw new Error('second parent write interrupted');
 			}
-			return update<T>(...args);
+			await setArchivedAt(id, archivedAt);
 		};
 		vi.useFakeTimers({ toFake: ['Date'] });
 		try {
@@ -520,7 +520,7 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 			);
 			expect(ctx.auditPort.events).not.toContainEqual(expect.objectContaining({ action: 'personnel.bulk_archived' }));
 			vi.setSystemTime(new Date(retryTime));
-			const candidateRead = vi.spyOn(ctx.store, 'findMany');
+			const candidateRead = vi.spyOn(ctx.personnel, 'listArchiveCandidates');
 			const cascade = vi.spyOn(ctx.personnelArtifactWrites!, 'forPeople');
 			await expect(
 				archivePersonnelBatch(ctx, { ids: ['one', 'two', 'one'], userEmail: 'manager@example.com' })
@@ -553,7 +553,7 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 	it('keeps healthy bulk deduplicated with one candidate read and one event cascade', async () => {
 		const ctx = context();
 		const rows = seed(ctx);
-		const candidateRead = vi.spyOn(ctx.store, 'findMany');
+		const candidateRead = vi.spyOn(ctx.personnel, 'listArchiveCandidates');
 		const cascade = vi.spyOn(ctx.personnelArtifactWrites!, 'forPeople');
 		vi.useFakeTimers({ toFake: ['Date'] });
 		try {
@@ -587,14 +587,14 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 		const rows = seed(ctx, firstEvent);
 		if (failure === 'artifact') failNoteOnce(ctx);
 		else {
-			const update = ctx.store.update.bind(ctx.store);
+			const setArchivedAt = ctx.personnel.setArchivedAt.bind(ctx.personnel);
 			let pending = true;
-			ctx.store.update = async <T>(...args: Parameters<TestDataStore['update']>) => {
-				if (args[0] === 'personnel' && args[2] === 'one' && pending) {
+			ctx.personnel.setArchivedAt = async (id, archivedAt) => {
+				if (id === 'one' && pending) {
 					pending = false;
 					throw new Error('parent clear interrupted');
 				}
-				return update<T>(...args);
+				await setArchivedAt(id, archivedAt);
 			};
 		}
 		await expect(restorePersonnelRecord(ctx, 'one')).rejects.toThrow(

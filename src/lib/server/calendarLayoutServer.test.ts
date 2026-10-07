@@ -73,7 +73,8 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 			() => ({
 				auth: ctx.auth,
 				audit: ctx.audit,
-				store: ctx.store,
+				groups: ctx.groups,
+				selfPins: ctx.selfPins,
 				calendarCatalogs: ctx.calendarCatalogs,
 				calendarAvailability: ctx.calendarAvailability,
 				calendarAssignments: ctx.calendarAssignments,
@@ -114,7 +115,8 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 			() => ({
 				auth: ctx.auth,
 				audit: ctx.audit,
-				store: ctx.store,
+				groups: ctx.groups,
+				selfPins: ctx.selfPins,
 				calendarCatalogs: ctx.calendarCatalogs,
 				calendarAvailability: ctx.calendarAvailability,
 				calendarAssignments: ctx.calendarAssignments,

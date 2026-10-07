@@ -2,7 +2,7 @@ import type { PersonnelImportInput, PersonnelImportResult } from '$features/pers
 import { importPersonnelBatch } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createRequestDataContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestPersonnelRecordContext } from '$lib/server/adapters/requestContexts.server';
 import { z } from 'zod';
 
 const requiredPersonnelCell = z.preprocess((value) => (value === undefined ? '' : value), z.string());
@@ -23,7 +23,7 @@ const batchInput = z.object({
 });
 
 export const _postConfig = {
-	context: createRequestDataContext,
+	context: createRequestPersonnelRecordContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.importRecords,
 	policyResource: { kind: 'unscoped' },
@@ -32,6 +32,10 @@ export const _postConfig = {
 		importPersonnelBatch(ctx, {
 			records: input.records
 		})
-} satisfies RouteConfig<PersonnelImportInput, PersonnelImportResult, ReturnType<typeof createRequestDataContext>>;
+} satisfies RouteConfig<
+	PersonnelImportInput,
+	PersonnelImportResult,
+	ReturnType<typeof createRequestPersonnelRecordContext>
+>;
 
 export const POST = handle(_postConfig);

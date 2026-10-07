@@ -534,6 +534,8 @@
 		"src/features/calendar/test-support/calendarProvider.ts",
 		"src/features/calendar/inMemoryCalendarPersistence.server.ts",
 		"src/features/personnel/leaderNotes.testHelper.ts",
+		"src/features/personnel/inMemoryPersonnelPersistence.server.ts",
+		"src/features/personnel/personnelPersistence.test-support.server.ts",
 		"src/features/personnel/personnelArtifacts.testHelper.ts",
 		"src/routes/org/[orgId]/api/sign-in-rosters/rosterTestContexts.ts",
 		"src/features/critical-tasks/server/criticalTasksPersistence.test-support.server.ts",

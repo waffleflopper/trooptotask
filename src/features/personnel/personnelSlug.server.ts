@@ -1,11 +1,4 @@
-export interface PersonnelSlugReadStore {
-	findMany<T>(
-		table: string,
-		orgId: string,
-		filters?: Record<string, unknown>,
-		options?: { select?: string; ilikeFilters?: Record<string, string> }
-	): Promise<T[]>;
-}
+import type { PersonnelRecordPersistence } from './contracts';
 
 interface PersonnelSlugInput {
 	lastName: string;
@@ -13,8 +6,7 @@ interface PersonnelSlugInput {
 }
 
 interface UniquePersonnelSlugInput extends PersonnelSlugInput {
-	store: PersonnelSlugReadStore;
-	orgId: string;
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'listSlugCandidates'>;
 	excludePersonnelId?: string;
 	rejectedSlugs?: ReadonlySet<string>;
 }
@@ -46,10 +38,7 @@ export function buildAvailablePersonnelSlug(base: string, used: Set<string>): st
 
 export async function buildUniquePersonnelSlug(input: UniquePersonnelSlugInput): Promise<string> {
 	const base = buildPersonnelSlugBase(input);
-	const rows = await input.store.findMany<{ id: string; slug: string | null }>('personnel', input.orgId, undefined, {
-		select: 'id, slug',
-		ilikeFilters: { slug: `${base}%` }
-	});
+	const rows = await input.organizationPersonnel.listSlugCandidates(base);
 	const used = new Set(
 		rows
 			.filter((row) => !input.excludePersonnelId || row.id !== input.excludePersonnelId)

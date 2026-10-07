@@ -1,3 +1,4 @@
+import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { z } from 'zod';
@@ -10,9 +11,10 @@ interface PersonnelExtendedInfoContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
+	personnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
 	store: {
 		findOne<T>(
-			table: 'personnel' | 'personnel_extended_info',
+			table: 'personnel_extended_info',
 			orgId: string,
 			filters: Record<string, unknown>,
 			select?: string
@@ -124,19 +126,13 @@ function toRowData(input: PersonnelExtendedInfoInput): Record<string, unknown> {
 }
 
 async function requirePersonnelOperate(ctx: PersonnelExtendedInfoContext, personnelId: string): Promise<void> {
-	const person = await ctx.store.findOne<{ id: string }>('personnel', ctx.auth.orgId, { id: personnelId }, 'id');
+	const person = await ctx.personnel.findGroupReference(personnelId);
 	if (!person) fail(404, 'Personnel record not found');
 
-	const policyPerson = await ctx.store.findOne<{ group_id: string | null }>(
-		'personnel',
-		ctx.auth.orgId,
-		{ id: personnelId },
-		'group_id'
-	);
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		policyResourceForGroup(policyPerson?.group_id),
+		policyResourceForGroup(person.groupId),
 		'personnel',
 		personnelId
 	);

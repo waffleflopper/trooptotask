@@ -1,3 +1,4 @@
+import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { fail } from '$lib/errors';
@@ -8,12 +9,9 @@ interface PersonnelAwardTrackingContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
 	rawStore: {
-		findOne<T>(
-			table: 'personnel' | 'personnel_extended_info',
-			orgId: string,
-			filters: Record<string, unknown>
-		): Promise<T | null>;
+		findOne<T>(table: 'personnel_extended_info', orgId: string, filters: Record<string, unknown>): Promise<T | null>;
 		insert<T>(table: 'personnel_extended_info', orgId: string, data: Record<string, unknown>): Promise<T>;
 		update<T>(table: 'personnel_extended_info', orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
 	};
@@ -42,15 +40,13 @@ export async function setPersonnelAwardTrackingAcknowledged(
 	const { personnelId, acknowledged } = input;
 	if (!personnelId) fail(400, 'personnelId is required');
 
-	const person = await ctx.rawStore.findOne<{ id: string; group_id: string | null }>('personnel', ctx.auth.orgId, {
-		id: personnelId
-	});
+	const person = await ctx.organizationPersonnel.findGroupReference(personnelId);
 	if (!person) fail(404, 'Personnel not found');
 
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		policyResourceForGroup(person.group_id),
+		policyResourceForGroup(person.groupId),
 		'personnel',
 		personnelId
 	);

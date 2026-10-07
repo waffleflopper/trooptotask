@@ -1,11 +1,11 @@
 import type { PersonnelOnboarding } from '$features/onboarding/contracts';
-import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import { fetchOnboardingTemplatesData } from './onboardingTemplateRead.server';
 import type { OnboardingBootstrap, OnboardingBootstrapMode } from '$features/onboarding/contracts';
 import { PersonnelOnboardingEntity } from './personnelOnboardingEntity.server';
 import { requireOnboardingViewPolicy } from './onboardingPolicy.server';
 import type { OnboardingQueryPorts, OnboardingReadStore } from './onboardingPorts.server';
-import { personnelScopeResource } from '$features/personnel/contracts';
+import { personnelScopeResource, type GroupPersistence } from '$features/personnel/contracts';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { evaluateFeaturePolicy } from '$lib/access/index.server';
 
@@ -84,7 +84,7 @@ async function readCompletedTrainingTypeIdsByPersonnelId(
 }
 
 export async function fetchOnboardingBootstrap(
-	ctx: OnboardingQueryPorts,
+	ctx: OnboardingQueryPorts & { readonly groups: Pick<GroupPersistence, 'listCatalog'> },
 	options: FetchOnboardingBootstrapOptions = {}
 ): Promise<OnboardingBootstrap> {
 	await requireOnboardingViewPolicy(ctx);
@@ -105,7 +105,7 @@ export async function fetchOnboardingBootstrap(
 				...(onboardingQuery.inFilters ? { inFilters: onboardingQuery.inFilters } : {})
 			}),
 			ctx.personnelOnboardingRoster.listRoster(ctx.auth, mode === 'history' ? 'all' : 'active'),
-			listGroupCatalog(ctx),
+			ctx.groups.listCatalog(),
 			ctx.trainingOnboardingReferences.listTypes(ctx.auth),
 			scopedAllPersonnel,
 			loadPersonnelCreationRanks(ctx)

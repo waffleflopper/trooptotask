@@ -8,38 +8,15 @@ import {
 	requireFeaturePolicy,
 	requireGovernancePolicy
 } from '$lib/access/index.server';
-import type { PersonnelArtifactWritePort } from './contracts';
-import { PersonnelEntity } from './personnelEntity.server';
+import type { PersonnelArtifactWritePort, PersonnelLifecycleReference, PersonnelRecordPersistence } from './contracts';
 import { archivePersonnelOwnedArtifacts, restorePersonnelOwnedArtifacts } from './personnelArchiveCascade.server';
 
 interface PersonnelLifecycleContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	store: {
-		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
-		findMany<T>(
-			table: string,
-			orgId: string,
-			filters?: Record<string, unknown>,
-			options?: { inFilters?: Record<string, string[]>; select?: string }
-		): Promise<T[]>;
-		update<T>(table: string, orgId: string, id: string, patch: Record<string, unknown>): Promise<T>;
-		delete(table: string, orgId: string, id: string): Promise<void>;
-	};
-	rawStore?: Pick<PersonnelLifecycleContext['store'], 'findOne'>;
+	personnel: Pick<PersonnelRecordPersistence, 'listArchiveCandidates' | 'setArchivedAt' | 'delete'>;
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findWriteReference' | 'findArchiveEvent'>;
 	personnelArtifactWrites?: Pick<PersonnelArtifactWritePort, 'forPeople'>;
-}
-
-interface PersonnelLifecycleRecord {
-	rank: string;
-	first_name: string;
-	last_name: string;
-	group_id: string | null;
-	archived_at: string | null;
-}
-
-interface ArchiveCandidate extends PersonnelLifecycleRecord {
-	id: string;
 }
 
 type PersonnelArchiveOutcome =
@@ -53,27 +30,19 @@ interface PreparedPersonnelArchiveBatch {
 	finish(): Promise<void>;
 }
 
-const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
 
-function lifecycleLookupStore(ctx: PersonnelLifecycleContext) {
-	return ctx.rawStore ?? ctx.store;
-}
-
-function personnelName(person: Pick<PersonnelLifecycleRecord, 'rank' | 'last_name' | 'first_name'>): string {
-	return `${person.rank} ${person.last_name}, ${person.first_name}`;
+function personnelName(person: Pick<PersonnelLifecycleReference, 'rank' | 'lastName' | 'firstName'>): string {
+	return `${person.rank} ${person.lastName}, ${person.firstName}`;
 }
 
 export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id: string) {
-	const currentRecord = await lifecycleLookupStore(ctx).findOne<{
-		group_id: string | null;
-		archived_at: string | null;
-	}>(entity.table, ctx.auth.orgId, { id });
+	const currentRecord = await ctx.organizationPersonnel.findWriteReference(id);
 
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		policyResourceForGroup(currentRecord?.group_id),
+		policyResourceForGroup(currentRecord?.groupId),
 		AUDIT_RESOURCE,
 		id
 	);
@@ -81,7 +50,7 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 	const directArchiveDecision = await evaluateFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.archiveRecords,
-		policyResourceForGroup(currentRecord?.group_id)
+		policyResourceForGroup(currentRecord?.groupId)
 	);
 	if (!directArchiveDecision.allowed && directArchiveDecision.reasonCode === 'denied:missing-capability') {
 		return { requiresApproval: true };
@@ -89,14 +58,14 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.archiveRecords,
-		policyResourceForGroup(currentRecord?.group_id),
+		policyResourceForGroup(currentRecord?.groupId),
 		AUDIT_RESOURCE,
 		id
 	);
 
-	const archivedAt = currentRecord?.archived_at ?? new Date().toISOString();
-	if (!currentRecord?.archived_at) {
-		await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: archivedAt });
+	const archivedAt = currentRecord?.archivedAt ?? new Date().toISOString();
+	if (!currentRecord?.archivedAt) {
+		await ctx.personnel.setArchivedAt(id, archivedAt);
 	}
 	// A retry completes only remaining active artifacts under the original event.
 	await archivePersonnelOwnedArtifacts(ctx, [id], archivedAt);
@@ -111,26 +80,24 @@ export async function archivePersonnelRecord(ctx: PersonnelLifecycleContext, id:
 export async function restorePersonnelRecord(ctx: PersonnelLifecycleContext, id: string) {
 	if (!id) fail(400, 'Missing id');
 
-	const person = await lifecycleLookupStore(ctx).findOne<PersonnelLifecycleRecord>(entity.table, ctx.auth.orgId, {
-		id
-	});
+	const person = await ctx.organizationPersonnel.findWriteReference(id);
 
 	if (!person) fail(404, 'Personnel not found');
 
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.restoreRecords,
-		policyResourceForGroup(person.group_id),
+		policyResourceForGroup(person.groupId),
 		AUDIT_RESOURCE,
 		id
 	);
 
-	if (!person.archived_at) fail(400, 'Personnel is not archived');
+	if (!person.archivedAt) fail(400, 'Personnel is not archived');
 
-	const personnelArchivedAt = person.archived_at;
+	const personnelArchivedAt = person.archivedAt;
 	await restorePersonnelOwnedArtifacts(ctx, [id], personnelArchivedAt);
 	// Retain the event until every artifact restore is acknowledged, so a retry can finish it.
-	await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: null });
+	await ctx.personnel.setArchivedAt(id, null);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.restored`,
@@ -151,23 +118,21 @@ export async function permanentlyDeletePersonnelRecord(
 ) {
 	if (!id) fail(400, 'Missing id');
 
-	const person = await lifecycleLookupStore(ctx).findOne<PersonnelLifecycleRecord>(entity.table, ctx.auth.orgId, {
-		id
-	});
+	const person = await ctx.organizationPersonnel.findWriteReference(id);
 
 	if (!person) fail(404, 'Personnel not found');
 
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.permanentlyDeleteRecords,
-		policyResourceForGroup(person.group_id),
+		policyResourceForGroup(person.groupId),
 		AUDIT_RESOURCE,
 		id
 	);
 
-	if (!person.archived_at) fail(400, 'Can only permanently delete archived personnel');
+	if (!person.archivedAt) fail(400, 'Can only permanently delete archived personnel');
 
-	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
+	await ctx.personnel.delete(id);
 
 	const name = personnelName(person);
 
@@ -186,16 +151,11 @@ export async function permanentlyDeletePersonnelRecord(
 /** Apply a Personnel effect after the owning request workflow admits an Organization reviewer. */
 export async function archiveApprovedPersonnelRecord(ctx: PersonnelLifecycleContext, id: string): Promise<void> {
 	await requireGovernancePolicy(ctx, POLICY_ACTION_CATALOG.organization.reviewDeletionRequests);
-	const person = await lifecycleLookupStore(ctx).findOne<{ archived_at: string | null }>(
-		entity.table,
-		ctx.auth.orgId,
-		{ id },
-		'archived_at'
-	);
+	const person = await ctx.organizationPersonnel.findArchiveEvent(id);
 	if (!person) fail(404, 'Personnel not found');
-	const archivedAt = person.archived_at ?? new Date().toISOString();
-	if (!person.archived_at) {
-		await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: archivedAt });
+	const archivedAt = person.archivedAt ?? new Date().toISOString();
+	if (!person.archivedAt) {
+		await ctx.personnel.setArchivedAt(id, archivedAt);
 	}
 	await archivePersonnelOwnedArtifacts(ctx, [id], archivedAt);
 }
@@ -206,12 +166,7 @@ export async function preparePersonnelArchiveBatch(
 	personnelIds: string[]
 ): Promise<PreparedPersonnelArchiveBatch> {
 	const ids = [...new Set(personnelIds)];
-	const candidates = ids.length
-		? await ctx.store.findMany<ArchiveCandidate>(entity.table, ctx.auth.orgId, undefined, {
-				inFilters: { id: ids },
-				select: 'id, rank, first_name, last_name, group_id, archived_at'
-			})
-		: [];
+	const candidates = await ctx.personnel.listArchiveCandidates(ids);
 	const candidateById = new Map(candidates.map((candidate) => [candidate.id, candidate]));
 	const archivedAt = new Date().toISOString();
 	const archivedIds: string[] = [];
@@ -229,9 +184,9 @@ export async function preparePersonnelArchiveBatch(
 		async archive(id) {
 			const person = candidateById.get(id);
 			if (!person) return { kind: 'error', message: 'Personnel not found' };
-			const resource = policyResourceForGroup(person.group_id);
+			const resource = policyResourceForGroup(person.groupId);
 
-			if (person.archived_at) {
+			if (person.archivedAt) {
 				const manageDecision = await evaluateFeaturePolicy(
 					ctx,
 					POLICY_ACTION_CATALOG.personnel.manageRecords,
@@ -245,7 +200,7 @@ export async function preparePersonnelArchiveBatch(
 				if (!manageDecision.allowed || !archiveDecision.allowed) {
 					return { kind: 'error', message: 'Personnel is already archived' };
 				}
-				includeArtifacts(id, person.archived_at);
+				includeArtifacts(id, person.archivedAt);
 				return { kind: 'archived' };
 			}
 
@@ -259,7 +214,7 @@ export async function preparePersonnelArchiveBatch(
 				return { kind: 'requiresApproval', resourceDescription: `Archive ${personnelName(person)}` };
 			}
 			await requireFeaturePolicy(ctx, POLICY_ACTION_CATALOG.personnel.archiveRecords, resource, AUDIT_RESOURCE, id);
-			await ctx.store.update(entity.table, ctx.auth.orgId, id, { archived_at: archivedAt });
+			await ctx.personnel.setArchivedAt(id, archivedAt);
 			includeArtifacts(id, archivedAt);
 			return { kind: 'archived' };
 		},

@@ -83,6 +83,11 @@ function request(groupIds: string[] = ['group-alpha'], criticalTasks: 'view' | '
 		global: {
 			fetch: async (input) => {
 				const url = new URL(input instanceof Request ? input.url : input.toString());
+				if (url.pathname === '/rest/v1/groups') {
+					expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+					expect(url.searchParams.has('group_id')).toBe(false);
+					return Response.json(await ctx.rawStore.findMany('groups', ctx.auth.orgId));
+				}
 				if (url.pathname === '/rest/v1/personnel_ict_completions') {
 					expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 					expect(url.searchParams.get('personnel_id')).toBe('in.(person-alpha)');

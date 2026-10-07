@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Cookies } from '@sveltejs/kit';
 import type { CriticalTasksWorkspaceData } from '$features/critical-tasks/contracts';
+import type { GroupPersistence } from '$features/personnel/contracts';
+import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import { createInMemoryGroupPersistence } from '$features/personnel/inMemoryPersonnelPersistence.server';
 
 const {
 	listCatalogMock,
@@ -34,6 +37,7 @@ const {
 				findMany: findManyMock,
 				findOne: findOneMock
 			},
+			groups: undefined as unknown as Pick<GroupPersistence, 'listCatalog'>,
 			criticalTaskLibrary: { listCatalog: listCatalogMock },
 			criticalTasksReadModel: {
 				findLatestCompletions: findLatestCompletionsMock
@@ -60,6 +64,9 @@ import { streamCriticalTasksWorkspaceBootstrap } from './criticalTasksWorkspace.
 describe('streamCriticalTasksWorkspaceBootstrap', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		const store = createInMemoryDataStore();
+		store.findMany = findManyMock;
+		mockCtx.groups = createInMemoryGroupPersistence(store, mockCtx.auth.orgId);
 		findOneMock.mockResolvedValue({
 			critical_tasks_default_expiration_months: 18,
 			critical_tasks_expiring_soon_warning_days: 45

@@ -1,28 +1,27 @@
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG, type PolicyResource } from '$lib/access/policyEvaluator';
-import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
-import type { TrainingCompletionWriteContext } from './trainingCompletionPorts.server';
+import { trainingCompletionCreateInput } from './trainingPersistenceMapping.server';
+import type {
+	TrainingPersonnelWriteAuthority,
+	TrainingRecordCreateContext,
+	TrainingRecordUpdateContext,
+	TrainingRecordDeleteContext
+} from './trainingCompletionPorts.server';
 import { calculateExpirationDate } from '../utils/trainingStatus';
-import type { PersonnelTraining } from '../contracts';
+import type {
+	SavedTrainingCompletion,
+	TrainingCompletionResource,
+	TrainingCompletionPatch,
+	TrainingCompletionPersistence
+} from '../contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 
-const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
 
 function fail(status: number, message: string): never {
 	throw Object.assign(new Error(message), { status });
 }
 
-interface TrainingTypeRow {
-	expiration_months: number | null;
-	expiration_date_only: boolean;
-}
-
-interface TrainingRecordResourceRow {
-	personnel_id: string;
-	training_type_id: string;
-}
-
-function canHardDeleteTrainingRecord(ctx: TrainingCompletionWriteContext, resource: PolicyResource): boolean {
+function canHardDeleteTrainingRecord(ctx: TrainingPersonnelWriteAuthority, resource: PolicyResource): boolean {
 	return evaluatePolicyDecision({
 		decisionKind: 'server-authoritative',
 		actor: { membershipRole: ctx.auth.role },
@@ -34,7 +33,7 @@ function canHardDeleteTrainingRecord(ctx: TrainingCompletionWriteContext, resour
 }
 
 export async function policyResourcesForTrainingPersonnel(
-	ctx: TrainingCompletionWriteContext,
+	ctx: TrainingPersonnelWriteAuthority,
 	personnelIds: string[],
 	resourceId?: string
 ): Promise<Map<string, PolicyResource>> {
@@ -65,7 +64,7 @@ export async function policyResourcesForTrainingPersonnel(
 }
 
 async function policyResourceForTrainingPersonnel(
-	ctx: TrainingCompletionWriteContext,
+	ctx: TrainingPersonnelWriteAuthority,
 	personnelId: string,
 	resourceId?: string
 ) {
@@ -74,9 +73,11 @@ async function policyResourceForTrainingPersonnel(
 }
 
 async function loadTrainingRecordResource(
-	ctx: TrainingCompletionWriteContext,
+	ctx: TrainingPersonnelWriteAuthority & {
+		readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'findResource'>;
+	},
 	recordId: string
-): Promise<{ record: TrainingRecordResourceRow | null; resource: PolicyResource }> {
+): Promise<{ record: TrainingCompletionResource | null; resource: PolicyResource }> {
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.training.recordCompletions,
@@ -84,26 +85,21 @@ async function loadTrainingRecordResource(
 		AUDIT_RESOURCE,
 		recordId
 	);
-	const record = await ctx.store.findOne<TrainingRecordResourceRow>(
-		entity.table,
-		ctx.auth.orgId,
-		{ id: recordId },
-		'personnel_id, training_type_id'
-	);
-	if (!record?.personnel_id) {
+	const record = await ctx.trainingCompletions.findResource(recordId);
+	if (!record?.personnelId) {
 		return { record, resource: { kind: 'organization' } };
 	}
-	return { record, resource: await policyResourceForTrainingPersonnel(ctx, record.personnel_id, recordId) };
+	return { record, resource: await policyResourceForTrainingPersonnel(ctx, record.personnelId, recordId) };
 }
 
 export async function createTrainingRecord(
-	ctx: TrainingCompletionWriteContext,
+	ctx: TrainingRecordCreateContext,
 	input: Record<string, unknown>
-): Promise<PersonnelTraining> {
-	const validated = entity.createSchema.parse(input) as Record<string, unknown>;
-	const personnelId = validated.personnelId as string;
-	const trainingTypeId = validated.trainingTypeId as string;
-	const completionDate = (validated.completionDate as string | null) ?? null;
+): Promise<SavedTrainingCompletion> {
+	const validated = trainingCompletionCreateInput.parse(input);
+	const personnelId = validated.personnelId;
+	const trainingTypeId = validated.trainingTypeId;
+	const completionDate = validated.completionDate ?? null;
 
 	await requireFeaturePolicy(
 		ctx,
@@ -112,55 +108,40 @@ export async function createTrainingRecord(
 		AUDIT_RESOURCE
 	);
 
-	const trainingType = await ctx.store.findOne<TrainingTypeRow>(
-		'training_types',
-		ctx.auth.orgId,
-		{ id: trainingTypeId },
-		'expiration_months, expiration_date_only'
-	);
+	const trainingType = await ctx.trainingCatalog.findTypeTiming(trainingTypeId);
 
 	if (!trainingType) fail(404, 'Training type not found');
 
-	const isExpirationDateOnly = trainingType.expiration_date_only ?? false;
+	const isExpirationDateOnly = trainingType.expirationDateOnly ?? false;
 
 	const expirationDate = isExpirationDateOnly
 		? (input.expirationDate as string)
-		: calculateExpirationDate(completionDate, trainingType.expiration_months);
+		: calculateExpirationDate(completionDate, trainingType.expirationMonths);
 
-	// Upsert: check for existing record with same personnel + type
-	const existing = await ctx.store.findOne<{ id: string }>(entity.table, ctx.auth.orgId, {
-		personnel_id: personnelId,
-		training_type_id: trainingTypeId
-	});
-
-	let row: Record<string, unknown>;
-	if (existing) {
-		row = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, existing.id, {
-			completion_date: completionDate ?? null,
-			expiration_date: expirationDate ?? null,
-			notes: validated.notes ?? null,
-			certificate_url: validated.certificateUrl ?? null,
-			updated_at: new Date().toISOString()
-		});
-	} else {
-		const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
-		dbData.expiration_date = expirationDate ?? null;
-		row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData);
-	}
+	const existing = await ctx.trainingCompletions.findPair(personnelId, trainingTypeId);
+	const fields = {
+		completionDate: completionDate ?? null,
+		expirationDate: expirationDate ?? null,
+		notes: validated.notes ?? null,
+		certificateUrl: validated.certificateUrl ?? null
+	};
+	const row: SavedTrainingCompletion = existing
+		? await ctx.trainingCompletions.patchRecord(existing.id, { ...fields, updatedAt: new Date().toISOString() })
+		: await ctx.trainingCompletions.createRecord({ personnelId, trainingTypeId, ...fields });
 
 	ctx.audit.log({
 		action: existing ? `${AUDIT_RESOURCE}.updated` : `${AUDIT_RESOURCE}.created`,
 		resourceType: AUDIT_RESOURCE,
-		resourceId: row.id as string | undefined
+		resourceId: row.id
 	});
 
-	return entity.fromDb(row);
+	return row;
 }
 
 export async function updateTrainingRecord(
-	ctx: TrainingCompletionWriteContext,
+	ctx: TrainingRecordUpdateContext,
 	input: Record<string, unknown>
-): Promise<PersonnelTraining> {
+): Promise<SavedTrainingCompletion> {
 	const { id, ...fields } = input;
 	if (!id || typeof id !== 'string') {
 		fail(400, 'Missing id');
@@ -174,51 +155,48 @@ export async function updateTrainingRecord(
 	let isExpirationDateOnly = false;
 	let expirationMonths: number | null = null;
 
-	const trainingType = await ctx.store.findOne<{
-		expiration_months: number | null;
-		expiration_date_only: boolean | null;
-	}>('training_types', ctx.auth.orgId, { id: existing.training_type_id });
+	const trainingType = await ctx.trainingCatalog.findTypeTiming(existing.trainingTypeId);
 
 	if (trainingType) {
-		isExpirationDateOnly = trainingType.expiration_date_only ?? false;
-		expirationMonths = trainingType.expiration_months;
+		isExpirationDateOnly = trainingType.expirationDateOnly ?? false;
+		expirationMonths = trainingType.expirationMonths;
 	}
 
-	const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+	const updates: TrainingCompletionPatch = { updatedAt: new Date().toISOString() };
 
 	if (fields.completionDate !== undefined) {
-		updates.completion_date = fields.completionDate;
+		updates.completionDate = fields.completionDate as string | null;
 	}
 
 	if (isExpirationDateOnly) {
 		if (fields.expirationDate !== undefined) {
-			updates.expiration_date = fields.expirationDate;
+			updates.expirationDate = fields.expirationDate as string | null;
 		}
 	} else if (fields.completionDate !== undefined) {
-		updates.expiration_date = calculateExpirationDate(fields.completionDate as string, expirationMonths);
+		updates.expirationDate = calculateExpirationDate(fields.completionDate as string, expirationMonths);
 	}
 
-	if (fields.notes !== undefined) updates.notes = fields.notes;
-	if (fields.certificateUrl !== undefined) updates.certificate_url = fields.certificateUrl;
+	if (fields.notes !== undefined) updates.notes = fields.notes as string | null;
+	if (fields.certificateUrl !== undefined) updates.certificateUrl = fields.certificateUrl as string | null;
 
-	const row = await ctx.store.update<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId, id, updates);
+	const row = await ctx.trainingCompletions.patchRecord(id, updates);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.updated`,
 		resourceType: AUDIT_RESOURCE,
 		resourceId: id,
 		details: {
-			personnel_id: row.personnel_id,
-			training_type_id: row.training_type_id,
-			completion_date: row.completion_date
+			personnel_id: row.personnelId,
+			training_type_id: row.trainingTypeId,
+			completion_date: row.completionDate
 		}
 	});
 
-	return entity.fromDb(row);
+	return row;
 }
 
 export async function deleteTrainingRecord(
-	ctx: TrainingCompletionWriteContext,
+	ctx: TrainingRecordDeleteContext,
 	id: string
 ): Promise<{ requiresApproval: boolean } | void> {
 	const { resource } = await loadTrainingRecordResource(ctx, id);
@@ -228,7 +206,7 @@ export async function deleteTrainingRecord(
 		return { requiresApproval: true };
 	}
 
-	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
+	await ctx.trainingCompletions.deleteRecord(id);
 
 	ctx.audit.log({
 		action: `${AUDIT_RESOURCE}.deleted`,

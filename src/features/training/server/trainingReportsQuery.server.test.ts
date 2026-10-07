@@ -4,7 +4,7 @@ import {
 	createInMemoryDataStore,
 	createQueryPortsContext,
 	createQueryWithRawStorePortsContext
-} from '$lib/server/adapters/inMemory';
+} from '$features/training/server/trainingPersistence.test-support.server';
 import { DEFAULT_TRAINING_BRIEFING_INPUT, type TrainingBriefingReportInput } from '$features/training/contracts';
 import {
 	fetchTrainingBriefingDetail,

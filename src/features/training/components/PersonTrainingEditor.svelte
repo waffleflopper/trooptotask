@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { TrainingBatchRecord } from '../contracts';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -63,11 +63,19 @@
 	});
 
 	const editingStates = new SvelteMap<string, TrainingEditState>();
+	let editingPersonId: string | undefined;
 
 	$effect(() => {
+		const drafts = untrack(() => new Map(editingStates));
+		const retainDrafts = editingPersonId === person.id;
 		editingStates.clear();
 
 		for (const type of trainingTypes) {
+			const draft = retainDrafts ? drafts.get(type.id) : undefined;
+			if (draft?.isEditing) {
+				editingStates.set(type.id, draft);
+				continue;
+			}
 			const existing = trainingMap.get(type.id);
 			const neverExpires = type.expirationMonths === null && !type.expirationDateOnly;
 			editingStates.set(type.id, {
@@ -81,7 +89,24 @@
 				isDirty: false
 			});
 		}
+		editingPersonId = person.id;
 	});
+
+	async function persistTraining(operation: () => Promise<void>): Promise<boolean> {
+		const personnelId = person.id;
+		if (!isCurrent()) return false;
+		try {
+			await operation();
+			return isCurrent() && person.id === personnelId;
+		} catch (error) {
+			if (isCurrent() && person.id === personnelId) {
+				toast.error(error instanceof Error ? error.message : 'Could not save training record. Try again.', {
+					duration: 6000
+				});
+			}
+			return false;
+		}
+	}
 
 	function getStatusInfo(typeId: string) {
 		const type = trainingTypes.find((t) => t.id === typeId);
@@ -117,14 +142,17 @@
 		const today = formatDate(new Date());
 		const expirationDate = calculateExpirationDate(today, type.expirationMonths);
 
-		await onSave({
-			personnelId: person.id,
-			trainingTypeId: typeId,
-			completionDate: today,
-			expirationDate,
-			notes: null,
-			certificateUrl: null
-		});
+		const saved = await persistTraining(() =>
+			onSave({
+				personnelId: person.id,
+				trainingTypeId: typeId,
+				completionDate: today,
+				expirationDate,
+				notes: null,
+				certificateUrl: null
+			})
+		);
+		if (!saved) return;
 
 		editingStates.set(typeId, {
 			isComplete: true,
@@ -141,14 +169,17 @@
 		const type = trainingTypes.find((t) => t.id === typeId);
 		if (!type || type.expirationMonths !== null) return;
 
-		await onSave({
-			personnelId: person.id,
-			trainingTypeId: typeId,
-			completionDate: null,
-			expirationDate: null,
-			notes: null,
-			certificateUrl: null
-		});
+		const saved = await persistTraining(() =>
+			onSave({
+				personnelId: person.id,
+				trainingTypeId: typeId,
+				completionDate: null,
+				expirationDate: null,
+				notes: null,
+				certificateUrl: null
+			})
+		);
+		if (!saved) return;
 
 		editingStates.set(typeId, {
 			isComplete: true,
@@ -179,14 +210,17 @@
 			? state.directExpirationDate || null
 			: calculateExpirationDate(completionDate, type.expirationMonths);
 
-		await onSave({
-			personnelId: person.id,
-			trainingTypeId: typeId,
-			completionDate,
-			expirationDate,
-			notes: state.notes.trim() || null,
-			certificateUrl: state.certificateUrl.trim() || null
-		});
+		const saved = await persistTraining(() =>
+			onSave({
+				personnelId: person.id,
+				trainingTypeId: typeId,
+				completionDate,
+				expirationDate,
+				notes: state.notes.trim() || null,
+				certificateUrl: state.certificateUrl.trim() || null
+			})
+		);
+		if (!saved) return;
 
 		editingStates.set(typeId, { ...state, isComplete: true, isEditing: false, isDirty: false });
 	}
@@ -237,21 +271,24 @@
 			status: 'completed' as const
 		}));
 
-		if (onSaveBatch) {
-			await onSaveBatch(records);
-		} else {
-			for (const type of applicableTypes) {
-				const expirationDate = calculateExpirationDate(today, type.expirationMonths);
-				await onSave({
-					personnelId: person.id,
-					trainingTypeId: type.id,
-					completionDate: today,
-					expirationDate,
-					notes: null,
-					certificateUrl: null
-				});
+		const saved = await persistTraining(async () => {
+			if (onSaveBatch) {
+				await onSaveBatch(records);
+			} else {
+				for (const type of applicableTypes) {
+					const expirationDate = calculateExpirationDate(today, type.expirationMonths);
+					await onSave({
+						personnelId: person.id,
+						trainingTypeId: type.id,
+						completionDate: today,
+						expirationDate,
+						notes: null,
+						certificateUrl: null
+					});
+				}
 			}
-		}
+		});
+		if (!saved) return;
 
 		for (const type of applicableTypes) {
 			editingStates.set(type.id, {

@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { TrainingTypeEntity } from './trainingTypeEntity.server';
-import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
 
 export interface ApprovedTrainingDeletionActor {
 	readonly userId: string;
@@ -59,7 +57,7 @@ export function createSupabaseApprovedTrainingDeletionPort(
 		async deleteApprovedTrainingType(actor, requestId, typeId) {
 			const admin = await clientForPendingDeletion(actor, requestId, typeId, 'training_type');
 			const { data: deleted, error: deleteError } = await admin
-				.from(TrainingTypeEntity.table)
+				.from('training_types')
 				.delete()
 				.eq('organization_id', actor.orgId)
 				.eq('id', typeId)
@@ -70,7 +68,7 @@ export function createSupabaseApprovedTrainingDeletionPort(
 				// A prior source effect can persist when the request-status write fails.
 				// Preserve foreign-ID concealment while allowing an absent target to retry.
 				const { data: remaining, error: readError } = await admin
-					.from(TrainingTypeEntity.table)
+					.from('training_types')
 					.select('id')
 					.eq('id', typeId)
 					.maybeSingle();
@@ -81,7 +79,7 @@ export function createSupabaseApprovedTrainingDeletionPort(
 		async deleteApprovedTrainingRecord(actor, requestId, recordId) {
 			const admin = await clientForPendingDeletion(actor, requestId, recordId, 'personnel_training');
 			const { error: deleteError } = await admin
-				.from(PersonnelTrainingEntity.table)
+				.from('personnel_trainings')
 				.delete()
 				.eq('organization_id', actor.orgId)
 				.eq('id', recordId)

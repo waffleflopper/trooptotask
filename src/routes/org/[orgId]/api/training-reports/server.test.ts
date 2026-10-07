@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
 import type { TrainingBriefingDetail, TrainingBriefingReportData } from '$features/training/contracts';

@@ -1,7 +1,7 @@
 import type { Personnel } from '$features/personnel/contracts';
 import { formatDate, parseDate } from '$lib/utils/dates';
 import { isTrainingApplicable, type TrainingType } from '../contracts';
-import { listTrainingTypes } from './trainingCatalogRead.server';
+import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '../contracts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -13,8 +13,8 @@ interface TrainingReadinessLane {
 }
 
 interface TrainingReadinessInput {
-	store: Parameters<typeof listTrainingTypes>[0];
-	orgId: string;
+	trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
+	trainingCompletions: Pick<TrainingCompletionPersistence, 'listPersonReadinessFacts'>;
 	personnelId: string;
 	asOf?: string | Date;
 	/** Delivery supplies a Personnel- and Group-authorized Person under Training view-records policy. */
@@ -54,8 +54,8 @@ function issueForType(type: TrainingType, expirationDate: string | null | undefi
 
 /** Training computes the lane; delivery supplies the existing Person/Group authorization. */
 export async function loadTrainingReadinessLane({
-	store,
-	orgId,
+	trainingCatalog,
+	trainingCompletions,
 	personnelId,
 	asOf,
 	loadAuthorizedPerson
@@ -63,15 +63,10 @@ export async function loadTrainingReadinessLane({
 	const person = await loadAuthorizedPerson();
 	const today = asOfDate(asOf);
 	const [types, trainingRows] = await Promise.all([
-		listTrainingTypes(store, orgId),
-		store.findMany<{ training_type_id: string; expiration_date: string | null }>(
-			'personnel_trainings',
-			orgId,
-			{ personnel_id: personnelId },
-			{ select: 'training_type_id, expiration_date' }
-		)
+		trainingCatalog.listTypes(),
+		trainingCompletions.listPersonReadinessFacts(personnelId)
 	]);
-	const expirationByType = new Map(trainingRows.map((row) => [row.training_type_id, row.expiration_date]));
+	const expirationByType = new Map(trainingRows.map((row) => [row.trainingTypeId, row.expirationDate]));
 	const issues = types
 		.filter((type) => requiredForPerson(type, person))
 		.map((type) => issueForType(type, expirationByType.get(type.id), today))

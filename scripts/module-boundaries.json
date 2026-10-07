@@ -71,6 +71,7 @@
 				"src/lib/server/adapters/personnelCriticalTasksRequestContext.server.test.ts",
 				"src/lib/server/adapters/personnelLeaderNotes.test.ts",
 				"src/lib/server/adapters/requestContexts.server.test.ts",
+				"src/lib/server/adapters/trainingRequestContext.server.test.ts",
 				"src/lib/server/adapters/requestContexts.server.ts",
 				"src/lib/server/communicationsPagination.server.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
@@ -545,6 +546,9 @@
 		"src/features/rating-scheme/server/ratingSchemePersistence.test-support.server.ts",
 		"src/features/rating-scheme/server/inMemoryRatingSchemePersistence.server.ts",
 		"src/features/rating-scheme/ratingSchemeStore.test-support.svelte.ts",
-		"src/features/deletion-requests/submission.test-support.ts"
+		"src/features/deletion-requests/submission.test-support.ts",
+		"src/features/training/server/trainingPersistence.test-support.server.ts",
+		"src/features/training/server/inMemoryTrainingPersistence.server.ts",
+		"src/features/training/server/test-support/trainingProvider.server.ts"
 	]
 }

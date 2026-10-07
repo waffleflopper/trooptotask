@@ -1,3 +1,4 @@
+import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '$features/training/contracts';
 import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
 import {
 	createInMemoryPersonnelRecordPersistence,
@@ -130,6 +131,8 @@ const FULL_CAPABILITY_MAP: CapabilityMap = {
 type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string, unknown>;
 
 type TestContextOptions = {
+	trainingCatalogFactory?: (store: DataStore, orgId: string) => TrainingCatalogPersistence;
+	trainingCompletionsFactory?: (store: DataStore, orgId: string) => TrainingCompletionPersistence;
 	auth?: Parameters<typeof createTestAuthContext>[0];
 	calendarCatalogsFactory?: (rawStore: DataStore, orgId: string) => CalendarCatalogPersistence;
 	calendarAvailabilityFactory?: (
@@ -152,6 +155,49 @@ type TestContextOptions = {
 	onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
 	onboardingPacketCreation?: OnboardingPacketCreationPort;
 };
+
+function createTestTrainingPersistence(store: DataStore, orgId: string, options?: TestContextOptions) {
+	async function unavailable(): Promise<never> {
+		throw new Error('Bind the owned Training persistence provider in this test context');
+	}
+	return {
+		trainingCatalog:
+			options?.trainingCatalogFactory?.(store, orgId) ??
+			({
+				listTypes: unavailable,
+				listViews: unavailable,
+				listTypeLabels: unavailable,
+				listRankApplicabilityReferences: unavailable,
+				countTypesEstimated: unavailable,
+				findTypeByName: unavailable,
+				listExistingTypeNames: unavailable,
+				hasTypes: unavailable,
+				findTypeTiming: unavailable,
+				listTypeImportReferences: unavailable,
+				findTypeId: unavailable,
+				createType: unavailable,
+				patchType: unavailable,
+				deleteType: unavailable,
+				createView: unavailable,
+				patchView: unavailable,
+				deleteView: unavailable
+			} satisfies TrainingCatalogPersistence),
+		trainingCompletions:
+			options?.trainingCompletionsFactory?.(store, orgId) ??
+			({
+				listCompletions: unavailable,
+				findResource: unavailable,
+				findPair: unavailable,
+				listPairReferences: unavailable,
+				listPersonReadinessFacts: unavailable,
+				listPersonExportFacts: unavailable,
+				createRecord: unavailable,
+				patchRecord: unavailable,
+				deleteRecord: unavailable,
+				upsertCompleted: unavailable
+			} satisfies TrainingCompletionPersistence)
+	};
+}
 
 function unavailableCalendarPersistence(): never {
 	throw new Error('Bind the owned Calendar persistence provider in this test context');
@@ -1333,6 +1379,7 @@ export function createTestContext(
 		unavailableCriticalTasksReadModel();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, overrides),
+		...createTestTrainingPersistence(store, auth.orgId, overrides),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
@@ -1458,6 +1505,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 	const storagePort = createTestStoragePort();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestTrainingPersistence(store, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
@@ -1498,6 +1546,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 	const storagePort = createTestStoragePort();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestTrainingPersistence(store, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
@@ -1549,6 +1598,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 		unavailableCriticalTasksReadModel();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestTrainingPersistence(store, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,
@@ -1581,6 +1631,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		unavailableCriticalTasksReadModel();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestTrainingPersistence(store, auth.orgId, options),
 		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,

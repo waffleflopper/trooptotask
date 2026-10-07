@@ -8,16 +8,8 @@ export {
 	updateTrainingView,
 	deleteTrainingView
 } from './server/trainingCatalogOperations.server';
-export {
-	listTrainingTypes,
-	listTrainingViews,
-	listTrainingTypeLabels,
-	listTrainingRankApplicabilityReferences,
-	countTrainingTypes,
-	findTrainingTypeByName,
-	listExistingTrainingTypeNames,
-	hasTrainingTypes
-} from './server/trainingCatalogRead.server';
+export { createSupabaseTrainingCatalogPersistence } from './server/trainingCatalogPersistence.server';
+export { createSupabaseTrainingCompletionPersistence } from './server/trainingCompletionPersistence.server';
 export { createSupabaseTrainingTypeNamesReader } from './server/trainingTypeNames.server';
 export { loadTrainingReadinessLane } from './server/personnelTrainingReadiness.server';
 export {
@@ -37,9 +29,6 @@ export {
 	generateTrainingReportWorkbookExport
 } from './server/trainingReportsQuery.server';
 export { fetchDashboardTrainingSummary } from './server/trainingSummaryQuery.server';
-export {
-	createSupabaseTrainingExportReader,
-	listPersonnelTrainingExportRows
-} from './server/trainingExportRead.server';
+export { createSupabaseTrainingExportReader } from './server/trainingExportRead.server';
 
 export { createTrainingSupportReader } from './server/supportReadProvider.server';

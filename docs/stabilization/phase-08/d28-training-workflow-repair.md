@@ -34,6 +34,12 @@ Existing lower-level checks establish batch and approval settlement; they do not
 
 The [review follow-up archive](d28-training-repair-review-followup.tar.gz) preserves the failed CI log, three hosted findings, passing focused reruns and the completed publication-only CLI review. It contains seven payloads, has 11,004 bytes and SHA-256 `b6a48461c0c505b2e9a3582da60c39dcc92b5cb289ce812a5fe31c839756a01a`. Governance passes with 157 retained findings and no new regressions. Both selected approval tests pass, leaving 37 cases unselected. The verifier checks both native archives under `PYTHONOPTIMIZE=1` and rejects a corrupted copy with exit one. Changed-file lint, formatting and diff checks pass. Fresh extraction verifies all seven payloads and the exact file set.
 
+## Integrated acceptance
+
+[#1562](https://github.com/waffleflopper/trooptotask/pull/1562) merges at `c911e0a114e1425541fa91a7b66db04bd904dc22`. Its tree `e71edc8c01aeea49f727db8b5040b0f2e6956b1f` matches accepted head `184e95c16434f90db0d1b96f8d4104dcd542436c`. [Exact-head CI](https://github.com/waffleflopper/trooptotask/actions/runs/37577003533) passes the required application checks and production build. Database contracts skip unchanged database inputs. Completed CodeRabbit review approves that head with no actionable feedback, and all three threads are resolved. Independent source, expanded-artifact and focused repair acceptance passes.
+
+These results clear the earlier release gates for this repair. They do not verify the later persistence cutover. Continuation starts from this merged tree, reuses the accepted repair evidence with its original bindings, and keeps the twelve later native families UNRUN until exercised. Training's two-port persistence, Onboarding, residual settings and final generic facade removal remain within open #1376.
+
 ## Verify the evidence archives
 
 Run this from the repository root with Python 3.12 or later, or an earlier release with the `tarfile` extraction-filter backport. Each archive extracts into a fresh temporary directory outside the checkout, which is removed afterward. The archive checksum protects its inventory. The expanded checks verify every payload and the exact file set.

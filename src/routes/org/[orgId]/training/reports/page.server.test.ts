@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import type { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { _createTrainingReportsPageLoad } from './+page.server';

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from '$features/training/server/trainingPersistence.test-support.server';
 import {
 	createTrainingRecord,
 	deleteTrainingRecord,
@@ -564,5 +564,37 @@ describe('deleteTrainingRecord', () => {
 
 		const stored = await ctx.store.findMany('personnel_trainings', 'test-org');
 		expect(stored).toHaveLength(0);
+	});
+});
+
+describe('retained direct patch boundary', () => {
+	it('forwards present malformed known fields while stripping unrelated keys and preserving omitted date/certificate', async () => {
+		const ctx = buildContext();
+		seedPersonnel(ctx);
+		seedTrainingType(ctx);
+		seedRecord(ctx);
+		const result = await updateTrainingRecord(ctx, {
+			id: 'tr-1',
+			notes: { retained: true },
+			certificateUrl: ['legacy-value'],
+			personnelId: 'p-2',
+			organization_id: 'other-org',
+			unrelated: 'discard'
+		});
+		expect(result).toMatchObject({
+			id: 'tr-1',
+			personnelId: 'p-1',
+			trainingTypeId: 'tt-1',
+			completionDate: '2025-03-15',
+			expirationDate: '2026-03-15',
+			notes: { retained: true },
+			certificateUrl: ['legacy-value'],
+			organization_id: 'test-org'
+		});
+		expect(result).not.toHaveProperty('unrelated');
+		expect(ctx.audit.events.at(-1)).toMatchObject({
+			action: 'training_record.updated',
+			details: { personnel_id: 'p-1', training_type_id: 'tt-1', completion_date: '2025-03-15' }
+		});
 	});
 });

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
 import { _postConfig } from './+server';
@@ -14,15 +14,33 @@ function buildRequest(ctx: ReturnType<typeof createTestContext>): AdmittedOrgani
 	const supabase = createClient('http://127.0.0.1:9', 'synthetic-starter-pack-key', {
 		auth: { persistSession: false, autoRefreshToken: false },
 		global: {
-			fetch: async (input) => {
+			fetch: async (input, init) => {
+				const request = new Request(input, init);
 				const url = new URL(input instanceof Request ? input.url : String(input));
 				if (
 					url.pathname !== '/rest/v1/training_types' ||
-					url.searchParams.get('organization_id') !== `eq.${ctx.auth.orgId}`
+					(request.method !== 'POST' && url.searchParams.get('organization_id') !== `eq.${ctx.auth.orgId}`)
 				) {
 					throw new Error('Unexpected starter-pack reference read');
 				}
-				return Response.json(await ctx.rawStore.findMany('training_types', ctx.auth.orgId));
+				if (request.method === 'POST') {
+					const body = await request.json();
+					if (body.organization_id !== ctx.auth.orgId) throw new Error('Foreign starter write');
+					const row = await ctx.rawStore.insert('training_types', ctx.auth.orgId, body);
+					return Response.json(row);
+				}
+				const name = url.searchParams.get('name');
+				const rows = await ctx.rawStore.findMany(
+					'training_types',
+					ctx.auth.orgId,
+					name ? { name: name.slice(3) } : undefined
+				);
+				if (request.headers.get('accept')?.includes('application/vnd.pgrst.object+json')) {
+					return rows.length === 1
+						? Response.json(rows[0])
+						: Response.json({ code: 'PGRST116', message: 'Expected one row' }, { status: 406 });
+				}
+				return Response.json(rows);
 			}
 		}
 	});

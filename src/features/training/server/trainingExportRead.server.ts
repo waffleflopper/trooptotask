@@ -1,6 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
 
 const EXPORT_TABLES = ['training_types', 'personnel_trainings', 'training_views'] as const;
 
@@ -25,14 +24,4 @@ export function createSupabaseTrainingExportReader(client: SupabaseClient, orgId
 			return result.data ?? [];
 		}
 	};
-}
-
-type TrainingExportReadStore = Pick<TrainingCatalogReadStore, 'findMany'>;
-
-export function listPersonnelTrainingExportRows(
-	store: TrainingExportReadStore,
-	orgId: string,
-	personnelId: string
-): Promise<Record<string, unknown>[]> {
-	return store.findMany<Record<string, unknown>>('personnel_trainings', orgId, { personnel_id: personnelId });
 }

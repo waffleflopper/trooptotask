@@ -4,7 +4,6 @@ import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$featur
 import { countOnboardingTemplateSteps } from '$features/onboarding/index.server';
 import { countOrganizationMembers } from '$features/organization/index.server';
 import { countRatingSchemeEntries } from '$features/rating-scheme/index.server';
-import { countTrainingTypes } from '$features/training/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import {
 	createRequestAccountPreferencesProvider,
@@ -31,7 +30,7 @@ async function fetchGettingStartedSupport(
 ) {
 	const [support, gettingStartedDismissed] = await Promise.all([
 		fetchDashboardSetupSupport({
-			countTrainingTypes: () => countTrainingTypes(ctx.store, ctx.auth.orgId),
+			countTrainingTypes: () => ctx.trainingCatalog.countTypesEstimated(),
 			countOnboardingTemplateSteps: () => countOnboardingTemplateSteps(ctx.store, ctx.auth.orgId),
 			countRatingSchemeEntries: () => countRatingSchemeEntries({ ratingScheme: ctx.ratingScheme, actor: ctx.auth }),
 			countOrganizationMembers: () => countOrganizationMembers(provider.supabase, ctx.auth.orgId),

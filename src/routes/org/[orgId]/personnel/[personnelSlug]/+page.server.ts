@@ -37,8 +37,8 @@ function createPersonnelDetailStreams(
 				() => listStatusTypes(contexts.calendar.calendarCatalogs)
 			),
 			training: loadTrainingReadinessLane({
-				store: contexts.readinessStore,
-				orgId: ctx.auth.orgId,
+				trainingCatalog: contexts.trainingCatalog,
+				trainingCompletions: contexts.trainingCompletions,
 				personnelId,
 				asOf: readinessAsOf,
 				loadAuthorizedPerson: () =>

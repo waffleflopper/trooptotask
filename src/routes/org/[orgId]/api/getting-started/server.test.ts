@@ -1,8 +1,11 @@
+import { withTrainingPersistence } from '$features/training/server/trainingPersistence.test-support.server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { loadGettingStartedDismissed, setGettingStartedDismissed } from '$features/identity/index.server';
 import { countOrganizationMembers } from '$features/organization/index.server';
-import { createTestContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
+import { createTestContext as createRatingContext } from '$features/rating-scheme/server/ratingSchemePersistence.test-support.server';
+const createTestContext = (options?: Parameters<typeof createRatingContext>[0]) =>
+	createRatingContext(withTrainingPersistence(options));
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _createConfigs } from './+server';
 

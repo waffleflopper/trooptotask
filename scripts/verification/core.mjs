@@ -116,7 +116,8 @@ export async function files() {
 	const { stdout } = await execute('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard'], {
 		cwd: repository
 	});
-	return [...new Set(stdout.split('\0').filter(Boolean))].sort();
+	// .claude/skills aliases the hashed .agents/skills tree for agent tooling; every other link stays rejected.
+	return [...new Set(stdout.split('\0').filter((file) => file && file !== '.claude/skills'))].sort();
 }
 export async function candidate(base = repository) {
 	const hash = createHash('sha256');

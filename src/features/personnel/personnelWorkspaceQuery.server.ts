@@ -9,7 +9,8 @@ import type {
 import { loadRosterPersonnel } from './rosterRead.server';
 import { listGroupCatalog } from './groupCatalog.server';
 import { listPinnedGroupNames } from './pinnedGroupNames.server';
-import { loadOrganizationRankCatalog } from './rankCatalogOperations.server';
+import type { OrganizationRankCatalogEntry } from './rankCatalogContracts';
+import type { PersonnelRosterReader, GroupPersistence, SelfPinPersistence } from './contracts';
 import {
 	PERSONNEL_WORKSPACE_LANE_KEY,
 	type PersonnelWorkspaceData,
@@ -17,23 +18,13 @@ import {
 	type PersonnelWorkspaceResult
 } from './contracts';
 
-interface PersonnelWorkspaceStore {
-	findMany<T>(
-		table: string,
-		orgId: string,
-		filters?: Record<string, unknown>,
-		options?: {
-			select?: string;
-			orderBy?: Array<{ column: string; ascending: boolean }>;
-			isNull?: Record<string, boolean>;
-		}
-	): Promise<T[]>;
-}
-
 interface PersonnelWorkspaceQueryContext {
 	auth: PersonnelRosterActor;
-	store: PersonnelWorkspaceStore;
-	rawStore: PersonnelWorkspaceStore;
+	roster: PersonnelRosterReader;
+	organizationRoster: PersonnelRosterReader;
+	groups: Pick<GroupPersistence, 'listCatalog'>;
+	selfPins: Pick<SelfPinPersistence, 'listNames'>;
+	loadRankCatalog(): Promise<OrganizationRankCatalogEntry[]>;
 	personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
 }
 
@@ -67,10 +58,10 @@ export async function loadPersonnelWorkspace(
 	const [personnel, allPersonnel, groups, statusTypes, rankCatalog, pinnedGroups, configuredWarningDays, acknowledged] =
 		await Promise.all([
 			loadRosterPersonnel(ctx, { status: 'active' }),
-			loadRosterPersonnel({ auth: ctx.auth, store: ctx.rawStore }, { status: 'active' }),
+			loadRosterPersonnel({ roster: ctx.organizationRoster }, { status: 'active' }),
 			listGroupCatalog(ctx),
 			sources.listStatusTypes(orgId),
-			loadOrganizationRankCatalog(ctx),
+			ctx.loadRankCatalog(),
 			ctx.auth.userId ? listPinnedGroupNames(ctx) : Promise.resolve([]),
 			sources.loadLossWarningWindowDays(orgId).catch(() => null),
 			ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)

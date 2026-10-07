@@ -4,9 +4,9 @@ import { fail } from '$lib/errors';
 import { formatToday } from '$lib/utils/dates';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
-import type { Personnel, PersonnelTrainingRosterPort } from '$features/personnel/contracts';
+import type { GroupPersistence, Personnel, PersonnelTrainingRosterPort } from '$features/personnel/contracts';
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
-import { listGroupCatalog, loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type {
 	BriefingRequirement,
 	TrainingBriefingDetail,
@@ -32,6 +32,7 @@ import { filterColumnsByView } from '../utils/viewFiltering';
 
 type TrainingReportReadContext = Omit<TrainingCompletionReadContext, 'store'> & {
 	readonly store: TrainingCatalogReadStore & Parameters<typeof loadOrganizationRankCatalog>[0]['store'];
+	readonly groups: Pick<GroupPersistence, 'listCatalog'>;
 	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'listActiveForReports'>;
 	readonly organizationSettings: Pick<OrganizationSettingsReader, 'findTrainingBriefingContext'>;
 };
@@ -66,7 +67,7 @@ async function loadBriefingSource(
 		listTrainingViews(ctx.store, orgId),
 		listTrainingCompletions(ctx),
 		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'training-records' }),
-		listGroupCatalog(ctx),
+		ctx.groups.listCatalog(),
 		ctx.organizationSettings.findTrainingBriefingContext(orgId)
 	]);
 	if (!organization) fail(404, 'Organization not found');

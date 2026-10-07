@@ -56,6 +56,48 @@ function fixture(value: number | null | 'missing' | 'failure', missingCount = fa
 }
 
 describe('Organization runtime settings with the actual SDK', () => {
+	it('resolves only requested same-Organization contributor labels and skips empty inputs', async () => {
+		const first = '11111111-1111-4111-8111-111111111111';
+		const second = '33333333-3333-4333-8333-333333333333';
+		const calls: URL[] = [];
+		const members = [
+			{
+				id: 'a',
+				organization_id: ORG,
+				user_id: first,
+				display_name: '  Alpha Medic  ',
+				email: 'alpha@example.invalid'
+			},
+			{ id: 'b', organization_id: ORG, user_id: second, email: 'second@example.invalid' },
+			{ id: 'c', organization_id: OTHER, user_id: first, display_name: 'Foreign Member' }
+		];
+		const client = createClient('http://settings.invalid', 'synthetic-request-key', {
+			auth: { persistSession: false, autoRefreshToken: false },
+			global: {
+				fetch: async (input) => {
+					const url = new URL(String(input));
+					calls.push(url);
+					const ids = url.searchParams.get('user_id')?.slice(4, -1).split(',') ?? [];
+					return Response.json(
+						members.filter(
+							(row) =>
+								url.searchParams.get('organization_id') === `eq.${row.organization_id}` && ids.includes(row.user_id)
+						)
+					);
+				}
+			}
+		});
+		const reader = createSupabaseOrganizationSettingsReader(client);
+		expect(await reader.findMemberLabels(ORG, ['invalid'])).toEqual(new Map());
+		expect(calls).toHaveLength(0);
+		expect(await reader.findMemberLabels(ORG.toUpperCase(), [first, first, second])).toEqual(
+			new Map([
+				[first, 'Alpha Medic'],
+				[second, 'second@example.invalid']
+			])
+		);
+		await expect(fixture('failure').reader.findMemberLabels(ORG, [first])).rejects.toThrow('Settings unavailable');
+	});
 	it('constructs lazily and reads only the requested policy/scalar facts for the canonical Organization', async () => {
 		const { reader, requests } = fixture(0);
 		expect(requests).toEqual([]);

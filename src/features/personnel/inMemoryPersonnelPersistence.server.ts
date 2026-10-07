@@ -1,4 +1,33 @@
-import type { DataStore } from '$lib/server/core/ports';
+interface PersonnelMemoryReadOptions {
+	select?: string;
+	inFilters?: Record<string, unknown[]>;
+	ilikeFilters?: Record<string, string>;
+	isNull?: Record<string, boolean>;
+	orderBy?: Array<{ column: string; ascending: boolean }>;
+	limit?: number;
+}
+
+export interface PersonnelMemoryStore {
+	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
+	findMany<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: PersonnelMemoryReadOptions
+	): Promise<T[]>;
+	findManyWithCount<T>(
+		table: string,
+		orgId: string,
+		filters?: Record<string, unknown>,
+		options?: PersonnelMemoryReadOptions
+	): Promise<{ data: T[]; count: number | null }>;
+	insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
+	insertMany<T>(table: string, orgId: string, data: Record<string, unknown>[], select?: string): Promise<T[]>;
+	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
+	delete(table: string, orgId: string, id: string): Promise<void>;
+	deleteWhere(table: string, orgId: string, filters: Record<string, unknown>): Promise<void>;
+}
+
 import type {
 	PersonnelRecordPersistence,
 	PersonnelRosterReader,
@@ -12,7 +41,10 @@ import {
 	personnelInsertRow
 } from './personnelPersistenceMapping.server';
 
-export function createInMemoryPersonnelRecordPersistence(store: DataStore, orgId: string): PersonnelRecordPersistence {
+export function createInMemoryPersonnelRecordPersistence(
+	store: PersonnelMemoryStore,
+	orgId: string
+): PersonnelRecordPersistence {
 	async function find(select: string, filters: Record<string, unknown>) {
 		return store.findOne<Record<string, unknown>>('personnel', orgId, filters, select);
 	}
@@ -104,7 +136,7 @@ export function createInMemoryPersonnelRecordPersistence(store: DataStore, orgId
 		delete: (id) => store.delete('personnel', orgId, id)
 	};
 }
-export function createInMemoryPersonnelRosterReader(store: DataStore, orgId: string): PersonnelRosterReader {
+export function createInMemoryPersonnelRosterReader(store: PersonnelMemoryStore, orgId: string): PersonnelRosterReader {
 	return {
 		async list(options = {}) {
 			const status = options.status ?? 'active';
@@ -135,7 +167,7 @@ export function createInMemoryPersonnelRosterReader(store: DataStore, orgId: str
 		}
 	};
 }
-export function createInMemoryGroupPersistence(store: DataStore, orgId: string): GroupPersistence {
+export function createInMemoryGroupPersistence(store: PersonnelMemoryStore, orgId: string): GroupPersistence {
 	const map = (row: Record<string, unknown>) => ({
 		id: row.id as string,
 		name: row.name as string,
@@ -186,7 +218,11 @@ export function createInMemoryGroupPersistence(store: DataStore, orgId: string):
 		delete: (id) => store.delete('groups', orgId, id)
 	};
 }
-export function createInMemorySelfPinPersistence(store: DataStore, orgId: string, userId: string): SelfPinPersistence {
+export function createInMemorySelfPinPersistence(
+	store: PersonnelMemoryStore,
+	orgId: string,
+	userId: string
+): SelfPinPersistence {
 	return {
 		async listNames() {
 			return (

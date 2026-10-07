@@ -12,6 +12,7 @@ export interface OrganizationTrainingBriefingContext {
 
 /** Organization-owned facts; construction never reads the provider. */
 export interface OrganizationSettingsReader {
+	findMemberLabels(orgId: string, userIds: string[]): Promise<Map<string, string>>;
 	findPolicies(orgId: string): Promise<OrganizationPolicySettings | null>;
 	findTrainingBriefingContext(orgId: string): Promise<OrganizationTrainingBriefingContext | null>;
 	findArchiveRetentionMonths(orgId: string): Promise<number | null | undefined>;

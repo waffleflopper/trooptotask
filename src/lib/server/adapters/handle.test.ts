@@ -448,7 +448,7 @@ describe('Personnel writes without commercial enforcement', () => {
 			},
 			{ auth: ctx.auth, audit: ctx.audit },
 			{ rank: 'SGT', lastName: 'Smith', firstName: 'Jordan', clinicRole: 'Team Leader', groupId: null },
-			() => ({ auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore })
+			() => ctx
 		)) as { id: string };
 		await handleUseCaseRequest(
 			{
@@ -462,8 +462,8 @@ describe('Personnel writes without commercial enforcement', () => {
 			() => ({
 				auth: ctx.auth,
 				audit: ctx.audit,
-				store: ctx.store,
-				rawStore: ctx.rawStore,
+				personnel: ctx.personnel,
+				organizationPersonnel: ctx.organizationPersonnel,
 				personnelArtifactWrites: ctx.personnelArtifactWrites
 			})
 		);

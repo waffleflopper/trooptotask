@@ -83,7 +83,6 @@ export interface DataStore {
 export interface ScopeEnforcementPort {
 	requireGroupAccess(personnelId: string): Promise<void>;
 	requireGroupAccessBatch(personnelIds: string[]): Promise<void>;
-	requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void>;
 }
 
 /** Abstracts file storage operations — business logic never imports Supabase storage */

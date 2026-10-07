@@ -28,6 +28,84 @@ export interface Group {
 	sortOrder: number;
 }
 
+export interface PersonnelRosterReader {
+	list(options?: { status?: 'active' | 'archived' | 'all'; order?: 'archived-newest' }): Promise<Personnel[]>;
+	countArchived(): Promise<number>;
+}
+
+export interface PersonnelLifecycleReference {
+	rank: string;
+	firstName: string;
+	lastName: string;
+	groupId: string | null;
+	archivedAt: string | null;
+}
+
+export interface PersonnelDateCandidate {
+	id: string;
+	rank: string;
+	firstName: string;
+	lastName: string;
+	groupId: string | null;
+	ets: string | null;
+	deros: string | null;
+}
+
+export interface PersonnelEditableFields {
+	rank: string;
+	lastName: string;
+	firstName: string;
+	mos: string;
+	clinicRole: string;
+	ets: string | null;
+	deros: string | null;
+	groupId: string | null;
+}
+
+export type PersonnelInsert = Pick<PersonnelEditableFields, 'rank' | 'lastName' | 'firstName' | 'clinicRole'> &
+	Partial<Pick<PersonnelEditableFields, 'mos' | 'ets' | 'deros' | 'groupId'>> & { slug: string };
+
+export interface PersonnelRecordPersistence {
+	findBySlug(slug: string): Promise<Personnel | null>;
+	findById(id: string): Promise<Personnel | null>;
+	findWriteReference(id: string): Promise<PersonnelLifecycleReference | null>;
+	findGroupReference(id: string): Promise<{ groupId: string | null } | null>;
+	findArchiveEvent(id: string): Promise<{ archivedAt: string | null } | null>;
+	listArchiveCandidates(ids: string[]): Promise<Array<PersonnelLifecycleReference & { id: string }>>;
+	listImportSlugs(): Promise<Array<{ slug: string | null }>>;
+	listSlugCandidates(prefix: string): Promise<Array<{ id: string; slug: string | null }>>;
+	listBackfillCandidates(): Promise<PersonnelDateCandidate[]>;
+	listRankReferences(): Promise<Array<{ rank?: string | null }>>;
+	create(input: PersonnelInsert): Promise<Personnel>;
+	createMany(inputs: PersonnelInsert[]): Promise<Personnel[]>;
+	updateEditable(id: string, patch: Partial<PersonnelEditableFields> & { slug?: string }): Promise<Personnel>;
+	updateDates(id: string, patch: { ets?: string; deros?: string }): Promise<Personnel>;
+	setArchivedAt(id: string, value: string | null): Promise<void>;
+	delete(id: string): Promise<void>;
+}
+
+export interface GroupPersistence {
+	listCatalog(options?: { groupIds?: string[] }): Promise<Group[]>;
+	findReference(id: string): Promise<{ id: string } | null>;
+	findNamesByIds(ids: string[]): Promise<Map<string, string>>;
+	create(input: { name: string; sortOrder?: number }): Promise<Group>;
+	update(id: string, patch: { name?: string; sortOrder?: number }): Promise<Group>;
+	delete(id: string): Promise<void>;
+}
+
+export interface PinnedGroupResult {
+	id: string;
+	groupName: string;
+	sortOrder: number;
+}
+
+export interface SelfPinPersistence {
+	listNames(): Promise<string[]>;
+	insert(input: { groupName: string; sortOrder?: number }): Promise<PinnedGroupResult>;
+	removeName(groupName: string): Promise<void>;
+	replaceNames(names: string[]): Promise<void>;
+}
+
 /** Calendar status facts admitted to Personnel workspace snapshots at delivery. */
 export interface PersonnelCalendarStatusSnapshot {
 	id: string;

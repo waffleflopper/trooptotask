@@ -23,7 +23,6 @@ function makeScope(overrides: Record<string, unknown> = {}) {
 	return {
 		requireGroupAccess: vi.fn(async () => {}),
 		requireGroupAccessBatch: vi.fn(async () => {}),
-		requireGroupAccessByRecord: vi.fn(async () => {}),
 		...overrides
 	};
 }
@@ -33,15 +32,15 @@ function makePersonnel(overrides: Record<string, unknown> = {}) {
 		id: 'person-1',
 		slug: 'rivera-monica',
 		rank: 'SGT',
-		first_name: 'Monica',
-		last_name: 'Rivera',
+		firstName: 'Monica',
+		lastName: 'Rivera',
 		mos: '68W',
-		clinic_role: 'Medic',
-		group_id: 'group-1',
-		groups: { name: 'Alpha' },
+		clinicRole: 'Medic',
+		groupId: 'group-1',
+		groupName: 'Alpha',
 		ets: null,
 		deros: null,
-		archived_at: null,
+		archivedAt: null,
 		...overrides
 	};
 }
@@ -55,11 +54,8 @@ function makeLoad(ctx: Record<string, unknown>) {
 describe('personnel detail layout server load', () => {
 	it('resolves the Personnel Slug once and returns persistent Soldier header data', async () => {
 		const ctx = {
-			rawStore: {
-				findOne: vi.fn(async () => makePersonnel())
-			},
-			store: {
-				findOne: vi.fn(async () => null)
+			organizationPersonnel: {
+				findBySlug: vi.fn(async () => makePersonnel())
 			},
 			auth: makeAuth(),
 			scope: makeScope(),
@@ -76,12 +72,7 @@ describe('personnel detail layout server load', () => {
 		} as never);
 
 		expect(depends).toHaveBeenCalledWith('app:personnel-detail-header');
-		expect(ctx.rawStore.findOne).toHaveBeenCalledWith(
-			'personnel',
-			'org-1',
-			{ slug: 'rivera-monica' },
-			expect.any(String)
-		);
+		expect(ctx.organizationPersonnel.findBySlug).toHaveBeenCalledWith('rivera-monica');
 		expect(loadWithContext).toHaveBeenCalledWith(
 			expect.anything(),
 			expect.anything(),
@@ -103,11 +94,8 @@ describe('personnel detail layout server load', () => {
 
 	it('requires Personnel operate capability at the shared detail layout', async () => {
 		const ctx = {
-			rawStore: {
-				findOne: vi.fn(async () => makePersonnel())
-			},
-			store: {
-				findOne: vi.fn(async () => null)
+			organizationPersonnel: {
+				findBySlug: vi.fn(async () => makePersonnel())
 			},
 			auth: makeAuth({
 				capabilityMap: {
@@ -136,11 +124,8 @@ describe('personnel detail layout server load', () => {
 
 	it('blocks group-scoped users from Soldiers outside their scope', async () => {
 		const ctx = {
-			rawStore: {
-				findOne: vi.fn(async () => makePersonnel())
-			},
-			store: {
-				findOne: vi.fn(async () => null)
+			organizationPersonnel: {
+				findBySlug: vi.fn(async () => makePersonnel())
 			},
 			auth: makeAuth({
 				scopeSet: { kind: 'groups', groupIds: ['other-group'] }
@@ -162,11 +147,8 @@ describe('personnel detail layout server load', () => {
 
 	it('returns 404 for invalid Personnel Slugs', async () => {
 		const ctx = {
-			rawStore: {
-				findOne: vi.fn(async () => null)
-			},
-			store: {
-				findOne: vi.fn(async () => null)
+			organizationPersonnel: {
+				findBySlug: vi.fn(async () => null)
 			},
 			auth: makeAuth(),
 			scope: makeScope(),

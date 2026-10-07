@@ -1,4 +1,4 @@
-import type { DataStore } from '$lib/server/core/ports';
+import type { PersonnelMemoryStore } from './inMemoryPersonnelPersistence.server';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { loadOrganizationRankCatalog } from './rankCatalogOperations.server';
 import {
@@ -8,7 +8,7 @@ import {
 	createInMemorySelfPinPersistence
 } from './inMemoryPersonnelPersistence.server';
 export function withPersonnelPersistence<
-	T extends { auth: OrganizationAccessGrant; store: DataStore; rawStore?: DataStore }
+	T extends { auth: OrganizationAccessGrant; store: PersonnelMemoryStore; rawStore?: PersonnelMemoryStore }
 >(ctx: T) {
 	const ordinary = ctx.rawStore ?? ctx.store;
 	return {

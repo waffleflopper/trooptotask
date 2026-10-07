@@ -16,28 +16,6 @@ export function createSupabaseScopeEnforcementAdapter(config: {
 			if (personnelIds.length === 0) return;
 
 			await requirePersonnelGroupAccessBatch(config.supabase, config.orgId, config.scopeSet, personnelIds);
-		},
-
-		async requireGroupAccessByRecord(table: string, recordId: string, personnelIdColumn: string): Promise<void> {
-			if (config.scopeSet.kind === 'organization') return;
-
-			const { data: record, error } = await config.supabase
-				.from(table)
-				.select(personnelIdColumn)
-				.eq('id', recordId)
-				.eq('organization_id', config.orgId)
-				.maybeSingle();
-
-			if (error) {
-				throw error;
-			}
-
-			if (!record) return;
-
-			const personnelId = (record as unknown as Record<string, unknown>)[personnelIdColumn] as string | null;
-			if (!personnelId) return;
-
-			await requirePersonnelGroupAccess(config.supabase, config.orgId, config.scopeSet, personnelId);
 		}
 	};
 }

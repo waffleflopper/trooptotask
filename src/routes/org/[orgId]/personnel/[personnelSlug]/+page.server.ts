@@ -37,7 +37,7 @@ function createPersonnelDetailStreams(
 				() => listStatusTypes(contexts.calendar.calendarCatalogs)
 			),
 			training: loadTrainingReadinessLane({
-				store: ctx.store,
+				store: contexts.readinessStore,
 				orgId: ctx.auth.orgId,
 				personnelId,
 				asOf: readinessAsOf,
@@ -45,7 +45,7 @@ function createPersonnelDetailStreams(
 					loadPersonnelForLane(ctx, personnelId, POLICY_ACTION_CATALOG.training.viewRecords, 'training_record')
 			}),
 			criticalTasks: loadCriticalTasksReadinessLane({
-				store: ctx.store,
+				store: contexts.readinessStore,
 				criticalTaskLibrary: contexts.criticalTaskLibrary,
 				criticalTaskCompletions: contexts.criticalTaskCompletions,
 				orgId: ctx.auth.orgId,

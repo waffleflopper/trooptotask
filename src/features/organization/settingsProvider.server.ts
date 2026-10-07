@@ -1,3 +1,5 @@
+import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from './memberLabels.server';
+import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrganizationSettingsReader, OrganizationPolicyWritePort } from './settingsTypes';
 
@@ -13,6 +15,31 @@ export function createSupabaseOrganizationSettingsReader(supabase: SupabaseClien
 		return (data as Record<string, number | null> | null)?.[column];
 	}
 	return {
+		findMemberLabels: (orgId, userIds) =>
+			loadOrganizationMemberLabels(
+				{
+					async findMembers(memberOrgId, ids) {
+						const rows: OrganizationMemberLabelRow[] = [];
+						for (let from = 0; from < ids.length; from += 100) {
+							const { data, error } = await selectAllSupabaseRows<OrganizationMemberLabelRow>(
+								async (pageFrom, pageTo) =>
+									supabase
+										.from('organization_memberships')
+										.select('*')
+										.eq('organization_id', memberOrgId.toLowerCase())
+										.in('user_id', ids.slice(from, from + 100))
+										.order('id')
+										.range(pageFrom, pageTo)
+							);
+							if (error) throw new Error((error as { message: string }).message);
+							rows.push(...(data ?? []));
+						}
+						return rows;
+					}
+				},
+				orgId,
+				userIds
+			),
 		async findPolicies(orgId) {
 			const { data, error } = await supabase
 				.from('organizations')

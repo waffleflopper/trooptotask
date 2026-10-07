@@ -10,7 +10,7 @@ import {
 	type WorkbookRow
 } from '$lib/utils/workbook';
 import { fail } from '$lib/errors';
-import type { PersonnelAvailabilityPeriod } from './contracts';
+import type { PersonnelRecordPersistence, GroupPersistence, PersonnelAvailabilityPeriod } from './contracts';
 import { validateUUID } from '$lib/server/validation';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
 import { listGroupCatalog } from './groupCatalog.server';
@@ -18,6 +18,8 @@ import { listGroupCatalog } from './groupCatalog.server';
 interface PersonnelExportContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findById'>;
+	groups: Pick<GroupPersistence, 'listCatalog'>;
 	rawStore: {
 		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
 		findMany<T>(
@@ -50,14 +52,14 @@ export async function exportPersonnelWorkbook(
 	const id = input.personnelId;
 	if (!validateUUID(id)) fail(400, 'Invalid personnel ID');
 
-	const person = await ctx.rawStore.findOne<Record<string, unknown>>('personnel', orgId, { id });
+	const person = await ctx.organizationPersonnel.findById(id);
 
 	if (!person) fail(404, 'Personnel not found');
 
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.exportRecords,
-		policyResourceForGroup(person.group_id),
+		policyResourceForGroup(person.groupId),
 		'personnel',
 		id
 	);
@@ -75,7 +77,7 @@ export async function exportPersonnelWorkbook(
 		listAvailabilityHistory(id),
 		listTrainingTypeLabels(),
 		listStatusTypeLabels(),
-		listGroupCatalog({ auth: ctx.auth, store: ctx.rawStore })
+		listGroupCatalog(ctx)
 	]);
 
 	// Extended info is independently scoped to this Organization and Person.
@@ -95,14 +97,14 @@ export async function exportPersonnelWorkbook(
 
 	const infoRows: { field: string; value: string }[] = [
 		{ field: 'Rank', value: (person.rank as string) ?? '' },
-		{ field: 'Last Name', value: (person.last_name as string) ?? '' },
-		{ field: 'First Name', value: (person.first_name as string) ?? '' },
+		{ field: 'Last Name', value: (person.lastName as string) ?? '' },
+		{ field: 'First Name', value: (person.firstName as string) ?? '' },
 		{ field: 'MOS', value: (person.mos as string) ?? '' },
-		{ field: 'Duty Role', value: (person.clinic_role as string) ?? '' },
-		{ field: 'Group', value: person.group_id ? (groupMap.get(person.group_id as string) ?? '') : '' },
+		{ field: 'Duty Role', value: (person.clinicRole as string) ?? '' },
+		{ field: 'Group', value: person.groupId ? (groupMap.get(person.groupId as string) ?? '') : '' },
 		{ field: 'ETS', value: (person.ets as string) ?? '' },
 		{ field: 'PCS / DEROS', value: (person.deros as string) ?? '' },
-		{ field: 'Archived At', value: (person.archived_at as string) ?? '' }
+		{ field: 'Archived At', value: (person.archivedAt as string) ?? '' }
 	];
 	if (ext) {
 		infoRows.push(
@@ -192,7 +194,7 @@ export async function exportPersonnelWorkbook(
 
 	const buffer = await writeWorkbookBuffer(workbook);
 	const personName =
-		`${(person.rank as string) ?? ''} ${(person.last_name as string) ?? ''} ${(person.first_name as string) ?? ''}`
+		`${(person.rank as string) ?? ''} ${(person.lastName as string) ?? ''} ${(person.firstName as string) ?? ''}`
 			.trim()
 			.replace(/\s+/g, '_');
 	const dateStr = new Date().toISOString().split('T')[0];
@@ -202,7 +204,7 @@ export async function exportPersonnelWorkbook(
 		resourceType: 'personnel',
 		resourceId: id,
 		details: {
-			name: `${(person.rank as string) ?? ''} ${(person.last_name as string) ?? ''}, ${(person.first_name as string) ?? ''}`
+			name: `${(person.rank as string) ?? ''} ${(person.lastName as string) ?? ''}, ${(person.firstName as string) ?? ''}`
 		}
 	});
 

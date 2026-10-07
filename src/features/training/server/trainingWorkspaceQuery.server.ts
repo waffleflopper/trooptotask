@@ -1,5 +1,11 @@
-import { listGroupCatalog, listPinnedGroupNames, loadOrganizationRankCatalog } from '$features/personnel/index.server';
-import type { PersonnelTrainingRosterPort, RankCatalogEntry, Group } from '$features/personnel/contracts';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
+import type {
+	PersonnelTrainingRosterPort,
+	RankCatalogEntry,
+	Group,
+	GroupPersistence,
+	SelfPinPersistence
+} from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType, TrainingView, TrainingWorkspaceData } from '../contracts';
 import { listTrainingTypes, listTrainingViews } from './trainingCatalogRead.server';
@@ -10,6 +16,8 @@ import { withTrainingTiming, type TrainingLoadPhase } from './trainingTiming.ser
 
 type TrainingWorkspaceQueryContext = Omit<TrainingCompletionReadContext, 'store'> & {
 	readonly store: TrainingCatalogReadStore & Parameters<typeof loadOrganizationRankCatalog>[0]['store'];
+	readonly groups: Pick<GroupPersistence, 'listCatalog'>;
+	readonly selfPins: Pick<SelfPinPersistence, 'listNames'>;
 	readonly audit?: TrainingCompletionReadContext['audit'];
 	readonly personnelTrainingRoster: Pick<PersonnelTrainingRosterPort, 'listActiveForWorkspace'>;
 };
@@ -56,7 +64,7 @@ export function fetchTrainingWorkspaceData(
 		orgId: requestedOrgId,
 		label: 'groups',
 		phase: 'groups',
-		load: () => listGroupCatalog(ctx),
+		load: () => ctx.groups.listCatalog(),
 		mapRows: (groups): Group[] => groups
 	});
 	const trainingTypes = loadTrainingItems({
@@ -77,7 +85,7 @@ export function fetchTrainingWorkspaceData(
 		orgId: requestedOrgId,
 		label: 'pinned groups',
 		phase: 'pinned-groups',
-		load: () => listPinnedGroupNames(ctx),
+		load: () => ctx.selfPins.listNames(),
 		mapRows: (names) => names
 	});
 	const personnelTrainings = loadTrainingItems({

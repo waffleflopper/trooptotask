@@ -2087,6 +2087,8 @@ async function main() {
 					'feedback',
 					'announcements/dismiss',
 					'personnel',
+					'groups',
+					'pinned-groups',
 					'personnel/batch',
 					'personnel/merge',
 					'personnel/archive-batch',
@@ -2172,7 +2174,8 @@ async function main() {
 					'deletion-requests/review',
 					'personnel/archive-batch',
 					'user-preferences',
-					'personnel'
+					'personnel',
+					'pinned-groups'
 				].includes(family) &&
 				!platformForm
 			)
@@ -2210,7 +2213,10 @@ async function main() {
 			const requestTarget = platformForm?.requestTarget ?? null;
 			const heldPersonnelFailure = family === 'personnel' && action === 'arm-hold-fail';
 			const sameOrigin =
-				heldPersonnelFailure || family === 'user-preferences' || !!shellPart || (platformForm?.sameOrigin ?? false);
+				heldPersonnelFailure ||
+				['user-preferences', 'groups', 'pinned-groups'].includes(family) ||
+				!!shellPart ||
+				(platformForm?.sameOrigin ?? false);
 			const requestMethod = heldPersonnelFailure
 				? 'PUT'
 				: family === 'user-preferences'

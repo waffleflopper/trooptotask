@@ -33,8 +33,11 @@ captures under the owning evidence contract before they exceed review limits.
   findings with the fix or evidence too; follow the user's explicit reply preference.
   Resolve a fixed thread after the correction is pushed and adequately verified.
 - Run the repository's applicable final checks after the last relevant change.
-  Reuse passing evidence for unchanged content; investigate failures rather than
-  weakening checks or blindly retrying them. Report unrelated blockers honestly.
+  Apply [verification after a fix](../../../docs/architecture/DEFINITION_OF_DONE.md#verification-after-a-fix)
+  to rerun failed checks and justified adjacent cases. Reuse passing evidence for
+  unaffected paths. A review fix or new head does not require another full manual
+  sweep. Investigate failures rather than weakening checks or blindly retrying
+  them. Report unrelated blockers honestly.
 - Keep the PR title/body about the final change, with validation, risks, and its
   work-record link. Follow the repository's presentation conventions, including
   show-me when required and available. Respect non-draft requirements.

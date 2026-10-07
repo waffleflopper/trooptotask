@@ -4,6 +4,8 @@ TroopToTask is a military unit management SaaS for personnel tracking, calendar/
 
 Use npm. Follow the [verification contract](docs/architecture/DEFINITION_OF_DONE.md#required-commands) for the change: documentation checks for prose-only work; the full checks and production build for application changes.
 
+After a focused repair, rerun the failed check and only adjacent checks justified by the changed behavior. Reuse passing evidence for unaffected paths. A new commit, review round or verification-session restart does not require repeating the manual baseline or full journey matrix. Follow the [rerun rule](docs/architecture/DEFINITION_OF_DONE.md#verification-after-a-fix); required current-head CI remains mandatory.
+
 Never reset, migrate, delete tables from, delete entries in, or otherwise touch the remote production database. Do not reset or delete tables from the local development database without Robert's explicit permission.
 
 ## Working agreement

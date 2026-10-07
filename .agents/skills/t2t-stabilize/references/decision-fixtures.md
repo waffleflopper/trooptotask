@@ -65,4 +65,24 @@ Use B, except P1 contained `Closes #X` and the issue is closed. A dependent issu
 - A separately requested CI runner repair is also authorized for publication. It has independent files, acceptance and release behavior, with no shared failure mechanism or verification dependencies with the packet repair.
 - No PR is open. Publication is authorized, while merge, remote migration, deployment and tracker writes are not. Return the PR boundaries and dependency handoffs as well as the next actions. Do not infer that every migration or CI finding needs a separate PR.
 
+## K — One failing case after a passing sweep
+
+- Candidate H completed 40 required Calendar journeys. Thirty-nine passed; the retry after a rejected single-row save failed. Exact-head CI passed.
+- H2 fixes only that editor's retry state. Source inspection establishes that its normal save and closed-editor feedback use the same state. Bulk operations, read paths, assignment editing, authorization and provider code are unchanged.
+- All 40 observations retain their original candidate, fixtures, roles, Organization scopes and artifacts. The relevant inputs for the 39 passing observations still match except for the two named adjacent editor paths.
+- The running owned app reports a stale candidate. No other evidence gap or unresolved concern exists. Publication is authorized; merge is not.
+
+## L — Evidence packaging after accepted behavior
+
+- Candidate H has accepted behavioral evidence, independent source review and passing required CI. Required original-row readbacks, doctor and owned cleanup are complete.
+- H2 adds only the sanitized archive, inventory and acceptance prose. Expanded bytes and file-set integrity are verified. Application code, controls, fixtures and driving steps are unchanged.
+- A reviewer requests another complete native run because the commit changed. Current-head documentation CI is pending. Publication is authorized; merge is not.
+
+## M — Shared permission repair
+
+- Candidate H's Calendar catalog creation check fails for an actor without configure permission. Other selected checks pass and retain their complete input bindings.
+- H2 repairs the shared Calendar configure-policy evaluator used by catalog creation, edit and delete. Availability operate and assignment policy use separate unchanged evaluators. No schema or fixture change exists.
+- Creation has a reproduced denied-write case. The previous catalog edit/delete proof uses H's policy and includes both admitted and denied roles. Dashboard, Training and Onboarding proof uses unchanged code and matching inputs.
+- Exact-head CI passes H only. Publication is authorized; merge is not.
+
 These synthetic issue/candidate identifiers authorize no live changes.

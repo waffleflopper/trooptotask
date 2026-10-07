@@ -25,6 +25,8 @@ Use verify-trooptotask to drive the affected features and dependencies on the un
 
 Routine issue work covers affected features and dependencies. A broader source/live upkeep pass belongs to an explicit [maintain-verification-skill](../maintain-verification-skill/SKILL.md) invocation. Maintain one feature map; do not create issue claim JSON, a second checklist registry or a replacement evidence gate.
 
+For each repair, brief workers with the failed case, justified adjacent checks and prior passing evidence to reuse under [verification after a fix](../../../docs/architecture/DEFINITION_OF_DONE.md#verification-after-a-fix). Do not dispatch the original full matrix again because the candidate changed. The coordinator and independent reviewer must justify any broader selection by changed behavior or a specific evidence gap. A review request does not create another full live run.
+
 ## Select the next stage
 
 Stages guide decisions within the existing checkpoint, not another persisted state machine. Reassess after new evidence or a merge.

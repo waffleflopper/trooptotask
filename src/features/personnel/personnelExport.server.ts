@@ -46,7 +46,14 @@ export async function exportPersonnelWorkbook(
 	listAvailabilityHistory: (personnelId: string) => Promise<PersonnelAvailabilityPeriod[]>,
 	listStatusTypeLabels: () => Promise<Array<{ id: string; name: string }>>,
 	listTrainingTypeLabels: () => Promise<Array<{ id: string; name: string }>>,
-	listPersonnelTrainingExportRows: (personnelId: string) => Promise<Record<string, unknown>[]>
+	listPersonnelTrainingExportRows: (personnelId: string) => Promise<
+		Array<{
+			training_type_id: string;
+			completion_date: string | null;
+			expiration_date: string | null;
+			notes?: string | null;
+		}>
+	>
 ): Promise<PersonnelExportOutput> {
 	const orgId = ctx.auth.orgId;
 	const id = input.personnelId;

@@ -15,7 +15,7 @@ New or migrated persistence uses the owning feature's typed server contract. Kee
 | `fromDb()`, `fromDbArray()`    | Map provider rows to domain values                              |
 | `select`, `orderBy`, `table`   | Retained provider metadata; keep it inside owner implementation |
 
-The [Training type definition](../src/features/training/server/trainingTypeEntity.server.ts) illustrates current use. Metadata does not authorize a request or perform a mutation.
+Retained metadata does not authorize a request or perform a mutation.
 
 ## Field options
 

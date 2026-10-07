@@ -1,18 +1,21 @@
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { PersonnelTrainingEntity } from './personnelTrainingEntity.server';
 import { policyResourcesForTrainingPersonnel } from './trainingCompletionOperations.server';
 import { calculateExpirationDate } from '../utils/trainingStatus';
-import type { TrainingCompletionWriteContext } from './trainingCompletionPorts.server';
-import type { TrainingBatchImportInput, TrainingBatchImportResult } from '../contracts';
+import type { TrainingBatchContext } from './trainingCompletionPorts.server';
+import type {
+	TrainingBatchImportInput,
+	TrainingBatchImportResult,
+	TrainingCompletedUpsert,
+	SavedTrainingCompletion
+} from '../contracts';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 
-const entity = PersonnelTrainingEntity;
 const AUDIT_RESOURCE = 'training_record';
 const MAX_BATCH_SIZE = 500;
 
 export async function importTrainingRecords(
-	ctx: TrainingCompletionWriteContext,
+	ctx: TrainingBatchContext,
 	input: TrainingBatchImportInput
 ): Promise<TrainingBatchImportResult> {
 	const { records } = input;
@@ -48,33 +51,16 @@ export async function importTrainingRecords(
 		);
 	}
 
-	// Prefetch training types in single query
 	const trainingTypeIds = [...new Set(records.map((r) => r.trainingTypeId))];
-	const trainingTypes = await ctx.store.findMany<{
-		id: string;
-		expiration_months: number | null;
-		expiration_date_only: boolean;
-		can_be_exempted: boolean;
-		exempt_personnel_ids: string[];
-	}>('training_types', ctx.auth.orgId, undefined, {
-		inFilters: { id: trainingTypeIds },
-		select: 'id, expiration_months, expiration_date_only, can_be_exempted, exempt_personnel_ids'
-	});
+	const trainingTypes = await ctx.trainingCatalog.listTypeImportReferences(trainingTypeIds);
 	const typeMap = new Map(trainingTypes.map((t) => [t.id, t]));
 
-	// Prefetch existing records for upsert detection
 	const personnelIds = [...new Set(records.map((r) => r.personnelId))];
-	const existingRecords = await ctx.store.findMany<{
-		id: string;
-		personnel_id: string;
-		training_type_id: string;
-	}>(entity.table, ctx.auth.orgId, undefined, {
-		inFilters: { personnel_id: personnelIds, training_type_id: trainingTypeIds }
-	});
-	const existingMap = new Map(existingRecords.map((e) => [`${e.personnel_id}:${e.training_type_id}`, e.id]));
+	const existingRecords = await ctx.trainingCompletions.listPairReferences(personnelIds, trainingTypeIds);
+	const existingMap = new Map(existingRecords.map((e) => [`${e.personnelId}:${e.trainingTypeId}`, e.id]));
 
 	const batchErrors: TrainingBatchImportResult['errors'] = [];
-	const completedRows: Record<string, unknown>[] = [];
+	const completedRows: TrainingCompletedUpsert[] = [];
 	const exemptionUpdates: Map<string, Set<string>> = new Map();
 
 	for (let i = 0; i < records.length; i++) {
@@ -87,59 +73,54 @@ export async function importTrainingRecords(
 		}
 
 		if (rec.status === 'exempt') {
-			if (!type.can_be_exempted) {
+			if (!type.canBeExempted) {
 				batchErrors.push({ index: i, message: 'This training type does not allow exemptions' });
 				continue;
 			}
 			if (!exemptionUpdates.has(rec.trainingTypeId)) {
-				exemptionUpdates.set(rec.trainingTypeId, new Set(type.exempt_personnel_ids ?? []));
+				exemptionUpdates.set(rec.trainingTypeId, new Set(type.exemptPersonnelIds ?? []));
 			}
 			exemptionUpdates.get(rec.trainingTypeId)!.add(rec.personnelId);
 			continue;
 		}
 
 		const completionDate = rec.completionDate;
-		const isExpirationDateOnly = type.expiration_date_only ?? false;
+		const isExpirationDateOnly = type.expirationDateOnly ?? false;
 
 		if (isExpirationDateOnly && !completionDate) {
 			batchErrors.push({ index: i, message: 'Expiration date required for this training type' });
 			continue;
 		}
 
-		if (type.expiration_months !== null && !completionDate) {
+		if (type.expirationMonths !== null && !completionDate) {
 			batchErrors.push({ index: i, message: 'Completion date is required for training that expires' });
 			continue;
 		}
 
 		const expirationDate = isExpirationDateOnly
 			? completionDate
-			: calculateExpirationDate(completionDate, type.expiration_months);
+			: calculateExpirationDate(completionDate, type.expirationMonths);
 
 		completedRows.push({
-			personnel_id: rec.personnelId,
-			training_type_id: rec.trainingTypeId,
-			completion_date: completionDate,
-			expiration_date: expirationDate,
+			personnelId: rec.personnelId,
+			trainingTypeId: rec.trainingTypeId,
+			completionDate: completionDate,
+			expirationDate: expirationDate,
 			notes: rec.notes ?? null,
-			updated_at: new Date().toISOString()
+			updatedAt: new Date().toISOString()
 		});
 	}
 
-	const insertedData: Record<string, unknown>[] = [];
-	const updatedData: Record<string, unknown>[] = [];
+	const insertedData: SavedTrainingCompletion[] = [];
+	const updatedData: SavedTrainingCompletion[] = [];
 	if (completedRows.length > 0) {
 		const dedupedCompletedRows = [
-			...new Map(completedRows.map((row) => [`${row.personnel_id}:${row.training_type_id}`, row] as const)).values()
+			...new Map(completedRows.map((row) => [`${row.personnelId}:${row.trainingTypeId}`, row] as const)).values()
 		];
-		const upsertedData = await ctx.store.upsertMany<Record<string, unknown>>(
-			entity.table,
-			ctx.auth.orgId,
-			dedupedCompletedRows,
-			{ onConflict: 'organization_id,personnel_id,training_type_id' }
-		);
+		const upsertedData = await ctx.trainingCompletions.upsertCompleted(dedupedCompletedRows);
 
 		for (const row of upsertedData) {
-			const key = `${row.personnel_id}:${row.training_type_id}`;
+			const key = `${row.personnelId}:${row.trainingTypeId}`;
 			if (existingMap.has(key)) {
 				updatedData.push(row);
 			} else {
@@ -150,10 +131,10 @@ export async function importTrainingRecords(
 
 	// Persist exemption updates
 	for (const [typeId, personnelIds] of exemptionUpdates) {
-		const typeRecord = await ctx.store.findOne<{ id: string }>('training_types', ctx.auth.orgId, { id: typeId });
+		const typeRecord = await ctx.trainingCatalog.findTypeId(typeId);
 		if (typeRecord) {
-			await ctx.store.update('training_types', ctx.auth.orgId, typeId, {
-				exempt_personnel_ids: [...personnelIds]
+			await ctx.trainingCatalog.patchType(typeId, {
+				exemptPersonnelIds: [...personnelIds]
 			});
 		}
 	}
@@ -181,8 +162,8 @@ export async function importTrainingRecords(
 	});
 
 	return {
-		inserted: insertedData.map((row) => entity.fromDb(row)),
-		updated: updatedData.map((row) => entity.fromDb(row)),
+		inserted: insertedData,
+		updated: updatedData,
 		exempted: exemptedResults,
 		errors: batchErrors
 	};

@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { WORKBOOK_MIME_TYPE } from '$lib/utils/workbook';
-import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
+import { createTestContext as createCalendarTestContext } from '$features/calendar/calendarPersistence.test-support.server';
+import { withTrainingPersistence } from '$features/training/server/trainingPersistence.test-support.server';
 import ExcelJS from 'exceljs';
 import { _getConfig } from './+server';
+
+const createTestContext = (options?: Parameters<typeof createCalendarTestContext>[0]) =>
+	createCalendarTestContext(withTrainingPersistence(options));
 
 const PERSONNEL_ID = '11111111-1111-4111-8111-111111111111';
 

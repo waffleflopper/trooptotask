@@ -1,3 +1,4 @@
+import { createSupabaseTrainingCatalogPersistence } from '$features/training/index.server';
 import { createSupabaseSignInRosterRankReferenceReader } from '$features/sign-in-rosters/index.server';
 import type { AdmittedOrganizationRequest } from '$lib/server/adapters/requestContexts.server';
 import {
@@ -87,6 +88,7 @@ export function createSettingsSensitiveNotificationContext(request: AdmittedOrga
 export function createSettingsRanksContext(request: AdmittedOrganizationRequest) {
 	return {
 		...createRequestRankCatalogContext(request),
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		readSignInRosterRankReferences: createSupabaseSignInRosterRankReferenceReader(request.supabase, request.auth.orgId)
 	};
 }

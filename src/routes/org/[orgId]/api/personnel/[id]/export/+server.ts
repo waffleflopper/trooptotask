@@ -1,6 +1,5 @@
 import { listPersonnelAvailabilityHistory, listStatusTypeLabels } from '$features/calendar/index.server';
 import { exportPersonnelWorkbook, type PersonnelExportOutput } from '$features/personnel/index.server';
-import { listPersonnelTrainingExportRows, listTrainingTypeLabels } from '$features/training/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import { createRequestPersonnelExportContext } from '$lib/server/adapters/requestContexts.server';
@@ -22,8 +21,16 @@ export const _getConfig: RouteConfig<
 			input,
 			(personnelId) => listPersonnelAvailabilityHistory(ctx, personnelId),
 			() => listStatusTypeLabels(ctx.calendarCatalogs),
-			() => listTrainingTypeLabels(ctx.rawStore, ctx.auth.orgId),
-			(personnelId) => listPersonnelTrainingExportRows(ctx.rawStore, ctx.auth.orgId, personnelId)
+			() => ctx.trainingCatalog.listTypeLabels(),
+			(personnelId) =>
+				ctx.trainingCompletions.listPersonExportFacts(personnelId).then((rows) =>
+					rows.map((row) => ({
+						training_type_id: row.trainingTypeId,
+						completion_date: row.completionDate,
+						expiration_date: row.expirationDate,
+						notes: row.notes
+					}))
+				)
 		),
 	formatOutput: (result) => {
 		return workbookBufferResponse(result._buffer, result._filename);

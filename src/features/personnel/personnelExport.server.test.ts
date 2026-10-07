@@ -1,14 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 import ExcelJS from 'exceljs';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 import { exportPersonnelWorkbook } from './personnelExport.server';
 import type { PersonnelAvailabilityPeriod } from './contracts';
 const listPersonnelTrainingExportRows =
 	(ctx: TestContext): Parameters<typeof exportPersonnelWorkbook>[5] =>
 	(personnelId) =>
-		ctx.rawStore.findMany<Record<string, unknown>>('personnel_trainings', ctx.auth.orgId, {
-			personnel_id: personnelId
-		});
+		ctx.trainingCompletions.listPersonExportFacts(personnelId).then((rows) =>
+			rows.map((row) => ({
+				training_type_id: row.trainingTypeId,
+				completion_date: row.completionDate,
+				expiration_date: row.expirationDate,
+				notes: row.notes
+			}))
+		);
 
 const listStatusTypeLabels = async () => [{ id: 'status-type-1', name: 'TDY' }];
 const listTrainingTypeLabels = async () => [{ id: 'training-type-1', name: 'Weapons Qual' }];

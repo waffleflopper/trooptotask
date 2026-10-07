@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
-import {
-	findTrainingTypeByName,
-	hasTrainingTypes,
-	listExistingTrainingTypeNames,
-	listTrainingRankApplicabilityReferences,
-	listTrainingTypeLabels,
-	listTrainingTypes,
-	listTrainingViews
-} from './trainingCatalogRead.server';
+import { createTestContext } from '$features/training/server/trainingPersistence.test-support.server';
 
 describe('Training catalog reads', () => {
 	it('returns Organization rows in catalog order with portable applicability and saved-view shapes', async () => {
@@ -31,24 +22,20 @@ describe('Training catalog reads', () => {
 			{ id: 'foreign-view', organization_id: 'other-org', name: 'Foreign', column_ids: ['foreign'] }
 		]);
 
-		const types = await listTrainingTypes(ctx.store, ctx.auth.orgId);
+		const types = await ctx.trainingCatalog.listTypes();
 		expect(types.map((type) => type.id)).toEqual(['targeted', 'required']);
 		expect(types[0].appliesToMos).toEqual(['68W']);
 		expect(types[1]).toMatchObject({ appliesToRoles: [], excludedRanks: [], isOptional: false });
-		expect(await listTrainingViews(ctx.store, ctx.auth.orgId)).toMatchObject([
-			{ id: 'view', columnIds: ['targeted', 'required'] }
-		]);
-		expect(await listTrainingTypeLabels(ctx.store, ctx.auth.orgId)).toEqual([
+		expect(await ctx.trainingCatalog.listViews()).toMatchObject([{ id: 'view', columnIds: ['targeted', 'required'] }]);
+		expect(await ctx.trainingCatalog.listTypeLabels()).toEqual([
 			{ id: 'required', name: 'Required' },
 			{ id: 'targeted', name: 'Targeted' }
 		]);
-		expect((await findTrainingTypeByName(ctx.store, ctx.auth.orgId, 'Targeted'))?.id).toBe('targeted');
-		expect(await findTrainingTypeByName(ctx.store, ctx.auth.orgId, 'Foreign')).toBeNull();
-		expect(await listExistingTrainingTypeNames(ctx.store, ctx.auth.orgId, ['Required', 'Foreign'])).toEqual([
-			'Required'
-		]);
-		expect(await hasTrainingTypes(ctx.store, ctx.auth.orgId)).toBe(true);
-		expect(await hasTrainingTypes(ctx.store, 'empty-org')).toBe(false);
+		expect((await ctx.trainingCatalog.findTypeByName('Targeted'))?.id).toBe('targeted');
+		expect(await ctx.trainingCatalog.findTypeByName('Foreign')).toBeNull();
+		expect(await ctx.trainingCatalog.listExistingTypeNames(['Required', 'Foreign'])).toEqual(['Required']);
+		expect(await ctx.trainingCatalog.hasTypes()).toBe(true);
+		expect(await createTestContext({ auth: { orgId: 'empty-org' } }).trainingCatalog.hasTypes()).toBe(false);
 	});
 
 	it('returns only same-Organization rank applicability references for Personnel rank governance', async () => {
@@ -70,7 +57,7 @@ describe('Training catalog reads', () => {
 			}
 		]);
 
-		expect(await listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId)).toEqual([
+		expect(await ctx.trainingCatalog.listRankApplicabilityReferences()).toEqual([
 			{ appliesToRanks: ['DET-SGT'], excludedRanks: ['SGT'] }
 		]);
 	});

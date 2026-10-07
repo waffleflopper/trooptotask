@@ -1,4 +1,3 @@
-import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type {
 	PersonnelTrainingRosterPort,
 	RankCatalogEntry,
@@ -8,14 +7,14 @@ import type {
 } from '$features/personnel/contracts';
 import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType, TrainingView, TrainingWorkspaceData } from '../contracts';
-import { listTrainingTypes, listTrainingViews } from './trainingCatalogRead.server';
 import { listTrainingCompletions } from './trainingCompletionRead.server';
-import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
+import type { TrainingCatalogPersistence } from '../contracts';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { withTrainingTiming, type TrainingLoadPhase } from './trainingTiming.server';
 
-type TrainingWorkspaceQueryContext = Omit<TrainingCompletionReadContext, 'store'> & {
-	readonly store: TrainingCatalogReadStore & Parameters<typeof loadOrganizationRankCatalog>[0]['store'];
+type TrainingWorkspaceQueryContext = TrainingCompletionReadContext & {
+	readonly loadRankCatalog: () => Promise<RankCatalogEntry[]>;
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes' | 'listViews'>;
 	readonly groups: Pick<GroupPersistence, 'listCatalog'>;
 	readonly selfPins: Pick<SelfPinPersistence, 'listNames'>;
 	readonly audit?: TrainingCompletionReadContext['audit'];
@@ -43,14 +42,13 @@ async function loadTrainingRosterPersonnel(ctx: TrainingWorkspaceQueryContext): 
 }
 
 async function loadTrainingRankCatalog(ctx: TrainingWorkspaceQueryContext): Promise<RankCatalogEntry[]> {
-	return loadOrganizationRankCatalog(ctx, { authorization: 'training-view' });
+	return ctx.loadRankCatalog();
 }
 
 export function fetchTrainingWorkspaceData(
 	ctx: TrainingWorkspaceQueryContext,
 	requestedOrgId: string
 ): TrainingWorkspaceData {
-	const canonicalOrgId = ctx.auth.orgId;
 	const personnel = withTrainingTiming(requestedOrgId, 'personnel', () => loadTrainingRosterPersonnel(ctx)).catch(
 		(error) => {
 			console.error('[training-workspace] Failed to load personnel', {
@@ -71,14 +69,14 @@ export function fetchTrainingWorkspaceData(
 		orgId: requestedOrgId,
 		label: 'training types',
 		phase: 'training-types',
-		load: () => listTrainingTypes(ctx.store, canonicalOrgId),
+		load: () => ctx.trainingCatalog.listTypes(),
 		mapRows: (types): TrainingType[] => types
 	});
 	const trainingViews = loadTrainingItems({
 		orgId: requestedOrgId,
 		label: 'training views',
 		phase: 'training-views',
-		load: () => listTrainingViews(ctx.store, canonicalOrgId),
+		load: () => ctx.trainingCatalog.listViews(),
 		mapRows: (views): TrainingView[] => views
 	});
 	const pinnedGroups = loadTrainingItems({

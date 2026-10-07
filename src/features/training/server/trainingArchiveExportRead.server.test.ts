@@ -42,13 +42,13 @@ const cases = [
 function provider(table: TrainingExportTable, saved: Row) {
 	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({
 		...saved,
-		id: `saved-${String(1001 - index).padStart(4, '0')}`,
+		id: `saved-${String(index + 1).padStart(4, '0')}`,
 		organization_id: ORG,
 		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] }
 	}));
 	const rows: Row[] = [{ ...owned[0], id: 'foreign-row', organization_id: 'org-b' }, ...owned];
 
-	const state = { failFrom: null as number | null, nullData: false };
+	const state = { failFrom: null as number | null, nullData: false, unstablePages: false };
 	const client = createClient('http://archive.invalid', 'synthetic-request-key', {
 		auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 		global: {
@@ -66,7 +66,7 @@ function provider(table: TrainingExportTable, saved: Row) {
 				if (state.failFrom !== null && offset >= state.failFrom)
 					return Response.json({ code: '42501', message: 'Saved rows unavailable' }, { status: 403 });
 				if (state.nullData) return Response.json(null);
-				let visible = rows;
+				let visible = state.unstablePages && offset > 0 ? rows.toReversed() : rows;
 				for (const [column, filter] of url.searchParams) {
 					if (filter.startsWith('eq.')) visible = visible.filter((row) => String(row[column]) === filter.slice(3));
 					else if (!['select', 'order', 'offset', 'limit'].includes(column))
@@ -98,9 +98,10 @@ function provider(table: TrainingExportTable, saved: Row) {
 
 describe('Training ordinary Organization archive reads', () => {
 	it.each(cases)(
-		'retains saved $table rows across pages and excludes a foreign Organization',
+		'retains every saved $table row under changing page order and excludes a foreign Organization',
 		async ({ table, saved }) => {
-			const { client, owned } = provider(table, saved);
+			const { client, state, owned } = provider(table, saved);
+			state.unstablePages = true;
 			expect(await createSupabaseTrainingExportReader(client, ORG).listRows(table)).toEqual(owned);
 			expect(await createSupabaseTrainingExportReader(client, 'empty-org').listRows(table)).toEqual([]);
 		}

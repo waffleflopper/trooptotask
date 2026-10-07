@@ -27,8 +27,8 @@ function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } =
 				return query;
 			},
 			order: () => query,
-			range: (start: number, end: number) =>
-				Promise.resolve({
+			range: (start: number, end: number) => {
+				const result = Promise.resolve({
 					data: rows
 						.filter(
 							(row) => (!joinedPersonnel || row.personnel !== null) && (!joinedType || row.training_types !== null)
@@ -40,7 +40,9 @@ function provider(fixtures: { trainingTypes?: Row[]; trainingRecords?: Row[] } =
 						)
 						.slice(start, end + 1),
 					error: null
-				})
+				});
+				return Object.assign(result, { returns: () => result });
+			}
 		};
 		return query;
 	});

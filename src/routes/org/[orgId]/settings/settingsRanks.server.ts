@@ -13,7 +13,7 @@ import type {
 	OrganizationRankCatalogEntry,
 	OrganizationRankCatalogReferenceSummary
 } from '$features/personnel/contracts';
-import { listTrainingRankApplicabilityReferences } from '$features/training/index.server';
+import type { TrainingCatalogPersistence } from '$features/training/contracts';
 import type {
 	SettingsRankCatalogRow,
 	SettingsRankOption,
@@ -107,7 +107,7 @@ export interface BuildRanksSettingsDataInput {
 
 export async function loadRanksSettings(
 	ctx: Parameters<typeof loadOrganizationRankCatalogReferenceSummaries>[0] & {
-		rawStore: Parameters<typeof listTrainingRankApplicabilityReferences>[0];
+		trainingCatalog: Pick<TrainingCatalogPersistence, 'listRankApplicabilityReferences'>;
 		readSignInRosterRankReferences: Parameters<typeof loadOrganizationRankCatalogReferenceSummaries>[3];
 	}
 ): Promise<RanksSettingsData> {
@@ -117,7 +117,7 @@ export async function loadRanksSettings(
 		{
 			codes: catalog.map((entry) => entry.code)
 		},
-		() => listTrainingRankApplicabilityReferences(ctx.rawStore, ctx.auth.orgId),
+		() => ctx.trainingCatalog.listRankApplicabilityReferences(),
 		ctx.readSignInRosterRankReferences,
 		{ authorization: 'organization-governance' }
 	);

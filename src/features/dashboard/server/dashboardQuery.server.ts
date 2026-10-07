@@ -28,7 +28,7 @@ import {
 	listStatusTypes
 } from '$features/calendar/index.server';
 import { listActiveOnboardings } from '$features/onboarding/index.server';
-import { listTrainingTypes } from '$features/training/index.server';
+import type { TrainingCatalogPersistence } from '$features/training/contracts';
 import { formatDate } from '$lib/utils/dates';
 
 type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
@@ -38,7 +38,8 @@ type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
 		groups: Pick<GroupPersistence, 'listCatalog'>;
 		selfPins: Pick<SelfPinPersistence, 'listNames'>;
 		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes'>;
-		store: Parameters<typeof listActiveOnboardings>[0] & Parameters<typeof listTrainingTypes>[0];
+		store: Parameters<typeof listActiveOnboardings>[0];
+		trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes'>;
 		organizationSettings: Pick<OrganizationSettingsReader, 'findLossWarningWindowDays'>;
 		ratingSchemeDue?: RatingSchemeDuePort;
 		personnelAwardAcknowledgement?: PersonnelAwardAcknowledgementPort;
@@ -80,7 +81,7 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		ctx.roster.list({ status: 'active' }),
 		ctx.groups.listCatalog(),
 		listStatusTypes(ctx.calendarCatalogs),
-		listTrainingTypes(ctx.store, orgId),
+		ctx.trainingCatalog.listTypes(),
 		ctx.organizationSettings.findLossWarningWindowDays(orgId),
 		ctx.personnelAwardAcknowledgement
 			? ctx.personnelAwardAcknowledgement.listAcknowledgedPersonnelIds(ctx.auth)

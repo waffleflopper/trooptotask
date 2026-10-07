@@ -11,14 +11,13 @@ import {
 	listOnboardingTemplateSteps,
 	fetchOnboardingStarterReadiness
 } from '$features/onboarding/index.server';
-import {
-	createTrainingType,
-	findTrainingTypeByName,
-	hasTrainingTypes,
-	listExistingTrainingTypeNames
-} from '$features/training/index.server';
+import { createTrainingType } from '$features/training/index.server';
 import type { OnboardingTemplate } from '$features/onboarding/contracts';
-import type { TrainingOnboardingReferencesPort, TrainingType } from '$features/training/contracts';
+import type {
+	TrainingOnboardingReferencesPort,
+	TrainingType,
+	TrainingCatalogPersistence
+} from '$features/training/contracts';
 import type {
 	StarterConfigurationPackApplyResult,
 	StarterConfigurationPackArtifactFamilyId,
@@ -117,12 +116,19 @@ interface StarterPackReadinessRows {
 	onboardingStepNames: string[];
 }
 
+type StarterConfigurationReadContext = Pick<WritePorts, 'store' | 'auth'> & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listExistingTypeNames' | 'hasTypes'>;
+};
 type StarterConfigurationApplyContext = WritePorts & {
+	readonly trainingCatalog: Pick<
+		TrainingCatalogPersistence,
+		'listExistingTypeNames' | 'hasTypes' | 'findTypeByName' | 'createType'
+	>;
 	readonly trainingOnboardingReferences: Pick<TrainingOnboardingReferencesPort, 'listTypes'>;
 };
 
 export async function listStarterConfigurationPacks(
-	ctx: Pick<WritePorts, 'store' | 'auth'>
+	ctx: StarterConfigurationReadContext
 ): Promise<StarterConfigurationPackSupport[]> {
 	return [await buildFirstWeekOperationsSupport(ctx)];
 }
@@ -145,7 +151,7 @@ export async function applyStarterConfigurationPack(
 }
 
 async function buildFirstWeekOperationsSupport(
-	ctx: Pick<WritePorts, 'store' | 'auth'>
+	ctx: StarterConfigurationReadContext
 ): Promise<StarterConfigurationPackSupport> {
 	const [rows, decisions] = await Promise.all([fetchReadinessRows(ctx), evaluateRequiredConfigureActions(ctx)]);
 	const readiness = buildReadiness(rows);
@@ -175,12 +181,12 @@ async function buildFirstWeekOperationsSupport(
 	};
 }
 
-async function fetchReadinessRows(ctx: Pick<WritePorts, 'store' | 'auth'>): Promise<StarterPackReadinessRows> {
+async function fetchReadinessRows(ctx: StarterConfigurationReadContext): Promise<StarterPackReadinessRows> {
 	const starterTrainingNames = STARTER_TRAINING_TYPES.map((type) => type.name);
 	const starterStepNames = ONBOARDING_STEPS.map((step) => step.name);
 	const [trainingTypeNames, hasAnyTrainingType, onboarding] = await Promise.all([
-		listExistingTrainingTypeNames(ctx.store, ctx.auth.orgId, starterTrainingNames),
-		hasTrainingTypes(ctx.store, ctx.auth.orgId),
+		ctx.trainingCatalog.listExistingTypeNames(starterTrainingNames),
+		ctx.trainingCatalog.hasTypes(),
 		fetchOnboardingStarterReadiness(ctx.store, ctx.auth.orgId, ONBOARDING_TEMPLATE.name, starterStepNames)
 	]);
 	return {
@@ -242,13 +248,13 @@ async function requireStarterPackPreflight(ctx: WritePorts): Promise<void> {
 }
 
 async function applyStarterTrainingTypes(
-	ctx: WritePorts,
+	ctx: StarterConfigurationApplyContext,
 	result: StarterConfigurationPackApplyResult
 ): Promise<Map<string, TrainingType>> {
 	const trainingTypes = new Map<string, TrainingType>();
 
 	for (const starterType of STARTER_TRAINING_TYPES) {
-		const existing = await findTrainingTypeByName(ctx.store, ctx.auth.orgId, starterType.name);
+		const existing = await ctx.trainingCatalog.findTypeByName(starterType.name);
 		if (existing) {
 			trainingTypes.set(starterType.name, existing);
 			recordSkipped(result, TRAINING_TYPE_FAMILY, starterType.name);
@@ -268,7 +274,7 @@ async function applyStarterTrainingTypes(
 		} catch (error) {
 			rethrowAuthorizationFailure(error);
 			if (isUniqueConflict(error)) {
-				const racedExisting = await findTrainingTypeByName(ctx.store, ctx.auth.orgId, starterType.name);
+				const racedExisting = await ctx.trainingCatalog.findTypeByName(starterType.name);
 				if (racedExisting) {
 					trainingTypes.set(starterType.name, racedExisting);
 					recordSkipped(result, TRAINING_TYPE_FAMILY, starterType.name);

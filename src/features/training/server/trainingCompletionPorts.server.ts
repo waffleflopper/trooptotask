@@ -1,28 +1,30 @@
-import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { PersonnelTrainingRosterPort } from '$features/personnel/contracts';
-import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
+import type { TrainingCatalogPersistence, TrainingCompletionPersistence } from '../contracts';
 
-export interface TrainingCompletionReadContext {
+export type TrainingCompletionReadContext = {
 	readonly auth: OrganizationAccessGrant;
 	readonly audit?: PolicyAuditSink;
-	readonly store: Pick<TrainingCatalogReadStore, 'findMany'>;
-}
-
-interface TrainingCompletionWriteStore extends Pick<TrainingCatalogReadStore, 'findOne' | 'findMany'> {
-	insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
-	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
-	delete(table: string, orgId: string, id: string): Promise<void>;
-	upsertMany<T>(
-		table: string,
-		orgId: string,
-		rows: Record<string, unknown>[],
-		options: { onConflict: string; select?: string }
-	): Promise<T[]>;
-}
-
-export interface TrainingCompletionWriteContext extends TrainingCompletionReadContext {
+	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'listCompletions'>;
+};
+export type TrainingPersonnelWriteAuthority = {
+	readonly auth: OrganizationAccessGrant;
 	readonly audit: PolicyAuditSink;
-	readonly store: TrainingCompletionWriteStore;
 	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'findGroupIdsForWrites'>;
-}
+};
+export type TrainingRecordCreateContext = TrainingPersonnelWriteAuthority & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'findTypeTiming'>;
+	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'findPair' | 'createRecord' | 'patchRecord'>;
+};
+export type TrainingRecordUpdateContext = TrainingPersonnelWriteAuthority & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'findTypeTiming'>;
+	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'findResource' | 'patchRecord'>;
+};
+export type TrainingRecordDeleteContext = TrainingPersonnelWriteAuthority & {
+	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'findResource' | 'deleteRecord'>;
+};
+export type TrainingBatchContext = TrainingPersonnelWriteAuthority & {
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypeImportReferences' | 'findTypeId' | 'patchType'>;
+	readonly trainingCompletions: Pick<TrainingCompletionPersistence, 'listPairReferences' | 'upsertCompleted'>;
+};

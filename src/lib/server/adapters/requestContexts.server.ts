@@ -3,7 +3,11 @@ import {
 	createSupabaseDataExportReader,
 	createSupabaseDataExportLifecycleWriter
 } from '$features/data-export/index.server';
-import { createSupabaseTrainingExportReader } from '$features/training/index.server';
+import {
+	createSupabaseTrainingExportReader,
+	createSupabaseTrainingCatalogPersistence,
+	createSupabaseTrainingCompletionPersistence
+} from '$features/training/index.server';
 import {
 	createSupabaseCalendarExportReader,
 	createSupabaseCalendarAssignmentReplacementPort,
@@ -378,6 +382,7 @@ export function createRequestPersonnelRecordContext(request: AdmittedOrganizatio
 
 export function createRequestRankCatalogContext(request: AdmittedOrganizationRequest) {
 	return {
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		...createRequestDataContext(request),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId)
 	};
@@ -485,6 +490,8 @@ export function createRequestPersonnelArchivedArtifactsContext(request: Admitted
 export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrganizationRequest) {
 	const organizationSettings = createSupabaseOrganizationSettingsReader(request.supabase);
 	return {
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		detail: createRequestPersonnelDetailContext(request),
 		readinessStore: request.store,
 		calendar: {
@@ -503,6 +510,8 @@ export function createRequestPersonnelDetailStreamsContext(request: AdmittedOrga
 
 export function createRequestPersonnelExportContext(request: AdmittedOrganizationRequest) {
 	return {
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		...createRequestAvailabilityContext(request),
 		calendarCatalogs: createSupabaseCalendarCatalogPersistence(request.supabase, request.auth.orgId),
 		organizationPersonnel: createSupabasePersonnelRecordPersistence(request.supabase, request.auth.orgId),
@@ -684,6 +693,7 @@ export function createRequestDeletionReviewContext(request: AdmittedOrganization
 
 export function createRequestGettingStartedContext(request: AdmittedOrganizationRequest) {
 	return {
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		...createRequestWriteContext(request),
 		ratingScheme: createSupabaseRatingSchemePersistence(request.supabase, request.auth.orgId)
 	};
@@ -691,6 +701,7 @@ export function createRequestGettingStartedContext(request: AdmittedOrganization
 
 export function createRequestDashboardWorkspaceContext(request: AdmittedOrganizationRequest) {
 	return {
+		trainingCatalog: createSupabaseTrainingCatalogPersistence(request.supabase, request.auth.orgId),
 		...createRequestCalendarRangeContext(request),
 		...createRequestPersonnelRosterContext(request),
 		store: request.store,
@@ -702,6 +713,7 @@ export function createRequestDashboardWorkspaceContext(request: AdmittedOrganiza
 
 export function createRequestDashboardSummaryContext(request: AdmittedOrganizationRequest) {
 	return {
+		trainingCompletions: createSupabaseTrainingCompletionPersistence(request.supabase, request.auth.orgId),
 		...createRequestDataContext(request),
 		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		criticalTasksReadModel: createSupabaseCriticalTasksReadModelAdapter(request.supabase),

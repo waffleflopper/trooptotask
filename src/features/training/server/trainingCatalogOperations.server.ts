@@ -1,10 +1,21 @@
 import { error } from '@sveltejs/kit';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import type { TrainingType, TrainingView } from '../contracts';
-import type { TrainingCatalogDeleteContext, TrainingCatalogWriteContext } from './trainingCatalogPorts.server';
-import { TrainingTypeEntity } from './trainingTypeEntity.server';
-import { TrainingViewEntity } from './trainingViewEntity.server';
+import type { SavedTrainingType, SavedTrainingView } from '../contracts';
+import type {
+	TrainingTypeCreateContext,
+	TrainingTypeUpdateContext,
+	TrainingTypeDeleteContext,
+	TrainingViewCreateContext,
+	TrainingViewUpdateContext,
+	TrainingViewDeleteContext
+} from './trainingCatalogPorts.server';
+import {
+	trainingTypeCreateInput,
+	trainingTypeUpdateInput,
+	trainingViewCreateInput,
+	trainingViewUpdateInput
+} from './trainingPersistenceMapping.server';
 
 const configureAction = POLICY_ACTION_CATALOG.training.configureRequirements;
 const catalogResource = { kind: 'organization' } as const;
@@ -14,94 +25,72 @@ function invalidInput(issues: Array<{ message: string }>): never {
 }
 
 export async function createTrainingType(
-	ctx: TrainingCatalogWriteContext,
+	ctx: TrainingTypeCreateContext,
 	input: Record<string, unknown>
-): Promise<TrainingType> {
-	const parsed = TrainingTypeEntity.createSchema.safeParse(input);
+): Promise<SavedTrainingType> {
+	const parsed = trainingTypeCreateInput.safeParse(input);
 	if (!parsed.success) invalidInput(parsed.error.issues);
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type');
-	const row = await ctx.store.insert<Record<string, unknown>>(
-		TrainingTypeEntity.table,
-		ctx.auth.orgId,
-		TrainingTypeEntity.toDbInsert(parsed.data, ctx.auth.orgId),
-		TrainingTypeEntity.select
-	);
+	const row = await ctx.trainingCatalog.createType(parsed.data);
 	ctx.audit.log({
 		action: 'training_type.created',
 		resourceType: 'training_type',
-		resourceId: row.id as string | undefined
+		resourceId: row.id
 	});
-	return TrainingTypeEntity.fromDb(row);
+	return row;
 }
 
 export async function updateTrainingType(
-	ctx: TrainingCatalogWriteContext,
+	ctx: TrainingTypeUpdateContext,
 	input: Record<string, unknown>
-): Promise<TrainingType> {
-	const parsed = TrainingTypeEntity.updateSchema.safeParse(input);
+): Promise<SavedTrainingType> {
+	const parsed = trainingTypeUpdateInput.safeParse(input);
 	if (!parsed.success) invalidInput(parsed.error.issues);
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
-	const row = await ctx.store.update<Record<string, unknown>>(
-		TrainingTypeEntity.table,
-		ctx.auth.orgId,
-		id,
-		TrainingTypeEntity.toDbUpdate(parsed.data),
-		TrainingTypeEntity.select
-	);
+	const row = await ctx.trainingCatalog.patchType(id, parsed.data);
 	ctx.audit.log({ action: 'training_type.updated', resourceType: 'training_type', resourceId: id });
-	return TrainingTypeEntity.fromDb(row);
+	return row;
 }
 
-export async function deleteTrainingType(ctx: TrainingCatalogDeleteContext, id: string): Promise<void> {
+export async function deleteTrainingType(ctx: TrainingTypeDeleteContext, id: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_type', id);
-	await ctx.store.delete(TrainingTypeEntity.table, ctx.auth.orgId, id);
+	await ctx.trainingCatalog.deleteType(id);
 	ctx.audit.log({ action: 'training_type.deleted', resourceType: 'training_type', resourceId: id });
 	await ctx.notifyTrainingTypeDeleted();
 }
 
 export async function createTrainingView(
-	ctx: TrainingCatalogWriteContext,
+	ctx: TrainingViewCreateContext,
 	input: Record<string, unknown>
-): Promise<TrainingView> {
-	const parsed = TrainingViewEntity.createSchema.safeParse(input);
+): Promise<SavedTrainingView> {
+	const parsed = trainingViewCreateInput.safeParse(input);
 	if (!parsed.success) invalidInput(parsed.error.issues);
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view');
-	const row = await ctx.store.insert<Record<string, unknown>>(
-		TrainingViewEntity.table,
-		ctx.auth.orgId,
-		TrainingViewEntity.toDbInsert(parsed.data, ctx.auth.orgId),
-		TrainingViewEntity.select
-	);
+	const row = await ctx.trainingCatalog.createView(parsed.data);
 	ctx.audit.log({
 		action: 'training_view.created',
 		resourceType: 'training_view',
-		resourceId: row.id as string | undefined
+		resourceId: row.id
 	});
-	return TrainingViewEntity.fromDb(row);
+	return row;
 }
 
 export async function updateTrainingView(
-	ctx: TrainingCatalogWriteContext,
+	ctx: TrainingViewUpdateContext,
 	input: Record<string, unknown>
-): Promise<TrainingView> {
-	const parsed = TrainingViewEntity.updateSchema.safeParse(input);
+): Promise<SavedTrainingView> {
+	const parsed = trainingViewUpdateInput.safeParse(input);
 	if (!parsed.success) invalidInput(parsed.error.issues);
 	const id = parsed.data.id as string;
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
-	const row = await ctx.store.update<Record<string, unknown>>(
-		TrainingViewEntity.table,
-		ctx.auth.orgId,
-		id,
-		TrainingViewEntity.toDbUpdate(parsed.data),
-		TrainingViewEntity.select
-	);
+	const row = await ctx.trainingCatalog.patchView(id, parsed.data);
 	ctx.audit.log({ action: 'training_view.updated', resourceType: 'training_view', resourceId: id });
-	return TrainingViewEntity.fromDb(row);
+	return row;
 }
 
-export async function deleteTrainingView(ctx: TrainingCatalogWriteContext, id: string): Promise<void> {
+export async function deleteTrainingView(ctx: TrainingViewDeleteContext, id: string): Promise<void> {
 	await requireFeaturePolicy(ctx, configureAction, catalogResource, 'training_view', id);
-	await ctx.store.delete(TrainingViewEntity.table, ctx.auth.orgId, id);
+	await ctx.trainingCatalog.deleteView(id);
 	ctx.audit.log({ action: 'training_view.deleted', resourceType: 'training_view', resourceId: id });
 }

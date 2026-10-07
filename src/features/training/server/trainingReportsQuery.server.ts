@@ -4,9 +4,13 @@ import { fail } from '$lib/errors';
 import { formatToday } from '$lib/utils/dates';
 import { writeWorkbookBuffer } from '$lib/utils/workbook';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
-import type { GroupPersistence, Personnel, PersonnelTrainingRosterPort } from '$features/personnel/contracts';
+import type {
+	GroupPersistence,
+	Personnel,
+	PersonnelTrainingRosterPort,
+	RankCatalogEntry
+} from '$features/personnel/contracts';
 import { observedRankCodesForOptions } from '$features/personnel/contracts';
-import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type {
 	BriefingRequirement,
 	TrainingBriefingDetail,
@@ -17,10 +21,9 @@ import type {
 	TrainingBriefingReportInput,
 	TrainingReportWorkbookExport
 } from '../contracts';
-import type { TrainingCatalogReadStore } from './trainingCatalogPorts.server';
+import type { TrainingCatalogPersistence } from '../contracts';
 import type { TrainingCompletionReadContext } from './trainingCompletionPorts.server';
 import { listTrainingCompletions } from './trainingCompletionRead.server';
-import { listTrainingTypes, listTrainingViews } from './trainingCatalogRead.server';
 import {
 	affectedBriefingRequirements,
 	buildTrainingBriefing,
@@ -30,8 +33,9 @@ import type { TrainingBriefingInput } from '../utils/trainingBriefing.types';
 import { buildTrainingReportWorkbook } from '../utils/trainingReportWorkbook';
 import { filterColumnsByView } from '../utils/viewFiltering';
 
-type TrainingReportReadContext = Omit<TrainingCompletionReadContext, 'store'> & {
-	readonly store: TrainingCatalogReadStore & Parameters<typeof loadOrganizationRankCatalog>[0]['store'];
+type TrainingReportReadContext = TrainingCompletionReadContext & {
+	readonly loadRankCatalog: () => Promise<RankCatalogEntry[]>;
+	readonly trainingCatalog: Pick<TrainingCatalogPersistence, 'listTypes' | 'listViews'>;
 	readonly groups: Pick<GroupPersistence, 'listCatalog'>;
 	readonly personnelTrainingRoster?: Pick<PersonnelTrainingRosterPort, 'listActiveForReports'>;
 	readonly organizationSettings: Pick<OrganizationSettingsReader, 'findTrainingBriefingContext'>;
@@ -63,10 +67,10 @@ async function loadBriefingSource(
 
 	const [personnel, types, views, records, rankCatalog, groups, organization] = await Promise.all([
 		ctx.personnelTrainingRoster.listActiveForReports(ctx.auth),
-		listTrainingTypes(ctx.store, orgId),
-		listTrainingViews(ctx.store, orgId),
+		ctx.trainingCatalog.listTypes(),
+		ctx.trainingCatalog.listViews(),
 		listTrainingCompletions(ctx),
-		loadOrganizationRankCatalog({ auth: ctx.auth, store: ctx.store }, { authorization: 'training-records' }),
+		ctx.loadRankCatalog(),
 		ctx.groups.listCatalog(),
 		ctx.organizationSettings.findTrainingBriefingContext(orgId)
 	]);

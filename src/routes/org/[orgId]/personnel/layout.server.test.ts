@@ -105,9 +105,12 @@ beforeEach(() => {
 			if (!ctx) throw new Error('Missing admitted workspace fixture');
 			return {
 				auth: request.auth,
-				store: ctx.store,
+				roster: ctx.roster,
+				organizationRoster: ctx.organizationRoster,
+				groups: ctx.groups,
+				selfPins: ctx.selfPins,
+				loadRankCatalog: ctx.loadRankCatalog,
 				calendarCatalogs: ctx.calendarCatalogs,
-				rawStore: ctx.rawStore,
 				personnelAwardAcknowledgement: ctx.personnelAwardAcknowledgement,
 				organizationSettings: ctx.organizationSettings
 			};

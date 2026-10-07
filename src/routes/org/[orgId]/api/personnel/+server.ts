@@ -8,15 +8,19 @@ import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
-	createRequestDataContext,
+	createRequestPersonnelRecordContext,
 	createRequestPersonnelLifecycleContext
 } from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
 import type { RequestEvent } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
-export const _postConfig: RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestDataContext>> = {
-	context: createRequestDataContext,
+export const _postConfig: RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestPersonnelRecordContext>
+> = {
+	context: createRequestPersonnelRecordContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.createRecords,
 	policyResource: { kind: 'unscoped' },
@@ -25,8 +29,12 @@ export const _postConfig: RouteConfig<Record<string, unknown>, unknown, ReturnTy
 
 export const POST = handle(_postConfig);
 
-export const _putConfig: RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestDataContext>> = {
-	context: createRequestDataContext,
+export const _putConfig: RouteConfig<
+	Record<string, unknown>,
+	unknown,
+	ReturnType<typeof createRequestPersonnelRecordContext>
+> = {
+	context: createRequestPersonnelRecordContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.manageRecords,
 	policyResource: { kind: 'unscoped' },

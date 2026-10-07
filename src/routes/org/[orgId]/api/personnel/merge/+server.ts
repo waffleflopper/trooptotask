@@ -2,14 +2,14 @@ import type { PersonnelBackfillInput, PersonnelBackfillResult } from '$features/
 import { mergePersonnelBatch } from '$features/personnel/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
-import { createRequestDataContext } from '$lib/server/adapters/requestContexts.server';
+import { createRequestPersonnelRecordContext } from '$lib/server/adapters/requestContexts.server';
 
 export const _postConfig: RouteConfig<
 	PersonnelBackfillInput,
 	PersonnelBackfillResult,
-	ReturnType<typeof createRequestDataContext>
+	ReturnType<typeof createRequestPersonnelRecordContext>
 > = {
-	context: createRequestDataContext,
+	context: createRequestPersonnelRecordContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.personnel.mergeRecords,
 	policyResource: { kind: 'unscoped' },

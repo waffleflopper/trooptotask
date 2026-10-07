@@ -14,7 +14,12 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import type { CalendarCatalogPersistence } from '$features/calendar/contracts';
 import type { OrganizationSettingsReader } from '$features/organization/contracts';
 import type { RatingSchemeDuePort } from '$features/rating-scheme/contracts';
-import type { PersonnelAwardAcknowledgementPort } from '$features/personnel/contracts';
+import type {
+	GroupPersistence,
+	PersonnelAwardAcknowledgementPort,
+	PersonnelRosterReader,
+	SelfPinPersistence
+} from '$features/personnel/contracts';
 import type { RatingSchemeDueEntry } from '$features/rating-scheme/contracts';
 import {
 	listAssignmentTypes,
@@ -25,13 +30,13 @@ import {
 import { listActiveOnboardings } from '$features/onboarding/index.server';
 import { listTrainingTypes } from '$features/training/index.server';
 import { formatDate } from '$lib/utils/dates';
-import { listGroupCatalog, listPinnedGroupNames, loadRosterPersonnel } from '$features/personnel/index.server';
 
 type DashboardQueryContext = Parameters<typeof listAvailabilityEntries>[0] &
-	Parameters<typeof listDailyAssignments>[0] &
-	Parameters<typeof listPinnedGroupNames>[0] &
-	Parameters<typeof loadRosterPersonnel>[0] & {
+	Parameters<typeof listDailyAssignments>[0] & {
 		auth: OrganizationAccessGrant;
+		roster: Pick<PersonnelRosterReader, 'list'>;
+		groups: Pick<GroupPersistence, 'listCatalog'>;
+		selfPins: Pick<SelfPinPersistence, 'listNames'>;
 		calendarCatalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes' | 'listStatusTypes'>;
 		store: Parameters<typeof listActiveOnboardings>[0] & Parameters<typeof listTrainingTypes>[0];
 		organizationSettings: Pick<OrganizationSettingsReader, 'findLossWarningWindowDays'>;
@@ -69,11 +74,11 @@ export async function fetchDashboardBootstrap(ctx: DashboardQueryContext): Promi
 		awardTrackingAcknowledgedPersonnelIds
 	] = await Promise.all([
 		listAssignmentTypes(ctx.calendarCatalogs),
-		listPinnedGroupNames(ctx),
+		ctx.selfPins.listNames(),
 		loadRatingSchemeDueEntries(ctx),
 		listActiveOnboardings(ctx.store, orgId),
-		loadRosterPersonnel(ctx, { status: 'active' }),
-		listGroupCatalog(ctx),
+		ctx.roster.list({ status: 'active' }),
+		ctx.groups.listCatalog(),
 		listStatusTypes(ctx.calendarCatalogs),
 		listTrainingTypes(ctx.store, orgId),
 		ctx.organizationSettings.findLossWarningWindowDays(orgId),

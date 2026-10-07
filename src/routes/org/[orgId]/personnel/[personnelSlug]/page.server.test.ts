@@ -58,11 +58,12 @@ function selectedContexts(
 			calendarCatalogs: ctx.calendarCatalogs,
 			personnelCalendarRoster: ctx.personnelCalendarRoster
 		},
+		readinessStore: ctx.store,
 		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		criticalTaskCompletions: ctx.criticalTaskCompletions,
 		ratingScheme: ctx.ratingScheme,
-		detail: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, rawStore: ctx.rawStore, scope: ctx.scope },
-		extendedInfo: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, scope: ctx.scope },
+		detail: { auth: ctx.auth, audit: ctx.audit, organizationPersonnel: ctx.organizationPersonnel, scope: ctx.scope },
+		extendedInfo: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, personnel: ctx.personnel, scope: ctx.scope },
 		artifacts: createPersonnelArtifactDeliveryContext(ctx),
 		leaderNotes: createPersonnelLeaderNoteDeliveryContext(ctx),
 		loadLossWarningWindowDays: () => ctx.organizationSettings.findLossWarningWindowDays(ctx.auth.orgId)

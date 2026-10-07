@@ -7,6 +7,8 @@ import {
 } from './requestContexts.server';
 import { getAdminClient } from '$lib/server/supabase';
 import {
+	createSupabaseGroupPersistence,
+	createSupabaseSelfPinPersistence,
 	createSupabasePersonnelTrainingRosterPort,
 	createSupabasePersonnelCriticalTasksRosterPort,
 	createSupabasePersonnelRatingSchemeRosterPort,
@@ -64,6 +66,8 @@ export function createRequestTrainingRosterContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof createTrainingRecord>[0] & Parameters<typeof fetchTrainingWorkspaceData>[0] {
 	return {
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
+		selfPins: createSupabaseSelfPinPersistence(request.supabase, request.auth.orgId, request.auth.userId),
 		...createRequestWriteContext(request),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};
@@ -73,6 +77,7 @@ export function createRequestTrainingBriefingContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchTrainingBriefingReport>[0] {
 	return {
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		...createRequestWriteContext(request),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient),
 		organizationSettings: createSupabaseOrganizationSettingsReader(request.supabase)
@@ -122,6 +127,7 @@ export function createRequestCriticalTasksReadContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchCriticalTasksBootstrap>[0] & Parameters<typeof fetchCriticalTasksReportsPageModel>[0] {
 	return {
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		auth: request.auth,
 		store: request.store,
 		criticalTaskLibrary: createSupabaseCriticalTaskLibraryPersistence(request.supabase, request.auth.orgId),
@@ -253,6 +259,7 @@ export function createRequestOnboardingWorkspaceContext(
 	request: AdmittedOrganizationRequest
 ): Parameters<typeof fetchOnboardingWorkspace>[0] {
 	return {
+		groups: createSupabaseGroupPersistence(request.supabase, request.auth.orgId),
 		...createRequestDataContext(request),
 		personnelOnboardingRoster: createSupabasePersonnelOnboardingRosterPort(getAdminClient),
 		trainingOnboardingReferences: createSupabaseTrainingOnboardingReferencesPort(getAdminClient)

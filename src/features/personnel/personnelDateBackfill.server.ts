@@ -1,21 +1,23 @@
 import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { PersonnelEntity } from './personnelEntity.server';
 import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { createPersonnelCatalogRankResolver } from './rankValidation.server';
 import { listGroupCatalog } from './groupCatalog.server';
-import type { PersonnelBatchContext } from './personnelBatchContext.server';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { Personnel, PersonnelRecordPersistence, GroupPersistence } from './contracts';
 import type { PersonnelBackfillInput, PersonnelBackfillResult, PersonnelBatchMessage } from './personnelImport.types';
 
-const entity = PersonnelEntity;
 const MAX_BATCH_SIZE = 500;
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-interface PersonnelBackfillContext extends PersonnelBatchContext {
-	store: PersonnelBatchContext['store'] & {
-		update<T>(table: string, orgId: string, id: string, patch: Record<string, unknown>, select?: string): Promise<T>;
-	};
+interface PersonnelBackfillContext {
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
+	personnel: Pick<PersonnelRecordPersistence, 'listBackfillCandidates' | 'updateDates'>;
+	groups: Pick<GroupPersistence, 'listCatalog'>;
+	loadRankCatalog: Parameters<typeof createPersonnelCatalogRankResolver>[0]['loadRankCatalog'];
 }
 
 function normalize(value: string | null | undefined): string {
@@ -68,16 +70,14 @@ export async function mergePersonnelBatch(
 	}
 
 	const [people, groups, rankResolver] = await Promise.all([
-		ctx.store.findMany<Record<string, unknown>>('personnel', ctx.auth.orgId, undefined, {
-			isNull: { archived_at: true }
-		}),
+		ctx.personnel.listBackfillCandidates(),
 		listGroupCatalog(ctx),
 		createPersonnelCatalogRankResolver(ctx)
 	]);
 
 	const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
 	const matched: Array<{ index: number; personnelId: string }> = [];
-	const updated: Record<string, unknown>[] = [];
+	const updated: Personnel[] = [];
 	const skipped: PersonnelBatchMessage[] = [];
 	const ambiguous: PersonnelBatchMessage[] = [];
 	const errors: PersonnelBatchMessage[] = [];
@@ -114,8 +114,8 @@ export async function mergePersonnelBatch(
 			} else if (normalize(personRank) !== normalize(rank)) {
 				return false;
 			}
-			if (normalize(person.last_name as string) !== lastName.toLowerCase()) return false;
-			if (normalize(person.first_name as string) !== firstName.toLowerCase()) return false;
+			if (normalize(person.lastName as string) !== lastName.toLowerCase()) return false;
+			if (normalize(person.firstName as string) !== firstName.toLowerCase()) return false;
 			return true;
 		});
 
@@ -132,7 +132,7 @@ export async function mergePersonnelBatch(
 			person = candidates[0];
 		} else if (desiredGroupName) {
 			const groupMatches = candidates.filter((candidate) => {
-				const groupId = (candidate.group_id as string | null) ?? null;
+				const groupId = (candidate.groupId as string | null) ?? null;
 				return normalize(groupId ? groupNameById.get(groupId) : null) === desiredGroupName.toLowerCase();
 			});
 
@@ -159,12 +159,12 @@ export async function mergePersonnelBatch(
 		await requireFeaturePolicy(
 			ctx,
 			POLICY_ACTION_CATALOG.personnel.mergeRecords,
-			person.group_id ? { kind: 'group', groupId: person.group_id as string } : { kind: 'organization' },
+			person.groupId ? { kind: 'group', groupId: person.groupId as string } : { kind: 'organization' },
 			'personnel',
 			person.id as string
 		);
 
-		const patch: Record<string, unknown> = {};
+		const patch: { ets?: string; deros?: string } = {};
 		if (desiredEts && desiredEts !== ((person.ets as string | null) ?? null)) {
 			patch.ets = desiredEts;
 		}
@@ -177,14 +177,9 @@ export async function mergePersonnelBatch(
 			continue;
 		}
 
-		let result: Record<string, unknown>;
+		let result: Personnel;
 		try {
-			result = await ctx.store.update<Record<string, unknown>>(
-				entity.table,
-				ctx.auth.orgId,
-				person.id as string,
-				patch
-			);
+			result = await ctx.personnel.updateDates(person.id, patch);
 		} catch {
 			errors.push({ index, message: 'This update could not be confirmed. Review the record before retrying.' });
 			continue;
@@ -192,8 +187,8 @@ export async function mergePersonnelBatch(
 		updated.push(result);
 		// Later rows compare with acknowledged dates in file order. Do not modify
 		// the snapshot after an unconfirmed write or replace matching identity.
-		person.ets = result.ets;
-		person.deros = result.deros;
+		person.ets = result.ets ?? null;
+		person.deros = result.deros ?? null;
 	}
 
 	ctx.audit.log({
@@ -210,7 +205,7 @@ export async function mergePersonnelBatch(
 
 	return {
 		matched,
-		updated: updated.map((row) => entity.fromDb(row)),
+		updated,
 		skipped,
 		ambiguous,
 		errors

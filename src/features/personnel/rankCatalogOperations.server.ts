@@ -1,3 +1,4 @@
+import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import {
@@ -111,10 +112,6 @@ interface OrganizationRankCatalogRow extends Record<string, unknown> {
 	sort_order: number;
 }
 
-interface PersonnelRankRow {
-	rank?: string | null;
-}
-
 interface TrainingTypeRankReferenceRow {
 	appliesToRanks: unknown;
 	excludedRanks: unknown;
@@ -127,6 +124,7 @@ type ReadSignInRosterRankReferences = () => Promise<
 >;
 
 interface RankCatalogPorts {
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'listRankReferences'>;
 	auth: OrganizationAccessGrant;
 	store: RankCatalogStore;
 	rawStore?: RankCatalogStore;
@@ -417,7 +415,7 @@ export async function bulkSetOrganizationRankCatalogState(
 }
 
 export async function loadOrganizationRankCatalogReferenceSummaries(
-	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit'>,
+	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit' | 'organizationPersonnel'>,
 	input: { codes: readonly string[] },
 	readTrainingRankApplicabilityReferences: ReadTrainingRankApplicabilityReferences,
 	readSignInRosterRankReferences: ReadSignInRosterRankReferences,
@@ -433,9 +431,8 @@ export async function loadOrganizationRankCatalogReferenceSummaries(
 		return [];
 	}
 
-	const referenceStore = storeForRankCatalog(ports);
 	const [personnelRows, trainingTypeRows, signInRosterRows] = await Promise.all([
-		referenceStore.findMany<PersonnelRankRow>('personnel', ports.auth.orgId),
+		ports.organizationPersonnel.listRankReferences(),
 		readTrainingRankApplicabilityReferences(),
 		readSignInRosterRankReferences()
 	]);
@@ -625,7 +622,7 @@ async function buildDiscoveredRankCatalogSeeds(
 	ports: RankCatalogPorts,
 	existingCodes: Set<string>
 ): Promise<OrganizationRankCatalogRow[]> {
-	const personnelRows = await storeForRankCatalog(ports).findMany<PersonnelRankRow>('personnel', ports.auth.orgId);
+	const personnelRows = await ports.organizationPersonnel.listRankReferences();
 	const discoveredCodes = new Set<string>();
 	const rows: OrganizationRankCatalogRow[] = [];
 

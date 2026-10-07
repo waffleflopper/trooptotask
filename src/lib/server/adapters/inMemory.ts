@@ -1,3 +1,11 @@
+import { loadOrganizationMemberLabels, type OrganizationMemberLabelRow } from '$features/organization/index.server';
+import {
+	createInMemoryPersonnelRecordPersistence,
+	createInMemoryPersonnelRosterReader,
+	createInMemoryGroupPersistence,
+	createInMemorySelfPinPersistence
+} from '$features/personnel/inMemoryPersonnelPersistence.server';
+import { loadOrganizationRankCatalog } from '$features/personnel/index.server';
 import type { createRequestOrganizationExportContext } from './requestContexts.server';
 /**
  * In-memory implementations of all port interfaces, used in unit and integration tests.
@@ -641,8 +649,7 @@ export function createTestAuthContext(overrides?: TestAuthContextOverrides): Org
 export function createTestScopeEnforcementPort(overrides?: Partial<ScopeEnforcementPort>): ScopeEnforcementPort {
 	const defaults: ScopeEnforcementPort = {
 		async requireGroupAccess() {},
-		async requireGroupAccessBatch() {},
-		async requireGroupAccessByRecord() {}
+		async requireGroupAccessBatch() {}
 	};
 
 	return { ...defaults, ...overrides };
@@ -1164,6 +1171,17 @@ function createInMemoryOrganizationSettingsReader(store: DataStore): Organizatio
 		return row?.[column];
 	}
 	return {
+		findMemberLabels: (orgId, userIds) =>
+			loadOrganizationMemberLabels(
+				{
+					findMembers: (memberOrgId, ids) =>
+						store.findMany<OrganizationMemberLabelRow>('organization_memberships', memberOrgId, undefined, {
+							inFilters: { user_id: ids }
+						})
+				},
+				orgId,
+				userIds
+			),
 		async findPolicies(orgId) {
 			const row = await store.findOne<{
 				archive_retention_months?: number | null;
@@ -1280,6 +1298,18 @@ export function createTestDataExportLifecycleWriter(store: DataStore, orgId: str
 	};
 }
 
+function createTestPersonnelPersistence(rawStore: DataStore, store: DataStore, auth: OrganizationAccessGrant) {
+	return {
+		personnel: createInMemoryPersonnelRecordPersistence(store, auth.orgId),
+		organizationPersonnel: createInMemoryPersonnelRecordPersistence(rawStore, auth.orgId),
+		roster: createInMemoryPersonnelRosterReader(store, auth.orgId),
+		organizationRoster: createInMemoryPersonnelRosterReader(rawStore, auth.orgId),
+		groups: createInMemoryGroupPersistence(store, auth.orgId),
+		selfPins: createInMemorySelfPinPersistence(store, auth.orgId, auth.userId),
+		loadRankCatalog: () => loadOrganizationRankCatalog({ auth, store })
+	};
+}
+
 export function createTestContext(
 	overrides?: TestContextOptions & {
 		scope?: Partial<ScopeEnforcementPort>;
@@ -1303,6 +1333,7 @@ export function createTestContext(
 		unavailableCriticalTasksReadModel();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, overrides),
+		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
 		auth,
@@ -1427,6 +1458,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 	const storagePort = createTestStoragePort();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
 		auth,
@@ -1466,6 +1498,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 	const storagePort = createTestStoragePort();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		rawStore,
 		auth,
@@ -1495,8 +1528,9 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 
 export function createUserWritePortsContext(options?: { auth?: Parameters<typeof createTestAuthContext>[0] }) {
 	const auth = createTestAuthContext(options?.auth);
-	const { store } = createScopedTestStores(auth);
+	const { store, rawStore } = createScopedTestStores(auth);
 	return {
+		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,
 		audit: createTestAuditPort()
@@ -1515,6 +1549,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 		unavailableCriticalTasksReadModel();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
@@ -1546,6 +1581,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		unavailableCriticalTasksReadModel();
 	return {
 		...createTestCalendarPersistence(rawStore, store, auth, options),
+		...createTestPersonnelPersistence(rawStore, store, auth),
 		store,
 		auth,
 		rawStore,

@@ -2,26 +2,33 @@ import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
-import { PersonnelEntity } from './personnelEntity.server';
+import { z } from 'zod';
+import type { Personnel, PersonnelRecordPersistence, GroupPersistence } from './contracts';
 import { normalizeActivePersonnelRank } from './rankValidation.server';
-import {
-	buildUniquePersonnelSlug,
-	isPersonnelSlugUniqueConstraintError,
-	type PersonnelSlugReadStore
-} from './personnelSlug.server';
+import { buildUniquePersonnelSlug, isPersonnelSlugUniqueConstraintError } from './personnelSlug.server';
 
 interface PersonnelRecordContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	store: PersonnelSlugReadStore & {
-		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
-		insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
-		update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
-	};
-	rawStore?: PersonnelSlugReadStore;
+	personnel: Pick<PersonnelRecordPersistence, 'findWriteReference' | 'create' | 'updateEditable'>;
+	organizationPersonnel: Pick<PersonnelRecordPersistence, 'listSlugCandidates'>;
+	groups: Pick<GroupPersistence, 'findReference'>;
+	loadRankCatalog: Parameters<typeof normalizeActivePersonnelRank>[0]['loadRankCatalog'];
 }
 
-const entity = PersonnelEntity;
+const editableShape = {
+	rank: z.string(),
+	lastName: z.string(),
+	firstName: z.string(),
+	mos: z.string().optional(),
+	clinicRole: z.string(),
+	ets: z.string().nullable().optional(),
+	deros: z.string().nullable().optional(),
+	groupId: z.string().nullable().optional()
+};
+const createInput = z.object(editableShape);
+const updateInput = createInput.partial().extend({ id: z.string() });
+
 const AUDIT_RESOURCE = 'personnel';
 const SLUG_RETRY_LIMIT = 3;
 
@@ -44,7 +51,7 @@ async function requireGroupInOrganization(
 	groupId: string | null | undefined
 ): Promise<void> {
 	if (!groupId) return;
-	const group = await ctx.store.findOne<{ id: string }>('groups', ctx.auth.orgId, { id: groupId }, 'id');
+	const group = await ctx.groups.findReference(groupId);
 	if (!group) fail(404, 'Group not found.');
 }
 
@@ -56,28 +63,27 @@ export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: R
 		AUDIT_RESOURCE
 	);
 
-	const validated = entity.createSchema.parse(data);
+	const validated = createInput.parse(data);
 	await requireGroupInOrganization(ctx, validated.groupId as string | null | undefined);
 	validated.rank = await normalizeActivePersonnelRank(ctx, (validated as { rank: string }).rank);
-	const dbData = entity.toDbInsert(validated, ctx.auth.orgId);
-	if (validated.groupId !== undefined) dbData.group_id = validated.groupId || null;
-	let row: Record<string, unknown> | null = null;
+	const record = { ...validated, slug: '' };
+	if (validated.groupId !== undefined) record.groupId = validated.groupId || null;
+	let row: Personnel | null = null;
 	const rejectedSlugs = new Set<string>();
 	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
-		dbData.slug = await buildUniquePersonnelSlug({
-			store: ctx.rawStore ?? ctx.store,
-			orgId: ctx.auth.orgId,
+		record.slug = await buildUniquePersonnelSlug({
+			organizationPersonnel: ctx.organizationPersonnel,
 			lastName: validated.lastName as string,
 			firstName: validated.firstName as string,
 			rejectedSlugs
 		});
 
 		try {
-			row = await ctx.store.insert<Record<string, unknown>>(entity.table, ctx.auth.orgId, dbData, entity.select);
+			row = await ctx.personnel.create(record);
 			break;
 		} catch (error) {
 			if (attempt === SLUG_RETRY_LIMIT || !isPersonnelSlugUniqueConstraintError(error)) throw error;
-			rejectedSlugs.add(dbData.slug as string);
+			rejectedSlugs.add(record.slug as string);
 		}
 	}
 
@@ -89,23 +95,19 @@ export async function createPersonnelRecord(ctx: PersonnelRecordContext, data: R
 		resourceId: row.id as string | undefined
 	});
 
-	return entity.fromDb(row);
+	return row;
 }
 
 export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: Record<string, unknown>) {
-	const validated = entity.updateSchema.parse(data);
-	const { id, groupId: nextGroupId } = validated as { id: string; groupId?: string | null };
-	const currentRecord = await ctx.store.findOne<{
-		rank: string;
-		group_id: string | null;
-		last_name: string;
-		first_name: string;
-	}>(entity.table, ctx.auth.orgId, { id });
+	const { id, ...editable } = updateInput.parse(data);
+	const patch: typeof editable & { slug?: string } = editable;
+	const nextGroupId = patch.groupId;
+	const currentRecord = await ctx.personnel.findWriteReference(id);
 
 	await requireFeaturePolicy(
 		ctx,
 		POLICY_ACTION_CATALOG.personnel.manageRecords,
-		policyResourceForGroup(currentRecord?.group_id),
+		policyResourceForGroup(currentRecord?.groupId),
 		AUDIT_RESOURCE,
 		id
 	);
@@ -121,16 +123,16 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 		await requireGroupInOrganization(ctx, nextGroupId);
 	}
 
-	const nextRank = (validated as { rank?: string }).rank;
+	const nextRank = (patch as { rank?: string }).rank;
 	if (nextRank !== undefined) {
 		if (currentRecord?.rank !== undefined && nextRank.trim() === currentRecord.rank) {
-			validated.rank = currentRecord.rank;
+			patch.rank = currentRecord.rank;
 		} else {
 			try {
-				validated.rank = await normalizeActivePersonnelRank(ctx, nextRank);
+				patch.rank = await normalizeActivePersonnelRank(ctx, nextRank);
 			} catch (error) {
 				if (errorStatus(error) === 400 && rankCodesMatchCanonical(nextRank, currentRecord?.rank)) {
-					validated.rank = currentRecord?.rank;
+					patch.rank = currentRecord?.rank;
 				} else {
 					throw error;
 				}
@@ -138,33 +140,31 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 		}
 	}
 
-	const dbData = entity.toDbUpdate(validated);
 	if (nextGroupId !== undefined) {
-		dbData.group_id = nextGroupId || null;
+		patch.groupId = nextGroupId || null;
 	}
-	const shouldRegenerateSlug = validated.lastName !== undefined || validated.firstName !== undefined;
-	let row: Record<string, unknown> | null = null;
+	const shouldRegenerateSlug = patch.lastName !== undefined || patch.firstName !== undefined;
+	let row: Personnel | null = null;
 	const rejectedSlugs = new Set<string>();
 	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
 		if (shouldRegenerateSlug) {
-			dbData.slug = await buildUniquePersonnelSlug({
-				store: ctx.rawStore ?? ctx.store,
-				orgId: ctx.auth.orgId,
+			patch.slug = await buildUniquePersonnelSlug({
+				organizationPersonnel: ctx.organizationPersonnel,
 				excludePersonnelId: id,
-				lastName: (validated.lastName as string | undefined) ?? currentRecord?.last_name ?? '',
-				firstName: (validated.firstName as string | undefined) ?? currentRecord?.first_name ?? '',
+				lastName: (patch.lastName as string | undefined) ?? currentRecord?.lastName ?? '',
+				firstName: (patch.firstName as string | undefined) ?? currentRecord?.firstName ?? '',
 				rejectedSlugs
 			});
 		}
 
 		try {
-			row = await ctx.store.update<Record<string, unknown>>(entity.table, ctx.auth.orgId, id, dbData, entity.select);
+			row = await ctx.personnel.updateEditable(id, patch);
 			break;
 		} catch (error) {
 			if (!shouldRegenerateSlug || attempt === SLUG_RETRY_LIMIT || !isPersonnelSlugUniqueConstraintError(error)) {
 				throw error;
 			}
-			rejectedSlugs.add(dbData.slug as string);
+			rejectedSlugs.add(patch.slug as string);
 		}
 	}
 
@@ -176,5 +176,5 @@ export async function updatePersonnelRecord(ctx: PersonnelRecordContext, data: R
 		resourceId: id
 	});
 
-	return entity.fromDb(row);
+	return row;
 }

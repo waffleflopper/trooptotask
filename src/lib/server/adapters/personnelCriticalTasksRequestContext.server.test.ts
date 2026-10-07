@@ -46,6 +46,19 @@ function request(criticalTasks: 'view' | 'none') {
 	];
 	const providerFetch = vi.fn(async (input: RequestInfo | URL) => {
 		const url = new URL(input instanceof Request ? input.url : input.toString());
+		if (url.pathname === '/rest/v1/personnel') {
+			expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
+			expect(url.searchParams.get('id')).toBe('eq.person-alpha');
+			return Response.json({
+				id: 'person-alpha',
+				organization_id: ctx.auth.orgId,
+				group_id: null,
+				first_name: 'Ann',
+				last_name: 'Alpha',
+				mos: '68W',
+				archived_at: null
+			});
+		}
 		if (url.pathname === '/rest/v1/personnel_ict_completions') {
 			expect(url.searchParams.get('organization_id')).toBe(`eq.${ctx.auth.orgId}`);
 			expect(url.searchParams.get('personnel_id')).toBe('eq.person-alpha');
@@ -80,7 +93,7 @@ function request(criticalTasks: 'view' | 'none') {
 function loadReadiness(input: ReturnType<typeof request>) {
 	const contexts = createRequestPersonnelDetailStreamsContext(input);
 	return loadCriticalTasksReadinessLane({
-		store: contexts.detail.store,
+		store: contexts.readinessStore,
 		criticalTaskLibrary: contexts.criticalTaskLibrary,
 		criticalTaskCompletions: contexts.criticalTaskCompletions,
 		orgId: contexts.detail.auth.orgId,
@@ -108,6 +121,8 @@ describe('Personnel Critical Tasks request composition', () => {
 	it('denies the lane before querying the task library for a Personnel-only member', async () => {
 		const input = request('none');
 		await expect(loadReadiness(input)).rejects.toMatchObject({ status: 403 });
-		expect(input.providerFetch).not.toHaveBeenCalled();
+		expect(input.providerFetch.mock.calls.map(([url]) => new URL(String(url)).pathname)).toEqual([
+			'/rest/v1/personnel'
+		]);
 	});
 });

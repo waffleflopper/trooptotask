@@ -1,7 +1,9 @@
 import { sanitizeString } from '$lib/server/validation';
-import { loadOrganizationRankCatalog } from './rankCatalogOperations.server';
+import type { OrganizationRankCatalogEntry } from './contracts';
 
-type RankCatalogPorts = Parameters<typeof loadOrganizationRankCatalog>[0];
+interface RankCatalogPorts {
+	loadRankCatalog(): Promise<OrganizationRankCatalogEntry[]>;
+}
 
 function fail(status: number, message: string): never {
 	throw Object.assign(new Error(message), { status });
@@ -28,7 +30,7 @@ export async function normalizeActivePersonnelRank(ports: RankCatalogPorts, inpu
 }
 
 export async function createActivePersonnelRankResolver(ports: RankCatalogPorts): Promise<PersonnelRankResolver> {
-	const catalog = await loadOrganizationRankCatalog(ports);
+	const catalog = await ports.loadRankCatalog();
 	const activeEntries = catalog.filter((entry) => entry.state === 'active');
 
 	return {
@@ -47,7 +49,7 @@ export async function createActivePersonnelRankResolver(ports: RankCatalogPorts)
 }
 
 export async function createPersonnelCatalogRankResolver(ports: RankCatalogPorts): Promise<PersonnelRankResolver> {
-	const catalog = await loadOrganizationRankCatalog(ports);
+	const catalog = await ports.loadRankCatalog();
 
 	return {
 		normalize(input) {

@@ -1,6 +1,6 @@
 # D28 Personnel, Group and self-pin persistence
 
-This intermediate #1376 deliverable replaces generic Personnel, Group and pin persistence with four owned interfaces and migrates every current direct and reverse caller. Supported user behavior, permissions, historical values and partial effects remain the contract. Complete source acceptance and eight selected native outcomes pass. Owned resources are closed. [PR #1560](https://github.com/waffleflopper/trooptotask/pull/1560) still requires exact-head CI and completed clean review before merge.
+This intermediate #1376 deliverable replaces generic Personnel, Group and pin persistence with four owned interfaces and migrates every current direct and reverse caller. Supported user behavior, permissions, historical values and partial effects remain the contract. Complete source acceptance and eight selected native outcomes pass. Owned resources are closed. [PR #1560](https://github.com/waffleflopper/trooptotask/pull/1560) merges after exact-head CI and completed clean review, as recorded below.
 
 ## Scope and retained behavior
 
@@ -79,6 +79,12 @@ for entry in inventory['files']:
 print(f"PASS: {len(expected)} payload files and hashes")
 PY
 ```
+
+## Integrated acceptance
+
+Accepted head `8735d96e83e307bf355b2b07008948e2670944fa` passes [exact-head CI](https://github.com/waffleflopper/trooptotask/actions/runs/37571570785), including Vitest, production build and isolated database contracts. Completed supplemental CodeRabbit CLI reviews all ten changed text files with zero findings. Hosted review completes for the same head with no actionable comments and a successful status. Its historical thread is resolved. The archive has separate expanded-artifact Standards and Spec GO. Final package and prose acceptance also reports Standards, Spec and Comment Sicko GO.
+
+[#1560](https://github.com/waffleflopper/trooptotask/pull/1560) merges at `ad52c263f9064ad75d905e2ce9b1ed09577c50ce` on `2026-10-07T04:42:06Z`. Accepted and merged trees are both `7dfbf0619f8e8c75ae43f262cb1f3c89c8bf8488`. The earlier pending-gate statements describe publication before this integrated acceptance. #1376 remains open.
 
 ## Remaining D28 work
 

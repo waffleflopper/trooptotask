@@ -17,6 +17,8 @@ import { groupCatalogHydration } from '$features/personnel';
 import { trainingRankCatalogStore } from '$features/training/stores/rankCatalog.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
+import { submitDeletionRequest } from '$features/deletion-requests';
+import { toastStore } from '$lib/stores/toast.svelte';
 
 const { gotoMock, invalidateMock, savePreferencesMock } = vi.hoisted(() => ({
 	gotoMock: vi.fn(),
@@ -442,6 +444,69 @@ describe('TrainingPageContext', () => {
 		expect(personnelTrainingsStore.items).toEqual([record]);
 	});
 
+	it('keeps an already-dispatched approval acknowledgement quiet after another Organization loads', async () => {
+		trainingTypesStore.load([mockType], 'org-1');
+		const record: PersonnelTraining = {
+			id: 'record-1',
+			personnelId: mockPerson.id,
+			trainingTypeId: mockType.id,
+			completionDate: null,
+			expirationDate: null,
+			notes: 'Organization A original',
+			certificateUrl: null
+		};
+		personnelTrainingsStore.load([record], 'org-1');
+		let resolveApproval!: (response: Response) => void;
+		const approval = new Promise<Response>((resolve) => {
+			resolveApproval = resolve;
+		});
+		const request = vi
+			.fn()
+			.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
+			.mockReturnValueOnce(approval);
+		vi.stubGlobal('fetch', request);
+		const infoToast = vi.spyOn(toastStore, 'info').mockImplementation(() => 'info');
+		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
+		const ctx = new TrainingPageContext(
+			makeData(),
+			modals,
+			makePolicyOrg({ training: 'operate' }),
+			submitDeletionRequest,
+			savePreferencesMock
+		);
+		const removal = ctx.handleRemoveTraining(record.id).then(
+			() => null,
+			(error: unknown) => error
+		);
+		await waitForAsyncSideEffect(() => expect(request).toHaveBeenCalledTimes(2));
+		expect(request.mock.calls[1][0]).toBe('/org/org-1/api/deletion-requests');
+		expect(JSON.parse(request.mock.calls[1][1].body)).toEqual({
+			resourceType: 'personnel_training',
+			resourceId: 'record-1',
+			resourceDescription: 'CPR record for SGT Smith',
+			resourceUrl: '/org/org-1/training'
+		});
+		const destination: PersonnelTraining = {
+			id: 'record-b',
+			personnelId: 'person-b',
+			trainingTypeId: 'type-b',
+			completionDate: null,
+			expirationDate: null,
+			notes: 'Organization B original',
+			certificateUrl: null
+		};
+		personnelTrainingsStore.load([destination], 'org-b');
+		resolveApproval(new Response(null, { status: 201 }));
+		const settlement = await removal;
+
+		expect({
+			rows: personnelTrainingsStore.items,
+			info: infoToast.mock.calls.length,
+			error: errorToast.mock.calls.length,
+			settlement
+		}).toEqual({ rows: [destination], info: 0, error: 0, settlement: null });
+	});
+
 	describe('handleSaveTrainingBatch', () => {
 		const batchRecords = [
 			{
@@ -504,6 +569,32 @@ describe('TrainingPageContext', () => {
 
 			await expect(ctx.handleSaveTrainingBatch(batchRecords)).rejects.toThrow('recording denied');
 			expect(addBatchResults).not.toHaveBeenCalled();
+		});
+
+		it('keeps the destination Organization records unchanged when an old batch response arrives', async () => {
+			personnelTrainingsStore.load([], 'org-1');
+			const ctx = makeContext(makeData(), modals, makeOrg());
+			let respond!: (response: Response) => void;
+			const response = new Promise<Response>((resolve) => {
+				respond = resolve;
+			});
+			vi.stubGlobal('fetch', vi.fn().mockReturnValue(response));
+			const save = ctx.handleSaveTrainingBatch(batchRecords);
+			const destinationRecord: PersonnelTraining = {
+				id: 'destination-training',
+				personnelId: 'destination-person',
+				trainingTypeId: 'destination-type',
+				completionDate: '2026-09-01',
+				expirationDate: null,
+				notes: 'Organization B original',
+				certificateUrl: null
+			};
+			personnelTrainingsStore.load([destinationRecord], 'org-2');
+
+			respond(Response.json({ inserted: [insertedTraining], updated: [] }));
+			await save;
+
+			expect(personnelTrainingsStore.items).toEqual([destinationRecord]);
 		});
 	});
 

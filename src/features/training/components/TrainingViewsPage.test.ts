@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { cleanup, render, screen } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import TrainingViewsPage from './TrainingViewsPage.svelte';
 import { trainingTypesStore } from '$features/training/stores/trainingTypes.svelte';
 import { trainingViewsStore } from '$features/training/stores/trainingViews.svelte';
@@ -79,6 +79,7 @@ describe('TrainingViewsPage', () => {
 	});
 
 	afterEach(() => {
+		vi.unstubAllGlobals();
 		cleanup();
 		trainingTypesStore.load([], 'org-test-reset');
 		trainingViewsStore.load([], 'org-test-reset');
@@ -91,5 +92,42 @@ describe('TrainingViewsPage', () => {
 		expect(screen.getByRole('link', { name: 'Back to Matrix' }).getAttribute('href')).toBe('/org/org-1/training');
 		expect(screen.getByRole('button', { name: /Annual Requirements/i })).toBeTruthy();
 		expect(screen.getByText('ACFT, Weapons Qual')).toBeTruthy();
+	});
+
+	it.each(['create', 'edit'] as const)('retains a failed %s draft and saves on explicit retry', async (mode) => {
+		let respond!: (response: Response) => void;
+		const response = new Promise<Response>((resolve) => {
+			respond = resolve;
+		});
+		const savedView: TrainingView = {
+			id: mode === 'create' ? 'view-created' : 'view-1',
+			name: 'Range priorities',
+			columnIds: mode === 'create' ? [] : ['type-1', 'type-2'],
+			createdBy: 'user-1',
+			createdAt: '2026-05-10T00:00:00.000Z',
+			updatedAt: '2026-10-06T00:00:00.000Z'
+		};
+		vi.stubGlobal('fetch', vi.fn().mockReturnValueOnce(response).mockResolvedValueOnce(Response.json(savedView)));
+		render(TrainingViewsPage, { props: { org } });
+		await fireEvent.click(screen.getByRole('button', { name: mode === 'create' ? 'New View' : 'Edit' }));
+		await fireEvent.input(screen.getByRole('textbox', { name: 'View Name' }), {
+			target: { value: 'Range priorities' }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(screen.getByRole('button', { name: 'Saving...' }).hasAttribute('disabled')).toBe(true);
+
+		respond(new Response(null, { status: 503 }));
+		await waitFor(() => {
+			expect(screen.getByRole('button', { name: 'Save' }).hasAttribute('disabled')).toBe(false);
+		});
+		expect((screen.getByRole('textbox', { name: 'View Name' }) as HTMLInputElement).value).toBe('Range priorities');
+		expect(screen.getByRole('alert').textContent?.trim()).toMatch(/\S/);
+		expect(trainingViewsStore.items).toEqual(trainingViews);
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		await waitFor(() => {
+			expect(screen.queryByRole('textbox', { name: 'View Name' })).toBeNull();
+		});
+		expect(trainingViewsStore.items).toEqual(mode === 'create' ? [...trainingViews, savedView] : [savedView]);
 	});
 });

@@ -5,6 +5,7 @@ import TrainingRecordModal from './TrainingRecordModal.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { TrainingType } from '$features/training/training.types';
 import { toast } from 'svelte-sonner';
+import { tick } from 'svelte';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -107,5 +108,86 @@ describe('TrainingRecordModal', () => {
 		expect(saveButton.textContent).toContain('Saving');
 
 		resolveSave();
+	});
+
+	it.each(['success', 'failure'] as const)('keeps a disposed record editor quiet after a late %s', async (outcome) => {
+		let resolveSave!: () => void;
+		let rejectSave!: (error: Error) => void;
+		const pendingSave = new Promise<void>((resolve, reject) => {
+			resolveSave = resolve;
+			rejectSave = reject;
+		});
+		const successToast = vi.spyOn(toast, 'success').mockImplementation(() => 'success');
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const onClose = vi.fn();
+		const view = render(TrainingRecordModal, {
+			props: {
+				person,
+				trainingType,
+				existingTraining: {
+					id: 'record-1',
+					personnelId: person.id,
+					trainingTypeId: trainingType.id,
+					completionDate: '2026-01-05',
+					expirationDate: '2027-01-05',
+					notes: 'Organization A original',
+					certificateUrl: null
+				},
+				onSave: () => pendingSave,
+				onRemove: vi.fn(),
+				onClose
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+		expect(screen.getByRole('button', { name: 'Saving...' }).hasAttribute('disabled')).toBe(true);
+		await view.unmount();
+
+		if (outcome === 'success') resolveSave();
+		else rejectSave(new Error('Retired response'));
+		await tick();
+
+		expect({
+			success: successToast.mock.calls.length,
+			error: errorToast.mock.calls.length,
+			close: onClose.mock.calls.length
+		}).toEqual({ success: 0, error: 0, close: 0 });
+	});
+
+	it.each(['success', 'failure'] as const)('keeps a disposed record removal quiet after a late %s', async (outcome) => {
+		let resolveRemove!: () => void;
+		let rejectRemove!: (error: Error) => void;
+		const pendingRemove = new Promise<void>((resolve, reject) => {
+			resolveRemove = resolve;
+			rejectRemove = reject;
+		});
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const onClose = vi.fn();
+		const view = render(TrainingRecordModal, {
+			props: {
+				person,
+				trainingType,
+				existingTraining: {
+					id: 'record-1',
+					personnelId: person.id,
+					trainingTypeId: trainingType.id,
+					completionDate: '2026-01-05',
+					expirationDate: '2027-01-05',
+					notes: 'Organization A original',
+					certificateUrl: null
+				},
+				onSave: vi.fn(),
+				onRemove: () => pendingRemove,
+				onClose
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await view.unmount();
+
+		if (outcome === 'success') resolveRemove();
+		else rejectRemove(new Error('Retired removal'));
+		await tick();
+
+		expect({ error: errorToast.mock.calls.length, close: onClose.mock.calls.length }).toEqual({ error: 0, close: 0 });
 	});
 });

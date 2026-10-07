@@ -183,6 +183,7 @@ describe('TrainingPageContext', () => {
 		trainingRankCatalogStore.load([], 'org-1');
 		trainingViewsStore.load([], 'org-1');
 		trainingTypesStore.load([], 'org-1');
+		personnelTrainingsStore.load([], 'org-1');
 	});
 
 	describe('canManageConfig', () => {
@@ -434,78 +435,99 @@ describe('TrainingPageContext', () => {
 		await expect(ctx.handleRemoveTraining(record.id)).rejects.toThrow();
 		expect(personnelTrainingsStore.items).toEqual([record]);
 		await expect(ctx.handleRemoveTraining(record.id)).resolves.toBeUndefined();
-		expect(submitRemovalRequest).toHaveBeenCalledWith(
-			'org-1',
-			'personnel_training',
-			record.id,
-			`${mockType.name} record for ${mockPerson.rank} ${mockPerson.lastName}`,
-			'/org/org-1/training'
-		);
+		expect(submitRemovalRequest.mock.calls.map((call) => call.slice(0, 5))).toEqual([
+			[
+				'org-1',
+				'personnel_training',
+				record.id,
+				`${mockType.name} record for ${mockPerson.rank} ${mockPerson.lastName}`,
+				'/org/org-1/training'
+			],
+			[
+				'org-1',
+				'personnel_training',
+				record.id,
+				`${mockType.name} record for ${mockPerson.rank} ${mockPerson.lastName}`,
+				'/org/org-1/training'
+			]
+		]);
 		expect(personnelTrainingsStore.items).toEqual([record]);
 	});
 
-	it('keeps an already-dispatched approval acknowledgement quiet after another Organization loads', async () => {
-		trainingTypesStore.load([mockType], 'org-1');
-		const record: PersonnelTraining = {
-			id: 'record-1',
-			personnelId: mockPerson.id,
-			trainingTypeId: mockType.id,
-			completionDate: null,
-			expirationDate: null,
-			notes: 'Organization A original',
-			certificateUrl: null
-		};
-		personnelTrainingsStore.load([record], 'org-1');
-		let resolveApproval!: (response: Response) => void;
-		const approval = new Promise<Response>((resolve) => {
-			resolveApproval = resolve;
-		});
-		const request = vi
-			.fn()
-			.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
-			.mockReturnValueOnce(approval);
-		vi.stubGlobal('fetch', request);
-		const infoToast = vi.spyOn(toastStore, 'info').mockImplementation(() => 'info');
-		const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
-		const ctx = new TrainingPageContext(
-			makeData(),
-			modals,
-			makePolicyOrg({ training: 'operate' }),
-			submitDeletionRequest,
-			savePreferencesMock
-		);
-		const removal = ctx.handleRemoveTraining(record.id).then(
-			() => null,
-			(error: unknown) => error
-		);
-		await waitForAsyncSideEffect(() => expect(request).toHaveBeenCalledTimes(2));
-		expect(request.mock.calls[1][0]).toBe('/org/org-1/api/deletion-requests');
-		expect(JSON.parse(request.mock.calls[1][1].body)).toEqual({
-			resourceType: 'personnel_training',
-			resourceId: 'record-1',
-			resourceDescription: 'CPR record for SGT Smith',
-			resourceUrl: '/org/org-1/training'
-		});
-		const destination: PersonnelTraining = {
-			id: 'record-b',
-			personnelId: 'person-b',
-			trainingTypeId: 'type-b',
-			completionDate: null,
-			expirationDate: null,
-			notes: 'Organization B original',
-			certificateUrl: null
-		};
-		personnelTrainingsStore.load([destination], 'org-b');
-		resolveApproval(new Response(null, { status: 201 }));
-		const settlement = await removal;
+	it.each(['another Organization loads', 'its editor closes'] as const)(
+		'keeps an already-dispatched approval acknowledgement quiet after %s',
+		async (retirement) => {
+			trainingTypesStore.load([mockType], 'org-1');
+			const record: PersonnelTraining = {
+				id: 'record-1',
+				personnelId: mockPerson.id,
+				trainingTypeId: mockType.id,
+				completionDate: null,
+				expirationDate: null,
+				notes: 'Organization A original',
+				certificateUrl: null
+			};
+			personnelTrainingsStore.load([record], 'org-1');
+			let resolveApproval!: (response: Response) => void;
+			const approval = new Promise<Response>((resolve) => {
+				resolveApproval = resolve;
+			});
+			const request = vi
+				.fn()
+				.mockResolvedValueOnce(Response.json({ requiresApproval: true }, { status: 202 }))
+				.mockReturnValueOnce(approval);
+			vi.stubGlobal('fetch', request);
+			const infoToast = vi.spyOn(toastStore, 'info').mockImplementation(() => 'info');
+			const errorToast = vi.spyOn(toastStore, 'error').mockImplementation(() => 'error');
+			const ctx = new TrainingPageContext(
+				makeData(),
+				modals,
+				makePolicyOrg({ training: 'operate' }),
+				submitDeletionRequest,
+				savePreferencesMock
+			);
+			let editorCurrent = true;
+			const removal = ctx
+				.handleRemoveTraining(record.id, () => editorCurrent)
+				.then(
+					() => null,
+					(error: unknown) => error
+				);
+			await waitForAsyncSideEffect(() => expect(request).toHaveBeenCalledTimes(2));
+			expect(request.mock.calls[1][0]).toBe('/org/org-1/api/deletion-requests');
+			expect(JSON.parse(request.mock.calls[1][1].body)).toEqual({
+				resourceType: 'personnel_training',
+				resourceId: 'record-1',
+				resourceDescription: 'CPR record for SGT Smith',
+				resourceUrl: '/org/org-1/training'
+			});
+			const destination: PersonnelTraining = {
+				id: 'record-b',
+				personnelId: 'person-b',
+				trainingTypeId: 'type-b',
+				completionDate: null,
+				expirationDate: null,
+				notes: 'Organization B original',
+				certificateUrl: null
+			};
+			if (retirement === 'another Organization loads') personnelTrainingsStore.load([destination], 'org-b');
+			else editorCurrent = false;
+			resolveApproval(new Response(null, { status: 201 }));
+			const settlement = await removal;
 
-		expect({
-			rows: personnelTrainingsStore.items,
-			info: infoToast.mock.calls.length,
-			error: errorToast.mock.calls.length,
-			settlement
-		}).toEqual({ rows: [destination], info: 0, error: 0, settlement: null });
-	});
+			expect({
+				rows: personnelTrainingsStore.items,
+				info: infoToast.mock.calls.length,
+				error: errorToast.mock.calls.length,
+				settlement
+			}).toEqual({
+				rows: retirement === 'another Organization loads' ? [destination] : [record],
+				info: 0,
+				error: 0,
+				settlement: null
+			});
+		}
+	);
 
 	describe('handleSaveTrainingBatch', () => {
 		const batchRecords = [
@@ -536,7 +558,7 @@ describe('TrainingPageContext', () => {
 
 		it('posts one batch request and merges inserted and updated results', async () => {
 			const ctx = makeContext(makeData(), modals, makeOrg());
-			const addBatchResults = vi.spyOn(personnelTrainingsStore, 'addBatchResults').mockImplementation(() => {});
+			personnelTrainingsStore.load([{ ...updatedTraining, notes: 'Original notes' }], 'org-1');
 			const fetchMock = vi.fn().mockResolvedValue({
 				ok: true,
 				status: 200,
@@ -552,12 +574,12 @@ describe('TrainingPageContext', () => {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ records: batchRecords })
 			});
-			expect(addBatchResults).toHaveBeenCalledWith([insertedTraining], [updatedTraining]);
+			expect(personnelTrainingsStore.items).toEqual([updatedTraining, insertedTraining]);
 		});
 
 		it('throws on non-OK response and does not mutate the training store', async () => {
 			const ctx = makeContext(makeData(), modals, makeOrg());
-			const addBatchResults = vi.spyOn(personnelTrainingsStore, 'addBatchResults').mockImplementation(() => {});
+			personnelTrainingsStore.load([updatedTraining], 'org-1');
 			vi.stubGlobal(
 				'fetch',
 				vi.fn().mockResolvedValue({
@@ -568,7 +590,7 @@ describe('TrainingPageContext', () => {
 			);
 
 			await expect(ctx.handleSaveTrainingBatch(batchRecords)).rejects.toThrow('recording denied');
-			expect(addBatchResults).not.toHaveBeenCalled();
+			expect(personnelTrainingsStore.items).toEqual([updatedTraining]);
 		});
 
 		it('keeps the destination Organization records unchanged when an old batch response arrives', async () => {
@@ -597,6 +619,48 @@ describe('TrainingPageContext', () => {
 			expect(personnelTrainingsStore.items).toEqual([destinationRecord]);
 		});
 	});
+
+	it.each(['success', 'failure'] as const)(
+		'keeps a disposed workspace batch quiet after a late %s on returning to its Organization',
+		async (outcome) => {
+			const ctx = makeContext(makeData(), modals, makeOrg());
+			let resolve!: (response: Response) => void;
+			let reject!: (error: Error) => void;
+			const pending = new Promise<Response>((yes, no) => {
+				resolve = yes;
+				reject = no;
+			});
+			vi.stubGlobal('fetch', vi.fn().mockReturnValue(pending));
+			const save = ctx
+				.handleSaveTrainingBatch([
+					{ personnelId: mockPerson.id, trainingTypeId: mockType.id, completionDate: '2026-10-06', status: 'completed' }
+				])
+				.then(
+					() => null,
+					(error: unknown) => error
+				);
+			ctx.dispose();
+			personnelTrainingsStore.load([], 'org-b');
+			const replacement: PersonnelTraining = {
+				id: 'replacement-record',
+				personnelId: mockPerson.id,
+				trainingTypeId: mockType.id,
+				completionDate: null,
+				expirationDate: null,
+				notes: 'Replacement workspace original',
+				certificateUrl: null
+			};
+			personnelTrainingsStore.load([replacement], 'org-1');
+			if (outcome === 'success')
+				resolve(Response.json({ inserted: [{ ...replacement, id: 'retired-record' }], updated: [] }));
+			else reject(new Error('Retired transport failure'));
+			const settlement = await save;
+			expect({ rows: personnelTrainingsStore.items, settlement }).toEqual({
+				rows: [replacement],
+				settlement: null
+			});
+		}
+	);
 
 	describe('default viewMode', () => {
 		it('defaults to by-group', () => {

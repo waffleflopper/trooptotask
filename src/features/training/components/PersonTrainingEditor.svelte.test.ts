@@ -167,7 +167,7 @@ describe('PersonTrainingEditor', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 		expect((screen.getByLabelText('Mark as Complete') as HTMLButtonElement).getAttribute('aria-checked')).toBe('true');
 		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('Saved notes');
-		expect(onRemove.mock.calls).toEqual([['record-1'], ['record-1']]);
+		expect(onRemove.mock.calls.map(([id]) => id)).toEqual(['record-1', 'record-1']);
 	});
 
 	it('keeps a disposed person editor quiet after a late removal error', async () => {

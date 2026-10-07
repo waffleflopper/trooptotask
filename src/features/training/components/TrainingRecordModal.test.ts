@@ -76,7 +76,7 @@ describe('TrainingRecordModal', () => {
 		expect(screen.getByRole('alertdialog')).toBeTruthy();
 		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
 		await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-		expect(onRemove.mock.calls).toEqual([['record-1'], ['record-1']]);
+		expect(onRemove.mock.calls.map(([id]) => id)).toEqual(['record-1', 'record-1']);
 	});
 
 	it('ignores repeated save clicks while a save is already pending', async () => {

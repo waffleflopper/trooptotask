@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { TrainingBatchRecord } from '../contracts';
 	import type { Personnel } from '$features/personnel/contracts';
@@ -38,12 +39,18 @@
 		trainings: PersonnelTraining[];
 		onSave: (data: Omit<PersonnelTraining, 'id'>) => Promise<void>;
 		onSaveBatch?: (records: TrainingBatchCompletionRecord[]) => Promise<void>;
-		onRemove: (id: string) => Promise<void>;
+		onRemove: (id: string, isCurrent?: () => boolean) => Promise<void>;
 		onClose: () => void;
 		onToggleExempt?: (typeId: string, exempt: boolean) => void;
 	}
 
 	let { person, trainingTypes, trainings, onSave, onSaveBatch, onRemove, onClose, onToggleExempt }: Props = $props();
+
+	let disposed = false;
+	onDestroy(() => {
+		disposed = true;
+	});
+	const isCurrent = () => !disposed;
 
 	const trainingMap = $derived.by(() => {
 		const map = new SvelteMap<string, PersonnelTraining>();
@@ -193,7 +200,7 @@
 
 	async function doRemoveTraining() {
 		const typeId = confirmRemoveTypeId;
-		if (!typeId) return;
+		if (!typeId || !isCurrent()) return;
 
 		const existing = trainingMap.get(typeId);
 		if (!existing) {
@@ -202,8 +209,10 @@
 		}
 
 		try {
-			await onRemove(existing.id);
+			await onRemove(existing.id, isCurrent);
+			if (!isCurrent()) return;
 		} catch (error) {
+			if (!isCurrent()) return;
 			toast.error(error instanceof Error ? error.message : 'Could not remove training record. Try again.', {
 				duration: 6000
 			});

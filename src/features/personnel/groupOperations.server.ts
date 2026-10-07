@@ -3,19 +3,17 @@ import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { error } from '@sveltejs/kit';
 import { requireFeaturePolicy } from '$lib/access/index.server';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { GroupEntity } from './groupEntity.server';
+import { z } from 'zod';
+import type { GroupPersistence } from './contracts';
 
 interface GroupWriteContext {
 	auth: OrganizationAccessGrant;
 	audit: PolicyAuditSink;
-	store: {
-		insert<T>(table: string, orgId: string, data: Record<string, unknown>, select?: string): Promise<T>;
-		update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>, select?: string): Promise<T>;
-		delete(table: string, orgId: string, id: string): Promise<void>;
-	};
+	groups: Pick<GroupPersistence, 'create' | 'update' | 'delete'>;
 }
-
-function validatedInput(schema: typeof GroupEntity.createSchema, input: Record<string, unknown>) {
+const createInput = z.object({ name: z.string().min(1).max(100), sortOrder: z.number().int().optional() });
+const updateInput = createInput.partial().extend({ id: z.string() });
+function validatedInput<T>(schema: z.ZodType<T>, input: Record<string, unknown>): T {
 	const result = schema.safeParse(input);
 	if (!result.success) throw error(400, result.error.issues.map((issue) => issue.message).join('; '));
 	return result.data;
@@ -26,35 +24,24 @@ async function requireGroupManager(ctx: GroupWriteContext, id?: string): Promise
 }
 
 export async function createGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
-	const data = validatedInput(GroupEntity.createSchema, input);
+	const data = validatedInput(createInput, input);
 	await requireGroupManager(ctx);
-	const row = await ctx.store.insert<Record<string, unknown>>(
-		GroupEntity.table,
-		ctx.auth.orgId,
-		GroupEntity.toDbInsert(data, ctx.auth.orgId),
-		GroupEntity.select
-	);
+	const row = await ctx.groups.create(data);
 	ctx.audit.log({ action: 'group.created', resourceType: 'group', resourceId: row.id as string | undefined });
-	return GroupEntity.fromDb(row);
+	return row;
 }
 
 export async function updateGroup(ctx: GroupWriteContext, input: Record<string, unknown>) {
-	const data = validatedInput(GroupEntity.updateSchema, input);
+	const data = validatedInput(updateInput, input);
 	const id = data.id as string;
 	await requireGroupManager(ctx, id);
-	const row = await ctx.store.update<Record<string, unknown>>(
-		GroupEntity.table,
-		ctx.auth.orgId,
-		id,
-		GroupEntity.toDbUpdate(data),
-		GroupEntity.select
-	);
+	const row = await ctx.groups.update(id, { name: data.name, sortOrder: data.sortOrder });
 	ctx.audit.log({ action: 'group.updated', resourceType: 'group', resourceId: id });
-	return GroupEntity.fromDb(row);
+	return row;
 }
 
 export async function deleteGroup(ctx: GroupWriteContext, id: string): Promise<void> {
 	await requireGroupManager(ctx, id);
-	await ctx.store.delete(GroupEntity.table, ctx.auth.orgId, id);
+	await ctx.groups.delete(id);
 	ctx.audit.log({ action: 'group.deleted', resourceType: 'group', resourceId: id });
 }

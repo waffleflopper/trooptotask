@@ -1,11 +1,20 @@
+import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, it, expect, vi } from 'vitest';
-import { createTestContext, createWritePortsContext } from '$lib/server/adapters/inMemory';
+import {
+	createTestContext as basecreateTestContext,
+	createWritePortsContext as basecreateWritePortsContext
+} from '$lib/server/adapters/inMemory';
+
 import {
 	archivePersonnelRecord,
 	restorePersonnelRecord,
 	permanentlyDeletePersonnelRecord,
 	archiveApprovedPersonnelRecord
 } from './personnelLifecycle.server';
+const createWritePortsContext = (overrides?: Parameters<typeof basecreateWritePortsContext>[0]) =>
+	withPersonnelPersistence(basecreateWritePortsContext(overrides));
+const createTestContext = (overrides?: Parameters<typeof basecreateTestContext>[0]) =>
+	withPersonnelPersistence(basecreateTestContext(overrides));
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	return createWritePortsContext(overrides);
 }

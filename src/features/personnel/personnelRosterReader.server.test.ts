@@ -1,0 +1,66 @@
+import { describe, it, expect } from 'vitest';
+import { personnelProvider } from './test-support/personnelProvider';
+import { createSupabasePersonnelRosterReader } from './personnelRosterReader.server';
+const SAVED = {
+	organization_id: 'org-a',
+	slug: 'smith-jamie',
+	rank: 'SGT',
+	last_name: 'Smith',
+	first_name: 'Jamie',
+	clinic_role: 'Medic',
+	mos: null,
+	ets: null,
+	deros: null,
+	group_id: 'alpha',
+	archived_at: null
+};
+describe('ordinary Personnel roster persistence', () => {
+	it('returns every admitted tied row once across changed page storage order with captured scope', async () => {
+		const ids = Array.from({ length: 1001 }, (_, i) => `person-${String(i).padStart(4, '0')}`);
+		const { client, state } = personnelProvider({
+			personnel: [
+				...ids.map((id) => ({ ...SAVED, id })),
+				{ ...SAVED, id: 'foreign', organization_id: 'org-b' },
+				{ ...SAVED, id: 'bravo', group_id: 'bravo' },
+				{ ...SAVED, id: 'unassigned', group_id: null },
+				{ ...SAVED, id: 'archived', archived_at: '2026-01-01' }
+			]
+		});
+		state.unstablePages = true;
+		const scope = { kind: 'groups' as const, groupIds: ['alpha'] };
+		const roster = createSupabasePersonnelRosterReader(client, 'org-a', scope);
+		scope.groupIds.push('bravo');
+		expect((await roster.list()).map((person) => person.id)).toEqual(ids);
+		expect((await roster.list({ status: 'archived', order: 'archived-newest' })).map((person) => person.id)).toEqual([
+			'archived'
+		]);
+		expect((await roster.list({ status: 'all' })).map((person) => person.id).sort()).toEqual(
+			[...ids, 'archived'].sort()
+		);
+	});
+	it('counts only admitted archived rows including null count and an empty scope without provider access', async () => {
+		const { client, state } = personnelProvider({
+			personnel: [
+				{ ...SAVED, id: 'active' },
+				{ ...SAVED, id: 'old', archived_at: '2026-01-01' },
+				{ ...SAVED, id: 'foreign', organization_id: 'org-b', archived_at: '2026-01-01' }
+			]
+		});
+		const roster = createSupabasePersonnelRosterReader(client, 'org-a');
+		expect(await roster.countArchived()).toBe(1);
+		state.nullCount = true;
+		expect(await roster.countArchived()).toBe(0);
+		const requests = state.requests.length;
+		const empty = createSupabasePersonnelRosterReader(client, 'org-a', { kind: 'groups', groupIds: [] });
+		expect(await empty.list({ status: 'all' })).toEqual([]);
+		expect(await empty.countArchived()).toBe(0);
+		expect(state.requests).toHaveLength(requests);
+	});
+	it('rejects a later page failure without publishing a partial roster', async () => {
+		const { client, state } = personnelProvider({
+			personnel: Array.from({ length: 1001 }, (_, i) => ({ ...SAVED, id: `p-${i}` }))
+		});
+		state.failure = (op) => (op.offset === 1000 ? { code: '42501', message: 'Roster unavailable', status: 403 } : null);
+		await expect(createSupabasePersonnelRosterReader(client, 'org-a').list()).rejects.toThrow('Roster unavailable');
+	});
+});

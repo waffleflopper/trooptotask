@@ -1,6 +1,10 @@
+import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext as basecreateTestContext } from '$lib/server/adapters/inMemory';
+
 import { listPinnedGroupNames } from './pinnedGroupNames.server';
+const createTestContext = (overrides?: Parameters<typeof basecreateTestContext>[0]) =>
+	withPersonnelPersistence(basecreateTestContext(overrides));
 
 describe('listPinnedGroupNames', () => {
 	it('returns only the current user and Organization pins in saved order', async () => {

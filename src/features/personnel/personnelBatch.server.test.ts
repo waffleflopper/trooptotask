@@ -1,6 +1,10 @@
+import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, it, expect } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext as basecreateWritePortsContext } from '$lib/server/adapters/inMemory';
+
 import { importPersonnelBatch } from './personnelBatch.server';
+const createWritePortsContext = (overrides?: Parameters<typeof basecreateWritePortsContext>[0]) =>
+	withPersonnelPersistence(basecreateWritePortsContext(overrides));
 
 function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0]) {
 	const ctx = createWritePortsContext(overrides);

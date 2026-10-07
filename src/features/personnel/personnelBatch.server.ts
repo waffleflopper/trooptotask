@@ -10,9 +10,10 @@ import { fail } from '$lib/errors';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy } from '$lib/access/index.server';
-import type { PersonnelBatchContext } from './personnelBatchContext.server';
+import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
+import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
+import type { Personnel, PersonnelInsert, PersonnelRecordPersistence, GroupPersistence } from './contracts';
 import type { PersonnelBatchMessage, PersonnelImportInput, PersonnelImportResult } from './personnelImport.types';
-import { PersonnelEntity } from './personnelEntity.server';
 import {
 	buildAvailablePersonnelSlug,
 	buildPersonnelSlugBase,
@@ -22,23 +23,24 @@ import {
 import { createActivePersonnelRankResolver } from './rankValidation.server';
 import { listGroupCatalog } from './groupCatalog.server';
 
-const entity = PersonnelEntity;
 const AUDIT_RESOURCE = 'personnel';
 const MAX_BATCH_SIZE = 500;
 const SLUG_RETRY_LIMIT = 3;
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-interface PersonnelImportContext extends PersonnelBatchContext {
-	store: PersonnelBatchContext['store'] & {
-		insertMany<T>(table: string, orgId: string, rows: Record<string, unknown>[], select?: string): Promise<T[]>;
-	};
+interface PersonnelImportContext {
+	auth: OrganizationAccessGrant;
+	audit: PolicyAuditSink;
+	personnel: Pick<PersonnelRecordPersistence, 'listImportSlugs' | 'createMany'>;
+	groups: Pick<GroupPersistence, 'listCatalog'>;
+	loadRankCatalog: Parameters<typeof createActivePersonnelRankResolver>[0]['loadRankCatalog'];
 }
 
 interface ValidImportRow {
 	index: number;
 	slugBase: string;
-	row: Record<string, unknown>;
+	row: PersonnelInsert;
 }
 
 function isValidIsoDate(value: string): boolean {
@@ -95,9 +97,7 @@ export async function importPersonnelBatch(
 	// Validate all records
 	const validRows: ValidImportRow[] = [];
 	const errors: PersonnelBatchMessage[] = [];
-	const existingSlugRows = await ctx.store.findMany<{ slug: string | null }>('personnel', ctx.auth.orgId, undefined, {
-		select: 'slug'
-	});
+	const existingSlugRows = await ctx.personnel.listImportSlugs();
 	const rankResolver = await createActivePersonnelRankResolver(ctx);
 	const visibleSlugs = new Set(
 		existingSlugRows
@@ -149,15 +149,15 @@ export async function importPersonnelBatch(
 			index: i,
 			slugBase: buildPersonnelSlugBase({ lastName, firstName }),
 			row: {
-				organization_id: ctx.auth.orgId,
 				rank: normalizedRank,
-				last_name: lastName,
-				first_name: firstName,
+				slug: '',
+				lastName,
+				firstName,
 				mos: sanitizeString(rec.mos) || '',
-				clinic_role: sanitizeString(rec.clinicRole) || '',
+				clinicRole: sanitizeString(rec.clinicRole) || '',
 				ets: sanitizeString(rec.ets) || null,
 				deros: sanitizeString(rec.deros) || null,
-				group_id: groupId
+				groupId
 			}
 		});
 	}
@@ -166,7 +166,7 @@ export async function importPersonnelBatch(
 		return { inserted: [], errors };
 	}
 
-	let insertedRows: Record<string, unknown>[] = [];
+	let insertedRows: Personnel[] = [];
 	const reservedSlugs = new Set(visibleSlugs);
 	for (const { slugBase, row } of validRows) {
 		row.slug = buildAvailablePersonnelSlug(slugBase, reservedSlugs);
@@ -193,14 +193,9 @@ export async function importPersonnelBatch(
 	}
 
 	async function insertSubset(subset: ValidImportRow[]): Promise<void> {
-		let saved: Record<string, unknown>[];
+		let saved: Personnel[];
 		try {
-			saved = await ctx.store.insertMany<Record<string, unknown>>(
-				entity.table,
-				ctx.auth.orgId,
-				subset.map(({ row }) => row),
-				entity.select
-			);
+			saved = await ctx.personnel.createMany(subset.map(({ row }) => row));
 		} catch (error) {
 			await recoverFailedSubset(subset, error);
 			return;
@@ -228,14 +223,9 @@ export async function importPersonnelBatch(
 		// Count it as candidate attempt one; failed larger attribution probes are separate.
 		for (let attempt = 2; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
 			advanceSlug(value);
-			let saved: Record<string, unknown>[];
+			let saved: Personnel[];
 			try {
-				saved = await ctx.store.insertMany<Record<string, unknown>>(
-					entity.table,
-					ctx.auth.orgId,
-					[value.row],
-					entity.select
-				);
+				saved = await ctx.personnel.createMany([value.row]);
 			} catch (retryError) {
 				if (!confirmedSubsetConflict(retryError, subset)) {
 					reportUnconfirmed(subset);
@@ -254,12 +244,7 @@ export async function importPersonnelBatch(
 
 	for (let attempt = 1; attempt <= SLUG_RETRY_LIMIT; attempt += 1) {
 		try {
-			insertedRows = await ctx.store.insertMany<Record<string, unknown>>(
-				entity.table,
-				ctx.auth.orgId,
-				validRows.map((value) => value.row),
-				entity.select
-			);
+			insertedRows = await ctx.personnel.createMany(validRows.map((value) => value.row));
 			break;
 		} catch (error) {
 			if (isRedactedPersonnelSlugConstraintError(error)) {
@@ -285,12 +270,12 @@ export async function importPersonnelBatch(
 	}
 
 	return {
-		inserted: insertedRows.map((row) => entity.fromDb(row)),
+		inserted: insertedRows,
 		errors
 	};
 }
 
-function isGroupAllowedByScope(scopeSet: PersonnelBatchContext['auth']['scopeSet'], groupId: string | null): boolean {
+function isGroupAllowedByScope(scopeSet: OrganizationAccessGrant['scopeSet'], groupId: string | null): boolean {
 	if (scopeSet.kind === 'organization') {
 		return true;
 	}

@@ -1,6 +1,10 @@
+import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, expect, it } from 'vitest';
-import { createQueryPortsContext } from '$lib/server/adapters/inMemory';
+import { createQueryPortsContext as basecreateQueryPortsContext } from '$lib/server/adapters/inMemory';
+
 import { loadRosterPersonnel } from './index.server';
+const createQueryPortsContext = (overrides?: Parameters<typeof basecreateQueryPortsContext>[0]) =>
+	withPersonnelPersistence(basecreateQueryPortsContext(overrides));
 
 const ORG = 'test-org';
 

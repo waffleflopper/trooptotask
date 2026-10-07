@@ -1,6 +1,10 @@
+import { withPersonnelPersistence } from './personnelPersistence.test-support.server';
 import { describe, expect, it } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext as basecreateTestContext } from '$lib/server/adapters/inMemory';
+
 import { mergePersonnelBatch } from './personnelDateBackfill.server';
+const createTestContext = (overrides?: Parameters<typeof basecreateTestContext>[0]) =>
+	withPersonnelPersistence(basecreateTestContext(overrides));
 
 function buildContext(overrides?: Parameters<typeof createTestContext>[0]) {
 	const ctx = createTestContext(overrides);

@@ -1,6 +1,6 @@
 # D28 Personnel, Group and self-pin persistence
 
-This intermediate #1376 deliverable replaces generic Personnel/Group/pin persistence with four owned interfaces and migrates every current direct and reverse caller. Supported user behavior, permissions, historical values and partial effects remain the contract. Candidate acceptance is in progress; no merge or final native pass is claimed here.
+This intermediate #1376 deliverable replaces generic Personnel, Group and pin persistence with four owned interfaces and migrates every current direct and reverse caller. Supported user behavior, permissions, historical values and partial effects remain the contract. Complete source acceptance and eight selected native outcomes pass. Owned resources are closed. [PR #1560](https://github.com/waffleflopper/trooptotask/pull/1560) still requires exact-head CI and completed clean review before merge.
 
 ## Scope and retained behavior
 
@@ -22,7 +22,63 @@ Initial fixture count-header omission, missing-provider import during incomplete
 
 Final native selection covers normal roster/scope, Group CRUD/retry/unassignment, self-pin persistence/recovery and one real held response through B, Person CRUD/date/null/slug, small import/backfill, lifecycle, shared Onboarding Add Person and representative reverse reads/workbook. Dense page/slug/uncertain-write/pin replacement cases remain lower-boundary proof. Unchanged #1552 UI behavior and undispatched pin-failure isolation retain matching historical evidence. This is a bounded affected selection, not another full historical matrix. Any repair repeats its failing case and justified adjacent behavior under the [verification contract](../../architecture/DEFINITION_OF_DONE.md#verification-after-a-fix).
 
-Native execution, complete independent source/comment/behavior acceptance, CodeRabbit, packaged durable artifacts and exact-head CI/build remain pending. Source proof alone does not establish UI persistence, hosted RLS or deployment parity. No database migration checks are indicated because SQL is unchanged.
+## Final native acceptance
+
+The production-mode native run tests `f70fa8c435809142ece5634becf8958976a12c00`, tree `7010fc2a7baebae8f3c7bd1ba7a01647a83d46bc`, worker 1 session `0652a7e3-93b2-45ea-9bbb-285d2c22cf3e`. Candidate digest is `77fcaa6da57ae7353fc82b6b50bb2112d9a44c4b07ee29dfc9a0df6082cf9292`, with owned origin `http://127.0.0.1:38189`. Runtime is Node 24.21.0, npm 11.19.0 and Chromium 152.0.7977.82. One native driver uses the maintained recipes and controls.
+
+| Selected outcome             | Observed result                                                                                                                                                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Roster and scope             | Search, clear, Group and A–Z controls, detail reads and Alpha-only roster pass. Separate ordinary authenticated mutation returns 403 with no effects.                                                                                                         |
+| Groups                       | Controlled pre-dispatch 503 retains the draft and saves nothing. Explicit retry creates the Group, rename retains its ID, and deletion unassigns its temporary Person while retaining all other Person fields. Reload agrees.                                 |
+| Own pins                     | Controlled 503 rolls back, explicit retry and reload persist the pin, and unpin restores originals. A real committed A response is held through visible B admission. Release leaves B quiet and unchanged. A return confirms persistence before cleanup.      |
+| Person CRUD                  | Native creation, renamed canonical URL, stable ID, role and MOS, null ETS and retained DEROS all persist after reload.                                                                                                                                        |
+| Small import and backfill    | Two CSV People save with exact values. One backfill changes only ETS, retains blank-input DEROS and leaves the other Person unchanged.                                                                                                                        |
+| Lifecycle                    | Owner archive and restore preserve the complete row. Operate-only deletion returns 202 and leaves one pending request without archiving. Owner review returns 200 and archives that same ID. Four UI-created People are permanently removed through Archives. |
+| Shared Onboarding Add Person | The custom rank and Alpha Person save and become selected in the outer form. Cancel creates no packet or progress. Personnel reload retains the saved row.                                                                                                    |
+| Reverse consumers and export | Representative Calendar, Training, ICT, Dashboard, Archives and Sign-in reads retain current facts. One real 9,309-byte workbook contains the independently checked Person fields. Sign-in draft is canceled.                                                 |
+
+All eight selected outcomes pass, with zero selected failures or unrun cases. Controlled 503 observations establish UI recovery before dispatch, not a provider outage. Dense cohorts, additional races, Storage and retention matrices are not fresh native claims. Independent artifact acceptance reports Standards GO and Spec GO after inspecting the expanded observations, workbook cells, preservation comparisons, frozen inputs and actual resources. This is independent review, not independent live execution or model diversity.
+
+The 44 original A/B sets retain all 129 full rows, including 85 memberships. One full preclean and one postclean comparison agree. Temporary People, Group and pins are absent. The only retained append effects are one approved request, 22 expected notifications and 25 audits, removed with the disposable database rather than by privileged history deletion. Final doctor passes and all 2,379 frozen input hashes match. Supported cleanup passes. Independent and root checks confirm 18 processes, ten ports, five containers, one network, two volumes and the worker directory are closed or absent. All 41 preexisting containers, seven networks and 17 volumes remain preserved.
+
+The initial Node 26.8.2 launch is BLOCKED by the adapter's unsupported runtime and closes before any native case. Its full build log is unavailable after worker disposal; captured failure and observed diagnostic remain explicit. Three driver assertions are corrected without product or input changes. Their failed observations remain in the archive.
+
+## CI repair and review scope
+
+The first [CI run](https://github.com/waffleflopper/trooptotask/actions/runs/37567742782) at `f70fa8c4` passes the required format, lint, governance, type, production-build and database steps but fails 12 tests across five stale fixture files. The fixture-only repair updates the fault injection and supplied ports while preserving all assertions. Only those five failed suites repeat, passing 33 tests. Touched lint and governance pass. Independent Standards, Spec and Comment Sicko acceptance reports GO with zero flags.
+
+The repair is integrated as `2d3ebd9e` after actual closure. Each of its five file hashes matches the independently accepted bytes. Git's working-tree `c/` and `w/` prefixes produce a different patch hash from committed `a/` and `b/` prefixes; the contents match. Production source and native driving inputs remain unchanged. Subsequent prose-spacing and evidence changes are publication work. They do not relabel the native proof or require another native run.
+
+Complete original 89-path source acceptance reports Standards GO, Spec GO and Comment Sicko GO. CodeRabbit CLI reviews all 89 paths and raises two prose-spacing findings, now corrected. Hosted review approves `f70fa8c4` after accepting the pre-existing malformed-input error classification as deferred [chore #1561](https://github.com/waffleflopper/trooptotask/issues/1561), likelihood Low. That defect remains unfixed and is supported by source comparison, not a passing malformed-request native observation. Final publication-head CI and completed review of changed material remain required. No SQL migration is included. Local native and provider proof does not establish hosted deployment parity.
+
+## Durable evidence and privacy correction
+
+The [final archive](d28-personnel-owner-final-f70fa8c4.tar.gz) preserves 923 sanitized raw payloads, their original inventory, 17 PNGs, one unchanged workbook and 35 metadata payloads. Its inside inventory covers all 959 payload files and expanded hashes. Root extracts into fresh ignored scratch space and verifies the exact file set and every hash. Archive SHA-256 is `86074cc174b7b177f1ccee3e0bd257183989e41570a250328086e59953ec87a5`.
+
+`metadata/acceptance-amendment.md` supersedes the original worker report's blanket claim that no credential content was published. An early tool transcript printed a short token-bearing prefix from the disposable synthetic session. Later sanitation does not erase that disclosure. Token entries, their duplicate captured message and credential-capable Docker Command fields are redacted with original byte counts and hashes retained. Recorded scans are clear for the final sanitized raw text. The original report remains historical provenance, not an accepted blanket privacy claim.
+
+To inspect the archive and verify its expanded bytes, run from the repository root:
+
+```bash
+mkdir -p .verification
+PERSONNEL_EVIDENCE_DIR=$(mktemp -d .verification/personnel-evidence.XXXXXX)
+sha256sum docs/stabilization/phase-08/d28-personnel-owner-final-f70fa8c4.tar.gz
+tar -xzf docs/stabilization/phase-08/d28-personnel-owner-final-f70fa8c4.tar.gz -C "$PERSONNEL_EVIDENCE_DIR"
+python3 - "$PERSONNEL_EVIDENCE_DIR" <<'PY'
+import hashlib, json, sys
+from pathlib import Path
+root = Path(sys.argv[1])
+inventory = json.loads((root / 'inventory.json').read_text())
+expected = {entry['path'] for entry in inventory['files']}
+actual = {str(path.relative_to(root)) for path in root.rglob('*') if path.is_file()}
+assert actual == expected | {'inventory.json'}
+for entry in inventory['files']:
+    path = root / entry['path']
+    assert path.stat().st_size == entry['bytes']
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == entry['sha256']
+print(f"PASS: {len(expected)} payload files and hashes")
+PY
+```
 
 ## Remaining D28 work
 

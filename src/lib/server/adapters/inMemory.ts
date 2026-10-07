@@ -16,8 +16,11 @@ import type { AuditEvent, AuditPort } from '$lib/audit/contracts';
 import type { CapabilityMap, OrganizationAccessGrant, ScopeSet } from '$lib/access/memberAccessShape';
 import type {
 	AssignmentSlotChange,
+	CalendarAssignmentReader,
 	CalendarAssignmentReplacementPort,
 	CalendarAvailabilityRemovalPort,
+	CalendarAvailabilityPersistence,
+	CalendarCatalogPersistence,
 	SavedAssignment
 } from '$features/calendar/contracts';
 import type {
@@ -120,6 +123,13 @@ type TestAuthContextOverrides = Partial<OrganizationAccessGrant> & Record<string
 
 type TestContextOptions = {
 	auth?: Parameters<typeof createTestAuthContext>[0];
+	calendarCatalogsFactory?: (rawStore: DataStore, orgId: string) => CalendarCatalogPersistence;
+	calendarAvailabilityFactory?: (
+		rawStore: DataStore,
+		auth: OrganizationAccessGrant,
+		removal: CalendarAvailabilityRemovalPort
+	) => CalendarAvailabilityPersistence;
+	calendarAssignmentsFactory?: (rawStore: DataStore, orgId: string) => CalendarAssignmentReader;
 	ratingSchemeFactory?: (rawStore: DataStore, orgId: string) => RatingSchemePersistence;
 	criticalTaskLibraryFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskLibraryPersistence;
 	criticalTaskCompletionsFactory?: (rawStore: DataStore, orgId: string) => CriticalTaskCompletionPersistence;
@@ -134,6 +144,68 @@ type TestContextOptions = {
 	onboardingInactiveStepRemoval?: OnboardingInactiveStepRemovalPort;
 	onboardingPacketCreation?: OnboardingPacketCreationPort;
 };
+
+function unavailableCalendarPersistence(): never {
+	throw new Error('Bind the owned Calendar persistence provider in this test context');
+}
+
+function createTestCalendarPersistence(
+	rawStore: DataStore,
+	store: DataStore,
+	auth: OrganizationAccessGrant,
+	options?: TestContextOptions
+): {
+	calendarCatalogs: CalendarCatalogPersistence;
+	calendarAvailability: CalendarAvailabilityPersistence;
+	calendarAssignments: CalendarAssignmentReader;
+} {
+	return {
+		calendarCatalogs:
+			options?.calendarCatalogsFactory?.(rawStore, auth.orgId) ??
+			({
+				listStatusTypes: unavailableCalendarPersistence,
+				listStatusTypeLabels: unavailableCalendarPersistence,
+				createStatusType: unavailableCalendarPersistence,
+				updateStatusType: unavailableCalendarPersistence,
+				deleteStatusType: unavailableCalendarPersistence,
+				listAssignmentTypes: unavailableCalendarPersistence,
+				listAssignmentTypeTargets: unavailableCalendarPersistence,
+				createAssignmentType: unavailableCalendarPersistence,
+				updateAssignmentType: unavailableCalendarPersistence,
+				deleteAssignmentType: unavailableCalendarPersistence,
+				listSpecialDays: unavailableCalendarPersistence,
+				createSpecialDay: unavailableCalendarPersistence,
+				updateSpecialDay: unavailableCalendarPersistence,
+				deleteSpecialDay: unavailableCalendarPersistence,
+				deleteFederalHolidays: unavailableCalendarPersistence,
+				createFederalHolidays: unavailableCalendarPersistence
+			} satisfies CalendarCatalogPersistence),
+		calendarAvailability:
+			options?.calendarAvailabilityFactory?.(
+				rawStore,
+				auth,
+				createInMemoryCalendarAvailabilityRemovalPort(rawStore, store, auth.orgId)
+			) ??
+			({
+				listOverlapping: unavailableCalendarPersistence,
+				listPersonnelHistory: unavailableCalendarPersistence,
+				findReference: unavailableCalendarPersistence,
+				create: unavailableCalendarPersistence,
+				update: unavailableCalendarPersistence,
+				delete: unavailableCalendarPersistence,
+				createMany: unavailableCalendarPersistence,
+				findPersonnelIds: unavailableCalendarPersistence,
+				deleteIds: unavailableCalendarPersistence
+			} satisfies CalendarAvailabilityPersistence),
+		calendarAssignments:
+			options?.calendarAssignmentsFactory?.(rawStore, auth.orgId) ??
+			({
+				listRange: unavailableCalendarPersistence,
+				listDayReferences: unavailableCalendarPersistence,
+				listSlotReferences: unavailableCalendarPersistence
+			} satisfies CalendarAssignmentReader)
+	};
+}
 
 function unavailableOnboardingPacketCreation(): OnboardingPacketCreationPort {
 	return {
@@ -1230,6 +1302,7 @@ export function createTestContext(
 		overrides?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary, criticalTaskCompletions) ??
 		unavailableCriticalTasksReadModel();
 	return {
+		...createTestCalendarPersistence(rawStore, store, auth, overrides),
 		store,
 		rawStore,
 		auth,
@@ -1353,6 +1426,7 @@ export function createWritePortsContext(options?: TestContextOptions) {
 		unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
+		...createTestCalendarPersistence(rawStore, store, auth, options),
 		store,
 		rawStore,
 		auth,
@@ -1391,6 +1465,7 @@ export function createWriteWithNotificationsPortsContext(options?: TestContextOp
 		unavailableCriticalTasksReadModel();
 	const storagePort = createTestStoragePort();
 	return {
+		...createTestCalendarPersistence(rawStore, store, auth, options),
 		store,
 		rawStore,
 		auth,
@@ -1439,6 +1514,7 @@ export function createQueryPortsContext(options?: TestContextOptions) {
 		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary, criticalTaskCompletions) ??
 		unavailableCriticalTasksReadModel();
 	return {
+		...createTestCalendarPersistence(rawStore, store, auth, options),
 		store,
 		auth,
 		organizationSettings: createInMemoryOrganizationSettingsReader(rawStore),
@@ -1469,6 +1545,7 @@ export function createQueryWithRawStorePortsContext(options?: TestContextOptions
 		options?.criticalTasksReadModelFactory?.(rawStore, criticalTaskLibrary, criticalTaskCompletions) ??
 		unavailableCriticalTasksReadModel();
 	return {
+		...createTestCalendarPersistence(rawStore, store, auth, options),
 		store,
 		auth,
 		rawStore,

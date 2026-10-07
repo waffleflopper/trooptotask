@@ -38,7 +38,7 @@ export const _getConfig: RouteConfig<
 				personnelIds: scope?.personnelIds
 			}),
 			listDailyAssignments(ctx, { rangeStart: startDate, rangeEnd: endDate }, scope),
-			listAssignmentTypes(ctx.store, ctx.auth.orgId)
+			listAssignmentTypes(ctx.calendarCatalogs)
 		]);
 
 		ctx.audit.log({ action: 'calendar_report.viewed', resourceType: 'calendar_report' });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { handleUseCaseRequest } from '$lib/server/adapters/httpAdapter';
 import { _getConfig, _postConfig, _putConfig, _deleteConfig } from './+server';
 

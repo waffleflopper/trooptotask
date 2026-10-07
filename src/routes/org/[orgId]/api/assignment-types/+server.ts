@@ -4,25 +4,25 @@ import { fail } from '$lib/errors';
 import { handle, type RouteConfig } from '$lib/server/adapters/httpAdapter';
 import {
 	createRequestCalendarCatalogDeletionContext,
-	createRequestWriteContext
+	createRequestCalendarCatalogContext
 } from '$lib/server/adapters/requestContexts.server';
 import { validateUUID } from '$lib/server/validation';
 
 export const _postConfig = {
-	context: createRequestWriteContext,
+	context: createRequestCalendarCatalogContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => createAssignmentType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 
 export const _putConfig = {
-	context: createRequestWriteContext,
+	context: createRequestCalendarCatalogContext,
 	mutation: true,
 	policyAction: POLICY_ACTION_CATALOG.calendar.configureAssignmentTypes,
 	policyResource: { kind: 'unscoped' },
 	fn: (ctx, input) => updateAssignmentType(ctx, input)
-} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestWriteContext>>;
+} satisfies RouteConfig<Record<string, unknown>, unknown, ReturnType<typeof createRequestCalendarCatalogContext>>;
 
 export const _deleteConfig = {
 	context: createRequestCalendarCatalogDeletionContext,

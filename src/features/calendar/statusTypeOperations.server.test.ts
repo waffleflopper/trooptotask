@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createWriteWithNotificationsPortsContext } from '$lib/server/adapters/inMemory';
+import { createWriteWithNotificationsPortsContext } from './calendarPersistence.test-support.server';
 import { createStatusType, updateStatusType, deleteStatusType } from './statusTypeOperations.server';
 
 const ST_ID = '00000000-0000-4000-a000-000000000001';

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
-import { StatusTypeEntity } from './statusTypeEntity.server';
+import { STATUS_TYPE_FIELDS } from './calendarPersistenceMapping.server';
 
 const EXPORT_TABLES = [
 	'status_types',
@@ -25,7 +25,7 @@ export function createSupabaseCalendarExportReader(client: SupabaseClient, orgId
 			const result = await selectAllSupabaseRows<Record<string, unknown>>(async (from, to) => {
 				const { data, error } = await client
 					.from(table)
-					.select(table === 'status_types' ? StatusTypeEntity.select : '*')
+					.select(table === 'status_types' ? STATUS_TYPE_FIELDS : '*')
 					.eq('organization_id', orgId)
 					.range(from, to)
 					.returns<Record<string, unknown>[]>();

@@ -1,6 +1,11 @@
 import { createTestAuthContext } from '$lib/server/adapters/inMemory';
-import { createTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
+import { createTestContext as createCriticalTasksTestContext } from '$features/critical-tasks/server/criticalTasksPersistence.test-support.server';
+import { withCalendarPersistence } from '$features/calendar/calendarPersistence.test-support.server';
 import { createInMemoryRatingSchemePersistence } from '$features/rating-scheme/server/inMemoryRatingSchemePersistence.server';
+
+function createTestContext(options?: Parameters<typeof createCriticalTasksTestContext>[0]) {
+	return createCriticalTasksTestContext(withCalendarPersistence(options));
+}
 import {
 	createPersonnelArtifactDeliveryContext,
 	createPersonnelLeaderNoteDeliveryContext,
@@ -46,6 +51,13 @@ function selectedContexts(
 	ctx: ReturnType<typeof createTestContext>
 ): ReturnType<typeof createRequestPersonnelDetailStreamsContext> {
 	return {
+		calendar: {
+			auth: ctx.auth,
+			audit: ctx.audit,
+			calendarAvailability: ctx.calendarAvailability,
+			calendarCatalogs: ctx.calendarCatalogs,
+			personnelCalendarRoster: ctx.personnelCalendarRoster
+		},
 		criticalTaskLibrary: ctx.criticalTaskLibrary,
 		criticalTaskCompletions: ctx.criticalTaskCompletions,
 		ratingScheme: ctx.ratingScheme,

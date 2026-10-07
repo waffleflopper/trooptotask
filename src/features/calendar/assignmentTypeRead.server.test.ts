@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
+import { createInMemoryCalendarCatalogPersistence } from './inMemoryCalendarPersistence.server';
 import { listAssignmentTypeTargets, listAssignmentTypes } from './assignmentTypeRead.server';
 
 describe('Calendar assignment-type reads', () => {
@@ -37,18 +38,28 @@ describe('Calendar assignment-type reads', () => {
 			}
 		]);
 
-		expect((await listAssignmentTypes(store, 'alpha')).map(({ id, archivedAt }) => ({ id, archivedAt }))).toEqual([
+		expect(
+			(await listAssignmentTypes(createInMemoryCalendarCatalogPersistence(store, 'alpha'))).map(
+				({ id, archivedAt }) => ({ id, archivedAt })
+			)
+		).toEqual([
 			{ id: 'group', archivedAt: undefined },
 			{ id: 'archived', archivedAt: '2026-01-01' }
 		]);
 		expect(
-			(await listAssignmentTypeTargets(store, 'alpha', ['group', 'archived', 'foreign'])).map(({ id, assign_to }) => ({
+			(
+				await listAssignmentTypeTargets(createInMemoryCalendarCatalogPersistence(store, 'alpha'), [
+					'group',
+					'archived',
+					'foreign'
+				])
+			).map(({ id, assignTo }) => ({
 				id,
-				assign_to
+				assignTo
 			}))
 		).toEqual([
-			{ id: 'archived', assign_to: 'personnel' },
-			{ id: 'group', assign_to: 'group' }
+			{ id: 'archived', assignTo: 'personnel' },
+			{ id: 'group', assignTo: 'group' }
 		]);
 	});
 });

@@ -24,7 +24,7 @@ async function streamPersonnelWorkspace(
 		defer: true,
 		fn: (ctx) =>
 			loadPersonnelWorkspace(ctx, {
-				listStatusTypes: (orgId) => listStatusTypes(ctx.store, orgId),
+				listStatusTypes: () => listStatusTypes(ctx.calendarCatalogs),
 				loadLossWarningWindowDays: async (orgId) =>
 					(await ctx.organizationSettings.findLossWarningWindowDays(orgId)) ?? null
 			})

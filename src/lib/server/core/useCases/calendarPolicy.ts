@@ -6,9 +6,14 @@ import {
 	type PolicyDecision,
 	type PolicyResource
 } from '$lib/access/policyEvaluator';
-import type { DataStore } from '$lib/server/core/ports';
 import type { PersonnelCalendarRosterPort } from '$features/personnel/contracts';
-import type { CalendarAssignmentReplacementPort, CalendarAvailabilityRemovalPort } from '$features/calendar/contracts';
+import type {
+	CalendarAssignmentReader,
+	CalendarAssignmentReplacementPort,
+	CalendarAvailabilityPersistence,
+	CalendarAvailabilityRemovalPort,
+	CalendarCatalogPersistence
+} from '$features/calendar/contracts';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
 import { requirePersonnelCalendarRoster } from './calendarScope';
 import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
@@ -25,20 +30,23 @@ export interface CalendarPersonnelPolicyPorts extends CalendarPolicyPorts {
 
 export interface CalendarCatalogPorts extends CalendarPolicyPorts {
 	audit: AuditPort;
-	store: DataStore;
+	calendarCatalogs: CalendarCatalogPersistence;
 }
 
 export interface CalendarCatalogDeletionPorts extends CalendarCatalogPorts {
 	notifications: Pick<NotificationDeliveryPort, 'notifyAdmins'>;
 }
 
-export interface CalendarAvailabilityPorts extends CalendarCatalogPorts {
-	rawStore?: DataStore;
+export interface CalendarAvailabilityPorts extends CalendarPolicyPorts {
+	audit: AuditPort;
+	calendarAvailability: CalendarAvailabilityPersistence;
 	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'findGroupIds'>;
 }
 
-export interface CalendarWritePorts extends CalendarAvailabilityPorts {
+export interface CalendarWritePorts extends CalendarCatalogPorts {
+	calendarAssignments: CalendarAssignmentReader;
 	calendarAssignmentReplacement: CalendarAssignmentReplacementPort;
+	personnelCalendarRoster: Pick<PersonnelCalendarRosterPort, 'findGroupIds'>;
 }
 
 export interface CalendarAvailabilityRemovalPorts extends CalendarPersonnelPolicyPorts {

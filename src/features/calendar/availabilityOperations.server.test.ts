@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createTestContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from './calendarPersistence.test-support.server';
 import { createAvailability, deleteAvailability, updateAvailability } from './availabilityOperations.server';
 
 describe('Calendar availability operations', () => {

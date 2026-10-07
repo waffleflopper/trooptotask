@@ -1,24 +1,16 @@
-import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
-type DataStore = CalendarWritePorts['store'];
-import type { AssignmentType } from '$features/calendar/contracts';
-import { AssignmentTypeEntity } from './assignmentTypeEntity.server';
+import type { CalendarCatalogPersistence, SavedAssignmentType } from './contracts';
 
 /** The caller supplies its own Calendar, Dashboard, export, or report authority. */
-export async function listAssignmentTypes(store: DataStore, orgId: string): Promise<AssignmentType[]> {
-	const rows = await store.findMany<Record<string, unknown>>('assignment_types', orgId, undefined, {
-		orderBy: [{ column: 'sort_order', ascending: true }]
-	});
-	return AssignmentTypeEntity.fromDbArray(rows);
+export function listAssignmentTypes(
+	catalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypes'>
+): Promise<SavedAssignmentType[]> {
+	return catalogs.listAssignmentTypes();
 }
 
 /** Target choices for the separately authorized manual-assignment write. */
 export function listAssignmentTypeTargets(
-	store: DataStore,
-	orgId: string,
+	catalogs: Pick<CalendarCatalogPersistence, 'listAssignmentTypeTargets'>,
 	ids: string[]
-): Promise<Array<{ id: string; assign_to: string }>> {
-	return store.findMany<{ id: string; assign_to: string }>('assignment_types', orgId, undefined, {
-		inFilters: { id: ids },
-		select: 'id, assign_to'
-	});
+): Promise<Array<{ id: string; assignTo: 'personnel' | 'group' }>> {
+	return catalogs.listAssignmentTypeTargets(ids);
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createInMemoryDataStore, createTestContext, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createInMemoryDataStore, createTestAuthContext } from '$lib/server/adapters/inMemory';
+import { createTestContext } from '$features/calendar/calendarPersistence.test-support.server';
 import { loadWithContextCore } from '$lib/server/adapters/httpAdapter';
 import { fetchCalendarData } from '$features/calendar/index.server';
 import { getActiveOnboardingPersonnelIds } from '$features/calendar/index.server';
@@ -73,6 +74,9 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 				auth: ctx.auth,
 				audit: ctx.audit,
 				store: ctx.store,
+				calendarCatalogs: ctx.calendarCatalogs,
+				calendarAvailability: ctx.calendarAvailability,
+				calendarAssignments: ctx.calendarAssignments,
 				personnelCalendarRoster: ctx.personnelCalendarRoster,
 				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers
 			})
@@ -111,6 +115,9 @@ describe('CalendarBootstrap query (fetchCalendarData + activeOnboardingPersonnel
 				auth: ctx.auth,
 				audit: ctx.audit,
 				store: ctx.store,
+				calendarCatalogs: ctx.calendarCatalogs,
+				calendarAvailability: ctx.calendarAvailability,
+				calendarAssignments: ctx.calendarAssignments,
 				personnelCalendarRoster: ctx.personnelCalendarRoster,
 				onboardingCalendarMarkers: ctx.onboardingCalendarMarkers
 			})

@@ -5,49 +5,37 @@ import {
 	type CalendarCatalogPorts,
 	type CalendarCatalogDeletionPorts
 } from '$lib/server/core/useCases/calendarPolicy';
-import { StatusTypeEntity } from './statusTypeEntity.server';
+import { statusTypeCreateInput, statusTypeUpdateInput } from './calendarPersistenceMapping.server';
 
-const entity = StatusTypeEntity;
 const action = CALENDAR_POLICY_ACTIONS.configureStatusTypes;
 const resource = { kind: 'organization' } as const;
 
 export async function createStatusType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
-	const parsed = entity.createSchema.safeParse(input);
+	const parsed = statusTypeCreateInput.safeParse(input);
 	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
 	await requireCalendarPolicy(ctx, action, resource);
-	const row = await ctx.store.insert<Record<string, unknown>>(
-		entity.table,
-		ctx.auth.orgId,
-		entity.toDbInsert(parsed.data, ctx.auth.orgId),
-		entity.select
-	);
+	const row = await ctx.calendarCatalogs.createStatusType(parsed.data);
 	ctx.audit.log({
 		action: 'status_type.created',
 		resourceType: 'status_type',
-		resourceId: row.id as string | undefined
+		resourceId: row.id
 	});
-	return entity.fromDb(row);
+	return row;
 }
 
 export async function updateStatusType(ctx: CalendarCatalogPorts, input: Record<string, unknown>) {
-	const parsed = entity.updateSchema.safeParse(input);
+	const parsed = statusTypeUpdateInput.safeParse(input);
 	if (!parsed.success) throw error(400, parsed.error.issues.map((issue) => issue.message).join('; '));
-	const id = parsed.data.id as string;
+	const { id, ...patch } = parsed.data;
 	await requireCalendarPolicy(ctx, action, resource);
-	const row = await ctx.store.update<Record<string, unknown>>(
-		entity.table,
-		ctx.auth.orgId,
-		id,
-		entity.toDbUpdate(parsed.data),
-		entity.select
-	);
+	const row = await ctx.calendarCatalogs.updateStatusType(id, patch);
 	ctx.audit.log({ action: 'status_type.updated', resourceType: 'status_type', resourceId: id });
-	return entity.fromDb(row);
+	return row;
 }
 
 export async function deleteStatusType(ctx: CalendarCatalogDeletionPorts, id: string): Promise<void> {
 	await requireCalendarPolicy(ctx, action, resource);
-	await ctx.store.delete(entity.table, ctx.auth.orgId, id);
+	await ctx.calendarCatalogs.deleteStatusType(id);
 	ctx.audit.log({ action: 'status_type.deleted', resourceType: 'status_type', resourceId: id });
 	await ctx.notifications.notifyAdmins(ctx.auth.orgId, ctx.auth.userId, {
 		type: 'config_type_deleted',

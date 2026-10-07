@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createWritePortsContext } from '$lib/server/adapters/inMemory';
+import { createWritePortsContext } from './calendarPersistence.test-support.server';
 import {
 	clearDailyAssignmentSlot,
 	replaceDailyAssignmentDay,
@@ -12,6 +12,27 @@ function buildContext(overrides?: Parameters<typeof createWritePortsContext>[0])
 }
 
 describe('Daily Assignment Slot writes', () => {
+	it('rejects malformed slot input with 400 before any saved change or audit', async () => {
+		const ctx = buildContext();
+		const original = {
+			id: 'retained-slot',
+			organization_id: ctx.auth.orgId,
+			date: '2026-03-22',
+			assignment_type_id: 'type-a',
+			assignee_id: 'original-person'
+		};
+		ctx.store.seed('daily_assignments', [original]);
+		await expect(
+			setDailyAssignmentSlot(ctx, {
+				date: '2026-03-22',
+				assignmentTypeId: 'type-a',
+				assigneeId: 17
+			})
+		).rejects.toMatchObject({ status: 400 });
+		expect(await ctx.store.findMany('daily_assignments', ctx.auth.orgId)).toEqual([original]);
+		expect(ctx.audit.events).toEqual([]);
+	});
+
 	it.each(['set', 'day', 'batch'] as const)(
 		'%s saves a manual assignment with retired Duty storage unavailable',
 		async (operation) => {

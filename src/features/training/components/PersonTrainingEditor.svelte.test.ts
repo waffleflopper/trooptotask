@@ -5,6 +5,7 @@ import PersonTrainingEditor from './PersonTrainingEditor.svelte';
 import type { Personnel } from '$features/personnel/contracts';
 import type { PersonnelTraining, TrainingType } from '$features/training/training.types';
 import { toast } from 'svelte-sonner';
+import { tick } from 'svelte';
 
 const person: Personnel = {
 	id: 'person-1',
@@ -166,7 +167,44 @@ describe('PersonTrainingEditor', () => {
 		await fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
 		expect((screen.getByLabelText('Mark as Complete') as HTMLButtonElement).getAttribute('aria-checked')).toBe('true');
 		expect((screen.getByLabelText('Notes') as HTMLInputElement).value).toBe('Saved notes');
-		expect(onRemove.mock.calls).toEqual([['record-1'], ['record-1']]);
+		expect(onRemove.mock.calls.map(([id]) => id)).toEqual(['record-1', 'record-1']);
+	});
+
+	it('keeps a disposed person editor quiet after a late removal error', async () => {
+		vi.useRealTimers();
+		let rejectRemove!: (error: Error) => void;
+		const pendingRemove = new Promise<void>((_, reject) => {
+			rejectRemove = reject;
+		});
+		const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => 'error');
+		const onClose = vi.fn();
+		const view = render(PersonTrainingEditor, {
+			props: {
+				person,
+				trainingTypes: [neverExpiresType],
+				trainings: [
+					{
+						id: 'record-1',
+						personnelId: person.id,
+						trainingTypeId: neverExpiresType.id,
+						completionDate: null,
+						expirationDate: null,
+						notes: 'Organization A original',
+						certificateUrl: null
+					}
+				],
+				onSave: vi.fn(),
+				onRemove: () => pendingRemove,
+				onClose
+			}
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove Orientation record' }));
+		await fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }));
+		await view.unmount();
+		rejectRemove(new Error('Retired person removal'));
+		await tick();
+
+		expect({ error: errorToast.mock.calls.length, close: onClose.mock.calls.length }).toEqual({ error: 0, close: 0 });
 	});
 
 	it('calls onSaveBatch once when marking all applicable trainings completed today', async () => {

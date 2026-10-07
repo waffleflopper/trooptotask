@@ -544,6 +544,7 @@
 		"src/features/critical-tasks/server/inMemoryCriticalTasksReadModel.server.ts",
 		"src/features/rating-scheme/server/ratingSchemePersistence.test-support.server.ts",
 		"src/features/rating-scheme/server/inMemoryRatingSchemePersistence.server.ts",
-		"src/features/rating-scheme/ratingSchemeStore.test-support.svelte.ts"
+		"src/features/rating-scheme/ratingSchemeStore.test-support.svelte.ts",
+		"src/features/deletion-requests/submission.test-support.ts"
 	]
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { getAccountPreferencesContext } from '$features/identity';
 	import { TrainingPageContext } from '$features/training';
 	import type { TrainingPageData } from '$features/training';
@@ -26,6 +26,7 @@
 		};
 		return new TrainingPageContext(pageData, modals, org, submitDeletionRequest, (patch) => preferences.patch(patch));
 	});
+	onDestroy(() => ctx?.dispose());
 </script>
 
 <svelte:head>

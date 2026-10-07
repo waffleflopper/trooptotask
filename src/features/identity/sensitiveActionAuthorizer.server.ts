@@ -6,6 +6,7 @@ import type {
 	SensitiveActionFailureFields,
 	SensitiveActionAuthorizer
 } from './contracts';
+import { fail } from '$lib/errors';
 
 const DEFAULT_SENSITIVE_ACTION_RECENT_SESSION_WINDOW_MS = 15 * 60 * 1000;
 
@@ -129,15 +130,8 @@ export function sensitiveActionFailureFields(decision: SensitiveActionDecision):
 	};
 }
 
-export function assignSensitiveActionFailureDetails(error: Error, decision: SensitiveActionDecision): Error {
-	const details = error as unknown as Record<string, unknown>;
-	details.status = 403;
-	Object.assign(details, sensitiveActionFailureFields(decision));
-	return error;
-}
-
 export function throwSensitiveActionFailure(decision: SensitiveActionDecision): never {
-	throw assignSensitiveActionFailureDetails(new Error(sensitiveActionDenialMessage(decision)), decision);
+	fail(403, sensitiveActionDenialMessage(decision), sensitiveActionFailureFields(decision));
 }
 
 export function createSensitiveActionAuthorizer(input: {

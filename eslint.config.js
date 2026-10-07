@@ -63,6 +63,21 @@ export default ts.config(
 		}
 	},
 	{
+		files: ['src/**/*.ts', 'src/**/*.svelte'],
+		ignores: ['src/**/*.test.ts', 'src/**/test-support/**'],
+		rules: {
+			// Server boundaries trust only RequestFailure; a structural { status } error becomes a generic 500.
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector:
+						"CallExpression[callee.object.name='Object'][callee.property.name='assign'][arguments.0.type='NewExpression'][arguments.0.callee.name='Error'] > ObjectExpression > Property[key.name='status']",
+					message: "Throw RequestFailure (or fail()) from '$lib/errors' instead of attaching a status to an Error."
+				}
+			]
+		}
+	},
+	{
 		ignores: [
 			'.svelte-kit/',
 			'.pi/',

@@ -1,7 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import {
-	assignSensitiveActionFailureDetails,
 	checkSensitiveAction,
 	createSensitiveActionAuthorizer,
 	createSupabaseSensitiveActionAuthorizer,
@@ -202,30 +201,6 @@ describe('checkSensitiveAction', () => {
 				stepUpPath: '/auth/mfa-verify'
 			})
 		);
-	});
-
-	it('assigns sensitive-action failure details onto an existing error', () => {
-		const decision = checkSensitiveAction({
-			action: 'organization.transferOwnership',
-			now,
-			actor: {
-				userId: 'owner-1',
-				sessionStartedAt: '2026-05-22T11:00:00.000Z',
-				currentAssuranceLevel: 'aal1',
-				nextAssuranceLevel: 'aal1',
-				isSuspended: false
-			}
-		});
-
-		const error = assignSensitiveActionFailureDetails(new Error('Denied'), decision);
-
-		expect(error).toMatchObject({
-			message: 'Denied',
-			status: 403,
-			reason: 'denied.staleSession',
-			requiresStepUp: true,
-			stepUpPath: '/auth/login'
-		});
 	});
 });
 

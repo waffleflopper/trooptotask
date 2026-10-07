@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/private';
+import { RequestFailure } from '$lib/errors';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
 
@@ -6,8 +7,10 @@ export interface PublicAppOriginInput {
 	inboundOrigin: string;
 }
 
-export class PublicAppOriginError extends Error {
-	readonly status = 400;
+export class PublicAppOriginError extends RequestFailure {
+	constructor(message: string) {
+		super(400, message);
+	}
 }
 
 function normalizeOrigin(origin: string | null | undefined): string | null {

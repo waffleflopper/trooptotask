@@ -1,10 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAdminClient } from '$lib/server/supabase';
 import type { RankCatalogAdministrationPort } from './rankCatalogOperations.server';
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
+import { fail } from '$lib/errors';
 
 export function createSupabaseRankCatalogAdministrationPort(
 	deps: { getAdminClient?: () => SupabaseClient } = {}

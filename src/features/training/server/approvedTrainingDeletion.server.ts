@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CapabilityMap } from '$lib/access/memberAccessShape';
 import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
+import { fail } from '$lib/errors';
 
 export interface ApprovedTrainingDeletionActor {
 	readonly userId: string;
@@ -17,10 +18,6 @@ export interface ApprovedTrainingDeletionPort {
 		requestId: string,
 		recordId: string
 	): Promise<void>;
-}
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
 }
 
 /** Delete only the Training resource named by a pending, authorized Organization review. */

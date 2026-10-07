@@ -14,12 +14,9 @@ import type {
 	TrainingCompletionPersistence
 } from '../contracts';
 import { policyResourceForGroup, requireFeaturePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
 
 const AUDIT_RESOURCE = 'training_record';
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 function canHardDeleteTrainingRecord(ctx: TrainingPersonnelWriteAuthority, resource: PolicyResource): boolean {
 	return evaluatePolicyDecision({

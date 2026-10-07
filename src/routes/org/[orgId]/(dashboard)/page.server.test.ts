@@ -91,6 +91,7 @@ vi.mock('$features/critical-tasks/index.server', () => ({
 }));
 
 import { actions, load } from './+page.server';
+import { RequestFailure } from '$lib/errors';
 
 const ORG_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -443,9 +444,7 @@ describe('dashboard page server load', () => {
 
 	it('preserves an owner leave error as an HTTP bad request', async () => {
 		leaveOrganizationMock.mockRejectedValue(
-			Object.assign(new Error('Organization owners must transfer ownership before leaving the organization'), {
-				status: 400
-			})
+			new RequestFailure(400, 'Organization owners must transfer ownership before leaving the organization')
 		);
 
 		await expect(

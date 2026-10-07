@@ -9,13 +9,10 @@ import type {
 	SavedTrainingCompletion
 } from '../contracts';
 import { requireFeaturePolicy } from '$lib/access/index.server';
+import { fail } from '$lib/errors';
 
 const AUDIT_RESOURCE = 'training_record';
 const MAX_BATCH_SIZE = 500;
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 export async function importTrainingRecords(
 	ctx: TrainingBatchContext,

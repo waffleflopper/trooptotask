@@ -68,6 +68,7 @@ vi.mock('../settingsRanks.server', async () => {
 
 import { actions, load } from './+page.server';
 import { createSettingsRanksContext } from '../settingsRequestContexts.server';
+import { RequestFailure } from '$lib/errors';
 
 const routeContext = {
 	auth: { orgId: 'org-1', role: 'owner' },
@@ -157,7 +158,7 @@ describe('rank settings page server', () => {
 		removeOrganizationRankCatalogEntryMock.mockImplementation(async (_ctx, _input, _training, readRosters) => {
 			const references = await readRosters();
 			if (references.some((row: { filterRanks: string[] }) => row.filterRanks.includes('DET-SGT')))
-				throw Object.assign(new Error('Retire referenced rank instead'), { status: 409 });
+				throw new RequestFailure(409, 'Retire referenced rank instead');
 		});
 
 		await expect(load({ locals: {}, cookies: {}, parent: async () => ({}) } as never)).resolves.toEqual({
@@ -303,7 +304,7 @@ describe('rank settings page server', () => {
 
 	it('retires ranks and maps denied writes to rankError action failures', async () => {
 		retireOrganizationRankCatalogEntryMock.mockRejectedValueOnce(
-			Object.assign(new Error('This action requires an organization admin or owner role'), { status: 403 })
+			new RequestFailure(403, 'This action requires an organization admin or owner role')
 		);
 
 		const result = await actions.retireRank(actionEvent('retireRank', new URLSearchParams({ code: 'DET-SGT' })));

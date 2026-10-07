@@ -3,13 +3,13 @@ import { evaluatePolicyDecision, POLICY_ACTION_CATALOG } from '$lib/access/polic
 import { selectAllSupabaseRows } from '$lib/server/supabasePagination.server';
 import type { PersonnelOrganizationExportPort, PersonnelRosterActor } from './contracts';
 import { isPersonnelOrganizationExportTable, type PersonnelOrganizationExportTable } from './contracts';
+import { RequestFailure } from '$lib/errors';
 
 function assertPersonnelOrganizationExportAccess(
 	actor: PersonnelRosterActor,
 	table: string
 ): asserts table is PersonnelOrganizationExportTable {
-	if (!isPersonnelOrganizationExportTable(table))
-		throw Object.assign(new Error('Unsupported Personnel export table'), { status: 400 });
+	if (!isPersonnelOrganizationExportTable(table)) throw new RequestFailure(400, 'Unsupported Personnel export table');
 	const decision = evaluatePolicyDecision({
 		decisionKind: 'server-authoritative',
 		actor: { membershipRole: actor.role, canManageMembers: actor.canManageMembers, userId: actor.userId },
@@ -19,7 +19,7 @@ function assertPersonnelOrganizationExportAccess(
 		resource: { kind: 'organization' }
 	});
 	if (!actor.userId || !actor.orgId || !decision.allowed) {
-		throw Object.assign(new Error('Organization export access denied'), { status: 403 });
+		throw new RequestFailure(403, 'Organization export access denied');
 	}
 }
 

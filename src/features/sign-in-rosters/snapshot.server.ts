@@ -5,12 +5,9 @@ import type {
 	SignInRosterPersonnelLookupRecord
 } from '$features/personnel/contracts';
 import { sortSignInRosterRows } from './signInRosterRankOrder';
+import { fail } from '$lib/errors';
 
 const MAX_ROSTER_PERSONNEL = 500;
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 type PersonnelRow = SignInRosterPersonnelLookupRecord;
 

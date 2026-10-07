@@ -74,6 +74,7 @@ import type { SignInRosterFileWritePort } from '$features/sign-in-rosters/contra
 import type { TrainingOnboardingReferencesPort } from '$features/training/contracts';
 import { createScopedDataStore } from './scopedDataStore';
 import { defaultScopeRules } from './scopeRules';
+import { RequestFailure } from '$lib/errors';
 
 type Row = Record<string, unknown>;
 type TableStore = Map<string, Row[]>;
@@ -89,11 +90,11 @@ function createInMemorySignInRosterFileWritePort(storage: StoragePort): SignInRo
 					path.length === prefix.length ||
 					path.split('/').some((part) => part === '.' || part === '..')
 				)
-					throw Object.assign(new Error('Scan path is outside the authorized roster'), { status: 400 });
+					throw new RequestFailure(400, 'Scan path is outside the authorized roster');
 			}
 			return {
 				async upload(path, file) {
-					if (!(file instanceof File)) throw Object.assign(new Error('A scan file is required'), { status: 400 });
+					if (!(file instanceof File)) throw new RequestFailure(400, 'A scan file is required');
 					assertPath(path);
 					await storage.upload('counseling-files', path, file, { upsert: false });
 					return { async complete() {} };
@@ -828,21 +829,19 @@ function createInMemoryPersonnelArtifactWritePort(
 			const person = await rawStore.findOne<{ group_id: string | null }>('personnel', actor.orgId, {
 				id: personnelId
 			});
-			if (!person) throw Object.assign(new Error('Personnel record not found'), { status: 404 });
+			if (!person) throw new RequestFailure(404, 'Personnel record not found');
 			if (
 				!actor.isPrivileged &&
 				(actor.capabilityMap.personnel === 'none' || actor.capabilityMap.personnel === 'view')
 			) {
-				throw Object.assign(new Error('You do not have permission to use personnel data'), { status: 403 });
+				throw new RequestFailure(403, 'You do not have permission to use personnel data');
 			}
 			if (
 				!actor.isPrivileged &&
 				actor.scopeSet.kind === 'groups' &&
 				(!person.group_id || !actor.scopeSet.groupIds.includes(person.group_id))
 			) {
-				throw Object.assign(new Error('You do not have access to records outside your assigned scope'), {
-					status: 403
-				});
+				throw new RequestFailure(403, 'You do not have access to records outside your assigned scope');
 			}
 			return {
 				find<T>(table: string, id: string) {
@@ -850,13 +849,13 @@ function createInMemoryPersonnelArtifactWritePort(
 				},
 				insert<T>(table: string, data: Record<string, unknown>) {
 					if ('organization_id' in data || 'personnel_id' in data) {
-						throw Object.assign(new Error('Artifact Person is bound by the write session'), { status: 400 });
+						throw new RequestFailure(400, 'Artifact Person is bound by the write session');
 					}
 					return rawStore.insert<T>(table, actor.orgId, { ...data, personnel_id: personnelId });
 				},
 				async update<T>(table: string, id: string, patch: Record<string, unknown>) {
 					if ('id' in patch || 'organization_id' in patch || 'personnel_id' in patch) {
-						throw Object.assign(new Error('Artifact identity cannot be changed'), { status: 400 });
+						throw new RequestFailure(400, 'Artifact identity cannot be changed');
 					}
 					const row = await rawStore.findOne(table, actor.orgId, { id, personnel_id: personnelId });
 					if (!row) throw new Error('Artifact not found');
@@ -877,13 +876,13 @@ function createInMemoryPersonnelArtifactWritePort(
 					return rows.reduce((sum, row) => sum + (row.file_size_bytes ?? 0), 0);
 				},
 				async uploadFile(kind: 'counseling' | 'document', path: string, file: unknown) {
-					if (!(file instanceof File)) throw Object.assign(new Error('An artifact file is required'), { status: 400 });
+					if (!(file instanceof File)) throw new RequestFailure(400, 'An artifact file is required');
 					const prefix =
 						kind === 'counseling'
 							? `${actor.orgId}/counseling-records/${personnelId}/`
 							: `${actor.orgId}/personnel/${personnelId}/documents/`;
 					if (!path.startsWith(prefix) || path.length === prefix.length) {
-						throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
+						throw new RequestFailure(400, 'Artifact file path is outside the authorized Person');
 					}
 					await storage.upload(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', path, file);
 					return { async complete() {} };
@@ -894,7 +893,7 @@ function createInMemoryPersonnelArtifactWritePort(
 							? `${actor.orgId}/counseling-records/${personnelId}/`
 							: `${actor.orgId}/personnel/${personnelId}/documents/`;
 					if (!path.startsWith(prefix) || path.length === prefix.length) {
-						throw Object.assign(new Error('Artifact file path is outside the authorized Person'), { status: 400 });
+						throw new RequestFailure(400, 'Artifact file path is outside the authorized Person');
 					}
 					await storage.remove(kind === 'counseling' ? 'counseling-files' : 'personnel-documents', [path]);
 				}
@@ -902,7 +901,7 @@ function createInMemoryPersonnelArtifactWritePort(
 		},
 		async forPeople(actor, personnelIds) {
 			const ids = [...new Set(personnelIds)];
-			if (ids.length === 0) throw Object.assign(new Error('At least one Person is required'), { status: 400 });
+			if (ids.length === 0) throw new RequestFailure(400, 'At least one Person is required');
 			const people = await rawStore.findMany<{ id: string; group_id: string | null }>(
 				'personnel',
 				actor.orgId,
@@ -911,9 +910,9 @@ function createInMemoryPersonnelArtifactWritePort(
 					inFilters: { id: ids }
 				}
 			);
-			if (people.length !== ids.length) throw Object.assign(new Error('Personnel record not found'), { status: 404 });
+			if (people.length !== ids.length) throw new RequestFailure(404, 'Personnel record not found');
 			if (!actor.isPrivileged && actor.capabilityMap.personnel !== 'configure') {
-				throw Object.assign(new Error('You do not have permission to use personnel data'), { status: 403 });
+				throw new RequestFailure(403, 'You do not have permission to use personnel data');
 			}
 			const groupIds = actor.scopeSet.kind === 'groups' ? actor.scopeSet.groupIds : null;
 			if (
@@ -921,9 +920,7 @@ function createInMemoryPersonnelArtifactWritePort(
 				groupIds &&
 				people.some((person) => !person.group_id || !groupIds.includes(person.group_id))
 			) {
-				throw Object.assign(new Error('You do not have access to records outside your assigned scope'), {
-					status: 403
-				});
+				throw new RequestFailure(403, 'You do not have access to records outside your assigned scope');
 			}
 			const allowed = new Set(ids);
 			return {
@@ -944,10 +941,10 @@ function createInMemoryPersonnelArtifactWritePort(
 				},
 				async update(table, row, patch) {
 					if (!allowed.has(row.personnelId)) {
-						throw Object.assign(new Error('Artifact Person is outside the authorized batch'), { status: 403 });
+						throw new RequestFailure(403, 'Artifact Person is outside the authorized batch');
 					}
 					if ('id' in patch || 'organization_id' in patch || 'personnel_id' in patch) {
-						throw Object.assign(new Error('Artifact identity cannot be changed'), { status: 400 });
+						throw new RequestFailure(400, 'Artifact identity cannot be changed');
 					}
 					const existing = await rawStore.findOne(table, actor.orgId, {
 						id: row.id,

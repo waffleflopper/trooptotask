@@ -6,13 +6,10 @@ import {
 	requireCalendarPersonnelPolicy,
 	requireCalendarPolicy
 } from '$lib/server/core/useCases/calendarPolicy';
+import { fail } from '$lib/errors';
 
 const AUDIT_RESOURCE = 'daily_assignment';
 const MAX_BATCH_SIZE = 1000;
-
-function fail(status: number, message: string): never {
-	throw Object.assign(new Error(message), { status });
-}
 
 type AssignmentTarget = 'personnel' | 'group';
 type AssignmentPolicyRecord = { assignmentTypeId: string; assigneeId: string };

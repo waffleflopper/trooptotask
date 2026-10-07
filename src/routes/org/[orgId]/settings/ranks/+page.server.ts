@@ -12,7 +12,7 @@ import {
 	retireOrganizationRankCatalogEntry,
 	saveOrganizationRankCatalogEntry
 } from '$features/personnel/index.server';
-import { toActionFailure } from '../settingsActionFailure.server';
+import { toActionFailure } from '$lib/server/adapters/httpAdapter';
 import { loadSettingsPage } from '../settingsLoad.server';
 import { loadRanksSettings } from '../settingsRanks.server';
 import { createSettingsRanksContext } from '../settingsRequestContexts.server';

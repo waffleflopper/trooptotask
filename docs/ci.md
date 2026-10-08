@@ -1,10 +1,10 @@
 # Continuous integration
 
-GitHub Actions runs validation for this private, single-contributor repository on Depot’s `depot-ubuntu-24.04` runners. Each job uses the 2-CPU, 8-GB x64 configuration. `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
+Depot CI runs validation for this private, single-contributor repository. GitHub remains the source and PR host. Each job uses the `depot-ubuntu-24.04` 2-CPU, 8-GB x64 sandbox. `main` intentionally remains unprotected on the current GitHub plan. Missing paid rulesets or branch protection is not a failure or an unfinished project requirement.
 
 ## What runs
 
-[The workflow](../.github/workflows/ci.yml) runs on PRs targeting `main`, pushes to `main`, and manual dispatch. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; main/manual runs are retained. No deployment or remote database operation is part of CI.
+[The workflow](../.depot/workflows/ci.yml) runs on PRs targeting `main`, pushes to `main`, and manual dispatch. Feature-branch pushes without a PR do not start duplicate runs. New PR updates cancel superseded runs; main/manual runs are retained. No deployment or remote database operation is part of CI.
 
 | Job                        | Scope                                                                                                                                                                                                                                                                             |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,30 +28,29 @@ The governance job needs full Git history and `origin/main`; preserve that check
 
 `python3 scripts/ci/database.py` creates a unique disposable project outside the checkout, copies only the required Supabase configuration/migrations/tests/templates, disables seeds and chooses unused ports outside existing local stacks. It starts only the services needed for SQL tests and cleans up its exact project after success or failure. It never reuses the repository’s local project or reads production credentials. The database job installs the locked npm dependency tree with lifecycle scripts disabled for its SDK/provider regression probes. This includes the development parser those probes require; it does not build or deploy the application.
 
-Actions records each disposable project in a private, credential-free receipt tied to the current run, attempt and job. Cancellation first stops the active command’s process group, including CLI wrappers and descendants, then leaves slow Docker disposal to the job’s `always()` cleanup step after successful checkout. Normal phases still clean up before the next phase starts; standalone runs keep their inline cleanup. The finalizer accepts only the recorded local Unix socket, disabled-seed project directory and exact project resource names/labels. Matching project labels also cover Docker-generated test container names for the pinned pg_prove:3.36 image from public ECR or setup-cli’s GHCR mirror. Validated test containers are removed by their IDs; network attachments must reference validated owned container IDs. It refuses active or unreadable process scope, records verified resource absence before removing the directory, and retains the receipt until both are absent. An interrupted directory removal can resume after a fresh resource-absence check. No receipt is a safe no-op; an invalid receipt or incomplete disposal fails. Cleanup never scans or prunes other projects.
+The workflow records each disposable project in a private, credential-free receipt tied to the current run, attempt and job. Cancellation first stops the active command’s process group, including CLI wrappers and descendants, then leaves slow Docker disposal to the job’s `always()` cleanup step after successful checkout. Normal phases still clean up before the next phase starts; standalone runs keep their inline cleanup. The finalizer accepts only the recorded local Unix socket, disabled-seed project directory and exact project resource names/labels. Matching project labels also cover Docker-generated test container names for the pinned pg_prove:3.36 image from public ECR or setup-cli’s GHCR mirror. Validated test containers are removed by their IDs; network attachments must reference validated owned container IDs. It refuses active or unreadable process scope, records verified resource absence before removing the directory, and retains the receipt until both are absent. An interrupted directory removal can resume after a fresh resource-absence check. No receipt is a safe no-op; an invalid receipt or incomplete disposal fails. Cleanup never scans or prunes other projects.
 
 The pinned PostgreSQL image’s known reserved-role denial crash is worked around by disabling `supautils.hint_roles` decoration only in the disposable database. This preserves grants, RLS and expected SQLSTATE denials. Migration regressions run through pinned pg_prove with their relative migration includes intact. Failures remain failures; the existing SQL tests and historical migrations are unchanged. Runner acceptance requires these real container-backed checks to finish successfully; Docker hello-world or image-manifest inspection alone is insufficient.
 
-## Actions operation
+## Depot CI operation
 
-The Depot GitHub App connection must be active for this repository. Depot provisions runners for the workflow’s labels. The pinned `actions/setup-node` supplies Node 24; npm remains pinned to 11.12.1, Supabase CLI to 2.101.0 and pg_prove to 3.36. Existing action commit pins are preserved. The workflow uses synthetic app/provider values and disposable database keys, with no production secrets. The unrelated Claude automation stays outside this CI switch.
+The Depot Code Access connection must be active for this repository. The pinned `actions/setup-node` supplies Node 24; npm remains pinned to 11.12.1, Supabase CLI to 2.101.0 and pg_prove to 3.36. Existing action commit pins are preserved. The workflow uses synthetic app/provider values and disposable database keys, with no production secrets. The unrelated Claude automation stays outside this CI switch.
 
 ```bash
-gh api repos/waffleflopper/trooptotask/actions/runners
-gh run list --repo waffleflopper/trooptotask --commit <head-sha>
-gh run watch <run-id> --repo waffleflopper/trooptotask --exit-status
-gh run view <run-id> --repo waffleflopper/trooptotask --log
+depot ci run --workflow .depot/workflows/ci.yml
+depot ci run list
+depot ci status <run-id>
 ```
 
-An updated PR triggers the migrated workflow. Once the workflow exists on the default branch, a full manual run can also be requested with `gh workflow run ci.yml --repo waffleflopper/trooptotask --ref <branch>`. GitHub requires the workflow on the default branch for manual dispatch. Record the run URL, exact PR head, actual job/step results and disposable cleanup; a queued or skipped database job does not establish database acceptance. Earlier ARM64 or Depot CI results do not establish acceptance on the new candidate’s Depot GitHub Actions runners.
+Depot registers automatic PR/main triggers from workflows on the default branch. Before merging a restored workflow, run the exact candidate through `depot ci run --workflow .depot/workflows/ci.yml`. Record the run URL, candidate revision or patch, actual job and step results, and disposable cleanup. After integration, verify the registered automatic trigger. Queued, skipped or unavailable jobs remain unverified. Earlier ARM64 or Depot results do not establish acceptance on the new candidate.
 
-No repository visibility, paid plan, branch-protection or deployment setting is changed. Vercel remains separate and may deploy on publication/merge; existing release prerequisites still apply.
+No repository visibility, paid plan, branch-protection or deployment setting is changed. Vercel remains separate and may deploy on publication or merge; existing release prerequisites still apply.
 
-References: [Depot runner labels and sizes](https://depot.dev/docs/github-actions/runner-types), [Depot GitHub connection](https://depot.dev/docs/github-actions/quickstart), [GitHub runner labels](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/use-in-a-workflow), [manual workflow dispatch](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+References: [Depot CI quickstart](https://depot.dev/docs/ci/quickstart), [Depot CI compatibility](https://depot.dev/docs/ci/compatibility).
 
-## Return to Depot GitHub Actions
+## Return to Depot CI
 
-Robert requests the return to Depot during #1573. The workflow remains in `.github/workflows/ci.yml`, with all three CI jobs using `depot-ubuntu-24.04`. The earlier Depot execution used a separate `.depot` workflow; this change uses Depot runners within GitHub Actions. The workflow restores two Vitest workers for the documented 8-GB runner. Current cancellation-safe database receipts, cleanup, pins, checks and type-step heap budget are retained. No database migration or remote database operation is included. Current-head hosted runner execution and full CI acceptance remain pending.
+Robert requests the return to Depot’s separate CI service during #1573. The current workflow moves from `.github/workflows/ci.yml` back to `.depot/workflows/ci.yml`. All three jobs retain `depot-ubuntu-24.04`, and Vitest restores two workers for the earlier 8-GB configuration. Current cancellation-safe database receipts, cleanup, pins, checks and type-step heap budget are retained. No database migration or remote database operation is included. Exact-candidate Depot execution and automatic trigger acceptance remain pending.
 
 ## ARM64 migration acceptance
 
@@ -67,7 +66,7 @@ Observed initial job times are 2m02s selection, 7m09s application and 6m08s data
 
 ## Migration acceptance record
 
-This historical record covers the original Depot migration, not the current Depot GitHub Actions runners. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
+This historical record covers the original Depot migration. The return-to-Depot candidate above requires its own current acceptance. Merged through [PR #1346](https://github.com/waffleflopper/trooptotask/pull/1346) at `0a9e2cfee31dda907d258e209d0ca4818beded45`, incorporating completed D04 commit `91b8bc3cd12354b71c4c8b2e869feed17d79ace5`. The original D04 branch and commits remain intact; [Phase 07 acceptance](stabilization/EVIDENCE.md#phase-07-integrated-phase-check) reconciles that integration separately from this tooling change.
 
 Hosted candidate: [Depot run `56311mzhgj`](https://depot.dev/orgs/rvsvvkd4rp/workflows/m59999npzz), uploaded by `depot ci run --workflow .depot/workflows/ci.yml` against remote base `761349957d913e991339212aa610dc0887afe9db`, cache patch `patch/761349957d91/01cfa382fbbd8ea9`. Runtime/configuration diff SHA-256 is `e9f9df6fa27788b5ae4924d311b8f418328a3b08b0f2466252399c8777de8d54`, reproduced by `git diff --binary 91b8bc3c -- . ':(exclude)*.md' | sha256sum`. This identifies the uncommitted executable candidate independently of subsequent prose receipts.
 

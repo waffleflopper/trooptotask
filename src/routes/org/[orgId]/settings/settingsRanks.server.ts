@@ -18,8 +18,7 @@ import type {
 	SettingsRankCatalogRow,
 	SettingsRankOption,
 	SettingsRankServicePackOption,
-	RanksSettingsData,
-	SettingsRanksSectionData
+	RanksSettingsData
 } from './settingsSectionTypes';
 
 const SERVICE_OPTIONS: Array<SettingsRankOption<RankService>> = [

@@ -504,12 +504,7 @@
 		"data-export": ["src/features/data-export/index.server.ts", "src/features/data-export/index.web.ts"],
 		"scheduled-maintenance": ["src/features/scheduled-maintenance/index.server.ts"]
 	},
-	"mixedFiles": {
-		"src/lib/storage/sensitiveFiles.ts": {
-			"packet": "08-M11/08-M15",
-			"reason": "shared storage transport includes feature-specific scan path rules"
-		}
-	},
+	"mixedFiles": {},
 	"testSupportFiles": [
 		"src/lib/server/adapters/inMemory.ts",
 		"src/features/calendar/test-support/DatePickerInputStub.svelte",

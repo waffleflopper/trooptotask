@@ -171,7 +171,6 @@
 				"src/d3-scale.d.ts",
 				"src/lib/domain/currencyStatus.test.ts",
 				"src/lib/domain/currencyStatus.ts",
-				"src/lib/utils.ts",
 				"src/lib/utils/columnMapping.ts",
 				"src/lib/utils/csvParser.test.ts",
 				"src/lib/utils/csvParser.ts",
@@ -216,6 +215,7 @@
 			],
 			"files": [
 				"src/app.css",
+				"src/lib/utils.ts",
 				"src/lib/components/BannerStack.svelte",
 				"src/lib/components/BannerStack.test.ts",
 				"src/lib/components/BannerStackTest.svelte",
@@ -403,7 +403,7 @@
 		"provider": ["src/lib/server/", "src/lib/storage/"]
 	},
 	"publicFiles": {
-		"shared": ["src/lib/utils.ts", "src/lib/errors.ts"],
+		"shared": ["src/lib/errors.ts"],
 		"provider": ["src/lib/server/supabasePagination.server.ts"],
 		"access": ["src/lib/access/index.server.ts"],
 		"organization": [
@@ -458,6 +458,9 @@
 			"src/features/training/index.server.ts"
 		],
 		"web-ui": [
+			"src/app.css",
+			"src/lib/utils.ts",
+			"src/lib/stores/theme.svelte.ts",
 			"src/lib/components/BannerStack.svelte",
 			"src/lib/stores/toast.svelte.ts",
 			"src/lib/utils/browserStorage.ts",
@@ -492,6 +495,8 @@
 	},
 	"mixedFiles": {},
 	"testSupportFiles": [
+		"src/lib/test-stubs/VisibleStub.svelte",
+		"src/lib/test/chartLayout.ts",
 		"src/lib/server/adapters/inMemory.ts",
 		"src/features/calendar/test-support/DatePickerInputStub.svelte",
 		"src/features/calendar/calendarPersistence.test-support.server.ts",

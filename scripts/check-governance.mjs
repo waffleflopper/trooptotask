@@ -260,6 +260,7 @@ function hasAdminContextAdapterFactoryUsage(content) {
 function hasRouteAdminProviderUsage(content) {
 	return (
 		/\bgetAdminClient\s*\(/.test(content) ||
+		/\$lib\/server\/supabase['"]/.test(content) ||
 		/\bctx\s*\.\s*adminClient\b/.test(content) ||
 		/\bconst\s*\{[^}]*\badminClient\b[^}]*\}\s*=\s*ctx\b/.test(content) ||
 		hasAdminContextClientUsage(content) ||

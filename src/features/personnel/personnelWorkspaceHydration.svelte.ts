@@ -29,6 +29,8 @@ export interface PersonnelHydrationStores {
 export interface PersonnelWorkspaceHydrator {
 	hydrate(hydration: PersonnelWorkspaceHydration | undefined, stores: PersonnelHydrationStores): Promise<void>;
 	reset(): void;
+	/** Drop pending hydration and this Organization's roster rows after access is denied. */
+	restrict(orgId: string, stores: PersonnelHydrationStores): void;
 }
 
 function createTargetDescriptor<T>(
@@ -72,6 +74,11 @@ export function createPersonnelWorkspaceHydrator(): PersonnelWorkspaceHydrator {
 	return {
 		reset() {
 			hydrationTargets.reset();
+		},
+
+		restrict(orgId: string, stores: PersonnelHydrationStores) {
+			hydrationTargets.reset();
+			for (const store of Object.values(stores)) store.load([], orgId);
 		},
 
 		async hydrate(hydration: PersonnelWorkspaceHydration | undefined, stores: PersonnelHydrationStores): Promise<void> {

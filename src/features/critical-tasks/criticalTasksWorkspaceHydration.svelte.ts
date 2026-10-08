@@ -36,6 +36,8 @@ export interface CriticalTasksHydrationStores {
 export interface CriticalTasksWorkspaceHydrator {
 	hydrate(hydration?: CriticalTasksWorkspaceHydration, stores?: CriticalTasksHydrationStores): Promise<void>;
 	reset(): void;
+	/** Drop pending hydration and this Organization's lane rows after access is denied. */
+	restrict(orgId: string, stores?: CriticalTasksHydrationStores): void;
 }
 
 const defaultCriticalTasksHydrationStores: CriticalTasksHydrationStores = {
@@ -69,6 +71,11 @@ export function createCriticalTasksWorkspaceHydrator(): CriticalTasksWorkspaceHy
 	return {
 		reset() {
 			hydrationTargets.reset();
+		},
+
+		restrict(orgId: string, stores: CriticalTasksHydrationStores = defaultCriticalTasksHydrationStores) {
+			hydrationTargets.reset();
+			for (const store of Object.values(stores)) store.load([], orgId);
 		},
 
 		async hydrate(

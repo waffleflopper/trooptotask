@@ -81,6 +81,8 @@ describe('critical tasks layout client hydration', () => {
 		await waitFor(() => expect(screen.getByRole('heading', { name: 'Access Restricted' })).toBeTruthy());
 		expect(screen.queryByText('Critical Tasks child')).toBeNull();
 		expect(criticalTasksWorkspaceStatus.pending).toBe(false);
+		expect(personnelIctCompletionsStore.orgId).toBe('org-1');
+		expect(personnelIctCompletionsStore.items).toEqual([]);
 		expect(errors).toEqual([]);
 		window.removeEventListener('error', onError);
 	});

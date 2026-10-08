@@ -39,7 +39,9 @@
 			fallbackMessage: 'Failed to hydrate personnel workspace',
 			hydrate: async (personnel) => {
 				if ('access' in personnel) {
-					if (!cancelled) restrictedOrgId = orgId;
+					if (cancelled) return;
+					personnelWorkspaceHydrator.restrict(orgId, hydrationStores);
+					restrictedOrgId = orgId;
 					return;
 				}
 				await personnelWorkspaceHydrator.hydrate(personnel.hydration, hydrationStores);

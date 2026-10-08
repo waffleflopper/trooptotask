@@ -35,6 +35,8 @@ export interface TrainingHydrationStores {
 export interface TrainingWorkspaceHydrator {
 	hydrate(hydration?: TrainingWorkspaceHydration, stores?: TrainingHydrationStores): Promise<void>;
 	reset(): void;
+	/** Drop pending hydration and this Organization's lane rows after access is denied. */
+	restrict(orgId: string, stores?: TrainingHydrationStores): void;
 }
 
 const defaultTrainingHydrationStores: TrainingHydrationStores = {
@@ -71,6 +73,11 @@ export function createTrainingWorkspaceHydrator(): TrainingWorkspaceHydrator {
 	return {
 		reset() {
 			hydrationTargets.reset();
+		},
+
+		restrict(orgId: string, stores: TrainingHydrationStores = defaultTrainingHydrationStores) {
+			hydrationTargets.reset();
+			for (const store of Object.values(stores)) store.load([], orgId);
 		},
 
 		async hydrate(

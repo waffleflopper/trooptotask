@@ -3,10 +3,10 @@ import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { afterEach, expect, it, vi } from 'vitest';
 
-const { hydrateMock } = vi.hoisted(() => ({ hydrateMock: vi.fn() }));
+const { hydrateMock, restrictMock } = vi.hoisted(() => ({ hydrateMock: vi.fn(), restrictMock: vi.fn() }));
 vi.mock('$features/training', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$features/training')>()),
-	trainingWorkspaceHydrator: { hydrate: hydrateMock }
+	trainingWorkspaceHydrator: { hydrate: hydrateMock, restrict: restrictMock }
 }));
 
 import Layout from './+layout.svelte';
@@ -14,6 +14,7 @@ import Layout from './+layout.svelte';
 afterEach(() => {
 	cleanup();
 	hydrateMock.mockClear();
+	restrictMock.mockClear();
 });
 
 it('shows a streamed Training denial without hydrating or rendering the workspace', async () => {
@@ -21,7 +22,10 @@ it('shows a streamed Training denial without hydrating or rendering the workspac
 	render(Layout, {
 		props: {
 			children,
-			data: { training: { data: Promise.resolve({ laneKey: 'training', access: 'restricted' } as const) } }
+			data: {
+				shell: { org: { id: 'org-1' } },
+				training: { data: Promise.resolve({ laneKey: 'training', access: 'restricted' } as const) }
+			}
 		}
 	});
 
@@ -29,4 +33,5 @@ it('shows a streamed Training denial without hydrating or rendering the workspac
 	expect(screen.getByText(/permission to view training/)).toBeTruthy();
 	expect(screen.queryByText('Training child')).toBeNull();
 	expect(hydrateMock).not.toHaveBeenCalled();
+	expect(restrictMock).toHaveBeenCalledWith('org-1');
 });

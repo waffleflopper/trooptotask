@@ -1,3 +1,12 @@
+import type { ApprovedDeletionEffects } from '$features/deletion-requests/index.server';
+import type { DeletionRequestResourceType } from '$features/deletion-requests/contracts';
+import { createSupabaseOrganizationInvitationSetupStateLookupPort } from '$features/organization/index.server';
+import {
+	archiveApprovedPersonnelRecord,
+	createSupabasePersonnelGovernanceDeletionPort
+} from '$features/personnel/index.server';
+import { createApprovedRatingSchemeDeletionPort } from '$features/rating-scheme/index.server';
+import { createSupabaseApprovedTrainingDeletionPort } from '$features/training/index.server';
 import { createSupabaseDashboardExportReader } from '$features/dashboard/index.server';
 import {
 	createSupabaseDataExportReader,
@@ -685,4 +694,32 @@ export function createRequestDashboardSummaryContext(request: AdmittedOrganizati
 		personnelCriticalTasksRoster: createSupabasePersonnelCriticalTasksRosterPort(getAdminClient),
 		personnelTrainingRoster: createSupabasePersonnelTrainingRosterPort(getAdminClient)
 	};
+}
+
+/** Approved Deletion Request effects; each source owner rechecks the pending request before its service-role delete. */
+export function createApprovedDeletionEffects(
+	ctx: ReturnType<typeof createRequestDeletionReviewContext>,
+	requirePending: (
+		orgId: string,
+		requestId: string,
+		resourceType: DeletionRequestResourceType,
+		resourceId: string
+	) => Promise<void>
+): ApprovedDeletionEffects {
+	const training = createSupabaseApprovedTrainingDeletionPort(getAdminClient, requirePending);
+	const rating = createApprovedRatingSchemeDeletionPort(ctx.ratingScheme, requirePending);
+	const counseling = createSupabasePersonnelGovernanceDeletionPort(getAdminClient, requirePending);
+	return {
+		archivePersonnel: (id) => archiveApprovedPersonnelRecord(ctx, id),
+		deleteTrainingType: (requestId, id) => training.deleteApprovedTrainingType(ctx.auth, requestId, id),
+		deleteTrainingRecord: (requestId, id) => training.deleteApprovedTrainingRecord(ctx.auth, requestId, id),
+		deleteRatingEntry: (requestId, id) => rating.deleteApprovedRatingSchemeEntry(ctx.auth, requestId, id),
+		approveCounseling: (requestId, id, reviewedAt) =>
+			counseling.deleteApprovedCounselingRecord(ctx.auth, requestId, id, reviewedAt)
+	};
+}
+
+/** Invitation setup state is read with service-role access only when the members page asks for it. */
+export function createOrganizationInvitationSetupStateLookup() {
+	return createSupabaseOrganizationInvitationSetupStateLookupPort(getAdminClient);
 }

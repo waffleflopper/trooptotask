@@ -9,6 +9,17 @@ const governance = require('../../scripts/check-governance.mjs') as {
 	hasRouteSupabaseUsage(content: string): boolean;
 };
 
+describe('governance route admin-provider detection', () => {
+	it('detects a lazily passed admin client import', () => {
+		expect(
+			governance.hasRouteAdminProviderUsage(`
+				import { getAdminClient } from '$lib/server/supabase';
+				export const POST = () => createPort(getAdminClient);
+			`)
+		).toBe(true);
+	});
+});
+
 describe('governance route Supabase usage detection', () => {
 	it('detects Supabase calls through locals destructuring', () => {
 		expect(

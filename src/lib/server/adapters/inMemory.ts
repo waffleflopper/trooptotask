@@ -1284,13 +1284,17 @@ function createInMemoryOrganizationSettingsReader(store: DataStore): Organizatio
 		listMemberAccess: (orgId) =>
 			store.findMany<OrganizationSettingsMembershipRow>('organization_memberships', orgId.toLowerCase(), undefined, {
 				select:
-					'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids'
+					'id, organization_id, user_id, email, role, created_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
+				orderBy: [{ column: 'id', ascending: true }]
 			}),
 		listInvitations: (orgId) =>
 			store.findMany<OrganizationSettingsInvitationRow>('organization_invitations', orgId.toLowerCase(), undefined, {
 				select:
 					'id, email, role, status, created_at, expires_at, accepted_at, declined_at, revoked_at, expired_at, blocked_at, member_preset, capability_overrides, access_scope_kind, access_scope_group_ids',
-				orderBy: [{ column: 'created_at', ascending: false }]
+				orderBy: [
+					{ column: 'created_at', ascending: false },
+					{ column: 'id', ascending: true }
+				]
 			}),
 		listInvitationDeliveries: (orgId) =>
 			store.findMany<OrganizationSettingsInvitationDeliveryRow>(
@@ -1299,7 +1303,10 @@ function createInMemoryOrganizationSettingsReader(store: DataStore): Organizatio
 				undefined,
 				{
 					select: 'id, invitation_id, status, attempt_count, last_error, updated_at, sent_at',
-					orderBy: [{ column: 'created_at', ascending: false }]
+					orderBy: [
+						{ column: 'created_at', ascending: false },
+						{ column: 'id', ascending: true }
+					]
 				}
 			),
 		listOwnershipCandidateMemberships: (orgId) =>
@@ -1307,7 +1314,7 @@ function createInMemoryOrganizationSettingsReader(store: DataStore): Organizatio
 				'organization_memberships',
 				orgId.toLowerCase(),
 				undefined,
-				{ select: 'id, user_id, email, role' }
+				{ select: 'id, user_id, email, role', orderBy: [{ column: 'id', ascending: true }] }
 			),
 		findMemberLabels: (orgId, userIds) =>
 			loadOrganizationMemberLabels(

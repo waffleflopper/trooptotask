@@ -28,14 +28,14 @@ The TODO table still showed D22 and D24–D29 as unchecked, and D27's corrective
 
 At `17229542`, `node scripts/module-boundaries.ts` reports 116 findings across 2,268 source modules:
 
-| Packet       | Findings | Mechanism                                                                                                                                                                                                                                                |
-| ------------ | -------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owner cycle  |        1 | 15 owners are strongly connected. Calendar's workspace builder imports Delivery's `streamedWorkspace`, and two Identity tests import route pages. Every other owner already reaches Delivery's dependencies, so those two reverse edges close the cycle. |
-| 08-M01       |       69 | Auth routes import `lib/components/auth/*` privately. Delivery tests import the two Identity password fixtures, and `lib/auth` tests render route pages.                                                                                                  |
-| 08-M05       |       25 | Calendar routes import private components, stores, contexts and utilities. Calendar's web hydrator takes types from `server/calendarWorkspaceBootstrap.ts`, which imports Delivery and lacks recognized server placement.                              |
-| 08-M15       |        8 | Four Calendar route pages and four Settings page edges reach `.server`/feature-server modules through type imports. Type-only imports count because they are real source edges.                                                                         |
-| 08-M12       |       12 | Admin routes import `lib/components/admin/*` privately.                                                                                                                                                                                                  |
-| 08-M04       |        1 | The Critical Tasks page test imports the Personnel store privately.                                                                                                                                                                                      |
+| Packet      | Findings | Mechanism                                                                                                                                                                                                                                                |
+| ----------- | -------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner cycle |        1 | 15 owners are strongly connected. Calendar's workspace builder imports Delivery's `streamedWorkspace`, and two Identity tests import route pages. Every other owner already reaches Delivery's dependencies, so those two reverse edges close the cycle. |
+| 08-M01      |       69 | Auth routes import `lib/components/auth/*` privately. Delivery tests import the two Identity password fixtures, and `lib/auth` tests render route pages.                                                                                                 |
+| 08-M05      |       25 | Calendar routes import private components, stores, contexts and utilities. Calendar's web hydrator takes types from `server/calendarWorkspaceBootstrap.ts`, which imports Delivery and lacks recognized server placement.                                |
+| 08-M15      |        8 | Four Calendar route pages and four Settings page edges reach `.server`/feature-server modules through type imports. Type-only imports count because they are real source edges.                                                                          |
+| 08-M12      |       12 | Admin routes import `lib/components/admin/*` privately.                                                                                                                                                                                                  |
+| 08-M04      |        1 | The Critical Tasks page test imports the Personnel store privately.                                                                                                                                                                                      |
 
 ## Changes
 
@@ -48,6 +48,7 @@ At `17229542`, `node scripts/module-boundaries.ts` reports 116 findings across 2
 - Routed page components and modals are declared as individual public files rather than re-exported from web barrels. A barrel export would make every route that imports a helper also download every page. Across all 84 client route nodes, the gzipped JavaScript closure differs from base `17229542` by under 300 B.
 
 **Legacy root.** `src/lib/server/core/` is removed:
+
 - Starter configuration packs become a Dashboard server operation, because Dashboard owns Getting Started and its pack contracts and may compose Training and Onboarding operations.
 - The root Organization layout load moves beside its only route.
 - `streamedWorkspace`, `featureLaneWorkspaceLoad` and `appShellRouteData` join the other Delivery helpers in `src/lib/server/adapters/`.
@@ -55,12 +56,14 @@ At `17229542`, `node scripts/module-boundaries.ts` reports 116 findings across 2
 The deleted-authorization-symbol scan now covers all of `src/lib/server`, `src/lib/access` and `src/features`.
 
 **Route provider edges (8 → 0) and no exception file.**
+
 - Settings logs, Settings members, Deletion Request review and the three cron jobs no longer acquire or import the admin client. Delivery adapters in `src/lib/server/adapters/` bind those service-role ports after authorization: `requestContexts.server.ts` and the new `scheduledMaintenanceSources.server.ts`.
 - `/suspended` uses Identity's new `readAccountSuspension`, which admission also uses. An unverifiable status now returns 500, as admission does.
 - Invite finalization and email confirmation pass the request to their owned operations. `checkSessionAssurance`, `autoAcceptOrgInvites` and `confirmAuthLink` now take `{ supabase }`, like `loginIdentity`.
 - `GOVERNANCE_BASELINE.json` and the allowlist code are deleted. Governance fails on any route-level Supabase usage, admin-client import or acquisition, feature permission coupling or module-boundary finding. The merge-base comparison and cycle-shrink allowance are removed because no accepted debt remains.
 
 **Lane denial repair.** The unchanged-app baseline shows a blank page and an uncaught hydration error for Critical Tasks and Personnel. Training shows its message but still throws. In each case the member lacks the lane's view grant; the server denies correctly and leaks nothing.
+
 - Calendar and Evals already streamed denial as a restricted result. Delivery's shared `settleWorkspaceDenial` now does the same for Critical Tasks, Training and Personnel.
 - Each lane layout clears its stores for the Organization through its hydrator's `restrict` and shows the shared `WorkspaceAccessRestricted` panel; Calendar and Evals use the same panel.
 - Onboarding denies synchronously through the 403 error page with no uncaught error, and stays as is.
@@ -68,25 +71,25 @@ The deleted-authorization-symbol scan now covers all of `src/lib/server`, `src/l
 
 ## Inventory result
 
-| Packet | Integrated outcome                                                                                                                              | Findings |
-| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------: |
-| M01    | D01, D02; D30 moves auth UI into Identity and owns the suspension read                                                                          |        0 |
-| M02    | D05, D17, D18                                                                                                                                   |        0 |
-| M03    | D26                                                                                                                                             |        0 |
-| M04    | D03, D12, D13                                                                                                                                   |        0 |
-| M05    | D04, D06; D30 removes Calendar's server-placed workspace contract and private route imports                                                    |        0 |
-| M06    | D23; D30 places starter packs under Dashboard                                                                                                   |        0 |
-| M07    | D08, D09                                                                                                                                        |        0 |
-| M08    | D10, D11                                                                                                                                        |        0 |
-| M09    | D14, D15                                                                                                                                        |        0 |
-| M10    | D16                                                                                                                                             |        0 |
-| M11    | D07                                                                                                                                             |        0 |
-| M12    | D21, D22; D30 adds the admin web entry                                                                                                          |        0 |
-| M13    | D19, D20                                                                                                                                        |        0 |
-| M14    | D24, D25                                                                                                                                        |        0 |
-| M15    | D27, D28; D30 removes every route provider edge, the exception file and the legacy `core` root                                                                 |        0 |
-| M16    | D29                                                                                                                                             |        0 |
-| M17    | D02; later control migration remains Phase 10                                                                                                   |        0 |
+| Packet | Integrated outcome                                                                             | Findings |
+| ------ | ---------------------------------------------------------------------------------------------- | -------: |
+| M01    | D01, D02; D30 moves auth UI into Identity and owns the suspension read                         |        0 |
+| M02    | D05, D17, D18                                                                                  |        0 |
+| M03    | D26                                                                                            |        0 |
+| M04    | D03, D12, D13                                                                                  |        0 |
+| M05    | D04, D06; D30 removes Calendar's server-placed workspace contract and private route imports    |        0 |
+| M06    | D23; D30 places starter packs under Dashboard                                                  |        0 |
+| M07    | D08, D09                                                                                       |        0 |
+| M08    | D10, D11                                                                                       |        0 |
+| M09    | D14, D15                                                                                       |        0 |
+| M10    | D16                                                                                            |        0 |
+| M11    | D07                                                                                            |        0 |
+| M12    | D21, D22; D30 adds the admin web entry                                                         |        0 |
+| M13    | D19, D20                                                                                       |        0 |
+| M14    | D24, D25                                                                                       |        0 |
+| M15    | D27, D28; D30 removes every route provider edge, the exception file and the legacy `core` root |        0 |
+| M16    | D29                                                                                            |        0 |
+| M17    | D02; later control migration remains Phase 10                                                  |        0 |
 
 `mixedFiles` is empty, and no owner or source cycle remains. The manifest adds no dependency direction. Its only additions are the Platform Administration web entry and two test-support declarations, each with real consumers; Identity and Calendar export more through their existing entries. It removes the `lib/auth`, `lib/components/auth` and `lib/components/admin` roots and the eight `lib/server/core` file assignments.
 
@@ -107,11 +110,11 @@ No SQL, migration, RLS policy or provider function changes. The isolated databas
 
 All runs use the owned `verify:app` environment and native DevTools controls, with doctor passing at start and end and owned cleanup afterwards.
 
-| Run                  | Candidate         | Archive (SHA-256)                                                                           | Result                                                                                                                                                                                                                                                                                                                                                                                                    |
-| -------------------- | ----------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unchanged baseline   | `17229542` (main) | [d30-baseline-1722954](d30-baseline-1722954.tar.gz) `b6163623…93ed`                         | Every Calendar view, auth page, `/suspended` (including a suspended user), Platform Admin dialog, Settings logs/members/ranks, starter pack and Critical Tasks path passes. An earlier baseline run on the same commit also found the Critical Tasks denial failure; its archive was lost with its worktree, and this rerun replaces it.                                                                          |
-| Lane-denial baseline | `17229542` (main) | [d30-lane-denial-baseline-1722954](d30-lane-denial-baseline-1722954.tar.gz) `96b78490…3651` | Critical Tasks and Personnel blank with an uncaught hydration error; Training shows its message but throws; Onboarding uses the 403 error page; Calendar and Evals show Access Restricted. No lane leaks data.                                                                                                                                                                                                 |
-| Final                | `c14ccd17`        | [d30-final-c14ccd17](d30-final-c14ccd17.tar.gz) `41b444a4…7fdc`                             | Every baseline path passes on the module/legacy-root candidate, including a suspended user, invitation lifecycle, starter pack apply/reapply/deny and resolved audit labels. Its only failure is the Critical Tasks denial already present in the baseline.                                                                                                                                                           |
+| Run                  | Candidate         | Archive (SHA-256)                                                                           | Result                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------- | ----------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unchanged baseline   | `17229542` (main) | [d30-baseline-1722954](d30-baseline-1722954.tar.gz) `b6163623…93ed`                         | Every Calendar view, auth page, `/suspended` (including a suspended user), Platform Admin dialog, Settings logs/members/ranks, starter pack and Critical Tasks path passes. An earlier baseline run on the same commit also found the Critical Tasks denial failure; its archive was lost with its worktree, and this rerun replaces it.                                                                   |
+| Lane-denial baseline | `17229542` (main) | [d30-lane-denial-baseline-1722954](d30-lane-denial-baseline-1722954.tar.gz) `96b78490…3651` | Critical Tasks and Personnel blank with an uncaught hydration error; Training shows its message but throws; Onboarding uses the 403 error page; Calendar and Evals show Access Restricted. No lane leaks data.                                                                                                                                                                                             |
+| Final                | `c14ccd17`        | [d30-final-c14ccd17](d30-final-c14ccd17.tar.gz) `41b444a4…7fdc`                             | Every baseline path passes on the module/legacy-root candidate, including a suspended user, invitation lifecycle, starter pack apply/reapply/deny and resolved audit labels. Its only failure is the Critical Tasks denial already present in the baseline.                                                                                                                                                |
 | Final delta          | `0897bc3a`        | [d30-final-delta-0897bc3a](d30-final-delta-0897bc3a.tar.gz) `2e15c082…be8d`                 | All three repaired lanes show Access Restricted with no uncaught error and no lane data; granted actors still hydrate; client navigation from a restricted lane renders the granted lane. Auth, admin and members paths pass. The three cron jobs return 401 without a credential and 200 with the owned one. End-to-end invite finalization is unreachable without a mail transport; partial probes pass. |
 
 ## Review

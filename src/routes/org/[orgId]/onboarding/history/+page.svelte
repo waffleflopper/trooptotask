@@ -6,4 +6,10 @@
 	const org = getAppShellContext();
 </script>
 
-<OnboardingHistoryPage orgUrlSegment={data.shell.org.urlSegment} orgId={org.orgId} scopeSet={org.scopeSet} />
+<OnboardingHistoryPage
+	orgUrlSegment={data.shell.org.urlSegment}
+	scopeSet={org.scopeSet}
+	onboardings={data.history.onboardings}
+	personnel={data.history.personnel}
+	templates={data.history.templates}
+/>

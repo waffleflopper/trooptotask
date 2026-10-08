@@ -19,43 +19,26 @@ vi.mock('$lib/server/adapters/httpAdapter', async (importOriginal) => {
 import { load } from './+page.server';
 
 function event() {
-	const templates = [{ id: 'template-a', name: 'A configuration' }];
-	const steps = [{ id: 'step-a', templateId: 'template-a' }];
 	return {
 		params: { orgId: 'org-a' },
 		locals: { session: { user: { id: 'user-a' } } },
 		cookies: {},
-		parent: vi.fn(async () => ({
-			onboarding: {
-				data: Promise.resolve({
-					data: {
-						onboardingTemplates: templates,
-						onboardingTemplateSteps: steps,
-						trainingTypes: [{ id: 'training-a', name: 'CPR' }]
-					}
-				})
-			}
-		}))
+		depends: vi.fn()
 	};
 }
 
 describe('Onboarding templates page admission', () => {
-	it.each([{ groups: ['group-a'] }, { groups: [] }])(
-		'rejects Group-scoped configurators (%j) before consuming the workspace',
-		async ({ groups }) => {
-			state.ctx = createTestContext({
-				auth: {
-					role: 'member',
-					isPrivileged: false,
-					capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure' },
-					scopeSet: { kind: 'groups', groupIds: groups }
-				}
-			});
-			const request = event();
-			await expect(load(request as never)).rejects.toMatchObject({ status: 403 });
-			expect(request.parent).not.toHaveBeenCalled();
-		}
-	);
+	it.each([{ groups: ['group-a'] }, { groups: [] }])('rejects Group-scoped configurators (%j)', async ({ groups }) => {
+		state.ctx = createTestContext({
+			auth: {
+				role: 'member',
+				isPrivileged: false,
+				capabilityMap: { ...createCapabilityMap('none'), onboarding: 'configure' },
+				scopeSet: { kind: 'groups', groupIds: groups }
+			}
+		});
+		await expect(load(event() as never)).rejects.toMatchObject({ status: 403 });
+	});
 	it.each(['view', 'operate'] as const)('rejects Organization-scoped %s users', async (onboarding) => {
 		state.ctx = createTestContext({
 			auth: {
@@ -68,7 +51,7 @@ describe('Onboarding templates page admission', () => {
 		await expect(load(event() as never)).rejects.toMatchObject({ status: 403 });
 	});
 	it.each(['owner', 'admin', 'member'] as const)(
-		'uses the already loaded owned configuration for an authorized %s',
+		'admits an authorized %s and depends on Organization refresh',
 		async (role) => {
 			state.ctx = createTestContext({
 				auth: {
@@ -79,11 +62,9 @@ describe('Onboarding templates page admission', () => {
 				}
 			});
 			const request = event();
-			await expect(load(request as never)).resolves.toMatchObject({
-				templates: [{ id: 'template-a', name: 'A configuration' }],
-				templateSteps: [{ id: 'step-a', templateId: 'template-a' }],
-				trainingTypes: [{ id: 'training-a', name: 'CPR' }]
-			});
+
+			await expect(load(request as never)).resolves.toMatchObject({ orgId: 'org-a' });
+			expect(request.depends).toHaveBeenCalledWith('app:org-core');
 		}
 	);
 });

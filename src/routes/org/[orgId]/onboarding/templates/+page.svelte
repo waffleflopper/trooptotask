@@ -21,8 +21,13 @@
 	import * as Select from '$lib/components/ui/select';
 	import { getAppShellContext } from '$features/app-shell';
 	import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
-	import { createOnboardingTemplateWorkspace, type OnboardingTemplateDeleteTarget } from '$features/onboarding';
+	import {
+		createOnboardingTemplateWorkspace,
+		onboardingTemplateStore,
+		type OnboardingTemplateDeleteTarget
+	} from '$features/onboarding';
 	import type { OnboardingStepType } from '$features/onboarding/contracts';
+	import { trainingTypeSource } from '$features/training';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -36,6 +41,15 @@
 		org.affordanceForFeatureAction(POLICY_ACTION_CATALOG.onboarding.configureWorkflows, { kind: 'organization' })
 	);
 	const canMutate = $derived(configureAffordance.visible && !configureAffordance.disabled);
+	const hydrated = $derived(onboardingTemplateStore.orgId === orgId);
+	let appliedHydrationVersion = -1;
+	function sharedTemplateData() {
+		return {
+			templates: onboardingTemplateStore.templates,
+			templateSteps: onboardingTemplateStore.allSteps,
+			trainingTypes: trainingTypeSource.items
+		};
+	}
 	const workspace = createOnboardingTemplateWorkspace({
 		organization: {
 			get orgId() {
@@ -48,17 +62,7 @@
 				return canMutate;
 			}
 		},
-		data: {
-			get templates() {
-				return data.templates;
-			},
-			get templateSteps() {
-				return data.templateSteps;
-			},
-			get trainingTypes() {
-				return data.trainingTypes ?? [];
-			}
-		}
+		data: untrack(sharedTemplateData)
 	});
 	const model = $derived(workspace.model);
 
@@ -68,16 +72,23 @@
 			routeSegment: orgUrlSegment,
 			canConfigure: canMutate
 		};
-		const workspaceData = {
-			templates: data.templates,
-			templateSteps: data.templateSteps,
-			trainingTypes: data.trainingTypes ?? []
-		};
+		const ready = hydrated;
+		const version = onboardingTemplateStore.hydrationVersion;
 
 		untrack(() => {
 			workspace.replaceOrganization(organization);
-			workspace.replaceData(workspaceData);
+			if (!ready) return;
+			workspace.replaceData(sharedTemplateData());
+			appliedHydrationVersion = version;
 		});
+	});
+
+	// The board reads the shared template store, so saved edits here must reach it without a reload.
+	$effect(() => {
+		const templates = model.templates;
+		const steps = workspace.steps;
+		if (!hydrated || appliedHydrationVersion !== onboardingTemplateStore.hydrationVersion) return;
+		onboardingTemplateStore.publish(templates, steps, orgId);
 	});
 
 	$effect(() => {
@@ -145,7 +156,17 @@
 	}
 </script>
 
-<TypeWorkspace.Root aria-label="Onboarding template management workspace" class="overflow-hidden">
+{#if !hydrated}
+	<section class="flex items-center justify-center gap-2 p-6 text-muted-foreground" aria-busy="true" role="status">
+		<Spinner />
+		<p>Loading onboarding templates...</p>
+	</section>
+{/if}
+
+<TypeWorkspace.Root
+	aria-label="Onboarding template management workspace"
+	class={hydrated ? 'overflow-hidden' : 'hidden'}
+>
 	<WorkspaceToolbar.Root ariaLabel="Onboarding template controls">
 		<WorkspaceToolbar.Group label="Onboarding sections">
 			<WorkspaceToolbar.Nav ariaLabel="Onboarding sections" items={onboardingNavItems} />

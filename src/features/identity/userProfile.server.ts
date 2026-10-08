@@ -1,15 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ALL_RANKS } from '$lib/types';
 import { requireString, sanitizeString, validateEnum } from '$lib/server/validation';
 
 import type { UserProfile } from './contracts';
 
 type UserProfileFormInput = { firstName: unknown; lastName: unknown; rank: unknown };
 
-export function parseUserProfileForm(input: UserProfileFormInput): Omit<UserProfile, 'userId'> | { error: string } {
+export function parseUserProfileForm(
+	input: UserProfileFormInput,
+	allowedRanks: readonly string[]
+): Omit<UserProfile, 'userId'> | { error: string } {
 	const firstName = requireString(typeof input.firstName === 'string' ? input.firstName : null, 80);
 	const lastName = requireString(typeof input.lastName === 'string' ? input.lastName : null, 80);
-	const rank = validateEnum(sanitizeString(typeof input.rank === 'string' ? input.rank : null, 20), ALL_RANKS);
+	const rank = validateEnum(sanitizeString(typeof input.rank === 'string' ? input.rank : null, 20), allowedRanks);
 
 	if (!firstName) return { error: 'First name is required' };
 	if (!lastName) return { error: 'Last name is required' };

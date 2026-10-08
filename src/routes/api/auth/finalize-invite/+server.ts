@@ -7,15 +7,19 @@ import {
 } from '$features/identity/index.server';
 import { passwordCompletionState } from '$features/identity/index.server';
 import { json } from '@sveltejs/kit';
+import { BUILT_IN_ARMY_RANK_OPTIONS } from '$features/personnel/contracts';
 import type { RequestHandler } from './$types';
 import { autoAcceptOrgInvites, InvitationAcceptanceError } from '$features/organization/index.server';
 
 function parseMetadataProfile(metadata: Record<string, unknown> | null | undefined) {
-	return parseUserProfileForm({
-		firstName: metadata?.firstName ?? metadata?.first_name ?? null,
-		lastName: metadata?.lastName ?? metadata?.last_name ?? null,
-		rank: metadata?.rank ?? null
-	});
+	return parseUserProfileForm(
+		{
+			firstName: metadata?.firstName ?? metadata?.first_name ?? null,
+			lastName: metadata?.lastName ?? metadata?.last_name ?? null,
+			rank: metadata?.rank ?? null
+		},
+		BUILT_IN_ARMY_RANK_OPTIONS
+	);
 }
 
 export const POST: RequestHandler = async ({ locals, cookies }) => {

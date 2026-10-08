@@ -187,7 +187,6 @@
 				"src/lib/domain/currencyStatus.ts",
 				"src/lib/domain/readinessRollup.test.ts",
 				"src/lib/domain/readinessRollup.ts",
-				"src/lib/types.ts",
 				"src/lib/utils.ts",
 				"src/lib/utils/columnMapping.ts",
 				"src/lib/utils/csvParser.test.ts",
@@ -420,7 +419,7 @@
 		"provider": ["src/lib/server/", "src/lib/storage/"]
 	},
 	"publicFiles": {
-		"shared": ["src/lib/utils.ts", "src/lib/types.ts", "src/lib/errors.ts"],
+		"shared": ["src/lib/utils.ts", "src/lib/errors.ts"],
 		"provider": ["src/lib/server/supabasePagination.server.ts"],
 		"access": ["src/lib/access/index.server.ts"],
 		"organization": [
@@ -508,10 +507,6 @@
 		"scheduled-maintenance": ["src/features/scheduled-maintenance/index.server.ts"]
 	},
 	"mixedFiles": {
-		"src/lib/types.ts": {
-			"packet": "08-M15/08-M16",
-			"reason": "aggregate types from multiple product owners"
-		},
 		"src/lib/storage/sensitiveFiles.ts": {
 			"packet": "08-M11/08-M15",
 			"reason": "shared storage transport includes feature-specific scan path rules"

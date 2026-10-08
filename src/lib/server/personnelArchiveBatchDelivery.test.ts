@@ -443,12 +443,12 @@ describe('Personnel — interrupted lifecycle recovery', () => {
 			const writer = await bind(...args);
 			return {
 				...writer,
-				async update(table, row, patch) {
+				async setLeaderNoteArchivedAt(row, archivedAt) {
 					if (row.id === 'note-one' && pending) {
 						pending = false;
 						throw new Error('note write interrupted');
 					}
-					await writer.update(table, row, patch);
+					await writer.setLeaderNoteArchivedAt(row, archivedAt);
 				}
 			};
 		};

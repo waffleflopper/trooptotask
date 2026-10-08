@@ -1,3 +1,4 @@
+import type { PersonnelSheetPersistence } from './personnelSheetPersistence';
 import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -10,11 +11,7 @@ interface PersonnelAwardTrackingContext {
 	audit: PolicyAuditSink;
 	scope: { requireGroupAccess(personnelId: string): Promise<void> };
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findGroupReference'>;
-	rawStore: {
-		findOne<T>(table: 'personnel_extended_info', orgId: string, filters: Record<string, unknown>): Promise<T | null>;
-		insert<T>(table: 'personnel_extended_info', orgId: string, data: Record<string, unknown>): Promise<T>;
-		update<T>(table: 'personnel_extended_info', orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
-	};
+	personnelSheets: Pick<PersonnelSheetPersistence, 'findSheetForPerson' | 'createSheet' | 'setAwardAcknowledgedAt'>;
 }
 
 interface PersonnelAwardTrackingInput {
@@ -25,12 +22,6 @@ interface PersonnelAwardTrackingInput {
 interface PersonnelAwardTrackingResult {
 	personnelId: string;
 	awardTrackingAcknowledged: boolean;
-}
-
-interface PersonnelExtendedInfoRow {
-	id: string;
-	personnel_id: string;
-	award_tracking_acknowledged_at?: string | null;
 }
 
 export async function setPersonnelAwardTrackingAcknowledged(
@@ -52,26 +43,19 @@ export async function setPersonnelAwardTrackingAcknowledged(
 	);
 	await ctx.scope.requireGroupAccess(personnelId);
 
-	const existing = await ctx.rawStore.findOne<PersonnelExtendedInfoRow>('personnel_extended_info', ctx.auth.orgId, {
-		personnel_id: personnelId
-	});
+	const existing = await ctx.personnelSheets.findSheetForPerson(personnelId);
 
 	if (acknowledged) {
 		const acknowledgedAt = new Date().toISOString();
 		if (existing) {
-			await ctx.rawStore.update('personnel_extended_info', ctx.auth.orgId, existing.id, {
-				award_tracking_acknowledged_at: acknowledgedAt
-			});
+			await ctx.personnelSheets.setAwardAcknowledgedAt(existing.id, acknowledgedAt);
 		} else {
-			await ctx.rawStore.insert('personnel_extended_info', ctx.auth.orgId, {
-				personnel_id: personnelId,
+			await ctx.personnelSheets.createSheet(personnelId, {
 				award_tracking_acknowledged_at: acknowledgedAt
 			});
 		}
 	} else if (existing) {
-		await ctx.rawStore.update('personnel_extended_info', ctx.auth.orgId, existing.id, {
-			award_tracking_acknowledged_at: null
-		});
+		await ctx.personnelSheets.setAwardAcknowledgedAt(existing.id, null);
 	}
 
 	ctx.audit.log({

@@ -1,3 +1,4 @@
+import type { PersonnelWorkbookHistoryReader } from './personnelSheetPersistence';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
@@ -20,15 +21,7 @@ interface PersonnelExportContext {
 	audit: PolicyAuditSink;
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'findById'>;
 	groups: Pick<GroupPersistence, 'listCatalog'>;
-	rawStore: {
-		findOne<T>(table: string, orgId: string, filters: Record<string, unknown>, select?: string): Promise<T | null>;
-		findMany<T>(
-			table: string,
-			orgId: string,
-			filters?: Record<string, unknown>,
-			options?: { select?: string; orderBy?: Array<{ column: string; ascending: boolean }> }
-		): Promise<T[]>;
-	};
+	personnelWorkbookHistory: PersonnelWorkbookHistoryReader;
 }
 
 export interface PersonnelExportInput {
@@ -55,7 +48,6 @@ export async function exportPersonnelWorkbook(
 		}>
 	>
 ): Promise<PersonnelExportOutput> {
-	const orgId = ctx.auth.orgId;
 	const id = input.personnelId;
 	if (!validateUUID(id)) fail(400, 'Invalid personnel ID');
 
@@ -73,14 +65,7 @@ export async function exportPersonnelWorkbook(
 
 	const [trainings, counseling, availability, trainingTypes, statusTypes, groups] = await Promise.all([
 		listPersonnelTrainingExportRows(id),
-		ctx.rawStore.findMany<Record<string, unknown>>(
-			'counseling_records',
-			orgId,
-			{ personnel_id: id },
-			{
-				orderBy: [{ column: 'date_conducted', ascending: false }]
-			}
-		),
+		ctx.personnelWorkbookHistory.listCounselingExportFacts(id),
 		listAvailabilityHistory(id),
 		listTrainingTypeLabels(),
 		listStatusTypeLabels(),
@@ -88,9 +73,7 @@ export async function exportPersonnelWorkbook(
 	]);
 
 	// Extended info is independently scoped to this Organization and Person.
-	const extResults = await ctx.rawStore.findMany<Record<string, unknown>>('personnel_extended_info', orgId, {
-		personnel_id: id
-	});
+	const extResults = await ctx.personnelWorkbookHistory.listExtendedInfoExportFacts(id);
 	const ext = extResults[0] ?? null;
 
 	const trainingTypeMap = new Map<string, string>();

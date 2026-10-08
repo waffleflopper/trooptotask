@@ -34,10 +34,16 @@ function fixture(fault: 'none' | 'attachment' | 'attachment-ack' | 'compensation
 					}
 				};
 			},
-			async insert(table, data) {
+			async createDocument(data) {
 				expect(active).toBe(true);
 				if (fault === 'attachment' || fault === 'compensation') throw new Error('Attachment rejected');
-				const row = await writer.insert(table, data);
+				const row = await writer.createDocument(data);
+				return fault === 'attachment-ack' ? null : row;
+			},
+			async createCounseling(data) {
+				expect(active).toBe(true);
+				if (fault === 'attachment' || fault === 'compensation') throw new Error('Attachment rejected');
+				const row = await writer.createCounseling(data);
 				return fault === 'attachment-ack' ? null : row;
 			},
 			async removeFile(kind, path) {

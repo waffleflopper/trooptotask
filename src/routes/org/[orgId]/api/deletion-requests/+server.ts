@@ -16,16 +16,16 @@ import {
 } from '$lib/server/adapters/httpAdapter';
 import {
 	createRequestNotificationContext,
-	createRequestWriteContext
+	createRequestActorContext
 } from '$lib/server/adapters/requestContexts.server';
 import type { RequestEvent, RequestHandler } from '@sveltejs/kit';
 import { json } from '@sveltejs/kit';
 
 export function _createGetConfig(
 	store: DeletionRequestStore
-): RouteConfig<{ status?: string }, unknown, ReturnType<typeof createRequestWriteContext>> {
+): RouteConfig<{ status?: string }, unknown, ReturnType<typeof createRequestActorContext>> {
 	return {
-		context: createRequestWriteContext,
+		context: createRequestActorContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.listOwnDeletionRequests,
 		parseInput: (event: RequestEvent) => ({ status: event.url.searchParams.get('status') ?? undefined }),
 		fn: (ctx, input) =>
@@ -56,9 +56,9 @@ export function _createPostConfig(
 export function _createDeleteConfig(
 	store: DeletionRequestStore,
 	cancellation: DeletionRequestCancellationPort
-): RouteConfig<Record<string, unknown>, { success: true }, ReturnType<typeof createRequestWriteContext>> {
+): RouteConfig<Record<string, unknown>, { success: true }, ReturnType<typeof createRequestActorContext>> {
 	return {
-		context: createRequestWriteContext,
+		context: createRequestActorContext,
 		policyAction: POLICY_ACTION_CATALOG.identity.cancelOwnDeletionRequest,
 		mutation: true,
 		fn: async (ctx, input) => {

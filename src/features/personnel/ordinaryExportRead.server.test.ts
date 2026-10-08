@@ -73,7 +73,7 @@ const cases = [
 function provider(table: PersonnelExportTable, saved: Row, selfOwned: boolean) {
 	const owned: Row[] = Array.from({ length: 1001 }, (_, index) => ({
 		...saved,
-		id: `saved-${index}`,
+		id: `saved-${String(index).padStart(4, '0')}`,
 		unknown_saved_history: { nested: [null, false, { value: '  LEGACY  ' }] },
 		...Object.fromEntries(
 			['name', 'code', 'group_name']
@@ -101,7 +101,9 @@ function provider(table: PersonnelExportTable, saved: Row, selfOwned: boolean) {
 				const offset = Number(url.searchParams.get('offset') ?? 0);
 				if (state.failFrom !== null && offset >= state.failFrom)
 					return Response.json({ code: '42501', message: 'Saved rows unavailable' }, { status: 403 });
-				let visible = rows.filter((row) => !selfOwned || row.user_id === state.userId);
+				let visible = (offset > 0 ? rows.toReversed() : rows).filter(
+					(row) => !selfOwned || row.user_id === state.userId
+				);
 				for (const [column, filter] of url.searchParams) {
 					if (filter.startsWith('eq.')) visible = visible.filter((row) => String(row[column]) === filter.slice(3));
 					if (filter === 'is.null') visible = visible.filter((row) => row[column] == null);

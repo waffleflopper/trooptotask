@@ -313,11 +313,6 @@ describe('/api/sign-in-rosters route config', () => {
 				signInPersonnel({ id: 'air-force-e5', rank: 'SSgt', lastName: 'Charlie' })
 			])
 		};
-		vi.spyOn(ctx.store, 'findMany').mockImplementation(async (table, ...args) => {
-			if (table === 'organization_rank_catalog') throw new Error('Rank catalog requires the roster raw store');
-			return ctx.rawStore.findMany(table, ...args);
-		});
-
 		await handleUseCaseRequest(
 			_postConfig,
 			ctx,

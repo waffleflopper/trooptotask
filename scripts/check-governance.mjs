@@ -181,7 +181,6 @@ function isProductionSourceFile(filePath) {
 function legacyRouteAuthorizationScanFiles() {
 	const routeFiles = walkRelative('src/routes').filter(isProductionSourceFile);
 	const serverFiles = [
-		'src/lib/server/core/ports.ts',
 		...walkRelative('src/lib/server/core/useCases').filter(isProductionSourceFile),
 		'src/lib/server/adapters/httpAdapter.ts',
 		'src/lib/server/adapters/requestContexts.server.ts',

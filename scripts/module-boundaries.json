@@ -2,7 +2,7 @@
 	"owners": {
 		"access": {
 			"roots": ["src/lib/access/"],
-			"files": ["src/lib/server/adapters/scopeRules.ts"],
+			"files": [],
 			"packet": "08-M15"
 		},
 		"app-shell": {
@@ -49,7 +49,7 @@
 			"packet": "08-M02"
 		},
 		"delivery": {
-			"roots": ["src/routes/"],
+			"roots": ["src/routes/", "src/lib/server/adapters/test-support/"],
 			"files": [
 				"scripts/check-governance.mjs",
 				"src/app.d.ts",
@@ -77,7 +77,6 @@
 				"src/lib/server/communicationsPagination.server.test.ts",
 				"src/lib/server/core/appShellRouteData.ts",
 				"src/lib/server/core/featureLaneWorkspaceLoad.ts",
-				"src/lib/server/core/ports.ts",
 				"src/lib/server/core/streamedWorkspace.test.ts",
 				"src/lib/server/core/streamedWorkspace.ts",
 				"src/lib/server/core/useCases/createRootOrgLayoutLoad.test.ts",
@@ -141,11 +140,6 @@
 		"provider": {
 			"roots": ["src/lib/storage/"],
 			"files": [
-				"src/lib/server/adapters/persistenceContract.test.ts",
-				"src/lib/server/adapters/scopedDataStore.test.ts",
-				"src/lib/server/adapters/scopedDataStore.ts",
-				"src/lib/server/adapters/supabaseDataStore.test.ts",
-				"src/lib/server/adapters/supabaseDataStore.ts",
 				"src/lib/server/adapters/supabaseStorage.ts",
 				"src/lib/server/adapters/supabaseStorage.test.ts",
 				"src/lib/server/env.test.ts",
@@ -428,7 +422,7 @@
 	"publicFiles": {
 		"shared": ["src/lib/utils.ts", "src/lib/types.ts", "src/lib/errors.ts"],
 		"provider": ["src/lib/server/supabasePagination.server.ts"],
-		"access": ["src/lib/access/index.server.ts", "src/lib/server/adapters/scopeRules.ts"],
+		"access": ["src/lib/access/index.server.ts"],
 		"organization": [
 			"src/features/organization/contracts.ts",
 			"src/features/organization/index.ts",
@@ -522,10 +516,6 @@
 		"src/lib/storage/sensitiveFiles.ts": {
 			"packet": "08-M11/08-M15",
 			"reason": "shared storage transport includes feature-specific scan path rules"
-		},
-		"src/lib/server/core/ports.ts": {
-			"packet": "08-M15",
-			"reason": "aggregate ports for multiple product owners"
 		}
 	},
 	"testSupportFiles": [

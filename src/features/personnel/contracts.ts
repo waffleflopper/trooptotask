@@ -1,3 +1,14 @@
+import type {
+	CounselingRecordRow,
+	PersonnelDocumentRow,
+	FollowUpRow,
+	LeaderNoteRow,
+	CounselingCreate,
+	DocumentCreate,
+	FollowUpCreate,
+	FollowUpPatch,
+	LeaderNoteCreate
+} from './personnelArtifactPersistence';
 import type { ClientAffordance } from '$lib/access/clientAccess';
 import type { FeatureLanePolicyAction, PolicyResource } from '$lib/access/policyEvaluator';
 
@@ -184,18 +195,23 @@ export interface PersonnelAwardAcknowledgementPort {
 	listAcknowledgedPersonnelIds(actor: PersonnelRosterActor): Promise<string[]>;
 }
 
-/** Write-only operations over a single admitted Person's sensitive artifacts. */
-export type PersonnelArtifactTable =
-	| 'personnel_follow_ups'
-	| 'counseling_records'
-	| 'personnel_documents'
-	| 'leader_notes';
-
 export interface PersonnelArtifactWriter {
-	find<T>(table: PersonnelArtifactTable, id: string): Promise<T | null>;
-	insert<T>(table: PersonnelArtifactTable, data: Record<string, unknown>): Promise<T>;
-	update<T>(table: PersonnelArtifactTable, id: string, patch: Record<string, unknown>): Promise<T>;
-	delete(table: PersonnelArtifactTable, id: string): Promise<void>;
+	findCounseling(id: string): Promise<CounselingRecordRow | null>;
+	createCounseling(input: CounselingCreate): Promise<CounselingRecordRow>;
+	setCounselingArchivedAt(id: string, archivedAt: string | null): Promise<CounselingRecordRow>;
+	deleteCounseling(id: string): Promise<void>;
+	findDocument(id: string): Promise<PersonnelDocumentRow | null>;
+	createDocument(input: DocumentCreate): Promise<PersonnelDocumentRow>;
+	setDocumentArchivedAt(id: string, archivedAt: string | null): Promise<PersonnelDocumentRow>;
+	deleteDocument(id: string): Promise<void>;
+	findFollowUp(id: string): Promise<FollowUpRow | null>;
+	createFollowUp(input: FollowUpCreate): Promise<FollowUpRow>;
+	patchFollowUp(id: string, input: FollowUpPatch): Promise<FollowUpRow>;
+	deleteFollowUp(id: string): Promise<void>;
+	findLeaderNote(id: string): Promise<LeaderNoteRow | null>;
+	createLeaderNote(input: LeaderNoteCreate): Promise<LeaderNoteRow>;
+	setLeaderNoteArchivedAt(id: string, archivedAt: string | null): Promise<LeaderNoteRow>;
+	deleteLeaderNote(id: string): Promise<void>;
 	sumActiveDocumentBytes(): Promise<number>;
 	/** The server implementation accepts only a File after runtime validation. */
 	uploadFile(kind: 'counseling' | 'document', path: string, file: unknown): Promise<OrganizationFileUploadRegistration>;
@@ -246,11 +262,14 @@ export interface PersonnelArtifactRef {
 }
 
 export interface PersonnelArtifactArchiveWriter {
-	listCandidates(
-		table: PersonnelArtifactTable,
-		options: { archivedAt: string | null; status?: 'open' }
-	): Promise<PersonnelArtifactRef[]>;
-	update(table: PersonnelArtifactTable, row: PersonnelArtifactRef, patch: Record<string, unknown>): Promise<void>;
+	listFollowUpArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
+	listCounselingArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
+	listDocumentArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
+	listLeaderNoteArchiveCandidates(archivedAt: string | null): Promise<PersonnelArtifactRef[]>;
+	setFollowUpArchivedState(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
+	setCounselingArchivedAt(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
+	setDocumentArchivedAt(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
+	setLeaderNoteArchivedAt(row: PersonnelArtifactRef, archivedAt: string | null): Promise<void>;
 }
 
 /** Personnel facts exposed to Critical Tasks after its own lane admission. */
@@ -430,3 +449,28 @@ export type {
 } from './personnelArtifact.types';
 
 export type { PersonnelSupportReader } from './supportReadTypes';
+
+export interface PersonnelScopeEnforcement {
+	requireGroupAccess(personnelId: string): Promise<void>;
+	requireGroupAccessBatch(personnelIds: string[]): Promise<void>;
+}
+
+export type {
+	RankCatalogPersistence,
+	RankCatalogSave,
+	RankCatalogValues,
+	SavedRankCatalogEntry
+} from './rankCatalogPersistence';
+export type {
+	PersonnelSheetPersistence,
+	PersonnelWorkbookHistoryReader,
+	PersonnelSheetEditableValues,
+	SavedPersonnelSheet
+} from './personnelSheetPersistence';
+export type {
+	PersonnelArtifactReadPersistence,
+	CounselingRecordRow,
+	PersonnelDocumentRow,
+	FollowUpRow,
+	LeaderNoteRow
+} from './personnelArtifactPersistence';

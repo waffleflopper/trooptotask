@@ -4,7 +4,7 @@ import type {
 	CriticalTasksReadModelFilters,
 	CriticalTasksReadModelPort
 } from '../contracts';
-import type { CriticalTasksReadStore } from './criticalTasksReadPorts.server';
+import type { createInMemoryDataStore } from '$lib/server/adapters/inMemory';
 import { buildLatestIctCompletionLookup } from '../utils/ictReadinessSnapshot';
 
 interface PersonnelRow {
@@ -22,7 +22,7 @@ function normalizeIds(values?: string[]): string[] | undefined {
 }
 
 async function loadActiveScope(
-	store: Pick<CriticalTasksReadStore, 'findMany'>,
+	store: Pick<ReturnType<typeof createInMemoryDataStore>, 'findMany'>,
 	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>,
 	orgId: string,
 	filters: CriticalTasksReadModelFilters
@@ -48,7 +48,7 @@ async function loadActiveScope(
 }
 
 export function createInMemoryCriticalTasksReadModelAdapter(
-	store: Pick<CriticalTasksReadStore, 'findMany'>,
+	store: Pick<ReturnType<typeof createInMemoryDataStore>, 'findMany'>,
 	criticalTaskLibrary: Pick<CriticalTaskLibraryPersistence, 'listCatalog'>,
 	criticalTaskCompletions: Pick<CriticalTaskCompletionPersistence, 'listReportHistory'>
 ): CriticalTasksReadModelPort {

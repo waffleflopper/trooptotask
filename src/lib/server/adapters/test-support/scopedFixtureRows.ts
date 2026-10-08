@@ -1,27 +1,16 @@
-/**
- * Group-scoped DataStore wrapper.
- *
- * Wraps a DataStore so that reads are filtered to rows belonging to a specific group's
- * personnel. The column mapping (table → group/personnel column) lives in `scopeRules.ts`.
- *
- * For Organization-wide access (admin/owner context), the inner store is returned as-is
- * with zero overhead — route code never needs to branch on role.
- *
- * Writes are not intercepted. Enforce write authorization at the use-case level.
- */
 import type { ScopeSet } from '$lib/access/memberAccessShape';
-import type { DataStore, FindOptions, FindResult, GroupScopeRule } from '$lib/server/core/ports';
+import type {
+	FixtureRowStore,
+	FixtureFindOptions,
+	FixtureFindResult,
+	FixtureGroupScopeRule
+} from './inMemoryRows.types';
 
-/**
- * Decorator that wraps any DataStore and auto-filters reads by group scope.
- * Returns the inner store unchanged for Organization-wide access. An explicit empty
- * Group scope returns no mapped rows without reading the provider.
- */
-export function createScopedDataStore(
-	inner: DataStore,
+export function createScopedFixtureRows(
+	inner: FixtureRowStore,
 	scope: ScopeSet | string[] | string | null,
-	scopeRules: Map<string, GroupScopeRule>
-): DataStore {
+	scopeRules: Map<string, FixtureGroupScopeRule>
+): FixtureRowStore {
 	const groupScopeIds = normalizeScopedGroupIds(scope);
 	if (groupScopeIds === null) return inner;
 	const groupIds = groupScopeIds;
@@ -51,8 +40,8 @@ export function createScopedDataStore(
 		table: string,
 		orgId: string,
 		filters?: Record<string, unknown>,
-		options?: FindOptions
-	): { filters?: Record<string, unknown>; options?: FindOptions; needsPersonnelFilter?: string } {
+		options?: FixtureFindOptions
+	): { filters?: Record<string, unknown>; options?: FixtureFindOptions; needsPersonnelFilter?: string } {
 		const rule = scopeRules.get(table);
 		if (!rule) return { filters, options };
 
@@ -70,15 +59,14 @@ export function createScopedDataStore(
 			};
 		}
 
-		// Personnel-scoped — need to filter by in-scope personnel IDs
 		return { filters, options, needsPersonnelFilter: rule.personnelColumn };
 	}
 
 	async function addPersonnelScopeOptions(
 		orgId: string,
 		personnelColumn: string,
-		options?: FindOptions
-	): Promise<FindOptions | null> {
+		options?: FixtureFindOptions
+	): Promise<FixtureFindOptions | null> {
 		const ids = await getInScopePersonnelIds(orgId);
 		const scopedIds = intersectInFilterValues(options?.inFilters?.[personnelColumn], ids);
 		if (scopedIds.length === 0) return null;
@@ -124,7 +112,7 @@ export function createScopedDataStore(
 			table: string,
 			orgId: string,
 			filters?: Record<string, unknown>,
-			options?: FindOptions
+			options?: FixtureFindOptions
 		): Promise<T[]> {
 			if (groupIds.length === 0 && scopeRules.has(table)) return [];
 			const scoped = addScopeFilters(table, orgId, filters, options);
@@ -142,8 +130,8 @@ export function createScopedDataStore(
 			table: string,
 			orgId: string,
 			filters?: Record<string, unknown>,
-			options?: FindOptions
-		): Promise<FindResult<T>> {
+			options?: FixtureFindOptions
+		): Promise<FixtureFindResult<T>> {
 			if (groupIds.length === 0 && scopeRules.has(table)) return { data: [], count: 0 };
 			const scoped = addScopeFilters(table, orgId, filters, options);
 
@@ -156,7 +144,6 @@ export function createScopedDataStore(
 			return inner.findManyWithCount<T>(table, orgId, scoped.filters, scoped.options);
 		},
 
-		// Write operations pass through unchanged
 		insert: inner.insert.bind(inner),
 		update: inner.update.bind(inner),
 		updateById: inner.updateById.bind(inner),
@@ -182,7 +169,7 @@ function normalizeScopedGroupIds(scope: ScopeSet | string[] | string | null): st
 	return groupIds;
 }
 
-function mergeInFilter(options: FindOptions | undefined, column: string, values: unknown[]): FindOptions {
+function mergeInFilter(options: FixtureFindOptions | undefined, column: string, values: unknown[]): FixtureFindOptions {
 	return {
 		...(options ?? {}),
 		inFilters: {

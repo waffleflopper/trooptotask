@@ -88,16 +88,13 @@ export async function createPersonnelCounselingRecord(
 
 	let row: CounselingRecordRow;
 	try {
-		row = await writer.insert<CounselingRecordRow>('counseling_records', {
-			date_conducted: input.dateConducted,
+		row = await writer.createCounseling({
+			dateConducted: input.dateConducted,
 			title: input.title,
-			subject: input.title,
 			summary: input.summary || null,
-			notes: input.summary || null,
-			uploaded_by: ctx.actor.userId,
-			file_path: filePath,
-			status: 'completed',
-			created_at: new Date().toISOString()
+			uploadedBy: ctx.actor.userId,
+			filePath: filePath,
+			createdAt: new Date().toISOString()
 		});
 		if (
 			!row ||
@@ -126,7 +123,7 @@ export async function createPersonnelCounselingRecord(
 
 async function loadCounselingForWrite(ctx: PersonnelArtifactsContext, personnelId: string, id: string) {
 	const writer = await personnelArtifactWriter(ctx, personnelId);
-	const row = await writer.find<CounselingRecordRow>('counseling_records', id);
+	const row = await writer.findCounseling(id);
 	if (!row) fail(404, 'Counseling record not found');
 	return { writer, row };
 }
@@ -137,9 +134,7 @@ export async function archivePersonnelCounselingRecord(
 ): Promise<PersonnelCounselingRecord> {
 	const { writer, row: existing } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	if (existing.archived_at) fail(409, 'Counseling record is already archived');
-	const row = await writer.update<CounselingRecordRow>('counseling_records', input.recordId, {
-		archived_at: new Date().toISOString()
-	});
+	const row = await writer.setCounselingArchivedAt(input.recordId, new Date().toISOString());
 	ctx.audit.log({
 		action: 'personnel.counseling_record.archived',
 		resourceType: 'personnel',
@@ -153,7 +148,7 @@ export async function restorePersonnelCounselingRecord(
 	input: { personnelId: string; recordId: string }
 ): Promise<PersonnelCounselingRecord> {
 	const { writer } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
-	const row = await writer.update<CounselingRecordRow>('counseling_records', input.recordId, { archived_at: null });
+	const row = await writer.setCounselingArchivedAt(input.recordId, null);
 	ctx.audit.log({
 		action: 'personnel.counseling_record.restored',
 		resourceType: 'personnel',
@@ -168,7 +163,7 @@ export async function deletePersonnelCounselingRecord(
 ): Promise<void> {
 	const { writer, row } = await loadCounselingForWrite(ctx, input.personnelId, input.recordId);
 	if (!row.archived_at) fail(409, 'Archive counseling records before deleting them');
-	await writer.delete('counseling_records', input.recordId);
+	await writer.deleteCounseling(input.recordId);
 	if (row.file_path) await writer.removeFile('counseling', row.file_path);
 	ctx.audit.log({
 		action: 'personnel.counseling_record.deleted',

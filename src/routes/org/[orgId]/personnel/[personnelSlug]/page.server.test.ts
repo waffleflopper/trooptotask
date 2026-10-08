@@ -66,7 +66,13 @@ function selectedContexts(
 		criticalTaskCompletions: ctx.criticalTaskCompletions,
 		ratingScheme: ctx.ratingScheme,
 		detail: { auth: ctx.auth, audit: ctx.audit, organizationPersonnel: ctx.organizationPersonnel, scope: ctx.scope },
-		extendedInfo: { auth: ctx.auth, audit: ctx.audit, store: ctx.store, personnel: ctx.personnel, scope: ctx.scope },
+		extendedInfo: {
+			auth: ctx.auth,
+			audit: ctx.audit,
+			personnelSheets: ctx.personnelSheets,
+			personnel: ctx.personnel,
+			scope: ctx.scope
+		},
 		artifacts: createPersonnelArtifactDeliveryContext(ctx),
 		leaderNotes: createPersonnelLeaderNoteDeliveryContext(ctx),
 		loadLossWarningWindowDays: () => ctx.organizationSettings.findLossWarningWindowDays(ctx.auth.orgId)

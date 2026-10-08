@@ -1,3 +1,4 @@
+import type { RankCatalogPersistence, RankCatalogSave, SavedRankCatalogEntry } from './rankCatalogPersistence';
 import type { PersonnelRecordPersistence } from './contracts';
 import type { PolicyAuditSink } from '$lib/access/policyAuditSink';
 import type { OrganizationAccessGrant } from '$lib/access/memberAccessShape';
@@ -24,19 +25,6 @@ import { sanitizeString } from '$lib/server/validation';
 import { requireFeaturePolicy, requireGovernancePolicy } from '$lib/access/index.server';
 import { fail } from '$lib/errors';
 
-interface RankCatalogStore {
-	findOne<T>(table: string, orgId: string, filters: Record<string, unknown>): Promise<T | null>;
-	findMany<T>(table: string, orgId: string): Promise<T[]>;
-	update<T>(table: string, orgId: string, id: string, data: Record<string, unknown>): Promise<T>;
-	upsertMany<T>(
-		table: string,
-		orgId: string,
-		rows: Record<string, unknown>[],
-		options: { onConflict: string }
-	): Promise<T[]>;
-}
-
-const RANK_CATALOG_TABLE = 'organization_rank_catalog';
 const RANK_SERVICES = new Set<RankService>([
 	'army',
 	'navy',
@@ -96,18 +84,7 @@ interface RankReferenceMatcher {
 	matches(value: unknown, code: string): boolean;
 }
 
-interface OrganizationRankCatalogRow extends Record<string, unknown> {
-	id?: string;
-	organization_id: string;
-	code: string;
-	label: string;
-	service: RankService;
-	category: RankCategory;
-	pay_grade: RankPayGrade;
-	state: RankState;
-	source: OrganizationRankCatalogSource;
-	sort_order: number;
-}
+type OrganizationRankCatalogRow = SavedRankCatalogEntry;
 
 interface TrainingTypeRankReferenceRow {
 	appliesToRanks: unknown;
@@ -123,14 +100,12 @@ type ReadSignInRosterRankReferences = () => Promise<
 interface RankCatalogPorts {
 	organizationPersonnel: Pick<PersonnelRecordPersistence, 'listRankReferences'>;
 	auth: OrganizationAccessGrant;
-	store: RankCatalogStore;
-	rawStore?: RankCatalogStore;
+	rankCatalog: RankCatalogPersistence;
 	audit: PolicyAuditSink;
 }
 
 type RankCatalogReadPorts = Pick<RankCatalogPorts, 'auth'> & {
-	store: Pick<RankCatalogStore, 'findMany'>;
-	rawStore?: Pick<RankCatalogStore, 'findMany'>;
+	rankCatalog: Pick<RankCatalogPersistence, 'listEntries'>;
 	audit?: PolicyAuditSink;
 };
 
@@ -178,10 +153,7 @@ export async function loadOrganizationRankCatalog(
 	options: RankCatalogReadOptions = {}
 ): Promise<OrganizationRankCatalogEntry[]> {
 	await requireRankCatalogReadPolicy(ports, options.authorization ?? 'personnel-view');
-	const rows = await storeForRankCatalog(ports).findMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId
-	);
+	const rows = await ports.rankCatalog.listEntries();
 
 	return sortCatalog(rows.map(deserializeRankCatalogRow));
 }
@@ -189,18 +161,14 @@ export async function loadOrganizationRankCatalog(
 export async function ensureOrganizationRankCatalog(ports: RankCatalogPorts): Promise<OrganizationRankCatalogEntry[]> {
 	const existing = await loadOrganizationRankCatalog(ports);
 	const existingCodes = new Set(existing.map((entry) => entry.code));
-	const missingDefaultRows = buildDefaultRankCatalogSeeds(ports.auth.orgId).filter(
-		(row) => !existingCodes.has(row.code)
-	);
+	const missingDefaultRows = buildDefaultRankCatalogSeeds().filter((row) => !existingCodes.has(row.code));
 	const seededCatalogCodes = new Set([...existingCodes, ...missingDefaultRows.map((row) => row.code)]);
 	const missingDiscoveredRows = await buildDiscoveredRankCatalogSeeds(ports, seededCatalogCodes);
 	const missingRows = [...missingDefaultRows, ...missingDiscoveredRows];
 
 	if (missingRows.length > 0) {
 		await requireGovernancePolicy(ports, POLICY_ACTION_CATALOG.organization.updateSettings);
-		await storeForRankCatalog(ports).upsertMany(RANK_CATALOG_TABLE, ports.auth.orgId, missingRows, {
-			onConflict: 'organization_id,code'
-		});
+		await ports.rankCatalog.saveEntries(missingRows);
 		ports.audit.log({
 			action: 'organization.rank_catalog.reconciled',
 			resourceType: 'organization_rank_catalog',
@@ -233,11 +201,7 @@ export async function saveOrganizationRankCatalogEntry(
 		}
 	}
 
-	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		{ code: entry.code }
-	);
+	const existing = await ports.rankCatalog.findEntryByCode(entry.code);
 	if (intent === 'create' && existing) {
 		fail(409, 'Rank catalog entry already exists. Edit it instead.');
 	}
@@ -253,12 +217,7 @@ export async function saveOrganizationRankCatalogEntry(
 			}
 		: entry;
 	const source = builtInEntry ? 'built-in' : (existing?.source ?? 'custom');
-	const [saved] = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		[serializeRankCatalogEntry(ports.auth.orgId, entryToSave, source)],
-		{ onConflict: 'organization_id,code' }
-	);
+	const [saved] = await ports.rankCatalog.saveEntries([serializeRankCatalogEntry(entryToSave, source)]);
 
 	if (!saved) {
 		fail(500, 'Failed to save rank catalog entry');
@@ -293,12 +252,9 @@ export async function addOrganizationRankServicePack(
 		fail(400, 'No built-in rank service pack is available for this service');
 	}
 
-	const existing = await storeForRankCatalog(ports).findMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId
-	);
+	const existing = await ports.rankCatalog.listEntries();
 	const existingByCode = new Map(existing.map((entry) => [entry.code, entry]));
-	const rowsToUpsert: OrganizationRankCatalogRow[] = [];
+	const rowsToUpsert: RankCatalogSave[] = [];
 	const rowsToCanonicalize: Array<{ id: string; entry: RankCatalogEntry }> = [];
 
 	for (const entry of servicePack) {
@@ -307,9 +263,7 @@ export async function addOrganizationRankServicePack(
 			continue;
 		}
 		if (exactExisting) {
-			rowsToUpsert.push(
-				serializeRankCatalogEntry(ports.auth.orgId, { ...entry, state: exactExisting.state }, 'built-in')
-			);
+			rowsToUpsert.push(serializeRankCatalogEntry({ ...entry, state: exactExisting.state }, 'built-in'));
 			continue;
 		}
 		const aliasExisting = existing.find(
@@ -319,23 +273,13 @@ export async function addOrganizationRankServicePack(
 			rowsToCanonicalize.push({ id: aliasExisting.id, entry: { ...entry, state: aliasExisting.state } });
 			continue;
 		}
-		rowsToUpsert.push(serializeRankCatalogEntry(ports.auth.orgId, entry, 'built-in'));
+		rowsToUpsert.push(serializeRankCatalogEntry(entry, 'built-in'));
 	}
 
-	const savedRows = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		rowsToUpsert,
-		{ onConflict: 'organization_id,code' }
-	);
+	const savedRows = await ports.rankCatalog.saveEntries(rowsToUpsert);
 	const canonicalizedRows = await Promise.all(
 		rowsToCanonicalize.map(({ id, entry }) =>
-			storeForRankCatalog(ports).update<OrganizationRankCatalogRow>(
-				RANK_CATALOG_TABLE,
-				ports.auth.orgId,
-				id,
-				serializeRankCatalogEntry(ports.auth.orgId, entry, 'built-in')
-			)
+			ports.rankCatalog.patchEntryById(id, serializeRankCatalogEntry(entry, 'built-in'))
 		)
 	);
 	const changedCount = rowsToUpsert.length + rowsToCanonicalize.length;
@@ -374,21 +318,13 @@ export async function bulkSetOrganizationRankCatalogState(
 		fail(400, 'Invalid rank state');
 	}
 
-	const existing = await storeForRankCatalog(ports).findMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId
-	);
+	const existing = await ports.rankCatalog.listEntries();
 	const rowsToUpdate = existing
 		.filter(
 			(entry) => entry.service === input.service && entry.source === 'built-in' && entry.state !== input.targetState
 		)
 		.map((entry) => ({ ...entry, state: input.targetState }));
-	const savedRows = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		rowsToUpdate,
-		{ onConflict: 'organization_id,code' }
-	);
+	const savedRows = await ports.rankCatalog.saveEntries(rowsToUpdate);
 	const entries = sortCatalog(savedRows.map(deserializeRankCatalogRow));
 	const result = {
 		service: input.service,
@@ -412,7 +348,7 @@ export async function bulkSetOrganizationRankCatalogState(
 }
 
 export async function loadOrganizationRankCatalogReferenceSummaries(
-	ports: Pick<RankCatalogPorts, 'auth' | 'store' | 'rawStore' | 'audit' | 'organizationPersonnel'>,
+	ports: Pick<RankCatalogPorts, 'auth' | 'rankCatalog' | 'audit' | 'organizationPersonnel'>,
 	input: { codes: readonly string[] },
 	readTrainingRankApplicabilityReferences: ReadTrainingRankApplicabilityReferences,
 	readSignInRosterRankReferences: ReadSignInRosterRankReferences,
@@ -474,21 +410,12 @@ export async function retireOrganizationRankCatalogEntry(
 		fail(400, 'Rank code is required');
 	}
 
-	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		{ code }
-	);
+	const existing = await ports.rankCatalog.findEntryByCode(code);
 	if (!existing) {
 		fail(404, 'Rank catalog entry not found');
 	}
 
-	const [saved] = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		[{ ...existing, state: 'retired' }],
-		{ onConflict: 'organization_id,code' }
-	);
+	const [saved] = await ports.rankCatalog.saveEntries([{ ...existing, state: 'retired' }]);
 
 	if (!saved) {
 		fail(500, 'Failed to retire rank catalog entry');
@@ -516,21 +443,12 @@ export async function reactivateOrganizationRankCatalogEntry(
 		fail(400, 'Rank code is required');
 	}
 
-	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		{ code }
-	);
+	const existing = await ports.rankCatalog.findEntryByCode(code);
 	if (!existing) {
 		fail(404, 'Rank catalog entry not found');
 	}
 
-	const [saved] = await storeForRankCatalog(ports).upsertMany<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		[{ ...existing, state: 'active' }],
-		{ onConflict: 'organization_id,code' }
-	);
+	const [saved] = await ports.rankCatalog.saveEntries([{ ...existing, state: 'active' }]);
 
 	if (!saved) {
 		fail(500, 'Failed to reactivate rank catalog entry');
@@ -560,11 +478,7 @@ export async function removeOrganizationRankCatalogEntry(
 		fail(400, 'Rank code is required');
 	}
 
-	const existing = await storeForRankCatalog(ports).findOne<OrganizationRankCatalogRow>(
-		RANK_CATALOG_TABLE,
-		ports.auth.orgId,
-		{ code }
-	);
+	const existing = await ports.rankCatalog.findEntryByCode(code);
 	if (!existing) {
 		fail(404, 'Rank catalog entry not found');
 	}
@@ -609,19 +523,19 @@ export async function removeOrganizationRankCatalogEntry(
 	});
 }
 
-export function buildDefaultRankCatalogSeeds(organizationId: string): OrganizationRankCatalogRow[] {
+export function buildDefaultRankCatalogSeeds(): RankCatalogSave[] {
 	return BUILT_IN_RANK_CATALOG.filter((entry) => DEFAULT_RANK_CATALOG_SERVICES.has(entry.service)).map((entry) =>
-		serializeRankCatalogEntry(organizationId, entry, 'built-in')
+		serializeRankCatalogEntry(entry, 'built-in')
 	);
 }
 
 async function buildDiscoveredRankCatalogSeeds(
 	ports: RankCatalogPorts,
 	existingCodes: Set<string>
-): Promise<OrganizationRankCatalogRow[]> {
+): Promise<RankCatalogSave[]> {
 	const personnelRows = await ports.organizationPersonnel.listRankReferences();
 	const discoveredCodes = new Set<string>();
-	const rows: OrganizationRankCatalogRow[] = [];
+	const rows: RankCatalogSave[] = [];
 
 	for (const personnel of personnelRows) {
 		const rank = sanitizeDiscoveredRankCode(personnel.rank);
@@ -632,7 +546,6 @@ async function buildDiscoveredRankCatalogSeeds(
 		discoveredCodes.add(rank);
 		rows.push(
 			serializeRankCatalogEntry(
-				ports.auth.orgId,
 				{
 					code: rank,
 					label: rank,
@@ -670,13 +583,8 @@ function hasCatalogCodeAlias(codes: Set<string>, code: string): boolean {
 	return false;
 }
 
-function serializeRankCatalogEntry(
-	organizationId: string,
-	entry: RankCatalogEntry,
-	source: OrganizationRankCatalogSource
-): OrganizationRankCatalogRow {
+function serializeRankCatalogEntry(entry: RankCatalogEntry, source: OrganizationRankCatalogSource): RankCatalogSave {
 	return {
-		organization_id: organizationId,
 		code: entry.code,
 		label: entry.label,
 		service: entry.service,
@@ -816,8 +724,4 @@ function normalizeRankReference(value: string): string {
 
 function sortCatalog(entries: OrganizationRankCatalogEntry[]): OrganizationRankCatalogEntry[] {
 	return entries.toSorted((a, b) => compareRankCodes(a.code, b.code, { catalog: entries }));
-}
-
-function storeForRankCatalog<Store>(ports: { store: Store; rawStore?: Store }): Store {
-	return ports.rawStore ?? ports.store;
 }

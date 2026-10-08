@@ -8,34 +8,23 @@ import {
 	streamReadyFeatureLaneWorkspace,
 	type FeatureLaneWorkspaceRequestContext
 } from '$lib/server/core/featureLaneWorkspaceLoad';
-import { fetchOnboardingWorkspace, type OnboardingWorkspaceBootstrapOptions } from '$features/onboarding/index.server';
+import { fetchOnboardingWorkspace } from '$features/onboarding/index.server';
 
 async function streamOnboardingWorkspaceBootstrap(
-	context: FeatureLaneWorkspaceRequestContext,
-	options: OnboardingWorkspaceBootstrapOptions = {}
+	context: FeatureLaneWorkspaceRequestContext
 ): Promise<OnboardingWorkspaceRouteData> {
 	const onboarding = await loadWithContext(context.locals, context.cookies, context.orgId, {
 		context: createRequestOnboardingWorkspaceContext,
 		policyAction: POLICY_ACTION_CATALOG.onboarding.viewWorkflows,
 		policyResource: { kind: 'unscoped' },
 		defer: true,
-		fn: (ctx) => fetchOnboardingWorkspace(ctx, options)
+		fn: (ctx) => fetchOnboardingWorkspace(ctx, { mode: 'active' })
 	});
 	return { onboarding };
 }
 
 export interface OnboardingLayoutLoadDeps {
-	streamOnboardingWorkspace?: (
-		context: FeatureLaneWorkspaceRequestContext,
-		options?: OnboardingWorkspaceBootstrapOptions
-	) => Promise<OnboardingWorkspaceRouteData>;
-}
-
-function onboardingBootstrapOptionsForPath(pathname: string): OnboardingWorkspaceBootstrapOptions {
-	const normalizedPath = pathname.replace(/\/+$/, '');
-	return {
-		mode: normalizedPath.endsWith('/onboarding/history') ? 'history' : 'active'
-	};
+	streamOnboardingWorkspace?: (context: FeatureLaneWorkspaceRequestContext) => Promise<OnboardingWorkspaceRouteData>;
 }
 
 export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {}): LayoutServerLoad {
@@ -56,8 +45,7 @@ export function _createOnboardingLayoutLoad(deps: OnboardingLayoutLoadDeps = {})
 				if (!decision.allowed) throw error(403, 'You do not have permission to view Onboarding');
 				return { locals, cookies, orgId: shell.org.id };
 			},
-			streamWorkspace: (context) =>
-				streamOnboardingWorkspace(context, onboardingBootstrapOptionsForPath(event.url.pathname))
+			streamWorkspace: streamOnboardingWorkspace
 		});
 }
 

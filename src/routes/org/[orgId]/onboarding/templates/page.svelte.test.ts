@@ -6,6 +6,8 @@ import { createClientAccess } from '$lib/access/clientAccess';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
 import type { ScopeSet } from '$lib/access/memberAccessShape';
 import type { OnboardingTemplate, OnboardingTemplateStep } from '$features/onboarding/contracts';
+import { onboardingTemplateStore } from '$features/onboarding';
+import { createReadyAppShellRouteData } from '../../appShell.test-support';
 
 let canConfigure = true;
 let scopeSet: ScopeSet = { kind: 'organization' };
@@ -28,9 +30,10 @@ afterEach(() => {
 	canConfigure = true;
 	scopeSet = { kind: 'organization' };
 	vi.unstubAllGlobals();
+	onboardingTemplateStore.load([], [], 'org-test-reset');
 });
 
-function renderTemplatesPage({
+async function renderTemplatesPage({
 	templates = [
 		{
 			id: 'template-1',
@@ -56,15 +59,21 @@ function renderTemplatesPage({
 	templates?: OnboardingTemplate[];
 	templateSteps?: OnboardingTemplateStep[];
 } = {}) {
+	onboardingTemplateStore.load(templates, templateSteps, 'org-1');
+	const rendered = renderPage();
+	await waitFor(() => expect(screen.queryByText('Loading onboarding templates...')).toBeNull());
+	return rendered;
+}
+
+function renderPage() {
 	return render(Page, {
 		props: {
 			params: { orgId: 'org-1' },
 			data: {
+				...createReadyAppShellRouteData({ orgId: 'org-1' }),
+				identitySessionScope: null,
 				session: null,
-				orgId: 'org-1',
-				templates,
-				templateSteps,
-				trainingTypes: []
+				orgId: 'org-1'
 			},
 			form: null
 		}
@@ -73,7 +82,7 @@ function renderTemplatesPage({
 
 describe('onboarding templates page', () => {
 	it('preserves add template disabled state while adding', async () => {
-		renderTemplatesPage();
+		await renderTemplatesPage();
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
 		const addTemplate = within(toolbar).getByRole('button', { name: 'Add Template' });
@@ -83,18 +92,18 @@ describe('onboarding templates page', () => {
 		expect(within(toolbar).getByRole('button', { name: 'Add Template' }).hasAttribute('disabled')).toBe(true);
 	});
 
-	it('hides template creation without Onboarding configure affordance', () => {
+	it('hides template creation without Onboarding configure affordance', async () => {
 		canConfigure = false;
 
-		renderTemplatesPage();
+		await renderTemplatesPage();
 
 		const toolbar = screen.getByRole('toolbar', { name: 'Onboarding template controls' });
 		expect(within(toolbar).queryByRole('button', { name: 'Add Template' })).toBeNull();
 	});
 
-	it('hides all definition actions for a Group-scoped configurator', () => {
+	it('hides all definition actions for a Group-scoped configurator', async () => {
 		scopeSet = { kind: 'groups', groupIds: ['alpha'] };
-		renderTemplatesPage();
+		await renderTemplatesPage();
 		for (const name of [
 			'Add Template',
 			'Add Step',
@@ -127,7 +136,7 @@ describe('onboarding templates page', () => {
 				)
 			);
 		vi.stubGlobal('fetch', fetchMock);
-		renderTemplatesPage();
+		await renderTemplatesPage();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add Template' }));
 		await fireEvent.input(screen.getByRole('textbox', { name: 'Name' }), { target: { value: 'Retry checklist' } });
 		await fireEvent.input(screen.getByRole('textbox', { name: 'Description' }), {
@@ -152,7 +161,7 @@ describe('onboarding templates page', () => {
 				)
 				.mockResolvedValueOnce(new Response(JSON.stringify({ success: true })))
 		);
-		renderTemplatesPage();
+		await renderTemplatesPage();
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete Template' }));
 		const dialog = await screen.findByRole('alertdialog');
 		await fireEvent.click(within(dialog).getByRole('button', { name: /^Delete$/ }));
@@ -173,15 +182,15 @@ describe('onboarding templates page', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
-	it('does not render redundant template summary cards above the editor', () => {
-		renderTemplatesPage();
+	it('does not render redundant template summary cards above the editor', async () => {
+		await renderTemplatesPage();
 
 		expect(screen.queryByText('Reusable onboarding packet definitions')).toBeNull();
 		expect(screen.queryByText('Template steps currently configured')).toBeNull();
 	});
 
-	it('keeps template-level step and delete actions in the detail footer', () => {
-		renderTemplatesPage();
+	it('keeps template-level step and delete actions in the detail footer', async () => {
+		await renderTemplatesPage();
 
 		const detail = screen.getByRole('region', { name: 'Onboarding template management workspace' });
 		expect(within(detail).getByRole('button', { name: 'Add Step' })).toBeTruthy();
@@ -189,7 +198,24 @@ describe('onboarding templates page', () => {
 		expect(within(detail).getByRole('button', { name: 'Delete Template' })).toBeTruthy();
 	});
 
-	it('duplicates a template and selects the returned copy', async () => {
+	it('waits for the workspace templates before editing or publishing them to the board', async () => {
+		onboardingTemplateStore.load([{ id: 'other-template', name: 'Other unit' } as OnboardingTemplate], [], 'org-2');
+		renderPage();
+
+		expect(screen.getByText('Loading onboarding templates...')).toBeTruthy();
+		expect(onboardingTemplateStore.templates.map((template) => template.id)).toEqual(['other-template']);
+
+		onboardingTemplateStore.load(
+			[{ id: 'template-1', orgId: 'org-1', name: 'Standard Arrival', description: null } as OnboardingTemplate],
+			[],
+			'org-1'
+		);
+
+		await waitFor(() => expect(screen.getAllByText('Standard Arrival').length).toBeGreaterThan(0));
+		expect(onboardingTemplateStore.templates.map((template) => template.id)).toEqual(['template-1']);
+	});
+
+	it('duplicates a template, shares the copy with the board and keeps it when Templates reopens', async () => {
 		const fetchMock = vi.fn().mockResolvedValue({
 			ok: true,
 			json: () =>
@@ -216,7 +242,7 @@ describe('onboarding templates page', () => {
 				})
 		});
 		vi.stubGlobal('fetch', fetchMock);
-		renderTemplatesPage();
+		await renderTemplatesPage();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Duplicate Template' }));
 
@@ -225,5 +251,13 @@ describe('onboarding templates page', () => {
 		expect(fetchMock).toHaveBeenCalledWith('/org/org-1/api/onboarding-templates/template-1/duplicate', {
 			method: 'POST'
 		});
+		expect(onboardingTemplateStore.orgId).toBe('org-1');
+		expect(onboardingTemplateStore.templates.map((template) => template.id)).toContain('template-copy');
+		expect(onboardingTemplateStore.allSteps.map((step) => step.id)).toContain('step-copy');
+
+		cleanup();
+		renderPage();
+		expect(screen.getByRole('button', { name: 'Duplicate Standard Arrival Copy' })).toBeTruthy();
+		expect(onboardingTemplateStore.templates.map((template) => template.id)).toContain('template-copy');
 	});
 });

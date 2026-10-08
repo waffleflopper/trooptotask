@@ -122,6 +122,7 @@ let hydratedTemplates = $state.raw<OnboardingTemplate[]>([]);
 let hydratedSteps = $state.raw<OnboardingTemplateStep[]>([]);
 let hydratedOrgId = $state('');
 let activeTemplateId = $state<string | null>(null);
+let hydrationVersion = $state(0);
 
 export const onboardingTemplateStore = {
 	get templates() {
@@ -144,7 +145,17 @@ export const onboardingTemplateStore = {
 		return [...hydratedSteps].sort((a, b) => a.sortOrder - b.sortOrder);
 	},
 
+	get hydrationVersion() {
+		return hydrationVersion;
+	},
+
 	load(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) {
+		onboardingTemplateStore.publish(templates, steps, orgId);
+		hydrationVersion += 1;
+	},
+
+	/** Records saved Templates edits without counting as a new workspace snapshot. */
+	publish(templates: OnboardingTemplate[], steps: OnboardingTemplateStep[], orgId: string) {
 		hydratedTemplates = [...templates];
 		hydratedSteps = [...steps];
 		hydratedOrgId = orgId;
@@ -287,6 +298,10 @@ export class OnboardingTemplateWorkspace {
 
 	private get adapter(): OnboardingTemplateWorkspaceAdapter {
 		return this.#adapter;
+	}
+
+	get steps(): OnboardingTemplateStep[] {
+		return this.#steps;
 	}
 
 	get model(): OnboardingTemplateWorkspaceModel {

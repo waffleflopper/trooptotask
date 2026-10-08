@@ -3,7 +3,8 @@ import type { PageServerLoad } from './$types';
 import { loadWithContext } from '$lib/server/adapters/httpAdapter';
 import { POLICY_ACTION_CATALOG } from '$lib/access/policyEvaluator';
 
-export const load: PageServerLoad = async ({ params, locals, cookies, parent }) => {
+export const load: PageServerLoad = async ({ params, locals, cookies, depends }) => {
+	depends('app:org-core');
 	const { orgId } = params;
 	await loadWithContext(locals, cookies, orgId, {
 		context: createRequestEmptyContext,
@@ -12,14 +13,5 @@ export const load: PageServerLoad = async ({ params, locals, cookies, parent }) 
 		fn: async () => undefined
 	});
 
-	const parentData = await parent();
-	const onboardingWorkspace = await parentData.onboarding.data;
-
-	return {
-		session: locals.session,
-		orgId,
-		templates: onboardingWorkspace.data.onboardingTemplates,
-		templateSteps: onboardingWorkspace.data.onboardingTemplateSteps,
-		trainingTypes: onboardingWorkspace.data.trainingTypes
-	};
+	return { session: locals.session, orgId };
 };

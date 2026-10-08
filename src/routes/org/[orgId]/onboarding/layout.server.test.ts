@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createCapabilityMap } from '$lib/access/memberAccessShape';
-import { createReadyAppShellRouteData } from '../appShell.test-support';
+import { createReadyAppShellRouteData, createUrlBlindLayoutEvent } from '../appShell.test-support';
 import { _createOnboardingLayoutLoad } from './+layout.server';
 
 type OnboardingLoadEvent = Parameters<ReturnType<typeof _createOnboardingLayoutLoad>>[0];
@@ -10,29 +10,25 @@ function eventFor(onboarding: 'none' | 'view') {
 	if (parentData.shell.kind !== 'ready') throw new Error('Expected ready shell fixture');
 	parentData.shell.member.capabilityMap = { ...createCapabilityMap('none'), onboarding };
 	parentData.shell.member.scopeSet = { kind: 'groups', groupIds: ['group-1'] };
-	return {
-		locals: {} as App.Locals,
-		cookies: {} as import('@sveltejs/kit').Cookies,
-		url: new URL('https://example.test/org/org-1/onboarding'),
-		depends: vi.fn(),
-		parent: vi.fn(async () => parentData)
-	} as unknown as OnboardingLoadEvent;
+	return createUrlBlindLayoutEvent<OnboardingLoadEvent>(parentData);
 }
 
-describe('Onboarding layout admission', () => {
+describe('Onboarding layout', () => {
 	it('returns an explicit forbidden page before streaming for a member without Onboarding view', async () => {
 		const stream = vi.fn();
 		const load = _createOnboardingLayoutLoad({ streamOnboardingWorkspace: stream });
 
-		await expect(load(eventFor('none'))).rejects.toMatchObject({ status: 403 });
+		await expect(load(eventFor('none').event)).rejects.toMatchObject({ status: 403 });
 		expect(stream).not.toHaveBeenCalled();
 	});
 
-	it('streams for a Group-scoped Onboarding viewer without Personnel or Training capability', async () => {
-		const stream = vi.fn(async () => ({ onboarding: { data: Promise.resolve(null as never) } }));
-		const load = _createOnboardingLayoutLoad({ streamOnboardingWorkspace: stream });
+	it('streams the active workspace for a Group-scoped viewer without reading the URL', async () => {
+		const workspace = { onboarding: { data: Promise.resolve(null as never) } };
+		const stream = vi.fn(async () => workspace);
+		const { event, depends } = eventFor('view');
 
-		await load(eventFor('view'));
-		expect(stream).toHaveBeenCalled();
+		expect(await _createOnboardingLayoutLoad({ streamOnboardingWorkspace: stream })(event)).toBe(workspace);
+		expect(stream).toHaveBeenCalledWith(expect.objectContaining({ orgId: 'org-1' }));
+		expect(depends).toHaveBeenCalledWith('app:org-core', 'app:onboarding-data');
 	});
 });

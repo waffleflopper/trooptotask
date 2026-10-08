@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { onboardingStore } from '../stores/onboarding.svelte';
-	import { onboardingTemplateStore } from '../stores/onboardingTemplate.svelte';
 	import { createRosterReadModel } from '$features/personnel/contracts';
 	import type { ScopeSet } from '$lib/access/memberAccessShape';
-	import { rosterStore } from '$features/personnel';
+	import type { OnboardingTemplate, PersonnelOnboarding } from '../contracts';
+	import type { Personnel } from '$features/personnel/contracts';
 	import { formatDisplayDate } from '$lib/utils/dates';
 	import {
 		formatTimestamp,
@@ -22,21 +21,27 @@
 	import ClipboardList from '@lucide/svelte/icons/clipboard-list';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	let { orgUrlSegment, orgId, scopeSet }: { orgUrlSegment: string; orgId: string; scopeSet: ScopeSet } = $props();
+	let {
+		orgUrlSegment,
+		scopeSet,
+		onboardings,
+		personnel,
+		templates
+	}: {
+		orgUrlSegment: string;
+		scopeSet: ScopeSet;
+		onboardings: PersonnelOnboarding[];
+		personnel: Personnel[];
+		templates: OnboardingTemplate[];
+	} = $props();
 	let expandedOnboardingId = $state<string | null>(null);
 	const expandedNotes = new SvelteSet<string>();
 	const onboardingNavItems = $derived<WorkspaceToolbarNavItem[]>([
 		{ label: 'Onboarding', href: `/org/${orgUrlSegment}/onboarding` }
 	]);
 
-	const historyOnboardings = $derived(
-		onboardingStore.items.filter((o) => o.status === 'completed' || o.status === 'cancelled')
-	);
-	const historyRosterView = $derived(
-		rosterStore.orgId === orgId
-			? rosterStore.readModel().scoped(scopeSet, { status: 'all' })
-			: createRosterReadModel({ personnel: [] }).scoped(scopeSet, { status: 'all' })
-	);
+	const historyOnboardings = $derived(onboardings.filter((o) => o.status === 'completed' || o.status === 'cancelled'));
+	const historyRosterView = $derived(createRosterReadModel({ personnel }).scoped(scopeSet, { status: 'all' }));
 
 	function toggleNotes(stepId: string) {
 		if (expandedNotes.has(stepId)) expandedNotes.delete(stepId);
@@ -87,7 +92,7 @@
 								<OnboardingPacketList.SummaryTitle
 									title={getPersonDisplayName(onboarding.personnelId, historyRosterView.flatPersonnel)}
 									meta={[
-										getTemplateDisplayName(onboarding.templateId, onboardingTemplateStore.templates),
+										getTemplateDisplayName(onboarding.templateId, templates),
 										groupName,
 										`Started ${formatDisplayDate(onboarding.startedAt)}`,
 										onboarding.completedAt ? `Completed ${formatDisplayDate(onboarding.completedAt)}` : null,

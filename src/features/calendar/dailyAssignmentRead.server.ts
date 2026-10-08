@@ -1,5 +1,5 @@
 import type { CalendarAssignmentReader, SavedAssignment } from './contracts';
-import type { CalendarAssigneeScope } from '$lib/server/core/useCases/calendarScope';
+import type { CalendarAssigneeScope } from './calendarScope.server';
 
 interface DailyAssignmentQueryPorts {
 	calendarAssignments: Pick<CalendarAssignmentReader, 'listRange'>;

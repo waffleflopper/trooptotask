@@ -4,7 +4,7 @@ import {
 	createSupabaseAccountSetupCompletionStore
 } from './accountSetupCompletionSupabase.server';
 import { AccountSetupIdentityMismatchError, AccountSetupPasswordRejectedError } from './accountSetupCompletion.server';
-import { normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
+import { normalizeUserEmailIdentity } from './userEmailIdentities.server';
 
 type Call = { method: string; args: unknown[] };
 

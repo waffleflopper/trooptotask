@@ -1,12 +1,11 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import {
 	WORKBOOK_MIME_TYPE,
 	addTableSheet,
 	contentDispositionAttachment,
 	createWorkbook,
-	downloadBlob,
 	workbookResponse,
 	writeWorkbookBuffer
 } from './workbook';
@@ -65,41 +64,6 @@ describe('workbook export helpers', () => {
 		await parsed.xlsx.load(toWorkbookBuffer(await writeWorkbookBuffer(workbook)));
 
 		expect(parsed.getWorksheet('Blank Cells')?.getCell('B2').value).toBeNull();
-	});
-
-	it('downloads blobs through one anchor path and revokes after the click task', () => {
-		vi.useFakeTimers();
-		const click = vi.fn(() => {
-			expect(document.body.querySelector('a[download]')).not.toBeNull();
-			expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-		});
-		const originalCreateObjectURL = URL.createObjectURL;
-		const originalRevokeObjectURL = URL.revokeObjectURL;
-		const originalCreateElement = document.createElement.bind(document);
-		const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
-			const element = originalCreateElement(tagName);
-			if (tagName === 'a') {
-				element.click = click;
-			}
-			return element;
-		});
-
-		URL.createObjectURL = vi.fn(() => 'blob:workbook-export') as unknown as typeof URL.createObjectURL;
-		URL.revokeObjectURL = vi.fn();
-
-		try {
-			downloadBlob(new Blob(['workbook'], { type: WORKBOOK_MIME_TYPE }), 'export.xlsx');
-
-			expect(click).toHaveBeenCalledOnce();
-			expect(URL.revokeObjectURL).not.toHaveBeenCalled();
-			vi.runOnlyPendingTimers();
-			expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:workbook-export');
-		} finally {
-			createElementSpy.mockRestore();
-			URL.createObjectURL = originalCreateObjectURL;
-			URL.revokeObjectURL = originalRevokeObjectURL;
-			vi.useRealTimers();
-		}
 	});
 
 	it('returns native workbook responses with escaped attachment filenames', async () => {

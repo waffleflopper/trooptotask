@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { parseUserProfileForm } from './userProfile.server';
 
 describe('parseUserProfileForm', () => {
-	it('accepts required profile fields with a controlled-list rank', () => {
+	it('accepts required profile fields with a rank from the supplied list', () => {
 		expect(
-			parseUserProfileForm({
-				firstName: '  Emma ',
-				lastName: ' Hayes ',
-				rank: 'CPT'
-			})
+			parseUserProfileForm(
+				{
+					firstName: '  Emma ',
+					lastName: ' Hayes ',
+					rank: 'CPT'
+				},
+				['SGT', 'CPT']
+			)
 		).toEqual({
 			firstName: 'Emma',
 			lastName: 'Hayes',
@@ -16,14 +19,10 @@ describe('parseUserProfileForm', () => {
 		});
 	});
 
-	it('rejects free-text ranks', () => {
-		expect(
-			parseUserProfileForm({
-				firstName: 'Emma',
-				lastName: 'Hayes',
-				rank: 'Commander'
-			})
-		).toMatchObject({ error: expect.any(String) });
+	it.each(['Commander', 'GEN'])('rejects %s when the supplied list does not offer it', (rank) => {
+		expect(parseUserProfileForm({ firstName: 'Emma', lastName: 'Hayes', rank }, ['SGT', 'CPT'])).toEqual({
+			error: 'Select a valid rank'
+		});
 	});
 });
 

@@ -3,7 +3,7 @@ import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPolicy,
 	type CalendarAvailabilityPorts
-} from '$lib/server/core/useCases/calendarPolicy';
+} from './calendarPolicy.server';
 import { availabilityCreateInput, availabilityUpdateInput } from './calendarPersistenceMapping.server';
 export { availabilityUpdateInput } from './calendarPersistenceMapping.server';
 import { error } from '@sveltejs/kit';

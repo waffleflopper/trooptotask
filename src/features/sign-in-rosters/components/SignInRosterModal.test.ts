@@ -156,6 +156,57 @@ describe('SignInRosterModal', () => {
 		expect(body.filterConfig).toEqual(expect.objectContaining({ groups: [], ranks: expect.arrayContaining(['SGT']) }));
 	});
 
+	it('selects the built-in Army and Civilian ranks when the Organization has no rank catalog', async () => {
+		const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) =>
+			(init?.method ?? 'GET') === 'POST' ? jsonResponse({ id: 'roster-2' }) : jsonResponse({ rosters: [], total: 0 })
+		);
+		vi.stubGlobal('fetch', fetchMock);
+
+		renderModal({ personnel: [{ ...personnel[0], rank: 'LOCAL-CADET' }] });
+
+		await waitFor(() => expect(screen.getByRole('button', { name: 'New Roster' })).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: 'New Roster' }));
+		await fireEvent.input(screen.getByLabelText(/Title/i), { target: { value: 'Fallback ranks' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Generate & Print' }));
+
+		let postCall: (typeof fetchMock.mock.calls)[number] | undefined;
+		await waitFor(() => {
+			postCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST');
+			expect(postCall).toBeTruthy();
+		});
+		expect(JSON.parse(String(postCall?.[1]?.body)).filterConfig.ranks).toEqual([
+			'PV1',
+			'PV2',
+			'PFC',
+			'SPC',
+			'CPL',
+			'SGT',
+			'SSG',
+			'SFC',
+			'MSG',
+			'1SG',
+			'SGM',
+			'CSM',
+			'WO1',
+			'CW2',
+			'CW3',
+			'CW4',
+			'CW5',
+			'2LT',
+			'1LT',
+			'CPT',
+			'MAJ',
+			'LTC',
+			'COL',
+			'BG',
+			'MG',
+			'LTG',
+			'GEN',
+			'CIV',
+			'LOCAL-CADET'
+		]);
+	});
+
 	it('uses the local calendar date for the default roster date', async () => {
 		const originalTimezone = process.env.TZ;
 		process.env.TZ = 'America/Anchorage';

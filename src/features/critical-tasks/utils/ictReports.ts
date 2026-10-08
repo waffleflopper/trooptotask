@@ -8,12 +8,7 @@ import type { Personnel } from '$features/personnel/contracts';
 import { calculateIctExpirationDate, normalizeCriticalTasksSettings } from './ictStatus';
 import { getActiveIctTasksForLibrary, isIctTaskApplicableToMos } from './ictTaskLibrary';
 import { formatDate, parseDate } from '$lib/utils/dates';
-import {
-	tallyReadinessBy,
-	tallyReadinessGrid,
-	type ReadinessFact,
-	type ReadinessTallyConfig
-} from '$lib/domain/readinessRollup';
+import { tallyReadinessBy, tallyReadinessGrid, type ReadinessFact, type ReadinessTallyConfig } from './readinessRollup';
 import {
 	CRITICAL_TASK_READINESS_THRESHOLD_PERCENT,
 	ICT_READINESS_ROLLUP,

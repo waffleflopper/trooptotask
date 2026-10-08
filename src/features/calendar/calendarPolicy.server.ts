@@ -15,7 +15,7 @@ import type {
 	CalendarCatalogPersistence
 } from '$features/calendar/contracts';
 import type { NotificationDeliveryPort } from '$features/notifications/contracts';
-import { requirePersonnelCalendarRoster } from './calendarScope';
+import { requirePersonnelCalendarRoster } from './calendarScope.server';
 import { evaluateAuthoritativePolicyDecision } from '$lib/access/index.server';
 import { denyPolicyDecision, policyDenialAuditDetails } from '$lib/access/index.server';
 

@@ -1,11 +1,11 @@
-import type { CalendarWritePorts } from '$lib/server/core/useCases/calendarPolicy';
+import type { CalendarWritePorts } from './calendarPolicy.server';
 import { dailyAssignmentSlotInput } from './calendarPersistenceMapping.server';
 import { listAssignmentTypeTargets } from './assignmentTypeRead.server';
 import {
 	CALENDAR_POLICY_ACTIONS,
 	requireCalendarPersonnelPolicy,
 	requireCalendarPolicy
-} from '$lib/server/core/useCases/calendarPolicy';
+} from './calendarPolicy.server';
 import { fail } from '$lib/errors';
 
 const AUDIT_RESOURCE = 'daily_assignment';

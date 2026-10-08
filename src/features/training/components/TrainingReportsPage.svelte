@@ -33,7 +33,8 @@
 	import * as ReportWorkspace from '$lib/components/ui/report-workspace';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import * as WorkspaceToolbar from '$lib/components/ui/workspace-toolbar';
-	import { downloadBlob, filenameFromContentDisposition } from '$lib/utils/workbook';
+	import { downloadBlob } from '$lib/utils/downloadBlob';
+	import { filenameFromContentDisposition } from '$lib/utils/workbook';
 	import {
 		DEFAULT_TRAINING_BRIEFING_INPUT,
 		TRAINING_BRIEFING_HORIZONS,

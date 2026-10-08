@@ -17,15 +17,7 @@
 		},
 		"calendar": {
 			"roots": ["src/features/calendar/", "src/lib/components/ui/calendar-status-badge/"],
-			"files": [
-				"src/lib/components/GroupHeader.svelte",
-				"src/lib/components/GroupHeader.test.ts",
-				"src/lib/server/calendarLayoutServer.test.ts",
-				"src/lib/server/core/useCases/calendarPolicy.ts",
-				"src/lib/server/core/useCases/calendarScope.ts",
-				"src/lib/server/utils/calendarTiming.test.ts",
-				"src/lib/server/utils/calendarTiming.ts"
-			],
+			"files": [],
 			"packet": "08-M05"
 		},
 		"critical-tasks": {
@@ -103,13 +95,7 @@
 		},
 		"identity": {
 			"roots": ["src/features/identity/", "src/lib/auth/", "src/lib/components/auth/"],
-			"files": [
-				"src/lib/server/publicAppOrigin.test.ts",
-				"src/lib/server/publicAppOrigin.ts",
-				"src/lib/server/userEmailIdentities.ts",
-				"src/tests/fixtures/passwordAttempt.ts",
-				"src/tests/fixtures/passwordSession.ts"
-			],
+			"files": ["src/tests/fixtures/passwordAttempt.ts", "src/tests/fixtures/passwordSession.ts"],
 			"packet": "08-M01"
 		},
 		"notifications": {
@@ -185,10 +171,6 @@
 				"src/d3-scale.d.ts",
 				"src/lib/domain/currencyStatus.test.ts",
 				"src/lib/domain/currencyStatus.ts",
-				"src/lib/domain/readinessRollup.test.ts",
-				"src/lib/domain/readinessRollup.ts",
-				"src/lib/types.ts",
-				"src/lib/utils.ts",
 				"src/lib/utils/columnMapping.ts",
 				"src/lib/utils/csvParser.test.ts",
 				"src/lib/utils/csvParser.ts",
@@ -208,7 +190,8 @@
 				"src/lib/utils/retentionCutoff.ts",
 				"src/lib/utils/logSanitize.ts",
 				"src/lib/utils/logSanitize.test.ts",
-				"src/lib/utils/downloadBlob.ts"
+				"src/lib/utils/downloadBlob.ts",
+				"src/lib/utils/downloadBlob.test.ts"
 			],
 			"packet": "08-M16"
 		},
@@ -232,10 +215,10 @@
 			],
 			"files": [
 				"src/app.css",
+				"src/lib/utils.ts",
 				"src/lib/components/BannerStack.svelte",
 				"src/lib/components/BannerStack.test.ts",
 				"src/lib/components/BannerStackTest.svelte",
-				"src/lib/components/BrandMark.svelte",
 				"src/lib/stores/theme.svelte.test.ts",
 				"src/lib/stores/theme.svelte.ts",
 				"src/lib/stores/toast.svelte.ts",
@@ -420,7 +403,7 @@
 		"provider": ["src/lib/server/", "src/lib/storage/"]
 	},
 	"publicFiles": {
-		"shared": ["src/lib/utils.ts", "src/lib/types.ts", "src/lib/errors.ts"],
+		"shared": ["src/lib/errors.ts"],
 		"provider": ["src/lib/server/supabasePagination.server.ts"],
 		"access": ["src/lib/access/index.server.ts"],
 		"organization": [
@@ -475,8 +458,10 @@
 			"src/features/training/index.server.ts"
 		],
 		"web-ui": [
+			"src/app.css",
+			"src/lib/utils.ts",
+			"src/lib/stores/theme.svelte.ts",
 			"src/lib/components/BannerStack.svelte",
-			"src/lib/components/BrandMark.svelte",
 			"src/lib/stores/toast.svelte.ts",
 			"src/lib/utils/browserStorage.ts",
 			"src/lib/utils/deferToIdle.ts",
@@ -508,17 +493,10 @@
 		"data-export": ["src/features/data-export/index.server.ts", "src/features/data-export/index.web.ts"],
 		"scheduled-maintenance": ["src/features/scheduled-maintenance/index.server.ts"]
 	},
-	"mixedFiles": {
-		"src/lib/types.ts": {
-			"packet": "08-M15/08-M16",
-			"reason": "aggregate types from multiple product owners"
-		},
-		"src/lib/storage/sensitiveFiles.ts": {
-			"packet": "08-M11/08-M15",
-			"reason": "shared storage transport includes feature-specific scan path rules"
-		}
-	},
+	"mixedFiles": {},
 	"testSupportFiles": [
+		"src/lib/test-stubs/VisibleStub.svelte",
+		"src/lib/test/chartLayout.ts",
 		"src/lib/server/adapters/inMemory.ts",
 		"src/features/calendar/test-support/DatePickerInputStub.svelte",
 		"src/features/calendar/calendarPersistence.test-support.server.ts",

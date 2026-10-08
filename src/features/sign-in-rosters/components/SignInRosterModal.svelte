@@ -1,9 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { BUILT_IN_RANK_CATALOG, type RankCatalogEntry } from '$features/personnel/contracts';
+	import {
+		BUILT_IN_ARMY_RANK_OPTIONS,
+		BUILT_IN_RANK_CATALOG,
+		type RankCatalogEntry
+	} from '$features/personnel/contracts';
 	import type { Personnel } from '$features/personnel/contracts';
 	import type { SignInRoster } from '../sign-in-rosters.types';
-	import { ALL_RANKS } from '$lib/types';
 	import { signInRosterRankOptions, sortSignInRosterRows } from '../signInRosterRankOrder';
 	import type { RowInput } from 'jspdf-autotable';
 	import * as AppDialog from '$lib/components/ui/app-dialog';
@@ -64,7 +67,7 @@
 		signInRosterRankOptions(
 			rankCatalog,
 			personnel.map((person) => person.rank),
-			ALL_RANKS
+			BUILT_IN_ARMY_RANK_OPTIONS
 		)
 	);
 	type RankFilterSelectionMode = 'all' | 'custom';

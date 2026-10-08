@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { withCalendarTiming } from './calendarTiming';
+import { withCalendarTiming } from './calendarTiming.server';
 
 describe('withCalendarTiming', () => {
 	it('logs successful calendar phases and returns the callback result', async () => {

@@ -7,7 +7,8 @@
 	import { personnelTrainingsStore } from '$features/training/stores/personnelTrainings.svelte';
 	import { filterColumnsByView } from '$features/training/utils/viewFiltering';
 	import { buildTrainingMatrixWorkbook, type TrainingMatrixWorkbookInput } from '../utils/trainingMatrixWorkbook';
-	import { downloadBlob, workbookBlob } from '$lib/utils/workbook';
+	import { downloadBlob } from '$lib/utils/downloadBlob';
+	import { workbookBlob } from '$lib/utils/workbook';
 	import { formatToday } from '$lib/utils/dates';
 	import TrainingMatrix from '$features/training/components/TrainingMatrix.svelte';
 	import { Button } from '$lib/components/ui/button';

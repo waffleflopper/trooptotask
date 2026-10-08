@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { findUserEmailIdentityByEmail } from '$lib/server/userEmailIdentities';
+import { findUserEmailIdentityByEmail } from './userEmailIdentities.server';
 
-export { normalizeUserEmailIdentity } from '$lib/server/userEmailIdentities';
+export { normalizeUserEmailIdentity } from './userEmailIdentities.server';
 
 export interface InvitationRecipientAccount {
 	id: string;
